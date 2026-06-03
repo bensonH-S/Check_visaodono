@@ -23,7 +23,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Opção A — Node serve o build (SERVE_WEB=1 no .env)
+    # Opção A — Node serve o build (produção: node server.js --production)
     location /auditoria/ {
         proxy_pass http://vision_check_app/auditoria/;
         proxy_http_version 1.1;
@@ -33,7 +33,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Opção B — Nginx serve arquivos estáticos (SERVE_WEB=0, comente bloco acima)
+    # Opção B — Nginx serve arquivos estáticos (comente bloco acima)
     # location /auditoria/ {
     #     alias /var/www/vision-check/frontend/dist/;
     #     try_files $uri $uri/ /auditoria/index.html;

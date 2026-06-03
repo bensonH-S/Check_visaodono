@@ -10,7 +10,7 @@ Sistema de gestão operacional de lojas BK (checklist, visitas, ranking e não c
 
 ## Configuração
 
-1. Crie `.env` na **raiz** com `DB_*`, `PORT`, `APP_BASE_PATH=/auditoria`.
+1. Crie `.env` na **raiz** só com `DB_*` (rotas em `config/server.js`).
 2. Aplique o schema:
 
 ```bash
@@ -48,10 +48,9 @@ O app é publicado no **subcaminho** `/auditoria/` (não subdomínio):
 
 ### 1. `.env` na raiz (produção)
 
-**Um único `.env` na raiz.** Produção: `APP_ENV=production` e `PORT=3007`. Dev local: `APP_ENV=development` e `PORT=5000`.
+**`.env` na raiz:** apenas banco (`DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`, `DB_PORT`, `DB_SSL`).
 
-- **Rotas /auditoria/:** `config/server.js`
-- **Entrada:** `server.js`
+**Rotas, porta e `/auditoria/`:** `config/server.js` (produção porta 3007, dev 5000).
 
 ### 2. Deploy no servidor (tag + Docker + Nginx)
 

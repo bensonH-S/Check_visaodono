@@ -1,12 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { APP_BASE_PATH } from '../../config/server.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
 
 function prefixoUploadsPublico() {
-  const base = (process.env.APP_BASE_PATH ?? '').replace(/\/$/, '');
-  return `${base}/api/uploads`.replace(/\/+/g, '/') || '/api/uploads';
+  return `${APP_BASE_PATH}/api/uploads`.replace(/\/+/g, '/');
 }
 
 function parseDataUrl(dataUrl) {

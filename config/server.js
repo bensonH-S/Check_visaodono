@@ -1,22 +1,23 @@
-const prod =
-  process.env.APP_ENV === 'production' || process.argv.includes('--production');
+/**
+ * Configuração do app — edite aqui (não use .env para rotas).
+ * Produção: https://grupoalvim.com.br/auditoria/
+ */
 
-export const isProd = prod;
+export const APP_BASE_PATH = '/auditoria';
 
-export const APP_BASE_PATH = (process.env.APP_BASE_PATH ?? (prod ? '/auditoria' : ''))
-  .replace(/\/$/, '');
+export const PROD_PORT = 3007;
+export const DEV_PORT = 5000;
 
-export const SERVE_WEB =
-  process.env.SERVE_WEB === '1' ||
-  process.env.SERVE_WEB === 'true' ||
-  (prod && process.env.SERVE_WEB !== '0' && process.env.SERVE_WEB !== 'false');
+export const isProd = process.argv.includes('--production');
 
-export const PORT = Number(process.env.PORT || (prod ? 3007 : 5000));
+export const SERVE_WEB = isProd;
+
+export const PORT = Number(process.env.PORT) || (isProd ? PROD_PORT : DEV_PORT);
 
 export function apiPrefix() {
-  return APP_BASE_PATH ? `${APP_BASE_PATH}/api` : '/api';
+  return `${APP_BASE_PATH}/api`;
 }
 
 export function staticBase() {
-  return APP_BASE_PATH ? `${APP_BASE_PATH}/` : '/';
+  return `${APP_BASE_PATH}/`;
 }

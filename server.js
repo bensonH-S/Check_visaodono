@@ -50,7 +50,7 @@ api.get('/health', async (_req, res) => {
     res.json({
       ok: true,
       db: process.env.DB_NAME,
-      base: APP_BASE_PATH || '/',
+      base: APP_BASE_PATH,
       mode: isProd ? 'production' : 'development',
       api: apiPrefix(),
     });
