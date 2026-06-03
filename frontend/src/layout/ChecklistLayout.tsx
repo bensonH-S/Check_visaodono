@@ -3,12 +3,17 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { assetUrl, LOGO_GRUPO_ALVIM, toAppPath } from '../config/paths';
+import { usePageTitle } from '../hooks/usePageTitle';
 
 /** Layout enxuto para auditoria no celular (sem menu lateral). */
 export default function ChecklistLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const concluido = location.pathname.includes('/concluido/');
+  const path = toAppPath(location.pathname);
+  const concluido = path.startsWith('/checklist/concluido/');
+
+  usePageTitle(concluido ? 'Visita concluída' : 'Checklist');
 
   return (
     <Box
@@ -45,9 +50,9 @@ export default function ChecklistLayout() {
         )}
         <Box
           component="img"
-          src="/logo-grupo-alvim.png"
+          src={assetUrl(LOGO_GRUPO_ALVIM)}
           alt="Grupo Alvim"
-          sx={{ height: 52, maxWidth: 140, objectFit: 'contain' }}
+          sx={{ height: 52, maxWidth: 160, objectFit: 'contain', flexShrink: 0 }}
         />
         <Typography variant="subtitle2" sx={{ fontWeight: 600, ml: concluido ? 0 : 0.5, flex: 1 }}>
           {concluido ? 'Visita concluída' : 'Visão de Dono'}

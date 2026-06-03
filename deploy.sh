@@ -54,7 +54,7 @@ git checkout "tags/${TAG}" -f
 
 if [ ! -f .env ]; then
   echo "ERRO: .env não encontrado em ${SCRIPT_DIR}"
-  echo "Crie o arquivo .env na raiz só com DB_* (porta 3007 está em config/server.js)"
+  echo "Crie o arquivo .env na raiz só com DB_* (rotas/porta em server.js)"
   exit 1
 fi
 

@@ -25,6 +25,7 @@ import ChecklistPerguntaCard, {
   type RespostaLocal,
 } from '../components/checklist/ChecklistPerguntaCard';
 import VisitaIniciadaScreen from '../components/checklist/VisitaIniciadaScreen';
+import { usePageTitle } from '../hooks/usePageTitle';
 import {
   exibeFoto,
   exibeObservacao,
@@ -89,6 +90,16 @@ export default function ChecklistPage() {
 
   const secaoAtual = checklist[indiceSecao];
   const totalSecoes = checklist.length;
+
+  const tabTitle =
+    fase === 'setup'
+      ? 'Novo Checklist'
+      : fase === 'iniciada'
+        ? 'Checklist'
+        : secaoAtual
+          ? `Checklist — ${secaoAtual.nome}`
+          : 'Checklist';
+  usePageTitle(tabTitle);
 
   const respondidas = useMemo(() => {
     let n = 0;

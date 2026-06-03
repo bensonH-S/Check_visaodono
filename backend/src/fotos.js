@@ -1,8 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { APP_BASE_PATH } from '../../config/server.js';
-
+const APP_BASE_PATH = '/auditoria';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
 
 function prefixoUploadsPublico() {

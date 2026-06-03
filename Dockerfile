@@ -18,7 +18,6 @@ COPY backend/package.json backend/package-lock.json ./backend/
 RUN npm ci --omit=dev && npm ci --prefix backend --omit=dev
 
 COPY server.js ./
-COPY config ./config
 COPY backend/src ./backend/src
 COPY backend/migrations ./backend/migrations
 COPY backend/scripts ./backend/scripts

@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { assetUrl, toAppPath } from '../config/paths';
+import { assetUrl, toAppPath, LOGO_GRUPO_ALVIM } from '../config/paths';
+import { usePageTitle } from '../hooks/usePageTitle';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -30,6 +31,15 @@ const titles: Record<string, string> = {
   '/relatorio': 'Relatório da Visita',
 };
 
+const tabTitles: Record<string, string> = {
+  '/': 'Dashboard',
+  '/ranking': 'Ranking',
+  '/visitas': 'Histórico',
+  '/lojas': 'Lojas',
+  '/nao-conformidades': 'Não Conformidades',
+  '/relatorio': 'Relatório',
+};
+
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,6 +48,13 @@ export default function AppLayout() {
     titles[path] ||
     (path.startsWith('/relatorio/') ? titles['/relatorio'] : undefined) ||
     'Vision Check';
+
+  const tabTitle =
+    tabTitles[path] ||
+    (path.startsWith('/relatorio/') ? tabTitles['/relatorio'] : undefined) ||
+    'Vision Check';
+
+  usePageTitle(tabTitle);
 
   return (
     <Box className="flex h-screen overflow-hidden border border-gray-200 rounded-lg m-2">
@@ -48,7 +65,7 @@ export default function AppLayout() {
         <Box className="p-4 border-b border-gray-100">
           <Box
             component="img"
-            src={assetUrl('logo-grupo-alvim.png')}
+            src={assetUrl(LOGO_GRUPO_ALVIM)}
             alt="Grupo Alvim"
             className="block w-full max-w-[240px] h-auto object-contain"
           />

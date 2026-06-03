@@ -10,7 +10,7 @@ Sistema de gestão operacional de lojas BK (checklist, visitas, ranking e não c
 
 ## Configuração
 
-1. Crie `.env` na **raiz** só com `DB_*` (rotas em `config/server.js`).
+1. Crie `.env` na **raiz** só com `DB_*` (rotas/porta em `server.js`).
 2. Aplique o schema:
 
 ```bash
@@ -50,7 +50,7 @@ O app é publicado no **subcaminho** `/auditoria/` (não subdomínio):
 
 **`.env` na raiz:** apenas banco (`DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`, `DB_PORT`, `DB_SSL`).
 
-**Rotas, porta e `/auditoria/`:** `config/server.js` (produção porta 3007, dev 5000).
+**Rotas, porta e `/auditoria/`:** editar constantes no topo de `server.js`.
 
 ### 2. Deploy no servidor (tag + Docker + Nginx)
 
@@ -100,7 +100,7 @@ npm run start
 
 ```
 server.js           Entrada Node (Nginx/Docker apontam aqui)
-config/server.js    Caminho /auditoria e modo produção
+server.js           .env + rotas /auditoria + API + SPA
 deploy.sh           Deploy por tag (porta 3007)
 .env                Produção (raiz) — PORT=3007
 backend/            Rotas API + migrations PostgreSQL
