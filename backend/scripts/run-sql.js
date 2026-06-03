@@ -1,8 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
+import '../../env.js';
+import { assertEnv } from '../../env.js';
 import pg from 'pg';
+
+assertEnv();
 
 const file = process.argv[2];
 if (!file) {
@@ -11,8 +14,6 @@ if (!file) {
 }
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-dotenv.config({ path: path.join(root, '..', '.env') });
-dotenv.config({ path: path.join(root, '.env') });
 
 const sql = fs.readFileSync(path.join(root, file), 'utf8');
 const client = new pg.Client({

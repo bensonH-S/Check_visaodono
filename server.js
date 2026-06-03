@@ -1,12 +1,10 @@
-/**
- * Entrada da aplicação (raiz do projeto).
- * Nginx/Docker apontam para: node server.js --production
- */
+import './env.js';
+import { assertEnv } from './env.js';
+
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import { pool } from './backend/src/db.js';
 import lojasRouter from './backend/src/routes/lojas.js';
 import usuariosRouter from './backend/src/routes/usuarios.js';
@@ -23,11 +21,9 @@ import {
   isProd,
 } from './config/server.js';
 
+assertEnv();
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-dotenv.config({ path: path.join(__dirname, '.env') });
-dotenv.config({ path: path.join(__dirname, 'backend', '.env') });
-
 const app = express();
 
 app.use(cors());
@@ -43,8 +39,10 @@ api.get('/health', async (_req, res) => {
       db: process.env.DB_NAME,
       base: APP_BASE_PATH || '/',
       mode: isProd ? 'production' : 'development',
+      api: apiPrefix(),
     });
   } catch (e) {
+    console.error('[health]', e.message);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
@@ -58,6 +56,11 @@ api.use('/nao-conformidades', ncRouter);
 
 const API_PREFIX = apiPrefix();
 app.use(API_PREFIX, api);
+
+/** Nginx/proxy às vezes encaminha /api sem o prefixo /auditoria */
+if (APP_BASE_PATH && API_PREFIX !== '/api') {
+  app.use('/api', api);
+}
 
 app.use((err, _req, res, _next) => {
   console.error('[API]', err.message);
@@ -76,5 +79,6 @@ if (SERVE_WEB) {
 }
 
 app.listen(PORT, () => {
-  console.log(`[server] ${isProd ? 'produção' : 'desenvolvimento'} — http://localhost:${PORT}${API_PREFIX}`);
+  console.log(`[server] ${isProd ? 'produção' : 'dev'} — :${PORT}${API_PREFIX}`);
+  console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
 });

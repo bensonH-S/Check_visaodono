@@ -5,7 +5,7 @@
   "scripts": {
     "predev": "npx --yes kill-port 5000",
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:api": "node --watch server.js",
+    "dev:api": "node --env-file=.env.development --watch server.js",
     "dev:web": "npm run dev --prefix frontend",
     "migrate": "npm run migrate --prefix backend",
     "migrate:lojas": "npm run migrate:lojas --prefix backend",

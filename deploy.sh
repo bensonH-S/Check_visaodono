@@ -54,7 +54,7 @@ git checkout "tags/${TAG}" -f
 
 if [ ! -f .env ]; then
   echo "ERRO: .env não encontrado em ${SCRIPT_DIR}"
-  echo "Copie .env.example para .env e preencha DB_* e PORT=3007"
+  echo "Copie .env.example para .env na RAIZ (não use backend/.env)"
   exit 1
 fi
 
@@ -84,11 +84,7 @@ docker build --no-cache -t "${IMAGE_NAME}" .
 
 docker run -d \
   -p "${APP_PORT}:${APP_PORT}" \
-  -e "PORT=${APP_PORT}" \
-  -e "NODE_ENV=production" \
   --env-file .env \
-  -e "TZ=America/Sao_Paulo" \
-  -e "APP_TIMEZONE=America/Sao_Paulo" \
   -v "${SCRIPT_DIR}/Logs:/app/Logs" \
   -v "${SCRIPT_DIR}/uploads:/app/uploads" \
   --name "${CONTAINER_NAME}" \

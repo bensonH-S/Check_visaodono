@@ -1,12 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
+import '../../env.js';
+import { assertEnv } from '../../env.js';
 import pg from 'pg';
 
-const backendRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-dotenv.config({ path: path.join(backendRoot, '..', '.env') });
-dotenv.config({ path: path.join(backendRoot, '.env') });
+assertEnv();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sqlPath = path.join(__dirname, '..', 'migrations', '001_schema.sql');

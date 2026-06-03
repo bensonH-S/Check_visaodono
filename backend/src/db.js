@@ -1,12 +1,9 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
 import pg from 'pg';
-import dotenv from 'dotenv';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Raiz do monorepo (.env) e backend/.env (README)
-dotenv.config({ path: path.join(__dirname, '../../.env') });
-dotenv.config({ path: path.join(__dirname, '../.env') });
+const ssl =
+  process.env.DB_SSL === 'true' || process.env.DB_SSL === '1'
+    ? { rejectUnauthorized: false }
+    : undefined;
 
 export const pool = new pg.Pool({
   host: process.env.DB_HOST,
@@ -14,6 +11,7 @@ export const pool = new pg.Pool({
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   port: Number(process.env.DB_PORT || 5432),
+  ssl,
 });
 
-pool.on('error', (err) => console.error('Pool PG:', err.message));
+pool.on('error', (err) => console.error('[db] Pool PG:', err.message));

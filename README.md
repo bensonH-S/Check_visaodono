@@ -10,7 +10,7 @@ Sistema de gestão operacional de lojas BK (checklist, visitas, ranking e não c
 
 ## Configuração
 
-1. Copie `backend/.env.example` para `backend/.env` e preencha as credenciais.
+1. Copie `.env.example` para `.env` na **raiz** e preencha as credenciais.
 2. Aplique o schema:
 
 ```bash
@@ -32,8 +32,8 @@ npm run dev
 
 Ou separado: `npm run dev:api` e `npm run dev:web`.
 
-- API: http://localhost:5000/api
-- App: http://localhost:5173
+- API: http://localhost:5000/auditoria/api
+- App: http://localhost:5173/auditoria/ (se a 5173 estiver ocupada, o Vite usa 5174)
 
 ## Produção — `grupoalvim.com.br/auditoria/`
 
@@ -53,7 +53,7 @@ cp .env.example .env
 # PORT=3007, DB_HOST, DB_USER, DB_PASS, ...
 ```
 
-Desenvolvimento local pode usar `backend/.env` com `PORT=5000`. O `deploy.sh` exige `.env` na **raiz**.
+**`.env` na raiz** (produção). Dev: `.env.development` com o mesmo `APP_BASE_PATH=/auditoria` — URLs iguais à produção.
 
 - **Rotas /auditoria/:** `config/server.js`
 - **Entrada:** `server.js`
@@ -77,7 +77,7 @@ npm run migrate
 npm run dev
 ```
 
-API local: `http://localhost:5000/api` (se `PORT=5000` no `backend/.env`).
+API local: `http://localhost:5000/api` (com `PORT=5000` no `.env` da raiz).
 
 ### Docker manual
 

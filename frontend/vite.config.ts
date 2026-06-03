@@ -1,24 +1,29 @@
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-/** Em produção: https://grupoalvim.com.br/auditoria/ */
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '')
-  const appBase = (env.VITE_APP_BASE || '/auditoria').replace(/\/$/, '')
-  const prodBase = env.VITE_APP_BASE === '' ? '/' : `${appBase}/`
+  const env = loadEnv(mode, rootDir, '')
+  const appBase = (env.APP_BASE_PATH || env.VITE_APP_BASE || '/auditoria').replace(/\/$/, '')
+  const base = `${appBase}/`
+  const apiPort = env.PORT || '5000'
 
   return {
-  base: mode === 'production' ? prodBase : '/',
-  plugins: [react(), tailwindcss()],
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': 'http://localhost:5000',
-      [`${appBase}/api`]: {
-        target: 'http://localhost:5000',
-        rewrite: (p) => p.replace(new RegExp(`^${appBase}`), ''),
+    base,
+    plugins: [react(), tailwindcss()],
+    server: {
+      port: 5173,
+      strictPort: false,
+      proxy: {
+        [`${appBase}/api`]: {
+          target: `http://localhost:${apiPort}`,
+          changeOrigin: true,
+        },
       },
     },
-  },
-}})
+  }
+})
