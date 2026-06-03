@@ -54,7 +54,7 @@ git checkout "tags/${TAG}" -f
 
 if [ ! -f .env ]; then
   echo "ERRO: .env não encontrado em ${SCRIPT_DIR}"
-  echo "Copie .env.example para .env na RAIZ (não use backend/.env)"
+  echo "Crie o arquivo .env na raiz com DB_* e PORT=3007"
   exit 1
 fi
 

@@ -1,7 +1,5 @@
 const prod =
-  process.env.APP_ENV === 'production' ||
-  process.env.NODE_ENV === 'production' ||
-  process.argv.includes('--production');
+  process.env.APP_ENV === 'production' || process.argv.includes('--production');
 
 export const isProd = prod;
 

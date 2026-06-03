@@ -17,7 +17,7 @@ export function assertEnv() {
   );
   if (missing.length) {
     console.error('[env] Variáveis ausentes:', missing.join(', '));
-    console.error('[env] Copie .env.example → .env na raiz do projeto');
+    console.error('[env] Crie .env na raiz com DB_HOST, DB_USER, DB_PASS, DB_NAME, PORT');
     process.exit(1);
   }
 }
