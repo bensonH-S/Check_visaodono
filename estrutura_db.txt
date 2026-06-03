@@ -1,0 +1,223 @@
+-- =============================================
+-- BANCO DE DADOS - SISTEMA GRUPO ALVIM
+-- Gestão Operacional de Lojas BK
+-- =============================================
+
+CREATE DATABASE IF NOT EXISTS grupo_alvim;
+USE grupo_alvim;
+
+-- =============================================
+-- TABELAS
+-- =============================================
+
+-- 1. Lojas
+CREATE TABLE lojas (
+    id_loja INT AUTO_INCREMENT PRIMARY KEY,
+    codigo_bkn VARCHAR(20) UNIQUE NOT NULL,
+    nome_loja VARCHAR(100) NOT NULL,
+    setor VARCHAR(60),
+    endereco TEXT,
+    gerente VARCHAR(100),
+    status ENUM('Ativa', 'Inativa', 'Alerta') DEFAULT 'Ativa',
+    data_cadastro DATE DEFAULT CURRENT_DATE,
+    ultima_visita DATE,
+    nota_atual DECIMAL(5,2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 2. Usuários
+CREATE TABLE usuarios (
+    id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    cargo VARCHAR(60),
+    avatar_inicial VARCHAR(5),
+    data_cadastro DATE DEFAULT CURRENT_DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Categorias do Checklist
+CREATE TABLE categorias_checklist (
+    id_categoria INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(80) NOT NULL,
+    icone VARCHAR(50),
+    ordem INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Perguntas do Checklist
+CREATE TABLE perguntas (
+    id_pergunta INT AUTO_INCREMENT PRIMARY KEY,
+    id_categoria INT NOT NULL,
+    texto TEXT NOT NULL,
+    obrigatoria BOOLEAN DEFAULT TRUE,
+    peso DECIMAL(4,2) DEFAULT 1.00,
+    ordem INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_categoria) REFERENCES categorias_checklist(id_categoria) ON DELETE CASCADE
+);
+
+-- 5. Visitas
+CREATE TABLE visitas (
+    id_visita INT AUTO_INCREMENT PRIMARY KEY,
+    id_loja INT NOT NULL,
+    id_usuario INT NOT NULL,
+    data_visita DATE NOT NULL,
+    hora_inicio TIME,
+    hora_fim TIME,
+    duracao_minutos INT,
+    nota_final DECIMAL(5,2),
+    status ENUM('Rascunho', 'Finalizada') DEFAULT 'Finalizada',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_loja) REFERENCES lojas(id_loja),
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+);
+
+-- 6. Respostas das Visitas
+CREATE TABLE respostas (
+    id_resposta INT AUTO_INCREMENT PRIMARY KEY,
+    id_visita INT NOT NULL,
+    id_pergunta INT NOT NULL,
+    resposta ENUM('Sim', 'Não', 'N/A') NOT NULL,
+    observacao TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_visita) REFERENCES visitas(id_visita) ON DELETE CASCADE,
+    FOREIGN KEY (id_pergunta) REFERENCES perguntas(id_pergunta)
+);
+
+-- 7. Não Conformidades
+CREATE TABLE nao_conformidades (
+    id_nc INT AUTO_INCREMENT PRIMARY KEY,
+    id_visita INT,
+    id_loja INT NOT NULL,
+    area VARCHAR(80),
+    descricao TEXT NOT NULL,
+    gravidade ENUM('Crítica', 'Moderada', 'Baixa') DEFAULT 'Moderada',
+    status ENUM('Em aberto', 'Resolvida', 'Em andamento') DEFAULT 'Em aberto',
+    data_cadastro DATE DEFAULT CURRENT_DATE,
+    prazo_resolucao DATE,
+    responsavel VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_visita) REFERENCES visitas(id_visita),
+    FOREIGN KEY (id_loja) REFERENCES lojas(id_loja)
+);
+
+-- 8. Histórico de Notas (Auditoria)
+CREATE TABLE historico_notas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_loja INT NOT NULL,
+    id_visita INT,
+    nota DECIMAL(5,2) NOT NULL,
+    data_registro DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_loja) REFERENCES lojas(id_loja),
+    FOREIGN KEY (id_visita) REFERENCES visitas(id_visita)
+);
+
+-- =============================================
+-- ÍNDICES
+-- =============================================
+
+CREATE INDEX idx_visitas_loja_data ON visitas(id_loja, data_visita);
+CREATE INDEX idx_visitas_status ON visitas(status);
+CREATE INDEX idx_nc_loja_status ON nao_conformidades(id_loja, status);
+CREATE INDEX idx_nc_gravidade ON nao_conformidades(gravidade);
+CREATE INDEX idx_lojas_setor ON lojas(setor);
+CREATE INDEX idx_lojas_nota ON lojas(nota_atual DESC);
+
+-- =============================================
+-- VIEWS
+-- =============================================
+
+-- Ranking das Lojas
+CREATE OR REPLACE VIEW vw_ranking_lojas AS
+SELECT 
+    id_loja,
+    codigo_bkn,
+    nome_loja,
+    setor,
+    nota_atual,
+    ultima_visita,
+    RANK() OVER (ORDER BY nota_atual DESC) as posicao_ranking
+FROM lojas 
+WHERE status = 'Ativa'
+ORDER BY nota_atual DESC;
+
+-- Métricas do Dashboard
+CREATE OR REPLACE VIEW vw_metricas_dashboard AS
+SELECT 
+    ROUND(AVG(l.nota_atual), 1) as media_geral,
+    COUNT(CASE WHEN v.data_visita >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN 1 END) as visitas_mes,
+    COUNT(nc.id_nc) as total_ncs_abertas,
+    SUM(CASE WHEN nc.gravidade = 'Crítica' THEN 1 ELSE 0 END) as ncs_criticas
+FROM lojas l
+LEFT JOIN visitas v ON v.id_loja = l.id_loja
+LEFT JOIN nao_conformidades nc ON nc.id_loja = l.id_loja AND nc.status = 'Em aberto';
+
+-- =============================================
+-- DADOS INICIAIS
+-- =============================================
+
+-- Usuários
+INSERT INTO usuarios (nome, email, cargo, avatar_inicial) VALUES
+('Gabriela Vicentini', 'gabriela.vicentini@grupoalvim.com.br', 'Supervisora', 'GV'),
+('Marcos Teixeira', 'marcos.teixeira@grupoalvim.com.br', 'Auditor', 'MT');
+
+-- Lojas
+INSERT INTO lojas (codigo_bkn, nome_loja, setor, gerente, nota_atual, ultima_visita) VALUES
+('27984', 'BK Planaltina', 'Centro/Norte', 'Adelaine S.', 78.00, '2026-03-04'),
+('27201', 'BK Taguatinga Norte', 'Oeste', 'Ricardo M.', 94.00, '2026-03-01'),
+('27312', 'BK Águas Claras', 'Oeste', 'Fernanda L.', 91.00, '2026-02-28'),
+('27445', 'BK Brazlândia', 'Oeste', 'Paulo R.', 68.00, '2026-02-25'),
+('27556', 'BK Sobradinho II', 'Norte', 'Camila F.', 76.00, '2026-02-27'),
+('27245', 'BK Ceilândia Sul', 'Oeste', 'Roberto A.', 89.00, '2026-03-02'),
+('27389', 'BK Samambaia', 'Sul', 'Juliana P.', 83.00, '2026-03-03'),
+('27612', 'BK Gama', 'Sul', 'Thiago S.', 81.00, '2026-03-01');
+
+-- Categorias do Checklist
+INSERT INTO categorias_checklist (nome, icone, ordem) VALUES
+('Segurança dos Alimentos', 'ti-droplet', 1),
+('Experiência do Cliente', 'ti-users', 2),
+('Qualidade Operacional', 'ti-temperature', 3),
+('Limpeza e Higiene', 'ti-brush', 4),
+('Equipamentos', 'ti-tools', 5),
+('Documentos e Registros', 'ti-file-text', 6),
+('Gestão de Pessoas', 'ti-users', 7);
+
+-- Perguntas (Exemplo)
+INSERT INTO perguntas (id_categoria, texto, obrigatoria, peso, ordem) VALUES
+(1, 'A lavagem das mãos é feita quando necessário?', TRUE, 1.0, 1),
+(1, 'Os padrões de lavagem das mãos são seguidos corretamente?', TRUE, 1.0, 2),
+(1, 'Os dispensadores de papel toalha, sabão e álcool em gel estão abastecidos?', TRUE, 0.8, 3),
+(2, 'Os colaboradores estão disponíveis para atender e agem de maneira atenciosa?', TRUE, 1.0, 1),
+(2, 'Os 5 passos de atendimento são seguidos corretamente?', TRUE, 1.0, 2),
+(3, 'Existe um pirômetro disponível e em boas condições de uso?', TRUE, 1.0, 1),
+(3, 'Produtos potencialmente perigosos atendem aos padrões de temperatura?', TRUE, 1.2, 2);
+
+-- =============================================
+-- TRIGGERS (Atualização automática da nota da loja)
+-- =============================================
+
+DELIMITER //
+
+CREATE TRIGGER after_resposta_insert
+AFTER INSERT ON respostas
+FOR EACH ROW
+BEGIN
+    UPDATE visitas 
+    SET nota_final = (
+        SELECT ROUND(AVG(
+            CASE 
+                WHEN r.resposta = 'Sim' THEN 100 
+                WHEN r.resposta = 'Não' THEN 0 
+                ELSE 50 
+            END * p.peso), 2)
+        FROM respostas r
+        JOIN perguntas p ON r.id_pergunta = p.id_pergunta
+        WHERE r.id_visita = NEW.id_visita
+    )
+    WHERE id_visita = NEW.id_visita;
+END //
+
+DELIMITER ;
