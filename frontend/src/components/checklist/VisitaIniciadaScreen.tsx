@@ -102,7 +102,7 @@ export default function VisitaIniciadaScreen({
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, py: 0.75 }}>
           <StorefrontIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
           <Box sx={{ flex: 1 }}>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
               Loja avaliada
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -118,7 +118,7 @@ export default function VisitaIniciadaScreen({
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, py: 0.75 }}>
           <PersonIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
           <Box sx={{ flex: 1 }}>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
               Auditor responsável
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>

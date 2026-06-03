@@ -94,7 +94,7 @@ export default function ChecklistConcluidoPage() {
           {visita.name}
           {visita.bk_number ? ` · BKN ${visita.bk_number}` : ''}
         </Typography>
-        <Typography variant="caption" color="text.secondary" display="block">
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
           {fmtData(visita.data_visita)} · {visita.nome_usuario} · #{id}
         </Typography>
       </Box>
