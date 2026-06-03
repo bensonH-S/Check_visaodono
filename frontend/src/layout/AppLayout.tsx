@@ -22,7 +22,7 @@ const nav = [
 const titles: Record<string, string> = {
   '/': 'Dashboard',
   '/ranking': 'Ranking de Lojas',
-  '/checklist': 'Novo Checklist',
+  '/checklist': 'Visão de Dono — Checklist',
   '/visitas': 'Histórico de Visitas',
   '/lojas': 'Gestão de Lojas',
   '/nao-conformidades': 'Não Conformidades',
@@ -38,24 +38,18 @@ export default function AppLayout() {
     <Box className="flex h-screen overflow-hidden border border-gray-200 rounded-lg m-2">
       <Box
         component="aside"
-        className="w-56 shrink-0 flex flex-col"
-        sx={{ bgcolor: 'secondary.main' }}
+        className="w-56 shrink-0 flex flex-col bg-white border-r border-gray-200"
       >
-        <Box className="p-4 border-b border-white/10 flex items-center gap-2">
+        <Box className="p-4 border-b border-gray-100">
           <Box
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-            sx={{ bgcolor: 'primary.main' }}
-          >
-            ga
-          </Box>
-          <Box>
-            <Typography variant="body2" sx={{ color: 'white', fontWeight: 600 }}>
-              grupo<span style={{ color: '#E8520A' }}>alvim</span>
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-              Gestão Operacional
-            </Typography>
-          </Box>
+            component="img"
+            src="/logo-grupo-alvim.png"
+            alt="Grupo Alvim"
+            className="block w-full max-w-[160px] h-auto object-contain"
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Visão de Dono · Gestão Operacional
+          </Typography>
         </Box>
         <Box component="nav" className="flex-1 py-2 overflow-y-auto">
           {nav.map((item) => (
@@ -66,8 +60,8 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2 text-sm no-underline border-l-[3px] transition-colors ${
                   isActive
-                    ? 'bg-[rgba(232,82,10,0.2)] text-white border-[#E8520A]'
-                    : 'text-white/65 border-transparent hover:bg-white/8 hover:text-white'
+                    ? 'bg-[#FFF0E8] text-[#1B2A6B] border-[#E8520A] font-medium'
+                    : 'text-gray-600 border-transparent hover:bg-gray-50 hover:text-[#1B2A6B]'
                 }`
               }
             >
@@ -76,7 +70,7 @@ export default function AppLayout() {
             </NavLink>
           ))}
         </Box>
-        <Box className="p-3 border-t border-white/10 flex items-center gap-2">
+        <Box className="p-3 border-t border-gray-100 flex items-center gap-2">
           <Box
             className="w-7 h-7 rounded-full flex items-center justify-center text-xs text-white font-medium"
             sx={{ bgcolor: 'primary.main' }}
@@ -84,10 +78,10 @@ export default function AppLayout() {
             GV
           </Box>
           <Box>
-            <Typography variant="caption" sx={{ color: 'white', display: 'block' }}>
+            <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }}>
               Gabriela V.
             </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.45)' }}>
+            <Typography variant="caption" color="text.secondary">
               Supervisora
             </Typography>
           </Box>

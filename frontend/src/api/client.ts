@@ -78,13 +78,20 @@ export interface CategoriaChecklist {
   perguntas: Pergunta[];
 }
 
+export type TipoResposta = 'estrelas' | 'sim_nao' | 'estrelas_foto' | 'sim_nao_foto';
+
 export interface Pergunta {
   id_pergunta: number;
   id_categoria: number;
+  codigo: string;
   texto: string;
+  tipo_resposta: TipoResposta;
   obrigatoria: boolean;
   peso: string;
+  requer_foto: boolean;
   requer_obs_em_nao: boolean;
+  critica: boolean;
+  ordem: number;
 }
 
 export interface VisitaResumo {
@@ -102,8 +109,10 @@ export interface VisitaResumo {
 
 export interface RespostaInput {
   id_pergunta: number;
-  resposta: 'Sim' | 'Não' | 'N/A';
+  resposta?: 'Sim' | 'Não' | 'N/A' | null;
+  nota_estrelas?: number | null;
   observacao?: string;
+  foto_url?: string | null;
 }
 
 export interface VisitaDetalhe {

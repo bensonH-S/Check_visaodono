@@ -57,8 +57,14 @@ router.get('/:id', async (req, res, next) => {
     const porCategoria = await pool.query(
       `SELECT c.nome AS categoria,
         ROUND(AVG(
-          CASE r.resposta WHEN 'Sim' THEN 100 WHEN 'Não' THEN 0 ELSE 50 END
-          * p.peso
+          CASE
+            WHEN p.tipo_resposta IN ('estrelas', 'estrelas_foto') AND r.nota_estrelas IS NOT NULL
+              THEN (r.nota_estrelas::numeric / 5.0) * 100
+            WHEN r.resposta = 'Sim' THEN 100
+            WHEN r.resposta = 'Não' THEN 0
+            WHEN r.resposta = 'N/A' THEN 50
+            ELSE NULL
+          END * p.peso
         )::numeric, 0) AS percentual
        FROM respostas r
        JOIN perguntas p ON p.id_pergunta = r.id_pergunta
@@ -124,13 +130,21 @@ router.post('/:id/respostas', async (req, res, next) => {
       await client.query('BEGIN');
       for (const r of respostas) {
         await client.query(
-          `INSERT INTO respostas (id_visita, id_pergunta, resposta, observacao, foto_url)
-           VALUES ($1, $2, $3::resposta_checklist, $4, $5)
+          `INSERT INTO respostas (id_visita, id_pergunta, resposta, nota_estrelas, observacao, foto_url)
+           VALUES ($1, $2, $3::resposta_checklist, $4, $5, $6)
            ON CONFLICT (id_visita, id_pergunta)
            DO UPDATE SET resposta = EXCLUDED.resposta,
+             nota_estrelas = EXCLUDED.nota_estrelas,
              observacao = EXCLUDED.observacao,
              foto_url = EXCLUDED.foto_url`,
-          [req.params.id, r.id_pergunta, r.resposta, r.observacao || null, r.foto_url || null]
+          [
+            req.params.id,
+            r.id_pergunta,
+            r.resposta ?? null,
+            r.nota_estrelas ?? null,
+            r.observacao || null,
+            r.foto_url || null,
+          ]
         );
       }
       await client.query('COMMIT');

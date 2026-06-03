@@ -12,10 +12,38 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
+import Chip from '@mui/material/Chip';
+import Rating from '@mui/material/Rating';
+import TextField from '@mui/material/TextField';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import StarIcon from '@mui/icons-material/Star';
+import WarningIcon from '@mui/icons-material/Warning';
 import { api } from '../api/client';
-import type { CategoriaChecklist, Loja, Usuario, RespostaInput } from '../api/client';
+import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput } from '../api/client';
 
-type RespostaMap = Record<number, RespostaInput['resposta']>;
+interface RespostaLocal {
+  resposta?: 'Sim' | 'Não' | 'N/A';
+  nota_estrelas?: number;
+  foto_url?: string;
+  observacao?: string;
+}
+
+function usaEstrelas(p: Pergunta) {
+  return p.tipo_resposta === 'estrelas' || p.tipo_resposta === 'estrelas_foto';
+}
+
+function usaSimNao(p: Pergunta) {
+  return p.tipo_resposta === 'sim_nao' || p.tipo_resposta === 'sim_nao_foto';
+}
+
+function isRespondida(p: Pergunta, r?: RespostaLocal) {
+  if (!r) return false;
+  if (usaEstrelas(p) && !r.nota_estrelas) return false;
+  if (usaSimNao(p) && !r.resposta) return false;
+  if (p.requer_foto && !r.foto_url) return false;
+  if (r.resposta === 'Não' && p.requer_obs_em_nao && !r.observacao?.trim()) return false;
+  return true;
+}
 
 export default function ChecklistPage() {
   const navigate = useNavigate();
@@ -25,10 +53,20 @@ export default function ChecklistPage() {
   const [idLoja, setIdLoja] = useState<number | ''>('');
   const [idUsuario, setIdUsuario] = useState<number | ''>('');
   const [visitaId, setVisitaId] = useState<number | null>(null);
-  const [respostas, setRespostas] = useState<RespostaMap>({});
+  const [respostas, setRespostas] = useState<Record<number, RespostaLocal>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+
+  const totalPerguntas = checklist.reduce((n, c) => n + c.perguntas.length, 0);
+  const comFoto = checklist.reduce(
+    (n, c) => n + c.perguntas.filter((p) => p.requer_foto).length,
+    0
+  );
+  const comEstrelas = checklist.reduce(
+    (n, c) => n + c.perguntas.filter((p) => usaEstrelas(p)).length,
+    0
+  );
 
   useEffect(() => {
     Promise.all([
@@ -47,6 +85,17 @@ export default function ChecklistPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const patchResposta = (id: number, patch: Partial<RespostaLocal>) => {
+    setRespostas((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  };
+
+  const handleFoto = (id: number, file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => patchResposta(id, { foto_url: reader.result as string });
+    reader.readAsDataURL(file);
+  };
+
   const iniciarVisita = async () => {
     if (!idLoja || !idUsuario) return;
     setSaving(true);
@@ -57,17 +106,13 @@ export default function ChecklistPage() {
         id_usuario: Number(idUsuario),
       });
       setVisitaId(v.id_visita);
-      setMsg(`Visita #${v.id_visita} iniciada`);
+      setRespostas({});
+      setMsg(`Visita #${v.id_visita} iniciada — ${totalPerguntas} perguntas`);
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
       setSaving(false);
     }
-  };
-
-  const setResposta = (idPergunta: number, val: RespostaInput['resposta'] | null) => {
-    if (!val) return;
-    setRespostas((prev) => ({ ...prev, [idPergunta]: val }));
   };
 
   const salvar = async (finalizar: boolean) => {
@@ -79,11 +124,18 @@ export default function ChecklistPage() {
     for (const cat of checklist) {
       for (const p of cat.perguntas) {
         const r = respostas[p.id_pergunta];
-        if (p.obrigatoria && !r) {
-          setMsg(`Responda: ${p.texto.slice(0, 50)}...`);
+        if (p.obrigatoria && !isRespondida(p, r)) {
+          setMsg(`Complete a pergunta ${p.codigo}: ${p.texto.slice(0, 60)}...`);
           return;
         }
-        if (r) lista.push({ id_pergunta: p.id_pergunta, resposta: r });
+        if (!r || (!r.resposta && !r.nota_estrelas)) continue;
+        lista.push({
+          id_pergunta: p.id_pergunta,
+          resposta: r.resposta ?? null,
+          nota_estrelas: r.nota_estrelas ?? null,
+          observacao: r.observacao,
+          foto_url: r.foto_url ?? null,
+        });
       }
     }
     setSaving(true);
@@ -114,9 +166,25 @@ export default function ChecklistPage() {
         </Alert>
       )}
 
+      <Paper className="p-4 mb-3">
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+          Checklist Visão de Dono
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {totalPerguntas} perguntas · {checklist.length} seções · {comFoto} com foto · {comEstrelas}{' '}
+          com estrelas
+        </Typography>
+        <Box className="flex flex-wrap gap-2">
+          <Chip size="small" icon={<CameraAltIcon />} label="Foto obrigatória" variant="outlined" />
+          <Chip size="small" icon={<StarIcon />} label="Avaliar 1–5 estrelas" variant="outlined" />
+          <Chip size="small" label="Sim / Não" variant="outlined" />
+          <Chip size="small" icon={<WarningIcon />} label="Crítico" color="error" variant="outlined" />
+        </Box>
+      </Paper>
+
       <Paper className="p-4 mb-4 flex flex-wrap gap-4 items-end justify-between">
         <Box className="flex flex-wrap gap-3">
-          <FormControl size="small" sx={{ minWidth: 200 }}>
+          <FormControl size="small" sx={{ minWidth: 220 }}>
             <InputLabel>Loja</InputLabel>
             <Select
               label="Loja"
@@ -170,38 +238,99 @@ export default function ChecklistPage() {
         </Typography>
       )}
 
-      {checklist.map((cat) => (
+      {checklist.map((cat, idx) => (
         <Paper key={cat.id_categoria} className="mb-3 overflow-hidden">
-          <Box sx={{ bgcolor: 'secondary.main', color: 'white', px: 2, py: 1 }}>
-            <Typography variant="subtitle2">{cat.nome}</Typography>
+          <Box sx={{ bgcolor: 'secondary.main', color: 'white', px: 2, py: 1.25 }}>
+            <Typography variant="subtitle2">
+              {idx + 1}. {cat.nome}
+            </Typography>
           </Box>
-          {cat.perguntas.map((p) => (
-            <Box
-              key={p.id_pergunta}
-              className="flex items-center justify-between gap-4 px-4 py-3 border-b border-gray-100 last:border-0"
-            >
-              <Typography variant="body2" className="flex-1">
-                {p.texto}
-              </Typography>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={respostas[p.id_pergunta] || ''}
-                onChange={(_, v) => setResposta(p.id_pergunta, v)}
-                disabled={!visitaId}
+          {cat.perguntas.map((p) => {
+            const r = respostas[p.id_pergunta];
+            return (
+              <Box
+                key={p.id_pergunta}
+                className="px-4 py-3 border-b border-gray-100 last:border-0"
               >
-                <ToggleButton value="Sim" sx={{ '&.Mui-selected': { bgcolor: '#EAF3DE', color: '#3B6D11' } }}>
-                  Sim
-                </ToggleButton>
-                <ToggleButton value="Não" sx={{ '&.Mui-selected': { bgcolor: '#FCEBEB', color: '#A32D2D' } }}>
-                  Não
-                </ToggleButton>
-                <ToggleButton value="N/A" sx={{ '&.Mui-selected': { bgcolor: '#E8EBF5', color: '#1B2A6B' } }}>
-                  N/A
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-          ))}
+                <Box className="flex flex-wrap items-start gap-2 mb-2">
+                  <Chip label={p.codigo} size="small" sx={{ fontWeight: 600 }} />
+                  {p.critica && <Chip label="Crítico" size="small" color="error" />}
+                  {p.requer_foto && (
+                    <Chip label="Foto" size="small" icon={<CameraAltIcon />} variant="outlined" />
+                  )}
+                  {usaEstrelas(p) && (
+                    <Chip label="1–5" size="small" icon={<StarIcon />} variant="outlined" />
+                  )}
+                </Box>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  {p.texto}
+                </Typography>
+                <Box className="flex flex-col gap-2 items-start">
+                  {usaEstrelas(p) && (
+                    <Rating
+                      value={r?.nota_estrelas ?? 0}
+                      onChange={(_, v) => patchResposta(p.id_pergunta, { nota_estrelas: v || undefined })}
+                      disabled={!visitaId}
+                      size="large"
+                    />
+                  )}
+                  {usaSimNao(p) && (
+                    <ToggleButtonGroup
+                      exclusive
+                      size="small"
+                      value={r?.resposta || ''}
+                      onChange={(_, v) => patchResposta(p.id_pergunta, { resposta: v || undefined })}
+                      disabled={!visitaId}
+                    >
+                      <ToggleButton value="Sim" sx={{ '&.Mui-selected': { bgcolor: '#EAF3DE', color: '#3B6D11' } }}>
+                        Sim
+                      </ToggleButton>
+                      <ToggleButton value="Não" sx={{ '&.Mui-selected': { bgcolor: '#FCEBEB', color: '#A32D2D' } }}>
+                        Não
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                  )}
+                  {p.requer_foto && (
+                    <Box className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        component="label"
+                        size="small"
+                        variant="outlined"
+                        startIcon={<CameraAltIcon />}
+                        disabled={!visitaId}
+                      >
+                        {r?.foto_url ? 'Trocar foto' : 'Anexar foto'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          hidden
+                          onChange={(e) => handleFoto(p.id_pergunta, e.target.files?.[0] || null)}
+                        />
+                      </Button>
+                      {r?.foto_url && (
+                        <Box
+                          component="img"
+                          src={r.foto_url}
+                          alt="Evidência"
+                          sx={{ height: 48, borderRadius: 1, border: '1px solid #ddd' }}
+                        />
+                      )}
+                    </Box>
+                  )}
+                  {r?.resposta === 'Não' && p.requer_obs_em_nao && (
+                    <TextField
+                      size="small"
+                      fullWidth
+                      label="Observação (obrigatória em Não)"
+                      value={r.observacao || ''}
+                      onChange={(e) => patchResposta(p.id_pergunta, { observacao: e.target.value })}
+                      disabled={!visitaId}
+                    />
+                  )}
+                </Box>
+              </Box>
+            );
+          })}
         </Paper>
       ))}
     </Box>
