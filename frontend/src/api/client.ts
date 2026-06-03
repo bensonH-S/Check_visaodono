@@ -1,4 +1,6 @@
-const BASE = '/api';
+import { apiBasePath } from '../config/paths';
+
+const BASE = apiBasePath;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {

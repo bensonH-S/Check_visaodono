@@ -4,7 +4,9 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import pg from 'pg';
 
-dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '.env') });
+const backendRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+dotenv.config({ path: path.join(backendRoot, '..', '.env') });
+dotenv.config({ path: path.join(backendRoot, '.env') });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sqlPath = path.join(__dirname, '..', 'migrations', '001_schema.sql');

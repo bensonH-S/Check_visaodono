@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
+import { appBasePath } from './config/paths';
 import { theme } from './theme';
 import AppLayout from './layout/AppLayout';
 import DashboardPage from './pages/DashboardPage';
@@ -14,7 +15,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <BrowserRouter>
+      <BrowserRouter basename={appBasePath}>
         <Routes>
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />

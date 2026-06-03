@@ -1,0 +1,31 @@
+FROM node:22-alpine AS build
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY backend/package.json backend/package-lock.json ./backend/
+COPY frontend/package.json frontend/package-lock.json ./frontend/
+
+RUN npm ci && npm ci --prefix backend && npm ci --prefix frontend
+
+COPY . .
+RUN npm run build:web
+
+FROM node:22-alpine
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY backend/package.json backend/package-lock.json ./backend/
+RUN npm ci --omit=dev && npm ci --prefix backend --omit=dev
+
+COPY server.js ./
+COPY config ./config
+COPY backend/src ./backend/src
+COPY backend/migrations ./backend/migrations
+COPY backend/scripts ./backend/scripts
+COPY --from=build /app/frontend/dist ./frontend/dist
+
+ENV NODE_ENV=production
+ENV PORT=3007
+EXPOSE 3007
+
+CMD ["node", "server.js", "--production"]

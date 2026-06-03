@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js",
-    "start": "node src/index.js",
     "migrate": "node scripts/migrate.js",
     "migrate:lojas": "node scripts/run-sql.js migrations/003_lojas_reais.sql",
     "migrate:checklist": "node scripts/run-sql.js migrations/004_checklist_visao_dono.sql"

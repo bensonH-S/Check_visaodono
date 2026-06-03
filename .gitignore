@@ -4,4 +4,7 @@ dist/
 backend/.env
 frontend/.env
 *.log
+Logs/
+uploads/*
+!uploads/.gitkeep
 .DS_Store

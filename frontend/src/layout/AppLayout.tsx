@@ -1,4 +1,5 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { assetUrl, toAppPath } from '../config/paths';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -31,8 +32,12 @@ const titles: Record<string, string> = {
 
 export default function AppLayout() {
   const navigate = useNavigate();
-  const path = location.pathname;
-  const title = titles[path] || titles[path.replace(/\/\d+$/, '/relatorio')] || 'Vision Check';
+  const location = useLocation();
+  const path = toAppPath(location.pathname);
+  const title =
+    titles[path] ||
+    (path.startsWith('/relatorio/') ? titles['/relatorio'] : undefined) ||
+    'Vision Check';
 
   return (
     <Box className="flex h-screen overflow-hidden border border-gray-200 rounded-lg m-2">
@@ -43,7 +48,7 @@ export default function AppLayout() {
         <Box className="p-4 border-b border-gray-100">
           <Box
             component="img"
-            src="/logo-grupo-alvim.png"
+            src={assetUrl('logo-grupo-alvim.png')}
             alt="Grupo Alvim"
             className="block w-full max-w-[160px] h-auto object-contain"
           />

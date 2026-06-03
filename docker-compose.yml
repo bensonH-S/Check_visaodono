@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3007:3007"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3007
+      - TZ=America/Sao_Paulo
+    volumes:
+      - ./Logs:/app/Logs
+      - ./uploads:/app/uploads
+    restart: unless-stopped

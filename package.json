@@ -1,16 +1,26 @@
 {
   "name": "vision-check",
   "private": true,
+  "type": "module",
   "scripts": {
     "predev": "npx --yes kill-port 5000",
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:api": "npm run dev --prefix backend",
+    "dev:api": "node --watch server.js",
     "dev:web": "npm run dev --prefix frontend",
     "migrate": "npm run migrate --prefix backend",
     "migrate:lojas": "npm run migrate:lojas --prefix backend",
     "migrate:checklist": "npm run migrate:checklist --prefix backend",
+    "build": "npm run build:web",
     "build:web": "npm run build --prefix frontend",
+    "start": "node server.js --production",
+    "start:prod": "npm run build:web && npm run start",
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.3"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

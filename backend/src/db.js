@@ -1,7 +1,12 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pg from 'pg';
 import dotenv from 'dotenv';
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Raiz do monorepo (.env) e backend/.env (README)
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
 export const pool = new pg.Pool({
   host: process.env.DB_HOST,
