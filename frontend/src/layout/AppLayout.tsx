@@ -50,7 +50,7 @@ export default function AppLayout() {
             component="img"
             src={assetUrl('logo-grupo-alvim.png')}
             alt="Grupo Alvim"
-            className="block w-full max-w-[160px] h-auto object-contain"
+            className="block w-full max-w-[240px] h-auto object-contain"
           />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             Visão de Dono · Gestão Operacional

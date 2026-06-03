@@ -12,6 +12,7 @@ import checklistRouter from './backend/src/routes/checklist.js';
 import visitasRouter from './backend/src/routes/visitas.js';
 import ncRouter from './backend/src/routes/naoConformidades.js';
 import dashboardRouter from './backend/src/routes/dashboard.js';
+import { uploadsRoot } from './backend/src/fotos.js';
 import {
   APP_BASE_PATH,
   SERVE_WEB,
@@ -27,7 +28,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '15mb' }));
+
+const API_PREFIX = apiPrefix();
+app.use(`${API_PREFIX}/uploads`, express.static(uploadsRoot()));
+if (APP_BASE_PATH && API_PREFIX !== '/api') {
+  app.use('/api/uploads', express.static(uploadsRoot()));
+}
+
+function garantirSchema() {
+  pool
+    .query('ALTER TABLE respostas ALTER COLUMN foto_url TYPE TEXT')
+    .catch((e) => console.warn('[schema]', e.message));
+}
 
 const api = express.Router();
 
@@ -54,7 +67,6 @@ api.use('/checklist', checklistRouter);
 api.use('/visitas', visitasRouter);
 api.use('/nao-conformidades', ncRouter);
 
-const API_PREFIX = apiPrefix();
 app.use(API_PREFIX, api);
 
 /** Nginx/proxy às vezes encaminha /api sem o prefixo /auditoria */
@@ -79,6 +91,7 @@ if (SERVE_WEB) {
 }
 
 app.listen(PORT, () => {
+  garantirSchema();
   console.log(`[server] ${isProd ? 'produção' : 'dev'} — :${PORT}${API_PREFIX}`);
   console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
 });

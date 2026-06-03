@@ -1,11 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
@@ -13,19 +11,32 @@ import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import Chip from '@mui/material/Chip';
-import Rating from '@mui/material/Rating';
-import TextField from '@mui/material/TextField';
-import CameraAltIcon from '@mui/icons-material/CameraAlt';
-import StarIcon from '@mui/icons-material/Star';
-import WarningIcon from '@mui/icons-material/Warning';
+import IconButton from '@mui/material/IconButton';
+import Snackbar from '@mui/material/Snackbar';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import SaveIcon from '@mui/icons-material/Save';
+import CheckIcon from '@mui/icons-material/Check';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { api } from '../api/client';
 import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput } from '../api/client';
+import ChecklistPerguntaCard, {
+  perguntaRespondida,
+  type RespostaLocal,
+} from '../components/checklist/ChecklistPerguntaCard';
+import VisitaIniciadaScreen from '../components/checklist/VisitaIniciadaScreen';
+import {
+  exibeFoto,
+  exibeObservacao,
+  serializeFotos,
+  deveLimparFotos,
+  deveLimparObservacao,
+  parseFotos,
+} from '../utils/checklistRules';
 
-interface RespostaLocal {
-  resposta?: 'Sim' | 'Não' | 'N/A';
-  nota_estrelas?: number;
-  foto_url?: string;
-  observacao?: string;
+function getFotos(r?: RespostaLocal): string[] {
+  if (r?.fotos?.length) return r.fotos;
+  return parseFotos(r?.foto_url);
 }
 
 function usaEstrelas(p: Pergunta) {
@@ -36,37 +47,78 @@ function usaSimNao(p: Pergunta) {
   return p.tipo_resposta === 'sim_nao' || p.tipo_resposta === 'sim_nao_foto';
 }
 
-function isRespondida(p: Pergunta, r?: RespostaLocal) {
-  if (!r) return false;
-  if (usaEstrelas(p) && !r.nota_estrelas) return false;
-  if (usaSimNao(p) && !r.resposta) return false;
-  if (p.requer_foto && !r.foto_url) return false;
-  if (r.resposta === 'Não' && p.requer_obs_em_nao && !r.observacao?.trim()) return false;
-  return true;
+function toRespostaInput(p: Pergunta, r: RespostaLocal): RespostaInput {
+  const fotos = getFotos(r);
+  const input: RespostaInput = { id_pergunta: p.id_pergunta };
+
+  if (usaSimNao(p) && r.resposta) input.resposta = r.resposta;
+  if (usaEstrelas(p) && r.nota_estrelas != null && r.nota_estrelas >= 1) {
+    input.nota_estrelas = r.nota_estrelas;
+  }
+
+  if (exibeFoto(p, r.resposta)) input.foto_url = serializeFotos(fotos);
+  if (exibeObservacao(p, r.resposta) && r.observacao) input.observacao = r.observacao;
+
+  return input;
 }
+
+type Fase = 'setup' | 'iniciada' | 'perguntas';
 
 export default function ChecklistPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [checklist, setChecklist] = useState<CategoriaChecklist[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>('');
   const [idUsuario, setIdUsuario] = useState<number | ''>('');
   const [visitaId, setVisitaId] = useState<number | null>(null);
+  const [dataVisita, setDataVisita] = useState<string | null>(null);
   const [respostas, setRespostas] = useState<Record<number, RespostaLocal>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [snack, setSnack] = useState('');
+  const [fase, setFase] = useState<Fase>('setup');
+  const [indiceSecao, setIndiceSecao] = useState(0);
 
-  const totalPerguntas = checklist.reduce((n, c) => n + c.perguntas.length, 0);
-  const comFoto = checklist.reduce(
-    (n, c) => n + c.perguntas.filter((p) => p.requer_foto).length,
-    0
+  const totalPerguntas = useMemo(
+    () => checklist.reduce((n, c) => n + c.perguntas.length, 0),
+    [checklist]
   );
-  const comEstrelas = checklist.reduce(
-    (n, c) => n + c.perguntas.filter((p) => usaEstrelas(p)).length,
-    0
-  );
+
+  const secaoAtual = checklist[indiceSecao];
+  const totalSecoes = checklist.length;
+
+  const respondidas = useMemo(() => {
+    let n = 0;
+    for (const cat of checklist) {
+      for (const p of cat.perguntas) {
+        if (perguntaRespondida(p, respostas[p.id_pergunta])) n++;
+      }
+    }
+    return n;
+  }, [checklist, respostas]);
+
+  const progressoGeral = totalPerguntas
+    ? Math.round((respondidas / totalPerguntas) * 100)
+    : 0;
+
+  const secaoCompleta = (cat: CategoriaChecklist) =>
+    cat.perguntas.every((p) => !p.obrigatoria || perguntaRespondida(p, respostas[p.id_pergunta]));
+
+  useEffect(() => {
+    const reiniciar = (location.state as { reiniciar?: boolean })?.reiniciar;
+    if (reiniciar) {
+      setFase('setup');
+      setVisitaId(null);
+      setDataVisita(null);
+      setRespostas({});
+      setIndiceSecao(0);
+      setMsg('');
+      navigate('/checklist', { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
 
   useEffect(() => {
     Promise.all([
@@ -89,11 +141,62 @@ export default function ChecklistPage() {
     setRespostas((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   };
 
-  const handleFoto = (id: number, file: File | null) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => patchResposta(id, { foto_url: reader.result as string });
-    reader.readAsDataURL(file);
+  const escolherSimNao = (p: Pergunta, opt: 'Sim' | 'Não') => {
+    const patch: Partial<RespostaLocal> = { resposta: opt };
+    if (deveLimparFotos(p, opt)) {
+      patch.fotos = [];
+      patch.foto_url = undefined;
+    }
+    if (deveLimparObservacao(p, opt)) patch.observacao = undefined;
+    patchResposta(p.id_pergunta, patch);
+  };
+
+  const salvarItens = async (itens: RespostaInput[], silencioso = false) => {
+    if (!visitaId || !itens.length) return true;
+    setSaving(true);
+    try {
+      for (const item of itens) {
+        await api.salvarRespostas(visitaId, [item]);
+      }
+      if (!silencioso) setSnack('Seção salva');
+      return true;
+    } catch (e) {
+      if (!silencioso) setMsg((e as Error).message);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const itensSecao = (cat: CategoriaChecklist): RespostaInput[] => {
+    const itens: RespostaInput[] = [];
+    for (const p of cat.perguntas) {
+      const r = respostas[p.id_pergunta];
+      if (!r || (!r.resposta && !r.nota_estrelas && !getFotos(r).length)) continue;
+      itens.push(toRespostaInput(p, r));
+    }
+    return itens;
+  };
+
+  const salvarSecaoAtual = async (silencioso = true) => {
+    if (!secaoAtual || !visitaId) return true;
+    return salvarItens(itensSecao(secaoAtual), silencioso);
+  };
+
+  const salvarTodas = async () => {
+    const itens: RespostaInput[] = [];
+    for (const cat of checklist) itens.push(...itensSecao(cat));
+    return salvarItens(itens, true);
+  };
+
+  const validarSecao = (cat: CategoriaChecklist): string | null => {
+    for (const p of cat.perguntas) {
+      if (!p.obrigatoria) continue;
+      if (!perguntaRespondida(p, respostas[p.id_pergunta])) {
+        return `Complete a pergunta ${p.codigo} antes de continuar.`;
+      }
+    }
+    return null;
   };
 
   const iniciarVisita = async () => {
@@ -106,48 +209,57 @@ export default function ChecklistPage() {
         id_usuario: Number(idUsuario),
       });
       setVisitaId(v.id_visita);
+      setDataVisita(v.data_visita ?? null);
       setRespostas({});
-      setMsg(`Visita #${v.id_visita} iniciada — ${totalPerguntas} perguntas`);
+      setIndiceSecao(0);
+      setFase('iniciada');
     } catch (e) {
-      setMsg((e as Error).message);
+      const m = (e as Error).message;
+      setMsg(
+        m.includes('fetch') || m.includes('Failed') || m.includes('500')
+          ? 'Conexão com a API caiu (reinício do servidor). Aguarde 2s e tente de novo.'
+          : m
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const salvar = async (finalizar: boolean) => {
-    if (!visitaId) {
-      setMsg('Inicie a visita antes de responder');
+  const irProximaSecao = async () => {
+    if (!secaoAtual) return;
+    const erro = validarSecao(secaoAtual);
+    if (erro) {
+      setMsg(erro);
       return;
     }
-    const lista: RespostaInput[] = [];
+    setMsg('');
+    const ok = await salvarSecaoAtual(true);
+    if (!ok) return;
+    if (indiceSecao < totalSecoes - 1) setIndiceSecao((i) => i + 1);
+  };
+
+  const finalizar = async () => {
+    if (!secaoAtual) return;
+    const erroSecao = validarSecao(secaoAtual);
+    if (erroSecao) {
+      setMsg(erroSecao);
+      return;
+    }
     for (const cat of checklist) {
-      for (const p of cat.perguntas) {
-        const r = respostas[p.id_pergunta];
-        if (p.obrigatoria && !isRespondida(p, r)) {
-          setMsg(`Complete a pergunta ${p.codigo}: ${p.texto.slice(0, 60)}...`);
-          return;
-        }
-        if (!r || (!r.resposta && !r.nota_estrelas)) continue;
-        lista.push({
-          id_pergunta: p.id_pergunta,
-          resposta: r.resposta ?? null,
-          nota_estrelas: r.nota_estrelas ?? null,
-          observacao: r.observacao,
-          foto_url: r.foto_url ?? null,
-        });
+      const erro = validarSecao(cat);
+      if (erro) {
+        setMsg(erro);
+        setIndiceSecao(checklist.indexOf(cat));
+        return;
       }
     }
     setSaving(true);
     setMsg('');
     try {
-      await api.salvarRespostas(visitaId, lista);
-      if (finalizar) {
-        await api.finalizarVisita(visitaId, { duracao_minutos: 90 });
-        navigate(`/relatorio/visita/${visitaId}`);
-      } else {
-        setMsg('Rascunho salvo');
-      }
+      const ok = await salvarTodas();
+      if (!ok) return;
+      await api.finalizarVisita(visitaId!, { duracao_minutos: 90 });
+      navigate(`/checklist/concluido/${visitaId}`);
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
@@ -155,184 +267,262 @@ export default function ChecklistPage() {
     }
   };
 
-  if (loading) return <LinearProgress />;
+  if (loading) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <LinearProgress />
+      </Box>
+    );
+  }
+
   const lojaSel = lojas.find((l) => l.id_loja === idLoja);
 
-  return (
-    <Box>
-      {msg && (
-        <Alert severity={msg.includes('erro') || msg.includes('Erro') ? 'error' : 'info'} sx={{ mb: 2 }}>
-          {msg}
-        </Alert>
-      )}
-
-      <Paper className="p-4 mb-3">
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
-          Checklist Visão de Dono
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {totalPerguntas} perguntas · {checklist.length} seções · {comFoto} com foto · {comEstrelas}{' '}
-          com estrelas
-        </Typography>
-        <Box className="flex flex-wrap gap-2">
-          <Chip size="small" icon={<CameraAltIcon />} label="Foto obrigatória" variant="outlined" />
-          <Chip size="small" icon={<StarIcon />} label="Avaliar 1–5 estrelas" variant="outlined" />
-          <Chip size="small" label="Sim / Não" variant="outlined" />
-          <Chip size="small" icon={<WarningIcon />} label="Crítico" color="error" variant="outlined" />
-        </Box>
-      </Paper>
-
-      <Paper className="p-4 mb-4 flex flex-wrap gap-4 items-end justify-between">
-        <Box className="flex flex-wrap gap-3">
-          <FormControl size="small" sx={{ minWidth: 220 }}>
-            <InputLabel>Loja</InputLabel>
-            <Select
-              label="Loja"
-              value={idLoja}
-              onChange={(e) => setIdLoja(Number(e.target.value))}
-              disabled={!!visitaId}
-            >
-              {lojas.map((l) => (
-                <MenuItem key={l.id_loja} value={l.id_loja}>
-                  {l.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>Auditor</InputLabel>
-            <Select
-              label="Auditor"
-              value={idUsuario}
-              onChange={(e) => setIdUsuario(Number(e.target.value))}
-              disabled={!!visitaId}
-            >
-              {usuarios.map((u) => (
-                <MenuItem key={u.id_usuario} value={u.id_usuario}>
-                  {u.nome}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-        {!visitaId ? (
-          <Button variant="contained" onClick={iniciarVisita} disabled={saving}>
-            Iniciar visita
-          </Button>
-        ) : (
-          <Box className="flex gap-2">
-            <Button variant="outlined" onClick={() => salvar(false)} disabled={saving}>
-              Salvar rascunho
-            </Button>
-            <Button variant="contained" onClick={() => salvar(true)} disabled={saving}>
-              Finalizar visita
-            </Button>
-          </Box>
+  if (fase === 'setup') {
+    return (
+      <Box sx={{ p: 2, pb: 4, flex: 1 }}>
+        {msg && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMsg('')}>
+            {msg}
+          </Alert>
         )}
-      </Paper>
+        <Paper
+          sx={{
+            p: 2.5,
+            mb: 2,
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #1B2A6B 0%, #2a3d8f 100%)',
+            color: 'white',
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+            Nova visita
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.9 }}>
+            {totalPerguntas} perguntas em {totalSecoes} seções — responda bloco a bloco na loja.
+          </Typography>
+        </Paper>
 
-      {lojaSel && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {lojaSel.name} · BKN {lojaSel.bk_number}
-          {visitaId && ` · Visita #${visitaId}`}
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <InputLabel>Loja</InputLabel>
+          <Select label="Loja" value={idLoja} onChange={(e) => setIdLoja(Number(e.target.value))}>
+            {lojas.map((l) => (
+              <MenuItem key={l.id_loja} value={l.id_loja}>
+                {l.name}
+                {l.bk_number ? ` · BKN ${l.bk_number}` : ''}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth sx={{ mb: 3 }}>
+          <InputLabel>Auditor</InputLabel>
+          <Select
+            label="Auditor"
+            value={idUsuario}
+            onChange={(e) => setIdUsuario(Number(e.target.value))}
+          >
+            {usuarios.map((u) => (
+              <MenuItem key={u.id_usuario} value={u.id_usuario}>
+                {u.nome}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <Button
+          fullWidth
+          variant="contained"
+          size="large"
+          disabled={saving || !idLoja || !idUsuario}
+          onClick={iniciarVisita}
+          sx={{ minHeight: 56, fontSize: '1.05rem', fontWeight: 700 }}
+        >
+          Iniciar checklist
+        </Button>
+      </Box>
+    );
+  }
+
+  const auditorSel = usuarios.find((u) => u.id_usuario === idUsuario);
+
+  if (fase === 'iniciada' && visitaId) {
+    return (
+      <VisitaIniciadaScreen
+        visitaId={visitaId}
+        loja={lojaSel}
+        auditor={auditorSel}
+        dataVisita={dataVisita}
+        totalSecoes={totalSecoes}
+        totalPerguntas={totalPerguntas}
+        onComecar={() => setFase('perguntas')}
+      />
+    );
+  }
+
+  if (!secaoAtual) return null;
+
+  const ehUltimaSecao = indiceSecao === totalSecoes - 1;
+  const respondidasSecao = secaoAtual.perguntas.filter((p) =>
+    perguntaRespondida(p, respostas[p.id_pergunta])
+  ).length;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+      <Box sx={{ px: 2, pt: 1.5, pb: 1, bgcolor: 'white', borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" color="text.secondary" display="block">
+          {lojaSel?.name}
+          {visitaId ? ` · Visita #${visitaId}` : ''}
         </Typography>
-      )}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            Progresso geral
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+            {respondidas}/{totalPerguntas} ({progressoGeral}%)
+          </Typography>
+        </Box>
+        <LinearProgress
+          variant="determinate"
+          value={progressoGeral}
+          sx={{ height: 8, borderRadius: 4, mt: 0.75, mb: 1.5 }}
+        />
 
-      {checklist.map((cat, idx) => (
-        <Paper key={cat.id_categoria} className="mb-3 overflow-hidden">
-          <Box sx={{ bgcolor: 'secondary.main', color: 'white', px: 2, py: 1.25 }}>
-            <Typography variant="subtitle2">
-              {idx + 1}. {cat.nome}
-            </Typography>
-          </Box>
-          {cat.perguntas.map((p) => {
-            const r = respostas[p.id_pergunta];
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 0.75,
+            overflowX: 'auto',
+            pb: 0.5,
+            mx: -0.5,
+            px: 0.5,
+            '&::-webkit-scrollbar': { display: 'none' },
+          }}
+        >
+          {checklist.map((cat, idx) => {
+            const completa = secaoCompleta(cat);
+            const ativa = idx === indiceSecao;
             return (
-              <Box
-                key={p.id_pergunta}
-                className="px-4 py-3 border-b border-gray-100 last:border-0"
-              >
-                <Box className="flex flex-wrap items-start gap-2 mb-2">
-                  <Chip label={p.codigo} size="small" sx={{ fontWeight: 600 }} />
-                  {p.critica && <Chip label="Crítico" size="small" color="error" />}
-                  {p.requer_foto && (
-                    <Chip label="Foto" size="small" icon={<CameraAltIcon />} variant="outlined" />
-                  )}
-                  {usaEstrelas(p) && (
-                    <Chip label="1–5" size="small" icon={<StarIcon />} variant="outlined" />
-                  )}
-                </Box>
-                <Typography variant="body2" sx={{ mb: 2 }}>
-                  {p.texto}
-                </Typography>
-                <Box className="flex flex-col gap-2 items-start">
-                  {usaEstrelas(p) && (
-                    <Rating
-                      value={r?.nota_estrelas ?? 0}
-                      onChange={(_, v) => patchResposta(p.id_pergunta, { nota_estrelas: v || undefined })}
-                      disabled={!visitaId}
-                      size="large"
-                    />
-                  )}
-                  {usaSimNao(p) && (
-                    <ToggleButtonGroup
-                      exclusive
-                      size="small"
-                      value={r?.resposta || ''}
-                      onChange={(_, v) => patchResposta(p.id_pergunta, { resposta: v || undefined })}
-                      disabled={!visitaId}
-                    >
-                      <ToggleButton value="Sim" sx={{ '&.Mui-selected': { bgcolor: '#EAF3DE', color: '#3B6D11' } }}>
-                        Sim
-                      </ToggleButton>
-                      <ToggleButton value="Não" sx={{ '&.Mui-selected': { bgcolor: '#FCEBEB', color: '#A32D2D' } }}>
-                        Não
-                      </ToggleButton>
-                    </ToggleButtonGroup>
-                  )}
-                  {p.requer_foto && (
-                    <Box className="flex items-center gap-2 flex-wrap">
-                      <Button
-                        component="label"
-                        size="small"
-                        variant="outlined"
-                        startIcon={<CameraAltIcon />}
-                        disabled={!visitaId}
-                      >
-                        {r?.foto_url ? 'Trocar foto' : 'Anexar foto'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) => handleFoto(p.id_pergunta, e.target.files?.[0] || null)}
-                        />
-                      </Button>
-                      {r?.foto_url && (
-                        <Box
-                          component="img"
-                          src={r.foto_url}
-                          alt="Evidência"
-                          sx={{ height: 48, borderRadius: 1, border: '1px solid #ddd' }}
-                        />
-                      )}
-                    </Box>
-                  )}
-                  {r?.resposta === 'Não' && p.requer_obs_em_nao && (
-                    <TextField
-                      size="small"
-                      fullWidth
-                      label="Observação (obrigatória em Não)"
-                      value={r.observacao || ''}
-                      onChange={(e) => patchResposta(p.id_pergunta, { observacao: e.target.value })}
-                      disabled={!visitaId}
-                    />
-                  )}
-                </Box>
-              </Box>
+              <Chip
+                key={cat.id_categoria}
+                label={`${idx + 1}. ${cat.nome.split(' ')[0]}`}
+                size="small"
+                onClick={() => {
+                  setMsg('');
+                  setIndiceSecao(idx);
+                }}
+                icon={completa ? <CheckCircleIcon /> : undefined}
+                color={ativa ? 'primary' : completa ? 'success' : 'default'}
+                variant={ativa ? 'filled' : 'outlined'}
+                sx={{ flexShrink: 0, fontWeight: ativa ? 700 : 500 }}
+              />
             );
           })}
-        </Paper>
-      ))}
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
+          px: 2,
+          py: 1.5,
+          background: 'linear-gradient(90deg, #E8520A 0%, #ff7a3d 100%)',
+          color: 'white',
+        }}
+      >
+        <Typography variant="overline" sx={{ opacity: 0.9, lineHeight: 1.2 }}>
+          Seção {indiceSecao + 1} de {totalSecoes}
+        </Typography>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+          {secaoAtual.nome}
+        </Typography>
+        <Typography variant="caption" sx={{ opacity: 0.95 }}>
+          {respondidasSecao}/{secaoAtual.perguntas.length} respondidas nesta seção
+        </Typography>
+      </Box>
+
+      <Box sx={{ flex: 1, overflow: 'auto', px: 2, py: 2 }}>
+        {msg && (
+          <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setMsg('')}>
+            {msg}
+          </Alert>
+        )}
+
+        {secaoAtual.perguntas.map((p) => (
+          <ChecklistPerguntaCard
+            key={p.id_pergunta}
+            pergunta={p}
+            resposta={respostas[p.id_pergunta]}
+            onPatch={(patch) => patchResposta(p.id_pergunta, patch)}
+            onSimNao={(opt) => escolherSimNao(p, opt)}
+          />
+        ))}
+      </Box>
+
+      <Box
+        sx={{
+          px: 2,
+          py: 1.5,
+          pb: 'max(12px, env(safe-area-inset-bottom))',
+          bgcolor: 'white',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton
+            disabled={indiceSecao === 0 || saving}
+            onClick={() => {
+              setMsg('');
+              setIndiceSecao((i) => Math.max(0, i - 1));
+            }}
+            aria-label="Seção anterior"
+          >
+            <NavigateBeforeIcon />
+          </IconButton>
+
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<SaveIcon />}
+            disabled={saving}
+            onClick={() => salvarSecaoAtual(false)}
+          >
+            Salvar
+          </Button>
+
+          <Box sx={{ flex: 1 }} />
+
+          {ehUltimaSecao ? (
+            <Button
+              variant="contained"
+              color="success"
+              endIcon={<CheckIcon />}
+              disabled={saving}
+              onClick={finalizar}
+              sx={{ minHeight: 48, px: 2, fontWeight: 700 }}
+            >
+              Finalizar
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              endIcon={<NavigateNextIcon />}
+              disabled={saving}
+              onClick={irProximaSecao}
+              sx={{ minHeight: 48, px: 2, fontWeight: 700 }}
+            >
+              Próxima seção
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={2500}
+        message={snack}
+        onClose={() => setSnack('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      />
     </Box>
   );
 }

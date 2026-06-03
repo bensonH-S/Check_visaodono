@@ -107,7 +107,7 @@ CREATE TABLE respostas (
     id_pergunta INT NOT NULL REFERENCES perguntas(id_pergunta),
     resposta resposta_checklist NOT NULL,
     observacao TEXT,
-    foto_url VARCHAR(500),
+    foto_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (id_visita, id_pergunta)
 );

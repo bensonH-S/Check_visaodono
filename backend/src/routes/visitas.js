@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
+import { persistirFotos } from '../fotos.js';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ router.get('/:id', async (req, res, next) => {
     if (!visita.rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
 
     const respostas = await pool.query(
-      `SELECT r.*, p.texto, p.id_categoria, c.nome AS categoria
+      `SELECT r.*, p.codigo, p.texto, p.tipo_resposta, p.id_categoria, c.nome AS categoria
        FROM respostas r
        JOIN perguntas p ON p.id_pergunta = r.id_pergunta
        JOIN categorias_checklist c ON c.id_categoria = p.id_categoria
@@ -99,25 +100,39 @@ router.get('/:id', async (req, res, next) => {
 });
 
 router.post('/', async (req, res, next) => {
+  const { id_loja, id_usuario, data_visita, hora_inicio } = req.body;
+  if (!id_loja || !id_usuario) {
+    return res.status(400).json({ error: 'Loja e auditor são obrigatórios' });
+  }
   const client = await pool.connect();
   try {
-    const { id_loja, id_usuario, data_visita, hora_inicio } = req.body;
     await client.query('BEGIN');
     const { rows } = await client.query(
       `INSERT INTO visitas (id_loja, id_usuario, data_visita, hora_inicio, status)
        VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, 'Rascunho')
        RETURNING *`,
-      [id_loja, id_usuario, data_visita, hora_inicio]
+      [Number(id_loja), Number(id_usuario), data_visita ?? null, hora_inicio ?? null]
     );
     await client.query('COMMIT');
     res.status(201).json(rows[0]);
   } catch (e) {
-    await client.query('ROLLBACK');
-    next(e);
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      /* conexão já fechada */
+    }
+    console.error('[visitas POST]', e.message);
+    res.status(500).json({ error: e.message || 'Erro ao criar visita' });
   } finally {
     client.release();
   }
 });
+
+function normalizarResposta(r) {
+  const resp = r.resposta;
+  if (resp === 'Sim' || resp === 'Não' || resp === 'N/A') return resp;
+  return null;
+}
 
 router.post('/:id/respostas', async (req, res, next) => {
   try {
@@ -125,36 +140,48 @@ router.post('/:id/respostas', async (req, res, next) => {
     if (!Array.isArray(respostas) || !respostas.length) {
       return res.status(400).json({ error: 'Lista de respostas obrigatória' });
     }
+    const idVisita = Number(req.params.id);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       for (const r of respostas) {
+        const resposta = normalizarResposta(r);
+        const nota =
+          r.nota_estrelas != null && r.nota_estrelas !== ''
+            ? Number(r.nota_estrelas)
+            : null;
+        const notaValida = nota != null && !Number.isNaN(nota) && nota >= 1 && nota <= 5;
+        if (!resposta && !notaValida && !r.foto_url) {
+          continue;
+        }
+        const fotoSalva = await persistirFotos(idVisita, r.id_pergunta, r.foto_url ?? null);
         await client.query(
           `INSERT INTO respostas (id_visita, id_pergunta, resposta, nota_estrelas, observacao, foto_url)
            VALUES ($1, $2, $3::resposta_checklist, $4, $5, $6)
            ON CONFLICT (id_visita, id_pergunta)
-           DO UPDATE SET resposta = EXCLUDED.resposta,
-             nota_estrelas = EXCLUDED.nota_estrelas,
+           DO UPDATE SET
+             resposta = COALESCE(EXCLUDED.resposta, respostas.resposta),
+             nota_estrelas = COALESCE(EXCLUDED.nota_estrelas, respostas.nota_estrelas),
              observacao = EXCLUDED.observacao,
              foto_url = EXCLUDED.foto_url`,
           [
-            req.params.id,
+            idVisita,
             r.id_pergunta,
-            r.resposta ?? null,
-            r.nota_estrelas ?? null,
-            r.observacao || null,
-            r.foto_url || null,
+            resposta,
+            notaValida ? nota : null,
+            r.observacao ?? null,
+            fotoSalva,
           ]
         );
       }
       await client.query('COMMIT');
-      const detail = await pool.query('SELECT * FROM visitas WHERE id_visita = $1', [
-        req.params.id,
-      ]);
+      const detail = await pool.query('SELECT * FROM visitas WHERE id_visita = $1', [idVisita]);
       res.json(detail.rows[0]);
     } catch (e) {
       await client.query('ROLLBACK');
-      throw e;
+      console.error('[respostas]', e.message);
+      res.status(500).json({ error: e.message || 'Erro ao salvar respostas' });
+      return;
     } finally {
       client.release();
     }

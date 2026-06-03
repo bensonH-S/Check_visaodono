@@ -2,16 +2,31 @@ import { apiBasePath } from '../config/paths';
 
 const BASE = apiBasePath;
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'Erro na requisição');
+async function request<T>(path: string, options?: RequestInit, tentativa = 0): Promise<T> {
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...options?.headers },
+      ...options,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const msg = err.error || 'Erro na requisição';
+      if (res.status >= 500 && tentativa < 2) {
+        await new Promise((r) => setTimeout(r, 600));
+        return request<T>(path, options, tentativa + 1);
+      }
+      throw new Error(msg);
+    }
+    return res.json();
+  } catch (e) {
+    if (tentativa < 2 && e instanceof TypeError) {
+      await new Promise((r) => setTimeout(r, 600));
+      return request<T>(path, options, tentativa + 1);
+    }
+    throw e instanceof Error
+      ? e
+      : new Error('Servidor indisponível. Aguarde a API reiniciar e tente de novo.');
   }
-  return res.json();
 }
 
 export const api = {
