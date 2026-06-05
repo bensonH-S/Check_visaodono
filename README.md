@@ -115,6 +115,7 @@ Mesmo modelo do portal de manutenção Grupo Alvim:
 
 | Perfil | Acesso |
 |--------|--------|
+| **ti** | Vê todo o portal + **Gestão de usuários** (criar, perfil, loja, ativo/senha) |
 | **administrador** / **coordenador** | Visão geral, ranking, lojas, NCs, checklist, abrir chamados |
 | **gerente** | Checklist e chamados da sua loja |
 | **tecnico** | Lista de chamados e assumir atendimento |
@@ -124,7 +125,12 @@ npm run migrate:auth
 npm run seed:auth
 ```
 
-Usuários de teste (senha `Alvim@2026`): `admin@`, `coordenador@`, `gerente@`, `tecnico@` `@grupoalvim.com.br`
+```bash
+npm run migrate:ti
+npm run seed:auth
+```
+
+Usuários de teste (senha `Alvim@2026`): `ti@`, `admin@`, `coordenador@`, `gerente@`, `tecnico@` `@grupoalvim.com.br`
 
 ## Portal unificado
 

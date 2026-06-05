@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { persistirFotos } from '../fotos.js';
+import { filtroSqlLojas, usuarioPodeLoja } from '../lojasUsuario.js';
 
 const router = Router();
 
@@ -25,6 +26,7 @@ router.get('/', async (req, res, next) => {
       params.push(status);
       q += ` AND v.status = $${params.length}::status_visita`;
     }
+    q += filtroSqlLojas(req.user, 'v', 'id_loja', params);
     q += ' ORDER BY v.data_visita DESC, v.id_visita DESC';
     const { rows } = await pool.query(q, params);
     res.json(rows);
@@ -103,6 +105,9 @@ router.post('/', async (req, res, next) => {
   const { id_loja, id_usuario, data_visita, hora_inicio } = req.body;
   if (!id_loja || !id_usuario) {
     return res.status(400).json({ error: 'Loja e auditor são obrigatórios' });
+  }
+  if (!usuarioPodeLoja(req.user, id_loja)) {
+    return res.status(403).json({ error: 'Loja não vinculada ao seu usuário' });
   }
   const client = await pool.connect();
   try {

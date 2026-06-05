@@ -42,6 +42,7 @@ const authRouter = (await import('./backend/src/routes/auth.js')).default;
 const manutencaoRouter = (await import('./backend/src/routes/manutencao.js')).default;
 const { uploadsRoot } = await import('./backend/src/fotos.js');
 const { authMiddleware } = await import('./backend/src/auth.js');
+const { attachLojasUsuario } = await import('./backend/src/lojasUsuario.js');
 
 const app = express();
 
@@ -78,6 +79,7 @@ api.get('/health', async (_req, res) => {
 api.use('/auth', authRouter);
 
 api.use(authMiddleware);
+api.use(attachLojasUsuario);
 api.use('/dashboard', dashboardRouter);
 api.use('/lojas', lojasRouter);
 api.use('/usuarios', usuariosRouter);

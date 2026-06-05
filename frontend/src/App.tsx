@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { appBasePath } from './config/paths';
 import { theme } from './theme';
@@ -15,6 +16,13 @@ import NcPage from './pages/NcPage';
 import RelatorioPage from './pages/RelatorioPage';
 import ManutencaoChamadosPage from './pages/manutencao/ManutencaoChamadosPage';
 import ManutencaoNovoPage from './pages/manutencao/ManutencaoNovoPage';
+import UsuariosPage from './pages/UsuariosPage';
+import { getUsuario, podeGerenciarUsuarios } from './lib/auth';
+function RotaTi({ children }: { children: ReactNode }) {
+  const u = getUsuario();
+  if (!u || !podeGerenciarUsuarios(u.perfil)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
   return (
@@ -42,6 +50,14 @@ export default function App() {
             <Route path="manutencao" element={<Navigate to="/chamados" replace />} />
             <Route path="manutencao/novo" element={<Navigate to="/chamados/novo" replace />} />
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
+            <Route
+              path="usuarios"
+              element={
+                <RotaTi>
+                  <UsuariosPage />
+                </RotaTi>
+              }
+            />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

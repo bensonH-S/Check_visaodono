@@ -10,13 +10,13 @@ import { pool } from '../db.js';
 import { uploadsRoot } from '../fotos.js';
 import {
   authMiddleware,
-  podeAbrirChamado,
   requireRoles,
   veTodasLojas,
 } from '../auth.js';
+import { attachLojasUsuario, filtroSqlLojas, usuarioPodeLoja } from '../lojasUsuario.js';
 
 const router = Router();
-router.use(authMiddleware);
+router.use(authMiddleware, attachLojasUsuario);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -35,9 +35,8 @@ function calcularPrazoSla(abertoEm, slaHoras) {
 
 router.get('/formulario', async (req, res, next) => {
   try {
-    const { perfil, id_loja: idLojaUser } = req.user;
-    const lojaFilter = !veTodasLojas(perfil) && idLojaUser ? 'AND id_loja = $1' : '';
-    const lojaParams = lojaFilter ? [idLojaUser] : [];
+    const params = [];
+    const lojaFiltro = filtroSqlLojas(req.user, null, 'id_loja', params);
 
     const [cats, lojas] = await Promise.all([
       pool.query(
@@ -46,8 +45,8 @@ router.get('/formulario', async (req, res, next) => {
       ),
       pool.query(
         `SELECT id_loja, name AS nome, bk_number AS codigo_bkn
-         FROM lojas WHERE is_active = TRUE ${lojaFilter} ORDER BY name`,
-        lojaParams,
+         FROM lojas WHERE is_active = TRUE ${lojaFiltro} ORDER BY name`,
+        params,
       ),
     ]);
     res.json({ categorias: cats.rows, lojas: lojas.rows });
@@ -58,13 +57,8 @@ router.get('/formulario', async (req, res, next) => {
 
 router.get('/chamados', async (req, res, next) => {
   try {
-    const { perfil, id_loja: idLojaUser } = req.user;
     const params = [];
-    let filtro = '';
-    if (!veTodasLojas(perfil) && idLojaUser) {
-      params.push(idLojaUser);
-      filtro = ` AND c.id_loja = $${params.length}`;
-    }
+    const filtro = filtroSqlLojas(req.user, 'c', 'id_loja', params);
 
     const { rows } = await pool.query(
       `SELECT c.id_chamado, c.numero, c.titulo, c.status::text AS status,
@@ -91,25 +85,13 @@ router.get('/chamados', async (req, res, next) => {
 
 router.post('/chamados', requireRoles(...['gerente', 'coordenador', 'administrador']), async (req, res, next) => {
   try {
-    const {
-      titulo,
-      descricao,
-      id_categoria,
-      id_loja,
-      local_detalhe,
-      urgencia,
-    } = req.body;
+    const { titulo, descricao, id_categoria, id_loja, local_detalhe, urgencia } = req.body;
 
-    let idLoja = id_loja;
-    if (!veTodasLojas(req.user.perfil)) {
-      if (req.user.id_loja) idLoja = req.user.id_loja;
-      else if (!idLoja) {
-        return res.status(400).json({ error: 'Loja não vinculada ao usuário' });
-      }
-    }
-
-    if (!titulo || !descricao || !id_categoria || !idLoja) {
+    if (!titulo || !descricao || !id_categoria || !id_loja) {
       return res.status(400).json({ error: 'Campos obrigatórios incompletos' });
+    }
+    if (!usuarioPodeLoja(req.user, id_loja)) {
+      return res.status(403).json({ error: 'Loja não vinculada ao seu usuário' });
     }
 
     const { rows: catRows } = await pool.query(
@@ -136,7 +118,7 @@ router.post('/chamados', requireRoles(...['gerente', 'coordenador', 'administrad
         descricao,
         urg,
         id_categoria,
-        idLoja,
+        id_loja,
         req.user.sub,
         local_detalhe || null,
         abertoEm,
@@ -187,6 +169,13 @@ router.patch('/chamados/:id/assumir', requireRoles('tecnico', 'administrador', '
   try {
     const idChamado = Number(req.params.id);
     const idTecnico = req.body.id_tecnico ?? req.user.sub;
+
+    const chamado = await pool.query('SELECT id_loja FROM manut_chamados WHERE id_chamado = $1', [idChamado]);
+    if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
+    if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+      return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
+    }
+
     const { rows } = await pool.query(
       `UPDATE manut_chamados
        SET id_tecnico = $1, status = 'em_atendimento', updated_at = NOW()
@@ -194,12 +183,10 @@ router.patch('/chamados/:id/assumir', requireRoles('tecnico', 'administrador', '
        RETURNING id_chamado, status::text AS status`,
       [idTecnico, idChamado],
     );
-    if (!rows.length) return res.status(404).json({ error: 'Chamado não encontrado' });
     res.json(rows[0]);
   } catch (e) {
     next(e);
   }
 });
 
-export { podeAbrirChamado };
 export default router;

@@ -13,6 +13,8 @@
     "migrate:manutencao": "npm run migrate:manutencao --prefix backend",
     "migrate:auth": "npm run migrate:auth --prefix backend",
     "seed:auth": "node backend/scripts/seed-auth.js",
+    "migrate:ti": "npm run migrate:ti --prefix backend",
+    "migrate:usuario-lojas": "npm run migrate:usuario-lojas --prefix backend",
     "build": "npm run build:web",
     "build:web": "npm run build --prefix frontend",
     "start": "node server.js --production",

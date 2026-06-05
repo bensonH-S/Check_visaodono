@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { pool } from '../db.js';
-import { authMiddleware, signToken } from '../auth.js';
+import { authMiddleware, signToken, veTodasLojas } from '../auth.js';
+import { carregarLojasDetalhe } from '../lojasUsuario.js';
 
 const router = Router();
 
-function mapUsuario(row) {
+async function mapUsuario(row) {
+  const lojas = await carregarLojasDetalhe(row.perfil, row.id_usuario);
   return {
     id_usuario: row.id_usuario,
     nome: row.nome,
@@ -13,26 +15,21 @@ function mapUsuario(row) {
     perfil: row.perfil,
     cargo: row.cargo,
     avatar_inicial: row.avatar_inicial,
-    id_loja: row.id_loja,
-    loja_nome: row.loja_nome ?? null,
+    lojas,
+    acesso_todas_lojas: veTodasLojas(row.perfil),
   };
 }
 
 router.post('/login', async (req, res, next) => {
   try {
-    const email = String(req.body.email || '')
-      .trim()
-      .toLowerCase();
+    const email = String(req.body.email || '').trim().toLowerCase();
     const senha = req.body.senha;
     if (!email || !senha) {
       return res.status(400).json({ error: 'E-mail e senha são obrigatórios' });
     }
 
     const { rows } = await pool.query(
-      `SELECT u.*, l.name AS loja_nome
-       FROM usuarios u
-       LEFT JOIN lojas l ON l.id_loja = u.id_loja
-       WHERE LOWER(u.email) = $1 AND u.ativo = TRUE`,
+      `SELECT * FROM usuarios WHERE LOWER(email) = $1 AND ativo = TRUE`,
       [email],
     );
     const user = rows[0];
@@ -44,7 +41,7 @@ router.post('/login', async (req, res, next) => {
       return res.status(401).json({ error: 'E-mail ou senha incorretos' });
     }
 
-    const usuario = mapUsuario(user);
+    const usuario = await mapUsuario(user);
     res.json({
       accessToken: signToken(usuario),
       usuario,
@@ -57,14 +54,11 @@ router.post('/login', async (req, res, next) => {
 router.get('/me', authMiddleware, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT u.*, l.name AS loja_nome
-       FROM usuarios u
-       LEFT JOIN lojas l ON l.id_loja = u.id_loja
-       WHERE u.id_usuario = $1 AND u.ativo = TRUE`,
+      `SELECT * FROM usuarios WHERE id_usuario = $1 AND ativo = TRUE`,
       [req.user.sub],
     );
     if (!rows[0]) return res.status(401).json({ error: 'Usuário inativo ou não encontrado' });
-    res.json(mapUsuario(rows[0]));
+    res.json(await mapUsuario(rows[0]));
   } catch (e) {
     next(e);
   }

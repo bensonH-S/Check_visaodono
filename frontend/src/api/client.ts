@@ -65,6 +65,11 @@ export const api = {
     return request<Loja[]>(`/lojas${s ? `?${s}` : ''}`);
   },
   usuarios: () => request<Usuario[]>('/usuarios'),
+  usuariosGestao: () => request<UsuarioGestao[]>('/usuarios/gestao'),
+  usuarioGestaoCriar: (body: UsuarioGestaoInput) =>
+    request<UsuarioGestao>('/usuarios/gestao', { method: 'POST', body: JSON.stringify(body) }),
+  usuarioGestaoAtualizar: (id: number, body: Partial<UsuarioGestaoInput>) =>
+    request<UsuarioGestao>(`/usuarios/gestao/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   checklist: () => request<CategoriaChecklist[]>('/checklist'),
   visitas: (params?: { loja?: number; status?: string }) => {
     const q = new URLSearchParams();
@@ -137,6 +142,34 @@ export interface Usuario {
   cargo: string;
   avatar_inicial: string;
   perfil?: string;
+}
+
+export interface LojaResumo {
+  id_loja: number;
+  nome: string;
+  codigo_bkn?: string | null;
+}
+
+export interface UsuarioGestao {
+  id_usuario: number;
+  nome: string;
+  email: string;
+  cargo?: string;
+  avatar_inicial?: string;
+  perfil: string;
+  lojas: LojaResumo[];
+  lojas_ids: number[];
+  ativo: boolean;
+  acesso_todas_lojas?: boolean;
+}
+
+export interface UsuarioGestaoInput {
+  nome: string;
+  email: string;
+  senha?: string;
+  perfil: string;
+  lojas_ids?: number[];
+  ativo?: boolean;
 }
 
 export interface CategoriaChecklist {

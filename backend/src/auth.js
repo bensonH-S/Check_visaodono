@@ -1,9 +1,10 @@
 import jwt from 'jsonwebtoken';
 
-export const PERFIS = ['administrador', 'coordenador', 'gerente', 'tecnico'];
+export const PERFIS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'];
 export const PERFIS_ABREM_CHAMADO = ['gerente', 'coordenador', 'administrador'];
-export const PERFIS_VER_TUDO = ['administrador', 'coordenador'];
-export const PERFIS_GESTAO = ['administrador', 'coordenador'];
+export const PERFIS_VER_TUDO = ['administrador', 'coordenador', 'ti'];
+export const PERFIS_GESTAO = ['administrador', 'coordenador', 'ti'];
+export const PERFIS_GERENCIA_USUARIOS = ['ti'];
 
 const SECRET = process.env.JWT_SECRET || 'vision-check-dev-secret-altere-em-producao';
 const EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
@@ -14,7 +15,6 @@ export function signToken(user) {
       sub: user.id_usuario,
       email: user.email,
       perfil: user.perfil,
-      id_loja: user.id_loja ?? null,
     },
     SECRET,
     { expiresIn: EXPIRES },

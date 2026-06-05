@@ -100,7 +100,7 @@ export default function LoginPage() {
           </Box>
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 3 }}>
-            Dev: admin@grupoalvim.com.br · senha Alvim@2026
+            TI: ti@grupoalvim.com.br · demais perfis @grupoalvim.com.br · senha Alvim@2026
           </Typography>
         </Paper>
       </Box>

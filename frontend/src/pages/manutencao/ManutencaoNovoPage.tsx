@@ -73,17 +73,15 @@ export default function ManutencaoNovoPage() {
         setForm(f);
         sessionStorage.setItem(CACHE_KEY, JSON.stringify(f));
         if (!idCategoria && f.categorias[0]) setIdCategoria(f.categorias[0].id_categoria);
-        if (!idLoja) {
-          if (sessao.id_loja) setIdLoja(sessao.id_loja);
-          else if (f.lojas[0]) setIdLoja(f.lojas[0].id_loja);
-        }
+        if (!idLoja && f.lojas.length === 1) setIdLoja(f.lojas[0].id_loja);
+        else if (!idLoja && sessao.lojas?.length === 1) setIdLoja(sessao.lojas[0].id_loja);
       })
       .catch((e) => setErro(e.message))
       .finally(() => setLoading(false));
   }, [navigate, sessao]);
 
   const cat = form?.categorias.find((c) => c.id_categoria === idCategoria);
-  const lojaFixa = sessao && !podeVerGestao(sessao.perfil) && !!sessao.id_loja;
+  const lojaFixa = sessao && !podeVerGestao(sessao.perfil) && (form?.lojas?.length === 1);
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
@@ -195,7 +193,7 @@ export default function ManutencaoNovoPage() {
                 Loja
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {form.lojas.find((l) => l.id_loja === idLoja)?.nome ?? sessao?.loja_nome}
+                {form.lojas.find((l) => l.id_loja === idLoja)?.nome}
               </Typography>
             </Paper>
           ) : (

@@ -119,12 +119,8 @@ export default function ChecklistPage() {
   const secaoCompleta = (cat: CategoriaChecklist) =>
     cat.perguntas.every((p) => !p.obrigatoria || perguntaRespondida(p, respostas[p.id_pergunta]));
 
-  useEffect(() => {
-    const s = getUsuario();
-    if (s && !podeFazerChecklist(s.perfil)) {
-      navigate('/', { replace: true });
-    }
-  }, [navigate]);
+  const sessao = getUsuario();
+  const somenteVisualizacao = sessao?.perfil === 'ti';
 
   useEffect(() => {
     const reiniciar = (location.state as { reiniciar?: boolean })?.reiniciar;
@@ -156,7 +152,8 @@ export default function ChecklistPage() {
         setChecklist(c);
         setUsuarios(u);
         if (sessao) setIdUsuario(sessao.id_usuario);
-        if (sessao?.id_loja) setIdLoja(sessao.id_loja);
+        if (sessao?.lojas?.length === 1) setIdLoja(sessao.lojas[0].id_loja);
+        else if (l.length === 1) setIdLoja(l[0].id_loja);
         else if (l[0]) setIdLoja(l[0].id_loja);
       })
       .catch((e) => setMsg(e.message))
@@ -297,6 +294,17 @@ export default function ChecklistPage() {
     return (
       <Box sx={{ p: 2 }}>
         <LinearProgress />
+      </Box>
+    );
+  }
+
+  if (somenteVisualizacao) {
+    return (
+      <Box sx={{ p: 2, maxWidth: 480, mx: 'auto' }}>
+        <Alert severity="info">
+          Perfil <strong>TI</strong>: você visualiza o portal completo. O checklist em loja é
+          executado por gerente, coordenador ou administrador.
+        </Alert>
       </Box>
     );
   }

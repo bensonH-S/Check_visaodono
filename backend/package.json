@@ -7,7 +7,9 @@
     "migrate:lojas": "node scripts/run-sql.js migrations/003_lojas_reais.sql",
     "migrate:checklist": "node scripts/run-sql.js migrations/004_checklist_visao_dono.sql",
     "migrate:manutencao": "node scripts/run-sql.js migrations/008_manutencao.sql",
-    "migrate:auth": "node scripts/run-sql.js migrations/009_auth_usuarios.sql"
+    "migrate:auth": "node scripts/run-sql.js migrations/009_auth_usuarios.sql",
+    "migrate:ti": "node scripts/run-sql.js migrations/010_perfil_ti.sql",
+    "migrate:usuario-lojas": "node scripts/run-sql.js migrations/011_usuario_lojas.sql"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

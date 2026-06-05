@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
+import { filtroSqlLojas } from '../lojasUsuario.js';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.get('/', async (req, res, next) => {
     if (operacionais === '1' || operacionais === 'true') {
       q += ' AND bk_number IS NOT NULL';
     }
+    q += filtroSqlLojas(req.user, null, 'id_loja', params);
     q += ' ORDER BY name';
     const { rows } = await pool.query(q, params);
     res.json(rows);

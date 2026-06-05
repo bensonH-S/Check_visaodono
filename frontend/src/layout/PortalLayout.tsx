@@ -7,8 +7,10 @@ import {
   podeAbrirChamado,
   podeFazerChecklist,
   podeVerGestao,
+  podeGerenciarUsuarios,
   labelPerfil,
 } from '../lib/auth';
+import PeopleIcon from '@mui/icons-material/People';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -45,6 +47,7 @@ const titles: Record<string, string> = {
   '/nao-conformidades': 'Não Conformidades',
   '/chamados': 'Chamados',
   '/chamados/novo': 'Abrir chamado',
+  '/usuarios': 'Gestão de usuários',
   '/relatorio': 'Relatório da Visita',
 };
 
@@ -67,8 +70,8 @@ export default function PortalLayout() {
       to: '/checklist',
       label: 'Checklist',
       icon: <AssignmentIcon fontSize="small" />,
-      show: podeFazerChecklist(perfil),
-      mobileTab: true,
+      show: podeFazerChecklist(perfil) || perfil === 'ti',
+      mobileTab: perfil !== 'ti',
     },
     {
       to: '/chamados',
@@ -101,6 +104,12 @@ export default function PortalLayout() {
       label: 'NCs',
       icon: <WarningAmberIcon fontSize="small" />,
       show: podeVerGestao(perfil),
+    },
+    {
+      to: '/usuarios',
+      label: 'Usuários',
+      icon: <PeopleIcon fontSize="small" />,
+      show: podeGerenciarUsuarios(perfil),
     },
   ].filter((n) => n.show);
 
