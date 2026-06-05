@@ -27,8 +27,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import Divider from '@mui/material/Divider';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo } from '../api/client';
-import { labelPerfil } from '../lib/auth';
+import { getUsuario, labelPerfil } from '../lib/auth';
 
 const PERFIS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'] as const;
 
@@ -52,7 +53,10 @@ export default function UsuariosPage() {
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [salvando, setSalvando] = useState(false);
+  const [excluirAlvo, setExcluirAlvo] = useState<UsuarioGestao | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
 
+  const sessao = getUsuario();
   const todasLojas = form.permissoes.includes('lojas.todas');
 
   const catalogoPorGrupo = useMemo(() => {
@@ -156,6 +160,21 @@ export default function UsuariosPage() {
     }
   }
 
+  async function confirmarExclusao() {
+    if (!excluirAlvo) return;
+    setExcluindo(true);
+    setErro('');
+    try {
+      await api.usuarioGestaoExcluir(excluirAlvo.id_usuario);
+      setExcluirAlvo(null);
+      await carregar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao excluir');
+    } finally {
+      setExcluindo(false);
+    }
+  }
+
   function lojasLabel(u: UsuarioGestao) {
     if (u.acesso_todas_lojas) return 'Todas as lojas';
     if (!u.lojas?.length) return '—';
@@ -187,7 +206,7 @@ export default function UsuariosPage() {
         </Button>
       </Box>
 
-      {erro && !dialog && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
+      {erro && !dialog && !excluirAlvo && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
 
       <Paper sx={{ overflow: 'auto' }}>
         <Table size="small">
@@ -226,15 +245,62 @@ export default function UsuariosPage() {
                   />
                 </TableCell>
                 <TableCell align="right">
-                  <Button size="small" onClick={() => abrirEditar(u)}>
-                    Editar
-                  </Button>
+                  <Box className="flex justify-end gap-0.5">
+                    <Button size="small" onClick={() => abrirEditar(u)}>
+                      Editar
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      disabled={sessao?.id_usuario === u.id_usuario}
+                      onClick={() => {
+                        setErro('');
+                        setExcluirAlvo(u);
+                      }}
+                    >
+                      Excluir
+                    </Button>
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </Paper>
+
+      <Dialog
+        open={!!excluirAlvo}
+        onClose={() => !excluindo && setExcluirAlvo(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Excluir usuário</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Tem certeza que deseja excluir <strong>{excluirAlvo?.nome}</strong> (
+            {excluirAlvo?.email})? Esta ação não pode ser desfeita.
+          </Typography>
+          {erro && excluirAlvo && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {erro}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExcluirAlvo(null)} disabled={excluindo}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<DeleteOutlineIcon />}
+            onClick={confirmarExclusao}
+            disabled={excluindo}
+          >
+            {excluindo ? 'Excluindo...' : 'Excluir'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="md">
         <DialogTitle>{editId ? 'Editar usuário' : 'Novo usuário'}</DialogTitle>

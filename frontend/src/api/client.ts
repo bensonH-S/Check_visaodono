@@ -19,6 +19,9 @@ async function request<T>(path: string, options?: RequestInit, tentativa = 0): P
       ...options,
       headers: authHeaders(options?.headers),
     });
+    if (res.status === 204) {
+      return undefined as T;
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       const msg = err.error || 'Erro na requisição';
@@ -71,6 +74,8 @@ export const api = {
     request<UsuarioGestao>('/usuarios/gestao', { method: 'POST', body: JSON.stringify(body) }),
   usuarioGestaoAtualizar: (id: number, body: Partial<UsuarioGestaoInput>) =>
     request<UsuarioGestao>(`/usuarios/gestao/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  usuarioGestaoExcluir: (id: number) =>
+    request<void>(`/usuarios/gestao/${id}`, { method: 'DELETE' }),
   checklist: () => request<CategoriaChecklist[]>('/checklist'),
   visitas: (params?: { loja?: number; status?: string }) => {
     const q = new URLSearchParams();

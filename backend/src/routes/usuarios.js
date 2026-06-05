@@ -221,4 +221,42 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
   }
 });
 
+router.delete('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'ID inválido' });
+
+    if (Number(req.user.sub) === id) {
+      return res.status(400).json({ error: 'Você não pode excluir seu próprio usuário' });
+    }
+
+    const { rows } = await pool.query(
+      'SELECT id_usuario, nome FROM usuarios WHERE id_usuario = $1',
+      [id],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    const { rows: refs } = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM visitas WHERE id_usuario = $1) AS visitas,
+         (SELECT COUNT(*)::int FROM manut_chamados WHERE id_solicitante = $1 OR id_tecnico = $1) AS chamados`,
+      [id],
+    );
+    const { visitas, chamados } = refs[0];
+    if (visitas > 0 || chamados > 0) {
+      const partes = [];
+      if (visitas > 0) partes.push(`${visitas} visita(s)`);
+      if (chamados > 0) partes.push(`${chamados} chamado(s)`);
+      return res.status(409).json({
+        error: `Não é possível excluir: usuário vinculado a ${partes.join(' e ')}. Desative o usuário em vez de excluir.`,
+      });
+    }
+
+    await pool.query('DELETE FROM usuarios WHERE id_usuario = $1', [id]);
+    res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+});
+
 export default router;
