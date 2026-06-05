@@ -17,10 +17,10 @@ import RelatorioPage from './pages/RelatorioPage';
 import ManutencaoChamadosPage from './pages/manutencao/ManutencaoChamadosPage';
 import ManutencaoNovoPage from './pages/manutencao/ManutencaoNovoPage';
 import UsuariosPage from './pages/UsuariosPage';
-import { getUsuario, podeGerenciarUsuarios } from './lib/auth';
+import { getUsuario, temPermissao } from './lib/auth';
 function RotaTi({ children }: { children: ReactNode }) {
   const u = getUsuario();
-  if (!u || !podeGerenciarUsuarios(u.perfil)) return <Navigate to="/" replace />;
+  if (!u || !temPermissao('usuarios.gerenciar', u)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 

@@ -9,7 +9,8 @@
     "migrate:manutencao": "node scripts/run-sql.js migrations/008_manutencao.sql",
     "migrate:auth": "node scripts/run-sql.js migrations/009_auth_usuarios.sql",
     "migrate:ti": "node scripts/run-sql.js migrations/010_perfil_ti.sql",
-    "migrate:usuario-lojas": "node scripts/run-sql.js migrations/011_usuario_lojas.sql"
+    "migrate:usuario-lojas": "node scripts/run-sql.js migrations/011_usuario_lojas.sql",
+    "migrate:permissoes": "node scripts/run-sql.js migrations/012_permissoes.sql"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

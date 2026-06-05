@@ -1,8 +1,15 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { pool } from '../db.js';
-import { requireRoles, veTodasLojas } from '../auth.js';
 import { syncUsuarioLojas, carregarLojasDetalhe } from '../lojasUsuario.js';
+import {
+  CATALOGO_PERMISSOES,
+  acessoTodasLojas,
+  carregarPermissoesUsuario,
+  requirePermissao,
+  normalizarPermissoes,
+  syncUsuarioPermissoes,
+} from '../permissoes.js';
 
 const router = Router();
 
@@ -19,7 +26,9 @@ function iniciais(nome) {
 }
 
 async function mapUsuarioGestao(row) {
-  const lojas = await carregarLojasDetalhe(row.perfil, row.id_usuario);
+  const permissoes = await carregarPermissoesUsuario(row.id_usuario);
+  const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes };
+  const lojas = await carregarLojasDetalhe(userCtx);
   return {
     id_usuario: row.id_usuario,
     nome: row.nome,
@@ -29,35 +38,28 @@ async function mapUsuarioGestao(row) {
     perfil: row.perfil,
     lojas,
     lojas_ids: lojas.map((l) => l.id_loja),
+    permissoes,
     ativo: row.ativo,
-    acesso_todas_lojas: veTodasLojas(row.perfil),
+    acesso_todas_lojas: acessoTodasLojas(userCtx),
   };
 }
 
 const SQL_USUARIO = `SELECT id_usuario, nome, email, cargo, avatar_inicial, perfil::text AS perfil, ativo FROM usuarios`;
 
-router.get('/', requireRoles('administrador', 'coordenador'), async (_req, res, next) => {
+router.get('/permissoes/catalogo', requirePermissao('usuarios.gerenciar'), (_req, res) => {
+  res.json(CATALOGO_PERMISSOES);
+});
+
+router.get('/', requirePermissao('usuarios.listar'), async (_req, res, next) => {
   try {
     const { rows } = await pool.query(`${SQL_USUARIO} WHERE ativo = TRUE ORDER BY nome`);
-    res.json(
-      await Promise.all(
-        rows.map(async (r) => ({
-          id_usuario: r.id_usuario,
-          nome: r.nome,
-          email: r.email,
-          cargo: r.cargo,
-          avatar_inicial: r.avatar_inicial,
-          perfil: r.perfil,
-          ativo: r.ativo,
-        })),
-      ),
-    );
+    res.json(rows);
   } catch (e) {
     next(e);
   }
 });
 
-router.get('/gestao', requireRoles('ti'), async (_req, res, next) => {
+router.get('/gestao', requirePermissao('usuarios.gerenciar'), async (_req, res, next) => {
   try {
     const { rows } = await pool.query(`${SQL_USUARIO} ORDER BY ativo DESC, nome`);
     res.json(await Promise.all(rows.map(mapUsuarioGestao)));
@@ -66,7 +68,7 @@ router.get('/gestao', requireRoles('ti'), async (_req, res, next) => {
   }
 });
 
-router.get('/gestao/:id', requireRoles('ti'), async (req, res, next) => {
+router.get('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
     const { rows } = await pool.query(`${SQL_USUARIO} WHERE id_usuario = $1`, [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -76,16 +78,16 @@ router.get('/gestao/:id', requireRoles('ti'), async (req, res, next) => {
   }
 });
 
-function validarLojas(perfil, lojasIds) {
-  if (veTodasLojas(perfil)) return null;
+function validarLojas(permissoes, lojasIds) {
+  if (acessoTodasLojas({ permissoes })) return null;
   const ids = [...new Set((lojasIds || []).map(Number).filter(Boolean))];
-  if (!ids.length) return 'Selecione ao menos uma loja para este perfil';
+  if (!ids.length) return 'Selecione ao menos uma loja (ou marque "Acesso a todas as lojas")';
   return null;
 }
 
-router.post('/gestao', requireRoles('ti'), async (req, res, next) => {
+router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
-    const { nome, email, senha, perfil, lojas_ids, ativo } = req.body;
+    const { nome, email, senha, perfil, lojas_ids, permissoes, ativo } = req.body;
     const emailNorm = String(email || '').trim().toLowerCase();
 
     if (!nome?.trim() || !emailNorm || !senha || senha.length < 6) {
@@ -94,7 +96,9 @@ router.post('/gestao', requireRoles('ti'), async (req, res, next) => {
     if (!PERFIS_VALIDOS.includes(perfil)) {
       return res.status(400).json({ error: 'Perfil inválido' });
     }
-    const errLojas = validarLojas(perfil, lojas_ids);
+
+    const perms = normalizarPermissoes(permissoes || []);
+    const errLojas = validarLojas(perms, lojas_ids);
     if (errLojas) return res.status(400).json({ error: errLojas });
 
     const hash = await bcrypt.hash(senha, 10);
@@ -105,7 +109,12 @@ router.post('/gestao', requireRoles('ti'), async (req, res, next) => {
       [nome.trim(), emailNorm, perfil, iniciais(nome), hash, perfil, ativo],
     );
 
-    await syncUsuarioLojas(rows[0].id_usuario, perfil, lojas_ids);
+    await syncUsuarioPermissoes(rows[0].id_usuario, permissoes || []);
+    await syncUsuarioLojas(
+      rows[0].id_usuario,
+      lojas_ids,
+      acessoTodasLojas({ permissoes: permissoes || [] }),
+    );
     res.status(201).json(await mapUsuarioGestao(rows[0]));
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'E-mail já cadastrado' });
@@ -113,10 +122,10 @@ router.post('/gestao', requireRoles('ti'), async (req, res, next) => {
   }
 });
 
-router.patch('/gestao/:id', requireRoles('ti'), async (req, res, next) => {
+router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { nome, email, senha, perfil, lojas_ids, ativo } = req.body;
+    const { nome, email, senha, perfil, lojas_ids, permissoes, ativo } = req.body;
 
     const atual = await pool.query(
       'SELECT id_usuario, perfil::text AS perfil FROM usuarios WHERE id_usuario = $1',
@@ -128,12 +137,23 @@ router.patch('/gestao/:id', requireRoles('ti'), async (req, res, next) => {
       return res.status(400).json({ error: 'Você não pode desativar seu próprio usuário' });
     }
 
-    const perfilFinal = perfil ?? atual.rows[0].perfil;
     if (perfil && !PERFIS_VALIDOS.includes(perfil)) {
       return res.status(400).json({ error: 'Perfil inválido' });
     }
-    if (lojas_ids !== undefined || perfil) {
-      const errLojas = validarLojas(perfilFinal, lojas_ids);
+
+    const permsAtuais =
+      permissoes !== undefined ? normalizarPermissoes(permissoes) : await carregarPermissoesUsuario(id);
+
+    if (lojas_ids !== undefined || permissoes !== undefined) {
+      let idsValidar = lojas_ids;
+      if (idsValidar === undefined) {
+        const { rows: atuais } = await pool.query(
+          'SELECT id_loja FROM usuario_lojas WHERE id_usuario = $1',
+          [id],
+        );
+        idsValidar = atuais.map((r) => r.id_loja);
+      }
+      const errLojas = validarLojas(permsAtuais, idsValidar);
       if (errLojas) return res.status(400).json({ error: errLojas });
     }
 
@@ -172,23 +192,22 @@ router.patch('/gestao/:id', requireRoles('ti'), async (req, res, next) => {
       await pool.query(`UPDATE usuarios SET ${sets.join(', ')} WHERE id_usuario = $${i}`, vals);
     }
 
-    if (lojas_ids !== undefined || perfil) {
-      const ids = lojas_ids !== undefined ? lojas_ids : undefined;
-      if (ids !== undefined || perfil) {
-        const { rows: u } = await pool.query(
-          'SELECT perfil::text AS perfil FROM usuarios WHERE id_usuario = $1',
-          [id],
-        );
+    if (permissoes !== undefined) {
+      await syncUsuarioPermissoes(id, permissoes);
+    }
+
+    if (lojas_ids !== undefined || permissoes !== undefined) {
+      const perms =
+        permissoes !== undefined ? permissoes : await carregarPermissoesUsuario(id);
+      let idsLoja = lojas_ids;
+      if (idsLoja === undefined) {
         const { rows: atuais } = await pool.query(
           'SELECT id_loja FROM usuario_lojas WHERE id_usuario = $1',
           [id],
         );
-        await syncUsuarioLojas(
-          id,
-          u[0].perfil,
-          ids !== undefined ? ids : atuais.map((r) => r.id_loja),
-        );
+        idsLoja = atuais.map((r) => r.id_loja);
       }
+      await syncUsuarioLojas(id, idsLoja, acessoTodasLojas({ permissoes: perms }));
     }
 
     const { rows } = await pool.query(`${SQL_USUARIO} WHERE id_usuario = $1`, [id]);

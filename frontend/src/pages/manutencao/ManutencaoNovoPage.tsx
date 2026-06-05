@@ -11,7 +11,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import { api } from '../../api/client';
 import type { ManutFormulario } from '../../api/client';
-import { getUsuario, podeAbrirChamado, podeVerGestao } from '../../lib/auth';
+import { getUsuario, temPermissao } from '../../lib/auth';
 
 const CACHE_KEY = 'manut_formulario_v1';
 
@@ -49,7 +49,7 @@ export default function ManutencaoNovoPage() {
   const [urgencia, setUrgencia] = useState('');
 
   useEffect(() => {
-    if (!sessao || !podeAbrirChamado(sessao.perfil)) {
+    if (!sessao || !temPermissao('chamados.abrir', sessao)) {
       navigate('/chamados', { replace: true });
       return;
     }
@@ -81,7 +81,7 @@ export default function ManutencaoNovoPage() {
   }, [navigate, sessao]);
 
   const cat = form?.categorias.find((c) => c.id_categoria === idCategoria);
-  const lojaFixa = sessao && !podeVerGestao(sessao.perfil) && (form?.lojas?.length === 1);
+  const lojaFixa = sessao && !temPermissao('lojas.todas', sessao) && (form?.lojas?.length === 1);
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();

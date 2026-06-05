@@ -8,15 +8,13 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { pool } from '../db.js';
 import { uploadsRoot } from '../fotos.js';
-import {
-  authMiddleware,
-  requireRoles,
-  veTodasLojas,
-} from '../auth.js';
+import { authMiddleware } from '../auth.js';
+import { requirePermissao, attachPermissoesUsuario } from '../permissoes.js';
 import { attachLojasUsuario, filtroSqlLojas, usuarioPodeLoja } from '../lojasUsuario.js';
 
 const router = Router();
-router.use(authMiddleware, attachLojasUsuario);
+
+router.use(authMiddleware, attachPermissoesUsuario, attachLojasUsuario);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -33,7 +31,7 @@ function calcularPrazoSla(abertoEm, slaHoras) {
   return new Date(abertoEm.getTime() + slaHoras * 60 * 60 * 1000);
 }
 
-router.get('/formulario', async (req, res, next) => {
+router.get('/formulario', requirePermissao('chamados.abrir', 'chamados.ver'), async (req, res, next) => {
   try {
     const params = [];
     const lojaFiltro = filtroSqlLojas(req.user, null, 'id_loja', params);
@@ -55,7 +53,7 @@ router.get('/formulario', async (req, res, next) => {
   }
 });
 
-router.get('/chamados', async (req, res, next) => {
+router.get('/chamados', requirePermissao('chamados.ver'), async (req, res, next) => {
   try {
     const params = [];
     const filtro = filtroSqlLojas(req.user, 'c', 'id_loja', params);
@@ -83,7 +81,7 @@ router.get('/chamados', async (req, res, next) => {
   }
 });
 
-router.post('/chamados', requireRoles(...['gerente', 'coordenador', 'administrador']), async (req, res, next) => {
+router.post('/chamados', requirePermissao('chamados.abrir'), async (req, res, next) => {
   try {
     const { titulo, descricao, id_categoria, id_loja, local_detalhe, urgencia } = req.body;
 
@@ -165,7 +163,7 @@ router.post('/chamados/:id/fotos', upload.array('fotos', 10), async (req, res, n
   }
 });
 
-router.patch('/chamados/:id/assumir', requireRoles('tecnico', 'administrador', 'coordenador'), async (req, res, next) => {
+router.patch('/chamados/:id/assumir', requirePermissao('chamados.assumir'), async (req, res, next) => {
   try {
     const idChamado = Number(req.params.id);
     const idTecnico = req.body.id_tecnico ?? req.user.sub;

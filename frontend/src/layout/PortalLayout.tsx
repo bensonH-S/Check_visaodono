@@ -1,15 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { assetUrl, toAppPath, LOGO_GRUPO_ALVIM } from '../config/paths';
 import { usePageTitle } from '../hooks/usePageTitle';
-import {
-  getUsuario,
-  logout,
-  podeAbrirChamado,
-  podeFazerChecklist,
-  podeVerGestao,
-  podeGerenciarUsuarios,
-  labelPerfil,
-} from '../lib/auth';
+import { getUsuario, logout, temPermissao, labelPerfil } from '../lib/auth';
 import PeopleIcon from '@mui/icons-material/People';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -56,7 +48,6 @@ export default function PortalLayout() {
   const location = useLocation();
   const path = toAppPath(location.pathname);
   const user = getUsuario();
-  const perfil = user?.perfil ?? 'gerente';
 
   const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);
 
@@ -65,19 +56,26 @@ export default function PortalLayout() {
   const campoMobile = isChecklist || isChamadoNovo;
 
   const nav: NavItem[] = [
-    { to: '/', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: true, end: true, mobileTab: true },
+    {
+      to: '/',
+      label: 'Início',
+      icon: <DashboardIcon fontSize="small" />,
+      show: temPermissao('portal.dashboard.ver', user),
+      end: true,
+      mobileTab: true,
+    },
     {
       to: '/checklist',
       label: 'Checklist',
       icon: <AssignmentIcon fontSize="small" />,
-      show: podeFazerChecklist(perfil) || perfil === 'ti',
-      mobileTab: perfil !== 'ti',
+      show: temPermissao('checklist.ver', user) || temPermissao('checklist.executar', user),
+      mobileTab: temPermissao('checklist.executar', user),
     },
     {
       to: '/chamados',
       label: 'Chamados',
       icon: <BuildIcon fontSize="small" />,
-      show: true,
+      show: temPermissao('chamados.ver', user),
       end: true,
       mobileTab: true,
     },
@@ -85,31 +83,31 @@ export default function PortalLayout() {
       to: '/visitas',
       label: 'Visitas',
       icon: <HistoryIcon fontSize="small" />,
-      show: true,
+      show: temPermissao('portal.visitas.ver', user),
     },
     {
       to: '/ranking',
       label: 'Ranking',
       icon: <EmojiEventsIcon fontSize="small" />,
-      show: podeVerGestao(perfil),
+      show: temPermissao('portal.ranking.ver', user),
     },
     {
       to: '/lojas',
       label: 'Lojas',
       icon: <StoreIcon fontSize="small" />,
-      show: podeVerGestao(perfil),
+      show: temPermissao('portal.lojas.ver', user),
     },
     {
       to: '/nao-conformidades',
       label: 'NCs',
       icon: <WarningAmberIcon fontSize="small" />,
-      show: podeVerGestao(perfil),
+      show: temPermissao('portal.ncs.ver', user),
     },
     {
       to: '/usuarios',
       label: 'Usuários',
       icon: <PeopleIcon fontSize="small" />,
-      show: podeGerenciarUsuarios(perfil),
+      show: temPermissao('usuarios.gerenciar', user),
     },
   ].filter((n) => n.show);
 
@@ -182,7 +180,7 @@ export default function PortalLayout() {
                 {user?.nome}
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap>
-                {labelPerfil(perfil)}
+                {user?.perfil ? labelPerfil(user.perfil) : '—'}
               </Typography>
             </Box>
           </Box>
@@ -217,7 +215,7 @@ export default function PortalLayout() {
             {title}
           </Typography>
           <Box className="hidden md:flex items-center gap-2">
-            {podeFazerChecklist(perfil) && (
+            {temPermissao('checklist.executar', user) && (
               <Button
                 variant="outlined"
                 size="small"
@@ -227,7 +225,7 @@ export default function PortalLayout() {
                 Checklist
               </Button>
             )}
-            {podeAbrirChamado(perfil) && (
+            {temPermissao('chamados.abrir', user) && (
               <Button
                 variant="contained"
                 size="small"

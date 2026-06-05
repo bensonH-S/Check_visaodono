@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -23,12 +23,14 @@ import Select from '@mui/material/Select';
 import OutlinedInput from '@mui/material/OutlinedInput';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import Divider from '@mui/material/Divider';
 import AddIcon from '@mui/icons-material/Add';
-import { api, type UsuarioGestao, type Loja } from '../api/client';
+import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo } from '../api/client';
 import { labelPerfil } from '../lib/auth';
 
 const PERFIS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'] as const;
-const PERFIS_TODAS_LOJAS = ['administrador', 'ti'];
 
 const emptyForm = {
   nome: '',
@@ -36,12 +38,14 @@ const emptyForm = {
   senha: '',
   perfil: 'tecnico' as (typeof PERFIS)[number],
   lojas_ids: [] as number[],
+  permissoes: [] as string[],
   ativo: true,
 };
 
 export default function UsuariosPage() {
   const [lista, setLista] = useState<UsuarioGestao[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
+  const [catalogo, setCatalogo] = useState<PermissaoCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [dialog, setDialog] = useState(false);
@@ -49,14 +53,38 @@ export default function UsuariosPage() {
   const [form, setForm] = useState(emptyForm);
   const [salvando, setSalvando] = useState(false);
 
-  const perfilTodasLojas = PERFIS_TODAS_LOJAS.includes(form.perfil);
+  const todasLojas = form.permissoes.includes('lojas.todas');
+
+  const catalogoPorGrupo = useMemo(() => {
+    const map = new Map<string, PermissaoCatalogo[]>();
+    for (const p of catalogo) {
+      const g = map.get(p.grupo) || [];
+      g.push(p);
+      map.set(p.grupo, g);
+    }
+    return [...map.entries()].sort((a, b) => (a[1][0]?.ordem ?? 0) - (b[1][0]?.ordem ?? 0));
+  }, [catalogo]);
+
+  function togglePermissao(codigo: string) {
+    setForm((f) => {
+      const tem = f.permissoes.includes(codigo);
+      const permissoes = tem ? f.permissoes.filter((c) => c !== codigo) : [...f.permissoes, codigo];
+      const lojas_ids = codigo === 'lojas.todas' && !tem ? [] : f.lojas_ids;
+      return { ...f, permissoes, lojas_ids };
+    });
+  }
 
   async function carregar() {
     setLoading(true);
     try {
-      const [u, l] = await Promise.all([api.usuariosGestao(), api.lojas({ ativas: true })]);
+      const [u, l, cat] = await Promise.all([
+        api.usuariosGestao(),
+        api.lojas({ ativas: true }),
+        api.permissoesCatalogo(),
+      ]);
       setLista(u);
       setLojas(l);
+      setCatalogo(cat);
       setErro('');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
@@ -83,6 +111,7 @@ export default function UsuariosPage() {
       senha: '',
       perfil: u.perfil as (typeof PERFIS)[number],
       lojas_ids: u.lojas_ids || [],
+      permissoes: u.permissoes || [],
       ativo: u.ativo,
     });
     setDialog(true);
@@ -96,13 +125,14 @@ export default function UsuariosPage() {
         nome: form.nome.trim(),
         email: form.email.trim(),
         perfil: form.perfil,
-        lojas_ids: perfilTodasLojas ? [] : form.lojas_ids,
+        lojas_ids: todasLojas ? [] : form.lojas_ids,
+        permissoes: form.permissoes,
         ativo: form.ativo,
         ...(form.senha ? { senha: form.senha } : {}),
       };
 
-      if (!perfilTodasLojas && !body.lojas_ids.length) {
-        setErro('Selecione ao menos uma loja.');
+      if (!todasLojas && !body.lojas_ids.length) {
+        setErro('Selecione ao menos uma loja ou marque "Acesso a todas as lojas".');
         setSalvando(false);
         return;
       }
@@ -149,7 +179,7 @@ export default function UsuariosPage() {
             Gestão de usuários
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Vincule uma ou várias lojas por usuário. TI e Administrador têm todas automaticamente.
+            Perfil é só o cargo. Marque abaixo o que cada pessoa pode fazer no sistema.
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={abrirNovo}>
@@ -166,6 +196,7 @@ export default function UsuariosPage() {
               <TableCell>Nome</TableCell>
               <TableCell>E-mail</TableCell>
               <TableCell>Perfil</TableCell>
+              <TableCell>Funções</TableCell>
               <TableCell>Lojas</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Ações</TableCell>
@@ -178,6 +209,11 @@ export default function UsuariosPage() {
                 <TableCell>{u.email}</TableCell>
                 <TableCell>
                   <Chip label={labelPerfil(u.perfil)} size="small" variant="outlined" />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color={u.permissoes?.length ? 'text.primary' : 'text.secondary'}>
+                    {u.permissoes?.length ? `${u.permissoes.length} permissão(ões)` : 'Nenhuma'}
+                  </Typography>
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">{lojasLabel(u)}</Typography>
@@ -200,7 +236,7 @@ export default function UsuariosPage() {
         </Table>
       </Paper>
 
-      <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="md">
         <DialogTitle>{editId ? 'Editar usuário' : 'Novo usuário'}</DialogTitle>
         <DialogContent className="flex flex-col gap-3 pt-2">
           <TextField
@@ -220,7 +256,7 @@ export default function UsuariosPage() {
           />
           <TextField
             select
-            label="Perfil"
+            label="Perfil (cargo)"
             required
             fullWidth
             value={form.perfil}
@@ -228,9 +264,9 @@ export default function UsuariosPage() {
               setForm((f) => ({
                 ...f,
                 perfil: e.target.value as typeof form.perfil,
-                lojas_ids: PERFIS_TODAS_LOJAS.includes(e.target.value) ? [] : f.lojas_ids,
               }))
             }
+            helperText="Apenas identificação — não define o que o usuário pode fazer"
           >
             {PERFIS.map((p) => (
               <MenuItem key={p} value={p}>
@@ -239,10 +275,44 @@ export default function UsuariosPage() {
             ))}
           </TextField>
 
-          {perfilTodasLojas ? (
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              Permissões no sistema
+            </Typography>
+            {catalogoPorGrupo.map(([grupo, itens], idx) => (
+              <Box key={grupo} sx={{ mb: 1.5 }}>
+                {idx > 0 && <Divider sx={{ mb: 1 }} />}
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  {grupo}
+                </Typography>
+                <FormGroup row sx={{ flexWrap: 'wrap', gap: 0 }}>
+                  {itens.map((p) => (
+                    <FormControlLabel
+                      key={p.codigo}
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={form.permissoes.includes(p.codigo)}
+                          onChange={() => togglePermissao(p.codigo)}
+                        />
+                      }
+                      label={<Typography variant="body2">{p.nome}</Typography>}
+                      sx={{ width: { xs: '100%', sm: '48%' }, mr: 0 }}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
+            ))}
+            {!form.permissoes.length && (
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                Sem permissões marcadas, o usuário não verá menus nem poderá usar o sistema.
+              </Alert>
+            )}
+          </Box>
+
+          {todasLojas ? (
             <Alert severity="info" sx={{ py: 0.5 }}>
-              Perfil <strong>{labelPerfil(form.perfil)}</strong> tem acesso a <strong>todas as lojas</strong>{' '}
-              automaticamente.
+              Com <strong>Acesso a todas as lojas</strong>, o vínculo manual de lojas é ignorado.
             </Alert>
           ) : (
             <FormControl fullWidth>

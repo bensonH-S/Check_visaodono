@@ -65,6 +65,7 @@ export const api = {
     return request<Loja[]>(`/lojas${s ? `?${s}` : ''}`);
   },
   usuarios: () => request<Usuario[]>('/usuarios'),
+  permissoesCatalogo: () => request<PermissaoCatalogo[]>('/usuarios/permissoes/catalogo'),
   usuariosGestao: () => request<UsuarioGestao[]>('/usuarios/gestao'),
   usuarioGestaoCriar: (body: UsuarioGestaoInput) =>
     request<UsuarioGestao>('/usuarios/gestao', { method: 'POST', body: JSON.stringify(body) }),
@@ -150,6 +151,13 @@ export interface LojaResumo {
   codigo_bkn?: string | null;
 }
 
+export interface PermissaoCatalogo {
+  codigo: string;
+  nome: string;
+  grupo: string;
+  ordem: number;
+}
+
 export interface UsuarioGestao {
   id_usuario: number;
   nome: string;
@@ -159,6 +167,7 @@ export interface UsuarioGestao {
   perfil: string;
   lojas: LojaResumo[];
   lojas_ids: number[];
+  permissoes: string[];
   ativo: boolean;
   acesso_todas_lojas?: boolean;
 }
@@ -169,6 +178,7 @@ export interface UsuarioGestaoInput {
   senha?: string;
   perfil: string;
   lojas_ids?: number[];
+  permissoes?: string[];
   ativo?: boolean;
 }
 

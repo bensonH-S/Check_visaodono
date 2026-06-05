@@ -19,7 +19,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { api } from '../api/client';
-import { getUsuario, podeFazerChecklist, podeVerGestao } from '../lib/auth';
+import { getUsuario, temPermissao } from '../lib/auth';
 import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput } from '../api/client';
 import ChecklistPerguntaCard, {
   perguntaRespondida,
@@ -120,7 +120,7 @@ export default function ChecklistPage() {
     cat.perguntas.every((p) => !p.obrigatoria || perguntaRespondida(p, respostas[p.id_pergunta]));
 
   const sessao = getUsuario();
-  const somenteVisualizacao = sessao?.perfil === 'ti';
+  const somenteVisualizacao = !temPermissao('checklist.executar', sessao);
 
   useEffect(() => {
     const reiniciar = (location.state as { reiniciar?: boolean })?.reiniciar;
@@ -141,7 +141,7 @@ export default function ChecklistPage() {
       api.lojas({ ativas: true, operacionais: true }),
       api.checklist(),
     ];
-    const comUsuarios = sessao && podeVerGestao(sessao.perfil);
+    const comUsuarios = sessao && temPermissao('usuarios.listar', sessao);
 
     Promise.all([
       ...cargas,
@@ -348,7 +348,7 @@ export default function ChecklistPage() {
           </Select>
         </FormControl>
 
-        {getUsuario() && podeVerGestao(getUsuario()!.perfil) ? (
+        {getUsuario() && temPermissao('usuarios.listar', getUsuario()) ? (
           <FormControl fullWidth sx={{ mb: 3 }}>
             <InputLabel>Auditor</InputLabel>
             <Select

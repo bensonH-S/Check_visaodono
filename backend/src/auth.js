@@ -1,10 +1,6 @@
 import jwt from 'jsonwebtoken';
 
 export const PERFIS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'];
-export const PERFIS_ABREM_CHAMADO = ['gerente', 'coordenador', 'administrador'];
-export const PERFIS_VER_TUDO = ['administrador', 'coordenador', 'ti'];
-export const PERFIS_GESTAO = ['administrador', 'coordenador', 'ti'];
-export const PERFIS_GERENCIA_USUARIOS = ['ti'];
 
 const SECRET = process.env.JWT_SECRET || 'vision-check-dev-secret-altere-em-producao';
 const EXPIRES = process.env.JWT_EXPIRES_IN || '7d';
@@ -36,21 +32,4 @@ export function authMiddleware(req, res, next) {
   } catch {
     return res.status(401).json({ error: 'Sessão inválida ou expirada' });
   }
-}
-
-export function requireRoles(...roles) {
-  return (req, res, next) => {
-    if (!req.user?.perfil || !roles.includes(req.user.perfil)) {
-      return res.status(403).json({ error: 'Sem permissão para esta ação' });
-    }
-    next();
-  };
-}
-
-export function podeAbrirChamado(perfil) {
-  return PERFIS_ABREM_CHAMADO.includes(perfil);
-}
-
-export function veTodasLojas(perfil) {
-  return PERFIS_VER_TUDO.includes(perfil);
 }

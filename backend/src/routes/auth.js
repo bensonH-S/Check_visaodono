@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { pool } from '../db.js';
-import { authMiddleware, signToken, veTodasLojas } from '../auth.js';
+import { authMiddleware, signToken } from '../auth.js';
 import { carregarLojasDetalhe } from '../lojasUsuario.js';
+import { acessoTodasLojas, carregarPermissoesUsuario } from '../permissoes.js';
 
 const router = Router();
 
 async function mapUsuario(row) {
-  const lojas = await carregarLojasDetalhe(row.perfil, row.id_usuario);
+  const permissoes = await carregarPermissoesUsuario(row.id_usuario);
+  const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes };
+  const lojas = await carregarLojasDetalhe(userCtx);
   return {
     id_usuario: row.id_usuario,
     nome: row.nome,
@@ -16,7 +19,8 @@ async function mapUsuario(row) {
     cargo: row.cargo,
     avatar_inicial: row.avatar_inicial,
     lojas,
-    acesso_todas_lojas: veTodasLojas(row.perfil),
+    permissoes,
+    acesso_todas_lojas: acessoTodasLojas(userCtx),
   };
 }
 

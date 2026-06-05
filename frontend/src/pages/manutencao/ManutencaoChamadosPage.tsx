@@ -10,7 +10,7 @@ import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import { api } from '../../api/client';
 import type { ManutChamado } from '../../api/client';
-import { getUsuario, podeAbrirChamado } from '../../lib/auth';
+import { getUsuario, temPermissao } from '../../lib/auth';
 
 const STATUS: Record<string, string> = {
   aberto: 'Aberto',
@@ -62,7 +62,7 @@ export default function ManutencaoChamadosPage() {
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
           Chamados
         </Typography>
-        {sessao && podeAbrirChamado(sessao.perfil) && (
+        {sessao && temPermissao('chamados.abrir', sessao) && (
           <Button
             variant="contained"
             size="small"
@@ -82,7 +82,7 @@ export default function ManutencaoChamadosPage() {
           <Typography color="text.secondary" gutterBottom>
             Nenhum chamado ainda.
           </Typography>
-          {sessao && podeAbrirChamado(sessao.perfil) && (
+          {sessao && temPermissao('chamados.abrir', sessao) && (
             <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/chamados/novo')}>
               Abrir primeiro chamado
             </Button>
@@ -113,10 +113,7 @@ export default function ManutencaoChamadosPage() {
                 size="small"
                 variant="outlined"
               />
-              {c.status === 'aberto' &&
-                (sessao?.perfil === 'tecnico' ||
-                  sessao?.perfil === 'administrador' ||
-                  sessao?.perfil === 'coordenador') && (
+              {c.status === 'aberto' && sessao && temPermissao('chamados.assumir', sessao) && (
                   <Button
                     size="small"
                     variant="outlined"

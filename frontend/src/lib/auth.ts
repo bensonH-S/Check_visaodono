@@ -14,13 +14,9 @@ export type UsuarioSessao = {
   cargo?: string;
   avatar_inicial?: string;
   lojas: LojaResumo[];
+  permissoes: string[];
   acesso_todas_lojas?: boolean;
 };
-
-const PERFIS_ABREM_CHAMADO: PerfilUsuario[] = ['gerente', 'coordenador', 'administrador'];
-const PERFIS_CHECKLIST: PerfilUsuario[] = ['gerente', 'coordenador', 'administrador'];
-const PERFIS_GESTAO: PerfilUsuario[] = ['administrador', 'coordenador', 'ti'];
-const PERFIS_GERENCIA_USUARIOS: PerfilUsuario[] = ['ti'];
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -32,7 +28,9 @@ export function getUsuario(): UsuarioSessao | null {
   const raw = localStorage.getItem('usuario');
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as UsuarioSessao;
+    const u = JSON.parse(raw) as UsuarioSessao;
+    if (!u.permissoes) u.permissoes = [];
+    return u;
   } catch {
     return null;
   }
@@ -48,20 +46,9 @@ export function logout() {
   localStorage.removeItem('usuario');
 }
 
-export function podeAbrirChamado(perfil: string) {
-  return PERFIS_ABREM_CHAMADO.includes(perfil as PerfilUsuario);
-}
-
-export function podeFazerChecklist(perfil: string) {
-  return PERFIS_CHECKLIST.includes(perfil as PerfilUsuario);
-}
-
-export function podeVerGestao(perfil: string) {
-  return PERFIS_GESTAO.includes(perfil as PerfilUsuario);
-}
-
-export function podeGerenciarUsuarios(perfil: string) {
-  return PERFIS_GERENCIA_USUARIOS.includes(perfil as PerfilUsuario);
+export function temPermissao(codigo: string, usuario?: UsuarioSessao | null) {
+  const u = usuario ?? getUsuario();
+  return (u?.permissoes || []).includes(codigo);
 }
 
 export function labelPerfil(perfil: string) {
