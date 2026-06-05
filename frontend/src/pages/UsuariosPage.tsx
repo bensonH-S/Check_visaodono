@@ -27,7 +27,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import Divider from '@mui/material/Divider';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo } from '../api/client';
 import { getUsuario, labelPerfil } from '../lib/auth';
 
@@ -293,7 +293,7 @@ export default function UsuariosPage() {
           <Button
             variant="contained"
             color="error"
-            startIcon={<DeleteOutlineIcon />}
+            startIcon={<DeleteIcon />}
             onClick={confirmarExclusao}
             disabled={excluindo}
           >
