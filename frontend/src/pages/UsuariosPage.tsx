@@ -260,13 +260,21 @@ export default function UsuariosPage() {
             required
             fullWidth
             value={form.perfil}
-            onChange={(e) =>
+            onChange={(e) => {
+              const perfil = e.target.value as typeof form.perfil;
               setForm((f) => ({
                 ...f,
-                perfil: e.target.value as typeof form.perfil,
-              }))
+                perfil,
+                permissoes:
+                  perfil === 'ti' ? catalogo.map((p) => p.codigo) : f.permissoes,
+                lojas_ids: perfil === 'ti' ? [] : f.lojas_ids,
+              }));
+            }}
+            helperText={
+              form.perfil === 'ti'
+                ? 'Perfil TI recebe todas as funções por padrão'
+                : 'Apenas identificação — marque as permissões abaixo'
             }
-            helperText="Apenas identificação — não define o que o usuário pode fazer"
           >
             {PERFIS.map((p) => (
               <MenuItem key={p} value={p}>

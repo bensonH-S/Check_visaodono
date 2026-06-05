@@ -8,6 +8,8 @@ import {
   carregarPermissoesUsuario,
   requirePermissao,
   normalizarPermissoes,
+  permissoesPadraoTi,
+  resolverPermissoesUsuario,
   syncUsuarioPermissoes,
 } from '../permissoes.js';
 
@@ -97,7 +99,7 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
       return res.status(400).json({ error: 'Perfil inválido' });
     }
 
-    const perms = normalizarPermissoes(permissoes || []);
+    const perms = resolverPermissoesUsuario(perfil, permissoes);
     const errLojas = validarLojas(perms, lojas_ids);
     if (errLojas) return res.status(400).json({ error: errLojas });
 
@@ -109,12 +111,8 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
       [nome.trim(), emailNorm, perfil, iniciais(nome), hash, perfil, ativo],
     );
 
-    await syncUsuarioPermissoes(rows[0].id_usuario, permissoes || []);
-    await syncUsuarioLojas(
-      rows[0].id_usuario,
-      lojas_ids,
-      acessoTodasLojas({ permissoes: permissoes || [] }),
-    );
+    await syncUsuarioPermissoes(rows[0].id_usuario, perms);
+    await syncUsuarioLojas(rows[0].id_usuario, lojas_ids, acessoTodasLojas({ permissoes: perms }));
     res.status(201).json(await mapUsuarioGestao(rows[0]));
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'E-mail já cadastrado' });
@@ -141,10 +139,16 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       return res.status(400).json({ error: 'Perfil inválido' });
     }
 
+    const perfilEfetivo = perfil || atual.rows[0].perfil;
+    const virouTi = perfil === 'ti' && atual.rows[0].perfil !== 'ti';
     const permsAtuais =
-      permissoes !== undefined ? normalizarPermissoes(permissoes) : await carregarPermissoesUsuario(id);
+      permissoes !== undefined
+        ? resolverPermissoesUsuario(perfilEfetivo, permissoes)
+        : virouTi
+          ? permissoesPadraoTi()
+          : await carregarPermissoesUsuario(id);
 
-    if (lojas_ids !== undefined || permissoes !== undefined) {
+    if (lojas_ids !== undefined || permissoes !== undefined || virouTi) {
       let idsValidar = lojas_ids;
       if (idsValidar === undefined) {
         const { rows: atuais } = await pool.query(
@@ -192,13 +196,12 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       await pool.query(`UPDATE usuarios SET ${sets.join(', ')} WHERE id_usuario = $${i}`, vals);
     }
 
-    if (permissoes !== undefined) {
-      await syncUsuarioPermissoes(id, permissoes);
+    if (permissoes !== undefined || virouTi) {
+      await syncUsuarioPermissoes(id, permsAtuais);
     }
 
-    if (lojas_ids !== undefined || permissoes !== undefined) {
-      const perms =
-        permissoes !== undefined ? permissoes : await carregarPermissoesUsuario(id);
+    if (lojas_ids !== undefined || permissoes !== undefined || virouTi) {
+      const perms = permsAtuais;
       let idsLoja = lojas_ids;
       if (idsLoja === undefined) {
         const { rows: atuais } = await pool.query(

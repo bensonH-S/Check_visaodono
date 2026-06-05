@@ -33,6 +33,17 @@ export function normalizarPermissoes(codigos) {
   return [...new Set((codigos || []).filter((c) => validos.has(c)))];
 }
 
+export function permissoesPadraoTi() {
+  return CATALOGO_PERMISSOES.map((p) => p.codigo);
+}
+
+/** TI recebe todas as funções quando nenhuma permissão foi informada. */
+export function resolverPermissoesUsuario(perfil, permissoes) {
+  const lista = normalizarPermissoes(permissoes);
+  if (perfil === 'ti' && !lista.length) return permissoesPadraoTi();
+  return lista;
+}
+
 export async function syncUsuarioPermissoes(idUsuario, codigos) {
   const lista = normalizarPermissoes(codigos);
   await pool.query('DELETE FROM usuario_permissoes WHERE id_usuario = $1', [idUsuario]);

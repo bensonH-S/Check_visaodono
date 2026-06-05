@@ -1,12 +1,13 @@
 /**
  * Usuários de teste (senha: Alvim@2026)
- * Permissões: só TI com gestão — demais usuários sem funções (TI configura depois)
+ * Permissões: TI com todas as funções — demais usuários sem funções (TI configura depois)
  */
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pg from 'pg';
+import { permissoesPadraoTi } from '../src/permissoes.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 dotenv.config({ path: path.join(root, '.env'), override: false });
@@ -21,7 +22,7 @@ const client = new pg.Client({
 });
 
 const SENHA = 'Alvim@2026';
-const PERMS_TI = ['usuarios.gerenciar', 'lojas.todas'];
+const PERMS_TI = permissoesPadraoTi();
 
 const usuarios = [
   { email: 'ti@grupoalvim.com.br', nome: 'TI Grupo Alvim', perfil: 'ti', iniciais: 'TI' },
@@ -85,7 +86,7 @@ try {
   }
 
   console.log('OK — senha Alvim@2026');
-  console.log('  ti@ → usuarios.gerenciar + lojas.todas');
+  console.log(`  ti@ → todas as permissões (${PERMS_TI.length})`);
   console.log('  demais → sem permissões (configure em Usuários)');
 } catch (e) {
   console.error('Falha:', e.message);
