@@ -6,6 +6,7 @@ import pg from 'pg';
 
 const projectRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 dotenv.config({ path: path.join(projectRoot, '.env'), override: false });
+dotenv.config({ path: path.join(projectRoot, 'backend', '.env'), override: false });
 
 const file = process.argv[2];
 if (!file) {

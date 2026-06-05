@@ -11,6 +11,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import StoreIcon from '@mui/icons-material/Store';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AddIcon from '@mui/icons-material/Add';
+import BuildIcon from '@mui/icons-material/Build';
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: <DashboardIcon fontSize="small" /> },
@@ -19,6 +20,7 @@ const nav = [
   { to: '/visitas', label: 'Histórico', icon: <HistoryIcon fontSize="small" /> },
   { to: '/lojas', label: 'Lojas', icon: <StoreIcon fontSize="small" /> },
   { to: '/nao-conformidades', label: 'Não Conformidades', icon: <WarningAmberIcon fontSize="small" /> },
+  { to: '/manutencao', label: 'Manutenção', icon: <BuildIcon fontSize="small" /> },
 ];
 
 const titles: Record<string, string> = {
@@ -28,6 +30,7 @@ const titles: Record<string, string> = {
   '/visitas': 'Histórico de Visitas',
   '/lojas': 'Gestão de Lojas',
   '/nao-conformidades': 'Não Conformidades',
+  '/manutencao': 'Manutenção',
   '/relatorio': 'Relatório da Visita',
 };
 

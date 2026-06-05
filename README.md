@@ -109,8 +109,44 @@ deploy/             Exemplo Nginx → porta 3007
 Dockerfile          Imagem de produção
 ```
 
+## Login e perfis
+
+Mesmo modelo do portal de manutenção Grupo Alvim:
+
+| Perfil | Acesso |
+|--------|--------|
+| **administrador** / **coordenador** | Visão geral, ranking, lojas, NCs, checklist, abrir chamados |
+| **gerente** | Checklist e chamados da sua loja |
+| **tecnico** | Lista de chamados e assumir atendimento |
+
+```bash
+npm run migrate:auth
+npm run seed:auth
+```
+
+Usuários de teste (senha `Alvim@2026`): `admin@`, `coordenador@`, `gerente@`, `tecnico@` `@grupoalvim.com.br`
+
+## Portal unificado
+
+Um app (`/auditoria/`) centraliza checklist, chamados e gestão:
+
+| URL (dev) | Função |
+|-----------|--------|
+| `/auditoria/login` | Entrada |
+| `/auditoria/` | Dashboard |
+| `/auditoria/checklist` | Visita / checklist (celular) |
+| `/auditoria/chamados` | Chamados de manutenção |
+| `/auditoria/chamados/novo` | Abrir chamado (celular, fotos) |
+
+```bash
+npm run migrate:manutencao
+```
+
+Chamados usam **lojas** e **usuários** do `vision_check`. Fotos em `backend/uploads/manut-chamado-{id}/`.
+
 ## Fluxo principal
 
 1. **Novo Checklist** — escolher loja/auditor → iniciar visita → responder perguntas → finalizar.
 2. Ao finalizar, triggers atualizam `nota_final`, `lojas.nota_atual` e `historico_notas`.
 3. **Dashboard** e **Ranking** leem views `vw_metricas_dashboard` e `vw_ranking_lojas`.
+4. **Manutenção** — abrir chamado com fotos; técnico pode assumir via API (`PATCH .../assumir`).

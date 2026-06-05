@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 dotenv.config({ path: path.join(__dirname, '.env'), override: false });
+dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: false });
 
 const APP_BASE_PATH = '/auditoria';
 const PROD_PORT = 3007;
@@ -21,7 +22,9 @@ const STATIC_BASE = `${APP_BASE_PATH}/`;
 
 for (const key of ['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME']) {
   if (!process.env[key]) {
-    console.error(`[server] Falta ${key} no .env da raiz`);
+    console.error(
+      `[server] Falta ${key}. Crie .env na raiz ou use backend/.env (copie DB_* de backend/.env.example).`
+    );
     process.exit(1);
   }
 }
@@ -35,7 +38,10 @@ const checklistRouter = (await import('./backend/src/routes/checklist.js')).defa
 const visitasRouter = (await import('./backend/src/routes/visitas.js')).default;
 const ncRouter = (await import('./backend/src/routes/naoConformidades.js')).default;
 const dashboardRouter = (await import('./backend/src/routes/dashboard.js')).default;
+const authRouter = (await import('./backend/src/routes/auth.js')).default;
+const manutencaoRouter = (await import('./backend/src/routes/manutencao.js')).default;
 const { uploadsRoot } = await import('./backend/src/fotos.js');
+const { authMiddleware } = await import('./backend/src/auth.js');
 
 const app = express();
 
@@ -69,12 +75,16 @@ api.get('/health', async (_req, res) => {
   }
 });
 
+api.use('/auth', authRouter);
+
+api.use(authMiddleware);
 api.use('/dashboard', dashboardRouter);
 api.use('/lojas', lojasRouter);
 api.use('/usuarios', usuariosRouter);
 api.use('/checklist', checklistRouter);
 api.use('/visitas', visitasRouter);
 api.use('/nao-conformidades', ncRouter);
+api.use('/manutencao', manutencaoRouter);
 
 app.use(API_PREFIX, api);
 app.use('/api', api);

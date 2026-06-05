@@ -1,16 +1,34 @@
-import { apiBasePath } from '../config/paths';
+import { apiBasePath, appBasePath } from '../config/paths';
+import { getToken } from '../lib/auth';
+import type { UsuarioSessao } from '../lib/auth';
 
 const BASE = apiBasePath;
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const token = getToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
 
 async function request<T>(path: string, options?: RequestInit, tentativa = 0): Promise<T> {
   try {
     const res = await fetch(`${BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
       ...options,
+      headers: authHeaders(options?.headers),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       const msg = err.error || 'Erro na requisição';
+      if (res.status === 401 && typeof window !== 'undefined') {
+        const { logout } = await import('../lib/auth');
+        logout();
+        const base = appBasePath.endsWith('/') ? appBasePath : `${appBasePath}/`;
+        window.location.href = `${base}login`;
+        throw new Error('Sessão expirada');
+      }
       if (res.status >= 500 && tentativa < 2) {
         await new Promise((r) => setTimeout(r, 600));
         return request<T>(path, options, tentativa + 1);
@@ -30,6 +48,13 @@ async function request<T>(path: string, options?: RequestInit, tentativa = 0): P
 }
 
 export const api = {
+  login: (email: string, senha: string) =>
+    request<{ accessToken: string; usuario: UsuarioSessao }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, senha }),
+    }),
+  me: () => request<UsuarioSessao>('/auth/me'),
+
   dashboard: () => request<DashboardData>('/dashboard'),
   ranking: () => request<RankingLoja[]>('/dashboard/ranking'),
   lojas: (params?: { ativas?: boolean; operacionais?: boolean }) => {
@@ -62,6 +87,32 @@ export const api = {
       body: JSON.stringify(body || {}),
     }),
   naoConformidades: () => request<NcResponse>('/nao-conformidades'),
+
+  manutFormulario: () => request<ManutFormulario>('/manutencao/formulario'),
+  manutChamados: () => request<ManutChamado[]>('/manutencao/chamados'),
+  manutCriarChamado: (body: ManutCriarBody) =>
+    request<{ id_chamado: number; numero: number }>('/manutencao/chamados', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  manutAssumirChamado: (idChamado: number) =>
+    request<{ id_chamado: number; status: string }>(`/manutencao/chamados/${idChamado}/assumir`, {
+      method: 'PATCH',
+      body: JSON.stringify({}),
+    }),
+  manutEnviarFotos: async (idChamado: number, formData: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/manutencao/chamados/${idChamado}/fotos`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao enviar fotos');
+    }
+    return res.json();
+  },
 };
 
 export interface Loja {
@@ -85,6 +136,7 @@ export interface Usuario {
   nome: string;
   cargo: string;
   avatar_inicial: string;
+  perfil?: string;
 }
 
 export interface CategoriaChecklist {
@@ -174,6 +226,46 @@ export interface RankingLoja {
   ultima_visita: string | null;
   posicao_ranking: number;
   nota_anterior?: string | number | null;
+}
+
+export interface ManutCategoria {
+  id_categoria: number;
+  nome: string;
+  sla_horas: number;
+  urgencia_padrao: string;
+}
+
+export interface ManutLoja {
+  id_loja: number;
+  nome: string;
+  codigo_bkn: string | null;
+}
+
+export interface ManutFormulario {
+  categorias: ManutCategoria[];
+  lojas: ManutLoja[];
+}
+
+export interface ManutChamado {
+  id_chamado: number;
+  numero: number;
+  titulo: string;
+  status: string;
+  urgencia: string;
+  prazo_sla: string;
+  categoria: string;
+  loja: string;
+  total_fotos: number;
+}
+
+export interface ManutCriarBody {
+  titulo: string;
+  descricao: string;
+  id_categoria: number;
+  id_loja: number;
+  id_solicitante: number;
+  local_detalhe?: string;
+  urgencia?: string;
 }
 
 export interface NcResponse {

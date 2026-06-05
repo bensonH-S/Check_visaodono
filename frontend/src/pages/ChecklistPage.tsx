@@ -19,6 +19,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { api } from '../api/client';
+import { getUsuario, podeFazerChecklist, podeVerGestao } from '../lib/auth';
 import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput } from '../api/client';
 import ChecklistPerguntaCard, {
   perguntaRespondida,
@@ -119,6 +120,13 @@ export default function ChecklistPage() {
     cat.perguntas.every((p) => !p.obrigatoria || perguntaRespondida(p, respostas[p.id_pergunta]));
 
   useEffect(() => {
+    const s = getUsuario();
+    if (s && !podeFazerChecklist(s.perfil)) {
+      navigate('/', { replace: true });
+    }
+  }, [navigate]);
+
+  useEffect(() => {
     const reiniciar = (location.state as { reiniciar?: boolean })?.reiniciar;
     if (reiniciar) {
       setFase('setup');
@@ -132,17 +140,24 @@ export default function ChecklistPage() {
   }, [location.state, navigate]);
 
   useEffect(() => {
-    Promise.all([
+    const sessao = getUsuario();
+    const cargas: [Promise<Loja[]>, Promise<CategoriaChecklist[]>] = [
       api.lojas({ ativas: true, operacionais: true }),
-      api.usuarios(),
       api.checklist(),
+    ];
+    const comUsuarios = sessao && podeVerGestao(sessao.perfil);
+
+    Promise.all([
+      ...cargas,
+      comUsuarios ? api.usuarios() : Promise.resolve([] as Usuario[]),
     ])
-      .then(([l, u, c]) => {
+      .then(([l, c, u]) => {
         setLojas(l);
-        setUsuarios(u);
         setChecklist(c);
-        if (l[0]) setIdLoja(l[0].id_loja);
-        if (u[0]) setIdUsuario(u[0].id_usuario);
+        setUsuarios(u);
+        if (sessao) setIdUsuario(sessao.id_usuario);
+        if (sessao?.id_loja) setIdLoja(sessao.id_loja);
+        else if (l[0]) setIdLoja(l[0].id_loja);
       })
       .catch((e) => setMsg(e.message))
       .finally(() => setLoading(false));
@@ -325,20 +340,31 @@ export default function ChecklistPage() {
           </Select>
         </FormControl>
 
-        <FormControl fullWidth sx={{ mb: 3 }}>
-          <InputLabel>Auditor</InputLabel>
-          <Select
-            label="Auditor"
-            value={idUsuario}
-            onChange={(e) => setIdUsuario(Number(e.target.value))}
-          >
-            {usuarios.map((u) => (
-              <MenuItem key={u.id_usuario} value={u.id_usuario}>
-                {u.nome}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        {getUsuario() && podeVerGestao(getUsuario()!.perfil) ? (
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel>Auditor</InputLabel>
+            <Select
+              label="Auditor"
+              value={idUsuario}
+              onChange={(e) => setIdUsuario(Number(e.target.value))}
+            >
+              {usuarios.map((u) => (
+                <MenuItem key={u.id_usuario} value={u.id_usuario}>
+                  {u.nome}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        ) : (
+          <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+            <Typography variant="caption" color="text.secondary">
+              Responsável
+            </Typography>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              {getUsuario()?.nome}
+            </Typography>
+          </Paper>
+        )}
 
         <Button
           fullWidth

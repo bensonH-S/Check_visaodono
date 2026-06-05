@@ -10,6 +10,9 @@
     "migrate": "npm run migrate --prefix backend",
     "migrate:lojas": "npm run migrate:lojas --prefix backend",
     "migrate:checklist": "npm run migrate:checklist --prefix backend",
+    "migrate:manutencao": "npm run migrate:manutencao --prefix backend",
+    "migrate:auth": "npm run migrate:auth --prefix backend",
+    "seed:auth": "node backend/scripts/seed-auth.js",
     "build": "npm run build:web",
     "build:web": "npm run build --prefix frontend",
     "start": "node server.js --production",
@@ -17,9 +20,12 @@
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
     "pg": "^8.13.3"
   },
   "devDependencies": {

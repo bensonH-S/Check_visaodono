@@ -5,12 +5,16 @@
   "scripts": {
     "migrate": "node scripts/migrate.js",
     "migrate:lojas": "node scripts/run-sql.js migrations/003_lojas_reais.sql",
-    "migrate:checklist": "node scripts/run-sql.js migrations/004_checklist_visao_dono.sql"
+    "migrate:checklist": "node scripts/run-sql.js migrations/004_checklist_visao_dono.sql",
+    "migrate:manutencao": "node scripts/run-sql.js migrations/008_manutencao.sql",
+    "migrate:auth": "node scripts/run-sql.js migrations/009_auth_usuarios.sql"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.3"
   }
 }
