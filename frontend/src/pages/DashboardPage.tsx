@@ -26,7 +26,7 @@ function MetricCard({
   return (
     <Paper
       sx={{
-        p: { xs: 1.5, sm: 2 },
+        p: { xs: 1.5, sm: 2, lg: 2.25, xl: 2.5 },
         height: '100%',
         ...(accent ? { borderTop: `3px solid ${NAVY}` } : undefined),
       }}
@@ -34,7 +34,11 @@ function MetricCard({
       <Typography
         variant="caption"
         color="text.secondary"
-        sx={{ fontSize: { xs: '0.68rem', sm: '0.72rem' }, lineHeight: 1.3, display: 'block' }}
+        sx={{
+          fontSize: { xs: '0.68rem', sm: '0.72rem', lg: '0.78rem', xl: '0.8rem' },
+          lineHeight: 1.3,
+          display: 'block',
+        }}
       >
         {label}
       </Typography>
@@ -42,7 +46,7 @@ function MetricCard({
         sx={{
           fontWeight: 600,
           my: 0.25,
-          fontSize: { xs: '1.2rem', sm: '1.35rem', md: '1.45rem' },
+          fontSize: { xs: '1.2rem', sm: '1.35rem', md: '1.45rem', lg: '1.55rem', xl: '1.65rem' },
           lineHeight: 1.2,
         }}
       >
@@ -52,7 +56,7 @@ function MetricCard({
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ fontSize: { xs: '0.65rem', sm: '0.7rem' } }}
+          sx={{ fontSize: { xs: '0.65rem', sm: '0.7rem', lg: '0.74rem', xl: '0.76rem' } }}
         >
           {sub}
         </Typography>
@@ -84,22 +88,22 @@ export default function DashboardPage() {
   const m = data.metricas;
 
   return (
-    <Box sx={{ maxWidth: { xs: '100%', lg: 1100 }, mx: 'auto' }}>
-      <Grid container spacing={{ xs: 1, sm: 1.25 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
-        <Grid size={{ xs: 6, md: 3 }}>
+    <Box sx={{ width: '100%' }}>
+      <Grid container spacing={{ xs: 1, sm: 1.25, lg: 1.5, xl: 2 }} sx={{ mb: { xs: 1.5, sm: 2, lg: 2.5 } }}>
+        <Grid size={{ xs: 6, sm: 6, md: 3 }}>
           <MetricCard label="Média geral das lojas" value={fmtNota(m.media_geral)} accent />
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid size={{ xs: 6, sm: 6, md: 3 }}>
           <MetricCard label="Visitas este mês" value={String(m.visitas_mes)} sub="registradas no mês" />
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid size={{ xs: 6, sm: 6, md: 3 }}>
           <MetricCard
             label="Não conformidades"
             value={String(m.total_ncs_abertas)}
             sub={`${m.ncs_criticas} críticas`}
           />
         </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
+        <Grid size={{ xs: 6, sm: 6, md: 3 }}>
           <MetricCard
             label="Lojas abaixo de 75%"
             value={String(m.lojas_abaixo_75)}
@@ -108,12 +112,16 @@ export default function DashboardPage() {
         </Grid>
       </Grid>
 
-      <Grid container spacing={{ xs: 1.25, sm: 1.5 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+      <Grid container spacing={{ xs: 1.25, sm: 1.5, lg: 2, xl: 2.5 }} sx={{ mb: { xs: 1.5, sm: 2, lg: 2.5 } }}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2, lg: 2.25, xl: 2.5 }, height: '100%' }}>
             <Typography
               variant="subtitle2"
-              sx={{ fontWeight: 600, mb: 1, fontSize: { xs: '0.8rem', sm: '0.85rem' } }}
+              sx={{
+                fontWeight: 600,
+                mb: { xs: 1, lg: 1.25 },
+                fontSize: { xs: '0.8rem', sm: '0.85rem', lg: '0.92rem', xl: '0.95rem' },
+              }}
             >
               Top 5 Ranking
             </Typography>
@@ -123,21 +131,21 @@ export default function DashboardPage() {
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1,
-                  py: { xs: 0.75, sm: 1 },
+                  gap: { xs: 1, lg: 1.25 },
+                  py: { xs: 0.75, sm: 1, lg: 1.1 },
                   borderBottom: index < data.ranking.length - 1 ? '1px solid' : 'none',
                   borderColor: 'divider',
                 }}
               >
                 <Box
                   sx={{
-                    width: { xs: 22, sm: 24 },
-                    height: { xs: 22, sm: 24 },
+                    width: { xs: 22, sm: 24, lg: 26 },
+                    height: { xs: 22, sm: 24, lg: 26 },
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                    fontSize: { xs: '0.65rem', sm: '0.7rem', lg: '0.74rem' },
                     flexShrink: 0,
                     ...rankBadge(r.posicao_ranking),
                   }}
@@ -145,7 +153,11 @@ export default function DashboardPage() {
                   {r.posicao_ranking}
                 </Box>
                 <Typography
-                  sx={{ flex: 1, minWidth: 0, fontSize: { xs: '0.78rem', sm: '0.82rem' } }}
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: { xs: '0.78rem', sm: '0.82rem', lg: '0.88rem', xl: '0.9rem' },
+                  }}
                   noWrap
                 >
                   {r.name}
@@ -154,7 +166,7 @@ export default function DashboardPage() {
                   sx={{
                     fontWeight: 600,
                     color: scoreColor(Number(r.nota_atual)),
-                    fontSize: { xs: '0.78rem', sm: '0.82rem' },
+                    fontSize: { xs: '0.78rem', sm: '0.82rem', lg: '0.88rem', xl: '0.9rem' },
                   }}
                 >
                   {fmtNota(r.nota_atual)}
@@ -167,17 +179,25 @@ export default function DashboardPage() {
               fullWidth
               size="small"
               variant="contained"
-              sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.8rem' }, py: 0.5 }}
+              sx={{
+                mt: { xs: 1, lg: 1.25 },
+                fontSize: { xs: '0.75rem', sm: '0.8rem', lg: '0.85rem' },
+                py: { xs: 0.5, lg: 0.65 },
+              }}
             >
               Ver ranking completo
             </Button>
           </Paper>
         </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2, lg: 2.25, xl: 2.5 }, height: '100%' }}>
             <Typography
               variant="subtitle2"
-              sx={{ fontWeight: 600, mb: 1, fontSize: { xs: '0.8rem', sm: '0.85rem' } }}
+              sx={{
+                fontWeight: 600,
+                mb: { xs: 1, lg: 1.25 },
+                fontSize: { xs: '0.8rem', sm: '0.85rem', lg: '0.92rem', xl: '0.95rem' },
+              }}
             >
               NCs recentes em aberto
             </Typography>
@@ -187,7 +207,7 @@ export default function DashboardPage() {
                 sx={{
                   display: 'flex',
                   gap: 1,
-                  py: { xs: 0.75, sm: 1 },
+                  py: { xs: 0.75, sm: 1, lg: 1.1 },
                   borderBottom: '1px solid',
                   borderColor: 'divider',
                   '&:last-of-type': { borderBottom: 'none' },
@@ -195,8 +215,8 @@ export default function DashboardPage() {
               >
                 <Box
                   sx={{
-                    width: 7,
-                    height: 7,
+                    width: { xs: 7, lg: 8 },
+                    height: { xs: 7, lg: 8 },
                     borderRadius: '50%',
                     mt: 0.6,
                     flexShrink: 0,
@@ -204,13 +224,18 @@ export default function DashboardPage() {
                   }}
                 />
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: { xs: '0.78rem', sm: '0.82rem' }, lineHeight: 1.35 }}>
+                  <Typography
+                    sx={{
+                      fontSize: { xs: '0.78rem', sm: '0.82rem', lg: '0.88rem', xl: '0.9rem' },
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {nc.descricao}
                   </Typography>
                   <Typography
                     variant="caption"
                     color="text.secondary"
-                    sx={{ fontSize: { xs: '0.68rem', sm: '0.72rem' } }}
+                    sx={{ fontSize: { xs: '0.68rem', sm: '0.72rem', lg: '0.76rem', xl: '0.78rem' } }}
                   >
                     {nc.name} · {fmtData(nc.data_cadastro)}
                   </Typography>

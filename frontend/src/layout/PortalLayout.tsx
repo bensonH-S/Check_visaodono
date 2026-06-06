@@ -270,7 +270,7 @@ export default function PortalLayout() {
 
         <Box
           component="main"
-          className={`flex-1 min-h-0 overflow-y-auto ${campoMobile || isChamadoNovo ? 'p-3 sm:p-4 lg:p-5' : 'p-3 sm:p-4 lg:p-5'} ${mobileTabs.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
+          className={`flex-1 min-h-0 overflow-y-auto ${campoMobile || isChamadoNovo ? 'p-2.5 sm:p-3 lg:p-4 xl:p-5' : 'p-2.5 sm:p-3 lg:p-4 xl:p-5'} ${mobileTabs.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
           sx={{
             maxWidth: campoMobile || isChamadoNovo ? { xs: 640, md: 'none' } : 'none',
             mx: campoMobile || isChamadoNovo ? { xs: 'auto', md: 0 } : 0,

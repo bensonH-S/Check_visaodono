@@ -209,10 +209,10 @@ export default function LoginPage() {
                 flexWrap: 'wrap',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: { xs: 0.35, sm: 0.5 },
+                gap: { xs: 0.45, sm: 0.6 },
                 mb: 0.5,
-                py: { xs: 0.35, sm: 0.45 },
-                px: { xs: 0.65, sm: 0.75 },
+                py: { xs: 0.45, sm: 0.55 },
+                px: { xs: 0.75, sm: 0.9 },
                 mx: 'auto',
                 borderRadius: 1,
                 bgcolor: 'rgba(27, 42, 107, 0.06)',
@@ -224,17 +224,17 @@ export default function LoginPage() {
                 <Box
                   key={label}
                   component="span"
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: { xs: 0.35, sm: 0.5 } }}
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: { xs: 0.45, sm: 0.6 } }}
                 >
                   {index > 0 && (
                     <Typography
                       component="span"
                       sx={{
                         color: '#E8520A',
-                        fontSize: { xs: '0.55rem', sm: '0.58rem' },
+                        fontSize: { xs: '0.6rem', sm: '0.64rem', md: '0.66rem' },
                         fontWeight: 600,
                         lineHeight: 1,
-                        opacity: 0.75,
+                        opacity: 0.8,
                       }}
                     >
                       |
@@ -245,8 +245,8 @@ export default function LoginPage() {
                     sx={{
                       color: NAVY,
                       lineHeight: 1.2,
-                      fontSize: { xs: '0.62rem', sm: '0.66rem', md: '0.7rem' },
-                      fontWeight: 500,
+                      fontSize: { xs: '0.68rem', sm: '0.72rem', md: '0.76rem' },
+                      fontWeight: 600,
                       letterSpacing: '0.01em',
                       whiteSpace: 'nowrap',
                     }}
