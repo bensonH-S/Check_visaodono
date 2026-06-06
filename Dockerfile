@@ -22,6 +22,7 @@ COPY backend/src ./backend/src
 COPY backend/migrations ./backend/migrations
 COPY backend/scripts ./backend/scripts
 COPY --from=build /app/frontend/dist ./frontend/dist
+COPY --from=build /app/VERSION ./VERSION
 
 ENV NODE_ENV=production
 ENV PORT=3007

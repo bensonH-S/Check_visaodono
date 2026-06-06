@@ -11,6 +11,8 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'chamados.ver', nome: 'Ver chamados de manutenção', grupo: 'Manutenção', ordem: 80 },
   { codigo: 'chamados.abrir', nome: 'Abrir chamado de manutenção', grupo: 'Manutenção', ordem: 90 },
   { codigo: 'chamados.assumir', nome: 'Assumir chamado', grupo: 'Manutenção', ordem: 100 },
+  { codigo: 'chamados.aprovar', nome: 'Aprovar orçamentos', grupo: 'Manutenção', ordem: 105 },
+  { codigo: 'configuracoes.ver', nome: 'Acessar aba Configurações', grupo: 'Configurações', ordem: 75 },
   { codigo: 'usuarios.listar', nome: 'Listar usuários', grupo: 'Usuários', ordem: 110 },
   { codigo: 'usuarios.gerenciar', nome: 'Gerenciar usuários e permissões', grupo: 'Usuários', ordem: 120 },
   { codigo: 'lojas.todas', nome: 'Acesso a todas as lojas', grupo: 'Lojas', ordem: 130 },

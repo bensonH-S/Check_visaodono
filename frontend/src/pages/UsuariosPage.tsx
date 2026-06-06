@@ -17,27 +17,33 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import OutlinedInput from '@mui/material/OutlinedInput';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import Divider from '@mui/material/Divider';
+import Switch from '@mui/material/Switch';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo } from '../api/client';
-import { getUsuario, labelPerfil } from '../lib/auth';
+import PeopleIcon from '@mui/icons-material/People';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
+import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo, type Cargo } from '../api/client';
+import { getUsuario } from '../lib/auth';
+import { dialogContentSx, dialogFieldProps } from '../utils/dialogForm';
+import { useToast } from '../hooks/useToast';
 
-const PERFIS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'] as const;
+const NAVY = '#1B2A6B';
 
 const emptyForm = {
   nome: '',
   email: '',
   senha: '',
-  perfil: 'tecnico' as (typeof PERFIS)[number],
+  cargo_aprovacao: '',
   lojas_ids: [] as number[],
   permissoes: [] as string[],
   ativo: true,
@@ -46,18 +52,22 @@ const emptyForm = {
 export default function UsuariosPage() {
   const [lista, setLista] = useState<UsuarioGestao[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
+  const [cargos, setCargos] = useState<Cargo[]>([]);
   const [catalogo, setCatalogo] = useState<PermissaoCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
-  const [dialog, setDialog] = useState(false);
+  const [modalAberto, setModalAberto] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [salvando, setSalvando] = useState(false);
   const [excluirAlvo, setExcluirAlvo] = useState<UsuarioGestao | null>(null);
   const [excluindo, setExcluindo] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const { showToast, ToastSnackbar } = useToast();
 
   const sessao = getUsuario();
   const todasLojas = form.permissoes.includes('lojas.todas');
+  const exigeCargoAprovador = form.permissoes.includes('chamados.aprovar');
 
   const catalogoPorGrupo = useMemo(() => {
     const map = new Map<string, PermissaoCatalogo[]>();
@@ -69,26 +79,44 @@ export default function UsuariosPage() {
     return [...map.entries()].sort((a, b) => (a[1][0]?.ordem ?? 0) - (b[1][0]?.ordem ?? 0));
   }, [catalogo]);
 
+  function cargoSelecionado(codigo: string) {
+    return cargos.find((c) => c.codigo === codigo);
+  }
+
+  function nomePerfilUsuario(u: UsuarioGestao) {
+    if (u.cargo_nome) return u.cargo_nome;
+    return cargoSelecionado(u.cargo_aprovacao || '')?.nome || '—';
+  }
+
   function togglePermissao(codigo: string) {
     setForm((f) => {
       const tem = f.permissoes.includes(codigo);
       const permissoes = tem ? f.permissoes.filter((c) => c !== codigo) : [...f.permissoes, codigo];
       const lojas_ids = codigo === 'lojas.todas' && !tem ? [] : f.lojas_ids;
-      return { ...f, permissoes, lojas_ids };
+      let cargo_aprovacao = f.cargo_aprovacao;
+      if (codigo === 'chamados.aprovar' && !tem) {
+        const atual = cargoSelecionado(cargo_aprovacao);
+        if (!atual?.aprovador) {
+          cargo_aprovacao = cargos.find((c) => c.aprovador)?.codigo || cargo_aprovacao;
+        }
+      }
+      return { ...f, permissoes, lojas_ids, cargo_aprovacao };
     });
   }
 
   async function carregar() {
     setLoading(true);
     try {
-      const [u, l, cat] = await Promise.all([
+      const [u, l, cat, cargosLista] = await Promise.all([
         api.usuariosGestao(),
         api.lojas({ ativas: true }),
         api.permissoesCatalogo(),
+        api.cargos(),
       ]);
       setLista(u);
       setLojas(l);
       setCatalogo(cat);
+      setCargos(cargosLista);
       setErro('');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
@@ -98,13 +126,18 @@ export default function UsuariosPage() {
   }
 
   useEffect(() => {
-    carregar();
+    void carregar();
   }, []);
 
   function abrirNovo() {
     setEditId(null);
-    setForm(emptyForm);
-    setDialog(true);
+    setForm({
+      ...emptyForm,
+      cargo_aprovacao: cargos[0]?.codigo || '',
+    });
+    setMostrarSenha(false);
+    setErro('');
+    setModalAberto(true);
   }
 
   function abrirEditar(u: UsuarioGestao) {
@@ -113,22 +146,37 @@ export default function UsuariosPage() {
       nome: u.nome,
       email: u.email,
       senha: '',
-      perfil: u.perfil as (typeof PERFIS)[number],
+      cargo_aprovacao: u.cargo_aprovacao || '',
       lojas_ids: u.lojas_ids || [],
       permissoes: u.permissoes || [],
-      ativo: u.ativo,
+      ativo: u.ativo !== false,
     });
-    setDialog(true);
+    setMostrarSenha(false);
+    setErro('');
+    setModalAberto(true);
   }
 
   async function salvar() {
     setSalvando(true);
     setErro('');
     try {
+      if (!form.cargo_aprovacao) {
+        setErro('Selecione o perfil.');
+        setSalvando(false);
+        return;
+      }
+
+      const cargo = cargoSelecionado(form.cargo_aprovacao);
+      if (exigeCargoAprovador && !cargo?.aprovador) {
+        setErro('Para aprovar orçamentos, escolha um perfil Financeiro ou Diretor.');
+        setSalvando(false);
+        return;
+      }
+
       const body = {
         nome: form.nome.trim(),
         email: form.email.trim(),
-        perfil: form.perfil,
+        cargo_aprovacao: form.cargo_aprovacao,
         lojas_ids: todasLojas ? [] : form.lojas_ids,
         permissoes: form.permissoes,
         ativo: form.ativo,
@@ -143,6 +191,7 @@ export default function UsuariosPage() {
 
       if (editId) {
         await api.usuarioGestaoAtualizar(editId, body);
+        showToast('Usuário atualizado com sucesso!');
       } else {
         if (!form.senha || form.senha.length < 6) {
           setErro('Senha inicial com mínimo 6 caracteres.');
@@ -150,8 +199,9 @@ export default function UsuariosPage() {
           return;
         }
         await api.usuarioGestaoCriar({ ...body, senha: form.senha });
+        showToast('Usuário criado com sucesso!');
       }
-      setDialog(false);
+      setModalAberto(false);
       await carregar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao salvar');
@@ -167,6 +217,8 @@ export default function UsuariosPage() {
     try {
       await api.usuarioGestaoExcluir(excluirAlvo.id_usuario);
       setExcluirAlvo(null);
+      setModalAberto(false);
+      showToast('Usuário excluído com sucesso!');
       await carregar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao excluir');
@@ -181,6 +233,7 @@ export default function UsuariosPage() {
     if (u.lojas.length <= 2) return u.lojas.map((l) => l.nome).join(', ');
     return `${u.lojas.length} lojas`;
   }
+
 
   if (loading) {
     return (
@@ -198,7 +251,7 @@ export default function UsuariosPage() {
             Gestão de usuários
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Perfil é só o cargo. Marque abaixo o que cada pessoa pode fazer no sistema.
+            O perfil vem de Configurações → Cargos. Marque as permissões de cada pessoa.
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={abrirNovo}>
@@ -206,7 +259,7 @@ export default function UsuariosPage() {
         </Button>
       </Box>
 
-      {erro && !dialog && !excluirAlvo && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
+      {erro && !modalAberto && !excluirAlvo && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
 
       <Paper sx={{ overflow: 'auto' }}>
         <Table size="small">
@@ -218,16 +271,32 @@ export default function UsuariosPage() {
               <TableCell>Funções</TableCell>
               <TableCell>Lojas</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell align="right">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {lista.map((u) => (
-              <TableRow key={u.id_usuario} hover>
-                <TableCell>{u.nome}</TableCell>
+              <TableRow
+                key={u.id_usuario}
+                hover
+                onClick={() => abrirEditar(u)}
+                sx={{ cursor: 'pointer' }}
+              >
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: NAVY,
+                    '&:hover': { textDecoration: 'underline' },
+                  }}
+                >
+                  {u.nome}
+                </TableCell>
                 <TableCell>{u.email}</TableCell>
                 <TableCell>
-                  <Chip label={labelPerfil(u.perfil)} size="small" variant="outlined" />
+                  <Chip
+                    label={nomePerfilUsuario(u)}
+                    size="small"
+                    variant="outlined"
+                  />
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" color={u.permissoes?.length ? 'text.primary' : 'text.secondary'}>
@@ -244,24 +313,6 @@ export default function UsuariosPage() {
                     color={u.ativo ? 'success' : 'default'}
                   />
                 </TableCell>
-                <TableCell align="right">
-                  <Box className="flex justify-end gap-0.5">
-                    <Button size="small" onClick={() => abrirEditar(u)}>
-                      Editar
-                    </Button>
-                    <Button
-                      size="small"
-                      color="error"
-                      disabled={sessao?.id_usuario === u.id_usuario}
-                      onClick={() => {
-                        setErro('');
-                        setExcluirAlvo(u);
-                      }}
-                    >
-                      Excluir
-                    </Button>
-                  </Box>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -269,88 +320,112 @@ export default function UsuariosPage() {
       </Paper>
 
       <Dialog
-        open={!!excluirAlvo}
-        onClose={() => !excluindo && setExcluirAlvo(null)}
-        maxWidth="xs"
+        open={modalAberto}
+        onClose={() => !salvando && setModalAberto(false)}
         fullWidth
+        maxWidth="md"
+        slotProps={{
+          paper: {
+            sx: {
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '90vh',
+              overflow: 'hidden',
+            },
+          },
+        }}
       >
-        <DialogTitle>Excluir usuário</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            Tem certeza que deseja excluir <strong>{excluirAlvo?.nome}</strong> (
-            {excluirAlvo?.email})? Esta ação não pode ser desfeita.
-          </Typography>
-          {erro && excluirAlvo && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {erro}
+        <DialogTitleWithIcon
+          fixed
+          icon={
+            editId ? (
+              <PeopleIcon sx={{ fontSize: 22 }} />
+            ) : (
+              <PersonAddIcon sx={{ fontSize: 22 }} />
+            )
+          }
+        >
+          {editId ? 'Editar usuário' : 'Novo usuário'}
+        </DialogTitleWithIcon>
+        <DialogContent
+          dividers
+          sx={{
+            ...dialogContentSx,
+            gap: 2.5,
+            pt: 3,
+            pb: 3,
+            flex: 1,
+            overflowY: 'auto',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
+              gap: 2,
+              mb: 1,
+            }}
+          >
+            <TextField
+              {...dialogFieldProps}
+              label="Nome"
+              required
+              value={form.nome}
+              onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+            />
+            <TextField
+              {...dialogFieldProps}
+              label="E-mail"
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            />
+            <TextField
+              {...dialogFieldProps}
+              select
+              label="Perfil"
+              required
+              value={form.cargo_aprovacao}
+              onChange={(e) => {
+                const codigo = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  cargo_aprovacao: codigo,
+                  permissoes: codigo === 'ti' ? catalogo.map((p) => p.codigo) : f.permissoes,
+                  lojas_ids: codigo === 'ti' ? [] : f.lojas_ids,
+                }));
+              }}
+              helperText="Cadastre perfis em Configurações → Cargos"
+            >
+              {cargos.map((c) => (
+                <MenuItem key={c.codigo} value={c.codigo}>
+                  {c.nome}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+
+          {form.cargo_aprovacao === 'ti' && (
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              Perfil TI recebe todas as funções por padrão.
             </Alert>
           )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setExcluirAlvo(null)} disabled={excluindo}>
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={confirmarExclusao}
-            disabled={excluindo}
-          >
-            {excluindo ? 'Excluindo...' : 'Excluir'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
-      <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="md">
-        <DialogTitle>{editId ? 'Editar usuário' : 'Novo usuário'}</DialogTitle>
-        <DialogContent className="flex flex-col gap-3 pt-2">
-          <TextField
-            label="Nome"
-            required
-            fullWidth
-            value={form.nome}
-            onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-          />
-          <TextField
-            label="E-mail"
-            type="email"
-            required
-            fullWidth
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-          />
-          <TextField
-            select
-            label="Perfil (cargo)"
-            required
-            fullWidth
-            value={form.perfil}
-            onChange={(e) => {
-              const perfil = e.target.value as typeof form.perfil;
-              setForm((f) => ({
-                ...f,
-                perfil,
-                permissoes:
-                  perfil === 'ti' ? catalogo.map((p) => p.codigo) : f.permissoes,
-                lojas_ids: perfil === 'ti' ? [] : f.lojas_ids,
-              }));
-            }}
-            helperText={
-              form.perfil === 'ti'
-                ? 'Perfil TI recebe todas as funções por padrão'
-                : 'Apenas identificação — marque as permissões abaixo'
-            }
-          >
-            {PERFIS.map((p) => (
-              <MenuItem key={p} value={p}>
-                {labelPerfil(p)}
-              </MenuItem>
-            ))}
-          </TextField>
+          {!cargos.length && (
+            <Alert severity="warning">
+              Nenhum perfil cadastrado. Vá em Configurações → Cargos.
+            </Alert>
+          )}
 
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+          {exigeCargoAprovador && cargoSelecionado(form.cargo_aprovacao) && !cargoSelecionado(form.cargo_aprovacao)?.aprovador && (
+            <Alert severity="warning">
+              Para aprovar orçamentos, selecione o perfil Financeiro ou Diretor.
+            </Alert>
+          )}
+
+          <Box sx={{ mt: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
               Permissões no sistema
             </Typography>
             {catalogoPorGrupo.map(([grupo, itens], idx) => (
@@ -384,15 +459,28 @@ export default function UsuariosPage() {
             )}
           </Box>
 
-          {todasLojas ? (
-            <Alert severity="info" sx={{ py: 0.5 }}>
-              Com <strong>Acesso a todas as lojas</strong>, o vínculo manual de lojas é ignorado.
-            </Alert>
-          ) : (
-            <FormControl fullWidth>
-              <InputLabel>Lojas vinculadas</InputLabel>
-              <Select
-                multiple
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 2,
+              flexWrap: { xs: 'wrap', lg: 'nowrap' },
+            }}
+          >
+            {todasLojas ? (
+              <TextField
+                {...dialogFieldProps}
+                label="Lojas vinculadas"
+                value="Todas as lojas"
+                disabled
+                helperText="Acesso global ativo"
+                sx={{ flex: 1.2, minWidth: 160 }}
+              />
+            ) : (
+              <TextField
+                {...dialogFieldProps}
+                select
+                label="Lojas vinculadas"
                 value={form.lojas_ids}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -401,54 +489,153 @@ export default function UsuariosPage() {
                     lojas_ids: typeof v === 'string' ? [] : (v as number[]),
                   }));
                 }}
-                input={<OutlinedInput label="Lojas vinculadas" />}
-                renderValue={(selected) =>
-                  lojas
-                    .filter((l) => selected.includes(l.id_loja))
-                    .map((l) => l.name)
-                    .join(', ')
-                }
+                slotProps={{
+                  ...dialogFieldProps.slotProps,
+                  select: {
+                    multiple: true,
+                    renderValue: (selected: unknown) => {
+                      const ids = selected as number[];
+                      return lojas
+                        .filter((l) => ids.includes(l.id_loja))
+                        .map((l) => l.name)
+                        .join(', ');
+                    },
+                  },
+                }}
+                sx={{ flex: 1.2, minWidth: 160 }}
               >
                 {lojas.map((l) => (
                   <MenuItem key={l.id_loja} value={l.id_loja}>
-                    <Checkbox checked={form.lojas_ids.includes(l.id_loja)} />
-                    <ListItemText primary={l.name} secondary={l.bk_number ? `BKN ${l.bk_number}` : undefined} />
+                    <Checkbox checked={form.lojas_ids.includes(l.id_loja)} size="small" sx={{ mr: 1 }} />
+                    <ListItemText
+                      primary={l.name}
+                      secondary={l.bk_number ? `BKN ${l.bk_number}` : undefined}
+                    />
                   </MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-          )}
+              </TextField>
+            )}
+            <TextField
+              {...dialogFieldProps}
+              label={editId ? 'Nova senha (opcional)' : 'Senha inicial'}
+              type={mostrarSenha ? 'text' : 'password'}
+              required={!editId}
+              value={form.senha}
+              onChange={(e) => setForm((f) => ({ ...f, senha: e.target.value }))}
+              helperText="Mín. 6 caracteres"
+              autoComplete="new-password"
+              slotProps={{
+                ...dialogFieldProps.slotProps,
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        type="button"
+                        aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                        onClick={() => setMostrarSenha((v) => !v)}
+                        edge="end"
+                        size="small"
+                      >
+                        {mostrarSenha ? (
+                          <VisibilityOffOutlinedIcon fontSize="small" />
+                        ) : (
+                          <VisibilityOutlinedIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ flex: 1, minWidth: 140 }}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.ativo}
+                  onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
+                />
+              }
+              label="Usuário ativo"
+              sx={{ m: 0, flexShrink: 0, mt: 1, alignSelf: 'center' }}
+            />
+          </Box>
 
-          <TextField
-            label={editId ? 'Nova senha (opcional)' : 'Senha inicial'}
-            type="password"
-            fullWidth
-            required={!editId}
-            value={form.senha}
-            onChange={(e) => setForm((f) => ({ ...f, senha: e.target.value }))}
-            helperText="Mínimo 6 caracteres"
-          />
-          <TextField
-            select
-            label="Status"
-            fullWidth
-            value={form.ativo ? '1' : '0'}
-            onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.value === '1' }))}
-          >
-            <MenuItem value="1">Ativo</MenuItem>
-            <MenuItem value="0">Inativo</MenuItem>
-          </TextField>
-          {erro && dialog && <Alert severity="error">{erro}</Alert>}
+          {erro && modalAberto && <Alert severity="error">{erro}</Alert>}
+        </DialogContent>
+        <DialogActions
+          sx={{
+            justifyContent: 'space-between',
+            px: 3,
+            py: 2.5,
+            flexShrink: 0,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+          }}
+        >
+          {editId && sessao?.id_usuario !== editId ? (
+            <Button
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => {
+                const alvo = lista.find((u) => u.id_usuario === editId);
+                if (alvo) {
+                  setErro('');
+                  setExcluirAlvo(alvo);
+                }
+              }}
+            >
+              Excluir
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Box className="flex gap-1">
+            <Button onClick={() => setModalAberto(false)} disabled={salvando}>
+              Cancelar
+            </Button>
+            <Button variant="contained" onClick={() => void salvar()} disabled={salvando}>
+              {salvando ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={!!excluirAlvo}
+        onClose={() => !excluindo && setExcluirAlvo(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Excluir usuário</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2">
+            Tem certeza que deseja excluir <strong>{excluirAlvo?.nome}</strong> (
+            {excluirAlvo?.email})? Esta ação não pode ser desfeita.
+          </Typography>
+          {erro && excluirAlvo && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {erro}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialog(false)} disabled={salvando}>
+          <Button onClick={() => setExcluirAlvo(null)} disabled={excluindo}>
             Cancelar
           </Button>
-          <Button variant="contained" onClick={salvar} disabled={salvando}>
-            {salvando ? 'Salvando...' : 'Salvar'}
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => void confirmarExclusao()}
+            disabled={excluindo}
+          >
+            {excluindo ? 'Excluindo...' : 'Excluir'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ToastSnackbar />
     </Box>
   );
 }

@@ -1,11 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import type { ReactNode } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { appBasePath } from './config/paths';
 import { theme } from './theme';
 import RequireAuth from './components/RequireAuth';
 import PortalLayout from './layout/PortalLayout';
+import ChamadosMobileLayout from './layout/ChamadosMobileLayout';
 import LoginPage from './pages/LoginPage';
+import LoginMobilePage from './pages/LoginMobilePage';
 import DashboardPage from './pages/DashboardPage';
 import RankingPage from './pages/RankingPage';
 import ChecklistPage from './pages/ChecklistPage';
@@ -16,13 +17,18 @@ import NcPage from './pages/NcPage';
 import RelatorioPage from './pages/RelatorioPage';
 import ManutencaoChamadosPage from './pages/manutencao/ManutencaoChamadosPage';
 import ManutencaoNovoPage from './pages/manutencao/ManutencaoNovoPage';
+import ManutencaoDetalhePage from './pages/manutencao/ManutencaoDetalhePage';
+import ManutencaoAprovacoesPage from './pages/manutencao/ManutencaoAprovacoesPage';
+import ManutencaoAprovacaoDetalhePage from './pages/manutencao/ManutencaoAprovacaoDetalhePage';
+import ChamadosMobileHistoricoPage from './pages/manutencao/ChamadosMobileHistoricoPage';
+import ChamadosMobileNovoPage from './pages/manutencao/ChamadosMobileNovoPage';
+import ChamadosMobileDetalhePage from './pages/manutencao/ChamadosMobileDetalhePage';
 import UsuariosPage from './pages/UsuariosPage';
-import { getUsuario, temPermissao } from './lib/auth';
-function RotaTi({ children }: { children: ReactNode }) {
-  const u = getUsuario();
-  if (!u || !temPermissao('usuarios.gerenciar', u)) return <Navigate to="/" replace />;
-  return <>{children}</>;
-}
+import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
+import CategoriasPage from './pages/configuracoes/CategoriasPage';
+import SlaPage from './pages/configuracoes/SlaPage';
+import CargosPage from './pages/configuracoes/CargosPage';
+import RotaPermissao from './components/RotaPermissao';
 
 export default function App() {
   return (
@@ -31,6 +37,18 @@ export default function App() {
       <BrowserRouter basename={appBasePath}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/login/mobile" element={<LoginMobilePage />} />
+          <Route
+            element={
+              <RequireAuth>
+                <ChamadosMobileLayout />
+              </RequireAuth>
+            }
+          >
+            <Route path="chamados/mobile/novo" element={<ChamadosMobileNovoPage />} />
+            <Route path="chamados/mobile/:idChamado" element={<ChamadosMobileDetalhePage />} />
+            <Route path="chamados/mobile" element={<ChamadosMobileHistoricoPage />} />
+          </Route>
           <Route
             element={
               <RequireAuth>
@@ -38,24 +56,143 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route index element={<DashboardPage />} />
-            <Route path="ranking" element={<RankingPage />} />
-            <Route path="checklist" element={<ChecklistPage />} />
-            <Route path="checklist/concluido/:id" element={<ChecklistConcluidoPage />} />
-            <Route path="visitas" element={<VisitasPage />} />
-            <Route path="lojas" element={<LojasPage />} />
-            <Route path="nao-conformidades" element={<NcPage />} />
-            <Route path="chamados" element={<ManutencaoChamadosPage />} />
-            <Route path="chamados/novo" element={<ManutencaoNovoPage />} />
+            <Route
+              index
+              element={
+                <RotaPermissao permissoes={['portal.dashboard.ver']}>
+                  <DashboardPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="ranking"
+              element={
+                <RotaPermissao permissoes={['portal.ranking.ver']}>
+                  <RankingPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="checklist"
+              element={
+                <RotaPermissao permissoes={['checklist.ver', 'checklist.executar']}>
+                  <ChecklistPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="checklist/concluido/:id"
+              element={
+                <RotaPermissao permissoes={['checklist.ver', 'checklist.executar']}>
+                  <ChecklistConcluidoPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="visitas"
+              element={
+                <RotaPermissao permissoes={['portal.visitas.ver']}>
+                  <VisitasPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="lojas"
+              element={
+                <RotaPermissao permissoes={['portal.lojas.ver']}>
+                  <LojasPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="nao-conformidades"
+              element={
+                <RotaPermissao permissoes={['portal.ncs.ver']}>
+                  <NcPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="chamados/aprovacoes/:idChamado"
+              element={
+                <RotaPermissao permissoes={['chamados.aprovar']}>
+                  <ManutencaoAprovacaoDetalhePage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="chamados/aprovacoes"
+              element={
+                <RotaPermissao permissoes={['chamados.aprovar']}>
+                  <ManutencaoAprovacoesPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="chamados"
+              element={
+                <RotaPermissao permissoes={['chamados.ver']}>
+                  <ManutencaoChamadosPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="chamados/novo"
+              element={
+                <RotaPermissao permissoes={['chamados.abrir']}>
+                  <ManutencaoNovoPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="chamados/:idChamado"
+              element={
+                <RotaPermissao permissoes={['chamados.ver', 'chamados.abrir']}>
+                  <ManutencaoDetalhePage />
+                </RotaPermissao>
+              }
+            />
             <Route path="manutencao" element={<Navigate to="/chamados" replace />} />
             <Route path="manutencao/novo" element={<Navigate to="/chamados/novo" replace />} />
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
             <Route
               path="usuarios"
               element={
-                <RotaTi>
+                <RotaPermissao permissoes={['usuarios.gerenciar']}>
                   <UsuariosPage />
-                </RotaTi>
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="configuracoes"
+              element={
+                <RotaPermissao permissoes={['configuracoes.ver']}>
+                  <ConfiguracoesPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="configuracoes/categorias"
+              element={
+                <RotaPermissao permissoes={['configuracoes.ver']}>
+                  <CategoriasPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="configuracoes/sla"
+              element={
+                <RotaPermissao permissoes={['configuracoes.ver']}>
+                  <SlaPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="configuracoes/cargos"
+              element={
+                <RotaPermissao permissoes={['configuracoes.ver']}>
+                  <CargosPage />
+                </RotaPermissao>
               }
             />
           </Route>

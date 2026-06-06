@@ -85,7 +85,7 @@ export default function AppLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2 text-sm no-underline border-l-[3px] transition-colors ${
                   isActive
-                    ? 'bg-[#FFF0E8] text-[#1B2A6B] border-[#E8520A] font-medium'
+                    ? 'bg-[#E8EBF5] text-[#1B2A6B] border-[#1B2A6B] font-medium'
                     : 'text-gray-600 border-transparent hover:bg-gray-50 hover:text-[#1B2A6B]'
                 }`
               }

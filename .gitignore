@@ -9,3 +9,4 @@ uploads/*
 !uploads/.gitkeep
 backend/uploads/
 .DS_Store
+VERSION

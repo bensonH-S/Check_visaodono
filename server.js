@@ -3,10 +3,39 @@
  * Produção: node server.js --production
  */
 import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function normalizeAppVersion(raw) {
+  const v = String(raw || '').trim();
+  if (!v || v === 'dev') return 'dev';
+  const match = v.match(/^(v\d+(?:\.\d+)*)/i);
+  return match ? match[1] : v;
+}
+
+function resolveAppVersion() {
+  const versionFile = path.join(__dirname, 'VERSION');
+  if (fs.existsSync(versionFile)) {
+    return normalizeAppVersion(fs.readFileSync(versionFile, 'utf8'));
+  }
+  try {
+    return normalizeAppVersion(
+      execSync('git describe --tags --abbrev=0', {
+        encoding: 'utf8',
+        cwd: __dirname,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim()
+    );
+  } catch {
+    return 'dev';
+  }
+}
+
+const APP_VERSION = resolveAppVersion();
 
 dotenv.config({ path: path.join(__dirname, '.env'), override: false });
 dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: false });
@@ -40,7 +69,8 @@ const ncRouter = (await import('./backend/src/routes/naoConformidades.js')).defa
 const dashboardRouter = (await import('./backend/src/routes/dashboard.js')).default;
 const authRouter = (await import('./backend/src/routes/auth.js')).default;
 const manutencaoRouter = (await import('./backend/src/routes/manutencao.js')).default;
-const { uploadsRoot } = await import('./backend/src/fotos.js');
+const cargosRouter = (await import('./backend/src/routes/cargos.js')).default;
+await import('./backend/src/cryptoMedia.js');
 const { authMiddleware } = await import('./backend/src/auth.js');
 const { attachLojasUsuario } = await import('./backend/src/lojasUsuario.js');
 const { attachPermissoesUsuario } = await import('./backend/src/permissoes.js');
@@ -48,10 +78,7 @@ const { attachPermissoesUsuario } = await import('./backend/src/permissoes.js');
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
-
-app.use(`${API_PREFIX}/uploads`, express.static(uploadsRoot()));
-app.use('/api/uploads', express.static(uploadsRoot()));
+app.use(express.json({ limit: '80mb' }));
 
 function garantirSchema() {
   pool
@@ -77,6 +104,18 @@ api.get('/health', async (_req, res) => {
   }
 });
 
+api.get('/public/config', (_req, res) => {
+  res.json({
+    version: APP_VERSION,
+    environment: isProd ? (process.env.APP_ENV || 'Production') : 'Development',
+    support: {
+      name: process.env.SUPPORT_NAME || 'Benson Henrique',
+      phone: process.env.SUPPORT_PHONE || '+55 61 9109-4654',
+      email: process.env.SUPPORT_EMAIL || 'benson.henrique@grupoalvim.com.br',
+    },
+  });
+});
+
 api.use('/auth', authRouter);
 
 api.use(authMiddleware);
@@ -85,6 +124,7 @@ api.use(attachLojasUsuario);
 api.use('/dashboard', dashboardRouter);
 api.use('/lojas', lojasRouter);
 api.use('/usuarios', usuariosRouter);
+api.use('/cargos', cargosRouter);
 api.use('/checklist', checklistRouter);
 api.use('/visitas', visitasRouter);
 api.use('/nao-conformidades', ncRouter);

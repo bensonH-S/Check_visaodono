@@ -1,9 +1,44 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { persistirFotos } from '../fotos.js';
+import {
+  persistirFotos,
+  midiaUrlsResposta,
+  decryptMidiaResposta,
+  countMidiaResposta,
+} from '../fotos.js';
 import { filtroSqlLojas, usuarioPodeLoja } from '../lojasUsuario.js';
 
 const router = Router();
+
+router.get('/:idVisita/respostas/:idPergunta/media/:indice', async (req, res, next) => {
+  try {
+    const idVisita = Number(req.params.idVisita);
+    const idPergunta = Number(req.params.idPergunta);
+    const indice = Number(req.params.indice);
+
+    const visita = await pool.query('SELECT id_loja FROM visitas WHERE id_visita = $1', [idVisita]);
+    if (!visita.rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
+    if (!usuarioPodeLoja(req.user, visita.rows[0].id_loja)) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT foto_url FROM respostas WHERE id_visita = $1 AND id_pergunta = $2`,
+      [idVisita, idPergunta],
+    );
+    if (!rows[0]?.foto_url) return res.status(404).json({ error: 'Mídia não encontrada' });
+    if (indice < 0 || indice >= countMidiaResposta(rows[0].foto_url)) {
+      return res.status(404).json({ error: 'Mídia não encontrada' });
+    }
+
+    const { buffer, mime } = decryptMidiaResposta(rows[0].foto_url, indice);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buffer);
+  } catch (e) {
+    next(e);
+  }
+});
 
 router.get('/', async (req, res, next) => {
   try {
@@ -89,9 +124,16 @@ router.get('/:id', async (req, res, next) => {
       [visita.rows[0].id_loja]
     );
 
+    const respostasPublicas = respostas.rows.map((r) => ({
+      ...r,
+      foto_url: undefined,
+      midia_urls: midiaUrlsResposta(req.params.id, r.id_pergunta, r.foto_url),
+      total_midias: countMidiaResposta(r.foto_url),
+    }));
+
     res.json({
       visita: visita.rows[0],
-      respostas: respostas.rows,
+      respostas: respostasPublicas,
       desempenho_categorias: porCategoria.rows,
       nao_conformidades: ncs.rows,
       historico_notas: historico.rows,

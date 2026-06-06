@@ -48,7 +48,7 @@ export default function ManutencaoLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2.5 text-sm no-underline border-l-[3px] ${
                   isActive
-                    ? 'bg-[#FFF0E8] text-[#1B2A6B] border-[#E8520A] font-semibold'
+                    ? 'bg-[#E8EBF5] text-[#1B2A6B] border-[#1B2A6B] font-semibold'
                     : 'text-gray-600 border-transparent hover:bg-gray-50'
                 }`
               }
@@ -111,7 +111,7 @@ export default function ManutencaoLayout() {
               end={item.to === '/manutencao'}
               className={({ isActive }) =>
                 `flex-1 flex flex-col items-center justify-center py-2.5 text-[0.7rem] font-semibold no-underline ${
-                  isActive ? 'bg-[#E8520A] text-white' : 'text-white/85'
+                  isActive ? 'bg-[#1B2A6B] text-white' : 'text-white/85'
                 }`
               }
             >

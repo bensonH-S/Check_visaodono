@@ -9,6 +9,9 @@ import LinearProgress from '@mui/material/LinearProgress';
 import { api, fmtNota, fmtData, scoreColor } from '../api/client';
 import type { DashboardData } from '../api/client';
 
+const NAVY = '#1B2A6B';
+const ORANGE = '#E8520A';
+
 function MetricCard({
   label,
   value,
@@ -21,7 +24,7 @@ function MetricCard({
   accent?: boolean;
 }) {
   return (
-    <Paper className={`p-4 h-full ${accent ? 'border-t-[3px] border-[#E8520A]' : ''}`}>
+    <Paper className="p-4 h-full" sx={accent ? { borderTop: `3px solid ${NAVY}` } : undefined}>
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
@@ -35,6 +38,15 @@ function MetricCard({
       )}
     </Paper>
   );
+}
+
+function rankBadge(pos: number) {
+  const top3 = pos <= 3;
+  return {
+    bgcolor: top3 ? ORANGE : '#E8EAED',
+    color: top3 ? '#fff' : NAVY,
+    fontWeight: 700,
+  };
 }
 
 export default function DashboardPage() {
@@ -79,20 +91,36 @@ export default function DashboardPage() {
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper className="p-4">
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
-              Top 5 — Ranking
+              Top 5 Ranking
             </Typography>
-            {data.ranking.map((r) => (
-              <Box key={r.id_loja} className="flex items-center gap-2 py-2 border-b border-gray-100 last:border-0">
+            {data.ranking.map((r, index) => (
+              <Box
+                key={r.id_loja}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  py: 1.25,
+                  borderBottom: index < data.ranking.length - 1 ? '1px solid' : 'none',
+                  borderColor: 'divider',
+                }}
+              >
                 <Box
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium"
                   sx={{
-                    bgcolor: r.posicao_ranking <= 3 ? 'primary.light' : 'grey.100',
-                    color: r.posicao_ranking <= 3 ? 'primary.main' : 'text.secondary',
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.75rem',
+                    flexShrink: 0,
+                    ...rankBadge(r.posicao_ranking),
                   }}
                 >
                   {r.posicao_ranking}
                 </Box>
-                <Typography variant="body2" className="flex-1">
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
                   {r.name}
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600, color: scoreColor(Number(r.nota_atual)) }}>
@@ -100,7 +128,7 @@ export default function DashboardPage() {
                 </Typography>
               </Box>
             ))}
-            <Button component={Link} to="/ranking" fullWidth size="small" sx={{ mt: 1.5 }}>
+            <Button component={Link} to="/ranking" fullWidth size="small" variant="contained" sx={{ mt: 1.5 }}>
               Ver ranking completo
             </Button>
           </Paper>

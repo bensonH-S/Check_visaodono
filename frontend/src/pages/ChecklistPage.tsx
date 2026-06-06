@@ -563,11 +563,14 @@ export default function ChecklistPage() {
 
       <Snackbar
         open={!!snack}
-        autoHideDuration={2500}
-        message={snack}
+        autoHideDuration={2000}
         onClose={() => setSnack('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      />
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setSnack('')} sx={{ minWidth: 280 }}>
+          {snack}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

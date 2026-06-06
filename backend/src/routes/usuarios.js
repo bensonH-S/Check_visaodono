@@ -12,9 +12,9 @@ import {
   resolverPermissoesUsuario,
   syncUsuarioPermissoes,
 } from '../permissoes.js';
+import { validarCodigoCargo, nomeCargo } from './cargos.js';
 
 const router = Router();
-
 const PERFIS_VALIDOS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'];
 
 function iniciais(nome) {
@@ -36,6 +36,8 @@ async function mapUsuarioGestao(row) {
     nome: row.nome,
     email: row.email,
     cargo: row.cargo,
+    cargo_aprovacao: row.cargo_aprovacao || null,
+    cargo_nome: row.cargo_nome || null,
     avatar_inicial: row.avatar_inicial,
     perfil: row.perfil,
     lojas,
@@ -46,7 +48,11 @@ async function mapUsuarioGestao(row) {
   };
 }
 
-const SQL_USUARIO = `SELECT id_usuario, nome, email, cargo, avatar_inicial, perfil::text AS perfil, ativo FROM usuarios`;
+const SQL_USUARIO = `
+  SELECT u.id_usuario, u.nome, u.email, u.cargo, u.cargo_aprovacao, u.avatar_inicial,
+         u.perfil::text AS perfil, u.ativo, cg.nome AS cargo_nome
+  FROM usuarios u
+  LEFT JOIN cargos cg ON cg.codigo = u.cargo_aprovacao`;
 
 router.get('/permissoes/catalogo', requirePermissao('usuarios.gerenciar'), (_req, res) => {
   res.json(CATALOGO_PERMISSOES);
@@ -80,6 +86,41 @@ router.get('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, re
   }
 });
 
+function perfilInternoDoCargo(codigo) {
+  return PERFIS_VALIDOS.includes(codigo) ? codigo : 'gerente';
+}
+
+async function resolverCargoUsuario(cargoCodigo, permissoes, { obrigatorio = false } = {}) {
+  const exigirAprovador = (permissoes || []).includes('chamados.aprovar');
+  if (!cargoCodigo) {
+    if (obrigatorio || exigirAprovador) {
+      return { error: 'Selecione o perfil' };
+    }
+    return { codigo: null, nome: null };
+  }
+  const validado = await validarCodigoCargo(cargoCodigo, { exigirAprovador: false });
+  if (!validado || typeof validado === 'object') {
+    return { error: validado?.error || 'Perfil inválido ou inativo' };
+  }
+  if (exigirAprovador) {
+    const { rows } = await pool.query(
+      'SELECT aprovador FROM cargos WHERE codigo = $1 AND ativo = TRUE',
+      [validado],
+    );
+    if (!rows[0]?.aprovador) {
+      return {
+        error: 'Usuários que aprovam orçamentos precisam de um perfil aprovador (ex.: Financeiro, Diretor)',
+      };
+    }
+  }
+  const nome = await nomeCargo(validado);
+  return {
+    codigo: validado,
+    nome: nome || validado,
+    perfil: perfilInternoDoCargo(validado),
+  };
+}
+
 function validarLojas(permissoes, lojasIds) {
   if (acessoTodasLojas({ permissoes })) return null;
   const ids = [...new Set((lojasIds || []).map(Number).filter(Boolean))];
@@ -89,31 +130,43 @@ function validarLojas(permissoes, lojasIds) {
 
 router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
-    const { nome, email, senha, perfil, lojas_ids, permissoes, ativo } = req.body;
+    const { nome, email, senha, lojas_ids, permissoes, ativo, cargo_aprovacao } = req.body;
     const emailNorm = String(email || '').trim().toLowerCase();
 
     if (!nome?.trim() || !emailNorm || !senha || senha.length < 6) {
       return res.status(400).json({ error: 'Nome, e-mail e senha (mín. 6) são obrigatórios' });
     }
-    if (!PERFIS_VALIDOS.includes(perfil)) {
-      return res.status(400).json({ error: 'Perfil inválido' });
-    }
 
-    const perms = resolverPermissoesUsuario(perfil, permissoes);
+    const permsProv = resolverPermissoesUsuario('gerente', permissoes);
+    const cargoRes = await resolverCargoUsuario(cargo_aprovacao, permsProv, { obrigatorio: true });
+    if (cargoRes.error) return res.status(400).json({ error: cargoRes.error });
+
+    const perms = resolverPermissoesUsuario(cargoRes.perfil, permissoes);
     const errLojas = validarLojas(perms, lojas_ids);
     if (errLojas) return res.status(400).json({ error: errLojas });
 
     const hash = await bcrypt.hash(senha, 10);
     const { rows } = await pool.query(
-      `INSERT INTO usuarios (nome, email, cargo, avatar_inicial, senha_hash, perfil, ativo)
-       VALUES ($1, $2, $3, $4, $5, $6::perfil_usuario, COALESCE($7, TRUE))
-       RETURNING id_usuario, nome, email, cargo, avatar_inicial, perfil::text AS perfil, ativo`,
-      [nome.trim(), emailNorm, perfil, iniciais(nome), hash, perfil, ativo],
+      `INSERT INTO usuarios (nome, email, cargo, cargo_aprovacao, avatar_inicial, senha_hash, perfil, ativo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::perfil_usuario, COALESCE($8, TRUE))
+       RETURNING id_usuario, nome, email, cargo, cargo_aprovacao, avatar_inicial, perfil::text AS perfil, ativo`,
+      [
+        nome.trim(),
+        emailNorm,
+        cargoRes.nome,
+        cargoRes.codigo,
+        iniciais(nome),
+        hash,
+        cargoRes.perfil,
+        ativo,
+      ],
     );
 
-    await syncUsuarioPermissoes(rows[0].id_usuario, perms);
-    await syncUsuarioLojas(rows[0].id_usuario, lojas_ids, acessoTodasLojas({ permissoes: perms }));
-    res.status(201).json(await mapUsuarioGestao(rows[0]));
+    const idNovo = rows[0].id_usuario;
+    await syncUsuarioPermissoes(idNovo, perms);
+    await syncUsuarioLojas(idNovo, lojas_ids, acessoTodasLojas({ permissoes: perms }));
+    const { rows: completo } = await pool.query(`${SQL_USUARIO} WHERE u.id_usuario = $1`, [idNovo]);
+    res.status(201).json(await mapUsuarioGestao(completo[0]));
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'E-mail já cadastrado' });
     next(e);
@@ -123,10 +176,11 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
 router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { nome, email, senha, perfil, lojas_ids, permissoes, ativo } = req.body;
+    const { nome, email, senha, lojas_ids, permissoes, ativo, cargo_aprovacao } = req.body;
 
     const atual = await pool.query(
-      'SELECT id_usuario, perfil::text AS perfil FROM usuarios WHERE id_usuario = $1',
+      `SELECT id_usuario, perfil::text AS perfil, cargo_aprovacao
+       FROM usuarios WHERE id_usuario = $1`,
       [id],
     );
     if (!atual.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -135,12 +189,13 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       return res.status(400).json({ error: 'Você não pode desativar seu próprio usuário' });
     }
 
-    if (perfil && !PERFIS_VALIDOS.includes(perfil)) {
-      return res.status(400).json({ error: 'Perfil inválido' });
-    }
-
-    const perfilEfetivo = perfil || atual.rows[0].perfil;
-    const virouTi = perfil === 'ti' && atual.rows[0].perfil !== 'ti';
+    const cargoCodigoEfetivo =
+      cargo_aprovacao !== undefined ? cargo_aprovacao : atual.rows[0].cargo_aprovacao;
+    const perfilEfetivo = cargoCodigoEfetivo
+      ? perfilInternoDoCargo(cargoCodigoEfetivo)
+      : atual.rows[0].perfil;
+    const virouTi =
+      cargo_aprovacao === 'ti' && atual.rows[0].cargo_aprovacao !== 'ti';
     const permsAtuais =
       permissoes !== undefined
         ? resolverPermissoesUsuario(perfilEfetivo, permissoes)
@@ -175,12 +230,6 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       sets.push(`email = $${i++}`);
       vals.push(String(email).trim().toLowerCase());
     }
-    if (perfil) {
-      sets.push(`perfil = $${i++}::perfil_usuario`);
-      vals.push(perfil);
-      sets.push(`cargo = $${i++}`);
-      vals.push(perfil);
-    }
     if (ativo !== undefined) {
       sets.push(`ativo = $${i++}`);
       vals.push(!!ativo);
@@ -189,6 +238,19 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       const hash = await bcrypt.hash(senha, 10);
       sets.push(`senha_hash = $${i++}`);
       vals.push(hash);
+    }
+    if (cargo_aprovacao !== undefined) {
+      const cargoRes = await resolverCargoUsuario(cargo_aprovacao, permsAtuais, { obrigatorio: true });
+      if (cargoRes.error) return res.status(400).json({ error: cargoRes.error });
+      sets.push(`cargo_aprovacao = $${i++}`);
+      vals.push(cargoRes.codigo);
+      sets.push(`cargo = $${i++}`);
+      vals.push(cargoRes.nome);
+      sets.push(`perfil = $${i++}::perfil_usuario`);
+      vals.push(cargoRes.perfil);
+    } else if (permissoes !== undefined && permsAtuais.includes('chamados.aprovar')) {
+      const cargoRes = await resolverCargoUsuario(atual.rows[0].cargo_aprovacao, permsAtuais);
+      if (cargoRes.error) return res.status(400).json({ error: cargoRes.error });
     }
 
     if (sets.length) {
@@ -213,7 +275,7 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       await syncUsuarioLojas(id, idsLoja, acessoTodasLojas({ permissoes: perms }));
     }
 
-    const { rows } = await pool.query(`${SQL_USUARIO} WHERE id_usuario = $1`, [id]);
+    const { rows } = await pool.query(`${SQL_USUARIO} WHERE u.id_usuario = $1`, [id]);
     res.json(await mapUsuarioGestao(rows[0]));
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'E-mail já cadastrado' });

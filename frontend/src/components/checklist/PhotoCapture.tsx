@@ -9,6 +9,7 @@ import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { compressImage } from '../../utils/compressImage';
+import { fileToDataUrl } from '../../utils/mediaFile';
 
 interface Props {
   value?: string;
@@ -28,10 +29,12 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
     setErro('');
     setLoading(true);
     try {
-      const dataUrl = await compressImage(file);
+      const dataUrl = file.type.startsWith('video/')
+        ? await fileToDataUrl(file)
+        : await compressImage(file);
       onChange(dataUrl);
-    } catch {
-      setErro('Não foi possível processar a foto. Tente outra imagem.');
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Não foi possível processar o arquivo.');
     } finally {
       setLoading(false);
       if (cameraRef.current) cameraRef.current.value = '';
@@ -186,7 +189,7 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
       <input
         ref={galleryRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         hidden
         onChange={(e) => processar(e.target.files?.[0])}
       />

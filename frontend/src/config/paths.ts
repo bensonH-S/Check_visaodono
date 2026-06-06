@@ -8,6 +8,16 @@ export const appBasePath =
 /** Prefixo da API no mesmo domínio: /auditoria/api */
 export const apiBasePath = `${appBasePath}/api`.replace(/\/+/g, '/');
 
+/** Garante rota interna do React Router (sem prefixo /auditoria) */
+export function normalizeAppRoute(path: string): string {
+  let p = (path || '/').trim();
+  if (!p.startsWith('/')) p = `/${p}`;
+  if (appBasePath && (p === appBasePath || p.startsWith(`${appBasePath}/`))) {
+    p = p.slice(appBasePath.length) || '/';
+  }
+  return p || '/';
+}
+
 /** Caminho relativo à raiz do app (ex: /ranking, não /auditoria/ranking) */
 export function toAppPath(pathname: string): string {
   if (!appBasePath) return pathname || '/';

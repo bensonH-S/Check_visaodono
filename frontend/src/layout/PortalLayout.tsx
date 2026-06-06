@@ -1,14 +1,13 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { assetUrl, toAppPath, LOGO_GRUPO_ALVIM } from '../config/paths';
+import { resolvePageTitle } from '../config/pageTitles';
+import PageHeaderTitle from '../components/PageHeaderTitle';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, labelPerfil } from '../lib/auth';
+import { getUsuario, logout, temPermissao, nomeExibicaoUsuario } from '../lib/auth';
 import PeopleIcon from '@mui/icons-material/People';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
-import MenuItem from '@mui/material/MenuItem';
-import Menu from '@mui/material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -16,10 +15,14 @@ import HistoryIcon from '@mui/icons-material/History';
 import StoreIcon from '@mui/icons-material/Store';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import BuildIcon from '@mui/icons-material/Build';
-import AddIcon from '@mui/icons-material/Add';
+import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
+import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+import NotificacoesSino from '../components/NotificacoesSino';
+import AppFooter from '../components/AppFooter';
 
 type NavItem = {
   to: string;
@@ -30,30 +33,26 @@ type NavItem = {
   mobileTab?: boolean;
 };
 
-const titles: Record<string, string> = {
-  '/': 'Início',
-  '/ranking': 'Ranking de Lojas',
-  '/checklist': 'Checklist — Visão de Dono',
-  '/visitas': 'Histórico de Visitas',
-  '/lojas': 'Lojas',
-  '/nao-conformidades': 'Não Conformidades',
-  '/chamados': 'Chamados',
-  '/chamados/novo': 'Abrir chamado',
-  '/usuarios': 'Gestão de usuários',
-  '/relatorio': 'Relatório da Visita',
-};
-
 export default function PortalLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const path = toAppPath(location.pathname);
   const user = getUsuario();
 
-  const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);
+  const [welcome, setWelcome] = useState('');
+
+  useEffect(() => {
+    const nome = (location.state as { welcome?: string } | null)?.welcome;
+    if (!nome) return;
+    setWelcome(nome);
+    navigate(location.pathname + location.search + location.hash, { replace: true, state: {} });
+  }, [location.state, location.pathname, location.search, location.hash, navigate]);
 
   const isChecklist = path === '/checklist' || path.startsWith('/checklist/');
   const isChamadoNovo = path === '/chamados/novo';
-  const campoMobile = isChecklist || isChamadoNovo;
+  const emAprovacoes = path.startsWith('/chamados/aprovacoes');
+  const emChamados = path.startsWith('/chamados') && !emAprovacoes;
+  const campoMobile = isChecklist;
 
   const nav: NavItem[] = [
     {
@@ -78,6 +77,13 @@ export default function PortalLayout() {
       show: temPermissao('chamados.ver', user),
       end: true,
       mobileTab: true,
+    },
+    {
+      to: '/chamados/aprovacoes',
+      label: 'Aprovações',
+      icon: <ThumbUpAltOutlinedIcon fontSize="small" />,
+      show: temPermissao('chamados.aprovar', user),
+      end: true,
     },
     {
       to: '/visitas',
@@ -109,17 +115,20 @@ export default function PortalLayout() {
       icon: <PeopleIcon fontSize="small" />,
       show: temPermissao('usuarios.gerenciar', user),
     },
+    {
+      to: '/configuracoes',
+      label: 'Configurações',
+      icon: <SettingsIcon fontSize="small" />,
+      show: temPermissao('configuracoes.ver', user),
+      end: true,
+    },
   ].filter((n) => n.show);
 
   const mobileTabs = nav.filter((n) => n.mobileTab);
 
-  const title =
-    titles[path] ||
-    (path.startsWith('/checklist/concluido') ? 'Visita concluída' : undefined) ||
-    (path.startsWith('/relatorio/') ? titles['/relatorio'] : undefined) ||
-    'Portal Grupo Alvim';
+  const pageTitle = resolvePageTitle(path);
 
-  usePageTitle(title);
+  usePageTitle(pageTitle.title);
 
   const iniciais =
     user?.avatar_inicial ||
@@ -132,23 +141,27 @@ export default function PortalLayout() {
     '?';
 
   return (
-    <Box className="flex min-h-screen md:h-screen md:overflow-hidden bg-[#f5f5f3]">
+    <Box
+      className={`flex h-full bg-[#f5f5f3] ${campoMobile ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}`}
+    >
       <Box
         component="aside"
-        className={`${campoMobile ? 'hidden' : 'hidden md:flex'} w-56 shrink-0 flex-col bg-white border-r border-gray-200`}
+        className={`${campoMobile ? 'hidden' : 'hidden md:flex'} w-56 shrink-0 flex-col border-r border-gray-200`}
+        sx={{
+          bgcolor: 'white',
+          height: '100%',
+          overflow: 'hidden',
+        }}
       >
-        <Box className="p-4 border-b border-gray-100">
+        <Box className="px-4 py-3 border-b border-gray-100 flex justify-center">
           <Box
             component="img"
             src={assetUrl(LOGO_GRUPO_ALVIM)}
             alt="Grupo Alvim"
-            className="block w-full max-w-[220px] h-auto object-contain"
+            className="block w-full max-w-[140px] h-auto object-contain"
           />
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            Portal operacional · BK
-          </Typography>
         </Box>
-        <Box component="nav" className="flex-1 py-2 overflow-y-auto">
+        <Box component="nav" className="flex-1 py-2 overflow-y-auto" sx={{ bgcolor: 'white' }}>
           {nav.map((item) => (
             <NavLink
               key={item.to}
@@ -157,7 +170,7 @@ export default function PortalLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-2 px-4 py-2 text-sm no-underline border-l-[3px] transition-colors ${
                   isActive
-                    ? 'bg-[#FFF0E8] text-[#1B2A6B] border-[#E8520A] font-medium'
+                    ? 'bg-[#E8EBF5] text-[#1B2A6B] border-[#1B2A6B] font-medium'
                     : 'text-gray-600 border-transparent hover:bg-gray-50'
                 }`
               }
@@ -167,7 +180,7 @@ export default function PortalLayout() {
             </NavLink>
           ))}
         </Box>
-        <Box className="p-3 border-t border-gray-100">
+        <Box className="p-3 border-t border-gray-100" sx={{ bgcolor: 'white' }}>
           <Box className="flex items-center gap-2 mb-2">
             <Box
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-semibold shrink-0"
@@ -180,7 +193,7 @@ export default function PortalLayout() {
                 {user?.nome}
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap>
-                {user?.perfil ? labelPerfil(user.perfil) : '—'}
+                {nomeExibicaoUsuario(user)}
               </Typography>
             </Box>
           </Box>
@@ -211,76 +224,34 @@ export default function PortalLayout() {
               sx={{ height: 40, objectFit: 'contain', display: { md: 'none' } }}
             />
           )}
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }} noWrap>
-            {title}
-          </Typography>
-          <Box className="hidden md:flex items-center gap-2">
-            {temPermissao('checklist.executar', user) && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<AssignmentIcon />}
-                onClick={() => navigate('/checklist')}
-              >
-                Checklist
-              </Button>
+          <PageHeaderTitle {...pageTitle} />
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+            {emChamados && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user)) && (
+              <NotificacoesSino variante="portal" contexto="chamados" />
             )}
-            {temPermissao('chamados.abrir', user) && (
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => navigate('/chamados/novo')}
-              >
-                Abrir chamado
-              </Button>
+            {emAprovacoes && temPermissao('chamados.aprovar', user) && (
+              <NotificacoesSino variante="portal" contexto="aprovacoes" />
             )}
           </Box>
-          <IconButton
-            className="md:hidden"
-            onClick={(e) => setMenuEl(e.currentTarget)}
-            aria-label="Menu"
-          >
-            <MoreHorizIcon />
-          </IconButton>
-          <Menu anchorEl={menuEl} open={!!menuEl} onClose={() => setMenuEl(null)}>
-            {nav
-              .filter((n) => !n.mobileTab)
-              .map((item) => (
-                <MenuItem
-                  key={item.to}
-                  onClick={() => {
-                    setMenuEl(null);
-                    navigate(item.to);
-                  }}
-                >
-                  {item.label}
-                </MenuItem>
-              ))}
-            <MenuItem
-              onClick={() => {
-                logout();
-                navigate('/login');
-              }}
-            >
-              Sair
-            </MenuItem>
-          </Menu>
         </Box>
 
         <Box
           component="main"
-          className={`flex-1 overflow-y-auto ${campoMobile ? 'p-3 md:p-5' : 'p-4 md:p-5'} ${mobileTabs.length ? 'pb-20 md:pb-5' : ''}`}
+          className={`flex-1 min-h-0 overflow-y-auto ${campoMobile || isChamadoNovo ? 'p-3 md:p-5' : 'p-4 md:p-5'} ${mobileTabs.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
           sx={{
-            maxWidth: campoMobile ? { xs: 640, md: 'none' } : 'none',
-            mx: campoMobile ? { xs: 'auto', md: 0 } : 0,
+            maxWidth: campoMobile || isChamadoNovo ? { xs: 640, md: 'none' } : 'none',
+            mx: campoMobile || isChamadoNovo ? { xs: 'auto', md: 0 } : 0,
             width: '100%',
           }}
         >
           <Outlet />
         </Box>
 
-        {mobileTabs.length > 0 && (
+        <Box sx={{ flexShrink: 0, display: { xs: mobileTabs.length && !isChamadoNovo ? 'none' : 'block', md: 'block' } }}>
+          <AppFooter />
+        </Box>
+
+        {mobileTabs.length > 0 && !isChamadoNovo && (
           <Box
             component="nav"
             className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex border-t border-gray-200 bg-[#1B2A6B]"
@@ -293,7 +264,7 @@ export default function PortalLayout() {
                 end={item.end}
                 className={({ isActive }) =>
                   `flex-1 flex flex-col items-center justify-center py-2 text-[0.65rem] font-semibold no-underline min-h-[52px] ${
-                    isActive ? 'bg-[#E8520A] text-white' : 'text-white/85'
+                    isActive ? 'bg-[#1B2A6B] text-white' : 'text-white/85'
                   }`
                 }
               >
@@ -304,6 +275,17 @@ export default function PortalLayout() {
           </Box>
         )}
       </Box>
+
+      <Snackbar
+        open={!!welcome}
+        autoHideDuration={2500}
+        onClose={() => setWelcome('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setWelcome('')} sx={{ width: '100%' }}>
+          Bem-vindo, {welcome}!
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

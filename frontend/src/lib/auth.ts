@@ -1,4 +1,5 @@
 export type PerfilUsuario = 'administrador' | 'coordenador' | 'gerente' | 'tecnico' | 'ti';
+export type CargoAprovacao = string;
 
 export type LojaResumo = {
   id_loja: number;
@@ -12,6 +13,8 @@ export type UsuarioSessao = {
   email: string;
   perfil: PerfilUsuario;
   cargo?: string;
+  cargo_aprovacao?: CargoAprovacao | null;
+  cargo_nome?: string | null;
   avatar_inicial?: string;
   lojas: LojaResumo[];
   permissoes: string[];
@@ -60,4 +63,13 @@ export function labelPerfil(perfil: string) {
     ti: 'TI',
   };
   return map[perfil] || perfil;
+}
+
+/** Nome exibido na sessão: prioriza cargo da tabela Cargos, não o perfil interno legado. */
+export function nomeExibicaoUsuario(usuario?: Pick<UsuarioSessao, 'cargo_nome' | 'cargo' | 'perfil'> | null) {
+  if (!usuario) return '—';
+  if (usuario.cargo_nome) return usuario.cargo_nome;
+  if (usuario.cargo) return usuario.cargo;
+  if (usuario.perfil) return labelPerfil(usuario.perfil);
+  return '—';
 }

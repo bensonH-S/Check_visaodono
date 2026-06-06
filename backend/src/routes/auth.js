@@ -16,7 +16,9 @@ async function mapUsuario(row) {
     nome: row.nome,
     email: row.email,
     perfil: row.perfil,
-    cargo: row.cargo,
+    cargo: row.cargo_nome || row.cargo,
+    cargo_aprovacao: row.cargo_aprovacao || null,
+    cargo_nome: row.cargo_nome || null,
     avatar_inicial: row.avatar_inicial,
     lojas,
     permissoes,
@@ -58,7 +60,10 @@ router.post('/login', async (req, res, next) => {
 router.get('/me', authMiddleware, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM usuarios WHERE id_usuario = $1 AND ativo = TRUE`,
+      `SELECT u.*, cg.nome AS cargo_nome
+       FROM usuarios u
+       LEFT JOIN cargos cg ON cg.codigo = u.cargo_aprovacao
+       WHERE u.id_usuario = $1 AND u.ativo = TRUE`,
       [req.user.sub],
     );
     if (!rows[0]) return res.status(401).json({ error: 'Usuário inativo ou não encontrado' });

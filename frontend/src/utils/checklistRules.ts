@@ -105,11 +105,15 @@ export function parseFotos(foto_url?: string): string[] {
   return [t];
 }
 
-/** Caminhos /api/uploads ou data URLs para exibir no preview. */
+/** Data URLs ou URLs da API para exibir no preview. */
 export function urlFoto(src: string): string {
   if (src.startsWith('data:') || src.startsWith('http')) return src;
   if (src.startsWith('/')) return src;
   return src;
+}
+
+export function parseMidiaUrls(midia_urls?: string[]): string[] {
+  return (midia_urls || []).filter(Boolean);
 }
 
 export function serializeFotos(fotos: string[]): string | null {
