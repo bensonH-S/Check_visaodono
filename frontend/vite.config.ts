@@ -55,6 +55,8 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         lang: 'pt-BR',
+        start_url: 'login/mobile',
+        scope: './',
         icons: [
           {
             src: 'Logo_Icon.png',

@@ -34,6 +34,7 @@
     "build:web": "npm run build --prefix frontend",
     "start": "node server.js --production",
     "start:prod": "npm run build:web && npm run start",
+    "docker:build": "powershell -ExecutionPolicy Bypass -File scripts/docker-build.ps1",
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"
   },
   "dependencies": {

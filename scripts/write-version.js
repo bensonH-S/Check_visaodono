@@ -26,6 +26,13 @@ function gitVersion() {
   }
 }
 
-const version = gitVersion();
+/** Tag Git (build Docker/CI) — fallback quando o repositório não está disponível no build. */
+function resolveVersion() {
+  const fromTag = normalizeAppVersion(process.env.GIT_TAG);
+  if (fromTag !== 'dev') return fromTag;
+  return gitVersion();
+}
+
+const version = resolveVersion();
 fs.writeFileSync(path.join(root, 'VERSION'), `${version}\n`);
 console.log(`[version] ${version}`);

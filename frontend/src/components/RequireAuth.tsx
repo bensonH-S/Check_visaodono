@@ -5,6 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { getToken, setSessao } from '../lib/auth';
 import { api } from '../api/client';
 import { normalizeAppRoute } from '../config/paths';
+import { isMobileDevice } from '../utils/device';
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -45,7 +46,8 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
   }
 
   if (!ok) {
-    return <Navigate to="/login" replace state={{ from: normalizeAppRoute(location.pathname) }} />;
+    const loginPath = isMobileDevice() ? '/login/mobile' : '/login';
+    return <Navigate to={loginPath} replace state={{ from: normalizeAppRoute(location.pathname) }} />;
   }
 
   return <>{children}</>;

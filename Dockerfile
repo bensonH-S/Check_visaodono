@@ -8,6 +8,8 @@ COPY frontend/package.json frontend/package-lock.json ./frontend/
 RUN npm ci && npm ci --prefix backend && npm ci --prefix frontend
 
 COPY . .
+ARG GIT_TAG=
+ENV GIT_TAG=${GIT_TAG}
 RUN npm run build:web
 
 FROM node:22-alpine

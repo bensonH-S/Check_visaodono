@@ -7,6 +7,12 @@
   --ga-navy-light: #e8ebf5;
 }
 
+html {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 html,
 body,
 #root {
@@ -17,4 +23,15 @@ body,
 body {
   margin: 0;
   background: #f5f5f3;
+  touch-action: manipulation;
+}
+
+/* Evita zoom automático do iOS Safari ao focar campos com fonte < 16px */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select,
+  .MuiInputBase-input {
+    font-size: 16px !important;
+  }
 }

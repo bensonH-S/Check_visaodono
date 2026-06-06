@@ -8,7 +8,12 @@ type AppFooterProps = {
 
 export default function AppFooter({ compact }: AppFooterProps) {
   const { version, environment } = useAppConfig();
-  const versionLabel = version.startsWith('v') ? version : `v${version}`;
+  const versionLabel =
+    version === 'dev'
+      ? 'dev'
+      : version.startsWith('v')
+        ? version
+        : `v${version}`;
 
   return (
     <Box

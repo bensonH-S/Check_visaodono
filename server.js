@@ -17,11 +17,16 @@ function normalizeAppVersion(raw) {
   return match ? match[1] : v;
 }
 
+dotenv.config({ path: path.join(__dirname, '.env'), override: false });
+dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: false });
+
 function resolveAppVersion() {
   const versionFile = path.join(__dirname, 'VERSION');
   if (fs.existsSync(versionFile)) {
-    return normalizeAppVersion(fs.readFileSync(versionFile, 'utf8'));
+    const fromFile = normalizeAppVersion(fs.readFileSync(versionFile, 'utf8'));
+    if (fromFile !== 'dev') return fromFile;
   }
+
   try {
     return normalizeAppVersion(
       execSync('git describe --tags --abbrev=0', {
@@ -36,9 +41,6 @@ function resolveAppVersion() {
 }
 
 const APP_VERSION = resolveAppVersion();
-
-dotenv.config({ path: path.join(__dirname, '.env'), override: false });
-dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: false });
 
 const APP_BASE_PATH = '/auditoria';
 const PROD_PORT = 3007;
@@ -140,9 +142,25 @@ app.use((err, _req, res, _next) => {
 
 if (SERVE_WEB) {
   const dist = path.join(__dirname, 'frontend', 'dist');
-  app.use(STATIC_BASE, express.static(dist, { index: 'index.html' }));
+  const indexHtml = path.join(dist, 'index.html');
+
+  app.use(
+    STATIC_BASE,
+    express.static(dist, {
+      index: 'index.html',
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    })
+  );
+
   app.get(`${APP_BASE_PATH}/*`, (_req, res) => {
-    res.sendFile(path.join(dist, 'index.html'));
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.sendFile(indexHtml);
   });
   console.log(`[server] SPA ${STATIC_BASE} → ${dist}`);
 }
@@ -150,5 +168,6 @@ if (SERVE_WEB) {
 app.listen(PORT, () => {
   garantirSchema();
   console.log(`[server] ${isProd ? 'produção' : 'dev'} — :${PORT}${API_PREFIX}`);
+  console.log(`[server] versão ${APP_VERSION}`);
   console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
 });

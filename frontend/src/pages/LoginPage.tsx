@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -39,6 +39,7 @@ import { setSessao } from '../lib/auth';
 
 import { usePageTitle } from '../hooks/usePageTitle';
 import { normalizeAppRoute } from '../config/paths';
+import { isMobileDevice } from '../utils/device';
 
 
 
@@ -79,7 +80,11 @@ export default function LoginPage() {
 
   usePageTitle('Login');
 
-
+  useEffect(() => {
+    if (isMobileDevice()) {
+      navigate('/login/mobile', { replace: true, state: location.state });
+    }
+  }, [navigate, location.state]);
 
   async function handleSubmit(e: React.FormEvent) {
 
