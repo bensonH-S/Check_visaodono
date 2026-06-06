@@ -10,8 +10,8 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
-import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import ChamadoDetalheHeader from './ChamadoDetalheHeader';
 import DialogActions from '@mui/material/DialogActions';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -19,8 +19,12 @@ import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import { api, fetchMediaAutenticada, type ManutAnexo, type ManutChamadoDetalhe, type Cargo } from '../../api/client';
 import { getUsuario } from '../../lib/auth';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
-import { destinoAprovacaoChip, destinoPermiteCargoAprovacao, statusChip, urgenciaChip } from '../../utils/manutencaoUi';
-import { useToast } from '../../hooks/useToast';
+import {
+  destinoAprovacaoChip,
+  destinoPermiteCargoAprovacao,
+  limparTextoAprovacao,
+} from '../../utils/manutencaoUi';
+import { TOAST_DURATION_MS, useToast } from '../../hooks/useToast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { portalContentSx } from '../../utils/responsiveLayout';
 
@@ -348,9 +352,15 @@ function GaleriaAnexosOrcamento({ anexos }: { anexos: ManutAnexo[] }) {
 
 function textoSolicitacaoOrcamento(detalhe: ManutChamadoDetalhe): string {
   const evento = detalhe.eventos?.find((e) => e.tipo === 'envio_aprovacao');
-  if (evento?.texto?.trim()) return evento.texto.trim();
+  if (evento?.texto?.trim()) {
+    const limpo = limparTextoAprovacao(evento.texto);
+    if (limpo) return limpo;
+  }
   const ultima = [...(detalhe.atualizacoes || [])].reverse().find((a) => a.texto?.trim());
-  if (ultima?.texto?.trim()) return ultima.texto.trim();
+  if (ultima?.texto?.trim()) {
+    const limpo = limparTextoAprovacao(ultima.texto);
+    if (limpo) return limpo;
+  }
   return detalhe.descricao?.trim() || 'Sem descrição adicional do orçamento.';
 }
 
@@ -432,11 +442,13 @@ export default function AprovacaoOrcamentoDetalhe({ idChamado, onConcluido }: Pr
       showToast(
         modo === 'devolver_financeiro'
           ? 'Aprovado pelo Diretor. Devolvido ao Financeiro para aprovação final.'
-          : 'Orçamento aprovado!',
+          : 'Aprovação efetuada com sucesso!',
       );
       dispararAtualizacaoNotificacoes();
       setObsAprovacao('');
-      onConcluido?.();
+      if (onConcluido) {
+        setTimeout(onConcluido, TOAST_DURATION_MS);
+      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao aprovar');
     } finally {
@@ -515,30 +527,12 @@ export default function AprovacaoOrcamentoDetalhe({ idChamado, onConcluido }: Pr
 
   return (
     <Box sx={portalContentSx}>
-      <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px solid rgba(27, 42, 107, 0.12)', borderTop: `3px solid ${NAVY}` }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-          <Typography sx={{ fontWeight: 800, color: NAVY, fontSize: '1.15rem' }}>
-            #{detalhe.numero} · {detalhe.titulo}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-            {statusChip(detalhe.status)}
-            {urgenciaChip(detalhe.urgencia)}
-            {destinoAprovacaoChip(detalhe.aprovacao_destino, cargos)}
-          </Box>
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-          {detalhe.categoria}
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
-          <LocationOnOutlinedIcon sx={{ fontSize: 18, color: '#E8520A' }} />
-          <Typography variant="body2" sx={{ fontWeight: 600, color: NAVY }}>
-            {detalhe.loja}
-          </Typography>
-        </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          Solicitante: {detalhe.solicitante} · Aberto em {formatDataHoraBrasilia(detalhe.aberto_em || detalhe.prazo_sla)}
-        </Typography>
-      </Paper>
+      <ChamadoDetalheHeader
+        detalhe={detalhe}
+        variante="mobile"
+        ocultarSla
+        chipsExtras={destinoAprovacaoChip(detalhe.aprovacao_destino, cargos)}
+      />
 
       <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY, mb: 1 }}>
@@ -675,7 +669,7 @@ export default function AprovacaoOrcamentoDetalhe({ idChamado, onConcluido }: Pr
                 disabled={processando}
                 onClick={() => aprovar('definitivo')}
               >
-                {processando ? '...' : 'Aprovar (final)'}
+                {processando ? '...' : 'Aprovar orçamento'}
               </Button>
             )}
             {!ehDiretor && !ehFinanceiro && (

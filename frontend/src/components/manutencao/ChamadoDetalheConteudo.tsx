@@ -20,6 +20,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import SendIcon from '@mui/icons-material/Send';
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined';
+import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
 import RequestQuoteOutlinedIcon from '@mui/icons-material/RequestQuoteOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
@@ -27,6 +28,7 @@ import PhotoCaptureMulti from '../checklist/PhotoCaptureMulti';
 import OrcamentoAnexosInput from './OrcamentoAnexosInput';
 import ChamadoTimeline from './ChamadoTimeline';
 import ChamadoDetalheHeader from './ChamadoDetalheHeader';
+import ChamadoAnexosGaleria from './ChamadoAnexosGaleria';
 import DetalheSecao from './DetalheSecao';
 import { api, type ManutChamadoDetalhe, type Cargo } from '../../api/client';
 import { getUsuario, temPermissao } from '../../lib/auth';
@@ -38,6 +40,31 @@ import { detalheChamadoSx } from '../../utils/responsiveLayout';
 
 const NAVY = '#1B2A6B';
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
+
+const tituloModalSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 1,
+  fontWeight: 800,
+  color: NAVY,
+  fontSize: '1rem',
+  py: 1.5,
+};
+
+const selectAprovadorSx = {
+  flex: '1 1 140px',
+  maxWidth: 220,
+  minWidth: 0,
+  '& .MuiInputLabel-root': {
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    bgcolor: 'background.paper',
+    px: 0.5,
+  },
+  '& .MuiOutlinedInput-root': {
+    fontSize: '0.875rem',
+  },
+};
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
@@ -89,6 +116,7 @@ export default function ChamadoDetalheConteudo({
   const [destinoAprovacao, setDestinoAprovacao] = useState('');
   const [enviandoAprovacao, setEnviandoAprovacao] = useState(false);
   const [aprovando, setAprovando] = useState(false);
+  const [assumindo, setAssumindo] = useState(false);
   const [acaoDialog, setAcaoDialog] = useState<
     'orcamento' | 'encerrar' | 'reabrir' | 'anexos' | 'aprovar' | null
   >(null);
@@ -133,11 +161,21 @@ export default function ChamadoDetalheConteudo({
   }, [idChamado, modoAprovacao]);
 
   const encerrado = detalhe ? chamadoEncerrado(detalhe.status) : false;
+  const podeAssumir = Boolean(
+    !modoAprovacao &&
+      !isMobile &&
+      detalhe?.status === 'aberto' &&
+      !detalhe.tecnico &&
+      !detalhe.id_tecnico &&
+      sessao &&
+      temPermissao('chamados.assumir', sessao),
+  );
+
   const podeEditar =
     !modoAprovacao &&
     !isMobile &&
     detalhe &&
-    ABERTOS.has(detalhe.status) &&
+    detalhe.status === 'em_atendimento' &&
     sessao &&
     (temPermissao('chamados.abrir', sessao) ||
       temPermissao('chamados.ver', sessao) ||
@@ -163,7 +201,7 @@ export default function ChamadoDetalheConteudo({
     permitirEncerrar &&
     podeGerir &&
     detalhe &&
-    ['aberto', 'em_atendimento'].includes(detalhe.status);
+    detalhe.status === 'em_atendimento';
 
   const podeAprovar =
     modoAprovacao &&
@@ -177,9 +215,9 @@ export default function ChamadoDetalheConteudo({
     !modoAprovacao &&
     permitirEncerrar &&
     detalhe &&
-    ABERTOS.has(detalhe.status) &&
     podeGerir &&
-    (detalhe.tipo_chamado !== 'orcamento' || detalhe.status === 'aprovado');
+    (detalhe.status === 'em_atendimento' ||
+      (detalhe.tipo_chamado === 'orcamento' && detalhe.status === 'aprovado'));
 
   const podeReabrir =
     !modoAprovacao &&
@@ -188,6 +226,22 @@ export default function ChamadoDetalheConteudo({
     detalhe &&
     sessao &&
     (temPermissao('chamados.assumir', sessao) || temPermissao('chamados.ver', sessao));
+
+  async function assumirChamado() {
+    if (!detalhe || assumindo) return;
+    setAssumindo(true);
+    setErro('');
+    try {
+      await api.manutAssumirChamado(detalhe.id_chamado);
+      showToast('Ticket assumido!');
+      dispararAtualizacaoNotificacoes();
+      carregar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao assumir chamado');
+    } finally {
+      setAssumindo(false);
+    }
+  }
 
   async function enviarAnexos(dataUrls: string[]) {
     if (!detalhe || !dataUrls.length) return;
@@ -370,7 +424,15 @@ export default function ChamadoDetalheConteudo({
 
   return (
     <Box sx={detalheChamadoSx(variante)}>
-      <ChamadoDetalheHeader detalhe={detalhe} onVoltar={onVoltar} voltarLabel={voltarLabel} />
+      <ChamadoDetalheHeader
+        detalhe={detalhe}
+        variante={variante}
+        onVoltar={onVoltar}
+        voltarLabel={voltarLabel}
+        podeAssumir={podeAssumir}
+        assumindo={assumindo}
+        onAssumir={assumirChamado}
+      />
 
       {encerrado && !modoAprovacao && (
         <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
@@ -390,6 +452,15 @@ export default function ChamadoDetalheConteudo({
         >
           Orçamento aguardando sua aprovação.
         </Alert>
+      )}
+
+      {!isMobile && !modoAprovacao && (
+        <DetalheSecao
+          titulo="Anexos"
+          icone={<PhotoLibraryOutlinedIcon sx={{ fontSize: 18, color: NAVY }} />}
+        >
+          <ChamadoAnexosGaleria anexos={detalhe.anexos} tamanhoMiniatura={64} />
+        </DetalheSecao>
       )}
 
       <DetalheSecao
@@ -415,7 +486,11 @@ export default function ChamadoDetalheConteudo({
           {(podeEditar || podeEditarMobile) && (
             <Box>
               <TextField
-                placeholder="Escreva uma resposta para o solicitante ou equipe..."
+                placeholder={
+                  isMobile
+                    ? 'Adicione uma mensagem para o técnico...'
+                    : 'Escreva uma resposta para o solicitante ou equipe...'
+                }
                 multiline
                 minRows={2}
                 maxRows={6}
@@ -511,9 +586,17 @@ export default function ChamadoDetalheConteudo({
         </Alert>
       )}
 
-      <Dialog open={acaoDialog === 'orcamento'} onClose={fecharAcaoDialog} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ fontWeight: 800, color: NAVY }}>Pedir aprovação de orçamento</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+      <Dialog
+        open={acaoDialog === 'orcamento'}
+        onClose={fecharAcaoDialog}
+        maxWidth={false}
+        slotProps={{ paper: { sx: { width: '100%', maxWidth: 400, mx: 2 } } }}
+      >
+        <DialogTitle sx={tituloModalSx}>
+          <RequestQuoteOutlinedIcon sx={{ fontSize: 20, color: NAVY }} />
+          Pedir aprovação de orçamento
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, pt: 0.5 }}>
           <TextField
             label="Observação (opcional)"
             multiline
@@ -525,33 +608,40 @@ export default function ChamadoDetalheConteudo({
             placeholder="Valores, fornecedor ou detalhes"
             slotProps={{ input: { style: { fontSize: 16 } } }}
           />
-          <FormControl size="small" fullWidth>
-            <InputLabel id="destino-aprovacao-label" shrink={!!destinoAprovacao}>
-              Aprovador
-            </InputLabel>
-            <Select
-              labelId="destino-aprovacao-label"
-              label="Aprovador"
-              displayEmpty
-              value={destinoAprovacao}
-              onChange={(e) => setDestinoAprovacao(e.target.value)}
-              disabled={enviandoAprovacao || !cargosAprovador.length}
-            >
-              <MenuItem value="" disabled>
-                Selecione
-              </MenuItem>
-              {cargosAprovador.map((c) => (
-                <MenuItem key={c.codigo} value={c.codigo}>
-                  {c.nome}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25, alignItems: 'flex-end' }}>
+            <FormControl size="small" sx={selectAprovadorSx}>
+              <InputLabel id="destino-aprovacao-label" shrink>
+                Aprovador
+              </InputLabel>
+              <Select
+                labelId="destino-aprovacao-label"
+                label="Aprovador"
+                value={destinoAprovacao}
+                onChange={(e) => setDestinoAprovacao(e.target.value)}
+                disabled={enviandoAprovacao || !cargosAprovador.length}
+                displayEmpty
+                renderValue={(v) => {
+                  if (!v) return <Typography variant="body2" color="text.secondary">Selecione</Typography>;
+                  return cargosAprovador.find((c) => c.codigo === v)?.nome ?? v;
+                }}
+              >
+                <MenuItem value="" disabled>
+                  Selecione
                 </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <OrcamentoAnexosInput
-            anexos={anexosOrcamento}
-            onChange={setAnexosOrcamento}
-            disabled={enviandoAprovacao}
-          />
+                {cargosAprovador.map((c) => (
+                  <MenuItem key={c.codigo} value={c.codigo}>
+                    {c.nome}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <OrcamentoAnexosInput
+              anexos={anexosOrcamento}
+              onChange={setAnexosOrcamento}
+              disabled={enviandoAprovacao}
+              inline
+            />
+          </Box>
           {!cargosAprovador.length && (
             <Alert severity="warning">Cadastre cargos aprovadores em Configurações → Cargos.</Alert>
           )}
@@ -605,7 +695,10 @@ export default function ChamadoDetalheConteudo({
       </Dialog>
 
       <Dialog open={acaoDialog === 'encerrar'} onClose={fecharAcaoDialog} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ fontWeight: 800, color: NAVY }}>Concluir chamado</DialogTitle>
+        <DialogTitle sx={tituloModalSx}>
+          <TaskAltOutlinedIcon sx={{ fontSize: 20, color: '#166534' }} />
+          Concluir chamado
+        </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <TextField
             label="Observação final (opcional)"
@@ -664,15 +757,24 @@ export default function ChamadoDetalheConteudo({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={acaoDialog === 'anexos'} onClose={fecharAcaoDialog} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ fontWeight: 800, color: NAVY }}>Anexar arquivos</DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
+      <Dialog
+        open={acaoDialog === 'anexos'}
+        onClose={fecharAcaoDialog}
+        maxWidth={false}
+        slotProps={{ paper: { sx: { width: '100%', maxWidth: 400, mx: 2 } } }}
+      >
+        <DialogTitle sx={tituloModalSx}>
+          <AttachFileOutlinedIcon sx={{ fontSize: 20, color: NAVY }} />
+          Anexar arquivos
+        </DialogTitle>
+        <DialogContent sx={{ pt: 0.5 }}>
           <PhotoCaptureMulti
             fotos={fotosNovas}
             onChange={setFotosNovas}
             max={10}
             disabled={enviandoFotos}
             inlineActions
+            compactThumbs
             hideCaption
           />
         </DialogContent>

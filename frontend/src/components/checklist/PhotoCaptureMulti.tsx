@@ -68,7 +68,13 @@ interface Props {
 
   hideCaption?: boolean;
 
+  /** Miniaturas pequenas em grade (ex.: modal de anexos do chamado) */
+
+  compactThumbs?: boolean;
+
 }
+
+const TAMANHO_THUMB_COMPACTO = 92;
 
 
 
@@ -81,6 +87,8 @@ function MidiaPreview({
   total,
 
   inlineActions,
+
+  compactThumbs,
 
   disabled,
 
@@ -95,6 +103,8 @@ function MidiaPreview({
   total: number;
 
   inlineActions?: boolean;
+
+  compactThumbs?: boolean;
 
   disabled?: boolean;
 
@@ -116,7 +126,7 @@ function MidiaPreview({
 
         position: 'relative',
 
-        borderRadius: inlineActions ? 1.5 : 2,
+        borderRadius: compactThumbs ? 1 : inlineActions ? 1.5 : 2,
 
         overflow: 'hidden',
 
@@ -126,7 +136,13 @@ function MidiaPreview({
 
         bgcolor: '#000',
 
-        aspectRatio: inlineActions ? '1' : undefined,
+        width: compactThumbs ? TAMANHO_THUMB_COMPACTO : undefined,
+
+        height: compactThumbs ? TAMANHO_THUMB_COMPACTO : undefined,
+
+        flexShrink: compactThumbs ? 0 : undefined,
+
+        aspectRatio: inlineActions && !compactThumbs ? '1' : undefined,
 
       }}
 
@@ -276,6 +292,8 @@ export default function PhotoCaptureMulti({
 
   hideCaption = false,
 
+  compactThumbs = false,
+
 }: Props) {
 
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -384,11 +402,13 @@ export default function PhotoCaptureMulti({
 
           sx={{
 
-            display: 'grid',
+            display: compactThumbs ? 'flex' : 'grid',
 
-            gridTemplateColumns: inlineActions ? 'repeat(2, 1fr)' : '1fr',
+            flexWrap: compactThumbs ? 'wrap' : undefined,
 
-            gap: inlineActions ? 1 : 1.5,
+            gridTemplateColumns: compactThumbs ? undefined : inlineActions ? 'repeat(2, 1fr)' : '1fr',
+
+            gap: compactThumbs ? 0.75 : inlineActions ? 1 : 1.5,
 
             mb: 2,
 
@@ -409,6 +429,8 @@ export default function PhotoCaptureMulti({
               total={fotos.length}
 
               inlineActions={inlineActions}
+
+              compactThumbs={compactThumbs}
 
               disabled={disabled}
 

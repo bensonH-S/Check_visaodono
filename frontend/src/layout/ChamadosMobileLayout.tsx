@@ -23,7 +23,7 @@ import {
 
 const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
-const FOOTER_H = 52;
+const FOOTER_H = 64;
 
 function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
   return loja.nome;
@@ -216,17 +216,14 @@ function ChamadosMobileLayoutInner() {
   const podeAbrir = user && temPermissao('chamados.abrir', user);
 
   const [welcome, setWelcome] = useState('');
-  const [detalheTitulo, setDetalheTitulo] = useState('');
 
   const subtituloPagina = isNovo
     ? 'Novo chamado'
-    : isDetalhe && detalheTitulo
-      ? detalheTitulo
-      : isDetalhe
-        ? 'Detalhe do chamado'
-        : 'Chamados';
+    : isDetalhe
+      ? 'Detalhes do chamado'
+      : 'Chamados';
 
-  usePageTitle(isNovo ? 'Novo chamado' : isDetalhe ? 'Detalhe do chamado' : 'Chamados');
+  usePageTitle(isNovo ? 'Novo chamado' : isDetalhe ? 'Detalhes do chamado' : 'Chamados');
 
   useEffect(() => {
     const nome = (location.state as { welcome?: string } | null)?.welcome;
@@ -260,40 +257,49 @@ function ChamadosMobileLayoutInner() {
           overflow: 'visible',
         }}
       >
-        <Box sx={{ display: 'grid', gridTemplateColumns: '40px 1fr auto', alignItems: 'start', gap: 0.5 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', pt: 0.25 }}>
-            {isSubPage ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+            {isSubPage && (
               <IconButton
                 type="button"
                 size="small"
                 onClick={() => navigate('/chamados/mobile', { replace: true })}
                 aria-label="Voltar"
-                sx={{ color: NAVY }}
+                sx={{ color: NAVY, ml: -0.5, flexShrink: 0 }}
               >
                 <ArrowBackIcon fontSize="small" />
               </IconButton>
-            ) : null}
+            )}
+            <BrandLogo maxWidth={68} sx={{ flexShrink: 0 }} />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontWeight: 800,
+                  color: '#E8520A',
+                  fontSize: '1rem',
+                  lineHeight: 1.15,
+                }}
+              >
+                Vision Check
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  lineHeight: 1.25,
+                  color: NAVY,
+                  display: 'block',
+                  fontSize: '0.75rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {subtituloPagina}
+              </Typography>
+            </Box>
           </Box>
-          <Box sx={{ minWidth: 0, textAlign: 'center' }}>
-            <BrandLogo maxWidth={isSubPage ? 96 : 110} sx={{ mx: 'auto', mb: 0.75 }} />
-            <Typography
-              sx={{
-                fontWeight: 800,
-                color: '#E8520A',
-                fontSize: isSubPage ? '1rem' : '1.1rem',
-                lineHeight: 1.2,
-              }}
-            >
-              Vision Check
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 600, lineHeight: 1.3, mt: 0.25, color: NAVY }}
-            >
-              {subtituloPagina}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 0.25, pt: 0.25 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" idLoja={idLoja} />
             <IconButton
               size="small"
@@ -328,7 +334,7 @@ function ChamadosMobileLayoutInner() {
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        <Outlet context={{ setDetalheTitulo }} />
+        <Outlet />
       </Box>
 
       {podeAbrir && !isSubPage && (
@@ -360,7 +366,7 @@ function ChamadosMobileLayoutInner() {
           bgcolor: PAGE_BG,
         }}
       >
-        <AppFooter compact />
+        <AppFooter compact fullText />
       </Box>
 
       <Snackbar

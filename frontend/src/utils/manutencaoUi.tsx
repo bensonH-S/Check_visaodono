@@ -100,8 +100,9 @@ export function limparTextoAprovacao(texto?: string | null) {
   for (const padrao of TEXTOS_PADRAO_APROVACAO) {
     t = t.replace(padrao, '').trim();
   }
-  t = t.replace(/^Destino:\s*.+$/gim, '').trim();
+  t = t.replace(/\n*Destino:\s*.+$/gim, '').trim();
   t = t.replace(/^Enviado para aprovação do .+$/gim, '').trim();
+  t = t.replace(/^Encaminhado ao Diretor para avaliação\.?$/gim, '').trim();
   return t.replace(/\n{3,}/g, '\n\n').trim();
 }
 

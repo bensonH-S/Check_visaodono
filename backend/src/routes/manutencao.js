@@ -374,7 +374,13 @@ async function coletarAprovadoresChamado(idLoja, idAutorNum, destino) {
   return destinatarios;
 }
 
-async function notificarAprovadoresOrcamento(idChamado, idAutor, mensagem, destino) {
+async function notificarAprovadoresOrcamento(
+  idChamado,
+  idAutor,
+  mensagem,
+  destino,
+  tipo = 'envio_aprovacao',
+) {
   const idAutorNum = Number(idAutor);
   const { rows } = await pool.query(
     `SELECT id_loja, aprovacao_destino FROM manut_chamados WHERE id_chamado = $1`,
@@ -390,7 +396,7 @@ async function notificarAprovadoresOrcamento(idChamado, idAutor, mensagem, desti
     const ok = await criarNotificacao({
       idUsuario,
       idChamado,
-      tipo: 'envio_aprovacao',
+      tipo,
       mensagem,
     });
     if (ok) enviadas += 1;
@@ -398,11 +404,11 @@ async function notificarAprovadoresOrcamento(idChamado, idAutor, mensagem, desti
   return enviadas;
 }
 
-const TIPOS_NOTIF_MOBILE_EXCLUIDOS = ['envio_aprovacao', 'aprovacao', 'recusa_aprovacao'];
+const TIPOS_NOTIF_MOBILE_EXCLUIDOS = ['envio_aprovacao', 'recusa_aprovacao', 'novo_chamado'];
 
 function sqlFiltroContextoNotificacoes(contexto, alias = 'n') {
   if (contexto === 'aprovacoes') {
-    return ` AND ${alias}.tipo = 'envio_aprovacao'`;
+    return ` AND ${alias}.tipo IN ('envio_aprovacao', 'encaminhar_diretor', 'aprovacao_diretor')`;
   }
   if (contexto === 'chamados-mobile') {
     return ` AND ${alias}.tipo NOT IN ('${TIPOS_NOTIF_MOBILE_EXCLUIDOS.join("','")}')`;
@@ -1013,12 +1019,13 @@ router.post('/chamados', requirePermissao('chamados.abrir'), async (req, res, ne
     );
 
     const { id_chamado, numero } = rows[0];
-    const solicitante = await pool.query('SELECT nome FROM usuarios WHERE id_usuario = $1', [req.user.sub]);
+    const lojaRow = await pool.query('SELECT name FROM lojas WHERE id_loja = $1', [id_loja]);
+    const nomeLoja = lojaRow.rows[0]?.name || 'Loja';
     await notificarEventoChamado(
       id_chamado,
       req.user.sub,
       'novo_chamado',
-      `Novo chamado #${numero} — ${titulo} (${solicitante.rows[0]?.nome || 'Loja'})`,
+      `Novo Chamado #${numero} - Aberto (${nomeLoja})`,
     );
 
     res.status(201).json(rows[0]);
@@ -1214,7 +1221,7 @@ router.patch(
 
       const textoEvento =
         observacao.length >= 3
-          ? `${observacao}\n\nDestino: ${destinoLabel}`
+          ? observacao
           : `Enviado para aprovação do ${destinoLabel}`;
 
       await registrarEventoChamado({
@@ -1227,8 +1234,15 @@ router.patch(
       await notificarAprovadoresOrcamento(
         idChamado,
         req.user.sub,
-        `Orçamento pendente (${destinoLabel}): chamado #${numero} — ${autorNome}`,
+        `#${numero} · Orçamento pendente de aprovação (${destinoLabel}) — ${autorNome}`,
         destino,
+        'envio_aprovacao',
+      );
+      await notificarSolicitanteChamado(
+        idChamado,
+        req.user.sub,
+        'aguardando_aprovacao',
+        `Chamado #${numero} - aguardando aprovação do Orçamento`,
       );
 
       res.json({ ...rows[0], aviso });
@@ -1310,8 +1324,9 @@ router.patch(
       await notificarAprovadoresOrcamento(
         idChamado,
         req.user.sub,
-        `Orçamento aguarda avaliação do Diretor: chamado #${numero} — ${autorNome}`,
+        `#${numero} · Orçamento encaminhado ao Diretor para avaliação — ${autorNome}`,
         'diretor',
+        'encaminhar_diretor',
       );
 
       res.json(rows[0]);
@@ -1396,8 +1411,9 @@ router.patch(
         await notificarAprovadoresOrcamento(
           idChamado,
           req.user.sub,
-          `Orçamento aprovado pelo Diretor — aguarda Financeiro: chamado #${numero} (${autorNome})`,
+          `#${numero} · Orçamento aprovado pelo Diretor e enviado ao Financeiro — ${autorNome}`,
           'financeiro',
+          'aprovacao_diretor',
         );
 
         return res.json(rows[0]);
@@ -1440,7 +1456,7 @@ router.patch(
         idChamado,
         req.user.sub,
         'aprovacao',
-        `Orçamento do chamado #${numero} aprovado (${autorNome})`,
+        `Chamado #${numero} - Orçamento aprovado (${autorNome})`,
       );
 
       res.json(rows[0]);
@@ -1677,9 +1693,10 @@ router.get(
     const { filtroExtra } = await filtroNotificacoesAprovacoes(idUsuario, contexto, params);
     const { rows } = await pool.query(
       `SELECT n.id_notificacao, n.id_chamado, n.tipo, n.mensagem, n.lida, n.created_at,
-              c.numero, c.id_loja
+              c.numero, c.id_loja, l.name AS loja
        FROM manut_notificacoes n
        JOIN manut_chamados c ON c.id_chamado = n.id_chamado
+       JOIN lojas l ON l.id_loja = c.id_loja
        WHERE n.id_usuario = $1${filtroCtx}${filtroExtra}
        ORDER BY n.created_at DESC
        LIMIT 30`,

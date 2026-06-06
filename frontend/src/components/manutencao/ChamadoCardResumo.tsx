@@ -7,7 +7,7 @@ import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined';
 import type { ManutChamado } from '../../api/client';
 import NotificacaoBadge from '../NotificacaoBadge';
-import { KANBAN_COLUNAS, STATUS_CHAMADO, SlaBarraProgresso, tipoChamadoChip, urgenciaChip } from '../../utils/manutencaoUi';
+import { KANBAN_COLUNAS, STATUS_CHAMADO, SlaBarraProgresso, urgenciaChip } from '../../utils/manutencaoUi';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 
 const NAVY = '#1B2A6B';
@@ -90,7 +90,6 @@ export default function ChamadoCardResumo({
           </Box>
           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {urgenciaChip(chamado.urgencia)}
-            {chamado.tipo_chamado === 'orcamento' && tipoChamadoChip('orcamento')}
           </Box>
         </Box>
 

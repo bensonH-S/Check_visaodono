@@ -1,7 +1,5 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined';
@@ -9,8 +7,8 @@ import ModeCommentOutlinedIcon from '@mui/icons-material/ModeCommentOutlined';
 import EngineeringOutlinedIcon from '@mui/icons-material/EngineeringOutlined';
 import ReplayIcon from '@mui/icons-material/Replay';
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
-import type { ManutChamadoDetalhe } from '../../api/client';
-import { fetchMediaAutenticada } from '../../api/client';
+import type { ManutAnexo, ManutChamadoDetalhe } from '../../api/client';
+import { AnexoModal, AnexoQuadrado } from './ChamadoAnexosGaleria';
 import { getUsuario, type UsuarioSessao } from '../../lib/auth';
 import { formatDataHoraBrasilia, parseDataApi } from '../../utils/dateBr';
 import {
@@ -21,10 +19,12 @@ import {
   textosEventosAprovacao,
   TIPOS_EVENTO_APROVACAO_INTERNO_MOBILE,
 } from '../../utils/timelineAprovacao';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
+const TAMANHO_MINIATURA_DESKTOP = 52;
+const TAMANHO_MINIATURA_MOBILE = 64;
 
 type TimelineItem = {
   id: string;
@@ -45,77 +45,6 @@ type TimelineItem = {
   anexos?: ManutChamadoDetalhe['anexos'];
   statusFechamento?: 'concluido' | 'cancelado';
 };
-
-function MidiaAnexo({ mediaUrl, mime }: { mediaUrl: string; mime: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [erro, setErro] = useState(false);
-
-  useEffect(() => {
-    let url: string | null = null;
-    let ativo = true;
-    fetchMediaAutenticada(mediaUrl)
-      .then((u) => {
-        if (ativo) {
-          url = u;
-          setSrc(u);
-        }
-      })
-      .catch(() => ativo && setErro(true));
-    return () => {
-      ativo = false;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [mediaUrl]);
-
-  if (erro) {
-    return (
-      <Typography variant="caption" color="error">
-        Erro ao carregar
-      </Typography>
-    );
-  }
-  if (!src) return <CircularProgress size={20} />;
-
-  if (mime.startsWith('video/')) {
-    return (
-      <Box
-        component="video"
-        src={src}
-        controls
-        sx={{ width: '100%', borderRadius: 0, maxHeight: { xs: 160, md: 220 }, bgcolor: '#000', display: 'block' }}
-      />
-    );
-  }
-  if (mime === 'application/pdf') {
-    return (
-      <Button
-        component="a"
-        href={src}
-        target="_blank"
-        rel="noopener noreferrer"
-        variant="outlined"
-        size="small"
-        sx={{ alignSelf: 'flex-start' }}
-      >
-        Abrir PDF
-      </Button>
-    );
-  }
-  return (
-    <Box
-      component="img"
-      src={src}
-      alt="Anexo"
-      sx={{
-        width: '100%',
-        borderRadius: 0,
-        maxHeight: { xs: 160, md: 220 },
-        objectFit: 'cover',
-        display: 'block',
-      }}
-    />
-  );
-}
 
 function iconeTipo(item: TimelineItem) {
   if (item.tipo === 'fechamento') {
@@ -323,6 +252,8 @@ export default function ChamadoTimeline({
 }) {
   const items = buildTimelineItems(detalhe, { variante });
   const isDesktop = variante === 'desktop';
+  const tamanhoMiniatura = isDesktop ? TAMANHO_MINIATURA_DESKTOP : TAMANHO_MINIATURA_MOBILE;
+  const [modalAnexo, setModalAnexo] = useState<ManutAnexo | null>(null);
 
   return (
     <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
@@ -439,26 +370,20 @@ export default function ChamadoTimeline({
                   <Box
                     sx={{
                       mt: 1.25,
-                      display: 'grid',
-                      gridTemplateColumns: {
-                        xs: 'repeat(2, 1fr)',
-                        sm: isDesktop ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
-                      },
-                      gap: 1,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 0.75,
                     }}
                   >
                     {item.anexos.map((a) => (
-                      <Box
+                      <AnexoQuadrado
                         key={a.id_anexo}
-                        sx={{
-                          borderRadius: 1,
-                          overflow: 'hidden',
-                          border: '1px solid rgba(27, 42, 107, 0.1)',
-                          bgcolor: 'white',
-                        }}
-                      >
-                        <MidiaAnexo mediaUrl={a.media_url} mime={a.tipo_mime} />
-                      </Box>
+                        anexo={a}
+                        compact
+                        mini
+                        tamanhoFixo={tamanhoMiniatura}
+                        onClick={() => setModalAnexo(a)}
+                      />
                     ))}
                   </Box>
                 )}
@@ -467,6 +392,7 @@ export default function ChamadoTimeline({
           );
         })}
       </Box>
+      <AnexoModal anexo={modalAnexo} open={modalAnexo != null} onClose={() => setModalAnexo(null)} />
     </Box>
   );
 }

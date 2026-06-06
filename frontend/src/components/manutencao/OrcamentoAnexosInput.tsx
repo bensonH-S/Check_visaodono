@@ -8,12 +8,14 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { fileToDataUrl, isImageDataUrl } from '../../utils/mediaFile';
 
+const TAMANHO_QUADRADO = 52;
+
 type Props = {
   anexos: string[];
   onChange: (anexos: string[]) => void;
   max?: number;
   disabled?: boolean;
-  /** Botão na mesma linha que outros controles (ex.: destino da aprovação). */
+  /** Só o botão, sem legenda (ex.: mesma linha do aprovador). */
   inline?: boolean;
 };
 
@@ -27,8 +29,7 @@ export default function OrcamentoAnexosInput({ anexos, onChange, max = 5, disabl
 
     const novos: string[] = [];
     for (const file of Array.from(files).slice(0, restante)) {
-      const ok =
-        file.type.startsWith('image/') || file.type === 'application/pdf';
+      const ok = file.type.startsWith('image/') || file.type === 'application/pdf';
       if (!ok) continue;
       try {
         novos.push(await fileToDataUrl(file));
@@ -40,52 +41,76 @@ export default function OrcamentoAnexosInput({ anexos, onChange, max = 5, disabl
     if (inputRef.current) inputRef.current.value = '';
   }
 
-  const listaAnexos = anexos.length > 0 && (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: inline ? '100%' : undefined }}>
-          {anexos.map((src, idx) => (
+  const gradeAnexos = anexos.length > 0 && (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(auto-fill, minmax(${TAMANHO_QUADRADO}px, 1fr))`,
+        gap: 0.75,
+        width: '100%',
+        flexBasis: inline ? '100%' : undefined,
+        mt: inline ? 1.25 : 1,
+      }}
+    >
+      {anexos.map((src, idx) => (
+        <Box
+          key={`${idx}-${src.slice(0, 24)}`}
+          sx={{
+            position: 'relative',
+            width: TAMANHO_QUADRADO,
+            height: TAMANHO_QUADRADO,
+            borderRadius: 1,
+            overflow: 'hidden',
+            border: '1px solid rgba(27, 42, 107, 0.15)',
+            bgcolor: '#f3f4f6',
+          }}
+        >
+          {isImageDataUrl(src) ? (
             <Box
-              key={`${idx}-${src.slice(0, 24)}`}
+              component="img"
+              src={src}
+              alt={`Anexo ${idx + 1}`}
+              sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <Box
               sx={{
+                width: '100%',
+                height: '100%',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1,
-                p: 1,
-                borderRadius: 1.5,
-                border: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
+                justifyContent: 'center',
+                bgcolor: '#FEE2E2',
               }}
             >
-              {isImageDataUrl(src) ? (
-                <Box
-                  component="img"
-                  src={src}
-                  alt={`Anexo ${idx + 1}`}
-                  sx={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 1 }}
-                />
-              ) : (
-                <PictureAsPdfIcon sx={{ fontSize: 40, color: '#DC2626' }} />
-              )}
-              <Typography variant="body2" sx={{ flex: 1, fontWeight: 600 }}>
-                {isImageDataUrl(src) ? `Foto ${idx + 1}` : `PDF ${idx + 1}`}
-              </Typography>
-              {!disabled && (
-                <IconButton size="small" onClick={() => onChange(anexos.filter((_, i) => i !== idx))}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              )}
+              <PictureAsPdfIcon sx={{ fontSize: 22, color: '#DC2626' }} />
             </Box>
-          ))}
+          )}
+          {!disabled && (
+            <IconButton
+              size="small"
+              aria-label="Remover anexo"
+              onClick={() => onChange(anexos.filter((_, i) => i !== idx))}
+              sx={{
+                position: 'absolute',
+                top: 2,
+                right: 2,
+                p: 0.25,
+                bgcolor: 'rgba(0,0,0,0.55)',
+                color: '#fff',
+                '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' },
+              }}
+            >
+              <DeleteIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          )}
+        </Box>
+      ))}
     </Box>
   );
 
-  return (
-    <Box sx={inline ? { display: 'contents' } : undefined}>
-      {!inline && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Fotos do orçamento ou recibo em PDF (máx. {max})
-        </Typography>
-      )}
+  const botaoSelecionar = (
+    <>
       <input
         ref={inputRef}
         type="file"
@@ -97,18 +122,40 @@ export default function OrcamentoAnexosInput({ anexos, onChange, max = 5, disabl
       />
       <Button
         variant="outlined"
-        startIcon={<AttachFileIcon />}
+        size="small"
+        startIcon={<AttachFileIcon sx={{ fontSize: 16 }} />}
         disabled={disabled || anexos.length >= max}
         onClick={() => inputRef.current?.click()}
         sx={{
           flexShrink: 0,
-          mb: !inline && anexos.length ? 1.5 : 0,
+          fontSize: '0.75rem',
+          py: 0.35,
+          px: 1,
+          minHeight: 30,
           whiteSpace: 'nowrap',
         }}
       >
         Selecionar arquivos
       </Button>
-      {listaAnexos}
+    </>
+  );
+
+  if (inline) {
+    return (
+      <>
+        {botaoSelecionar}
+        {gradeAnexos}
+      </>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        Fotos do orçamento ou recibo em PDF (máx. {max})
+      </Typography>
+      {botaoSelecionar}
+      {gradeAnexos}
     </Box>
   );
 }

@@ -250,10 +250,10 @@ export default function PortalLayout() {
           <PageHeaderTitle {...pageTitle} />
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
             {emChamados && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user)) && (
-              <NotificacoesSino variante="portal" contexto="chamados" />
+              <NotificacoesSino variante="portal" contexto="chamados" menuLargo />
             )}
             {emAprovacoes && temPermissao('chamados.aprovar', user) && (
-              <NotificacoesSino variante="portal" contexto="aprovacoes" />
+              <NotificacoesSino variante="portal" contexto="aprovacoes" menuLargo />
             )}
             <IconButton
               size="small"

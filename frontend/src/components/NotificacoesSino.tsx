@@ -14,6 +14,7 @@ import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNone
 import { api, type ContextoNotificacoesManut, type ManutNotificacao } from '../api/client';
 import { formatDataHoraBrasilia } from '../utils/dateBr';
 import { NOTIFICACOES_REFRESH } from '../utils/notificacoesEvent';
+import { tituloNotificacaoChamado } from '../utils/notificacoesTexto';
 import NotificacaoBadge from './NotificacaoBadge';
 
 const NAVY = '#1B2A6B';
@@ -23,6 +24,8 @@ type Props = {
   variante: 'mobile' | 'portal';
   contexto: ContextoNotificacoesManut;
   idLoja?: number | null;
+  /** Painel mais largo (ex.: detalhe desktop do chamado) */
+  menuLargo?: boolean;
 };
 
 function filtrarPorLoja(notifs: ManutNotificacao[], idLoja?: number | null) {
@@ -30,7 +33,7 @@ function filtrarPorLoja(notifs: ManutNotificacao[], idLoja?: number | null) {
   return notifs.filter((n) => n.id_loja === idLoja);
 }
 
-export default function NotificacoesSino({ variante, contexto, idLoja }: Props) {
+export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo }: Props) {
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const [lista, setLista] = useState<ManutNotificacao[]>([]);
@@ -39,7 +42,11 @@ export default function NotificacoesSino({ variante, contexto, idLoja }: Props) 
   const ultimoIdVisto = useRef(0);
   const baselineOk = useRef(false);
 
-  const tituloMenu = contexto === 'aprovacoes' ? 'Aprovações pendentes' : 'Chamados';
+  const tituloMenu =
+    contexto === 'aprovacoes' ? 'Aprovações pendentes' : 'Notificações';
+  const painelLargo =
+    menuLargo || contexto === 'aprovacoes' || (variante === 'portal' && contexto === 'chamados');
+  const larguraMenu = painelLargo ? 460 : variante === 'mobile' ? 320 : 360;
 
   const carregar = useCallback(() => {
     Promise.all([
@@ -60,7 +67,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja }: Props) 
           baselineOk.current = true;
         } else if (maxIdNaoLida > ultimoIdVisto.current) {
           const nova = filtradas.find((n) => n.id_notificacao === maxIdNaoLida);
-          if (nova) setToast(nova.mensagem);
+          if (nova) setToast(tituloNotificacaoChamado(nova, { contexto }));
           ultimoIdVisto.current = maxIdNaoLida;
         }
 
@@ -162,7 +169,11 @@ export default function NotificacoesSino({ variante, contexto, idLoja }: Props) 
         onClose={() => setAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ paper: { sx: { width: 320, maxHeight: 400 } } }}
+        slotProps={{
+          paper: {
+            sx: { width: larguraMenu, maxWidth: '95vw', maxHeight: 400 },
+          },
+        }}
       >
         <Box sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -195,7 +206,8 @@ export default function NotificacoesSino({ variante, contexto, idLoja }: Props) 
               alignItems: 'flex-start',
               flexDirection: 'row',
               gap: 1,
-              py: 1.25,
+              py: painelLargo ? 1.5 : 1.25,
+              px: painelLargo ? 1.5 : 1,
               bgcolor: n.lida ? 'transparent' : 'rgba(27, 42, 107, 0.05)',
             }}
           >
@@ -212,8 +224,15 @@ export default function NotificacoesSino({ variante, contexto, idLoja }: Props) 
               />
             )}
             <Box sx={{ flex: 1, minWidth: 0, pl: n.lida ? 1.75 : 0 }}>
-              <Typography variant="body2" sx={{ fontWeight: n.lida ? 400 : 700, lineHeight: 1.35 }}>
-                {n.mensagem}
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: n.lida ? 400 : 700,
+                  lineHeight: 1.4,
+                  fontSize: painelLargo ? '0.9rem' : undefined,
+                }}
+              >
+                {tituloNotificacaoChamado(n, { contexto })}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {formatDataHoraBrasilia(n.created_at)}

@@ -33,6 +33,7 @@ import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
 
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
+import { SlaBarraProgresso } from '../../utils/manutencaoUi';
 
 
 
@@ -147,9 +148,9 @@ function ChamadoCard({
 
     >
 
-      <Box sx={{ px: 2, py: 1.75 }}>
+      <Box sx={{ px: 1.5, py: 1.25 }}>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 0.75 }}>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
 
@@ -225,9 +226,9 @@ function ChamadoCard({
 
             color: compact ? 'text.secondary' : 'text.primary',
 
-            fontSize: compact ? '0.9rem' : '1rem',
+            fontSize: compact ? '0.85rem' : '0.9rem',
 
-            mb: 0.75,
+            mb: 0.5,
 
           }}
 
@@ -281,13 +282,13 @@ function ChamadoCard({
 
             gap: 0.75,
 
-            mt: 1.25,
+            mt: 1,
 
             flexWrap: 'wrap',
 
             alignItems: 'center',
 
-            pt: 1.25,
+            pt: 1,
 
             borderTop: `1px solid rgba(27, 42, 107, 0.15)`,
 
@@ -352,6 +353,19 @@ function ChamadoCard({
           )}
 
         </Box>
+
+        {!compact && chamado.status !== 'cancelado' && (
+          <Box sx={{ mt: 1 }}>
+            <SlaBarraProgresso
+              abertoEm={chamado.aberto_em}
+              prazoSla={chamado.prazo_sla}
+              status={chamado.status}
+              fechadoEm={chamado.fechado_em ?? undefined}
+              larguraTotal
+              compact
+            />
+          </Box>
+        )}
 
       </Box>
 
@@ -603,7 +617,7 @@ export default function ChamadosMobileHistoricoPage() {
 
 
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2.5 }}>
 
         {emAberto.map((c) => (
 
@@ -645,7 +659,7 @@ export default function ChamadosMobileHistoricoPage() {
 
             <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.secondary' }}>
 
-              Histórico
+              Fechado
 
             </Typography>
 

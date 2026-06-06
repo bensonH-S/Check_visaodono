@@ -5,12 +5,14 @@ import { useAppConfig } from '../hooks/useAppConfig';
 type AppFooterProps = {
   /** Força layout extra-compacto (ex.: rodapé fixo no mobile). */
   compact?: boolean;
+  /** Texto completo de copyright mesmo em telas pequenas. */
+  fullText?: boolean;
 };
 
 const COPYRIGHT_SHORT = '©2026 GRUPO ALVIM';
 const COPYRIGHT_FULL = '©2026 - GRUPO ALVIM - ALVIM PARTICIPAÇÕES E INVESTIMENTOS S/A';
 
-export default function AppFooter({ compact }: AppFooterProps) {
+export default function AppFooter({ compact, fullText }: AppFooterProps) {
   const { version, environment } = useAppConfig();
   const versionLabel =
     version === 'dev'
@@ -21,7 +23,7 @@ export default function AppFooter({ compact }: AppFooterProps) {
   const versionLine = `${versionLabel} - ${environment}`;
 
   const textSx = compact
-    ? { fontSize: '0.55rem', lineHeight: 1.25 }
+    ? { fontSize: fullText ? '0.58rem' : '0.55rem', lineHeight: 1.3 }
     : {
         fontSize: { xs: '0.58rem', sm: '0.62rem', md: '0.65rem', lg: '0.68rem' },
         lineHeight: { xs: 1.25, md: 1.35 },
@@ -48,21 +50,39 @@ export default function AppFooter({ compact }: AppFooterProps) {
       }}
     >
       <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
-        <Typography variant="caption" color="text.secondary" sx={{ ...textSx, display: 'block' }}>
-          <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}>
-            {COPYRIGHT_SHORT}
-          </Box>
-          <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
-            {COPYRIGHT_FULL}
-          </Box>
-        </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ ...versionSx, display: 'block', opacity: 0.9 }}
-        >
-          {versionLine}
-        </Typography>
+        {fullText ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              ...textSx,
+              display: 'block',
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+              lineHeight: 1.35,
+            }}
+          >
+            {COPYRIGHT_FULL} | {versionLine}
+          </Typography>
+        ) : (
+          <>
+            <Typography variant="caption" color="text.secondary" sx={{ ...textSx, display: 'block' }}>
+              <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}>
+                {COPYRIGHT_SHORT}
+              </Box>
+              <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
+                {COPYRIGHT_FULL}
+              </Box>
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ ...versionSx, display: 'block', opacity: 0.9 }}
+            >
+              {versionLine}
+            </Typography>
+          </>
+        )}
       </Box>
 
       <Typography

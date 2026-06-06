@@ -552,6 +552,7 @@ export interface ManutNotificacao {
   numero: number;
   tipo: string;
   mensagem: string;
+  loja?: string;
   lida: boolean;
   created_at: string;
 }
