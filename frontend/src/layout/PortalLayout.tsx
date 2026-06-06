@@ -8,6 +8,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -84,6 +85,7 @@ export default function PortalLayout() {
       icon: <ThumbUpAltOutlinedIcon fontSize="small" />,
       show: temPermissao('chamados.aprovar', user),
       end: true,
+      mobileTab: true,
     },
     {
       to: '/visitas',
@@ -180,30 +182,50 @@ export default function PortalLayout() {
             </NavLink>
           ))}
         </Box>
-        <Box className="p-3 border-t border-gray-100" sx={{ bgcolor: 'white' }}>
-          <Box className="flex items-center gap-2 mb-2">
+        <Box className="px-3 py-2 border-t border-gray-100" sx={{ bgcolor: 'white' }}>
+          <Box className="flex items-center gap-1.5 mb-1.5">
             <Box
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs text-white font-semibold shrink-0"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[0.65rem] text-white font-semibold shrink-0"
               sx={{ bgcolor: 'primary.main' }}
             >
               {iniciais}
             </Box>
             <Box className="min-w-0">
-              <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }} noWrap>
+              <Typography
+                variant="caption"
+                sx={{ display: 'block', fontWeight: 600, fontSize: '0.7rem', lineHeight: 1.25 }}
+                noWrap
+              >
                 {user?.nome}
               </Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontSize: '0.65rem', lineHeight: 1.2 }}
+                noWrap
+              >
                 {nomeExibicaoUsuario(user)}
               </Typography>
             </Box>
           </Box>
           <Button
+            variant="text"
             size="small"
             fullWidth
-            startIcon={<LogoutIcon />}
+            startIcon={<LogoutIcon sx={{ fontSize: 15 }} />}
             onClick={() => {
               logout();
               navigate('/login');
+            }}
+            sx={{
+              justifyContent: 'flex-start',
+              minHeight: 28,
+              py: 0.25,
+              px: 0.75,
+              fontSize: '0.72rem',
+              fontWeight: 500,
+              color: 'text.secondary',
+              '&:hover': { bgcolor: 'rgba(27, 42, 107, 0.06)' },
             }}
           >
             Sair
@@ -225,19 +247,30 @@ export default function PortalLayout() {
             />
           )}
           <PageHeaderTitle {...pageTitle} />
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
             {emChamados && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user)) && (
               <NotificacoesSino variante="portal" contexto="chamados" />
             )}
             {emAprovacoes && temPermissao('chamados.aprovar', user) && (
               <NotificacoesSino variante="portal" contexto="aprovacoes" />
             )}
+            <IconButton
+              size="small"
+              aria-label="Sair"
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+              sx={{ display: { xs: 'inline-flex', md: 'none' }, color: 'text.secondary' }}
+            >
+              <LogoutIcon fontSize="small" />
+            </IconButton>
           </Box>
         </Box>
 
         <Box
           component="main"
-          className={`flex-1 min-h-0 overflow-y-auto ${campoMobile || isChamadoNovo ? 'p-3 md:p-5' : 'p-4 md:p-5'} ${mobileTabs.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
+          className={`flex-1 min-h-0 overflow-y-auto ${campoMobile || isChamadoNovo ? 'p-3 sm:p-4 lg:p-5' : 'p-3 sm:p-4 lg:p-5'} ${mobileTabs.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
           sx={{
             maxWidth: campoMobile || isChamadoNovo ? { xs: 640, md: 'none' } : 'none',
             mx: campoMobile || isChamadoNovo ? { xs: 'auto', md: 0 } : 0,
@@ -263,7 +296,7 @@ export default function PortalLayout() {
                 to={item.to}
                 end={item.end}
                 className={({ isActive }) =>
-                  `flex-1 flex flex-col items-center justify-center py-2 text-[0.65rem] font-semibold no-underline min-h-[52px] ${
+                  `flex-1 flex flex-col items-center justify-center py-1.5 px-0.5 text-[0.62rem] sm:text-[0.65rem] font-semibold no-underline min-h-[48px] min-w-0 ${
                     isActive ? 'bg-[#1B2A6B] text-white' : 'text-white/85'
                   }`
                 }

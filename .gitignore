@@ -10,3 +10,4 @@ uploads/*
 backend/uploads/
 .DS_Store
 VERSION
+frontend/public/app-version.json

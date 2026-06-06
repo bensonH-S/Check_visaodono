@@ -16,11 +16,61 @@ import type { ManutChamado } from '../../api/client';
 import { getUsuario, temPermissao } from '../../lib/auth';
 import { STATUS_CHAMADO } from '../../utils/manutencaoUi';
 import ChamadosKanbanBoard from '../../components/manutencao/ChamadosKanbanBoard';
-import ChamadosSubNav from '../../components/manutencao/ChamadosSubNav';
 import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { parseDataApi } from '../../utils/dateBr';
+import type { SxProps, Theme } from '@mui/material/styles';
 
 const TODAS_LOJAS = 'todas';
+
+const FILTRO_MENU_PROPS = {
+  slotProps: {
+    paper: {
+      sx: { maxHeight: 320, minWidth: 220 },
+    },
+  },
+};
+
+function filtroFormSx(largura: number): SxProps<Theme> {
+  return {
+    width: largura,
+    minWidth: largura,
+    maxWidth: '100%',
+    flexShrink: 0,
+    '& .MuiInputLabel-root': {
+      fontSize: '0.9rem',
+      fontWeight: 600,
+      '&.MuiInputLabel-shrink': {
+        fontSize: '0.9rem',
+        transform: 'translate(14px, -9px) scale(1)',
+        bgcolor: 'background.default',
+        px: '5px',
+        zIndex: 1,
+      },
+    },
+    '& .MuiOutlinedInput-notchedOutline legend': {
+      fontSize: '0.9rem',
+      '& > span': {
+        px: '5px',
+      },
+    },
+    '& .MuiOutlinedInput-root': {
+      fontSize: '0.875rem',
+      height: 'auto',
+      minHeight: 40,
+      alignItems: 'center',
+    },
+    '& .MuiSelect-select': {
+      fontSize: '0.875rem !important',
+      py: '9px !important',
+      pr: '30px !important',
+      lineHeight: 1.35,
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      overflow: 'visible !important',
+      textOverflow: 'clip',
+    },
+  };
+}
 
 const PERIODOS = [
   { value: '', label: 'Todos os períodos' },
@@ -72,6 +122,22 @@ export default function ManutencaoChamadosPage() {
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
   }, [lista]);
 
+  const larguraFiltros = useMemo(() => {
+    const textos = [
+      'Todas as lojas',
+      'Todos os períodos',
+      'Todos os status',
+      ...lojasOpcoes.map(([, nome]) => nome),
+      ...PERIODOS.map((p) => p.label),
+      ...Object.values(STATUS_CHAMADO).map((s) => s.label),
+    ];
+    const maior = Math.max(...textos.map((t) => t.length), 14);
+    const estimada = Math.ceil(maior * 8.2 + 52);
+    return Math.min(Math.max(estimada, 220), 340);
+  }, [lojasOpcoes]);
+
+  const sxFiltro = filtroFormSx(larguraFiltros);
+
   const listaFiltrada = useMemo(
     () =>
       lista.filter((c) => {
@@ -115,65 +181,85 @@ export default function ManutencaoChamadosPage() {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <ChamadosSubNav />
       <Box
         sx={{
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
-          gap: 1.5,
-          mb: 3,
+          gap: 1.25,
+          mb: 2,
         }}
       >
-        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 200 } }}>
-          <InputLabel id="filtro-loja-label">Loja</InputLabel>
+        <FormControl size="small" sx={sxFiltro}>
+          <InputLabel id="filtro-loja-label" shrink>
+            Loja
+          </InputLabel>
           <Select
             labelId="filtro-loja-label"
             label="Loja"
             value={filtroLoja}
             onChange={(e) => setFiltroLoja(e.target.value)}
+            MenuProps={FILTRO_MENU_PROPS}
             renderValue={(value) => {
               if (value === TODAS_LOJAS) return 'Todas as lojas';
               const loja = lojasOpcoes.find(([id]) => String(id) === value);
               return loja?.[1] ?? 'Todas as lojas';
             }}
           >
-            <MenuItem value={TODAS_LOJAS}>Todas as lojas</MenuItem>
+            <MenuItem value={TODAS_LOJAS} sx={{ fontSize: '0.875rem' }}>
+              Todas as lojas
+            </MenuItem>
             {lojasOpcoes.map(([id, nome]) => (
-              <MenuItem key={id} value={String(id)}>
+              <MenuItem key={id} value={String(id)} sx={{ fontSize: '0.875rem', whiteSpace: 'normal' }}>
                 {nome}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
-          <InputLabel id="filtro-periodo-label">Período</InputLabel>
+        <FormControl size="small" sx={sxFiltro}>
+          <InputLabel id="filtro-periodo-label" shrink>
+            Período
+          </InputLabel>
           <Select
             labelId="filtro-periodo-label"
             label="Período"
             value={filtroPeriodo}
+            displayEmpty
             onChange={(e) => setFiltroPeriodo(e.target.value)}
+            MenuProps={FILTRO_MENU_PROPS}
+            renderValue={(value) =>
+              PERIODOS.find((p) => p.value === value)?.label ?? 'Todos os períodos'
+            }
           >
             {PERIODOS.map((p) => (
-              <MenuItem key={p.value || 'todos'} value={p.value}>
+              <MenuItem key={p.value || 'todos'} value={p.value} sx={{ fontSize: '0.875rem' }}>
                 {p.label}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
-          <InputLabel id="filtro-status-label">Status</InputLabel>
+        <FormControl size="small" sx={sxFiltro}>
+          <InputLabel id="filtro-status-label" shrink>
+            Status
+          </InputLabel>
           <Select
             labelId="filtro-status-label"
             label="Status"
             value={filtroStatus}
+            displayEmpty
             onChange={(e) => setFiltroStatus(e.target.value)}
+            MenuProps={FILTRO_MENU_PROPS}
+            renderValue={(value) =>
+              value === '' ? 'Todos os status' : (STATUS_CHAMADO[value]?.label ?? value)
+            }
           >
-            <MenuItem value="">Todos os status</MenuItem>
+            <MenuItem value="" sx={{ fontSize: '0.875rem' }}>
+              Todos os status
+            </MenuItem>
             {Object.entries(STATUS_CHAMADO).map(([value, st]) => (
-              <MenuItem key={value} value={value}>
+              <MenuItem key={value} value={value} sx={{ fontSize: '0.875rem' }}>
                 {st.label}
               </MenuItem>
             ))}
@@ -186,7 +272,7 @@ export default function ManutencaoChamadosPage() {
             size="small"
             startIcon={<AddIcon />}
             onClick={() => navigate('/chamados/novo')}
-            sx={{ ml: { sm: 'auto' }, width: { xs: '100%', sm: 'auto' } }}
+            sx={{ ml: { md: 'auto' }, flexShrink: 0 }}
           >
             Novo
           </Button>

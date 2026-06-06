@@ -15,6 +15,13 @@ import {
   tipoChamadoChip,
   urgenciaChip,
 } from '../../utils/manutencaoUi';
+import {
+  kanbanBoardLayout,
+  kanbanCardSx,
+  kanbanChipRowSx,
+  kanbanColumnBodySx,
+  kanbanColumnLayout,
+} from './kanbanLayout';
 
 const NAVY = '#1B2A6B';
 
@@ -44,75 +51,55 @@ export default function ChamadosKanbanBoard({ chamados }: Props) {
   }, [chamados]);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        gap: { xs: 2, md: 2.5 },
-        overflowX: 'auto',
-        pb: 2,
-        pt: 0.5,
-        minHeight: 480,
-        WebkitOverflowScrolling: 'touch',
-      }}
-    >
+    <Box sx={kanbanBoardLayout(KANBAN_COLUNAS.length, 'xl')}>
       {KANBAN_COLUNAS.map((col) => {
         const cards = porColuna.get(col.status) ?? [];
         return (
-          <Box
-            key={col.status}
-            sx={{
-              flex: '0 0 300px',
-              minWidth: { xs: 280, sm: 300, md: 320 },
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
+          <Box key={col.status} sx={kanbanColumnLayout('xl')}>
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                mb: 1.5,
-                px: 0.5,
+                mb: 1,
+                px: 0.25,
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
                 {col.icon === 'check' ? (
-                  <CheckCircleIcon sx={{ fontSize: 20, color: col.accent }} />
+                  <CheckCircleIcon sx={{ fontSize: 16, color: col.accent, flexShrink: 0 }} />
                 ) : (
-                  <ScheduleOutlinedIcon sx={{ fontSize: 20, color: col.accent }} />
+                  <ScheduleOutlinedIcon sx={{ fontSize: 16, color: col.accent, flexShrink: 0 }} />
                 )}
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: NAVY, fontSize: '0.95rem' }}>
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    color: NAVY,
+                    fontSize: { xs: '0.82rem', sm: '0.8rem', xl: '0.85rem' },
+                    lineHeight: 1.2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {col.label}
                 </Typography>
                 <Chip
                   label={cards.length}
                   size="small"
                   sx={{
-                    height: 22,
-                    minWidth: 28,
+                    height: 18,
+                    minWidth: 22,
                     fontWeight: 700,
-                    fontSize: '0.75rem',
+                    fontSize: '0.65rem',
                     bgcolor: 'rgba(27, 42, 107, 0.08)',
                     color: NAVY,
+                    '& .MuiChip-label': { px: 0.75 },
                   }}
                 />
               </Box>
             </Box>
 
-            <Box
-              sx={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                bgcolor: 'rgba(27, 42, 107, 0.04)',
-                borderRadius: 2.5,
-                p: 1.5,
-                minHeight: 400,
-                maxHeight: 'calc(100vh - 260px)',
-                overflowY: 'auto',
-              }}
-            >
+            <Box sx={kanbanColumnBodySx}>
               {cards.map((c) => {
                 const borda = URGENCIA_BORDA[c.urgencia] || '#9CA3AF';
                 return (
@@ -121,35 +108,28 @@ export default function ChamadosKanbanBoard({ chamados }: Props) {
                     elevation={0}
                     onClick={() => navigate(`/chamados/${c.id_chamado}`)}
                     sx={{
-                      p: 2,
-                      borderRadius: 2.5,
-                      cursor: 'pointer',
+                      ...kanbanCardSx,
                       position: 'relative',
-                      border: '1px solid rgba(27, 42, 107, 0.12)',
-                      borderLeft: `5px solid ${borda}`,
-                      bgcolor: '#fff',
-                      transition: 'box-shadow 0.15s',
-                      '&:hover': { boxShadow: '0 6px 20px rgba(27, 42, 107, 0.14)' },
+                      borderLeft: `3px solid ${borda}`,
                     }}
                   >
                     {(c.notificacoes_nao_lidas ?? 0) > 0 && (
                       <Box
                         aria-label={`${c.notificacoes_nao_lidas} notificação(ões)`}
-                        sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
+                        sx={{ position: 'absolute', top: 6, right: 6, zIndex: 1, transform: 'scale(0.9)' }}
                       >
                         <NotificacaoBadge count={c.notificacoes_nao_lidas} />
                       </Box>
                     )}
-                    <Box sx={{ mb: 1, pr: (c.notificacoes_nao_lidas ?? 0) > 0 ? 2 : 0 }}>
+                    <Box sx={{ mb: 0.5, pr: (c.notificacoes_nao_lidas ?? 0) > 0 ? 1.5 : 0 }}>
                       <Typography
-                        variant="body1"
                         sx={{
                           fontWeight: 700,
                           color: NAVY,
-                          lineHeight: 1.4,
-                          fontSize: '0.95rem',
+                          lineHeight: 1.3,
+                          fontSize: { xs: '0.82rem', sm: '0.8rem', xl: '0.85rem' },
                           display: '-webkit-box',
-                          WebkitLineClamp: 3,
+                          WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
                           overflow: 'hidden',
                         }}
@@ -159,21 +139,30 @@ export default function ChamadosKanbanBoard({ chamados }: Props) {
                     </Box>
 
                     <Typography
-                      variant="body2"
                       color="text.secondary"
-                      sx={{ display: 'block', mb: 1.25, fontSize: '0.8rem' }}
+                      sx={{ display: 'block', mb: 0.5, fontSize: '0.68rem', lineHeight: 1.3 }}
                     >
                       #{c.numero} · {c.categoria}
                     </Typography>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
-                      <LocationOnOutlinedIcon sx={{ fontSize: 18, color: '#E8520A' }} />
-                      <Typography variant="body2" sx={{ color: NAVY, fontWeight: 600, fontSize: '0.82rem' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.75, minWidth: 0 }}>
+                      <LocationOnOutlinedIcon sx={{ fontSize: 14, color: '#E8520A', flexShrink: 0 }} />
+                      <Typography
+                        sx={{
+                          color: NAVY,
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                          lineHeight: 1.25,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
                         {c.loja}
                       </Typography>
                     </Box>
 
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1.5, alignItems: 'center' }}>
+                    <Box sx={{ ...kanbanChipRowSx, mb: 0.75 }}>
                       {urgenciaChip(c.urgencia)}
                       {c.tipo_chamado === 'orcamento' && tipoChamadoChip('orcamento')}
                       {c.status === 'cancelado' && (
@@ -188,6 +177,7 @@ export default function ChamadosKanbanBoard({ chamados }: Props) {
                         status={c.status}
                         fechadoEm={c.fechado_em ?? undefined}
                         larguraTotal
+                        compact
                       />
                     </Box>
                   </Paper>
@@ -196,9 +186,8 @@ export default function ChamadosKanbanBoard({ chamados }: Props) {
 
               {!cards.length && (
                 <Typography
-                  variant="body2"
                   color="text.secondary"
-                  sx={{ textAlign: 'center', py: 6, px: 2 }}
+                  sx={{ textAlign: 'center', py: 3, px: 1, fontSize: '0.72rem' }}
                 >
                   Nenhum chamado
                 </Typography>

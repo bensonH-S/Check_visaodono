@@ -14,6 +14,13 @@ import type { ManutChamado, Cargo } from '../../api/client';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { destinoAprovacaoChip, labelHistoricoAprovacao } from '../../utils/manutencaoUi';
+import {
+  kanbanBoardLayout,
+  kanbanCardSx,
+  kanbanChipRowSx,
+  kanbanColumnBodySx,
+  kanbanColumnLayout,
+} from '../../components/manutencao/kanbanLayout';
 
 const NAVY = '#1B2A6B';
 const MAX_HISTORICO_CARD = 4;
@@ -86,57 +93,68 @@ function ColunaOrcamentos({
   cargos: Cargo[];
 }) {
   return (
-    <Box sx={{ flex: '0 0 300px', minWidth: { xs: 280, md: 320 }, display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, px: 0.5 }}>
+    <Box sx={kanbanColumnLayout('lg')}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1, px: 0.25, minWidth: 0 }}>
         {icon === 'done' ? (
-          <CheckCircleIcon sx={{ fontSize: 20, color: accent }} />
+          <CheckCircleIcon sx={{ fontSize: 16, color: accent, flexShrink: 0 }} />
         ) : (
-          <ScheduleOutlinedIcon sx={{ fontSize: 20, color: accent }} />
+          <ScheduleOutlinedIcon sx={{ fontSize: 16, color: accent, flexShrink: 0 }} />
         )}
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: NAVY, fontSize: '0.95rem' }}>
+        <Typography
+          sx={{
+            fontWeight: 700,
+            color: NAVY,
+            fontSize: { xs: '0.82rem', sm: '0.85rem', lg: '0.9rem' },
+            lineHeight: 1.2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {titulo}
         </Typography>
         <Chip
           label={cards.length}
           size="small"
-          sx={{ height: 22, minWidth: 28, fontWeight: 700, fontSize: '0.75rem', bgcolor: 'rgba(27, 42, 107, 0.08)', color: NAVY }}
+          sx={{
+            height: 18,
+            minWidth: 22,
+            fontWeight: 700,
+            fontSize: '0.65rem',
+            bgcolor: 'rgba(27, 42, 107, 0.08)',
+            color: NAVY,
+            '& .MuiChip-label': { px: 0.75 },
+          }}
         />
       </Box>
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-          bgcolor: 'rgba(27, 42, 107, 0.04)',
-          borderRadius: 2.5,
-          p: 1.5,
-          minHeight: 360,
-          maxHeight: 'calc(100vh - 220px)',
-          overflowY: 'auto',
-        }}
-      >
+      <Box sx={kanbanColumnBodySx}>
         {cards.map((c) => (
           <Paper
             key={c.id_chamado}
             elevation={0}
             onClick={() => onCardClick(c.id_chamado)}
             sx={{
-              p: 2,
-              borderRadius: 2.5,
-              cursor: 'pointer',
-              border: '1px solid rgba(27, 42, 107, 0.12)',
-              borderLeft: `5px solid ${accent}`,
-              bgcolor: '#fff',
-              transition: 'box-shadow 0.15s',
-              '&:hover': { boxShadow: '0 6px 20px rgba(27, 42, 107, 0.14)' },
+              ...kanbanCardSx,
+              borderLeft: `3px solid ${accent}`,
             }}
           >
-            <Typography sx={{ fontWeight: 800, color: NAVY, fontSize: '0.95rem', mb: 0.75, lineHeight: 1.35 }}>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                color: NAVY,
+                fontSize: { xs: '0.82rem', sm: '0.85rem' },
+                mb: 0.5,
+                lineHeight: 1.3,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
               {c.titulo}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mb: 1 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+            <Box sx={{ ...kanbanChipRowSx, mb: 0.75 }}>
+              <Typography color="text.secondary" sx={{ fontSize: '0.68rem', width: '100%' }}>
                 #{c.numero} · {c.categoria}
               </Typography>
               {destinoAprovacaoChip(c.aprovacao_destino, cargos)}
@@ -144,13 +162,22 @@ function ColunaOrcamentos({
                 <Chip
                   label="Aprovado pelo Diretor"
                   size="small"
-                  sx={{ height: 22, fontWeight: 600, fontSize: '0.7rem', bgcolor: '#DBEAFE', color: '#1E40AF' }}
+                  sx={{ height: 20, fontWeight: 600, fontSize: '0.62rem', bgcolor: '#DBEAFE', color: '#1E40AF' }}
                 />
               )}
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <LocationOnOutlinedIcon sx={{ fontSize: 18, color: '#E8520A' }} />
-              <Typography variant="body2" sx={{ color: NAVY, fontWeight: 600, fontSize: '0.82rem' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+              <LocationOnOutlinedIcon sx={{ fontSize: 14, color: '#E8520A', flexShrink: 0 }} />
+              <Typography
+                sx={{
+                  color: NAVY,
+                  fontWeight: 600,
+                  fontSize: '0.72rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {c.loja}
               </Typography>
             </Box>
@@ -163,7 +190,7 @@ function ColunaOrcamentos({
           </Paper>
         ))}
         {!cards.length && (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4, px: 1 }}>
+          <Typography color="text.secondary" sx={{ textAlign: 'center', py: 3, px: 1, fontSize: '0.75rem' }}>
             {vazio}
           </Typography>
         )}
@@ -197,12 +224,23 @@ export default function ManutencaoAprovacoesPage() {
   }, []);
 
   return (
-    <Box>
-      <Typography variant="h6" sx={{ fontWeight: 800, color: NAVY, mb: 0.5 }}>
+    <Box sx={{ width: '100%', minWidth: 0 }}>
+      <Typography
+        sx={{
+          fontWeight: 800,
+          color: NAVY,
+          mb: 0.5,
+          fontSize: { xs: '1rem', sm: '1.1rem' },
+        }}
+      >
         Aprovações de orçamento
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        O Financeiro pode aprovar direto ou encaminhar ao Diretor. O Diretor pode aprovar definitivamente ou devolver ao Financeiro.
+      <Typography
+        color="text.secondary"
+        sx={{ mb: 2, fontSize: { xs: '0.8rem', sm: '0.875rem' }, lineHeight: 1.45 }}
+      >
+        O Financeiro pode aprovar direto ou encaminhar ao Diretor. O Diretor pode aprovar definitivamente ou
+        devolver ao Financeiro.
       </Typography>
 
       {loading && (
@@ -214,15 +252,7 @@ export default function ManutencaoAprovacoesPage() {
       {erro && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
 
       {!loading && !erro && (
-        <Box
-          sx={{
-            display: 'flex',
-            gap: { xs: 2, md: 2.5 },
-            overflowX: 'auto',
-            pb: 2,
-            WebkitOverflowScrolling: 'touch',
-          }}
-        >
+        <Box sx={kanbanBoardLayout(2, 'lg')}>
           <ColunaOrcamentos
             titulo="Orçamentos pendentes"
             accent="#8B5CF6"

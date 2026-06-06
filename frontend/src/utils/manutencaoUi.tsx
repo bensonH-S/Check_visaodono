@@ -32,7 +32,7 @@ export function urgenciaChip(urgencia: string) {
       label={URGENCIA_LABEL[urgencia] || urgencia}
       size="small"
       color={URGENCIA_COLOR[urgencia] || 'default'}
-      sx={{ minWidth: 72, justifyContent: 'center' }}
+      sx={{ minWidth: 56, justifyContent: 'center' }}
     />
   );
 }
@@ -292,12 +292,14 @@ export function SlaBarraProgresso({
   status,
   fechadoEm,
   larguraTotal = false,
+  compact = false,
 }: {
   abertoEm?: string;
   prazoSla: string;
   status?: string;
   fechadoEm?: string | null;
   larguraTotal?: boolean;
+  compact?: boolean;
 }) {
   const { percentual, estourado, label, cancelado } = calcularProgressoSla(abertoEm, prazoSla, {
     status,
@@ -308,25 +310,27 @@ export function SlaBarraProgresso({
   const textoCor =
     cancelado || estourado || percentual >= 45 ? '#fff' : '#1B2A6B';
 
+  const barHeight = compact ? 16 : 22;
+
   return (
     <Box
       sx={{
         position: 'relative',
         width: larguraTotal ? '100%' : undefined,
-        minWidth: larguraTotal ? '100%' : 96,
-        maxWidth: larguraTotal ? '100%' : 120,
-        height: 22,
+        minWidth: larguraTotal ? '100%' : compact ? 72 : 96,
+        maxWidth: larguraTotal ? '100%' : compact ? 96 : 120,
+        height: barHeight,
       }}
     >
       <LinearProgress
         variant="determinate"
         value={percentual}
         sx={{
-          height: 22,
-          borderRadius: 4,
+          height: barHeight,
+          borderRadius: compact ? 3 : 4,
           bgcolor: 'rgba(27, 42, 107, 0.12)',
           '& .MuiLinearProgress-bar': {
-            borderRadius: 4,
+            borderRadius: compact ? 3 : 4,
             bgcolor: cor,
           },
         }}
@@ -340,7 +344,7 @@ export function SlaBarraProgresso({
           alignItems: 'center',
           justifyContent: 'center',
           fontWeight: 700,
-          fontSize: '0.62rem',
+          fontSize: compact ? '0.58rem' : '0.62rem',
           color: textoCor,
           lineHeight: 1,
           pointerEvents: 'none',

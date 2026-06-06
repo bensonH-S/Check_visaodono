@@ -1,6 +1,9 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_TAG: ${GIT_TAG:-}
     ports:
       - "3007:3007"
     env_file:

@@ -19,7 +19,16 @@ export default function PageHeaderTitle({ title, icon }: PageTitleConfig) {
       >
         {icon}
       </Box>
-      <Typography variant="subtitle1" sx={{ fontWeight: 600 }} noWrap>
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 600,
+          fontSize: { xs: '0.9rem', sm: '1rem' },
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
         {title}
       </Typography>
     </Box>

@@ -3,7 +3,6 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChamadoDetalheConteudo from '../../components/manutencao/ChamadoDetalheConteudo';
-import ChamadosSubNav from '../../components/manutencao/ChamadosSubNav';
 import { usePageTitle } from '../../hooks/usePageTitle';
 
 export default function ManutencaoDetalhePage() {
@@ -20,7 +19,6 @@ export default function ManutencaoDetalhePage() {
 
   return (
     <Box>
-      <ChamadosSubNav />
       <Button
         size="small"
         startIcon={<ArrowBackIcon />}

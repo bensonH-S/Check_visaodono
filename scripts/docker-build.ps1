@@ -18,8 +18,11 @@ if (-not $Tag) {
 
 if ($Tag) {
   Write-Host "[docker] versão da tag Git: $Tag"
-  docker build --build-arg "GIT_TAG=$Tag" -t "${ImageName}:latest" -t "${ImageName}:$Tag" .
+  $env:GIT_TAG = $Tag
+  docker compose build --build-arg "GIT_TAG=$Tag"
+  docker compose up -d
 } else {
   Write-Host "[docker] nenhuma tag Git encontrada — build sem GIT_TAG (rodapé pode mostrar dev)"
-  docker build -t "${ImageName}:latest" .
+  docker compose build
+  docker compose up -d
 }

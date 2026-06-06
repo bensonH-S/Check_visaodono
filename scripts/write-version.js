@@ -12,15 +12,32 @@ function normalizeAppVersion(raw) {
   return match ? match[1] : v;
 }
 
+function runGit(cmd) {
+  return execSync(cmd, {
+    encoding: 'utf8',
+    cwd: root,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  }).trim();
+}
+
 function gitVersion() {
+  const commands = [
+    'git describe --tags --abbrev=0',
+    'git describe --tags --always --abbrev=0',
+  ];
+
+  for (const cmd of commands) {
+    try {
+      const v = normalizeAppVersion(runGit(cmd));
+      if (v !== 'dev') return v;
+    } catch {
+      // tenta próximo método
+    }
+  }
+
   try {
-    return normalizeAppVersion(
-      execSync('git describe --tags --abbrev=0', {
-        encoding: 'utf8',
-        cwd: root,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }).trim()
-    );
+    const tag = runGit('git tag --sort=-v:refname').split(/\r?\n/).find(Boolean);
+    return normalizeAppVersion(tag);
   } catch {
     return 'dev';
   }
@@ -35,4 +52,12 @@ function resolveVersion() {
 
 const version = resolveVersion();
 fs.writeFileSync(path.join(root, 'VERSION'), `${version}\n`);
+
+const publicDir = path.join(root, 'frontend/public');
+fs.mkdirSync(publicDir, { recursive: true });
+fs.writeFileSync(
+  path.join(publicDir, 'app-version.json'),
+  `${JSON.stringify({ version }, null, 2)}\n`
+);
+
 console.log(`[version] ${version}`);

@@ -34,8 +34,10 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
 import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo, type Cargo } from '../api/client';
 import { getUsuario } from '../lib/auth';
-import { dialogContentSx, dialogFieldProps } from '../utils/dialogForm';
+import { dialogContentSxCompact, dialogFieldPropsResponsive } from '../utils/dialogForm';
 import { useToast } from '../hooks/useToast';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 const NAVY = '#1B2A6B';
 
@@ -65,6 +67,8 @@ export default function UsuariosPage() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const { showToast, ToastSnackbar } = useToast();
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const sessao = getUsuario();
   const todasLojas = form.permissoes.includes('lojas.todas');
   const exigeCargoAprovador = form.permissoes.includes('chamados.aprovar');
@@ -323,26 +327,50 @@ export default function UsuariosPage() {
         open={modalAberto}
         onClose={() => !salvando && setModalAberto(false)}
         fullWidth
+        fullScreen={isMobile}
         maxWidth="md"
         slotProps={{
           paper: {
             sx: {
               display: 'flex',
               flexDirection: 'column',
-              maxHeight: '90vh',
+              maxHeight: isMobile ? '100dvh' : '88vh',
               overflow: 'hidden',
+              width: { xs: '100%', sm: 'min(100%, 520px)', lg: 'min(100%, 640px)' },
+              m: { xs: 0, sm: 1.5 },
             },
           },
         }}
       >
         <DialogTitleWithIcon
           fixed
+          compact
           icon={
             editId ? (
-              <PeopleIcon sx={{ fontSize: 22 }} />
+              <PeopleIcon sx={{ fontSize: 18 }} />
             ) : (
-              <PersonAddIcon sx={{ fontSize: 22 }} />
+              <PersonAddIcon sx={{ fontSize: 18 }} />
             )
+          }
+          endAction={
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={form.ativo}
+                  onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
+                />
+              }
+              label={
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: { xs: '0.72rem', lg: '0.8rem' }, whiteSpace: 'nowrap' }}
+                >
+                  Usuário ativo
+                </Typography>
+              }
+              sx={{ m: 0, mr: 0 }}
+            />
           }
         >
           {editId ? 'Editar usuário' : 'Novo usuário'}
@@ -350,10 +378,10 @@ export default function UsuariosPage() {
         <DialogContent
           dividers
           sx={{
-            ...dialogContentSx,
-            gap: 2.5,
-            pt: 3,
-            pb: 3,
+            ...dialogContentSxCompact,
+            px: { xs: 2, sm: 2.5 },
+            pt: { xs: 1.5, sm: 2 },
+            pb: { xs: 1.5, sm: 2 },
             flex: 1,
             overflowY: 'auto',
           }}
@@ -361,20 +389,22 @@ export default function UsuariosPage() {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
-              gap: 2,
-              mb: 1,
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(3, minmax(0, 1fr))',
+              },
+              gap: { xs: 1, sm: 1.25, lg: 1.5 },
             }}
           >
             <TextField
-              {...dialogFieldProps}
+              {...dialogFieldPropsResponsive}
               label="Nome"
               required
               value={form.nome}
               onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
             />
             <TextField
-              {...dialogFieldProps}
+              {...dialogFieldPropsResponsive}
               label="E-mail"
               type="email"
               required
@@ -382,7 +412,7 @@ export default function UsuariosPage() {
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             />
             <TextField
-              {...dialogFieldProps}
+              {...dialogFieldPropsResponsive}
               select
               label="Perfil"
               required
@@ -396,10 +426,14 @@ export default function UsuariosPage() {
                   lojas_ids: codigo === 'ti' ? [] : f.lojas_ids,
                 }));
               }}
-              helperText="Cadastre perfis em Configurações → Cargos"
             >
               {cargos.map((c) => (
-                <MenuItem key={c.codigo} value={c.codigo}>
+                <MenuItem
+                  key={c.codigo}
+                  value={c.codigo}
+                  dense
+                  sx={{ fontSize: { xs: '0.8rem', lg: '0.9rem' } }}
+                >
                   {c.nome}
                 </MenuItem>
               ))}
@@ -407,34 +441,38 @@ export default function UsuariosPage() {
           </Box>
 
           {form.cargo_aprovacao === 'ti' && (
-            <Alert severity="info" sx={{ py: 0.5 }}>
+            <Alert severity="info" sx={{ py: 0.25, fontSize: '0.75rem' }}>
               Perfil TI recebe todas as funções por padrão.
             </Alert>
           )}
 
           {!cargos.length && (
-            <Alert severity="warning">
+            <Alert severity="warning" sx={{ py: 0.25, fontSize: '0.75rem' }}>
               Nenhum perfil cadastrado. Vá em Configurações → Cargos.
             </Alert>
           )}
 
           {exigeCargoAprovador && cargoSelecionado(form.cargo_aprovacao) && !cargoSelecionado(form.cargo_aprovacao)?.aprovador && (
-            <Alert severity="warning">
+            <Alert severity="warning" sx={{ py: 0.25, fontSize: '0.75rem' }}>
               Para aprovar orçamentos, selecione o perfil Financeiro ou Diretor.
             </Alert>
           )}
 
-          <Box sx={{ mt: 1.5 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, fontSize: '0.8rem' }}>
               Permissões no sistema
             </Typography>
             {catalogoPorGrupo.map(([grupo, itens], idx) => (
-              <Box key={grupo} sx={{ mb: 1.5 }}>
-                {idx > 0 && <Divider sx={{ mb: 1 }} />}
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              <Box key={grupo} sx={{ mb: 1 }}>
+                {idx > 0 && <Divider sx={{ mb: 0.75 }} />}
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', mb: 0.25, fontSize: '0.7rem', fontWeight: 600 }}
+                >
                   {grupo}
                 </Typography>
-                <FormGroup row sx={{ flexWrap: 'wrap', gap: 0 }}>
+                <FormGroup row sx={{ flexWrap: 'wrap', gap: 0, m: 0 }}>
                   {itens.map((p) => (
                     <FormControlLabel
                       key={p.codigo}
@@ -443,17 +481,27 @@ export default function UsuariosPage() {
                           size="small"
                           checked={form.permissoes.includes(p.codigo)}
                           onChange={() => togglePermissao(p.codigo)}
+                          sx={{ py: 0.25 }}
                         />
                       }
-                      label={<Typography variant="body2">{p.nome}</Typography>}
-                      sx={{ width: { xs: '100%', sm: '48%' }, mr: 0 }}
+                      label={
+                        <Typography variant="caption" sx={{ fontSize: '0.75rem', lineHeight: 1.3 }}>
+                          {p.nome}
+                        </Typography>
+                      }
+                      sx={{
+                        width: { xs: '100%', sm: '50%', md: '48%' },
+                        mr: 0,
+                        my: 0,
+                        ml: 0,
+                      }}
                     />
                   ))}
                 </FormGroup>
               </Box>
             ))}
             {!form.permissoes.length && (
-              <Alert severity="warning" sx={{ mt: 1 }}>
+              <Alert severity="warning" sx={{ mt: 0.75, py: 0.25, fontSize: '0.75rem' }}>
                 Sem permissões marcadas, o usuário não verá menus nem poderá usar o sistema.
               </Alert>
             )}
@@ -461,24 +509,23 @@ export default function UsuariosPage() {
 
           <Box
             sx={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+              gap: { xs: 1, sm: 1.25, lg: 1.5 },
               alignItems: 'flex-start',
-              gap: 2,
-              flexWrap: { xs: 'wrap', lg: 'nowrap' },
             }}
           >
             {todasLojas ? (
               <TextField
-                {...dialogFieldProps}
+                {...dialogFieldPropsResponsive}
                 label="Lojas vinculadas"
                 value="Todas as lojas"
                 disabled
                 helperText="Acesso global ativo"
-                sx={{ flex: 1.2, minWidth: 160 }}
               />
             ) : (
               <TextField
-                {...dialogFieldProps}
+                {...dialogFieldPropsResponsive}
                 select
                 label="Lojas vinculadas"
                 value={form.lojas_ids}
@@ -490,7 +537,7 @@ export default function UsuariosPage() {
                   }));
                 }}
                 slotProps={{
-                  ...dialogFieldProps.slotProps,
+                  ...dialogFieldPropsResponsive.slotProps,
                   select: {
                     multiple: true,
                     renderValue: (selected: unknown) => {
@@ -502,21 +549,24 @@ export default function UsuariosPage() {
                     },
                   },
                 }}
-                sx={{ flex: 1.2, minWidth: 160 }}
               >
                 {lojas.map((l) => (
-                  <MenuItem key={l.id_loja} value={l.id_loja}>
+                  <MenuItem key={l.id_loja} value={l.id_loja} dense>
                     <Checkbox checked={form.lojas_ids.includes(l.id_loja)} size="small" sx={{ mr: 1 }} />
                     <ListItemText
                       primary={l.name}
                       secondary={l.bk_number ? `BKN ${l.bk_number}` : undefined}
+                      slotProps={{
+                        primary: { sx: { fontSize: '0.8rem' } },
+                        secondary: { sx: { fontSize: '0.7rem' } },
+                      }}
                     />
                   </MenuItem>
                 ))}
               </TextField>
             )}
             <TextField
-              {...dialogFieldProps}
+              {...dialogFieldPropsResponsive}
               label={editId ? 'Nova senha (opcional)' : 'Senha inicial'}
               type={mostrarSenha ? 'text' : 'password'}
               required={!editId}
@@ -525,7 +575,7 @@ export default function UsuariosPage() {
               helperText="Mín. 6 caracteres"
               autoComplete="new-password"
               slotProps={{
-                ...dialogFieldProps.slotProps,
+                ...dialogFieldPropsResponsive.slotProps,
                 input: {
                   endAdornment: (
                     <InputAdornment position="end">
@@ -546,37 +596,33 @@ export default function UsuariosPage() {
                   ),
                 },
               }}
-              sx={{ flex: 1, minWidth: 140 }}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={form.ativo}
-                  onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
-                />
-              }
-              label="Usuário ativo"
-              sx={{ m: 0, flexShrink: 0, mt: 1, alignSelf: 'center' }}
             />
           </Box>
 
-          {erro && modalAberto && <Alert severity="error">{erro}</Alert>}
+          {erro && modalAberto && (
+            <Alert severity="error" sx={{ py: 0.25, fontSize: '0.75rem' }}>
+              {erro}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions
           sx={{
             justifyContent: 'space-between',
-            px: 3,
-            py: 2.5,
+            px: { xs: 2, sm: 2.5 },
+            py: { xs: 1.25, sm: 1.5 },
             flexShrink: 0,
             borderTop: '1px solid',
             borderColor: 'divider',
             bgcolor: 'background.paper',
+            gap: 1,
+            flexWrap: 'wrap',
           }}
         >
           {editId && sessao?.id_usuario !== editId ? (
             <Button
               color="error"
-              startIcon={<DeleteIcon />}
+              size="small"
+              startIcon={<DeleteIcon fontSize="small" />}
               onClick={() => {
                 const alvo = lista.find((u) => u.id_usuario === editId);
                 if (alvo) {
@@ -590,11 +636,11 @@ export default function UsuariosPage() {
           ) : (
             <span />
           )}
-          <Box className="flex gap-1">
-            <Button onClick={() => setModalAberto(false)} disabled={salvando}>
+          <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+            <Button size="small" onClick={() => setModalAberto(false)} disabled={salvando}>
               Cancelar
             </Button>
-            <Button variant="contained" onClick={() => void salvar()} disabled={salvando}>
+            <Button size="small" variant="contained" onClick={() => void salvar()} disabled={salvando}>
               {salvando ? 'Salvando...' : 'Salvar'}
             </Button>
           </Box>

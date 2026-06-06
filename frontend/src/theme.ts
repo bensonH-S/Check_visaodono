@@ -15,22 +15,23 @@ export const theme = createTheme({
     background: { default: '#f5f5f3' },
   },
   typography: {
-    htmlFontSize: 16,
+    htmlFontSize: 14,
+    fontSize: 14,
     fontFamily: '"Segoe UI", system-ui, sans-serif',
-    h6: { fontWeight: 600 },
+    h6: { fontWeight: 600, fontSize: '1rem' },
   },
   shape: { borderRadius: 8 },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
         html: {
-          fontSize: '16px',
+          fontSize: '14px',
           WebkitTextSizeAdjust: '100%',
           textSizeAdjust: '100%',
         },
         body: {
           fontSize: '0.875rem',
-          lineHeight: 1.5,
+          lineHeight: 1.45,
         },
       },
     },

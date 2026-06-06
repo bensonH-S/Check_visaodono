@@ -1,5 +1,6 @@
 FROM node:22-alpine AS build
 WORKDIR /app
+RUN apk add --no-cache git
 
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/

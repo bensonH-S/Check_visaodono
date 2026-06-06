@@ -20,12 +20,26 @@ function normalizeAppVersion(raw) {
 dotenv.config({ path: path.join(__dirname, '.env'), override: false });
 dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: false });
 
+function readVersionFromDist() {
+  const distVersionFile = path.join(__dirname, 'frontend', 'dist', 'app-version.json');
+  if (!fs.existsSync(distVersionFile)) return 'dev';
+  try {
+    const { version } = JSON.parse(fs.readFileSync(distVersionFile, 'utf8'));
+    return normalizeAppVersion(version);
+  } catch {
+    return 'dev';
+  }
+}
+
 function resolveAppVersion() {
   const versionFile = path.join(__dirname, 'VERSION');
   if (fs.existsSync(versionFile)) {
     const fromFile = normalizeAppVersion(fs.readFileSync(versionFile, 'utf8'));
     if (fromFile !== 'dev') return fromFile;
   }
+
+  const fromDist = readVersionFromDist();
+  if (fromDist !== 'dev') return fromDist;
 
   try {
     return normalizeAppVersion(

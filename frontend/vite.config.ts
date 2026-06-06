@@ -1,3 +1,6 @@
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -5,6 +8,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const APP_BASE = '/auditoria'
 const DEV_API_PORT = 5000
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+function readBuildVersion() {
+  const versionFile = path.join(ROOT, 'VERSION')
+  if (!fs.existsSync(versionFile)) return 'dev'
+  const raw = fs.readFileSync(versionFile, 'utf8').trim()
+  const match = raw.match(/^(v\d+(?:\.\d+)*)/i)
+  return match ? match[1] : raw || 'dev'
+}
+
+const BUILD_VERSION = readBuildVersion()
 
 function auditoriaBaseRedirect() {
   return {
@@ -39,6 +53,9 @@ function auditoriaBaseRedirect() {
 
 export default defineConfig({
   base: `${APP_BASE}/`,
+  define: {
+    __BUILD_VERSION__: JSON.stringify(BUILD_VERSION),
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -77,12 +94,13 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,woff2}'],
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2,webmanifest}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/\/api\//],
+        cleanupOutdatedCaches: true,
       },
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: 'module',
       },
     }),

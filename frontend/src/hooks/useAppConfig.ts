@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api, type AppPublicConfig } from '../api/client';
+import { buildVersion } from '../config/buildVersion';
+
+const BUNDLED_VERSION = buildVersion();
 
 const DEFAULT_CONFIG: AppPublicConfig = {
-  version: 'dev',
+  version: BUNDLED_VERSION,
   environment: 'Development',
   support: {
     name: 'Benson Henrique',
@@ -17,7 +20,12 @@ export function useAppConfig() {
   useEffect(() => {
     api
       .publicConfig()
-      .then(setConfig)
+      .then((cfg) =>
+        setConfig({
+          ...cfg,
+          version: cfg.version !== 'dev' ? cfg.version : BUNDLED_VERSION,
+        })
+      )
       .catch(() => setConfig(DEFAULT_CONFIG));
   }, []);
 
