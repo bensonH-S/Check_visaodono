@@ -1,7 +1,4 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChamadoDetalheConteudo from '../../components/manutencao/ChamadoDetalheConteudo';
 import { usePageTitle } from '../../hooks/usePageTitle';
 
@@ -18,16 +15,9 @@ export default function ManutencaoDetalhePage() {
   }
 
   return (
-    <Box>
-      <Button
-        size="small"
-        startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/chamados')}
-        sx={{ mb: 2 }}
-      >
-        Voltar
-      </Button>
-      <ChamadoDetalheConteudo idChamado={id} />
-    </Box>
+    <ChamadoDetalheConteudo
+      idChamado={id}
+      onVoltar={() => navigate('/chamados')}
+    />
   );
 }

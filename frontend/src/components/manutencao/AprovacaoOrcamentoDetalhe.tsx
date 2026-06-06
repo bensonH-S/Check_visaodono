@@ -22,6 +22,7 @@ import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { destinoAprovacaoChip, destinoPermiteCargoAprovacao, statusChip, urgenciaChip } from '../../utils/manutencaoUi';
 import { useToast } from '../../hooks/useToast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
+import { portalContentSx } from '../../utils/responsiveLayout';
 
 const NAVY = '#1B2A6B';
 
@@ -513,7 +514,7 @@ export default function AprovacaoOrcamentoDetalhe({ idChamado, onConcluido }: Pr
   }
 
   return (
-    <Box sx={{ maxWidth: 720, mx: 'auto', width: '100%' }}>
+    <Box sx={portalContentSx}>
       <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px solid rgba(27, 42, 107, 0.12)', borderTop: `3px solid ${NAVY}` }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap', mb: 1 }}>
           <Typography sx={{ fontWeight: 800, color: NAVY, fontSize: '1.15rem' }}>

@@ -1,5 +1,4 @@
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -83,7 +82,7 @@ function MidiaAnexo({ mediaUrl, mime }: { mediaUrl: string; mime: string }) {
         component="video"
         src={src}
         controls
-        sx={{ width: '100%', borderRadius: 1, maxHeight: 160, bgcolor: '#000' }}
+        sx={{ width: '100%', borderRadius: 0, maxHeight: { xs: 160, md: 220 }, bgcolor: '#000', display: 'block' }}
       />
     );
   }
@@ -107,7 +106,13 @@ function MidiaAnexo({ mediaUrl, mime }: { mediaUrl: string; mime: string }) {
       component="img"
       src={src}
       alt="Anexo"
-      sx={{ width: '100%', borderRadius: 1, maxHeight: 160, objectFit: 'cover' }}
+      sx={{
+        width: '100%',
+        borderRadius: 0,
+        maxHeight: { xs: 160, md: 220 },
+        objectFit: 'cover',
+        display: 'block',
+      }}
     />
   );
 }
@@ -317,38 +322,41 @@ export default function ChamadoTimeline({
   variante?: 'mobile' | 'desktop';
 }) {
   const items = buildTimelineItems(detalhe, { variante });
+  const isDesktop = variante === 'desktop';
 
   return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: NAVY }}>
-        Histórico do ticket
+    <Box sx={{ px: { xs: 1.5, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: NAVY }}>
+        Histórico · {items.length} {items.length === 1 ? 'evento' : 'eventos'}
       </Typography>
       <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          maxHeight: { xs: 280, sm: 320, md: 360 },
-          overflowY: 'auto',
+          maxHeight: isDesktop ? 'none' : { xs: 360, sm: 420 },
+          overflowY: isDesktop ? 'visible' : 'auto',
           overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
-          pr: 0.5,
+          pr: isDesktop ? 0 : 0.5,
         }}
       >
         {items.map((item, index) => {
           const ultimo = index === items.length - 1;
           return (
             <Box key={item.id} sx={{ display: 'flex', gap: 1.5, pb: ultimo ? 0 : 2 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 28, flexShrink: 0 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 32, flexShrink: 0 }}>
                 <Box
                   sx={{
-                    width: 28,
-                    height: 28,
+                    width: 32,
+                    height: 32,
                     borderRadius: '50%',
-                    bgcolor: 'rgba(27, 42, 107, 0.08)',
+                    bgcolor: 'white',
+                    border: '2px solid rgba(27, 42, 107, 0.12)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
+                    boxShadow: '0 1px 4px rgba(27, 42, 107, 0.08)',
                   }}
                 >
                   {iconeTipo(item)}
@@ -358,27 +366,41 @@ export default function ChamadoTimeline({
                     sx={{
                       flex: 1,
                       width: 2,
-                      bgcolor: 'rgba(27, 42, 107, 0.12)',
+                      bgcolor: 'rgba(27, 42, 107, 0.1)',
                       mt: 0.5,
-                      minHeight: 24,
+                      minHeight: 28,
                     }}
                   />
                 )}
               </Box>
 
-              <Box sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
-                <Typography variant="body2" sx={{ fontWeight: 700, color: NAVY, lineHeight: 1.3 }}>
-                  {item.titulo}
-                </Typography>
-                <Typography
-                  component="p"
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ m: 0, mt: 0.25, display: 'block', lineHeight: 1.4 }}
-                >
-                  {formatDataHoraBrasilia(item.quando)}
-                  {item.subtitulo ? ` · ${item.subtitulo}` : ''}
-                </Typography>
+              <Box
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  pt: 0.25,
+                  pb: ultimo ? 0 : 0.5,
+                  bgcolor: 'rgba(27, 42, 107, 0.02)',
+                  border: '1px solid rgba(27, 42, 107, 0.08)',
+                  borderRadius: 1.5,
+                  px: 1.5,
+                  py: 1.25,
+                }}
+              >
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 800, color: NAVY, lineHeight: 1.3 }}>
+                    {item.titulo}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    {formatDataHoraBrasilia(item.quando)}
+                  </Typography>
+                </Box>
+
+                {item.subtitulo && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.4 }}>
+                    {item.subtitulo}
+                  </Typography>
+                )}
 
                 {item.meta?.map((linha) => (
                   <Typography
@@ -400,8 +422,13 @@ export default function ChamadoTimeline({
                       m: 0,
                       mt: 0.75,
                       whiteSpace: 'pre-wrap',
-                      lineHeight: 1.5,
+                      lineHeight: 1.55,
                       color: 'text.primary',
+                      bgcolor: 'white',
+                      borderRadius: 1,
+                      px: 1.25,
+                      py: 1,
+                      border: '1px solid rgba(27, 42, 107, 0.06)',
                     }}
                   >
                     {item.corpo}
@@ -411,14 +438,25 @@ export default function ChamadoTimeline({
                 {item.anexos && item.anexos.length > 0 && (
                   <Box
                     sx={{
-                      mt: 1,
+                      mt: 1.25,
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gridTemplateColumns: {
+                        xs: 'repeat(2, 1fr)',
+                        sm: isDesktop ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)',
+                      },
                       gap: 1,
                     }}
                   >
                     {item.anexos.map((a) => (
-                      <Box key={a.id_anexo}>
+                      <Box
+                        key={a.id_anexo}
+                        sx={{
+                          borderRadius: 1,
+                          overflow: 'hidden',
+                          border: '1px solid rgba(27, 42, 107, 0.1)',
+                          bgcolor: 'white',
+                        }}
+                      >
                         <MidiaAnexo mediaUrl={a.media_url} mime={a.tipo_mime} />
                       </Box>
                     ))}
@@ -429,6 +467,6 @@ export default function ChamadoTimeline({
           );
         })}
       </Box>
-    </Paper>
+    </Box>
   );
 }

@@ -93,7 +93,7 @@ function ColunaOrcamentos({
   cargos: Cargo[];
 }) {
   return (
-    <Box sx={kanbanColumnLayout('lg')}>
+    <Box sx={kanbanColumnLayout()}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1, px: 0.25, minWidth: 0 }}>
         {icon === 'done' ? (
           <CheckCircleIcon sx={{ fontSize: 16, color: accent, flexShrink: 0 }} />
@@ -252,7 +252,7 @@ export default function ManutencaoAprovacoesPage() {
       {erro && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
 
       {!loading && !erro && (
-        <Box sx={kanbanBoardLayout(2, 'lg')}>
+        <Box sx={kanbanBoardLayout(2)}>
           <ColunaOrcamentos
             titulo="Orçamentos pendentes"
             accent="#8B5CF6"

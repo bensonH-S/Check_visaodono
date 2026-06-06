@@ -1,42 +1,57 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
-type GridBreakpoint = 'lg' | 'xl';
+type GridBreakpoint = 'md' | 'lg' | 'xl';
 
-/** Layout do board: scroll horizontal no mobile; grid em telas grandes. */
-export function kanbanBoardLayout(columnCount: number, gridAt: GridBreakpoint = 'xl'): SxProps<Theme> {
+/** Layout do board: scroll horizontal no celular; grid a partir de lg (desktop/tablet landscape). */
+export function kanbanBoardLayout(columnCount: number, gridAt: GridBreakpoint = 'lg'): SxProps<Theme> {
   return {
     display: { xs: 'flex', [gridAt]: 'grid' },
     gridTemplateColumns: { [gridAt]: `repeat(${columnCount}, minmax(0, 1fr))` },
-    gap: { xs: 1.25, sm: 1.5, [gridAt]: 2 },
+    gap: { xs: 1.25, sm: 1.5, [gridAt]: 1.75 },
     overflowX: { xs: 'auto', [gridAt]: 'visible' },
     WebkitOverflowScrolling: 'touch',
     pb: { xs: 1.5, [gridAt]: 0.5 },
     pt: 0.25,
     width: '100%',
     minWidth: 0,
-    minHeight: { xs: 320, [gridAt]: 280 },
+    minHeight: { xs: 360, [gridAt]: 320 },
   };
 }
 
-/** Coluna do kanban: largura fixa no mobile; preenche o grid em telas grandes. */
-export function kanbanColumnLayout(gridAt: GridBreakpoint = 'xl'): SxProps<Theme> {
+/** Coluna do kanban: largura fixa no scroll horizontal; preenche o grid em telas grandes. */
+export function kanbanColumnLayout(gridAt: GridBreakpoint = 'lg'): SxProps<Theme> {
   return {
     display: 'flex',
     flexDirection: 'column',
     minWidth: 0,
     flex: {
-      xs: '0 0 min(88vw, 280px)',
-      sm: '0 0 248px',
-      md: '0 0 220px',
+      xs: '0 0 min(85vw, 300px)',
+      sm: '0 0 280px',
+      md: '0 0 260px',
       [gridAt]: 'unset',
     },
     width: {
-      xs: 'min(88vw, 280px)',
-      sm: 248,
-      md: 220,
+      xs: 'min(85vw, 300px)',
+      sm: 280,
+      md: 260,
       [gridAt]: '100%',
     },
     maxWidth: '100%',
+  };
+}
+
+export function kanbanColumnHeaderSx(accent: string): SxProps<Theme> {
+  return {
+    display: 'flex',
+    alignItems: 'center',
+    mb: 1,
+    px: 1,
+    py: 0.875,
+    borderRadius: 1.5,
+    bgcolor: 'white',
+    border: '1px solid rgba(27, 42, 107, 0.08)',
+    borderTop: `3px solid ${accent}`,
+    boxShadow: '0 1px 4px rgba(27, 42, 107, 0.06)',
   };
 }
 
@@ -44,13 +59,14 @@ export const kanbanColumnBodySx: SxProps<Theme> = {
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  gap: 1,
-  bgcolor: 'rgba(27, 42, 107, 0.04)',
-  borderRadius: 1.5,
+  gap: 1.25,
+  bgcolor: 'rgba(27, 42, 107, 0.03)',
+  borderRadius: 2,
   p: { xs: 1, sm: 1.25 },
-  minHeight: { xs: 260, sm: 280, md: 240 },
-  maxHeight: { xs: 'calc(100vh - 260px)', md: 'calc(100vh - 220px)', xl: 'calc(100vh - 200px)' },
+  minHeight: { xs: 280, sm: 300, md: 260 },
+  maxHeight: { xs: 'calc(100vh - 280px)', md: 'calc(100vh - 240px)', xl: 'calc(100vh - 220px)' },
   overflowY: 'auto',
+  border: '1px solid rgba(27, 42, 107, 0.06)',
 };
 
 export const kanbanCardSx: SxProps<Theme> = {
@@ -69,8 +85,8 @@ export const kanbanChipRowSx: SxProps<Theme> = {
   gap: 0.5,
   alignItems: 'center',
   '& .MuiChip-root': {
-    height: 20,
-    fontSize: '0.62rem',
+    height: 22,
+    fontSize: '0.68rem',
     '& .MuiChip-label': { px: 0.75 },
   },
 };

@@ -7,6 +7,7 @@
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "node --watch server.js",
     "dev:web": "npx --yes wait-on tcp:127.0.0.1:5000 -t 45000 && npm run dev --prefix frontend",
+    "tunnel": "ngrok http 5174",
     "migrate": "npm run migrate --prefix backend",
     "migrate:lojas": "npm run migrate:lojas --prefix backend",
     "migrate:checklist": "npm run migrate:checklist --prefix backend",

@@ -53,7 +53,8 @@ export default function PortalLayout() {
   const isChamadoNovo = path === '/chamados/novo';
   const emAprovacoes = path.startsWith('/chamados/aprovacoes');
   const emChamados = path.startsWith('/chamados') && !emAprovacoes;
-  const campoMobile = isChecklist;
+  /** Formulários de campo: coluna estreita no celular, largura total no desktop. */
+  const colunaEstreita = isChecklist || isChamadoNovo;
 
   const nav: NavItem[] = [
     {
@@ -144,11 +145,11 @@ export default function PortalLayout() {
 
   return (
     <Box
-      className={`flex h-full bg-[#f5f5f3] ${campoMobile ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}`}
+      className={`flex h-full bg-[#f5f5f3] ${colunaEstreita ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}`}
     >
       <Box
         component="aside"
-        className={`${campoMobile ? 'hidden' : 'hidden md:flex'} w-56 shrink-0 flex-col border-r border-gray-200`}
+        className={`${colunaEstreita ? 'hidden' : 'hidden md:flex'} w-56 shrink-0 flex-col border-r border-gray-200`}
         sx={{
           bgcolor: 'white',
           height: '100%',
@@ -238,7 +239,7 @@ export default function PortalLayout() {
           component="header"
           className="shrink-0 px-2.5 md:px-4 py-2 md:py-0 md:h-11 flex items-center gap-2 bg-white border-b border-gray-200"
         >
-          {campoMobile && (
+          {colunaEstreita && (
             <Box
               component="img"
               src={assetUrl(LOGO_GRUPO_ALVIM)}
@@ -270,10 +271,10 @@ export default function PortalLayout() {
 
         <Box
           component="main"
-          className={`flex-1 min-h-0 overflow-y-auto ${campoMobile || isChamadoNovo ? 'p-2.5 sm:p-3 lg:p-4 xl:p-5' : 'p-2.5 sm:p-3 lg:p-4 xl:p-5'} ${mobileTabs.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
+          className={`flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 lg:p-4 xl:p-5 ${mobileTabs.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
           sx={{
-            maxWidth: campoMobile || isChamadoNovo ? { xs: 640, md: 'none' } : 'none',
-            mx: campoMobile || isChamadoNovo ? { xs: 'auto', md: 0 } : 0,
+            maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
+            mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
             width: '100%',
           }}
         >

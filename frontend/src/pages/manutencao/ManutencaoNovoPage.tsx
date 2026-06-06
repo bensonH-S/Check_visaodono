@@ -415,7 +415,7 @@ export default function ManutencaoNovoPage() {
 
   return (
 
-    <Box component="form" onSubmit={enviar} className="max-w-lg mx-auto w-full">
+    <Box component="form" onSubmit={enviar} className="w-full max-w-lg md:max-w-none mx-auto md:mx-0">
 
       <Button
         type="button"

@@ -109,6 +109,8 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
     host: true,
+    /** Permite acesso via ngrok / túnel externo no dev */
+    allowedHosts: true,
     open: `${APP_BASE}/`,
     proxy: {
       [`${APP_BASE}/api`]: {

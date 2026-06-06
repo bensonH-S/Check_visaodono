@@ -18,17 +18,23 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import ReplayIcon from '@mui/icons-material/Replay';
 import SendIcon from '@mui/icons-material/Send';
+import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
+import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined';
+import RequestQuoteOutlinedIcon from '@mui/icons-material/RequestQuoteOutlined';
+import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import PhotoCaptureMulti from '../checklist/PhotoCaptureMulti';
 import OrcamentoAnexosInput from './OrcamentoAnexosInput';
 import ChamadoTimeline from './ChamadoTimeline';
+import ChamadoDetalheHeader from './ChamadoDetalheHeader';
+import DetalheSecao from './DetalheSecao';
 import { api, type ManutChamadoDetalhe, type Cargo } from '../../api/client';
 import { getUsuario, temPermissao } from '../../lib/auth';
-import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { extensaoMidia } from '../../utils/mediaFile';
-import { chamadoEncerrado, destinoPermiteCargoAprovacao, statusChip, tipoChamadoChip, urgenciaChip } from '../../utils/manutencaoUi';
+import { chamadoEncerrado, destinoPermiteCargoAprovacao } from '../../utils/manutencaoUi';
 import { useToast } from '../../hooks/useToast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
+import { detalheChamadoSx } from '../../utils/responsiveLayout';
 
 const NAVY = '#1B2A6B';
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
@@ -42,22 +48,11 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([arr], { type: mime });
 }
 
-function MetaLinha({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography
-      component="p"
-      variant="caption"
-      color="text.secondary"
-      sx={{ m: 0, display: 'block', lineHeight: 1.5 }}
-    >
-      {children}
-    </Typography>
-  );
-}
-
 type Props = {
   idChamado: number;
   onDetalheCarregado?: (detalhe: ManutChamadoDetalhe) => void;
+  onVoltar?: () => void;
+  voltarLabel?: string;
   /** Mobile: sem orçamento, encerramento nem aprovação */
   variante?: 'desktop' | 'mobile';
   /** Página de aprovações: só visualização + botão aprovar */
@@ -68,6 +63,8 @@ type Props = {
 export default function ChamadoDetalheConteudo({
   idChamado,
   onDetalheCarregado,
+  onVoltar,
+  voltarLabel,
   variante = 'desktop',
   modoAprovacao = false,
   permitirEncerrar = true,
@@ -92,6 +89,9 @@ export default function ChamadoDetalheConteudo({
   const [destinoAprovacao, setDestinoAprovacao] = useState('');
   const [enviandoAprovacao, setEnviandoAprovacao] = useState(false);
   const [aprovando, setAprovando] = useState(false);
+  const [acaoDialog, setAcaoDialog] = useState<
+    'orcamento' | 'encerrar' | 'reabrir' | 'anexos' | 'aprovar' | null
+  >(null);
   const { showToast, ToastSnackbar } = useToast();
   const enviandoRef = useRef(false);
 
@@ -230,6 +230,7 @@ export default function ChamadoDetalheConteudo({
       );
       setObsEncerramento('');
       setDialogCancelar(false);
+      setAcaoDialog(null);
       showToast(status === 'concluido' ? 'Chamado concluído!' : 'Chamado cancelado.');
       dispararAtualizacaoNotificacoes();
       carregar();
@@ -264,6 +265,7 @@ export default function ChamadoDetalheConteudo({
           : `Enviado para aprovação do ${nomeDestino}!`,
       );
       dispararAtualizacaoNotificacoes();
+      setAcaoDialog(null);
       carregar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao enviar para aprovação');
@@ -281,6 +283,7 @@ export default function ChamadoDetalheConteudo({
       setObsOrcamento('');
       showToast('Orçamento aprovado! O chamado pode seguir para execução.');
       dispararAtualizacaoNotificacoes();
+      setAcaoDialog(null);
       carregar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao aprovar orçamento');
@@ -296,6 +299,7 @@ export default function ChamadoDetalheConteudo({
     try {
       await api.manutReabrirChamado(detalhe.id_chamado, obsReabertura.trim() || undefined);
       setObsReabertura('');
+      setAcaoDialog(null);
       showToast('Chamado reaberto!');
       dispararAtualizacaoNotificacoes();
       carregar();
@@ -313,6 +317,7 @@ export default function ChamadoDetalheConteudo({
     try {
       await enviarAnexos(fotosNovas);
       setFotosNovas([]);
+      setAcaoDialog(null);
       dispararAtualizacaoNotificacoes();
       carregar();
     } catch (e) {
@@ -346,251 +351,262 @@ export default function ChamadoDetalheConteudo({
     );
   }
 
+  const temAcoes =
+    podeReabrir ||
+    podeEnviarAprovacao ||
+    podeAprovar ||
+    podeEditar ||
+    podeEditarMobile ||
+    podeFinalizar;
+
+  const temBarraSecundaria =
+    podeEnviarAprovacao || podeAprovar || podeFinalizar || podeReabrir;
+
+  function fecharAcaoDialog() {
+    if (!enviandoAprovacao && !finalizando && !reabrindo && !aprovando && !enviandoFotos) {
+      setAcaoDialog(null);
+    }
+  }
+
   return (
-    <Box sx={{ maxWidth: 720, mx: 'auto', width: '100%' }}>
-      <Paper
-        sx={{
-          p: 2,
-          mb: 2,
-          borderRadius: 2,
-          border: '1px solid rgba(27, 42, 107, 0.12)',
-          borderTop: `3px solid ${NAVY}`,
-        }}
-      >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-          <Typography sx={{ fontWeight: 800, color: NAVY, fontSize: '1.15rem' }}>
-            #{detalhe.numero}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {statusChip(detalhe.status)}
-            {detalhe.tipo_chamado === 'orcamento' && tipoChamadoChip('orcamento')}
-            {urgenciaChip(detalhe.urgencia)}
-          </Box>
-        </Box>
-
-        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.25, lineHeight: 1.3 }}>
-          {detalhe.titulo}
-        </Typography>
-
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0.5,
-            py: 1,
-            px: 1.25,
-            borderRadius: 1.5,
-            bgcolor: 'rgba(27, 42, 107, 0.04)',
-          }}
-        >
-          <MetaLinha>Aberto em {formatDataHoraBrasilia(detalhe.aberto_em || detalhe.prazo_sla)}</MetaLinha>
-          <MetaLinha>Prazo SLA {formatDataHoraBrasilia(detalhe.prazo_sla)}</MetaLinha>
-          <MetaLinha>Solicitante: {detalhe.solicitante}</MetaLinha>
-          {detalhe.tecnico && <MetaLinha>Técnico: {detalhe.tecnico}</MetaLinha>}
-          {detalhe.local_detalhe && <MetaLinha>Local: {detalhe.local_detalhe}</MetaLinha>}
-        </Box>
-      </Paper>
+    <Box sx={detalheChamadoSx(variante)}>
+      <ChamadoDetalheHeader detalhe={detalhe} onVoltar={onVoltar} voltarLabel={voltarLabel} />
 
       {encerrado && !modoAprovacao && (
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
           Este chamado está encerrado e não aceita novas informações até ser reaberto.
         </Alert>
       )}
 
-      {podeReabrir && (
-        <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-            Reabrir chamado
-          </Typography>
-          <TextField
-            label="Motivo da reabertura (opcional)"
-            multiline
-            minRows={2}
-            fullWidth
-            size="small"
-            value={obsReabertura}
-            onChange={(e) => setObsReabertura(e.target.value)}
-            placeholder="Informe o motivo da reabertura"
-            slotProps={{ input: { style: { fontSize: 16 } } }}
-          />
-          <Button
-            variant="contained"
-            startIcon={<ReplayIcon />}
-            disabled={reabrindo}
-            onClick={reabrirChamado}
-            sx={{ alignSelf: 'flex-start' }}
-          >
-            {reabrindo ? 'Reabrindo...' : 'Reabrir ticket'}
-          </Button>
+      {podeAprovar && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2, borderRadius: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => setAcaoDialog('aprovar')}>
+              Revisar e aprovar
+            </Button>
+          }
+        >
+          Orçamento aguardando sua aprovação.
+        </Alert>
+      )}
+
+      <DetalheSecao
+        titulo="Histórico do chamado"
+        icone={<ScheduleOutlinedIcon sx={{ fontSize: 18, color: NAVY }} />}
+        semPadding
+      >
+        <ChamadoTimeline detalhe={detalhe} variante={isMobile ? 'mobile' : 'desktop'} />
+      </DetalheSecao>
+
+      {temAcoes && (
+        <Paper
+          elevation={0}
+          sx={{
+            mt: 2,
+            p: 2,
+            borderRadius: 2,
+            border: '1px solid rgba(27, 42, 107, 0.1)',
+            bgcolor: '#fff',
+            boxShadow: '0 1px 6px rgba(27, 42, 107, 0.06)',
+          }}
+        >
+          {(podeEditar || podeEditarMobile) && (
+            <Box>
+              <TextField
+                placeholder="Escreva uma resposta para o solicitante ou equipe..."
+                multiline
+                minRows={2}
+                maxRows={6}
+                fullWidth
+                size="small"
+                value={novaInfo}
+                onChange={(e) => setNovaInfo(e.target.value)}
+                slotProps={{ input: { style: { fontSize: 16 } } }}
+                sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'rgba(27, 42, 107, 0.02)' } }}
+              />
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1.25, justifyContent: 'flex-end' }}>
+                <Button
+                  size="small"
+                  startIcon={<AttachFileOutlinedIcon />}
+                  onClick={() => setAcaoDialog('anexos')}
+                >
+                  Anexar
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SendIcon />}
+                  disabled={salvando || novaInfo.trim().length < 3}
+                  onClick={enviarAtualizacao}
+                >
+                  {salvando ? 'Enviando...' : 'Enviar'}
+                </Button>
+              </Box>
+            </Box>
+          )}
+
+          {temBarraSecundaria && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 1,
+                mt: podeEditar || podeEditarMobile ? 2 : 0,
+                pt: podeEditar || podeEditarMobile ? 2 : 0,
+                borderTop: podeEditar || podeEditarMobile ? '1px solid rgba(27, 42, 107, 0.08)' : 'none',
+              }}
+            >
+              {podeEnviarAprovacao && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<RequestQuoteOutlinedIcon />}
+                  onClick={() => setAcaoDialog('orcamento')}
+                >
+                  Pedir aprovação
+                </Button>
+              )}
+              {podeFinalizar && (
+                <>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    startIcon={<TaskAltOutlinedIcon />}
+                    onClick={() => setAcaoDialog('encerrar')}
+                  >
+                    Concluir
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    startIcon={<CloseIcon />}
+                    onClick={() => setDialogCancelar(true)}
+                  >
+                    Cancelar
+                  </Button>
+                </>
+              )}
+              {podeReabrir && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ReplayIcon />}
+                  onClick={() => setAcaoDialog('reabrir')}
+                >
+                  Reabrir
+                </Button>
+              )}
+            </Box>
+          )}
         </Paper>
       )}
 
-      <Box sx={{ mb: 2 }}>
-        <ChamadoTimeline detalhe={detalhe} variante={isMobile ? 'mobile' : 'desktop'} />
-      </Box>
+      {erro && (
+        <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>
+          {erro}
+        </Alert>
+      )}
 
-      {podeEnviarAprovacao && (
-        <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-            Orçamento e aprovação
-          </Typography>
+      <Dialog open={acaoDialog === 'orcamento'} onClose={fecharAcaoDialog} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800, color: NAVY }}>Pedir aprovação de orçamento</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
           <TextField
-            label="Observação do orçamento (opcional)"
+            label="Observação (opcional)"
             multiline
             minRows={2}
             fullWidth
             size="small"
             value={obsOrcamento}
             onChange={(e) => setObsOrcamento(e.target.value)}
-            placeholder="Descreva valores, fornecedor ou detalhes do orçamento"
+            placeholder="Valores, fornecedor ou detalhes"
             slotProps={{ input: { style: { fontSize: 16 } } }}
           />
-          <Typography variant="body2" color="text.secondary">
-            Fotos do orçamento ou recibo em PDF (máx. 5)
-          </Typography>
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 2,
-              alignItems: 'center',
-            }}
-          >
-            <FormControl size="small" sx={{ flex: '1 1 220px', minWidth: 200, maxWidth: 360 }}>
-              <InputLabel id="destino-aprovacao-label" shrink={!!destinoAprovacao}>
-                Selecione o aprovador
-              </InputLabel>
-              <Select
-                labelId="destino-aprovacao-label"
-                label="Selecione o aprovador"
-                displayEmpty
-                value={destinoAprovacao}
-                onChange={(e) => setDestinoAprovacao(e.target.value)}
-                disabled={enviandoAprovacao || !cargosAprovador.length}
-                renderValue={(valor) => {
-                  if (!valor) {
-                    return (
-                      <Typography component="span" variant="body2" color="text.secondary">
-                        Selecione o aprovador
-                      </Typography>
-                    );
-                  }
-                  return cargosAprovador.find((c) => c.codigo === valor)?.nome || valor;
-                }}
-              >
-                <MenuItem value="" disabled>
-                  Selecione o aprovador
+          <FormControl size="small" fullWidth>
+            <InputLabel id="destino-aprovacao-label" shrink={!!destinoAprovacao}>
+              Aprovador
+            </InputLabel>
+            <Select
+              labelId="destino-aprovacao-label"
+              label="Aprovador"
+              displayEmpty
+              value={destinoAprovacao}
+              onChange={(e) => setDestinoAprovacao(e.target.value)}
+              disabled={enviandoAprovacao || !cargosAprovador.length}
+            >
+              <MenuItem value="" disabled>
+                Selecione
+              </MenuItem>
+              {cargosAprovador.map((c) => (
+                <MenuItem key={c.codigo} value={c.codigo}>
+                  {c.nome}
                 </MenuItem>
-                {cargosAprovador.map((c) => (
-                  <MenuItem key={c.codigo} value={c.codigo}>
-                    {c.nome}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <OrcamentoAnexosInput
-              anexos={anexosOrcamento}
-              onChange={setAnexosOrcamento}
-              disabled={enviandoAprovacao}
-              inline
-            />
-          </Box>
+              ))}
+            </Select>
+          </FormControl>
+          <OrcamentoAnexosInput
+            anexos={anexosOrcamento}
+            onChange={setAnexosOrcamento}
+            disabled={enviandoAprovacao}
+          />
           {!cargosAprovador.length && (
-            <Alert severity="warning" sx={{ py: 0.5 }}>
-              Cadastre cargos aprovadores em Configurações → Cargos.
-            </Alert>
+            <Alert severity="warning">Cadastre cargos aprovadores em Configurações → Cargos.</Alert>
           )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={fecharAcaoDialog} disabled={enviandoAprovacao}>
+            Voltar
+          </Button>
           <Button
             variant="contained"
             startIcon={<SendIcon />}
             disabled={enviandoAprovacao || !destinoAprovacao}
             onClick={enviarParaAprovacao}
-            sx={{ alignSelf: 'flex-start' }}
           >
-            {enviandoAprovacao ? 'Enviando...' : 'Pedir aprovação de orçamento'}
+            {enviandoAprovacao ? 'Enviando...' : 'Enviar para aprovação'}
           </Button>
-        </Paper>
-      )}
+        </DialogActions>
+      </Dialog>
 
-      {podeAprovar && (
-        <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-            Aprovar orçamento
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Revise os anexos na linha do tempo acima. Após aprovar, a equipe de manutenção dará continuidade ao chamado.
+      <Dialog open={acaoDialog === 'aprovar'} onClose={fecharAcaoDialog} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800, color: NAVY }}>Aprovar orçamento</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Revise os anexos no histórico antes de aprovar.
           </Typography>
           <TextField
-            label="Observação da aprovação (opcional)"
+            label="Observação (opcional)"
             multiline
             minRows={2}
             fullWidth
             size="small"
             value={obsOrcamento}
             onChange={(e) => setObsOrcamento(e.target.value)}
-            placeholder="Comentário para o financeiro ou manutenção"
             slotProps={{ input: { style: { fontSize: 16 } } }}
           />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={fecharAcaoDialog} disabled={aprovando}>
+            Voltar
+          </Button>
           <Button
             variant="contained"
             color="success"
             startIcon={<ThumbUpAltOutlinedIcon />}
             disabled={aprovando}
             onClick={aprovarOrcamento}
-            sx={{ alignSelf: 'flex-start' }}
           >
-            {aprovando ? 'Aprovando...' : 'Aprovar orçamento'}
+            {aprovando ? 'Aprovando...' : 'Confirmar aprovação'}
           </Button>
-        </Paper>
-      )}
+        </DialogActions>
+      </Dialog>
 
-      {podeEditar && (
-        <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-            Responder
-          </Typography>
-          <TextField
-            label="Sua mensagem"
-            multiline
-            minRows={3}
-            fullWidth
-            size="small"
-            value={novaInfo}
-            onChange={(e) => setNovaInfo(e.target.value)}
-            slotProps={{ input: { style: { fontSize: 16 } } }}
-          />
-          <Button variant="contained" disabled={salvando || novaInfo.trim().length < 3} onClick={enviarAtualizacao}>
-            {salvando ? 'Enviando...' : 'Enviar resposta'}
-          </Button>
-        </Paper>
-      )}
-
-      {(podeEditar || podeEditarMobile) && (
-        <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-            Anexar fotos, vídeos ou arquivos
-          </Typography>
-          <PhotoCaptureMulti
-            fotos={fotosNovas}
-            onChange={setFotosNovas}
-            max={10}
-            disabled={enviandoFotos}
-            inlineActions
-            hideCaption
-          />
-          {fotosNovas.length > 0 && (
-            <Button variant="outlined" disabled={enviandoFotos} onClick={enviarFotos}>
-              {enviandoFotos ? 'Enviando...' : 'Enviar anexos'}
-            </Button>
-          )}
-        </Paper>
-      )}
-
-      {podeFinalizar && (
-        <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-            Encerrar chamado
-          </Typography>
+      <Dialog open={acaoDialog === 'encerrar'} onClose={fecharAcaoDialog} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800, color: NAVY }}>Concluir chamado</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
           <TextField
             label="Observação final (opcional)"
             multiline
@@ -599,39 +615,86 @@ export default function ChamadoDetalheConteudo({
             size="small"
             value={obsEncerramento}
             onChange={(e) => setObsEncerramento(e.target.value)}
-            placeholder="Descreva o que foi feito ou o motivo do encerramento"
+            placeholder="Descreva o que foi realizado"
             slotProps={{ input: { style: { fontSize: 16 } } }}
           />
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<CheckCircleIcon />}
-              disabled={finalizando}
-              onClick={() => finalizarChamado('concluido')}
-            >
-              {finalizando ? 'Encerrando...' : 'Concluir chamado'}
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<CloseIcon />}
-              disabled={finalizando}
-              onClick={() => setDialogCancelar(true)}
-            >
-              Cancelar chamado
-            </Button>
-          </Box>
-        </Paper>
-      )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={fecharAcaoDialog} disabled={finalizando}>
+            Voltar
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<CheckCircleIcon />}
+            disabled={finalizando}
+            onClick={() => finalizarChamado('concluido')}
+          >
+            {finalizando ? 'Concluindo...' : 'Confirmar conclusão'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      {erro && <Alert severity="error">{erro}</Alert>}
+      <Dialog open={acaoDialog === 'reabrir'} onClose={fecharAcaoDialog} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800, color: NAVY }}>Reabrir chamado</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <TextField
+            label="Motivo (opcional)"
+            multiline
+            minRows={2}
+            fullWidth
+            size="small"
+            value={obsReabertura}
+            onChange={(e) => setObsReabertura(e.target.value)}
+            slotProps={{ input: { style: { fontSize: 16 } } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={fecharAcaoDialog} disabled={reabrindo}>
+            Voltar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<ReplayIcon />}
+            disabled={reabrindo}
+            onClick={reabrirChamado}
+          >
+            {reabrindo ? 'Reabrindo...' : 'Reabrir chamado'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={acaoDialog === 'anexos'} onClose={fecharAcaoDialog} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800, color: NAVY }}>Anexar arquivos</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <PhotoCaptureMulti
+            fotos={fotosNovas}
+            onChange={setFotosNovas}
+            max={10}
+            disabled={enviandoFotos}
+            inlineActions
+            hideCaption
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={fecharAcaoDialog} disabled={enviandoFotos}>
+            Voltar
+          </Button>
+          <Button
+            variant="contained"
+            disabled={enviandoFotos || fotosNovas.length === 0}
+            onClick={enviarFotos}
+          >
+            {enviandoFotos ? 'Enviando...' : 'Enviar anexos'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={dialogCancelar} onClose={() => !finalizando && setDialogCancelar(false)}>
         <DialogTitle>Cancelar chamado?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
-            O chamado #{detalhe.numero} será cancelado.
+            O chamado #{detalhe.numero} será cancelado permanentemente.
           </Typography>
         </DialogContent>
         <DialogActions>
