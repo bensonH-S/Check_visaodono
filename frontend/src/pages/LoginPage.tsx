@@ -48,6 +48,14 @@ const NAVY = '#1B2A6B';
 
 const FEATURES = ['Checklist', 'Chamados', 'Visão de Dono'] as const;
 
+const loginFieldSx = {
+  '& .MuiOutlinedInput-root': { minHeight: { xs: 40, sm: 42 } },
+  '& .MuiOutlinedInput-input': { py: { xs: '9px', sm: '10px' } },
+  '& .MuiInputAdornment-root': { mr: 0.25 },
+};
+
+const loginFieldsWidth = { xs: 272, sm: 292, md: 312 };
+
 
 
 export default function LoginPage() {
@@ -156,39 +164,39 @@ export default function LoginPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          px: 2,
-          py: 3,
+          px: { xs: 1, sm: 1.25 },
+          py: { xs: 1.5, sm: 2 },
         }}
       >
         <Paper
           elevation={0}
           sx={{
             width: '100%',
-            maxWidth: 440,
+            maxWidth: { xs: 340, sm: 360, md: 380 },
             border: '1px solid',
             borderColor: 'divider',
-            borderRadius: 2,
+            borderRadius: { xs: 1.5, sm: 2 },
             textAlign: 'center',
             overflow: 'hidden',
           }}
         >
           <Box
             sx={{
-              height: 5,
+              height: 4,
               bgcolor: NAVY,
-              boxShadow: '0 4px 12px rgba(27, 42, 107, 0.35)',
+              boxShadow: '0 3px 10px rgba(27, 42, 107, 0.3)',
             }}
           />
-          <Box sx={{ px: { xs: 2.5, sm: 3 }, pt: 2, pb: { xs: 2.5, sm: 3 } }}>
-            <BrandLogo maxWidth={{ xs: 120, sm: 140, md: 160 }} sx={{ mx: 'auto', mb: 0.75 }} />
+          <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: { xs: 1.5, sm: 2 }, pb: { xs: 2.25, sm: 2.75 } }}>
+            <BrandLogo maxWidth={{ xs: 96, sm: 110, md: 120 }} sx={{ mx: 'auto', mb: 0.5 }} />
 
             <Typography
               sx={{
                 fontWeight: 800,
                 color: '#E8520A',
-                fontSize: { xs: '1.25rem', sm: '1.4rem', md: '1.5rem' },
+                fontSize: { xs: '1.05rem', sm: '1.15rem', md: '1.2rem' },
                 lineHeight: 1.2,
-                mb: 1,
+                mb: 0.75,
                 letterSpacing: '-0.01em',
               }}
             >
@@ -197,29 +205,37 @@ export default function LoginPage() {
 
             <Box
               sx={{
-                display: 'flex',
+                display: 'inline-flex',
                 flexWrap: 'wrap',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 1,
-                mb: 1,
-                py: 1,
-                px: 1.5,
-                borderRadius: 1.5,
-                bgcolor: 'rgba(27, 42, 107, 0.07)',
-                border: '1px solid rgba(27, 42, 107, 0.1)',
+                gap: { xs: 0.35, sm: 0.5 },
+                mb: 0.5,
+                py: { xs: 0.35, sm: 0.45 },
+                px: { xs: 0.65, sm: 0.75 },
+                mx: 'auto',
+                borderRadius: 1,
+                bgcolor: 'rgba(27, 42, 107, 0.06)',
+                border: '1px solid rgba(27, 42, 107, 0.08)',
+                maxWidth: '100%',
               }}
             >
               {FEATURES.map((label, index) => (
                 <Box
                   key={label}
                   component="span"
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: { xs: 0.35, sm: 0.5 } }}
                 >
                   {index > 0 && (
                     <Typography
                       component="span"
-                      sx={{ color: '#E8520A', fontSize: '0.75rem', fontWeight: 700, lineHeight: 1, opacity: 0.85 }}
+                      sx={{
+                        color: '#E8520A',
+                        fontSize: { xs: '0.55rem', sm: '0.58rem' },
+                        fontWeight: 600,
+                        lineHeight: 1,
+                        opacity: 0.75,
+                      }}
                     >
                       |
                     </Typography>
@@ -228,12 +244,11 @@ export default function LoginPage() {
                     component="span"
                     sx={{
                       color: NAVY,
-                      lineHeight: 1.4,
-                      fontSize: { xs: '0.8125rem', sm: '0.875rem' },
-                      fontWeight: 600,
-                      letterSpacing: '0.02em',
-                      transition: 'color 0.2s ease',
-                      '&:hover': { color: '#E8520A' },
+                      lineHeight: 1.2,
+                      fontSize: { xs: '0.62rem', sm: '0.66rem', md: '0.7rem' },
+                      fontWeight: 500,
+                      letterSpacing: '0.01em',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {label}
@@ -244,160 +259,138 @@ export default function LoginPage() {
 
             <Typography
               sx={{
-                lineHeight: 1.5,
-                fontSize: { xs: '0.875rem', sm: '0.9rem' },
+                lineHeight: 1.4,
+                fontSize: { xs: '0.78rem', sm: '0.82rem', md: '0.85rem' },
                 fontWeight: 500,
                 color: NAVY,
                 opacity: 0.8,
-                mb: 3.5,
-                px: 1,
+                mb: { xs: 1.75, sm: 2 },
+                px: 0.5,
               }}
             >
               Visão operacional das unidades do Grupo.
             </Typography>
 
-            <Box component="form" noValidate onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-
-              <TextField
-
-                label="E-mail"
-
-                type="email"
-
-                fullWidth
-
-                autoComplete="email"
-
-                value={email}
-
-                onChange={(e) => setEmail(e.target.value)}
-
-                placeholder="nome@grupoalvim.com.br"
-
-                slotProps={{
-
-                  input: {
-
-                    startAdornment: (
-
-                      <InputAdornment position="start">
-
-                        <EmailOutlinedIcon fontSize="small" color="action" />
-
-                      </InputAdornment>
-
-                    ),
-
-                  },
-
+            <Box
+              component="form"
+              noValidate
+              onSubmit={handleSubmit}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: { xs: 1, sm: 1.1 },
+              }}
+            >
+              <Box
+                sx={{
+                  width: '100%',
+                  maxWidth: loginFieldsWidth,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: { xs: 2.5, sm: 3 },
                 }}
+              >
+                <TextField
+                  label="E-mail"
+                  type="email"
+                  size="small"
+                  margin="none"
+                  fullWidth
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="nome@grupoalvim.com.br"
+                  sx={loginFieldSx}
+                  slotProps={{
+                    inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
+                    input: {
+                      sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <EmailOutlinedIcon sx={{ fontSize: 16 }} color="action" />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
 
-              />
-
-              <TextField
-
-                label="Senha"
-
-                type={mostrarSenha ? 'text' : 'password'}
-
-                fullWidth
-
-                autoComplete="current-password"
-
-                value={senha}
-
-                onChange={(e) => setSenha(e.target.value)}
-
-                placeholder={senha ? undefined : '••••••••'}
-
-                slotProps={{
-
-                  input: {
-
-                    startAdornment: (
-
-                      <InputAdornment position="start">
-
-                        <LockOutlinedIcon fontSize="small" color="action" />
-
-                      </InputAdornment>
-
-                    ),
-
-                    endAdornment: (
-
-                      <InputAdornment position="end">
-
-                        <IconButton
-
-                          type="button"
-
-                          aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
-
-                          onClick={() => setMostrarSenha((v) => !v)}
-
-                          edge="end"
-
-                          size="small"
-
-                        >
-
-                          {mostrarSenha ? (
-
-                            <VisibilityOffOutlinedIcon fontSize="small" />
-
-                          ) : (
-
-                            <VisibilityOutlinedIcon fontSize="small" />
-
-                          )}
-
-                        </IconButton>
-
-                      </InputAdornment>
-
-                    ),
-
-                  },
-
-                }}
-
-              />
+                <TextField
+                  label="Senha"
+                  type={mostrarSenha ? 'text' : 'password'}
+                  size="small"
+                  margin="none"
+                  fullWidth
+                  autoComplete="current-password"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder={senha ? undefined : '••••••••'}
+                  sx={loginFieldSx}
+                  slotProps={{
+                    inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
+                    input: {
+                      sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockOutlinedIcon sx={{ fontSize: 16 }} color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            type="button"
+                            aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                            onClick={() => setMostrarSenha((v) => !v)}
+                            edge="end"
+                            size="small"
+                          >
+                            {mostrarSenha ? (
+                              <VisibilityOffOutlinedIcon sx={{ fontSize: 16 }} />
+                            ) : (
+                              <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
 
               {erro && (
-                <Alert severity="error" variant="filled">
+                <Alert
+                  severity="error"
+                  variant="filled"
+                  sx={{ py: 0.25, fontSize: '0.78rem', width: '100%', maxWidth: loginFieldsWidth }}
+                >
                   {erro}
                 </Alert>
               )}
 
               <Button
-
                 type="submit"
-
                 variant="contained"
-
-                size="large"
-
+                size="medium"
                 disabled={loading}
-
-                sx={{ mt: 0.5, py: 1.25, fontWeight: 600 }}
-
+                sx={{
+                  width: '100%',
+                  maxWidth: loginFieldsWidth,
+                  mt: { xs: 1.1, sm: 1.35 },
+                  py: { xs: 0.85, md: 0.95 },
+                  fontSize: { xs: '0.82rem', md: '0.86rem' },
+                  fontWeight: 600,
+                }}
               >
-
                 {loading ? 'Entrando…' : 'Acessar'}
-
               </Button>
-
             </Box>
 
-
-
-            <SupportContact />
+            <SupportContact compact />
           </Box>
         </Paper>
       </Box>
 
-      <AppFooter />
+      <AppFooter compact />
 
       <Snackbar
         open={!!toast}

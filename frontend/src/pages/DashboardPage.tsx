@@ -24,15 +24,36 @@ function MetricCard({
   accent?: boolean;
 }) {
   return (
-    <Paper className="p-4 h-full" sx={accent ? { borderTop: `3px solid ${NAVY}` } : undefined}>
-      <Typography variant="caption" color="text.secondary">
+    <Paper
+      sx={{
+        p: { xs: 1.5, sm: 2 },
+        height: '100%',
+        ...(accent ? { borderTop: `3px solid ${NAVY}` } : undefined),
+      }}
+    >
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ fontSize: { xs: '0.68rem', sm: '0.72rem' }, lineHeight: 1.3, display: 'block' }}
+      >
         {label}
       </Typography>
-      <Typography variant="h4" sx={{ fontWeight: 600, my: 0.5 }}>
+      <Typography
+        sx={{
+          fontWeight: 600,
+          my: 0.25,
+          fontSize: { xs: '1.2rem', sm: '1.35rem', md: '1.45rem' },
+          lineHeight: 1.2,
+        }}
+      >
         {value}
       </Typography>
       {sub && (
-        <Typography variant="caption" color="text.secondary">
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ fontSize: { xs: '0.65rem', sm: '0.7rem' } }}
+        >
           {sub}
         </Typography>
       )}
@@ -63,8 +84,8 @@ export default function DashboardPage() {
   const m = data.metricas;
 
   return (
-    <Box>
-      <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
+    <Box sx={{ maxWidth: { xs: '100%', lg: 1100 }, mx: 'auto' }}>
+      <Grid container spacing={{ xs: 1, sm: 1.25 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
         <Grid size={{ xs: 6, md: 3 }}>
           <MetricCard label="Média geral das lojas" value={fmtNota(m.media_geral)} accent />
         </Grid>
@@ -87,10 +108,13 @@ export default function DashboardPage() {
         </Grid>
       </Grid>
 
-      <Grid container spacing={2} sx={{ mb: 2.5 }}>
+      <Grid container spacing={{ xs: 1.25, sm: 1.5 }} sx={{ mb: { xs: 1.5, sm: 2 } }}>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper className="p-4">
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 600, mb: 1, fontSize: { xs: '0.8rem', sm: '0.85rem' } }}
+            >
               Top 5 Ranking
             </Typography>
             {data.ranking.map((r, index) => (
@@ -99,54 +123,95 @@ export default function DashboardPage() {
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1.5,
-                  py: 1.25,
+                  gap: 1,
+                  py: { xs: 0.75, sm: 1 },
                   borderBottom: index < data.ranking.length - 1 ? '1px solid' : 'none',
                   borderColor: 'divider',
                 }}
               >
                 <Box
                   sx={{
-                    width: 28,
-                    height: 28,
+                    width: { xs: 22, sm: 24 },
+                    height: { xs: 22, sm: 24 },
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.75rem',
+                    fontSize: { xs: '0.65rem', sm: '0.7rem' },
                     flexShrink: 0,
                     ...rankBadge(r.posicao_ranking),
                   }}
                 >
                   {r.posicao_ranking}
                 </Box>
-                <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
+                <Typography
+                  sx={{ flex: 1, minWidth: 0, fontSize: { xs: '0.78rem', sm: '0.82rem' } }}
+                  noWrap
+                >
                   {r.name}
                 </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: scoreColor(Number(r.nota_atual)) }}>
+                <Typography
+                  sx={{
+                    fontWeight: 600,
+                    color: scoreColor(Number(r.nota_atual)),
+                    fontSize: { xs: '0.78rem', sm: '0.82rem' },
+                  }}
+                >
                   {fmtNota(r.nota_atual)}
                 </Typography>
               </Box>
             ))}
-            <Button component={Link} to="/ranking" fullWidth size="small" variant="contained" sx={{ mt: 1.5 }}>
+            <Button
+              component={Link}
+              to="/ranking"
+              fullWidth
+              size="small"
+              variant="contained"
+              sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.8rem' }, py: 0.5 }}
+            >
               Ver ranking completo
             </Button>
           </Paper>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Paper className="p-4">
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 600, mb: 1, fontSize: { xs: '0.8rem', sm: '0.85rem' } }}
+            >
               NCs recentes em aberto
             </Typography>
             {data.ncs_recentes.map((nc, i) => (
-              <Box key={i} className="flex gap-2 py-2 border-b border-gray-100 last:border-0">
+              <Box
+                key={i}
+                sx={{
+                  display: 'flex',
+                  gap: 1,
+                  py: { xs: 0.75, sm: 1 },
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  '&:last-of-type': { borderBottom: 'none' },
+                }}
+              >
                 <Box
-                  className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                  sx={{ bgcolor: nc.gravidade === 'Crítica' ? 'error.main' : 'warning.main' }}
+                  sx={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    mt: 0.6,
+                    flexShrink: 0,
+                    bgcolor: nc.gravidade === 'Crítica' ? 'error.main' : 'warning.main',
+                  }}
                 />
-                <Box>
-                  <Typography variant="body2">{nc.descricao}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontSize: { xs: '0.78rem', sm: '0.82rem' }, lineHeight: 1.35 }}>
+                    {nc.descricao}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontSize: { xs: '0.68rem', sm: '0.72rem' } }}
+                  >
                     {nc.name} · {fmtData(nc.data_cadastro)}
                   </Typography>
                 </Box>

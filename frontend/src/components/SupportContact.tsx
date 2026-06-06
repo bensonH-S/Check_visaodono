@@ -26,14 +26,18 @@ function InfoLinha({
   );
 }
 
-export default function SupportContact() {
+type SupportContactProps = {
+  compact?: boolean;
+};
+
+export default function SupportContact({ compact }: SupportContactProps) {
   const { support } = useAppConfig();
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [aberto, setAberto] = useState(false);
 
   return (
-    <Box sx={{ mt: 3 }}>
-      <Typography variant="caption" color="text.secondary">
+    <Box sx={{ mt: compact ? 1.5 : 3 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontSize: compact ? '0.72rem' : undefined }}>
         Problemas de acesso?{' '}
         <Typography
           component="button"
