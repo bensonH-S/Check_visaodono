@@ -7,7 +7,7 @@ import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined';
 import type { ManutChamado } from '../../api/client';
 import NotificacaoBadge from '../NotificacaoBadge';
-import { KANBAN_COLUNAS, STATUS_CHAMADO, SlaBarraProgresso, urgenciaChip } from '../../utils/manutencaoUi';
+import { KANBAN_COLUNAS, STATUS_CHAMADO, SlaBarraProgresso, tipoChamadoChip, urgenciaChip } from '../../utils/manutencaoUi';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 
 const NAVY = '#1B2A6B';
@@ -30,6 +30,8 @@ type Props = {
   hideStatus?: boolean;
   /** Barra de SLA no rodapé */
   showSla?: boolean;
+  /** Data de encerramento (aba fechados) */
+  showDataEncerramento?: boolean;
 };
 
 export default function ChamadoCardResumo({
@@ -39,6 +41,7 @@ export default function ChamadoCardResumo({
   showLoja = false,
   hideStatus = false,
   showSla = false,
+  showDataEncerramento = false,
 }: Props) {
   const st = STATUS_CHAMADO[chamado.status] || {
     label: chamado.status,
@@ -90,6 +93,7 @@ export default function ChamadoCardResumo({
           </Box>
           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {urgenciaChip(chamado.urgencia)}
+            {chamado.tipo_chamado === 'orcamento' && tipoChamadoChip('orcamento')}
           </Box>
         </Box>
 
@@ -134,6 +138,12 @@ export default function ChamadoCardResumo({
           </Box>
         )}
 
+        {compact && chamado.total_fotos > 0 && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.35 }}>
+            {chamado.total_fotos} anexo{chamado.total_fotos > 1 ? 's' : ''}
+          </Typography>
+        )}
+
         <Box
           sx={{
             display: 'flex',
@@ -168,6 +178,38 @@ export default function ChamadoCardResumo({
               sx={{
                 height: 26,
                 fontSize: '0.72rem',
+                fontWeight: 600,
+                color: NAVY,
+                borderColor: 'rgba(27, 42, 107, 0.2)',
+                '& .MuiChip-icon': { ml: 0.75 },
+              }}
+            />
+          )}
+          {showDataEncerramento && chamado.fechado_em && (
+            <Chip
+              icon={<ScheduleOutlinedIcon sx={{ fontSize: '14px !important', color: `${NAVY} !important` }} />}
+              label={`Encerrado ${formatDataHoraBrasilia(chamado.fechado_em)}`}
+              size="small"
+              variant="outlined"
+              sx={{
+                height: 26,
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                color: 'text.secondary',
+                borderColor: 'rgba(27, 42, 107, 0.15)',
+                '& .MuiChip-icon': { ml: 0.75 },
+              }}
+            />
+          )}
+          {compact && !showDataEncerramento && (
+            <Chip
+              icon={<ScheduleOutlinedIcon sx={{ fontSize: '14px !important', color: `${NAVY} !important` }} />}
+              label={formatDataHoraBrasilia(chamado.aberto_em || chamado.prazo_sla)}
+              size="small"
+              variant="outlined"
+              sx={{
+                height: 26,
+                fontSize: '0.68rem',
                 fontWeight: 600,
                 color: NAVY,
                 borderColor: 'rgba(27, 42, 107, 0.2)',

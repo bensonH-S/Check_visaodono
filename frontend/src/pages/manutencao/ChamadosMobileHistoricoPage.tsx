@@ -1,746 +1,297 @@
-import { useEffect, useState } from 'react';
-
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-
 import Box from '@mui/material/Box';
-
 import Paper from '@mui/material/Paper';
-
 import Typography from '@mui/material/Typography';
-
 import Button from '@mui/material/Button';
-
-import Chip from '@mui/material/Chip';
-
 import CircularProgress from '@mui/material/CircularProgress';
-
 import Alert from '@mui/material/Alert';
-
 import Snackbar from '@mui/material/Snackbar';
-
-import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined';
-
-import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
-
+import AddIcon from '@mui/icons-material/Add';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
+import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import { api } from '../../api/client';
-
 import type { ManutChamado } from '../../api/client';
-
 import { getUsuario, temPermissao } from '../../lib/auth';
-import NotificacaoBadge from '../../components/NotificacaoBadge';
 import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
-
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
-
-import { formatDataHoraBrasilia } from '../../utils/dateBr';
-import { SlaBarraProgresso } from '../../utils/manutencaoUi';
-
-
+import { parseDataApi } from '../../utils/dateBr';
+import ChamadoCardResumo from '../../components/manutencao/ChamadoCardResumo';
 
 const NAVY = '#1B2A6B';
-
-
-
-const STATUS: Record<string, { label: string; bg: string; color: string; accent: string }> = {
-  aberto: { label: 'Solicitado', bg: '#FEF3C7', color: '#92400E', accent: '#F59E0B' },
-  em_atendimento: { label: 'Em andamento', bg: '#DBEAFE', color: '#1E40AF', accent: '#3B82F6' },
-  em_aprovacao: { label: 'Em aprovação', bg: '#EDE9FE', color: '#7C3AED', accent: '#8B5CF6' },
-  aprovado: { label: 'Aprovado', bg: '#CCFBF1', color: '#0F766E', accent: '#14B8A6' },
-  concluido: { label: 'Concluído', bg: '#DCFCE7', color: '#166534', accent: '#22C55E' },
-  cancelado: { label: 'Cancelado', bg: '#FEE2E2', color: '#991B1B', accent: '#EF4444' },
-};
-
-
-
-const URGENCIA: Record<string, { label: string; bg: string; color: string }> = {
-
-  baixa: { label: 'Baixa', bg: '#F3F4F6', color: '#4B5563' },
-
-  media: { label: 'Média', bg: '#E0E7FF', color: '#3730A3' },
-
-  alta: { label: 'Alta', bg: '#FFEDD5', color: '#C2410C' },
-
-  critica: { label: 'Crítica', bg: '#FEE2E2', color: '#B91C1C' },
-
-};
-
-
-
+const ORANGE = '#E8520A';
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
 
+type AbaLista = 'abertos' | 'fechados';
 
-
-function statusInfo(status: string) {
-
-  return STATUS[status] || { label: status, bg: '#F3F4F6', color: '#4B5563', accent: '#9CA3AF' };
-
+function primeiroNome(nome?: string) {
+  return nome?.trim().split(/\s+/)[0] || 'Olá';
 }
 
-
-
-function urgenciaInfo(urgencia: string) {
-
-  return URGENCIA[urgencia] || { label: urgencia, bg: '#F3F4F6', color: '#4B5563' };
-
-}
-
-
-
-function ChamadoCard({
-
-  chamado,
-
-  compact,
-
-  onClick,
-
-}: {
-
-  chamado: ManutChamado;
-
-  compact?: boolean;
-
-  onClick?: () => void;
-
-}) {
-
-  const st = statusInfo(chamado.status);
-
-  const urg = urgenciaInfo(chamado.urgencia);
-
-
-
+function StatMini({ valor, rotulo }: { valor: number; rotulo: string }) {
   return (
-
-    <Paper
-
-      elevation={0}
-
-      onClick={onClick}
-
+    <Box
       sx={{
-
-        borderRadius: 2,
-
-        border: '1px solid rgba(27, 42, 107, 0.12)',
-
-        borderLeft: `4px solid ${st.accent}`,
-
-        overflow: 'hidden',
-
-        bgcolor: '#fff',
-
-        boxShadow: compact
-
-          ? '0 2px 6px rgba(27, 42, 107, 0.08)'
-
-          : '0 4px 14px rgba(27, 42, 107, 0.12)',
-
-        opacity: compact ? 0.95 : 1,
-
-        cursor: onClick ? 'pointer' : 'default',
-
-        transition: 'transform 0.15s ease',
-
-        '&:active': onClick ? { transform: 'scale(0.99)' } : undefined,
-
+        flex: 1,
+        textAlign: 'center',
+        py: 1.25,
+        px: 1,
+        borderRadius: 1.5,
+        bgcolor: 'rgba(255,255,255,0.12)',
       }}
-
     >
-
-      <Box sx={{ px: 1.5, py: 1.25 }}>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 0.75 }}>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-
-            <Box
-
-              sx={{
-
-                bgcolor: 'rgba(27, 42, 107, 0.08)',
-
-                color: NAVY,
-
-                fontWeight: 800,
-
-                fontSize: '0.8125rem',
-
-                px: 1,
-
-                py: 0.35,
-
-                borderRadius: 1,
-
-                lineHeight: 1.2,
-
-              }}
-
-            >
-
-              #{chamado.numero}
-
-            </Box>
-
-            <NotificacaoBadge count={chamado.notificacoes_nao_lidas} />
-
-          </Box>
-
-          <Chip
-
-            label={urg.label}
-
-            size="small"
-
-            sx={{
-
-              height: 24,
-
-              fontWeight: 700,
-
-              fontSize: '0.7rem',
-
-              bgcolor: urg.bg,
-
-              color: urg.color,
-
-              border: 'none',
-
-            }}
-
-          />
-
-        </Box>
-
-
-
-        <Typography
-
-          variant="body1"
-
-          sx={{
-
-            fontWeight: 700,
-
-            lineHeight: 1.35,
-
-            color: compact ? 'text.secondary' : 'text.primary',
-
-            fontSize: compact ? '0.85rem' : '0.9rem',
-
-            mb: 0.5,
-
-          }}
-
-        >
-
-          {chamado.titulo}
-
-        </Typography>
-
-
-
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.4 }}>
-
-          {chamado.categoria}
-
-        </Typography>
-
-
-
-        {!compact && (
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-
-            {chamado.total_fotos > 0 && (
-
-              <>
-
-                <PhotoCameraOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-
-                <Typography variant="caption" color="text.secondary">
-
-                  {chamado.total_fotos} anexo{chamado.total_fotos > 1 ? 's' : ''}
-
-                </Typography>
-
-              </>
-
-            )}
-
-          </Box>
-
-        )}
-
-
-
-        <Box
-
-          sx={{
-
-            display: 'flex',
-
-            gap: 0.75,
-
-            mt: 1,
-
-            flexWrap: 'wrap',
-
-            alignItems: 'center',
-
-            pt: 1,
-
-            borderTop: `1px solid rgba(27, 42, 107, 0.15)`,
-
-          }}
-
-        >
-
-          <Chip
-
-            label={st.label}
-
-            size="small"
-
-            sx={{
-
-              height: 26,
-
-              fontWeight: 700,
-
-              fontSize: '0.72rem',
-
-              bgcolor: st.bg,
-
-              color: st.color,
-
-              border: `1px solid ${st.accent}40`,
-
-            }}
-
-          />
-
-          {!compact && (
-
-            <Chip
-
-              icon={<ScheduleOutlinedIcon sx={{ fontSize: '14px !important', color: `${NAVY} !important` }} />}
-
-              label={formatDataHoraBrasilia(chamado.aberto_em || chamado.prazo_sla)}
-
-              size="small"
-
-              variant="outlined"
-
-              sx={{
-
-                height: 26,
-
-                fontSize: '0.72rem',
-
-                fontWeight: 600,
-
-                color: NAVY,
-
-                borderColor: 'rgba(27, 42, 107, 0.2)',
-
-                '& .MuiChip-icon': { ml: 0.75 },
-
-              }}
-
-            />
-
-          )}
-
-        </Box>
-
-        {!compact && chamado.status !== 'cancelado' && (
-          <Box sx={{ mt: 1 }}>
-            <SlaBarraProgresso
-              abertoEm={chamado.aberto_em}
-              prazoSla={chamado.prazo_sla}
-              status={chamado.status}
-              fechadoEm={chamado.fechado_em ?? undefined}
-              larguraTotal
-              compact
-            />
-          </Box>
-        )}
-
-      </Box>
-
-    </Paper>
-
+      <Typography sx={{ fontWeight: 800, fontSize: '1.35rem', lineHeight: 1.1, color: '#fff' }}>
+        {valor}
+      </Typography>
+      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600, fontSize: '0.68rem' }}>
+        {rotulo}
+      </Typography>
+    </Box>
   );
-
 }
-
-
 
 export default function ChamadosMobileHistoricoPage() {
-
   const navigate = useNavigate();
-
   const location = useLocation();
-
   const sessao = getUsuario();
-
   const { idLoja } = useChamadosMobileLoja();
-
   const [lista, setLista] = useState<ManutChamado[]>([]);
-
   const [loading, setLoading] = useState(true);
-
   const [erro, setErro] = useState('');
-
   const [toast, setToast] = useState('');
-
-
+  const [aba, setAba] = useState<AbaLista>('abertos');
 
   function recarregar() {
-
     return api
-
       .manutChamados({ mobile: true })
-
       .then(setLista)
-
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar'));
-
   }
 
-
-
   useEffect(() => {
-
     recarregar().finally(() => setLoading(false));
-
   }, []);
 
-
-
   useEffect(() => {
-
     function onRefresh() {
-
       recarregar();
-
     }
-
     window.addEventListener(NOTIFICACOES_REFRESH, onRefresh);
-
     return () => window.removeEventListener(NOTIFICACOES_REFRESH, onRefresh);
-
   }, []);
 
-
-
   useEffect(() => {
-
     const fromState = (location.state as { chamadoCriado?: number } | null)?.chamadoCriado;
-
     const fromStorage = sessionStorage.getItem('chamado_criado_numero');
-
     const numero = fromState ?? (fromStorage ? Number(fromStorage) : null);
-
     if (!numero || Number.isNaN(numero)) return;
-
     sessionStorage.removeItem('chamado_criado_numero');
-
     setToast(`Chamado #${numero} aberto com sucesso!`);
-
+    setAba('abertos');
     if (fromState) {
-
       navigate(location.pathname, { replace: true, state: {} });
-
     }
-
     recarregar();
-
   }, [location.state, location.pathname, navigate]);
-
-
 
   const multiplasLojas = (sessao?.lojas?.length ?? 0) > 1;
 
-  const listaFiltrada =
-
-    multiplasLojas && idLoja != null
-
-      ? lista.filter((c) => c.id_loja === idLoja)
-
-      : lista;
-
-
-
-  const emAberto = listaFiltrada.filter((c) => ABERTOS.has(c.status));
-
-  const encerrados = listaFiltrada.filter((c) => !ABERTOS.has(c.status));
-
-
-
-  if (loading) {
-
-    return (
-
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-
-        <CircularProgress />
-
-      </Box>
-
+  const listaFiltrada = useMemo(() => {
+    const base =
+      multiplasLojas && idLoja != null ? lista.filter((c) => c.id_loja === idLoja) : lista;
+    return [...base].sort(
+      (a, b) =>
+        parseDataApi(b.aberto_em || b.prazo_sla).getTime() -
+        parseDataApi(a.aberto_em || a.prazo_sla).getTime(),
     );
-
-  }
-
-
-
-  return (
-
-    <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%' }}>
-
-      {erro && (
-
-        <Alert severity="error" sx={{ mb: 2 }}>
-
-          {erro}
-
-        </Alert>
-
-      )}
-
-
-
-      <Box
-
-        sx={{
-
-          display: 'flex',
-
-          alignItems: 'center',
-
-          justifyContent: 'space-between',
-
-          mb: 1.5,
-
-        }}
-
-      >
-
-        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: NAVY }}>
-
-          Em aberto
-
-        </Typography>
-
-        <Box
-
-          sx={{
-
-            bgcolor: 'rgba(27, 42, 107, 0.1)',
-
-            color: NAVY,
-
-            fontWeight: 700,
-
-            fontSize: '0.75rem',
-
-            px: 1,
-
-            py: 0.25,
-
-            borderRadius: 10,
-
-          }}
-
-        >
-
-          {emAberto.length}
-
-        </Box>
-
-      </Box>
-
-
-
-      {!emAberto.length && !erro && (
-
-        <Paper
-
-          elevation={0}
-
-          sx={{
-
-            p: 3,
-
-            textAlign: 'center',
-
-            mb: 3,
-
-            borderRadius: 2,
-
-            border: `1.5px dashed ${NAVY}`,
-
-            bgcolor: 'rgba(27, 42, 107, 0.03)',
-
-          }}
-
-        >
-
-          <Typography color="text.secondary" gutterBottom>
-
-            Nenhum chamado em aberto nesta unidade.
-
-          </Typography>
-
-          {sessao && temPermissao('chamados.abrir', sessao) && (
-
-            <Button
-
-              variant="contained"
-
-              sx={{ mt: 1.5 }}
-
-              onClick={() => navigate('/chamados/mobile/novo')}
-
-            >
-
-              Abrir chamado
-
-            </Button>
-
-          )}
-
-        </Paper>
-
-      )}
-
-
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2.5 }}>
-
-        {emAberto.map((c) => (
-
-          <ChamadoCard
-
-            key={c.id_chamado}
-
-            chamado={c}
-
-            onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
-
-          />
-
-        ))}
-
-      </Box>
-
-
-
-      {encerrados.length > 0 && (
-
-        <>
-
-          <Box
-
-            sx={{
-
-              display: 'flex',
-
-              alignItems: 'center',
-
-              justifyContent: 'space-between',
-
-              mb: 1.5,
-
-            }}
-
-          >
-
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.secondary' }}>
-
-              Fechado
-
-            </Typography>
-
-            <Box
-
-              sx={{
-
-                bgcolor: 'rgba(0,0,0,0.06)',
-
-                color: 'text.secondary',
-
-                fontWeight: 700,
-
-                fontSize: '0.75rem',
-
-                px: 1,
-
-                py: 0.25,
-
-                borderRadius: 10,
-
-              }}
-
-            >
-
-              {encerrados.length}
-
-            </Box>
-
-          </Box>
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-
-            {encerrados.map((c) => (
-
-              <ChamadoCard
-
-                key={c.id_chamado}
-
-                chamado={c}
-
-                compact
-
-                onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
-
-              />
-
-            ))}
-
-          </Box>
-
-        </>
-
-      )}
-
-
-
-      <Snackbar
-
-        open={!!toast}
-
-        autoHideDuration={3000}
-
-        onClose={() => setToast('')}
-
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-
-      >
-
-        <Alert severity="success" variant="filled" onClose={() => setToast('')} sx={{ width: '100%' }}>
-
-          {toast}
-
-        </Alert>
-
-      </Snackbar>
-
-    </Box>
-
+  }, [lista, multiplasLojas, idLoja]);
+
+  const emAberto = useMemo(
+    () => listaFiltrada.filter((c) => ABERTOS.has(c.status)),
+    [listaFiltrada],
   );
 
+  const fechados = useMemo(
+    () =>
+      [...listaFiltrada.filter((c) => !ABERTOS.has(c.status))].sort(
+        (a, b) =>
+          parseDataApi(b.fechado_em || b.aberto_em || b.prazo_sla).getTime() -
+          parseDataApi(a.fechado_em || a.aberto_em || a.prazo_sla).getTime(),
+      ),
+    [listaFiltrada],
+  );
+
+  const listaAba = aba === 'abertos' ? emAberto : fechados;
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+        <CircularProgress sx={{ color: NAVY }} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%' }}>
+      {erro && (
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+          {erro}
+        </Alert>
+      )}
+
+      {/* Resumo */}
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 2,
+          borderRadius: 2.5,
+          overflow: 'hidden',
+          bgcolor: NAVY,
+          color: '#fff',
+          boxShadow: '0 8px 24px rgba(27, 42, 107, 0.22)',
+        }}
+      >
+        <Box sx={{ px: 2, pt: 2, pb: 1.5 }}>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
+            Manutenção da loja
+          </Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.25, mt: 0.25 }}>
+            Olá, {primeiroNome(sessao?.nome)}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 0.5, fontSize: '0.8rem' }}>
+            Acompanhe chamados em aberto e consulte o histórico de encerrados.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, px: 2, pb: 2 }}>
+          <StatMini valor={emAberto.length} rotulo="Em aberto" />
+          <StatMini valor={fechados.length} rotulo="Fechados" />
+        </Box>
+      </Paper>
+
+      {/* Abas */}
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 0.5,
+          p: 0.5,
+          mb: 2,
+          borderRadius: 2.5,
+          bgcolor: 'rgba(27, 42, 107, 0.07)',
+          border: '1px solid rgba(27, 42, 107, 0.08)',
+        }}
+      >
+        {(
+          [
+            { id: 'abertos' as const, label: 'Em aberto', icon: InboxOutlinedIcon, qtd: emAberto.length },
+            { id: 'fechados' as const, label: 'Fechados', icon: ArchiveOutlinedIcon, qtd: fechados.length },
+          ] as const
+        ).map(({ id, label, icon: Icon, qtd }) => {
+          const ativa = aba === id;
+          return (
+            <Button
+              key={id}
+              fullWidth
+              onClick={() => setAba(id)}
+              startIcon={<Icon sx={{ fontSize: '18px !important' }} />}
+              sx={{
+                py: 1.1,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                color: ativa ? NAVY : 'text.secondary',
+                bgcolor: ativa ? '#fff' : 'transparent',
+                boxShadow: ativa ? '0 2px 8px rgba(27, 42, 107, 0.12)' : 'none',
+                '&:hover': { bgcolor: ativa ? '#fff' : 'rgba(255,255,255,0.5)' },
+              }}
+            >
+              {label}
+              <Box
+                component="span"
+                sx={{
+                  ml: 0.75,
+                  minWidth: 22,
+                  height: 22,
+                  px: 0.75,
+                  borderRadius: 10,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  bgcolor: ativa ? (id === 'abertos' ? ORANGE : 'rgba(27,42,107,0.12)') : 'rgba(27,42,107,0.1)',
+                  color: ativa && id === 'abertos' ? '#fff' : ativa ? NAVY : 'text.secondary',
+                }}
+              >
+                {qtd}
+              </Box>
+            </Button>
+          );
+        })}
+      </Box>
+
+      {/* Lista */}
+      {!listaAba.length && !erro && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3.5,
+            textAlign: 'center',
+            borderRadius: 2.5,
+            border: `1.5px dashed ${aba === 'abertos' ? ORANGE : 'rgba(27,42,107,0.25)'}`,
+            bgcolor: aba === 'abertos' ? 'rgba(232, 82, 10, 0.04)' : 'rgba(27, 42, 107, 0.03)',
+          }}
+        >
+          {aba === 'abertos' ? (
+            <InboxOutlinedIcon sx={{ fontSize: 40, color: ORANGE, mb: 1, opacity: 0.85 }} />
+          ) : (
+            <ArchiveOutlinedIcon sx={{ fontSize: 40, color: NAVY, mb: 1, opacity: 0.5 }} />
+          )}
+          <Typography sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
+            {aba === 'abertos' ? 'Nenhum chamado em aberto' : 'Nenhum chamado fechado'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: aba === 'abertos' ? 2 : 0 }}>
+            {aba === 'abertos'
+              ? 'Quando houver uma solicitação de manutenção, ela aparecerá aqui.'
+              : 'Chamados concluídos ou cancelados ficam registrados nesta aba.'}
+          </Typography>
+          {aba === 'abertos' && sessao && temPermissao('chamados.abrir', sessao) && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/chamados/mobile/novo')}
+              sx={{ mt: 0.5 }}
+            >
+              Abrir chamado
+            </Button>
+          )}
+        </Paper>
+      )}
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+        {listaAba.map((c) => (
+          <ChamadoCardResumo
+            key={c.id_chamado}
+            chamado={c}
+            compact={aba === 'fechados'}
+            showLoja={multiplasLojas}
+            showSla={aba === 'abertos'}
+            showDataEncerramento={aba === 'fechados'}
+            onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
+          />
+        ))}
+      </Box>
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={3000}
+        onClose={() => setToast('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setToast('')} sx={{ width: '100%' }}>
+          {toast}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
 }
-
-

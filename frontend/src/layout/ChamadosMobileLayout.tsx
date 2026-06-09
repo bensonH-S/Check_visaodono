@@ -249,11 +249,12 @@ function ChamadosMobileLayoutInner() {
           position: 'relative',
           zIndex: 30,
           flexShrink: 0,
-          bgcolor: PAGE_BG,
+          bgcolor: '#fff',
           px: 2,
-          pt: 2,
+          pt: 'max(12px, env(safe-area-inset-top))',
           pb: 1.5,
-          borderBottom: `1px solid rgba(27, 42, 107, 0.12)`,
+          borderBottom: '1px solid rgba(27, 42, 107, 0.1)',
+          boxShadow: '0 2px 12px rgba(27, 42, 107, 0.06)',
           overflow: 'visible',
         }}
       >
@@ -315,7 +316,17 @@ function ChamadosMobileLayoutInner() {
           </Box>
         </Box>
         {!isSubPage && (
-          <Box sx={{ mt: 0.75, width: '100%' }}>
+          <Box
+            sx={{
+              mt: 1,
+              width: '100%',
+              px: 1.25,
+              py: 0.75,
+              borderRadius: 2,
+              bgcolor: 'rgba(27, 42, 107, 0.04)',
+              border: '1px solid rgba(27, 42, 107, 0.08)',
+            }}
+          >
             <SeletorLocalizacao user={user} />
           </Box>
         )}
