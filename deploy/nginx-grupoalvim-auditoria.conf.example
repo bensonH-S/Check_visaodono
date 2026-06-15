@@ -13,6 +13,11 @@ server {
     # ssl_certificate ...;
     # ssl_certificate_key ...;
 
+    # Redireciona /auditoria (sem barra) para o login
+    location = /auditoria {
+        return 302 /auditoria/login;
+    }
+
     # API Node (prefixo /auditoria/api)
     location /auditoria/api/ {
         proxy_pass http://vision_check_app/auditoria/api/;

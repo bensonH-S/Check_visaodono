@@ -3,8 +3,12 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { assetUrl, LOGO_GRUPO_ALVIM, toAppPath } from '../config/paths';
+import { toAppPath } from '../config/paths';
 import { usePageTitle } from '../hooks/usePageTitle';
+import BrandLogo from '../components/BrandLogo';
+
+const NAVY = '#1B2A6B';
+const BRAND_ORANGE = '#E8520A';
 
 /** Layout enxuto para auditoria no celular (sem menu lateral). */
 export default function ChecklistLayout() {
@@ -30,33 +34,54 @@ export default function ChecklistLayout() {
       <Box
         component="header"
         sx={{
-          px: 1,
-          py: 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.5,
+          px: 2,
+          pt: 'max(12px, env(safe-area-inset-top))',
+          pb: 1.5,
           bgcolor: 'white',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
+          borderBottom: '1px solid rgba(27, 42, 107, 0.1)',
+          boxShadow: '0 2px 12px rgba(27, 42, 107, 0.06)',
           position: 'sticky',
           top: 0,
           zIndex: 10,
         }}
       >
-        {!concluido && (
-          <IconButton size="small" onClick={() => navigate('/')} aria-label="Voltar">
-            <ArrowBackIcon />
-          </IconButton>
-        )}
-        <Box
-          component="img"
-          src={assetUrl(LOGO_GRUPO_ALVIM)}
-          alt="Grupo Alvim"
-          sx={{ height: 52, maxWidth: 160, objectFit: 'contain', flexShrink: 0 }}
-        />
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, ml: concluido ? 0 : 0.5, flex: 1 }}>
-          {concluido ? 'Visita concluída' : 'Visão de Dono'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {!concluido && (
+            <IconButton
+              size="small"
+              onClick={() => navigate('/')}
+              aria-label="Voltar"
+              sx={{ color: NAVY, ml: -0.5, flexShrink: 0 }}
+            >
+              <ArrowBackIcon fontSize="small" />
+            </IconButton>
+          )}
+          <BrandLogo maxWidth={68} sx={{ flexShrink: 0 }} />
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                color: BRAND_ORANGE,
+                fontSize: '1rem',
+                lineHeight: 1.15,
+              }}
+            >
+              Vision Check
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                lineHeight: 1.25,
+                color: NAVY,
+                display: 'block',
+                fontSize: '0.75rem',
+              }}
+            >
+              {concluido ? 'Visita concluída' : 'Checklist'}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
       <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <Outlet />

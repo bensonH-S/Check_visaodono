@@ -23,6 +23,14 @@ router.get('/', async (_req, res, next) => {
       LIMIT 5
     `);
 
+    const ncsGravidade = await pool.query(`
+      SELECT gravidade, COUNT(*)::int AS total
+      FROM nao_conformidades
+      WHERE status = 'Em aberto'
+      GROUP BY gravidade
+      ORDER BY CASE gravidade WHEN 'Crítica' THEN 1 WHEN 'Moderada' THEN 2 ELSE 3 END
+    `);
+
     res.json({
       metricas: {
         media_geral: Number(metricas.media_geral) || 0,
@@ -34,6 +42,7 @@ router.get('/', async (_req, res, next) => {
       },
       ranking: ranking.rows,
       ncs_recentes: ncs.rows,
+      ncs_por_gravidade: ncsGravidade.rows,
     });
   } catch (e) {
     next(e);

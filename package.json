@@ -30,6 +30,7 @@
     "migrate:cargo-aprovacao": "npm run migrate:cargo-aprovacao --prefix backend",
     "migrate:cargos": "npm run migrate:cargos --prefix backend",
     "migrate:cargos-perfis": "npm run migrate:cargos-perfis --prefix backend",
+    "migrate:checklist-auditoria": "npm run migrate:checklist-auditoria --prefix backend",
     "build": "npm run build:web",
     "prebuild:web": "node scripts/write-version.js",
     "build:web": "npm run build --prefix frontend",

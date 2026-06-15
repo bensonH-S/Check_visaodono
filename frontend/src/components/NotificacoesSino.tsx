@@ -8,8 +8,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
+import { showToast } from '../utils/toast';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { api, type ContextoNotificacoesManut, type ManutNotificacao } from '../api/client';
 import { formatDataHoraBrasilia } from '../utils/dateBr';
@@ -38,7 +37,6 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const [lista, setLista] = useState<ManutNotificacao[]>([]);
   const [naoLidas, setNaoLidas] = useState(0);
-  const [toast, setToast] = useState('');
   const ultimoIdVisto = useRef(0);
   const baselineOk = useRef(false);
 
@@ -67,7 +65,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
           baselineOk.current = true;
         } else if (maxIdNaoLida > ultimoIdVisto.current) {
           const nova = filtradas.find((n) => n.id_notificacao === maxIdNaoLida);
-          if (nova) setToast(tituloNotificacaoChamado(nova, { contexto }));
+          if (nova) showToast(tituloNotificacaoChamado(nova, { contexto }), 'info');
           ultimoIdVisto.current = maxIdNaoLida;
         }
 
@@ -241,18 +239,6 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
           </MenuItem>
         ))}
       </Menu>
-
-      <Snackbar
-        open={!!toast}
-        autoHideDuration={4000}
-        onClose={() => setToast('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        sx={{ zIndex: 9999 }}
-      >
-        <Alert severity="info" variant="filled" onClose={() => setToast('')} sx={{ width: '100%' }}>
-          {toast}
-        </Alert>
-      </Snackbar>
     </>
   );
 }

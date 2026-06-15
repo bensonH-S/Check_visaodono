@@ -33,7 +33,13 @@ function auditoriaBaseRedirect() {
           raw.startsWith('/src')
 
         if (raw === '/') {
-          res.writeHead(302, { Location: `${APP_BASE}/` })
+          res.writeHead(302, { Location: `${APP_BASE}/login` })
+          res.end()
+          return
+        }
+
+        if (raw === APP_BASE) {
+          res.writeHead(302, { Location: `${APP_BASE}/login` })
           res.end()
           return
         }

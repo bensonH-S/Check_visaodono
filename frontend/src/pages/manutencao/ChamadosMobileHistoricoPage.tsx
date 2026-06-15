@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import Snackbar from '@mui/material/Snackbar';
+import { showToast } from '../../utils/toast';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
@@ -58,7 +58,6 @@ export default function ChamadosMobileHistoricoPage() {
   const [lista, setLista] = useState<ManutChamado[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
-  const [toast, setToast] = useState('');
   const [aba, setAba] = useState<AbaLista>('abertos');
 
   function recarregar() {
@@ -86,7 +85,7 @@ export default function ChamadosMobileHistoricoPage() {
     const numero = fromState ?? (fromStorage ? Number(fromStorage) : null);
     if (!numero || Number.isNaN(numero)) return;
     sessionStorage.removeItem('chamado_criado_numero');
-    setToast(`Chamado #${numero} aberto com sucesso!`);
+    showToast(`Chamado #${numero} aberto com sucesso!`, 'success');
     setAba('abertos');
     if (fromState) {
       navigate(location.pathname, { replace: true, state: {} });
@@ -281,17 +280,6 @@ export default function ChamadosMobileHistoricoPage() {
           />
         ))}
       </Box>
-
-      <Snackbar
-        open={!!toast}
-        autoHideDuration={3000}
-        onClose={() => setToast('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setToast('')} sx={{ width: '100%' }}>
-          {toast}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

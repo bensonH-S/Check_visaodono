@@ -55,10 +55,9 @@ export default function ChamadoCardResumo({
       elevation={0}
       onClick={onClick}
       sx={{
+        display: 'flex',
         borderRadius: 2,
         border: '1px solid rgba(27, 42, 107, 0.1)',
-        borderLeft: `4px solid ${accent}`,
-        overflow: 'hidden',
         bgcolor: '#fff',
         boxShadow: compact
           ? '0 1px 4px rgba(27, 42, 107, 0.06)'
@@ -71,9 +70,26 @@ export default function ChamadoCardResumo({
         '&:active': onClick ? { transform: 'translateY(0)' } : undefined,
       }}
     >
-      <Box sx={{ px: compact ? 1.5 : 2, py: compact ? 1.25 : 1.75 }}>
+      <Box
+        aria-hidden
+        sx={{
+          width: 4,
+          flexShrink: 0,
+          bgcolor: accent,
+          borderRadius: '8px 0 0 8px',
+        }}
+      />
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          px: compact ? 2 : 2.25,
+          py: compact ? 1.5 : 1.75,
+          pb: showSla ? (compact ? 1.75 : 2.25) : compact ? 1.5 : 1.75,
+        }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 0.75 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flex: 1 }}>
             <Box
               sx={{
                 bgcolor: 'rgba(27, 42, 107, 0.08)',
@@ -101,28 +117,36 @@ export default function ChamadoCardResumo({
           sx={{
             fontWeight: 700,
             lineHeight: 1.35,
-            color: compact ? 'text.primary' : 'text.primary',
+            color: 'text.primary',
             fontSize: compact ? '0.875rem' : '1rem',
             mb: 0.5,
-            display: '-webkit-box',
-            WebkitLineClamp: compact ? 2 : 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            whiteSpace: 'normal',
+            wordBreak: 'break-word',
           }}
         >
           {chamado.titulo}
         </Typography>
 
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.4 }}>
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: 'block', lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word' }}
+        >
           {chamado.categoria}
         </Typography>
 
         {showLoja && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.75, minWidth: 0 }}>
-            <LocationOnOutlinedIcon sx={{ fontSize: 15, color: '#E8520A', flexShrink: 0 }} />
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 0.75 }}>
+            <LocationOnOutlinedIcon sx={{ fontSize: 15, color: '#E8520A', flexShrink: 0, mt: 0.15 }} />
             <Typography
               variant="caption"
-              sx={{ fontWeight: 600, color: NAVY, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              sx={{
+                fontWeight: 600,
+                color: NAVY,
+                lineHeight: 1.35,
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+              }}
             >
               {chamado.loja}
             </Typography>
@@ -202,20 +226,12 @@ export default function ChamadoCardResumo({
             />
           )}
           {compact && !showDataEncerramento && (
-            <Chip
-              icon={<ScheduleOutlinedIcon sx={{ fontSize: '14px !important', color: `${NAVY} !important` }} />}
-              label={formatDataHoraBrasilia(chamado.aberto_em || chamado.prazo_sla)}
-              size="small"
-              variant="outlined"
-              sx={{
-                height: 26,
-                fontSize: '0.68rem',
-                fontWeight: 600,
-                color: NAVY,
-                borderColor: 'rgba(27, 42, 107, 0.2)',
-                '& .MuiChip-icon': { ml: 0.75 },
-              }}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ScheduleOutlinedIcon sx={{ fontSize: 14, color: NAVY, flexShrink: 0 }} />
+              <Typography variant="caption" sx={{ fontWeight: 600, color: NAVY, fontSize: '0.68rem', lineHeight: 1.35 }}>
+                {formatDataHoraBrasilia(chamado.aberto_em || chamado.prazo_sla)}
+              </Typography>
+            </Box>
           )}
         </Box>
 

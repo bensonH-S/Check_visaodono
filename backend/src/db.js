@@ -1,5 +1,8 @@
 import pg from 'pg';
 
+/** DATE do PostgreSQL como string YYYY-MM-DD (evita bug de fuso no JSON). */
+pg.types.setTypeParser(1082, (value) => value);
+
 const ssl =
   process.env.DB_SSL === 'true' || process.env.DB_SSL === '1'
     ? { rejectUnauthorized: false }

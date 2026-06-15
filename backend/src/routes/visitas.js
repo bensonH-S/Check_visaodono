@@ -10,6 +10,24 @@ import { filtroSqlLojas, usuarioPodeLoja } from '../lojasUsuario.js';
 
 const router = Router();
 
+/** Garante data_visita como YYYY-MM-DD (evita ISO UTC no JSON). */
+function dataVisitaIso(val) {
+  if (val == null) return val;
+  if (typeof val === 'string') return val.slice(0, 10);
+  if (val instanceof Date) {
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return String(val).slice(0, 10);
+}
+
+function serializarVisita(row) {
+  if (!row) return row;
+  return { ...row, data_visita: dataVisitaIso(row.data_visita) };
+}
+
 router.get('/:idVisita/respostas/:idPergunta/media/:indice', async (req, res, next) => {
   try {
     const idVisita = Number(req.params.idVisita);
@@ -64,7 +82,7 @@ router.get('/', async (req, res, next) => {
     q += filtroSqlLojas(req.user, 'v', 'id_loja', params);
     q += ' ORDER BY v.data_visita DESC, v.id_visita DESC';
     const { rows } = await pool.query(q, params);
-    res.json(rows);
+    res.json(rows.map(serializarVisita));
   } catch (e) {
     next(e);
   }
@@ -132,7 +150,7 @@ router.get('/:id', async (req, res, next) => {
     }));
 
     res.json({
-      visita: visita.rows[0],
+      visita: serializarVisita(visita.rows[0]),
       respostas: respostasPublicas,
       desempenho_categorias: porCategoria.rows,
       nao_conformidades: ncs.rows,
@@ -156,12 +174,13 @@ router.post('/', async (req, res, next) => {
     await client.query('BEGIN');
     const { rows } = await client.query(
       `INSERT INTO visitas (id_loja, id_usuario, data_visita, hora_inicio, status)
-       VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, 'Rascunho')
+       VALUES ($1, $2, COALESCE($3::date, (timezone('America/Sao_Paulo', now()))::date),
+         COALESCE($4, (timezone('America/Sao_Paulo', now()))::time), 'Rascunho')
        RETURNING *`,
       [Number(id_loja), Number(id_usuario), data_visita ?? null, hora_inicio ?? null]
     );
     await client.query('COMMIT');
-    res.status(201).json(rows[0]);
+    res.status(201).json(serializarVisita(rows[0]));
   } catch (e) {
     try {
       await client.query('ROLLBACK');
@@ -223,7 +242,7 @@ router.post('/:id/respostas', async (req, res, next) => {
       }
       await client.query('COMMIT');
       const detail = await pool.query('SELECT * FROM visitas WHERE id_visita = $1', [idVisita]);
-      res.json(detail.rows[0]);
+      res.json(serializarVisita(detail.rows[0]));
     } catch (e) {
       await client.query('ROLLBACK');
       console.error('[respostas]', e.message);
@@ -252,7 +271,7 @@ router.patch('/:id/finalizar', async (req, res, next) => {
       [req.params.id, hora_fim, duracao_minutos, observacoes_gerais]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
-    res.json(rows[0]);
+    res.json(serializarVisita(rows[0]));
   } catch (e) {
     next(e);
   }

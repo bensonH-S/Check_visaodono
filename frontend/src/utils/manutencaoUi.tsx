@@ -26,13 +26,20 @@ const URGENCIA_COLOR: Record<string, 'success' | 'info' | 'warning' | 'error'> =
   critica: 'error',
 };
 
+const chipMetadadoSx = {
+  height: 20,
+  fontWeight: 700,
+  fontSize: '0.62rem',
+  '& .MuiChip-label': { px: 0.65, py: 0, lineHeight: 1.2 },
+};
+
 export function urgenciaChip(urgencia: string) {
   return (
     <Chip
       label={URGENCIA_LABEL[urgencia] || urgencia}
       size="small"
       color={URGENCIA_COLOR[urgencia] || 'default'}
-      sx={{ minWidth: 56, justifyContent: 'center' }}
+      sx={chipMetadadoSx}
     />
   );
 }
@@ -152,8 +159,7 @@ export function tipoChamadoChip(tipo?: string) {
       label={st.label}
       size="small"
       sx={{
-        fontWeight: 700,
-        fontSize: '0.68rem',
+        ...chipMetadadoSx,
         color: st.color,
         bgcolor: st.bg,
         border: 'none',

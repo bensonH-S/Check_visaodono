@@ -60,7 +60,7 @@ router.get('/permissoes/catalogo', requirePermissao('usuarios.gerenciar'), (_req
 
 router.get('/', requirePermissao('usuarios.listar'), async (_req, res, next) => {
   try {
-    const { rows } = await pool.query(`${SQL_USUARIO} WHERE ativo = TRUE ORDER BY nome`);
+    const { rows } = await pool.query(`${SQL_USUARIO} WHERE u.ativo = TRUE ORDER BY nome`);
     res.json(rows);
   } catch (e) {
     next(e);
@@ -69,7 +69,7 @@ router.get('/', requirePermissao('usuarios.listar'), async (_req, res, next) => 
 
 router.get('/gestao', requirePermissao('usuarios.gerenciar'), async (_req, res, next) => {
   try {
-    const { rows } = await pool.query(`${SQL_USUARIO} ORDER BY ativo DESC, nome`);
+    const { rows } = await pool.query(`${SQL_USUARIO} ORDER BY u.ativo DESC, nome`);
     res.json(await Promise.all(rows.map(mapUsuarioGestao)));
   } catch (e) {
     next(e);

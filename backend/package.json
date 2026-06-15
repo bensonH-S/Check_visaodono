@@ -27,7 +27,8 @@
     "migrate:cargos-perfis": "node scripts/run-sql.js migrations/026_cargos_perfis.sql",
     "migrate:sync-cargo-nome": "node scripts/run-sql.js migrations/027_sync_cargo_nome.sql",
     "migrate:backfill-aprovacao-destino": "node scripts/run-sql.js migrations/028_backfill_aprovacao_destino.sql",
-    "migrate:aprovacao-diretor-ok": "node scripts/run-sql.js migrations/029_aprovacao_diretor_ok.sql"
+    "migrate:aprovacao-diretor-ok": "node scripts/run-sql.js migrations/029_aprovacao_diretor_ok.sql",
+    "migrate:checklist-auditoria": "node scripts/run-sql.js migrations/031_checklist_auditoria_operacional.sql"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -4,8 +4,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Fab from '@mui/material/Fab';
 import IconButton from '@mui/material/IconButton';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
+import { showToast } from '../utils/toast';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -215,8 +214,6 @@ function ChamadosMobileLayoutInner() {
   const isSubPage = isNovo || isDetalhe;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
 
-  const [welcome, setWelcome] = useState('');
-
   const subtituloPagina = isNovo
     ? 'Novo chamado'
     : isDetalhe
@@ -228,7 +225,7 @@ function ChamadosMobileLayoutInner() {
   useEffect(() => {
     const nome = (location.state as { welcome?: string } | null)?.welcome;
     if (!nome) return;
-    setWelcome(nome);
+    showToast(`Bem-vindo, ${nome}!`, 'success');
     navigate(location.pathname + location.search + location.hash, { replace: true, state: {} });
   }, [location.state, location.pathname, location.search, location.hash, navigate]);
 
@@ -379,17 +376,6 @@ function ChamadosMobileLayoutInner() {
       >
         <AppFooter compact fullText />
       </Box>
-
-      <Snackbar
-        open={!!welcome}
-        autoHideDuration={2500}
-        onClose={() => setWelcome('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setWelcome('')} sx={{ width: '100%' }}>
-          Bem-vindo, {welcome}!
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

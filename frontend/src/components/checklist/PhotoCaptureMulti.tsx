@@ -72,6 +72,15 @@ interface Props {
 
   compactThumbs?: boolean;
 
+  /** Lado da miniatura em px quando compactThumbs */
+  thumbSize?: number;
+
+  /** Exige ao menos 1 foto para avançar */
+  obrigatoria?: boolean;
+
+  /** Destaque de validação (foto obrigatória não anexada) */
+  comErro?: boolean;
+
 }
 
 const TAMANHO_THUMB_COMPACTO = 92;
@@ -90,6 +99,8 @@ function MidiaPreview({
 
   compactThumbs,
 
+  thumbSize = TAMANHO_THUMB_COMPACTO,
+
   disabled,
 
   onRemove,
@@ -105,6 +116,8 @@ function MidiaPreview({
   inlineActions?: boolean;
 
   compactThumbs?: boolean;
+
+  thumbSize?: number;
 
   disabled?: boolean;
 
@@ -136,9 +149,9 @@ function MidiaPreview({
 
         bgcolor: '#000',
 
-        width: compactThumbs ? TAMANHO_THUMB_COMPACTO : undefined,
+        width: compactThumbs ? thumbSize : undefined,
 
-        height: compactThumbs ? TAMANHO_THUMB_COMPACTO : undefined,
+        height: compactThumbs ? thumbSize : undefined,
 
         flexShrink: compactThumbs ? 0 : undefined,
 
@@ -294,6 +307,12 @@ export default function PhotoCaptureMulti({
 
   compactThumbs = false,
 
+  thumbSize = TAMANHO_THUMB_COMPACTO,
+
+  obrigatoria = false,
+
+  comErro = false,
+
 }: Props) {
 
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -376,7 +395,7 @@ export default function PhotoCaptureMulti({
 
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
 
-          Fotos e vídeos opcionais ({fotos.length}/{max})
+          Fotos ({fotos.length}/{max})
 
         </Typography>
 
@@ -410,7 +429,7 @@ export default function PhotoCaptureMulti({
 
             gap: compactThumbs ? 0.75 : inlineActions ? 1 : 1.5,
 
-            mb: 2,
+            mb: compactThumbs ? 1 : 2,
 
           }}
 
@@ -431,6 +450,8 @@ export default function PhotoCaptureMulti({
               inlineActions={inlineActions}
 
               compactThumbs={compactThumbs}
+
+              thumbSize={thumbSize}
 
               disabled={disabled}
 
@@ -482,17 +503,23 @@ export default function PhotoCaptureMulti({
 
               variant="contained"
 
-              size={inlineActions ? 'medium' : 'large'}
+              size="small"
 
-              startIcon={<CameraAltIcon />}
+              startIcon={<CameraAltIcon sx={{ fontSize: 18 }} />}
 
               onClick={abrirCamera}
 
-              sx={{ minHeight: inlineActions ? 48 : 52, flex: inlineActions ? 1 : undefined }}
+              sx={{
+                minHeight: inlineActions ? 40 : 52,
+                flex: inlineActions ? 1 : undefined,
+                fontSize: inlineActions ? '0.8rem' : undefined,
+                fontWeight: inlineActions ? 600 : undefined,
+                px: inlineActions ? 1 : undefined,
+              }}
 
             >
 
-              Câmera
+              {inlineActions ? 'Tirar foto' : 'Câmera'}
 
             </Button>
 
@@ -504,17 +531,23 @@ export default function PhotoCaptureMulti({
 
               variant="outlined"
 
-              size={inlineActions ? 'medium' : 'large'}
+              size="small"
 
-              startIcon={<PhotoLibraryIcon />}
+              startIcon={<PhotoLibraryIcon sx={{ fontSize: 18 }} />}
 
               onClick={() => galleryRef.current?.click()}
 
-              sx={{ minHeight: 48, flex: inlineActions ? 1 : undefined }}
+              sx={{
+                minHeight: 40,
+                flex: inlineActions ? 1 : undefined,
+                fontSize: inlineActions ? '0.8rem' : undefined,
+                fontWeight: inlineActions ? 600 : undefined,
+                px: inlineActions ? 1 : undefined,
+              }}
 
             >
 
-              Galeria
+              {inlineActions ? 'Galeria' : 'Galeria'}
 
             </Button>
 
@@ -522,6 +555,18 @@ export default function PhotoCaptureMulti({
 
         )
 
+      )}
+
+      {obrigatoria && fotos.length === 0 && !loading && !comErro && (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
+          Pelo menos 1 foto obrigatória
+        </Typography>
+      )}
+
+      {comErro && fotos.length === 0 && !loading && (
+        <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
+          Anexe a foto obrigatória para continuar
+        </Typography>
       )}
 
 

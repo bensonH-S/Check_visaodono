@@ -28,7 +28,7 @@ export type PageTitleConfig = {
 export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/': { title: 'Início', icon: <DashboardIcon sx={iconSx} /> },
   '/ranking': { title: 'Ranking de Lojas', icon: <EmojiEventsIcon sx={iconSx} /> },
-  '/checklist': { title: 'Checklist — Visão de Dono', icon: <AssignmentIcon sx={iconSx} /> },
+  '/checklist': { title: 'Checklist', icon: <AssignmentIcon sx={iconSx} /> },
   '/visitas': { title: 'Histórico de Visitas', icon: <HistoryIcon sx={iconSx} /> },
   '/lojas': { title: 'Lojas', icon: <StoreIcon sx={iconSx} /> },
   '/nao-conformidades': { title: 'Não Conformidades', icon: <WarningAmberIcon sx={iconSx} /> },
@@ -37,6 +37,9 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
+  '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },
+  '/configuracoes/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
+  '/configuracoes/lojas': { title: 'Lojas', icon: <StoreIcon sx={iconSx} /> },
   '/configuracoes/categorias': { title: 'Categorias', icon: <CategoryIcon sx={iconSx} /> },
   '/configuracoes/sla': { title: 'SLA', icon: <ScheduleIcon sx={iconSx} /> },
   '/configuracoes/cargos': { title: 'Cargos', icon: <BadgeIcon sx={iconSx} /> },
@@ -51,5 +54,8 @@ export function resolvePageTitle(path: string): PageTitleConfig {
   if (path.startsWith('/relatorio/')) return PAGE_TITLES['/relatorio'];
   if (path.startsWith('/chamados/aprovacoes/')) return PAGE_TITLES['/chamados/aprovacoes'];
   if (path.startsWith('/chamados/')) return PAGE_TITLES['/chamados'];
+  if (path.startsWith('/configuracoes/')) {
+    return PAGE_TITLES[path] ?? PAGE_TITLES['/configuracoes'];
+  }
   return { title: 'Portal Grupo Alvim', icon: <DashboardIcon sx={iconSx} /> };
 }

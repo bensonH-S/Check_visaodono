@@ -1,65 +1,46 @@
 import type { Pergunta } from '../api/client';
 
-/**
- * Sim = está ok / dentro do padrão → foto só se marcar Não (evidência do problema).
- * Ex.: hortifruti, carnes, limpeza, iluminação funcionando.
- */
-const FOTO_QUANDO_NAO = new Set([
-  '09', '10', '13', '15', '16', '17', '18', '29',
-]);
-
-/**
- * Sim = há problema / risco → foto só se marcar Sim.
- * Ex.: manutenção, danos, risco, desperdício, contaminação, pragas.
- */
-const FOTO_QUANDO_SIM = new Set([
-  '27', '30', '32', '36', '37',
-]);
-
 /** Foto opcional mesmo quando exibida (não bloqueia avançar). */
 const FOTO_OPCIONAL = new Set(['26', '37']);
 
-export function maxFotos(p: Pergunta): number {
-  if (p.codigo === '26') return 5;
-  return 1;
+/** Máximo de fotos por pergunta no checklist. */
+export const MAX_FOTOS_POR_PERGUNTA = 5;
+
+export function maxFotos(): number {
+  return MAX_FOTOS_POR_PERGUNTA;
 }
 
-export function permiteMultiplasFotos(p: Pergunta): boolean {
-  return p.codigo === '26';
+export function respostaSimNaoEscolhida(resposta?: 'Sim' | 'Não' | 'N/A'): boolean {
+  return resposta === 'Sim' || resposta === 'Não';
 }
 
-function usaEstrelasFoto(p: Pergunta) {
-  return p.tipo_resposta === 'estrelas_foto' && p.requer_foto;
-}
+/** Exibir bloco de foto na UI (somente após responder Sim/Não ou escolher estrelas). */
+export function exibeFoto(
+  p: Pergunta,
+  resposta?: 'Sim' | 'Não' | 'N/A',
+  notaEstrelas?: number,
+): boolean {
+  if (p.tipo_resposta === 'estrelas_foto') {
+    return notaEstrelas != null && notaEstrelas >= 1;
+  }
 
-function usaSimNaoFoto(p: Pergunta) {
-  return p.tipo_resposta === 'sim_nao_foto' && p.requer_foto;
-}
+  if (p.tipo_resposta !== 'sim_nao_foto') return false;
 
-/** Exibir bloco de foto na UI. */
-export function exibeFoto(p: Pergunta, resposta?: 'Sim' | 'Não' | 'N/A'): boolean {
-  if (!p.requer_foto && p.codigo !== '26') return false;
-
-  if (p.codigo === '26') return true;
-
-  if (usaEstrelasFoto(p)) return true;
-
-  if (!usaSimNaoFoto(p) && !permiteMultiplasFotos(p)) return false;
-
-  if (FOTO_QUANDO_NAO.has(p.codigo)) return resposta === 'Não';
-  if (FOTO_QUANDO_SIM.has(p.codigo)) return resposta === 'Sim';
-
-  return false;
+  return respostaSimNaoEscolhida(resposta);
 }
 
 /** Foto obrigatória para avançar. */
 export function exigeFoto(
   p: Pergunta,
   resposta?: 'Sim' | 'Não' | 'N/A',
-  fotos: string[] = []
+  fotos: string[] = [],
+  notaEstrelas?: number,
 ): boolean {
-  if (!exibeFoto(p, resposta)) return false;
+  if (!exibeFoto(p, resposta, notaEstrelas)) return false;
   if (FOTO_OPCIONAL.has(p.codigo)) return false;
+  if (p.requer_foto) return fotos.length === 0;
+  // Em Não a foto é opcional (evidência); observação pode ser obrigatória à parte.
+  if (resposta === 'Não') return false;
   return fotos.length === 0;
 }
 
@@ -81,6 +62,9 @@ export function exigeObservacao(
 
 /** Ao mudar Sim/Não, limpar foto se não for mais exibir. */
 export function deveLimparFotos(p: Pergunta, novaResposta?: 'Sim' | 'Não' | 'N/A'): boolean {
+  if (p.tipo_resposta === 'sim_nao_foto' && respostaSimNaoEscolhida(novaResposta)) {
+    return false;
+  }
   return !exibeFoto(p, novaResposta);
 }
 

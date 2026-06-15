@@ -1,22 +1,26 @@
 import { pool } from './db.js';
 
 export const CATALOGO_PERMISSOES = [
-  { codigo: 'portal.dashboard.ver', nome: 'Ver dashboard (início)', grupo: 'Portal', ordem: 10 },
-  { codigo: 'portal.ranking.ver', nome: 'Ver ranking de lojas', grupo: 'Portal', ordem: 20 },
-  { codigo: 'portal.visitas.ver', nome: 'Ver histórico de visitas', grupo: 'Portal', ordem: 30 },
-  { codigo: 'portal.lojas.ver', nome: 'Ver cadastro de lojas', grupo: 'Portal', ordem: 40 },
-  { codigo: 'portal.ncs.ver', nome: 'Ver não conformidades', grupo: 'Portal', ordem: 50 },
-  { codigo: 'checklist.ver', nome: 'Ver módulo de checklist', grupo: 'Checklist', ordem: 60 },
-  { codigo: 'checklist.executar', nome: 'Executar checklist em loja', grupo: 'Checklist', ordem: 70 },
+  { codigo: 'portal.dashboard.ver', nome: 'Ver dashboard (início, ranking e NCs)', grupo: 'Início', ordem: 10 },
+  { codigo: 'portal.visitas.ver', nome: 'Ver histórico de visitas', grupo: 'Visitas', ordem: 20 },
+  { codigo: 'checklist.ver', nome: 'Acessar checklist em loja', grupo: 'Visitas', ordem: 25 },
+  { codigo: 'checklist.executar', nome: 'Executar checklist e registrar visita', grupo: 'Visitas', ordem: 30 },
+  { codigo: 'configuracoes.ver', nome: 'Acessar configurações', grupo: 'Configurações', ordem: 70 },
+  { codigo: 'portal.lojas.ver', nome: 'Ver cadastro de lojas', grupo: 'Configurações', ordem: 72 },
   { codigo: 'chamados.ver', nome: 'Ver chamados de manutenção', grupo: 'Manutenção', ordem: 80 },
   { codigo: 'chamados.abrir', nome: 'Abrir chamado de manutenção', grupo: 'Manutenção', ordem: 90 },
   { codigo: 'chamados.assumir', nome: 'Assumir chamado', grupo: 'Manutenção', ordem: 100 },
   { codigo: 'chamados.aprovar', nome: 'Aprovar orçamentos', grupo: 'Manutenção', ordem: 105 },
-  { codigo: 'configuracoes.ver', nome: 'Acessar aba Configurações', grupo: 'Configurações', ordem: 75 },
-  { codigo: 'usuarios.listar', nome: 'Listar usuários', grupo: 'Usuários', ordem: 110 },
+  { codigo: 'usuarios.listar', nome: 'Listar usuários (ex.: escolher auditor no checklist)', grupo: 'Usuários', ordem: 110 },
   { codigo: 'usuarios.gerenciar', nome: 'Gerenciar usuários e permissões', grupo: 'Usuários', ordem: 120 },
   { codigo: 'lojas.todas', nome: 'Acesso a todas as lojas', grupo: 'Lojas', ordem: 130 },
 ];
+
+const PERMISSOES_DASHBOARD = new Set([
+  'portal.dashboard.ver',
+  'portal.ranking.ver',
+  'portal.ncs.ver',
+]);
 
 export async function carregarPermissoesUsuario(idUsuario) {
   const { rows } = await pool.query(
@@ -59,7 +63,12 @@ export async function syncUsuarioPermissoes(idUsuario, codigos) {
 }
 
 export function temPermissao(user, codigo) {
-  return (user?.permissoes || []).includes(codigo);
+  const perms = user?.permissoes || [];
+  if (perms.includes(codigo)) return true;
+  if (codigo === 'portal.dashboard.ver' && perms.some((p) => PERMISSOES_DASHBOARD.has(p))) {
+    return true;
+  }
+  return false;
 }
 
 export function acessoTodasLojas(user) {

@@ -158,6 +158,10 @@ if (SERVE_WEB) {
   const dist = path.join(__dirname, 'frontend', 'dist');
   const indexHtml = path.join(dist, 'index.html');
 
+  app.get(APP_BASE_PATH, (_req, res) => {
+    res.redirect(302, `${STATIC_BASE}login`);
+  });
+
   app.use(
     STATIC_BASE,
     express.static(dist, {

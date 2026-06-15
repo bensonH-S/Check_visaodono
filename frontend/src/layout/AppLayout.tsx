@@ -8,7 +8,6 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import HistoryIcon from '@mui/icons-material/History';
-import StoreIcon from '@mui/icons-material/Store';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AddIcon from '@mui/icons-material/Add';
 import BuildIcon from '@mui/icons-material/Build';
@@ -18,7 +17,6 @@ const nav = [
   { to: '/ranking', label: 'Ranking Lojas', icon: <EmojiEventsIcon fontSize="small" /> },
   { to: '/checklist', label: 'Novo Checklist', icon: <AssignmentIcon fontSize="small" /> },
   { to: '/visitas', label: 'Histórico', icon: <HistoryIcon fontSize="small" /> },
-  { to: '/lojas', label: 'Lojas', icon: <StoreIcon fontSize="small" /> },
   { to: '/nao-conformidades', label: 'Não Conformidades', icon: <WarningAmberIcon fontSize="small" /> },
   { to: '/manutencao', label: 'Manutenção', icon: <BuildIcon fontSize="small" /> },
 ];
@@ -26,7 +24,7 @@ const nav = [
 const titles: Record<string, string> = {
   '/': 'Dashboard',
   '/ranking': 'Ranking de Lojas',
-  '/checklist': 'Visão de Dono — Checklist',
+  '/checklist': 'Checklist',
   '/visitas': 'Histórico de Visitas',
   '/lojas': 'Gestão de Lojas',
   '/nao-conformidades': 'Não Conformidades',

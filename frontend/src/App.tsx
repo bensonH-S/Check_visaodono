@@ -28,13 +28,16 @@ import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import CategoriasPage from './pages/configuracoes/CategoriasPage';
 import SlaPage from './pages/configuracoes/SlaPage';
 import CargosPage from './pages/configuracoes/CargosPage';
+import ChecklistPerguntasPage from './pages/configuracoes/ChecklistPerguntasPage';
 import RotaPermissao from './components/RotaPermissao';
 import ZoomWarning from './components/ZoomWarning';
+import AppToastContainer from './components/AppToastContainer';
 
 export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <AppToastContainer />
       <ZoomWarning />
       <BrowserRouter basename={appBasePath}>
         <Routes>
@@ -69,7 +72,7 @@ export default function App() {
             <Route
               path="ranking"
               element={
-                <RotaPermissao permissoes={['portal.ranking.ver']}>
+                <RotaPermissao permissoes={['portal.dashboard.ver']}>
                   <RankingPage />
                 </RotaPermissao>
               }
@@ -100,16 +103,12 @@ export default function App() {
             />
             <Route
               path="lojas"
-              element={
-                <RotaPermissao permissoes={['portal.lojas.ver']}>
-                  <LojasPage />
-                </RotaPermissao>
-              }
+              element={<Navigate to="/configuracoes/lojas" replace />}
             />
             <Route
               path="nao-conformidades"
               element={
-                <RotaPermissao permissoes={['portal.ncs.ver']}>
+                <RotaPermissao permissoes={['portal.dashboard.ver']}>
                   <NcPage />
                 </RotaPermissao>
               }
@@ -159,6 +158,26 @@ export default function App() {
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
             <Route
               path="usuarios"
+              element={<Navigate to="/configuracoes/usuarios" replace />}
+            />
+            <Route
+              path="configuracoes"
+              element={
+                <RotaPermissao permissoes={['configuracoes.ver']}>
+                  <ConfiguracoesPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="configuracoes/perguntas"
+              element={
+                <RotaPermissao permissoes={['configuracoes.ver']}>
+                  <ChecklistPerguntasPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="configuracoes/usuarios"
               element={
                 <RotaPermissao permissoes={['usuarios.gerenciar']}>
                   <UsuariosPage />
@@ -166,10 +185,10 @@ export default function App() {
               }
             />
             <Route
-              path="configuracoes"
+              path="configuracoes/lojas"
               element={
-                <RotaPermissao permissoes={['configuracoes.ver']}>
-                  <ConfiguracoesPage />
+                <RotaPermissao permissoes={['portal.lojas.ver']}>
+                  <LojasPage />
                 </RotaPermissao>
               }
             />

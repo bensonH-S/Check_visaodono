@@ -49,9 +49,20 @@ export function logout() {
   localStorage.removeItem('usuario');
 }
 
+const PERMISSOES_DASHBOARD = new Set([
+  'portal.dashboard.ver',
+  'portal.ranking.ver',
+  'portal.ncs.ver',
+]);
+
 export function temPermissao(codigo: string, usuario?: UsuarioSessao | null) {
   const u = usuario ?? getUsuario();
-  return (u?.permissoes || []).includes(codigo);
+  const perms = u?.permissoes || [];
+  if (perms.includes(codigo)) return true;
+  if (codigo === 'portal.dashboard.ver' && perms.some((p) => PERMISSOES_DASHBOARD.has(p))) {
+    return true;
+  }
+  return false;
 }
 
 export function labelPerfil(perfil: string) {

@@ -6,9 +6,9 @@ type GridBreakpoint = 'md' | 'lg' | 'xl';
 export function kanbanBoardLayout(columnCount: number, gridAt: GridBreakpoint = 'lg'): SxProps<Theme> {
   return {
     display: { xs: 'flex', [gridAt]: 'grid' },
-    gridTemplateColumns: { [gridAt]: `repeat(${columnCount}, minmax(0, 1fr))` },
+    gridTemplateColumns: { [gridAt]: `repeat(${columnCount}, minmax(260px, 1fr))` },
     gap: { xs: 1.25, sm: 1.5, [gridAt]: 1.75 },
-    overflowX: { xs: 'auto', [gridAt]: 'visible' },
+    overflowX: 'auto',
     WebkitOverflowScrolling: 'touch',
     pb: { xs: 1.5, [gridAt]: 0.5 },
     pt: 0.25,
@@ -26,14 +26,14 @@ export function kanbanColumnLayout(gridAt: GridBreakpoint = 'lg'): SxProps<Theme
     minWidth: 0,
     flex: {
       xs: '0 0 min(85vw, 300px)',
-      sm: '0 0 280px',
-      md: '0 0 260px',
+      sm: '0 0 300px',
+      md: '0 0 280px',
       [gridAt]: 'unset',
     },
     width: {
       xs: 'min(85vw, 300px)',
-      sm: 280,
-      md: 260,
+      sm: 300,
+      md: 280,
       [gridAt]: '100%',
     },
     maxWidth: '100%',

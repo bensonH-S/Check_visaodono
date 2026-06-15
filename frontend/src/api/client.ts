@@ -1,6 +1,7 @@
 import { apiBasePath, appBasePath } from '../config/paths';
 import { getToken } from '../lib/auth';
 import type { UsuarioSessao } from '../lib/auth';
+import { formatDataCampoData } from '../utils/dateBr';
 
 const BASE = apiBasePath;
 
@@ -102,6 +103,26 @@ export const api = {
   cargoGestaoExcluir: (id: number) =>
     request<void>(`/cargos/gestao/${id}`, { method: 'DELETE' }),
   checklist: () => request<CategoriaChecklist[]>('/checklist'),
+  checklistGestao: () => request<CategoriaChecklist[]>('/checklist/gestao'),
+  checklistCategoriaCriar: (body: { nome: string; icone?: string; ordem?: number }) =>
+    request<CategoriaChecklistResumo>('/checklist/categorias', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  checklistCategoriaAtualizar: (
+    id: number,
+    body: Partial<{ nome: string; icone: string; ordem: number }>,
+  ) =>
+    request<CategoriaChecklistResumo>(`/checklist/categorias/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  checklistPerguntaCriar: (body: PerguntaInput) =>
+    request<Pergunta>('/checklist/perguntas', { method: 'POST', body: JSON.stringify(body) }),
+  checklistPerguntaAtualizar: (id: number, body: Partial<PerguntaInput>) =>
+    request<Pergunta>(`/checklist/perguntas/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  checklistPerguntaExcluir: (id: number) =>
+    request<void>(`/checklist/perguntas/${id}`, { method: 'DELETE' }),
   visitas: (params?: { loja?: number; status?: string }) => {
     const q = new URLSearchParams();
     if (params?.loja) q.set('loja', String(params.loja));
@@ -110,7 +131,7 @@ export const api = {
     return request<VisitaResumo[]>(`/visitas${s ? `?${s}` : ''}`);
   },
   visita: (id: number) => request<VisitaDetalhe>(`/visitas/${id}`),
-  criarVisita: (body: { id_loja: number; id_usuario: number }) =>
+  criarVisita: (body: { id_loja: number; id_usuario: number; data_visita?: string }) =>
     request<VisitaResumo>('/visitas', { method: 'POST', body: JSON.stringify(body) }),
   salvarRespostas: (id: number, respostas: RespostaInput[]) =>
     request<VisitaResumo>(`/visitas/${id}/respostas`, {
@@ -346,6 +367,13 @@ export interface UsuarioGestaoInput {
   ativo?: boolean;
 }
 
+export interface CategoriaChecklistResumo {
+  id_categoria: number;
+  nome: string;
+  icone: string;
+  ordem: number;
+}
+
 export interface CategoriaChecklist {
   id_categoria: number;
   nome: string;
@@ -370,6 +398,19 @@ export interface Pergunta {
   ordem: number;
 }
 
+export interface PerguntaInput {
+  id_categoria: number;
+  codigo?: string;
+  texto: string;
+  tipo_resposta: TipoResposta;
+  obrigatoria?: boolean;
+  peso?: number;
+  ordem?: number;
+  requer_foto?: boolean;
+  requer_obs_em_nao?: boolean;
+  critica?: boolean;
+}
+
 export interface VisitaResumo {
   id_visita: number;
   id_loja: number;
@@ -377,6 +418,7 @@ export interface VisitaResumo {
   bk_number: string | null;
   nome_usuario: string;
   data_visita: string;
+  hora_inicio?: string | null;
   duracao_minutos: number | null;
   nota_final: string | number | null;
   status: string;
@@ -395,7 +437,11 @@ export interface VisitaDetalhe {
   visita: VisitaResumo & { city: string; state: string; neighborhood: string };
   respostas: Array<{
     id_pergunta: number;
-    resposta: string;
+    codigo?: string;
+    resposta: string | null;
+    nota_estrelas?: number | null;
+    observacao?: string | null;
+    midia_urls?: string[];
     texto: string;
     categoria: string;
   }>;
@@ -419,6 +465,10 @@ export interface DashboardData {
     name: string;
     data_cadastro: string;
     gravidade: string;
+  }>;
+  ncs_por_gravidade?: Array<{
+    gravidade: string;
+    total: number;
   }>;
 }
 
@@ -596,13 +646,28 @@ export function fmtNota(n: string | number | null | undefined) {
 }
 
 export function fmtData(d: string | null) {
-  if (!d) return '—';
-  const [y, m, day] = d.slice(0, 10).split('-');
-  return `${day}/${m}/${y}`;
+  return formatDataCampoData(d);
 }
 
 export function scoreColor(n: number) {
   if (n >= 85) return '#3B6D11';
   if (n >= 75) return '#854F0B';
   return '#A32D2D';
+}
+
+/** Chip de nota com fundo sólido e alto contraste (tabelas e listas). */
+export function notaChipSx(n: number) {
+  const base = {
+    fontWeight: 800,
+    fontSize: '0.75rem',
+    height: 26,
+    minWidth: 54,
+    color: '#FFFFFF',
+    border: 'none',
+    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.18)',
+    '& .MuiChip-label': { px: 1.15, letterSpacing: 0.2 },
+  };
+  if (n >= 85) return { ...base, bgcolor: '#16A34A' };
+  if (n >= 75) return { ...base, bgcolor: '#EAB308', color: '#422006', boxShadow: '0 1px 4px rgba(0, 0, 0, 0.14)' };
+  return { ...base, bgcolor: '#DC2626' };
 }

@@ -8,6 +8,7 @@ import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CameraCaptureOverlay from '../CameraCaptureOverlay';
 import { compressImage } from '../../utils/compressImage';
 import { fileToDataUrl } from '../../utils/mediaFile';
 
@@ -19,10 +20,11 @@ interface Props {
 }
 
 export default function PhotoCapture({ value, onChange, disabled, obrigatoria }: Props) {
-  const cameraRef = useRef<HTMLInputElement>(null);
+  const cameraFallbackRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
+  const [cameraAberta, setCameraAberta] = useState(false);
 
   const processar = async (file: File | undefined) => {
     if (!file || disabled) return;
@@ -37,10 +39,59 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
       setErro(err instanceof Error ? err.message : 'Não foi possível processar o arquivo.');
     } finally {
       setLoading(false);
-      if (cameraRef.current) cameraRef.current.value = '';
+      if (cameraFallbackRef.current) cameraFallbackRef.current.value = '';
       if (galleryRef.current) galleryRef.current.value = '';
     }
   };
+
+  const abrirCamera = () => {
+    if (disabled) return;
+    setErro('');
+    if (navigator.mediaDevices) {
+      setCameraAberta(true);
+      return;
+    }
+    cameraFallbackRef.current?.click();
+  };
+
+  const botoesAcao = (variante: 'inicial' | 'trocar') => (
+    <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+      <Button
+        variant={variante === 'inicial' ? 'contained' : 'outlined'}
+        size="small"
+        disabled={disabled || loading}
+        startIcon={<CameraAltIcon sx={{ fontSize: 18 }} />}
+        onClick={abrirCamera}
+        sx={{
+          flex: 1,
+          minHeight: 40,
+          fontSize: '0.8rem',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          px: 1,
+        }}
+      >
+        {variante === 'inicial' ? 'Tirar foto' : 'Tirar outra'}
+      </Button>
+      <Button
+        variant="outlined"
+        size="small"
+        disabled={disabled || loading}
+        startIcon={<PhotoLibraryIcon sx={{ fontSize: 18 }} />}
+        onClick={() => galleryRef.current?.click()}
+        sx={{
+          flex: 1,
+          minHeight: 40,
+          fontSize: '0.8rem',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          px: 1,
+        }}
+      >
+        Galeria
+      </Button>
+    </Box>
+  );
 
   if (value) {
     return (
@@ -98,25 +149,26 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
             </IconButton>
           )}
         </Box>
-        {!disabled && (
-          <Button
-            fullWidth
-            variant="outlined"
-            size="large"
-            startIcon={<CameraAltIcon />}
-            onClick={() => cameraRef.current?.click()}
-            sx={{ mt: 1.5, minHeight: 48 }}
-          >
-            Tirar outra foto
-          </Button>
-        )}
+        {!disabled && <Box sx={{ mt: 1.25 }}>{botoesAcao('trocar')}</Box>}
         <input
-          ref={cameraRef}
+          ref={cameraFallbackRef}
           type="file"
           accept="image/*"
           capture="environment"
           hidden
           onChange={(e) => processar(e.target.files?.[0])}
+        />
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => processar(e.target.files?.[0])}
+        />
+        <CameraCaptureOverlay
+          open={cameraAberta}
+          onClose={() => setCameraAberta(false)}
+          onCapture={(file) => void processar(file)}
         />
       </Box>
     );
@@ -127,7 +179,7 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
       {loading ? (
         <Box
           sx={{
-            py: 4,
+            py: 3,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -137,41 +189,20 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
             borderRadius: 2,
           }}
         >
-          <CircularProgress size={36} />
+          <CircularProgress size={32} />
           <Typography variant="body2" color="text.secondary">
             Processando foto…
           </Typography>
         </Box>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            size="large"
-            disabled={disabled}
-            startIcon={<CameraAltIcon />}
-            onClick={() => cameraRef.current?.click()}
-            sx={{ minHeight: 56, fontSize: '1rem', fontWeight: 600 }}
-          >
-            Tirar foto
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            size="large"
-            disabled={disabled}
-            startIcon={<PhotoLibraryIcon />}
-            onClick={() => galleryRef.current?.click()}
-            sx={{ minHeight: 48 }}
-          >
-            Escolher da galeria
-          </Button>
+        <>
+          {botoesAcao('inicial')}
           {obrigatoria && (
-            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
               Foto obrigatória para esta pergunta
             </Typography>
           )}
-        </Box>
+        </>
       )}
       {erro && (
         <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
@@ -179,7 +210,7 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
         </Typography>
       )}
       <input
-        ref={cameraRef}
+        ref={cameraFallbackRef}
         type="file"
         accept="image/*"
         capture="environment"
@@ -189,9 +220,14 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
       <input
         ref={galleryRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*"
         hidden
         onChange={(e) => processar(e.target.files?.[0])}
+      />
+      <CameraCaptureOverlay
+        open={cameraAberta}
+        onClose={() => setCameraAberta(false)}
+        onCapture={(file) => void processar(file)}
       />
     </Box>
   );

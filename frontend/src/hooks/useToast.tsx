@@ -1,42 +1,17 @@
-import { useCallback, useState } from 'react';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
+import { useCallback } from 'react';
 import type { AlertColor } from '@mui/material/Alert';
+import { showToast as globalShowToast, TOAST_DURATION_MS } from '../utils/toast';
 
-type ToastState = {
-  message: string;
-  severity: AlertColor;
-};
-
-export const TOAST_DURATION_MS = 2000;
+export { TOAST_DURATION_MS };
 
 export function useToast() {
-  const [toast, setToast] = useState<ToastState | null>(null);
-
   const showToast = useCallback((message: string, severity: AlertColor = 'success') => {
-    setToast({ message, severity });
+    globalShowToast(message, severity);
   }, []);
 
-  const hideToast = useCallback(() => setToast(null), []);
-
+  /** Container global em App.tsx — mantido por compatibilidade com páginas existentes. */
   function ToastSnackbar() {
-    return (
-      <Snackbar
-        open={!!toast}
-        autoHideDuration={TOAST_DURATION_MS}
-        onClose={hideToast}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert
-          severity={toast?.severity || 'success'}
-          variant="filled"
-          onClose={hideToast}
-          sx={{ width: '100%' }}
-        >
-          {toast?.message}
-        </Alert>
-      </Snackbar>
-    );
+    return null;
   }
 
   return { showToast, ToastSnackbar };

@@ -8,15 +8,13 @@ export type RotaNav = {
 /** Ordem de fallback quando o usuário acessa rota sem permissão */
 export const ROTAS_NAV: RotaNav[] = [
   { path: '/', permissoes: ['portal.dashboard.ver'] },
-  { path: '/checklist', permissoes: ['checklist.ver', 'checklist.executar'] },
   { path: '/chamados', permissoes: ['chamados.ver'] },
   { path: '/chamados/aprovacoes', permissoes: ['chamados.aprovar'] },
   { path: '/visitas', permissoes: ['portal.visitas.ver'] },
-  { path: '/ranking', permissoes: ['portal.ranking.ver'] },
-  { path: '/lojas', permissoes: ['portal.lojas.ver'] },
-  { path: '/nao-conformidades', permissoes: ['portal.ncs.ver'] },
-  { path: '/usuarios', permissoes: ['usuarios.gerenciar'] },
+  { path: '/checklist', permissoes: ['checklist.ver', 'checklist.executar'] },
   { path: '/configuracoes', permissoes: ['configuracoes.ver'] },
+  { path: '/configuracoes/usuarios', permissoes: ['usuarios.gerenciar'] },
+  { path: '/configuracoes/lojas', permissoes: ['portal.lojas.ver'] },
 ];
 
 export function primeiraRotaPermitida(user: UsuarioSessao | null): string {

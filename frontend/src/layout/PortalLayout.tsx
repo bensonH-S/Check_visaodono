@@ -4,24 +4,19 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getUsuario, logout, temPermissao, nomeExibicaoUsuario } from '../lib/auth';
-import PeopleIcon from '@mui/icons-material/People';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import HistoryIcon from '@mui/icons-material/History';
-import StoreIcon from '@mui/icons-material/Store';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import BuildIcon from '@mui/icons-material/Build';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { useEffect, useState } from 'react';
-import Snackbar from '@mui/material/Snackbar';
-import Alert from '@mui/material/Alert';
+import { useEffect } from 'react';
+import { showToast } from '../utils/toast';
 import NotificacoesSino from '../components/NotificacoesSino';
 import AppFooter from '../components/AppFooter';
 
@@ -32,6 +27,8 @@ type NavItem = {
   show: boolean;
   end?: boolean;
   mobileTab?: boolean;
+  /** Só no rodapé mobile; não aparece na sidebar desktop */
+  mobileOnly?: boolean;
 };
 
 export default function PortalLayout() {
@@ -40,12 +37,10 @@ export default function PortalLayout() {
   const path = toAppPath(location.pathname);
   const user = getUsuario();
 
-  const [welcome, setWelcome] = useState('');
-
   useEffect(() => {
     const nome = (location.state as { welcome?: string } | null)?.welcome;
     if (!nome) return;
-    setWelcome(nome);
+    showToast(`Bem-vindo, ${nome}!`, 'success');
     navigate(location.pathname + location.search + location.hash, { replace: true, state: {} });
   }, [location.state, location.pathname, location.search, location.hash, navigate]);
 
@@ -70,7 +65,9 @@ export default function PortalLayout() {
       label: 'Checklist',
       icon: <AssignmentIcon fontSize="small" />,
       show: temPermissao('checklist.ver', user) || temPermissao('checklist.executar', user),
-      mobileTab: temPermissao('checklist.executar', user),
+      end: true,
+      mobileTab: true,
+      mobileOnly: true,
     },
     {
       to: '/chamados',
@@ -95,30 +92,6 @@ export default function PortalLayout() {
       show: temPermissao('portal.visitas.ver', user),
     },
     {
-      to: '/ranking',
-      label: 'Ranking',
-      icon: <EmojiEventsIcon fontSize="small" />,
-      show: temPermissao('portal.ranking.ver', user),
-    },
-    {
-      to: '/lojas',
-      label: 'Lojas',
-      icon: <StoreIcon fontSize="small" />,
-      show: temPermissao('portal.lojas.ver', user),
-    },
-    {
-      to: '/nao-conformidades',
-      label: 'NCs',
-      icon: <WarningAmberIcon fontSize="small" />,
-      show: temPermissao('portal.ncs.ver', user),
-    },
-    {
-      to: '/usuarios',
-      label: 'Usuários',
-      icon: <PeopleIcon fontSize="small" />,
-      show: temPermissao('usuarios.gerenciar', user),
-    },
-    {
       to: '/configuracoes',
       label: 'Configurações',
       icon: <SettingsIcon fontSize="small" />,
@@ -127,6 +100,7 @@ export default function PortalLayout() {
     },
   ].filter((n) => n.show);
 
+  const sidebarNav = nav.filter((n) => !n.mobileOnly);
   const mobileTabs = nav.filter((n) => n.mobileTab);
 
   const pageTitle = resolvePageTitle(path);
@@ -165,7 +139,7 @@ export default function PortalLayout() {
           />
         </Box>
         <Box component="nav" className="flex-1 py-2 overflow-y-auto" sx={{ bgcolor: 'white' }}>
-          {nav.map((item) => (
+          {sidebarNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -237,18 +211,34 @@ export default function PortalLayout() {
       <Box className="flex-1 flex flex-col min-w-0 min-h-0">
         <Box
           component="header"
-          className="shrink-0 px-2.5 md:px-4 py-2 md:py-0 md:h-11 flex items-center gap-2 bg-white border-b border-gray-200"
+          className="shrink-0 flex items-center bg-white border-b border-gray-200"
+          sx={{
+            px: { xs: 2, md: 4 },
+            py: { xs: 1.25, md: 0 },
+            minHeight: { md: 48 },
+            gap: 1,
+          }}
         >
-          {colunaEstreita && (
+          {isChamadoNovo && (
             <Box
               component="img"
               src={assetUrl(LOGO_GRUPO_ALVIM)}
               alt="Grupo Alvim"
-              sx={{ height: 40, objectFit: 'contain', display: { md: 'none' } }}
+              sx={{ height: 40, objectFit: 'contain', display: { md: 'none' }, flexShrink: 0 }}
             />
           )}
-          <PageHeaderTitle {...pageTitle} />
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <PageHeaderTitle {...pageTitle} />
+          </Box>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: { xs: 0.25, md: 0.5 },
+              flexShrink: 0,
+              ml: 'auto',
+            }}
+          >
             {emChamados && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user)) && (
               <NotificacoesSino variante="portal" contexto="chamados" menuLargo />
             )}
@@ -309,17 +299,6 @@ export default function PortalLayout() {
           </Box>
         )}
       </Box>
-
-      <Snackbar
-        open={!!welcome}
-        autoHideDuration={2500}
-        onClose={() => setWelcome('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setWelcome('')} sx={{ width: '100%' }}>
-          Bem-vindo, {welcome}!
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }

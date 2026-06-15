@@ -7,7 +7,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import PersonIcon from '@mui/icons-material/Person';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import { fmtData } from '../../api/client';
+import { formatDataHoraVisita } from '../../utils/dateBr';
 import type { Loja, Usuario } from '../../api/client';
 
 interface Props {
@@ -15,6 +15,7 @@ interface Props {
   loja?: Loja;
   auditor?: Usuario;
   dataVisita?: string | null;
+  horaInicio?: string | null;
   totalSecoes: number;
   totalPerguntas: number;
   onComecar: () => void;
@@ -38,11 +39,12 @@ export default function VisitaIniciadaScreen({
   loja,
   auditor,
   dataVisita,
+  horaInicio,
   totalSecoes,
   totalPerguntas,
   onComecar,
 }: Props) {
-  const hoje = dataVisita ? fmtData(dataVisita) : fmtData(new Date().toISOString().slice(0, 10));
+  const dataHoraVisita = formatDataHoraVisita(dataVisita, horaInicio);
 
   return (
     <Box
@@ -75,7 +77,7 @@ export default function VisitaIniciadaScreen({
           Visita registrada
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, px: 1 }}>
-          O checklist Visão de Dono foi aberto com sucesso. Confira os dados abaixo antes de
+          O checklist foi aberto com sucesso. Confira os dados abaixo antes de
           iniciar a avaliação em loja.
         </Typography>
       </Box>
@@ -97,7 +99,7 @@ export default function VisitaIniciadaScreen({
           </Typography>
         </Box>
         <InfoRow label="Protocolo" value={`#${visitaId}`} />
-        <InfoRow label="Data" value={hoje} />
+        <InfoRow label="Data e hora" value={dataHoraVisita} />
         <Divider sx={{ my: 0.5 }} />
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, py: 0.75 }}>
           <StorefrontIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
@@ -124,11 +126,6 @@ export default function VisitaIniciadaScreen({
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {auditor?.nome ?? '—'}
             </Typography>
-            {auditor?.cargo && (
-              <Typography variant="caption" color="text.secondary">
-                {auditor.cargo}
-              </Typography>
-            )}
           </Box>
         </Box>
       </Paper>

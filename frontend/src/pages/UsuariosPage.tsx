@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -8,6 +9,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TableContainer from '@mui/material/TableContainer';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -16,7 +18,7 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -31,10 +33,12 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
 import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo, type Cargo } from '../api/client';
 import { getUsuario } from '../lib/auth';
 import { dialogContentSxCompact, dialogFieldPropsResponsive } from '../utils/dialogForm';
+import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx, tableCellWrapSx } from '../utils/tablePageLayout';
 import { useToast } from '../hooks/useToast';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -241,15 +245,33 @@ export default function UsuariosPage() {
 
   if (loading) {
     return (
-      <Box className="flex justify-center py-16">
-        <CircularProgress />
+      <Box sx={{ width: '100%' }}>
+        <LinearProgress />
       </Box>
     );
   }
 
   return (
-    <Box className="max-w-5xl mx-auto w-full">
-      <Box className="flex justify-between items-center mb-4 gap-2">
+    <Box sx={tablePageLayoutSx}>
+      <Button
+        component={Link}
+        to="/configuracoes"
+        startIcon={<ArrowBackIcon />}
+        sx={{ alignSelf: 'flex-start', flexShrink: 0 }}
+        size="small"
+      >
+        Voltar às configurações
+      </Button>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 2,
+          flexShrink: 0,
+          flexWrap: 'wrap',
+        }}
+      >
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             Gestão de usuários
@@ -263,10 +285,18 @@ export default function UsuariosPage() {
         </Button>
       </Box>
 
-      {erro && !modalAberto && !excluirAlvo && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
+      {erro && !modalAberto && !excluirAlvo && (
+        <Alert severity="error" sx={{ flexShrink: 0 }}>
+          {erro}
+        </Alert>
+      )}
 
-      <Paper sx={{ overflow: 'auto' }}>
-        <Table size="small">
+      <Paper
+        elevation={0}
+        sx={tablePaperSx}
+      >
+        <TableContainer sx={tableContainerSx}>
+          <Table size="small" stickyHeader sx={tableSx}>
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
@@ -287,6 +317,7 @@ export default function UsuariosPage() {
               >
                 <TableCell
                   sx={{
+                    ...tableCellWrapSx,
                     fontWeight: 600,
                     color: NAVY,
                     '&:hover': { textDecoration: 'underline' },
@@ -321,6 +352,7 @@ export default function UsuariosPage() {
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog
