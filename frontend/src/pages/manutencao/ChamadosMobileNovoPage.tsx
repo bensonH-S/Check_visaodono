@@ -261,8 +261,12 @@ export default function ChamadosMobileNovoPage() {
               fullWidth
               size="small"
               value={idLoja}
-              onChange={(e) => setIdLoja(Number(e.target.value))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setIdLoja(v ? Number(v) : '');
+              }}
               slotProps={{
+                inputLabel: { shrink: true },
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
@@ -270,9 +274,25 @@ export default function ChamadosMobileNovoPage() {
                     </InputAdornment>
                   ),
                 },
-                select: selectMenuScrollProps,
+                select: {
+                  ...selectMenuScrollProps,
+                  displayEmpty: true,
+                  renderValue: (selected: unknown) => {
+                    if (selected === '' || selected == null) {
+                      return (
+                        <Typography component="span" variant="body2" color="text.secondary">
+                          Selecione a Loja
+                        </Typography>
+                      );
+                    }
+                    return form.lojas.find((l) => l.id_loja === Number(selected))?.nome ?? '';
+                  },
+                },
               }}
             >
+              <MenuItem value="">
+                <em>Selecione a Loja</em>
+              </MenuItem>
               {form.lojas.map((l) => (
                 <MenuItem key={l.id_loja} value={l.id_loja}>
                   {l.nome}

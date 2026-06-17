@@ -78,7 +78,7 @@ function LojaCampo({
 
   lojaFixa: boolean;
 
-  onChange: (id: number) => void;
+  onChange: (id: number | '') => void;
 
 }) {
 
@@ -138,9 +138,17 @@ function LojaCampo({
 
       value={idLoja}
 
-      onChange={(e) => onChange(Number(e.target.value))}
+      onChange={(e) => {
+
+        const v = e.target.value;
+
+        onChange(v ? Number(v) : '');
+
+      }}
 
       slotProps={{
+
+        inputLabel: { shrink: true },
 
         input: {
 
@@ -156,9 +164,41 @@ function LojaCampo({
 
         },
 
+        select: {
+
+          displayEmpty: true,
+
+          renderValue: (selected: unknown) => {
+
+            if (selected === '' || selected == null) {
+
+              return (
+
+                <Typography component="span" variant="body2" color="text.secondary">
+
+                  Selecione a Loja
+
+                </Typography>
+
+              );
+
+            }
+
+            return lojaNome ?? '';
+
+          },
+
+        },
+
       }}
 
     >
+
+      <MenuItem value="">
+
+        <em>Selecione a Loja</em>
+
+      </MenuItem>
 
       {form.lojas.map((l) => (
 

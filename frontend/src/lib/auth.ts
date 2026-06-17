@@ -84,3 +84,14 @@ export function nomeExibicaoUsuario(usuario?: Pick<UsuarioSessao, 'cargo_nome' |
   if (usuario.perfil) return labelPerfil(usuario.perfil);
   return '—';
 }
+
+/** Técnico administra chamados no portal; demais perfis usam o fluxo mobile da loja. */
+export function destinoPosLoginMobile(usuario: UsuarioSessao): string {
+  if (usuario.perfil === 'tecnico') return '/chamados';
+  return '/chamados/mobile';
+}
+
+export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  return !!u && u.perfil !== 'tecnico';
+}

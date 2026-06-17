@@ -17,6 +17,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { api } from '../../api/client';
@@ -29,6 +30,7 @@ import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { parseDataApi } from '../../utils/dateBr';
 
 const NAVY = '#1B2A6B';
+const ORANGE = '#E8520A';
 const TODAS_LOJAS = 'todas';
 
 const PERIODOS = [
@@ -40,6 +42,17 @@ const PERIODOS = [
 ] as const;
 
 type ModoVisual = 'kanban' | 'lista';
+
+function LojaFiltroRotulo({ nome }: { nome: string }) {
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+      <LocationOnOutlinedIcon sx={{ fontSize: 18, color: ORANGE, flexShrink: 0 }} />
+      <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {nome}
+      </Box>
+    </Box>
+  );
+}
 
 function pertenceAoPeriodo(
   abertoEm: string | undefined,
@@ -70,6 +83,7 @@ function pertenceAoPeriodo(
 export default function ManutencaoChamadosPage() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const mobile = useMediaQuery(theme.breakpoints.down('md'));
   const telaCompacta = useMediaQuery(theme.breakpoints.down('lg'));
   const sessao = getUsuario();
   const [lista, setLista] = useState<ManutChamado[]>([]);
@@ -78,11 +92,15 @@ export default function ManutencaoChamadosPage() {
   const [filtroLoja, setFiltroLoja] = useState(TODAS_LOJAS);
   const [filtroPeriodo, setFiltroPeriodo] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
-  const [modo, setModo] = useState<ModoVisual>(telaCompacta ? 'lista' : 'kanban');
+  const [modo, setModo] = useState<ModoVisual>(mobile || telaCompacta ? 'lista' : 'kanban');
 
   useEffect(() => {
+    if (mobile) {
+      setModo('lista');
+      return;
+    }
     setModo(telaCompacta ? 'lista' : 'kanban');
-  }, [telaCompacta]);
+  }, [mobile, telaCompacta]);
 
   const lojasOpcoes = useMemo(() => {
     const map = new Map<number, string>();
@@ -171,33 +189,35 @@ export default function ManutencaoChamadosPage() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={modo}
-            onChange={(_, v: ModoVisual | null) => v && setModo(v)}
-            sx={{
-              bgcolor: 'white',
-              '& .MuiToggleButton-root': {
-                px: 1.25,
-                py: 0.5,
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                textTransform: 'none',
-                borderColor: 'rgba(27, 42, 107, 0.15)',
-                '&.Mui-selected': { bgcolor: 'rgba(27, 42, 107, 0.08)', color: NAVY },
-              },
-            }}
-          >
-            <ToggleButton value="lista" aria-label="Lista">
-              <ViewListIcon sx={{ fontSize: 18, mr: 0.5 }} />
-              Lista
-            </ToggleButton>
-            <ToggleButton value="kanban" aria-label="Kanban">
-              <ViewKanbanIcon sx={{ fontSize: 18, mr: 0.5 }} />
-              Kanban
-            </ToggleButton>
-          </ToggleButtonGroup>
+          {!mobile && (
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={modo}
+              onChange={(_, v: ModoVisual | null) => v && setModo(v)}
+              sx={{
+                bgcolor: 'white',
+                '& .MuiToggleButton-root': {
+                  px: 1.25,
+                  py: 0.5,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderColor: 'rgba(27, 42, 107, 0.15)',
+                  '&.Mui-selected': { bgcolor: 'rgba(27, 42, 107, 0.08)', color: NAVY },
+                },
+              }}
+            >
+              <ToggleButton value="lista" aria-label="Lista">
+                <ViewListIcon sx={{ fontSize: 18, mr: 0.5 }} />
+                Lista
+              </ToggleButton>
+              <ToggleButton value="kanban" aria-label="Kanban">
+                <ViewKanbanIcon sx={{ fontSize: 18, mr: 0.5 }} />
+                Kanban
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
           {sessao && temPermissao('chamados.abrir', sessao) && (
             <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/chamados/novo')}>
               Novo chamado
@@ -282,13 +302,13 @@ export default function ManutencaoChamadosPage() {
               renderValue={(value) => {
                 if (value === TODAS_LOJAS) return 'Todas as lojas';
                 const loja = lojasOpcoes.find(([id]) => String(id) === value);
-                return loja?.[1] ?? 'Todas as lojas';
+                return loja ? <LojaFiltroRotulo nome={loja[1]} /> : 'Todas as lojas';
               }}
             >
               <MenuItem value={TODAS_LOJAS}>Todas as lojas</MenuItem>
               {lojasOpcoes.map(([id, nome]) => (
                 <MenuItem key={id} value={String(id)}>
-                  {nome}
+                  <LojaFiltroRotulo nome={nome} />
                 </MenuItem>
               ))}
             </Select>
@@ -382,11 +402,11 @@ export default function ManutencaoChamadosPage() {
         </Paper>
       )}
 
-      {listaFiltrada.length > 0 && modo === 'kanban' && (
+      {listaFiltrada.length > 0 && !mobile && modo === 'kanban' && (
         <ChamadosKanbanBoard chamados={listaFiltrada} />
       )}
 
-      {listaFiltrada.length > 0 && modo === 'lista' && (
+      {listaFiltrada.length > 0 && (mobile || modo === 'lista') && (
         <Box
           sx={{
             display: 'grid',

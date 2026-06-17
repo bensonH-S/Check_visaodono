@@ -13,7 +13,7 @@ import BrandLogo from '../components/BrandLogo';
 import AppFooter from '../components/AppFooter';
 import NotificacoesSino from '../components/NotificacoesSino';
 import { toAppPath } from '../config/paths';
-import { getUsuario, logout, temPermissao, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import {
   ChamadosMobileLojaProvider,
@@ -221,6 +221,12 @@ function ChamadosMobileLayoutInner() {
       : 'Chamados';
 
   usePageTitle(isNovo ? 'Novo chamado' : isDetalhe ? 'Detalhes do chamado' : 'Chamados');
+
+  useEffect(() => {
+    if (user && !usaFluxoChamadosMobile(user)) {
+      navigate('/chamados', { replace: true });
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     const nome = (location.state as { welcome?: string } | null)?.welcome;

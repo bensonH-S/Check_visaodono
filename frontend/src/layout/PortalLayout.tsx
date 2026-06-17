@@ -102,6 +102,9 @@ export default function PortalLayout() {
 
   const sidebarNav = nav.filter((n) => !n.mobileOnly);
   const mobileTabs = nav.filter((n) => n.mobileTab);
+  /** Técnico entra pelo login mobile de chamados: rodapé só com Chamados (sem Início). */
+  const mobileTabsRodape =
+    user?.perfil === 'tecnico' ? mobileTabs.filter((n) => n.to === '/chamados') : mobileTabs;
 
   const pageTitle = resolvePageTitle(path);
 
@@ -261,7 +264,7 @@ export default function PortalLayout() {
 
         <Box
           component="main"
-          className={`flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 lg:p-4 xl:p-5 ${mobileTabs.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
+          className={`flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 lg:p-4 xl:p-5 ${mobileTabsRodape.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
           sx={{
             maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
             mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
@@ -271,17 +274,17 @@ export default function PortalLayout() {
           <Outlet />
         </Box>
 
-        <Box sx={{ flexShrink: 0, display: { xs: mobileTabs.length && !isChamadoNovo ? 'none' : 'block', md: 'block' } }}>
+        <Box sx={{ flexShrink: 0, display: { xs: mobileTabsRodape.length && !isChamadoNovo ? 'none' : 'block', md: 'block' } }}>
           <AppFooter compact />
         </Box>
 
-        {mobileTabs.length > 0 && !isChamadoNovo && (
+        {mobileTabsRodape.length > 0 && !isChamadoNovo && (
           <Box
             component="nav"
             className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex border-t border-gray-200 bg-[#1B2A6B]"
             sx={{ pb: 'env(safe-area-inset-bottom)' }}
           >
-            {mobileTabs.map((item) => (
+            {mobileTabsRodape.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

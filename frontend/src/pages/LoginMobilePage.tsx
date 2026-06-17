@@ -17,7 +17,7 @@ import BrandLogo from '../components/BrandLogo';
 import AppFooter from '../components/AppFooter';
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
-import { setSessao } from '../lib/auth';
+import { destinoPosLoginMobile, setSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 
 const PAGE_BG = '#f5f5f3';
@@ -61,7 +61,10 @@ export default function LoginMobilePage() {
     try {
       const data = await api.login(emailTrim, senha);
       setSessao(data.accessToken, data.usuario);
-      navigate('/chamados/mobile', { replace: true, state: { welcome: data.usuario.nome } });
+      navigate(destinoPosLoginMobile(data.usuario), {
+        replace: true,
+        state: { welcome: data.usuario.nome },
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       const conhecidas = ['incorretos', 'obrigatórios', 'Sessão expirada', 'indisponível'];
