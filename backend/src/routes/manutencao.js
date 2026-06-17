@@ -404,6 +404,26 @@ async function notificarAprovadoresOrcamento(
   return enviadas;
 }
 
+async function notificarSolicitanteChamado(idChamado, idAutor, tipo, mensagem) {
+  if (!(await eventoNotificacaoAtivo(tipo))) return 0;
+
+  const idAutorNum = Number(idAutor);
+  const { rows } = await pool.query(
+    `SELECT id_solicitante FROM manut_chamados WHERE id_chamado = $1`,
+    [idChamado],
+  );
+  const idSolicitante = Number(rows[0]?.id_solicitante);
+  if (!Number.isFinite(idSolicitante) || idSolicitante === idAutorNum) return 0;
+
+  const ok = await criarNotificacao({
+    idUsuario: idSolicitante,
+    idChamado,
+    tipo,
+    mensagem,
+  });
+  return ok ? 1 : 0;
+}
+
 const TIPOS_NOTIF_MOBILE_EXCLUIDOS = ['envio_aprovacao', 'recusa_aprovacao', 'novo_chamado'];
 
 function sqlFiltroContextoNotificacoes(contexto, alias = 'n') {
