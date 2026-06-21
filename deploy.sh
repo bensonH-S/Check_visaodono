@@ -14,7 +14,7 @@ if [ -f .env ] && grep -qE '^PORT=' .env; then
 fi
 
 echo "Atualizando tags..."
-git fetch --tags
+git fetch --tags --quiet
 
 LATEST_TAG=$(git tag --sort=v:refname | tail -n 1)
 
@@ -58,29 +58,20 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-echo ""
-echo "Instalando dependências..."
-npm run install:all
-
-echo ""
-echo "Build do frontend (produção /auditoria/)..."
-npm run build:web
-
-if [ ! -f frontend/dist/index.html ]; then
-  echo "ERRO: frontend/dist/index.html não existe. Build do frontend falhou."
-  exit 1
-fi
-
 mkdir -p Logs uploads
 chmod 755 Logs uploads 2>/dev/null || true
 
+INICIO=$(date +%s)
+
 echo ""
-echo "Reiniciando container (porta ${APP_PORT})..."
+echo "Construindo imagem Docker (build único, com cache)..."
+docker build --build-arg "GIT_TAG=${TAG}" -t "${IMAGE_NAME}" .
+
+echo ""
+echo "Substituindo container (porta ${APP_PORT})..."
 
 docker stop "${CONTAINER_NAME}" 2>/dev/null || true
 docker rm "${CONTAINER_NAME}" 2>/dev/null || true
-
-docker build --no-cache -t "${IMAGE_NAME}" .
 
 docker run -d \
   -p "${APP_PORT}:${APP_PORT}" \
@@ -95,8 +86,11 @@ echo ""
 echo "Reiniciando nginx..."
 sudo systemctl restart nginx
 
+FIM=$(date +%s)
+DURACAO=$((FIM - INICIO))
+
 echo ""
-echo "Deploy da ${TAG} concluído com sucesso!"
+echo "Deploy da ${TAG} concluído com sucesso! (${DURACAO}s)"
 echo "App: https://grupoalvim.com.br/auditoria/"
 echo "API health: http://127.0.0.1:${APP_PORT}/auditoria/api/health"
 echo "Logs do projeto: ${SCRIPT_DIR}/Logs/"

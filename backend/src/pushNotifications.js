@@ -175,6 +175,10 @@ export async function consultarPushUsuario(idUsuario) {
 
 export async function salvarPushSubscription(idUsuario, subscription, userAgent) {
   await ensurePushSubscriptionsTable();
+  const uid = Number(idUsuario);
+  if (!Number.isFinite(uid)) {
+    throw new Error('Usuário não identificado');
+  }
   const keys = subscription?.keys;
   const endpoint = subscription?.endpoint;
   if (!endpoint || !keys?.p256dh || !keys?.auth) {
@@ -186,7 +190,7 @@ export async function salvarPushSubscription(idUsuario, subscription, userAgent)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (id_usuario, endpoint)
      DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, user_agent = EXCLUDED.user_agent`,
-    [idUsuario, endpoint, keys.p256dh, keys.auth, userAgent || null],
+    [uid, endpoint, keys.p256dh, keys.auth, userAgent || null],
   );
 }
 
