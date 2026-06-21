@@ -14,10 +14,11 @@ import AppFooter from '../components/AppFooter';
 import NotificacoesSino from '../components/NotificacoesSino';
 import PwaInstallBanner from '../components/PwaInstallBanner';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
+import AtivarNotificacoesBar from '../components/AtivarNotificacoesBar';
 import { toAppPath } from '../config/paths';
 import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { prepararNotificacoesPush, sincronizarEstadoPush } from '../utils/pushNotifications';
+import { prepararNotificacoesPush, sincronizarEstadoPush, deveExibirAtivacaoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import {
   ChamadosMobileLojaProvider,
@@ -27,6 +28,7 @@ import {
 const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
 const FOOTER_H = 64;
+const BARRA_PUSH_H = 132;
 
 function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
   return loja.nome;
@@ -217,6 +219,7 @@ function ChamadosMobileLayoutInner() {
   const isDetalhe = Boolean(useMatch('/chamados/mobile/:idChamado'));
   const isSubPage = isNovo || isDetalhe;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
+  const [barPushVisivel, setBarPushVisivel] = useState(false);
 
   const subtituloPagina = isNovo
     ? 'Novo chamado'
@@ -235,7 +238,13 @@ function ChamadosMobileLayoutInner() {
   useEffect(() => {
     if (!user) return;
     iniciarServiceWorkerPwa();
-    void sincronizarEstadoPush().then(() => prepararNotificacoesPush());
+    const atualizarBarra = () => setBarPushVisivel(deveExibirAtivacaoPush());
+    void sincronizarEstadoPush().then(() => {
+      prepararNotificacoesPush();
+      atualizarBarra();
+    });
+    window.addEventListener(PUSH_ATUALIZADO_EVENT, atualizarBarra);
+    return () => window.removeEventListener(PUSH_ATUALIZADO_EVENT, atualizarBarra);
   }, [user]);
 
   useEffect(() => {
@@ -358,7 +367,7 @@ function ChamadosMobileLayoutInner() {
           overflowX: 'hidden',
           px: 2,
           pt: 2,
-          pb: `calc(${FOOTER_H}px + ${podeAbrir && !isSubPage ? 64 : 16}px + env(safe-area-inset-bottom, 0px))`,
+          pb: `calc(${FOOTER_H}px + ${barPushVisivel ? BARRA_PUSH_H : 0}px + ${podeAbrir && !isSubPage ? 64 : 16}px + env(safe-area-inset-bottom, 0px))`,
           WebkitOverflowScrolling: 'touch',
         }}
       >
@@ -373,7 +382,7 @@ function ChamadosMobileLayoutInner() {
           sx={{
             position: 'fixed',
             right: 20,
-            bottom: `calc(${FOOTER_H}px + 16px + env(safe-area-inset-bottom, 0px))`,
+            bottom: `calc(${FOOTER_H}px + ${barPushVisivel ? BARRA_PUSH_H + 8 : 16}px + env(safe-area-inset-bottom, 0px))`,
             zIndex: 40,
             boxShadow: '0 6px 20px rgba(27, 42, 107, 0.35)',
           }}
@@ -381,6 +390,8 @@ function ChamadosMobileLayoutInner() {
           <AddIcon />
         </Fab>
       )}
+
+      <AtivarNotificacoesBar />
 
       <Box
         component="footer"

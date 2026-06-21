@@ -14,15 +14,23 @@ if [ -f .env ] && grep -qE '^PORT=' .env; then
 fi
 
 echo "Atualizando tags..."
-git fetch --tags --quiet
+if ! git fetch origin --tags 2>&1; then
+  echo ""
+  echo "AVISO: não foi possível buscar tags do remoto (continuando com tags locais)."
+  echo "       Se precisar da tag nova: git fetch origin --tags"
+  echo ""
+fi
 
-LATEST_TAG=$(git tag --sort=v:refname | tail -n 1)
+LATEST_TAG="$(git tag --sort=-v:refname 2>/dev/null | head -n 1)"
+if [ -z "$LATEST_TAG" ]; then
+  LATEST_TAG="$(git tag 2>/dev/null | sort -V | tail -n 1)"
+fi
 
 echo ""
-echo "Última versão disponível: ${LATEST_TAG}"
+echo "Última versão disponível: ${LATEST_TAG:-nenhuma}"
 echo ""
 echo "Tags disponíveis:"
-git tag --sort=v:refname -n
+git tag --sort=-v:refname -n 2>/dev/null || git tag -n
 
 echo ""
 
@@ -43,7 +51,7 @@ while true; do
   echo "A versão ${TAG} não existe!"
   echo ""
   echo "Tags disponíveis:"
-  git tag --sort=v:refname -n
+  git tag --sort=-v:refname -n 2>/dev/null || git tag -n
   echo ""
 done
 

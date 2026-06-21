@@ -6,8 +6,7 @@ import { showToast } from '../utils/toast';
 import {
   PUSH_ATUALIZADO_EVENT,
   ativarNotificacoesNoClique,
-  notificacoesPrecisamAtivacao,
-  precisaInstalarIos,
+  deveExibirAtivacaoPush,
   sincronizarEstadoPush,
 } from '../utils/pushNotifications';
 
@@ -16,7 +15,7 @@ export default function AtivarPushHeaderButton() {
   const [ativando, setAtivando] = useState(false);
 
   const atualizar = useCallback(() => {
-    setVisivel(notificacoesPrecisamAtivacao() && !precisaInstalarIos());
+    setVisivel(deveExibirAtivacaoPush());
   }, []);
 
   useEffect(() => {

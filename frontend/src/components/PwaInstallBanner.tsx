@@ -15,6 +15,7 @@ import {
   PUSH_ATUALIZADO_EVENT,
   appInstalada,
   ativarNotificacoesNoClique,
+  deveExibirAtivacaoPush,
   isIos,
   notificacoesPrecisamAtivacao,
   precisaInstalarIos,
@@ -73,6 +74,12 @@ export default function PwaInstallBanner() {
 
     if (requerHttpsParaPush() && isIos()) {
       setModo('https');
+      setVisivel(true);
+      return;
+    }
+
+    if (deveExibirAtivacaoPush()) {
+      setModo('notif');
       setVisivel(true);
       return;
     }

@@ -12,6 +12,7 @@ import {
 import { showToast } from './toast';
 
 const PUSH_OK_KEY = 'vision-check:push-ok';
+const PUSH_AUTO_PEDIDO_KEY = 'vision-check:push-auto-pedido';
 export const PUSH_ATUALIZADO_EVENT = 'vision-check:push-atualizado';
 
 export type ResultadoPushRegistro = {
@@ -33,6 +34,16 @@ export type ResultadoPushRegistro = {
 };
 
 let conclusaoSegundoPlano: Promise<ResultadoPushRegistro> | null = null;
+let pushRegistradoServidor = false;
+let pushSyncConcluido = false;
+
+export function pushRegistradoNoServidor(): boolean {
+  return pushRegistradoServidor;
+}
+
+export function pushSyncFinalizado(): boolean {
+  return pushSyncConcluido;
+}
 
 async function logPushDiagnostico(mensagem: string, extra?: Record<string, unknown>) {
   const diag = await coletarDiagnosticoServiceWorker(mensagem);
@@ -103,8 +114,9 @@ export function isIos(): boolean {
 export function appInstalada(): boolean {
   if (typeof window === 'undefined') return false;
   const standaloneMedia = window.matchMedia('(display-mode: standalone)').matches;
+  const fullscreenMedia = window.matchMedia('(display-mode: fullscreen)').matches;
   const iosStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return standaloneMedia || iosStandalone;
+  return standaloneMedia || fullscreenMedia || iosStandalone;
 }
 
 export function precisaInstalarIos(): boolean {
@@ -141,6 +153,8 @@ export async function obterVapidPublicKey(): Promise<string | null> {
 export async function sincronizarEstadoPush(): Promise<boolean> {
   try {
     const status = await api.pushStatus();
+    pushSyncConcluido = true;
+    pushRegistradoServidor = Boolean(status.registered);
     if (status.registered) {
       marcarPushRegistrado();
       return true;
@@ -148,7 +162,10 @@ export async function sincronizarEstadoPush(): Promise<boolean> {
     limparPushRegistradoLocal();
     return false;
   } catch {
-    return pushJaRegistrado();
+    pushSyncConcluido = true;
+    pushRegistradoServidor = false;
+    limparPushRegistradoLocal();
+    return false;
   }
 }
 
@@ -320,14 +337,30 @@ export function concluirPushEmSegundoPlano(forcar = true): Promise<ResultadoPush
   });
 }
 
-/** Prepara push ao abrir o app. */
+/** Prepara push ao abrir o app — no PWA instalado solicita permissão ao iOS/Android como antes. */
 export async function prepararNotificacoesPush(): Promise<void> {
   if (typeof window === 'undefined') return;
   iniciarServiceWorkerPwa();
   if (!pushSuportado() || requerHttpsParaPush()) return;
 
   await sincronizarEstadoPush();
-  if (pushJaRegistrado()) return;
+  if (pushRegistradoNoServidor()) return;
+
+  if (isIos() && !appInstalada()) return;
+
+  if (Notification.permission === 'default' && appInstalada()) {
+    try {
+      const jaPediu = sessionStorage.getItem(PUSH_AUTO_PEDIDO_KEY) === '1';
+      if (!jaPediu) {
+        sessionStorage.setItem(PUSH_AUTO_PEDIDO_KEY, '1');
+        await ativarNotificacoesNoClique();
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
 
   if (Notification.permission !== 'granted') return;
 
@@ -418,11 +451,18 @@ export async function cancelarPushNotificacoes(): Promise<void> {
   limparPushRegistradoLocal();
 }
 
+/** Exibir botão/banner de ativação push (fonte: servidor após sync). */
+export function deveExibirAtivacaoPush(): boolean {
+  if (requerHttpsParaPush()) return true;
+  if (precisaInstalarIos()) return false;
+  if (!pushSuportado()) return isIos() && appInstalada();
+  if (Notification.permission === 'denied') return true;
+  if (!pushSyncConcluido) return !pushJaRegistrado();
+  return !pushRegistradoServidor;
+}
+
 export function notificacoesPrecisamAtivacao(): boolean {
   if (precisaInstalarIos()) return true;
   if (requerHttpsParaPush() && isIos()) return true;
-  if (!pushSuportado()) return isIos() && appInstalada();
-  if (Notification.permission === 'denied') return true;
-  if (!pushJaRegistrado()) return true;
-  return false;
+  return deveExibirAtivacaoPush();
 }
