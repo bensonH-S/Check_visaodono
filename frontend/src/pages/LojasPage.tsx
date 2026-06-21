@@ -12,7 +12,6 @@ import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { api, fmtNota, notaChipSx } from '../api/client';
 import type { Loja } from '../api/client';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
@@ -56,16 +55,6 @@ export default function LojasPage() {
 
   return (
     <Box sx={tablePageLayoutSx}>
-      <Button
-        component={Link}
-        to="/configuracoes"
-        startIcon={<ArrowBackIcon />}
-        sx={{ alignSelf: 'flex-start', flexShrink: 0 }}
-        size="small"
-      >
-        Voltar às configurações
-      </Button>
-
       <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
         {lojas.length} unidades cadastradas · {operacionais.length} lojas operacionais (com BKN)
       </Typography>

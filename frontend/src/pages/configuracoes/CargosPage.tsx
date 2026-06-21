@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -8,6 +7,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TableContainer from '@mui/material/TableContainer';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -19,13 +19,13 @@ import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BadgeIcon from '@mui/icons-material/Badge';
 import { api } from '../../api/client';
 import type { Cargo } from '../../api/client';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
+import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { useToast } from '../../hooks/useToast';
 
 const NAVY = '#1B2A6B';
@@ -124,30 +124,22 @@ export default function CargosPage() {
   }
 
   return (
-    <Box className="max-w-4xl mx-auto w-full">
-      <Button component={Link} to="/configuracoes" startIcon={<ArrowBackIcon />} sx={{ mb: 2 }}>
-        Voltar
-      </Button>
-
-      <Box className="flex justify-between items-center mb-4 gap-2">
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: NAVY }}>
-            Cargos
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Perfis em Usuários. Marque Aprovador para orçamentos.
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={abrirNovo}>
+    <Box sx={tablePageLayoutSx}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+        <Typography variant="body2" color="text.secondary">
+          Perfis usados em usuários e aprovações de orçamento
+        </Typography>
+        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={abrirNovo}>
           Novo cargo
         </Button>
       </Box>
 
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
-      {erro && !dialog && !excluirAlvo && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
+      {loading && <LinearProgress sx={{ flexShrink: 0 }} />}
+      {erro && !dialog && !excluirAlvo && <Alert severity="error" sx={{ flexShrink: 0 }}>{erro}</Alert>}
 
-      <Paper sx={{ overflow: 'auto' }}>
-        <Table size="small">
+      <Paper elevation={0} sx={tablePaperSx}>
+        <TableContainer sx={tableContainerSx}>
+          <Table size="small" stickyHeader sx={tableSx}>
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
@@ -190,7 +182,8 @@ export default function CargosPage() {
               </TableRow>
             )}
           </TableBody>
-        </Table>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="sm">

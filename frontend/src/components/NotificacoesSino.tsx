@@ -15,8 +15,7 @@ import { formatDataHoraBrasilia } from '../utils/dateBr';
 import { NOTIFICACOES_REFRESH } from '../utils/notificacoesEvent';
 import { tituloNotificacaoChamado } from '../utils/notificacoesTexto';
 import NotificacaoBadge from './NotificacaoBadge';
-
-const NAVY = '#1B2A6B';
+import { colors } from '../theme/tokens';
 const POLL_MS = 3000;
 
 type Props = {
@@ -65,7 +64,10 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
           baselineOk.current = true;
         } else if (maxIdNaoLida > ultimoIdVisto.current) {
           const nova = filtradas.find((n) => n.id_notificacao === maxIdNaoLida);
-          if (nova) showToast(tituloNotificacaoChamado(nova, { contexto }), 'info');
+          if (nova) {
+            const titulo = tituloNotificacaoChamado(nova, { contexto });
+            showToast(titulo, 'info', { toastId: `notif:${nova.id_notificacao}` });
+          }
           ultimoIdVisto.current = maxIdNaoLida;
         }
 
@@ -138,7 +140,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
           setAnchor(e.currentTarget);
           carregar();
         }}
-        sx={{ color: NAVY, position: 'relative' }}
+        sx={{ color: colors.navy, position: 'relative' }}
       >
         <Badge
           badgeContent={naoLidas > 0 ? naoLidas : null}
@@ -175,7 +177,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
       >
         <Box sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: colors.navy }}>
               {tituloMenu}
             </Typography>
             <NotificacaoBadge count={naoLidas} />

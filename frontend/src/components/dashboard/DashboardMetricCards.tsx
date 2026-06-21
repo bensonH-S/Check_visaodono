@@ -7,7 +7,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { fmtNota } from '../../api/client';
-import { NAVY, notaBarColor } from './dashboardCharts';
+import { colors, portalPanelSx } from '../../theme/tokens';
+import { notaBarColor } from './dashboardCharts';
 
 type Metricas = {
   media_geral: number;
@@ -19,13 +20,9 @@ type Metricas = {
 };
 
 const cardSx = {
-  p: { xs: 2, sm: 2.25 },
+  ...portalPanelSx,
   height: '100%',
   minHeight: 118,
-  borderRadius: 2,
-  border: '1px solid rgba(27, 42, 107, 0.1)',
-  bgcolor: '#fff',
-  boxShadow: '0 2px 14px rgba(27, 42, 107, 0.07)',
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'space-between',
@@ -55,17 +52,18 @@ function MetricCard({
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}
+            sx={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}
           >
             {label}
           </Typography>
           <Typography
             sx={{
-              fontWeight: 800,
+              fontWeight: 700,
               mt: 0.5,
               fontSize: { xs: '1.65rem', sm: '1.85rem' },
               lineHeight: 1.1,
-              color: NAVY,
+              color: colors.navy,
+              letterSpacing: '-0.02em',
               ...valueSx,
             }}
           >
@@ -74,22 +72,23 @@ function MetricCard({
         </Box>
         <Box
           sx={{
-            width: 46,
-            height: 46,
-            borderRadius: 2,
+            width: 44,
+            height: 44,
+            borderRadius: 1.5,
             bgcolor: iconBg,
             color: iconColor,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
+            '& .MuiSvgIcon-root': { fontSize: 22 },
           }}
         >
           {icon}
         </Box>
       </Box>
       {sub && (
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', mt: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', mt: 1.25 }}>
           {sub}
         </Typography>
       )}
@@ -108,8 +107,8 @@ export default function DashboardMetricCards({ metricas }: { metricas: Metricas 
           value={fmtNota(media)}
           sub="Índice operacional das lojas"
           icon={<TrendingUpIcon />}
-          iconBg="rgba(27, 42, 107, 0.1)"
-          iconColor={NAVY}
+          iconBg={colors.navyMuted}
+          iconColor={colors.navy}
           valueSx={{ color: notaBarColor(media) }}
         />
       </Grid>
@@ -119,7 +118,7 @@ export default function DashboardMetricCards({ metricas }: { metricas: Metricas 
           value={metricas.visitas_mes}
           sub="Registradas neste mês"
           icon={<EventNoteIcon />}
-          iconBg="rgba(59, 130, 246, 0.12)"
+          iconBg="rgba(59, 130, 246, 0.1)"
           iconColor="#2563EB"
         />
       </Grid>
@@ -129,7 +128,7 @@ export default function DashboardMetricCards({ metricas }: { metricas: Metricas 
           value={metricas.total_ncs_abertas}
           sub={`${metricas.ncs_criticas} crítica(s)`}
           icon={<WarningAmberIcon />}
-          iconBg="rgba(220, 38, 38, 0.1)"
+          iconBg="rgba(220, 38, 38, 0.08)"
           iconColor="#DC2626"
           valueSx={metricas.total_ncs_abertas > 0 ? { color: '#DC2626' } : undefined}
         />
@@ -140,7 +139,7 @@ export default function DashboardMetricCards({ metricas }: { metricas: Metricas 
           value={metricas.lojas_abaixo_75}
           sub={`De ${metricas.lojas_ativas} lojas ativas`}
           icon={<StorefrontIcon />}
-          iconBg="rgba(234, 179, 8, 0.15)"
+          iconBg="rgba(234, 179, 8, 0.12)"
           iconColor="#A16207"
           valueSx={metricas.lojas_abaixo_75 > 0 ? { color: '#A16207' } : undefined}
         />

@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import HistoryIcon from '@mui/icons-material/History';
 import { fmtData } from '../../api/client';
-import { GRAVIDADE_CORES, dashboardPanelSx, dashboardPanelTitleSx, NAVY } from './dashboardCharts';
+import { GRAVIDADE_CORES, dashboardPanelSx, dashboardPanelTitleSx, colors } from './dashboardCharts';
 
 type NcRecente = {
   descricao: string;
@@ -17,7 +17,7 @@ export default function DashboardNcsRecentes({ ncs }: { ncs: NcRecente[] }) {
   return (
     <Paper elevation={0} sx={dashboardPanelSx}>
       <Typography sx={dashboardPanelTitleSx}>
-        <HistoryIcon sx={{ fontSize: 22, color: NAVY }} />
+        <HistoryIcon sx={{ fontSize: 22, color: colors.navy }} />
         NCs recentes em aberto
       </Typography>
 

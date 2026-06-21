@@ -15,8 +15,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
-
-const NAVY = '#1B2A6B';
+import { colors } from '../theme/tokens';
 
 const STATUS_VISITA = [
   { value: 'Rascunho', label: 'Rascunho', color: '#92400E', bg: '#FEF3C7', accent: '#F59E0B' },
@@ -116,9 +115,9 @@ export default function VisitasPage() {
           variant={filtroStatus === '' ? 'filled' : 'outlined'}
           sx={{
             fontWeight: 700,
-            bgcolor: filtroStatus === '' ? NAVY : 'white',
-            color: filtroStatus === '' ? 'white' : NAVY,
-            borderColor: 'rgba(27, 42, 107, 0.2)',
+            bgcolor: filtroStatus === '' ? colors.navy : 'white',
+            color: filtroStatus === '' ? 'white' : colors.navy,
+            borderColor: colors.navyBorder,
           }}
         />
         {STATUS_VISITA.map((st) => {

@@ -1,37 +1,43 @@
-import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { PageTitleConfig } from '../config/pageTitles';
+import { colors } from '../theme/tokens';
 
-export default function PageHeaderTitle({ title, icon }: PageTitleConfig) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0 }}>
-      <Box
-        sx={{
-          width: { xs: 28, sm: 30 },
-          height: { xs: 28, sm: 30 },
-          borderRadius: 1.25,
-          bgcolor: '#E8EBF5',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          '& .MuiSvgIcon-root': { fontSize: { xs: 18, sm: 20 } },
-        }}
-      >
-        {icon}
-      </Box>
+type Props = PageTitleConfig & {
+  variant?: 'mobile' | 'desktop';
+};
+
+export default function PageHeaderTitle({ title, variant = 'mobile' }: Props) {
+  if (variant === 'desktop') {
+    return (
       <Typography
-        variant="subtitle1"
+        component="h1"
         sx={{
           fontWeight: 600,
-          fontSize: { xs: '0.85rem', sm: '0.92rem', md: '0.95rem' },
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
+          fontSize: '1.125rem',
+          color: colors.textPrimary,
+          letterSpacing: '-0.015em',
+          lineHeight: 1.3,
+          m: 0,
         }}
       >
         {title}
       </Typography>
-    </Box>
+    );
+  }
+
+  return (
+    <Typography
+      sx={{
+        fontWeight: 600,
+        fontSize: '0.9375rem',
+        color: colors.textPrimary,
+        letterSpacing: '-0.01em',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {title}
+    </Typography>
   );
 }

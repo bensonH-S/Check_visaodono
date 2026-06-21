@@ -17,9 +17,9 @@ import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
-const NAVY = '#1B2A6B';
+import { colors } from '../theme/tokens';
 
-const iconSx = { fontSize: 22, color: NAVY };
+const iconSx = { fontSize: 20, color: colors.textSecondary };
 
 export type PageTitleConfig = {
   title: string;

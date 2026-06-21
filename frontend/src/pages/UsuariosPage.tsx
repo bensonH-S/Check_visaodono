@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -33,7 +32,6 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
 import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo, type Cargo } from '../api/client';
 import { getUsuario } from '../lib/auth';
@@ -43,7 +41,7 @@ import { useToast } from '../hooks/useToast';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
-const NAVY = '#1B2A6B';
+import { colors } from '../theme/tokens';
 
 const emptyForm = {
   nome: '',
@@ -259,15 +257,6 @@ export default function UsuariosPage() {
 
   return (
     <Box sx={tablePageLayoutSx}>
-      <Button
-        component={Link}
-        to="/configuracoes"
-        startIcon={<ArrowBackIcon />}
-        sx={{ alignSelf: 'flex-start', flexShrink: 0 }}
-        size="small"
-      >
-        Voltar às configurações
-      </Button>
       <Box
         sx={{
           display: 'flex',
@@ -326,7 +315,7 @@ export default function UsuariosPage() {
                   sx={{
                     ...tableCellWrapSx,
                     fontWeight: 600,
-                    color: NAVY,
+                    color: colors.navy,
                     '&:hover': { textDecoration: 'underline' },
                   }}
                 >

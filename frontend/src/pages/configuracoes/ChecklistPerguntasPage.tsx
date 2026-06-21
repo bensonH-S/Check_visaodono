@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -23,7 +22,6 @@ import LinearProgress from '@mui/material/LinearProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -250,16 +248,6 @@ export default function ChecklistPerguntasPage() {
 
   return (
     <Box sx={tablePageLayoutSx}>
-      <Button
-        component={Link}
-        to="/configuracoes"
-        startIcon={<ArrowBackIcon />}
-        sx={{ alignSelf: 'flex-start', flexShrink: 0 }}
-        size="small"
-      >
-        Voltar às configurações
-      </Button>
-
       <Paper
         elevation={0}
         sx={{

@@ -73,8 +73,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['Logo_Icon.png', 'logo-grupo-alvim.png'],
       manifest: {
-        name: 'Vision Check — Grupo Alvim',
-        short_name: 'Vision Check',
+        name: 'Meridian — Grupo Alvim',
+        short_name: 'Meridian',
         description: 'Checklist, chamados e auditoria — Grupo Alvim',
         theme_color: '#1B2A6B',
         background_color: '#f5f5f3',

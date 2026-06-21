@@ -7,7 +7,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { GRAVIDADE_CORES, dashboardPanelSx, dashboardPanelTitleSx, NAVY } from './dashboardCharts';
+import { GRAVIDADE_CORES, dashboardPanelSx, dashboardPanelTitleSx, colors } from './dashboardCharts';
 
 type NcGravidade = { gravidade: string; total: number };
 
@@ -123,7 +123,7 @@ export default function DashboardNcsChart({
         fullWidth
         size="small"
         variant="outlined"
-        sx={{ mt: 1.5, borderColor: NAVY, color: NAVY, fontWeight: 600 }}
+        sx={{ mt: 1.5, borderColor: colors.navy, color: colors.navy, fontWeight: 600 }}
       >
         Ver todas as NCs
       </Button>

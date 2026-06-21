@@ -1,10 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 :root {
-  --ga-orange: #e8520a;
   --ga-navy: #1b2a6b;
-  --ga-orange-light: #fff0e8;
-  --ga-navy-light: #e8ebf5;
+  --ga-orange: #e8520a;
+  --ga-canvas: #f9fafb;
+  --ga-surface: #ffffff;
+  --ga-border: #e5e7eb;
 }
 
 html {
@@ -13,25 +15,32 @@ html {
   text-size-adjust: 100%;
 }
 
-html,
-body,
-#root {
+html, body, #root {
   height: 100%;
   overflow: hidden;
 }
 
 body {
   margin: 0;
-  background: #f5f5f3;
-  touch-action: manipulation;
+  background: var(--ga-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Evita zoom automático do iOS Safari ao focar campos com fonte < 16px */
 @media (pointer: coarse) {
-  input,
-  textarea,
-  select,
-  .MuiInputBase-input {
+  input, textarea, select, .MuiInputBase-input {
     font-size: 16px !important;
   }
+}
+
+.Toastify__toast-icon {
+  width: 18px !important;
+}
+
+.Toastify__toast--success .Toastify__toast-icon svg {
+  fill: #059669 !important;
+}
+
+.Toastify__toast--error .Toastify__toast-icon svg {
+  fill: #dc2626 !important;
 }

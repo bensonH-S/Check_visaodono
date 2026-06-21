@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -8,6 +7,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TableContainer from '@mui/material/TableContainer';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -20,13 +20,13 @@ import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { api } from '../../api/client';
 import type { ManutSla } from '../../api/client';
 import { URGENCIAS, fmtPrazo, slaChip, urgenciaChip } from '../../utils/manutencaoUi';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
+import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { useToast } from '../../hooks/useToast';
 
 const emptyForm = {
@@ -133,18 +133,8 @@ export default function SlaPage() {
   const ativos = lista.filter((s) => s.ativo !== false);
 
   return (
-    <Box className="max-w-3xl mx-auto w-full">
-      <Button
-        component={Link}
-        to="/configuracoes"
-        startIcon={<ArrowBackIcon />}
-        size="small"
-        sx={{ mb: 2 }}
-      >
-        Configurações
-      </Button>
-
-      <Box className="flex items-center justify-between gap-2 mb-2">
+    <Box sx={tablePageLayoutSx}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexShrink: 0 }}>
         <Typography variant="body2" color="text.secondary">
           {ativos.length} SLAs ativos · {lista.length} no total
         </Typography>
@@ -154,13 +144,14 @@ export default function SlaPage() {
       </Box>
 
       {erro && !dialog && !excluirAlvo && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ flexShrink: 0 }}>
           {erro}
         </Alert>
       )}
 
-      <Paper sx={{ overflowX: 'auto' }}>
-        <Table size="small" stickyHeader>
+      <Paper elevation={0} sx={tablePaperSx}>
+        <TableContainer sx={tableContainerSx}>
+          <Table size="small" stickyHeader sx={tableSx}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ minWidth: 160 }}>Nome</TableCell>
@@ -200,7 +191,8 @@ export default function SlaPage() {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="sm">

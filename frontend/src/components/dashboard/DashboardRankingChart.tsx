@@ -8,7 +8,7 @@ import Chip from '@mui/material/Chip';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import type { RankingLoja } from '../../api/client';
 import { fmtNota, notaChipSx } from '../../api/client';
-import { dashboardPanelSx, dashboardPanelTitleSx, NAVY, notaBarColor, rankBadgeSx } from './dashboardCharts';
+import { dashboardPanelSx, dashboardPanelTitleSx, colors, notaBarColor, rankBadgeSx } from './dashboardCharts';
 
 export default function DashboardRankingChart({ ranking }: { ranking: RankingLoja[] }) {
   const ordenado = [...ranking].sort((a, b) => a.posicao_ranking - b.posicao_ranking);
@@ -16,7 +16,7 @@ export default function DashboardRankingChart({ ranking }: { ranking: RankingLoj
   return (
     <Paper elevation={0} sx={dashboardPanelSx}>
       <Typography sx={dashboardPanelTitleSx}>
-        <EmojiEventsIcon sx={{ fontSize: 22, color: '#E8520A' }} />
+        <EmojiEventsIcon sx={{ fontSize: 22, color: colors.orange }} />
         Top 5 Ranking de lojas
       </Typography>
 
@@ -81,7 +81,7 @@ export default function DashboardRankingChart({ ranking }: { ranking: RankingLoj
         fullWidth
         size="small"
         variant="contained"
-        sx={{ mt: 2, bgcolor: NAVY, '&:hover': { bgcolor: '#152056' } }}
+        sx={{ mt: 2, bgcolor: colors.navy, '&:hover': { bgcolor: colors.navyDark } }}
       >
         Ver ranking completo
       </Button>

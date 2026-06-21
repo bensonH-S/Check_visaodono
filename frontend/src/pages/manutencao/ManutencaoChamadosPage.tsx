@@ -13,11 +13,13 @@ import MenuItem from '@mui/material/MenuItem';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Chip from '@mui/material/Chip';
+import Collapse from '@mui/material/Collapse';
 import AddIcon from '@mui/icons-material/Add';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { api } from '../../api/client';
@@ -28,9 +30,9 @@ import ChamadosKanbanBoard from '../../components/manutencao/ChamadosKanbanBoard
 import ChamadoCardResumo from '../../components/manutencao/ChamadoCardResumo';
 import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { parseDataApi } from '../../utils/dateBr';
+import { pageFillLayoutSx } from '../../utils/pageFillLayout';
+import { colors } from '../../theme/tokens';
 
-const NAVY = '#1B2A6B';
-const ORANGE = '#E8520A';
 const TODAS_LOJAS = 'todas';
 
 const PERIODOS = [
@@ -46,7 +48,7 @@ type ModoVisual = 'kanban' | 'lista';
 function LojaFiltroRotulo({ nome }: { nome: string }) {
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-      <LocationOnOutlinedIcon sx={{ fontSize: 18, color: ORANGE, flexShrink: 0 }} />
+      <LocationOnOutlinedIcon sx={{ fontSize: 16, color: colors.orange, flexShrink: 0 }} />
       <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {nome}
       </Box>
@@ -54,18 +56,12 @@ function LojaFiltroRotulo({ nome }: { nome: string }) {
   );
 }
 
-function pertenceAoPeriodo(
-  abertoEm: string | undefined,
-  prazoSla: string,
-  periodo: string,
-): boolean {
+function pertenceAoPeriodo(abertoEm: string | undefined, prazoSla: string, periodo: string): boolean {
   if (!periodo) return true;
   const data = parseDataApi(abertoEm || prazoSla);
   if (Number.isNaN(data.getTime())) return false;
-
   const agora = new Date();
   const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
-
   switch (periodo) {
     case 'hoje':
       return data.getTime() >= inicioHoje.getTime();
@@ -93,6 +89,7 @@ export default function ManutencaoChamadosPage() {
   const [filtroPeriodo, setFiltroPeriodo] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [modo, setModo] = useState<ModoVisual>(mobile || telaCompacta ? 'lista' : 'kanban');
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
 
   useEffect(() => {
     if (mobile) {
@@ -130,14 +127,10 @@ export default function ManutencaoChamadosPage() {
     return map;
   }, [listaFiltrada]);
 
-  const filtrosAtivos =
-    filtroLoja !== TODAS_LOJAS || filtroPeriodo !== '' || filtroStatus !== '';
+  const filtrosAtivos = filtroLoja !== TODAS_LOJAS || filtroPeriodo !== '' || filtroStatus !== '';
 
   function recarregar() {
-    return api
-      .manutChamados()
-      .then(setLista)
-      .catch((e) => setErro(e.message));
+    return api.manutChamados().then(setLista).catch((e) => setErro(e.message));
   }
 
   function limparFiltros() {
@@ -167,27 +160,13 @@ export default function ManutencaoChamadosPage() {
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Cabeçalho */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 1.5,
-          mb: 2,
-        }}
-      >
-        <Box>
-          <Typography sx={{ fontWeight: 800, color: NAVY, fontSize: { xs: '1.1rem', md: '1.25rem' } }}>
-            Chamados de manutenção
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-            {listaFiltrada.length} chamado{listaFiltrada.length !== 1 ? 's' : ''}
-            {filtrosAtivos ? ' com filtros aplicados' : ' no total'}
-          </Typography>
-        </Box>
+    <Box sx={pageFillLayoutSx}>
+      {/* Toolbar compacta — não rola */}
+      <Box sx={{ flexShrink: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
+        <Typography variant="body2" color="text.secondary">
+          {listaFiltrada.length} chamado{listaFiltrada.length !== 1 ? 's' : ''}
+          {filtrosAtivos ? ' · filtros ativos' : ''}
+        </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           {!mobile && (
             <ToggleButtonGroup
@@ -195,49 +174,39 @@ export default function ManutencaoChamadosPage() {
               exclusive
               value={modo}
               onChange={(_, v: ModoVisual | null) => v && setModo(v)}
-              sx={{
-                bgcolor: 'white',
-                '& .MuiToggleButton-root': {
-                  px: 1.25,
-                  py: 0.5,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  borderColor: 'rgba(27, 42, 107, 0.15)',
-                  '&.Mui-selected': { bgcolor: 'rgba(27, 42, 107, 0.08)', color: NAVY },
-                },
-              }}
             >
               <ToggleButton value="lista" aria-label="Lista">
-                <ViewListIcon sx={{ fontSize: 18, mr: 0.5 }} />
-                Lista
+                <ViewListIcon sx={{ fontSize: 17 }} />
               </ToggleButton>
               <ToggleButton value="kanban" aria-label="Kanban">
-                <ViewKanbanIcon sx={{ fontSize: 18, mr: 0.5 }} />
-                Kanban
+                <ViewKanbanIcon sx={{ fontSize: 17 }} />
               </ToggleButton>
             </ToggleButtonGroup>
           )}
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FilterListIcon sx={{ fontSize: 16 }} />}
+            endIcon={<ExpandMoreIcon sx={{ fontSize: 16, transform: filtrosAbertos ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />}
+            onClick={() => setFiltrosAbertos((v) => !v)}
+          >
+            Filtros
+          </Button>
           {sessao && temPermissao('chamados.abrir', sessao) && (
             <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/chamados/novo')}>
-              Novo chamado
+              Novo
             </Button>
           )}
         </Box>
       </Box>
 
-      {/* Resumo por status — clique filtra */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+      <Box sx={{ flexShrink: 0, display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
         <Chip
           label={`Todos · ${listaFiltrada.length}`}
+          size="small"
           onClick={() => setFiltroStatus('')}
           variant={filtroStatus === '' ? 'filled' : 'outlined'}
-          sx={{
-            fontWeight: 700,
-            bgcolor: filtroStatus === '' ? NAVY : 'white',
-            color: filtroStatus === '' ? 'white' : NAVY,
-            borderColor: 'rgba(27, 42, 107, 0.2)',
-          }}
+          color={filtroStatus === '' ? 'primary' : 'default'}
         />
         {KANBAN_COLUNAS.map((col) => {
           const qtd = contagemPorStatus.get(col.status) ?? 0;
@@ -246,185 +215,111 @@ export default function ManutencaoChamadosPage() {
           return (
             <Chip
               key={col.status}
+              size="small"
               label={`${col.label} · ${qtd}`}
               onClick={() => setFiltroStatus(ativo ? '' : col.status)}
               variant={ativo ? 'filled' : 'outlined'}
-              sx={{
-                fontWeight: 600,
-                fontSize: '0.78rem',
-                bgcolor: ativo ? st?.bg : 'white',
-                color: ativo ? st?.color : 'text.secondary',
-                borderColor: `${col.accent}50`,
-              }}
+              sx={ativo ? { bgcolor: st?.bg, color: st?.color, fontWeight: 600 } : undefined}
             />
           );
         })}
       </Box>
 
-      {/* Filtros */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 1.5, md: 2 },
-          mb: 2,
-          borderRadius: 2,
-          border: '1px solid rgba(27, 42, 107, 0.1)',
-          bgcolor: 'white',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
-          <FilterListIcon sx={{ fontSize: 18, color: NAVY }} />
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-            Filtros
-          </Typography>
+      <Collapse in={filtrosAbertos}>
+        <Paper elevation={0} sx={{ p: 1.5, border: '1px solid', borderColor: colors.border, flexShrink: 0 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 1.25 }}>
+            <FormControl size="small" fullWidth>
+              <InputLabel shrink>Loja</InputLabel>
+              <Select
+                label="Loja"
+                value={filtroLoja}
+                onChange={(e) => setFiltroLoja(e.target.value)}
+                renderValue={(value) => {
+                  if (value === TODAS_LOJAS) return 'Todas as lojas';
+                  const loja = lojasOpcoes.find(([id]) => String(id) === value);
+                  return loja ? <LojaFiltroRotulo nome={loja[1]} /> : 'Todas as lojas';
+                }}
+              >
+                <MenuItem value={TODAS_LOJAS}>Todas as lojas</MenuItem>
+                {lojasOpcoes.map(([id, nome]) => (
+                  <MenuItem key={id} value={String(id)}>
+                    <LojaFiltroRotulo nome={nome} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" fullWidth>
+              <InputLabel shrink>Período</InputLabel>
+              <Select label="Período" value={filtroPeriodo} displayEmpty onChange={(e) => setFiltroPeriodo(e.target.value)}>
+                {PERIODOS.map((p) => (
+                  <MenuItem key={p.value || 'todos'} value={p.value}>{p.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" fullWidth>
+              <InputLabel shrink>Status</InputLabel>
+              <Select label="Status" value={filtroStatus} displayEmpty onChange={(e) => setFiltroStatus(e.target.value)}>
+                <MenuItem value="">Todos</MenuItem>
+                {Object.entries(STATUS_CHAMADO).map(([value, st]) => (
+                  <MenuItem key={value} value={value}>{st.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
           {filtrosAtivos && (
-            <Button size="small" onClick={limparFiltros} sx={{ ml: 'auto', fontSize: '0.75rem' }}>
-              Limpar
-            </Button>
-          )}
-        </Box>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, minmax(0, 1fr))' },
-            gap: 1.25,
-          }}
-        >
-          <FormControl size="small" fullWidth>
-            <InputLabel id="filtro-loja-label" shrink>
-              Loja
-            </InputLabel>
-            <Select
-              labelId="filtro-loja-label"
-              label="Loja"
-              value={filtroLoja}
-              onChange={(e) => setFiltroLoja(e.target.value)}
-              renderValue={(value) => {
-                if (value === TODAS_LOJAS) return 'Todas as lojas';
-                const loja = lojasOpcoes.find(([id]) => String(id) === value);
-                return loja ? <LojaFiltroRotulo nome={loja[1]} /> : 'Todas as lojas';
-              }}
-            >
-              <MenuItem value={TODAS_LOJAS}>Todas as lojas</MenuItem>
-              {lojasOpcoes.map(([id, nome]) => (
-                <MenuItem key={id} value={String(id)}>
-                  <LojaFiltroRotulo nome={nome} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl size="small" fullWidth>
-            <InputLabel id="filtro-periodo-label" shrink>
-              Período
-            </InputLabel>
-            <Select
-              labelId="filtro-periodo-label"
-              label="Período"
-              value={filtroPeriodo}
-              displayEmpty
-              onChange={(e) => setFiltroPeriodo(e.target.value)}
-              renderValue={(value) =>
-                PERIODOS.find((p) => p.value === value)?.label ?? 'Todos os períodos'
-              }
-            >
-              {PERIODOS.map((p) => (
-                <MenuItem key={p.value || 'todos'} value={p.value}>
-                  {p.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl size="small" fullWidth sx={{ gridColumn: { sm: 'span 2', lg: 'span 1' } }}>
-            <InputLabel id="filtro-status-label" shrink>
-              Status
-            </InputLabel>
-            <Select
-              labelId="filtro-status-label"
-              label="Status"
-              value={filtroStatus}
-              displayEmpty
-              onChange={(e) => setFiltroStatus(e.target.value)}
-              renderValue={(value) =>
-                value === '' ? 'Todos os status' : (STATUS_CHAMADO[value]?.label ?? value)
-              }
-            >
-              <MenuItem value="">Todos os status</MenuItem>
-              {Object.entries(STATUS_CHAMADO).map(([value, st]) => (
-                <MenuItem key={value} value={value}>
-                  {st.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-      </Paper>
-
-      {erro && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {erro}
-        </Alert>
-      )}
-
-      {!lista.length && !erro && (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            borderRadius: 2,
-            border: `1.5px dashed ${NAVY}`,
-            bgcolor: 'rgba(27, 42, 107, 0.03)',
-          }}
-        >
-          <Typography color="text.secondary" gutterBottom>
-            Nenhum chamado ainda.
-          </Typography>
-          {sessao && temPermissao('chamados.abrir', sessao) && (
-            <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/chamados/novo')}>
-              Abrir primeiro chamado
-            </Button>
-          )}
-        </Paper>
-      )}
-
-      {lista.length > 0 && !listaFiltrada.length && (
-        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
-          <Typography color="text.secondary" gutterBottom>
-            Nenhum chamado encontrado com os filtros selecionados.
-          </Typography>
-          {filtrosAtivos && (
-            <Button size="small" sx={{ mt: 1 }} onClick={limparFiltros}>
+            <Button size="small" onClick={limparFiltros} sx={{ mt: 1, fontSize: '0.75rem' }}>
               Limpar filtros
             </Button>
           )}
         </Paper>
+      </Collapse>
+
+      {erro && (
+        <Alert severity="error" sx={{ flexShrink: 0 }}>
+          {erro}
+        </Alert>
       )}
 
-      {listaFiltrada.length > 0 && !mobile && modo === 'kanban' && (
-        <ChamadosKanbanBoard chamados={listaFiltrada} />
-      )}
+      {/* Área principal — kanban/lista rola por dentro */}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {!lista.length && !erro && (
+          <Paper elevation={0} sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: colors.border }}>
+            <Typography color="text.secondary" gutterBottom>Nenhum chamado ainda.</Typography>
+            {sessao && temPermissao('chamados.abrir', sessao) && (
+              <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/chamados/novo')}>
+                Abrir primeiro chamado
+              </Button>
+            )}
+          </Paper>
+        )}
 
-      {listaFiltrada.length > 0 && (mobile || modo === 'lista') && (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' },
-            gap: 1.5,
-          }}
-        >
-          {listaFiltrada.map((c) => (
-            <ChamadoCardResumo
-              key={c.id_chamado}
-              chamado={c}
-              showLoja
-              showSla
-              onClick={() => navigate(`/chamados/${c.id_chamado}`)}
-            />
-          ))}
-        </Box>
-      )}
+        {lista.length > 0 && !listaFiltrada.length && (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography color="text.secondary">Nenhum chamado com os filtros selecionados.</Typography>
+            {filtrosAtivos && (
+              <Button size="small" sx={{ mt: 1 }} onClick={limparFiltros}>Limpar filtros</Button>
+            )}
+          </Paper>
+        )}
+
+        {listaFiltrada.length > 0 && !mobile && modo === 'kanban' && (
+          <ChamadosKanbanBoard chamados={listaFiltrada} />
+        )}
+
+        {listaFiltrada.length > 0 && (mobile || modo === 'lista') && (
+          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' }, gap: 1.25, alignContent: 'start' }}>
+            {listaFiltrada.map((c) => (
+              <ChamadoCardResumo
+                key={c.id_chamado}
+                chamado={c}
+                showLoja
+                showSla
+                onClick={() => navigate(`/chamados/${c.id_chamado}`)}
+              />
+            ))}
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 }

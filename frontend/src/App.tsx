@@ -25,6 +25,7 @@ import ChamadosMobileNovoPage from './pages/manutencao/ChamadosMobileNovoPage';
 import ChamadosMobileDetalhePage from './pages/manutencao/ChamadosMobileDetalhePage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
+import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
 import CategoriasPage from './pages/configuracoes/CategoriasPage';
 import SlaPage from './pages/configuracoes/SlaPage';
 import CargosPage from './pages/configuracoes/CargosPage';
@@ -164,67 +165,69 @@ export default function App() {
             <Route
               path="configuracoes"
               element={
-                <RotaPermissao permissoes={['configuracoes.ver']}>
-                  <ConfiguracoesPage />
+                <RotaPermissao permissoes={['configuracoes.ver', 'usuarios.gerenciar', 'portal.lojas.ver']}>
+                  <ConfiguracoesLayout />
                 </RotaPermissao>
               }
-            />
-            <Route
-              path="configuracoes/perguntas"
-              element={
-                <RotaPermissao permissoes={['configuracoes.ver']}>
-                  <ChecklistPerguntasPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="configuracoes/usuarios"
-              element={
-                <RotaPermissao permissoes={['usuarios.gerenciar']}>
-                  <UsuariosPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="configuracoes/lojas"
-              element={
-                <RotaPermissao permissoes={['portal.lojas.ver']}>
-                  <LojasPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="configuracoes/categorias"
-              element={
-                <RotaPermissao permissoes={['configuracoes.ver']}>
-                  <CategoriasPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="configuracoes/sla"
-              element={
-                <RotaPermissao permissoes={['configuracoes.ver']}>
-                  <SlaPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="configuracoes/cargos"
-              element={
-                <RotaPermissao permissoes={['configuracoes.ver']}>
-                  <CargosPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="configuracoes/whatsapp"
-              element={
-                <RotaPermissao permissoes={['configuracoes.ver']}>
-                  <WhatsAppPage />
-                </RotaPermissao>
-              }
-            />
+            >
+              <Route index element={<ConfiguracoesPage />} />
+              <Route
+                path="perguntas"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver']}>
+                    <ChecklistPerguntasPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="usuarios"
+                element={
+                  <RotaPermissao permissoes={['usuarios.gerenciar']}>
+                    <UsuariosPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="lojas"
+                element={
+                  <RotaPermissao permissoes={['portal.lojas.ver']}>
+                    <LojasPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="categorias"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver']}>
+                    <CategoriasPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="sla"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver']}>
+                    <SlaPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="cargos"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver']}>
+                    <CargosPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="whatsapp"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver']}>
+                    <WhatsAppPage />
+                  </RotaPermissao>
+                }
+              />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

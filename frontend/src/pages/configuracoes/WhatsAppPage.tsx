@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -8,16 +7,13 @@ import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import SendIcon from '@mui/icons-material/Send';
-import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import { api } from '../../api/client';
 import type { WppStatus } from '../../api/client';
 import { useToast } from '../../hooks/useToast';
-
-const NAVY = '#1B2A6B';
+import { portalPanelSx } from '../../theme/tokens';
 
 export default function WhatsAppPage() {
   const [status, setStatus] = useState<WppStatus | null>(null);
@@ -114,31 +110,19 @@ export default function WhatsAppPage() {
   }
 
   return (
-    <Box className="max-w-2xl mx-auto w-full">
-      <Button component={Link} to="/configuracoes" startIcon={<ArrowBackIcon />} sx={{ mb: 2 }} size="small">
-        Voltar às configurações
-      </Button>
+    <Box sx={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Typography variant="body2" color="text.secondary">
+        Sessão <strong>wpp_visao_check</strong> via wppconnect-server
+      </Typography>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        <WhatsAppIcon sx={{ fontSize: 32, color: '#25D366' }} />
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: NAVY }}>
-            WhatsApp — notificações de chamados
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Sessão dedicada <strong>wpp_visao_check</strong> via wppconnect-server
-          </Typography>
-        </Box>
-      </Box>
-
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
+      {loading && <LinearProgress />}
       {erro && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error">
           {erro}
         </Alert>
       )}
 
-      <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 2 }}>
+      <Paper elevation={0} sx={{ ...portalPanelSx, p: 2.5 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
             Status da sessão
@@ -211,7 +195,7 @@ export default function WhatsAppPage() {
         )}
       </Paper>
 
-      <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Paper elevation={0} sx={{ ...portalPanelSx, p: 2.5 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
           Envio de teste
         </Typography>

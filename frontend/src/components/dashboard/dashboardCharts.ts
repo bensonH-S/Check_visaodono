@@ -1,33 +1,34 @@
 import type { SxProps, Theme } from '@mui/material/styles';
+import { colors, portalPanelSx, sectionLabelSx } from '../../theme/tokens';
 
-export const NAVY = '#1B2A6B';
-export const ORANGE = '#E8520A';
+export { colors, shadows } from '../../theme/tokens';
+export const NAVY = colors.navy;
+export const ORANGE = colors.orange;
 
 export const GRAVIDADE_CORES: Record<string, string> = {
   Crítica: '#DC2626',
-  Moderada: '#E8520A',
+  Moderada: colors.orange,
   Baixa: '#EAB308',
 };
 
 export const dashboardPanelSx: SxProps<Theme> = {
-  p: { xs: 2, sm: 2.5 },
+  ...portalPanelSx,
   height: '100%',
-  borderRadius: 2,
-  border: '1px solid rgba(27, 42, 107, 0.1)',
-  bgcolor: '#fff',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: '0 2px 14px rgba(27, 42, 107, 0.07)',
 };
 
 export const dashboardPanelTitleSx = {
-  fontWeight: 800,
-  fontSize: { xs: '0.9rem', sm: '0.95rem' },
-  color: NAVY,
+  ...sectionLabelSx,
+  fontSize: { xs: '0.72rem', sm: '0.75rem' },
   mb: 2,
   display: 'flex',
   alignItems: 'center',
   gap: 1,
+  color: colors.navy,
+  textTransform: 'none' as const,
+  letterSpacing: '-0.01em',
+  fontWeight: 600,
 };
 
 export function rankBadgeSx(posicao: number) {
@@ -40,10 +41,10 @@ export function rankBadgeSx(posicao: number) {
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: '0.8rem',
-    fontWeight: 800,
+    fontWeight: 700,
     flexShrink: 0,
-    bgcolor: top3 ? ORANGE : '#E8EAED',
-    color: top3 ? '#fff' : NAVY,
+    bgcolor: top3 ? colors.orange : colors.canvasAlt,
+    color: top3 ? '#fff' : colors.navy,
   };
 }
 

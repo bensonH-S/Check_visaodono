@@ -1,28 +1,32 @@
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { TOAST_DURATION_MS } from '../utils/toast';
+import { colors, radius, shadows } from '../theme/tokens';
 
-/** Toasts globais no estilo ngx-toastr (canto superior direito, empilhados). */
 export default function AppToastContainer() {
   return (
     <ToastContainer
       position="top-right"
       autoClose={TOAST_DURATION_MS}
-      hideProgressBar={false}
+      hideProgressBar
       newestOnTop
       closeOnClick
       pauseOnHover
-      draggable
-      theme="colored"
-      limit={5}
-      rtl={false}
+      draggable={false}
+      theme="light"
+      limit={3}
       toastStyle={{
-        borderRadius: 8,
-        fontFamily: '"Segoe UI", system-ui, sans-serif',
-        fontSize: '0.875rem',
-        boxShadow: '0 8px 24px rgba(27, 42, 107, 0.18)',
+        borderRadius: radius.md,
+        fontFamily: '"Inter", sans-serif',
+        fontSize: '0.8125rem',
+        fontWeight: 500,
+        color: colors.textPrimary,
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
+        boxShadow: shadows.card,
+        padding: '12px 16px',
       }}
-      style={{ zIndex: 10000 }}
+      style={{ zIndex: 10000, top: 20, right: 20 }}
     />
   );
 }

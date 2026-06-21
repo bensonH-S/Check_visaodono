@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -8,6 +7,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TableContainer from '@mui/material/TableContainer';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -20,7 +20,6 @@ import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { api } from '../../api/client';
@@ -28,6 +27,7 @@ import type { ManutCategoria, ManutSla } from '../../api/client';
 import { slaChip, urgenciaChip } from '../../utils/manutencaoUi';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import { useToast } from '../../hooks/useToast';
+import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 
 const emptyForm = {
   nome: '',
@@ -140,18 +140,8 @@ export default function CategoriasPage() {
   const ativas = lista.filter((c) => c.ativo !== false);
 
   return (
-    <Box className="max-w-3xl mx-auto w-full">
-      <Button
-        component={Link}
-        to="/configuracoes"
-        startIcon={<ArrowBackIcon />}
-        size="small"
-        sx={{ mb: 2 }}
-      >
-        Configurações
-      </Button>
-
-      <Box className="flex items-center justify-between gap-2 mb-2">
+    <Box sx={tablePageLayoutSx}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexShrink: 0 }}>
         <Typography variant="body2" color="text.secondary">
           {ativas.length} categorias ativas · {lista.length} no total
         </Typography>
@@ -161,13 +151,14 @@ export default function CategoriasPage() {
       </Box>
 
       {erro && !dialog && !excluirAlvo && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ flexShrink: 0 }}>
           {erro}
         </Alert>
       )}
 
-      <Paper sx={{ overflowX: 'auto' }}>
-        <Table size="small" stickyHeader>
+      <Paper elevation={0} sx={tablePaperSx}>
+        <TableContainer sx={tableContainerSx}>
+          <Table size="small" stickyHeader sx={tableSx}>
           <TableHead>
             <TableRow>
               <TableCell>Categoria</TableCell>
@@ -203,7 +194,8 @@ export default function CategoriasPage() {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="sm">
