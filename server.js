@@ -79,6 +79,10 @@ if (process.env.DB_PASS === undefined) {
 
 const express = (await import('express')).default;
 const cors = (await import('cors')).default;
+const { logger, middlewareHttpLogger, registrarHandlersGlobais, getLogDir } = await import(
+  './backend/src/logger.js'
+);
+registrarHandlersGlobais();
 const { pool } = await import('./backend/src/db.js');
 const lojasRouter = (await import('./backend/src/routes/lojas.js')).default;
 const usuariosRouter = (await import('./backend/src/routes/usuarios.js')).default;
@@ -101,11 +105,12 @@ const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '80mb' }));
+app.use(middlewareHttpLogger());
 
 function garantirSchema() {
   pool
     .query('ALTER TABLE respostas ALTER COLUMN foto_url TYPE TEXT')
-    .catch((e) => console.warn('[schema]', e.message));
+    .catch((e) => logger.warn('schema', e.message));
 }
 
 const api = express.Router();
@@ -121,7 +126,7 @@ api.get('/health', async (_req, res) => {
       api: API_PREFIX,
     });
   } catch (e) {
-    console.error('[health]', e.message);
+    logger.error('health', 'Falha no health check', { error: e.message });
     res.status(500).json({ ok: false, error: e.message });
   }
 });
@@ -165,8 +170,12 @@ api.use('/push', pushRouter);
 app.use(API_PREFIX, api);
 app.use('/api', api);
 
-app.use((err, _req, res, _next) => {
-  console.error('[API]', err.message);
+app.use((err, req, res, _next) => {
+  logger.exception('api', err, {
+    method: req.method,
+    url: req.originalUrl,
+    userId: req.user?.sub ?? req.user?.id_usuario ?? null,
+  });
   const msg = String(err.message || '');
   const erroDb =
     msg.includes('SASL') ||
@@ -209,20 +218,34 @@ if (SERVE_WEB) {
     res.sendFile(indexHtml);
   });
   console.log(`[server] SPA ${STATIC_BASE} → ${dist}`);
+  logger.info('server', 'SPA estática configurada', { dist, base: STATIC_BASE });
 }
 
 app.listen(PORT, async () => {
   garantirSchema();
-  console.log(`[server] ${isProd ? 'produção' : 'dev'} — :${PORT}${API_PREFIX}`);
+  const modo = isProd ? 'produção' : 'dev';
+  logger.info('server', 'API iniciada', {
+    modo,
+    port: PORT,
+    api: API_PREFIX,
+    versao: APP_VERSION,
+    db: `${process.env.DB_HOST}/${process.env.DB_NAME}`,
+    logs: getLogDir(),
+  });
+  console.log(`[server] ${modo} — :${PORT}${API_PREFIX}`);
   console.log(`[server] versão ${APP_VERSION}`);
   console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
+  console.log(`[server] Logs → ${getLogDir()}`);
   if (!process.env.DB_PASS) {
+    logger.warn('server', 'DB_PASS vazio no .env');
     console.warn('[server] DB_PASS vazio — o PostgreSQL local exige senha. Preencha no .env e reinicie.');
   }
   try {
     await pool.query('SELECT 1');
+    logger.info('server', 'Conexão PostgreSQL OK');
     console.log('[server] Conexão com PostgreSQL OK');
   } catch (e) {
+    logger.error('server', 'Falha ao conectar PostgreSQL', { error: e.message });
     console.error('[server] Falha ao conectar no PostgreSQL:', e.message);
     console.error('[server] Ajuste DB_PASS no .env (senha do usuário postgres) e reinicie npm run dev');
   }

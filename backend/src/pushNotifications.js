@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import { pool } from './db.js';
+import { logger } from './logger.js';
 
 let pushAtivo = false;
 
@@ -9,12 +10,13 @@ export function initPushNotifications() {
   const subject = process.env.VAPID_SUBJECT?.trim() || 'mailto:support@grupoalvim.com.br';
 
   if (!publicKey || !privateKey) {
-    console.warn('[push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ausentes — push desativado');
+    logger.warn('push', 'VAPID ausente — push desativado');
     return false;
   }
 
   webpush.setVapidDetails(subject, publicKey, privateKey);
   pushAtivo = true;
+  logger.info('push', 'Web Push inicializado');
   return true;
 }
 
@@ -44,7 +46,7 @@ async function ensurePushSubscriptionsTable() {
     _tabelaPushOk = true;
     return true;
   } catch (e) {
-    console.error('[push] Falha ao garantir tabela push_subscriptions:', e.message);
+    logger.error('push', 'Falha ao garantir tabela push_subscriptions', { error: e.message });
     return false;
   }
 }
@@ -97,7 +99,10 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
       `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE id_usuario = $1`,
       [uid],
     );
-    if (!subs.length) return;
+    if (!subs.length) {
+      logger.warn('push', 'Usuário sem inscrição push', { idUsuario: uid, idChamado: cid });
+      return;
+    }
 
     const { rows: chamadoRows } = await pool.query(
       `SELECT c.numero, l.nome AS loja
@@ -133,11 +138,17 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
           },
           payload,
         );
+        logger.debug('push', 'Alerta enviado', { idUsuario: uid, idChamado: cid, tipo });
       } catch (e) {
         if (e.statusCode === 404 || e.statusCode === 410) {
           invalidEndpoints.push(sub.endpoint);
         } else {
-          console.error('[push] Falha ao enviar:', e.statusCode || e.message);
+          logger.error('push', 'Falha ao enviar alerta', {
+            idUsuario: uid,
+            idChamado: cid,
+            status: e.statusCode,
+            error: e.message,
+          });
         }
       }
     }
@@ -149,8 +160,17 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
       );
     }
   } catch (e) {
-    console.error('[push] Erro ao enviar notificação:', e.message);
+    logger.error('push', 'Erro ao enviar notificação', { error: e.message, idUsuario: uid, idChamado: cid });
   }
+}
+
+export async function consultarPushUsuario(idUsuario) {
+  await ensurePushSubscriptionsTable();
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::int AS total FROM push_subscriptions WHERE id_usuario = $1`,
+    [idUsuario],
+  );
+  return (rows[0]?.total ?? 0) > 0;
 }
 
 export async function salvarPushSubscription(idUsuario, subscription, userAgent) {

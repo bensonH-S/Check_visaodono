@@ -3,9 +3,24 @@ import {
   getVapidPublicKey,
   salvarPushSubscription,
   removerPushSubscription,
+  consultarPushUsuario,
 } from '../pushNotifications.js';
+import { logger } from '../logger.js';
 
 const router = Router();
+
+router.get('/status', async (req, res) => {
+  try {
+    const registered = await consultarPushUsuario(req.user.id_usuario);
+    res.json({
+      registered,
+      pushEnabled: Boolean(getVapidPublicKey()),
+    });
+  } catch (e) {
+    logger.error('push', 'Erro ao consultar status', { error: e.message });
+    res.status(500).json({ error: e.message || 'Erro ao consultar push' });
+  }
+});
 
 router.get('/vapid-key', (_req, res) => {
   const publicKey = getVapidPublicKey();
@@ -26,9 +41,10 @@ router.post('/subscribe', async (req, res) => {
       subscription,
       req.headers['user-agent'],
     );
+    logger.info('push', 'Inscrição push registrada', { idUsuario: req.user.id_usuario });
     res.json({ ok: true });
   } catch (e) {
-    console.error('[push] subscribe:', e.message);
+    logger.error('push', 'Erro ao registrar inscrição', { error: e.message, idUsuario: req.user?.id_usuario });
     res.status(500).json({ error: e.message || 'Erro ao registrar push' });
   }
 });
@@ -39,7 +55,7 @@ router.delete('/subscribe', async (req, res) => {
     await removerPushSubscription(req.user.id_usuario, endpoint);
     res.json({ ok: true });
   } catch (e) {
-    console.error('[push] unsubscribe:', e.message);
+    logger.error('push', 'Erro ao remover inscrição', { error: e.message });
     res.status(500).json({ error: e.message || 'Erro ao remover push' });
   }
 });

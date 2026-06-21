@@ -4,6 +4,7 @@ import { pool } from '../db.js';
 import { authMiddleware, signToken } from '../auth.js';
 import { carregarLojasDetalhe } from '../lojasUsuario.js';
 import { acessoTodasLojas, carregarPermissoesUsuario } from '../permissoes.js';
+import { logger } from '../logger.js';
 
 const router = Router();
 
@@ -40,14 +41,17 @@ router.post('/login', async (req, res, next) => {
     );
     const user = rows[0];
     if (!user?.senha_hash) {
+      logger.warn('auth', 'Login falhou — usuário não encontrado', { email });
       return res.status(401).json({ error: 'E-mail ou senha incorretos' });
     }
     const ok = await bcrypt.compare(senha, user.senha_hash);
     if (!ok) {
+      logger.warn('auth', 'Login falhou — senha incorreta', { email, idUsuario: user.id_usuario });
       return res.status(401).json({ error: 'E-mail ou senha incorretos' });
     }
 
     const usuario = await mapUsuario(user);
+    logger.info('auth', 'Login OK', { email, idUsuario: user.id_usuario, perfil: user.perfil });
     res.json({
       accessToken: signToken(usuario),
       usuario,

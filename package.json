@@ -33,6 +33,8 @@
     "migrate:checklist-auditoria": "npm run migrate:checklist-auditoria --prefix backend",
     "migrate:push": "npm run migrate:push --prefix backend",
     "generate:vapid": "npm run generate:vapid --prefix backend",
+    "logs:hoje": "node scripts/ver-log-hoje.js",
+    "logs:erros": "node scripts/ver-log-erros.js",
     "build": "npm run build:web",
     "prebuild:web": "node scripts/write-version.js",
     "build:web": "npm run build --prefix frontend",

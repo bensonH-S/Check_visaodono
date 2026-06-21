@@ -8,6 +8,7 @@ import {
 import { showToast } from './toast';
 
 const PUSH_OK_KEY = 'vision-check:push-ok';
+export const PUSH_ATUALIZADO_EVENT = 'vision-check:push-atualizado';
 
 export type ResultadoPushRegistro = {
   ok: boolean;
@@ -28,6 +29,11 @@ export type ResultadoPushRegistro = {
 };
 
 let conclusaoSegundoPlano: Promise<ResultadoPushRegistro> | null = null;
+
+function emitirPushAtualizado() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(PUSH_ATUALIZADO_EVENT));
+}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -61,6 +67,16 @@ function marcarPushRegistrado() {
   } catch {
     /* ignore */
   }
+  emitirPushAtualizado();
+}
+
+function limparPushRegistradoLocal() {
+  try {
+    localStorage.removeItem(PUSH_OK_KEY);
+  } catch {
+    /* ignore */
+  }
+  emitirPushAtualizado();
 }
 
 export function isIos(): boolean {
@@ -87,6 +103,16 @@ export function requerHttpsParaPush(): boolean {
   return !window.isSecureContext;
 }
 
+/** Permissão OK mas inscrição push ainda não concluiu no servidor. */
+export function pushPendenteConclusao(): boolean {
+  return (
+    pushSuportado() &&
+    !requerHttpsParaPush() &&
+    Notification.permission === 'granted' &&
+    !pushJaRegistrado()
+  );
+}
+
 export async function obterVapidPublicKey(): Promise<string | null> {
   try {
     const res = await fetch(`${apiBasePath}/public/push/vapid-key`);
@@ -95,6 +121,21 @@ export async function obterVapidPublicKey(): Promise<string | null> {
     return data.publicKey || null;
   } catch {
     return null;
+  }
+}
+
+/** Alinha estado local com o servidor (inscrição real no banco). */
+export async function sincronizarEstadoPush(): Promise<boolean> {
+  try {
+    const status = await api.pushStatus();
+    if (status.registered) {
+      marcarPushRegistrado();
+      return true;
+    }
+    limparPushRegistradoLocal();
+    return false;
+  } catch {
+    return pushJaRegistrado();
   }
 }
 
@@ -170,7 +211,11 @@ async function inscreverNoPush(
   }
 
   await api.pushSubscribe(subscription.toJSON());
-  marcarPushRegistrado();
+  await sincronizarEstadoPush();
+
+  if (!pushJaRegistrado()) {
+    throw new Error('Inscrição não confirmada no servidor');
+  }
 
   return {
     ok: true,
@@ -183,12 +228,15 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
   const pre = validarPreRequisitos();
   if (pre) return pre;
 
-  if (!forcar && pushJaRegistrado()) {
-    return {
-      ok: true,
-      codigo: 'ja_registrado',
-      mensagem: 'Notificações já estavam ativas.',
-    };
+  if (!forcar) {
+    const sincronizado = await sincronizarEstadoPush();
+    if (sincronizado) {
+      return {
+        ok: true,
+        codigo: 'ja_registrado',
+        mensagem: 'Notificações já estavam ativas.',
+      };
+    }
   }
 
   if (Notification.permission !== 'granted') {
@@ -204,7 +252,7 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
     return {
       ok: false,
       codigo: 'vapid_indisponivel',
-      mensagem: 'Servidor de notificações não configurado. Avise o suporte.',
+      mensagem: 'Servidor de notificações não configurado. Avise o suporte (VAPID).',
     };
   }
 
@@ -213,18 +261,19 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
     return {
       ok: false,
       codigo: 'service_worker_indisponivel',
-      mensagem: 'Não foi possível preparar o app para push. Feche e abra pelo ícone na Tela de Início.',
+      mensagem: 'Não foi possível preparar o app. Feche e abra pelo ícone na Tela de Início.',
     };
   }
 
   try {
     return await inscreverNoPush(registration, publicKey);
   } catch (e) {
+    limparPushRegistradoLocal();
     return mapearErroInscricao(e);
   }
 }
 
-/** Conclui inscrição push em segundo plano (não bloqueia a UI). */
+/** Conclui inscrição push em segundo plano. */
 export function concluirPushEmSegundoPlano(forcar = true): Promise<ResultadoPushRegistro> {
   if (conclusaoSegundoPlano) return conclusaoSegundoPlano;
 
@@ -236,29 +285,32 @@ export function concluirPushEmSegundoPlano(forcar = true): Promise<ResultadoPush
     if (!r.ok && r.codigo !== 'ja_registrado') {
       showToast(r.mensagem, 'warning');
     }
+    emitirPushAtualizado();
     return r;
   });
 }
 
-/** Prepara SW + push ao abrir o app (silencioso). */
-export function prepararNotificacoesPush(): void {
+/** Prepara push ao abrir o app. */
+export async function prepararNotificacoesPush(): Promise<void> {
   if (typeof window === 'undefined') return;
   iniciarServiceWorkerPwa();
   if (!pushSuportado() || requerHttpsParaPush()) return;
-  if (Notification.permission !== 'granted') return;
+
+  await sincronizarEstadoPush();
   if (pushJaRegistrado()) return;
+
+  if (Notification.permission !== 'granted') return;
+
   void concluirPushEmSegundoPlano(true);
 }
 
-/**
- * Clique em "Ativar notificações" — pede permissão e responde na hora.
- * A inscrição push pesada roda em segundo plano se necessário.
- */
+/** Clique em "Ativar/Concluir notificações". */
 export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistro> {
   const pre = validarPreRequisitos();
   if (pre) return pre;
 
-  if (pushJaRegistrado()) {
+  const sincronizado = await sincronizarEstadoPush();
+  if (sincronizado) {
     return {
       ok: true,
       codigo: 'ja_registrado',
@@ -271,7 +323,7 @@ export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistr
     return {
       ok: false,
       codigo: 'vapid_indisponivel',
-      mensagem: 'Servidor de notificações não configurado. Avise o suporte.',
+      mensagem: 'Servidor de notificações não configurado. Avise o suporte (VAPID).',
     };
   }
 
@@ -303,21 +355,17 @@ export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistr
   if (registration?.pushManager) {
     try {
       return await inscreverNoPush(registration, publicKey);
-    } catch {
-      /* tenta concluir em segundo plano */
+    } catch (e) {
+      const rapido = mapearErroInscricao(e);
+      if (rapido.codigo !== 'service_worker_indisponivel') {
+        /* continua tentativa completa */
+      }
     }
   }
 
-  void concluirPushEmSegundoPlano(true);
-
-  return {
-    ok: true,
-    codigo: 'ok',
-    mensagem: 'Notificações ativadas com sucesso!',
-  };
+  return concluirPushEmSegundoPlano(true);
 }
 
-/** @deprecated Use ativarNotificacoesNoClique ou prepararNotificacoesPush */
 export async function registrarPushNotificacoes(forcar = false): Promise<ResultadoPushRegistro> {
   if (forcar && Notification.permission !== 'granted') {
     return ativarNotificacoesNoClique();
@@ -335,11 +383,7 @@ export async function cancelarPushNotificacoes(): Promise<void> {
     await subscription.unsubscribe().catch(() => {});
     await api.pushUnsubscribe(endpoint).catch(() => {});
   }
-  try {
-    localStorage.removeItem(PUSH_OK_KEY);
-  } catch {
-    /* ignore */
-  }
+  limparPushRegistradoLocal();
 }
 
 export function notificacoesPrecisamAtivacao(): boolean {
@@ -347,6 +391,6 @@ export function notificacoesPrecisamAtivacao(): boolean {
   if (requerHttpsParaPush() && isIos()) return true;
   if (!pushSuportado()) return isIos() && appInstalada();
   if (Notification.permission === 'denied') return true;
-  if (Notification.permission === 'granted') return false;
-  return !pushJaRegistrado();
+  if (!pushJaRegistrado()) return true;
+  return false;
 }

@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { logger } from './logger.js';
 
 /** DATE do PostgreSQL como string YYYY-MM-DD (evita bug de fuso no JSON). */
 pg.types.setTypeParser(1082, (value) => value);
@@ -17,4 +18,4 @@ export const pool = new pg.Pool({
   ssl,
 });
 
-pool.on('error', (err) => console.error('[db] Pool PG:', err.message));
+pool.on('error', (err) => logger.error('db', 'Erro no pool PostgreSQL', { error: err.message }));

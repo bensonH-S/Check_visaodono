@@ -279,6 +279,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ subscription }),
     }),
+  pushStatus: () =>
+    request<{ registered: boolean; pushEnabled: boolean }>('/push/status'),
   pushUnsubscribe: (endpoint: string) =>
     request<{ ok: boolean }>('/push/subscribe', {
       method: 'DELETE',

@@ -16,7 +16,7 @@ import PwaInstallBanner from '../components/PwaInstallBanner';
 import { toAppPath } from '../config/paths';
 import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { prepararNotificacoesPush } from '../utils/pushNotifications';
+import { prepararNotificacoesPush, sincronizarEstadoPush } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import {
   ChamadosMobileLojaProvider,
@@ -234,7 +234,7 @@ function ChamadosMobileLayoutInner() {
   useEffect(() => {
     if (!user) return;
     iniciarServiceWorkerPwa();
-    prepararNotificacoesPush();
+    void sincronizarEstadoPush().then(() => prepararNotificacoesPush());
   }, [user]);
 
   useEffect(() => {

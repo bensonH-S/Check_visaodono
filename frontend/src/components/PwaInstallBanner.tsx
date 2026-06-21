@@ -12,13 +12,16 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { showToast } from '../utils/toast';
 import {
+  PUSH_ATUALIZADO_EVENT,
   ativarNotificacoesNoClique,
   isIos,
   notificacoesPrecisamAtivacao,
   precisaInstalarIos,
   prepararNotificacoesPush,
   pushJaRegistrado,
+  pushPendenteConclusao,
   requerHttpsParaPush,
+  sincronizarEstadoPush,
 } from '../utils/pushNotifications';
 
 const NAVY = '#1B2A6B';
@@ -38,6 +41,7 @@ function bannerDispensado(): boolean {
 }
 
 function dispensarBanner() {
+  if (!pushJaRegistrado()) return;
   try {
     sessionStorage.setItem(DISMISS_KEY, '1');
   } catch {
@@ -49,6 +53,7 @@ export default function PwaInstallBanner() {
   const [visivel, setVisivel] = useState(false);
   const [modo, setModo] = useState<'ios' | 'android' | 'notif' | 'https' | 'sucesso'>('ios');
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [ativando, setAtivando] = useState(false);
   const [feedback, setFeedback] = useState<{ tipo: 'success' | 'error' | 'info'; texto: string } | null>(
     null,
   );
@@ -93,10 +98,20 @@ export default function PwaInstallBanner() {
     }
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    prepararNotificacoesPush();
-    atualizarEstado();
+    void sincronizarEstadoPush().finally(() => {
+      void prepararNotificacoesPush();
+      atualizarEstado();
+    });
 
     return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+  }, [atualizarEstado]);
+
+  useEffect(() => {
+    function onPushAtualizado() {
+      atualizarEstado();
+    }
+    window.addEventListener(PUSH_ATUALIZADO_EVENT, onPushAtualizado);
+    return () => window.removeEventListener(PUSH_ATUALIZADO_EVENT, onPushAtualizado);
   }, [atualizarEstado]);
 
   useEffect(() => {
@@ -118,20 +133,41 @@ export default function PwaInstallBanner() {
   }
 
   async function ativarNotificacoes() {
+    setAtivando(true);
     setFeedback(null);
-    const resultado = await ativarNotificacoesNoClique();
+    try {
+      const resultado = await ativarNotificacoesNoClique();
 
-    if (resultado.ok) {
-      setModo('sucesso');
-      setFeedback({ tipo: 'success', texto: resultado.mensagem });
-      showToast(resultado.mensagem, 'success');
-      setTimeout(() => fechar(), 1200);
-      return;
+      if (resultado.ok) {
+        setModo('sucesso');
+        setFeedback({ tipo: 'success', texto: resultado.mensagem });
+        showToast(resultado.mensagem, 'success');
+        setTimeout(() => fechar(), 1500);
+        return;
+      }
+
+      setFeedback({ tipo: 'error', texto: resultado.mensagem });
+      showToast(resultado.mensagem, 'error');
+    } finally {
+      setAtivando(false);
+      atualizarEstado();
     }
-
-    setFeedback({ tipo: 'error', texto: resultado.mensagem });
-    showToast(resultado.mensagem, 'error');
   }
+
+  const pendente = pushPendenteConclusao();
+  const tituloNotif = pendente ? 'Conclua a ativação' : 'Ative as notificações';
+  const textoNotif = pendente
+    ? 'Você já permitiu alertas, mas o registro ainda não foi concluído. Toque abaixo para finalizar.'
+    : isIos()
+      ? 'Permita alertas para receber novidades dos chamados com o app fechado.'
+      : 'Receba alertas de chamados mesmo com o app fechado.';
+  const rotuloBotao = pendente
+    ? ativando
+      ? 'Concluindo…'
+      : 'Concluir ativação'
+    : ativando
+      ? 'Ativando…'
+      : 'Ativar notificações';
 
   if (!visivel) return null;
 
@@ -143,8 +179,8 @@ export default function PwaInstallBanner() {
         mb: 1.5,
         p: 1.5,
         borderRadius: 2,
-        border: '1px solid rgba(27, 42, 107, 0.15)',
-        bgcolor: '#fff',
+        border: pendente ? '1px solid rgba(220, 38, 38, 0.35)' : '1px solid rgba(27, 42, 107, 0.15)',
+        bgcolor: pendente ? 'rgba(220, 38, 38, 0.04)' : '#fff',
         boxShadow: '0 4px 16px rgba(27, 42, 107, 0.1)',
       }}
     >
@@ -171,8 +207,7 @@ export default function PwaInstallBanner() {
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.45 }}>
                 O iOS só permite notificações em conexão segura. Abra o app pelo endereço{' '}
-                <strong>https://grupoalvim.com.br/auditoria/login/mobile</strong> (produção), não
-                pelo IP local da rede Wi‑Fi.
+                <strong>https://grupoalvim.com.br/auditoria/login/mobile</strong>.
               </Typography>
             </>
           )}
@@ -200,31 +235,31 @@ export default function PwaInstallBanner() {
           {(modo === 'notif' || modo === 'sucesso') && (
             <>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
-                {modo === 'sucesso' ? 'Notificações ativas' : 'Ative as notificações'}
+                {modo === 'sucesso' ? 'Notificações ativas' : tituloNotif}
               </Typography>
               {modo === 'notif' && (
                 <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.45, mb: 1 }}>
-                  {isIos()
-                    ? 'Permita alertas para receber novidades dos chamados com o app fechado.'
-                    : 'Receba alertas de chamados mesmo com o app fechado.'}
+                  {textoNotif}
                 </Typography>
               )}
               {modo === 'sucesso' ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: '#15803d' }}>
                   <CheckCircleOutlinedIcon fontSize="small" />
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    Tudo certo! Alertas habilitados neste aparelho.
+                    Alertas habilitados — você receberá push com o app fechado.
                   </Typography>
                 </Box>
               ) : (
                 <Button
                   size="small"
                   variant="contained"
+                  color={pendente ? 'warning' : 'primary'}
                   startIcon={<NotificationsActiveIcon />}
                   onClick={ativarNotificacoes}
+                  disabled={ativando}
                   sx={{ fontWeight: 600 }}
                 >
-                  Ativar notificações
+                  {rotuloBotao}
                 </Button>
               )}
             </>
@@ -236,9 +271,11 @@ export default function PwaInstallBanner() {
             </Alert>
           )}
         </Box>
-        <IconButton size="small" aria-label="Fechar" onClick={fechar} sx={{ color: NAVY, mt: -0.5 }}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
+        {pushJaRegistrado() && (
+          <IconButton size="small" aria-label="Fechar" onClick={fechar} sx={{ color: NAVY, mt: -0.5 }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        )}
       </Box>
     </Paper>
   );
