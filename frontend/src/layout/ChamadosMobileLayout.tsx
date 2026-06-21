@@ -16,7 +16,7 @@ import PwaInstallBanner from '../components/PwaInstallBanner';
 import { toAppPath } from '../config/paths';
 import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { registrarPushNotificacoes, pushSuportado } from '../utils/pushNotifications';
+import { registrarPushNotificacoes, pushSuportado, requerHttpsParaPush } from '../utils/pushNotifications';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -231,8 +231,12 @@ function ChamadosMobileLayoutInner() {
   }, [user, navigate]);
 
   useEffect(() => {
-    if (!user || !pushSuportado()) return;
-    registrarPushNotificacoes().catch(() => {});
+    if (!user || !pushSuportado() || requerHttpsParaPush()) return;
+    registrarPushNotificacoes().then((r) => {
+      if (!r.ok && r.codigo !== 'ja_registrado' && r.codigo !== 'permissao_negada') {
+        showToast(r.mensagem, 'warning');
+      }
+    });
   }, [user]);
 
   useEffect(() => {
