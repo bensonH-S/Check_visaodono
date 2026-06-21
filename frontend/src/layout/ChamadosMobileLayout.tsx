@@ -13,6 +13,7 @@ import BrandLogo from '../components/BrandLogo';
 import AppFooter from '../components/AppFooter';
 import NotificacoesSino from '../components/NotificacoesSino';
 import PwaInstallBanner from '../components/PwaInstallBanner';
+import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { toAppPath } from '../config/paths';
 import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -313,6 +314,7 @@ function ChamadosMobileLayoutInner() {
             </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+            <AtivarPushHeaderButton />
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" idLoja={idLoja} />
             <IconButton
               size="small"
@@ -327,21 +329,22 @@ function ChamadosMobileLayoutInner() {
             </IconButton>
           </Box>
         </Box>
+        <Box sx={{ mt: isSubPage ? 0 : 1 }}>
+          <PwaInstallBanner />
+        </Box>
         {!isSubPage && (
-          <Box sx={{ mt: 1 }}>
-            <PwaInstallBanner />
-            <Box
-              sx={{
-                width: '100%',
-                px: 1.25,
-                py: 0.75,
-                borderRadius: 2,
-                bgcolor: 'rgba(27, 42, 107, 0.04)',
-                border: '1px solid rgba(27, 42, 107, 0.08)',
-              }}
-            >
-              <SeletorLocalizacao user={user} />
-            </Box>
+          <Box
+            sx={{
+              mt: 1,
+              width: '100%',
+              px: 1.25,
+              py: 0.75,
+              borderRadius: 2,
+              bgcolor: 'rgba(27, 42, 107, 0.04)',
+              border: '1px solid rgba(27, 42, 107, 0.08)',
+            }}
+          >
+            <SeletorLocalizacao user={user} />
           </Box>
         )}
       </Box>

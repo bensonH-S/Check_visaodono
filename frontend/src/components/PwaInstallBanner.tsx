@@ -13,6 +13,7 @@ import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { showToast } from '../utils/toast';
 import {
   PUSH_ATUALIZADO_EVENT,
+  appInstalada,
   ativarNotificacoesNoClique,
   isIos,
   notificacoesPrecisamAtivacao,
@@ -76,14 +77,14 @@ export default function PwaInstallBanner() {
       return;
     }
 
-    if (deferredPrompt) {
-      setModo('android');
+    if (notificacoesPrecisamAtivacao()) {
+      setModo('notif');
       setVisivel(true);
       return;
     }
 
-    if (notificacoesPrecisamAtivacao()) {
-      setModo('notif');
+    if (deferredPrompt && !appInstalada()) {
+      setModo('android');
       setVisivel(true);
       return;
     }

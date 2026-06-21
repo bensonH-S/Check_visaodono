@@ -312,6 +312,13 @@ async function notificarEventoChamado(idChamado, idAutor, tipo, mensagem) {
     const ok = await criarNotificacao({ idUsuario, idChamado, tipo, mensagem });
     if (ok) enviadas += 1;
   }
+
+  // Push para o autor em outro dispositivo (ex.: editou no desktop, alerta no celular)
+  if (Number.isFinite(idAutorNum)) {
+    const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
+    enviarPushNotificacaoChamado(idAutorNum, idChamado, tipo, mensagem).catch(() => {});
+  }
+
   return enviadas;
 }
 
