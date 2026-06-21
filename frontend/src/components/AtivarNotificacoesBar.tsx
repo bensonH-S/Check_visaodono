@@ -8,9 +8,12 @@ import {
   PUSH_ATUALIZADO_EVENT,
   ativarNotificacoesNoClique,
   deveExibirAtivacaoPush,
+  ehRotaMobileChamados,
   isIos,
   precisaInstalarIos,
   pushPendenteConclusao,
+  pushRegistradoNoServidor,
+  reativarNotificacoesPush,
   sincronizarEstadoPush,
 } from '../utils/pushNotifications';
 
@@ -18,11 +21,13 @@ const FOOTER_H = 64;
 const NAVY = '#1B2A6B';
 
 export default function AtivarNotificacoesBar() {
-  const [visivel, setVisivel] = useState(false);
+  const [visivel, setVisivel] = useState(() => ehRotaMobileChamados());
+  const [registrado, setRegistrado] = useState(false);
   const [ativando, setAtivando] = useState(false);
 
   const atualizar = useCallback(() => {
     setVisivel(deveExibirAtivacaoPush());
+    setRegistrado(pushRegistradoNoServidor());
   }, []);
 
   useEffect(() => {
@@ -36,11 +41,18 @@ export default function AtivarNotificacoesBar() {
   const pendente = pushPendenteConclusao();
   const bloqueado = typeof Notification !== 'undefined' && Notification.permission === 'denied';
   const precisaInstalar = precisaInstalarIos();
+  const rotuloBotao = registrado
+    ? ativando
+      ? 'Reativando…'
+      : 'Reativar notificações'
+    : ativando
+      ? 'Ativando…'
+      : 'Ativar notificações';
 
   async function ativar() {
     setAtivando(true);
     try {
-      const r = await ativarNotificacoesNoClique();
+      const r = registrado ? await reativarNotificacoesPush() : await ativarNotificacoesNoClique();
       showToast(r.mensagem, r.ok ? 'success' : r.mensagem.includes('recarregar') ? 'info' : 'error');
       atualizar();
     } finally {
@@ -59,41 +71,47 @@ export default function AtivarNotificacoesBar() {
         zIndex: 45,
         p: 1.5,
         borderRadius: 2,
-        border: '1px solid rgba(232, 82, 10, 0.35)',
+        border: registrado
+          ? '1px solid rgba(34, 197, 94, 0.4)'
+          : '1px solid rgba(232, 82, 10, 0.35)',
         bgcolor: '#fff',
         boxShadow: '0 8px 24px rgba(27, 42, 107, 0.18)',
       }}
     >
       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
-        {precisaInstalar
-          ? 'Instale o app no iPhone'
-          : bloqueado
-            ? 'Notificações bloqueadas'
-            : 'Ative as notificações'}
+        {bloqueado
+          ? 'Notificações bloqueadas'
+          : precisaInstalar
+            ? 'Instale o app no iPhone'
+            : registrado
+              ? 'Notificações vinculadas'
+              : 'Ative as notificações'}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25, lineHeight: 1.45 }}>
-        {precisaInstalar
-          ? 'Safari → Compartilhar → Adicionar à Tela de Início. Depois abra pelo ícone Vision Check.'
-          : bloqueado
-            ? isIos()
-              ? 'Ajustes → Vision Check → Notificações → Permitir.'
-              : 'Ative nas configurações do app/navegador.'
-            : pendente
-              ? 'Permissão já concedida. Toque abaixo para concluir o registro.'
-              : 'Receba alertas de chamados mesmo com o app fechado.'}
+        {bloqueado
+          ? isIos()
+            ? 'Ajustes → Vision Check → Notificações → Permitir.'
+            : 'Ative nas configurações do app/navegador.'
+          : precisaInstalar
+            ? 'Safari → Compartilhar → Adicionar à Tela de Início. Depois abra pelo ícone e toque no botão.'
+            : registrado
+              ? 'Toque em Reativar para remover o vínculo antigo e registrar de novo (útil se não recebe alertas).'
+              : pendente
+                ? 'Permissão já concedida. Toque abaixo para concluir o registro.'
+                : 'Receba alertas de chamados com o app fechado (2º plano).'}
       </Typography>
-      {!bloqueado && !precisaInstalar && (
+      {!bloqueado && (
         <Button
           fullWidth
           variant="contained"
-          color={pendente ? 'warning' : 'primary'}
+          color={registrado ? 'success' : pendente ? 'warning' : 'primary'}
           size="medium"
           startIcon={<NotificationsActiveIcon />}
           onClick={ativar}
           disabled={ativando}
           sx={{ fontWeight: 700, py: 1 }}
         >
-          {ativando ? 'Ativando…' : 'Ativar notificações'}
+          {rotuloBotao}
         </Button>
       )}
     </Paper>

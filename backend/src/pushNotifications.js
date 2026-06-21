@@ -86,11 +86,14 @@ export function montarTituloPush({ tipo, mensagem, numero, loja }) {
 }
 
 export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, mensagem) {
-  if (!pushAtivo) return;
-
   const uid = Number(idUsuario);
   const cid = Number(idChamado);
   if (!Number.isFinite(uid) || !Number.isFinite(cid)) return;
+
+  if (!pushAtivo) {
+    logger.warn('push', 'Envio ignorado — VAPID inativo', { idUsuario: uid, idChamado: cid, tipo });
+    return;
+  }
 
   await ensurePushSubscriptionsTable();
 
@@ -99,8 +102,16 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
       `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE id_usuario = $1`,
       [uid],
     );
+
+    logger.info('push', 'Preparando envio push', {
+      idUsuario: uid,
+      idChamado: cid,
+      tipo,
+      inscricoes: subs.length,
+    });
+
     if (!subs.length) {
-      logger.warn('push', 'Usuário sem inscrição push', { idUsuario: uid, idChamado: cid });
+      logger.warn('push', 'Usuário sem inscrição push', { idUsuario: uid, idChamado: cid, tipo });
       return;
     }
 
@@ -110,7 +121,7 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
        LEFT JOIN lojas l ON l.id_loja = c.id_loja
        WHERE c.id_chamado = $1`,
       [cid],
-    );
+    ).catch(() => ({ rows: [] }));
     const chamado = chamadoRows[0] || {};
     const title = montarTituloPush({
       tipo,
@@ -138,16 +149,28 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
           },
           payload,
         );
-        logger.debug('push', 'Alerta enviado', { idUsuario: uid, idChamado: cid, tipo });
+        logger.info('push', 'Alerta enviado (2º plano OK)', {
+          idUsuario: uid,
+          idChamado: cid,
+          tipo,
+          endpoint: `${sub.endpoint.slice(0, 48)}…`,
+        });
       } catch (e) {
         if (e.statusCode === 404 || e.statusCode === 410) {
+          logger.warn('push', 'Inscrição expirada — removendo', {
+            idUsuario: uid,
+            status: e.statusCode,
+            endpoint: `${sub.endpoint.slice(0, 48)}…`,
+          });
           invalidEndpoints.push(sub.endpoint);
         } else {
-          logger.error('push', 'Falha ao enviar alerta', {
+          logger.error('push', 'Falha ao enviar alerta (2º plano)', {
             idUsuario: uid,
             idChamado: cid,
+            tipo,
             status: e.statusCode,
             error: e.message,
+            endpoint: `${sub.endpoint.slice(0, 48)}…`,
           });
         }
       }
@@ -158,19 +181,37 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
         `DELETE FROM push_subscriptions WHERE id_usuario = $1 AND endpoint = ANY($2::text[])`,
         [uid, invalidEndpoints],
       );
+      logger.info('push', 'Inscrições inválidas removidas', {
+        idUsuario: uid,
+        removidas: invalidEndpoints.length,
+      });
     }
   } catch (e) {
-    logger.error('push', 'Erro ao enviar notificação', { error: e.message, idUsuario: uid, idChamado: cid });
+    logger.error('push', 'Erro ao enviar notificação', { error: e.message, idUsuario: uid, idChamado: cid, tipo });
   }
 }
 
-export async function consultarPushUsuario(idUsuario) {
+export async function contarPushUsuario(idUsuario) {
   await ensurePushSubscriptionsTable();
   const { rows } = await pool.query(
     `SELECT COUNT(*)::int AS total FROM push_subscriptions WHERE id_usuario = $1`,
     [idUsuario],
   );
-  return (rows[0]?.total ?? 0) > 0;
+  return rows[0]?.total ?? 0;
+}
+
+export async function consultarPushUsuario(idUsuario) {
+  return (await contarPushUsuario(idUsuario)) > 0;
+}
+
+export async function resetarPushUsuario(idUsuario) {
+  await ensurePushSubscriptionsTable();
+  const uid = Number(idUsuario);
+  if (!Number.isFinite(uid)) return 0;
+  const antes = await contarPushUsuario(uid);
+  await pool.query(`DELETE FROM push_subscriptions WHERE id_usuario = $1`, [uid]);
+  logger.info('push', 'Inscrições push removidas do usuário', { idUsuario: uid, removidas: antes });
+  return antes;
 }
 
 export async function salvarPushSubscription(idUsuario, subscription, userAgent) {

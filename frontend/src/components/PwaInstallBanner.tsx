@@ -19,7 +19,6 @@ import {
   isIos,
   notificacoesPrecisamAtivacao,
   precisaInstalarIos,
-  prepararNotificacoesPush,
   pushJaRegistrado,
   pushPendenteConclusao,
   requerHttpsParaPush,
@@ -106,10 +105,7 @@ export default function PwaInstallBanner() {
     }
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    void sincronizarEstadoPush().finally(() => {
-      void prepararNotificacoesPush();
-      atualizarEstado();
-    });
+    void sincronizarEstadoPush().finally(atualizarEstado);
 
     return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
   }, [atualizarEstado]);

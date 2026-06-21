@@ -280,7 +280,9 @@ export const api = {
       body: JSON.stringify({ subscription }),
     }),
   pushStatus: () =>
-    request<{ registered: boolean; pushEnabled: boolean }>('/push/status'),
+    request<{ registered: boolean; subscriptionCount: number; pushEnabled: boolean }>('/push/status'),
+  pushReset: () =>
+    request<{ ok: boolean; removidas: number }>('/push/reset', { method: 'POST' }),
   pushDiagnostico: (mensagem: string, meta?: Record<string, unknown>) =>
     request<{ ok: boolean }>('/push/diagnostico', {
       method: 'POST',

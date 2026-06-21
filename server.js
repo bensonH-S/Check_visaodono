@@ -152,6 +152,17 @@ api.get('/public/push/vapid-key', (_req, res) => {
   res.json({ publicKey });
 });
 
+/** Log do service worker quando push chega com app fechado (sem auth). */
+api.post('/public/push/sw-event', (req, res) => {
+  const evento = String(req.body?.event || 'push_recebido');
+  const meta = req.body?.meta && typeof req.body.meta === 'object' ? req.body.meta : {};
+  logger.info('push-sw', evento, {
+    ...meta,
+    userAgent: req.headers['user-agent'],
+  });
+  res.json({ ok: true });
+});
+
 api.use('/auth', authRouter);
 
 api.use(authMiddleware);

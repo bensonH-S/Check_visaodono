@@ -219,7 +219,7 @@ function ChamadosMobileLayoutInner() {
   const isDetalhe = Boolean(useMatch('/chamados/mobile/:idChamado'));
   const isSubPage = isNovo || isDetalhe;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
-  const [barPushVisivel, setBarPushVisivel] = useState(false);
+  const [barPushVisivel, setBarPushVisivel] = useState(true);
 
   const subtituloPagina = isNovo
     ? 'Novo chamado'

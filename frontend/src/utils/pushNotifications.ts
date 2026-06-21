@@ -1,4 +1,4 @@
-import { apiBasePath } from '../config/paths';
+import { apiBasePath, toAppPath } from '../config/paths';
 import { api } from '../api/client';
 import {
   coletarDiagnosticoServiceWorker,
@@ -35,6 +35,8 @@ export type ResultadoPushRegistro = {
 let conclusaoSegundoPlano: Promise<ResultadoPushRegistro> | null = null;
 let pushRegistradoServidor = false;
 let pushSyncConcluido = false;
+let syncEmAndamento: Promise<boolean> | null = null;
+let prepararEmAndamento: Promise<void> | null = null;
 
 export function pushRegistradoNoServidor(): boolean {
   return pushRegistradoServidor;
@@ -121,7 +123,8 @@ export function appInstalada(): boolean {
 
 export function ehRotaMobileChamados(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.location.pathname.includes('/chamados/mobile');
+  const appPath = toAppPath(window.location.pathname);
+  return appPath === '/chamados/mobile' || appPath.startsWith('/chamados/mobile/');
 }
 
 export function precisaInstalarIos(): boolean {
@@ -154,8 +157,7 @@ export async function obterVapidPublicKey(): Promise<string | null> {
   }
 }
 
-/** Alinha estado local com o servidor (inscrição real no banco). */
-export async function sincronizarEstadoPush(): Promise<boolean> {
+async function sincronizarEstadoPushInterno(): Promise<boolean> {
   try {
     const status = await api.pushStatus();
     pushSyncConcluido = true;
@@ -172,6 +174,15 @@ export async function sincronizarEstadoPush(): Promise<boolean> {
     limparPushRegistradoLocal();
     return false;
   }
+}
+
+/** Alinha estado local com o servidor (inscrição real no banco). */
+export async function sincronizarEstadoPush(): Promise<boolean> {
+  if (syncEmAndamento) return syncEmAndamento;
+  syncEmAndamento = sincronizarEstadoPushInterno().finally(() => {
+    syncEmAndamento = null;
+  });
+  return syncEmAndamento;
 }
 
 function validarPreRequisitos(): ResultadoPushRegistro | null {
@@ -342,28 +353,42 @@ export function concluirPushEmSegundoPlano(forcar = true): Promise<ResultadoPush
   });
 }
 
-/** Prepara push ao abrir o app — solicita permissão automaticamente na rota mobile. */
+/** Prepara push ao abrir o app mobile — pede permissão iOS e registra no servidor. */
 export async function prepararNotificacoesPush(): Promise<void> {
-  if (typeof window === 'undefined') return;
-  iniciarServiceWorkerPwa();
-  if (!pushSuportado() || requerHttpsParaPush()) return;
-  if (!ehRotaMobileChamados()) return;
+  if (typeof window === 'undefined' || !ehRotaMobileChamados()) return;
+  if (prepararEmAndamento) return prepararEmAndamento;
 
-  await sincronizarEstadoPush();
-  if (pushRegistradoNoServidor()) return;
+  prepararEmAndamento = (async () => {
+    iniciarServiceWorkerPwa();
+    await sincronizarEstadoPush();
+    if (pushRegistradoNoServidor()) return;
+    if (requerHttpsParaPush()) return;
+    if (Notification.permission === 'denied') return;
 
-  if (isIos() && !appInstalada()) return;
+    await new Promise((resolve) => setTimeout(resolve, 1200));
 
-  if (Notification.permission === 'default') {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    await ativarNotificacoesNoClique();
+    if (!pushSuportado()) {
+      await logPushDiagnostico('push_nao_suportado_neste_contexto', {
+        standalone: appInstalada(),
+        permission: Notification.permission,
+      });
+      emitirPushAtualizado();
+      return;
+    }
+
+    const resultado = await ativarNotificacoesNoClique();
+    if (!resultado.ok && resultado.codigo !== 'ja_registrado') {
+      await logPushDiagnostico('preparar_push_falhou', {
+        codigo: resultado.codigo,
+        mensagem: resultado.mensagem,
+      });
+    }
     emitirPushAtualizado();
-    return;
-  }
+  })().finally(() => {
+    prepararEmAndamento = null;
+  });
 
-  if (Notification.permission !== 'granted') return;
-
-  void concluirPushEmSegundoPlano(true);
+  return prepararEmAndamento;
 }
 
 /** Clique em "Ativar/Concluir notificações". */
@@ -438,25 +463,58 @@ export async function registrarPushNotificacoes(forcar = false): Promise<Resulta
 }
 
 export async function cancelarPushNotificacoes(): Promise<void> {
-  if (!pushSuportado()) return;
-  const registration = await obterRegistroServiceWorkerRapido();
-  if (!registration) return;
-  const subscription = await registration.pushManager.getSubscription();
-  if (subscription) {
-    const endpoint = subscription.endpoint;
-    await subscription.unsubscribe().catch(() => {});
-    await api.pushUnsubscribe(endpoint).catch(() => {});
+  if (pushSuportado()) {
+    const registration = await obterRegistroServiceWorkerRapido();
+    if (registration) {
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await subscription.unsubscribe().catch(() => {});
+      }
+    }
   }
+  await api.pushUnsubscribe('').catch(() => {});
   limparPushRegistradoLocal();
+  pushRegistradoServidor = false;
+  pushSyncConcluido = true;
+  emitirPushAtualizado();
 }
 
-/** Exibir botão/banner de ativação push na rota mobile. */
+/** Remove inscrição no servidor e no celular para ativar de novo. */
+export async function resetarPushCompleto(): Promise<number> {
+  await logPushDiagnostico('reset_push_iniciado');
+  if (pushSuportado()) {
+    const registration = await obterRegistroServiceWorkerRapido();
+    if (registration) {
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await subscription.unsubscribe().catch(() => {});
+      }
+    }
+  }
+  let removidas = 0;
+  try {
+    const res = await api.pushReset();
+    removidas = res.removidas ?? 0;
+  } catch {
+    await api.pushUnsubscribe('').catch(() => {});
+  }
+  limparPushRegistradoLocal();
+  pushRegistradoServidor = false;
+  pushSyncConcluido = true;
+  await logPushDiagnostico('reset_push_concluido', { removidas });
+  emitirPushAtualizado();
+  return removidas;
+}
+
+/** Remove vínculo antigo e registra push novamente. */
+export async function reativarNotificacoesPush(): Promise<ResultadoPushRegistro> {
+  await resetarPushCompleto();
+  return ativarNotificacoesNoClique();
+}
+
+/** Exibir barra de ativação push — sempre na rota mobile. */
 export function deveExibirAtivacaoPush(): boolean {
-  if (!ehRotaMobileChamados()) return false;
-  if (requerHttpsParaPush()) return true;
-  if (Notification.permission === 'denied') return true;
-  if (!pushSyncConcluido) return true;
-  return !pushRegistradoServidor;
+  return ehRotaMobileChamados();
 }
 
 export function notificacoesPrecisamAtivacao(): boolean {

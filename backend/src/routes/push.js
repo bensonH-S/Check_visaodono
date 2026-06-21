@@ -4,6 +4,8 @@ import {
   salvarPushSubscription,
   removerPushSubscription,
   consultarPushUsuario,
+  contarPushUsuario,
+  resetarPushUsuario,
 } from '../pushNotifications.js';
 import { logger } from '../logger.js';
 
@@ -18,9 +20,17 @@ router.get('/status', async (req, res) => {
   try {
     const uid = idUsuario(req);
     if (!uid) return res.status(401).json({ error: 'Não autenticado' });
-    const registered = await consultarPushUsuario(uid);
+    const subscriptionCount = await contarPushUsuario(uid);
+    const registered = subscriptionCount > 0;
+    logger.info('push', 'Status push consultado', {
+      idUsuario: uid,
+      registered,
+      subscriptionCount,
+      pushEnabled: Boolean(getVapidPublicKey()),
+    });
     res.json({
       registered,
+      subscriptionCount,
       pushEnabled: Boolean(getVapidPublicKey()),
     });
   } catch (e) {
@@ -60,7 +70,10 @@ router.post('/subscribe', async (req, res) => {
       subscription,
       req.headers['user-agent'],
     );
-    logger.info('push', 'Inscrição push registrada', { idUsuario: uid });
+    logger.info('push', 'Inscrição push registrada', {
+      idUsuario: uid,
+      endpoint: `${String(subscription.endpoint).slice(0, 48)}…`,
+    });
     res.json({ ok: true });
   } catch (e) {
     logger.error('push', 'Erro ao registrar inscrição', { error: e.message, idUsuario: idUsuario(req) });
@@ -74,10 +87,28 @@ router.delete('/subscribe', async (req, res) => {
     if (!uid) return res.status(401).json({ error: 'Não autenticado' });
     const endpoint = req.body?.endpoint;
     await removerPushSubscription(uid, endpoint);
+    logger.info('push', 'Inscrição push removida via API', {
+      idUsuario: uid,
+      endpoint: endpoint ? `${endpoint.slice(0, 48)}…` : 'todas',
+    });
     res.json({ ok: true });
   } catch (e) {
     logger.error('push', 'Erro ao remover inscrição', { error: e.message });
     res.status(500).json({ error: e.message || 'Erro ao remover push' });
+  }
+});
+
+/** Remove todas as inscrições push do usuário para reativar do zero. */
+router.post('/reset', async (req, res) => {
+  try {
+    const uid = idUsuario(req);
+    if (!uid) return res.status(401).json({ error: 'Não autenticado' });
+    const removidas = await resetarPushUsuario(uid);
+    logger.info('push', 'Push resetado pelo usuário', { idUsuario: uid, removidas });
+    res.json({ ok: true, removidas });
+  } catch (e) {
+    logger.error('push', 'Erro ao resetar push', { error: e.message, idUsuario: idUsuario(req) });
+    res.status(500).json({ error: e.message || 'Erro ao resetar push' });
   }
 });
 

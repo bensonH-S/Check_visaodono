@@ -25,6 +25,18 @@ type PushPayload = {
   idChamado?: number;
 };
 
+const API_BASE = `${(import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')}/api`.replace(/\/+/g, '/');
+
+function registrarEventoSw(evento: string, meta: Record<string, unknown>): Promise<void> {
+  return fetch(`${API_BASE}/public/push/sw-event`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event: evento, meta }),
+  })
+    .then(() => undefined)
+    .catch(() => undefined);
+}
+
 function parsePushData(event: PushEvent): PushPayload {
   if (!event.data) return {};
   try {
@@ -49,7 +61,23 @@ self.addEventListener('push', (event) => {
     },
   } as NotificationOptions;
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      registrarEventoSw('push_recebido_2plano', {
+        title,
+        body: options.body,
+        idChamado: data.idChamado ?? null,
+        tag: options.tag,
+        scope: self.registration.scope,
+      }),
+    ]).catch((err) =>
+      registrarEventoSw('push_erro_exibir', {
+        erro: err instanceof Error ? err.message : String(err),
+        idChamado: data.idChamado ?? null,
+      }),
+    ),
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
