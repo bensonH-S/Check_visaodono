@@ -122,12 +122,27 @@ export async function obterQrCodeWpp(token, { tentativas = 12, intervaloMs = 250
 }
 
 export async function resolverTelefoneWpp(token, telefone) {
-  if (String(telefone).includes('@')) return telefone;
+  const original = String(telefone);
+  if (original.includes('@')) return telefone;
+
   const { data, ok } = await wppRequest(`/check-number-status/${telefone}`, { token, timeoutMs: 10000 });
   if (!ok) return telefone;
+
+  if (data?.response?.numberExists === false) return telefone;
+
   const resolved = data?.response?.id || data?.id;
-  if (typeof resolved === 'object' && resolved?._serialized) return resolved._serialized;
-  if (typeof resolved === 'string') return resolved;
+  const serialized =
+    typeof resolved === 'object' && resolved?._serialized
+      ? resolved._serialized
+      : typeof resolved === 'string'
+        ? resolved
+        : null;
+
+  // @lid quebra send-message no wppconnect — enviar com número BR funciona
+  if (serialized && (serialized.endsWith('@c.us') || serialized.endsWith('@g.us'))) {
+    return serialized;
+  }
+
   return telefone;
 }
 

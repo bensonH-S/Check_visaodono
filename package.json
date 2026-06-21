@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "predev": "npx --yes kill-port 5000 5173 5174 5175",
+    "prestart": "node scripts/install-requirements.js",
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "node --watch server.js",
     "dev:web": "npx --yes wait-on tcp:127.0.0.1:5000 -t 45000 && npm run dev --prefix frontend",
@@ -41,7 +42,9 @@
     "start": "node server.js --production",
     "start:prod": "npm run build:web && npm run start",
     "docker:build": "powershell -ExecutionPolicy Bypass -File scripts/docker-build.ps1",
-    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend"
+    "install:all": "node scripts/install-requirements.js",
+    "install:requirements": "node scripts/install-requirements.js",
+    "requirements:sync": "node scripts/sync-requirements.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
