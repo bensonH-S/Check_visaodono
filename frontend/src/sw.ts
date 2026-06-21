@@ -23,6 +23,7 @@ type PushPayload = {
   body?: string;
   url?: string;
   idChamado?: number;
+  tipo?: string;
 };
 
 const API_BASE = `${(import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')}/api`.replace(/\/+/g, '/');
@@ -50,12 +51,15 @@ function parsePushData(event: PushEvent): PushPayload {
 self.addEventListener('push', (event) => {
   const data = parsePushData(event);
   const title = data.title || 'Vision Check';
+  const tag = data.idChamado
+    ? `chamado-${data.idChamado}-${data.tipo || 'evento'}`
+    : 'vision-check';
   const options = {
     body: data.body || 'Nova atualização nos chamados',
     icon: `${self.registration.scope}Logo_Icon.png`,
     badge: `${self.registration.scope}Logo_Icon.png`,
-    tag: data.idChamado ? `chamado-${data.idChamado}` : 'vision-check',
-    renotify: true,
+    tag,
+    renotify: false,
     data: {
       url: data.url || '/chamados/mobile',
     },

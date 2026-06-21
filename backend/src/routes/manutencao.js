@@ -231,7 +231,7 @@ async function eventoNotificacaoAtivo(codigo) {
   }
 }
 
-async function criarNotificacao({ idUsuario, idChamado, tipo, mensagem }) {
+async function criarNotificacao({ idUsuario, idChamado, tipo, mensagem, enviarPush = true }) {
   const uid = Number(idUsuario);
   if (!Number.isFinite(uid)) return false;
   await ensureNotificacoesTable();
@@ -241,8 +241,10 @@ async function criarNotificacao({ idUsuario, idChamado, tipo, mensagem }) {
        VALUES ($1, $2, $3, $4)`,
       [uid, idChamado, tipo, mensagem],
     );
-    const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
-    enviarPushNotificacaoChamado(uid, idChamado, tipo, mensagem).catch(() => {});
+    if (enviarPush) {
+      const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
+      enviarPushNotificacaoChamado(uid, idChamado, tipo, mensagem).catch(() => {});
+    }
     return true;
   } catch (e) {
     console.error('[manutencao] Erro ao criar notificação:', e.message);
@@ -309,14 +311,17 @@ async function notificarEventoChamado(idChamado, idAutor, tipo, mensagem) {
   let enviadas = 0;
   for (const idUsuario of destinatarios) {
     if (!Number.isFinite(idUsuario)) continue;
-    const ok = await criarNotificacao({ idUsuario, idChamado, tipo, mensagem });
+    const ok = await criarNotificacao({ idUsuario, idChamado, tipo, mensagem, enviarPush: false });
     if (ok) enviadas += 1;
   }
 
-  // Push para o autor em outro dispositivo (ex.: editou no desktop, alerta no celular)
-  if (Number.isFinite(idAutorNum)) {
-    const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
-    enviarPushNotificacaoChamado(idAutorNum, idChamado, tipo, mensagem).catch(() => {});
+  const pushDestinos = new Set(destinatarios);
+  if (Number.isFinite(idAutorNum)) pushDestinos.add(idAutorNum);
+
+  const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
+  for (const idUsuario of pushDestinos) {
+    if (!Number.isFinite(idUsuario)) continue;
+    enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, mensagem).catch(() => {});
   }
 
   return enviadas;

@@ -7,19 +7,15 @@ import {
   PUSH_ATUALIZADO_EVENT,
   ativarNotificacoesNoClique,
   deveExibirAtivacaoPush,
-  pushRegistradoNoServidor,
-  reativarNotificacoesPush,
   sincronizarEstadoPush,
 } from '../utils/pushNotifications';
 
 export default function AtivarPushHeaderButton() {
   const [visivel, setVisivel] = useState(false);
-  const [registrado, setRegistrado] = useState(false);
   const [ativando, setAtivando] = useState(false);
 
   const atualizar = useCallback(() => {
     setVisivel(deveExibirAtivacaoPush());
-    setRegistrado(pushRegistradoNoServidor());
   }, []);
 
   useEffect(() => {
@@ -33,7 +29,7 @@ export default function AtivarPushHeaderButton() {
   async function ativar() {
     setAtivando(true);
     try {
-      const r = registrado ? await reativarNotificacoesPush() : await ativarNotificacoesNoClique();
+      const r = await ativarNotificacoesNoClique();
       showToast(r.mensagem, r.ok ? 'success' : r.mensagem.includes('recarregar') ? 'info' : 'error');
       atualizar();
     } finally {
@@ -41,13 +37,7 @@ export default function AtivarPushHeaderButton() {
     }
   }
 
-  const titulo = registrado
-    ? ativando
-      ? 'Reativando…'
-      : 'Reativar notificações'
-    : ativando
-      ? 'Ativando…'
-      : 'Ativar notificações push';
+  const titulo = ativando ? 'Ativando…' : 'Ativar notificações';
 
   return (
     <Tooltip title={titulo}>
@@ -57,7 +47,7 @@ export default function AtivarPushHeaderButton() {
         onClick={ativar}
         disabled={ativando}
         sx={{
-          color: registrado ? '#22c55e' : '#E8520A',
+          color: '#E8520A',
           animation: ativando ? 'none' : 'pulse-push 2s ease-in-out infinite',
           '@keyframes pulse-push': {
             '0%, 100%': { opacity: 1 },

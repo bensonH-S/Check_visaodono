@@ -34,12 +34,17 @@ export type ResultadoPushRegistro = {
 
 let conclusaoSegundoPlano: Promise<ResultadoPushRegistro> | null = null;
 let pushRegistradoServidor = false;
+let pushAtivoCompleto = false;
 let pushSyncConcluido = false;
 let syncEmAndamento: Promise<boolean> | null = null;
 let prepararEmAndamento: Promise<void> | null = null;
 
 export function pushRegistradoNoServidor(): boolean {
   return pushRegistradoServidor;
+}
+
+export function pushNotificacoesAtivas(): boolean {
+  return pushAtivoCompleto;
 }
 
 export function pushSyncFinalizado(): boolean {
@@ -158,19 +163,56 @@ export async function obterVapidPublicKey(): Promise<string | null> {
 }
 
 async function sincronizarEstadoPushInterno(): Promise<boolean> {
-  try {
-    const status = await api.pushStatus();
-    pushSyncConcluido = true;
-    pushRegistradoServidor = Boolean(status.registered);
-    if (status.registered) {
-      marcarPushRegistrado();
-      return true;
-    }
+  pushSyncConcluido = true;
+
+  if (!pushSuportado() || requerHttpsParaPush()) {
+    pushRegistradoServidor = false;
+    pushAtivoCompleto = false;
     limparPushRegistradoLocal();
     return false;
-  } catch {
-    pushSyncConcluido = true;
+  }
+
+  if (Notification.permission !== 'granted') {
     pushRegistradoServidor = false;
+    pushAtivoCompleto = false;
+    limparPushRegistradoLocal();
+    return false;
+  }
+
+  const registration = await obterRegistroServiceWorkerRapido();
+  const localSub = registration?.pushManager
+    ? await registration.pushManager.getSubscription().catch(() => null)
+    : null;
+
+  if (!localSub) {
+    try {
+      const status = await api.pushStatus();
+      if (status.registered) {
+        await api.pushReset().catch(() => {});
+      }
+    } catch {
+      /* ignore */
+    }
+    pushRegistradoServidor = false;
+    pushAtivoCompleto = false;
+    limparPushRegistradoLocal();
+    return false;
+  }
+
+  try {
+    const status = await api.pushStatus();
+    pushRegistradoServidor = Boolean(status.registered);
+    if (!status.registered) {
+      pushAtivoCompleto = false;
+      limparPushRegistradoLocal();
+      return false;
+    }
+    pushAtivoCompleto = true;
+    marcarPushRegistrado();
+    return true;
+  } catch {
+    pushRegistradoServidor = false;
+    pushAtivoCompleto = false;
     limparPushRegistradoLocal();
     return false;
   }
@@ -247,19 +289,20 @@ async function inscreverNoPush(
   registration: ServiceWorkerRegistration,
   publicKey: string,
 ): Promise<ResultadoPushRegistro> {
-  let subscription = await registration.pushManager.getSubscription();
-
-  if (!subscription) {
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    });
+  const existente = await registration.pushManager.getSubscription();
+  if (existente) {
+    await existente.unsubscribe().catch(() => {});
   }
+
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey),
+  });
 
   await api.pushSubscribe(subscription.toJSON());
   await sincronizarEstadoPush();
 
-  if (!pushJaRegistrado()) {
+  if (!pushNotificacoesAtivas()) {
     throw new Error('Inscrição não confirmada no servidor');
   }
 
@@ -353,7 +396,7 @@ export function concluirPushEmSegundoPlano(forcar = true): Promise<ResultadoPush
   });
 }
 
-/** Prepara push ao abrir o app mobile — pede permissão iOS e registra no servidor. */
+/** Prepara service worker e alinha estado — não pede permissão automaticamente. */
 export async function prepararNotificacoesPush(): Promise<void> {
   if (typeof window === 'undefined' || !ehRotaMobileChamados()) return;
   if (prepararEmAndamento) return prepararEmAndamento;
@@ -361,28 +404,6 @@ export async function prepararNotificacoesPush(): Promise<void> {
   prepararEmAndamento = (async () => {
     iniciarServiceWorkerPwa();
     await sincronizarEstadoPush();
-    if (pushRegistradoNoServidor()) return;
-    if (requerHttpsParaPush()) return;
-    if (Notification.permission === 'denied') return;
-
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-
-    if (!pushSuportado()) {
-      await logPushDiagnostico('push_nao_suportado_neste_contexto', {
-        standalone: appInstalada(),
-        permission: Notification.permission,
-      });
-      emitirPushAtualizado();
-      return;
-    }
-
-    const resultado = await ativarNotificacoesNoClique();
-    if (!resultado.ok && resultado.codigo !== 'ja_registrado') {
-      await logPushDiagnostico('preparar_push_falhou', {
-        codigo: resultado.codigo,
-        mensagem: resultado.mensagem,
-      });
-    }
     emitirPushAtualizado();
   })().finally(() => {
     prepararEmAndamento = null;
@@ -391,13 +412,13 @@ export async function prepararNotificacoesPush(): Promise<void> {
   return prepararEmAndamento;
 }
 
-/** Clique em "Ativar/Concluir notificações". */
+/** Clique em "Ativar notificações" — pede permissão, limpa vínculo antigo e registra. */
 export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistro> {
   const pre = validarPreRequisitos();
   if (pre) return pre;
 
-  const sincronizado = await sincronizarEstadoPush();
-  if (sincronizado) {
+  const ativo = await sincronizarEstadoPush();
+  if (ativo && pushNotificacoesAtivas()) {
     return {
       ok: true,
       codigo: 'ja_registrado',
@@ -434,9 +455,20 @@ export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistr
     return {
       ok: false,
       codigo: 'permissao_negada',
-      mensagem: 'Permissão não concedida. Toque em Permitir quando o iOS solicitar.',
+      mensagem: 'Permissão não concedida. Toque em Permitir quando o celular solicitar.',
     };
   }
+
+  await api.pushReset().catch(() => {});
+
+  if (pushSuportado()) {
+    const registration = await obterRegistroServiceWorkerRapido();
+    const sub = registration ? await registration.pushManager.getSubscription().catch(() => null) : null;
+    if (sub) await sub.unsubscribe().catch(() => {});
+  }
+  limparPushRegistradoLocal();
+  pushRegistradoServidor = false;
+  pushAtivoCompleto = false;
 
   await registrarServiceWorkerNoClique();
 
@@ -475,6 +507,7 @@ export async function cancelarPushNotificacoes(): Promise<void> {
   await api.pushUnsubscribe('').catch(() => {});
   limparPushRegistradoLocal();
   pushRegistradoServidor = false;
+  pushAtivoCompleto = false;
   pushSyncConcluido = true;
   emitirPushAtualizado();
 }
@@ -500,21 +533,20 @@ export async function resetarPushCompleto(): Promise<number> {
   }
   limparPushRegistradoLocal();
   pushRegistradoServidor = false;
+  pushAtivoCompleto = false;
   pushSyncConcluido = true;
   await logPushDiagnostico('reset_push_concluido', { removidas });
   emitirPushAtualizado();
   return removidas;
 }
 
-/** Remove vínculo antigo e registra push novamente. */
-export async function reativarNotificacoesPush(): Promise<ResultadoPushRegistro> {
-  await resetarPushCompleto();
-  return ativarNotificacoesNoClique();
-}
-
-/** Exibir barra de ativação push — sempre na rota mobile. */
+/** Exibir botão de ativação no header — só enquanto push não estiver ativo. */
 export function deveExibirAtivacaoPush(): boolean {
-  return ehRotaMobileChamados();
+  if (!ehRotaMobileChamados()) return false;
+  if (pushNotificacoesAtivas()) return false;
+  if (precisaInstalarIos()) return true;
+  if (typeof Notification !== 'undefined' && Notification.permission === 'denied') return true;
+  return true;
 }
 
 export function notificacoesPrecisamAtivacao(): boolean {

@@ -99,7 +99,10 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
 
   try {
     const { rows: subs } = await pool.query(
-      `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE id_usuario = $1`,
+      `SELECT endpoint, p256dh, auth FROM push_subscriptions
+       WHERE id_usuario = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
       [uid],
     );
 
@@ -226,11 +229,10 @@ export async function salvarPushSubscription(idUsuario, subscription, userAgent)
     throw new Error('Inscrição push inválida');
   }
 
+  await pool.query(`DELETE FROM push_subscriptions WHERE id_usuario = $1`, [uid]);
   await pool.query(
     `INSERT INTO push_subscriptions (id_usuario, endpoint, p256dh, auth, user_agent)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (id_usuario, endpoint)
-     DO UPDATE SET p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, user_agent = EXCLUDED.user_agent`,
+     VALUES ($1, $2, $3, $4, $5)`,
     [uid, endpoint, keys.p256dh, keys.auth, userAgent || null],
   );
 }
