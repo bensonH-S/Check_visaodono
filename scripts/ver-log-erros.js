@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogsDir } from '../backend/src/projectPaths.js';
+import { parseLinhaLog } from '../backend/src/logger.js';
 
 const TZ = process.env.TZ || 'America/Sao_Paulo';
 const data =
@@ -20,19 +21,18 @@ if (!fs.existsSync(arquivo)) {
 }
 
 const linhas = fs.readFileSync(arquivo, 'utf8').trim().split('\n').filter(Boolean);
-const filtradas = linhas.filter(
-  (l) => l.includes('"level":"ERROR"') || l.includes('"level":"WARN"'),
-);
+const filtradas = linhas.filter((linha) => {
+  const e = parseLinhaLog(linha);
+  return e?.level === 'ERROR' || e?.level === 'WARN';
+});
 
 console.log(`\n=== Erros e avisos — ${data} — ${logDir} (${filtradas.length}) ===\n`);
 
 for (const linha of filtradas) {
-  try {
-    const e = JSON.parse(linha);
-    const hora = e.ts ? e.ts.replace('T', ' ').slice(0, 19) : '?';
-    const meta = e.meta ? `\n    ${JSON.stringify(e.meta, null, 0)}` : '';
-    console.log(`${hora} [${e.level}] [${e.category}] ${e.message}${meta}\n`);
-  } catch {
-    console.log(linha);
+  const e = parseLinhaLog(linha);
+  if (e?.data && e.hora) {
+    console.log(`${e.data} ${e.hora} ${e.icone} [${e.category}] ${e.message}\n`);
+  } else {
+    console.log(`${linha}\n`);
   }
 }

@@ -1,7 +1,6 @@
 /// <reference lib="webworker" />
 import { clientsClaim } from 'workbox-core';
-import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
-import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 
 declare let self: ServiceWorkerGlobalScope;
 
@@ -10,7 +9,6 @@ cleanupOutdatedCaches();
 clientsClaim();
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(self.skipWaiting());
 });
 
@@ -19,12 +17,6 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
-
-registerRoute(
-  new NavigationRoute(createHandlerBoundToURL('index.html'), {
-    denylist: [/\/api\//],
-  }),
-);
 
 type PushPayload = {
   title?: string;

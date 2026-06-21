@@ -5,8 +5,8 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { getLogsDir } from '../backend/src/projectPaths.js';
+import { parseLinhaLog } from '../backend/src/logger.js';
 
 const TZ = process.env.TZ || 'America/Sao_Paulo';
 const dataArg = process.argv[2];
@@ -25,18 +25,23 @@ if (!fs.existsSync(arquivo)) {
 const linhas = fs.readFileSync(arquivo, 'utf8').trim().split('\n').filter(Boolean);
 
 console.log(`\n=== Log ${data} — ${logDir} (${linhas.length} entradas) ===\n`);
+console.log('Legenda: ✓ sucesso | △ alerta | ✗ erro\n');
+
+let erros = 0;
+let avisos = 0;
 
 for (const linha of linhas) {
-  try {
-    const e = JSON.parse(linha);
-    const hora = e.ts ? e.ts.replace('T', ' ').slice(0, 19) : '?';
-    const meta = e.meta ? ` | ${JSON.stringify(e.meta)}` : '';
-    console.log(`${hora} [${e.level}] [${e.category}] ${e.message}${meta}`);
-  } catch {
-    console.log(linha);
+  const e = parseLinhaLog(linha);
+  if (!e) continue;
+
+  if (e.level === 'ERROR') erros += 1;
+  if (e.level === 'WARN') avisos += 1;
+
+  if (e.data && e.hora) {
+    console.log(`${e.data} ${e.hora} ${e.icone} [${e.category}] ${e.message}`);
+  } else {
+    console.log(e.raw);
   }
 }
 
-const erros = linhas.filter((l) => l.includes('"level":"ERROR"')).length;
-const avisos = linhas.filter((l) => l.includes('"level":"WARN"')).length;
-console.log(`\n--- Resumo: ${erros} erro(s), ${avisos} aviso(s) ---\n`);
+console.log(`\n--- Resumo: ${erros} erro(s) ✗, ${avisos} aviso(s) △ ---\n`);

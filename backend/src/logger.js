@@ -5,6 +5,13 @@ import { getLogsDir } from './projectPaths.js';
 const TZ = process.env.TZ || 'America/Sao_Paulo';
 const LOG_DIR = getLogsDir();
 
+const ICONES = {
+  ERROR: '✗',
+  WARN: '△',
+  INFO: '✓',
+  DEBUG: '·',
+};
+
 function dataHoje() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
 }
@@ -16,6 +23,81 @@ function arquivoDoDia(data = dataHoje()) {
 function garantirPastaLogs() {
   if (!fs.existsSync(LOG_DIR)) {
     fs.mkdirSync(LOG_DIR, { recursive: true });
+  }
+}
+
+function formatarDataHora(date = new Date()) {
+  const partes = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: TZ,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+
+  const valor = (tipo) => partes.find((p) => p.type === tipo)?.value ?? '';
+
+  return {
+    data: `${valor('day')}-${valor('month')}-${valor('year')}`,
+    hora: `${valor('hour')}:${valor('minute')}:${valor('second')}`,
+  };
+}
+
+function formatarMeta(meta) {
+  if (!meta || !Object.keys(meta).length) return '';
+  return ` ${JSON.stringify(meta)}`;
+}
+
+export function formatarLinhaLog(level, category, message, meta, date = new Date()) {
+  const { data, hora } = formatarDataHora(date);
+  const icone = ICONES[level] ?? '·';
+  return `${data} ${hora} ${icone} [${category}] ${message}${formatarMeta(meta)}`;
+}
+
+/** Interpreta linha legível ou JSON legado. */
+export function parseLinhaLog(linha) {
+  const texto = String(linha || '').trim();
+  if (!texto) return null;
+
+  const legivel = texto.match(
+    /^(\d{2}-\d{2}-\d{4}) (\d{2}:\d{2}:\d{2}) ([✗✓△·]) \[([^\]]+)\] (.+)$/,
+  );
+  if (legivel) {
+    const icone = legivel[3];
+    const level =
+      icone === '✗' ? 'ERROR' : icone === '△' ? 'WARN' : icone === '✓' ? 'INFO' : 'DEBUG';
+    return {
+      data: legivel[1],
+      hora: legivel[2],
+      icone,
+      level,
+      category: legivel[4],
+      message: legivel[5],
+      raw: texto,
+    };
+  }
+
+  try {
+    const e = JSON.parse(texto);
+    const ts = e.ts ? new Date(e.ts) : new Date();
+    const { data, hora } = formatarDataHora(ts);
+    const level = e.level || 'INFO';
+    const meta = e.meta ? formatarMeta(e.meta).trim() : '';
+    const message = meta ? `${e.message} ${meta}` : e.message;
+    return {
+      data,
+      hora,
+      icone: ICONES[level] ?? '·',
+      level,
+      category: e.category || '?',
+      message,
+      raw: texto,
+    };
+  } catch {
+    return { raw: texto };
   }
 }
 
@@ -34,22 +116,12 @@ function serializarErro(err) {
 
 function escreverLinha(level, category, message, meta) {
   garantirPastaLogs();
-  const entrada = {
-    ts: new Date().toISOString(),
-    level,
-    category,
-    message,
-  };
-  if (meta && Object.keys(meta).length) entrada.meta = meta;
-
-  const linha = `${JSON.stringify(entrada)}\n`;
+  const linha = `${formatarLinhaLog(level, category, message, meta)}\n`;
   fs.appendFileSync(arquivoDoDia(), linha, 'utf8');
 
-  const prefixo = `[${level}] [${category}]`;
-  const extra = meta ? ` ${JSON.stringify(meta)}` : '';
-  if (level === 'ERROR') console.error(prefixo, message + extra);
-  else if (level === 'WARN') console.warn(prefixo, message + extra);
-  else console.log(prefixo, message + extra);
+  if (level === 'ERROR') console.error(linha.trim());
+  else if (level === 'WARN') console.warn(linha.trim());
+  else console.log(linha.trim());
 }
 
 export function getLogDir() {

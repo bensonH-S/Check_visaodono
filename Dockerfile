@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM node:22-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache git
@@ -6,9 +7,12 @@ COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/
 COPY frontend/package.json frontend/package-lock.json ./frontend/
 
-RUN npm ci && npm ci --prefix backend && npm ci --prefix frontend
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci && npm ci --prefix backend && npm ci --prefix frontend
 
-COPY . .
+COPY scripts ./scripts
+COPY frontend ./frontend
+
 ARG GIT_TAG=
 ENV GIT_TAG=${GIT_TAG}
 RUN npm run build:web
@@ -18,7 +22,8 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/
-RUN npm ci --omit=dev && npm ci --prefix backend --omit=dev
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev && npm ci --prefix backend --omit=dev
 
 COPY server.js ./
 COPY backend/src ./backend/src

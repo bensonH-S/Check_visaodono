@@ -108,11 +108,6 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2,webmanifest}'],
       },
       injectRegister: false,
-      workbox: {
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/\/api\//],
-        cleanupOutdatedCaches: true,
-      },
       devOptions: {
         enabled: true,
         type: 'module',
