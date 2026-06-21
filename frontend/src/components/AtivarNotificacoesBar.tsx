@@ -9,6 +9,7 @@ import {
   ativarNotificacoesNoClique,
   deveExibirAtivacaoPush,
   isIos,
+  precisaInstalarIos,
   pushPendenteConclusao,
   sincronizarEstadoPush,
 } from '../utils/pushNotifications';
@@ -34,6 +35,7 @@ export default function AtivarNotificacoesBar() {
 
   const pendente = pushPendenteConclusao();
   const bloqueado = typeof Notification !== 'undefined' && Notification.permission === 'denied';
+  const precisaInstalar = precisaInstalarIos();
 
   async function ativar() {
     setAtivando(true);
@@ -63,18 +65,24 @@ export default function AtivarNotificacoesBar() {
       }}
     >
       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
-        {bloqueado ? 'Notificações bloqueadas' : 'Ative as notificações'}
+        {precisaInstalar
+          ? 'Instale o app no iPhone'
+          : bloqueado
+            ? 'Notificações bloqueadas'
+            : 'Ative as notificações'}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25, lineHeight: 1.45 }}>
-        {bloqueado
-          ? isIos()
-            ? 'Ajustes → Vision Check → Notificações → Permitir.'
-            : 'Ative nas configurações do app/navegador.'
-          : pendente
-            ? 'Permissão já concedida. Toque abaixo para concluir o registro.'
-            : 'Receba alertas de chamados mesmo com o app fechado.'}
+        {precisaInstalar
+          ? 'Safari → Compartilhar → Adicionar à Tela de Início. Depois abra pelo ícone Vision Check.'
+          : bloqueado
+            ? isIos()
+              ? 'Ajustes → Vision Check → Notificações → Permitir.'
+              : 'Ative nas configurações do app/navegador.'
+            : pendente
+              ? 'Permissão já concedida. Toque abaixo para concluir o registro.'
+              : 'Receba alertas de chamados mesmo com o app fechado.'}
       </Typography>
-      {!bloqueado && (
+      {!bloqueado && !precisaInstalar && (
         <Button
           fullWidth
           variant="contained"

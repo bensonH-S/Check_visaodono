@@ -105,7 +105,7 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
     }
 
     const { rows: chamadoRows } = await pool.query(
-      `SELECT c.numero, l.nome AS loja
+      `SELECT c.numero, l.name AS loja
        FROM manut_chamados c
        LEFT JOIN lojas l ON l.id_loja = c.id_loja
        WHERE c.id_chamado = $1`,

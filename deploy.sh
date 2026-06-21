@@ -21,16 +21,30 @@ if ! git fetch origin --tags 2>&1; then
   echo ""
 fi
 
-LATEST_TAG="$(git tag --sort=-v:refname 2>/dev/null | head -n 1)"
-if [ -z "$LATEST_TAG" ]; then
-  LATEST_TAG="$(git tag 2>/dev/null | sort -V | tail -n 1)"
-fi
+listar_tags() {
+  if git tag --sort=v:refname "$@" 2>/dev/null; then
+    return 0
+  fi
+  git tag "$@" 2>/dev/null | sort -V
+}
+
+listar_tags_com_mensagem() {
+  if git tag --sort=v:refname -n 2>/dev/null; then
+    return 0
+  fi
+  while IFS= read -r tag; do
+    [ -n "$tag" ] || continue
+    git tag -l -n "$tag" "$tag"
+  done < <(git tag 2>/dev/null | sort -V)
+}
+
+LATEST_TAG="$(listar_tags | tail -n 1)"
 
 echo ""
 echo "Última versão disponível: ${LATEST_TAG:-nenhuma}"
 echo ""
 echo "Tags disponíveis:"
-git tag --sort=-v:refname -n 2>/dev/null || git tag -n
+listar_tags_com_mensagem
 
 echo ""
 
@@ -51,7 +65,7 @@ while true; do
   echo "A versão ${TAG} não existe!"
   echo ""
   echo "Tags disponíveis:"
-  git tag --sort=-v:refname -n 2>/dev/null || git tag -n
+  listar_tags_com_mensagem
   echo ""
 done
 
