@@ -9,6 +9,12 @@ precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 clientsClaim();
 
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL('index.html'), {
     denylist: [/\/api\//],

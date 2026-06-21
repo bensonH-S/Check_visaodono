@@ -12,13 +12,12 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { showToast } from '../utils/toast';
 import {
-  appInstalada,
+  ativarNotificacoesNoClique,
   isIos,
   notificacoesPrecisamAtivacao,
   precisaInstalarIos,
+  prepararNotificacoesPush,
   pushJaRegistrado,
-  pushSuportado,
-  registrarPushNotificacoes,
   requerHttpsParaPush,
 } from '../utils/pushNotifications';
 
@@ -50,7 +49,6 @@ export default function PwaInstallBanner() {
   const [visivel, setVisivel] = useState(false);
   const [modo, setModo] = useState<'ios' | 'android' | 'notif' | 'https' | 'sucesso'>('ios');
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [ativandoNotif, setAtivandoNotif] = useState(false);
   const [feedback, setFeedback] = useState<{ tipo: 'success' | 'error' | 'info'; texto: string } | null>(
     null,
   );
@@ -95,6 +93,7 @@ export default function PwaInstallBanner() {
     }
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
+    prepararNotificacoesPush();
     atualizarEstado();
 
     return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
@@ -103,15 +102,6 @@ export default function PwaInstallBanner() {
   useEffect(() => {
     atualizarEstado();
   }, [deferredPrompt, atualizarEstado]);
-
-  useEffect(() => {
-    if (!appInstalada() || !pushSuportado() || requerHttpsParaPush()) return;
-    if (Notification.permission === 'granted' && !pushJaRegistrado()) {
-      registrarPushNotificacoes(true).then((r) => {
-        if (r.ok) atualizarEstado();
-      });
-    }
-  }, [atualizarEstado]);
 
   function fechar() {
     dispensarBanner();
@@ -128,24 +118,19 @@ export default function PwaInstallBanner() {
   }
 
   async function ativarNotificacoes() {
-    setAtivandoNotif(true);
     setFeedback(null);
-    try {
-      const resultado = await registrarPushNotificacoes(true);
+    const resultado = await ativarNotificacoesNoClique();
 
-      if (resultado.ok) {
-        setModo('sucesso');
-        setFeedback({ tipo: 'success', texto: resultado.mensagem });
-        showToast(resultado.mensagem, 'success');
-        setTimeout(() => fechar(), 2500);
-        return;
-      }
-
-      setFeedback({ tipo: 'error', texto: resultado.mensagem });
-      showToast(resultado.mensagem, 'error');
-    } finally {
-      setAtivandoNotif(false);
+    if (resultado.ok) {
+      setModo('sucesso');
+      setFeedback({ tipo: 'success', texto: resultado.mensagem });
+      showToast(resultado.mensagem, 'success');
+      setTimeout(() => fechar(), 1200);
+      return;
     }
+
+    setFeedback({ tipo: 'error', texto: resultado.mensagem });
+    showToast(resultado.mensagem, 'error');
   }
 
   if (!visivel) return null;
@@ -237,10 +222,9 @@ export default function PwaInstallBanner() {
                   variant="contained"
                   startIcon={<NotificationsActiveIcon />}
                   onClick={ativarNotificacoes}
-                  disabled={ativandoNotif}
                   sx={{ fontWeight: 600 }}
                 >
-                  {ativandoNotif ? 'Ativando…' : 'Ativar notificações'}
+                  Ativar notificações
                 </Button>
               )}
             </>
