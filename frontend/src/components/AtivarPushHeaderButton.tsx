@@ -11,8 +11,6 @@ import {
   sincronizarEstadoPush,
 } from '../utils/pushNotifications';
 
-const NAVY = '#1B2A6B';
-
 export default function AtivarPushHeaderButton() {
   const [visivel, setVisivel] = useState(false);
   const [ativando, setAtivando] = useState(false);
