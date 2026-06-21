@@ -13,6 +13,7 @@ import {
   syncUsuarioPermissoes,
 } from '../permissoes.js';
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
+import { normalizarTelefoneBr } from '../utils/telefone.js';
 
 const router = Router();
 const PERFIS_VALIDOS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'];
@@ -45,12 +46,15 @@ async function mapUsuarioGestao(row) {
     permissoes,
     ativo: row.ativo,
     acesso_todas_lojas: acessoTodasLojas(userCtx),
+    telefone_whatsapp: row.telefone_whatsapp || null,
+    notifica_whatsapp: row.notifica_whatsapp !== false,
   };
 }
 
 const SQL_USUARIO = `
   SELECT u.id_usuario, u.nome, u.email, u.cargo, u.cargo_aprovacao, u.avatar_inicial,
-         u.perfil::text AS perfil, u.ativo, cg.nome AS cargo_nome
+         u.perfil::text AS perfil, u.ativo, u.telefone_whatsapp, u.notifica_whatsapp,
+         cg.nome AS cargo_nome
   FROM usuarios u
   LEFT JOIN cargos cg ON cg.codigo = u.cargo_aprovacao`;
 
@@ -130,7 +134,17 @@ function validarLojas(permissoes, lojasIds) {
 
 router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
-    const { nome, email, senha, lojas_ids, permissoes, ativo, cargo_aprovacao } = req.body;
+    const {
+      nome,
+      email,
+      senha,
+      lojas_ids,
+      permissoes,
+      ativo,
+      cargo_aprovacao,
+      telefone_whatsapp,
+      notifica_whatsapp,
+    } = req.body;
     const emailNorm = String(email || '').trim().toLowerCase();
 
     if (!nome?.trim() || !emailNorm || !senha || senha.length < 6) {
@@ -145,10 +159,15 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
     const errLojas = validarLojas(perms, lojas_ids);
     if (errLojas) return res.status(400).json({ error: errLojas });
 
+    const telWpp = telefone_whatsapp !== undefined ? normalizarTelefoneBr(telefone_whatsapp) : null;
+    if (telefone_whatsapp && !telWpp) {
+      return res.status(400).json({ error: 'WhatsApp inválido. Use DDD + número (ex.: 61999998888)' });
+    }
+
     const hash = await bcrypt.hash(senha, 10);
     const { rows } = await pool.query(
-      `INSERT INTO usuarios (nome, email, cargo, cargo_aprovacao, avatar_inicial, senha_hash, perfil, ativo)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::perfil_usuario, COALESCE($8, TRUE))
+      `INSERT INTO usuarios (nome, email, cargo, cargo_aprovacao, avatar_inicial, senha_hash, perfil, ativo, telefone_whatsapp, notifica_whatsapp)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::perfil_usuario, COALESCE($8, TRUE), $9, COALESCE($10, TRUE))
        RETURNING id_usuario, nome, email, cargo, cargo_aprovacao, avatar_inicial, perfil::text AS perfil, ativo`,
       [
         nome.trim(),
@@ -159,6 +178,8 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
         hash,
         cargoRes.perfil,
         ativo,
+        telWpp,
+        notifica_whatsapp,
       ],
     );
 
@@ -176,7 +197,17 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
 router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { nome, email, senha, lojas_ids, permissoes, ativo, cargo_aprovacao } = req.body;
+    const {
+      nome,
+      email,
+      senha,
+      lojas_ids,
+      permissoes,
+      ativo,
+      cargo_aprovacao,
+      telefone_whatsapp,
+      notifica_whatsapp,
+    } = req.body;
 
     const atual = await pool.query(
       `SELECT id_usuario, perfil::text AS perfil, cargo_aprovacao
@@ -251,6 +282,19 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
     } else if (permissoes !== undefined && permsAtuais.includes('chamados.aprovar')) {
       const cargoRes = await resolverCargoUsuario(atual.rows[0].cargo_aprovacao, permsAtuais);
       if (cargoRes.error) return res.status(400).json({ error: cargoRes.error });
+    }
+
+    if (telefone_whatsapp !== undefined) {
+      const telWpp = telefone_whatsapp ? normalizarTelefoneBr(telefone_whatsapp) : null;
+      if (telefone_whatsapp && !telWpp) {
+        return res.status(400).json({ error: 'WhatsApp inválido. Use DDD + número (ex.: 61999998888)' });
+      }
+      sets.push(`telefone_whatsapp = $${i++}`);
+      vals.push(telWpp);
+    }
+    if (notifica_whatsapp !== undefined) {
+      sets.push(`notifica_whatsapp = $${i++}`);
+      vals.push(!!notifica_whatsapp);
     }
 
     if (sets.length) {

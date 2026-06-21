@@ -90,6 +90,19 @@ export const api = {
   usuarioGestaoExcluir: (id: number) =>
     request<void>(`/usuarios/gestao/${id}`, { method: 'DELETE' }),
 
+  wppStatus: () => request<WppStatus>('/wpp/status'),
+  wppQrcode: () => request<WppQrResponse>('/wpp/qrcode'),
+  wppConectar: (reiniciar = false) =>
+    request<WppConectarResponse>('/wpp/conectar', {
+      method: 'POST',
+      body: JSON.stringify({ reiniciar }),
+    }),
+  wppTeste: (body: { telefone: string; mensagem?: string }) =>
+    request<{ ok: boolean; telefone: string }>('/wpp/teste', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   cargos: (params?: { aprovador?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.aprovador) q.set('aprovador', '1');
@@ -374,6 +387,8 @@ export interface UsuarioGestao {
   permissoes: string[];
   ativo: boolean;
   acesso_todas_lojas?: boolean;
+  telefone_whatsapp?: string | null;
+  notifica_whatsapp?: boolean;
 }
 
 export interface UsuarioGestaoInput {
@@ -385,6 +400,28 @@ export interface UsuarioGestaoInput {
   lojas_ids?: number[];
   permissoes?: string[];
   ativo?: boolean;
+  telefone_whatsapp?: string | null;
+  notifica_whatsapp?: boolean;
+}
+
+export interface WppStatus {
+  enabled: boolean;
+  conectado: boolean;
+  session?: string;
+  message?: string;
+  publicUrl?: string | null;
+  sessionConfig?: string;
+}
+
+export interface WppQrResponse {
+  conectado: boolean;
+  qrcode?: string | null;
+}
+
+export interface WppConectarResponse {
+  conectado: boolean;
+  qrcode?: string | null;
+  message?: string;
 }
 
 export interface CategoriaChecklistResumo {

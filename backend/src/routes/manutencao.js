@@ -2,6 +2,7 @@
  * Chamados de manutenção — vision_check (manut_* + lojas/usuarios)
  */
 import { Router } from 'express';
+import { dispatchWhatsAppNotificacao } from '../services/whatsappNotificacoes.js';
 import multer from 'multer';
 import { pool } from '../db.js';
 import {
@@ -207,7 +208,13 @@ async function ensureNotificacaoEventosTable() {
         ('anexo', 'Fotos ou vídeos adicionados ao chamado', TRUE, TRUE),
         ('assumido', 'Chamado atribuído a técnico', TRUE, TRUE),
         ('fechamento', 'Chamado concluído ou cancelado', TRUE, TRUE),
-        ('reabertura', 'Chamado reaberto', TRUE, TRUE)
+        ('reabertura', 'Chamado reaberto', TRUE, TRUE),
+        ('envio_aprovacao', 'Chamado enviado para aprovação de orçamento', TRUE, TRUE),
+        ('aguardando_aprovacao', 'Solicitante aguardando aprovação do orçamento', TRUE, TRUE),
+        ('encaminhar_diretor', 'Orçamento encaminhado ao Diretor', TRUE, TRUE),
+        ('aprovacao_diretor', 'Orçamento aprovado pelo Diretor', TRUE, TRUE),
+        ('aprovacao', 'Orçamento aprovado', TRUE, TRUE),
+        ('recusa_aprovacao', 'Orçamento recusado', TRUE, TRUE)
       ON CONFLICT (codigo) DO NOTHING;
     `);
     _tabelaEventosNotifOk = true;
@@ -245,6 +252,9 @@ async function criarNotificacao({ idUsuario, idChamado, tipo, mensagem, enviarPu
       const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
       enviarPushNotificacaoChamado(uid, idChamado, tipo, mensagem).catch(() => {});
     }
+    void dispatchWhatsAppNotificacao({ idUsuario: uid, idChamado, tipo, mensagem }).catch((e) =>
+      console.error('[whatsapp]', e.message),
+    );
     return true;
   } catch (e) {
     console.error('[manutencao] Erro ao criar notificação:', e.message);

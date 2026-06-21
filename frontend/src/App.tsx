@@ -29,6 +29,7 @@ import CategoriasPage from './pages/configuracoes/CategoriasPage';
 import SlaPage from './pages/configuracoes/SlaPage';
 import CargosPage from './pages/configuracoes/CargosPage';
 import ChecklistPerguntasPage from './pages/configuracoes/ChecklistPerguntasPage';
+import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
 import RotaPermissao from './components/RotaPermissao';
 import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
@@ -213,6 +214,14 @@ export default function App() {
               element={
                 <RotaPermissao permissoes={['configuracoes.ver']}>
                   <CargosPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="configuracoes/whatsapp"
+              element={
+                <RotaPermissao permissoes={['configuracoes.ver']}>
+                  <WhatsAppPage />
                 </RotaPermissao>
               }
             />

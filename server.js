@@ -95,6 +95,7 @@ const manutencaoRouter = (await import('./backend/src/routes/manutencao.js')).de
 const cargosRouter = (await import('./backend/src/routes/cargos.js')).default;
 const pushRouter = (await import('./backend/src/routes/push.js')).default;
 const { initPushNotifications, getVapidPublicKey } = await import('./backend/src/pushNotifications.js');
+const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
 await import('./backend/src/cryptoMedia.js');
 initPushNotifications();
 const { authMiddleware } = await import('./backend/src/auth.js');
@@ -177,6 +178,7 @@ api.use('/visitas', visitasRouter);
 api.use('/nao-conformidades', ncRouter);
 api.use('/manutencao', manutencaoRouter);
 api.use('/push', pushRouter);
+api.use('/wpp', wppRouter);
 
 app.use(API_PREFIX, api);
 app.use('/api', api);

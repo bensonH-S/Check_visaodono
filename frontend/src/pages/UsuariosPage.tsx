@@ -53,6 +53,8 @@ const emptyForm = {
   lojas_ids: [] as number[],
   permissoes: [] as string[],
   ativo: true,
+  telefone_whatsapp: '',
+  notifica_whatsapp: true,
 };
 
 export default function UsuariosPage() {
@@ -158,6 +160,8 @@ export default function UsuariosPage() {
       lojas_ids: u.lojas_ids || [],
       permissoes: u.permissoes || [],
       ativo: u.ativo !== false,
+      telefone_whatsapp: u.telefone_whatsapp || '',
+      notifica_whatsapp: u.notifica_whatsapp !== false,
     });
     setMostrarSenha(false);
     setErro('');
@@ -188,6 +192,8 @@ export default function UsuariosPage() {
         lojas_ids: todasLojas ? [] : form.lojas_ids,
         permissoes: form.permissoes,
         ativo: form.ativo,
+        telefone_whatsapp: form.telefone_whatsapp.trim() || null,
+        notifica_whatsapp: form.notifica_whatsapp,
         ...(form.senha ? { senha: form.senha } : {}),
       };
 
@@ -302,6 +308,7 @@ export default function UsuariosPage() {
               <TableCell>Nome</TableCell>
               <TableCell>E-mail</TableCell>
               <TableCell>Perfil</TableCell>
+              <TableCell>WhatsApp</TableCell>
               <TableCell>Funções</TableCell>
               <TableCell>Lojas</TableCell>
               <TableCell>Status</TableCell>
@@ -332,6 +339,20 @@ export default function UsuariosPage() {
                     size="small"
                     variant="outlined"
                   />
+                </TableCell>
+                <TableCell>
+                  {u.telefone_whatsapp ? (
+                    <Chip
+                      label={u.notifica_whatsapp !== false ? 'Ativo' : 'Silenciado'}
+                      size="small"
+                      color={u.notifica_whatsapp !== false ? 'success' : 'default'}
+                      variant="outlined"
+                    />
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      —
+                    </Typography>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" color={u.permissoes?.length ? 'text.primary' : 'text.secondary'}>
@@ -470,6 +491,36 @@ export default function UsuariosPage() {
                 </MenuItem>
               ))}
             </TextField>
+          </Box>
+
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr auto' },
+              gap: { xs: 1, sm: 1.25 },
+              alignItems: 'center',
+              mt: 1,
+            }}
+          >
+            <TextField
+              {...dialogFieldPropsResponsive}
+              label="WhatsApp (DDD + número)"
+              placeholder="61999998888"
+              value={form.telefone_whatsapp}
+              onChange={(e) => setForm((f) => ({ ...f, telefone_whatsapp: e.target.value }))}
+              helperText="Recebe alertas de chamados com link direto para o app"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.notifica_whatsapp}
+                  onChange={(e) => setForm((f) => ({ ...f, notifica_whatsapp: e.target.checked }))}
+                  disabled={!form.telefone_whatsapp.trim()}
+                />
+              }
+              label="Notificar por WhatsApp"
+              sx={{ m: 0 }}
+            />
           </Box>
 
           {form.cargo_aprovacao === 'ti' && (

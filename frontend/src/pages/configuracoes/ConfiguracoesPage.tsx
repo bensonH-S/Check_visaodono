@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import CategoryIcon from '@mui/icons-material/Category';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import BadgeIcon from '@mui/icons-material/Badge';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PeopleIcon from '@mui/icons-material/People';
 import StoreIcon from '@mui/icons-material/Store';
@@ -133,6 +134,13 @@ export default function ConfiguracoesPage() {
           title: 'Cargos',
           description: 'Perfis usados em usuários e aprovações.',
           icon: <BadgeIcon sx={{ fontSize: 28, color: NAVY }} />,
+          show: temPermissao('configuracoes.ver', user),
+        },
+        {
+          to: '/configuracoes/whatsapp',
+          title: 'WhatsApp',
+          description: 'Conectar sessão e enviar notificações de chamados.',
+          icon: <WhatsAppIcon sx={{ fontSize: 28, color: '#25D366' }} />,
           show: temPermissao('configuracoes.ver', user),
         },
       ],

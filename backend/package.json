@@ -30,7 +30,8 @@
     "migrate:aprovacao-diretor-ok": "node scripts/run-sql.js migrations/029_aprovacao_diretor_ok.sql",
     "migrate:checklist-auditoria": "node scripts/run-sql.js migrations/031_checklist_auditoria_operacional.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
-    "generate:vapid": "node scripts/generate-vapid.js"
+    "generate:vapid": "node scripts/generate-vapid.js",
+    "migrate:whatsapp": "node scripts/run-sql.js migrations/035_usuario_whatsapp.sql"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
