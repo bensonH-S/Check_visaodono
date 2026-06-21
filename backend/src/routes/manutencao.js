@@ -241,6 +241,8 @@ async function criarNotificacao({ idUsuario, idChamado, tipo, mensagem }) {
        VALUES ($1, $2, $3, $4)`,
       [uid, idChamado, tipo, mensagem],
     );
+    const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
+    enviarPushNotificacaoChamado(uid, idChamado, tipo, mensagem).catch(() => {});
     return true;
   } catch (e) {
     console.error('[manutencao] Erro ao criar notificação:', e.message);

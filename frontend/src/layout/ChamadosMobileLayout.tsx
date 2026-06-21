@@ -12,9 +12,11 @@ import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import BrandLogo from '../components/BrandLogo';
 import AppFooter from '../components/AppFooter';
 import NotificacoesSino from '../components/NotificacoesSino';
+import PwaInstallBanner from '../components/PwaInstallBanner';
 import { toAppPath } from '../config/paths';
 import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { registrarPushNotificacoes, pushSuportado } from '../utils/pushNotifications';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -229,6 +231,11 @@ function ChamadosMobileLayoutInner() {
   }, [user, navigate]);
 
   useEffect(() => {
+    if (!user || !pushSuportado()) return;
+    registrarPushNotificacoes().catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
     const nome = (location.state as { welcome?: string } | null)?.welcome;
     if (!nome) return;
     showToast(`Bem-vindo, ${nome}!`, 'success');
@@ -319,18 +326,20 @@ function ChamadosMobileLayoutInner() {
           </Box>
         </Box>
         {!isSubPage && (
-          <Box
-            sx={{
-              mt: 1,
-              width: '100%',
-              px: 1.25,
-              py: 0.75,
-              borderRadius: 2,
-              bgcolor: 'rgba(27, 42, 107, 0.04)',
-              border: '1px solid rgba(27, 42, 107, 0.08)',
-            }}
-          >
-            <SeletorLocalizacao user={user} />
+          <Box sx={{ mt: 1 }}>
+            <PwaInstallBanner />
+            <Box
+              sx={{
+                width: '100%',
+                px: 1.25,
+                py: 0.75,
+                borderRadius: 2,
+                bgcolor: 'rgba(27, 42, 107, 0.04)',
+                border: '1px solid rgba(27, 42, 107, 0.08)',
+              }}
+            >
+              <SeletorLocalizacao user={user} />
+            </Box>
           </Box>
         )}
       </Box>

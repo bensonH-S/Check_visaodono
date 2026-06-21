@@ -61,17 +61,20 @@ const PROD_PORT = 3007;
 const DEV_PORT = 5000;
 const isProd = process.argv.includes('--production');
 const SERVE_WEB = isProd;
-const PORT = Number(process.env.PORT) || (isProd ? PROD_PORT : DEV_PORT);
+const PORT = isProd ? Number(process.env.PORT) || PROD_PORT : DEV_PORT;
 const API_PREFIX = `${APP_BASE_PATH}/api`;
 const STATIC_BASE = `${APP_BASE_PATH}/`;
 
-for (const key of ['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME']) {
+for (const key of ['DB_HOST', 'DB_USER', 'DB_NAME']) {
   if (!process.env[key]) {
     console.error(
       `[server] Falta ${key}. Crie .env na raiz ou use backend/.env (copie DB_* de backend/.env.example).`
     );
     process.exit(1);
   }
+}
+if (process.env.DB_PASS === undefined) {
+  process.env.DB_PASS = '';
 }
 
 const express = (await import('express')).default;
@@ -86,7 +89,10 @@ const dashboardRouter = (await import('./backend/src/routes/dashboard.js')).defa
 const authRouter = (await import('./backend/src/routes/auth.js')).default;
 const manutencaoRouter = (await import('./backend/src/routes/manutencao.js')).default;
 const cargosRouter = (await import('./backend/src/routes/cargos.js')).default;
+const pushRouter = (await import('./backend/src/routes/push.js')).default;
+const { initPushNotifications, getVapidPublicKey } = await import('./backend/src/pushNotifications.js');
 await import('./backend/src/cryptoMedia.js');
+initPushNotifications();
 const { authMiddleware } = await import('./backend/src/auth.js');
 const { attachLojasUsuario } = await import('./backend/src/lojasUsuario.js');
 const { attachPermissoesUsuario } = await import('./backend/src/permissoes.js');
@@ -129,7 +135,16 @@ api.get('/public/config', (_req, res) => {
       phone: process.env.SUPPORT_PHONE || '+55 61 9109-4654',
       email: process.env.SUPPORT_EMAIL || 'benson.henrique@grupoalvim.com.br',
     },
+    pushEnabled: Boolean(getVapidPublicKey()),
   });
+});
+
+api.get('/public/push/vapid-key', (_req, res) => {
+  const publicKey = getVapidPublicKey();
+  if (!publicKey) {
+    return res.status(503).json({ error: 'Push notifications não configuradas' });
+  }
+  res.json({ publicKey });
 });
 
 api.use('/auth', authRouter);
@@ -145,12 +160,25 @@ api.use('/checklist', checklistRouter);
 api.use('/visitas', visitasRouter);
 api.use('/nao-conformidades', ncRouter);
 api.use('/manutencao', manutencaoRouter);
+api.use('/push', pushRouter);
 
 app.use(API_PREFIX, api);
 app.use('/api', api);
 
 app.use((err, _req, res, _next) => {
   console.error('[API]', err.message);
+  const msg = String(err.message || '');
+  const erroDb =
+    msg.includes('SASL') ||
+    msg.includes('password authentication failed') ||
+    msg.includes('ECONNREFUSED') ||
+    msg.includes('ENOTFOUND');
+  if (erroDb) {
+    return res.status(503).json({
+      error:
+        'Banco de dados indisponível. Verifique DB_PASS e se o PostgreSQL está rodando (arquivo .env na raiz).',
+    });
+  }
   res.status(500).json({ error: err.message || 'Erro interno' });
 });
 
@@ -183,9 +211,19 @@ if (SERVE_WEB) {
   console.log(`[server] SPA ${STATIC_BASE} → ${dist}`);
 }
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   garantirSchema();
   console.log(`[server] ${isProd ? 'produção' : 'dev'} — :${PORT}${API_PREFIX}`);
   console.log(`[server] versão ${APP_VERSION}`);
   console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
+  if (!process.env.DB_PASS) {
+    console.warn('[server] DB_PASS vazio — o PostgreSQL local exige senha. Preencha no .env e reinicie.');
+  }
+  try {
+    await pool.query('SELECT 1');
+    console.log('[server] Conexão com PostgreSQL OK');
+  } catch (e) {
+    console.error('[server] Falha ao conectar no PostgreSQL:', e.message);
+    console.error('[server] Ajuste DB_PASS no .env (senha do usuário postgres) e reinicie npm run dev');
+  }
 });

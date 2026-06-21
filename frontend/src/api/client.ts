@@ -13,6 +13,7 @@ export type AppPublicConfig = {
     phone: string;
     email: string;
   };
+  pushEnabled?: boolean;
 };
 
 function authHeaders(extra?: HeadersInit): HeadersInit {
@@ -272,6 +273,16 @@ export const api = {
   manutNotificacoesMarcarChamadoLidas: (idChamado: number) =>
     request<{ ok: boolean }>(`/manutencao/notificacoes/chamado/${idChamado}/lidas`, {
       method: 'PATCH',
+    }),
+  pushSubscribe: (subscription: PushSubscriptionJSON) =>
+    request<{ ok: boolean }>('/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ subscription }),
+    }),
+  pushUnsubscribe: (endpoint: string) =>
+    request<{ ok: boolean }>('/push/subscribe', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
     }),
   manutEnviarFotos: async (idChamado: number, formData: FormData) => {
     const token = getToken();

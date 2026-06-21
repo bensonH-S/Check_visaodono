@@ -67,7 +67,14 @@ export default function LoginMobilePage() {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      const conhecidas = ['incorretos', 'obrigatórios', 'Sessão expirada', 'indisponível'];
+      const conhecidas = [
+        'incorretos',
+        'obrigatórios',
+        'Sessão expirada',
+        'indisponível',
+        'Banco de dados',
+        'PostgreSQL',
+      ];
       setErro(
         msg && conhecidas.some((t) => msg.includes(t))
           ? msg

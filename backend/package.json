@@ -28,7 +28,9 @@
     "migrate:sync-cargo-nome": "node scripts/run-sql.js migrations/027_sync_cargo_nome.sql",
     "migrate:backfill-aprovacao-destino": "node scripts/run-sql.js migrations/028_backfill_aprovacao_destino.sql",
     "migrate:aprovacao-diretor-ok": "node scripts/run-sql.js migrations/029_aprovacao_diretor_ok.sql",
-    "migrate:checklist-auditoria": "node scripts/run-sql.js migrations/031_checklist_auditoria_operacional.sql"
+    "migrate:checklist-auditoria": "node scripts/run-sql.js migrations/031_checklist_auditoria_operacional.sql",
+    "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
+    "generate:vapid": "node scripts/generate-vapid.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -36,6 +38,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.13.3"
+    "pg": "^8.13.3",
+    "web-push": "^3.6.7"
   }
 }

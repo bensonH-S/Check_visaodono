@@ -67,6 +67,9 @@ export default defineConfig({
     tailwindcss(),
     auditoriaBaseRedirect(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['Logo_Icon.png', 'logo-grupo-alvim.png'],
       manifest: {
@@ -78,8 +81,10 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         lang: 'pt-BR',
-        start_url: 'login/mobile',
+        start_url: './login/mobile',
         scope: './',
+        id: './login/mobile',
+        categories: ['business', 'productivity'],
         icons: [
           {
             src: 'Logo_Icon.png',
@@ -99,14 +104,16 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2,webmanifest}'],
+      },
+      workbox: {
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/\/api\//],
         cleanupOutdatedCaches: true,
       },
       devOptions: {
-        enabled: false,
+        enabled: true,
         type: 'module',
       },
     }),
