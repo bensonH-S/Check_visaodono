@@ -146,8 +146,9 @@ export default function PwaInstallBanner() {
         return;
       }
 
-      setFeedback({ tipo: 'error', texto: resultado.mensagem });
-      showToast(resultado.mensagem, 'error');
+      const recarregando = resultado.mensagem.includes('vai recarregar');
+      setFeedback({ tipo: recarregando ? 'info' : 'error', texto: resultado.mensagem });
+      showToast(resultado.mensagem, recarregando ? 'info' : 'error');
     } finally {
       setAtivando(false);
       atualizarEstado();
@@ -155,19 +156,13 @@ export default function PwaInstallBanner() {
   }
 
   const pendente = pushPendenteConclusao();
-  const tituloNotif = pendente ? 'Conclua a ativação' : 'Ative as notificações';
+  const tituloNotif = 'Ative as notificações';
   const textoNotif = pendente
-    ? 'Você já permitiu alertas, mas o registro ainda não foi concluído. Toque abaixo para finalizar.'
+    ? 'Você já permitiu alertas no iPhone. Toque abaixo para concluir o registro no app — depois disso os avisos chegam mesmo com o app fechado (não precisa ficar logado).'
     : isIos()
-      ? 'Permita alertas para receber novidades dos chamados com o app fechado.'
+      ? 'Permita alertas para receber novidades dos chamados com o app fechado. Abra sempre pelo ícone na Tela de Início.'
       : 'Receba alertas de chamados mesmo com o app fechado.';
-  const rotuloBotao = pendente
-    ? ativando
-      ? 'Concluindo…'
-      : 'Concluir ativação'
-    : ativando
-      ? 'Ativando…'
-      : 'Ativar notificações';
+  const rotuloBotao = ativando ? 'Ativando…' : 'Ativar notificações';
 
   if (!visivel) return null;
 

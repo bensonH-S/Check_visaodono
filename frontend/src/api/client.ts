@@ -281,6 +281,11 @@ export const api = {
     }),
   pushStatus: () =>
     request<{ registered: boolean; pushEnabled: boolean }>('/push/status'),
+  pushDiagnostico: (mensagem: string, meta?: Record<string, unknown>) =>
+    request<{ ok: boolean }>('/push/diagnostico', {
+      method: 'POST',
+      body: JSON.stringify({ mensagem, meta }),
+    }),
   pushUnsubscribe: (endpoint: string) =>
     request<{ ok: boolean }>('/push/subscribe', {
       method: 'DELETE',

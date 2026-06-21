@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -17,7 +17,7 @@ import BrandLogo from '../components/BrandLogo';
 import AppFooter from '../components/AppFooter';
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
-import { destinoPosLoginMobile, setSessao } from '../lib/auth';
+import { destinoPosLoginMobile, getToken, getUsuario, setSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 
 const PAGE_BG = '#f5f5f3';
@@ -34,6 +34,14 @@ export default function LoginMobilePage() {
   const [toast, setToast] = useState('');
 
   usePageTitle('Login Mobile');
+
+  useEffect(() => {
+    const token = getToken();
+    const usuario = getUsuario();
+    if (token && usuario) {
+      navigate(destinoPosLoginMobile(usuario), { replace: true });
+    }
+  }, [navigate]);
 
   function avisar(campo: string) {
     setToast(`Preencha o campo ${campo}.`);

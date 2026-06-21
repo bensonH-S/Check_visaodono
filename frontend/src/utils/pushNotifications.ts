@@ -1,9 +1,12 @@
 import { apiBasePath } from '../config/paths';
 import { api } from '../api/client';
 import {
+  coletarDiagnosticoServiceWorker,
   iniciarServiceWorkerPwa,
+  limparFlagRecargaServiceWorker,
   obterRegistroServiceWorker,
   obterRegistroServiceWorkerRapido,
+  recarregarParaAtivarServiceWorker,
 } from '../pwa/registerServiceWorker';
 import { showToast } from './toast';
 
@@ -29,6 +32,15 @@ export type ResultadoPushRegistro = {
 };
 
 let conclusaoSegundoPlano: Promise<ResultadoPushRegistro> | null = null;
+
+async function logPushDiagnostico(mensagem: string, extra?: Record<string, unknown>) {
+  const diag = coletarDiagnosticoServiceWorker(mensagem);
+  try {
+    await api.pushDiagnostico(mensagem, { ...diag, ...extra });
+  } catch {
+    /* ignore */
+  }
+}
 
 function emitirPushAtualizado() {
   if (typeof window === 'undefined') return;
@@ -217,6 +229,8 @@ async function inscreverNoPush(
     throw new Error('Inscrição não confirmada no servidor');
   }
 
+  limparFlagRecargaServiceWorker();
+
   return {
     ok: true,
     codigo: 'ok',
@@ -256,12 +270,24 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
     };
   }
 
-  const registration = await obterRegistroServiceWorker(45000);
+  const registration = await obterRegistroServiceWorker(15000);
   if (!registration?.pushManager) {
+    if (isIos() && appInstalada() && Notification.permission === 'granted') {
+      const recarregou = await recarregarParaAtivarServiceWorker();
+      if (recarregou) {
+        return {
+          ok: false,
+          codigo: 'service_worker_indisponivel',
+          mensagem: 'Preparando o app… A tela vai recarregar. Toque em Ativar notificações novamente.',
+        };
+      }
+    }
+    await logPushDiagnostico('service_worker_indisponivel_ao_concluir');
     return {
       ok: false,
       codigo: 'service_worker_indisponivel',
-      mensagem: 'Não foi possível preparar o app. Feche e abra pelo ícone na Tela de Início.',
+      mensagem:
+        'Não foi possível preparar o app. Feche completamente (deslize para cima) e abra de novo pelo ícone Vision Check.',
     };
   }
 
@@ -269,6 +295,7 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
     return await inscreverNoPush(registration, publicKey);
   } catch (e) {
     limparPushRegistradoLocal();
+    await logPushDiagnostico('inscricao_falhou', { erro: e instanceof Error ? e.message : String(e) });
     return mapearErroInscricao(e);
   }
 }
@@ -282,7 +309,7 @@ export function concluirPushEmSegundoPlano(forcar = true): Promise<ResultadoPush
   });
 
   return conclusaoSegundoPlano.then((r) => {
-    if (!r.ok && r.codigo !== 'ja_registrado') {
+    if (!r.ok && r.codigo !== 'ja_registrado' && !r.mensagem.includes('vai recarregar')) {
       showToast(r.mensagem, 'warning');
     }
     emitirPushAtualizado();

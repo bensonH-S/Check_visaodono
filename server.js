@@ -194,6 +194,28 @@ app.use((err, req, res, _next) => {
 if (SERVE_WEB) {
   const dist = path.join(__dirname, 'frontend', 'dist');
   const indexHtml = path.join(dist, 'index.html');
+  const swJs = path.join(dist, 'sw.js');
+  const manifestWeb = path.join(dist, 'manifest.webmanifest');
+
+  app.get(`${STATIC_BASE}sw.js`, (_req, res) => {
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Service-Worker-Allowed', `${APP_BASE_PATH}/`);
+    res.sendFile(swJs, (err) => {
+      if (err) {
+        logger.error('pwa', 'Arquivo sw.js não encontrado no build', { path: swJs });
+        res.status(404).json({ error: 'Service worker não encontrado' });
+      }
+    });
+  });
+
+  app.get(`${STATIC_BASE}manifest.webmanifest`, (_req, res) => {
+    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.sendFile(manifestWeb, (err) => {
+      if (err) res.status(404).end();
+    });
+  });
 
   app.get(APP_BASE_PATH, (_req, res) => {
     res.redirect(302, `${STATIC_BASE}login`);
@@ -206,6 +228,9 @@ if (SERVE_WEB) {
       setHeaders(res, filePath) {
         if (filePath.endsWith('index.html')) {
           res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        } else if (filePath.endsWith('sw.js') || filePath.endsWith('manifest.webmanifest')) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+          res.setHeader('Service-Worker-Allowed', `${APP_BASE_PATH}/`);
         } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
@@ -213,7 +238,18 @@ if (SERVE_WEB) {
     })
   );
 
-  app.get(`${APP_BASE_PATH}/*`, (_req, res) => {
+  app.get(`${APP_BASE_PATH}/*`, (req, res, next) => {
+    const sub = req.path.slice(APP_BASE_PATH.length) || '/';
+    if (
+      sub.endsWith('.js') ||
+      sub.endsWith('.css') ||
+      sub.endsWith('.webmanifest') ||
+      sub.endsWith('.png') ||
+      sub.endsWith('.ico') ||
+      sub.includes('/assets/')
+    ) {
+      return next();
+    }
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.sendFile(indexHtml);
   });

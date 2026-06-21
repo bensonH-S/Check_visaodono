@@ -30,6 +30,16 @@ router.get('/vapid-key', (_req, res) => {
   res.json({ publicKey });
 });
 
+router.post('/diagnostico', async (req, res) => {
+  const mensagem = String(req.body?.mensagem || 'diagnostico push');
+  const meta = req.body?.meta && typeof req.body.meta === 'object' ? req.body.meta : {};
+  logger.warn('push-client', mensagem, {
+    idUsuario: req.user.id_usuario,
+    ...meta,
+  });
+  res.json({ ok: true });
+});
+
 router.post('/subscribe', async (req, res) => {
   try {
     const subscription = req.body?.subscription;

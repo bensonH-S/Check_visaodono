@@ -1,5 +1,3 @@
-import { registerSW } from 'virtual:pwa-register';
-
 const SW_RELOAD_KEY = 'vision-check:sw-reload-once';
 
 let registroIniciado = false;
@@ -36,53 +34,66 @@ function aguardarEstadoWorker(
   });
 }
 
-/** Inicia o registro PWA (chamar uma vez no boot do app). */
-export function iniciarServiceWorkerPwa(): void {
-  if (registroIniciado || typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
-  registroIniciado = true;
+export type DiagnosticoServiceWorker = {
+  swUrl: string;
+  scope: string;
+  temServiceWorker: boolean;
+  registroExiste: boolean;
+  active: boolean;
+  waiting: boolean;
+  installing: boolean;
+  controller: boolean;
+  standalone: boolean;
+  pushManager: boolean;
+  erro?: string;
+};
 
-  registroPromise = new Promise((resolve) => {
-    let concluido = false;
-    const finalizar = (reg: ServiceWorkerRegistration | null) => {
-      if (concluido) return;
-      concluido = true;
-      if (reg) registroResolvido = reg;
-      resolve(reg);
-    };
-
-    registerSW({
-      immediate: true,
-      onRegisteredSW(_url, registration) {
-        finalizar(registration ?? null);
-      },
-      onRegisterError(error) {
-        console.error('[pwa] Falha ao registrar service worker:', error);
-        finalizar(null);
-      },
-    });
-
-    void (async () => {
-      await aguardar(8000);
-      if (concluido) return;
-      const reg = await navigator.serviceWorker.getRegistration(escopoPwa());
-      finalizar(reg ?? null);
-    })();
-  });
+export function coletarDiagnosticoServiceWorker(erro?: string): DiagnosticoServiceWorker {
+  const scope = escopoPwa();
+  const swUrl = urlServiceWorker();
+  const base: DiagnosticoServiceWorker = {
+    swUrl,
+    scope,
+    temServiceWorker: 'serviceWorker' in navigator,
+    registroExiste: false,
+    active: false,
+    waiting: false,
+    installing: false,
+    controller: !!navigator.serviceWorker?.controller,
+    standalone:
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true,
+    pushManager: false,
+    erro,
+  };
+  if (registroResolvido) {
+    base.registroExiste = true;
+    base.active = !!registroResolvido.active;
+    base.waiting = !!registroResolvido.waiting;
+    base.installing = !!registroResolvido.installing;
+    base.pushManager = 'pushManager' in registroResolvido;
+  }
+  return base;
 }
 
 async function registrarServiceWorkerExplicito(): Promise<ServiceWorkerRegistration | null> {
+  if (!('serviceWorker' in navigator)) return null;
+
   const scope = escopoPwa();
   const swUrl = urlServiceWorker();
 
   try {
-    return await navigator.serviceWorker.register(swUrl, { scope });
-  } catch {
-    try {
-      return await navigator.serviceWorker.register(swUrl, { scope, type: 'module' as WorkerType });
-    } catch (e) {
-      console.error('[pwa] Registro explícito falhou:', e);
-      return null;
-    }
+    const existente = await navigator.serviceWorker.getRegistration(scope);
+    if (existente) return existente;
+
+    const reg = await navigator.serviceWorker.register(swUrl, {
+      scope,
+      updateViaCache: 'none',
+    });
+    return reg;
+  } catch (e) {
+    console.error('[pwa] Registro explícito falhou:', e);
+    throw e;
   }
 }
 
@@ -91,63 +102,69 @@ async function ativarWorkerPendente(reg: ServiceWorkerRegistration): Promise<Ser
 
   if (reg.waiting) {
     reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-    await aguardarEstadoWorker(reg.waiting, 'activated', 8000);
+    await aguardarEstadoWorker(reg.waiting, 'activated', 6000);
   }
 
   if (reg.installing) {
-    await aguardarEstadoWorker(reg.installing, 'activated', 15000);
+    await aguardarEstadoWorker(reg.installing, 'activated', 10000);
   }
 
   return (await navigator.serviceWorker.getRegistration(escopoPwa())) ?? reg;
 }
 
-/** iOS: na 1ª abertura do PWA o SW instala mas só controla após recarregar. */
-async function recarregarUmaVezSeNecessario(reg: ServiceWorkerRegistration): Promise<boolean> {
+/** iOS: recarrega uma vez para o SW assumir controle. */
+export async function recarregarParaAtivarServiceWorker(): Promise<boolean> {
   if (navigator.serviceWorker.controller) return false;
 
   try {
     if (localStorage.getItem(SW_RELOAD_KEY) === '1') return false;
+    localStorage.setItem(SW_RELOAD_KEY, '1');
   } catch {
     return false;
   }
 
-  if (!reg.active && !reg.waiting && !reg.installing) return false;
+  const reg = registroResolvido ?? (await navigator.serviceWorker.getRegistration(escopoPwa()));
+  if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
 
-  if (reg.waiting) {
-    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-  }
-
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(false), 4000);
-    navigator.serviceWorker.addEventListener(
-      'controllerchange',
-      () => {
-        clearTimeout(timer);
-        try {
-          localStorage.setItem(SW_RELOAD_KEY, '1');
-        } catch {
-          /* ignore */
-        }
-        window.location.reload();
-        resolve(true);
-      },
-      { once: true },
-    );
-  });
+  window.location.reload();
+  return true;
 }
 
-/**
- * Obtém registro do service worker — no iOS aguarda instalação/ativação
- * (não depende só de navigator.serviceWorker.ready).
- */
+export function limparFlagRecargaServiceWorker() {
+  try {
+    localStorage.removeItem(SW_RELOAD_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Inicia registro PWA no boot do app. */
+export function iniciarServiceWorkerPwa(): void {
+  if (registroIniciado || typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+  registroIniciado = true;
+
+  registroPromise = (async () => {
+    try {
+      let reg = await registrarServiceWorkerExplicito();
+      if (reg) {
+        reg = await ativarWorkerPendente(reg);
+        registroResolvido = reg;
+      }
+      return reg;
+    } catch {
+      return null;
+    }
+  })();
+}
+
 export async function obterRegistroServiceWorker(
-  timeoutMs = 45000,
+  timeoutMs = 15000,
 ): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
 
   iniciarServiceWorkerPwa();
   if (registroPromise) {
-    await Promise.race([registroPromise, aguardar(3000)]);
+    await Promise.race([registroPromise, aguardar(Math.min(timeoutMs, 5000))]);
   }
 
   const scope = escopoPwa();
@@ -156,29 +173,24 @@ export async function obterRegistroServiceWorker(
     registroResolvido ?? (await navigator.serviceWorker.getRegistration(scope));
 
   if (!reg) {
-    reg = await registrarServiceWorkerExplicito();
+    try {
+      reg = await registrarServiceWorkerExplicito();
+    } catch {
+      return null;
+    }
   }
 
   while (Date.now() < deadline) {
-    if (!reg) {
-      reg = await registrarServiceWorkerExplicito();
-      await aguardar(400);
-      continue;
-    }
+    if (!reg) break;
 
     reg = await ativarWorkerPendente(reg);
+    registroResolvido = reg;
 
-    if (reg.active || reg.waiting) {
-      return reg;
-    }
+    if (reg.active && 'pushManager' in reg) return reg;
+    if (reg.waiting && 'pushManager' in reg && isIosPush()) return reg;
 
-    await aguardar(350);
+    await aguardar(300);
     reg = (await navigator.serviceWorker.getRegistration(scope)) ?? reg;
-  }
-
-  if (reg && !navigator.serviceWorker.controller) {
-    const recarregou = await recarregarUmaVezSeNecessario(reg);
-    if (recarregou) return null;
   }
 
   if (reg?.active || reg?.waiting) return reg;
@@ -186,7 +198,7 @@ export async function obterRegistroServiceWorker(
   try {
     const pronto = await Promise.race([
       navigator.serviceWorker.ready,
-      aguardar(5000).then(() => null),
+      aguardar(3000).then(() => null),
     ]);
     if (pronto) return pronto;
   } catch {
@@ -196,38 +208,14 @@ export async function obterRegistroServiceWorker(
   return reg ?? null;
 }
 
-export function serviceWorkerControlando(): boolean {
-  return typeof navigator !== 'undefined' && !!navigator.serviceWorker?.controller;
+function isIosPush(): boolean {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
 
-/** Retorno imediato — no clique do botão (máx. ~2 s). */
 export async function obterRegistroServiceWorkerRapido(): Promise<ServiceWorkerRegistration | null> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
+  return obterRegistroServiceWorker(8000);
+}
 
-  iniciarServiceWorkerPwa();
-  const scope = escopoPwa();
-  let reg: ServiceWorkerRegistration | null | undefined =
-    registroResolvido ?? (await navigator.serviceWorker.getRegistration(scope));
-
-  if (reg?.active || reg?.waiting) return reg;
-
-  if (reg?.installing) {
-    await aguardarEstadoWorker(reg.installing, 'activated', 2000);
-    reg = (await navigator.serviceWorker.getRegistration(scope)) ?? reg;
-    if (reg?.active || reg?.waiting) return reg;
-  }
-
-  if (!reg) {
-    try {
-      reg = await registrarServiceWorkerExplicito();
-      if (reg?.installing) {
-        await aguardarEstadoWorker(reg.installing, 'activated', 2000);
-      }
-      reg = (await navigator.serviceWorker.getRegistration(scope)) ?? reg;
-    } catch {
-      return null;
-    }
-  }
-
-  return reg?.active || reg?.waiting ? reg : null;
+export function serviceWorkerControlando(): boolean {
+  return typeof navigator !== 'undefined' && !!navigator.serviceWorker?.controller;
 }
