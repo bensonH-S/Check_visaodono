@@ -3,6 +3,7 @@ const SW_RELOAD_KEY = 'vision-check:sw-reload-once';
 let registroIniciado = false;
 let registroResolvido: ServiceWorkerRegistration | null = null;
 let registroPromise: Promise<ServiceWorkerRegistration | null> | null = null;
+let ultimoErroRegistro: string | null = null;
 
 function escopoPwa(): string {
   const base = import.meta.env.BASE_URL || '/';
@@ -10,7 +11,8 @@ function escopoPwa(): string {
 }
 
 function urlServiceWorker(): string {
-  return `${escopoPwa()}sw.js`.replace(/([^:]\/)\/+/g, '$1');
+  const rel = `${escopoPwa()}sw.js`.replace(/([^:]\/)\/+/g, '$1');
+  return new URL(rel, window.location.origin).href;
 }
 
 function aguardar(ms: number): Promise<void> {
@@ -34,6 +36,17 @@ function aguardarEstadoWorker(
   });
 }
 
+function paginaPronta(): boolean {
+  return document.readyState === 'complete';
+}
+
+function aguardarPaginaPronta(): Promise<void> {
+  if (paginaPronta()) return Promise.resolve();
+  return new Promise((resolve) => {
+    window.addEventListener('load', () => resolve(), { once: true });
+  });
+}
+
 export type DiagnosticoServiceWorker = {
   swUrl: string;
   scope: string;
@@ -45,12 +58,38 @@ export type DiagnosticoServiceWorker = {
   controller: boolean;
   standalone: boolean;
   pushManager: boolean;
+  totalRegistros: number;
+  swAcessivel: boolean;
+  swContentType?: string;
+  swStatus?: number;
+  erroRegistro?: string;
   erro?: string;
 };
 
-export function coletarDiagnosticoServiceWorker(erro?: string): DiagnosticoServiceWorker {
+export function getUltimoErroRegistroServiceWorker(): string | null {
+  return ultimoErroRegistro;
+}
+
+async function verificarSwAcessivel(): Promise<{
+  ok: boolean;
+  status?: number;
+  contentType?: string;
+}> {
+  try {
+    const res = await fetch(urlServiceWorker(), { cache: 'no-store' });
+    const contentType = res.headers.get('content-type') || '';
+    const ok = res.ok && (contentType.includes('javascript') || contentType.includes('ecmascript'));
+    return { ok, status: res.status, contentType };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function coletarDiagnosticoServiceWorker(erro?: string): Promise<DiagnosticoServiceWorker> {
   const scope = escopoPwa();
   const swUrl = urlServiceWorker();
+  const swCheck = await verificarSwAcessivel();
+
   const base: DiagnosticoServiceWorker = {
     swUrl,
     scope,
@@ -64,34 +103,72 @@ export function coletarDiagnosticoServiceWorker(erro?: string): DiagnosticoServi
       window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as Navigator & { standalone?: boolean }).standalone === true,
     pushManager: false,
+    totalRegistros: 0,
+    swAcessivel: swCheck.ok,
+    swContentType: swCheck.contentType,
+    swStatus: swCheck.status,
+    erroRegistro: ultimoErroRegistro || undefined,
     erro,
   };
-  if (registroResolvido) {
-    base.registroExiste = true;
-    base.active = !!registroResolvido.active;
-    base.waiting = !!registroResolvido.waiting;
-    base.installing = !!registroResolvido.installing;
-    base.pushManager = 'pushManager' in registroResolvido;
+
+  let reg = registroResolvido;
+  if ('serviceWorker' in navigator) {
+    try {
+      const todos = await navigator.serviceWorker.getRegistrations();
+      base.totalRegistros = todos.length;
+      if (!reg) {
+        reg =
+          todos.find((r) => r.scope.endsWith(scope) || r.scope.includes('/auditoria')) ?? todos[0] ?? null;
+      }
+    } catch {
+      /* ignore */
+    }
+    if (!reg) {
+      try {
+        reg = (await navigator.serviceWorker.getRegistration(scope)) ?? null;
+      } catch {
+        /* ignore */
+      }
+    }
   }
+
+  if (reg) {
+    base.registroExiste = true;
+    base.active = !!reg.active;
+    base.waiting = !!reg.waiting;
+    base.installing = !!reg.installing;
+    base.pushManager = 'pushManager' in reg;
+  }
+
   return base;
 }
 
 async function registrarServiceWorkerExplicito(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null;
 
+  await aguardarPaginaPronta();
+
   const scope = escopoPwa();
   const swUrl = urlServiceWorker();
 
   try {
-    const existente = await navigator.serviceWorker.getRegistration(scope);
-    if (existente) return existente;
+    const existentes = await navigator.serviceWorker.getRegistrations();
+    const existente =
+      existentes.find((r) => r.scope.endsWith(scope) || r.scope.includes('/auditoria')) ??
+      (await navigator.serviceWorker.getRegistration(scope));
+    if (existente) {
+      ultimoErroRegistro = null;
+      return existente;
+    }
 
     const reg = await navigator.serviceWorker.register(swUrl, {
       scope,
       updateViaCache: 'none',
     });
+    ultimoErroRegistro = null;
     return reg;
   } catch (e) {
+    ultimoErroRegistro = e instanceof Error ? e.message : String(e);
     console.error('[pwa] Registro explícito falhou:', e);
     throw e;
   }
@@ -102,14 +179,15 @@ async function ativarWorkerPendente(reg: ServiceWorkerRegistration): Promise<Ser
 
   if (reg.waiting) {
     reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-    await aguardarEstadoWorker(reg.waiting, 'activated', 6000);
+    await aguardarEstadoWorker(reg.waiting, 'activated', 8000);
   }
 
   if (reg.installing) {
-    await aguardarEstadoWorker(reg.installing, 'activated', 10000);
+    await aguardarEstadoWorker(reg.installing, 'activated', 12000);
   }
 
-  return (await navigator.serviceWorker.getRegistration(escopoPwa())) ?? reg;
+  const scope = escopoPwa();
+  return (await navigator.serviceWorker.getRegistration(scope)) ?? reg;
 }
 
 /** iOS: recarrega uma vez para o SW assumir controle. */
@@ -123,7 +201,12 @@ export async function recarregarParaAtivarServiceWorker(): Promise<boolean> {
     return false;
   }
 
-  const reg = registroResolvido ?? (await navigator.serviceWorker.getRegistration(escopoPwa()));
+  const scope = escopoPwa();
+  const todos = await navigator.serviceWorker.getRegistrations();
+  const reg =
+    registroResolvido ??
+    todos.find((r) => r.scope.endsWith(scope) || r.scope.includes('/auditoria')) ??
+    null;
   if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
 
   window.location.reload();
@@ -138,39 +221,57 @@ export function limparFlagRecargaServiceWorker() {
   }
 }
 
-/** Inicia registro PWA no boot do app. */
+async function executarRegistroServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  try {
+    let reg = await registrarServiceWorkerExplicito();
+    if (reg) {
+      reg = await ativarWorkerPendente(reg);
+      registroResolvido = reg;
+    }
+    return reg;
+  } catch {
+    return null;
+  }
+}
+
+/** Inicia registro PWA após a página carregar (necessário no iOS). */
 export function iniciarServiceWorkerPwa(): void {
   if (registroIniciado || typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
   registroIniciado = true;
 
   registroPromise = (async () => {
-    try {
-      let reg = await registrarServiceWorkerExplicito();
-      if (reg) {
-        reg = await ativarWorkerPendente(reg);
-        registroResolvido = reg;
-      }
-      return reg;
-    } catch {
-      return null;
-    }
+    await aguardarPaginaPronta();
+    return executarRegistroServiceWorker();
   })();
 }
 
+/** Registro forçado no clique do usuário (iOS exige interação para SW + push). */
+export async function registrarServiceWorkerNoClique(): Promise<ServiceWorkerRegistration | null> {
+  iniciarServiceWorkerPwa();
+  return executarRegistroServiceWorker();
+}
+
 export async function obterRegistroServiceWorker(
-  timeoutMs = 15000,
+  timeoutMs = 20000,
 ): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
 
-  iniciarServiceWorkerPwa();
+  await aguardarPaginaPronta();
+
   if (registroPromise) {
-    await Promise.race([registroPromise, aguardar(Math.min(timeoutMs, 5000))]);
+    await Promise.race([registroPromise, aguardar(Math.min(timeoutMs, 8000))]);
   }
 
   const scope = escopoPwa();
   const deadline = Date.now() + timeoutMs;
-  let reg: ServiceWorkerRegistration | null | undefined =
-    registroResolvido ?? (await navigator.serviceWorker.getRegistration(scope));
+  let reg: ServiceWorkerRegistration | null | undefined = registroResolvido;
+
+  if (!reg) {
+    const todos = await navigator.serviceWorker.getRegistrations();
+    reg =
+      todos.find((r) => r.scope.endsWith(scope) || r.scope.includes('/auditoria')) ??
+      (await navigator.serviceWorker.getRegistration(scope));
+  }
 
   if (!reg) {
     try {
@@ -188,19 +289,24 @@ export async function obterRegistroServiceWorker(
 
     if (reg.active && 'pushManager' in reg) return reg;
     if (reg.waiting && 'pushManager' in reg && isIosPush()) return reg;
+    if (reg.installing && 'pushManager' in reg) return reg;
 
     await aguardar(300);
-    reg = (await navigator.serviceWorker.getRegistration(scope)) ?? reg;
+    const todos = await navigator.serviceWorker.getRegistrations();
+    reg =
+      todos.find((r) => r.scope.endsWith(scope) || r.scope.includes('/auditoria')) ??
+      (await navigator.serviceWorker.getRegistration(scope)) ??
+      reg;
   }
 
-  if (reg?.active || reg?.waiting) return reg;
+  if (reg && 'pushManager' in reg) return reg;
 
   try {
     const pronto = await Promise.race([
       navigator.serviceWorker.ready,
-      aguardar(3000).then(() => null),
+      aguardar(5000).then(() => null),
     ]);
-    if (pronto) return pronto;
+    if (pronto && 'pushManager' in pronto) return pronto;
   } catch {
     /* ignore */
   }
@@ -213,7 +319,7 @@ function isIosPush(): boolean {
 }
 
 export async function obterRegistroServiceWorkerRapido(): Promise<ServiceWorkerRegistration | null> {
-  return obterRegistroServiceWorker(8000);
+  return obterRegistroServiceWorker(10000);
 }
 
 export function serviceWorkerControlando(): boolean {

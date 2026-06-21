@@ -7,6 +7,7 @@ import {
   obterRegistroServiceWorker,
   obterRegistroServiceWorkerRapido,
   recarregarParaAtivarServiceWorker,
+  registrarServiceWorkerNoClique,
 } from '../pwa/registerServiceWorker';
 import { showToast } from './toast';
 
@@ -34,7 +35,7 @@ export type ResultadoPushRegistro = {
 let conclusaoSegundoPlano: Promise<ResultadoPushRegistro> | null = null;
 
 async function logPushDiagnostico(mensagem: string, extra?: Record<string, unknown>) {
-  const diag = coletarDiagnosticoServiceWorker(mensagem);
+  const diag = await coletarDiagnosticoServiceWorker(mensagem);
   try {
     await api.pushDiagnostico(mensagem, { ...diag, ...extra });
   } catch {
@@ -261,6 +262,8 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
     };
   }
 
+  await registrarServiceWorkerNoClique();
+
   const publicKey = await obterVapidPublicKey();
   if (!publicKey) {
     return {
@@ -270,8 +273,9 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
     };
   }
 
-  const registration = await obterRegistroServiceWorker(15000);
+  const registration = await obterRegistroServiceWorker(20000);
   if (!registration?.pushManager) {
+    await logPushDiagnostico('service_worker_indisponivel_ao_concluir');
     if (isIos() && appInstalada() && Notification.permission === 'granted') {
       const recarregou = await recarregarParaAtivarServiceWorker();
       if (recarregou) {
@@ -282,7 +286,6 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
         };
       }
     }
-    await logPushDiagnostico('service_worker_indisponivel_ao_concluir');
     return {
       ok: false,
       codigo: 'service_worker_indisponivel',
@@ -377,6 +380,8 @@ export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistr
       mensagem: 'Permissão não concedida. Toque em Permitir quando o iOS solicitar.',
     };
   }
+
+  await registrarServiceWorkerNoClique();
 
   const registration = await obterRegistroServiceWorkerRapido();
   if (registration?.pushManager) {

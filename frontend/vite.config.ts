@@ -107,6 +107,7 @@ export default defineConfig({
       injectManifest: {
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2,webmanifest}'],
       },
+      injectRegister: false,
       workbox: {
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/\/api\//],
