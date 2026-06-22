@@ -82,11 +82,13 @@ export default function PwaInstallDialog() {
       fullWidth
       maxWidth="xs"
       aria-labelledby="pwa-install-title"
-      PaperProps={{
-        sx: {
-          m: 2,
-          borderRadius: 3,
-          overflow: 'visible',
+      slotProps={{
+        paper: {
+          sx: {
+            m: 2,
+            borderRadius: 3,
+            overflow: 'visible',
+          },
         },
       }}
     >
