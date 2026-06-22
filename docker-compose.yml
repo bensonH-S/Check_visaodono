@@ -12,7 +12,35 @@ services:
       - NODE_ENV=production
       - PORT=3007
       - TZ=America/Sao_Paulo
+      # Rede interna Docker — app fala com o wppconnect pelo nome do serviço
+      - WPP_HOST=${WPP_HOST:-http://wppconnect}
     volumes:
       - ./Logs:/app/Logs
       - ./uploads:/app/uploads
     restart: unless-stopped
+    depends_on:
+      - wppconnect
+
+  wppconnect:
+    build:
+      context: ./docker/wppconnect
+    container_name: vision-check-wpp
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      - TZ=America/Sao_Paulo
+    volumes:
+      - wppconnect_tokens:/usr/src/wpp-server/tokens
+      - wppconnect_userdata:/usr/src/wpp-server/userDataDir
+    # Não exponha 21465 na internet — só a rede interna do compose.
+    expose:
+      - "21465"
+    # Descomente só para debug local (QR / testes diretos na API WPP):
+    # ports:
+    #   - "127.0.0.1:21465:21465"
+    shm_size: "512mb"
+
+volumes:
+  wppconnect_tokens:
+  wppconnect_userdata:

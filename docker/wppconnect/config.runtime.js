@@ -1,0 +1,45 @@
+/** Substituído no start pelo entrypoint (WPP_SECRET_KEY do .env). */
+export default {
+  secretKey: '__WPP_SECRET_KEY__',
+  host: 'http://localhost',
+  port: '21465',
+  deviceName: 'Meridian',
+  poweredBy: 'WPPConnect-Server',
+  startAllSession: true,
+  tokenStoreType: 'file',
+  maxListeners: 15,
+  customUserDataDir: './userDataDir/',
+  webhook: {
+    url: null,
+    autoDownload: false,
+    readMessage: false,
+    allUnreadOnStart: false,
+    listenAcks: false,
+    onPresenceChanged: false,
+    onParticipantsChanged: false,
+    onReactionMessage: false,
+    onPollResponse: false,
+    onRevokedMessage: false,
+    onLabelUpdated: false,
+    onSelfMessage: false,
+    ignore: ['status@broadcast'],
+  },
+  websocket: {
+    autoDownload: false,
+  },
+  log: {
+    level: 'warn',
+    logger: ['console', 'file'],
+  },
+  createOptions: {
+    browserArgs: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-extensions',
+      '--no-first-run',
+      '--ignore-certificate-errors',
+    ],
+  },
+};

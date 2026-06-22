@@ -9,7 +9,11 @@ const dedupCache = new Map();
 const DEDUP_TTL_MS = 2 * 60 * 1000;
 
 function publicBaseUrl() {
-  return String(process.env.PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const raw = String(process.env.PUBLIC_APP_URL || '').replace(/\/$/, '');
+  if (!raw) return '';
+  // Aceita domínio só (https://grupoalvim.com.br) ou URL completa do app (…/auditoria)
+  if (raw.endsWith(APP_BASE)) return raw;
+  return `${raw}${APP_BASE}`;
 }
 
 function dedupKey(idUsuario, idChamado, tipo, mensagem) {
@@ -75,8 +79,8 @@ function montarLink(idChamado, tipo, podeAprovar) {
   if (!base) return null;
   const path =
     TIPOS_APROVACAO.has(tipo) && podeAprovar
-      ? `${APP_BASE}/chamados/aprovacoes/${idChamado}`
-      : `${APP_BASE}/chamados/mobile/${idChamado}`;
+      ? `/chamados/aprovacoes/${idChamado}`
+      : `/chamados/mobile/${idChamado}`;
   return `${base}${path}`;
 }
 
