@@ -1,9 +1,21 @@
-import webpush from 'web-push';
 import { pool } from './db.js';
 import { logger } from './logger.js';
 import { tipoVisivelPushUsuario, urlPushChamado } from './notificacoesFiltro.js';
 
 let pushAtivo = false;
+let webpushLib = null;
+
+async function obterWebpush() {
+  if (webpushLib) return webpushLib;
+  try {
+    const mod = await import('web-push');
+    webpushLib = mod.default;
+    return webpushLib;
+  } catch (e) {
+    logger.warn('push', 'Pacote web-push não instalado — rode npm install na raiz', { error: e.message });
+    return null;
+  }
+}
 
 export function initPushNotifications() {
   const publicKey = process.env.VAPID_PUBLIC_KEY?.trim();
@@ -15,10 +27,15 @@ export function initPushNotifications() {
     return false;
   }
 
-  webpush.setVapidDetails(subject, publicKey, privateKey);
-  pushAtivo = true;
-  logger.info('push', 'Web Push inicializado');
-  return true;
+  void obterWebpush().then((webpush) => {
+    if (!webpush) return false;
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+    pushAtivo = true;
+    logger.info('push', 'Web Push inicializado');
+    return true;
+  });
+
+  return false;
 }
 
 export function getVapidPublicKey() {
@@ -205,6 +222,8 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
     });
 
     const invalidEndpoints = [];
+    const webpush = await obterWebpush();
+    if (!webpush) return;
 
     for (const sub of subs) {
       try {

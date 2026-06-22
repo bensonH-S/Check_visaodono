@@ -15,13 +15,28 @@ const WORKSPACES = [
   { label: 'frontend', dir: path.join(root, 'frontend') },
 ];
 
+function runNpm(cwd, args) {
+  const r = spawnSync('npm', args, { cwd, stdio: 'inherit', shell: true });
+  return r.status ?? 1;
+}
+
 function npmInstall(cwd) {
   const hasLock = fs.existsSync(path.join(cwd, 'package-lock.json'));
-  const args = hasLock ? ['ci', '--no-audit', '--no-fund'] : ['install', '--no-audit', '--no-fund'];
-  const r = spawnSync('npm', args, { cwd, stdio: 'inherit', shell: true });
-  if (r.status !== 0) {
-    console.error(`[requirements] Falha em npm ${args.join(' ')} — ${cwd}`);
-    process.exit(r.status || 1);
+  if (!hasLock) {
+    if (runNpm(cwd, ['install', '--no-audit', '--no-fund']) !== 0) {
+      console.error(`[requirements] Falha em npm install — ${cwd}`);
+      process.exit(1);
+    }
+    return;
+  }
+
+  const ciStatus = runNpm(cwd, ['ci', '--no-audit', '--no-fund']);
+  if (ciStatus === 0) return;
+
+  console.warn(`[requirements] package-lock desatualizado em ${cwd} — rodando npm install`);
+  if (runNpm(cwd, ['install', '--no-audit', '--no-fund']) !== 0) {
+    console.error(`[requirements] Falha em npm install — ${cwd}`);
+    process.exit(1);
   }
 }
 

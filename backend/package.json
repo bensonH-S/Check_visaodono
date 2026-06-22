@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "migrate": "node scripts/migrate.js",
+    "migrate:full": "node scripts/migrate-full.js",
     "migrate:lojas": "node scripts/run-sql.js migrations/003_lojas_reais.sql",
     "migrate:checklist": "node scripts/run-sql.js migrations/004_checklist_visao_dono.sql",
     "migrate:manutencao": "node scripts/run-sql.js migrations/008_manutencao.sql",

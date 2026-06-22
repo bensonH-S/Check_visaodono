@@ -16,7 +16,7 @@ import BrandLogo from '../components/BrandLogo';
 import AppFooter from '../components/AppFooter';
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
-import { setSessao } from '../lib/auth';
+import { setSessao, logout } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
@@ -42,6 +42,10 @@ export default function LoginPage() {
   usePageTitle('Login');
 
   useEffect(() => {
+    logout();
+  }, []);
+
+  useEffect(() => {
     if (isMobileDevice()) {
       navigate('/login/mobile', { replace: true, state: location.state });
     }
@@ -62,8 +66,7 @@ export default function LoginPage() {
       navigate(from, { replace: true, state: { welcome: data.usuario.nome } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      const conhecidas = ['incorretos', 'obrigatórios', 'Sessão expirada', 'indisponível', 'Banco de dados', 'PostgreSQL'];
-      setErro(msg && conhecidas.some((t) => msg.includes(t)) ? msg : 'E-mail ou senha incorretos');
+      setErro(msg || 'Não foi possível entrar. Tente novamente.');
     } finally {
       setLoading(false);
     }

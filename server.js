@@ -293,6 +293,15 @@ app.listen(PORT, async () => {
     await pool.query('SELECT 1');
     logger.info('server', 'Conexão PostgreSQL OK');
     console.log('[server] Conexão com PostgreSQL OK');
+    if (!isProd) {
+      try {
+        const { ensureAuthUsersSeNecessario } = await import('./backend/src/seedAuth.js');
+        await ensureAuthUsersSeNecessario();
+      } catch (e) {
+        logger.warn('server', 'Auto-seed de usuários ignorado', { error: e.message });
+        console.warn('[server] Usuários não criados automaticamente:', e.message);
+      }
+    }
   } catch (e) {
     logger.error('server', 'Falha ao conectar PostgreSQL', { error: e.message });
     console.error('[server] Falha ao conectar no PostgreSQL:', e.message);

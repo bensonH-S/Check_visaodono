@@ -40,9 +40,17 @@ router.post('/login', async (req, res, next) => {
       [email],
     );
     const user = rows[0];
-    if (!user?.senha_hash) {
-      logger.warn('auth', 'Login falhou — usuário não encontrado', { email });
-      return res.status(401).json({ error: 'E-mail ou senha incorretos' });
+    if (!user) {
+      logger.warn('auth', 'Login falhou — e-mail não cadastrado', { email });
+      return res.status(401).json({
+        error: 'E-mail não cadastrado. Entre em contato com o suporte de TI.',
+      });
+    }
+    if (!user.senha_hash) {
+      logger.warn('auth', 'Login falhou — usuário sem senha', { email, idUsuario: user.id_usuario });
+      return res.status(401).json({
+        error: 'Acesso ainda não configurado. Entre em contato com o suporte de TI.',
+      });
     }
     const ok = await bcrypt.compare(senha, user.senha_hash);
     if (!ok) {
@@ -57,6 +65,13 @@ router.post('/login', async (req, res, next) => {
       usuario,
     });
   } catch (e) {
+    const msg = String(e.message || '');
+    if (msg.includes('usuario_permissoes') || msg.includes('permissoes') || msg.includes('does not exist')) {
+      logger.error('auth', 'Login falhou — migrations incompletas', { email: req.body?.email, error: msg });
+      return res.status(503).json({
+        error: 'Sistema temporariamente indisponível. Tente novamente em instantes ou contate o suporte de TI.',
+      });
+    }
     next(e);
   }
 });

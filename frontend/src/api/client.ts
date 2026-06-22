@@ -16,8 +16,8 @@ export type AppPublicConfig = {
   pushEnabled?: boolean;
 };
 
-function authHeaders(extra?: HeadersInit): HeadersInit {
-  const token = getToken();
+function authHeaders(extra?: HeadersInit, omitAuth = false): HeadersInit {
+  const token = omitAuth ? null : getToken();
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -25,11 +25,16 @@ function authHeaders(extra?: HeadersInit): HeadersInit {
   };
 }
 
-async function request<T>(path: string, options?: RequestInit, tentativa = 0): Promise<T> {
+async function request<T>(
+  path: string,
+  options?: RequestInit & { skipSessionRedirect?: boolean; omitAuth?: boolean },
+  tentativa = 0,
+): Promise<T> {
+  const { skipSessionRedirect, omitAuth, ...fetchOptions } = options ?? {};
   try {
     const res = await fetch(`${BASE}${path}`, {
-      ...options,
-      headers: authHeaders(options?.headers),
+      ...fetchOptions,
+      headers: authHeaders(fetchOptions.headers, omitAuth),
     });
     if (res.status === 204) {
       return undefined as T;
@@ -37,7 +42,15 @@ async function request<T>(path: string, options?: RequestInit, tentativa = 0): P
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       const msg = err.error || 'Erro na requisição';
-      if (res.status === 401 && typeof window !== 'undefined') {
+      const isLogin = path === '/auth/login';
+      const isPublic = path.startsWith('/public/');
+      if (
+        res.status === 401 &&
+        typeof window !== 'undefined' &&
+        !skipSessionRedirect &&
+        !isLogin &&
+        !isPublic
+      ) {
         const { logout } = await import('../lib/auth');
         logout();
         const base = appBasePath.endsWith('/') ? appBasePath : `${appBasePath}/`;
@@ -68,8 +81,11 @@ export const api = {
     request<{ accessToken: string; usuario: UsuarioSessao }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, senha }),
+      skipSessionRedirect: true,
+      omitAuth: true,
     }),
-  me: () => request<UsuarioSessao>('/auth/me'),
+  me: (opts?: { skipSessionRedirect?: boolean }) =>
+    request<UsuarioSessao>('/auth/me', opts),
 
   dashboard: () => request<DashboardData>('/dashboard'),
   ranking: () => request<RankingLoja[]>('/dashboard/ranking'),
