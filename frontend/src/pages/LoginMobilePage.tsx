@@ -19,6 +19,8 @@ import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
 import { destinoPosLoginMobile, getToken, getUsuario, setSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import PwaInstallDialog from '../components/PwaInstallDialog';
+import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 
 const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
@@ -36,6 +38,7 @@ export default function LoginMobilePage() {
   usePageTitle('Login Mobile');
 
   useEffect(() => {
+    iniciarServiceWorkerPwa();
     const token = getToken();
     const usuario = getUsuario();
     if (token && usuario) {
@@ -274,6 +277,8 @@ export default function LoginMobilePage() {
       </Box>
 
       <AppFooter compact />
+
+      <PwaInstallDialog />
 
       <Snackbar
         open={!!toast}

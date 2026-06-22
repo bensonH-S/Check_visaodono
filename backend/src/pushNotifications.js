@@ -1,6 +1,7 @@
 import webpush from 'web-push';
 import { pool } from './db.js';
 import { logger } from './logger.js';
+import { tipoVisivelPushUsuario, urlPushChamado } from './notificacoesFiltro.js';
 
 let pushAtivo = false;
 
@@ -85,10 +86,72 @@ export function montarTituloPush({ tipo, mensagem, numero, loja }) {
   }
 }
 
+/** Push segue as mesmas regras do sino conforme permissões do usuário logado. */
+async function carregarPermissoesPushUsuario(idUsuario) {
+  const uid = Number(idUsuario);
+  if (!Number.isFinite(uid)) return null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT u.ativo,
+              EXISTS (
+                SELECT 1 FROM usuario_permissoes up
+                WHERE up.id_usuario = u.id_usuario AND up.codigo = 'chamados.ver'
+              ) AS pode_ver,
+              EXISTS (
+                SELECT 1 FROM usuario_permissoes up
+                WHERE up.id_usuario = u.id_usuario AND up.codigo = 'chamados.assumir'
+              ) AS pode_assumir,
+              EXISTS (
+                SELECT 1 FROM usuario_permissoes up
+                WHERE up.id_usuario = u.id_usuario AND up.codigo = 'chamados.abrir'
+              ) AS pode_abrir,
+              EXISTS (
+                SELECT 1 FROM usuario_permissoes up
+                WHERE up.id_usuario = u.id_usuario AND up.codigo = 'chamados.aprovar'
+              ) AS pode_aprovar
+       FROM usuarios u
+       WHERE u.id_usuario = $1`,
+      [uid],
+    );
+    const u = rows[0];
+    if (!u?.ativo) return null;
+    return {
+      podeVer: u.pode_ver === true,
+      podeAssumir: u.pode_assumir === true,
+      podeAbrir: u.pode_abrir === true,
+      podeAprovar: u.pode_aprovar === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function deveEnviarPushParaUsuario(idUsuario, tipo) {
+  const uid = Number(idUsuario);
+  if (!Number.isFinite(uid)) return false;
+
+  const perms = await carregarPermissoesPushUsuario(uid);
+  if (!perms) return false;
+  if (!tipoVisivelPushUsuario(tipo, perms)) return false;
+
+  return (await contarPushUsuario(uid)) > 0;
+}
+
 export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, mensagem) {
   const uid = Number(idUsuario);
   const cid = Number(idChamado);
   if (!Number.isFinite(uid) || !Number.isFinite(cid)) return;
+
+  if (!(await deveEnviarPushParaUsuario(uid, tipo))) {
+    logger.info('push', 'Envio ignorado — tipo ou usuário fora das regras do perfil', {
+      idUsuario: uid,
+      idChamado: cid,
+      tipo,
+    });
+    return;
+  }
+
+  const perms = await carregarPermissoesPushUsuario(uid);
 
   if (!pushAtivo) {
     logger.warn('push', 'Envio ignorado — VAPID inativo', { idUsuario: uid, idChamado: cid, tipo });
@@ -138,7 +201,7 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
       body: mensagem || title,
       idChamado: cid,
       tipo,
-      url: `/chamados/mobile/${cid}`,
+      url: perms ? urlPushChamado(cid, tipo, perms) : `/chamados/mobile/${cid}`,
     });
 
     const invalidEndpoints = [];
@@ -229,12 +292,14 @@ export async function salvarPushSubscription(idUsuario, subscription, userAgent)
     throw new Error('Inscrição push inválida');
   }
 
+  await pool.query(`DELETE FROM push_subscriptions WHERE endpoint = $1`, [endpoint]);
   await pool.query(`DELETE FROM push_subscriptions WHERE id_usuario = $1`, [uid]);
   await pool.query(
     `INSERT INTO push_subscriptions (id_usuario, endpoint, p256dh, auth, user_agent)
      VALUES ($1, $2, $3, $4, $5)`,
     [uid, endpoint, keys.p256dh, keys.auth, userAgent || null],
   );
+  logger.info('push', 'Inscrição vinculada ao usuário logado', { idUsuario: uid });
 }
 
 export async function removerPushSubscription(idUsuario, endpoint) {

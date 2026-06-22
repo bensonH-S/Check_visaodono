@@ -13,6 +13,7 @@ import BrandLogo from '../components/BrandLogo';
 import AppFooter from '../components/AppFooter';
 import NotificacoesSino from '../components/NotificacoesSino';
 import PwaInstallBanner from '../components/PwaInstallBanner';
+import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { toAppPath } from '../config/paths';
 import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, type UsuarioSessao } from '../lib/auth';
@@ -263,6 +264,7 @@ function ChamadosMobileLayoutInner() {
         bgcolor: PAGE_BG,
       }}
     >
+      <PwaInstallDialog />
       <Box
         component="header"
         sx={{

@@ -19,9 +19,17 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useEffect, useRef } from 'react';
 import { showToast } from '../utils/toast';
 import NotificacoesSino from '../components/NotificacoesSino';
+import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import AppFooter from '../components/AppFooter';
 import { colors } from '../theme/tokens';
 import { isPaginaScrollInterno } from '../utils/pageFillLayout';
+import {
+  prepararNotificacoesPush,
+  PUSH_ATUALIZADO_EVENT,
+  sincronizarEstadoPush,
+  usuarioAdministraChamados,
+} from '../utils/pushNotifications';
+import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 
 type NavItem = {
   to: string;
@@ -56,12 +64,27 @@ export default function PortalLayout() {
 
   const podeChamados = temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user);
   const podeAprovar = temPermissao('chamados.aprovar', user);
+  const administraChamados = usuarioAdministraChamados(user);
+
+  useEffect(() => {
+    if (!user || !administraChamados) return;
+    iniciarServiceWorkerPwa();
+    const atualizar = () => {
+      void sincronizarEstadoPush();
+    };
+    void sincronizarEstadoPush().then(() => prepararNotificacoesPush());
+    window.addEventListener(PUSH_ATUALIZADO_EVENT, atualizar);
+    return () => window.removeEventListener(PUSH_ATUALIZADO_EVENT, atualizar);
+  }, [user, administraChamados]);
 
   /** Dashboard: um sino só (chamados). Aprovações só na rota de aprovações. */
   const notificacoes = (
     <>
       {podeChamados && (emChamados || isDashboard) && (
-        <NotificacoesSino variante="portal" contexto="chamados" menuLargo />
+        <>
+          {administraChamados && emChamados && <AtivarPushHeaderButton />}
+          <NotificacoesSino variante="portal" contexto="chamados" menuLargo />
+        </>
       )}
       {podeAprovar && emAprovacoes && (
         <NotificacoesSino variante="portal" contexto="aprovacoes" menuLargo />

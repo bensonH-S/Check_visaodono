@@ -6,8 +6,6 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Alert from '@mui/material/Alert';
 import CloseIcon from '@mui/icons-material/Close';
-import IosShareIcon from '@mui/icons-material/IosShare';
-import GetAppIcon from '@mui/icons-material/GetApp';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import { showToast } from '../utils/toast';
@@ -24,14 +22,10 @@ import {
   requerHttpsParaPush,
   sincronizarEstadoPush,
 } from '../utils/pushNotifications';
+import { ehRotaPromptInstalar } from '../hooks/usePwaInstallPrompt';
 
 const NAVY = '#1B2A6B';
 const DISMISS_KEY = 'vision-check:pwa-banner-dismiss';
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-};
 
 function bannerDispensado(): boolean {
   try {
@@ -52,8 +46,7 @@ function dispensarBanner() {
 
 export default function PwaInstallBanner() {
   const [visivel, setVisivel] = useState(false);
-  const [modo, setModo] = useState<'ios' | 'android' | 'notif' | 'https' | 'sucesso'>('ios');
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [modo, setModo] = useState<'notif' | 'https' | 'sucesso'>('notif');
   const [ativando, setAtivando] = useState(false);
   const [feedback, setFeedback] = useState<{ tipo: 'success' | 'error' | 'info'; texto: string } | null>(
     null,
@@ -65,9 +58,9 @@ export default function PwaInstallBanner() {
       return;
     }
 
-    if (precisaInstalarIos()) {
-      setModo('ios');
-      setVisivel(true);
+    // Instalação é tratada pelo popup PwaInstallDialog
+    if (!appInstalada() && (precisaInstalarIos() || ehRotaPromptInstalar())) {
+      setVisivel(false);
       return;
     }
 
@@ -77,37 +70,17 @@ export default function PwaInstallBanner() {
       return;
     }
 
-    if (deveExibirAtivacaoPush()) {
+    if (deveExibirAtivacaoPush() || notificacoesPrecisamAtivacao()) {
       setModo('notif');
-      setVisivel(true);
-      return;
-    }
-
-    if (notificacoesPrecisamAtivacao()) {
-      setModo('notif');
-      setVisivel(true);
-      return;
-    }
-
-    if (deferredPrompt && !appInstalada()) {
-      setModo('android');
       setVisivel(true);
       return;
     }
 
     setVisivel(false);
-  }, [deferredPrompt]);
+  }, []);
 
   useEffect(() => {
-    function onBeforeInstall(e: Event) {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    }
-
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
     void sincronizarEstadoPush().finally(atualizarEstado);
-
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
   }, [atualizarEstado]);
 
   useEffect(() => {
@@ -118,22 +91,10 @@ export default function PwaInstallBanner() {
     return () => window.removeEventListener(PUSH_ATUALIZADO_EVENT, onPushAtualizado);
   }, [atualizarEstado]);
 
-  useEffect(() => {
-    atualizarEstado();
-  }, [deferredPrompt, atualizarEstado]);
-
   function fechar() {
     dispensarBanner();
     setVisivel(false);
     setFeedback(null);
-  }
-
-  async function instalarAndroid() {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    fechar();
   }
 
   async function ativarNotificacoes() {
@@ -185,20 +146,6 @@ export default function PwaInstallBanner() {
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          {modo === 'ios' && (
-            <>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
-                Instale no iPhone/iPad
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.45 }}>
-                Para receber alertas com o app fechado no iOS, adicione à Tela de Início: toque em{' '}
-                <IosShareIcon sx={{ fontSize: 16, verticalAlign: 'text-bottom', mx: 0.25 }} />
-                Compartilhar → <strong>Adicionar à Tela de Início</strong>, depois abra o ícone
-                Vision Check e toque em Ativar notificações.
-              </Typography>
-            </>
-          )}
-
           {modo === 'https' && (
             <>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
@@ -208,26 +155,6 @@ export default function PwaInstallBanner() {
                 O iOS só permite notificações em conexão segura. Abra o app pelo endereço{' '}
                 <strong>https://grupoalvim.com.br/auditoria/login/mobile</strong>.
               </Typography>
-            </>
-          )}
-
-          {modo === 'android' && (
-            <>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
-                Instale o app de chamados
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.45, mb: 1 }}>
-                Instale na tela inicial para receber notificações mesmo com o app fechado.
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<GetAppIcon />}
-                onClick={instalarAndroid}
-                sx={{ fontWeight: 600 }}
-              >
-                Instalar app
-              </Button>
             </>
           )}
 

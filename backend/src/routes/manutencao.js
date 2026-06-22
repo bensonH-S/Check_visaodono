@@ -3,6 +3,10 @@
  */
 import { Router } from 'express';
 import { dispatchWhatsAppNotificacao } from '../services/whatsappNotificacoes.js';
+import {
+  sqlFiltroContextoNotificacoes,
+  TIPOS_NOTIF_MOBILE_EXCLUIDOS,
+} from '../notificacoesFiltro.js';
 import multer from 'multer';
 import { pool } from '../db.js';
 import {
@@ -321,17 +325,8 @@ async function notificarEventoChamado(idChamado, idAutor, tipo, mensagem) {
   let enviadas = 0;
   for (const idUsuario of destinatarios) {
     if (!Number.isFinite(idUsuario)) continue;
-    const ok = await criarNotificacao({ idUsuario, idChamado, tipo, mensagem, enviarPush: false });
+    const ok = await criarNotificacao({ idUsuario, idChamado, tipo, mensagem, enviarPush: true });
     if (ok) enviadas += 1;
-  }
-
-  const pushDestinos = new Set(destinatarios);
-  if (Number.isFinite(idAutorNum)) pushDestinos.add(idAutorNum);
-
-  const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
-  for (const idUsuario of pushDestinos) {
-    if (!Number.isFinite(idUsuario)) continue;
-    enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, mensagem).catch(() => {});
   }
 
   return enviadas;
@@ -446,21 +441,6 @@ async function notificarSolicitanteChamado(idChamado, idAutor, tipo, mensagem) {
     mensagem,
   });
   return ok ? 1 : 0;
-}
-
-const TIPOS_NOTIF_MOBILE_EXCLUIDOS = ['envio_aprovacao', 'recusa_aprovacao', 'novo_chamado'];
-
-function sqlFiltroContextoNotificacoes(contexto, alias = 'n') {
-  if (contexto === 'aprovacoes') {
-    return ` AND ${alias}.tipo IN ('envio_aprovacao', 'encaminhar_diretor', 'aprovacao_diretor')`;
-  }
-  if (contexto === 'chamados-mobile') {
-    return ` AND ${alias}.tipo NOT IN ('${TIPOS_NOTIF_MOBILE_EXCLUIDOS.join("','")}')`;
-  }
-  if (contexto === 'chamados') {
-    return ` AND ${alias}.tipo <> 'envio_aprovacao'`;
-  }
-  return '';
 }
 
 function sqlExcluirTiposNotificacaoCard(mobile = false) {

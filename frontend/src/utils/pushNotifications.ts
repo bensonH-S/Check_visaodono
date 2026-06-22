@@ -1,5 +1,6 @@
 import { apiBasePath, toAppPath } from '../config/paths';
 import { api } from '../api/client';
+import { getToken, getUsuario, temPermissao, type UsuarioSessao } from '../lib/auth';
 import {
   coletarDiagnosticoServiceWorker,
   iniciarServiceWorkerPwa,
@@ -11,7 +12,21 @@ import {
 } from '../pwa/registerServiceWorker';
 import { showToast } from './toast';
 
+async function removerPushNoServidor(endpoint: string, tokenSessao?: string | null): Promise<void> {
+  const token = tokenSessao ?? (getUsuario() ? getToken() : null);
+  if (!token) return;
+  await fetch(`${apiBasePath}/push/subscribe`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ endpoint }),
+  }).catch(() => {});
+}
+
 const PUSH_OK_KEY = 'vision-check:push-ok';
+const PUSH_USER_KEY = 'vision-check:push-user';
 export const PUSH_ATUALIZADO_EVENT = 'vision-check:push-atualizado';
 
 export type ResultadoPushRegistro = {
@@ -94,6 +109,8 @@ export function pushJaRegistrado(): boolean {
 function marcarPushRegistrado() {
   try {
     localStorage.setItem(PUSH_OK_KEY, '1');
+    const uid = getUsuario()?.id_usuario;
+    if (uid != null) localStorage.setItem(PUSH_USER_KEY, String(uid));
   } catch {
     /* ignore */
   }
@@ -103,10 +120,31 @@ function marcarPushRegistrado() {
 function limparPushRegistradoLocal() {
   try {
     localStorage.removeItem(PUSH_OK_KEY);
+    localStorage.removeItem(PUSH_USER_KEY);
   } catch {
     /* ignore */
   }
   emitirPushAtualizado();
+}
+
+async function limparPushUsuarioDiferente(): Promise<boolean> {
+  const usuario = getUsuario();
+  if (!usuario) return false;
+  const vinculo = localStorage.getItem(PUSH_USER_KEY);
+  if (!vinculo || Number(vinculo) === usuario.id_usuario) return false;
+
+  if (pushSuportado()) {
+    const registration = await obterRegistroServiceWorkerRapido();
+    const sub = registration?.pushManager
+      ? await registration.pushManager.getSubscription().catch(() => null)
+      : null;
+    if (sub) await sub.unsubscribe().catch(() => {});
+  }
+  await removerPushNoServidor('');
+  limparPushRegistradoLocal();
+  pushRegistradoServidor = false;
+  pushAtivoCompleto = false;
+  return true;
 }
 
 export function isIos(): boolean {
@@ -130,6 +168,27 @@ export function ehRotaMobileChamados(): boolean {
   if (typeof window === 'undefined') return false;
   const appPath = toAppPath(window.location.pathname);
   return appPath === '/chamados/mobile' || appPath.startsWith('/chamados/mobile/');
+}
+
+/** Técnicos no portal (/chamados) ou loja no fluxo mobile — rotas onde push é oferecido. */
+export function usuarioAdministraChamados(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  return temPermissao('chamados.ver', u) || temPermissao('chamados.assumir', u);
+}
+
+export function ehRotaComPush(): boolean {
+  if (ehRotaMobileChamados()) return true;
+  if (typeof window === 'undefined') return false;
+  const appPath = toAppPath(window.location.pathname);
+  if (
+    appPath === '/chamados' ||
+    (appPath.startsWith('/chamados/') &&
+      !appPath.startsWith('/chamados/aprovacoes') &&
+      appPath !== '/chamados/novo')
+  ) {
+    return usuarioAdministraChamados();
+  }
+  return false;
 }
 
 export function precisaInstalarIos(): boolean {
@@ -169,6 +228,10 @@ async function sincronizarEstadoPushInterno(): Promise<boolean> {
     pushRegistradoServidor = false;
     pushAtivoCompleto = false;
     limparPushRegistradoLocal();
+    return false;
+  }
+
+  if (await limparPushUsuarioDiferente()) {
     return false;
   }
 
@@ -228,7 +291,7 @@ export async function sincronizarEstadoPush(): Promise<boolean> {
 }
 
 function validarPreRequisitos(): ResultadoPushRegistro | null {
-  if (isIos() && !appInstalada() && !ehRotaMobileChamados()) {
+  if (isIos() && !appInstalada() && !ehRotaComPush()) {
     return {
       ok: false,
       codigo: 'ios_nao_instalado',
@@ -398,7 +461,7 @@ export function concluirPushEmSegundoPlano(forcar = true): Promise<ResultadoPush
 
 /** Prepara service worker e alinha estado — não pede permissão automaticamente. */
 export async function prepararNotificacoesPush(): Promise<void> {
-  if (typeof window === 'undefined' || !ehRotaMobileChamados()) return;
+  if (typeof window === 'undefined' || !ehRotaComPush()) return;
   if (prepararEmAndamento) return prepararEmAndamento;
 
   prepararEmAndamento = (async () => {
@@ -494,7 +557,7 @@ export async function registrarPushNotificacoes(forcar = false): Promise<Resulta
   return registrarPushCompleto(forcar);
 }
 
-export async function cancelarPushNotificacoes(): Promise<void> {
+export async function cancelarPushNotificacoes(tokenSessao?: string | null): Promise<void> {
   if (pushSuportado()) {
     const registration = await obterRegistroServiceWorkerRapido();
     if (registration) {
@@ -504,7 +567,7 @@ export async function cancelarPushNotificacoes(): Promise<void> {
       }
     }
   }
-  await api.pushUnsubscribe('').catch(() => {});
+  await removerPushNoServidor('', tokenSessao);
   limparPushRegistradoLocal();
   pushRegistradoServidor = false;
   pushAtivoCompleto = false;
@@ -529,7 +592,7 @@ export async function resetarPushCompleto(): Promise<number> {
     const res = await api.pushReset();
     removidas = res.removidas ?? 0;
   } catch {
-    await api.pushUnsubscribe('').catch(() => {});
+    await removerPushNoServidor('');
   }
   limparPushRegistradoLocal();
   pushRegistradoServidor = false;
@@ -542,7 +605,7 @@ export async function resetarPushCompleto(): Promise<number> {
 
 /** Exibir botão de ativação no header — só enquanto push não estiver ativo. */
 export function deveExibirAtivacaoPush(): boolean {
-  if (!ehRotaMobileChamados()) return false;
+  if (!ehRotaComPush()) return false;
   if (pushNotificacoesAtivas()) return false;
   if (precisaInstalarIos()) return true;
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') return true;

@@ -45,8 +45,10 @@ export function setSessao(accessToken: string, usuario: UsuarioSessao) {
 }
 
 export function logout() {
+  const token = getToken();
   localStorage.removeItem('token');
   localStorage.removeItem('usuario');
+  void import('../utils/pushNotifications').then((m) => m.cancelarPushNotificacoes(token));
 }
 
 const PERMISSOES_DASHBOARD = new Set([
