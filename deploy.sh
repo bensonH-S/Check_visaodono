@@ -86,23 +86,11 @@ chmod 755 Logs uploads 2>/dev/null || true
 INICIO=$(date +%s)
 
 echo ""
-echo "Construindo imagem Docker (build único, com cache)..."
-docker build --build-arg "GIT_TAG=${TAG}" -t "${IMAGE_NAME}" .
+echo "Construindo e subindo containers (app + wppconnect, porta ${APP_PORT})..."
 
-echo ""
-echo "Substituindo container (porta ${APP_PORT})..."
+export GIT_TAG="${TAG}"
 
-docker stop "${CONTAINER_NAME}" 2>/dev/null || true
-docker rm "${CONTAINER_NAME}" 2>/dev/null || true
-
-docker run -d \
-  -p "${APP_PORT}:${APP_PORT}" \
-  --env-file .env \
-  -v "${SCRIPT_DIR}/Logs:/app/Logs" \
-  -v "${SCRIPT_DIR}/uploads:/app/uploads" \
-  --name "${CONTAINER_NAME}" \
-  --restart unless-stopped \
-  "${IMAGE_NAME}"
+docker compose up -d --build
 
 echo ""
 echo "Reiniciando nginx..."

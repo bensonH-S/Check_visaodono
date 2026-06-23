@@ -273,7 +273,7 @@ function cabecalhoVisita(doc: jsPDF, dados: VisitaDetalhe): number {
   doc.text('Vision Check', MARGIN, 10);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text('Relatório de visita operacional', MARGIN, 16);
+  doc.text('Relatório Time de Campo', MARGIN, 16);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text(fmtNota(v.nota_final), PAGE_W - MARGIN, 13, { align: 'right' });

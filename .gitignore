@@ -8,6 +8,7 @@ Logs/*
 !Logs/.gitkeep
 uploads/*
 !uploads/.gitkeep
+backups/
 backend/uploads/
 .DS_Store
 VERSION

@@ -73,11 +73,13 @@ npm run dev
 
 API local: `http://localhost:5000/api` (com `PORT=5000` no `.env` da raiz).
 
-### Docker manual
+### Docker manual (app + WhatsApp)
 
 ```bash
 docker compose up -d --build
 ```
+
+WhatsApp (wppconnect) roda em **container separado** na mesma rede Docker. Ver `deploy/WHATSAPP-DOCKER.md`.
 
 Nginx: proxy para `127.0.0.1:3007` — ver `deploy/nginx-grupoalvim-auditoria.conf.example`.
 

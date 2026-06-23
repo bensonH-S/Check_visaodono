@@ -37,6 +37,7 @@
     "migrate:cargos": "npm run migrate:cargos --prefix backend",
     "migrate:cargos-perfis": "npm run migrate:cargos-perfis --prefix backend",
     "migrate:checklist-auditoria": "npm run migrate:checklist-auditoria --prefix backend",
+    "migrate:checklist-time-campo": "npm run migrate:checklist-time-campo --prefix backend",
     "migrate:push": "npm run migrate:push --prefix backend",
     "generate:vapid": "npm run generate:vapid --prefix backend",
     "logs:hoje": "node scripts/ver-log-hoje.js",

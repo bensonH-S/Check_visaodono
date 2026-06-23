@@ -22,6 +22,17 @@ const client = new pg.Client({
 
 try {
   await client.connect();
+  console.error('');
+  console.error('╔══════════════════════════════════════════════════════════════╗');
+  console.error('║  PERIGO: npm run migrate recria o schema do ZERO (DROP TABLE) ║');
+  console.error('║  Apaga usuários, lojas, visitas, chamados — tudo.           ║');
+  console.error('║  Em produção use migrations pontuais (migrate:xxx).         ║');
+  console.error('╚══════════════════════════════════════════════════════════════╝');
+  console.error('');
+  if (!process.argv.includes('--force')) {
+    console.error('Cancelado. Para confirmar: npm run migrate -- --force');
+    process.exit(1);
+  }
   console.log('Aplicando migration em', process.env.DB_NAME, '...');
   await client.query(sql);
   const tables = await client.query(`
