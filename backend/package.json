@@ -30,7 +30,10 @@
     "migrate:backfill-aprovacao-destino": "node scripts/run-sql.js migrations/028_backfill_aprovacao_destino.sql",
     "migrate:aprovacao-diretor-ok": "node scripts/run-sql.js migrations/029_aprovacao_diretor_ok.sql",
     "migrate:checklist-auditoria": "node scripts/run-sql.js migrations/031_checklist_auditoria_operacional.sql",
-    "migrate:checklist-time-campo": "node scripts/run-sql.js migrations/036_checklist_time_de_campo.sql --force",
+    "migrate:tipos-checklist": "node scripts/run-sql.js migrations/037_tipos_checklist.sql",
+    "migrate:time-campo-dados": "node scripts/run-sql.js migrations/038_checklist_time_de_campo_dados.sql",
+    "migrate:auditoria-foto": "node scripts/run-sql.js migrations/039_auditoria_foto_obrigatoria.sql",
+    "migrate:cargo-checklist": "node scripts/run-sql.js migrations/040_cargo_checklist_regional_diretor.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "migrate:whatsapp": "node scripts/run-sql.js migrations/035_usuario_whatsapp.sql"

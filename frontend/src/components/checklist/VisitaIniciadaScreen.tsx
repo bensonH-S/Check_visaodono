@@ -8,7 +8,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import PersonIcon from '@mui/icons-material/Person';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { formatDataHoraVisita } from '../../utils/dateBr';
-import type { Loja, Usuario } from '../../api/client';
+import type { Loja, Usuario, MetaVisitaTimeCampo } from '../../api/client';
 
 interface Props {
   visitaId: number;
@@ -18,6 +18,8 @@ interface Props {
   horaInicio?: string | null;
   totalSecoes: number;
   totalPerguntas: number;
+  tipoChecklist?: string;
+  metaVisita?: MetaVisitaTimeCampo;
   onComecar: () => void;
 }
 
@@ -42,9 +44,12 @@ export default function VisitaIniciadaScreen({
   horaInicio,
   totalSecoes,
   totalPerguntas,
+  tipoChecklist,
+  metaVisita,
   onComecar,
 }: Props) {
   const dataHoraVisita = formatDataHoraVisita(dataVisita, horaInicio);
+  const meta = metaVisita ?? {};
 
   return (
     <Box
@@ -98,6 +103,7 @@ export default function VisitaIniciadaScreen({
             Dados da visita
           </Typography>
         </Box>
+        {tipoChecklist && <InfoRow label="Checklist" value={tipoChecklist} />}
         <InfoRow label="Protocolo" value={`#${visitaId}`} />
         <InfoRow label="Data e hora" value={dataHoraVisita} />
         <Divider sx={{ my: 0.5 }} />
@@ -121,13 +127,26 @@ export default function VisitaIniciadaScreen({
           <PersonIcon sx={{ fontSize: 18, color: 'text.secondary', mt: 0.25 }} />
           <Box sx={{ flex: 1 }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              Auditor responsável
+              Supervisor / auditor
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {auditor?.nome ?? '—'}
             </Typography>
           </Box>
         </Box>
+        {meta.gerente && <InfoRow label="Gerente" value={meta.gerente} />}
+        {meta.coordenador_1_dia && <InfoRow label="Coord. 1º dia" value={meta.coordenador_1_dia} />}
+        {meta.coordenador_2_dia && <InfoRow label="Coord. 2º dia" value={meta.coordenador_2_dia} />}
+        {meta.coordenador_madrugada_1 && (
+          <InfoRow label="Coord. madrugada 1" value={meta.coordenador_madrugada_1} />
+        )}
+        {meta.coordenador_madrugada_2 && (
+          <InfoRow label="Coord. madrugada 2" value={meta.coordenador_madrugada_2} />
+        )}
+        {meta.time_total != null && meta.time_total !== '' && (
+          <InfoRow label="Time total" value={String(meta.time_total)} />
+        )}
+        {meta.territorio && <InfoRow label="Território" value={meta.territorio} />}
       </Paper>
 
       <Paper

@@ -178,7 +178,7 @@ export default function LoginMobilePage() {
                   textTransform: 'uppercase',
                 }}
               >
-                Chamados
+                Checklist e Chamados
               </Typography>
             </Box>
 
@@ -193,7 +193,7 @@ export default function LoginMobilePage() {
                 px: 0.5,
               }}
             >
-              Abra e acompanhe chamados de manutenção na sua loja.
+              Checklist de visitas e chamados de manutenção no celular.
             </Typography>
 
             <Box

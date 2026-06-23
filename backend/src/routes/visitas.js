@@ -7,6 +7,11 @@ import {
   countMidiaResposta,
 } from '../fotos.js';
 import { filtroSqlLojas, usuarioPodeLoja } from '../lojasUsuario.js';
+import {
+  resolverTipoChecklist,
+  schemaTiposChecklistAtivo,
+  obterTipoChecklistDaVisita,
+} from '../checklistTipos.js';
 
 const router = Router();
 
@@ -25,7 +30,13 @@ function dataVisitaIso(val) {
 
 function serializarVisita(row) {
   if (!row) return row;
-  return { ...row, data_visita: dataVisitaIso(row.data_visita) };
+  const meta =
+    row.meta_visita && typeof row.meta_visita === 'object' ? row.meta_visita : {};
+  return {
+    ...row,
+    data_visita: dataVisitaIso(row.data_visita),
+    meta_visita: meta,
+  };
 }
 
 router.get('/:idVisita/respostas/:idPergunta/media/:indice', async (req, res, next) => {
@@ -63,11 +74,14 @@ router.get('/', async (req, res, next) => {
     const { loja, status } = req.query;
     let q = `
       SELECT v.*, l.name, l.bk_number, u.nome AS nome_usuario,
+        tc.codigo AS tipo_checklist_codigo,
+        tc.nome AS tipo_checklist_nome,
         (SELECT COUNT(*)::int FROM nao_conformidades nc
          WHERE nc.id_visita = v.id_visita AND nc.status = 'Em aberto') AS nc_abertas
       FROM visitas v
       JOIN lojas l ON l.id_loja = v.id_loja
       JOIN usuarios u ON u.id_usuario = v.id_usuario
+      LEFT JOIN tipos_checklist tc ON tc.id_tipo_checklist = v.id_tipo_checklist
       WHERE 1=1
     `;
     const params = [];
@@ -91,10 +105,12 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const visita = await pool.query(
-      `SELECT v.*, l.name, l.bk_number, l.city, l.neighborhood, u.nome AS nome_usuario
+      `SELECT v.*, l.name, l.bk_number, l.city, l.neighborhood, u.nome AS nome_usuario,
+              tc.codigo AS tipo_checklist_codigo, tc.nome AS tipo_checklist_nome
        FROM visitas v
        JOIN lojas l ON l.id_loja = v.id_loja
        JOIN usuarios u ON u.id_usuario = v.id_usuario
+       LEFT JOIN tipos_checklist tc ON tc.id_tipo_checklist = v.id_tipo_checklist
        WHERE v.id_visita = $1`,
       [req.params.id]
     );
@@ -162,22 +178,62 @@ router.get('/:id', async (req, res, next) => {
 });
 
 router.post('/', async (req, res, next) => {
-  const { id_loja, id_usuario, data_visita, hora_inicio } = req.body;
+  const {
+    id_loja,
+    id_usuario,
+    data_visita,
+    hora_inicio,
+    codigo_tipo_checklist,
+    id_tipo_checklist,
+    meta_visita,
+  } = req.body;
   if (!id_loja || !id_usuario) {
     return res.status(400).json({ error: 'Loja e auditor são obrigatórios' });
   }
   if (!usuarioPodeLoja(req.user, id_loja)) {
     return res.status(403).json({ error: 'Loja não vinculada ao seu usuário' });
   }
+
+  const schemaAtivo = await schemaTiposChecklistAtivo();
+  let idTipo = null;
+  if (schemaAtivo) {
+    const resolved = await resolverTipoChecklist(Number(id_usuario), {
+      codigo: codigo_tipo_checklist,
+      id: id_tipo_checklist,
+    });
+    if (!resolved.tipo) {
+      return res.status(400).json({ error: resolved.error, tipos: resolved.tipos });
+    }
+    idTipo = resolved.tipo.id_tipo_checklist;
+  }
+
+  const meta =
+    meta_visita && typeof meta_visita === 'object' && !Array.isArray(meta_visita)
+      ? meta_visita
+      : {};
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const cols = schemaAtivo
+      ? '(id_loja, id_usuario, data_visita, hora_inicio, status, id_tipo_checklist, meta_visita)'
+      : '(id_loja, id_usuario, data_visita, hora_inicio, status)';
+    const vals = schemaAtivo
+      ? '($1, $2, COALESCE($3::date, (timezone(\'America/Sao_Paulo\', now()))::date), COALESCE($4, (timezone(\'America/Sao_Paulo\', now()))::time), \'Rascunho\', $5, $6::jsonb)'
+      : '($1, $2, COALESCE($3::date, (timezone(\'America/Sao_Paulo\', now()))::date), COALESCE($4, (timezone(\'America/Sao_Paulo\', now()))::time), \'Rascunho\')';
+    const params = schemaAtivo
+      ? [
+          Number(id_loja),
+          Number(id_usuario),
+          data_visita ?? null,
+          hora_inicio ?? null,
+          idTipo,
+          JSON.stringify(meta),
+        ]
+      : [Number(id_loja), Number(id_usuario), data_visita ?? null, hora_inicio ?? null];
     const { rows } = await client.query(
-      `INSERT INTO visitas (id_loja, id_usuario, data_visita, hora_inicio, status)
-       VALUES ($1, $2, COALESCE($3::date, (timezone('America/Sao_Paulo', now()))::date),
-         COALESCE($4, (timezone('America/Sao_Paulo', now()))::time), 'Rascunho')
-       RETURNING *`,
-      [Number(id_loja), Number(id_usuario), data_visita ?? null, hora_inicio ?? null]
+      `INSERT INTO visitas ${cols} VALUES ${vals} RETURNING *`,
+      params,
     );
     await client.query('COMMIT');
     res.status(201).json(serializarVisita(rows[0]));
@@ -207,10 +263,23 @@ router.post('/:id/respostas', async (req, res, next) => {
       return res.status(400).json({ error: 'Lista de respostas obrigatória' });
     }
     const idVisita = Number(req.params.id);
+    const tipoVisita = await obterTipoChecklistDaVisita(idVisita);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       for (const r of respostas) {
+        if (tipoVisita) {
+          const { rows: okPergunta } = await client.query(
+            `SELECT 1 FROM perguntas p
+             JOIN categorias_checklist c ON c.id_categoria = p.id_categoria
+             WHERE p.id_pergunta = $1 AND c.id_tipo_checklist = $2`,
+            [r.id_pergunta, tipoVisita.id_tipo_checklist],
+          );
+          if (!okPergunta[0]) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Pergunta não pertence ao checklist desta visita' });
+          }
+        }
         const resposta = normalizarResposta(r);
         const nota =
           r.nota_estrelas != null && r.nota_estrelas !== ''
@@ -259,16 +328,34 @@ router.post('/:id/respostas', async (req, res, next) => {
 router.patch('/:id/finalizar', async (req, res, next) => {
   try {
     const { hora_fim, duracao_minutos, observacoes_gerais } = req.body;
+    const atual = await pool.query(
+      'SELECT hora_inicio, data_visita FROM visitas WHERE id_visita = $1',
+      [req.params.id],
+    );
+    if (!atual.rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
+
+    let duracao = duracao_minutos != null ? Number(duracao_minutos) : null;
+    if ((duracao == null || Number.isNaN(duracao)) && atual.rows[0].hora_inicio) {
+      const { rows: calc } = await pool.query(
+        `SELECT GREATEST(1, EXTRACT(EPOCH FROM (
+           (timezone('America/Sao_Paulo', now()))::time - hora_inicio
+         )) / 60)::int AS mins
+         FROM visitas WHERE id_visita = $1 AND hora_inicio IS NOT NULL`,
+        [req.params.id],
+      );
+      duracao = calc[0]?.mins ?? null;
+    }
+
     const { rows } = await pool.query(
       `UPDATE visitas SET
          status = 'Finalizada',
-         hora_fim = COALESCE($2, hora_fim),
+         hora_fim = COALESCE($2::time, (timezone('America/Sao_Paulo', now()))::time),
          duracao_minutos = COALESCE($3, duracao_minutos),
          observacoes_gerais = COALESCE($4, observacoes_gerais),
          updated_at = NOW()
        WHERE id_visita = $1
        RETURNING *`,
-      [req.params.id, hora_fim, duracao_minutos, observacoes_gerais]
+      [req.params.id, hora_fim ?? null, duracao, observacoes_gerais ?? null],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
     res.json(serializarVisita(rows[0]));

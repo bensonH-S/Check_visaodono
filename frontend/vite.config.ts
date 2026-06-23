@@ -109,13 +109,12 @@ export default defineConfig({
       },
       injectRegister: false,
       devOptions: {
-        enabled: true,
-        type: 'module',
+        enabled: false,
       },
     }),
   ],
   server: {
-    port: 5174,
+    port: 5173,
     strictPort: true,
     host: true,
     /** Permite acesso via ngrok / túnel externo no dev */

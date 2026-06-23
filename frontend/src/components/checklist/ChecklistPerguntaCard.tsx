@@ -70,7 +70,7 @@ export default function ChecklistPerguntaCard({
   const fotos = getFotos(r);
   const ok = perguntaRespondida(p, r);
   const mostraFoto = exibeFoto(p, r?.resposta, r?.nota_estrelas);
-  const mostraObs = exibeObservacao(p, r?.resposta);
+  const mostraObs = exibeObservacao(p, r?.resposta, r?.nota_estrelas);
 
   return (
     <Paper
@@ -221,7 +221,7 @@ export default function ChecklistPerguntaCard({
               ? 'Observação deve ser preenchida quando selecionado Não'
               : p.requer_obs_em_nao && r?.resposta === 'Não'
                 ? 'Obrigatória quando selecionado Não'
-                : undefined
+                : 'Opcional — registre detalhes ou pendências'
           }
           value={r?.observacao || ''}
           onChange={(e) => onPatch({ observacao: e.target.value })}

@@ -1,31 +1,91 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
+import {
+  resolverTipoChecklist,
+  tiposChecklistDoUsuario,
+  schemaTiposChecklistAtivo,
+} from '../checklistTipos.js';
 
 const router = Router();
 
 const TIPOS_RESPOSTA = ['estrelas', 'sim_nao', 'estrelas_foto', 'sim_nao_foto'];
 
-async function carregarChecklistAgrupado() {
-  const cats = await pool.query('SELECT * FROM categorias_checklist ORDER BY ordem');
-  const perguntas = await pool.query('SELECT * FROM perguntas ORDER BY id_categoria, ordem');
+async function carregarChecklistAgrupado(idTipoChecklist = null) {
+  const schemaAtivo = await schemaTiposChecklistAtivo();
+  const cats = schemaAtivo && idTipoChecklist != null
+    ? await pool.query(
+        'SELECT * FROM categorias_checklist WHERE id_tipo_checklist = $1 ORDER BY ordem',
+        [idTipoChecklist],
+      )
+    : await pool.query('SELECT * FROM categorias_checklist ORDER BY ordem');
+  const catIds = cats.rows.map((c) => c.id_categoria);
+  const perguntas =
+    catIds.length > 0
+      ? await pool.query(
+          'SELECT * FROM perguntas WHERE id_categoria = ANY($1::int[]) ORDER BY id_categoria, ordem',
+          [catIds],
+        )
+      : { rows: [] };
   return cats.rows.map((c) => ({
     ...c,
     perguntas: perguntas.rows.filter((p) => p.id_categoria === c.id_categoria),
   }));
 }
 
-router.get('/', async (_req, res, next) => {
+async function resolverIdTipoGestao(codigo) {
+  const { rows } = await pool.query(
+    'SELECT id_tipo_checklist FROM tipos_checklist WHERE codigo = $1 AND ativo = TRUE',
+    [codigo || 'auditoria_operacional'],
+  );
+  return rows[0]?.id_tipo_checklist ?? null;
+}
+
+router.get('/tipos', async (req, res, next) => {
   try {
-    res.json(await carregarChecklistAgrupado());
+    if (!(await schemaTiposChecklistAtivo())) {
+      return res.json([
+        {
+          id_tipo_checklist: 0,
+          codigo: 'auditoria_operacional',
+          nome: 'Auditoria Operacional',
+          descricao: null,
+          ordem: 1,
+          ativo: true,
+        },
+      ]);
+    }
+    res.json(await tiposChecklistDoUsuario(req.user.sub));
   } catch (e) {
     next(e);
   }
 });
 
-router.get('/gestao', requirePermissao('configuracoes.ver'), async (_req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
-    res.json(await carregarChecklistAgrupado());
+    if (!(await schemaTiposChecklistAtivo())) {
+      return res.json(await carregarChecklistAgrupado());
+    }
+    const codigo = req.query.tipo ? String(req.query.tipo) : null;
+    const resolved = await resolverTipoChecklist(req.user.sub, { codigo });
+    if (resolved.error && !resolved.tipo) {
+      return res.status(400).json({ error: resolved.error, tipos: resolved.tipos });
+    }
+    res.json(await carregarChecklistAgrupado(resolved.tipo.id_tipo_checklist));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/gestao', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+  try {
+    const codigo = req.query.tipo ? String(req.query.tipo) : 'auditoria_operacional';
+    if (!(await schemaTiposChecklistAtivo())) {
+      return res.json(await carregarChecklistAgrupado());
+    }
+    const idTipo = await resolverIdTipoGestao(codigo);
+    if (!idTipo) return res.status(404).json({ error: 'Tipo de checklist não encontrado' });
+    res.json(await carregarChecklistAgrupado(idTipo));
   } catch (e) {
     next(e);
   }
@@ -36,15 +96,23 @@ router.post('/categorias', requirePermissao('configuracoes.ver'), async (req, re
     const nome = String(req.body?.nome || '').trim();
     if (!nome) return res.status(400).json({ error: 'Nome da seção é obrigatório' });
     const icone = String(req.body?.icone || 'folder').trim() || 'folder';
+    let idTipo = Number(req.body?.id_tipo_checklist) || null;
+    if (!idTipo && (await schemaTiposChecklistAtivo())) {
+      idTipo = await resolverIdTipoGestao(req.body?.codigo_tipo_checklist || 'auditoria_operacional');
+    }
+    const filtroTipo = idTipo ? ' WHERE id_tipo_checklist = $1' : '';
+    const paramsOrdem = idTipo ? [idTipo] : [];
     const { rows: ordemRows } = await pool.query(
-      'SELECT COALESCE(MAX(ordem), 0) + 1 AS prox FROM categorias_checklist',
+      `SELECT COALESCE(MAX(ordem), 0) + 1 AS prox FROM categorias_checklist${filtroTipo}`,
+      paramsOrdem,
     );
     const ordem = Number(req.body?.ordem) || Number(ordemRows[0]?.prox) || 1;
+    const cols = idTipo ? '(nome, icone, ordem, id_tipo_checklist)' : '(nome, icone, ordem)';
+    const vals = idTipo ? '($1, $2, $3, $4)' : '($1, $2, $3)';
+    const params = idTipo ? [nome, icone, ordem, idTipo] : [nome, icone, ordem];
     const { rows } = await pool.query(
-      `INSERT INTO categorias_checklist (nome, icone, ordem)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [nome, icone, ordem],
+      `INSERT INTO categorias_checklist ${cols} VALUES ${vals} RETURNING *`,
+      params,
     );
     res.status(201).json(rows[0]);
   } catch (e) {
@@ -105,7 +173,11 @@ router.post('/perguntas', requirePermissao('configuracoes.ver'), async (req, res
     let cod = String(codigo || '').trim();
     if (!cod) {
       const { rows: proxCod } = await pool.query(
-        'SELECT LPAD((COALESCE(MAX(codigo::int), 0) + 1)::text, 2, \'0\') AS cod FROM perguntas WHERE codigo ~ \'^\\d+$\'',
+        `SELECT LPAD((COALESCE(MAX(codigo::int), 0) + 1)::text, 2, '0') AS cod
+         FROM perguntas p
+         JOIN categorias_checklist c ON c.id_categoria = p.id_categoria
+         WHERE c.id_categoria = $1 AND p.codigo ~ '^\\d+$'`,
+        [idCat],
       );
       cod = proxCod[0]?.cod || '01';
     }
@@ -113,7 +185,8 @@ router.post('/perguntas', requirePermissao('configuracoes.ver'), async (req, res
     let ord = Number(ordem);
     if (!ord) {
       const { rows: proxOrd } = await pool.query(
-        'SELECT COALESCE(MAX(ordem), 0) + 1 AS prox FROM perguntas',
+        'SELECT COALESCE(MAX(ordem), 0) + 1 AS prox FROM perguntas WHERE id_categoria = $1',
+        [idCat],
       );
       ord = Number(proxOrd[0]?.prox) || 1;
     }

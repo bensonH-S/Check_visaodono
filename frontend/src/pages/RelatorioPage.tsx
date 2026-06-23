@@ -185,8 +185,20 @@ export default function RelatorioPage() {
               />
               <MetaParLinha
                 esq={{ rotulo: 'Status', valor: v.status }}
-                dir={{ rotulo: 'Visita', valor: `#${v.id_visita}` }}
+                dir={{
+                  rotulo: 'Checklist',
+                  valor: v.tipo_checklist_nome ?? 'Auditoria Operacional',
+                }}
               />
+              {v.meta_visita?.gerente && (
+                <MetaParLinha
+                  esq={{ rotulo: 'Gerente', valor: String(v.meta_visita.gerente) }}
+                  dir={{
+                    rotulo: 'Território',
+                    valor: String(v.meta_visita.territorio ?? '—'),
+                  }}
+                />
+              )}
             </Box>
 
             {(anterior || diff != null) && (

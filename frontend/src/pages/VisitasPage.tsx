@@ -147,6 +147,7 @@ export default function VisitasPage() {
             <TableHead>
               <TableRow>
                 <TableCell>Loja</TableCell>
+                <TableCell>Checklist</TableCell>
                 <TableCell>Data</TableCell>
                 <TableCell>Duração</TableCell>
                 <TableCell>Usuário</TableCell>
@@ -159,6 +160,9 @@ export default function VisitasPage() {
               {visitasFiltradas.map((v) => (
                 <TableRow key={v.id_visita} hover>
                   <TableCell sx={tableCellWrapSx}>{v.name}</TableCell>
+                  <TableCell sx={tableCellWrapSx}>
+                    {v.tipo_checklist_nome ?? 'Auditoria Operacional'}
+                  </TableCell>
                   <TableCell>{fmtData(v.data_visita)}</TableCell>
                   <TableCell>{v.duracao_minutos ? `${v.duracao_minutos} min` : '—'}</TableCell>
                   <TableCell sx={tableCellWrapSx}>{v.nome_usuario}</TableCell>
@@ -173,7 +177,7 @@ export default function VisitasPage() {
               ))}
               {!visitasFiltradas.length && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     Nenhuma visita com este status.
                   </TableCell>
                 </TableRow>

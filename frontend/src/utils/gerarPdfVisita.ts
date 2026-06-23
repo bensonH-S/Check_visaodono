@@ -262,8 +262,16 @@ function alturaCampo(doc: jsPDF, valor: string, colW: number): number {
   return 4.5 + linhas.length * 4.2 + 5;
 }
 
+function tituloRelatorio(visita: VisitaDetalhe['visita']) {
+  if (visita.tipo_checklist_codigo === 'time_de_campo') {
+    return 'Relatório Time de Campo';
+  }
+  return 'Relatório de visita operacional';
+}
+
 function cabecalhoVisita(doc: jsPDF, dados: VisitaDetalhe): number {
   const v = dados.visita;
+  const meta = v.meta_visita ?? {};
 
   doc.setFillColor(...ORANGE);
   doc.rect(0, 0, PAGE_W, 22, 'F');
@@ -273,7 +281,7 @@ function cabecalhoVisita(doc: jsPDF, dados: VisitaDetalhe): number {
   doc.text('Vision Check', MARGIN, 10);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text('Relatório Time de Campo', MARGIN, 16);
+  doc.text(tituloRelatorio(v), MARGIN, 16);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text(fmtNota(v.nota_final), PAGE_W - MARGIN, 13, { align: 'right' });
@@ -294,6 +302,24 @@ function cabecalhoVisita(doc: jsPDF, dados: VisitaDetalhe): number {
     { rotulo: 'Local', valor: formatarLocalVisita(v), col: 1 },
     { rotulo: 'Status', valor: v.status, col: 2 },
   ];
+
+  if (meta.gerente) linhas.push({ rotulo: 'Gerente', valor: String(meta.gerente), col: 1 });
+  if (meta.coordenador_1_dia) {
+    linhas.push({ rotulo: 'Coord. 1º dia', valor: String(meta.coordenador_1_dia), col: 2 });
+  }
+  if (meta.coordenador_2_dia) {
+    linhas.push({ rotulo: 'Coord. 2º dia', valor: String(meta.coordenador_2_dia), col: 1 });
+  }
+  if (meta.coordenador_madrugada_1) {
+    linhas.push({ rotulo: 'Coord. madrugada 1', valor: String(meta.coordenador_madrugada_1), col: 2 });
+  }
+  if (meta.coordenador_madrugada_2) {
+    linhas.push({ rotulo: 'Coord. madrugada 2', valor: String(meta.coordenador_madrugada_2), col: 1 });
+  }
+  if (meta.time_total != null && meta.time_total !== '') {
+    linhas.push({ rotulo: 'Time total', valor: String(meta.time_total), col: 2 });
+  }
+  if (meta.territorio) linhas.push({ rotulo: 'Território', valor: String(meta.territorio), col: 1 });
 
   const obs = (v as { observacoes_gerais?: string }).observacoes_gerais?.trim();
 

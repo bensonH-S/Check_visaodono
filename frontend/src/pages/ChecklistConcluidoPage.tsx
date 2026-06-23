@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { checklistPaths } from '../config/mobileRoutes';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -14,6 +15,8 @@ import { api, fmtNota, fmtData, scoreColor } from '../api/client';
 export default function ChecklistConcluidoPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const paths = checklistPaths(location.pathname);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [visita, setVisita] = useState<{
@@ -50,7 +53,7 @@ export default function ChecklistConcluidoPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Typography color="error">{err || 'Visita não encontrada'}</Typography>
-        <Button sx={{ mt: 2 }} onClick={() => navigate('/checklist')}>
+        <Button sx={{ mt: 2 }} onClick={() => navigate(paths.base)}>
           Voltar
         </Button>
       </Box>
@@ -179,7 +182,7 @@ export default function ChecklistConcluidoPage() {
           variant="outlined"
           size="large"
           startIcon={<AddIcon />}
-          onClick={() => navigate('/checklist', { state: { reiniciar: true } })}
+          onClick={() => navigate(paths.base, { state: { reiniciar: true } })}
           sx={{ minHeight: 48 }}
         >
           Nova visita
@@ -188,9 +191,9 @@ export default function ChecklistConcluidoPage() {
           fullWidth
           color="inherit"
           startIcon={<HomeIcon />}
-          onClick={() => navigate('/')}
+          onClick={() => navigate(paths.mobile ? paths.base : '/')}
         >
-          Voltar ao início
+          {paths.mobile ? 'Voltar ao checklist' : 'Voltar ao início'}
         </Button>
       </Box>
     </Box>

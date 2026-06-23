@@ -110,3 +110,24 @@ export function formatDataHoraVisita(
   const hm = hora.trim().slice(0, 5);
   return `${dataFmt} às ${hm}`;
 }
+
+/** Duração em minutos entre hora_inicio e agora (Brasília). */
+export function calcularDuracaoVisitaMinutos(
+  dataVisita: string | null | undefined,
+  horaInicio: string | null | undefined,
+): number | undefined {
+  if (!horaInicio?.trim()) return undefined;
+  const dataBase = normalizarDataVisita(dataVisita) ?? dataHojeBrasilia();
+  const [y, m, d] = dataBase.split('-').map(Number);
+  const parts = horaInicio.trim().split(':').map(Number);
+  const h = parts[0] ?? 0;
+  const min = parts[1] ?? 0;
+  const sec = parts[2] ?? 0;
+  const inicio = new Date(y, m - 1, d, h, min, sec);
+  const agoraStr = new Date().toLocaleString('en-US', { timeZone: TZ_BR });
+  const fim = new Date(agoraStr);
+  const diff = Math.round((fim.getTime() - inicio.getTime()) / 60000);
+  if (diff < 1) return 1;
+  if (diff > 24 * 60) return undefined;
+  return diff;
+}

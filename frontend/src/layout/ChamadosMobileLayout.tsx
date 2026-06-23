@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useLocation, useMatch } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, useMatch, NavLink } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -8,6 +8,8 @@ import { showToast } from '../utils/toast';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LogoutIcon from '@mui/icons-material/Logout';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import BuildIcon from '@mui/icons-material/Build';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import BrandLogo from '../components/BrandLogo';
 import AppFooter from '../components/AppFooter';
@@ -16,7 +18,7 @@ import PwaInstallBanner from '../components/PwaInstallBanner';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { toAppPath } from '../config/paths';
-import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, podeUsarChecklist, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
@@ -28,6 +30,7 @@ import {
 const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
 const FOOTER_H = 64;
+const TAB_NAV_H = 52;
 
 function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
   return loja.nome;
@@ -216,16 +219,53 @@ function ChamadosMobileLayoutInner() {
   const { idLoja } = useChamadosMobileLoja();
   const isNovo = Boolean(useMatch('/chamados/mobile/novo')) || path === '/chamados/mobile/novo';
   const isDetalhe = Boolean(useMatch('/chamados/mobile/:idChamado'));
-  const isSubPage = isNovo || isDetalhe;
+  const isChamadosSubPage = isNovo || isDetalhe;
+  const isChecklist = path === '/checklist/mobile' || path.startsWith('/checklist/mobile/');
+  const isChecklistConcluido = path.startsWith('/checklist/mobile/concluido/');
+  const isSubPage = isChamadosSubPage;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
+  const podeChecklist = user && podeUsarChecklist(user);
+  const podeChamados = user && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
+
+  const mobileTabs = [
+    {
+      to: '/checklist/mobile',
+      label: 'Checklist',
+      icon: <AssignmentIcon fontSize="small" />,
+      show: !!podeChecklist,
+    },
+    {
+      to: '/chamados/mobile',
+      label: 'Chamados',
+      icon: <BuildIcon fontSize="small" />,
+      show: !!podeChamados,
+    },
+  ].filter((t) => t.show);
+
+  const mostrarTabs = mobileTabs.length >= 1 && !isSubPage && !isChecklistConcluido;
+  const rodapeTotalH = FOOTER_H + (mostrarTabs ? TAB_NAV_H : 0);
 
   const subtituloPagina = isNovo
     ? 'Novo chamado'
     : isDetalhe
       ? 'Detalhes do chamado'
-      : 'Chamados';
+      : isChecklistConcluido
+        ? 'Visita concluída'
+        : isChecklist
+          ? 'Checklist'
+          : 'Chamados';
 
-  usePageTitle(isNovo ? 'Novo chamado' : isDetalhe ? 'Detalhes do chamado' : 'Chamados');
+  usePageTitle(
+    isNovo
+      ? 'Novo chamado'
+      : isDetalhe
+        ? 'Detalhes do chamado'
+        : isChecklistConcluido
+          ? 'Visita concluída'
+          : isChecklist
+            ? 'Checklist'
+            : 'Chamados'
+  );
 
   useEffect(() => {
     if (user && !usaFluxoChamadosMobile(user)) {
@@ -282,7 +322,7 @@ function ChamadosMobileLayoutInner() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
-            {isSubPage && (
+            {isChamadosSubPage && (
               <IconButton
                 type="button"
                 size="small"
@@ -338,10 +378,10 @@ function ChamadosMobileLayoutInner() {
             </IconButton>
           </Box>
         </Box>
-        <Box sx={{ mt: isSubPage ? 0 : 1 }}>
+        <Box sx={{ mt: isChamadosSubPage ? 0 : 1 }}>
           <PwaInstallBanner />
         </Box>
-        {!isSubPage && (
+        {!isChamadosSubPage && !isChecklist && (
           <Box
             sx={{
               mt: 1,
@@ -365,16 +405,16 @@ function ChamadosMobileLayoutInner() {
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          px: 2,
-          pt: 2,
-          pb: `calc(${FOOTER_H}px + ${podeAbrir && !isSubPage ? 64 : 16}px + env(safe-area-inset-bottom, 0px))`,
+          px: isChecklist ? 0 : 2,
+          pt: isChecklist ? 0 : 2,
+          pb: `calc(${rodapeTotalH}px + ${podeAbrir && !isSubPage && !isChecklist ? 64 : 16}px + env(safe-area-inset-bottom, 0px))`,
           WebkitOverflowScrolling: 'touch',
         }}
       >
         <Outlet />
       </Box>
 
-      {podeAbrir && !isSubPage && (
+      {podeAbrir && !isSubPage && !isChecklist && (
         <Fab
           color="primary"
           aria-label="Abrir novo chamado"
@@ -382,7 +422,7 @@ function ChamadosMobileLayoutInner() {
           sx={{
             position: 'fixed',
             right: 20,
-            bottom: `calc(${FOOTER_H}px + 16px + env(safe-area-inset-bottom, 0px))`,
+            bottom: `calc(${rodapeTotalH}px + 16px + env(safe-area-inset-bottom, 0px))`,
             zIndex: 40,
             boxShadow: '0 6px 20px rgba(27, 42, 107, 0.35)',
           }}
@@ -403,6 +443,45 @@ function ChamadosMobileLayoutInner() {
           bgcolor: PAGE_BG,
         }}
       >
+        {mostrarTabs && (
+          <Box
+            component="nav"
+            sx={{
+              display: 'flex',
+              bgcolor: '#fff',
+              borderTop: '1px solid rgba(27, 42, 107, 0.1)',
+            }}
+          >
+            {mobileTabs.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end
+                style={{ textDecoration: 'none', flex: 1 }}
+              >
+                {({ isActive }) => (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      py: 1,
+                      minHeight: TAB_NAV_H,
+                      color: isActive ? NAVY : 'text.secondary',
+                      fontSize: '0.625rem',
+                      fontWeight: isActive ? 700 : 500,
+                      '& .MuiSvgIcon-root': { fontSize: 22, mb: 0.25 },
+                    }}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </Box>
+                )}
+              </NavLink>
+            ))}
+          </Box>
+        )}
         <AppFooter compact fullText />
       </Box>
     </Box>

@@ -87,13 +87,45 @@ export function nomeExibicaoUsuario(usuario?: Pick<UsuarioSessao, 'cargo_nome' |
   return '—';
 }
 
-/** Técnico administra chamados no portal; demais perfis usam o fluxo mobile da loja. */
+/** Técnico administra chamados no portal; demais perfis usam o app mobile (PWA). */
 export function destinoPosLoginMobile(usuario: UsuarioSessao): string {
   if (usuario.perfil === 'tecnico') return '/chamados';
   return '/chamados/mobile';
 }
 
+const CARGOS_COM_CHECKLIST = new Set([
+  'regional',
+  'supervisor_regional',
+  'coordenador',
+  'diretor',
+  'administrador',
+  'dono',
+  'ti',
+]);
+
+/** Cargo vinculado a algum tipo de checklist (tabela cargo_checklist). */
+export function cargoComChecklist(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  const codigo = (u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  if (CARGOS_COM_CHECKLIST.has(codigo)) return true;
+  const nome = (u.cargo_nome || u.cargo || '').toLowerCase();
+  return nome.includes('regional') || nome === 'diretor' || nome === 'administrador';
+}
+
+export function podeUsarChecklist(usuario?: UsuarioSessao | null): boolean {
+  return (
+    temPermissao('checklist.ver', usuario) ||
+    temPermissao('checklist.executar', usuario) ||
+    cargoComChecklist(usuario)
+  );
+}
+
 export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   return !!u && u.perfil !== 'tecnico';
+}
+
+export function usaFluxoMobileApp(usuario?: UsuarioSessao | null): boolean {
+  return usaFluxoChamadosMobile(usuario);
 }

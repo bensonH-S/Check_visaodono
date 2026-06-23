@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { checklistPaths } from '../config/mobileRoutes';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -20,18 +21,19 @@ import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import { api } from '../api/client';
 import { getUsuario, temPermissao } from '../lib/auth';
-import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput } from '../api/client';
+import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput, TipoChecklist, MetaVisitaTimeCampo } from '../api/client';
 import ChecklistPerguntaCard, {
   perguntaRespondida,
   type ErroPerguntaCampo,
   type RespostaLocal,
 } from '../components/checklist/ChecklistPerguntaCard';
 import VisitaIniciadaScreen from '../components/checklist/VisitaIniciadaScreen';
+import TimeCampoMetaForm from '../components/checklist/TimeCampoMetaForm';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { selectMenuScrollProps } from '../utils/selectMenuScroll';
 import { showToast } from '../utils/toast';
 import { CHECKLIST_REFRESH } from '../utils/checklistEvent';
-import { dataHojeBrasilia, normalizarDataVisita } from '../utils/dateBr';
+import { dataHojeBrasilia, normalizarDataVisita, calcularDuracaoVisitaMinutos } from '../utils/dateBr';
 import {
   exibeFoto,
   exibeObservacao,
@@ -141,7 +143,7 @@ function toRespostaInput(p: Pergunta, r: RespostaLocal): RespostaInput {
   }
 
   if (exibeFoto(p, r.resposta, r.nota_estrelas)) input.foto_url = serializeFotos(fotos);
-  if (exibeObservacao(p, r.resposta) && r.observacao) input.observacao = r.observacao;
+  if (exibeObservacao(p, r.resposta, r.nota_estrelas) && r.observacao) input.observacao = r.observacao;
 
   return input;
 }
@@ -175,8 +177,12 @@ type Fase = 'setup' | 'iniciada' | 'perguntas';
 export default function ChecklistPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const paths = checklistPaths(location.pathname);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [tiposChecklist, setTiposChecklist] = useState<TipoChecklist[]>([]);
+  const [tipoSelecionado, setTipoSelecionado] = useState<TipoChecklist | null>(null);
+  const [metaVisita, setMetaVisita] = useState<MetaVisitaTimeCampo>({});
   const [checklist, setChecklist] = useState<CategoriaChecklist[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>('');
   const [idUsuario, setIdUsuario] = useState<number | ''>('');
@@ -234,15 +240,17 @@ export default function ChecklistPage() {
     setErrosPerguntas({});
   }, [indiceSecao]);
 
-  const recarregarChecklist = useCallback(async () => {
+  const recarregarChecklist = useCallback(async (codigoTipo?: string) => {
+    const codigo = codigoTipo ?? tipoSelecionado?.codigo;
+    if (!codigo) return;
     try {
-      const c = await api.checklist();
+      const c = await api.checklist(codigo);
       setChecklist(c);
       setIndiceSecao((idx) => Math.min(idx, Math.max(0, c.length - 1)));
     } catch {
       /* atualização em segundo plano */
     }
-  }, []);
+  }, [tipoSelecionado?.codigo]);
 
   useEffect(() => {
     function onChecklistAtualizado() {
@@ -262,34 +270,56 @@ export default function ChecklistPage() {
       setRespostas({});
       setIndiceSecao(0);
       setMsg('');
-      navigate('/checklist', { replace: true, state: {} });
+      navigate(paths.base, { replace: true, state: {} });
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, paths.base]);
 
   useEffect(() => {
     const sessao = getUsuario();
-    const cargas: [Promise<Loja[]>, Promise<CategoriaChecklist[]>] = [
-      api.lojas({ ativas: true, operacionais: true }),
-      api.checklist(),
-    ];
     const comUsuarios = sessao && temPermissao('usuarios.listar', sessao);
 
     Promise.all([
-      ...cargas,
+      api.lojas({ ativas: true, operacionais: true }),
+      api.checklistTipos(),
       comUsuarios ? api.usuarios() : Promise.resolve([] as Usuario[]),
     ])
-      .then(([l, c, u]) => {
+      .then(async ([l, tipos, u]) => {
         setLojas(l);
-        setChecklist(c);
         setUsuarios(u);
+        const tipo = tipos[0] ?? null;
+        setTiposChecklist(tipos);
+        setTipoSelecionado(tipo);
         if (sessao) setIdUsuario(sessao.id_usuario);
         if (sessao?.lojas?.length === 1) setIdLoja(sessao.lojas[0].id_loja);
         else if (l.length === 1) setIdLoja(l[0].id_loja);
         else if (l[0]) setIdLoja(l[0].id_loja);
+        if (tipo) {
+          const c = await api.checklist(tipo.codigo);
+          setChecklist(c);
+        }
       })
       .catch((e) => setMsg(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const selecionarTipo = async (codigo: string) => {
+    const tipo = tiposChecklist.find((t) => t.codigo === codigo) ?? null;
+    setTipoSelecionado(tipo);
+    setMetaVisita({});
+    setRespostas({});
+    setIndiceSecao(0);
+    if (tipo) {
+      setLoading(true);
+      try {
+        const c = await api.checklist(tipo.codigo);
+        setChecklist(c);
+      } catch (e) {
+        setMsg((e as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   const patchResposta = (id: number, patch: Partial<RespostaLocal>) => {
     setRespostas((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -391,16 +421,21 @@ export default function ChecklistPage() {
   };
 
   const iniciarVisita = async () => {
-    if (!idLoja || !idUsuario) return;
+    if (!idLoja || !idUsuario || !tipoSelecionado) return;
     setSaving(true);
     setMsg('');
     try {
       const hoje = dataHojeBrasilia();
-      const v = await api.criarVisita({
+      const body: Parameters<typeof api.criarVisita>[0] = {
         id_loja: Number(idLoja),
         id_usuario: Number(idUsuario),
         data_visita: hoje,
-      });
+        codigo_tipo_checklist: tipoSelecionado.codigo,
+      };
+      if (tipoSelecionado.codigo === 'time_de_campo') {
+        body.meta_visita = metaVisita;
+      }
+      const v = await api.criarVisita(body);
       setVisitaId(v.id_visita);
       setDataVisita(normalizarDataVisita(v.data_visita) ?? hoje);
       setHoraInicio(v.hora_inicio ?? null);
@@ -485,8 +520,9 @@ export default function ChecklistPage() {
     try {
       const ok = await salvarTodas();
       if (!ok) return;
-      await api.finalizarVisita(visitaId!, { duracao_minutos: 90 });
-      navigate(`/checklist/concluido/${visitaId}`);
+      const duracao = calcularDuracaoVisitaMinutos(dataVisita, horaInicio);
+      await api.finalizarVisita(visitaId!, duracao != null ? { duracao_minutos: duracao } : {});
+      navigate(paths.concluido(visitaId!));
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
@@ -533,7 +569,7 @@ export default function ChecklistPage() {
           }}
         >
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-            Nova visita
+            {tipoSelecionado?.nome ?? 'Nova visita'}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
             <Chip
@@ -554,6 +590,24 @@ export default function ChecklistPage() {
             Responda uma seção por vez durante a visita na loja.
           </Typography>
         </Paper>
+
+        {tiposChecklist.length > 1 && (
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Tipo de checklist</InputLabel>
+            <Select
+              label="Tipo de checklist"
+              value={tipoSelecionado?.codigo ?? ''}
+              onChange={(e) => void selecionarTipo(String(e.target.value))}
+              {...selectMenuScrollProps}
+            >
+              {tiposChecklist.map((t) => (
+                <MenuItem key={t.codigo} value={t.codigo}>
+                  {t.nome}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Loja</InputLabel>
@@ -645,11 +699,18 @@ export default function ChecklistPage() {
           </Paper>
         )}
 
+        {tipoSelecionado?.codigo === 'time_de_campo' && (
+          <TimeCampoMetaForm
+            value={metaVisita}
+            onChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
+          />
+        )}
+
         <Button
           fullWidth
           variant="contained"
           size="large"
-          disabled={saving || !idLoja || !idUsuario}
+          disabled={saving || !idLoja || !idUsuario || !tipoSelecionado}
           onClick={iniciarVisita}
           sx={{ minHeight: 56, fontSize: '1.05rem', fontWeight: 700 }}
         >
@@ -671,6 +732,8 @@ export default function ChecklistPage() {
         horaInicio={horaInicio}
         totalSecoes={totalSecoes}
         totalPerguntas={totalPerguntas}
+        tipoChecklist={tipoSelecionado?.nome}
+        metaVisita={tipoSelecionado?.codigo === 'time_de_campo' ? metaVisita : undefined}
         onComecar={comecarAvaliacao}
       />
     );

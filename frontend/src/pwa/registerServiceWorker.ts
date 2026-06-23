@@ -234,8 +234,9 @@ async function executarRegistroServiceWorker(): Promise<ServiceWorkerRegistratio
   }
 }
 
-/** Inicia registro PWA após a página carregar (necessário no iOS). */
+/** Inicia registro PWA após a página carregar (necessário no iOS). Em dev, não registra SW. */
 export function iniciarServiceWorkerPwa(): void {
+  if (import.meta.env.DEV) return;
   if (registroIniciado || typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
   registroIniciado = true;
 

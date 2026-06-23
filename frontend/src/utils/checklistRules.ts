@@ -44,10 +44,17 @@ export function exigeFoto(
   return fotos.length === 0;
 }
 
-/** Campo "o que foi observado". */
-export function exibeObservacao(p: Pergunta, resposta?: 'Sim' | 'Não' | 'N/A'): boolean {
+/** Campo de observação — opcional em todas; obrigatório só em Não quando requer_obs_em_nao. */
+export function exibeObservacao(
+  p: Pergunta,
+  resposta?: 'Sim' | 'Não' | 'N/A',
+  notaEstrelas?: number,
+): boolean {
+  if (p.tipo_resposta === 'estrelas' || p.tipo_resposta === 'estrelas_foto') {
+    return notaEstrelas != null && notaEstrelas >= 1;
+  }
   if (p.codigo === '37') return resposta === 'Sim';
-  return resposta === 'Não' && p.requer_obs_em_nao;
+  return respostaSimNaoEscolhida(resposta);
 }
 
 export function exigeObservacao(
@@ -70,9 +77,10 @@ export function deveLimparFotos(p: Pergunta, novaResposta?: 'Sim' | 'Não' | 'N/
 
 export function deveLimparObservacao(
   p: Pergunta,
-  novaResposta?: 'Sim' | 'Não' | 'N/A'
+  novaResposta?: 'Sim' | 'Não' | 'N/A',
+  novaNota?: number,
 ): boolean {
-  return !exibeObservacao(p, novaResposta);
+  return !exibeObservacao(p, novaResposta, novaNota);
 }
 
 export function parseFotos(foto_url?: string): string[] {

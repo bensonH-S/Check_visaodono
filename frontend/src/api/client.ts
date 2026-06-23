@@ -132,9 +132,22 @@ export const api = {
     request<Cargo>(`/cargos/gestao/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   cargoGestaoExcluir: (id: number) =>
     request<void>(`/cargos/gestao/${id}`, { method: 'DELETE' }),
-  checklist: () => request<CategoriaChecklist[]>('/checklist'),
-  checklistGestao: () => request<CategoriaChecklist[]>('/checklist/gestao'),
-  checklistCategoriaCriar: (body: { nome: string; icone?: string; ordem?: number }) =>
+  checklistTipos: () => request<TipoChecklist[]>('/checklist/tipos'),
+  checklist: (tipo?: string) => {
+    const q = tipo ? `?tipo=${encodeURIComponent(tipo)}` : '';
+    return request<CategoriaChecklist[]>(`/checklist${q}`);
+  },
+  checklistGestao: (tipo?: string) => {
+    const q = tipo ? `?tipo=${encodeURIComponent(tipo)}` : '';
+    return request<CategoriaChecklist[]>(`/checklist/gestao${q}`);
+  },
+  checklistCategoriaCriar: (body: {
+    nome: string;
+    icone?: string;
+    ordem?: number;
+    codigo_tipo_checklist?: string;
+    id_tipo_checklist?: number;
+  }) =>
     request<CategoriaChecklistResumo>('/checklist/categorias', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -161,7 +174,14 @@ export const api = {
     return request<VisitaResumo[]>(`/visitas${s ? `?${s}` : ''}`);
   },
   visita: (id: number) => request<VisitaDetalhe>(`/visitas/${id}`),
-  criarVisita: (body: { id_loja: number; id_usuario: number; data_visita?: string }) =>
+  criarVisita: (body: {
+    id_loja: number;
+    id_usuario: number;
+    data_visita?: string;
+    codigo_tipo_checklist?: string;
+    id_tipo_checklist?: number;
+    meta_visita?: MetaVisitaTimeCampo;
+  }) =>
     request<VisitaResumo>('/visitas', { method: 'POST', body: JSON.stringify(body) }),
   salvarRespostas: (id: number, respostas: RespostaInput[]) =>
     request<VisitaResumo>(`/visitas/${id}/respostas`, {
@@ -440,6 +460,25 @@ export interface WppConectarResponse {
   message?: string;
 }
 
+export interface TipoChecklist {
+  id_tipo_checklist: number;
+  codigo: string;
+  nome: string;
+  descricao?: string | null;
+  ordem?: number;
+  ativo?: boolean;
+}
+
+export interface MetaVisitaTimeCampo {
+  gerente?: string;
+  coordenador_1_dia?: string;
+  coordenador_2_dia?: string;
+  coordenador_madrugada_1?: string;
+  coordenador_madrugada_2?: string;
+  time_total?: string | number;
+  territorio?: string;
+}
+
 export interface CategoriaChecklistResumo {
   id_categoria: number;
   nome: string;
@@ -496,6 +535,9 @@ export interface VisitaResumo {
   nota_final: string | number | null;
   status: string;
   nc_abertas?: number;
+  tipo_checklist_codigo?: string;
+  tipo_checklist_nome?: string;
+  meta_visita?: MetaVisitaTimeCampo;
 }
 
 export interface RespostaInput {

@@ -32,6 +32,7 @@ import CargosPage from './pages/configuracoes/CargosPage';
 import ChecklistPerguntasPage from './pages/configuracoes/ChecklistPerguntasPage';
 import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
 import RotaPermissao from './components/RotaPermissao';
+import RotaChecklist from './components/RotaChecklist';
 import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
 
@@ -55,6 +56,22 @@ export default function App() {
             <Route path="chamados/mobile/novo" element={<ChamadosMobileNovoPage />} />
             <Route path="chamados/mobile/:idChamado" element={<ChamadosMobileDetalhePage />} />
             <Route path="chamados/mobile" element={<ChamadosMobileHistoricoPage />} />
+            <Route
+              path="checklist/mobile/concluido/:id"
+              element={
+                <RotaChecklist mobile>
+                  <ChecklistConcluidoPage />
+                </RotaChecklist>
+              }
+            />
+            <Route
+              path="checklist/mobile"
+              element={
+                <RotaChecklist mobile>
+                  <ChecklistPage />
+                </RotaChecklist>
+              }
+            />
           </Route>
           <Route
             element={
@@ -82,17 +99,17 @@ export default function App() {
             <Route
               path="checklist"
               element={
-                <RotaPermissao permissoes={['checklist.ver', 'checklist.executar']}>
+                <RotaChecklist>
                   <ChecklistPage />
-                </RotaPermissao>
+                </RotaChecklist>
               }
             />
             <Route
               path="checklist/concluido/:id"
               element={
-                <RotaPermissao permissoes={['checklist.ver', 'checklist.executar']}>
+                <RotaChecklist>
                   <ChecklistConcluidoPage />
-                </RotaPermissao>
+                </RotaChecklist>
               }
             />
             <Route

@@ -15,7 +15,9 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -28,7 +30,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { api } from '../../api/client';
-import type { CategoriaChecklist, Pergunta, PerguntaInput, TipoResposta } from '../../api/client';
+import type { CategoriaChecklist, Pergunta, PerguntaInput, TipoResposta, TipoChecklist } from '../../api/client';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import { useToast } from '../../hooks/useToast';
 import { dispararAtualizacaoChecklist } from '../../utils/checklistEvent';
@@ -103,6 +105,8 @@ function SwitchRow({ children }: { children: React.ReactNode }) {
 
 export default function ChecklistPerguntasPage() {
   const [secoes, setSecoes] = useState<CategoriaChecklist[]>([]);
+  const [tiposChecklist, setTiposChecklist] = useState<TipoChecklist[]>([]);
+  const [tipoGestao, setTipoGestao] = useState('auditoria_operacional');
   const [filtroSecao, setFiltroSecao] = useState<number | 'todas'>('todas');
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -129,11 +133,12 @@ export default function ChecklistPerguntasPage() {
     [secoes],
   );
 
-  async function carregar() {
+  async function carregar(codigoTipo = tipoGestao) {
     setLoading(true);
     try {
-      const data = await api.checklistGestao();
+      const data = await api.checklistGestao(codigoTipo);
       setSecoes(data);
+      setFiltroSecao('todas');
       setErro('');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
@@ -143,8 +148,14 @@ export default function ChecklistPerguntasPage() {
   }
 
   useEffect(() => {
+    void api.checklistTipos().then(setTiposChecklist).catch(() => {});
     void carregar();
   }, []);
+
+  async function trocarTipoGestao(codigo: string) {
+    setTipoGestao(codigo);
+    await carregar(codigo);
+  }
 
   function abrirNova() {
     setEditId(null);
@@ -214,7 +225,7 @@ export default function ChecklistPerguntasPage() {
     setSalvando(true);
     setErro('');
     try {
-      await api.checklistCategoriaCriar({ nome: nomeSecao.trim() });
+      await api.checklistCategoriaCriar({ nome: nomeSecao.trim(), codigo_tipo_checklist: tipoGestao });
       setDialogSecao(false);
       setNomeSecao('');
       showToast('Seção criada.');
@@ -331,6 +342,31 @@ export default function ChecklistPerguntasPage() {
             </Button>
           </Box>
         </Box>
+
+        {tiposChecklist.length > 1 && (
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: 220,
+              mb: 1.5,
+              '& .MuiInputLabel-root, & .MuiSelect-select': { color: 'white' },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.35)' },
+            }}
+          >
+            <InputLabel>Checklist</InputLabel>
+            <Select
+              label="Checklist"
+              value={tipoGestao}
+              onChange={(e) => void trocarTipoGestao(String(e.target.value))}
+            >
+              {tiposChecklist.map((t) => (
+                <MenuItem key={t.codigo} value={t.codigo}>
+                  {t.nome}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         <Box
           sx={{
