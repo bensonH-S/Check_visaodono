@@ -4,9 +4,9 @@ import { toAppPath } from './paths';
 export function isMobileAppPath(pathname: string): boolean {
   const p = toAppPath(pathname);
   return (
-    path.startsWith('/chamados/mobile') ||
-    path.startsWith('/checklist/mobile') ||
-    path.startsWith('/frota/mobile') ||
+    p.startsWith('/chamados/mobile') ||
+    p.startsWith('/checklist/mobile') ||
+    p.startsWith('/frota/mobile') ||
     p === '/login/mobile'
   );
 }

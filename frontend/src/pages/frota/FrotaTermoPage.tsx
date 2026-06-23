@@ -55,7 +55,8 @@ export default function FrotaTermoPage() {
       const fd = new FormData();
       fd.append('assinatura', dataUrlToBlob(assinatura), 'assinatura.png');
       fotos.forEach((f, i) => {
-        fd.append('fotos', dataUrlToBlob(f), `equipamento_${i + 1}.${extensaoMidia('image/jpeg')}`);
+        const blob = dataUrlToBlob(f);
+        fd.append('fotos', blob, `equipamento_${i + 1}${extensaoMidia(blob)}`);
       });
       await api.frotaEnviarTermo(fd);
       navigate('/frota/mobile', { replace: true });
@@ -86,7 +87,7 @@ export default function FrotaTermoPage() {
     <Box component="form" onSubmit={assinar} sx={{ px: 2, py: 1, pb: 4 }}>
       {erro && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
       <Paper sx={{ p: 2, mb: 2, maxHeight: 220, overflowY: 'auto', bgcolor: '#fafafa' }}>
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
           {termo?.empresa.razaoSocial} · CNPJ {termo?.empresa.cnpj}
         </Typography>
         <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.8rem', lineHeight: 1.5 }}>

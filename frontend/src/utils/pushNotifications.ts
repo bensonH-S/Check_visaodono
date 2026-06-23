@@ -7,10 +7,12 @@ import {
   limparFlagRecargaServiceWorker,
   obterRegistroServiceWorker,
   obterRegistroServiceWorkerRapido,
+  pushDisponivelNoAmbiente,
   recarregarParaAtivarServiceWorker,
   registrarServiceWorkerNoClique,
 } from '../pwa/registerServiceWorker';
 import { showToast } from './toast';
+import { APP_NAME } from '../config/brand';
 
 async function removerPushNoServidor(endpoint: string, tokenSessao?: string | null): Promise<void> {
   const token = tokenSessao ?? (getUsuario() ? getToken() : null);
@@ -43,6 +45,7 @@ export type ResultadoPushRegistro = {
     | 'service_worker_indisponivel'
     | 'inscricao_falhou'
     | 'servidor_falhou'
+    | 'ambiente_dev'
     | 'erro_desconhecido';
   mensagem: string;
 };
@@ -290,13 +293,40 @@ export async function sincronizarEstadoPush(): Promise<boolean> {
   return syncEmAndamento;
 }
 
+function ambienteLocal(): boolean {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || import.meta.env.DEV;
+}
+
+function mensagemServiceWorkerIndisponivel(): string {
+  if (ambienteLocal()) {
+    return `Notificações em segundo plano não funcionam no ambiente local. Acesse https://grupoalvim.com.br/auditoria/login/mobile no celular (HTTPS). O sino continua mostrando alertas dentro do app.`;
+  }
+  if (isIos() && !appInstalada()) {
+    return `No iPhone, instale o ${APP_NAME} na Tela de Início (Compartilhar → Adicionar à Tela de Início) e abra pelo ícone antes de ativar notificações.`;
+  }
+  if (isIos() && appInstalada()) {
+    return `Feche o ${APP_NAME} completamente (deslize para cima no multitarefa) e abra de novo pelo ícone na Tela de Início. Depois toque em Ativar notificações.`;
+  }
+  return 'Não foi possível preparar notificações. Recarregue a página e tente novamente.';
+}
+
 function validarPreRequisitos(): ResultadoPushRegistro | null {
+  if (!pushDisponivelNoAmbiente() || ambienteLocal()) {
+    return {
+      ok: false,
+      codigo: 'ambiente_dev',
+      mensagem: mensagemServiceWorkerIndisponivel(),
+    };
+  }
+
   if (isIos() && !appInstalada() && !ehRotaComPush()) {
     return {
       ok: false,
       codigo: 'ios_nao_instalado',
       mensagem:
-        'No iPhone, instale o app primeiro: Compartilhar → Adicionar à Tela de Início. Depois abra pelo ícone Vision Check.',
+        `No iPhone, instale o app primeiro: Compartilhar → Adicionar à Tela de Início. Depois abra pelo ícone ${APP_NAME}.`,
     };
   }
 
@@ -428,8 +458,7 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
     return {
       ok: false,
       codigo: 'service_worker_indisponivel',
-      mensagem:
-        'Não foi possível preparar o app. Feche completamente (deslize para cima) e abra de novo pelo ícone Vision Check.',
+      mensagem: mensagemServiceWorkerIndisponivel(),
     };
   }
 
@@ -505,7 +534,7 @@ export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistr
       ok: false,
       codigo: 'permissao_bloqueada',
       mensagem: isIos()
-        ? 'Notificações bloqueadas. Ajustes → Vision Check → Notificações → Permitir.'
+        ? `Notificações bloqueadas. Ajustes → ${APP_NAME} → Notificações → Permitir.`
         : 'Notificações bloqueadas. Ative nas configurações do app.',
     };
   }
@@ -558,7 +587,7 @@ export async function registrarPushNotificacoes(forcar = false): Promise<Resulta
 }
 
 export async function cancelarPushNotificacoes(tokenSessao?: string | null): Promise<void> {
-  if (pushSuportado()) {
+  if (pushSuportado() && !import.meta.env.DEV) {
     const registration = await obterRegistroServiceWorkerRapido();
     if (registration) {
       const subscription = await registration.pushManager.getSubscription();
@@ -605,6 +634,7 @@ export async function resetarPushCompleto(): Promise<number> {
 
 /** Exibir botão de ativação no header — só enquanto push não estiver ativo. */
 export function deveExibirAtivacaoPush(): boolean {
+  if (!pushDisponivelNoAmbiente() || ambienteLocal()) return false;
   if (!ehRotaComPush()) return false;
   if (pushNotificacoesAtivas()) return false;
   if (precisaInstalarIos()) return true;

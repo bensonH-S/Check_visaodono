@@ -6,6 +6,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { toAppPath } from '../config/paths';
 import { usePageTitle } from '../hooks/usePageTitle';
 import BrandLogo from '../components/BrandLogo';
+import { APP_NAME } from '../config/brand';
 
 const NAVY = '#1B2A6B';
 const BRAND_ORANGE = '#E8520A';
@@ -49,7 +50,7 @@ export default function ChecklistLayout() {
           {!concluido && (
             <IconButton
               size="small"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/dashboard')}
               aria-label="Voltar"
               sx={{ color: NAVY, ml: -0.5, flexShrink: 0 }}
             >
@@ -66,7 +67,7 @@ export default function ChecklistLayout() {
                 lineHeight: 1.15,
               }}
             >
-              Vision Check
+              {APP_NAME}
             </Typography>
             <Typography
               variant="caption"

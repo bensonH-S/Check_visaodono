@@ -143,7 +143,17 @@ export async function coletarDiagnosticoServiceWorker(erro?: string): Promise<Di
   return base;
 }
 
+function pwaHabilitado(): boolean {
+  return !import.meta.env.DEV;
+}
+
+/** Push/PWA só em build de produção (não no Vite dev). */
+export function pushDisponivelNoAmbiente(): boolean {
+  return pwaHabilitado();
+}
+
 async function registrarServiceWorkerExplicito(): Promise<ServiceWorkerRegistration | null> {
+  if (!pwaHabilitado()) return null;
   if (!('serviceWorker' in navigator)) return null;
 
   await aguardarPaginaPronta();
@@ -169,7 +179,9 @@ async function registrarServiceWorkerExplicito(): Promise<ServiceWorkerRegistrat
     return reg;
   } catch (e) {
     ultimoErroRegistro = e instanceof Error ? e.message : String(e);
-    console.error('[pwa] Registro explícito falhou:', e);
+    if (pwaHabilitado()) {
+      console.error('[pwa] Registro explícito falhou:', e);
+    }
     throw e;
   }
 }
@@ -222,6 +234,7 @@ export function limparFlagRecargaServiceWorker() {
 }
 
 async function executarRegistroServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (!pwaHabilitado()) return null;
   try {
     let reg = await registrarServiceWorkerExplicito();
     if (reg) {
@@ -236,7 +249,7 @@ async function executarRegistroServiceWorker(): Promise<ServiceWorkerRegistratio
 
 /** Inicia registro PWA após a página carregar (necessário no iOS). Em dev, não registra SW. */
 export function iniciarServiceWorkerPwa(): void {
-  if (import.meta.env.DEV) return;
+  if (!pwaHabilitado()) return;
   if (registroIniciado || typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
   registroIniciado = true;
 
@@ -248,6 +261,7 @@ export function iniciarServiceWorkerPwa(): void {
 
 /** Registro forçado no clique do usuário (iOS exige interação para SW + push). */
 export async function registrarServiceWorkerNoClique(): Promise<ServiceWorkerRegistration | null> {
+  if (!pwaHabilitado()) return null;
   iniciarServiceWorkerPwa();
   return executarRegistroServiceWorker();
 }
@@ -255,6 +269,7 @@ export async function registrarServiceWorkerNoClique(): Promise<ServiceWorkerReg
 export async function obterRegistroServiceWorker(
   timeoutMs = 20000,
 ): Promise<ServiceWorkerRegistration | null> {
+  if (!pwaHabilitado()) return null;
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
 
   await aguardarPaginaPronta();

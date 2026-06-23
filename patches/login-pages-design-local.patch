@@ -1,0 +1,627 @@
+﻿diff --git a/frontend/src/pages/LoginMobilePage.tsx b/frontend/src/pages/LoginMobilePage.tsx
+index d83b106..5677d33 100644
+--- a/frontend/src/pages/LoginMobilePage.tsx
++++ b/frontend/src/pages/LoginMobilePage.tsx
+@@ -17,10 +17,8 @@ import BrandLogo from '../components/BrandLogo';
+ import AppFooter from '../components/AppFooter';
+ import SupportContact from '../components/SupportContact';
+ import { api } from '../api/client';
+-import { destinoPosLoginMobile, getToken, logout, setSessao } from '../lib/auth';
++import { destinoPosLoginMobile, getToken, getUsuario, setSessao } from '../lib/auth';
+ import { usePageTitle } from '../hooks/usePageTitle';
+-import PwaInstallDialog from '../components/PwaInstallDialog';
+-import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
+ 
+ const PAGE_BG = '#f5f5f3';
+ const NAVY = '#1B2A6B';
+@@ -38,27 +36,11 @@ export default function LoginMobilePage() {
+   usePageTitle('Login Mobile');
+ 
+   useEffect(() => {
+-    iniciarServiceWorkerPwa();
+     const token = getToken();
+-    if (!token) {
+-      logout();
+-      return;
++    const usuario = getUsuario();
++    if (token && usuario) {
++      navigate(destinoPosLoginMobile(usuario), { replace: true });
+     }
+-    let ativo = true;
+-    api
+-      .me({ skipSessionRedirect: true })
+-      .then((usuario) => {
+-        if (!ativo) return;
+-        setSessao(token, usuario);
+-        navigate(destinoPosLoginMobile(usuario), { replace: true });
+-      })
+-      .catch(() => {
+-        if (!ativo) return;
+-        logout();
+-      });
+-    return () => {
+-      ativo = false;
+-    };
+   }, [navigate]);
+ 
+   function avisar(campo: string) {
+@@ -93,7 +75,19 @@ export default function LoginMobilePage() {
+       });
+     } catch (err) {
+       const msg = err instanceof Error ? err.message : '';
+-      setErro(msg || 'N├úo foi poss├¡vel entrar. Tente novamente.');
++      const conhecidas = [
++        'incorretos',
++        'obrigat├│rios',
++        'Sess├úo expirada',
++        'indispon├¡vel',
++        'Banco de dados',
++        'PostgreSQL',
++      ];
++      setErro(
++        msg && conhecidas.some((t) => msg.includes(t))
++          ? msg
++          : 'E-mail ou senha incorretos'
++      );
+     } finally {
+       setLoading(false);
+     }
+@@ -178,7 +172,7 @@ export default function LoginMobilePage() {
+                   textTransform: 'uppercase',
+                 }}
+               >
+-                Chamados ┬À Checklist ┬À Frota
++                Chamados
+               </Typography>
+             </Box>
+ 
+@@ -193,7 +187,7 @@ export default function LoginMobilePage() {
+                 px: 0.5,
+               }}
+             >
+-              Um ├║nico app no celular: manuten├º├úo, visitas e controle de frota.
++              Abra e acompanhe chamados de manuten├º├úo na sua loja.
+             </Typography>
+ 
+             <Box
+@@ -281,8 +275,6 @@ export default function LoginMobilePage() {
+ 
+       <AppFooter compact />
+ 
+-      <PwaInstallDialog />
+-
+       <Snackbar
+         open={!!toast}
+         autoHideDuration={2000}
+diff --git a/frontend/src/pages/LoginPage.tsx b/frontend/src/pages/LoginPage.tsx
+index ecab2fa..08c6014 100644
+--- a/frontend/src/pages/LoginPage.tsx
++++ b/frontend/src/pages/LoginPage.tsx
+@@ -1,49 +1,92 @@
+ import { useEffect, useState } from 'react';
++
+ import { useNavigate, useLocation } from 'react-router-dom';
++
+ import Box from '@mui/material/Box';
++
++import Paper from '@mui/material/Paper';
++
+ import Typography from '@mui/material/Typography';
++
+ import TextField from '@mui/material/TextField';
++
+ import Button from '@mui/material/Button';
++
+ import Alert from '@mui/material/Alert';
+ import Snackbar from '@mui/material/Snackbar';
++
+ import InputAdornment from '@mui/material/InputAdornment';
++
+ import IconButton from '@mui/material/IconButton';
++
+ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
++
+ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
++
+ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
++
+ import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
++
+ import BrandLogo from '../components/BrandLogo';
++
+ import AppFooter from '../components/AppFooter';
++
+ import SupportContact from '../components/SupportContact';
++
+ import { api } from '../api/client';
+-import { setSessao, logout } from '../lib/auth';
++
++import { setSessao } from '../lib/auth';
++
+ import { usePageTitle } from '../hooks/usePageTitle';
+ import { normalizeAppRoute } from '../config/paths';
+ import { isMobileDevice } from '../utils/device';
+-import { colors, radius, shadows } from '../theme/tokens';
+-import { APP_NAME, APP_TAGLINE } from '../config/brand';
++
++
++
++const PAGE_BG = '#f5f5f3';
++const NAVY = '#1B2A6B';
++
++const FEATURES = ['Checklist', 'Chamados', 'Vis├úo de Dono'] as const;
++
++const loginFieldSx = {
++  '& .MuiOutlinedInput-root': { minHeight: { xs: 40, sm: 42 } },
++  '& .MuiOutlinedInput-input': { py: { xs: '9px', sm: '10px' } },
++  '& .MuiInputAdornment-root': { mr: 0.25 },
++};
++
++const loginFieldsWidth = { xs: 272, sm: 292, md: 312 };
++
++
+ 
+ export default function LoginPage() {
++
+   const navigate = useNavigate();
++
+   const location = useLocation();
++
+   const from = normalizeAppRoute((location.state as { from?: string })?.from || '/');
+ 
++
++
+   const [email, setEmail] = useState('');
++
+   const [senha, setSenha] = useState('');
++
+   const [mostrarSenha, setMostrarSenha] = useState(false);
++
+   const [erro, setErro] = useState('');
++
+   const [loading, setLoading] = useState(false);
++
+   const [toast, setToast] = useState('');
+ 
+   function avisar(campo: string) {
+     setToast(`Preencha o campo ${campo}.`);
+   }
+ 
+-  usePageTitle('Login');
+ 
+-  useEffect(() => {
+-    logout();
+-  }, []);
++
++  usePageTitle('Login');
+ 
+   useEffect(() => {
+     if (isMobileDevice()) {
+@@ -52,152 +95,328 @@ export default function LoginPage() {
+   }, [navigate, location.state]);
+ 
+   async function handleSubmit(e: React.FormEvent) {
++
+     e.preventDefault();
++
+     setErro('');
++
+     const emailTrim = email.trim();
+-    if (!emailTrim && !senha) { avisar('e-mail e senha'); return; }
+-    if (!emailTrim) { avisar('e-mail'); return; }
+-    if (!senha) { avisar('senha'); return; }
++
++    if (!emailTrim && !senha) {
++      avisar('e-mail e senha');
++      return;
++    }
++    if (!emailTrim) {
++      avisar('e-mail');
++      return;
++    }
++    if (!senha) {
++      avisar('senha');
++      return;
++    }
+ 
+     setLoading(true);
++
+     try {
++
+       const data = await api.login(emailTrim, senha);
++
+       setSessao(data.accessToken, data.usuario);
++
+       navigate(from, { replace: true, state: { welcome: data.usuario.nome } });
++
+     } catch (err) {
++
+       const msg = err instanceof Error ? err.message : '';
+-      setErro(msg || 'N├úo foi poss├¡vel entrar. Tente novamente.');
++      const conhecidas = [
++        'incorretos',
++        'obrigat├│rios',
++        'Sess├úo expirada',
++        'indispon├¡vel',
++        'Banco de dados',
++        'PostgreSQL',
++      ];
++      setErro(
++        msg && conhecidas.some((t) => msg.includes(t))
++          ? msg
++          : 'E-mail ou senha incorretos'
++      );
++
+     } finally {
++
+       setLoading(false);
++
+     }
++
+   }
+ 
++
++
+   return (
+-    <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', bgcolor: colors.canvas }}>
++    <Box
++      sx={{
++        height: '100%',
++        minHeight: '100dvh',
++        display: 'flex',
++        flexDirection: 'column',
++        overflow: 'hidden',
++        bgcolor: PAGE_BG,
++      }}
++    >
+       <Box
+         sx={{
+           flex: 1,
++          minHeight: 0,
++          overflowY: 'auto',
+           display: 'flex',
+           alignItems: 'center',
+           justifyContent: 'center',
+-          px: 2,
+-          py: 4,
++          px: { xs: 1, sm: 1.25 },
++          py: { xs: 1.5, sm: 2 },
+         }}
+       >
+-        <Box
++        <Paper
++          elevation={0}
+           sx={{
+             width: '100%',
+-            maxWidth: 400,
+-            bgcolor: colors.surface,
++            maxWidth: { xs: 340, sm: 360, md: 380 },
+             border: '1px solid',
+-            borderColor: colors.border,
+-            borderRadius: `${radius.xl}px`,
+-            boxShadow: shadows.login,
+-            px: { xs: 3, sm: 4 },
+-            py: { xs: 3.5, sm: 4 },
++            borderColor: 'divider',
++            borderRadius: { xs: 1.5, sm: 2 },
++            textAlign: 'center',
++            overflow: 'hidden',
+           }}
+         >
+-          <Box sx={{ textAlign: 'center', mb: 3.5 }}>
+-            <BrandLogo maxWidth={140} sx={{ mx: 'auto', mb: 2, filter: 'none' }} />
+-            <Typography sx={{ fontWeight: 600, fontSize: '1.125rem', color: colors.textPrimary, letterSpacing: '-0.02em' }}>
+-              {APP_NAME}
+-            </Typography>
+-            <Typography sx={{ mt: 0.75, fontSize: '0.875rem', color: colors.textSecondary, lineHeight: 1.5 }}>
+-              Entre com suas credenciais corporativas
+-            </Typography>
+-            <Typography sx={{ mt: 0.5, fontSize: '0.75rem', color: colors.textMuted }}>
+-              {APP_TAGLINE}
+-            </Typography>
+-          </Box>
++          <Box
++            sx={{
++              height: 4,
++              bgcolor: NAVY,
++              boxShadow: '0 3px 10px rgba(27, 42, 107, 0.3)',
++            }}
++          />
++          <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: { xs: 1.5, sm: 2 }, pb: { xs: 2.25, sm: 2.75 } }}>
++            <BrandLogo maxWidth={{ xs: 96, sm: 110, md: 120 }} sx={{ mx: 'auto', mb: 0.5 }} />
+ 
+-          <Box component="form" onSubmit={handleSubmit} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+-            <TextField
+-              label="E-mail"
+-              type="email"
+-              fullWidth
+-              autoComplete="email"
+-              value={email}
+-              onChange={(e) => setEmail(e.target.value)}
+-              placeholder="nome@grupoalvim.com.br"
+-              slotProps={{
+-                input: {
+-                  startAdornment: (
+-                    <InputAdornment position="start">
+-                      <EmailOutlinedIcon sx={{ fontSize: 18, color: colors.textMuted }} />
+-                    </InputAdornment>
+-                  ),
+-                },
++            <Typography
++              sx={{
++                fontWeight: 800,
++                color: '#E8520A',
++                fontSize: { xs: '1.05rem', sm: '1.15rem', md: '1.2rem' },
++                lineHeight: 1.2,
++                mb: 0.75,
++                letterSpacing: '-0.01em',
+               }}
+-            />
+-
+-            <TextField
+-              label="Senha"
+-              type={mostrarSenha ? 'text' : 'password'}
+-              fullWidth
+-              autoComplete="current-password"
+-              value={senha}
+-              onChange={(e) => setSenha(e.target.value)}
+-              slotProps={{
+-                input: {
+-                  startAdornment: (
+-                    <InputAdornment position="start">
+-                      <LockOutlinedIcon sx={{ fontSize: 18, color: colors.textMuted }} />
+-                    </InputAdornment>
+-                  ),
+-                  endAdornment: (
+-                    <InputAdornment position="end">
+-                      <IconButton
+-                        type="button"
+-                        size="small"
+-                        aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+-                        onClick={() => setMostrarSenha((v) => !v)}
+-                        edge="end"
+-                      >
+-                        {mostrarSenha ? <VisibilityOffOutlinedIcon sx={{ fontSize: 18 }} /> : <VisibilityOutlinedIcon sx={{ fontSize: 18 }} />}
+-                      </IconButton>
+-                    </InputAdornment>
+-                  ),
+-                },
++            >
++              Vision Check
++            </Typography>
++
++            <Box
++              sx={{
++                display: 'inline-flex',
++                flexWrap: 'wrap',
++                alignItems: 'center',
++                justifyContent: 'center',
++                gap: { xs: 0.45, sm: 0.6 },
++                mb: 0.5,
++                py: { xs: 0.45, sm: 0.55 },
++                px: { xs: 0.75, sm: 0.9 },
++                mx: 'auto',
++                borderRadius: 1,
++                bgcolor: 'rgba(27, 42, 107, 0.06)',
++                border: '1px solid rgba(27, 42, 107, 0.08)',
++                maxWidth: '100%',
+               }}
+-            />
+-
+-            {erro && (
+-              <Alert severity="error" sx={{ fontSize: '0.8125rem' }}>
+-                {erro}
+-              </Alert>
+-            )}
+-
+-            <Button
+-              type="submit"
+-              variant="contained"
+-              fullWidth
+-              disabled={loading}
++            >
++              {FEATURES.map((label, index) => (
++                <Box
++                  key={label}
++                  component="span"
++                  sx={{ display: 'inline-flex', alignItems: 'center', gap: { xs: 0.45, sm: 0.6 } }}
++                >
++                  {index > 0 && (
++                    <Typography
++                      component="span"
++                      sx={{
++                        color: '#E8520A',
++                        fontSize: { xs: '0.6rem', sm: '0.64rem', md: '0.66rem' },
++                        fontWeight: 600,
++                        lineHeight: 1,
++                        opacity: 0.8,
++                      }}
++                    >
++                      |
++                    </Typography>
++                  )}
++                  <Typography
++                    component="span"
++                    sx={{
++                      color: NAVY,
++                      lineHeight: 1.2,
++                      fontSize: { xs: '0.68rem', sm: '0.72rem', md: '0.76rem' },
++                      fontWeight: 600,
++                      letterSpacing: '0.01em',
++                      whiteSpace: 'nowrap',
++                    }}
++                  >
++                    {label}
++                  </Typography>
++                </Box>
++              ))}
++            </Box>
++
++            <Typography
+               sx={{
+-                mt: 0.5,
+-                py: 1.125,
+-                bgcolor: colors.navy,
+-                fontSize: '0.875rem',
++                lineHeight: 1.4,
++                fontSize: { xs: '0.78rem', sm: '0.82rem', md: '0.85rem' },
+                 fontWeight: 500,
+-                '&:hover': { bgcolor: colors.navyDark },
++                color: NAVY,
++                opacity: 0.8,
++                mb: { xs: 1.75, sm: 2 },
++                px: 0.5,
+               }}
+             >
+-              {loading ? 'EntrandoÔÇª' : 'Entrar'}
+-            </Button>
+-          </Box>
++              Vis├úo operacional das unidades do Grupo.
++            </Typography>
++
++            <Box
++              component="form"
++              noValidate
++              onSubmit={handleSubmit}
++              sx={{
++                display: 'flex',
++                flexDirection: 'column',
++                alignItems: 'center',
++                gap: { xs: 1, sm: 1.1 },
++              }}
++            >
++              <Box
++                sx={{
++                  width: '100%',
++                  maxWidth: loginFieldsWidth,
++                  display: 'flex',
++                  flexDirection: 'column',
++                  gap: { xs: 2.5, sm: 3 },
++                }}
++              >
++                <TextField
++                  label="E-mail"
++                  type="email"
++                  size="small"
++                  margin="none"
++                  fullWidth
++                  autoComplete="email"
++                  value={email}
++                  onChange={(e) => setEmail(e.target.value)}
++                  placeholder="nome@grupoalvim.com.br"
++                  sx={loginFieldSx}
++                  slotProps={{
++                    inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
++                    input: {
++                      sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
++                      startAdornment: (
++                        <InputAdornment position="start">
++                          <EmailOutlinedIcon sx={{ fontSize: 16 }} color="action" />
++                        </InputAdornment>
++                      ),
++                    },
++                  }}
++                />
++
++                <TextField
++                  label="Senha"
++                  type={mostrarSenha ? 'text' : 'password'}
++                  size="small"
++                  margin="none"
++                  fullWidth
++                  autoComplete="current-password"
++                  value={senha}
++                  onChange={(e) => setSenha(e.target.value)}
++                  placeholder={senha ? undefined : 'ÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇóÔÇó'}
++                  sx={loginFieldSx}
++                  slotProps={{
++                    inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
++                    input: {
++                      sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
++                      startAdornment: (
++                        <InputAdornment position="start">
++                          <LockOutlinedIcon sx={{ fontSize: 16 }} color="action" />
++                        </InputAdornment>
++                      ),
++                      endAdornment: (
++                        <InputAdornment position="end">
++                          <IconButton
++                            type="button"
++                            aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
++                            onClick={() => setMostrarSenha((v) => !v)}
++                            edge="end"
++                            size="small"
++                          >
++                            {mostrarSenha ? (
++                              <VisibilityOffOutlinedIcon sx={{ fontSize: 16 }} />
++                            ) : (
++                              <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
++                            )}
++                          </IconButton>
++                        </InputAdornment>
++                      ),
++                    },
++                  }}
++                />
++              </Box>
++
++              {erro && (
++                <Alert
++                  severity="error"
++                  variant="filled"
++                  sx={{ py: 0.25, fontSize: '0.78rem', width: '100%', maxWidth: loginFieldsWidth }}
++                >
++                  {erro}
++                </Alert>
++              )}
++
++              <Button
++                type="submit"
++                variant="contained"
++                size="medium"
++                disabled={loading}
++                sx={{
++                  width: '100%',
++                  maxWidth: loginFieldsWidth,
++                  mt: { xs: 1.1, sm: 1.35 },
++                  py: { xs: 0.85, md: 0.95 },
++                  fontSize: { xs: '0.82rem', md: '0.86rem' },
++                  fontWeight: 600,
++                }}
++              >
++                {loading ? 'EntrandoÔÇª' : 'Acessar'}
++              </Button>
++            </Box>
+ 
+-          <Box sx={{ mt: 2.5 }}>
+             <SupportContact compact />
+           </Box>
+-        </Box>
++        </Paper>
+       </Box>
+ 
+       <AppFooter compact />
+ 
+-      <Snackbar open={!!toast} autoHideDuration={2000} onClose={() => setToast('')} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+-        <Alert severity="warning" onClose={() => setToast('')} sx={{ width: '100%' }}>
++      <Snackbar
++        open={!!toast}
++        autoHideDuration={2000}
++        onClose={() => setToast('')}
++        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
++      >
++        <Alert
++          severity="warning"
++          variant="filled"
++          onClose={() => setToast('')}
++          sx={{ width: '100%', minWidth: 280 }}
++        >
+           {toast}
+         </Alert>
+       </Snackbar>
+     </Box>
++
+   );
++
+ }
++

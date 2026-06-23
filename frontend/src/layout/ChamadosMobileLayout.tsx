@@ -23,6 +23,7 @@ import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, podeUsarCheck
 import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
+import { APP_NAME } from '../config/brand';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -367,7 +368,7 @@ function ChamadosMobileLayoutInner() {
                   lineHeight: 1.15,
                 }}
               >
-                Vision Check
+                {APP_NAME}
               </Typography>
               <Typography
                 variant="caption"

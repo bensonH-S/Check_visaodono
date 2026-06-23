@@ -131,6 +131,10 @@ export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {
   return CARGOS_FROTA.has(codigo);
 }
 
+export function podeGerenciarFrota(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('frota.gerenciar', usuario);
+}
+
 export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   return !!u && u.perfil !== 'tecnico';

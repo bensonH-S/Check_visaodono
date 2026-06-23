@@ -22,8 +22,20 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 
+import { APP_NAME } from '../config/brand';
+
 const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
+const MOBILE_MODULES = ['Checklist', 'Chamados', 'Frota'] as const;
+
+const ERROS_CONHECIDOS = [
+  'incorretos',
+  'obrigatórios',
+  'Sessão expirada',
+  'indisponível',
+  'Banco de dados',
+  'PostgreSQL',
+];
 
 export default function LoginMobilePage() {
   const navigate = useNavigate();
@@ -93,7 +105,11 @@ export default function LoginMobilePage() {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      setErro(msg || 'Não foi possível entrar. Tente novamente.');
+      setErro(
+        msg && ERROS_CONHECIDOS.some((t) => msg.includes(t))
+          ? msg
+          : 'E-mail ou senha incorretos'
+      );
     } finally {
       setLoading(false);
     }
@@ -150,36 +166,66 @@ export default function LoginMobilePage() {
                 color: '#E8520A',
                 fontSize: { xs: '1.2rem', sm: '1.3rem' },
                 lineHeight: 1.2,
-                mb: 1,
+                mb: { xs: 1.25, sm: 1.5 },
                 letterSpacing: '-0.01em',
               }}
             >
-              Vision Check
+              {APP_NAME}
             </Typography>
 
             <Box
               sx={{
-                display: 'inline-block',
-                mb: 1,
+                display: 'inline-flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+                mt: { xs: 0.25, sm: 0.5 },
+                mb: { xs: 0.5, sm: 0.65 },
                 py: 0.5,
-                px: 1.5,
+                px: 1,
+                mx: 'auto',
                 borderRadius: 1.5,
                 bgcolor: 'rgba(27, 42, 107, 0.07)',
                 border: '1px solid rgba(27, 42, 107, 0.1)',
+                maxWidth: '100%',
               }}
             >
-              <Typography
-                sx={{
-                  fontWeight: 700,
-                  lineHeight: 1.35,
-                  fontSize: '0.875rem',
-                  color: NAVY,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Chamados · Checklist · Frota
-              </Typography>
+              {MOBILE_MODULES.map((label, index) => (
+                <Box
+                  key={label}
+                  component="span"
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+                >
+                  {index > 0 && (
+                    <Typography
+                      component="span"
+                      sx={{
+                        color: '#E8520A',
+                        fontSize: '0.65rem',
+                        fontWeight: 600,
+                        lineHeight: 1,
+                        opacity: 0.8,
+                      }}
+                    >
+                      |
+                    </Typography>
+                  )}
+                  <Typography
+                    component="span"
+                    sx={{
+                      color: NAVY,
+                      lineHeight: 1.2,
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {label}
+                  </Typography>
+                </Box>
+              ))}
             </Box>
 
             <Typography
@@ -189,11 +235,12 @@ export default function LoginMobilePage() {
                 fontWeight: 500,
                 color: NAVY,
                 opacity: 0.8,
-                mb: 3.5,
+                mt: 0,
+                mb: 2.5,
                 px: 0.5,
               }}
             >
-              Um único app no celular: manutenção, visitas e controle de frota.
+              Manutenção, visitas e controle de frota.
             </Typography>
 
             <Box
@@ -274,7 +321,7 @@ export default function LoginMobilePage() {
               </Button>
             </Box>
 
-            <SupportContact />
+            <SupportContact compact />
           </Box>
         </Paper>
       </Box>
@@ -287,7 +334,7 @@ export default function LoginMobilePage() {
         open={!!toast}
         autoHideDuration={2000}
         onClose={() => setToast('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert severity="warning" variant="filled" onClose={() => setToast('')} sx={{ minWidth: 280 }}>
           {toast}

@@ -107,7 +107,8 @@ export default function FrotaVeiculoPage() {
       fd.append('tipo', tipoDoc);
       fd.append('titulo', tituloDoc.trim());
       if (fotosDoc[0]) {
-        fd.append('arquivo', dataUrlToBlob(fotosDoc[0]), `doc.${extensaoMidia('image/jpeg')}`);
+        const blob = dataUrlToBlob(fotosDoc[0]);
+        fd.append('arquivo', blob, `doc${extensaoMidia(blob)}`);
       }
       await api.frotaEnviarDocumento(meuVeiculo.id_veiculo, fd);
       setTituloDoc('');

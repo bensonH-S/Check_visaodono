@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -20,13 +21,33 @@ import { setSessao, logout } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
-import { colors, radius, shadows } from '../theme/tokens';
 import { APP_NAME, APP_TAGLINE } from '../config/brand';
+
+const PAGE_BG = '#f5f5f3';
+const NAVY = '#1B2A6B';
+const FEATURES = APP_TAGLINE.split(' · ');
+
+const loginFieldSx = {
+  '& .MuiOutlinedInput-root': { minHeight: { xs: 40, sm: 42 } },
+  '& .MuiOutlinedInput-input': { py: { xs: '9px', sm: '10px' } },
+  '& .MuiInputAdornment-root': { mr: 0.25 },
+};
+
+const loginFieldsWidth = { xs: 272, sm: 292, md: 312 };
+
+const ERROS_CONHECIDOS = [
+  'incorretos',
+  'obrigatórios',
+  'Sessão expirada',
+  'indisponível',
+  'Banco de dados',
+  'PostgreSQL',
+];
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const from = normalizeAppRoute((location.state as { from?: string })?.from || '/');
+  const from = normalizeAppRoute((location.state as { from?: string })?.from || '/dashboard');
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -55,9 +76,18 @@ export default function LoginPage() {
     e.preventDefault();
     setErro('');
     const emailTrim = email.trim();
-    if (!emailTrim && !senha) { avisar('e-mail e senha'); return; }
-    if (!emailTrim) { avisar('e-mail'); return; }
-    if (!senha) { avisar('senha'); return; }
+    if (!emailTrim && !senha) {
+      avisar('e-mail e senha');
+      return;
+    }
+    if (!emailTrim) {
+      avisar('e-mail');
+      return;
+    }
+    if (!senha) {
+      avisar('senha');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -66,135 +96,277 @@ export default function LoginPage() {
       navigate(from, { replace: true, state: { welcome: data.usuario.nome } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      setErro(msg || 'Não foi possível entrar. Tente novamente.');
+      setErro(
+        msg && ERROS_CONHECIDOS.some((t) => msg.includes(t))
+          ? msg
+          : 'E-mail ou senha incorretos'
+      );
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', bgcolor: colors.canvas }}>
+    <Box
+      sx={{
+        height: '100%',
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        bgcolor: PAGE_BG,
+      }}
+    >
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          px: 2,
-          py: 4,
+          px: { xs: 1, sm: 1.25 },
+          py: { xs: 1.5, sm: 2 },
         }}
       >
-        <Box
+        <Paper
+          elevation={0}
           sx={{
             width: '100%',
-            maxWidth: 400,
-            bgcolor: colors.surface,
+            maxWidth: { xs: 340, sm: 360, md: 380 },
             border: '1px solid',
-            borderColor: colors.border,
-            borderRadius: `${radius.xl}px`,
-            boxShadow: shadows.login,
-            px: { xs: 3, sm: 4 },
-            py: { xs: 3.5, sm: 4 },
+            borderColor: 'divider',
+            borderRadius: { xs: 1.5, sm: 2 },
+            textAlign: 'center',
+            overflow: 'hidden',
           }}
         >
-          <Box sx={{ textAlign: 'center', mb: 3.5 }}>
-            <BrandLogo maxWidth={140} sx={{ mx: 'auto', mb: 2, filter: 'none' }} />
-            <Typography sx={{ fontWeight: 600, fontSize: '1.125rem', color: colors.textPrimary, letterSpacing: '-0.02em' }}>
-              {APP_NAME}
-            </Typography>
-            <Typography sx={{ mt: 0.75, fontSize: '0.875rem', color: colors.textSecondary, lineHeight: 1.5 }}>
-              Entre com suas credenciais corporativas
-            </Typography>
-            <Typography sx={{ mt: 0.5, fontSize: '0.75rem', color: colors.textMuted }}>
-              {APP_TAGLINE}
-            </Typography>
-          </Box>
+          <Box
+            sx={{
+              height: 4,
+              bgcolor: NAVY,
+              boxShadow: '0 3px 10px rgba(27, 42, 107, 0.3)',
+            }}
+          />
+          <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: { xs: 1.5, sm: 2 }, pb: { xs: 2.25, sm: 2.75 } }}>
+            <BrandLogo maxWidth={{ xs: 96, sm: 110, md: 120 }} sx={{ mx: 'auto', mb: 0.5 }} />
 
-          <Box component="form" onSubmit={handleSubmit} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="E-mail"
-              type="email"
-              fullWidth
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="nome@grupoalvim.com.br"
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <EmailOutlinedIcon sx={{ fontSize: 18, color: colors.textMuted }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-
-            <TextField
-              label="Senha"
-              type={mostrarSenha ? 'text' : 'password'}
-              fullWidth
-              autoComplete="current-password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockOutlinedIcon sx={{ fontSize: 18, color: colors.textMuted }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        type="button"
-                        size="small"
-                        aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
-                        onClick={() => setMostrarSenha((v) => !v)}
-                        edge="end"
-                      >
-                        {mostrarSenha ? <VisibilityOffOutlinedIcon sx={{ fontSize: 18 }} /> : <VisibilityOutlinedIcon sx={{ fontSize: 18 }} />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-
-            {erro && (
-              <Alert severity="error" sx={{ fontSize: '0.8125rem' }}>
-                {erro}
-              </Alert>
-            )}
-
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              disabled={loading}
+            <Typography
               sx={{
-                mt: 0.5,
-                py: 1.125,
-                bgcolor: colors.navy,
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                '&:hover': { bgcolor: colors.navyDark },
+                fontWeight: 800,
+                color: '#E8520A',
+                fontSize: { xs: '1.05rem', sm: '1.15rem', md: '1.2rem' },
+                lineHeight: 1.2,
+                mb: { xs: 1.25, sm: 1.5 },
+                letterSpacing: '-0.01em',
               }}
             >
-              {loading ? 'Entrando…' : 'Entrar'}
-            </Button>
-          </Box>
+              {APP_NAME}
+            </Typography>
 
-          <Box sx={{ mt: 2.5 }}>
+            <Box
+              sx={{
+                display: 'inline-flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: { xs: 0.45, sm: 0.6 },
+                mt: { xs: 0.25, sm: 0.5 },
+                mb: { xs: 0.5, sm: 0.65 },
+                py: { xs: 0.45, sm: 0.55 },
+                px: { xs: 0.75, sm: 0.9 },
+                mx: 'auto',
+                borderRadius: 1,
+                bgcolor: 'rgba(27, 42, 107, 0.06)',
+                border: '1px solid rgba(27, 42, 107, 0.08)',
+                maxWidth: '100%',
+              }}
+            >
+              {FEATURES.map((label, index) => (
+                <Box
+                  key={label}
+                  component="span"
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: { xs: 0.45, sm: 0.6 } }}
+                >
+                  {index > 0 && (
+                    <Typography
+                      component="span"
+                      sx={{
+                        color: '#E8520A',
+                        fontSize: { xs: '0.6rem', sm: '0.64rem', md: '0.66rem' },
+                        fontWeight: 600,
+                        lineHeight: 1,
+                        opacity: 0.8,
+                      }}
+                    >
+                      |
+                    </Typography>
+                  )}
+                  <Typography
+                    component="span"
+                    sx={{
+                      color: NAVY,
+                      lineHeight: 1.2,
+                      fontSize: { xs: '0.68rem', sm: '0.72rem', md: '0.76rem' },
+                      fontWeight: 600,
+                      letterSpacing: '0.01em',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {label}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+
+            <Typography
+              sx={{
+                lineHeight: 1.4,
+                fontSize: { xs: '0.78rem', sm: '0.82rem', md: '0.85rem' },
+                fontWeight: 500,
+                color: NAVY,
+                opacity: 0.8,
+                mt: 0,
+                mb: { xs: 2, sm: 2.25 },
+                px: 0.5,
+              }}
+            >
+              Visão operacional das unidades do Grupo.
+            </Typography>
+
+            <Box
+              component="form"
+              noValidate
+              onSubmit={handleSubmit}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: { xs: 1, sm: 1.1 },
+              }}
+            >
+              <Box
+                sx={{
+                  width: '100%',
+                  maxWidth: loginFieldsWidth,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: { xs: 2.5, sm: 3 },
+                }}
+              >
+                <TextField
+                  label="E-mail"
+                  type="email"
+                  size="small"
+                  margin="none"
+                  fullWidth
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="nome@grupoalvim.com.br"
+                  sx={loginFieldSx}
+                  slotProps={{
+                    inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
+                    input: {
+                      sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <EmailOutlinedIcon sx={{ fontSize: 16 }} color="action" />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+
+                <TextField
+                  label="Senha"
+                  type={mostrarSenha ? 'text' : 'password'}
+                  size="small"
+                  margin="none"
+                  fullWidth
+                  autoComplete="current-password"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  placeholder={senha ? undefined : '••••••••'}
+                  sx={loginFieldSx}
+                  slotProps={{
+                    inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
+                    input: {
+                      sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockOutlinedIcon sx={{ fontSize: 16 }} color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            type="button"
+                            aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                            onClick={() => setMostrarSenha((v) => !v)}
+                            edge="end"
+                            size="small"
+                          >
+                            {mostrarSenha ? (
+                              <VisibilityOffOutlinedIcon sx={{ fontSize: 16 }} />
+                            ) : (
+                              <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
+
+              {erro && (
+                <Alert
+                  severity="error"
+                  variant="filled"
+                  sx={{ py: 0.25, fontSize: '0.78rem', width: '100%', maxWidth: loginFieldsWidth }}
+                >
+                  {erro}
+                </Alert>
+              )}
+
+              <Button
+                type="submit"
+                variant="contained"
+                size="medium"
+                disabled={loading}
+                sx={{
+                  width: '100%',
+                  maxWidth: loginFieldsWidth,
+                  mt: { xs: 1.1, sm: 1.35 },
+                  py: { xs: 0.85, md: 0.95 },
+                  fontSize: { xs: '0.82rem', md: '0.86rem' },
+                  fontWeight: 600,
+                }}
+              >
+                {loading ? 'Entrando…' : 'Acessar'}
+              </Button>
+            </Box>
+
             <SupportContact compact />
           </Box>
-        </Box>
+        </Paper>
       </Box>
 
       <AppFooter compact />
 
-      <Snackbar open={!!toast} autoHideDuration={2000} onClose={() => setToast('')} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
-        <Alert severity="warning" onClose={() => setToast('')} sx={{ width: '100%' }}>
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={2000}
+        onClose={() => setToast('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          severity="warning"
+          variant="filled"
+          onClose={() => setToast('')}
+          sx={{ width: '100%', minWidth: 280 }}
+        >
           {toast}
         </Alert>
       </Snackbar>

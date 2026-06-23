@@ -27,6 +27,12 @@ import FrotaMobileHubPage from './pages/frota/FrotaMobileHubPage';
 import FrotaAbastecimentoPage from './pages/frota/FrotaAbastecimentoPage';
 import FrotaTermoPage from './pages/frota/FrotaTermoPage';
 import FrotaVeiculoPage from './pages/frota/FrotaVeiculoPage';
+import FrotaPortalHubPage from './pages/frota/FrotaPortalHubPage';
+import FrotaVeiculosPortalPage from './pages/frota/FrotaVeiculosPortalPage';
+import FrotaVeiculoDetalhePage from './pages/frota/FrotaVeiculoDetalhePage';
+import FrotaUsoPortalPage from './pages/frota/FrotaUsoPortalPage';
+import FrotaCombustivelPortalPage from './pages/frota/FrotaCombustivelPortalPage';
+import FrotaManutencaoPortalPage from './pages/frota/FrotaManutencaoPortalPage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -117,11 +123,60 @@ export default function App() {
               </RequireAuth>
             }
           >
+            <Route index element={<Navigate to="/dashboard" replace />} />
             <Route
-              index
+              path="dashboard"
               element={
                 <RotaPermissao permissoes={['portal.dashboard.ver']}>
                   <DashboardPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/veiculos/:id"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaVeiculoDetalhePage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/veiculos"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaVeiculosPortalPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/uso"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaUsoPortalPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/combustivel"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaCombustivelPortalPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/manutencoes"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaManutencaoPortalPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaPortalHubPage />
                 </RotaPermissao>
               }
             />
@@ -283,7 +338,7 @@ export default function App() {
               />
             </Route>
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

@@ -357,6 +357,20 @@ export const api = {
   },
   frotaResumo: () => request<FrotaResumoMobile>('/frota/mobile/resumo'),
   frotaVeiculos: () => request<FrotaVeiculo[]>('/frota/veiculos'),
+  frotaAssuncoes: () => request<FrotaAssuncao[]>('/frota/assuncoes'),
+  frotaAbastecimentosPortal: () => request<FrotaAbastecimentoPortal[]>('/frota/abastecimentos'),
+  frotaManutencoesPortal: () => request<FrotaManutencaoPortal[]>('/frota/manutencoes'),
+  frotaVeiculo: (idVeiculo: number) => request<FrotaVeiculo>(`/frota/veiculos/${idVeiculo}`),
+  frotaCriarVeiculo: (body: FrotaVeiculoBody) =>
+    request<FrotaVeiculo>('/frota/veiculos', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  frotaAtualizarVeiculo: (idVeiculo: number, body: Partial<FrotaVeiculoBody>) =>
+    request<FrotaVeiculo>(`/frota/veiculos/${idVeiculo}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
   frotaAssumirVeiculo: (body: { id_veiculo: number; km_atual?: number }) =>
     request<{ ok: boolean; veiculo: FrotaVeiculo | null }>('/frota/me/assumir', {
       method: 'POST',
@@ -708,15 +722,32 @@ export interface ManutFormulario {
 export interface FrotaVeiculo {
   id_veiculo: number;
   placa: string;
+  renavam?: string | null;
+  chassi?: string | null;
   marca: string | null;
   modelo: string | null;
   ano: number | null;
   cor: string | null;
+  combustivel?: string | null;
   km_atual: number | null;
+  observacoes?: string | null;
   assuncao_em: string | null;
   nome_responsavel?: string | null;
   id_usuario_responsavel?: number | null;
 }
+
+export type FrotaVeiculoBody = {
+  placa: string;
+  renavam?: string;
+  chassi?: string;
+  marca?: string;
+  modelo?: string;
+  ano?: number | null;
+  cor?: string;
+  combustivel?: string;
+  km_atual?: number | null;
+  observacoes?: string;
+};
 
 export interface FrotaAbastecimentoResumo {
   id_abastecimento: number;
@@ -724,6 +755,38 @@ export interface FrotaAbastecimentoResumo {
   valor_abastecido: number;
   data_abastecimento: string;
   comprovante_url: string | null;
+}
+
+export interface FrotaAssuncao {
+  id_assuncao: number;
+  id_veiculo: number;
+  id_usuario: number;
+  placa: string;
+  nome_usuario: string;
+  km_inicio: number | null;
+  data_inicio: string;
+  data_fim: string | null;
+}
+
+export interface FrotaAbastecimentoPortal extends FrotaAbastecimentoResumo {
+  id_veiculo: number;
+  id_usuario: number;
+  placa: string;
+  nome_usuario: string;
+}
+
+export interface FrotaManutencaoPortal {
+  id_manutencao: number;
+  id_veiculo: number;
+  id_usuario: number;
+  placa: string;
+  nome_usuario: string;
+  descricao: string;
+  km: number | null;
+  valor: number | null;
+  data_manutencao: string;
+  proxima_manutencao: string | null;
+  created_at: string;
 }
 
 export interface FrotaResumoMobile {
@@ -749,6 +812,8 @@ export interface FrotaDocumento {
   valor: number | null;
   observacao: string | null;
   media_url: string | null;
+  tipo_mime?: string | null;
+  nome_arquivo?: string | null;
   created_at: string;
 }
 

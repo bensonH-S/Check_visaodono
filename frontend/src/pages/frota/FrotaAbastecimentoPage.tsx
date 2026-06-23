@@ -41,7 +41,7 @@ export default function FrotaAbastecimentoPage() {
       fd.append('km_atual', km.replace(/\D/g, ''));
       fd.append('valor_abastecido', valor.replace(',', '.'));
       const blob = dataUrlToBlob(fotos[0]);
-      fd.append('comprovante', blob, `comprovante.${extensaoMidia(blob.type)}`);
+      fd.append('comprovante', blob, `comprovante${extensaoMidia(blob)}`);
       await api.frotaEnviarAbastecimento(fd);
       setOk('Abastecimento registrado!');
       setTimeout(() => navigate('/frota/mobile', { replace: true }), 1200);

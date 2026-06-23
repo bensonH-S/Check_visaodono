@@ -16,6 +16,9 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
+import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 
 import { colors } from '../theme/tokens';
 
@@ -27,6 +30,7 @@ export type PageTitleConfig = {
 };
 
 export const PAGE_TITLES: Record<string, PageTitleConfig> = {
+  '/dashboard': { title: 'Início', icon: <DashboardIcon sx={iconSx} /> },
   '/': { title: 'Início', icon: <DashboardIcon sx={iconSx} /> },
   '/ranking': { title: 'Ranking de Lojas', icon: <EmojiEventsIcon sx={iconSx} /> },
   '/checklist': { title: 'Checklist', icon: <AssignmentIcon sx={iconSx} /> },
@@ -36,6 +40,11 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados': { title: 'Chamados', icon: <BuildIcon sx={iconSx} /> },
   '/chamados/novo': { title: 'Abrir chamado', icon: <AddIcon sx={iconSx} /> },
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
+  '/frota': { title: 'Gestão de frota', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/veiculos': { title: 'Gestão de veículos', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/uso': { title: 'Uso e assunção', icon: <PersonPinCircleIcon sx={iconSx} /> },
+  '/frota/combustivel': { title: 'Controle de combustível', icon: <LocalGasStationIcon sx={iconSx} /> },
+  '/frota/manutencoes': { title: 'Manutenções', icon: <BuildIcon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
   '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },
@@ -54,6 +63,10 @@ export function resolvePageTitle(path: string): PageTitleConfig {
     return { title: 'Visita concluída', icon: <CheckCircleIcon sx={iconSx} /> };
   }
   if (path.startsWith('/relatorio/')) return PAGE_TITLES['/relatorio'];
+  if (path.startsWith('/frota/veiculos/')) {
+    return { title: 'Detalhe do veículo', icon: <DirectionsCarIcon sx={iconSx} /> };
+  }
+  if (path.startsWith('/frota/')) return PAGE_TITLES[path] ?? PAGE_TITLES['/frota'];
   if (path.startsWith('/chamados/aprovacoes/')) return PAGE_TITLES['/chamados/aprovacoes'];
   if (path.startsWith('/chamados/')) return PAGE_TITLES['/chamados'];
   if (path.startsWith('/configuracoes/')) {

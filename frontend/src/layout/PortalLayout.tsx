@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarFrota } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -14,6 +14,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import HistoryIcon from '@mui/icons-material/History';
 import BuildIcon from '@mui/icons-material/Build';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useEffect, useRef } from 'react';
@@ -59,7 +60,7 @@ export default function PortalLayout() {
   const isChecklist = path === '/checklist' || path.startsWith('/checklist/');
   const isChamadoNovo = path === '/chamados/novo';
   const emAprovacoes = path.startsWith('/chamados/aprovacoes');
-  const isDashboard = path === '/';
+  const isDashboard = path === '/dashboard';
   const emChamados = path.startsWith('/chamados') && !emAprovacoes;
 
   const podeChamados = temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user);
@@ -97,9 +98,10 @@ export default function PortalLayout() {
   const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
 
   const nav: NavItem[] = [
-    { to: '/', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true, mobileTab: true },
+    { to: '/dashboard', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true, mobileTab: true },
     { to: '/checklist', label: 'Checklist', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), end: true, mobileTab: true, mobileOnly: true },
     { to: '/chamados', label: 'Chamados', icon: <BuildIcon fontSize="small" />, show: temPermissao('chamados.ver', user), end: true, mobileTab: true },
+    { to: '/frota', label: 'Frota', icon: <DirectionsCarIcon fontSize="small" />, show: podeGerenciarFrota(user), end: true },
     { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, mobileTab: true },
     { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user) },
     {

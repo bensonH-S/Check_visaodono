@@ -9,7 +9,7 @@ type Props = {
 export default function RotaFrota({ children }: Props) {
   const user = getUsuario();
   if (!podeUsarFrota(user)) {
-    const destino = usaFluxoChamadosMobile(user) ? '/chamados/mobile' : '/';
+    const destino = usaFluxoChamadosMobile(user) ? '/chamados/mobile' : '/dashboard';
     return <Navigate to={destino} replace />;
   }
   return <>{children}</>;

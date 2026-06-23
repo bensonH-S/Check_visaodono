@@ -46,15 +46,23 @@ function mapVeiculo(row) {
   return {
     id_veiculo: row.id_veiculo,
     placa: row.placa,
+    renavam: row.renavam,
+    chassi: row.chassi,
     marca: row.marca,
     modelo: row.modelo,
     ano: row.ano,
     cor: row.cor,
+    combustivel: row.combustivel,
     km_atual: row.km_atual,
+    observacoes: row.observacoes,
     assuncao_em: row.assuncao_em,
     nome_responsavel: row.nome_responsavel,
   };
 }
+
+const COLS_VEICULO = `v.id_veiculo, v.placa, v.renavam, v.chassi, v.marca, v.modelo, v.ano, v.cor,
+  v.combustivel, v.km_atual, v.observacoes, v.id_usuario_responsavel, v.assuncao_em, v.ativo,
+  v.created_at, v.updated_at, u.nome AS nome_responsavel`;
 
 /** Resumo mobile: veículo, termo, últimos abastecimentos */
 router.get('/mobile/resumo', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
@@ -104,8 +112,7 @@ router.get('/mobile/resumo', requirePermissao('frota.usar', 'frota.gerenciar'), 
 router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano, v.cor, v.km_atual,
-              v.id_usuario_responsavel, v.assuncao_em, u.nome AS nome_responsavel
+      `SELECT ${COLS_VEICULO}
        FROM frota_veiculos v
        LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
        WHERE v.ativo = TRUE
@@ -117,17 +124,157 @@ router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async
   }
 });
 
+router.get('/assuncoes', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.id_assuncao, a.id_veiculo, a.id_usuario, a.km_inicio, a.data_inicio, a.data_fim,
+              v.placa, u.nome AS nome_usuario
+       FROM frota_assuncoes a
+       JOIN frota_veiculos v ON v.id_veiculo = a.id_veiculo
+       JOIN usuarios u ON u.id_usuario = a.id_usuario
+       ORDER BY a.data_inicio DESC
+       LIMIT 200`,
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/abastecimentos', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.id_abastecimento, a.id_veiculo, a.id_usuario, a.km_atual, a.valor_abastecido,
+              a.data_abastecimento, a.id_anexo_comprovante,
+              v.placa, u.nome AS nome_usuario
+       FROM frota_abastecimentos a
+       JOIN frota_veiculos v ON v.id_veiculo = a.id_veiculo
+       JOIN usuarios u ON u.id_usuario = a.id_usuario
+       ORDER BY a.data_abastecimento DESC
+       LIMIT 200`,
+    );
+    res.json(
+      rows.map((a) => ({
+        ...a,
+        valor_abastecido: Number(a.valor_abastecido),
+        comprovante_url: a.id_anexo_comprovante ? midiaUrlFrota(a.id_anexo_comprovante) : null,
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/manutencoes', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT m.id_manutencao, m.id_veiculo, m.id_usuario, m.descricao, m.km, m.valor,
+              m.data_manutencao, m.proxima_manutencao, m.created_at,
+              v.placa, u.nome AS nome_usuario
+       FROM frota_manutencoes_veiculo m
+       JOIN frota_veiculos v ON v.id_veiculo = m.id_veiculo
+       JOIN usuarios u ON u.id_usuario = m.id_usuario
+       ORDER BY m.data_manutencao DESC, m.created_at DESC
+       LIMIT 200`,
+    );
+    res.json(
+      rows.map((m) => ({
+        ...m,
+        valor: m.valor != null ? Number(m.valor) : null,
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/veiculos', requirePermissao('frota.gerenciar'), async (req, res, next) => {
   try {
-    const { placa, marca, modelo, ano, cor } = req.body || {};
+    const { placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes } = req.body || {};
     if (!placa?.trim()) return res.status(400).json({ error: 'Informe a placa' });
     const { rows } = await pool.query(
-      `INSERT INTO frota_veiculos (placa, marca, modelo, ano, cor)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO frota_veiculos (placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [placa.trim().toUpperCase(), marca || null, modelo || null, ano || null, cor || null],
+      [
+        placa.trim().toUpperCase(),
+        renavam?.replace(/\D/g, '') || null,
+        chassi?.trim()?.toUpperCase() || null,
+        marca || null,
+        modelo || null,
+        ano || null,
+        cor || null,
+        combustivel || null,
+        km_atual != null ? Number(km_atual) : null,
+        observacoes || null,
+      ],
     );
     res.status(201).json(rows[0]);
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Placa já cadastrada' });
+    next(e);
+  }
+});
+
+router.get('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT ${COLS_VEICULO}
+       FROM frota_veiculos v
+       LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       WHERE v.id_veiculo = $1`,
+      [idVeiculo],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Veículo não encontrado' });
+    res.json(rows[0]);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.patch('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const { placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes } = req.body || {};
+    const { rows } = await pool.query(
+      `UPDATE frota_veiculos
+       SET placa = COALESCE($2, placa),
+           renavam = COALESCE($3, renavam),
+           chassi = COALESCE($4, chassi),
+           marca = COALESCE($5, marca),
+           modelo = COALESCE($6, modelo),
+           ano = COALESCE($7, ano),
+           cor = COALESCE($8, cor),
+           combustivel = COALESCE($9, combustivel),
+           km_atual = COALESCE($10, km_atual),
+           observacoes = COALESCE($11, observacoes),
+           updated_at = NOW()
+       WHERE id_veiculo = $1 AND ativo = TRUE
+       RETURNING *`,
+      [
+        idVeiculo,
+        placa?.trim() ? placa.trim().toUpperCase() : null,
+        renavam != null ? (renavam.replace(/\D/g, '') || null) : null,
+        chassi != null ? (chassi.trim().toUpperCase() || null) : null,
+        marca ?? null,
+        modelo ?? null,
+        ano ?? null,
+        cor ?? null,
+        combustivel ?? null,
+        km_atual != null ? Number(km_atual) : null,
+        observacoes ?? null,
+      ],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Veículo não encontrado' });
+    const { rows: full } = await pool.query(
+      `SELECT ${COLS_VEICULO}
+       FROM frota_veiculos v
+       LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       WHERE v.id_veiculo = $1`,
+      [idVeiculo],
+    );
+    res.json(full[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Placa já cadastrada' });
     next(e);
@@ -347,7 +494,9 @@ router.get('/veiculos/:id/documentos', requirePermissao('frota.usar', 'frota.ger
   try {
     const idVeiculo = Number(req.params.id);
     const { rows } = await pool.query(
-      `SELECT d.*, a.tipo_mime
+      `SELECT d.id_documento, d.id_veiculo, d.tipo, d.titulo, d.id_anexo,
+              d.data_vencimento, d.valor, d.observacao, d.id_usuario, d.created_at,
+              a.tipo_mime, a.nome_arquivo
        FROM frota_documentos d
        LEFT JOIN frota_anexos a ON a.id_anexo = d.id_anexo
        WHERE d.id_veiculo = $1
@@ -356,8 +505,16 @@ router.get('/veiculos/:id/documentos', requirePermissao('frota.usar', 'frota.ger
     );
     res.json(
       rows.map((d) => ({
-        ...d,
+        id_documento: d.id_documento,
+        id_veiculo: d.id_veiculo,
+        tipo: d.tipo,
+        titulo: d.titulo,
+        data_vencimento: d.data_vencimento,
         valor: d.valor != null ? Number(d.valor) : null,
+        observacao: d.observacao,
+        created_at: d.created_at,
+        tipo_mime: d.tipo_mime || null,
+        nome_arquivo: d.nome_arquivo || null,
         media_url: d.id_anexo ? midiaUrlFrota(d.id_anexo) : null,
       })),
     );
@@ -368,7 +525,7 @@ router.get('/veiculos/:id/documentos', requirePermissao('frota.usar', 'frota.ger
 
 router.post(
   '/veiculos/:id/documentos',
-  requirePermissao('frota.usar'),
+  requirePermissao('frota.usar', 'frota.gerenciar'),
   upload.single('arquivo'),
   async (req, res, next) => {
     try {
@@ -378,11 +535,16 @@ router.post(
       if (!tipo?.trim() || !titulo?.trim()) {
         return res.status(400).json({ error: 'Informe tipo e título' });
       }
+      if (!req.file) {
+        return res.status(400).json({ error: 'Selecione um arquivo (imagem ou PDF)' });
+      }
 
-      const veiculo = await veiculoDoUsuario(idUsuario);
       const podeGerenciar = req.user.permissoes?.includes('frota.gerenciar');
-      if (!podeGerenciar && (!veiculo || veiculo.id_veiculo !== idVeiculo)) {
-        return res.status(403).json({ error: 'Sem permissão para este veículo' });
+      if (!podeGerenciar) {
+        const veiculo = await veiculoDoUsuario(idUsuario);
+        if (!veiculo || veiculo.id_veiculo !== idVeiculo) {
+          return res.status(403).json({ error: 'Sem permissão para este veículo' });
+        }
       }
 
       const { rows: docInsert } = await pool.query(
