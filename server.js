@@ -96,6 +96,7 @@ const cargosRouter = (await import('./backend/src/routes/cargos.js')).default;
 const pushRouter = (await import('./backend/src/routes/push.js')).default;
 const { initPushNotifications, getVapidPublicKey } = await import('./backend/src/pushNotifications.js');
 const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
+const frotaRouter = (await import('./backend/src/routes/frota.js')).default;
 await import('./backend/src/cryptoMedia.js');
 initPushNotifications();
 const { authMiddleware } = await import('./backend/src/auth.js');
@@ -177,6 +178,7 @@ api.use('/checklist', checklistRouter);
 api.use('/visitas', visitasRouter);
 api.use('/nao-conformidades', ncRouter);
 api.use('/manutencao', manutencaoRouter);
+api.use('/frota', frotaRouter);
 api.use('/push', pushRouter);
 api.use('/wpp', wppRouter);
 

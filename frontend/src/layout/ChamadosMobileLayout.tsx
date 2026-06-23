@@ -18,7 +18,8 @@ import PwaInstallBanner from '../components/PwaInstallBanner';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { toAppPath } from '../config/paths';
-import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, podeUsarChecklist, type UsuarioSessao } from '../lib/auth';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, podeUsarChecklist, podeUsarFrota, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
@@ -222,10 +223,13 @@ function ChamadosMobileLayoutInner() {
   const isChamadosSubPage = isNovo || isDetalhe;
   const isChecklist = path === '/checklist/mobile' || path.startsWith('/checklist/mobile/');
   const isChecklistConcluido = path.startsWith('/checklist/mobile/concluido/');
-  const isSubPage = isChamadosSubPage;
+  const isFrota = path === '/frota/mobile' || path.startsWith('/frota/mobile/');
+  const isFrotaSub = isFrota && path !== '/frota/mobile';
+  const isSubPage = isChamadosSubPage || isFrotaSub;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
   const podeChecklist = user && podeUsarChecklist(user);
   const podeChamados = user && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
+  const podeFrota = user && podeUsarFrota(user);
 
   const mobileTabs = [
     {
@@ -240,6 +244,12 @@ function ChamadosMobileLayoutInner() {
       icon: <BuildIcon fontSize="small" />,
       show: !!podeChamados,
     },
+    {
+      to: '/frota/mobile',
+      label: 'Frota',
+      icon: <DirectionsCarIcon fontSize="small" />,
+      show: !!podeFrota,
+    },
   ].filter((t) => t.show);
 
   const mostrarTabs = mobileTabs.length >= 1 && !isSubPage && !isChecklistConcluido;
@@ -253,7 +263,15 @@ function ChamadosMobileLayoutInner() {
         ? 'Visita concluída'
         : isChecklist
           ? 'Checklist'
-          : 'Chamados';
+          : isFrotaSub
+            ? path.includes('abastecimento')
+              ? 'Abastecimento'
+              : path.includes('termo')
+                ? 'Termo de ferramentas'
+                : 'Veículo'
+            : isFrota
+              ? 'Frota'
+              : 'Chamados';
 
   usePageTitle(
     isNovo
@@ -264,7 +282,11 @@ function ChamadosMobileLayoutInner() {
           ? 'Visita concluída'
           : isChecklist
             ? 'Checklist'
-            : 'Chamados'
+            : isFrotaSub
+              ? 'Frota'
+              : isFrota
+                ? 'Frota'
+                : 'Chamados'
   );
 
   useEffect(() => {
@@ -322,11 +344,13 @@ function ChamadosMobileLayoutInner() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
-            {isChamadosSubPage && (
+            {(isChamadosSubPage || isFrotaSub) && (
               <IconButton
                 type="button"
                 size="small"
-                onClick={() => navigate('/chamados/mobile', { replace: true })}
+                onClick={() =>
+                  navigate(isFrotaSub ? '/frota/mobile' : '/chamados/mobile', { replace: true })
+                }
                 aria-label="Voltar"
                 sx={{ color: NAVY, ml: -0.5, flexShrink: 0 }}
               >
@@ -378,10 +402,10 @@ function ChamadosMobileLayoutInner() {
             </IconButton>
           </Box>
         </Box>
-        <Box sx={{ mt: isChamadosSubPage ? 0 : 1 }}>
+        <Box sx={{ mt: isSubPage ? 0 : 1 }}>
           <PwaInstallBanner />
         </Box>
-        {!isChamadosSubPage && !isChecklist && (
+        {!isSubPage && !isChecklist && !isFrota && (
           <Box
             sx={{
               mt: 1,
@@ -405,16 +429,16 @@ function ChamadosMobileLayoutInner() {
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          px: isChecklist ? 0 : 2,
-          pt: isChecklist ? 0 : 2,
-          pb: `calc(${rodapeTotalH}px + ${podeAbrir && !isSubPage && !isChecklist ? 64 : 16}px + env(safe-area-inset-bottom, 0px))`,
+          px: isChecklist || isFrota ? 0 : 2,
+          pt: isChecklist || isFrota ? 0 : 2,
+          pb: `calc(${rodapeTotalH}px + ${podeAbrir && !isSubPage && !isChecklist && !isFrota ? 64 : 16}px + env(safe-area-inset-bottom, 0px))`,
           WebkitOverflowScrolling: 'touch',
         }}
       >
         <Outlet />
       </Box>
 
-      {podeAbrir && !isSubPage && !isChecklist && (
+      {podeAbrir && !isSubPage && !isChecklist && !isFrota && (
         <Fab
           color="primary"
           aria-label="Abrir novo chamado"

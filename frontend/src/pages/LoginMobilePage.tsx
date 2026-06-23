@@ -178,7 +178,7 @@ export default function LoginMobilePage() {
                   textTransform: 'uppercase',
                 }}
               >
-                Checklist e Chamados
+                Chamados · Checklist · Frota
               </Typography>
             </Box>
 
@@ -193,7 +193,7 @@ export default function LoginMobilePage() {
                 px: 0.5,
               }}
             >
-              Checklist de visitas e chamados de manutenção no celular.
+              Um único app no celular: manutenção, visitas e controle de frota.
             </Typography>
 
             <Box

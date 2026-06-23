@@ -34,6 +34,7 @@
     "migrate:time-campo-dados": "node scripts/run-sql.js migrations/038_checklist_time_de_campo_dados.sql",
     "migrate:auditoria-foto": "node scripts/run-sql.js migrations/039_auditoria_foto_obrigatoria.sql",
     "migrate:cargo-checklist": "node scripts/run-sql.js migrations/040_cargo_checklist_regional_diretor.sql",
+    "migrate:frota": "node scripts/run-sql.js migrations/041_frota_modulo.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "migrate:whatsapp": "node scripts/run-sql.js migrations/035_usuario_whatsapp.sql"

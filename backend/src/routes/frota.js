@@ -1,0 +1,526 @@
+import { Router } from 'express';
+import multer from 'multer';
+import { pool } from '../db.js';
+import { requirePermissao } from '../permissoes.js';
+import { encryptAnexo, decryptAnexo } from '../fotos.js';
+import {
+  EMPRESA_TERMO,
+  TERMO_FERRAMENTAS_VERSAO,
+  textoTermoFerramentas,
+} from '../config/termoFerramentas.js';
+
+const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
+
+const APP_BASE = '/auditoria';
+
+function midiaUrlFrota(idAnexo) {
+  return `${APP_BASE}/api/frota/anexos/${idAnexo}/media`;
+}
+
+async function salvarAnexo({ contexto, idReferencia, idUsuario, file, nome }) {
+  const criptografado = encryptAnexo(file.buffer);
+  const { rows } = await pool.query(
+    `INSERT INTO frota_anexos (contexto, id_referencia, nome_arquivo, arquivo_url, tipo_mime, id_usuario)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id_anexo, tipo_mime`,
+    [contexto, idReferencia, nome || file.originalname || 'anexo', criptografado, file.mimetype, idUsuario],
+  );
+  return rows[0];
+}
+
+async function veiculoDoUsuario(idUsuario) {
+  const { rows } = await pool.query(
+    `SELECT v.*, u.nome AS nome_responsavel
+     FROM frota_veiculos v
+     LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+     WHERE v.id_usuario_responsavel = $1 AND v.ativo = TRUE
+     LIMIT 1`,
+    [idUsuario],
+  );
+  return rows[0] || null;
+}
+
+function mapVeiculo(row) {
+  if (!row) return null;
+  return {
+    id_veiculo: row.id_veiculo,
+    placa: row.placa,
+    marca: row.marca,
+    modelo: row.modelo,
+    ano: row.ano,
+    cor: row.cor,
+    km_atual: row.km_atual,
+    assuncao_em: row.assuncao_em,
+    nome_responsavel: row.nome_responsavel,
+  };
+}
+
+/** Resumo mobile: veículo, termo, últimos abastecimentos */
+router.get('/mobile/resumo', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idUsuario = req.user.sub;
+    const veiculo = await veiculoDoUsuario(idUsuario);
+
+    const { rows: termoRows } = await pool.query(
+      `SELECT id_termo, termo_versao, assinado_em
+       FROM frota_termos_ferramentas
+       WHERE id_usuario = $1 AND termo_versao = $2
+       ORDER BY assinado_em DESC LIMIT 1`,
+      [idUsuario, TERMO_FERRAMENTAS_VERSAO],
+    );
+
+    const abastecimentos = veiculo
+      ? (
+          await pool.query(
+            `SELECT a.id_abastecimento, a.km_atual, a.valor_abastecido, a.data_abastecimento,
+                    a.id_anexo_comprovante
+             FROM frota_abastecimentos a
+             WHERE a.id_veiculo = $1
+             ORDER BY a.data_abastecimento DESC LIMIT 5`,
+            [veiculo.id_veiculo],
+          )
+        ).rows.map((a) => ({
+          ...a,
+          valor_abastecido: Number(a.valor_abastecido),
+          comprovante_url: a.id_anexo_comprovante ? midiaUrlFrota(a.id_anexo_comprovante) : null,
+        }))
+      : [];
+
+    res.json({
+      veiculo: mapVeiculo(veiculo),
+      termo: {
+        versao: TERMO_FERRAMENTAS_VERSAO,
+        assinado: termoRows.length > 0,
+        assinado_em: termoRows[0]?.assinado_em || null,
+      },
+      abastecimentos,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano, v.cor, v.km_atual,
+              v.id_usuario_responsavel, v.assuncao_em, u.nome AS nome_responsavel
+       FROM frota_veiculos v
+       LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       WHERE v.ativo = TRUE
+       ORDER BY v.placa`,
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/veiculos', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const { placa, marca, modelo, ano, cor } = req.body || {};
+    if (!placa?.trim()) return res.status(400).json({ error: 'Informe a placa' });
+    const { rows } = await pool.query(
+      `INSERT INTO frota_veiculos (placa, marca, modelo, ano, cor)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [placa.trim().toUpperCase(), marca || null, modelo || null, ano || null, cor || null],
+    );
+    res.status(201).json(rows[0]);
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Placa já cadastrada' });
+    next(e);
+  }
+});
+
+router.post('/me/assumir', requirePermissao('frota.usar'), async (req, res, next) => {
+  try {
+    const idUsuario = req.user.sub;
+    const idVeiculo = Number(req.body?.id_veiculo);
+    const kmInicio = req.body?.km_atual != null ? Number(req.body.km_atual) : null;
+    if (!idVeiculo) return res.status(400).json({ error: 'Selecione o veículo' });
+
+    const { rows: veiculos } = await pool.query(
+      `SELECT id_veiculo, id_usuario_responsavel, placa FROM frota_veiculos WHERE id_veiculo = $1 AND ativo = TRUE`,
+      [idVeiculo],
+    );
+    const veiculo = veiculos[0];
+    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+    if (veiculo.id_usuario_responsavel && veiculo.id_usuario_responsavel !== idUsuario) {
+      return res.status(409).json({ error: 'Veículo já está sob responsabilidade de outro colaborador' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `UPDATE frota_assuncoes SET data_fim = NOW()
+         WHERE id_veiculo = $1 AND id_usuario = $2 AND data_fim IS NULL`,
+        [idVeiculo, idUsuario],
+      );
+
+      await client.query(
+        `UPDATE frota_veiculos SET id_usuario_responsavel = NULL, assuncao_em = NULL
+         WHERE id_usuario_responsavel = $1 AND id_veiculo != $2`,
+        [idUsuario, idVeiculo],
+      );
+
+      await client.query(
+        `UPDATE frota_veiculos
+         SET id_usuario_responsavel = $1, assuncao_em = NOW(), km_atual = COALESCE($2, km_atual), updated_at = NOW()
+         WHERE id_veiculo = $3`,
+        [idUsuario, kmInicio, idVeiculo],
+      );
+
+      await client.query(
+        `INSERT INTO frota_assuncoes (id_veiculo, id_usuario, km_inicio)
+         VALUES ($1, $2, $3)`,
+        [idVeiculo, idUsuario, kmInicio],
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const atualizado = await veiculoDoUsuario(idUsuario);
+    res.json({ ok: true, veiculo: mapVeiculo(atualizado) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post(
+  '/abastecimentos',
+  requirePermissao('frota.usar'),
+  upload.single('comprovante'),
+  async (req, res, next) => {
+    try {
+      const idUsuario = req.user.sub;
+      const kmAtual = Number(req.body?.km_atual);
+      const valor = Number(String(req.body?.valor_abastecido || '').replace(',', '.'));
+      if (!Number.isFinite(kmAtual) || kmAtual < 0) {
+        return res.status(400).json({ error: 'Informe o KM atual válido' });
+      }
+      if (!Number.isFinite(valor) || valor <= 0) {
+        return res.status(400).json({ error: 'Informe o valor abastecido' });
+      }
+      if (!req.file) return res.status(400).json({ error: 'Envie a foto do comprovante' });
+
+      const veiculo = await veiculoDoUsuario(idUsuario);
+      if (!veiculo) {
+        return res.status(400).json({ error: 'Assuma o controle de um veículo antes de registrar abastecimento' });
+      }
+
+      const { rows } = await pool.query(
+        `INSERT INTO frota_abastecimentos (id_veiculo, id_usuario, km_atual, valor_abastecido)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id_abastecimento`,
+        [veiculo.id_veiculo, idUsuario, kmAtual, valor],
+      );
+      const idAbastecimento = rows[0].id_abastecimento;
+
+      const anexo = await salvarAnexo({
+        contexto: 'abastecimento',
+        idReferencia: idAbastecimento,
+        idUsuario,
+        file: req.file,
+        nome: 'comprovante_abastecimento',
+      });
+
+      await pool.query(
+        `UPDATE frota_abastecimentos SET id_anexo_comprovante = $1 WHERE id_abastecimento = $2`,
+        [anexo.id_anexo, idAbastecimento],
+      );
+      await pool.query(`UPDATE frota_veiculos SET km_atual = $1, updated_at = NOW() WHERE id_veiculo = $2`, [
+        kmAtual,
+        veiculo.id_veiculo,
+      ]);
+
+      res.status(201).json({
+        id_abastecimento: idAbastecimento,
+        km_atual: kmAtual,
+        valor_abastecido: valor,
+        comprovante_url: midiaUrlFrota(anexo.id_anexo),
+      });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.get('/termo', requirePermissao('frota.usar'), async (req, res, next) => {
+  try {
+    const idUsuario = req.user.sub;
+    const { rows: u } = await pool.query('SELECT nome FROM usuarios WHERE id_usuario = $1', [idUsuario]);
+    const nome = u[0]?.nome || 'Colaborador';
+
+    const { rows: termoRows } = await pool.query(
+      `SELECT id_termo, assinado_em FROM frota_termos_ferramentas
+       WHERE id_usuario = $1 AND termo_versao = $2 ORDER BY assinado_em DESC LIMIT 1`,
+      [idUsuario, TERMO_FERRAMENTAS_VERSAO],
+    );
+
+    res.json({
+      versao: TERMO_FERRAMENTAS_VERSAO,
+      empresa: EMPRESA_TERMO,
+      texto: textoTermoFerramentas(nome),
+      assinado: termoRows.length > 0,
+      assinado_em: termoRows[0]?.assinado_em || null,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post(
+  '/termo',
+  requirePermissao('frota.usar'),
+  upload.fields([
+    { name: 'assinatura', maxCount: 1 },
+    { name: 'fotos', maxCount: 10 },
+  ]),
+  async (req, res, next) => {
+    try {
+      const idUsuario = req.user.sub;
+      const assinaturaFile = req.files?.assinatura?.[0];
+      const fotosFiles = req.files?.fotos || [];
+      if (!assinaturaFile) return res.status(400).json({ error: 'Assinatura digital obrigatória' });
+      if (!fotosFiles.length) return res.status(400).json({ error: 'Envie ao menos uma foto dos equipamentos' });
+
+      const { rows: existente } = await pool.query(
+        `SELECT id_termo FROM frota_termos_ferramentas
+         WHERE id_usuario = $1 AND termo_versao = $2 LIMIT 1`,
+        [idUsuario, TERMO_FERRAMENTAS_VERSAO],
+      );
+      if (existente.length) {
+        return res.status(409).json({ error: 'Termo já assinado para a versão atual' });
+      }
+
+      const { rows: termoInsert } = await pool.query(
+        `INSERT INTO frota_termos_ferramentas (id_usuario, assinatura_url, termo_versao)
+         VALUES ($1, $2, $3)
+         RETURNING id_termo`,
+        [idUsuario, 'pendente', TERMO_FERRAMENTAS_VERSAO],
+      );
+      const idTermo = termoInsert[0].id_termo;
+
+      const assinaturaAnexo = await salvarAnexo({
+        contexto: 'termo_assinatura',
+        idReferencia: idTermo,
+        idUsuario,
+        file: assinaturaFile,
+        nome: 'assinatura',
+      });
+
+      await pool.query(`UPDATE frota_termos_ferramentas SET assinatura_url = $1 WHERE id_termo = $2`, [
+        midiaUrlFrota(assinaturaAnexo.id_anexo),
+        idTermo,
+      ]);
+
+      for (const file of fotosFiles) {
+        const anexo = await salvarAnexo({
+          contexto: 'termo_foto',
+          idReferencia: idTermo,
+          idUsuario,
+          file,
+        });
+        await pool.query(
+          `INSERT INTO frota_termo_fotos (id_termo, id_anexo) VALUES ($1, $2)`,
+          [idTermo, anexo.id_anexo],
+        );
+      }
+
+      res.status(201).json({ ok: true, id_termo: idTermo });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.get('/veiculos/:id/documentos', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT d.*, a.tipo_mime
+       FROM frota_documentos d
+       LEFT JOIN frota_anexos a ON a.id_anexo = d.id_anexo
+       WHERE d.id_veiculo = $1
+       ORDER BY d.created_at DESC`,
+      [idVeiculo],
+    );
+    res.json(
+      rows.map((d) => ({
+        ...d,
+        valor: d.valor != null ? Number(d.valor) : null,
+        media_url: d.id_anexo ? midiaUrlFrota(d.id_anexo) : null,
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post(
+  '/veiculos/:id/documentos',
+  requirePermissao('frota.usar'),
+  upload.single('arquivo'),
+  async (req, res, next) => {
+    try {
+      const idVeiculo = Number(req.params.id);
+      const idUsuario = req.user.sub;
+      const { tipo, titulo, data_vencimento, valor, observacao } = req.body || {};
+      if (!tipo?.trim() || !titulo?.trim()) {
+        return res.status(400).json({ error: 'Informe tipo e título' });
+      }
+
+      const veiculo = await veiculoDoUsuario(idUsuario);
+      const podeGerenciar = req.user.permissoes?.includes('frota.gerenciar');
+      if (!podeGerenciar && (!veiculo || veiculo.id_veiculo !== idVeiculo)) {
+        return res.status(403).json({ error: 'Sem permissão para este veículo' });
+      }
+
+      const { rows: docInsert } = await pool.query(
+        `INSERT INTO frota_documentos (id_veiculo, tipo, titulo, data_vencimento, valor, observacao, id_usuario)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id_documento`,
+        [
+          idVeiculo,
+          tipo.trim(),
+          titulo.trim(),
+          data_vencimento || null,
+          valor != null ? Number(String(valor).replace(',', '.')) : null,
+          observacao || null,
+          idUsuario,
+        ],
+      );
+
+      let idAnexo = null;
+      if (req.file) {
+        const anexo = await salvarAnexo({
+          contexto: 'documento',
+          idReferencia: docInsert[0].id_documento,
+          idUsuario,
+          file: req.file,
+        });
+        idAnexo = anexo.id_anexo;
+        await pool.query(`UPDATE frota_documentos SET id_anexo = $1 WHERE id_documento = $2`, [
+          idAnexo,
+          docInsert[0].id_documento,
+        ]);
+      }
+
+      res.status(201).json({
+        id_documento: docInsert[0].id_documento,
+        media_url: idAnexo ? midiaUrlFrota(idAnexo) : null,
+      });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.post(
+  '/veiculos/:id/manutencoes',
+  requirePermissao('frota.usar'),
+  upload.single('comprovante'),
+  async (req, res, next) => {
+    try {
+      const idVeiculo = Number(req.params.id);
+      const idUsuario = req.user.sub;
+      const { descricao, km, valor, data_manutencao, proxima_manutencao } = req.body || {};
+      if (!descricao?.trim()) return res.status(400).json({ error: 'Informe a descrição da manutenção' });
+
+      const veiculo = await veiculoDoUsuario(idUsuario);
+      if (!veiculo || veiculo.id_veiculo !== idVeiculo) {
+        return res.status(403).json({ error: 'Assuma o controle deste veículo' });
+      }
+
+      const { rows } = await pool.query(
+        `INSERT INTO frota_manutencoes_veiculo
+         (id_veiculo, id_usuario, descricao, km, valor, data_manutencao, proxima_manutencao)
+         VALUES ($1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE), $7)
+         RETURNING id_manutencao`,
+        [
+          idVeiculo,
+          idUsuario,
+          descricao.trim(),
+          km != null ? Number(km) : null,
+          valor != null ? Number(String(valor).replace(',', '.')) : null,
+          data_manutencao || null,
+          proxima_manutencao || null,
+        ],
+      );
+
+      let mediaUrl = null;
+      if (req.file) {
+        const anexo = await salvarAnexo({
+          contexto: 'manutencao_veiculo',
+          idReferencia: rows[0].id_manutencao,
+          idUsuario,
+          file: req.file,
+        });
+        await pool.query(`UPDATE frota_manutencoes_veiculo SET id_anexo = $1 WHERE id_manutencao = $2`, [
+          anexo.id_anexo,
+          rows[0].id_manutencao,
+        ]);
+        mediaUrl = midiaUrlFrota(anexo.id_anexo);
+      }
+
+      res.status(201).json({ id_manutencao: rows[0].id_manutencao, media_url: mediaUrl });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.post('/posicao', requirePermissao('frota.usar', 'chamados.assumir'), async (req, res, next) => {
+  try {
+    const idUsuario = req.user.sub;
+    const lat = Number(req.body?.latitude);
+    const lng = Number(req.body?.longitude);
+    const precisao = req.body?.precisao_metros != null ? Number(req.body.precisao_metros) : null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ error: 'Coordenadas inválidas' });
+    }
+
+    await pool.query(
+      `INSERT INTO frota_tecnico_posicao (id_usuario, latitude, longitude, precisao_metros, atualizado_em)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (id_usuario) DO UPDATE SET
+         latitude = EXCLUDED.latitude,
+         longitude = EXCLUDED.longitude,
+         precisao_metros = EXCLUDED.precisao_metros,
+         atualizado_em = NOW()`,
+      [idUsuario, lat, lng, precisao],
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/anexos/:idAnexo/media', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idAnexo = Number(req.params.idAnexo);
+    const { rows } = await pool.query(
+      `SELECT arquivo_url, tipo_mime FROM frota_anexos WHERE id_anexo = $1`,
+      [idAnexo],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Anexo não encontrado' });
+
+    const buffer = decryptAnexo(rows[0].arquivo_url);
+    res.setHeader('Content-Type', rows[0].tipo_mime || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buffer);
+  } catch (e) {
+    next(e);
+  }
+});
+
+export default router;

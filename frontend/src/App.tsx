@@ -23,6 +23,10 @@ import ManutencaoAprovacaoDetalhePage from './pages/manutencao/ManutencaoAprovac
 import ChamadosMobileHistoricoPage from './pages/manutencao/ChamadosMobileHistoricoPage';
 import ChamadosMobileNovoPage from './pages/manutencao/ChamadosMobileNovoPage';
 import ChamadosMobileDetalhePage from './pages/manutencao/ChamadosMobileDetalhePage';
+import FrotaMobileHubPage from './pages/frota/FrotaMobileHubPage';
+import FrotaAbastecimentoPage from './pages/frota/FrotaAbastecimentoPage';
+import FrotaTermoPage from './pages/frota/FrotaTermoPage';
+import FrotaVeiculoPage from './pages/frota/FrotaVeiculoPage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -33,6 +37,7 @@ import ChecklistPerguntasPage from './pages/configuracoes/ChecklistPerguntasPage
 import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
 import RotaPermissao from './components/RotaPermissao';
 import RotaChecklist from './components/RotaChecklist';
+import RotaFrota from './components/RotaFrota';
 import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
 
@@ -70,6 +75,38 @@ export default function App() {
                 <RotaChecklist mobile>
                   <ChecklistPage />
                 </RotaChecklist>
+              }
+            />
+            <Route
+              path="frota/mobile/abastecimento"
+              element={
+                <RotaFrota>
+                  <FrotaAbastecimentoPage />
+                </RotaFrota>
+              }
+            />
+            <Route
+              path="frota/mobile/termo"
+              element={
+                <RotaFrota>
+                  <FrotaTermoPage />
+                </RotaFrota>
+              }
+            />
+            <Route
+              path="frota/mobile/veiculo"
+              element={
+                <RotaFrota>
+                  <FrotaVeiculoPage />
+                </RotaFrota>
+              }
+            />
+            <Route
+              path="frota/mobile"
+              element={
+                <RotaFrota>
+                  <FrotaMobileHubPage />
+                </RotaFrota>
               }
             />
           </Route>

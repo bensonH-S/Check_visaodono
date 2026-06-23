@@ -355,6 +355,69 @@ export const api = {
     }
     return res.json();
   },
+  frotaResumo: () => request<FrotaResumoMobile>('/frota/mobile/resumo'),
+  frotaVeiculos: () => request<FrotaVeiculo[]>('/frota/veiculos'),
+  frotaAssumirVeiculo: (body: { id_veiculo: number; km_atual?: number }) =>
+    request<{ ok: boolean; veiculo: FrotaVeiculo | null }>('/frota/me/assumir', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  frotaTermo: () => request<FrotaTermoInfo>('/frota/termo'),
+  frotaEnviarAbastecimento: async (formData: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/frota/abastecimentos`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao registrar abastecimento');
+    }
+    return res.json();
+  },
+  frotaEnviarTermo: async (formData: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/frota/termo`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao registrar termo');
+    }
+    return res.json();
+  },
+  frotaDocumentos: (idVeiculo: number) => request<FrotaDocumento[]>(`/frota/veiculos/${idVeiculo}/documentos`),
+  frotaEnviarDocumento: async (idVeiculo: number, formData: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/frota/veiculos/${idVeiculo}/documentos`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao enviar documento');
+    }
+    return res.json();
+  },
+  frotaEnviarManutencaoVeiculo: async (idVeiculo: number, formData: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/frota/veiculos/${idVeiculo}/manutencoes`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao registrar manutenção');
+    }
+    return res.json();
+  },
+  frotaAtualizarPosicao: (body: { latitude: number; longitude: number; precisao_metros?: number }) =>
+    request<{ ok: boolean }>('/frota/posicao', { method: 'POST', body: JSON.stringify(body) }),
 };
 
 export interface Loja {
@@ -640,6 +703,53 @@ export interface ManutLoja {
 export interface ManutFormulario {
   categorias: ManutCategoria[];
   lojas: ManutLoja[];
+}
+
+export interface FrotaVeiculo {
+  id_veiculo: number;
+  placa: string;
+  marca: string | null;
+  modelo: string | null;
+  ano: number | null;
+  cor: string | null;
+  km_atual: number | null;
+  assuncao_em: string | null;
+  nome_responsavel?: string | null;
+  id_usuario_responsavel?: number | null;
+}
+
+export interface FrotaAbastecimentoResumo {
+  id_abastecimento: number;
+  km_atual: number;
+  valor_abastecido: number;
+  data_abastecimento: string;
+  comprovante_url: string | null;
+}
+
+export interface FrotaResumoMobile {
+  veiculo: FrotaVeiculo | null;
+  termo: { versao: string; assinado: boolean; assinado_em: string | null };
+  abastecimentos: FrotaAbastecimentoResumo[];
+}
+
+export interface FrotaTermoInfo {
+  versao: string;
+  empresa: typeof import('../config/empresa').EMPRESA_TERMO;
+  texto: string;
+  assinado: boolean;
+  assinado_em: string | null;
+}
+
+export interface FrotaDocumento {
+  id_documento: number;
+  id_veiculo: number;
+  tipo: string;
+  titulo: string;
+  data_vencimento: string | null;
+  valor: number | null;
+  observacao: string | null;
+  media_url: string | null;
+  created_at: string;
 }
 
 export interface HistoricoAprovacaoItem {

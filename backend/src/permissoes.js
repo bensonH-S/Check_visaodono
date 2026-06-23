@@ -14,6 +14,8 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'usuarios.listar', nome: 'Listar usuários (ex.: escolher auditor no checklist)', grupo: 'Usuários', ordem: 110 },
   { codigo: 'usuarios.gerenciar', nome: 'Gerenciar usuários e permissões', grupo: 'Usuários', ordem: 120 },
   { codigo: 'lojas.todas', nome: 'Acesso a todas as lojas', grupo: 'Lojas', ordem: 130 },
+  { codigo: 'frota.usar', nome: 'Usar módulo de frota no app mobile', grupo: 'Frota', ordem: 140 },
+  { codigo: 'frota.gerenciar', nome: 'Cadastrar veículos e gerenciar frota', grupo: 'Frota', ordem: 145 },
 ];
 
 const PERMISSOES_DASHBOARD = new Set([

@@ -121,6 +121,16 @@ export function podeUsarChecklist(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
+const CARGOS_FROTA = new Set(['tecnico', 'regional', 'supervisor_regional', 'coordenador']);
+
+export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (temPermissao('frota.usar', u) || temPermissao('frota.gerenciar', u)) return true;
+  const codigo = (u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  return CARGOS_FROTA.has(codigo);
+}
+
 export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   return !!u && u.perfil !== 'tecnico';
