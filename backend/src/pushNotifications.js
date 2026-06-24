@@ -1,6 +1,7 @@
 import { pool } from './db.js';
 import { logger } from './logger.js';
 import { tipoVisivelPushUsuario, urlPushChamado, tipoEnviaPush } from './notificacoesFiltro.js';
+import { tituloNotificacaoOps } from './textosNotificacaoChamado.js';
 import {
   normalizarVapidSubject,
   validarVapidPrivateKey,
@@ -143,9 +144,8 @@ export function montarTituloPush({ tipo, mensagem, numero, loja }) {
     case 'recusa_aprovacao':
       return `Orçamento do chamado #${num} - Não Aprovado`;
     case 'assumido':
-      return `Chamado atribuído #${num}`;
     case 'chamado_urgente_regiao':
-      return `Novo chamado urgente #${num}`;
+      return tituloNotificacaoOps(tipo, { numero: num, loja, mensagem });
     case 'reabertura':
       return `Chamado #${num} - Reaberto`;
     default:

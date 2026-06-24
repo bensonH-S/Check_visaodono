@@ -46,7 +46,7 @@ export function tituloNotificacaoChamado(
 
   if (contexto === 'chamados' || contexto === 'chamados-mobile') {
     if (tipo === 'assumido' || tipo === 'chamado_urgente_regiao') {
-      return tituloAlertaChamadoOps(tipo, num);
+      return tituloAlertaChamadoOps(tipo, num, { loja: n.loja, mensagem: n.mensagem });
     }
     return '';
   }
@@ -54,7 +54,7 @@ export function tituloNotificacaoChamado(
   switch (tipo) {
     case 'assumido':
     case 'chamado_urgente_regiao':
-      return tituloAlertaChamadoOps(tipo, num);
+      return tituloAlertaChamadoOps(tipo, num, { loja: n.loja, mensagem: n.mensagem });
     case 'resposta':
       return `Nova Mensagem Chamado #${num}`;
     case 'fechamento':

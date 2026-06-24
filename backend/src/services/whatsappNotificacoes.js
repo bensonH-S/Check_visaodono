@@ -1,5 +1,6 @@
 import { pool } from '../db.js';
 import { tipoEnviaPush } from '../notificacoesFiltro.js';
+import { tituloNotificacaoOps } from '../textosNotificacaoChamado.js';
 import { normalizarTelefoneBr } from '../utils/telefone.js';
 import { enviarMensagemWpp, wppEnabled } from './wppClient.js';
 import { carregarCredenciaisWpp } from './wppSession.js';
@@ -44,7 +45,10 @@ async function eventoWhatsAppAtivo(tipo) {
   }
 }
 
-function tituloPorTipo(tipo, numero) {
+function tituloPorTipo(tipo, numero, mensagem, loja) {
+  if (tipo === 'assumido' || tipo === 'chamado_urgente_regiao') {
+    return tituloNotificacaoOps(tipo, { numero, loja, mensagem });
+  }
   switch (tipo) {
     case 'novo_chamado':
       return `Novo chamado #${numero}`;
@@ -52,10 +56,6 @@ function tituloPorTipo(tipo, numero) {
       return `Nova mensagem no chamado #${numero}`;
     case 'anexo':
       return `Novo anexo no chamado #${numero}`;
-    case 'assumido':
-      return `Chamado atribuído #${numero}`;
-    case 'chamado_urgente_regiao':
-      return `Novo chamado urgente #${numero}`;
     case 'fechamento':
       return `Chamado #${numero} encerrado`;
     case 'reabertura':
@@ -87,11 +87,12 @@ function montarLink(idChamado, tipo, podeAprovar) {
   return `${base}${path}`;
 }
 
-function montarMensagemWhatsApp({ tipo, numero, mensagem, link }) {
-  const titulo = tituloPorTipo(tipo, numero);
+function montarMensagemWhatsApp({ tipo, numero, mensagem, link, loja }) {
+  const titulo = tituloPorTipo(tipo, numero, mensagem, loja);
   const linhas = ['🔔 *Vision Check*', titulo, ''];
   const corpo = String(mensagem || '').trim();
-  if (corpo) linhas.push(corpo, '');
+  const ops = tipo === 'assumido' || tipo === 'chamado_urgente_regiao';
+  if (corpo && !(ops && corpo === titulo)) linhas.push(corpo, '');
   if (link) linhas.push(`👉 Abrir: ${link}`);
   return linhas.join('\n').trim();
 }
@@ -126,13 +127,17 @@ export async function dispatchWhatsAppNotificacao({ idUsuario, idChamado, tipo, 
   if (!telefone) return false;
 
   const { rows: chamados } = await pool.query(
-    'SELECT numero FROM manut_chamados WHERE id_chamado = $1',
+    `SELECT c.numero, l.name AS loja
+     FROM manut_chamados c
+     LEFT JOIN lojas l ON l.id_loja = c.id_loja
+     WHERE c.id_chamado = $1`,
     [cid],
   );
   const numero = chamados[0]?.numero ?? cid;
+  const loja = chamados[0]?.loja ?? null;
 
   const link = montarLink(cid, tipo, !!u.pode_aprovar);
-  const texto = montarMensagemWhatsApp({ tipo, numero, mensagem, link });
+  const texto = montarMensagemWhatsApp({ tipo, numero, mensagem, link, loja });
 
   const cred = await carregarCredenciaisWpp();
   if (!cred?.token) {

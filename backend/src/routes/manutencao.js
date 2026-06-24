@@ -18,6 +18,7 @@ import {
   midiaUrlAnexo,
 } from '../fotos.js';
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
+import { mensagemChamadoAtribuido } from '../textosNotificacaoChamado.js';
 import { processarChamadoUrgenteRegiao, coletarDestinatariosRegiaoLoja } from '../services/chamadoRegiaoUrgente.js';
 
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
@@ -329,7 +330,7 @@ async function notificarAssumidoChamado(idChamado, idTecnico, idAutorAcao, tecni
     for (const id of regiao) destinatarios.add(id);
   }
 
-  const msgGeral = `Chamado #${numero} atribuído a ${tecnicoNome}.`;
+  const msgGeral = mensagemChamadoAtribuido(numero, tecnicoNome);
 
   for (const idUsuario of destinatarios) {
     if (!Number.isFinite(idUsuario) || idUsuario === idTec) continue;
@@ -348,7 +349,7 @@ async function notificarAssumidoChamado(idChamado, idTecnico, idAutorAcao, tecni
       idUsuario: idTec,
       idChamado,
       tipo: 'assumido',
-      mensagem: `Chamado #${numero} foi atribuído a você`,
+      mensagem: mensagemChamadoAtribuido(numero, null, { paraVoce: true }),
       enviarPush: true,
     });
     if (ok) enviadas += 1;

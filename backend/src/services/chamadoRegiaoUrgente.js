@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { mensagemChamadoAtribuido, mensagemUrgenteRegiao } from '../textosNotificacaoChamado.js';
 import { distanciaKm } from '../utils/geo.js';
 import { obterCoordenadasLoja } from './geocodificarLoja.js';
 
@@ -136,8 +137,7 @@ export async function processarChamadoUrgenteRegiao({
     return { processado: false, motivo: 'sem_destinatarios' };
   }
 
-  const urgLabel = String(urgencia).toLowerCase() === 'critica' ? 'CRÍTICA' : 'ALTA';
-  const msgUrgente = `Chamado #${numero} — urgência ${urgLabel} em ${nomeLoja}. Verifique imediatamente.`;
+  const msgUrgente = mensagemUrgenteRegiao(numero, nomeLoja);
 
   for (const idUsuario of destinatarios) {
     await criarNotificacao({
@@ -176,7 +176,7 @@ export async function processarChamadoUrgenteRegiao({
     return { processado: true, atribuido: false, motivo: 'ja_atribuido' };
   }
 
-  const msgAtribuido = `Chamado #${numero} atribuído a ${tecnicoProximo.nome}.`;
+  const msgAtribuido = mensagemChamadoAtribuido(numero, tecnicoProximo.nome);
 
   const destinatariosAtribuicao = new Set(destinatarios);
   destinatariosAtribuicao.add(Number(tecnicoProximo.id_usuario));
