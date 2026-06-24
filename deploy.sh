@@ -71,6 +71,24 @@ remover_container() {
   docker rm "$name" 2>/dev/null || true
 }
 
+# docker-compose 1.29 deixa containers «396f02d1b082_vision-check-wpp» após recreate falho
+limpar_containers_residuals() {
+  local padrao="$1"
+  local name
+  while IFS= read -r name; do
+    [ -z "$name" ] && continue
+    echo "Removendo container residual «${name}»..."
+    docker rm -f "$name" 2>/dev/null || true
+  done < <(docker ps -a --format '{{.Names}}' | grep -E "$padrao" || true)
+}
+
+compose_build_up() {
+  local servico="$1"
+  compose_cmd build "$servico"
+  # Nunca «up --build» no compose v1 — recria container antigo e quebra (ContainerConfig)
+  compose_cmd up -d --no-recreate "$servico"
+}
+
 garantir_wppconnect_rodando() {
   if container_rodando "$WPP_CONTAINER_NAME"; then
     echo "wppconnect já em execução — nenhuma alteração."
@@ -83,15 +101,21 @@ garantir_wppconnect_rodando() {
     return 0
   fi
 
-  echo "Primeira instalação do wppconnect (pode levar vários minutos)..."
-  compose_cmd up -d --build wppconnect
+  # Órfãos de deploy falho impedem detecção do nome correto
+  if docker ps -a --format '{{.Names}}' | grep -q 'vision-check-wpp'; then
+    echo "Limpando containers wpp residuais de deploy anterior..."
+    limpar_containers_residuals 'vision-check-wpp'
+  fi
+
+  echo "Instalando wppconnect (build usa cache se já existir)..."
+  compose_build_up wppconnect
 }
 
 subir_wppconnect() {
   if [ "${DEPLOY_REBUILD_WPP:-}" = "1" ]; then
     echo "Reconstruindo wppconnect (DEPLOY_REBUILD_WPP=1)..."
-    remover_container "$WPP_CONTAINER_NAME"
-    compose_cmd up -d --build wppconnect
+    limpar_containers_residuals 'vision-check-wpp'
+    compose_build_up wppconnect
     return
   fi
 
@@ -100,18 +124,10 @@ subir_wppconnect() {
 
 subir_app() {
   remover_container_legado "$CONTAINER_NAME"
+  limpar_containers_residuals '(^|_)vision-check$'
 
   echo "Construindo imagem do app (Meridian)..."
-  compose_cmd build app
-
-  if container_existe "$CONTAINER_NAME"; then
-    echo "Substituindo container do app..."
-    remover_container "$CONTAINER_NAME"
-  fi
-
-  echo "Subindo app..."
-  # --no-recreate evita bug do docker-compose 1.29 (KeyError: ContainerConfig) ao recriar
-  compose_cmd up -d --no-recreate app
+  compose_build_up app
 }
 
 echo "Atualizando tags..."
@@ -193,6 +209,9 @@ export GIT_TAG="${TAG}"
 echo ""
 echo "Deploy porta ${APP_PORT} — wppconnect + app Meridian"
 echo "(Para forçar rebuild do WhatsApp: DEPLOY_REBUILD_WPP=1 ./deploy.sh)"
+if ! docker compose version >/dev/null 2>&1; then
+  echo "AVISO: usando docker-compose legado (1.x). Recomendado: apt install docker-compose-plugin"
+fi
 echo ""
 
 subir_wppconnect

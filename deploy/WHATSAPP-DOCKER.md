@@ -93,12 +93,19 @@ docker compose build app && docker rm -f vision-check && docker compose up -d --
 
 ### Erro `KeyError: ContainerConfig` no deploy
 
-Ocorre com **docker-compose 1.29** (legado) ao *recriar* containers. O `deploy.sh` atual evita isso:
+Ocorre com **docker-compose 1.29** ao *recriar* containers (ex.: `396f02d1b082_vision-check-wpp`).
 
-- wppconnect rodando → não mexe
-- app → remove e cria de novo com `--no-recreate`
+**Correção imediata no servidor:**
 
-Recomendado no servidor: `sudo apt-get install -y docker-compose-plugin` e usar `docker compose` (v2).
+```bash
+docker rm -f $(docker ps -a --format '{{.Names}}' | grep vision-check-wpp) 2>/dev/null || true
+docker rm -f vision-check 2>/dev/null || true
+./deploy.sh
+```
+
+O `deploy.sh` atual remove órfãos antes de subir e usa `build` + `up --no-recreate`.
+
+Recomendado: `sudo apt-get install -y docker-compose-plugin` → `docker compose` (v2).
 
 ---
 
