@@ -10,6 +10,7 @@ import {
   pushDisponivelNoAmbiente,
   recarregarParaAtivarServiceWorker,
   registrarServiceWorkerNoClique,
+  reiniciarServiceWorkerPwa,
 } from '../pwa/registerServiceWorker';
 import { showToast } from './toast';
 import { APP_NAME } from '../config/brand';
@@ -77,6 +78,20 @@ async function logPushDiagnostico(mensagem: string, extra?: Record<string, unkno
   } catch {
     /* ignore */
   }
+}
+
+function erroPushService(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /push service error|aborterror/i.test(msg);
+}
+
+async function logInscricaoFalhou(erro: unknown, publicKey?: string | null) {
+  await logPushDiagnostico('inscricao_falhou', {
+    erro: erro instanceof Error ? erro.message : String(erro),
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+    android: isAndroid(),
+    vapidLen: publicKey?.length ?? null,
+  });
 }
 
 function emitirPushAtualizado() {
@@ -470,6 +485,28 @@ async function subscribePushManager(
   throw ultimoErro;
 }
 
+async function inscreverNoPushComRecuperacaoAndroid(
+  registration: ServiceWorkerRegistration,
+  publicKey: string,
+  permitirReinicioSw: boolean,
+): Promise<ResultadoPushRegistro> {
+  try {
+    return await inscreverNoPush(registration, publicKey);
+  } catch (e) {
+    if (!permitirReinicioSw || !isAndroid() || !erroPushService(e)) throw e;
+
+    await logPushDiagnostico('inscricao_reiniciando_sw_android');
+    const novoReg = await reiniciarServiceWorkerPwa();
+    if (!novoReg?.pushManager) throw e;
+
+    const pronto = await obterRegistroServiceWorker(20000);
+    if (!pronto?.pushManager) throw e;
+
+    await aguardar(1200);
+    return inscreverNoPush(pronto, publicKey);
+  }
+}
+
 async function inscreverNoPush(
   registration: ServiceWorkerRegistration,
   publicKey: string,
@@ -561,10 +598,10 @@ async function registrarPushCompleto(forcar = false): Promise<ResultadoPushRegis
   }
 
   try {
-    return await inscreverNoPush(registration, publicKey);
+    return await inscreverNoPushComRecuperacaoAndroid(registration, publicKey, true);
   } catch (e) {
     limparPushRegistradoLocal();
-    await logPushDiagnostico('inscricao_falhou', { erro: e instanceof Error ? e.message : String(e) });
+    await logInscricaoFalhou(e, publicKey);
     return mapearErroInscricao(e);
   }
 }
@@ -682,15 +719,10 @@ async function ativarNotificacoesNoCliqueInterno(): Promise<ResultadoPushRegistr
   pushAtivoCompleto = false;
 
   try {
-    return await inscreverNoPush(registration, publicKey);
+    return await inscreverNoPushComRecuperacaoAndroid(registration, publicKey, true);
   } catch (e) {
     limparPushRegistradoLocal();
-    await logPushDiagnostico('inscricao_falhou', {
-      erro: e instanceof Error ? e.message : String(e),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-      android: isAndroid(),
-      vapidLen: publicKey.length,
-    });
+    await logInscricaoFalhou(e, publicKey);
     return mapearErroInscricao(e);
   }
 }

@@ -19,6 +19,7 @@ function idUsuario(req) {
 
 router.get('/status', async (req, res) => {
   try {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     const uid = idUsuario(req);
     if (!uid) return res.status(401).json({ error: 'Não autenticado' });
     const subscriptionCount = await contarPushUsuario(uid);

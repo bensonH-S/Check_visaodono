@@ -94,7 +94,7 @@ const authRouter = (await import('./backend/src/routes/auth.js')).default;
 const manutencaoRouter = (await import('./backend/src/routes/manutencao.js')).default;
 const cargosRouter = (await import('./backend/src/routes/cargos.js')).default;
 const pushRouter = (await import('./backend/src/routes/push.js')).default;
-const { initPushNotifications, getVapidPublicKey } = await import('./backend/src/pushNotifications.js');
+const { initPushNotifications, getVapidPublicKey, obterSaudeVapidPublica } = await import('./backend/src/pushNotifications.js');
 const { gpsTecnicosConfigPublica } = await import('./backend/src/gpsTecnicos.js');
 const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
 const frotaRouter = (await import('./backend/src/routes/frota.js')).default;
@@ -137,6 +137,7 @@ api.get('/health', async (_req, res) => {
 });
 
 api.get('/public/config', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.json({
     version: APP_VERSION,
     environment: isProd ? (process.env.APP_ENV || 'Production') : 'Development',
@@ -146,6 +147,7 @@ api.get('/public/config', (_req, res) => {
       email: process.env.SUPPORT_EMAIL || 'benson.henrique@grupoalvim.com.br',
     },
     pushEnabled: Boolean(getVapidPublicKey()),
+    push: obterSaudeVapidPublica(),
     ...gpsTecnicosConfigPublica(),
   });
 });
@@ -161,6 +163,11 @@ api.get('/public/push/vapid-key', (_req, res) => {
   res.json({ publicKey });
 });
 
+api.get('/public/push/health', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.json(obterSaudeVapidPublica());
+});
+
 /** Log do service worker quando push chega com app fechado (sem auth). */
 api.post('/public/push/sw-event', (req, res) => {
   const evento = String(req.body?.event || 'push_recebido');
@@ -173,6 +180,14 @@ api.post('/public/push/sw-event', (req, res) => {
 });
 
 api.use('/auth', authRouter);
+
+/** Rotas /public/* nunca exigem login (mesmo se registradas depois por engano). */
+api.use((req, res, next) => {
+  if (req.path === '/public' || req.path.startsWith('/public/')) {
+    return res.status(404).json({ error: 'Rota pública não encontrada' });
+  }
+  next();
+});
 
 api.use(authMiddleware);
 api.use(attachPermissoesUsuario);

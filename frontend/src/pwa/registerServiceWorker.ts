@@ -233,6 +233,27 @@ export function limparFlagRecargaServiceWorker() {
   }
 }
 
+/** Remove SW e inscrições push locais — último recurso no Android quando FCM falha. */
+export async function reiniciarServiceWorkerPwa(): Promise<ServiceWorkerRegistration | null> {
+  if (!pwaHabilitado() || !('serviceWorker' in navigator)) return null;
+
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  for (const reg of registrations) {
+    if ('pushManager' in reg) {
+      const sub = await reg.pushManager.getSubscription().catch(() => null);
+      if (sub) await sub.unsubscribe().catch(() => {});
+    }
+    await reg.unregister().catch(() => {});
+  }
+
+  registroResolvido = null;
+  registroPromise = null;
+  registroIniciado = false;
+
+  await aguardar(1800);
+  return registrarServiceWorkerNoClique();
+}
+
 async function executarRegistroServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!pwaHabilitado()) return null;
   try {

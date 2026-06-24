@@ -73,6 +73,23 @@ export function vapidConfiguradoCorretamente() {
   return Boolean(vapidPublicKeyValidada && vapidPrivateKeyValidada && pushAtivo);
 }
 
+export function obterSaudeVapidPublica() {
+  const pub = validarVapidPublicKey(process.env.VAPID_PUBLIC_KEY);
+  const priv = validarVapidPrivateKey(process.env.VAPID_PRIVATE_KEY);
+  const key = pub.key || '';
+  return {
+    pushEnabled: Boolean(pub.ok && priv.ok),
+    vapidPublicaOk: pub.ok,
+    vapidPrivadaOk: priv.ok,
+    vapidAtivo: vapidConfiguradoCorretamente(),
+    vapidFingerprint: key ? key.slice(0, 8) : null,
+    vapidLen: key.length || null,
+    subject: vapidSubject || normalizarVapidSubject(process.env.VAPID_SUBJECT),
+    motivoPublica: pub.ok ? null : pub.reason,
+    motivoPrivada: priv.ok ? null : priv.reason,
+  };
+}
+
 let _tabelaPushOk;
 
 async function ensurePushSubscriptionsTable() {
