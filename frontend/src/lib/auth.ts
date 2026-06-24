@@ -167,3 +167,10 @@ export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean 
 export function usaFluxoMobileApp(usuario?: UsuarioSessao | null): boolean {
   return usaFluxoChamadosMobile(usuario);
 }
+
+/** Técnicos de campo cujo GPS deve ser rastreado (portal ou app mobile). */
+export function deveRastrearGpsTecnico(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  return u.perfil === 'tecnico' || temPermissao('chamados.assumir', u);
+}

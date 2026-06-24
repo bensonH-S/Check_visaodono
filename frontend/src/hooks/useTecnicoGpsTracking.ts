@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { api } from '../api/client';
-import { getUsuario } from '../lib/auth';
-import { obterPosicaoAtual, geolocalizacaoDisponivel } from '../utils/geolocation';
+import { deveRastrearGpsTecnico, getUsuario } from '../lib/auth';
+import {
+  GPS_ATUALIZADO_EVENT,
+  geolocalizacaoDisponivel,
+  obterPosicaoAtual,
+} from '../utils/geolocation';
 
 type GpsConfig = {
   gpsTecnicosEnabled?: boolean;
@@ -19,7 +23,7 @@ export function useTecnicoGpsTracking(config?: GpsConfig) {
   const enviarPosicao = useCallback(async () => {
     if (enviando.current || !config?.gpsTecnicosEnabled) return;
     const user = getUsuario();
-    if (!user || user.perfil !== 'tecnico') return;
+    if (!deveRastrearGpsTecnico(user)) return;
     if (!geolocalizacaoDisponivel()) return;
 
     enviando.current = true;
@@ -30,8 +34,9 @@ export function useTecnicoGpsTracking(config?: GpsConfig) {
         longitude: pos.longitude,
         precisao_metros: pos.precisao_metros ?? undefined,
       });
+      window.dispatchEvent(new Event(GPS_ATUALIZADO_EVENT));
     } catch {
-      /* silencioso — não interrompe o técnico */
+      window.dispatchEvent(new Event(GPS_ATUALIZADO_EVENT));
     } finally {
       enviando.current = false;
     }
@@ -39,8 +44,7 @@ export function useTecnicoGpsTracking(config?: GpsConfig) {
 
   useEffect(() => {
     if (!config?.gpsTecnicosEnabled) return;
-    const user = getUsuario();
-    if (!user || user.perfil !== 'tecnico') return;
+    if (!deveRastrearGpsTecnico(getUsuario())) return;
 
     void enviarPosicao();
     const ms = config.gpsTecnicosIntervalMs && config.gpsTecnicosIntervalMs >= 30_000

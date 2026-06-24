@@ -20,6 +20,9 @@ import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { toAppPath } from '../config/paths';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, type UsuarioSessao } from '../lib/auth';
+import { useAppConfig } from '../hooks/useAppConfig';
+import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
+import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
@@ -218,6 +221,8 @@ function ChamadosMobileLayoutInner() {
   const location = useLocation();
   const path = toAppPath(location.pathname);
   const user = getUsuario();
+  const appConfig = useAppConfig();
+  useTecnicoGpsTracking(appConfig);
   const { idLoja } = useChamadosMobileLoja();
   const isNovo = Boolean(useMatch('/chamados/mobile/novo')) || path === '/chamados/mobile/novo';
   const isDetalhe = Boolean(useMatch('/chamados/mobile/:idChamado'));
@@ -384,6 +389,7 @@ function ChamadosMobileLayoutInner() {
             </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+            <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
             <AtivarPushHeaderButton />
             <SobreSistemaButton variante="mobile" />
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" idLoja={idLoja} />

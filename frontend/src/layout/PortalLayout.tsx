@@ -23,6 +23,7 @@ import { showToast } from '../utils/toast';
 import NotificacoesSino from '../components/NotificacoesSino';
 import SobreSistemaButton from '../components/SobreSistemaButton';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
+import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import AppFooter from '../components/AppFooter';
 import { colors } from '../theme/tokens';
 import { isPaginaScrollInterno } from '../utils/pageFillLayout';
@@ -200,6 +201,7 @@ export default function PortalLayout() {
             <PageHeaderTitle {...pageTitle} variant="mobile" />
           </Box>
           <SobreSistemaButton variante="portal" />
+          <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
           {isMobileLayout ? notificacoes : null}
           <IconButton size="small" aria-label="Sair" onClick={handleLogout} sx={{ color: colors.textSecondary }}>
             <LogoutIcon sx={{ fontSize: 18 }} />
