@@ -19,7 +19,8 @@ import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { toAppPath } from '../config/paths';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, type UsuarioSessao } from '../lib/auth';
+import HistoryIcon from '@mui/icons-material/History';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegioesAtuacao, type UsuarioSessao } from '../lib/auth';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
@@ -39,6 +40,37 @@ const TAB_NAV_H = 52;
 
 function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
   return loja.nome;
+}
+
+function RegiaoAtuacaoCabecalho({ user }: { user: UsuarioSessao | null }) {
+  const rotulo = rotuloRegioesAtuacao(user);
+  if (!rotulo) return null;
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 0.75,
+        width: '100%',
+        textAlign: 'center',
+      }}
+    >
+      <LocationOnOutlinedIcon sx={{ fontSize: { xs: 20, sm: 18 }, color: '#E8520A', flexShrink: 0 }} />
+      <Typography
+        variant="body2"
+        sx={{
+          color: NAVY,
+          fontWeight: 700,
+          fontSize: { xs: '0.9rem', sm: '0.8rem' },
+          lineHeight: 1.35,
+        }}
+      >
+        {rotulo}
+      </Typography>
+    </Box>
+  );
 }
 
 function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
@@ -231,11 +263,15 @@ function ChamadosMobileLayoutInner() {
   const isChecklistConcluido = path.startsWith('/checklist/mobile/concluido/');
   const isFrota = path === '/frota/mobile' || path.startsWith('/frota/mobile/');
   const isFrotaSub = isFrota && path !== '/frota/mobile';
-  const isSubPage = isChamadosSubPage || isFrotaSub;
+  const isVisitas = path === '/visitas/mobile';
+  const isRelatorio = path.startsWith('/relatorio/visita/');
+  const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
   const podeChecklist = user && podeUsarChecklist(user);
   const podeChamados = user && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
   const podeFrota = user && podeUsarFrota(user);
+  const podeVisitas = user && podeVerVisitasMobile(user);
+  const modoCabecalho = modoCabecalhoContextoMobile(user);
 
   const mobileTabs = [
     {
@@ -243,6 +279,12 @@ function ChamadosMobileLayoutInner() {
       label: 'Checklist',
       icon: <AssignmentIcon fontSize="small" />,
       show: !!podeChecklist,
+    },
+    {
+      to: '/visitas/mobile',
+      label: 'Visitas',
+      icon: <HistoryIcon fontSize="small" />,
+      show: !!podeVisitas,
     },
     {
       to: '/chamados/mobile',
@@ -269,6 +311,10 @@ function ChamadosMobileLayoutInner() {
         ? 'Visita concluída'
         : isChecklist
           ? 'Checklist'
+          : isVisitas
+            ? 'Visitas e relatórios'
+          : isRelatorio
+            ? 'Relatório da visita'
           : isFrotaSub
             ? path.includes('abastecimento')
               ? 'Abastecimento'
@@ -290,6 +336,10 @@ function ChamadosMobileLayoutInner() {
           ? 'Visita concluída'
           : isChecklist
             ? 'Checklist'
+            : isVisitas
+              ? 'Visitas e relatórios'
+            : isRelatorio
+              ? 'Relatório da visita'
             : isFrotaSub
               ? 'Frota'
               : isFrota
@@ -346,12 +396,15 @@ function ChamadosMobileLayoutInner() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
-            {(isChamadosSubPage || isFrotaSub) && (
+            {(isChamadosSubPage || isFrotaSub || isRelatorio) && (
               <IconButton
                 type="button"
                 size="small"
                 onClick={() =>
-                  navigate(isFrotaSub ? '/frota/mobile' : '/chamados/mobile', { replace: true })
+                  navigate(
+                    isFrotaSub ? '/frota/mobile' : isRelatorio ? '/visitas/mobile' : '/chamados/mobile',
+                    { replace: true },
+                  )
                 }
                 aria-label="Voltar"
                 sx={{ color: NAVY, ml: -0.5, flexShrink: 0 }}
@@ -392,7 +445,11 @@ function ChamadosMobileLayoutInner() {
             <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
             <AtivarPushHeaderButton />
             <SobreSistemaButton variante="mobile" />
-            <NotificacoesSino variante="mobile" contexto="chamados-mobile" idLoja={idLoja} />
+            <NotificacoesSino
+              variante="mobile"
+              contexto="chamados-mobile"
+              idLoja={filtraNotificacoesPorRegiaoMobile(user) ? null : idLoja}
+            />
             <IconButton
               size="small"
               onClick={() => {
@@ -409,7 +466,8 @@ function ChamadosMobileLayoutInner() {
         <Box sx={{ mt: isSubPage ? 0 : 1 }}>
           <PwaInstallBanner />
         </Box>
-        {!isSubPage && !isChecklist && !isFrota && (
+        {modoCabecalho && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && (
+          modoCabecalho === 'loja' || (modoCabecalho === 'regiao' && !!rotuloRegioesAtuacao(user)) ? (
           <Box
             sx={{
               mt: 1,
@@ -421,8 +479,13 @@ function ChamadosMobileLayoutInner() {
               border: '1px solid rgba(27, 42, 107, 0.08)',
             }}
           >
-            <SeletorLocalizacao user={user} />
+            {modoCabecalho === 'regiao' ? (
+              <RegiaoAtuacaoCabecalho user={user} />
+            ) : (
+              <SeletorLocalizacao user={user} />
+            )}
           </Box>
+          ) : null
         )}
       </Box>
 
@@ -433,10 +496,10 @@ function ChamadosMobileLayoutInner() {
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          ...(isChecklist || isFrota ? safeAreaX(8) : safeAreaX(16)),
-          pt: isChecklist || isFrota ? 0 : 2,
+          ...(isChecklist || isFrota || isVisitas || isRelatorio ? safeAreaX(8) : safeAreaX(16)),
+          pt: isChecklist || isFrota || isVisitas || isRelatorio ? 0 : 2,
           pb: safeAreaBottomCalc(
-            rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota ? 64 : 16),
+            rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio ? 64 : 16),
           ),
           WebkitOverflowScrolling: 'touch',
         }}
@@ -444,7 +507,7 @@ function ChamadosMobileLayoutInner() {
         <Outlet />
       </Box>
 
-      {podeAbrir && !isSubPage && !isChecklist && !isFrota && (
+      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && (
         <Fab
           color="primary"
           aria-label="Abrir novo chamado"

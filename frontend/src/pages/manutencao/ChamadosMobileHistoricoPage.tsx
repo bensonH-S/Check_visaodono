@@ -12,7 +12,7 @@ import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import { api } from '../../api/client';
 import type { ManutChamado } from '../../api/client';
-import { getUsuario, temPermissao } from '../../lib/auth';
+import { getUsuario, modoCabecalhoContextoMobile, filtraChamadosPorLojaMobile, rotuloRegioesAtuacao } from '../../lib/auth';
 import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
 import { parseDataApi } from '../../utils/dateBr';
@@ -93,17 +93,21 @@ export default function ChamadosMobileHistoricoPage() {
     recarregar();
   }, [location.state, location.pathname, navigate]);
 
+  const modoCabecalho = modoCabecalhoContextoMobile(sessao);
+  const rotuloRegiao = rotuloRegioesAtuacao(sessao);
+
   const multiplasLojas = (sessao?.lojas?.length ?? 0) > 1;
+  const filtrarPorLoja = filtraChamadosPorLojaMobile(sessao);
 
   const listaFiltrada = useMemo(() => {
-    const base =
-      multiplasLojas && idLoja != null ? lista.filter((c) => c.id_loja === idLoja) : lista;
+    const aplicarFiltroLoja = filtrarPorLoja && multiplasLojas && idLoja != null;
+    const base = aplicarFiltroLoja ? lista.filter((c) => c.id_loja === idLoja) : lista;
     return [...base].sort(
       (a, b) =>
         parseDataApi(b.aberto_em || b.prazo_sla).getTime() -
         parseDataApi(a.aberto_em || a.prazo_sla).getTime(),
     );
-  }, [lista, multiplasLojas, idLoja]);
+  }, [lista, multiplasLojas, idLoja, filtrarPorLoja]);
 
   const emAberto = useMemo(
     () => listaFiltrada.filter((c) => ABERTOS.has(c.status)),
@@ -152,7 +156,11 @@ export default function ChamadosMobileHistoricoPage() {
       >
         <Box sx={{ px: 2, pt: 2, pb: 1.5 }}>
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-            Manutenção da loja
+            {modoCabecalho === 'regiao' && rotuloRegiao
+              ? rotuloRegiao
+              : modoCabecalho === 'loja'
+                ? 'Manutenção da loja'
+                : 'Central de chamados'}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.25, mt: 0.25 }}>
             Olá, {primeiroNome(sessao?.nome)}

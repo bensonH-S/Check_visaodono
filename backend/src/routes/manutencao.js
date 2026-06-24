@@ -305,6 +305,16 @@ async function coletarDestinatariosChamado(idChamado, idAutorNum) {
              SELECT 1 FROM usuario_lojas ul
              WHERE ul.id_usuario = up.id_usuario AND ul.id_loja = $1
            )
+           OR (
+             up.codigo = 'chamados.assumir'
+             AND EXISTS (
+               SELECT 1
+               FROM frota_regiao_lojas rl
+               JOIN frota_regiao_tecnicos rt ON rt.id_regiao = rl.id_regiao
+               JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
+               WHERE rl.id_loja = $1 AND rt.id_usuario = up.id_usuario
+             )
+           )
          )`,
       [c.id_loja],
     );

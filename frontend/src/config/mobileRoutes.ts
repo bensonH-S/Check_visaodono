@@ -7,6 +7,8 @@ export function isMobileAppPath(pathname: string): boolean {
     p.startsWith('/chamados/mobile') ||
     p.startsWith('/checklist/mobile') ||
     p.startsWith('/frota/mobile') ||
+    p.startsWith('/visitas/mobile') ||
+    p.startsWith('/relatorio/visita/') ||
     p === '/login/mobile'
   );
 }

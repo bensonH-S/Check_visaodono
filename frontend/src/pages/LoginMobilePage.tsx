@@ -15,6 +15,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import BrandLogo from '../components/BrandLogo';
 import MobileLoginFooter from '../components/MobileLoginFooter';
+import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
 import { destinoPosLoginMobile, getToken, logout, setSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -321,6 +322,7 @@ export default function LoginMobilePage() {
               </Button>
             </Box>
 
+            <SupportContact compact />
           </Box>
         </Paper>
       </Box>

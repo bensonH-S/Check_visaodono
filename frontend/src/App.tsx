@@ -49,6 +49,7 @@ import RotaAuditoria from './components/RotaAuditoria';
 import RotaConfiguracoes from './components/RotaConfiguracoes';
 import RotaPermissao from './components/RotaPermissao';
 import RotaChecklist from './components/RotaChecklist';
+import RotaVisitasMobile from './components/RotaVisitasMobile';
 import RotaFrota from './components/RotaFrota';
 import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
@@ -129,6 +130,15 @@ export default function App() {
                 </RotaFrota>
               }
             />
+            <Route
+              path="visitas/mobile"
+              element={
+                <RotaVisitasMobile>
+                  <VisitasPage />
+                </RotaVisitasMobile>
+              }
+            />
+            <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
           </Route>
           <Route
             element={

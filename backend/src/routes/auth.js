@@ -2,16 +2,33 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { pool } from '../db.js';
 import { authMiddleware, signToken } from '../auth.js';
-import { carregarLojasDetalhe } from '../lojasUsuario.js';
-import { acessoTodasLojas, carregarPermissoesUsuario } from '../permissoes.js';
+import { carregarLojasDetalhe, carregarRegioesAtuacaoTecnico } from '../lojasUsuario.js';
+import { acessoTodasLojas, carregarPermissoesUsuario, temPermissao } from '../permissoes.js';
+import { tiposChecklistDoUsuario } from '../checklistTipos.js';
 import { logger } from '../logger.js';
 
 const router = Router();
 
+function precisaRegioesAtuacaoSessao(row, permissoes) {
+  const codigo = String(row.cargo_aprovacao || row.perfil || '').toLowerCase();
+  const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes, cargo_aprovacao: row.cargo_aprovacao };
+  return (
+    temPermissao(userCtx, 'chamados.assumir') ||
+    row.perfil === 'tecnico' ||
+    codigo === 'supervisor_regional'
+  );
+}
+
 async function mapUsuario(row) {
   const permissoes = await carregarPermissoesUsuario(row.id_usuario);
-  const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes };
-  const lojas = await carregarLojasDetalhe(userCtx);
+  const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes, cargo_aprovacao: row.cargo_aprovacao };
+  const [lojas, tiposChecklist, regioesAtuacao] = await Promise.all([
+    carregarLojasDetalhe(userCtx),
+    tiposChecklistDoUsuario(row.id_usuario),
+    precisaRegioesAtuacaoSessao(row, permissoes)
+      ? carregarRegioesAtuacaoTecnico(row.id_usuario)
+      : Promise.resolve([]),
+  ]);
   return {
     id_usuario: row.id_usuario,
     nome: row.nome,
@@ -24,6 +41,12 @@ async function mapUsuario(row) {
     lojas,
     permissoes,
     acesso_todas_lojas: acessoTodasLojas(userCtx),
+    tipos_checklist: tiposChecklist.map((t) => ({
+      id_tipo_checklist: t.id_tipo_checklist,
+      codigo: t.codigo,
+      nome: t.nome,
+    })),
+    regioes_atuacao: regioesAtuacao,
   };
 }
 

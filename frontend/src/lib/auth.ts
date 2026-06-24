@@ -7,6 +7,18 @@ export type LojaResumo = {
   codigo_bkn?: string | null;
 };
 
+export type TipoChecklistResumo = {
+  id_tipo_checklist: number;
+  codigo: string;
+  nome: string;
+};
+
+export type RegiaoAtuacaoResumo = {
+  id_regiao: number;
+  nome: string;
+  nome_regional?: string | null;
+};
+
 export type UsuarioSessao = {
   id_usuario: number;
   nome: string;
@@ -19,6 +31,8 @@ export type UsuarioSessao = {
   lojas: LojaResumo[];
   permissoes: string[];
   acesso_todas_lojas?: boolean;
+  tipos_checklist?: TipoChecklistResumo[];
+  regioes_atuacao?: RegiaoAtuacaoResumo[];
 };
 
 export function getToken(): string | null {
@@ -93,10 +107,14 @@ export function destinoPosLoginMobile(usuario: UsuarioSessao): string {
 
 /** Primeira aba do app mobile conforme permissões do usuário. */
 export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
+  if (podeUsarChecklist(usuario) && !temPermissao('chamados.ver', usuario) && !temPermissao('chamados.abrir', usuario)) {
+    return '/checklist/mobile';
+  }
   if (temPermissao('chamados.ver', usuario) || temPermissao('chamados.abrir', usuario)) {
     return '/chamados/mobile';
   }
   if (podeUsarChecklist(usuario)) return '/checklist/mobile';
+  if (podeVerVisitasMobile(usuario)) return '/visitas/mobile';
   if (podeUsarFrota(usuario)) return '/frota/mobile';
   return '/chamados/mobile';
 }
@@ -123,8 +141,65 @@ export function podeUsarChecklist(usuario?: UsuarioSessao | null): boolean {
   return (
     temPermissao('checklist.ver', usuario) ||
     temPermissao('checklist.executar', usuario) ||
-    cargoComChecklist(usuario)
+    cargoComChecklist(usuario) ||
+    (usuario?.tipos_checklist?.length ?? 0) > 0
   );
+}
+
+export function podeVerVisitasMobile(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('portal.visitas.ver', usuario) || podeUsarChecklist(usuario);
+}
+
+export function rotuloRegioesAtuacao(usuario?: UsuarioSessao | null): string | null {
+  const regioes = usuario?.regioes_atuacao ?? [];
+  if (!regioes.length) return null;
+  return regioes.map((r) => r.nome).join(' · ');
+}
+
+function cargoEfetivoCodigo(usuario?: UsuarioSessao | null): string {
+  return String(usuario?.cargo_aprovacao || usuario?.perfil || '').toLowerCase();
+}
+
+/** Cabeçalho de contexto no app mobile de chamados: região, loja ou oculto. */
+export function modoCabecalhoContextoMobile(
+  usuario?: UsuarioSessao | null,
+): 'regiao' | 'loja' | null {
+  const u = usuario ?? getUsuario();
+  if (!u) return null;
+
+  const codigo = cargoEfetivoCodigo(u);
+  const nome = (u.cargo_nome || u.cargo || '').toLowerCase();
+
+  if (codigo === 'diretor' || nome === 'diretor') return null;
+  if (codigo === 'ceo' || codigo === 'administrador' || u.perfil === 'administrador') return null;
+
+  if (
+    codigo === 'gerente' ||
+    codigo === 'coordenador' ||
+    u.perfil === 'gerente' ||
+    u.perfil === 'coordenador'
+  ) {
+    return 'loja';
+  }
+
+  if (
+    u.perfil === 'tecnico' ||
+    temPermissao('chamados.assumir', u) ||
+    codigo === 'supervisor_regional' ||
+    nome.includes('supervisor')
+  ) {
+    return 'regiao';
+  }
+
+  return null;
+}
+
+export function filtraChamadosPorLojaMobile(usuario?: UsuarioSessao | null): boolean {
+  return modoCabecalhoContextoMobile(usuario) === 'loja';
+}
+
+export function filtraNotificacoesPorRegiaoMobile(usuario?: UsuarioSessao | null): boolean {
+  return modoCabecalhoContextoMobile(usuario) === 'regiao';
 }
 
 const CARGOS_FROTA = new Set(['supervisor_regional', 'coordenador']);
