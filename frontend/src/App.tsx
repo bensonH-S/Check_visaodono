@@ -34,6 +34,8 @@ import FrotaVeiculoDetalhePage from './pages/frota/FrotaVeiculoDetalhePage';
 import FrotaUsoPortalPage from './pages/frota/FrotaUsoPortalPage';
 import FrotaCombustivelPortalPage from './pages/frota/FrotaCombustivelPortalPage';
 import FrotaManutencaoPortalPage from './pages/frota/FrotaManutencaoPortalPage';
+import FrotaTermosPortalPage from './pages/frota/FrotaTermosPortalPage';
+import FrotaRegioesPortalPage from './pages/frota/FrotaRegioesPortalPage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -178,6 +180,22 @@ export default function App() {
               element={
                 <RotaPermissao permissoes={['frota.gerenciar']}>
                   <FrotaManutencaoPortalPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/termos"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaTermosPortalPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/regioes"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar', 'frota.regioes']}>
+                  <FrotaRegioesPortalPage />
                 </RotaPermissao>
               }
             />

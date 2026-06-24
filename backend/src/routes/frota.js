@@ -62,7 +62,81 @@ function mapVeiculo(row) {
 
 const COLS_VEICULO = `v.id_veiculo, v.placa, v.renavam, v.chassi, v.marca, v.modelo, v.ano, v.cor,
   v.combustivel, v.km_atual, v.observacoes, v.id_usuario_responsavel, v.assuncao_em, v.ativo,
-  v.created_at, v.updated_at, u.nome AS nome_responsavel`;
+  v.id_regiao, v.created_at, v.updated_at, u.nome AS nome_responsavel, r.nome AS nome_regiao`;
+
+async function syncRegiaoLojas(idRegiao, idLojas) {
+  const ids = [...new Set((idLojas || []).map(Number).filter((n) => n > 0))];
+  await pool.query('DELETE FROM frota_regiao_lojas WHERE id_regiao = $1', [idRegiao]);
+  for (const idLoja of ids) {
+    await pool.query(
+      `INSERT INTO frota_regiao_lojas (id_regiao, id_loja) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [idRegiao, idLoja],
+    );
+  }
+}
+
+async function syncRegiaoTecnicos(idRegiao, idUsuarios) {
+  const ids = [...new Set((idUsuarios || []).map(Number).filter((n) => n > 0))];
+  await pool.query('DELETE FROM frota_regiao_tecnicos WHERE id_regiao = $1', [idRegiao]);
+  for (const idUsuario of ids) {
+    await pool.query(
+      `INSERT INTO frota_regiao_tecnicos (id_regiao, id_usuario) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [idRegiao, idUsuario],
+    );
+  }
+}
+
+async function syncRegiaoVeiculos(idRegiao, idVeiculos) {
+  const ids = [...new Set((idVeiculos || []).map(Number).filter((n) => n > 0))];
+  if (ids.length) {
+    await pool.query(
+      `UPDATE frota_veiculos SET id_regiao = NULL
+       WHERE id_regiao = $1 AND NOT (id_veiculo = ANY($2::int[]))`,
+      [idRegiao, ids],
+    );
+    await pool.query(
+      `UPDATE frota_veiculos SET id_regiao = $1 WHERE id_veiculo = ANY($2::int[]) AND ativo = TRUE`,
+      [idRegiao, ids],
+    );
+  } else {
+    await pool.query(`UPDATE frota_veiculos SET id_regiao = NULL WHERE id_regiao = $1`, [idRegiao]);
+  }
+}
+
+const requirePermRegioes = requirePermissao('frota.gerenciar', 'frota.regioes');
+
+function mapRegiaoRow(row) {
+  if (!row) return null;
+  return {
+    id_regiao: row.id_regiao,
+    nome: row.nome,
+    descricao: row.descricao,
+    ativo: row.ativo,
+    id_regional: row.id_regional ?? null,
+    nome_regional: row.nome_regional ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+const SQL_CARGO_USUARIO = `COALESCE(u.cargo_aprovacao, u.perfil::text)`;
+const CARGOS_TECNICO = `('tecnico')`;
+const CARGOS_REGIONAL = `('supervisor_regional')`;
+
+function erroRegiaoDb(e, res) {
+  if (e.code === '23505') {
+    res.status(409).json({ error: 'Já existe uma região com este nome' });
+    return true;
+  }
+  if (e.code === '42P01') {
+    res.status(503).json({
+      error:
+        'Estrutura de regiões não instalada no banco. Rode: npm run migrate:frota-regioes',
+    });
+    return true;
+  }
+  return false;
+}
 
 /** Resumo mobile: veículo, termo, últimos abastecimentos */
 router.get('/mobile/resumo', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
@@ -115,6 +189,7 @@ router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async
       `SELECT ${COLS_VEICULO}
        FROM frota_veiculos v
        LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
        WHERE v.ativo = TRUE
        ORDER BY v.placa`,
     );
@@ -188,13 +263,237 @@ router.get('/manutencoes', requirePermissao('frota.gerenciar'), async (req, res,
   }
 });
 
+router.get('/termos', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT t.id_termo, t.id_usuario, t.termo_versao, t.assinado_em, t.assinatura_url,
+              u.nome AS nome_usuario
+       FROM frota_termos_ferramentas t
+       JOIN usuarios u ON u.id_usuario = t.id_usuario
+       ORDER BY t.assinado_em DESC
+       LIMIT 500`,
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/termos/:id', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idTermo = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT t.id_termo, t.id_usuario, t.termo_versao, t.assinado_em, t.assinatura_url,
+              u.nome AS nome_usuario
+       FROM frota_termos_ferramentas t
+       JOIN usuarios u ON u.id_usuario = t.id_usuario
+       WHERE t.id_termo = $1`,
+      [idTermo],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Termo não encontrado' });
+
+    const { rows: fotos } = await pool.query(
+      `SELECT tf.id_anexo
+       FROM frota_termo_fotos tf
+       WHERE tf.id_termo = $1
+       ORDER BY tf.id_foto`,
+      [idTermo],
+    );
+
+    const termo = rows[0];
+    res.json({
+      ...termo,
+      texto: textoTermoFerramentas(termo.nome_usuario),
+      empresa: EMPRESA_TERMO,
+      fotos: fotos.map((f) => ({
+        id_anexo: f.id_anexo,
+        url: midiaUrlFrota(f.id_anexo),
+      })),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/regioes', requirePermRegioes, async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT r.id_regiao, r.nome, r.descricao, r.ativo, r.id_regional, r.created_at, r.updated_at,
+              ur.nome AS nome_regional,
+              COUNT(DISTINCT rl.id_loja)::int AS qtd_lojas,
+              COUNT(DISTINCT rt.id_usuario)::int AS qtd_tecnicos,
+              COUNT(DISTINCT v.id_veiculo)::int AS qtd_veiculos
+       FROM frota_regioes r
+       LEFT JOIN usuarios ur ON ur.id_usuario = r.id_regional
+       LEFT JOIN frota_regiao_lojas rl ON rl.id_regiao = r.id_regiao
+       LEFT JOIN frota_regiao_tecnicos rt ON rt.id_regiao = r.id_regiao
+       LEFT JOIN frota_veiculos v ON v.id_regiao = r.id_regiao AND v.ativo = TRUE
+       WHERE r.ativo = TRUE
+       GROUP BY r.id_regiao, ur.nome
+       ORDER BY r.nome`,
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/regioes/catalogo', requirePermRegioes, async (req, res, next) => {
+  try {
+    const { rows: lojas } = await pool.query(
+      `SELECT id_loja, name, bk_number, city, state
+       FROM lojas
+       WHERE is_active = TRUE
+       ORDER BY name`,
+    );
+    const { rows: tecnicos } = await pool.query(
+      `SELECT u.id_usuario, u.nome, u.email, ${SQL_CARGO_USUARIO} AS cargo
+       FROM usuarios u
+       WHERE u.ativo = TRUE
+         AND ${SQL_CARGO_USUARIO} IN ${CARGOS_TECNICO}
+       ORDER BY u.nome`,
+    );
+    const { rows: regionais } = await pool.query(
+      `SELECT u.id_usuario, u.nome, u.email, ${SQL_CARGO_USUARIO} AS cargo
+       FROM usuarios u
+       WHERE u.ativo = TRUE
+         AND ${SQL_CARGO_USUARIO} IN ${CARGOS_REGIONAL}
+       ORDER BY u.nome`,
+    );
+    const { rows: veiculos } = await pool.query(
+      `SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano, v.cor, v.combustivel, v.id_regiao,
+              r.nome AS nome_regiao
+       FROM frota_veiculos v
+       LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
+       WHERE v.ativo = TRUE
+       ORDER BY v.placa`,
+    );
+    res.json({ lojas, tecnicos, regionais, veiculos });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/regioes/:id', requirePermRegioes, async (req, res, next) => {
+  try {
+    const idRegiao = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT r.id_regiao, r.nome, r.descricao, r.ativo, r.id_regional, r.created_at, r.updated_at,
+              ur.nome AS nome_regional, ur.email AS email_regional,
+              COALESCE(ur.cargo_aprovacao, ur.perfil::text) AS cargo_regional
+       FROM frota_regioes r
+       LEFT JOIN usuarios ur ON ur.id_usuario = r.id_regional
+       WHERE r.id_regiao = $1 AND r.ativo = TRUE`,
+      [idRegiao],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Região não encontrada' });
+
+    const { rows: lojas } = await pool.query(
+      `SELECT l.id_loja, l.name, l.bk_number, l.city, l.state
+       FROM frota_regiao_lojas rl
+       JOIN lojas l ON l.id_loja = rl.id_loja
+       WHERE rl.id_regiao = $1
+       ORDER BY l.name`,
+      [idRegiao],
+    );
+
+    const { rows: tecnicos } = await pool.query(
+      `SELECT u.id_usuario, u.nome, u.email
+       FROM frota_regiao_tecnicos rt
+       JOIN usuarios u ON u.id_usuario = rt.id_usuario
+       WHERE rt.id_regiao = $1
+       ORDER BY u.nome`,
+      [idRegiao],
+    );
+
+    const { rows: veiculos } = await pool.query(
+      `SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano, v.cor, v.combustivel
+       FROM frota_veiculos v
+       WHERE v.id_regiao = $1 AND v.ativo = TRUE
+       ORDER BY v.placa`,
+      [idRegiao],
+    );
+
+    res.json({ ...rows[0], lojas, tecnicos, veiculos });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/regioes', requirePermRegioes, async (req, res, next) => {
+  try {
+    const { nome, descricao } = req.body || {};
+    if (!nome?.trim()) return res.status(400).json({ error: 'Informe o nome da região' });
+    const { rows } = await pool.query(
+      `INSERT INTO frota_regioes (nome, descricao) VALUES ($1, $2) RETURNING *`,
+      [nome.trim(), descricao?.trim() || null],
+    );
+    res.status(201).json(mapRegiaoRow(rows[0]));
+  } catch (e) {
+    if (erroRegiaoDb(e, res)) return;
+    next(e);
+  }
+});
+
+router.patch('/regioes/:id', requirePermRegioes, async (req, res, next) => {
+  try {
+    const idRegiao = Number(req.params.id);
+    const { nome, descricao, id_lojas, id_usuarios, id_veiculos, id_regional } = req.body || {};
+    const sets = ['updated_at = NOW()'];
+    const vals = [idRegiao];
+    let i = 2;
+
+    if (nome?.trim()) {
+      sets.push(`nome = $${i++}`);
+      vals.push(nome.trim());
+    }
+    if (descricao != null) {
+      sets.push(`descricao = $${i++}`);
+      vals.push(descricao.trim() || null);
+    }
+    if ('id_regional' in (req.body || {})) {
+      sets.push(`id_regional = $${i++}`);
+      vals.push(id_regional != null && id_regional !== '' ? Number(id_regional) : null);
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE frota_regioes
+       SET ${sets.join(', ')}
+       WHERE id_regiao = $1 AND ativo = TRUE
+       RETURNING *`,
+      vals,
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Região não encontrada' });
+
+    const { rows: regionalRow } = await pool.query(
+      `SELECT nome AS nome_regional FROM usuarios WHERE id_usuario = $1`,
+      [rows[0].id_regional],
+    );
+
+    if (Array.isArray(id_lojas)) await syncRegiaoLojas(idRegiao, id_lojas);
+    if (Array.isArray(id_usuarios)) await syncRegiaoTecnicos(idRegiao, id_usuarios);
+    if (Array.isArray(id_veiculos)) await syncRegiaoVeiculos(idRegiao, id_veiculos);
+
+    res.json(
+      mapRegiaoRow({
+        ...rows[0],
+        nome_regional: regionalRow[0]?.nome_regional ?? null,
+      }),
+    );
+  } catch (e) {
+    if (erroRegiaoDb(e, res)) return;
+    next(e);
+  }
+});
+
 router.post('/veiculos', requirePermissao('frota.gerenciar'), async (req, res, next) => {
   try {
-    const { placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes } = req.body || {};
+    const { placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes, id_regiao } =
+      req.body || {};
     if (!placa?.trim()) return res.status(400).json({ error: 'Informe a placa' });
     const { rows } = await pool.query(
-      `INSERT INTO frota_veiculos (placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO frota_veiculos (placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes, id_regiao)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         placa.trim().toUpperCase(),
@@ -207,6 +506,7 @@ router.post('/veiculos', requirePermissao('frota.gerenciar'), async (req, res, n
         combustivel || null,
         km_atual != null ? Number(km_atual) : null,
         observacoes || null,
+        id_regiao != null && id_regiao !== '' ? Number(id_regiao) : null,
       ],
     );
     res.status(201).json(rows[0]);
@@ -223,6 +523,7 @@ router.get('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, res
       `SELECT ${COLS_VEICULO}
        FROM frota_veiculos v
        LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
        WHERE v.id_veiculo = $1`,
       [idVeiculo],
     );
@@ -236,7 +537,8 @@ router.get('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, res
 router.patch('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, res, next) => {
   try {
     const idVeiculo = Number(req.params.id);
-    const { placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes } = req.body || {};
+    const { placa, renavam, chassi, marca, modelo, ano, cor, combustivel, km_atual, observacoes, id_regiao } =
+      req.body || {};
     const { rows } = await pool.query(
       `UPDATE frota_veiculos
        SET placa = COALESCE($2, placa),
@@ -249,6 +551,7 @@ router.patch('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, r
            combustivel = COALESCE($9, combustivel),
            km_atual = COALESCE($10, km_atual),
            observacoes = COALESCE($11, observacoes),
+           id_regiao = CASE WHEN $12 THEN $13 ELSE id_regiao END,
            updated_at = NOW()
        WHERE id_veiculo = $1 AND ativo = TRUE
        RETURNING *`,
@@ -264,6 +567,8 @@ router.patch('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, r
         combustivel ?? null,
         km_atual != null ? Number(km_atual) : null,
         observacoes ?? null,
+        Object.prototype.hasOwnProperty.call(req.body || {}, 'id_regiao'),
+        id_regiao != null && id_regiao !== '' ? Number(id_regiao) : null,
       ],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Veículo não encontrado' });
@@ -271,6 +576,7 @@ router.patch('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, r
       `SELECT ${COLS_VEICULO}
        FROM frota_veiculos v
        LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
        WHERE v.id_veiculo = $1`,
       [idVeiculo],
     );

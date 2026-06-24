@@ -464,8 +464,6 @@ export default function UsuariosPage() {
                 setForm((f) => ({
                   ...f,
                   cargo_aprovacao: codigo,
-                  permissoes: codigo === 'ti' ? catalogo.map((p) => p.codigo) : f.permissoes,
-                  lojas_ids: codigo === 'ti' ? [] : f.lojas_ids,
                 }));
               }}
             >
@@ -511,12 +509,6 @@ export default function UsuariosPage() {
               sx={{ m: 0 }}
             />
           </Box>
-
-          {form.cargo_aprovacao === 'ti' && (
-            <Alert severity="info" sx={{ py: 0.25, fontSize: '0.75rem' }}>
-              Perfil TI recebe todas as funções por padrão.
-            </Alert>
-          )}
 
           {!cargos.length && (
             <Alert severity="warning" sx={{ py: 0.25, fontSize: '0.75rem' }}>

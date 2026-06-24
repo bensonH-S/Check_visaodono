@@ -32,6 +32,7 @@ const NAVY = '#1B2A6B';
 
 const emptyForm = {
   nome: '',
+  descricao: '',
   aprovador: false,
   ativo: true,
 };
@@ -75,6 +76,7 @@ export default function CargosPage() {
     setEditId(cargo.id_cargo);
     setForm({
       nome: cargo.nome,
+      descricao: cargo.descricao || '',
       aprovador: !!cargo.aprovador,
       ativo: cargo.ativo !== false,
     });
@@ -92,6 +94,7 @@ export default function CargosPage() {
     try {
       const body = {
         nome: form.nome.trim(),
+        descricao: form.descricao.trim() || null,
         aprovador: form.aprovador,
         ativo: form.ativo,
       };
@@ -127,7 +130,7 @@ export default function CargosPage() {
     <Box sx={tablePageLayoutSx}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexShrink: 0 }}>
         <Typography variant="body2" color="text.secondary">
-          Perfis usados em usuários e aprovações de orçamento
+          Perfis usados em usuários, aprovações e permissões do sistema
         </Typography>
         <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={abrirNovo}>
           Novo cargo
@@ -143,6 +146,7 @@ export default function CargosPage() {
           <TableHead>
             <TableRow>
               <TableCell>Nome</TableCell>
+              <TableCell>Descrição</TableCell>
               <TableCell>Código</TableCell>
               <TableCell>Aprovador</TableCell>
               <TableCell>Status</TableCell>
@@ -151,7 +155,12 @@ export default function CargosPage() {
           <TableBody>
             {lista.map((c) => (
               <TableRow key={c.id_cargo} hover onClick={() => abrirEditar(c)} sx={{ cursor: 'pointer' }}>
-                <TableCell sx={{ fontWeight: 600, color: NAVY }}>{c.nome}</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: NAVY, whiteSpace: 'nowrap' }}>{c.nome}</TableCell>
+                <TableCell sx={{ maxWidth: 360 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'normal', lineHeight: 1.4 }}>
+                    {c.descricao || '—'}
+                  </Typography>
+                </TableCell>
                 <TableCell>
                   <Typography variant="body2" color="text.secondary">
                     {c.codigo}
@@ -176,7 +185,7 @@ export default function CargosPage() {
             ))}
             {!loading && !lista.length && (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   Nenhum cargo cadastrado.
                 </TableCell>
               </TableRow>
@@ -198,7 +207,17 @@ export default function CargosPage() {
             required
             value={form.nome}
             onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-            placeholder="Ex.: Financeiro, Diretor, Gerente regional"
+            placeholder="Ex.: Financeiro, Diretor, Supervisor"
+          />
+          <TextField
+            {...dialogFieldProps}
+            label="Descrição do perfil"
+            value={form.descricao}
+            onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+            placeholder="Explique o papel e as responsabilidades deste cargo no sistema"
+            multiline
+            minRows={3}
+            helperText="Aparece na listagem de cargos e orienta quem configura usuários e permissões."
           />
           <FormControlLabel
             control={

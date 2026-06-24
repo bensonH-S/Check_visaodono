@@ -101,6 +101,7 @@ export default function FrotaVeiculoCard({ veiculo: v, onEditar }: Props) {
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
           {v.nome_responsavel ? v.nome_responsavel : 'Sem responsável'}
+          {v.nome_regiao ? ` · ${v.nome_regiao}` : ''}
         </Typography>
       </Paper>
 

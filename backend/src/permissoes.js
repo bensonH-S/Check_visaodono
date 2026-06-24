@@ -15,6 +15,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'usuarios.gerenciar', nome: 'Gerenciar usuários e permissões', grupo: 'Usuários', ordem: 120 },
   { codigo: 'lojas.todas', nome: 'Acesso a todas as lojas', grupo: 'Lojas', ordem: 130 },
   { codigo: 'frota.usar', nome: 'Usar módulo de frota no app mobile', grupo: 'Frota', ordem: 140 },
+  { codigo: 'frota.regioes', nome: 'Gerenciar regiões de atuação da frota', grupo: 'Frota', ordem: 142 },
   { codigo: 'frota.gerenciar', nome: 'Cadastrar veículos e gerenciar frota', grupo: 'Frota', ordem: 145 },
 ];
 
@@ -41,15 +42,9 @@ export function normalizarPermissoes(codigos) {
   return [...new Set((codigos || []).filter((c) => validos.has(c)))];
 }
 
-export function permissoesPadraoTi() {
-  return CATALOGO_PERMISSOES.map((p) => p.codigo);
-}
-
-/** TI recebe todas as funções quando nenhuma permissão foi informada. */
-export function resolverPermissoesUsuario(perfil, permissoes) {
-  const lista = normalizarPermissoes(permissoes);
-  if (perfil === 'ti' && !lista.length) return permissoesPadraoTi();
-  return lista;
+/** Permissões efetivas do usuário (apenas as informadas explicitamente). */
+export function resolverPermissoesUsuario(_perfil, permissoes) {
+  return normalizarPermissoes(permissoes);
 }
 
 export async function syncUsuarioPermissoes(idUsuario, codigos) {

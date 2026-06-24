@@ -98,7 +98,7 @@ export default function FrotaTermoPage() {
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 2, mb: 1 }}>
         Fotos dos equipamentos
       </Typography>
-      <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={8} />
+      <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={8} inlineActions />
       <Button
         fullWidth
         type="submit"

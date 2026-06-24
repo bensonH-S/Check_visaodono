@@ -7,7 +7,6 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
-import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -16,38 +15,30 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import BuildIcon from '@mui/icons-material/Build';
-import { api, type FrotaManutencaoPortal, type FrotaVeiculo } from '../../api/client';
-import { rotuloVeiculoLista } from '../../constants/frotaVeiculo';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import { api, type FrotaTermoPortalResumo } from '../../api/client';
+import FrotaTermoAssinadoModal from '../../components/frota/FrotaTermoAssinadoModal';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import { colors } from '../../theme/tokens';
-import { dataDentroIntervalo, matchVeiculo } from '../../utils/frotaPortalFiltros';
+import { formatDataHoraBrasilia } from '../../utils/dateBr';
+import { dataDentroIntervalo } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tableSx } from '../../utils/tablePageLayout';
 
-function fmtData(d: string | null) {
-  if (!d) return '—';
-  const [y, m, day] = d.slice(0, 10).split('-');
-  return `${day}/${m}/${y}`;
-}
-
-export default function FrotaManutencaoPortalPage() {
+export default function FrotaTermosPortalPage() {
   const navigate = useNavigate();
-  const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
-  const [lista, setLista] = useState<FrotaManutencaoPortal[]>([]);
+  const [termos, setTermos] = useState<FrotaTermoPortalResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
-  const [buscaVeiculo, setBuscaVeiculo] = useState('');
-  const [veiculoSelecionado, setVeiculoSelecionado] = useState<FrotaVeiculo | null>(null);
+  const [busca, setBusca] = useState('');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [termoModalId, setTermoModalId] = useState<number | null>(null);
 
   const carregar = useCallback(() => {
     setLoading(true);
-    Promise.all([api.frotaVeiculos(), api.frotaManutencoesPortal()])
-      .then(([v, m]) => {
-        setVeiculos(v);
-        setLista(m);
-      })
+    api
+      .frotaTermosPortal()
+      .then(setTermos)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar'))
       .finally(() => setLoading(false));
   }, []);
@@ -56,19 +47,14 @@ export default function FrotaManutencaoPortalPage() {
     carregar();
   }, [carregar]);
 
-  const idVeiculoFiltro = veiculoSelecionado?.id_veiculo ?? null;
-
-  const listaFiltrada = useMemo(
-    () =>
-      lista.filter(
-        (m) =>
-          matchVeiculo(m, idVeiculoFiltro, buscaVeiculo, veiculos) &&
-          dataDentroIntervalo(m.data_manutencao, dataInicio, dataFim),
-      ),
-    [lista, idVeiculoFiltro, buscaVeiculo, veiculos, dataInicio, dataFim],
-  );
-
-  const filtrosAtivos = !!buscaVeiculo.trim() || veiculoSelecionado != null || !!dataInicio || !!dataFim;
+  const termosFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    return termos.filter((t) => {
+      if (!dataDentroIntervalo(t.assinado_em, dataInicio, dataFim)) return false;
+      if (!q) return true;
+      return t.nome_usuario.toLowerCase().includes(q);
+    });
+  }, [termos, busca, dataInicio, dataFim]);
 
   return (
     <Box sx={{ pb: 4 }}>
@@ -77,7 +63,7 @@ export default function FrotaManutencaoPortalPage() {
           <ArrowBackIcon fontSize="small" />
         </IconButton>
         <Typography variant="body2" color="text.secondary">
-          {listaFiltrada.length} de {lista.length} manutenção{lista.length !== 1 ? 'ões' : ''}
+          {termosFiltrados.length} de {termos.length} assinatura{termos.length !== 1 ? 's' : ''}
         </Typography>
       </Box>
 
@@ -120,12 +106,12 @@ export default function FrotaManutencaoPortalPage() {
               flexShrink: 0,
             }}
           >
-            <BuildIcon />
+            <AssignmentTurnedInIcon />
           </Box>
           <Box>
-            <Typography sx={{ fontWeight: 700 }}>Manutenções</Typography>
+            <Typography sx={{ fontWeight: 700 }}>Termos de ferramentas assinados</Typography>
             <Typography variant="body2" color="text.secondary">
-              Registros de manutenção, revisões e serviços realizados nos veículos.
+              Consulte quem assinou o termo de compromisso e visualize o documento.
             </Typography>
           </Box>
         </Box>
@@ -142,24 +128,12 @@ export default function FrotaManutencaoPortalPage() {
             bgcolor: 'rgba(27, 42, 107, 0.02)',
           }}
         >
-          <Autocomplete
-            size="small"
-            options={veiculos}
-            value={veiculoSelecionado}
-            onChange={(_, v) => setVeiculoSelecionado(v)}
-            getOptionLabel={(v) => rotuloVeiculoLista(v)}
-            isOptionEqualToValue={(a, b) => a.id_veiculo === b.id_veiculo}
-            renderInput={(params) => <TextField {...params} label="Veículo" placeholder="Todos" />}
-            sx={{ minWidth: 200, flex: '1 1 200px' }}
-            clearOnEscape
-          />
           <TextField
             size="small"
-            label="Buscar placa ou modelo"
-            value={buscaVeiculo}
-            onChange={(e) => setBuscaVeiculo(e.target.value)}
-            disabled={!!veiculoSelecionado}
-            sx={{ minWidth: 160, flex: '1 1 160px' }}
+            label="Buscar colaborador"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            sx={{ minWidth: 200, flex: '1 1 200px' }}
           />
           <FiltroIntervaloDatasFrota
             dataInicio={dataInicio}
@@ -167,12 +141,11 @@ export default function FrotaManutencaoPortalPage() {
             onChangeInicio={setDataInicio}
             onChangeFim={setDataFim}
           />
-          {filtrosAtivos && (
+          {(busca.trim() || dataInicio || dataFim) && (
             <Button
               size="small"
               onClick={() => {
-                setBuscaVeiculo('');
-                setVeiculoSelecionado(null);
+                setBusca('');
                 setDataInicio('');
                 setDataFim('');
               }}
@@ -190,37 +163,31 @@ export default function FrotaManutencaoPortalPage() {
             <Table size="small" stickyHeader sx={tableSx}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Placa</TableCell>
-                  <TableCell>Descrição</TableCell>
-                  <TableCell>Usuário</TableCell>
-                  <TableCell align="right">KM</TableCell>
-                  <TableCell align="right">Valor</TableCell>
-                  <TableCell>Realizada</TableCell>
-                  <TableCell>Próxima</TableCell>
+                  <TableCell>Colaborador</TableCell>
+                  <TableCell>Versão</TableCell>
+                  <TableCell>Assinado em</TableCell>
+                  <TableCell align="center" width={140}>
+                    Termo assinado
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {listaFiltrada.map((m) => (
-                  <TableRow key={m.id_manutencao} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{m.placa}</TableCell>
-                    <TableCell sx={tableCellWrapSx}>{m.descricao}</TableCell>
-                    <TableCell sx={tableCellWrapSx}>{m.nome_usuario}</TableCell>
-                    <TableCell align="right">
-                      {m.km != null ? m.km.toLocaleString('pt-BR') : '—'}
+                {termosFiltrados.map((t) => (
+                  <TableRow key={t.id_termo} hover>
+                    <TableCell sx={{ ...tableCellWrapSx, fontWeight: 600 }}>{t.nome_usuario}</TableCell>
+                    <TableCell>v{t.termo_versao}</TableCell>
+                    <TableCell>{formatDataHoraBrasilia(t.assinado_em)}</TableCell>
+                    <TableCell align="center">
+                      <Button size="small" onClick={() => setTermoModalId(t.id_termo)}>
+                        Ver termo
+                      </Button>
                     </TableCell>
-                    <TableCell align="right">
-                      {m.valor != null
-                        ? `R$ ${m.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell>{fmtData(m.data_manutencao)}</TableCell>
-                    <TableCell>{fmtData(m.proxima_manutencao)}</TableCell>
                   </TableRow>
                 ))}
-                {listaFiltrada.length === 0 && (
+                {termosFiltrados.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                      Nenhuma manutenção encontrada.
+                    <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                      Nenhum termo assinado encontrado.
                     </TableCell>
                   </TableRow>
                 )}
@@ -229,6 +196,12 @@ export default function FrotaManutencaoPortalPage() {
           </TableContainer>
         )}
       </Paper>
+
+      <FrotaTermoAssinadoModal
+        idTermo={termoModalId}
+        open={termoModalId != null}
+        onClose={() => setTermoModalId(null)}
+      />
     </Box>
   );
 }

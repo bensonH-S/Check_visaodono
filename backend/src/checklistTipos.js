@@ -12,14 +12,13 @@ export async function schemaTiposChecklistAtivo() {
 }
 
 const FALLBACK_POR_PERFIL = {
-  regional: 'time_de_campo',
   supervisor_regional: 'time_de_campo',
   coordenador: 'time_de_campo',
   administrador: 'auditoria_operacional',
+  ceo: 'auditoria_operacional',
   diretor: 'auditoria_operacional',
   gerente: 'auditoria_operacional',
   tecnico: 'auditoria_operacional',
-  ti: 'auditoria_operacional',
 };
 
 export async function carregarCargoUsuario(idUsuario) {

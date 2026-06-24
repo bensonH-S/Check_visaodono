@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 
-export const PERFIS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'];
+export const PERFIS = ['administrador', 'coordenador', 'gerente', 'tecnico'];
 
 const SECRET = process.env.JWT_SECRET || 'vision-check-dev-secret-altere-em-producao';
 const EXPIRES = process.env.JWT_EXPIRES_IN || '7d';

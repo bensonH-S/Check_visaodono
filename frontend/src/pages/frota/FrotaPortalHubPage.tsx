@@ -5,6 +5,7 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import FrotaHubCard from '../../components/frota/FrotaHubCard';
 
 export default function FrotaPortalHubPage() {
@@ -46,6 +47,12 @@ export default function FrotaPortalHubPage() {
           descricao="Registros de manutenção, revisões e serviços realizados nos veículos."
           icon={<BuildIcon />}
           onClick={() => navigate('/frota/manutencoes')}
+        />
+        <FrotaHubCard
+          titulo="Termos de ferramentas"
+          descricao="Veja quem assinou o termo de compromisso e consulte cada documento assinado."
+          icon={<AssignmentTurnedInIcon />}
+          onClick={() => navigate('/frota/termos')}
         />
       </Box>
     </Box>

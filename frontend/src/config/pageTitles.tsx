@@ -19,6 +19,8 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import MapIcon from '@mui/icons-material/Map';
 
 import { colors } from '../theme/tokens';
 
@@ -45,6 +47,8 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/frota/uso': { title: 'Uso e assunção', icon: <PersonPinCircleIcon sx={iconSx} /> },
   '/frota/combustivel': { title: 'Controle de combustível', icon: <LocalGasStationIcon sx={iconSx} /> },
   '/frota/manutencoes': { title: 'Manutenções', icon: <BuildIcon sx={iconSx} /> },
+  '/frota/termos': { title: 'Termos de ferramentas', icon: <AssignmentTurnedInIcon sx={iconSx} /> },
+  '/frota/regioes': { title: 'Região de atuação', icon: <MapIcon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
   '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },

@@ -9,6 +9,7 @@ export type RotaNav = {
 export const ROTAS_NAV: RotaNav[] = [
   { path: '/dashboard', permissoes: ['portal.dashboard.ver'] },
   { path: '/frota', permissoes: ['frota.gerenciar'] },
+  { path: '/frota/regioes', permissoes: ['frota.gerenciar', 'frota.regioes'] },
   { path: '/chamados', permissoes: ['chamados.ver'] },
   { path: '/chamados/aprovacoes', permissoes: ['chamados.aprovar'] },
   { path: '/visitas', permissoes: ['portal.visitas.ver'] },

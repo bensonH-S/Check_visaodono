@@ -360,6 +360,15 @@ export const api = {
   frotaAssuncoes: () => request<FrotaAssuncao[]>('/frota/assuncoes'),
   frotaAbastecimentosPortal: () => request<FrotaAbastecimentoPortal[]>('/frota/abastecimentos'),
   frotaManutencoesPortal: () => request<FrotaManutencaoPortal[]>('/frota/manutencoes'),
+  frotaTermosPortal: () => request<FrotaTermoPortalResumo[]>('/frota/termos'),
+  frotaTermoPortal: (idTermo: number) => request<FrotaTermoPortalDetalhe>(`/frota/termos/${idTermo}`),
+  frotaRegioes: () => request<FrotaRegiaoResumo[]>('/frota/regioes'),
+  frotaRegiaoCatalogo: () => request<FrotaRegiaoCatalogo>('/frota/regioes/catalogo'),
+  frotaRegiao: (idRegiao: number) => request<FrotaRegiaoDetalhe>(`/frota/regioes/${idRegiao}`),
+  frotaCriarRegiao: (body: Pick<FrotaRegiaoBody, 'nome' | 'descricao'>) =>
+    request<FrotaRegiaoCriada>('/frota/regioes', { method: 'POST', body: JSON.stringify(body) }),
+  frotaAtualizarRegiao: (idRegiao: number, body: Partial<FrotaRegiaoBody>) =>
+    request<FrotaRegiaoResumo>(`/frota/regioes/${idRegiao}`, { method: 'PATCH', body: JSON.stringify(body) }),
   frotaVeiculo: (idVeiculo: number) => request<FrotaVeiculo>(`/frota/veiculos/${idVeiculo}`),
   frotaCriarVeiculo: (body: FrotaVeiculoBody) =>
     request<FrotaVeiculo>('/frota/veiculos', {
@@ -478,6 +487,7 @@ export interface Cargo {
   id_cargo: number;
   nome: string;
   codigo: string;
+  descricao?: string | null;
   aprovador: boolean;
   ativo: boolean;
   created_at?: string;
@@ -485,6 +495,7 @@ export interface Cargo {
 
 export interface CargoInput {
   nome: string;
+  descricao?: string | null;
   aprovador?: boolean;
   ativo?: boolean;
 }
@@ -744,6 +755,8 @@ export interface FrotaVeiculo {
   assuncao_em: string | null;
   nome_responsavel?: string | null;
   id_usuario_responsavel?: number | null;
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
 }
 
 export type FrotaVeiculoBody = {
@@ -757,6 +770,7 @@ export type FrotaVeiculoBody = {
   combustivel?: string;
   km_atual?: number | null;
   observacoes?: string;
+  id_regiao?: number | null;
 };
 
 export interface FrotaAbastecimentoResumo {
@@ -798,6 +812,107 @@ export interface FrotaManutencaoPortal {
   proxima_manutencao: string | null;
   created_at: string;
 }
+
+export interface FrotaTermoPortalResumo {
+  id_termo: number;
+  id_usuario: number;
+  nome_usuario: string;
+  termo_versao: string;
+  assinado_em: string;
+  assinatura_url: string;
+}
+
+export interface FrotaTermoPortalDetalhe extends FrotaTermoPortalResumo {
+  texto: string;
+  empresa: typeof import('../config/empresa').EMPRESA_TERMO;
+  fotos: { id_anexo: number; url: string }[];
+}
+
+export interface FrotaRegiaoLoja {
+  id_loja: number;
+  name: string;
+  bk_number: string | null;
+  city: string;
+  state: string;
+}
+
+export interface FrotaRegiaoResumo {
+  id_regiao: number;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  id_regional?: number | null;
+  nome_regional?: string | null;
+  qtd_lojas: number;
+  qtd_tecnicos: number;
+  qtd_veiculos: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FrotaRegiaoUsuario {
+  id_usuario: number;
+  nome: string;
+  email: string | null;
+  cargo?: string | null;
+}
+
+export type FrotaRegiaoTecnico = FrotaRegiaoUsuario;
+
+export interface FrotaRegiaoVeiculo {
+  id_veiculo: number;
+  placa: string;
+  marca: string | null;
+  modelo: string | null;
+  ano?: number | null;
+  cor?: string | null;
+  combustivel?: string | null;
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
+}
+
+export interface FrotaRegiaoCatalogo {
+  lojas: FrotaRegiaoLoja[];
+  tecnicos: FrotaRegiaoUsuario[];
+  regionais: FrotaRegiaoUsuario[];
+  veiculos: FrotaRegiaoVeiculo[];
+}
+
+export interface FrotaRegiaoDetalhe {
+  id_regiao: number;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  id_regional: number | null;
+  nome_regional: string | null;
+  email_regional?: string | null;
+  cargo_regional?: string | null;
+  created_at: string;
+  updated_at: string;
+  lojas: FrotaRegiaoLoja[];
+  tecnicos: FrotaRegiaoTecnico[];
+  veiculos: FrotaRegiaoVeiculo[];
+}
+
+export type FrotaRegiaoBody = {
+  nome?: string;
+  descricao?: string;
+  id_regional?: number | null;
+  id_lojas?: number[];
+  id_usuarios?: number[];
+  id_veiculos?: number[];
+};
+
+export type FrotaRegiaoCriada = {
+  id_regiao: number;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  id_regional?: number | null;
+  nome_regional?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
 
 export interface FrotaResumoMobile {
   veiculo: FrotaVeiculo | null;

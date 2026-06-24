@@ -9,7 +9,7 @@ import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { api, type FrotaVeiculo } from '../../api/client';
+import { api, type FrotaVeiculo, type FrotaRegiaoResumo } from '../../api/client';
 import FrotaVeiculoFormFields from './FrotaVeiculoFormFields';
 import FrotaVeiculoDocumentosPanel, { FROTA_DOC_FORM_ID } from './FrotaVeiculoDocumentosPanel';
 import { formParaBody, formVeiculoVazio, veiculoParaForm, type FormVeiculoFrota } from '../../constants/frotaVeiculo';
@@ -30,6 +30,12 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo }: 
   const [salvando, setSalvando] = useState(false);
   const [salvandoDoc, setSalvandoDoc] = useState(false);
   const [podeAnexarDoc, setPodeAnexarDoc] = useState(false);
+  const [regioes, setRegioes] = useState<FrotaRegiaoResumo[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    api.frotaRegioes().then(setRegioes).catch(() => setRegioes([]));
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -95,7 +101,7 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo }: 
 
       <DialogContent dividers sx={{ pt: 2 }}>
         {(!editando || aba === 0) && (
-          <FrotaVeiculoFormFields form={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+          <FrotaVeiculoFormFields form={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} regioes={regioes} />
         )}
 
         {editando && veiculo && aba === 1 && (

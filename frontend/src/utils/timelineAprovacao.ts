@@ -17,7 +17,7 @@ export function podeVerDetalhesAprovacaoChamado(
   _detalhe?: ManutChamadoDetalhe,
 ) {
   if (!sessao) return false;
-  if (['administrador', 'tecnico', 'ti'].includes(sessao.perfil)) return true;
+  if (['administrador', 'tecnico'].includes(sessao.perfil)) return true;
   if (temPermissao('chamados.assumir', sessao) || temPermissao('chamados.ver', sessao)) return true;
   return false;
 }

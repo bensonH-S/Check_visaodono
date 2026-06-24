@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -6,23 +6,48 @@ import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
+import TextField from '@mui/material/TextField';
+import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { api, fetchMediaAutenticada, type FrotaAbastecimentoPortal } from '../../api/client';
+import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
+import {
+  api,
+  fetchMediaAutenticada,
+  type FrotaAbastecimentoPortal,
+  type FrotaVeiculo,
+} from '../../api/client';
+import { rotuloVeiculoLista } from '../../constants/frotaVeiculo';
+import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import { colors } from '../../theme/tokens';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
+import { dataDentroIntervalo, matchVeiculo } from '../../utils/frotaPortalFiltros';
+import { tableCellWrapSx, tableContainerSx, tableSx } from '../../utils/tablePageLayout';
 
 export default function FrotaCombustivelPortalPage() {
   const navigate = useNavigate();
+  const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [lista, setLista] = useState<FrotaAbastecimentoPortal[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
+  const [buscaVeiculo, setBuscaVeiculo] = useState('');
+  const [veiculoSelecionado, setVeiculoSelecionado] = useState<FrotaVeiculo | null>(null);
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
 
   const carregar = useCallback(() => {
     setLoading(true);
-    api
-      .frotaAbastecimentosPortal()
-      .then(setLista)
+    Promise.all([api.frotaVeiculos(), api.frotaAbastecimentosPortal()])
+      .then(([v, ab]) => {
+        setVeiculos(v);
+        setLista(ab);
+      })
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar'))
       .finally(() => setLoading(false));
   }, []);
@@ -30,6 +55,21 @@ export default function FrotaCombustivelPortalPage() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  const idVeiculoFiltro = veiculoSelecionado?.id_veiculo ?? null;
+
+  const listaFiltrada = useMemo(
+    () =>
+      lista.filter(
+        (a) =>
+          matchVeiculo(a, idVeiculoFiltro, buscaVeiculo, veiculos) &&
+          dataDentroIntervalo(a.data_abastecimento, dataInicio, dataFim),
+      ),
+    [lista, idVeiculoFiltro, buscaVeiculo, veiculos, dataInicio, dataFim],
+  );
+
+  const total = listaFiltrada.reduce((s, a) => s + a.valor_abastecido, 0);
+  const filtrosAtivos = !!buscaVeiculo.trim() || veiculoSelecionado != null || !!dataInicio || !!dataFim;
 
   async function abrirComprovante(url: string) {
     try {
@@ -41,17 +81,15 @@ export default function FrotaCombustivelPortalPage() {
     }
   }
 
-  const total = lista.reduce((s, a) => s + a.valor_abastecido, 0);
-
   return (
-    <Box>
+    <Box sx={{ pb: 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
           <ArrowBackIcon fontSize="small" />
         </IconButton>
-        <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-          {lista.length} abastecimento{lista.length !== 1 ? 's' : ''}
-          {lista.length > 0 && ` · Total R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+        <Typography variant="body2" color="text.secondary">
+          {listaFiltrada.length} de {lista.length} abastecimento{lista.length !== 1 ? 's' : ''}
+          {listaFiltrada.length > 0 && ` · Total R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
         </Typography>
       </Box>
 
@@ -61,47 +99,152 @@ export default function FrotaCombustivelPortalPage() {
         </Alert>
       )}
 
-      {loading ? (
-        <LinearProgress />
-      ) : lista.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          Nenhum abastecimento registrado.
-        </Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {lista.map((a) => (
-            <Paper
-              key={a.id_abastecimento}
-              elevation={0}
-              sx={{
-                p: 1.5,
-                border: '1px solid',
-                borderColor: colors.border,
-                borderLeft: `4px solid ${colors.navy}`,
-                borderRadius: 2,
-              }}
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
-                <Typography sx={{ fontWeight: 700 }}>{a.placa}</Typography>
-                <Typography sx={{ fontWeight: 700, color: colors.navy }}>
-                  R$ {a.valor_abastecido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                {a.nome_usuario} · KM {a.km_atual.toLocaleString('pt-BR')}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                {formatDataHoraBrasilia(a.data_abastecimento)}
-              </Typography>
-              {a.comprovante_url && (
-                <Button size="small" sx={{ mt: 0.5, px: 0 }} onClick={() => void abrirComprovante(a.comprovante_url!)}>
-                  Ver comprovante
-                </Button>
-              )}
-            </Paper>
-          ))}
+      <Paper
+        elevation={0}
+        sx={{
+          border: '1px solid',
+          borderColor: colors.border,
+          borderLeft: `4px solid ${colors.navy}`,
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            borderBottom: '1px solid',
+            borderColor: colors.border,
+          }}
+        >
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: 2,
+              bgcolor: 'rgba(27, 42, 107, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: colors.navy,
+              flexShrink: 0,
+            }}
+          >
+            <LocalGasStationIcon />
+          </Box>
+          <Box>
+            <Typography sx={{ fontWeight: 700 }}>Controle de combustível</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Abastecimentos, valores, KM e comprovantes da frota.
+            </Typography>
+          </Box>
         </Box>
-      )}
+
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            alignItems: 'flex-end',
+            borderBottom: '1px solid',
+            borderColor: colors.border,
+            bgcolor: 'rgba(27, 42, 107, 0.02)',
+          }}
+        >
+          <Autocomplete
+            size="small"
+            options={veiculos}
+            value={veiculoSelecionado}
+            onChange={(_, v) => setVeiculoSelecionado(v)}
+            getOptionLabel={(v) => rotuloVeiculoLista(v)}
+            isOptionEqualToValue={(a, b) => a.id_veiculo === b.id_veiculo}
+            renderInput={(params) => <TextField {...params} label="Veículo" placeholder="Todos" />}
+            sx={{ minWidth: 200, flex: '1 1 200px' }}
+            clearOnEscape
+          />
+          <TextField
+            size="small"
+            label="Buscar placa ou modelo"
+            value={buscaVeiculo}
+            onChange={(e) => setBuscaVeiculo(e.target.value)}
+            disabled={!!veiculoSelecionado}
+            sx={{ minWidth: 160, flex: '1 1 160px' }}
+          />
+          <FiltroIntervaloDatasFrota
+            dataInicio={dataInicio}
+            dataFim={dataFim}
+            onChangeInicio={setDataInicio}
+            onChangeFim={setDataFim}
+          />
+          {filtrosAtivos && (
+            <Button
+              size="small"
+              onClick={() => {
+                setBuscaVeiculo('');
+                setVeiculoSelecionado(null);
+                setDataInicio('');
+                setDataFim('');
+              }}
+              sx={{ mb: 0.25 }}
+            >
+              Limpar filtros
+            </Button>
+          )}
+        </Box>
+
+        {loading ? (
+          <LinearProgress />
+        ) : (
+          <TableContainer sx={{ ...tableContainerSx, maxHeight: 520 }}>
+            <Table size="small" stickyHeader sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Placa</TableCell>
+                  <TableCell>Usuário</TableCell>
+                  <TableCell align="right">KM</TableCell>
+                  <TableCell align="right">Valor</TableCell>
+                  <TableCell>Data</TableCell>
+                  <TableCell align="center" width={120}>
+                    Comprovante
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {listaFiltrada.map((a) => (
+                  <TableRow key={a.id_abastecimento} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{a.placa}</TableCell>
+                    <TableCell sx={tableCellWrapSx}>{a.nome_usuario}</TableCell>
+                    <TableCell align="right">{a.km_atual.toLocaleString('pt-BR')}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: colors.navy }}>
+                      R$ {a.valor_abastecido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell>{formatDataHoraBrasilia(a.data_abastecimento)}</TableCell>
+                    <TableCell align="center">
+                      {a.comprovante_url ? (
+                        <Button size="small" onClick={() => void abrirComprovante(a.comprovante_url!)}>
+                          Ver
+                        </Button>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {listaFiltrada.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                      Nenhum abastecimento encontrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
     </Box>
   );
 }

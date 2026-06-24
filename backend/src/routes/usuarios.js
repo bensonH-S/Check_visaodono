@@ -8,7 +8,6 @@ import {
   carregarPermissoesUsuario,
   requirePermissao,
   normalizarPermissoes,
-  permissoesPadraoTi,
   resolverPermissoesUsuario,
   syncUsuarioPermissoes,
 } from '../permissoes.js';
@@ -16,7 +15,7 @@ import { validarCodigoCargo, nomeCargo } from './cargos.js';
 import { normalizarTelefoneBr } from '../utils/telefone.js';
 
 const router = Router();
-const PERFIS_VALIDOS = ['administrador', 'coordenador', 'gerente', 'tecnico', 'ti'];
+const PERFIS_VALIDOS = ['administrador', 'coordenador', 'gerente', 'tecnico'];
 
 function iniciais(nome) {
   return nome
@@ -91,7 +90,14 @@ router.get('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, re
 });
 
 function perfilInternoDoCargo(codigo) {
-  return PERFIS_VALIDOS.includes(codigo) ? codigo : 'gerente';
+  if (PERFIS_VALIDOS.includes(codigo)) return codigo;
+  const map = {
+    ceo: 'administrador',
+    diretor: 'gerente',
+    financeiro: 'gerente',
+    supervisor_regional: 'coordenador',
+  };
+  return map[codigo] || 'gerente';
 }
 
 async function resolverCargoUsuario(cargoCodigo, permissoes, { obrigatorio = false } = {}) {
@@ -225,16 +231,12 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
     const perfilEfetivo = cargoCodigoEfetivo
       ? perfilInternoDoCargo(cargoCodigoEfetivo)
       : atual.rows[0].perfil;
-    const virouTi =
-      cargo_aprovacao === 'ti' && atual.rows[0].cargo_aprovacao !== 'ti';
     const permsAtuais =
       permissoes !== undefined
         ? resolverPermissoesUsuario(perfilEfetivo, permissoes)
-        : virouTi
-          ? permissoesPadraoTi()
-          : await carregarPermissoesUsuario(id);
+        : await carregarPermissoesUsuario(id);
 
-    if (lojas_ids !== undefined || permissoes !== undefined || virouTi) {
+    if (lojas_ids !== undefined || permissoes !== undefined) {
       let idsValidar = lojas_ids;
       if (idsValidar === undefined) {
         const { rows: atuais } = await pool.query(
@@ -302,11 +304,11 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       await pool.query(`UPDATE usuarios SET ${sets.join(', ')} WHERE id_usuario = $${i}`, vals);
     }
 
-    if (permissoes !== undefined || virouTi) {
+    if (permissoes !== undefined) {
       await syncUsuarioPermissoes(id, permsAtuais);
     }
 
-    if (lojas_ids !== undefined || permissoes !== undefined || virouTi) {
+    if (lojas_ids !== undefined || permissoes !== undefined) {
       const perms = permsAtuais;
       let idsLoja = lojas_ids;
       if (idsLoja === undefined) {

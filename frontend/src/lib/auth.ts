@@ -1,4 +1,4 @@
-export type PerfilUsuario = 'administrador' | 'coordenador' | 'gerente' | 'tecnico' | 'ti';
+export type PerfilUsuario = 'administrador' | 'coordenador' | 'gerente' | 'tecnico';
 export type CargoAprovacao = string;
 
 export type LojaResumo = {
@@ -73,7 +73,6 @@ export function labelPerfil(perfil: string) {
     coordenador: 'Coordenador',
     gerente: 'Gerente',
     tecnico: 'Técnico',
-    ti: 'TI',
   };
   return map[perfil] || perfil;
 }
@@ -94,13 +93,11 @@ export function destinoPosLoginMobile(usuario: UsuarioSessao): string {
 }
 
 const CARGOS_COM_CHECKLIST = new Set([
-  'regional',
   'supervisor_regional',
   'coordenador',
   'diretor',
   'administrador',
-  'dono',
-  'ti',
+  'ceo',
 ]);
 
 /** Cargo vinculado a algum tipo de checklist (tabela cargo_checklist). */
@@ -110,7 +107,7 @@ export function cargoComChecklist(usuario?: UsuarioSessao | null): boolean {
   const codigo = (u.cargo_aprovacao || u.perfil || '').toLowerCase();
   if (CARGOS_COM_CHECKLIST.has(codigo)) return true;
   const nome = (u.cargo_nome || u.cargo || '').toLowerCase();
-  return nome.includes('regional') || nome === 'diretor' || nome === 'administrador';
+  return nome.includes('supervisor') || nome === 'diretor' || nome === 'administrador' || nome === 'ceo';
 }
 
 export function podeUsarChecklist(usuario?: UsuarioSessao | null): boolean {
@@ -121,7 +118,7 @@ export function podeUsarChecklist(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
-const CARGOS_FROTA = new Set(['tecnico', 'regional', 'supervisor_regional', 'coordenador']);
+const CARGOS_FROTA = new Set(['tecnico', 'supervisor_regional', 'coordenador']);
 
 export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
@@ -133,6 +130,12 @@ export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {
 
 export function podeGerenciarFrota(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('frota.gerenciar', usuario);
+}
+
+export function podeGerenciarRegioesFrota(usuario?: UsuarioSessao | null): boolean {
+  if (temPermissao('frota.gerenciar', usuario) || temPermissao('frota.regioes', usuario)) return true;
+  const codigo = (usuario ?? getUsuario())?.cargo_aprovacao || (usuario ?? getUsuario())?.perfil || '';
+  return String(codigo).toLowerCase() === 'supervisor_regional';
 }
 
 export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean {

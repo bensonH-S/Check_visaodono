@@ -35,6 +35,13 @@
     "migrate:auditoria-foto": "node scripts/run-sql.js migrations/039_auditoria_foto_obrigatoria.sql",
     "migrate:cargo-checklist": "node scripts/run-sql.js migrations/040_cargo_checklist_regional_diretor.sql",
     "migrate:frota": "node scripts/run-sql.js migrations/041_frota_modulo.sql",
+    "migrate:frota-veiculo-campos": "node scripts/run-sql.js migrations/042_frota_veiculo_campos.sql",
+    "migrate:frota-regioes": "node scripts/run-sql.js migrations/043_frota_regioes.sql",
+    "migrate:frota-regioes-perm": "node scripts/run-sql.js migrations/044_frota_regioes_perm.sql",
+    "migrate:frota-regiao-regional": "node scripts/run-sql.js migrations/045_frota_regiao_regional.sql",
+    "migrate:cargos-descricao": "node scripts/run-sql.js migrations/046_cargos_descricao.sql",
+    "migrate:frota-regioes-supervisor": "node scripts/run-sql.js migrations/047_frota_regioes_supervisor.sql",
+    "migrate:remover-cargos-legado": "node scripts/run-sql.js migrations/048_remover_cargos_dono_regional_ti.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "migrate:whatsapp": "node scripts/run-sql.js migrations/035_usuario_whatsapp.sql"

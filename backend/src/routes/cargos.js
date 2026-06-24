@@ -33,7 +33,7 @@ router.get('/', async (req, res, next) => {
     let filtro = 'WHERE ativo = TRUE';
     if (aprovador) filtro += ' AND aprovador = TRUE';
     const { rows } = await pool.query(
-      `SELECT id_cargo, nome, codigo, aprovador, ativo
+      `SELECT id_cargo, nome, codigo, aprovador, ativo, descricao
        FROM cargos ${filtro}
        ORDER BY nome`,
       params,
@@ -47,7 +47,7 @@ router.get('/', async (req, res, next) => {
 router.get('/gestao', requirePermissao('configuracoes.ver'), async (_req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id_cargo, nome, codigo, aprovador, ativo, created_at
+      `SELECT id_cargo, nome, codigo, aprovador, ativo, descricao, created_at
        FROM cargos
        ORDER BY ativo DESC, nome`,
     );
@@ -60,6 +60,7 @@ router.get('/gestao', requirePermissao('configuracoes.ver'), async (_req, res, n
 router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, next) => {
   try {
     const nome = String(req.body?.nome || '').trim();
+    const descricao = req.body?.descricao != null ? String(req.body.descricao).trim() || null : null;
     const aprovador = !!req.body?.aprovador;
     const ativo = req.body?.ativo !== false;
     if (nome.length < 2) {
@@ -75,10 +76,10 @@ router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, n
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO cargos (nome, codigo, aprovador, ativo)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id_cargo, nome, codigo, aprovador, ativo, created_at`,
-      [nome, tentativa, aprovador, ativo],
+      `INSERT INTO cargos (nome, codigo, aprovador, ativo, descricao)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id_cargo, nome, codigo, aprovador, ativo, descricao, created_at`,
+      [nome, tentativa, aprovador, ativo, descricao],
     );
     res.status(201).json(rows[0]);
   } catch (e) {
@@ -90,7 +91,7 @@ router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, n
 router.patch('/gestao/:id', requirePermissao('configuracoes.ver'), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { nome, aprovador, ativo } = req.body;
+    const { nome, descricao, aprovador, ativo } = req.body;
 
     const atual = await pool.query('SELECT id_cargo FROM cargos WHERE id_cargo = $1', [id]);
     if (!atual.rows[0]) return res.status(404).json({ error: 'Cargo não encontrado' });
@@ -104,6 +105,10 @@ router.patch('/gestao/:id', requirePermissao('configuracoes.ver'), async (req, r
       if (n.length < 2) return res.status(400).json({ error: 'Nome do cargo inválido' });
       sets.push(`nome = $${i++}`);
       vals.push(n);
+    }
+    if (descricao !== undefined) {
+      sets.push(`descricao = $${i++}`);
+      vals.push(descricao != null ? String(descricao).trim() || null : null);
     }
     if (aprovador !== undefined) {
       sets.push(`aprovador = $${i++}`);
@@ -119,7 +124,7 @@ router.patch('/gestao/:id', requirePermissao('configuracoes.ver'), async (req, r
     vals.push(id);
     const { rows } = await pool.query(
       `UPDATE cargos SET ${sets.join(', ')} WHERE id_cargo = $${i}
-       RETURNING id_cargo, nome, codigo, aprovador, ativo, created_at`,
+       RETURNING id_cargo, nome, codigo, aprovador, ativo, descricao, created_at`,
       vals,
     );
     res.json(rows[0]);

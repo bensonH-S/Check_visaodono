@@ -62,6 +62,7 @@ export type FormVeiculoFrota = {
   combustivel: string;
   km_atual: string;
   observacoes: string;
+  id_regiao: string;
 };
 
 export const formVeiculoVazio = (): FormVeiculoFrota => ({
@@ -75,6 +76,7 @@ export const formVeiculoVazio = (): FormVeiculoFrota => ({
   combustivel: '',
   km_atual: '',
   observacoes: '',
+  id_regiao: '',
 });
 
 export function apenasDigitosKm(val: string): string {
@@ -126,6 +128,7 @@ export function veiculoParaForm(v: {
   combustivel?: string | null;
   km_atual?: number | null;
   observacoes?: string | null;
+  id_regiao?: number | null;
 }): FormVeiculoFrota {
   return {
     placa: v.placa || '',
@@ -138,6 +141,7 @@ export function veiculoParaForm(v: {
     combustivel: v.combustivel || '',
     km_atual: v.km_atual != null ? formatarKmInput(String(v.km_atual)) : '',
     observacoes: v.observacoes || '',
+    id_regiao: v.id_regiao != null ? String(v.id_regiao) : '',
   };
 }
 
@@ -153,6 +157,7 @@ export function formParaBody(form: FormVeiculoFrota) {
     combustivel: form.combustivel || undefined,
     km_atual: kmInputParaNumero(form.km_atual),
     observacoes: form.observacoes.trim() || undefined,
+    id_regiao: form.id_regiao ? Number(form.id_regiao) : null,
   };
 }
 
@@ -169,6 +174,7 @@ export const ph = {
   combustivel: 'Selecione o combustível',
   km: 'Digite o KM atual',
   valor: 'Digite o valor',
+  regiao: 'Selecione a região',
   observacoes: 'Digite observações (opcional)',
 } as const;
 

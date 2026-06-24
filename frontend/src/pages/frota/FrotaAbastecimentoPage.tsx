@@ -9,7 +9,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import { api } from '../../api/client';
 import { extensaoMidia } from '../../utils/mediaFile';
-import { filtrarKmAoDigitar, kmInputParaNumero, labelFixo, ph } from '../../constants/frotaVeiculo';
+import { filtrarKmAoDigitar, kmInputParaNumero, labelFixo, ph, campoAlturaFrotaSx } from '../../constants/frotaVeiculo';
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
@@ -87,17 +87,25 @@ export default function FrotaAbastecimentoPage() {
         inputMode="numeric"
         required
         placeholder={ph.km}
-        sx={{ mb: 2 }}
+        sx={{
+          ...campoAlturaFrotaSx,
+          '& .MuiInputLabel-root': { fontSize: '0.8rem' },
+        }}
         slotProps={{ inputLabel: labelFixo.inputLabel }}
       />
       <TextField
         fullWidth
-        label="Valor abastecido (R$)"
+        label="Valor (R$)"
         value={valor}
         onChange={(e) => setValor(e.target.value.replace(/[^\d,.]/g, ''))}
         inputMode="decimal"
         required
-        sx={{ mb: 2 }}
+        placeholder={ph.valor}
+        sx={{
+          ...campoAlturaFrotaSx,
+          '& .MuiInputLabel-root': { fontSize: '0.8rem' },
+        }}
+        slotProps={{ inputLabel: labelFixo.inputLabel }}
       />
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
         Foto do comprovante
