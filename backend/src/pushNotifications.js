@@ -1,9 +1,17 @@
 import { pool } from './db.js';
 import { logger } from './logger.js';
 import { tipoVisivelPushUsuario, urlPushChamado } from './notificacoesFiltro.js';
+import {
+  normalizarVapidSubject,
+  validarVapidPrivateKey,
+  validarVapidPublicKey,
+} from './vapidKeys.js';
 
 let pushAtivo = false;
 let webpushLib = null;
+let vapidPublicKeyValidada = null;
+let vapidPrivateKeyValidada = null;
+let vapidSubject = null;
 
 async function obterWebpush() {
   if (webpushLib) return webpushLib;
@@ -18,28 +26,51 @@ async function obterWebpush() {
 }
 
 export function initPushNotifications() {
-  const publicKey = process.env.VAPID_PUBLIC_KEY?.trim();
-  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
-  const subject = process.env.VAPID_SUBJECT?.trim() || 'mailto:support@grupoalvim.com.br';
+  const pub = validarVapidPublicKey(process.env.VAPID_PUBLIC_KEY);
+  const priv = validarVapidPrivateKey(process.env.VAPID_PRIVATE_KEY);
+  const subject = normalizarVapidSubject(process.env.VAPID_SUBJECT);
 
-  if (!publicKey || !privateKey) {
-    logger.warn('push', 'VAPID ausente — push desativado');
+  if (!pub.ok || !priv.ok) {
+    logger.warn('push', 'VAPID ausente ou inválida — push desativado', {
+      publica: pub.reason || 'ok',
+      privada: priv.reason || 'ok',
+    });
+    vapidPublicKeyValidada = null;
+    vapidPrivateKeyValidada = null;
     return false;
   }
 
+  vapidPublicKeyValidada = pub.key;
+  vapidPrivateKeyValidada = priv.key;
+  vapidSubject = subject;
+
   void obterWebpush().then((webpush) => {
     if (!webpush) return false;
-    webpush.setVapidDetails(subject, publicKey, privateKey);
-    pushAtivo = true;
-    logger.info('push', 'Web Push inicializado');
-    return true;
+    try {
+      webpush.setVapidDetails(subject, pub.key, priv.key);
+      pushAtivo = true;
+      logger.info('push', 'Web Push inicializado', { subject });
+      return true;
+    } catch (e) {
+      pushAtivo = false;
+      vapidPublicKeyValidada = null;
+      vapidPrivateKeyValidada = null;
+      logger.error('push', 'Par VAPID rejeitado pelo web-push — push desativado', {
+        error: e.message,
+      });
+      return false;
+    }
   });
 
-  return false;
+  return true;
 }
 
 export function getVapidPublicKey() {
-  return process.env.VAPID_PUBLIC_KEY?.trim() || null;
+  return vapidPublicKeyValidada;
+}
+
+export function vapidConfiguradoCorretamente() {
+  return Boolean(vapidPublicKeyValidada && vapidPrivateKeyValidada && pushAtivo);
 }
 
 let _tabelaPushOk;

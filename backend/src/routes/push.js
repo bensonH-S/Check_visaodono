@@ -6,6 +6,7 @@ import {
   consultarPushUsuario,
   contarPushUsuario,
   resetarPushUsuario,
+  vapidConfiguradoCorretamente,
 } from '../pushNotifications.js';
 import { logger } from '../logger.js';
 
@@ -40,6 +41,7 @@ router.get('/status', async (req, res) => {
 });
 
 router.get('/vapid-key', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   const publicKey = getVapidPublicKey();
   if (!publicKey) {
     return res.status(503).json({ error: 'Push notifications não configuradas' });
@@ -52,6 +54,8 @@ router.post('/diagnostico', async (req, res) => {
   const meta = req.body?.meta && typeof req.body.meta === 'object' ? req.body.meta : {};
   logger.warn('push-client', mensagem, {
     idUsuario: idUsuario(req),
+    vapidConfigurado: Boolean(getVapidPublicKey()),
+    vapidAtivo: vapidConfiguradoCorretamente(),
     ...meta,
   });
   res.json({ ok: true });

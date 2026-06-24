@@ -51,6 +51,7 @@
     "migrate:config-perguntas-perm": "npm run migrate:config-perguntas-perm --prefix backend",
     "migrate:perguntas-foto-opcional": "npm run migrate:perguntas-foto-opcional --prefix backend",
     "generate:vapid": "npm run generate:vapid --prefix backend",
+    "validate:vapid": "npm run validate:vapid --prefix backend",
     "logs:hoje": "node scripts/ver-log-hoje.js",
     "logs:erros": "node scripts/ver-log-erros.js",
     "build": "npm run build:web",

@@ -151,6 +151,7 @@ api.get('/public/config', (_req, res) => {
 });
 
 api.get('/public/push/vapid-key', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   const publicKey = getVapidPublicKey();
   if (!publicKey) {
     return res.status(503).json({ error: 'Push notifications não configuradas' });

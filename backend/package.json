@@ -52,6 +52,7 @@
     "migrate:perguntas-foto-opcional": "node scripts/run-sql.js migrations/056_perguntas_foto_opcional.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
+    "validate:vapid": "node scripts/validate-vapid.js",
     "migrate:whatsapp": "node scripts/run-sql.js migrations/035_usuario_whatsapp.sql"
   },
   "dependencies": {

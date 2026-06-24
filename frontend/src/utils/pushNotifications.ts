@@ -51,6 +51,7 @@ export type ResultadoPushRegistro = {
 };
 
 let conclusaoSegundoPlano: Promise<ResultadoPushRegistro> | null = null;
+let ativacaoEmAndamento: Promise<ResultadoPushRegistro> | null = null;
 let pushRegistradoServidor = false;
 let pushAtivoCompleto = false;
 let pushSyncConcluido = false;
@@ -83,13 +84,36 @@ function emitirPushAtualizado() {
   window.dispatchEvent(new CustomEvent(PUSH_ATUALIZADO_EVENT));
 }
 
+function aguardar(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function sanitizarChaveVapidPublica(key: string): string {
+  return key.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, '');
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const key = sanitizarChaveVapidPublica(base64String);
+  const padding = '='.repeat((4 - (key.length % 4)) % 4);
+  const base64 = (key + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(base64);
-  const arr = new Uint8Array(raw.length);
+  const buffer = new ArrayBuffer(raw.length);
+  const arr = new Uint8Array(buffer);
   for (let i = 0; i < raw.length; i += 1) arr[i] = raw.charCodeAt(i);
   return arr;
+}
+
+function validarChaveVapidPublica(publicKey: string): boolean {
+  try {
+    const bytes = urlBase64ToUint8Array(publicKey);
+    return bytes.length === 65 && bytes[0] === 4;
+  } catch {
+    return false;
+  }
+}
+
+export function isAndroid(): boolean {
+  return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
 }
 
 export function pushSuportado(): boolean {
@@ -215,10 +239,11 @@ export function pushPendenteConclusao(): boolean {
 
 export async function obterVapidPublicKey(): Promise<string | null> {
   try {
-    const res = await fetch(`${apiBasePath}/public/push/vapid-key`);
+    const res = await fetch(`${apiBasePath}/public/push/vapid-key`, { cache: 'no-store' });
     if (!res.ok) return null;
     const data = (await res.json()) as { publicKey?: string };
-    return data.publicKey || null;
+    const key = data.publicKey ? sanitizarChaveVapidPublica(data.publicKey) : '';
+    return key && validarChaveVapidPublica(key) ? key : null;
   } catch {
     return null;
   }
@@ -371,6 +396,24 @@ function mapearErroInscricao(e: unknown): ResultadoPushRegistro {
     };
   }
 
+  if (/push service error/i.test(msg)) {
+    return {
+      ok: false,
+      codigo: 'inscricao_falhou',
+      mensagem: isAndroid()
+        ? 'O serviço de push do Android não aceitou a inscrição. Atualize o Chrome, reinicie o celular e tente de novo. Se persistir, o suporte precisa validar as chaves VAPID no servidor (npm run validate:vapid).'
+        : 'Falha no serviço de push do navegador. Limpe os dados do site e tente ativar novamente.',
+    };
+  }
+
+  if (/chave vapid inválida/i.test(msg)) {
+    return {
+      ok: false,
+      codigo: 'vapid_indisponivel',
+      mensagem: 'Chave VAPID inválida no servidor. Avise o suporte para rodar npm run validate:vapid no .env.',
+    };
+  }
+
   return {
     ok: false,
     codigo: msg.toLowerCase().includes('subscribe') ? 'inscricao_falhou' : 'servidor_falhou',
@@ -382,14 +425,20 @@ async function inscreverNoPush(
   registration: ServiceWorkerRegistration,
   publicKey: string,
 ): Promise<ResultadoPushRegistro> {
+  const key = sanitizarChaveVapidPublica(publicKey);
+  if (!validarChaveVapidPublica(key)) {
+    throw new Error('Chave VAPID inválida no servidor');
+  }
+
   const existente = await registration.pushManager.getSubscription();
   if (existente) {
     await existente.unsubscribe().catch(() => {});
+    await aguardar(isAndroid() ? 700 : 250);
   }
 
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey),
+    applicationServerKey: urlBase64ToUint8Array(key),
   });
 
   await api.pushSubscribe(subscription.toJSON());
@@ -506,6 +555,14 @@ export async function prepararNotificacoesPush(): Promise<void> {
 
 /** Clique em "Ativar notificações" — pede permissão, limpa vínculo antigo e registra. */
 export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistro> {
+  if (ativacaoEmAndamento) return ativacaoEmAndamento;
+  ativacaoEmAndamento = ativarNotificacoesNoCliqueInterno().finally(() => {
+    ativacaoEmAndamento = null;
+  });
+  return ativacaoEmAndamento;
+}
+
+async function ativarNotificacoesNoCliqueInterno(): Promise<ResultadoPushRegistro> {
   const pre = validarPreRequisitos();
   if (pre) return pre;
 
@@ -556,7 +613,10 @@ export async function ativarNotificacoesNoClique(): Promise<ResultadoPushRegistr
   if (pushSuportado()) {
     const registration = await obterRegistroServiceWorkerRapido();
     const sub = registration ? await registration.pushManager.getSubscription().catch(() => null) : null;
-    if (sub) await sub.unsubscribe().catch(() => {});
+    if (sub) {
+      await sub.unsubscribe().catch(() => {});
+      await aguardar(isAndroid() ? 700 : 250);
+    }
   }
   limparPushRegistradoLocal();
   pushRegistradoServidor = false;
