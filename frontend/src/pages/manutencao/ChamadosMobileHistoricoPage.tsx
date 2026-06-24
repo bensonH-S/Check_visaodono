@@ -12,7 +12,7 @@ import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import { api } from '../../api/client';
 import type { ManutChamado } from '../../api/client';
-import { getUsuario, modoCabecalhoContextoMobile, filtraChamadosPorLojaMobile, rotuloRegioesAtuacao } from '../../lib/auth';
+import { getUsuario, modoCabecalhoContextoMobile, filtraChamadosPorLojaMobile, rotuloRegioesAtuacao, temPermissao } from '../../lib/auth';
 import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
 import { parseDataApi } from '../../utils/dateBr';
