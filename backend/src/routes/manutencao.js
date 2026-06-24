@@ -16,7 +16,7 @@ import {
   midiaUrlAnexo,
 } from '../fotos.js';
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
-import { processarChamadoUrgenteRegiao } from '../services/chamadoRegiaoUrgente.js';
+import { processarChamadoUrgenteRegiao, coletarDestinatariosRegiaoLoja } from '../services/chamadoRegiaoUrgente.js';
 
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
 const ENCERRADOS = new Set(['concluido', 'cancelado']);
@@ -306,6 +306,50 @@ async function coletarDestinatariosChamado(idChamado, idAutorNum) {
 
   destinatarios.delete(idAutorNum);
   return { destinatarios, numero: c.numero };
+}
+
+async function notificarAssumidoChamado(idChamado, idTecnico, idAutorAcao, tecnicoNome, numero, idLoja) {
+  if (!(await eventoNotificacaoAtivo('assumido'))) return 0;
+
+  const idTec = Number(idTecnico);
+  const idAutor = Number(idAutorAcao);
+  let enviadas = 0;
+
+  const destinatarios = new Set();
+  const { destinatarios: doChamado } = await coletarDestinatariosChamado(idChamado, idAutor);
+  for (const id of doChamado) destinatarios.add(id);
+
+  if (idLoja) {
+    const regiao = await coletarDestinatariosRegiaoLoja(idLoja);
+    for (const id of regiao) destinatarios.add(id);
+  }
+
+  const msgGeral = `Chamado #${numero} atribuído a ${tecnicoNome}.`;
+
+  for (const idUsuario of destinatarios) {
+    if (!Number.isFinite(idUsuario) || idUsuario === idTec) continue;
+    const ok = await criarNotificacao({
+      idUsuario,
+      idChamado,
+      tipo: 'assumido',
+      mensagem: msgGeral,
+      enviarPush: true,
+    });
+    if (ok) enviadas += 1;
+  }
+
+  if (Number.isFinite(idTec)) {
+    const ok = await criarNotificacao({
+      idUsuario: idTec,
+      idChamado,
+      tipo: 'assumido',
+      mensagem: `Chamado #${numero} foi atribuído a você`,
+      enviarPush: true,
+    });
+    if (ok) enviadas += 1;
+  }
+
+  return enviadas;
 }
 
 async function notificarEventoChamado(idChamado, idAutor, tipo, mensagem) {
@@ -824,9 +868,10 @@ router.get('/chamados', requirePermissao('chamados.ver', 'chamados.abrir'), asyn
       `SELECT c.id_chamado, c.numero, c.titulo, c.status::text AS status,
               c.urgencia::text AS urgencia, c.tipo_chamado::text AS tipo_chamado,
               c.prazo_sla, c.aberto_em, c.fechado_em,
-              c.id_loja,
+              c.id_loja, c.id_tecnico,
               cat.nome AS categoria,
               l.name AS loja,
+              ut.nome AS tecnico,
               (SELECT COUNT(*)::int FROM manut_anexos a WHERE a.id_chamado = c.id_chamado) AS total_fotos,
               COALESCE((
                 SELECT COUNT(*)::int FROM manut_notificacoes n
@@ -836,6 +881,7 @@ router.get('/chamados', requirePermissao('chamados.ver', 'chamados.abrir'), asyn
        FROM manut_chamados c
        JOIN manut_categorias cat ON cat.id_categoria = c.id_categoria
        JOIN lojas l ON l.id_loja = c.id_loja
+       LEFT JOIN usuarios ut ON ut.id_usuario = c.id_tecnico
        WHERE 1=1 ${filtro}
        ORDER BY
          CASE c.urgencia::text
@@ -1147,15 +1193,27 @@ router.post('/chamados/:id/fotos', upload.array('fotos', 10), async (req, res, n
 router.patch('/chamados/:id/assumir', requirePermissao('chamados.assumir'), async (req, res, next) => {
   try {
     const idChamado = Number(req.params.id);
-    const idTecnico = req.body.id_tecnico ?? req.user.sub;
+    const idTecnico = Number(req.body.id_tecnico ?? req.user.sub);
+    const idAutorAcao = Number(req.user.sub);
 
     const chamado = await pool.query(
-      `SELECT id_loja, id_solicitante, numero FROM manut_chamados WHERE id_chamado = $1`,
+      `SELECT id_loja, id_solicitante, numero, status::text AS status, id_tecnico
+       FROM manut_chamados WHERE id_chamado = $1`,
       [idChamado],
     );
     if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
     if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
       return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
+    }
+
+    const statusAtual = chamado.rows[0].status;
+    if (!['aberto', 'em_atendimento'].includes(statusAtual)) {
+      return res.status(400).json({ error: 'Chamado não pode ser assumido neste status' });
+    }
+
+    const tecnicoAtual = chamado.rows[0].id_tecnico ? Number(chamado.rows[0].id_tecnico) : null;
+    if (tecnicoAtual === idTecnico && statusAtual === 'em_atendimento') {
+      return res.status(400).json({ error: 'Você já é o técnico deste chamado' });
     }
 
     const tecnico = await pool.query('SELECT nome FROM usuarios WHERE id_usuario = $1', [idTecnico]);
@@ -1171,11 +1229,13 @@ router.patch('/chamados/:id/assumir', requirePermissao('chamados.assumir'), asyn
       [idTecnico, idChamado],
     );
 
-    await notificarEventoChamado(
+    await notificarAssumidoChamado(
       idChamado,
       idTecnico,
-      'assumido',
-      `${tecnicoNome} atribuiu o chamado #${chamado.rows[0].numero}`,
+      idAutorAcao,
+      tecnicoNome,
+      chamado.rows[0].numero,
+      chamado.rows[0].id_loja,
     );
 
     res.json(rows[0]);

@@ -4,13 +4,18 @@ import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined';
+import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import type { ManutChamado } from '../../api/client';
 import NotificacaoBadge from '../NotificacaoBadge';
 import { KANBAN_COLUNAS, STATUS_CHAMADO, SlaBarraProgresso, tipoChamadoChip, urgenciaChip } from '../../utils/manutencaoUi';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 
 const NAVY = '#1B2A6B';
+
+function rotuloTecnicoCard(nome?: string | null) {
+  if (!nome?.trim()) return null;
+  return nome.trim().split(/\s+/)[0];
+}
 
 function statusAccent(status: string) {
   const col = KANBAN_COLUNAS.find((c) => c.status === status);
@@ -153,29 +158,14 @@ export default function ChamadoCardResumo({
           </Box>
         )}
 
-        {!compact && chamado.total_fotos > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-            <PhotoCameraOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-            <Typography variant="caption" color="text.secondary">
-              {chamado.total_fotos} anexo{chamado.total_fotos > 1 ? 's' : ''}
-            </Typography>
-          </Box>
-        )}
-
-        {compact && chamado.total_fotos > 0 && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.35 }}>
-            {chamado.total_fotos} anexo{chamado.total_fotos > 1 ? 's' : ''}
-          </Typography>
-        )}
-
         <Box
           sx={{
             display: 'flex',
-            gap: 0.75,
-            mt: 1.25,
+            gap: 0.5,
+            mt: 1,
             flexWrap: 'wrap',
             alignItems: 'center',
-            pt: 1,
+            pt: 0.75,
             borderTop: '1px solid rgba(27, 42, 107, 0.08)',
           }}
         >
@@ -184,44 +174,83 @@ export default function ChamadoCardResumo({
               label={st.label}
               size="small"
               sx={{
-                height: 26,
+                height: 22,
                 fontWeight: 700,
-                fontSize: '0.72rem',
+                fontSize: '0.68rem',
                 bgcolor: st.bg,
                 color: st.color,
                 border: `1px solid ${accent}40`,
               }}
             />
           )}
+          {chamado.tecnico ? (
+            <Chip
+              icon={
+                <AssignmentIndOutlinedIcon sx={{ fontSize: '12px !important', color: `${NAVY} !important` }} />
+              }
+              label={rotuloTecnicoCard(chamado.tecnico)}
+              size="small"
+              variant="outlined"
+              title={chamado.tecnico}
+              sx={{
+                height: 22,
+                maxWidth: 'min(140px, 42%)',
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                color: NAVY,
+                borderColor: 'rgba(27, 42, 107, 0.18)',
+                '& .MuiChip-icon': { ml: 0.5 },
+                '& .MuiChip-label': {
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  px: 0.75,
+                },
+              }}
+            />
+          ) : (
+            <Chip
+              label="Sem técnico"
+              size="small"
+              variant="outlined"
+              sx={{
+                height: 22,
+                fontSize: '0.65rem',
+                fontWeight: 500,
+                color: 'text.secondary',
+                borderColor: 'rgba(27, 42, 107, 0.12)',
+              }}
+            />
+          )}
           {!compact && (
             <Chip
-              icon={<ScheduleOutlinedIcon sx={{ fontSize: '14px !important', color: `${NAVY} !important` }} />}
+              icon={<ScheduleOutlinedIcon sx={{ fontSize: '12px !important', color: `${NAVY} !important` }} />}
               label={formatDataHoraBrasilia(chamado.aberto_em || chamado.prazo_sla)}
               size="small"
               variant="outlined"
               sx={{
-                height: 26,
-                fontSize: '0.72rem',
+                height: 22,
+                fontSize: '0.68rem',
                 fontWeight: 600,
                 color: NAVY,
                 borderColor: 'rgba(27, 42, 107, 0.2)',
-                '& .MuiChip-icon': { ml: 0.75 },
+                '& .MuiChip-icon': { ml: 0.5 },
               }}
             />
           )}
           {showDataEncerramento && chamado.fechado_em && (
             <Chip
-              icon={<ScheduleOutlinedIcon sx={{ fontSize: '14px !important', color: `${NAVY} !important` }} />}
+              icon={<ScheduleOutlinedIcon sx={{ fontSize: '12px !important', color: `${NAVY} !important` }} />}
               label={`Encerrado ${formatDataHoraBrasilia(chamado.fechado_em)}`}
               size="small"
               variant="outlined"
               sx={{
-                height: 26,
-                fontSize: '0.68rem',
+                height: 22,
+                fontSize: '0.65rem',
                 fontWeight: 600,
                 color: 'text.secondary',
                 borderColor: 'rgba(27, 42, 107, 0.15)',
-                '& .MuiChip-icon': { ml: 0.75 },
+                '& .MuiChip-icon': { ml: 0.5 },
               }}
             />
           )}

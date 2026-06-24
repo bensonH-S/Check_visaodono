@@ -1026,6 +1026,8 @@ export interface ManutChamado {
   id_loja: number;
   categoria: string;
   loja: string;
+  id_tecnico?: number | null;
+  tecnico?: string | null;
   total_fotos: number;
   notificacoes_nao_lidas?: number;
 }

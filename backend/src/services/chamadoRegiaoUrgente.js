@@ -89,6 +89,19 @@ function escolherTecnicoMaisProximo(tecnicos, posicoes, lojaCoords) {
   return melhor;
 }
 
+/** Técnicos da região + regional (supervisor) da loja do chamado. */
+export async function coletarDestinatariosRegiaoLoja(idLoja) {
+  const regiao = await buscarRegiaoDaLoja(idLoja);
+  const destinatarios = new Set();
+  if (!regiao) return destinatarios;
+
+  const tecnicos = await buscarTecnicosRegiao(regiao.id_regiao);
+  for (const t of tecnicos) destinatarios.add(Number(t.id_usuario));
+  if (regiao.id_regional) destinatarios.add(Number(regiao.id_regional));
+
+  return destinatarios;
+}
+
 /**
  * Chamado alta/crítica em loja de região cadastrada:
  * 1) notifica técnicos + regional (WhatsApp + push)
@@ -163,21 +176,22 @@ export async function processarChamadoUrgenteRegiao({
     return { processado: true, atribuido: false, motivo: 'ja_atribuido' };
   }
 
-  const msgAtribuidoGeral = `Chamado #${numero} atribuído automaticamente a ${tecnicoProximo.nome} (técnico mais próximo da loja).`;
-  const msgAtribuidoTecnico = `Chamado #${numero} atribuído a você — execute com prioridade (${nomeLoja}).`;
+  const msgAtribuido = `Chamado #${numero} atribuído a ${tecnicoProximo.nome}.`;
 
   const destinatariosAtribuicao = new Set(destinatarios);
+  destinatariosAtribuicao.add(Number(tecnicoProximo.id_usuario));
+  if (Number.isFinite(idAutorNum)) destinatariosAtribuicao.add(idAutorNum);
+
   for (const idUsuario of await buscarGestoresLoja(idLoja)) {
-    if (idUsuario !== idAutorNum) destinatariosAtribuicao.add(idUsuario);
+    destinatariosAtribuicao.add(idUsuario);
   }
 
   for (const idUsuario of destinatariosAtribuicao) {
-    const isAtribuido = idUsuario === Number(tecnicoProximo.id_usuario);
     await criarNotificacao({
       idUsuario,
       idChamado,
       tipo: 'assumido',
-      mensagem: isAtribuido ? msgAtribuidoTecnico : msgAtribuidoGeral,
+      mensagem: msgAtribuido,
       enviarPush: true,
     });
   }

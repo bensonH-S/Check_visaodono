@@ -163,13 +163,15 @@ export default function ChamadoDetalheConteudo({
   const encerrado = detalhe ? chamadoEncerrado(detalhe.status) : false;
   const podeAssumir = Boolean(
     !modoAprovacao &&
-      !isMobile &&
-      detalhe?.status === 'aberto' &&
-      !detalhe.tecnico &&
-      !detalhe.id_tecnico &&
+      detalhe &&
       sessao &&
-      temPermissao('chamados.assumir', sessao),
+      temPermissao('chamados.assumir', sessao) &&
+      ['aberto', 'em_atendimento'].includes(detalhe.status) &&
+      (!detalhe.id_tecnico || detalhe.id_tecnico !== sessao.id_usuario),
   );
+
+  const rotuloAssumir =
+    detalhe?.status === 'em_atendimento' && detalhe.id_tecnico ? 'Assumir chamado' : 'Assumir ticket';
 
   const podeEditar =
     !modoAprovacao &&
@@ -432,6 +434,7 @@ export default function ChamadoDetalheConteudo({
         podeAssumir={podeAssumir}
         assumindo={assumindo}
         onAssumir={assumirChamado}
+        rotuloAssumir={rotuloAssumir}
       />
 
       {encerrado && !modoAprovacao && (

@@ -121,6 +121,7 @@ type Props = {
   podeAssumir?: boolean;
   assumindo?: boolean;
   onAssumir?: () => void;
+  rotuloAssumir?: string;
 };
 
 export default function ChamadoDetalheHeader({
@@ -133,6 +134,7 @@ export default function ChamadoDetalheHeader({
   podeAssumir,
   assumindo,
   onAssumir,
+  rotuloAssumir = 'Assumir ticket',
 }: Props) {
   const accent = statusAccent(detalhe.status);
   const isMobile = variante === 'mobile';
@@ -310,7 +312,7 @@ export default function ChamadoDetalheHeader({
                   onClick={onAssumir}
                   sx={{ fontSize: '0.78rem', py: 0.5, px: 1.25, whiteSpace: 'nowrap' }}
                 >
-                  {assumindo ? 'Assumindo...' : 'Assumir ticket'}
+                  {assumindo ? 'Assumindo...' : rotuloAssumir}
                 </Button>
               )}
               {statusChip(detalhe.status)}
