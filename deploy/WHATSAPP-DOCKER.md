@@ -51,13 +51,18 @@ cd /var/www/app/Check_visaodono
 git pull
 # .env já configurado
 
-# Só o WhatsApp (mantém sessão ao redeploy do app)
-docker compose up -d wppconnect
-
-# App completo (deploy normal)
+# Deploy normal (build só do app; wppconnect na 1ª vez demora ~5–10 min)
 ./deploy.sh
-# ou: docker compose up -d --build
+
+# Forçar rebuild do WhatsApp (raro — mudou docker/wppconnect)
+DEPLOY_REBUILD_WPP=1 ./deploy.sh
 ```
+
+O `deploy.sh` detecta automaticamente:
+
+- **wppconnect já instalado** → não reconstrói a imagem (só garante que está rodando)
+- **container legado `vision-check`** (deploy antigo `docker run`) → remove antes de subir o compose
+- **app** → sempre rebuild com a tag escolhida
 
 ---
 
@@ -76,14 +81,24 @@ docker compose up -d wppconnect
 docker ps | grep -E 'vision-check|wppconnect'
 
 # Logs WhatsApp
-docker logs -f wppconnect-meridian
+docker logs -f vision-check-wpp
 
 # Reiniciar só o WPP (raro)
-docker compose restart wppconnect
+docker start vision-check-wpp
+# ou: docker restart vision-check-wpp
 
 # Redeploy do app sem mexer no WPP
-docker compose up -d --build app
+docker compose build app && docker rm -f vision-check && docker compose up -d --no-recreate app
 ```
+
+### Erro `KeyError: ContainerConfig` no deploy
+
+Ocorre com **docker-compose 1.29** (legado) ao *recriar* containers. O `deploy.sh` atual evita isso:
+
+- wppconnect rodando → não mexe
+- app → remove e cria de novo com `--no-recreate`
+
+Recomendado no servidor: `sudo apt-get install -y docker-compose-plugin` e usar `docker compose` (v2).
 
 ---
 
