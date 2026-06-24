@@ -14,6 +14,8 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import { api, fmtNota, notaChipSx } from '../api/client';
 import type { Loja } from '../api/client';
+import LojaEditDialog from '../components/lojas/LojaEditDialog';
+import { colors } from '../theme/tokens';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
 
 function notaChip(nota: number) {
@@ -32,6 +34,7 @@ export default function LojasPage() {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [lojaEditando, setLojaEditando] = useState<Loja | null>(null);
 
   useEffect(() => {
     api
@@ -78,7 +81,18 @@ export default function LojasPage() {
               {lojas.map((l) => (
                 <TableRow key={l.id_loja} sx={{ opacity: l.is_active ? 1 : 0.6 }}>
                   <TableCell>{l.bk_number || '—'}</TableCell>
-                  <TableCell sx={tableCellWrapSx}>{l.name}</TableCell>
+                  <TableCell
+                    sx={{
+                      ...tableCellWrapSx,
+                      cursor: 'pointer',
+                      color: colors.navy,
+                      fontWeight: 600,
+                      '&:hover': { textDecoration: 'underline' },
+                    }}
+                    onClick={() => setLojaEditando(l)}
+                  >
+                    {l.name}
+                  </TableCell>
                   <TableCell sx={tableCellWrapSx}>{l.address}</TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatarCidadeUf(l.city, l.state)}</TableCell>
                   <TableCell>{l.neighborhood}</TableCell>
@@ -103,6 +117,15 @@ export default function LojasPage() {
           </Table>
         </TableContainer>
       </Paper>
+
+      <LojaEditDialog
+        open={lojaEditando != null}
+        loja={lojaEditando}
+        onClose={() => setLojaEditando(null)}
+        onSalvo={(atualizada) => {
+          setLojas((lista) => lista.map((item) => (item.id_loja === atualizada.id_loja ? { ...item, ...atualizada } : item)));
+        }}
+      />
     </Box>
   );
 }

@@ -53,6 +53,8 @@ function tituloPorTipo(tipo, numero) {
       return `Novo anexo no chamado #${numero}`;
     case 'assumido':
       return `Chamado #${numero} assumido`;
+    case 'chamado_urgente_regiao':
+      return `Chamado urgente #${numero}`;
     case 'fechamento':
       return `Chamado #${numero} encerrado`;
     case 'reabertura':

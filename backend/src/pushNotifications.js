@@ -96,6 +96,8 @@ export function montarTituloPush({ tipo, mensagem, numero, loja }) {
       return `Orçamento do chamado #${num} - Não Aprovado`;
     case 'assumido':
       return 'Ticket assumido!';
+    case 'chamado_urgente_regiao':
+      return `Chamado urgente #${num}`;
     case 'reabertura':
       return `Chamado #${num} - Reaberto`;
     default:

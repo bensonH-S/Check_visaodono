@@ -15,6 +15,8 @@ const LOJA_FIELDS = [
   'cnpj',
   'corporate_name',
   'is_active',
+  'latitude',
+  'longitude',
 ];
 
 router.get('/', async (req, res, next) => {

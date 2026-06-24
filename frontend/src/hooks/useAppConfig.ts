@@ -12,6 +12,8 @@ const DEFAULT_CONFIG: AppPublicConfig = {
     phone: '+55 61 9109-4654',
     email: 'benson.henrique@grupoalvim.com.br',
   },
+  gpsTecnicosEnabled: true,
+  gpsTecnicosIntervalMs: 120_000,
 };
 
 export function useAppConfig() {

@@ -95,6 +95,7 @@ const manutencaoRouter = (await import('./backend/src/routes/manutencao.js')).de
 const cargosRouter = (await import('./backend/src/routes/cargos.js')).default;
 const pushRouter = (await import('./backend/src/routes/push.js')).default;
 const { initPushNotifications, getVapidPublicKey } = await import('./backend/src/pushNotifications.js');
+const { gpsTecnicosConfigPublica } = await import('./backend/src/gpsTecnicos.js');
 const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
 const frotaRouter = (await import('./backend/src/routes/frota.js')).default;
 await import('./backend/src/cryptoMedia.js');
@@ -143,6 +144,7 @@ api.get('/public/config', (_req, res) => {
       email: process.env.SUPPORT_EMAIL || 'benson.henrique@grupoalvim.com.br',
     },
     pushEnabled: Boolean(getVapidPublicKey()),
+    ...gpsTecnicosConfigPublica(),
   });
 });
 

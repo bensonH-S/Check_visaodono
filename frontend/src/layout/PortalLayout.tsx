@@ -31,6 +31,8 @@ import {
   sincronizarEstadoPush,
   usuarioAdministraChamados,
 } from '../utils/pushNotifications';
+import { useAppConfig } from '../hooks/useAppConfig';
+import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 
 type NavItem = {
@@ -48,6 +50,8 @@ export default function PortalLayout() {
   const location = useLocation();
   const path = toAppPath(location.pathname);
   const user = getUsuario();
+  const appConfig = useAppConfig();
+  useTecnicoGpsTracking(appConfig);
   const welcomeShown = useRef(false);
 
   useEffect(() => {

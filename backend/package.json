@@ -42,6 +42,8 @@
     "migrate:cargos-descricao": "node scripts/run-sql.js migrations/046_cargos_descricao.sql",
     "migrate:frota-regioes-supervisor": "node scripts/run-sql.js migrations/047_frota_regioes_supervisor.sql",
     "migrate:remover-cargos-legado": "node scripts/run-sql.js migrations/048_remover_cargos_dono_regional_ti.sql",
+    "migrate:frota-regioes-perm-lojas": "node scripts/run-sql.js migrations/049_frota_regioes_perm_lojas.sql",
+    "migrate:chamado-urgente-regiao": "node scripts/run-sql.js migrations/050_chamado_urgente_regiao_evento.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "migrate:whatsapp": "node scripts/run-sql.js migrations/035_usuario_whatsapp.sql"

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
+import { gpsTecnicosAtivo } from '../gpsTecnicos.js';
 import { encryptAnexo, decryptAnexo } from '../fotos.js';
 import {
   EMPRESA_TERMO,
@@ -415,6 +416,25 @@ router.get('/regioes/:id', requirePermRegioes, async (req, res, next) => {
     );
 
     res.json({ ...rows[0], lojas, tecnicos, veiculos });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/regioes/:id/posicoes', requirePermRegioes, async (req, res, next) => {
+  try {
+    const idRegiao = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT u.id_usuario, u.nome, u.email,
+              p.latitude, p.longitude, p.precisao_metros, p.atualizado_em
+       FROM frota_regiao_tecnicos rt
+       JOIN usuarios u ON u.id_usuario = rt.id_usuario AND u.ativo = TRUE
+       LEFT JOIN frota_tecnico_posicao p ON p.id_usuario = u.id_usuario
+       WHERE rt.id_regiao = $1
+       ORDER BY u.nome`,
+      [idRegiao],
+    );
+    res.json(rows);
   } catch (e) {
     next(e);
   }
@@ -1022,6 +1042,9 @@ router.post(
 
 router.post('/posicao', requirePermissao('frota.usar', 'chamados.assumir'), async (req, res, next) => {
   try {
+    if (!gpsTecnicosAtivo()) {
+      return res.json({ ok: true, skipped: true, motivo: 'gps_desativado' });
+    }
     const idUsuario = req.user.sub;
     const lat = Number(req.body?.latitude);
     const lng = Number(req.body?.longitude);

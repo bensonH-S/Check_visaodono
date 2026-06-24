@@ -536,7 +536,21 @@ export default function UsuariosPage() {
                 >
                   {grupo}
                 </Typography>
-                <FormGroup row sx={{ flexWrap: 'wrap', gap: 0, m: 0 }}>
+                <FormGroup
+                  row
+                  sx={{
+                    flexWrap: 'wrap',
+                    gap: 0,
+                    m: 0,
+                    ...(grupo === 'Lojas'
+                      ? {
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                          width: '100%',
+                        }
+                      : {}),
+                  }}
+                >
                   {itens.map((p) => (
                     <FormControlLabel
                       key={p.codigo}
@@ -554,7 +568,7 @@ export default function UsuariosPage() {
                         </Typography>
                       }
                       sx={{
-                        width: { xs: '100%', sm: '50%', md: '48%' },
+                        width: grupo === 'Lojas' ? '100%' : { xs: '100%', sm: '50%', md: '48%' },
                         mr: 0,
                         my: 0,
                         ml: 0,

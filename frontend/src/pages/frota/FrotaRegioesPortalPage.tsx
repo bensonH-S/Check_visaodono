@@ -25,6 +25,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
 import {
   api,
   type FrotaRegiaoCatalogo,
@@ -33,7 +34,10 @@ import {
   type FrotaRegiaoResumo,
   type FrotaRegiaoTecnico,
   type FrotaRegiaoVeiculo,
+  type FrotaTecnicoPosicao,
 } from '../../api/client';
+import FrotaLocalizacaoMap from '../../components/frota/FrotaLocalizacaoMap';
+import { useAppConfig } from '../../hooks/useAppConfig';
 import { labelFixo } from '../../constants/frotaVeiculo';
 import { colors } from '../../theme/tokens';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
@@ -452,7 +456,7 @@ function SelecaoPickerMultiplo<T extends { id: number }>({
   selecionados: number[];
   onChange: (ids: number[]) => void;
   renderItem: (item: T) => ReactNode;
-  renderLista: (item: T, remover: () => void) => ReactNode;
+  renderLista: (lista: T[], remover: (id: number) => void) => ReactNode;
   menuMinWidth?: number;
 }) {
   const [pick, setPick] = useState<string[]>([]);
@@ -752,6 +756,9 @@ export default function FrotaRegioesPortalPage() {
   const [nomeNova, setNomeNova] = useState('');
   const [descricaoNova, setDescricaoNova] = useState('');
   const [criando, setCriando] = useState(false);
+  const [posicoes, setPosicoes] = useState<FrotaTecnicoPosicao[]>([]);
+  const [carregandoPosicoes, setCarregandoPosicoes] = useState(false);
+  const appConfig = useAppConfig();
 
   const carregarLista = useCallback(() => {
     setLoading(true);
@@ -850,6 +857,25 @@ export default function FrotaRegioesPortalPage() {
     if (selecionadaId == null) return;
     void carregarDetalhe(selecionadaId);
   }, [selecionadaId, carregarDetalhe]);
+
+  const carregarPosicoes = useCallback(async (idRegiao?: number | null) => {
+    const id = idRegiao ?? selecionadaId;
+    if (id == null) return;
+    setCarregandoPosicoes(true);
+    try {
+      const lista = await api.frotaRegiaoPosicoes(id);
+      setPosicoes(lista);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao carregar localizações', 'error');
+    } finally {
+      setCarregandoPosicoes(false);
+    }
+  }, [selecionadaId]);
+
+  useEffect(() => {
+    if (selecionadaId == null || aba !== 3) return;
+    void carregarPosicoes(selecionadaId);
+  }, [selecionadaId, aba, carregarPosicoes, idsTecnicos]);
 
   function selecionarRegiao(id: number) {
     setSelecionadaId(id);
@@ -1140,6 +1166,7 @@ export default function FrotaRegioesPortalPage() {
                   <Tab icon={<PersonIcon fontSize="small" />} iconPosition="start" label="Supervisor Regional" />
                   <Tab icon={<StorefrontIcon fontSize="small" />} iconPosition="start" label="Lojas" />
                   <Tab icon={<EngineeringIcon fontSize="small" />} iconPosition="start" label="Técnicos" />
+                  <Tab icon={<MyLocationIcon fontSize="small" />} iconPosition="start" label="Localização" />
                   <Tab icon={<DirectionsCarIcon fontSize="small" />} iconPosition="start" label="Veículos" />
                 </Tabs>
 
@@ -1212,6 +1239,17 @@ export default function FrotaRegioesPortalPage() {
 
                 {aba === 3 && (
                   <Box>
+                    <FrotaLocalizacaoMap
+                      posicoes={posicoes}
+                      carregando={carregandoPosicoes}
+                      gpsAtivo={appConfig.gpsTecnicosEnabled !== false}
+                      onAtualizar={() => void carregarPosicoes()}
+                    />
+                  </Box>
+                )}
+
+                {aba === 4 && (
+                  <Box>
                     {catalogo.veiculos.length === 0 ? (
                       <Alert severity="info" sx={{ mb: 2 }}>
                         Nenhum veículo cadastrado na frota.
@@ -1226,11 +1264,13 @@ export default function FrotaRegioesPortalPage() {
                   </Box>
                 )}
 
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-                  <Button variant="contained" onClick={() => void salvar()} disabled={salvando}>
-                    {salvando ? 'Salvando…' : 'Salvar alterações'}
-                  </Button>
-                </Box>
+                {aba !== 3 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+                    <Button variant="contained" onClick={() => void salvar()} disabled={salvando}>
+                      {salvando ? 'Salvando…' : 'Salvar alterações'}
+                    </Button>
+                  </Box>
+                )}
               </Box>
             )}
           </Paper>

@@ -16,6 +16,7 @@ import {
   midiaUrlAnexo,
 } from '../fotos.js';
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
+import { processarChamadoUrgenteRegiao } from '../services/chamadoRegiaoUrgente.js';
 
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
 const ENCERRADOS = new Set(['concluido', 'cancelado']);
@@ -218,7 +219,8 @@ async function ensureNotificacaoEventosTable() {
         ('encaminhar_diretor', 'Orçamento encaminhado ao Diretor', TRUE, TRUE),
         ('aprovacao_diretor', 'Orçamento aprovado pelo Diretor', TRUE, TRUE),
         ('aprovacao', 'Orçamento aprovado', TRUE, TRUE),
-        ('recusa_aprovacao', 'Orçamento recusado', TRUE, TRUE)
+        ('recusa_aprovacao', 'Orçamento recusado', TRUE, TRUE),
+        ('chamado_urgente_regiao', 'Chamado urgente na região de atuação', TRUE, TRUE)
       ON CONFLICT (codigo) DO NOTHING;
     `);
     _tabelaEventosNotifOk = true;
@@ -1045,6 +1047,18 @@ router.post('/chamados', requirePermissao('chamados.abrir'), async (req, res, ne
     const { id_chamado, numero } = rows[0];
     const lojaRow = await pool.query('SELECT name FROM lojas WHERE id_loja = $1', [id_loja]);
     const nomeLoja = lojaRow.rows[0]?.name || 'Loja';
+
+    const regiaoUrgente = await processarChamadoUrgenteRegiao({
+      idChamado: id_chamado,
+      idLoja: id_loja,
+      urgencia: urg,
+      idAutor: req.user.sub,
+      numero,
+      nomeLoja,
+      criarNotificacao,
+      temColunaAssumidoEm,
+    });
+
     await notificarEventoChamado(
       id_chamado,
       req.user.sub,
@@ -1052,7 +1066,7 @@ router.post('/chamados', requirePermissao('chamados.abrir'), async (req, res, ne
       `Novo Chamado #${numero} - Aberto (${nomeLoja})`,
     );
 
-    res.status(201).json(rows[0]);
+    res.status(201).json({ ...rows[0], regiao_urgente: regiaoUrgente });
   } catch (e) {
     next(e);
   }

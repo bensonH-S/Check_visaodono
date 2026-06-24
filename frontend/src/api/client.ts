@@ -14,6 +14,8 @@ export type AppPublicConfig = {
     email: string;
   };
   pushEnabled?: boolean;
+  gpsTecnicosEnabled?: boolean;
+  gpsTecnicosIntervalMs?: number;
 };
 
 function authHeaders(extra?: HeadersInit, omitAuth = false): HeadersInit {
@@ -96,6 +98,8 @@ export const api = {
     const s = q.toString();
     return request<Loja[]>(`/lojas${s ? `?${s}` : ''}`);
   },
+  lojaAtualizar: (id: number, body: LojaAtualizarInput) =>
+    request<Loja>(`/lojas/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   usuarios: () => request<Usuario[]>('/usuarios'),
   permissoesCatalogo: () => request<PermissaoCatalogo[]>('/usuarios/permissoes/catalogo'),
   usuariosGestao: () => request<UsuarioGestao[]>('/usuarios/gestao'),
@@ -365,6 +369,8 @@ export const api = {
   frotaRegioes: () => request<FrotaRegiaoResumo[]>('/frota/regioes'),
   frotaRegiaoCatalogo: () => request<FrotaRegiaoCatalogo>('/frota/regioes/catalogo'),
   frotaRegiao: (idRegiao: number) => request<FrotaRegiaoDetalhe>(`/frota/regioes/${idRegiao}`),
+  frotaRegiaoPosicoes: (idRegiao: number) =>
+    request<FrotaTecnicoPosicao[]>(`/frota/regioes/${idRegiao}/posicoes`),
   frotaCriarRegiao: (body: Pick<FrotaRegiaoBody, 'nome' | 'descricao'>) =>
     request<FrotaRegiaoCriada>('/frota/regioes', { method: 'POST', body: JSON.stringify(body) }),
   frotaAtualizarRegiao: (idRegiao: number, body: Partial<FrotaRegiaoBody>) =>
@@ -467,7 +473,24 @@ export interface Loja {
   is_active: boolean;
   nota_atual: string | number;
   ultima_visita: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
 }
+
+export type LojaAtualizarInput = {
+  name?: string;
+  address?: string | null;
+  zip_code?: string | null;
+  city?: string | null;
+  state?: string | null;
+  neighborhood?: string | null;
+  bk_number?: string | null;
+  cnpj?: string | null;
+  corporate_name?: string | null;
+  is_active?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+};
 
 export interface Usuario {
   id_usuario: number;
@@ -858,6 +881,16 @@ export interface FrotaRegiaoUsuario {
 }
 
 export type FrotaRegiaoTecnico = FrotaRegiaoUsuario;
+
+export interface FrotaTecnicoPosicao {
+  id_usuario: number;
+  nome: string;
+  email: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
+  precisao_metros?: number | string | null;
+  atualizado_em?: string | null;
+}
 
 export interface FrotaRegiaoVeiculo {
   id_veiculo: number;
