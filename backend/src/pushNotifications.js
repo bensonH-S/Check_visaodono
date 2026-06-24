@@ -211,6 +211,11 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
   const cid = Number(idChamado);
   if (!Number.isFinite(uid) || !Number.isFinite(cid)) return;
 
+  if (!tipoEnviaPush(tipo)) {
+    logger.info('push', 'Envio ignorado — tipo não permitido', { idUsuario: uid, idChamado: cid, tipo });
+    return;
+  }
+
   if (!(await deveEnviarPushParaUsuario(uid, tipo))) {
     logger.info('push', 'Envio ignorado — tipo ou usuário fora das regras do perfil', {
       idUsuario: uid,
@@ -265,9 +270,14 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
       loja: chamado.loja,
     });
 
+    const body =
+      tipo === 'chamado_urgente_regiao' || tipo === 'assumido'
+        ? title
+        : mensagem || title;
+
     const payload = JSON.stringify({
       title,
-      body: mensagem || title,
+      body,
       idChamado: cid,
       tipo,
       url: perms ? urlPushChamado(cid, tipo, perms) : `/chamados/mobile/${cid}`,

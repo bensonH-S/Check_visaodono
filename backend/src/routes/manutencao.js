@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { dispatchWhatsAppNotificacao } from '../services/whatsappNotificacoes.js';
 import {
   sqlFiltroContextoNotificacoes,
-  TIPOS_NOTIF_MOBILE_EXCLUIDOS,
+  TIPOS_ALERTA_CHAMADOS_OPS,
   tipoGeraAlertaChamado,
   tipoEnviaPush,
 } from '../notificacoesFiltro.js';
@@ -358,6 +358,7 @@ async function notificarAssumidoChamado(idChamado, idTecnico, idAutorAcao, tecni
 }
 
 async function notificarEventoChamado(idChamado, idAutor, tipo, mensagem) {
+  if (!tipoGeraAlertaChamado(tipo)) return 0;
   if (!(await eventoNotificacaoAtivo(tipo))) return 0;
 
   const idAutorNum = Number(idAutor);
@@ -485,11 +486,8 @@ async function notificarSolicitanteChamado(idChamado, idAutor, tipo, mensagem) {
   return ok ? 1 : 0;
 }
 
-function sqlExcluirTiposNotificacaoCard(mobile = false) {
-  if (mobile) {
-    return ` AND n.tipo NOT IN ('${TIPOS_NOTIF_MOBILE_EXCLUIDOS.join("','")}')`;
-  }
-  return ` AND n.tipo <> 'envio_aprovacao'`;
+function sqlExcluirTiposNotificacaoCard() {
+  return ` AND n.tipo IN ('${TIPOS_ALERTA_CHAMADOS_OPS.join("','")}')`;
 }
 
 async function filtroNotificacoesAprovacoes(idUsuario, contexto, params) {
@@ -865,7 +863,7 @@ router.get('/chamados', requirePermissao('chamados.ver', 'chamados.abrir'), asyn
     params.push(idUsuario);
     const idxUser = params.length;
     const mobile = req.query.mobile === '1' || req.query.mobile === 'true';
-    const filtroNotifCard = sqlExcluirTiposNotificacaoCard(mobile);
+    const filtroNotifCard = sqlExcluirTiposNotificacaoCard();
 
     await ensureNotificacoesTable();
 

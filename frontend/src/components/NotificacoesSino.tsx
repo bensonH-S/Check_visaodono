@@ -16,7 +16,27 @@ import { NOTIFICACOES_REFRESH } from '../utils/notificacoesEvent';
 import { tituloNotificacaoChamado } from '../utils/notificacoesTexto';
 import NotificacaoBadge from './NotificacaoBadge';
 import { colors } from '../theme/tokens';
+import {
+  filtrarNotificacoesChamadosOps,
+  tipoAlertaChamadoOps,
+} from '../constants/notificacoesChamados';
+
 const POLL_MS = 3000;
+
+function contextoChamados(contexto: ContextoNotificacoesManut): boolean {
+  return contexto === 'chamados' || contexto === 'chamados-mobile';
+}
+
+function filtrarListaContexto(notifs: ManutNotificacao[], contexto: ContextoNotificacoesManut) {
+  if (!contextoChamados(contexto)) return notifs;
+  return filtrarNotificacoesChamadosOps(notifs);
+}
+
+function tipoPermiteToast(n: ManutNotificacao, contexto: ContextoNotificacoesManut): boolean {
+  if (contexto === 'aprovacoes') return true;
+  if (contextoChamados(contexto)) return tipoAlertaChamadoOps(n.tipo);
+  return true;
+}
 
 type Props = {
   variante: 'mobile' | 'portal';
@@ -51,9 +71,11 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
       api.manutNotificacoesNaoLidas({ idLoja, contexto }),
     ])
       .then(([notifs, contagem]) => {
-        const filtradas = filtrarPorLoja(notifs, idLoja);
+        const filtradas = filtrarListaContexto(filtrarPorLoja(notifs, idLoja), contexto);
         setLista(filtradas);
-        const total = contagem.total;
+        const total = contextoChamados(contexto)
+          ? filtradas.filter((n) => !n.lida).length
+          : contagem.total;
         const maxIdNaoLida = filtradas.filter((n) => !n.lida).reduce(
           (max, n) => Math.max(max, n.id_notificacao),
           0,
@@ -64,7 +86,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
           baselineOk.current = true;
         } else if (maxIdNaoLida > ultimoIdVisto.current) {
           const nova = filtradas.find((n) => n.id_notificacao === maxIdNaoLida);
-          if (nova) {
+          if (nova && tipoPermiteToast(nova, contexto)) {
             const titulo = tituloNotificacaoChamado(nova, { contexto });
             showToast(titulo, 'info', { toastId: `notif:${nova.id_notificacao}` });
           }

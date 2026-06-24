@@ -1,4 +1,5 @@
 import type { ContextoNotificacoesManut, ManutNotificacao } from '../api/client';
+import { tituloAlertaChamadoOps } from '../constants/notificacoesChamados';
 
 type OpcoesTituloNotificacao = {
   contexto?: ContextoNotificacoesManut;
@@ -43,6 +44,9 @@ export function tituloNotificacaoChamado(
   const p = prefixoChamado(num, contexto);
 
   switch (n.tipo) {
+    case 'assumido':
+    case 'chamado_urgente_regiao':
+      return tituloAlertaChamadoOps(n.tipo, num);
     case 'resposta':
       return `Nova Mensagem Chamado #${num}`;
     case 'fechamento':
@@ -69,10 +73,6 @@ export function tituloNotificacaoChamado(
       return contexto === 'aprovacoes' ? `${p}Orçamento aprovado` : `Chamado #${num} - Orçamento aprovado`;
     case 'recusa_aprovacao':
       return `Orçamento do chamado #${num} - Não Aprovado`;
-    case 'assumido':
-      return `Chamado atribuído #${num}`;
-    case 'chamado_urgente_regiao':
-      return `Novo chamado urgente #${num}`;
     case 'reabertura':
       return `Chamado #${num} - Reaberto`;
     default:

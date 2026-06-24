@@ -50,6 +50,11 @@ function parsePushData(event: PushEvent): PushPayload {
 
 self.addEventListener('push', (event) => {
   const data = parsePushData(event);
+  const tipo = data.tipo;
+  if (tipo && tipo !== 'chamado_urgente_regiao' && tipo !== 'assumido') {
+    return;
+  }
+
   const title = data.title || 'Vision Check';
   const tag = data.idChamado
     ? `chamado-${data.idChamado}-${data.tipo || 'evento'}`
