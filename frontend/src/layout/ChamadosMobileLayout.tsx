@@ -24,7 +24,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { APP_NAME } from '../config/brand';
-import { MOBILE_VIEWPORT, SAFE_AREA_TOP, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaX } from '../theme/safeArea';
+import { MOBILE_VIEWPORT, SAFE_AREA_TOP, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaX } from '../theme/safeArea';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -333,7 +333,7 @@ function ChamadosMobileLayoutInner() {
           bgcolor: '#fff',
           ...safeAreaX(16),
           ...SAFE_AREA_TOP,
-          pb: 1.5,
+          pb: 1,
           borderBottom: '1px solid rgba(27, 42, 107, 0.1)',
           boxShadow: '0 2px 12px rgba(27, 42, 107, 0.06)',
           overflow: 'visible',
@@ -472,12 +472,7 @@ function ChamadosMobileLayoutInner() {
                 {({ isActive }) => (
                   <Box
                     sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      py: 1,
-                      minHeight: TAB_NAV_H,
+                      ...mobileTabBarItemSx(TAB_NAV_H),
                       color: isActive ? NAVY : 'text.secondary',
                       fontSize: '0.625rem',
                       fontWeight: isActive ? 700 : 500,

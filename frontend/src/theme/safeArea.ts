@@ -7,8 +7,9 @@ export function safeAreaX(basePx = 16) {
   } as const;
 }
 
+/** Conteúdo abaixo do relógio/notch — fundo do header pode ir até o topo. */
 export const SAFE_AREA_TOP = {
-  pt: 'max(12px, env(safe-area-inset-top, 0px))',
+  pt: 'env(safe-area-inset-top, 0px)',
 } as const;
 
 export const SAFE_AREA_BOTTOM = {
@@ -50,16 +51,31 @@ export function mobileTabBarShellSx(bgcolor = '#fff', zIndex = 30) {
     bgcolor,
     boxSizing: 'border-box' as const,
     borderTop: '1px solid rgba(27, 42, 107, 0.1)',
-    ...SAFE_AREA_BOTTOM_INSET,
     ...safeAreaX(8),
     transform: 'translateZ(0)',
   };
 }
 
+/** Ícones alinhados embaixo, ocupando também a área do gesto (home indicator). */
 export function mobileTabBarNavSx(tabHeightPx: number) {
   return {
     display: 'flex',
-    minHeight: tabHeightPx,
-    flexShrink: 0,
+    alignItems: 'stretch',
+    minHeight: `calc(${tabHeightPx}px + env(safe-area-inset-bottom, 0px))`,
+    boxSizing: 'border-box' as const,
   } as const;
+}
+
+export function mobileTabBarItemSx(tabHeightPx: number) {
+  return {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flex: 1,
+    pt: 0.5,
+    pb: 'max(6px, env(safe-area-inset-bottom, 0px))',
+    minHeight: `calc(${tabHeightPx}px + env(safe-area-inset-bottom, 0px))`,
+    boxSizing: 'border-box' as const,
+  };
 }

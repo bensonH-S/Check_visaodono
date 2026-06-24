@@ -35,7 +35,7 @@ import {
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { SAFE_AREA_TOP, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaX } from '../theme/safeArea';
+import { SAFE_AREA_TOP, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaX } from '../theme/safeArea';
 
 type NavItem = {
   to: string;
@@ -250,12 +250,7 @@ export default function PortalLayout() {
                 {({ isActive }) => (
                   <Box
                     sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      py: 1,
-                      minHeight: 52,
+                      ...mobileTabBarItemSx(52),
                       color: isActive ? colors.navy : colors.textMuted,
                       fontSize: '0.625rem',
                       fontWeight: isActive ? 600 : 500,

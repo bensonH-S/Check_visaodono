@@ -26,7 +26,7 @@ export default function MobileLoginFooter() {
         flexShrink: 0,
         textAlign: 'center',
         pt: 1.25,
-        pb: 'max(12px, env(safe-area-inset-bottom, 0px))',
+        pb: 'env(safe-area-inset-bottom, 0px)',
         ...safeAreaX(16),
         borderTop: '1px solid rgba(27, 42, 107, 0.08)',
         bgcolor: PAGE_BG,
