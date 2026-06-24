@@ -5,7 +5,7 @@ export default {
   port: '21465',
   deviceName: 'Meridian',
   poweredBy: 'WPPConnect-Server',
-  startAllSession: true,
+  startAllSession: false,
   tokenStoreType: 'file',
   maxListeners: 15,
   customUserDataDir: './userDataDir/',

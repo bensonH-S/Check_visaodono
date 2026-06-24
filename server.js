@@ -291,6 +291,12 @@ app.listen(PORT, async () => {
   console.log(`[server] versão ${APP_VERSION}`);
   console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
   console.log(`[server] Logs → ${getLogDir()}`);
+  if (String(process.env.WPP_ENABLED || '').toLowerCase() === 'true') {
+    const { wppConfig } = await import('./backend/src/services/wppClient.js');
+    const wpp = wppConfig();
+    console.log(`[server] WhatsApp WPP_HOST=${process.env.WPP_HOST} base=${wpp.base}`);
+    logger.info('server', 'WhatsApp habilitado', { host: process.env.WPP_HOST, base: wpp.base });
+  }
   if (!process.env.DB_PASS) {
     logger.warn('server', 'DB_PASS vazio no .env');
     console.warn('[server] DB_PASS vazio — o PostgreSQL local exige senha. Preencha no .env e reinicie.');

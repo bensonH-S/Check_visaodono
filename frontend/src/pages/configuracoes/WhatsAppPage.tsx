@@ -132,7 +132,13 @@ export default function WhatsAppPage() {
           </Button>
         </Box>
 
-        {!status?.enabled ? (
+        {status?.servicoIndisponivel ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {status.message || 'Serviço wppconnect indisponível.'}{' '}
+            No servidor, confira <code>docker ps | grep vision-check</code> e reinicie com{' '}
+            <code>docker compose up -d wppconnect app</code>.
+          </Alert>
+        ) : !status?.enabled ? (
           <Alert severity="warning">
             WhatsApp desabilitado. Defina <code>WPP_ENABLED=true</code> no <code>.env</code> e reinicie o servidor.
           </Alert>

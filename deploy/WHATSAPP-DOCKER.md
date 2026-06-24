@@ -7,7 +7,7 @@
 | Serviço | Container | Porta | Função |
 |---------|-----------|-------|--------|
 | **Meridian** (Check_visaodono) | `vision-check` | 3007 | App + API |
-| **wppconnect** | `wppconnect-meridian` | 21465 (rede interna) | Sessão WhatsApp Web |
+| **wppconnect** | `vision-check-wpp` | 21465 (rede interna) | Sessão WhatsApp Web |
 
 Motivos:
 
@@ -20,8 +20,9 @@ Estrutura no servidor (`/var/www/app/`):
 ```
 /var/www/app/Check_visaodono/
   docker-compose.yml    ← app + wppconnect
+  deploy.sh             ← deploy de tag Git
+  reload-env.sh         ← aplicar .env sem novo deploy
   .env                  ← WPP_ENABLED, WPP_SECRET_KEY, etc.
-  deploy.sh
 ```
 
 Não é obrigatório pasta separada em `/var/www/app/wppconnect/` — os dois serviços ficam no **mesmo** `docker-compose.yml` do projeto.
@@ -40,7 +41,9 @@ PUBLIC_APP_URL=https://grupoalvim.com.br
 ```
 
 > `WPP_HOST=http://wppconnect` é o **nome do serviço** na rede Docker.  
-> O `docker-compose.yml` também força isso no container `app`.
+> O `docker-compose.yml` **força** esse host no container `app` (mesmo que o `.env` tenha `localhost`).
+
+**Não use** `WPP_HOST=http://localhost` no `.env` do servidor — só faz sentido em dev local sem Docker.
 
 ---
 
@@ -60,9 +63,10 @@ DEPLOY_REBUILD_WPP=1 ./deploy.sh
 
 O `deploy.sh` detecta automaticamente:
 
-- **wppconnect já instalado** → não reconstrói a imagem (só garante que está rodando)
+- **wppconnect já instalado** → recria o container com o `.env` atual (sessão no volume)
 - **container legado `vision-check`** (deploy antigo `docker run`) → remove antes de subir o compose
-- **app** → sempre rebuild com a tag escolhida
+- **app** → sempre rebuild + recreate com a tag escolhida
+- **`.env` após o deploy** → `./reload-env.sh` (sem nova tag)
 
 ---
 
@@ -90,6 +94,62 @@ docker start vision-check-wpp
 # Redeploy do app sem mexer no WPP
 docker compose build app && docker rm -f vision-check && docker compose up -d --no-recreate app
 ```
+
+### wppconnect sobe na porta 3007 (errado) / `fetch failed`
+
+O `.env` do projeto costuma ter `PORT=3007` para o app. Se o container **wppconnect** carregar esse `.env`, o WPP sobe na **3007** em vez de **21465** — o app chama `wppconnect:21465` e falha.
+
+Confira nos logs: `Server is running on port: 3007` → esse é o bug.
+
+**Correção:** `docker-compose.yml` atual **não** passa `env_file` para o wppconnect e força `PORT=21465`.
+
+No servidor (use `docker-compose` com hífen se não tiver o plugin):
+
+```bash
+cd /var/www/app/Check_visaodono
+docker-compose up -d --force-recreate wppconnect
+docker logs vision-check-wpp --tail 20   # deve mostrar porta 21465
+docker exec vision-check node -e "fetch('http://wppconnect:21465').then(r=>console.log('OK',r.status)).catch(e=>console.error(e.message))"
+docker-compose up -d --force-recreate app
+```
+
+---
+
+### Erro `fetch failed` no `/wpp/status` após deploy
+
+O app reiniciou mas **não alcança** o wppconnect (`http://wppconnect:21465`). Causa comum: container WPP iniciado com `docker start` **fora** da rede do `docker compose`.
+
+**Correção no servidor:**
+
+```bash
+cd /var/www/app/Check_visaodono
+docker compose up -d wppconnect app
+# ou rode o deploy de novo (script atualizado)
+./deploy.sh
+```
+
+Confirme:
+
+```bash
+docker ps | grep -E 'vision-check|wpp'
+docker exec vision-check node -e "fetch('http://wppconnect:21465').then(r=>console.log('OK',r.status)).catch(e=>console.error(e.message))"
+```
+
+No `.env` de produção: `WPP_ENABLED=true` e `WPP_HOST=http://wppconnect`.
+
+### Mudou alguma variável no `.env`?
+
+`docker restart` **não** relê o `.env`. Recrie os containers:
+
+```bash
+cd /var/www/app/Check_visaodono
+./reload-env.sh
+# equivalente: ./deploy.sh reload-env
+```
+
+Leva poucos segundos (sem build, sem tag Git). Aplica `WPP_ENABLED`, `DB_*`, `VAPID_*`, etc.
+
+---
 
 ### Erro `KeyError: ContainerConfig` no deploy
 

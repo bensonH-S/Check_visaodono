@@ -1,8 +1,10 @@
 import { pool } from '../db.js';
 import {
+  erroRedeWppParaStatus,
   fecharSessaoWpp,
   gerarTokenWpp,
   iniciarSessaoWpp,
+  isErroRedeWpp,
   obterEstadoSessaoWpp,
   obterQrCodeWpp,
   verificarConexaoWpp,
@@ -66,17 +68,22 @@ export async function statusSessaoWpp() {
       message: 'WhatsApp desabilitado (WPP_ENABLED)',
     };
   }
-  const cred = await carregarCredenciaisWpp();
-  if (!cred) return { enabled: false, conectado: false, session: wppConfig().session };
-  const { conectado, raw } = await verificarConexaoWpp(cred.token);
-  const estado = conectado ? null : await obterEstadoSessaoWpp(cred.token);
-  return {
-    enabled: true,
-    conectado,
-    session: cred.session,
-    message: raw?.message || (conectado ? 'Connected' : 'Disconnected'),
-    sessionStatus: estado?.status || null,
-  };
+  try {
+    const cred = await carregarCredenciaisWpp();
+    if (!cred) return { enabled: false, conectado: false, session: wppConfig().session };
+    const { conectado, raw } = await verificarConexaoWpp(cred.token);
+    const estado = conectado ? null : await obterEstadoSessaoWpp(cred.token);
+    return {
+      enabled: true,
+      conectado,
+      session: cred.session,
+      message: raw?.message || (conectado ? 'Connected' : 'Disconnected'),
+      sessionStatus: estado?.status || null,
+    };
+  } catch (err) {
+    if (isErroRedeWpp(err)) return erroRedeWppParaStatus(err);
+    throw err;
+  }
 }
 
 export async function conectarSessaoWpp({ reiniciar = false } = {}) {

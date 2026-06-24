@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requirePermissao } from '../permissoes.js';
-import { wppConfig, wppEnabled } from '../services/wppClient.js';
+import { wppConfig, wppEnabled, isErroRedeWpp, erroRedeWppParaStatus } from '../services/wppClient.js';
 import {
   conectarSessaoWpp,
   obterQrSessaoWpp,
@@ -17,8 +17,17 @@ router.get('/status', requirePermissao('configuracoes.ver'), async (_req, res, n
       ...status,
       publicUrl: process.env.PUBLIC_APP_URL || null,
       sessionConfig: wppConfig().session,
+      wppBase: wppEnabled() ? wppConfig().base : null,
     });
   } catch (e) {
+    if (isErroRedeWpp(e)) {
+      return res.json({
+        ...erroRedeWppParaStatus(e),
+        publicUrl: process.env.PUBLIC_APP_URL || null,
+        sessionConfig: wppConfig().session,
+        wppBase: wppConfig().base,
+      });
+    }
     next(e);
   }
 });

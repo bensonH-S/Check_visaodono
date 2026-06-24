@@ -4,6 +4,34 @@ export function wppEnabled() {
   return String(process.env.WPP_ENABLED || '').toLowerCase() === 'true';
 }
 
+export function isErroRedeWpp(err) {
+  if (!err) return false;
+  const msg = String(err.message || err).toLowerCase();
+  const cause = String(err.cause?.message || err.cause || '').toLowerCase();
+  const texto = `${msg} ${cause}`;
+  return (
+    (err.name === 'TypeError' && texto.includes('fetch failed')) ||
+    texto.includes('econnrefused') ||
+    texto.includes('enotfound') ||
+    texto.includes('econnreset') ||
+    texto.includes('network') ||
+    texto.includes('wppconnect indisponível') ||
+    texto.includes('fetch failed') ||
+    texto.includes('getaddrinfo')
+  );
+}
+
+export function erroRedeWppParaStatus(err) {
+  const detalhe = err?.cause?.message || err?.message || 'fetch failed';
+  return {
+    enabled: true,
+    conectado: false,
+    servicoIndisponivel: true,
+    session: wppConfig().session,
+    message: `Serviço wppconnect indisponível (${detalhe}). Verifique se o container vision-check-wpp está rodando na mesma rede Docker.`,
+  };
+}
+
 export function wppConfig() {
   const host = (process.env.WPP_HOST || 'http://localhost').replace(/\/$/, '');
   const port = process.env.WPP_PORT || '21465';
@@ -20,12 +48,19 @@ async function wppRequest(path, { method = 'GET', token, body, timeoutMs = 20000
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${base}${path}`, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: controller.signal,
-    });
+    let res;
+    try {
+      res = await fetch(`${base}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } catch (err) {
+      const rede = new TypeError(`wppconnect indisponível em ${base}${path}`);
+      rede.cause = err;
+      throw rede;
+    }
     const contentType = res.headers.get('content-type') || '';
     let data = null;
     if (contentType.includes('application/json')) {
@@ -45,7 +80,14 @@ async function wppRequest(path, { method = 'GET', token, body, timeoutMs = 20000
 export async function gerarTokenWpp() {
   const { session, secretKey, host, port } = wppConfig();
   const url = `${host}:${port}/api/${session}/${secretKey}/generate-token`;
-  const res = await fetch(url, { method: 'POST' });
+  let res;
+  try {
+    res = await fetch(url, { method: 'POST' });
+  } catch (err) {
+    const rede = new TypeError(`wppconnect indisponível em ${url}`);
+    rede.cause = err;
+    throw rede;
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Falha ao gerar token WPP (${res.status}): ${text}`);

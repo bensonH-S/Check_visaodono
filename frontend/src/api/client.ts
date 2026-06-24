@@ -579,6 +579,7 @@ export interface UsuarioGestaoInput {
 export interface WppStatus {
   enabled: boolean;
   conectado: boolean;
+  servicoIndisponivel?: boolean;
   session?: string;
   message?: string;
   publicUrl?: string | null;
