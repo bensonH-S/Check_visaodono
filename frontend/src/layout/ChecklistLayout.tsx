@@ -7,6 +7,7 @@ import { toAppPath } from '../config/paths';
 import { usePageTitle } from '../hooks/usePageTitle';
 import BrandLogo from '../components/BrandLogo';
 import { APP_NAME } from '../config/brand';
+import { MOBILE_VIEWPORT, SAFE_AREA_TOP, safeAreaX } from '../theme/safeArea';
 
 const NAVY = '#1B2A6B';
 const BRAND_ORANGE = '#E8520A';
@@ -23,10 +24,11 @@ export default function ChecklistLayout() {
   return (
     <Box
       sx={{
-        minHeight: '100dvh',
+        ...MOBILE_VIEWPORT,
         display: 'flex',
         flexDirection: 'column',
         bgcolor: '#f5f5f3',
+        width: '100%',
         maxWidth: 640,
         mx: 'auto',
         boxShadow: { xs: 'none', sm: '0 0 0 1px rgba(0,0,0,0.06)' },
@@ -35,8 +37,8 @@ export default function ChecklistLayout() {
       <Box
         component="header"
         sx={{
-          px: 2,
-          pt: 'max(12px, env(safe-area-inset-top))',
+          ...safeAreaX(16),
+          ...SAFE_AREA_TOP,
           pb: 1.5,
           bgcolor: 'white',
           borderBottom: '1px solid rgba(27, 42, 107, 0.1)',

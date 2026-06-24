@@ -14,13 +14,14 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import BrandLogo from '../components/BrandLogo';
-import AppFooter from '../components/AppFooter';
+import MobileVersionBadge from '../components/MobileVersionBadge';
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
 import { destinoPosLoginMobile, getToken, logout, setSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
+import { MOBILE_VIEWPORT, SAFE_AREA_TOP, safeAreaX } from '../theme/safeArea';
 
 import { APP_NAME } from '../config/brand';
 
@@ -118,8 +119,8 @@ export default function LoginMobilePage() {
   return (
     <Box
       sx={{
+        ...MOBILE_VIEWPORT,
         height: '100%',
-        minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -134,8 +135,9 @@ export default function LoginMobilePage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          px: 2,
-          py: 3,
+          ...safeAreaX(16),
+          ...SAFE_AREA_TOP,
+          pb: 'max(24px, env(safe-area-inset-bottom, 0px))',
         }}
       >
         <Paper
@@ -226,6 +228,10 @@ export default function LoginMobilePage() {
                   </Typography>
                 </Box>
               ))}
+            </Box>
+
+            <Box sx={{ mb: 1, textAlign: 'center' }}>
+              <MobileVersionBadge inline />
             </Box>
 
             <Typography
@@ -325,8 +331,6 @@ export default function LoginMobilePage() {
           </Box>
         </Paper>
       </Box>
-
-      <AppFooter compact />
 
       <PwaInstallDialog />
 

@@ -12,8 +12,8 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import BuildIcon from '@mui/icons-material/Build';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import BrandLogo from '../components/BrandLogo';
-import AppFooter from '../components/AppFooter';
 import NotificacoesSino from '../components/NotificacoesSino';
+import SobreSistemaButton from '../components/SobreSistemaButton';
 import PwaInstallBanner from '../components/PwaInstallBanner';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
@@ -24,6 +24,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { APP_NAME } from '../config/brand';
+import { MOBILE_VIEWPORT, SAFE_AREA_BOTTOM, SAFE_AREA_TOP, safeAreaBottomCalc, safeAreaRightCalc, safeAreaX } from '../theme/safeArea';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -31,7 +32,6 @@ import {
 
 const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
-const FOOTER_H = 64;
 const TAB_NAV_H = 52;
 
 function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
@@ -254,7 +254,7 @@ function ChamadosMobileLayoutInner() {
   ].filter((t) => t.show);
 
   const mostrarTabs = mobileTabs.length >= 1 && !isSubPage && !isChecklistConcluido;
-  const rodapeTotalH = FOOTER_H + (mostrarTabs ? TAB_NAV_H : 0);
+  const rodapeTotalH = mostrarTabs ? TAB_NAV_H : 0;
 
   const subtituloPagina = isNovo
     ? 'Novo chamado'
@@ -321,8 +321,8 @@ function ChamadosMobileLayoutInner() {
   return (
     <Box
       sx={{
+        ...MOBILE_VIEWPORT,
         height: '100%',
-        minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -337,8 +337,8 @@ function ChamadosMobileLayoutInner() {
           zIndex: 30,
           flexShrink: 0,
           bgcolor: '#fff',
-          px: 2,
-          pt: 'max(12px, env(safe-area-inset-top))',
+          ...safeAreaX(16),
+          ...SAFE_AREA_TOP,
           pb: 1.5,
           borderBottom: '1px solid rgba(27, 42, 107, 0.1)',
           boxShadow: '0 2px 12px rgba(27, 42, 107, 0.06)',
@@ -391,6 +391,7 @@ function ChamadosMobileLayoutInner() {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
             <AtivarPushHeaderButton />
+            <SobreSistemaButton variante="mobile" />
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" idLoja={idLoja} />
             <IconButton
               size="small"
@@ -432,9 +433,11 @@ function ChamadosMobileLayoutInner() {
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          px: isChecklist || isFrota ? 0 : 2,
+          ...(isChecklist || isFrota ? safeAreaX(8) : safeAreaX(16)),
           pt: isChecklist || isFrota ? 0 : 2,
-          pb: `calc(${rodapeTotalH}px + ${podeAbrir && !isSubPage && !isChecklist && !isFrota ? 64 : 16}px + env(safe-area-inset-bottom, 0px))`,
+          pb: safeAreaBottomCalc(
+            rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota ? 64 : 16),
+          ),
           WebkitOverflowScrolling: 'touch',
         }}
       >
@@ -448,8 +451,8 @@ function ChamadosMobileLayoutInner() {
           onClick={() => navigate('/chamados/mobile/novo')}
           sx={{
             position: 'fixed',
-            right: 20,
-            bottom: `calc(${rodapeTotalH}px + 16px + env(safe-area-inset-bottom, 0px))`,
+            right: safeAreaRightCalc(20),
+            bottom: safeAreaBottomCalc(rodapeTotalH + 16),
             zIndex: 40,
             boxShadow: '0 6px 20px rgba(27, 42, 107, 0.35)',
           }}
@@ -466,7 +469,7 @@ function ChamadosMobileLayoutInner() {
           left: 0,
           right: 0,
           zIndex: 30,
-          pb: 'env(safe-area-inset-bottom, 0px)',
+          ...SAFE_AREA_BOTTOM,
           bgcolor: PAGE_BG,
         }}
       >
@@ -477,6 +480,7 @@ function ChamadosMobileLayoutInner() {
               display: 'flex',
               bgcolor: '#fff',
               borderTop: '1px solid rgba(27, 42, 107, 0.1)',
+              ...safeAreaX(8),
             }}
           >
             {mobileTabs.map((item) => (
@@ -509,7 +513,6 @@ function ChamadosMobileLayoutInner() {
             ))}
           </Box>
         )}
-        <AppFooter compact fullText />
       </Box>
     </Box>
   );

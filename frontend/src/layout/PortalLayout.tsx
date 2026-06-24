@@ -21,6 +21,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useEffect, useRef } from 'react';
 import { showToast } from '../utils/toast';
 import NotificacoesSino from '../components/NotificacoesSino';
+import SobreSistemaButton from '../components/SobreSistemaButton';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import AppFooter from '../components/AppFooter';
 import { colors } from '../theme/tokens';
@@ -34,6 +35,7 @@ import {
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
+import { SAFE_AREA_BOTTOM, SAFE_AREA_TOP, safeAreaBottomCalc, safeAreaX } from '../theme/safeArea';
 
 type NavItem = {
   to: string;
@@ -168,6 +170,7 @@ export default function PortalLayout() {
           >
             <PageHeaderTitle {...pageTitle} variant="desktop" />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <SobreSistemaButton variante="portal" />
               {!isMobileLayout ? notificacoes : null}
             </Box>
           </Box>
@@ -179,8 +182,10 @@ export default function PortalLayout() {
           sx={{
             display: { xs: 'flex', md: 'none' },
             alignItems: 'center',
-            px: 2,
-            height: 52,
+            ...safeAreaX(16),
+            ...SAFE_AREA_TOP,
+            pb: 1,
+            minHeight: 52,
             flexShrink: 0,
             borderBottom: '1px solid',
             borderColor: colors.border,
@@ -193,6 +198,7 @@ export default function PortalLayout() {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <PageHeaderTitle {...pageTitle} variant="mobile" />
           </Box>
+          <SobreSistemaButton variante="portal" />
           {isMobileLayout ? notificacoes : null}
           <IconButton size="small" aria-label="Sair" onClick={handleLogout} sx={{ color: colors.textSecondary }}>
             <LogoutIcon sx={{ fontSize: 18 }} />
@@ -201,10 +207,15 @@ export default function PortalLayout() {
 
         <Box
           component="main"
-          className={`flex-1 min-h-0 flex flex-col ${scrollInterno ? 'overflow-hidden' : 'overflow-y-auto'} ${mobileTabsRodape.length && !isChamadoNovo ? 'pb-20 md:pb-0' : ''}`}
+          className={`flex-1 min-h-0 flex flex-col ${scrollInterno ? 'overflow-hidden' : 'overflow-y-auto'}`}
           sx={{
-            px: { xs: 2, sm: 2.5, md: 3, xl: 4 },
+            pl: { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: 24, xl: 32 },
+            pr: { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: 24, xl: 32 },
             py: scrollInterno ? { xs: 2, md: 2 } : emConfiguracoes ? { xs: 2, md: 2.5 } : { xs: 2.5, md: 3 },
+            pb:
+              mobileTabsRodape.length > 0 && !isChamadoNovo
+                ? { xs: safeAreaBottomCalc(80), md: undefined }
+                : undefined,
             maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
             mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
             width: '100%',
@@ -214,7 +225,7 @@ export default function PortalLayout() {
           <Outlet />
         </Box>
 
-        <Box sx={{ display: { xs: 'block', md: 'none' }, flexShrink: 0 }}>
+        <Box sx={{ display: { xs: 'none', md: 'block' }, flexShrink: 0 }}>
           <AppFooter compact />
         </Box>
 
@@ -223,7 +234,8 @@ export default function PortalLayout() {
             component="nav"
             className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex bg-white"
             sx={{
-              pb: 'env(safe-area-inset-bottom)',
+              ...SAFE_AREA_BOTTOM,
+              ...safeAreaX(8),
               borderTop: '1px solid',
               borderColor: colors.border,
             }}

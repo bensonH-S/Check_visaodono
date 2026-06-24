@@ -26,7 +26,11 @@ export default function AppToastContainer() {
         boxShadow: shadows.card,
         padding: '12px 16px',
       }}
-      style={{ zIndex: 10000, top: 20, right: 20 }}
+      style={{
+        zIndex: 10000,
+        top: 'max(20px, env(safe-area-inset-top, 0px))',
+        right: 'max(20px, env(safe-area-inset-right, 0px))',
+      }}
     />
   );
 }
