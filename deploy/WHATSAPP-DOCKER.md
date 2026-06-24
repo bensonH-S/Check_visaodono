@@ -63,10 +63,11 @@ DEPLOY_REBUILD_WPP=1 ./deploy.sh
 
 O `deploy.sh` detecta automaticamente:
 
-- **wppconnect já instalado** → recria o container com o `.env` atual (sessão no volume)
-- **container legado `vision-check`** (deploy antigo `docker run`) → remove antes de subir o compose
+- **wppconnect já instalado e na porta 21465** → **não reinicia** (preserva sessão WhatsApp)
+- **wppconnect fora do ar ou porta errada** → recria o container
 - **app** → sempre rebuild + recreate com a tag escolhida
-- **`.env` após o deploy** → `./reload-env.sh` (sem nova tag)
+- **Forçar rebuild do WPP:** `DEPLOY_REBUILD_WPP=1 ./deploy.sh` ou `./fix-wpp.sh`
+- **`.env` após o deploy** → `./reload-env.sh` (recria app + wpp)
 
 ---
 
@@ -153,19 +154,34 @@ Leva poucos segundos (sem build, sem tag Git). Aplica `WPP_ENABLED`, `DB_*`, `VA
 
 ### Erro `KeyError: ContainerConfig` no deploy
 
-Ocorre com **docker-compose 1.29** ao *recriar* containers (ex.: `396f02d1b082_vision-check-wpp`).
+Ocorre com **docker-compose 1.29** ao usar `--force-recreate`.  
+Os nomes dos **serviços** no compose são `wppconnect` e `app` (não `vision-check-wpp`).
 
 **Correção imediata no servidor:**
 
 ```bash
-docker rm -f $(docker ps -a --format '{{.Names}}' | grep vision-check-wpp) 2>/dev/null || true
+cd /var/www/app/Check_visaodono
+
+# Limpar containers quebrados / órfãos
+docker rm -f vision-check-wpp vision-check 2>/dev/null || true
+docker rm -f $(docker ps -a --format '{{.Names}}' | grep -E 'vision-check-wpp|_vision-check-wpp') 2>/dev/null || true
+
+# Rebuild e subir (serviços: wppconnect e app)
+docker-compose build wppconnect
+docker-compose up -d --no-recreate wppconnect
+sleep 20
+docker logs vision-check-wpp 2>&1 | grep -i "running on port" | tail -1
+
+docker-compose build app
 docker rm -f vision-check 2>/dev/null || true
-./deploy.sh
+docker-compose up -d --no-recreate app
+
+docker exec vision-check node -e "fetch('http://wppconnect:21465').then(r=>console.log('OK',r.status)).catch(e=>console.error(e.message))"
 ```
 
-O `deploy.sh` atual remove órfãos antes de subir e usa `build` + `up --no-recreate`.
+Ou, com o script do projeto: `./fix-wpp.sh` (após `git pull`).
 
-Recomendado: `sudo apt-get install -y docker-compose-plugin` → `docker compose` (v2).
+Recomendado a longo prazo: `sudo apt-get install -y docker-compose-plugin` → `docker compose` (v2).
 
 ---
 

@@ -14,10 +14,11 @@ if [ -f .env ] && grep -qE '^PORT=' .env; then
 fi
 
 compose_cmd() {
-  if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
-  elif command -v docker-compose >/dev/null 2>&1; then
+  # Servidores OVH costumam ter só docker-compose (v1); «docker compose» falha com «unknown shorthand flag: -d»
+  if command -v docker-compose >/dev/null 2>&1; then
     docker-compose "$@"
+  elif docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
   else
     echo ""
     echo "ERRO: Docker Compose não está instalado neste servidor."
@@ -34,8 +35,39 @@ compose_suporta_no_build() {
   compose_cmd up -d --help 2>&1 | grep -q '\-\-no-build'
 }
 
+compose_e_legado_v1() {
+  if ! command -v docker-compose >/dev/null 2>&1; then
+    return 1
+  fi
+  local ver
+  ver="$(docker-compose version --short 2>/dev/null || echo "1.0")"
+  case "$ver" in
+    1.*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Remove containers pelos nomes fixos + órfãos «abc123_vision-check-wpp»
+remover_containers_servicos() {
+  for servico in "$@"; do
+    case "$servico" in
+      wppconnect) docker rm -f "$WPP_CONTAINER_NAME" 2>/dev/null || true ;;
+      app) docker rm -f "$CONTAINER_NAME" 2>/dev/null || true ;;
+    esac
+  done
+  limpar_containers_residuals 'vision-check-wpp'
+  limpar_containers_residuals '(^|_)vision-check$'
+}
+
 # Recria container(s) para ler .env / environment do compose (restart simples não basta).
 compose_up_recreate() {
+  if compose_e_legado_v1; then
+    # docker-compose 1.29 + --force-recreate → KeyError: ContainerConfig
+    echo "(compose v1: removendo container e «up --no-recreate»)"
+    remover_containers_servicos "$@"
+    compose_cmd up -d --no-recreate "$@"
+    return
+  fi
   if compose_suporta_no_build; then
     compose_cmd up -d --force-recreate --no-build "$@"
   else
@@ -88,6 +120,12 @@ compose_build_up() {
   compose_up_recreate "$servico"
 }
 
+wppconnect_porta_ok() {
+  container_rodando "$WPP_CONTAINER_NAME" && docker exec "$WPP_CONTAINER_NAME" node -e \
+    "require('http').get('http://127.0.0.1:21465',(r)=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))" \
+    2>/dev/null
+}
+
 garantir_wppconnect_rodando() {
   if container_rodando "$WPP_CONTAINER_NAME" && ! container_gerido_pelo_compose "$WPP_CONTAINER_NAME"; then
     echo "wppconnect rodando fora do compose — recriando na rede correta..."
@@ -96,7 +134,11 @@ garantir_wppconnect_rodando() {
   fi
 
   if container_rodando "$WPP_CONTAINER_NAME" && container_gerido_pelo_compose "$WPP_CONTAINER_NAME"; then
-    echo "wppconnect já em execução — recriando com .env atual (sessão preservada no volume)..."
+    if wppconnect_porta_ok; then
+      echo "wppconnect OK (porta 21465) — mantido sem reiniciar (sessão WhatsApp preservada)."
+      return 0
+    fi
+    echo "wppconnect não responde na 21465 — recriando..."
     compose_up_recreate wppconnect
     return 0
   fi
@@ -213,11 +255,69 @@ mostrar_ajuda() {
   echo ""
   echo "Alterou WPP_ENABLED, DB_* ou outra variável no .env?"
   echo "  ./reload-env.sh   (não precisa rodar deploy de novo)"
+  echo "  ./fix-wpp.sh      Corrige wppconnect (porta 21465 + rede)"
+}
+
+diagnostico_wpp_porta() {
+  if ! container_rodando "$WPP_CONTAINER_NAME"; then
+    echo "vision-check-wpp não está rodando."
+    return 1
+  fi
+  local linha
+  linha="$(docker logs "$WPP_CONTAINER_NAME" 2>&1 | grep -i "running on port" | tail -1 || true)"
+  if [ -n "$linha" ]; then
+    echo "$linha"
+    if echo "$linha" | grep -q "port: 3007"; then
+      echo "ERRO: wppconnect na porta 3007 (deveria ser 21465). Rode ./fix-wpp.sh"
+      return 1
+    fi
+  fi
+  return 0
+}
+
+fix_wpp() {
+  if [ ! -f .env ]; then
+    echo "ERRO: .env não encontrado em ${SCRIPT_DIR}"
+    exit 1
+  fi
+
+  echo ""
+  echo "=== Corrigir WhatsApp (wppconnect) ==="
+  docker ps --filter "name=vision-check" --format "table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}"
+  echo ""
+  echo "Diagnóstico (porta no log):"
+  diagnostico_wpp_porta || true
+  echo ""
+
+  limpar_containers_residuals 'vision-check-wpp'
+
+  echo "Rebuild wppconnect (entrypoint força PORT=21465)..."
+  compose_cmd build wppconnect
+  compose_up_recreate wppconnect
+
+  aguardar_wppconnect
+  echo ""
+  echo "Após correção:"
+  diagnostico_wpp_porta || true
+
+  garantir_rede_compartilhada
+  if container_rodando "$CONTAINER_NAME"; then
+    echo "Recriando app na mesma rede..."
+    compose_up_recreate app
+  fi
+
+  verificar_rede_wpp
+  echo ""
+  echo "Pronto. Abra Configurações → WhatsApp no portal."
 }
 
 case "${1:-}" in
   reload-env|env|--reload-env|-e)
     reload_env
+    exit 0
+    ;;
+  fix-wpp|wpp)
+    fix_wpp
     exit 0
     ;;
   help|-h|--help)
@@ -313,6 +413,7 @@ git checkout "tags/${TAG}" -f
 cp "$DEPLOY_SCRIPT_BACKUP" "$SCRIPT_DIR/deploy.sh"
 chmod +x "$SCRIPT_DIR/deploy.sh"
 chmod +x "$SCRIPT_DIR/reload-env.sh" 2>/dev/null || true
+chmod +x "$SCRIPT_DIR/fix-wpp.sh" 2>/dev/null || true
 
 if [ ! -f .env ]; then
   echo "ERRO: .env não encontrado em ${SCRIPT_DIR}"

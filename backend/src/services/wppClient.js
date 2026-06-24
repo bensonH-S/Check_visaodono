@@ -129,12 +129,17 @@ function normalizarQrDataUrl(qr) {
   return `data:image/png;base64,${qr}`;
 }
 
+export function extrairQrcodeResposta(data) {
+  if (!data || typeof data !== 'object') return null;
+  return normalizarQrDataUrl(data.qrcode || data.urlcode);
+}
+
 export async function iniciarSessaoWpp(token) {
   return wppRequest('/start-session', {
     method: 'POST',
     token,
-    body: { waitQrCode: false },
-    timeoutMs: 15000,
+    body: { waitQrCode: true },
+    timeoutMs: 180000,
   });
 }
 

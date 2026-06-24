@@ -86,7 +86,7 @@ export default function WhatsAppPage() {
           ? 'WhatsApp conectado!'
           : res.qrcode
             ? 'QR Code pronto — escaneie no celular'
-            : 'Iniciando sessão… aguarde e atualize',
+            : res.message || 'Aguarde até 2 min e clique em Atualizar',
       );
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao conectar');
@@ -135,8 +135,8 @@ export default function WhatsAppPage() {
         {status?.servicoIndisponivel ? (
           <Alert severity="error" sx={{ mb: 2 }}>
             {status.message || 'Serviço wppconnect indisponível.'}{' '}
-            No servidor, confira <code>docker ps | grep vision-check</code> e reinicie com{' '}
-            <code>docker compose up -d wppconnect app</code>.
+            No servidor, confira <code>docker ps | grep vision-check</code> e rode{' '}
+            <code>./fix-wpp.sh</code> (ou <code>docker-compose up -d --force-recreate wppconnect</code>).
           </Alert>
         ) : !status?.enabled ? (
           <Alert severity="warning">
@@ -173,7 +173,13 @@ export default function WhatsAppPage() {
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Clique em &quot;Gerar QR Code&quot; para iniciar a sessão.
+                Clique em &quot;Gerar QR Code&quot;. Na primeira vez pode levar até 2 minutos (Chromium no
+                servidor).
+              </Typography>
+            )}
+            {conectando && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                Iniciando sessão… aguarde, não feche a página.
               </Typography>
             )}
             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>

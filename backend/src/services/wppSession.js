@@ -7,6 +7,7 @@ import {
   isErroRedeWpp,
   obterEstadoSessaoWpp,
   obterQrCodeWpp,
+  extrairQrcodeResposta,
   verificarConexaoWpp,
   wppConfig,
   wppEnabled,
@@ -87,41 +88,71 @@ export async function statusSessaoWpp() {
 }
 
 export async function conectarSessaoWpp({ reiniciar = false } = {}) {
-  const cred = await carregarCredenciaisWpp();
+  let cred = await carregarCredenciaisWpp();
   if (!cred) throw new Error('WhatsApp não configurado');
 
-  const status = await verificarConexaoWpp(cred.token);
-  if (status.conectado) {
-    return { conectado: true, qrcode: null, message: 'Sessão já conectada' };
-  }
-
-  const estadoAtual = await obterEstadoSessaoWpp(cred.token);
-  if (reiniciar || estadoAtual.status === 'CLOSED' || !estadoAtual.status) {
-    await fecharSessaoWpp(cred.token);
-    const start = await iniciarSessaoWpp(cred.token);
-    if (!start.ok && start.status !== 409) {
-      console.warn('[wpp] start-session:', start.status, start.data);
+  try {
+    const status = await verificarConexaoWpp(cred.token);
+    if (status.conectado) {
+      return { conectado: true, qrcode: null, message: 'Sessão já conectada' };
     }
-  } else if (estadoAtual.qrcode) {
+
+    const estadoAtual = await obterEstadoSessaoWpp(cred.token);
+    if (!reiniciar && estadoAtual.qrcode) {
+      return {
+        conectado: false,
+        qrcode: estadoAtual.qrcode,
+        message: 'Escaneie o QR Code no WhatsApp (Aparelhos conectados)',
+      };
+    }
+
+    const precisaIniciar =
+      reiniciar ||
+      estadoAtual.status === 'CLOSED' ||
+      !estadoAtual.status ||
+      estadoAtual.status === 'QRCODE';
+
+    if (precisaIniciar) {
+      await fecharSessaoWpp(cred.token);
+      let start = await iniciarSessaoWpp(cred.token);
+      if (start.status === 401 || start.status === 403) {
+        const token = await gerarTokenWpp();
+        await salvarCredenciaisWpp(cred.session, token);
+        cred = { session: cred.session, token };
+        start = await iniciarSessaoWpp(cred.token);
+      }
+      const qrStart = extrairQrcodeResposta(start.data);
+      if (qrStart) {
+        return {
+          conectado: false,
+          qrcode: qrStart,
+          message: 'Escaneie o QR Code no WhatsApp (Aparelhos conectados)',
+        };
+      }
+      if (!start.ok && start.status !== 409) {
+        console.warn('[wpp] start-session:', start.status, start.data);
+      }
+    }
+
+    const qr = await obterQrCodeWpp(cred.token, { tentativas: 30, intervaloMs: 3000 });
+    const pos = await verificarConexaoWpp(cred.token);
+
     return {
-      conectado: false,
-      qrcode: estadoAtual.qrcode,
-      message: 'Escaneie o QR Code no WhatsApp (Aparelhos conectados)',
+      conectado: pos.conectado,
+      qrcode: qr.qrcode,
+      message: pos.conectado
+        ? 'Conectado'
+        : qr.qrcode
+          ? 'Escaneie o QR Code no WhatsApp (Aparelhos conectados)'
+          : 'QR ainda não disponível — o Chromium pode levar até 2 min. Clique em Atualizar.',
     };
+  } catch (err) {
+    if (isErroRedeWpp(err)) {
+      const s = erroRedeWppParaStatus(err);
+      throw new Error(s.message);
+    }
+    throw err;
   }
-
-  const qr = await obterQrCodeWpp(cred.token);
-  const pos = await verificarConexaoWpp(cred.token);
-
-  return {
-    conectado: pos.conectado,
-    qrcode: qr.qrcode,
-    message: pos.conectado
-      ? 'Conectado'
-      : qr.qrcode
-        ? 'Escaneie o QR Code no WhatsApp (Aparelhos conectados)'
-        : 'QR ainda não disponível — aguarde e clique em Atualizar',
-  };
 }
 
 export async function obterQrSessaoWpp() {
