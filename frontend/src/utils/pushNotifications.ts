@@ -239,7 +239,9 @@ export function pushPendenteConclusao(): boolean {
 
 export async function obterVapidPublicKey(): Promise<string | null> {
   try {
-    const res = await fetch(`${apiBasePath}/public/push/vapid-key`, { cache: 'no-store' });
+    const res = await fetch(`${apiBasePath}/public/push/vapid-key?_=${Date.now()}`, {
+      cache: 'no-store',
+    });
     if (!res.ok) return null;
     const data = (await res.json()) as { publicKey?: string };
     const key = data.publicKey ? sanitizarChaveVapidPublica(data.publicKey) : '';
@@ -396,12 +398,12 @@ function mapearErroInscricao(e: unknown): ResultadoPushRegistro {
     };
   }
 
-  if (/push service error/i.test(msg)) {
+  if (/push service error|aborterror/i.test(msg)) {
     return {
       ok: false,
       codigo: 'inscricao_falhou',
       mensagem: isAndroid()
-        ? 'O serviço de push do Android não aceitou a inscrição. Atualize o Chrome, reinicie o celular e tente de novo. Se persistir, o suporte precisa validar as chaves VAPID no servidor (npm run validate:vapid).'
+        ? 'O Chrome não conseguiu registrar no Google (FCM). No celular: Chrome → ⋮ → Configurações → Configurações do site → grupoalvim.com.br → Limpar e redefinir. Abra o Meridian pelo ícone, toque em Ativar notificações uma vez e aguarde. Reinicie o celular se precisar.'
         : 'Falha no serviço de push do navegador. Limpe os dados do site e tente ativar novamente.',
     };
   }
@@ -421,6 +423,53 @@ function mapearErroInscricao(e: unknown): ResultadoPushRegistro {
   };
 }
 
+async function tentarReutilizarInscricaoLocal(
+  registration: ServiceWorkerRegistration,
+): Promise<ResultadoPushRegistro | null> {
+  const existente = await registration.pushManager.getSubscription().catch(() => null);
+  if (!existente) return null;
+  try {
+    await api.pushSubscribe(existente.toJSON());
+    await sincronizarEstadoPush();
+    if (!pushNotificacoesAtivas()) return null;
+    limparFlagRecargaServiceWorker();
+    return {
+      ok: true,
+      codigo: 'ok',
+      mensagem: 'Notificações ativadas com sucesso!',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function subscribePushManager(
+  registration: ServiceWorkerRegistration,
+  publicKey: string,
+): Promise<PushSubscription> {
+  const key = sanitizarChaveVapidPublica(publicKey);
+  const applicationServerKey = urlBase64ToUint8Array(key);
+  const opts: PushSubscriptionOptionsInit = {
+    userVisibleOnly: true,
+    applicationServerKey,
+  };
+  const tentativas = isAndroid() ? 4 : 2;
+  let ultimoErro: unknown;
+
+  for (let i = 0; i < tentativas; i += 1) {
+    try {
+      if (i > 0) await aguardar(900 * i);
+      return await registration.pushManager.subscribe(opts);
+    } catch (e) {
+      ultimoErro = e;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!/push service error|aborterror/i.test(msg) || i >= tentativas - 1) throw e;
+    }
+  }
+
+  throw ultimoErro;
+}
+
 async function inscreverNoPush(
   registration: ServiceWorkerRegistration,
   publicKey: string,
@@ -430,16 +479,16 @@ async function inscreverNoPush(
     throw new Error('Chave VAPID inválida no servidor');
   }
 
-  const existente = await registration.pushManager.getSubscription();
+  const reutilizado = await tentarReutilizarInscricaoLocal(registration);
+  if (reutilizado) return reutilizado;
+
+  const existente = await registration.pushManager.getSubscription().catch(() => null);
   if (existente) {
     await existente.unsubscribe().catch(() => {});
-    await aguardar(isAndroid() ? 700 : 250);
+    await aguardar(isAndroid() ? 1200 : 300);
   }
 
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(key),
-  });
+  const subscription = await subscribePushManager(registration, key);
 
   await api.pushSubscribe(subscription.toJSON());
   await sincronizarEstadoPush();
@@ -608,35 +657,42 @@ async function ativarNotificacoesNoCliqueInterno(): Promise<ResultadoPushRegistr
     };
   }
 
-  await api.pushReset().catch(() => {});
+  await registrarServiceWorkerNoClique();
 
-  if (pushSuportado()) {
-    const registration = await obterRegistroServiceWorkerRapido();
-    const sub = registration ? await registration.pushManager.getSubscription().catch(() => null) : null;
-    if (sub) {
-      await sub.unsubscribe().catch(() => {});
-      await aguardar(isAndroid() ? 700 : 250);
+  const registration = await obterRegistroServiceWorker(isAndroid() ? 25000 : 20000);
+  if (!registration?.pushManager) {
+    return registrarPushCompleto(true);
+  }
+
+  const subLocal = await registration.pushManager.getSubscription().catch(() => null);
+  const status = await api.pushStatus().catch(() => ({ registered: false, subscriptionCount: 0 }));
+
+  if (status.registered || status.subscriptionCount > 0 || subLocal) {
+    if (status.registered || status.subscriptionCount > 0) {
+      await api.pushReset().catch(() => {});
+    }
+    if (subLocal) {
+      await subLocal.unsubscribe().catch(() => {});
+      await aguardar(isAndroid() ? 1200 : 300);
     }
   }
+
   limparPushRegistradoLocal();
   pushRegistradoServidor = false;
   pushAtivoCompleto = false;
 
-  await registrarServiceWorkerNoClique();
-
-  const registration = await obterRegistroServiceWorkerRapido();
-  if (registration?.pushManager) {
-    try {
-      return await inscreverNoPush(registration, publicKey);
-    } catch (e) {
-      const rapido = mapearErroInscricao(e);
-      if (rapido.codigo !== 'service_worker_indisponivel') {
-        /* continua tentativa completa */
-      }
-    }
+  try {
+    return await inscreverNoPush(registration, publicKey);
+  } catch (e) {
+    limparPushRegistradoLocal();
+    await logPushDiagnostico('inscricao_falhou', {
+      erro: e instanceof Error ? e.message : String(e),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      android: isAndroid(),
+      vapidLen: publicKey.length,
+    });
+    return mapearErroInscricao(e);
   }
-
-  return concluirPushEmSegundoPlano(true);
 }
 
 export async function registrarPushNotificacoes(forcar = false): Promise<ResultadoPushRegistro> {
