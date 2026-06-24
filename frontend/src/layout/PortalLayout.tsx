@@ -103,6 +103,7 @@ export default function PortalLayout() {
   const colunaEstreita = isChecklist || isChamadoNovo;
   const scrollInterno = isPaginaScrollInterno(path);
   const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
+  const emFrotaPortal = path === '/frota' || path.startsWith('/frota/');
 
   const nav: NavItem[] = [
     { to: '/dashboard', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true, mobileTab: true },
@@ -209,8 +210,12 @@ export default function PortalLayout() {
           component="main"
           className={`flex-1 min-h-0 flex flex-col ${scrollInterno ? 'overflow-hidden' : 'overflow-y-auto'}`}
           sx={{
-            pl: { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: 24, xl: 32 },
-            pr: { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: 24, xl: 32 },
+            pl: emFrotaPortal
+              ? { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: 2, xl: 2.5 }
+              : { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: 24, xl: 32 },
+            pr: emFrotaPortal
+              ? { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: 2, xl: 2.5 }
+              : { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: 24, xl: 32 },
             py: scrollInterno ? { xs: 2, md: 2 } : emConfiguracoes ? { xs: 2, md: 2.5 } : { xs: 2.5, md: 3 },
             pb:
               mobileTabsRodape.length > 0 && !isChamadoNovo

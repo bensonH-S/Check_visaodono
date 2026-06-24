@@ -12,13 +12,11 @@ import {
   ph,
   type FormVeiculoFrota,
 } from '../../constants/frotaVeiculo';
-import type { FrotaRegiaoResumo } from '../../api/client';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
 
 type Props = {
   form: FormVeiculoFrota;
   onChange: (patch: Partial<FormVeiculoFrota>) => void;
-  regioes?: FrotaRegiaoResumo[];
 };
 
 const inputSx = {
@@ -46,7 +44,7 @@ function selectProps(placeholder: string) {
   };
 }
 
-export default function FrotaVeiculoFormFields({ form, onChange, regioes = [] }: Props) {
+export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
   const marcasOpcoes: string[] = [...MARCAS_VEICULO];
   if (form.marca && !marcasOpcoes.includes(form.marca)) {
     marcasOpcoes.push(form.marca);
@@ -92,26 +90,6 @@ export default function FrotaVeiculoFormFields({ form, onChange, regioes = [] }:
         slotProps={{ inputLabel: labelFixo.inputLabel }}
         sx={inputSx}
       />
-
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.04em', mt: 0.5 }}>
-        REGIÃO DE ATUAÇÃO
-      </Typography>
-      <TextField
-        select
-        label="Região de atuação"
-        size="small"
-        value={form.id_regiao}
-        onChange={(e) => onChange({ id_regiao: e.target.value })}
-        helperText="O veículo ficará vinculado às lojas desta região."
-        slotProps={{ inputLabel: labelFixo.inputLabel, select: selectProps(ph.regiao) }}
-      >
-        <MenuItem value="">Sem região definida</MenuItem>
-        {regioes.map((r) => (
-          <MenuItem key={r.id_regiao} value={String(r.id_regiao)}>
-            {r.nome} ({r.qtd_lojas} loja{r.qtd_lojas !== 1 ? 's' : ''})
-          </MenuItem>
-        ))}
-      </TextField>
 
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.04em', mt: 0.5 }}>
         DADOS DO VEÍCULO

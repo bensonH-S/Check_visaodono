@@ -1147,6 +1147,14 @@ router.post(
         mediaUrl = midiaUrlFrota(anexo.id_anexo);
       }
 
+      const kmNum = km != null ? Number(km) : null;
+      if (kmNum != null && Number.isFinite(kmNum) && kmNum >= 0) {
+        await pool.query(`UPDATE frota_veiculos SET km_atual = $1, updated_at = NOW() WHERE id_veiculo = $2`, [
+          kmNum,
+          idVeiculo,
+        ]);
+      }
+
       res.status(201).json({ id_manutencao: rows[0].id_manutencao, media_url: mediaUrl });
     } catch (e) {
       next(e);

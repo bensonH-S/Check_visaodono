@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import { api, type FrotaVeiculo, type FrotaRegiaoResumo } from '../../api/client';
+import { api, type FrotaVeiculo } from '../../api/client';
 import FrotaVeiculoFormFields from './FrotaVeiculoFormFields';
 import FrotaVeiculoDocumentosPanel, { FROTA_DOC_FORM_ID } from './FrotaVeiculoDocumentosPanel';
 import { formParaBody, formVeiculoVazio, veiculoParaForm, type FormVeiculoFrota } from '../../constants/frotaVeiculo';
@@ -37,12 +37,6 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
   const [excluindo, setExcluindo] = useState(false);
   const [confirmExcluir, setConfirmExcluir] = useState(false);
   const [podeAnexarDoc, setPodeAnexarDoc] = useState(false);
-  const [regioes, setRegioes] = useState<FrotaRegiaoResumo[]>([]);
-
-  useEffect(() => {
-    if (!open) return;
-    api.frotaRegioes().then(setRegioes).catch(() => setRegioes([]));
-  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -52,7 +46,10 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
     }
     setAba(0);
     if (veiculo) {
-      setForm(veiculoParaForm(veiculo));
+      void api
+        .frotaVeiculo(veiculo.id_veiculo)
+        .then((atualizado) => setForm(veiculoParaForm(atualizado)))
+        .catch(() => setForm(veiculoParaForm(veiculo)));
     } else {
       setForm(formVeiculoVazio());
     }
@@ -65,7 +62,7 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
       return;
     }
     setSalvando(true);
-    const body = formParaBody(form);
+    const body = formParaBody(form, { omitirRegiao: true });
     try {
       if (editando && veiculo) {
         await api.frotaAtualizarVeiculo(veiculo.id_veiculo, body);
@@ -128,7 +125,10 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
 
         <DialogContent dividers sx={{ pt: 2 }}>
           {(!editando || aba === 0) && (
-            <FrotaVeiculoFormFields form={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} regioes={regioes} />
+            <FrotaVeiculoFormFields
+              form={form}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            />
           )}
 
           {editando && veiculo && aba === 1 && (

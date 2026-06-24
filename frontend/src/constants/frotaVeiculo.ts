@@ -1,3 +1,5 @@
+import type { FrotaVeiculoBody } from '../api/client';
+
 export const MARCAS_VEICULO = [
   'Chevrolet',
   'Citroën',
@@ -145,8 +147,11 @@ export function veiculoParaForm(v: {
   };
 }
 
-export function formParaBody(form: FormVeiculoFrota) {
-  return {
+export function formParaBody(
+  form: FormVeiculoFrota,
+  opts?: { omitirKm?: boolean; omitirRegiao?: boolean },
+): Partial<FrotaVeiculoBody> & Pick<FrotaVeiculoBody, 'placa'> {
+  const body: Partial<FrotaVeiculoBody> & Pick<FrotaVeiculoBody, 'placa'> = {
     placa: form.placa.trim(),
     renavam: form.renavam.replace(/\D/g, '') || undefined,
     chassi: form.chassi.trim().toUpperCase() || undefined,
@@ -155,10 +160,15 @@ export function formParaBody(form: FormVeiculoFrota) {
     ano: form.ano ? Number(form.ano) : null,
     cor: form.cor || undefined,
     combustivel: form.combustivel || undefined,
-    km_atual: kmInputParaNumero(form.km_atual),
     observacoes: form.observacoes.trim() || undefined,
-    id_regiao: form.id_regiao ? Number(form.id_regiao) : null,
   };
+  if (!opts?.omitirKm) {
+    body.km_atual = kmInputParaNumero(form.km_atual);
+  }
+  if (!opts?.omitirRegiao) {
+    body.id_regiao = form.id_regiao ? Number(form.id_regiao) : null;
+  }
+  return body;
 }
 
 /** Placeholder cinza claro nos campos do formulário. */
