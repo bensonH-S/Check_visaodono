@@ -30,6 +30,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
@@ -42,6 +43,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 
 import { colors } from '../theme/tokens';
+import { estiloChipPerfil } from '../constants/perfilCores';
 
 const emptyForm = {
   nome: '',
@@ -69,6 +71,8 @@ export default function UsuariosPage() {
   const [excluirAlvo, setExcluirAlvo] = useState<UsuarioGestao | null>(null);
   const [excluindo, setExcluindo] = useState(false);
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [busca, setBusca] = useState('');
+  const [buscaExpandida, setBuscaExpandida] = useState(false);
   const { showToast, ToastSnackbar } = useToast();
 
   const theme = useTheme();
@@ -95,6 +99,23 @@ export default function UsuariosPage() {
     if (u.cargo_nome) return u.cargo_nome;
     return cargoSelecionado(u.cargo_aprovacao || '')?.nome || '—';
   }
+
+  const listaFiltrada = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return lista;
+    return lista.filter((u) => {
+      const perfil = nomePerfilUsuario(u).toLowerCase();
+      const lojas = (u.lojas || []).map((l) => l.nome).join(' ').toLowerCase();
+      return (
+        u.nome.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        perfil.includes(q) ||
+        lojas.includes(q)
+      );
+    });
+  }, [lista, busca, cargos]);
+
+  const buscaAberta = buscaExpandida || busca.trim().length > 0;
 
   function togglePermissao(codigo: string) {
     setForm((f) => {
@@ -275,9 +296,56 @@ export default function UsuariosPage() {
             O perfil vem de Configurações → Cargos. Marque as permissões de cada pessoa.
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={abrirNovo}>
-          Novo usuário
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+          <Box
+            onMouseEnter={() => setBuscaExpandida(true)}
+            onMouseLeave={() => {
+              if (!busca.trim()) setBuscaExpandida(false);
+            }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              height: 40,
+              width: buscaAberta ? { xs: 200, sm: 260 } : 40,
+              transition: 'width 0.22s ease',
+              overflow: 'hidden',
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: buscaAberta ? 'divider' : 'transparent',
+              bgcolor: buscaAberta ? 'background.paper' : 'transparent',
+              flexShrink: 0,
+            }}
+          >
+            <IconButton
+              size="small"
+              aria-label="Buscar usuário"
+              onClick={() => setBuscaExpandida(true)}
+              sx={{ flexShrink: 0, color: 'text.secondary' }}
+            >
+              <SearchIcon fontSize="small" />
+            </IconButton>
+            {buscaAberta && (
+              <TextField
+                size="small"
+                placeholder="Buscar usuário..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                variant="standard"
+                slotProps={{
+                  input: {
+                    disableUnderline: true,
+                    sx: { fontSize: '0.875rem', py: 0.5, pr: 1 },
+                  },
+                }}
+                sx={{ flex: 1, minWidth: 0 }}
+                autoFocus={buscaExpandida && !busca}
+              />
+            )}
+          </Box>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={abrirNovo}>
+            Novo usuário
+          </Button>
+        </Box>
       </Box>
 
       {erro && !modalAberto && !excluirAlvo && (
@@ -304,7 +372,7 @@ export default function UsuariosPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {lista.map((u) => (
+            {listaFiltrada.map((u) => (
               <TableRow
                 key={u.id_usuario}
                 hover
@@ -323,11 +391,22 @@ export default function UsuariosPage() {
                 </TableCell>
                 <TableCell>{u.email}</TableCell>
                 <TableCell>
-                  <Chip
-                    label={nomePerfilUsuario(u)}
-                    size="small"
-                    variant="outlined"
-                  />
+                  {(() => {
+                    const estilo = estiloChipPerfil(u.cargo_aprovacao);
+                    return (
+                      <Chip
+                        label={nomePerfilUsuario(u)}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontWeight: 600,
+                          bgcolor: estilo.bgcolor,
+                          color: estilo.color,
+                          borderColor: estilo.borderColor,
+                        }}
+                      />
+                    );
+                  })()}
                 </TableCell>
                 <TableCell>
                   {u.telefone_whatsapp ? (
@@ -360,6 +439,13 @@ export default function UsuariosPage() {
                 </TableCell>
               </TableRow>
             ))}
+            {!listaFiltrada.length && (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  {busca.trim() ? 'Nenhum usuário encontrado para esta busca.' : 'Nenhum usuário cadastrado.'}
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
         </TableContainer>
@@ -467,16 +553,30 @@ export default function UsuariosPage() {
                 }));
               }}
             >
-              {cargos.map((c) => (
-                <MenuItem
-                  key={c.codigo}
-                  value={c.codigo}
-                  dense
-                  sx={{ fontSize: { xs: '0.8rem', lg: '0.9rem' } }}
-                >
-                  {c.nome}
-                </MenuItem>
-              ))}
+              {cargos.map((c) => {
+                const estilo = estiloChipPerfil(c.codigo);
+                return (
+                  <MenuItem
+                    key={c.codigo}
+                    value={c.codigo}
+                    dense
+                    sx={{ fontSize: { xs: '0.8rem', lg: '0.9rem' } }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          bgcolor: estilo.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      {c.nome}
+                    </Box>
+                  </MenuItem>
+                );
+              })}
             </TextField>
           </Box>
 
@@ -536,6 +636,15 @@ export default function UsuariosPage() {
                 >
                   {grupo}
                 </Typography>
+                {grupo === 'Configurações' && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 0.5, fontSize: '0.65rem', lineHeight: 1.3 }}
+                  >
+                    Marque &quot;Perguntas do checklist&quot; para habilitar a aba Perguntas em Configurações.
+                  </Typography>
+                )}
                 <FormGroup
                   row
                   sx={{

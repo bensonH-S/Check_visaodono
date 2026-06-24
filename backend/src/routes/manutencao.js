@@ -292,30 +292,11 @@ async function coletarDestinatariosChamado(idChamado, idAutorNum) {
 
   try {
     const { rows: equipe } = await pool.query(
-      `SELECT DISTINCT up.id_usuario, up.codigo
+      `SELECT DISTINCT up.id_usuario
        FROM usuario_permissoes up
        JOIN usuarios u ON u.id_usuario = up.id_usuario AND u.ativo = TRUE
        WHERE up.codigo IN ('chamados.ver', 'chamados.assumir', 'chamados.abrir')
-         AND (
-           EXISTS (
-             SELECT 1 FROM usuario_permissoes up2
-             WHERE up2.id_usuario = up.id_usuario AND up2.codigo = 'lojas.todas'
-           )
-           OR EXISTS (
-             SELECT 1 FROM usuario_lojas ul
-             WHERE ul.id_usuario = up.id_usuario AND ul.id_loja = $1
-           )
-           OR (
-             up.codigo = 'chamados.assumir'
-             AND EXISTS (
-               SELECT 1
-               FROM frota_regiao_lojas rl
-               JOIN frota_regiao_tecnicos rt ON rt.id_regiao = rl.id_regiao
-               JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
-               WHERE rl.id_loja = $1 AND rt.id_usuario = up.id_usuario
-             )
-           )
-         )`,
+         AND ${sqlUsuarioAtendeLojaNotificacao('up.id_usuario', '$1')}`,
       [c.id_loja],
     );
     for (const r of equipe) destinatarios.add(Number(r.id_usuario));
@@ -480,7 +461,7 @@ async function filtroNotificacoesAprovacoes(idUsuario, contexto, params) {
 
 import { authMiddleware } from '../auth.js';
 import { requirePermissao, attachPermissoesUsuario, temPermissao } from '../permissoes.js';
-import { attachLojasUsuario, filtroSqlLojas, usuarioPodeLoja } from '../lojasUsuario.js';
+import { attachLojasUsuario, filtroSqlLojas, sqlUsuarioAtendeLojaNotificacao, usuarioPodeLoja } from '../lojasUsuario.js';
 
 const router = Router();
 
@@ -1738,6 +1719,7 @@ router.get(
     const contexto = String(req.query.contexto || '').trim();
     const filtroCtx = sqlFiltroContextoNotificacoes(contexto);
     const params = [idUsuario];
+    const filtroLojas = filtroSqlLojas(req.user, 'c', 'id_loja', params);
     const { filtroExtra } = await filtroNotificacoesAprovacoes(idUsuario, contexto, params);
     const { rows } = await pool.query(
       `SELECT n.id_notificacao, n.id_chamado, n.tipo, n.mensagem, n.lida, n.created_at,
@@ -1745,7 +1727,7 @@ router.get(
        FROM manut_notificacoes n
        JOIN manut_chamados c ON c.id_chamado = n.id_chamado
        JOIN lojas l ON l.id_loja = c.id_loja
-       WHERE n.id_usuario = $1${filtroCtx}${filtroExtra}
+       WHERE n.id_usuario = $1${filtroCtx}${filtroExtra}${filtroLojas}
        ORDER BY n.created_at DESC
        LIMIT 30`,
       params,
@@ -1768,18 +1750,15 @@ router.get(
     const filtrarLoja = idLoja != null && Number.isFinite(idLoja);
     const contexto = String(req.query.contexto || '').trim();
     const filtroCtx = sqlFiltroContextoNotificacoes(contexto);
-    const params = filtrarLoja ? [idUsuario, idLoja] : [idUsuario];
+    const params = [idUsuario];
+    if (filtrarLoja) params.push(idLoja);
     const { filtroExtra } = await filtroNotificacoesAprovacoes(idUsuario, contexto, params);
-    const precisaJoin = filtrarLoja || contexto === 'aprovacoes';
+    const filtroLojas = filtroSqlLojas(req.user, 'c', 'id_loja', params);
     const { rows } = await pool.query(
-      precisaJoin
-        ? `SELECT COUNT(*)::int AS total
-           FROM manut_notificacoes n
-           JOIN manut_chamados c ON c.id_chamado = n.id_chamado
-           WHERE n.id_usuario = $1 AND n.lida = FALSE${filtrarLoja ? ' AND c.id_loja = $2' : ''}${filtroCtx}${filtroExtra}`
-        : `SELECT COUNT(*)::int AS total
-           FROM manut_notificacoes n
-           WHERE n.id_usuario = $1 AND n.lida = FALSE${filtroCtx}`,
+      `SELECT COUNT(*)::int AS total
+       FROM manut_notificacoes n
+       JOIN manut_chamados c ON c.id_chamado = n.id_chamado
+       WHERE n.id_usuario = $1 AND n.lida = FALSE${filtrarLoja ? ' AND c.id_loja = $2' : ''}${filtroCtx}${filtroExtra}${filtroLojas}`,
       params,
     );
     res.json({ total: rows[0]?.total ?? 0 });
@@ -1838,23 +1817,17 @@ router.patch(
     const filtrarLoja = idLoja != null && Number.isFinite(idLoja);
     const contexto = String(req.query.contexto || '').trim();
     const filtroCtx = sqlFiltroContextoNotificacoes(contexto, 'n');
-    if (filtrarLoja || contexto === 'aprovacoes') {
-      const params = filtrarLoja ? [idUsuario, idLoja] : [idUsuario];
-      const { filtroExtra } = await filtroNotificacoesAprovacoes(idUsuario, contexto, params);
-      await pool.query(
-        `UPDATE manut_notificacoes n SET lida = TRUE
-         FROM manut_chamados c
-         WHERE n.id_chamado = c.id_chamado
-           AND n.id_usuario = $1 AND n.lida = FALSE${filtrarLoja ? ' AND c.id_loja = $2' : ''}${filtroCtx}${filtroExtra}`,
-        params,
-      );
-    } else {
-      await pool.query(
-        `UPDATE manut_notificacoes n SET lida = TRUE
-         WHERE n.id_usuario = $1 AND n.lida = FALSE${filtroCtx}`,
-        [idUsuario],
-      );
-    }
+    const params = [idUsuario];
+    if (filtrarLoja) params.push(idLoja);
+    const { filtroExtra } = await filtroNotificacoesAprovacoes(idUsuario, contexto, params);
+    const filtroLojas = filtroSqlLojas(req.user, 'c', 'id_loja', params);
+    await pool.query(
+      `UPDATE manut_notificacoes n SET lida = TRUE
+       FROM manut_chamados c
+       WHERE n.id_chamado = c.id_chamado
+         AND n.id_usuario = $1 AND n.lida = FALSE${filtrarLoja ? ' AND c.id_loja = $2' : ''}${filtroCtx}${filtroExtra}${filtroLojas}`,
+      params,
+    );
     res.json({ ok: true });
   } catch (e) {
     next(e);

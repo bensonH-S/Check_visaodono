@@ -11,15 +11,17 @@ const TIPOS_EVENTO_APROVACAO = new Set([
   'recusa_aprovacao',
 ]);
 
-/** Técnico, administrador ou equipe de manutenção vê detalhes do fluxo de aprovação. */
+/** Equipe de manutenção vê detalhes do fluxo de aprovação conforme permissões. */
 export function podeVerDetalhesAprovacaoChamado(
   sessao?: UsuarioSessao | null,
   _detalhe?: ManutChamadoDetalhe,
 ) {
   if (!sessao) return false;
-  if (['administrador', 'tecnico'].includes(sessao.perfil)) return true;
-  if (temPermissao('chamados.assumir', sessao) || temPermissao('chamados.ver', sessao)) return true;
-  return false;
+  return (
+    temPermissao('chamados.assumir', sessao) ||
+    temPermissao('chamados.ver', sessao) ||
+    temPermissao('chamados.aprovar', sessao)
+  );
 }
 
 export function textosEventosAprovacao(detalhe: ManutChamadoDetalhe) {

@@ -451,8 +451,8 @@ export default function ChecklistPerguntasPage() {
                         </Tooltip>
                       )}
                       {p.requer_foto && (
-                        <Tooltip title="Pode exigir foto como evidência">
-                          <Chip label="Foto" size="small" color="info" sx={chipRegraSx} />
+                        <Tooltip title="Exige foto ao responder (quando o campo de foto aparece)">
+                          <Chip label="Foto obrigatória" size="small" color="info" sx={chipRegraSx} />
                         </Tooltip>
                       )}
                       {p.requer_obs_em_nao && (
@@ -579,9 +579,17 @@ export default function ChecklistPerguntasPage() {
                   onChange={(e) => setForm((f) => ({ ...f, requer_foto: e.target.checked }))}
                 />
               }
-              label="Pode exigir foto"
+              label="Foto obrigatória"
             />
           </SwitchRow>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mt: -0.5, mb: 1, fontSize: '0.7rem', lineHeight: 1.35 }}
+          >
+            Perguntas do tipo &quot;com foto&quot; exibem o campo de anexo após a resposta, mas a foto é
+            opcional. Marque este switch apenas quando for obrigatório tirar foto para avançar.
+          </Typography>
           <SwitchRow>
             <FormControlLabel
               control={

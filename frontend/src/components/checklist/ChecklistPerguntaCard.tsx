@@ -218,7 +218,9 @@ export default function ChecklistPerguntaCard({
           }
           helperText={
             erroCampo === 'observacao'
-              ? 'Observação deve ser preenchida quando selecionado Não'
+              ? p.requer_obs_em_nao
+                ? 'Observação obrigatória quando selecionado Não'
+                : 'Preencha a observação para continuar'
               : p.requer_obs_em_nao && r?.resposta === 'Não'
                 ? 'Obrigatória quando selecionado Não'
                 : 'Opcional — registre detalhes ou pendências'

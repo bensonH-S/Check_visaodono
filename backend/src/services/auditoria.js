@@ -1,21 +1,37 @@
 import { pool } from '../db.js';
+import { logger } from '../logger.js';
 
 let tabelaOk = null;
+
+const SQL_CRIAR_TABELA = `
+CREATE TABLE IF NOT EXISTS sistema_auditoria (
+  id_auditoria SERIAL PRIMARY KEY,
+  id_usuario INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+  modulo VARCHAR(40) NOT NULL,
+  acao VARCHAR(40) NOT NULL,
+  entidade VARCHAR(60),
+  id_referencia VARCHAR(80),
+  descricao TEXT NOT NULL,
+  detalhes JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_sistema_auditoria_created ON sistema_auditoria(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sistema_auditoria_modulo ON sistema_auditoria(modulo);
+`;
 
 async function garantirTabela() {
   if (tabelaOk != null) return tabelaOk;
   try {
-    const { rows } = await pool.query(
-      `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sistema_auditoria'`,
-    );
-    tabelaOk = rows.length > 0;
-  } catch {
+    await pool.query(SQL_CRIAR_TABELA);
+    tabelaOk = true;
+  } catch (e) {
+    logger.warn('auditoria', 'Tabela sistema_auditoria indisponível', { error: e.message });
     tabelaOk = false;
   }
   return tabelaOk;
 }
 
-/** Registra evento na trilha de auditoria (ignora se tabela ainda não existir). */
+/** Registra evento na trilha de auditoria (não bloqueia operação principal). */
 export async function registrarAuditoria({
   idUsuario,
   modulo,
@@ -40,9 +56,13 @@ export async function registrarAuditoria({
         detalhes ? JSON.stringify(detalhes) : null,
       ],
     );
-  } catch {
-    /* não bloqueia operação principal */
+  } catch (e) {
+    logger.warn('auditoria', 'Falha ao registrar evento', { error: e.message, modulo, acao });
   }
+}
+
+export async function initAuditoria() {
+  return garantirTabela();
 }
 
 const LIMITE_MAX = 500;
@@ -108,6 +128,28 @@ export async function listarAuditoria({ limite = 100, offset = 0, modulo = null 
     JOIN frota_veiculos v ON v.id_veiculo = fa.id_veiculo
     LEFT JOIN usuarios u ON u.id_usuario = fa.id_usuario
     WHERE fa.data_fim IS NOT NULL
+  `);
+
+  partes.push(`
+    SELECT v.created_at, 'visitas'::varchar AS modulo, 'iniciar_visita'::varchar AS acao,
+           'visita'::varchar AS entidade, v.id_visita::text AS id_referencia,
+           ('Visita iniciada — loja ' || COALESCE(l.name, '') || COALESCE(' (' || t.nome || ')', '')) AS descricao,
+           u.nome AS usuario_nome, v.id_usuario
+    FROM visitas v
+    LEFT JOIN lojas l ON l.id_loja = v.id_loja
+    LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario
+    LEFT JOIN tipos_checklist t ON t.id_tipo_checklist = v.id_tipo_checklist
+  `);
+
+  partes.push(`
+    SELECT v.updated_at AS created_at, 'visitas'::varchar AS modulo, 'finalizar_visita'::varchar AS acao,
+           'visita'::varchar AS entidade, v.id_visita::text AS id_referencia,
+           ('Visita finalizada — loja ' || COALESCE(l.name, '') || ' (' || COALESCE(v.duracao_minutos::text, '?') || ' min)') AS descricao,
+           u.nome AS usuario_nome, v.id_usuario
+    FROM visitas v
+    LEFT JOIN lojas l ON l.id_loja = v.id_loja
+    LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario
+    WHERE v.status = 'Finalizada'
   `);
 
   partes.push(`

@@ -104,6 +104,7 @@ initPushNotifications();
 const { authMiddleware } = await import('./backend/src/auth.js');
 const { attachLojasUsuario } = await import('./backend/src/lojasUsuario.js');
 const { attachPermissoesUsuario } = await import('./backend/src/permissoes.js');
+const { middlewareAuditoriaHttp } = await import('./backend/src/auditoriaHelpers.js');
 
 const app = express();
 
@@ -172,6 +173,7 @@ api.use('/auth', authRouter);
 
 api.use(authMiddleware);
 api.use(attachPermissoesUsuario);
+api.use(middlewareAuditoriaHttp);
 api.use(attachLojasUsuario);
 api.use('/dashboard', dashboardRouter);
 api.use('/lojas', lojasRouter);
@@ -278,6 +280,14 @@ if (SERVE_WEB) {
 
 app.listen(PORT, async () => {
   garantirSchema();
+  try {
+    const { ensureCatalogoPermissoes } = await import('./backend/src/permissoes.js');
+    const { initAuditoria } = await import('./backend/src/services/auditoria.js');
+    await ensureCatalogoPermissoes();
+    await initAuditoria();
+  } catch (e) {
+    logger.warn('schema', 'Catálogo de permissões / auditoria não sincronizado', { error: e.message });
+  }
   const modo = isProd ? 'produção' : 'dev';
   logger.info('server', 'API iniciada', {
     modo,

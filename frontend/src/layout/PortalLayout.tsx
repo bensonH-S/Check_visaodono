@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarFrota, podeGerenciarRegioesFrota, podeVerAuditoria } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarFrota, podeGerenciarRegioesFrota, podeGerenciarChecklistPerguntas, podeVerAuditoria } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -118,7 +118,7 @@ export default function PortalLayout() {
       to: '/configuracoes',
       label: 'Configurações',
       icon: <SettingsIcon fontSize="small" />,
-      show: temPermissao('configuracoes.ver', user) || temPermissao('usuarios.gerenciar', user) || temPermissao('portal.lojas.ver', user) || podeVerAuditoria(user),
+      show: temPermissao('configuracoes.ver', user) || podeGerenciarChecklistPerguntas(user) || temPermissao('usuarios.gerenciar', user) || temPermissao('portal.lojas.ver', user) || podeVerAuditoria(user),
       end: false,
     },
   ].filter((n) => n.show);

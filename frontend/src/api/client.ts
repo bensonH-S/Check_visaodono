@@ -101,7 +101,8 @@ export const api = {
   lojaAtualizar: (id: number, body: LojaAtualizarInput) =>
     request<Loja>(`/lojas/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   usuarios: () => request<Usuario[]>('/usuarios'),
-  permissoesCatalogo: () => request<PermissaoCatalogo[]>('/usuarios/permissoes/catalogo'),
+  permissoesCatalogo: () =>
+    request<PermissaoCatalogo[]>('/usuarios/permissoes/catalogo', { cache: 'no-store' }),
   usuariosGestao: () => request<UsuarioGestao[]>('/usuarios/gestao'),
   usuarioGestaoCriar: (body: UsuarioGestaoInput) =>
     request<UsuarioGestao>('/usuarios/gestao', { method: 'POST', body: JSON.stringify(body) }),

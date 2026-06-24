@@ -9,9 +9,9 @@ export function tipoVisivelContextoMobile(tipo) {
 
 /**
  * Push espelha o que cada perfil vê no app:
- * - chamados.ver / assumir (técnicos): portal — inclui novo_chamado
+ * - chamados.assumir / frota.regioes: região de atuação
+ * - chamados.abrir / chamados.ver (sem região): lojas vinculadas
  * - chamados.aprovar: tipos de aprovação
- * - chamados.abrir (loja): mobile — sem novo_chamado
  */
 export function tipoVisivelPushUsuario(tipo, { podeVer, podeAssumir, podeAbrir, podeAprovar }) {
   const administraChamados = podeVer || podeAssumir;

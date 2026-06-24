@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
+import { auditar } from '../auditoriaHelpers.js';
+
+const requireGestaoChecklist = requirePermissao('configuracoes.perguntas', 'checklist.gerenciar');
 import {
   resolverTipoChecklist,
   tiposChecklistDoUsuario,
@@ -77,7 +80,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/gestao', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+router.get('/gestao', requireGestaoChecklist, async (req, res, next) => {
   try {
     const codigo = req.query.tipo ? String(req.query.tipo) : 'auditoria_operacional';
     if (!(await schemaTiposChecklistAtivo())) {
@@ -91,7 +94,7 @@ router.get('/gestao', requirePermissao('configuracoes.ver'), async (req, res, ne
   }
 });
 
-router.post('/categorias', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+router.post('/categorias', requireGestaoChecklist, async (req, res, next) => {
   try {
     const nome = String(req.body?.nome || '').trim();
     if (!nome) return res.status(400).json({ error: 'Nome da seção é obrigatório' });
@@ -114,13 +117,20 @@ router.post('/categorias', requirePermissao('configuracoes.ver'), async (req, re
       `INSERT INTO categorias_checklist ${cols} VALUES ${vals} RETURNING *`,
       params,
     );
+    await auditar(req, {
+      modulo: 'checklist',
+      acao: 'criar',
+      entidade: 'categoria',
+      idReferencia: rows[0].id_categoria,
+      descricao: `Seção de checklist criada: ${rows[0].nome}`,
+    });
     res.status(201).json(rows[0]);
   } catch (e) {
     next(e);
   }
 });
 
-router.patch('/categorias/:id', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+router.patch('/categorias/:id', requireGestaoChecklist, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const sets = [];
@@ -139,13 +149,20 @@ router.patch('/categorias/:id', requirePermissao('configuracoes.ver'), async (re
       vals,
     );
     if (!rows[0]) return res.status(404).json({ error: 'Seção não encontrada' });
+    await auditar(req, {
+      modulo: 'checklist',
+      acao: 'atualizar',
+      entidade: 'categoria',
+      idReferencia: id,
+      descricao: `Seção de checklist atualizada: ${rows[0].nome}`,
+    });
     res.json(rows[0]);
   } catch (e) {
     next(e);
   }
 });
 
-router.post('/perguntas', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+router.post('/perguntas', requireGestaoChecklist, async (req, res, next) => {
   try {
     const {
       id_categoria,
@@ -210,6 +227,13 @@ router.post('/perguntas', requirePermissao('configuracoes.ver'), async (req, res
         !!critica,
       ],
     );
+    await auditar(req, {
+      modulo: 'checklist',
+      acao: 'criar',
+      entidade: 'pergunta',
+      idReferencia: rows[0].id_pergunta,
+      descricao: `Pergunta criada: ${rows[0].codigo} — ${String(rows[0].texto).slice(0, 80)}`,
+    });
     res.status(201).json(rows[0]);
   } catch (e) {
     if (e.code === '23505') {
@@ -219,7 +243,7 @@ router.post('/perguntas', requirePermissao('configuracoes.ver'), async (req, res
   }
 });
 
-router.patch('/perguntas/:id', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+router.patch('/perguntas/:id', requireGestaoChecklist, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const campos = {
@@ -257,6 +281,13 @@ router.patch('/perguntas/:id', requirePermissao('configuracoes.ver'), async (req
       vals,
     );
     if (!rows[0]) return res.status(404).json({ error: 'Pergunta não encontrada' });
+    await auditar(req, {
+      modulo: 'checklist',
+      acao: 'atualizar',
+      entidade: 'pergunta',
+      idReferencia: id,
+      descricao: `Pergunta atualizada: ${rows[0].codigo}`,
+    });
     res.json(rows[0]);
   } catch (e) {
     if (e.code === '23505') {
@@ -266,7 +297,7 @@ router.patch('/perguntas/:id', requirePermissao('configuracoes.ver'), async (req
   }
 });
 
-router.delete('/perguntas/:id', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+router.delete('/perguntas/:id', requireGestaoChecklist, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const { rows: uso } = await pool.query(
@@ -280,6 +311,13 @@ router.delete('/perguntas/:id', requirePermissao('configuracoes.ver'), async (re
     }
     const { rowCount } = await pool.query('DELETE FROM perguntas WHERE id_pergunta = $1', [id]);
     if (!rowCount) return res.status(404).json({ error: 'Pergunta não encontrada' });
+    await auditar(req, {
+      modulo: 'checklist',
+      acao: 'excluir',
+      entidade: 'pergunta',
+      idReferencia: id,
+      descricao: `Pergunta excluída (id ${id})`,
+    });
     res.status(204).end();
   } catch (e) {
     next(e);

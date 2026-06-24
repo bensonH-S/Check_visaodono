@@ -119,45 +119,30 @@ export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
   return '/chamados/mobile';
 }
 
-const CARGOS_COM_CHECKLIST = new Set([
-  'supervisor_regional',
-  'coordenador',
-  'diretor',
-  'administrador',
-  'ceo',
-]);
-
-/** Cargo vinculado a algum tipo de checklist (tabela cargo_checklist). */
-export function cargoComChecklist(usuario?: UsuarioSessao | null): boolean {
-  const u = usuario ?? getUsuario();
-  if (!u) return false;
-  const codigo = (u.cargo_aprovacao || u.perfil || '').toLowerCase();
-  if (CARGOS_COM_CHECKLIST.has(codigo)) return true;
-  const nome = (u.cargo_nome || u.cargo || '').toLowerCase();
-  return nome.includes('supervisor') || nome === 'diretor' || nome === 'administrador' || nome === 'ceo';
-}
-
+/** Acesso ao módulo checklist — somente permissões marcadas em Usuários. */
 export function podeUsarChecklist(usuario?: UsuarioSessao | null): boolean {
   return (
     temPermissao('checklist.ver', usuario) ||
-    temPermissao('checklist.executar', usuario) ||
-    cargoComChecklist(usuario) ||
-    (usuario?.tipos_checklist?.length ?? 0) > 0
+    temPermissao('checklist.executar', usuario)
   );
 }
 
 export function podeVerVisitasMobile(usuario?: UsuarioSessao | null): boolean {
-  return temPermissao('portal.visitas.ver', usuario) || podeUsarChecklist(usuario);
+  return temPermissao('portal.visitas.ver', usuario);
+}
+
+/** Configurações → aba Perguntas (somente esta permissão habilita a aba). */
+export function podeGerenciarChecklistPerguntas(usuario?: UsuarioSessao | null): boolean {
+  return (
+    temPermissao('configuracoes.perguntas', usuario) ||
+    temPermissao('checklist.gerenciar', usuario)
+  );
 }
 
 export function rotuloRegioesAtuacao(usuario?: UsuarioSessao | null): string | null {
   const regioes = usuario?.regioes_atuacao ?? [];
   if (!regioes.length) return null;
   return regioes.map((r) => r.nome).join(' · ');
-}
-
-function cargoEfetivoCodigo(usuario?: UsuarioSessao | null): string {
-  return String(usuario?.cargo_aprovacao || usuario?.perfil || '').toLowerCase();
 }
 
 /** Cabeçalho de contexto no app mobile de chamados: região, loja ou oculto. */
@@ -167,28 +152,16 @@ export function modoCabecalhoContextoMobile(
   const u = usuario ?? getUsuario();
   if (!u) return null;
 
-  const codigo = cargoEfetivoCodigo(u);
-  const nome = (u.cargo_nome || u.cargo || '').toLowerCase();
-
-  if (codigo === 'diretor' || nome === 'diretor') return null;
-  if (codigo === 'ceo' || codigo === 'administrador' || u.perfil === 'administrador') return null;
-
-  if (
-    codigo === 'gerente' ||
-    codigo === 'coordenador' ||
-    u.perfil === 'gerente' ||
-    u.perfil === 'coordenador'
-  ) {
-    return 'loja';
+  if (temPermissao('chamados.assumir', u) || temPermissao('frota.regioes', u)) {
+    return 'regiao';
   }
 
-  if (
-    u.perfil === 'tecnico' ||
-    temPermissao('chamados.assumir', u) ||
-    codigo === 'supervisor_regional' ||
-    nome.includes('supervisor')
-  ) {
-    return 'regiao';
+  if (temPermissao('lojas.todas', u)) {
+    return null;
+  }
+
+  if (temPermissao('chamados.ver', u) || temPermissao('chamados.abrir', u)) {
+    return 'loja';
   }
 
   return null;
@@ -202,14 +175,11 @@ export function filtraNotificacoesPorRegiaoMobile(usuario?: UsuarioSessao | null
   return modoCabecalhoContextoMobile(usuario) === 'regiao';
 }
 
-const CARGOS_FROTA = new Set(['supervisor_regional', 'coordenador']);
-
 export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {
-  const u = usuario ?? getUsuario();
-  if (!u) return false;
-  if (temPermissao('frota.usar', u) || temPermissao('frota.gerenciar', u)) return true;
-  const codigo = (u.cargo_aprovacao || u.perfil || '').toLowerCase();
-  return CARGOS_FROTA.has(codigo);
+  return (
+    temPermissao('frota.usar', usuario) ||
+    temPermissao('frota.gerenciar', usuario)
+  );
 }
 
 export function podeGerenciarFrota(usuario?: UsuarioSessao | null): boolean {
@@ -217,21 +187,15 @@ export function podeGerenciarFrota(usuario?: UsuarioSessao | null): boolean {
 }
 
 export function podeGerenciarRegioesFrota(usuario?: UsuarioSessao | null): boolean {
-  if (temPermissao('frota.gerenciar', usuario) || temPermissao('frota.regioes', usuario)) return true;
-  const codigo = (usuario ?? getUsuario())?.cargo_aprovacao || (usuario ?? getUsuario())?.perfil || '';
-  return String(codigo).toLowerCase() === 'supervisor_regional';
+  return (
+    temPermissao('frota.gerenciar', usuario) ||
+    temPermissao('frota.regioes', usuario)
+  );
 }
 
-const CARGOS_AUDITORIA = new Set(['administrador', 'ceo', 'diretor']);
-
-/** Auditoria do sistema: apenas Administrador, CEO ou Diretor. */
+/** Auditoria do sistema — somente permissão marcada em Usuários. */
 export function podeVerAuditoria(usuario?: UsuarioSessao | null): boolean {
-  const u = usuario ?? getUsuario();
-  if (!u) return false;
-  const codigo = (u.cargo_aprovacao || u.perfil || '').toLowerCase();
-  if (CARGOS_AUDITORIA.has(codigo)) return true;
-  const nome = (u.cargo_nome || u.cargo || '').toLowerCase();
-  return nome === 'administrador' || nome === 'ceo' || nome === 'diretor';
+  return temPermissao('configuracoes.auditoria', usuario);
 }
 
 /** Usuário autenticado no app mobile unificado (ChamadosMobileLayout). */
@@ -245,7 +209,5 @@ export function usaFluxoMobileApp(usuario?: UsuarioSessao | null): boolean {
 
 /** Técnicos de campo cujo GPS deve ser rastreado (portal ou app mobile). */
 export function deveRastrearGpsTecnico(usuario?: UsuarioSessao | null): boolean {
-  const u = usuario ?? getUsuario();
-  if (!u) return false;
-  return u.perfil === 'tecnico' || temPermissao('chamados.assumir', u);
+  return temPermissao('chamados.assumir', usuario);
 }

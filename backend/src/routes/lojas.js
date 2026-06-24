@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { filtroSqlLojas } from '../lojasUsuario.js';
+import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
 
@@ -71,6 +72,13 @@ router.post('/', async (req, res, next) => {
         b.is_active,
       ]
     );
+    await auditar(req, {
+      modulo: 'lojas',
+      acao: 'criar',
+      entidade: 'loja',
+      idReferencia: rows[0].id_loja,
+      descricao: `Loja cadastrada: ${rows[0].name}`,
+    });
     res.status(201).json(rows[0]);
   } catch (e) {
     next(e);
@@ -96,6 +104,13 @@ router.patch('/:id', async (req, res, next) => {
       vals
     );
     if (!rows[0]) return res.status(404).json({ error: 'Loja não encontrada' });
+    await auditar(req, {
+      modulo: 'lojas',
+      acao: 'atualizar',
+      entidade: 'loja',
+      idReferencia: rows[0].id_loja,
+      descricao: `Loja atualizada: ${rows[0].name}`,
+    });
     res.json(rows[0]);
   } catch (e) {
     next(e);

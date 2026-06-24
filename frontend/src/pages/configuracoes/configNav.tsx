@@ -6,7 +6,7 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import HistoryIcon from '@mui/icons-material/History';
-import { getUsuario, temPermissao, podeVerAuditoria } from '../../lib/auth';
+import { getUsuario, temPermissao } from '../../lib/auth';
 import type { UsuarioSessao } from '../../lib/auth';
 
 export type ConfigNavItem = {
@@ -14,7 +14,7 @@ export type ConfigNavItem = {
   label: string;
   icon: React.ReactNode;
   permissoes: string[];
-  /** Regra extra (ex.: cargo CEO/Diretor). Se falhar, o item some mesmo com permissão. */
+  /** Regra extra além das permissões (uso raro). */
   regra?: (user: UsuarioSessao | null) => boolean;
 };
 
@@ -31,7 +31,7 @@ const CONFIG_NAV: ConfigNavSection[] = [
         to: '/configuracoes/perguntas',
         label: 'Perguntas',
         icon: <AssignmentIcon fontSize="small" />,
-        permissoes: ['configuracoes.ver'],
+        permissoes: ['configuracoes.perguntas'],
       },
     ],
   },
@@ -59,8 +59,7 @@ const CONFIG_NAV: ConfigNavSection[] = [
         to: '/configuracoes/auditoria',
         label: 'Auditoria',
         icon: <HistoryIcon fontSize="small" />,
-        permissoes: [],
-        regra: podeVerAuditoria,
+        permissoes: ['configuracoes.auditoria'],
       },
     ],
   },

@@ -9,7 +9,7 @@ import {
   TERMO_FERRAMENTAS_VERSAO,
   textoTermoFerramentas,
 } from '../config/termoFerramentas.js';
-import { registrarAuditoria } from '../services/auditoria.js';
+import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -449,6 +449,13 @@ router.post('/regioes', requirePermRegioes, async (req, res, next) => {
       `INSERT INTO frota_regioes (nome, descricao) VALUES ($1, $2) RETURNING *`,
       [nome.trim(), descricao?.trim() || null],
     );
+    await auditar(req, {
+      modulo: 'frota',
+      acao: 'criar',
+      entidade: 'regiao',
+      idReferencia: rows[0].id_regiao,
+      descricao: `Região criada: ${rows[0].nome}`,
+    });
     res.status(201).json(mapRegiaoRow(rows[0]));
   } catch (e) {
     if (erroRegiaoDb(e, res)) return;
@@ -495,6 +502,19 @@ router.patch('/regioes/:id', requirePermRegioes, async (req, res, next) => {
     if (Array.isArray(id_usuarios)) await syncRegiaoTecnicos(idRegiao, id_usuarios);
     if (Array.isArray(id_veiculos)) await syncRegiaoVeiculos(idRegiao, id_veiculos);
 
+    await auditar(req, {
+      modulo: 'frota',
+      acao: 'atualizar',
+      entidade: 'regiao',
+      idReferencia: idRegiao,
+      descricao: `Região atualizada: ${rows[0].nome}`,
+      detalhes: {
+        lojas: Array.isArray(id_lojas) ? id_lojas : undefined,
+        tecnicos: Array.isArray(id_usuarios) ? id_usuarios : undefined,
+        veiculos: Array.isArray(id_veiculos) ? id_veiculos : undefined,
+      },
+    });
+
     res.json(
       mapRegiaoRow({
         ...rows[0],
@@ -530,7 +550,7 @@ router.post('/veiculos', requirePermissao('frota.gerenciar'), async (req, res, n
         id_regiao != null && id_regiao !== '' ? Number(id_regiao) : null,
       ],
     );
-    await registrarAuditoria({
+    await auditar(req, {
       idUsuario: req.user.sub,
       modulo: 'frota',
       acao: 'criar',
@@ -609,7 +629,7 @@ router.patch('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, r
        WHERE v.id_veiculo = $1`,
       [idVeiculo],
     );
-    await registrarAuditoria({
+    await auditar(req, {
       idUsuario: req.user.sub,
       modulo: 'frota',
       acao: 'atualizar',
@@ -635,7 +655,7 @@ router.delete('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, 
       [idVeiculo],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Veículo não encontrado' });
-    await registrarAuditoria({
+    await auditar(req, {
       idUsuario: req.user.sub,
       modulo: 'frota',
       acao: 'excluir',
@@ -740,7 +760,7 @@ router.post(
       }
 
       const atualizado = await veiculoDoUsuario(idUsuario);
-      await registrarAuditoria({
+      await auditar(req, {
         idUsuario,
         modulo: 'frota',
         acao: 'assumir_veiculo',
@@ -785,7 +805,7 @@ router.post('/me/desassumir', requirePermissao('frota.usar'), async (req, res, n
       client.release();
     }
 
-    await registrarAuditoria({
+    await auditar(req, {
       idUsuario,
       modulo: 'frota',
       acao: 'devolver_veiculo',
@@ -1034,7 +1054,7 @@ router.post(
         ]);
       }
 
-      await registrarAuditoria({
+      await auditar(req, {
         idUsuario,
         modulo: 'frota',
         acao: 'anexar_documento',
@@ -1083,7 +1103,7 @@ router.delete(
         await pool.query(`DELETE FROM frota_anexos WHERE id_anexo = $1`, [rows[0].id_anexo]);
       }
 
-      await registrarAuditoria({
+      await auditar(req, {
         idUsuario,
         modulo: 'frota',
         acao: 'excluir_documento',

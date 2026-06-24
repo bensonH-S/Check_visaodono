@@ -45,6 +45,11 @@
     "migrate:frota-regioes-perm-lojas": "node scripts/run-sql.js migrations/049_frota_regioes_perm_lojas.sql",
     "migrate:chamado-urgente-regiao": "node scripts/run-sql.js migrations/050_chamado_urgente_regiao_evento.sql",
     "migrate:sistema-auditoria": "node scripts/run-sql.js migrations/051_sistema_auditoria.sql",
+    "migrate:config-auditoria-perm": "node scripts/run-sql.js migrations/052_configuracoes_auditoria_perm.sql",
+    "migrate:checklist-gerenciar-perm": "node scripts/run-sql.js migrations/053_checklist_gerenciar_perm.sql",
+    "migrate:checklist-grupo-perm": "node scripts/run-sql.js migrations/054_checklist_grupo_perm.sql",
+    "migrate:config-perguntas-perm": "node scripts/run-sql.js migrations/055_configuracoes_perguntas_perm.sql",
+    "migrate:perguntas-foto-opcional": "node scripts/run-sql.js migrations/056_perguntas_foto_opcional.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "migrate:whatsapp": "node scripts/run-sql.js migrations/035_usuario_whatsapp.sql"

@@ -21,8 +21,14 @@ import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
 
 const MODULOS = [
   { value: '', label: 'Todos os módulos' },
+  { value: 'usuarios', label: 'Usuários' },
+  { value: 'cargos', label: 'Cargos' },
+  { value: 'lojas', label: 'Lojas' },
+  { value: 'configuracoes', label: 'Configurações' },
+  { value: 'auth', label: 'Acesso (login)' },
   { value: 'chamados', label: 'Chamados' },
   { value: 'frota', label: 'Frota' },
+  { value: 'visitas', label: 'Visitas' },
   { value: 'checklist', label: 'Checklist' },
   { value: 'sistema', label: 'Sistema' },
 ];
@@ -35,7 +41,17 @@ function rotuloModulo(modulo: string) {
 function chipModulo(modulo: string) {
   const key = modulo.toLowerCase();
   const color =
-    key === 'chamados' ? 'primary' : key === 'frota' ? 'secondary' : key === 'checklist' ? 'success' : 'default';
+    key === 'chamados'
+      ? 'primary'
+      : key === 'frota'
+        ? 'secondary'
+        : key === 'checklist' || key === 'visitas'
+          ? 'success'
+          : key === 'usuarios' || key === 'auth'
+            ? 'warning'
+            : key === 'cargos' || key === 'lojas' || key === 'configuracoes'
+              ? 'info'
+              : 'default';
   return <Chip size="small" label={rotuloModulo(modulo)} color={color} variant="outlined" />;
 }
 

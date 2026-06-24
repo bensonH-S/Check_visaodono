@@ -1,8 +1,5 @@
 import type { Pergunta } from '../api/client';
 
-/** Foto opcional mesmo quando exibida (não bloqueia avançar). */
-const FOTO_OPCIONAL = new Set(['26', '37']);
-
 /** Máximo de fotos por pergunta no checklist. */
 export const MAX_FOTOS_POR_PERGUNTA = 5;
 
@@ -29,7 +26,7 @@ export function exibeFoto(
   return respostaSimNaoEscolhida(resposta);
 }
 
-/** Foto obrigatória para avançar. */
+/** Foto obrigatória para avançar — só quando marcado na pergunta (requer_foto). */
 export function exigeFoto(
   p: Pergunta,
   resposta?: 'Sim' | 'Não' | 'N/A',
@@ -37,10 +34,7 @@ export function exigeFoto(
   notaEstrelas?: number,
 ): boolean {
   if (!exibeFoto(p, resposta, notaEstrelas)) return false;
-  if (FOTO_OPCIONAL.has(p.codigo)) return false;
-  if (p.requer_foto) return fotos.length === 0;
-  // Em Não a foto é opcional (evidência); observação pode ser obrigatória à parte.
-  if (resposta === 'Não') return false;
+  if (!p.requer_foto) return false;
   return fotos.length === 0;
 }
 
@@ -64,7 +58,8 @@ export function exigeObservacao(
 ): boolean {
   if (!exibeObservacao(p, resposta)) return false;
   if (p.codigo === '37') return false;
-  return resposta === 'Não' && !obs?.trim();
+  if (resposta !== 'Não' || !p.requer_obs_em_nao) return false;
+  return !obs?.trim();
 }
 
 /** Ao mudar Sim/Não, limpar foto se não for mais exibir. */

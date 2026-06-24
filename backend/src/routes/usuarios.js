@@ -3,16 +3,16 @@ import bcrypt from 'bcryptjs';
 import { pool } from '../db.js';
 import { syncUsuarioLojas, carregarLojasDetalhe } from '../lojasUsuario.js';
 import {
-  CATALOGO_PERMISSOES,
   acessoTodasLojas,
   carregarPermissoesUsuario,
   requirePermissao,
-  normalizarPermissoes,
   resolverPermissoesUsuario,
   syncUsuarioPermissoes,
+  listarCatalogoPermissoes,
 } from '../permissoes.js';
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
 import { normalizarTelefoneBr } from '../utils/telefone.js';
+import { auditar, resumirDiff, snapshotUsuarioAuditoria, sanitizarCorpo } from '../auditoriaHelpers.js';
 
 const router = Router();
 const PERFIS_VALIDOS = ['administrador', 'coordenador', 'gerente', 'tecnico'];
@@ -57,8 +57,13 @@ const SQL_USUARIO = `
   FROM usuarios u
   LEFT JOIN cargos cg ON cg.codigo = u.cargo_aprovacao`;
 
-router.get('/permissoes/catalogo', requirePermissao('usuarios.gerenciar'), (_req, res) => {
-  res.json(CATALOGO_PERMISSOES);
+router.get('/permissoes/catalogo', requirePermissao('usuarios.gerenciar'), async (_req, res, next) => {
+  try {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(await listarCatalogoPermissoes());
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get('/', requirePermissao('usuarios.listar'), async (_req, res, next) => {
@@ -157,11 +162,11 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
       return res.status(400).json({ error: 'Nome, e-mail e senha (mín. 6) são obrigatórios' });
     }
 
-    const permsProv = resolverPermissoesUsuario('gerente', permissoes);
+    const permsProv = await resolverPermissoesUsuario('gerente', permissoes);
     const cargoRes = await resolverCargoUsuario(cargo_aprovacao, permsProv, { obrigatorio: true });
     if (cargoRes.error) return res.status(400).json({ error: cargoRes.error });
 
-    const perms = resolverPermissoesUsuario(cargoRes.perfil, permissoes);
+    const perms = await resolverPermissoesUsuario(cargoRes.perfil, permissoes);
     const errLojas = validarLojas(perms, lojas_ids);
     if (errLojas) return res.status(400).json({ error: errLojas });
 
@@ -193,9 +198,21 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
     await syncUsuarioPermissoes(idNovo, perms);
     await syncUsuarioLojas(idNovo, lojas_ids, acessoTodasLojas({ permissoes: perms }));
     const { rows: completo } = await pool.query(`${SQL_USUARIO} WHERE u.id_usuario = $1`, [idNovo]);
-    res.status(201).json(await mapUsuarioGestao(completo[0]));
+    const criado = await mapUsuarioGestao(completo[0]);
+    await auditar(req, {
+      modulo: 'usuarios',
+      acao: 'criar',
+      entidade: 'usuario',
+      idReferencia: idNovo,
+      descricao: `Usuário criado: ${criado.nome} (${criado.email})`,
+      detalhes: { usuario: snapshotUsuarioAuditoria(criado) },
+    });
+    res.status(201).json(criado);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'E-mail já cadastrado' });
+    if (e.code === '23503') {
+      return res.status(500).json({ error: 'Permissão inválida no cadastro. Recarregue a página e tente novamente.' });
+    }
     next(e);
   }
 });
@@ -222,6 +239,9 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
     );
     if (!atual.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
 
+    const { rows: antesRows } = await pool.query(`${SQL_USUARIO} WHERE u.id_usuario = $1`, [id]);
+    const antes = antesRows[0] ? await mapUsuarioGestao(antesRows[0]) : null;
+
     if (Number(req.user.sub) === id && ativo === false) {
       return res.status(400).json({ error: 'Você não pode desativar seu próprio usuário' });
     }
@@ -233,7 +253,7 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       : atual.rows[0].perfil;
     const permsAtuais =
       permissoes !== undefined
-        ? resolverPermissoesUsuario(perfilEfetivo, permissoes)
+        ? await resolverPermissoesUsuario(perfilEfetivo, permissoes)
         : await carregarPermissoesUsuario(id);
 
     if (lojas_ids !== undefined || permissoes !== undefined) {
@@ -322,9 +342,41 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
     }
 
     const { rows } = await pool.query(`${SQL_USUARIO} WHERE u.id_usuario = $1`, [id]);
-    res.json(await mapUsuarioGestao(rows[0]));
+    const depois = await mapUsuarioGestao(rows[0]);
+    const snapAntes = snapshotUsuarioAuditoria(antes);
+    const snapDepois = snapshotUsuarioAuditoria(depois);
+    const alteracoes = resumirDiff(snapAntes, snapDepois, [
+      'nome',
+      'email',
+      'ativo',
+      'cargo_aprovacao',
+      'permissoes',
+      'lojas_ids',
+      'acesso_todas_lojas',
+      'telefone_whatsapp',
+      'notifica_whatsapp',
+    ]);
+    const partesDesc = [];
+    if (senha && senha.length >= 6) partesDesc.push('senha alterada');
+    await auditar(req, {
+      modulo: 'usuarios',
+      acao: 'atualizar',
+      entidade: 'usuario',
+      idReferencia: id,
+      descricao: `Usuário atualizado: ${depois.nome} (${depois.email})${partesDesc.length ? ` — ${partesDesc.join(', ')}` : ''}`,
+      detalhes: {
+        alteracoes,
+        corpo: sanitizarCorpo(req.body),
+        antes: snapAntes,
+        depois: snapDepois,
+      },
+    });
+    res.json(depois);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'E-mail já cadastrado' });
+    if (e.code === '23503') {
+      return res.status(500).json({ error: 'Permissão inválida no cadastro. Recarregue a página e tente novamente.' });
+    }
     next(e);
   }
 });
@@ -361,6 +413,13 @@ router.delete('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req,
     }
 
     await pool.query('DELETE FROM usuarios WHERE id_usuario = $1', [id]);
+    await auditar(req, {
+      modulo: 'usuarios',
+      acao: 'excluir',
+      entidade: 'usuario',
+      idReferencia: id,
+      descricao: `Usuário excluído: ${rows[0].nome}`,
+    });
     res.status(204).send();
   } catch (e) {
     next(e);

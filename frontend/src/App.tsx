@@ -323,7 +323,7 @@ export default function App() {
               <Route
                 path="perguntas"
                 element={
-                  <RotaPermissao permissoes={['configuracoes.ver']}>
+                  <RotaPermissao permissoes={['configuracoes.perguntas', 'checklist.gerenciar']}>
                     <ChecklistPerguntasPage />
                   </RotaPermissao>
                 }

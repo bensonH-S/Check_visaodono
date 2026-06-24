@@ -32,14 +32,20 @@ async function buscarTecnicosRegiao(idRegiao) {
   return rows;
 }
 
-/** Coordenador e gerente vinculados à loja (usuario_lojas). */
-async function buscarCoordenadorGerenteLoja(idLoja) {
+/** Gerente/coordenador vinculados à loja (escopo loja, não região). */
+async function buscarGestoresLoja(idLoja) {
   const { rows } = await pool.query(
     `SELECT DISTINCT u.id_usuario
      FROM usuarios u
      JOIN usuario_lojas ul ON ul.id_usuario = u.id_usuario AND ul.id_loja = $1
+     JOIN usuario_permissoes up ON up.id_usuario = u.id_usuario
      WHERE u.ativo = TRUE
-       AND COALESCE(u.cargo_aprovacao, u.perfil::text) IN ('coordenador', 'gerente')`,
+       AND up.codigo IN ('chamados.abrir', 'chamados.ver')
+       AND NOT EXISTS (
+         SELECT 1 FROM usuario_permissoes upR
+         WHERE upR.id_usuario = u.id_usuario
+           AND upR.codigo IN ('chamados.assumir', 'frota.regioes')
+       )`,
     [idLoja],
   );
   return rows.map((r) => Number(r.id_usuario));
@@ -161,7 +167,7 @@ export async function processarChamadoUrgenteRegiao({
   const msgAtribuidoTecnico = `Chamado #${numero} atribuído a você — execute com prioridade (${nomeLoja}).`;
 
   const destinatariosAtribuicao = new Set(destinatarios);
-  for (const idUsuario of await buscarCoordenadorGerenteLoja(idLoja)) {
+  for (const idUsuario of await buscarGestoresLoja(idLoja)) {
     if (idUsuario !== idAutorNum) destinatariosAtribuicao.add(idUsuario);
   }
 

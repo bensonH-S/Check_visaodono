@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
+import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
 
@@ -81,6 +82,13 @@ router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, n
        RETURNING id_cargo, nome, codigo, aprovador, ativo, descricao, created_at`,
       [nome, tentativa, aprovador, ativo, descricao],
     );
+    await auditar(req, {
+      modulo: 'cargos',
+      acao: 'criar',
+      entidade: 'cargo',
+      idReferencia: rows[0].id_cargo,
+      descricao: `Cargo criado: ${rows[0].nome} (${rows[0].codigo})`,
+    });
     res.status(201).json(rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Já existe um cargo com este código' });
@@ -127,6 +135,13 @@ router.patch('/gestao/:id', requirePermissao('configuracoes.ver'), async (req, r
        RETURNING id_cargo, nome, codigo, aprovador, ativo, descricao, created_at`,
       vals,
     );
+    await auditar(req, {
+      modulo: 'cargos',
+      acao: 'atualizar',
+      entidade: 'cargo',
+      idReferencia: id,
+      descricao: `Cargo atualizado: ${rows[0].nome}`,
+    });
     res.json(rows[0]);
   } catch (e) {
     next(e);
@@ -157,6 +172,13 @@ router.delete('/gestao/:id', requirePermissao('configuracoes.ver'), async (req, 
     }
 
     await pool.query('DELETE FROM cargos WHERE id_cargo = $1', [id]);
+    await auditar(req, {
+      modulo: 'cargos',
+      acao: 'excluir',
+      entidade: 'cargo',
+      idReferencia: id,
+      descricao: `Cargo excluído: ${rows[0].nome} (${codigo})`,
+    });
     res.status(204).send();
   } catch (e) {
     next(e);

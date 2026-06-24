@@ -6,16 +6,15 @@ import { carregarLojasDetalhe, carregarRegioesAtuacaoTecnico } from '../lojasUsu
 import { acessoTodasLojas, carregarPermissoesUsuario, temPermissao } from '../permissoes.js';
 import { tiposChecklistDoUsuario } from '../checklistTipos.js';
 import { logger } from '../logger.js';
+import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
 
 function precisaRegioesAtuacaoSessao(row, permissoes) {
-  const codigo = String(row.cargo_aprovacao || row.perfil || '').toLowerCase();
   const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes, cargo_aprovacao: row.cargo_aprovacao };
   return (
     temPermissao(userCtx, 'chamados.assumir') ||
-    row.perfil === 'tecnico' ||
-    codigo === 'supervisor_regional'
+    temPermissao(userCtx, 'frota.regioes')
   );
 }
 
@@ -24,7 +23,9 @@ async function mapUsuario(row) {
   const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes, cargo_aprovacao: row.cargo_aprovacao };
   const [lojas, tiposChecklist, regioesAtuacao] = await Promise.all([
     carregarLojasDetalhe(userCtx),
-    tiposChecklistDoUsuario(row.id_usuario),
+    temPermissao(userCtx, 'checklist.ver') || temPermissao(userCtx, 'checklist.executar')
+      ? tiposChecklistDoUsuario(row.id_usuario)
+      : Promise.resolve([]),
     precisaRegioesAtuacaoSessao(row, permissoes)
       ? carregarRegioesAtuacaoTecnico(row.id_usuario)
       : Promise.resolve([]),
@@ -83,6 +84,14 @@ router.post('/login', async (req, res, next) => {
 
     const usuario = await mapUsuario(user);
     logger.info('auth', 'Login OK', { email, idUsuario: user.id_usuario, perfil: user.perfil });
+    await auditar(null, {
+      idUsuario: user.id_usuario,
+      modulo: 'auth',
+      acao: 'login',
+      entidade: 'sessao',
+      idReferencia: user.id_usuario,
+      descricao: `Login realizado: ${user.nome} (${email})`,
+    });
     res.json({
       accessToken: signToken(usuario),
       usuario,

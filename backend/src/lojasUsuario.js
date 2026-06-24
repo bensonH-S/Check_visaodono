@@ -13,15 +13,21 @@ async function lojasUsuarioBase(idUsuario) {
   return rows.map((r) => r.id_loja);
 }
 
-/** Lojas das regiões de atuação em que o técnico está vinculado. */
-async function lojasRegiaoTecnico(idUsuario) {
+/** Lojas das regiões em que o usuário é técnico vinculado ou regional (supervisor). */
+async function lojasRegiaoUsuario(idUsuario) {
   const { rows } = await pool.query(
     `SELECT DISTINCT rl.id_loja
-     FROM frota_regiao_tecnicos rt
-     JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
-     JOIN frota_regiao_lojas rl ON rl.id_regiao = rt.id_regiao
+     FROM frota_regioes r
+     JOIN frota_regiao_lojas rl ON rl.id_regiao = r.id_regiao
      JOIN lojas l ON l.id_loja = rl.id_loja AND l.is_active = TRUE
-     WHERE rt.id_usuario = $1`,
+     WHERE r.ativo = TRUE
+       AND (
+         EXISTS (
+           SELECT 1 FROM frota_regiao_tecnicos rt
+           WHERE rt.id_regiao = r.id_regiao AND rt.id_usuario = $1
+         )
+         OR r.id_regional = $1
+       )`,
     [idUsuario],
   );
   return rows.map((r) => r.id_loja);
@@ -39,9 +45,10 @@ export async function carregarLojasIds(user) {
     return rows.map((r) => r.id_loja);
   }
   let ids = await lojasUsuarioBase(user.sub);
-  if (temPermissao(user, 'chamados.assumir')) {
-    const regiao = await lojasRegiaoTecnico(user.sub);
-    ids = unirIdsLojas(ids, regiao);
+  const escopoRegiao =
+    temPermissao(user, 'chamados.assumir') || temPermissao(user, 'frota.regioes');
+  if (escopoRegiao) {
+    ids = unirIdsLojas(ids, await lojasRegiaoUsuario(user.sub));
   }
   return ids;
 }
@@ -111,6 +118,52 @@ export function filtroSqlLojas(user, alias, col, params) {
 export function usuarioPodeLoja(user, idLoja) {
   if (acessoTodasLojas(user)) return true;
   return (user.lojas_ids || []).includes(Number(idLoja));
+}
+
+/**
+ * SQL: usuário deve receber notificação de chamado da loja (parâmetro id_loja).
+ * - lojas.todas: todas
+ * - assumir / frota.regioes: lojas da região (técnico ou supervisor regional)
+ * - demais (gerente/coordenador): só usuario_lojas
+ */
+export function sqlUsuarioAtendeLojaNotificacao(aliasUsuario, paramLoja) {
+  return `(
+    EXISTS (
+      SELECT 1 FROM usuario_permissoes upT
+      WHERE upT.id_usuario = ${aliasUsuario} AND upT.codigo = 'lojas.todas'
+    )
+    OR (
+      EXISTS (
+        SELECT 1 FROM usuario_permissoes upR
+        WHERE upR.id_usuario = ${aliasUsuario}
+          AND upR.codigo IN ('chamados.assumir', 'frota.regioes')
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM frota_regiao_lojas rl
+        JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
+        WHERE rl.id_loja = ${paramLoja}
+          AND (
+            EXISTS (
+              SELECT 1 FROM frota_regiao_tecnicos rt
+              WHERE rt.id_regiao = r.id_regiao AND rt.id_usuario = ${aliasUsuario}
+            )
+            OR r.id_regional = ${aliasUsuario}
+          )
+      )
+    )
+    OR (
+      NOT EXISTS (
+        SELECT 1 FROM usuario_permissoes upR
+        WHERE upR.id_usuario = ${aliasUsuario}
+          AND upR.codigo IN ('chamados.assumir', 'frota.regioes')
+      )
+      AND EXISTS (
+        SELECT 1 FROM usuario_lojas ul
+        WHERE ul.id_usuario = ${aliasUsuario} AND ul.id_loja = ${paramLoja}
+      )
+    )
+  )`;
 }
 
 export async function syncUsuarioLojas(idUsuario, lojasIds, temTodasLojas) {

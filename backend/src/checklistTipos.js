@@ -1,4 +1,5 @@
 import { pool } from './db.js';
+import { carregarPermissoesUsuario, temPermissao } from './permissoes.js';
 
 let schemaTiposCache = null;
 
@@ -10,16 +11,6 @@ export async function schemaTiposChecklistAtivo() {
   schemaTiposCache = !!rows[0]?.ok;
   return schemaTiposCache;
 }
-
-const FALLBACK_POR_PERFIL = {
-  supervisor_regional: 'time_de_campo',
-  coordenador: 'time_de_campo',
-  administrador: 'auditoria_operacional',
-  ceo: 'auditoria_operacional',
-  diretor: 'auditoria_operacional',
-  gerente: 'auditoria_operacional',
-  tecnico: 'auditoria_operacional',
-};
 
 export async function carregarCargoUsuario(idUsuario) {
   const { rows } = await pool.query(
@@ -46,28 +37,25 @@ export async function listarTiposChecklist({ apenasAtivos = true } = {}) {
 }
 
 export async function tiposChecklistDoUsuario(idUsuario) {
-  const row = await carregarCargoUsuario(idUsuario);
-  const cargo = cargoEfetivoUsuario(row);
-
-  if (cargo) {
-    const { rows } = await pool.query(
-      `SELECT t.id_tipo_checklist, t.codigo, t.nome, t.descricao, t.ordem, t.ativo
-       FROM tipos_checklist t
-       JOIN cargo_checklist cc ON cc.id_tipo_checklist = t.id_tipo_checklist
-       WHERE cc.cargo_codigo = $1 AND t.ativo = TRUE
-       ORDER BY t.ordem, t.nome`,
-      [cargo],
-    );
-    if (rows.length) return rows;
+  const permissoes = await carregarPermissoesUsuario(idUsuario);
+  const userCtx = { permissoes };
+  if (!temPermissao(userCtx, 'checklist.ver') && !temPermissao(userCtx, 'checklist.executar')) {
+    return [];
   }
 
-  const codigoFallback = FALLBACK_POR_PERFIL[row?.perfil] || 'auditoria_operacional';
-  const { rows: fb } = await pool.query(
-    `SELECT id_tipo_checklist, codigo, nome, descricao, ordem, ativo
-     FROM tipos_checklist WHERE codigo = $1 AND ativo = TRUE`,
-    [codigoFallback],
+  const row = await carregarCargoUsuario(idUsuario);
+  const cargo = cargoEfetivoUsuario(row);
+  if (!cargo) return [];
+
+  const { rows } = await pool.query(
+    `SELECT t.id_tipo_checklist, t.codigo, t.nome, t.descricao, t.ordem, t.ativo
+     FROM tipos_checklist t
+     JOIN cargo_checklist cc ON cc.id_tipo_checklist = t.id_tipo_checklist
+     WHERE cc.cargo_codigo = $1 AND t.ativo = TRUE
+     ORDER BY t.ordem, t.nome`,
+    [cargo],
   );
-  return fb;
+  return rows;
 }
 
 export async function usuarioPodeTipoChecklist(idUsuario, idTipoChecklist) {

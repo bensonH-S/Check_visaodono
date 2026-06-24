@@ -12,6 +12,7 @@ import {
   schemaTiposChecklistAtivo,
   obterTipoChecklistDaVisita,
 } from '../checklistTipos.js';
+import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
 
@@ -236,7 +237,16 @@ router.post('/', async (req, res, next) => {
       params,
     );
     await client.query('COMMIT');
-    res.status(201).json(serializarVisita(rows[0]));
+    const visita = rows[0];
+    const { rows: lojaRow } = await pool.query('SELECT name FROM lojas WHERE id_loja = $1', [visita.id_loja]);
+    await auditar(req, {
+      modulo: 'visitas',
+      acao: 'iniciar',
+      entidade: 'visita',
+      idReferencia: visita.id_visita,
+      descricao: `Visita iniciada — loja ${lojaRow[0]?.name || visita.id_loja}`,
+    });
+    res.status(201).json(serializarVisita(visita));
   } catch (e) {
     try {
       await client.query('ROLLBACK');
@@ -358,6 +368,14 @@ router.patch('/:id/finalizar', async (req, res, next) => {
       [req.params.id, hora_fim ?? null, duracao, observacoes_gerais ?? null],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
+    const { rows: lojaRow } = await pool.query('SELECT name FROM lojas WHERE id_loja = $1', [rows[0].id_loja]);
+    await auditar(req, {
+      modulo: 'visitas',
+      acao: 'finalizar',
+      entidade: 'visita',
+      idReferencia: rows[0].id_visita,
+      descricao: `Visita finalizada — loja ${lojaRow[0]?.name || rows[0].id_loja} (${rows[0].duracao_minutos ?? '?'} min)`,
+    });
     res.json(serializarVisita(rows[0]));
   } catch (e) {
     next(e);
