@@ -90,7 +90,24 @@ echo "Construindo e subindo containers (app + wppconnect, porta ${APP_PORT})..."
 
 export GIT_TAG="${TAG}"
 
-docker compose up -d --build
+compose_cmd() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+  elif command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+  else
+    echo ""
+    echo "ERRO: Docker Compose não está instalado neste servidor."
+    echo "O deploy v1.2+ usa compose (app + wppconnect). Instale um dos pacotes:"
+    echo "  sudo apt-get update && sudo apt-get install -y docker-compose-plugin"
+    echo "  # ou (legado): sudo apt-get install -y docker-compose"
+    echo ""
+    echo "Depois confira: docker compose version   # ou: docker-compose --version"
+    exit 1
+  fi
+}
+
+compose_cmd up -d --build
 
 echo ""
 echo "Reiniciando nginx..."
