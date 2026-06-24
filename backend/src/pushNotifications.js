@@ -1,6 +1,6 @@
 import { pool } from './db.js';
 import { logger } from './logger.js';
-import { tipoVisivelPushUsuario, urlPushChamado } from './notificacoesFiltro.js';
+import { tipoVisivelPushUsuario, urlPushChamado, tipoEnviaPush } from './notificacoesFiltro.js';
 import {
   normalizarVapidSubject,
   validarVapidPrivateKey,
@@ -143,7 +143,7 @@ export function montarTituloPush({ tipo, mensagem, numero, loja }) {
     case 'recusa_aprovacao':
       return `Orçamento do chamado #${num} - Não Aprovado`;
     case 'assumido':
-      return 'Ticket assumido!';
+      return `Chamado atribuído #${num}`;
     case 'chamado_urgente_regiao':
       return `Chamado urgente #${num}`;
     case 'reabertura':
@@ -196,6 +196,8 @@ async function carregarPermissoesPushUsuario(idUsuario) {
 export async function deveEnviarPushParaUsuario(idUsuario, tipo) {
   const uid = Number(idUsuario);
   if (!Number.isFinite(uid)) return false;
+
+  if (!tipoEnviaPush(tipo)) return false;
 
   const perms = await carregarPermissoesPushUsuario(uid);
   if (!perms) return false;

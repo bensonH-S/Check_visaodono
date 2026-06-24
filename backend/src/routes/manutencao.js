@@ -1096,12 +1096,14 @@ router.post('/chamados', requirePermissao('chamados.abrir'), async (req, res, ne
       temColunaAssumidoEm,
     });
 
-    await notificarEventoChamado(
-      id_chamado,
-      req.user.sub,
-      'novo_chamado',
-      `Novo Chamado #${numero} - Aberto (${nomeLoja})`,
-    );
+    if (!regiaoUrgente.processado) {
+      await notificarEventoChamado(
+        id_chamado,
+        req.user.sub,
+        'novo_chamado',
+        `Novo Chamado #${numero} - Aberto (${nomeLoja})`,
+      );
+    }
 
     res.status(201).json({ ...rows[0], regiao_urgente: regiaoUrgente });
   } catch (e) {
@@ -1177,12 +1179,16 @@ router.post('/chamados/:id/fotos', upload.array('fotos', 10), async (req, res, n
     const autor = await pool.query('SELECT nome FROM usuarios WHERE id_usuario = $1', [idUsuario]);
     const autorNome = autor.rows[0]?.nome || 'Usuário';
     const qtd = files.length;
-    await notificarEventoChamado(
-      idChamado,
-      idUsuario,
-      'anexo',
-      `${autorNome} adicionou ${qtd} anexo(s) no chamado #${chamado.rows[0].numero}`,
-    );
+    const notificar =
+      req.query.notificar !== '0' && req.query.notificar !== 'false' && req.body?.notificar !== false;
+    if (notificar) {
+      await notificarEventoChamado(
+        idChamado,
+        idUsuario,
+        'anexo',
+        `${autorNome} adicionou ${qtd} anexo(s) no chamado #${chamado.rows[0].numero}`,
+      );
+    }
 
     res.status(201).json(anexos);
   } catch (e) {

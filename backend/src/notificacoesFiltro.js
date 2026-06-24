@@ -1,5 +1,12 @@
 /** Tipos ocultos no sino mobile — loja (só abrir chamado) não recebe push. */
-export const TIPOS_NOTIF_MOBILE_EXCLUIDOS = ['envio_aprovacao', 'recusa_aprovacao', 'novo_chamado'];
+export const TIPOS_NOTIF_MOBILE_EXCLUIDOS = ['envio_aprovacao', 'recusa_aprovacao', 'novo_chamado', 'anexo'];
+
+/** Push no celular: só chamado urgente na região e chamado atribuído. */
+export const TIPOS_PUSH_PERMITIDOS = new Set(['chamado_urgente_regiao', 'assumido']);
+
+export function tipoEnviaPush(tipo) {
+  return TIPOS_PUSH_PERMITIDOS.has(tipo);
+}
 
 export const TIPOS_NOTIF_APROVACOES = ['envio_aprovacao', 'encaminhar_diretor', 'aprovacao_diretor'];
 

@@ -411,7 +411,7 @@ export default function ManutencaoNovoPage() {
         fd.append('fotos', blob, `anexo-${i}${extensaoMidia(blob)}`);
       });
 
-      await api.manutEnviarFotos(chamado.id_chamado, fd);
+      await api.manutEnviarFotos(chamado.id_chamado, fd, { notificar: false });
 
       sessionStorage.removeItem(CACHE_KEY);
 

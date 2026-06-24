@@ -356,9 +356,11 @@ export const api = {
       method: 'DELETE',
       body: JSON.stringify({ endpoint }),
     }),
-  manutEnviarFotos: async (idChamado: number, formData: FormData) => {
+  manutEnviarFotos: async (idChamado: number, formData: FormData, opts?: { notificar?: boolean }) => {
     const token = getToken();
-    const res = await fetch(`${BASE}/manutencao/chamados/${idChamado}/fotos`, {
+    const notificar = opts?.notificar !== false;
+    const qs = notificar ? '' : '?notificar=0';
+    const res = await fetch(`${BASE}/manutencao/chamados/${idChamado}/fotos${qs}`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,

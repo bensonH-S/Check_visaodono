@@ -135,7 +135,7 @@ export default function ChamadosMobileNovoPage() {
         const blob = dataUrlToBlob(dataUrl);
         fd.append('fotos', blob, `anexo-${i}${extensaoMidia(blob)}`);
       });
-      await api.manutEnviarFotos(chamado.id_chamado, fd);
+      await api.manutEnviarFotos(chamado.id_chamado, fd, { notificar: false });
       sessionStorage.removeItem(CACHE_KEY);
       sessionStorage.setItem('chamado_criado_numero', String(chamado.numero));
       navigate(ROTA_LISTA, { state: { chamadoCriado: chamado.numero } });
