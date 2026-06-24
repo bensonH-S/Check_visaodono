@@ -44,6 +44,9 @@ import SlaPage from './pages/configuracoes/SlaPage';
 import CargosPage from './pages/configuracoes/CargosPage';
 import ChecklistPerguntasPage from './pages/configuracoes/ChecklistPerguntasPage';
 import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
+import AuditoriaPage from './pages/configuracoes/AuditoriaPage';
+import RotaAuditoria from './components/RotaAuditoria';
+import RotaConfiguracoes from './components/RotaConfiguracoes';
 import RotaPermissao from './components/RotaPermissao';
 import RotaChecklist from './components/RotaChecklist';
 import RotaFrota from './components/RotaFrota';
@@ -301,9 +304,9 @@ export default function App() {
             <Route
               path="configuracoes"
               element={
-                <RotaPermissao permissoes={['configuracoes.ver', 'usuarios.gerenciar', 'portal.lojas.ver']}>
+                <RotaConfiguracoes>
                   <ConfiguracoesLayout />
-                </RotaPermissao>
+                </RotaConfiguracoes>
               }
             >
               <Route index element={<ConfiguracoesPage />} />
@@ -361,6 +364,14 @@ export default function App() {
                   <RotaPermissao permissoes={['configuracoes.ver']}>
                     <WhatsAppPage />
                   </RotaPermissao>
+                }
+              />
+              <Route
+                path="auditoria"
+                element={
+                  <RotaAuditoria>
+                    <AuditoriaPage />
+                  </RotaAuditoria>
                 }
               />
             </Route>

@@ -44,6 +44,7 @@
     "migrate:frota-regioes-perm": "npm run migrate:frota-regioes-perm --prefix backend",
     "migrate:frota-regiao-regional": "npm run migrate:frota-regiao-regional --prefix backend",
     "migrate:cargos-descricao": "npm run migrate:cargos-descricao --prefix backend",
+    "migrate:sistema-auditoria": "npm run migrate:sistema-auditoria --prefix backend",
     "generate:vapid": "npm run generate:vapid --prefix backend",
     "logs:hoje": "node scripts/ver-log-hoje.js",
     "logs:erros": "node scripts/ver-log-erros.js",

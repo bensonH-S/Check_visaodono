@@ -734,7 +734,7 @@ function placeholderSelect(texto: string, rotulo?: (valor: string) => ReactNode)
   };
 }
 
-export default function FrotaRegioesPortalPage() {
+export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?: boolean }) {
   const [regioes, setRegioes] = useState<FrotaRegiaoResumo[]>([]);
   const [catalogo, setCatalogo] = useState<FrotaRegiaoCatalogo>(CATALOGO_VAZIO);
   const [loading, setLoading] = useState(true);
@@ -949,7 +949,7 @@ export default function FrotaRegioesPortalPage() {
   }
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <Box sx={{ pb: embedded ? 0 : 4 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
           Defina o supervisor regional, lojas, técnicos e veículos de cada região de atuação.

@@ -5,7 +5,8 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
-import { getUsuario, temPermissao } from '../../lib/auth';
+import HistoryIcon from '@mui/icons-material/History';
+import { getUsuario, temPermissao, podeVerAuditoria } from '../../lib/auth';
 import type { UsuarioSessao } from '../../lib/auth';
 
 export type ConfigNavItem = {
@@ -13,6 +14,8 @@ export type ConfigNavItem = {
   label: string;
   icon: React.ReactNode;
   permissoes: string[];
+  /** Regra extra (ex.: cargo CEO/Diretor). Se falhar, o item some mesmo com permissão. */
+  regra?: (user: UsuarioSessao | null) => boolean;
 };
 
 export type ConfigNavSection = {
@@ -50,6 +53,18 @@ const CONFIG_NAV: ConfigNavSection[] = [
     ],
   },
   {
+    title: 'Sistema',
+    items: [
+      {
+        to: '/configuracoes/auditoria',
+        label: 'Auditoria',
+        icon: <HistoryIcon fontSize="small" />,
+        permissoes: [],
+        regra: podeVerAuditoria,
+      },
+    ],
+  },
+  {
     title: 'Manutenção',
     items: [
       {
@@ -81,6 +96,8 @@ const CONFIG_NAV: ConfigNavSection[] = [
 ];
 
 function itemVisivel(item: ConfigNavItem, user: UsuarioSessao | null) {
+  if (item.regra && !item.regra(user)) return false;
+  if (!item.permissoes.length) return Boolean(item.regra?.(user));
   return item.permissoes.some((p) => temPermissao(p, user));
 }
 

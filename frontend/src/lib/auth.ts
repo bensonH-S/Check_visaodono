@@ -138,6 +138,18 @@ export function podeGerenciarRegioesFrota(usuario?: UsuarioSessao | null): boole
   return String(codigo).toLowerCase() === 'supervisor_regional';
 }
 
+const CARGOS_AUDITORIA = new Set(['administrador', 'ceo', 'diretor']);
+
+/** Auditoria do sistema: apenas Administrador, CEO ou Diretor. */
+export function podeVerAuditoria(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  const codigo = (u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  if (CARGOS_AUDITORIA.has(codigo)) return true;
+  const nome = (u.cargo_nome || u.cargo || '').toLowerCase();
+  return nome === 'administrador' || nome === 'ceo' || nome === 'diretor';
+}
+
 export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   return !!u && u.perfil !== 'tecnico';

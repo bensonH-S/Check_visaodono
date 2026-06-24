@@ -123,6 +123,15 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  auditoriaEventos: (params?: { limite?: number; offset?: number; modulo?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.limite != null) q.set('limite', String(params.limite));
+    if (params?.offset != null) q.set('offset', String(params.offset));
+    if (params?.modulo) q.set('modulo', params.modulo);
+    const s = q.toString();
+    return request<AuditoriaEvento[]>(`/auditoria/eventos${s ? `?${s}` : ''}`);
+  },
+
   cargos: (params?: { aprovador?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.aprovador) q.set('aprovador', '1');
@@ -386,6 +395,8 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  frotaExcluirVeiculo: (idVeiculo: number) =>
+    request<{ ok: boolean }>(`/frota/veiculos/${idVeiculo}`, { method: 'DELETE' }),
   frotaAssumirVeiculo: async (formData: FormData) => {
     const token = getToken();
     const res = await fetch(`${BASE}/frota/me/assumir`, {
@@ -442,6 +453,10 @@ export const api = {
     }
     return res.json();
   },
+  frotaExcluirDocumento: (idVeiculo: number, idDocumento: number) =>
+    request<{ ok: boolean }>(`/frota/veiculos/${idVeiculo}/documentos/${idDocumento}`, {
+      method: 'DELETE',
+    }),
   frotaEnviarManutencaoVeiculo: async (idVeiculo: number, formData: FormData) => {
     const token = getToken();
     const res = await fetch(`${BASE}/frota/veiculos/${idVeiculo}/manutencoes`, {
@@ -959,6 +974,17 @@ export interface FrotaTermoInfo {
   texto: string;
   assinado: boolean;
   assinado_em: string | null;
+}
+
+export interface AuditoriaEvento {
+  created_at: string;
+  modulo: string;
+  acao: string;
+  entidade: string | null;
+  id_referencia: string | null;
+  descricao: string;
+  usuario_nome: string | null;
+  id_usuario: number | null;
 }
 
 export interface FrotaDocumento {

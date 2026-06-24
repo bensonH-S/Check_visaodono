@@ -98,6 +98,7 @@ const { initPushNotifications, getVapidPublicKey } = await import('./backend/src
 const { gpsTecnicosConfigPublica } = await import('./backend/src/gpsTecnicos.js');
 const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
 const frotaRouter = (await import('./backend/src/routes/frota.js')).default;
+const auditoriaRouter = (await import('./backend/src/routes/auditoria.js')).default;
 await import('./backend/src/cryptoMedia.js');
 initPushNotifications();
 const { authMiddleware } = await import('./backend/src/auth.js');
@@ -181,6 +182,7 @@ api.use('/visitas', visitasRouter);
 api.use('/nao-conformidades', ncRouter);
 api.use('/manutencao', manutencaoRouter);
 api.use('/frota', frotaRouter);
+api.use('/auditoria', auditoriaRouter);
 api.use('/push', pushRouter);
 api.use('/wpp', wppRouter);
 

@@ -92,6 +92,7 @@ export default function FrotaVeiculoDocumentosPanel({
   const [tituloDoc, setTituloDoc] = useState('');
   const [arquivoDoc, setArquivoDoc] = useState<File | null>(null);
   const [modalDoc, setModalDoc] = useState<FrotaDocumento | null>(null);
+  const [excluindoDoc, setExcluindoDoc] = useState<number | null>(null);
 
   const onDocumentosChangeRef = useRef(onDocumentosChange);
   const onSalvandoChangeRef = useRef(onSalvandoChange);
@@ -132,6 +133,23 @@ export default function FrotaVeiculoDocumentosPanel({
   useEffect(() => {
     if (ativo && idVeiculo) carregar();
   }, [ativo, idVeiculo, carregar]);
+
+  async function excluirDocumento(doc: FrotaDocumento, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!idVeiculo || excluindoDoc != null) return;
+    setExcluindoDoc(doc.id_documento);
+    try {
+      await api.frotaExcluirDocumento(idVeiculo, doc.id_documento);
+      if (modalDoc?.id_documento === doc.id_documento) setModalDoc(null);
+      showToast('Documento removido');
+      carregar();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao remover documento', 'error');
+    } finally {
+      setExcluindoDoc(null);
+    }
+  }
 
   async function enviarDocumento(e: React.FormEvent) {
     e.preventDefault();
@@ -200,6 +218,7 @@ export default function FrotaVeiculoDocumentosPanel({
               key={d.id_documento}
               onClick={() => d.media_url && setModalDoc(d)}
               sx={{
+                position: 'relative',
                 width: 112,
                 minWidth: 0,
                 p: 1,
@@ -213,6 +232,25 @@ export default function FrotaVeiculoDocumentosPanel({
               }}
               title={nomeArquivo(d)}
             >
+              <IconButton
+                size="small"
+                aria-label="Remover documento"
+                disabled={excluindoDoc === d.id_documento}
+                onClick={(e) => void excluirDocumento(d, e)}
+                sx={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  zIndex: 1,
+                  bgcolor: 'background.paper',
+                  boxShadow: 1,
+                  width: 22,
+                  height: 22,
+                  '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' },
+                }}
+              >
+                <CloseIcon sx={{ fontSize: 14 }} />
+              </IconButton>
               <DocumentoIconePequeno mime={d.tipo_mime} />
               <Typography
                 variant="caption"

@@ -9,6 +9,7 @@ import {
   TERMO_FERRAMENTAS_VERSAO,
   textoTermoFerramentas,
 } from '../config/termoFerramentas.js';
+import { registrarAuditoria } from '../services/auditoria.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -529,6 +530,14 @@ router.post('/veiculos', requirePermissao('frota.gerenciar'), async (req, res, n
         id_regiao != null && id_regiao !== '' ? Number(id_regiao) : null,
       ],
     );
+    await registrarAuditoria({
+      idUsuario: req.user.sub,
+      modulo: 'frota',
+      acao: 'criar',
+      entidade: 'veiculo',
+      idReferencia: rows[0].id_veiculo,
+      descricao: `Veículo cadastrado: ${rows[0].placa}`,
+    });
     res.status(201).json(rows[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Placa já cadastrada' });
@@ -600,9 +609,42 @@ router.patch('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, r
        WHERE v.id_veiculo = $1`,
       [idVeiculo],
     );
+    await registrarAuditoria({
+      idUsuario: req.user.sub,
+      modulo: 'frota',
+      acao: 'atualizar',
+      entidade: 'veiculo',
+      idReferencia: idVeiculo,
+      descricao: `Veículo atualizado: ${full[0]?.placa || idVeiculo}`,
+    });
     res.json(full[0]);
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Placa já cadastrada' });
+    next(e);
+  }
+});
+
+router.delete('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const { rows } = await pool.query(
+      `UPDATE frota_veiculos
+       SET ativo = FALSE, id_usuario_responsavel = NULL, assuncao_em = NULL, updated_at = NOW()
+       WHERE id_veiculo = $1 AND ativo = TRUE
+       RETURNING placa`,
+      [idVeiculo],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Veículo não encontrado' });
+    await registrarAuditoria({
+      idUsuario: req.user.sub,
+      modulo: 'frota',
+      acao: 'excluir',
+      entidade: 'veiculo',
+      idReferencia: idVeiculo,
+      descricao: `Veículo excluído: ${rows[0].placa}`,
+    });
+    res.json({ ok: true });
+  } catch (e) {
     next(e);
   }
 });
@@ -698,6 +740,14 @@ router.post(
       }
 
       const atualizado = await veiculoDoUsuario(idUsuario);
+      await registrarAuditoria({
+        idUsuario,
+        modulo: 'frota',
+        acao: 'assumir_veiculo',
+        entidade: 'veiculo',
+        idReferencia: idVeiculo,
+        descricao: `Assumiu o veículo ${veiculo.placa}`,
+      });
       res.json({ ok: true, veiculo: mapVeiculo(atualizado) });
     } catch (e) {
       next(e);
@@ -735,6 +785,14 @@ router.post('/me/desassumir', requirePermissao('frota.usar'), async (req, res, n
       client.release();
     }
 
+    await registrarAuditoria({
+      idUsuario,
+      modulo: 'frota',
+      acao: 'devolver_veiculo',
+      entidade: 'veiculo',
+      idReferencia: veiculo.id_veiculo,
+      descricao: `Devolveu o veículo ${veiculo.placa}`,
+    });
     res.json({ ok: true, veiculo: null });
   } catch (e) {
     next(e);
@@ -976,10 +1034,66 @@ router.post(
         ]);
       }
 
+      await registrarAuditoria({
+        idUsuario,
+        modulo: 'frota',
+        acao: 'anexar_documento',
+        entidade: 'veiculo',
+        idReferencia: idVeiculo,
+        descricao: `Documento anexado: ${titulo.trim()}`,
+        detalhes: { id_documento: docInsert[0].id_documento, tipo: tipo.trim() },
+      });
+
       res.status(201).json({
         id_documento: docInsert[0].id_documento,
         media_url: idAnexo ? midiaUrlFrota(idAnexo) : null,
       });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.delete(
+  '/veiculos/:id/documentos/:idDocumento',
+  requirePermissao('frota.usar', 'frota.gerenciar'),
+  async (req, res, next) => {
+    try {
+      const idVeiculo = Number(req.params.id);
+      const idDocumento = Number(req.params.idDocumento);
+      const idUsuario = req.user.sub;
+
+      const podeGerenciar = req.user.permissoes?.includes('frota.gerenciar');
+      if (!podeGerenciar) {
+        const veiculo = await veiculoDoUsuario(idUsuario);
+        if (!veiculo || veiculo.id_veiculo !== idVeiculo) {
+          return res.status(403).json({ error: 'Sem permissão para este veículo' });
+        }
+      }
+
+      const { rows } = await pool.query(
+        `DELETE FROM frota_documentos
+         WHERE id_documento = $1 AND id_veiculo = $2
+         RETURNING id_anexo, titulo`,
+        [idDocumento, idVeiculo],
+      );
+      if (!rows[0]) return res.status(404).json({ error: 'Documento não encontrado' });
+
+      if (rows[0].id_anexo) {
+        await pool.query(`DELETE FROM frota_anexos WHERE id_anexo = $1`, [rows[0].id_anexo]);
+      }
+
+      await registrarAuditoria({
+        idUsuario,
+        modulo: 'frota',
+        acao: 'excluir_documento',
+        entidade: 'veiculo',
+        idReferencia: idVeiculo,
+        descricao: `Documento removido: ${rows[0].titulo}`,
+        detalhes: { id_documento: idDocumento },
+      });
+
+      res.json({ ok: true });
     } catch (e) {
       next(e);
     }
