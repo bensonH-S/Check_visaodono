@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { tipoEnviaPush } from '../notificacoesFiltro.js';
 import { normalizarTelefoneBr } from '../utils/telefone.js';
 import { enviarMensagemWpp, wppEnabled } from './wppClient.js';
 import { carregarCredenciaisWpp } from './wppSession.js';
@@ -54,7 +55,7 @@ function tituloPorTipo(tipo, numero) {
     case 'assumido':
       return `Chamado atribuído #${numero}`;
     case 'chamado_urgente_regiao':
-      return `Chamado urgente #${numero}`;
+      return `Novo chamado urgente #${numero}`;
     case 'fechamento':
       return `Chamado #${numero} encerrado`;
     case 'reabertura':
@@ -97,6 +98,7 @@ function montarMensagemWhatsApp({ tipo, numero, mensagem, link }) {
 
 export async function dispatchWhatsAppNotificacao({ idUsuario, idChamado, tipo, mensagem }) {
   if (!wppEnabled()) return false;
+  if (!tipoEnviaPush(tipo)) return false;
 
   const uid = Number(idUsuario);
   const cid = Number(idChamado);

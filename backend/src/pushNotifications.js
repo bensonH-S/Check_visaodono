@@ -145,7 +145,7 @@ export function montarTituloPush({ tipo, mensagem, numero, loja }) {
     case 'assumido':
       return `Chamado atribuído #${num}`;
     case 'chamado_urgente_regiao':
-      return `Chamado urgente #${num}`;
+      return `Novo chamado urgente #${num}`;
     case 'reabertura':
       return `Chamado #${num} - Reaberto`;
     default:

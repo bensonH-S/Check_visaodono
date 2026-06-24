@@ -6,6 +6,8 @@ import { dispatchWhatsAppNotificacao } from '../services/whatsappNotificacoes.js
 import {
   sqlFiltroContextoNotificacoes,
   TIPOS_NOTIF_MOBILE_EXCLUIDOS,
+  tipoGeraAlertaChamado,
+  tipoEnviaPush,
 } from '../notificacoesFiltro.js';
 import multer from 'multer';
 import { pool } from '../db.js';
@@ -247,6 +249,7 @@ async function eventoNotificacaoAtivo(codigo) {
 async function criarNotificacao({ idUsuario, idChamado, tipo, mensagem, enviarPush = true }) {
   const uid = Number(idUsuario);
   if (!Number.isFinite(uid)) return false;
+  if (!tipoGeraAlertaChamado(tipo)) return false;
   await ensureNotificacoesTable();
   try {
     await pool.query(
@@ -254,13 +257,15 @@ async function criarNotificacao({ idUsuario, idChamado, tipo, mensagem, enviarPu
        VALUES ($1, $2, $3, $4)`,
       [uid, idChamado, tipo, mensagem],
     );
-    if (enviarPush) {
+    if (enviarPush && tipoEnviaPush(tipo)) {
       const { enviarPushNotificacaoChamado } = await import('../pushNotifications.js');
       enviarPushNotificacaoChamado(uid, idChamado, tipo, mensagem).catch(() => {});
     }
-    void dispatchWhatsAppNotificacao({ idUsuario: uid, idChamado, tipo, mensagem }).catch((e) =>
-      console.error('[whatsapp]', e.message),
-    );
+    if (tipoEnviaPush(tipo)) {
+      void dispatchWhatsAppNotificacao({ idUsuario: uid, idChamado, tipo, mensagem }).catch((e) =>
+        console.error('[whatsapp]', e.message),
+      );
+    }
     return true;
   } catch (e) {
     console.error('[manutencao] Erro ao criar notificação:', e.message);
@@ -1096,15 +1101,6 @@ router.post('/chamados', requirePermissao('chamados.abrir'), async (req, res, ne
       temColunaAssumidoEm,
     });
 
-    if (!regiaoUrgente.processado) {
-      await notificarEventoChamado(
-        id_chamado,
-        req.user.sub,
-        'novo_chamado',
-        `Novo Chamado #${numero} - Aberto (${nomeLoja})`,
-      );
-    }
-
     res.status(201).json({ ...rows[0], regiao_urgente: regiaoUrgente });
   } catch (e) {
     next(e);
@@ -1180,8 +1176,10 @@ router.post('/chamados/:id/fotos', upload.array('fotos', 10), async (req, res, n
     const autorNome = autor.rows[0]?.nome || 'Usuário';
     const qtd = files.length;
     const notificar =
-      req.query.notificar !== '0' && req.query.notificar !== 'false' && req.body?.notificar !== false;
-    if (notificar) {
+      req.query.notificar !== '0' &&
+      req.query.notificar !== 'false' &&
+      req.body?.notificar !== false;
+    if (notificar && tipoGeraAlertaChamado('anexo')) {
       await notificarEventoChamado(
         idChamado,
         idUsuario,

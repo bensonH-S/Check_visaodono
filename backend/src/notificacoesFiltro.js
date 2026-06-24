@@ -1,11 +1,19 @@
-/** Tipos ocultos no sino mobile — loja (só abrir chamado) não recebe push. */
+/** Tipos ocultos no sino (mobile e portal de chamados). */
 export const TIPOS_NOTIF_MOBILE_EXCLUIDOS = ['envio_aprovacao', 'recusa_aprovacao', 'novo_chamado', 'anexo'];
 
-/** Push no celular: só chamado urgente na região e chamado atribuído. */
+/** Push e alertas operacionais: só urgente na região e chamado atribuído. */
 export const TIPOS_PUSH_PERMITIDOS = new Set(['chamado_urgente_regiao', 'assumido']);
+
+/** Não grava sino/push/WhatsApp para estes tipos. */
+export const TIPOS_NOTIF_SEM_ALERTA = new Set(['novo_chamado', 'anexo']);
 
 export function tipoEnviaPush(tipo) {
   return TIPOS_PUSH_PERMITIDOS.has(tipo);
+}
+
+export function tipoGeraAlertaChamado(tipo) {
+  if (TIPOS_NOTIF_SEM_ALERTA.has(tipo)) return false;
+  return true;
 }
 
 export const TIPOS_NOTIF_APROVACOES = ['envio_aprovacao', 'encaminhar_diretor', 'aprovacao_diretor'];
@@ -52,7 +60,7 @@ export function sqlFiltroContextoNotificacoes(contexto, alias = 'n') {
     return ` AND ${alias}.tipo NOT IN ('${TIPOS_NOTIF_MOBILE_EXCLUIDOS.join("','")}')`;
   }
   if (contexto === 'chamados') {
-    return ` AND ${alias}.tipo <> 'envio_aprovacao'`;
+    return ` AND ${alias}.tipo NOT IN ('envio_aprovacao', 'novo_chamado', 'anexo')`;
   }
   return '';
 }
