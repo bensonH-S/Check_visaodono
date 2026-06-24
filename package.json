@@ -50,6 +50,7 @@
     "migrate:checklist-grupo-perm": "npm run migrate:checklist-grupo-perm --prefix backend",
     "migrate:config-perguntas-perm": "npm run migrate:config-perguntas-perm --prefix backend",
     "migrate:perguntas-foto-opcional": "npm run migrate:perguntas-foto-opcional --prefix backend",
+    "migrate:notif-chamados-cleanup": "npm run migrate:notif-chamados-cleanup --prefix backend",
     "generate:vapid": "npm run generate:vapid --prefix backend",
     "validate:vapid": "npm run validate:vapid --prefix backend",
     "logs:hoje": "node scripts/ver-log-hoje.js",

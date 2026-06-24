@@ -41,12 +41,20 @@ export function tituloNotificacaoChamado(
 ): string {
   const num = n.numero;
   const contexto = opts?.contexto;
+  const tipo = String(n.tipo || '').trim();
   const p = prefixoChamado(num, contexto);
 
-  switch (n.tipo) {
+  if (contexto === 'chamados' || contexto === 'chamados-mobile') {
+    if (tipo === 'assumido' || tipo === 'chamado_urgente_regiao') {
+      return tituloAlertaChamadoOps(tipo, num);
+    }
+    return '';
+  }
+
+  switch (tipo) {
     case 'assumido':
     case 'chamado_urgente_regiao':
-      return tituloAlertaChamadoOps(n.tipo, num);
+      return tituloAlertaChamadoOps(tipo, num);
     case 'resposta':
       return `Nova Mensagem Chamado #${num}`;
     case 'fechamento':

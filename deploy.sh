@@ -444,6 +444,14 @@ garantir_rede_compartilhada
 verificar_rede_wpp
 
 echo ""
+echo "Limpando notificações antigas de chamados no banco..."
+if npm run migrate:notif-chamados-cleanup --prefix backend 2>/dev/null; then
+  echo "  Notificações antigas removidas (anexo, novo_chamado, etc.)."
+else
+  echo "  AVISO: não foi possível rodar migration 057 (rode manualmente: npm run migrate:notif-chamados-cleanup)"
+fi
+
+echo ""
 echo "Reiniciando nginx..."
 sudo systemctl restart nginx
 

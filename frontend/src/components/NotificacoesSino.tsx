@@ -220,7 +220,12 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
             </Typography>
           </MenuItem>
         )}
-        {lista.map((n) => (
+        {lista
+          .filter((n) => {
+            const titulo = tituloNotificacaoChamado(n, { contexto });
+            return titulo.length > 0;
+          })
+          .map((n) => (
           <MenuItem
             key={n.id_notificacao}
             onClick={() => abrirNotificacao(n)}

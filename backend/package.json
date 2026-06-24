@@ -50,6 +50,7 @@
     "migrate:checklist-grupo-perm": "node scripts/run-sql.js migrations/054_checklist_grupo_perm.sql",
     "migrate:config-perguntas-perm": "node scripts/run-sql.js migrations/055_configuracoes_perguntas_perm.sql",
     "migrate:perguntas-foto-opcional": "node scripts/run-sql.js migrations/056_perguntas_foto_opcional.sql",
+    "migrate:notif-chamados-cleanup": "node scripts/run-sql.js migrations/057_notificacoes_chamados_somente_ops.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "validate:vapid": "node scripts/validate-vapid.js",
