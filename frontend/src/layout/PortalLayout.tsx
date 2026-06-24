@@ -35,7 +35,7 @@ import {
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { SAFE_AREA_BOTTOM, SAFE_AREA_TOP, safeAreaBottomCalc, safeAreaX } from '../theme/safeArea';
+import { SAFE_AREA_TOP, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaX } from '../theme/safeArea';
 
 type NavItem = {
   to: string;
@@ -123,7 +123,7 @@ export default function PortalLayout() {
 
   const sidebarNav = nav.filter((n) => !n.mobileOnly);
   const mobileTabs = nav.filter((n) => n.mobileTab);
-  const mobileTabsRodape = user?.perfil === 'tecnico' ? mobileTabs.filter((n) => n.to === '/chamados') : mobileTabs;
+  const mobileTabsRodape = mobileTabs;
 
   const pageTitle = resolvePageTitle(path);
   usePageTitle(pageTitle.title);
@@ -232,14 +232,14 @@ export default function PortalLayout() {
         {mobileTabsRodape.length > 0 && !isChamadoNovo && (
           <Box
             component="nav"
-            className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex bg-white"
+            className="md:hidden mobile-tab-bar"
             sx={{
-              ...SAFE_AREA_BOTTOM,
-              ...safeAreaX(8),
-              borderTop: '1px solid',
+              ...mobileTabBarShellSx(colors.surface, 50),
+              display: { xs: 'block', md: 'none' },
               borderColor: colors.border,
             }}
           >
+            <Box sx={{ ...mobileTabBarNavSx(52), display: 'flex' }}>
             {mobileTabsRodape.map((item) => (
               <NavLink
                 key={item.to}
@@ -268,6 +268,7 @@ export default function PortalLayout() {
                 )}
               </NavLink>
             ))}
+            </Box>
           </Box>
         )}
       </Box>

@@ -19,12 +19,12 @@ import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { toAppPath } from '../config/paths';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import { getUsuario, logout, temPermissao, usaFluxoChamadosMobile, podeUsarChecklist, podeUsarFrota, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { APP_NAME } from '../config/brand';
-import { MOBILE_VIEWPORT, SAFE_AREA_BOTTOM, SAFE_AREA_TOP, safeAreaBottomCalc, safeAreaRightCalc, safeAreaX } from '../theme/safeArea';
+import { MOBILE_VIEWPORT, SAFE_AREA_TOP, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaX } from '../theme/safeArea';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -293,12 +293,6 @@ function ChamadosMobileLayoutInner() {
   );
 
   useEffect(() => {
-    if (user && !usaFluxoChamadosMobile(user)) {
-      navigate('/chamados', { replace: true });
-    }
-  }, [user, navigate]);
-
-  useEffect(() => {
     if (!user) return;
     iniciarServiceWorkerPwa();
     const atualizarBotaoPush = () => {
@@ -461,28 +455,13 @@ function ChamadosMobileLayoutInner() {
         </Fab>
       )}
 
-      <Box
-        component="footer"
-        sx={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 30,
-          ...SAFE_AREA_BOTTOM,
-          bgcolor: PAGE_BG,
-        }}
-      >
-        {mostrarTabs && (
-          <Box
-            component="nav"
-            sx={{
-              display: 'flex',
-              bgcolor: '#fff',
-              borderTop: '1px solid rgba(27, 42, 107, 0.1)',
-              ...safeAreaX(8),
-            }}
-          >
+      {mostrarTabs && (
+        <Box
+          component="footer"
+          className="mobile-tab-bar"
+          sx={mobileTabBarShellSx()}
+        >
+          <Box component="nav" sx={mobileTabBarNavSx(TAB_NAV_H)}>
             {mobileTabs.map((item) => (
               <NavLink
                 key={item.to}
@@ -512,8 +491,8 @@ function ChamadosMobileLayoutInner() {
               </NavLink>
             ))}
           </Box>
-        )}
-      </Box>
+        </Box>
+      )}
     </Box>
   );
 }

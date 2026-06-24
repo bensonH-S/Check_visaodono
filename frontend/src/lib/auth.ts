@@ -86,9 +86,18 @@ export function nomeExibicaoUsuario(usuario?: Pick<UsuarioSessao, 'cargo_nome' |
   return '—';
 }
 
-/** Técnico administra chamados no portal; demais perfis usam o app mobile (PWA). */
+/** Destino após login em /login/mobile (app PWA). */
 export function destinoPosLoginMobile(usuario: UsuarioSessao): string {
-  if (usuario.perfil === 'tecnico') return '/chamados';
+  return primeiraRotaMobileApp(usuario);
+}
+
+/** Primeira aba do app mobile conforme permissões do usuário. */
+export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
+  if (temPermissao('chamados.ver', usuario) || temPermissao('chamados.abrir', usuario)) {
+    return '/chamados/mobile';
+  }
+  if (podeUsarChecklist(usuario)) return '/checklist/mobile';
+  if (podeUsarFrota(usuario)) return '/frota/mobile';
   return '/chamados/mobile';
 }
 
@@ -118,7 +127,7 @@ export function podeUsarChecklist(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
-const CARGOS_FROTA = new Set(['tecnico', 'supervisor_regional', 'coordenador']);
+const CARGOS_FROTA = new Set(['supervisor_regional', 'coordenador']);
 
 export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
@@ -150,9 +159,9 @@ export function podeVerAuditoria(usuario?: UsuarioSessao | null): boolean {
   return nome === 'administrador' || nome === 'ceo' || nome === 'diretor';
 }
 
+/** Usuário autenticado no app mobile unificado (ChamadosMobileLayout). */
 export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean {
-  const u = usuario ?? getUsuario();
-  return !!u && u.perfil !== 'tecnico';
+  return !!(usuario ?? getUsuario());
 }
 
 export function usaFluxoMobileApp(usuario?: UsuarioSessao | null): boolean {
