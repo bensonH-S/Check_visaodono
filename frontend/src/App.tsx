@@ -27,6 +27,7 @@ import FrotaMobileHubPage from './pages/frota/FrotaMobileHubPage';
 import FrotaAbastecimentoPage from './pages/frota/FrotaAbastecimentoPage';
 import FrotaTermoPage from './pages/frota/FrotaTermoPage';
 import FrotaVeiculoPage from './pages/frota/FrotaVeiculoPage';
+import FrotaManutencaoMobilePage from './pages/frota/FrotaManutencaoMobilePage';
 import FrotaPortalHubPage from './pages/frota/FrotaPortalHubPage';
 import FrotaVeiculosPortalPage from './pages/frota/FrotaVeiculosPortalPage';
 import FrotaVeiculoDetalhePage from './pages/frota/FrotaVeiculoDetalhePage';
@@ -104,6 +105,14 @@ export default function App() {
               element={
                 <RotaFrota>
                   <FrotaVeiculoPage />
+                </RotaFrota>
+              }
+            />
+            <Route
+              path="frota/mobile/manutencao"
+              element={
+                <RotaFrota>
+                  <FrotaManutencaoMobilePage />
                 </RotaFrota>
               }
             />

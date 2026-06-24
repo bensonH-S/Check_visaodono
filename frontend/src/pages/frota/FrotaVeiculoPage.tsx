@@ -8,11 +8,18 @@ import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import Paper from '@mui/material/Paper';
+import Stepper from '@mui/material/Stepper';
+import Step from '@mui/material/Step';
+import StepLabel from '@mui/material/StepLabel';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
+import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
 import { api } from '../../api/client';
-import type { FrotaDocumento, FrotaVeiculo } from '../../api/client';
+import type { FrotaVeiculo } from '../../api/client';
 import { extensaoMidia } from '../../utils/mediaFile';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
+import { filtrarKmAoDigitar, kmInputParaNumero, labelFixo, ph, rotuloVeiculoLista } from '../../constants/frotaVeiculo';
+
+const MAX_FOTOS_VEICULO = 6;
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
@@ -23,29 +30,25 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([arr], { type: mime });
 }
 
-const TIPOS_DOC = [
-  { value: 'crlv', label: 'Documento do carro (CRLV)' },
-  { value: 'multa', label: 'Multa' },
-  { value: 'foto_veiculo', label: 'Foto do veículo' },
-  { value: 'manutencao', label: 'Comprovante de manutenção' },
-  { value: 'outro', label: 'Outro' },
-];
-
 export default function FrotaVeiculoPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [meuVeiculo, setMeuVeiculo] = useState<FrotaVeiculo | null>(null);
-  const [documentos, setDocumentos] = useState<FrotaDocumento[]>([]);
   const [idVeiculoAssumir, setIdVeiculoAssumir] = useState<number | ''>('');
   const [kmAssumir, setKmAssumir] = useState('');
-  const [tipoDoc, setTipoDoc] = useState('crlv');
-  const [tituloDoc, setTituloDoc] = useState('');
-  const [fotosDoc, setFotosDoc] = useState<string[]>([]);
-  const [descManut, setDescManut] = useState('');
+  const [fotoCnh, setFotoCnh] = useState<string[]>([]);
+  const [fotosVeiculo, setFotosVeiculo] = useState<string[]>([]);
   const [erro, setErro] = useState('');
   const [ok, setOk] = useState('');
   const [salvando, setSalvando] = useState(false);
+
+  const dadosPreenchidos = Boolean(idVeiculoAssumir && kmInputParaNumero(kmAssumir) != null);
+  const cnhPreenchida = fotoCnh.length > 0;
+  const fotosVeiculoOk = fotosVeiculo.length > 0;
+  const podeAssumir = dadosPreenchidos && cnhPreenchida && fotosVeiculoOk;
+
+  const etapaAtiva = !dadosPreenchidos ? 0 : !cnhPreenchida ? 1 : !fotosVeiculoOk ? 2 : 3;
 
   async function carregar() {
     setLoading(true);
@@ -53,10 +56,6 @@ export default function FrotaVeiculoPage() {
       const [lista, resumo] = await Promise.all([api.frotaVeiculos(), api.frotaResumo()]);
       setVeiculos(lista);
       setMeuVeiculo(resumo.veiculo);
-      if (resumo.veiculo) {
-        const docs = await api.frotaDocumentos(resumo.veiculo.id_veiculo);
-        setDocumentos(docs);
-      }
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
     } finally {
@@ -68,19 +67,72 @@ export default function FrotaVeiculoPage() {
     void carregar();
   }, []);
 
+  function limparFotosAoAlterarDados() {
+    setFotoCnh([]);
+    setFotosVeiculo([]);
+  }
+
+  function aoMudarVeiculo(valor: number | '') {
+    setIdVeiculoAssumir(valor);
+    limparFotosAoAlterarDados();
+  }
+
+  function aoMudarKm(valor: string) {
+    setKmAssumir(filtrarKmAoDigitar(valor));
+    limparFotosAoAlterarDados();
+  }
+
+  function aoMudarCnh(fotos: string[]) {
+    setFotoCnh(fotos);
+    if (!fotos.length) setFotosVeiculo([]);
+  }
+
+  async function desassumir() {
+    if (!meuVeiculo) return;
+    setSalvando(true);
+    setErro('');
+    setOk('');
+    try {
+      await api.frotaDesassumirVeiculo();
+      setMeuVeiculo(null);
+      setIdVeiculoAssumir('');
+      setKmAssumir('');
+      setFotoCnh([]);
+      setFotosVeiculo([]);
+      setOk('Veículo liberado com sucesso.');
+      await carregar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao desassumir');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   async function assumir() {
-    if (!idVeiculoAssumir) {
-      setErro('Selecione o veículo');
+    if (!podeAssumir) return;
+    const km = kmInputParaNumero(kmAssumir);
+    if (km == null) {
+      setErro('Informe a quilometragem atual');
       return;
     }
     setSalvando(true);
     setErro('');
     try {
-      const r = await api.frotaAssumirVeiculo({
-        id_veiculo: Number(idVeiculoAssumir),
-        km_atual: kmAssumir ? Number(kmAssumir.replace(/\D/g, '')) : undefined,
+      const fd = new FormData();
+      fd.append('id_veiculo', String(idVeiculoAssumir));
+      fd.append('km_atual', String(km));
+      const cnhBlob = dataUrlToBlob(fotoCnh[0]);
+      fd.append('cnh', cnhBlob, `cnh${extensaoMidia(cnhBlob)}`);
+      fotosVeiculo.forEach((foto, i) => {
+        const blob = dataUrlToBlob(foto);
+        fd.append('fotos_veiculo', blob, `veiculo_${i + 1}${extensaoMidia(blob)}`);
       });
+      const r = await api.frotaAssumirVeiculo(fd);
       setMeuVeiculo(r.veiculo);
+      setIdVeiculoAssumir('');
+      setKmAssumir('');
+      setFotoCnh([]);
+      setFotosVeiculo([]);
       setOk('Controle do veículo assumido hoje.');
       await carregar();
     } catch (e) {
@@ -90,172 +142,143 @@ export default function FrotaVeiculoPage() {
     }
   }
 
-  async function enviarDocumento(e: React.FormEvent) {
-    e.preventDefault();
-    if (!meuVeiculo) {
-      setErro('Assuma um veículo primeiro');
-      return;
-    }
-    if (!tituloDoc.trim()) {
-      setErro('Informe o título');
-      return;
-    }
-    setSalvando(true);
-    setErro('');
-    try {
-      const fd = new FormData();
-      fd.append('tipo', tipoDoc);
-      fd.append('titulo', tituloDoc.trim());
-      if (fotosDoc[0]) {
-        const blob = dataUrlToBlob(fotosDoc[0]);
-        fd.append('arquivo', blob, `doc${extensaoMidia(blob)}`);
-      }
-      await api.frotaEnviarDocumento(meuVeiculo.id_veiculo, fd);
-      setTituloDoc('');
-      setFotosDoc([]);
-      setOk('Documento enviado');
-      const docs = await api.frotaDocumentos(meuVeiculo.id_veiculo);
-      setDocumentos(docs);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Erro');
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  async function enviarManutencao(e: React.FormEvent) {
-    e.preventDefault();
-    if (!meuVeiculo || !descManut.trim()) {
-      setErro('Informe a descrição da manutenção');
-      return;
-    }
-    setSalvando(true);
-    setErro('');
-    try {
-      const fd = new FormData();
-      fd.append('descricao', descManut.trim());
-      await api.frotaEnviarManutencaoVeiculo(meuVeiculo.id_veiculo, fd);
-      setDescManut('');
-      setOk('Manutenção registrada');
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Erro');
-    } finally {
-      setSalvando(false);
-    }
-  }
-
   if (loading) return <LinearProgress sx={{ mt: 1 }} />;
 
   return (
     <Box sx={{ px: 2, py: 1, pb: 4 }}>
-      {erro && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro('')}>{erro}</Alert>}
-      {ok && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setOk('')}>{ok}</Alert>}
+      {erro && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro('')}>
+          {erro}
+        </Alert>
+      )}
+      {ok && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setOk('')}>
+          {ok}
+        </Alert>
+      )}
 
-      <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-          Assumir controle do carro
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Ao assumir, você declara responsabilidade pelo veículo a partir de hoje.
-        </Typography>
-        {meuVeiculo ? (
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Veículo atual: <strong>{meuVeiculo.placa}</strong>
-          </Alert>
-        ) : null}
-        <TextField
-          select
-          fullWidth
-          label="Veículo"
-          value={idVeiculoAssumir}
-          onChange={(e) => setIdVeiculoAssumir(Number(e.target.value) || '')}
-          sx={{ mb: 2 }}
-          slotProps={{ select: selectMenuScrollProps }}
-        >
-          {veiculos.map((v) => (
-            <MenuItem key={v.id_veiculo} value={v.id_veiculo}>
-              {v.placa}
-              {v.modelo ? ` — ${v.marca || ''} ${v.modelo}`.trim() : ''}
-              {v.nome_responsavel && v.id_usuario_responsavel ? ` (${v.nome_responsavel})` : ''}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          fullWidth
-          label="KM atual (opcional)"
-          value={kmAssumir}
-          onChange={(e) => setKmAssumir(e.target.value.replace(/[^\d]/g, ''))}
-          inputMode="numeric"
-          sx={{ mb: 2 }}
+      {meuVeiculo ? (
+        <FrotaVeiculoControleCard
+          veiculo={meuVeiculo}
+          salvando={salvando}
+          onDesassumir={() => void desassumir()}
         />
-        <Button fullWidth variant="contained" onClick={assumir} disabled={salvando}>
-          Assumir controle hoje
-        </Button>
-      </Paper>
+      ) : (
+        <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            Assumir controle do carro
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Preencha cada etapa na ordem: veículo e KM, foto da CNH e fotos do veículo.
+          </Typography>
 
-      {meuVeiculo && (
-        <>
-          <Paper component="form" onSubmit={enviarDocumento} sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-              Documentos / multas / fotos
-            </Typography>
-            <TextField
-              select
-              fullWidth
-              label="Tipo"
-              value={tipoDoc}
-              onChange={(e) => setTipoDoc(e.target.value)}
-              sx={{ mb: 2 }}
-              slotProps={{ select: selectMenuScrollProps }}
-            >
-              {TIPOS_DOC.map((t) => (
-                <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              fullWidth
-              label="Título / descrição"
-              value={tituloDoc}
-              onChange={(e) => setTituloDoc(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <PhotoCaptureMulti fotos={fotosDoc} onChange={setFotosDoc} max={1} />
-            <Button fullWidth type="submit" variant="outlined" sx={{ mt: 2 }} disabled={salvando}>
-              Enviar documento
-            </Button>
-          </Paper>
+          <Stepper activeStep={etapaAtiva} alternativeLabel sx={{ mb: 3 }}>
+            <Step>
+              <StepLabel>Veículo e KM</StepLabel>
+            </Step>
+            <Step>
+              <StepLabel>CNH</StepLabel>
+            </Step>
+            <Step>
+              <StepLabel>Fotos do carro</StepLabel>
+            </Step>
+            <Step>
+              <StepLabel>Confirmar</StepLabel>
+            </Step>
+          </Stepper>
 
-          <Paper component="form" onSubmit={enviarManutencao} sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-              Registrar manutenção
-            </Typography>
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              label="O que foi feito"
-              value={descManut}
-              onChange={(e) => setDescManut(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <Button fullWidth type="submit" variant="outlined" disabled={salvando}>
-              Salvar manutenção
-            </Button>
-          </Paper>
+          <TextField
+            select
+            fullWidth
+            label="Veículo"
+            value={idVeiculoAssumir}
+            onChange={(e) => aoMudarVeiculo(Number(e.target.value) || '')}
+            sx={{ mb: 2 }}
+            slotProps={{
+              inputLabel: labelFixo.inputLabel,
+              select: {
+                displayEmpty: true,
+                renderValue: (selected: unknown) => {
+                  if (!selected) {
+                    return (
+                      <Box component="span" sx={{ color: 'text.disabled' }}>
+                        {ph.veiculo}
+                      </Box>
+                    );
+                  }
+                  const v = veiculos.find((item) => item.id_veiculo === Number(selected));
+                  return v ? rotuloVeiculoLista(v) : String(selected);
+                },
+                ...selectMenuScrollProps,
+              },
+            }}
+          >
+            {veiculos.map((v) => (
+              <MenuItem key={v.id_veiculo} value={v.id_veiculo}>
+                {rotuloVeiculoLista(v)}
+              </MenuItem>
+            ))}
+          </TextField>
 
-          {documentos.length > 0 && (
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Documentos enviados
+          <TextField
+            fullWidth
+            label="Quilometragem atual"
+            value={kmAssumir}
+            onChange={(e) => aoMudarKm(e.target.value)}
+            inputMode="numeric"
+            required
+            placeholder={ph.km}
+            sx={{ mb: 2 }}
+            slotProps={{ inputLabel: labelFixo.inputLabel }}
+          />
+
+          {dadosPreenchidos && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Foto da CNH
               </Typography>
-              {documentos.map((d) => (
-                <Typography key={d.id_documento} variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  {d.titulo} ({d.tipo})
-                </Typography>
-              ))}
+              <PhotoCaptureMulti fotos={fotoCnh} onChange={aoMudarCnh} max={1} inlineActions />
             </Box>
           )}
-        </>
+
+          {dadosPreenchidos && cnhPreenchida && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                Fotos do veículo
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Envie de 1 a {MAX_FOTOS_VEICULO} fotos do carro.
+              </Typography>
+              <PhotoCaptureMulti
+                fotos={fotosVeiculo}
+                onChange={setFotosVeiculo}
+                max={MAX_FOTOS_VEICULO}
+                inlineActions
+                thumbColumns={3}
+              />
+            </Box>
+          )}
+
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={() => void assumir()}
+            disabled={salvando || !podeAssumir}
+            sx={{ mt: 1, minHeight: 48 }}
+          >
+            {salvando ? 'Registrando…' : 'Assumir controle hoje'}
+          </Button>
+
+          {!podeAssumir && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
+              {!dadosPreenchidos
+                ? 'Selecione o veículo e informe a quilometragem para continuar.'
+                : !cnhPreenchida
+                  ? 'Tire a foto da CNH para liberar as fotos do veículo.'
+                  : 'Adicione ao menos uma foto do veículo para assumir.'}
+            </Typography>
+          )}
+        </Paper>
       )}
 
       <Button fullWidth sx={{ mt: 2 }} onClick={() => navigate('/frota/mobile')}>

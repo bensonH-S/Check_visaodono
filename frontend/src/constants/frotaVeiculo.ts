@@ -88,10 +88,31 @@ export function formatarKmInput(val: string): string {
   return Number(digits).toLocaleString('pt-BR');
 }
 
+/** Aceita dígitos, pontos e vírgulas; formata milhar pt-BR (ex.: 80.000). */
+export function filtrarKmAoDigitar(valor: string): string {
+  return formatarKmInput(valor.replace(/[^\d.,]/g, ''));
+}
+
 export function kmInputParaNumero(val: string): number | null {
   const digits = apenasDigitosKm(val);
   if (!digits) return null;
   return Number(digits);
+}
+
+/** Rótulo compacto para listas/select de veículos (placa · marca modelo). */
+export function rotuloVeiculoLista(v: {
+  placa: string;
+  marca?: string | null;
+  modelo?: string | null;
+  nome_responsavel?: string | null;
+  id_usuario_responsavel?: number | null;
+}): string {
+  const detalhe = [v.marca, v.modelo].filter(Boolean).join(' ');
+  let label = detalhe ? `${v.placa} · ${detalhe}` : v.placa;
+  if (v.nome_responsavel && v.id_usuario_responsavel) {
+    label += ` (${v.nome_responsavel})`;
+  }
+  return label;
 }
 
 export function veiculoParaForm(v: {
@@ -139,6 +160,7 @@ export function formParaBody(form: FormVeiculoFrota) {
 export const ph = {
   placa: 'Digite a placa',
   renavam: 'Digite o RENAVAM',
+  veiculo: 'Selecione o veículo',
   chassi: 'Digite o chassi',
   marca: 'Selecione a marca',
   modelo: 'Digite o modelo',
@@ -146,8 +168,33 @@ export const ph = {
   cor: 'Selecione a cor',
   combustivel: 'Selecione o combustível',
   km: 'Digite o KM atual',
+  valor: 'Digite o valor',
   observacoes: 'Digite observações (opcional)',
 } as const;
 
 /** Evita label flutuante “pulando” ao focar no diálogo. */
 export const labelFixo = { inputLabel: { shrink: true } };
+
+/** Altura uniforme dos campos simples no mobile da frota (KM, valor, data). */
+export const campoAlturaFrotaSx = {
+  mb: 2,
+  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+    borderRadius: 2,
+    minHeight: 40,
+    height: 40,
+    alignItems: 'center',
+  },
+  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
+    borderRadius: 2,
+  },
+  '& .MuiOutlinedInput-input, & .MuiPickersInputBase-input': {
+    py: 0,
+    boxSizing: 'border-box' as const,
+    fontSize: '0.875rem',
+  },
+  '& .MuiInputBase-input::placeholder': {
+    color: 'text.disabled',
+    opacity: 1,
+    fontSize: '0.75rem',
+  },
+} as const;

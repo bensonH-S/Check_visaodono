@@ -269,7 +269,9 @@ function ChamadosMobileLayoutInner() {
               ? 'Abastecimento'
               : path.includes('termo')
                 ? 'Termo de ferramentas'
-                : 'Veículo'
+                : path.includes('manutencao')
+                  ? 'Manutenção do veículo'
+                  : 'Veículo'
             : isFrota
               ? 'Frota'
               : 'Chamados';

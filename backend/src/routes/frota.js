@@ -281,52 +281,126 @@ router.patch('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, r
   }
 });
 
-router.post('/me/assumir', requirePermissao('frota.usar'), async (req, res, next) => {
+router.post(
+  '/me/assumir',
+  requirePermissao('frota.usar'),
+  upload.fields([
+    { name: 'cnh', maxCount: 1 },
+    { name: 'fotos_veiculo', maxCount: 6 },
+  ]),
+  async (req, res, next) => {
+    try {
+      const idUsuario = req.user.sub;
+      const idVeiculo = Number(req.body?.id_veiculo);
+      const kmAtual = Number(String(req.body?.km_atual ?? '').replace(/\D/g, ''));
+      const cnhFile = req.files?.cnh?.[0];
+      const fotosVeiculo = req.files?.fotos_veiculo || [];
+      if (!idVeiculo) return res.status(400).json({ error: 'Selecione o veículo' });
+      if (!Number.isFinite(kmAtual) || kmAtual < 0) {
+        return res.status(400).json({ error: 'Informe a quilometragem atual' });
+      }
+      if (!cnhFile) return res.status(400).json({ error: 'Envie a foto da CNH' });
+      if (!fotosVeiculo.length) return res.status(400).json({ error: 'Envie ao menos uma foto do veículo' });
+
+      const { rows: veiculos } = await pool.query(
+        `SELECT id_veiculo, id_usuario_responsavel, placa, km_atual
+         FROM frota_veiculos WHERE id_veiculo = $1 AND ativo = TRUE`,
+        [idVeiculo],
+      );
+      const veiculo = veiculos[0];
+      if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+      if (veiculo.id_usuario_responsavel && veiculo.id_usuario_responsavel !== idUsuario) {
+        return res.status(409).json({ error: 'Veículo já está sob responsabilidade de outro colaborador' });
+      }
+
+      const client = await pool.connect();
+      let idAssuncao;
+      try {
+        await client.query('BEGIN');
+
+        await client.query(
+          `UPDATE frota_assuncoes SET data_fim = NOW()
+           WHERE id_veiculo = $1 AND id_usuario = $2 AND data_fim IS NULL`,
+          [idVeiculo, idUsuario],
+        );
+
+        await client.query(
+          `UPDATE frota_veiculos SET id_usuario_responsavel = NULL, assuncao_em = NULL
+           WHERE id_usuario_responsavel = $1 AND id_veiculo != $2`,
+          [idUsuario, idVeiculo],
+        );
+
+        await client.query(
+          `UPDATE frota_veiculos
+           SET id_usuario_responsavel = $1, assuncao_em = NOW(), km_atual = $3, updated_at = NOW()
+           WHERE id_veiculo = $2`,
+          [idUsuario, idVeiculo, kmAtual],
+        );
+
+        const { rows: assRows } = await client.query(
+          `INSERT INTO frota_assuncoes (id_veiculo, id_usuario, km_inicio)
+           VALUES ($1, $2, $3)
+           RETURNING id_assuncao`,
+          [idVeiculo, idUsuario, kmAtual],
+        );
+        idAssuncao = assRows[0].id_assuncao;
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      await salvarAnexo({
+        contexto: 'assuncao_cnh',
+        idReferencia: idAssuncao,
+        idUsuario,
+        file: cnhFile,
+        nome: 'cnh',
+      });
+
+      for (let i = 0; i < fotosVeiculo.length; i++) {
+        await salvarAnexo({
+          contexto: 'assuncao_veiculo',
+          idReferencia: idAssuncao,
+          idUsuario,
+          file: fotosVeiculo[i],
+          nome: `veiculo_${i + 1}`,
+        });
+      }
+
+      const atualizado = await veiculoDoUsuario(idUsuario);
+      res.json({ ok: true, veiculo: mapVeiculo(atualizado) });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.post('/me/desassumir', requirePermissao('frota.usar'), async (req, res, next) => {
   try {
     const idUsuario = req.user.sub;
-    const idVeiculo = Number(req.body?.id_veiculo);
-    const kmInicio = req.body?.km_atual != null ? Number(req.body.km_atual) : null;
-    if (!idVeiculo) return res.status(400).json({ error: 'Selecione o veículo' });
-
-    const { rows: veiculos } = await pool.query(
-      `SELECT id_veiculo, id_usuario_responsavel, placa FROM frota_veiculos WHERE id_veiculo = $1 AND ativo = TRUE`,
-      [idVeiculo],
-    );
-    const veiculo = veiculos[0];
-    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
-    if (veiculo.id_usuario_responsavel && veiculo.id_usuario_responsavel !== idUsuario) {
-      return res.status(409).json({ error: 'Veículo já está sob responsabilidade de outro colaborador' });
+    const veiculo = await veiculoDoUsuario(idUsuario);
+    if (!veiculo) {
+      return res.status(400).json({ error: 'Você não tem veículo sob seu controle' });
     }
 
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-
       await client.query(
         `UPDATE frota_assuncoes SET data_fim = NOW()
          WHERE id_veiculo = $1 AND id_usuario = $2 AND data_fim IS NULL`,
-        [idVeiculo, idUsuario],
+        [veiculo.id_veiculo, idUsuario],
       );
-
-      await client.query(
-        `UPDATE frota_veiculos SET id_usuario_responsavel = NULL, assuncao_em = NULL
-         WHERE id_usuario_responsavel = $1 AND id_veiculo != $2`,
-        [idUsuario, idVeiculo],
-      );
-
       await client.query(
         `UPDATE frota_veiculos
-         SET id_usuario_responsavel = $1, assuncao_em = NOW(), km_atual = COALESCE($2, km_atual), updated_at = NOW()
-         WHERE id_veiculo = $3`,
-        [idUsuario, kmInicio, idVeiculo],
+         SET id_usuario_responsavel = NULL, assuncao_em = NULL, updated_at = NOW()
+         WHERE id_veiculo = $1 AND id_usuario_responsavel = $2`,
+        [veiculo.id_veiculo, idUsuario],
       );
-
-      await client.query(
-        `INSERT INTO frota_assuncoes (id_veiculo, id_usuario, km_inicio)
-         VALUES ($1, $2, $3)`,
-        [idVeiculo, idUsuario, kmInicio],
-      );
-
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -335,8 +409,7 @@ router.post('/me/assumir', requirePermissao('frota.usar'), async (req, res, next
       client.release();
     }
 
-    const atualizado = await veiculoDoUsuario(idUsuario);
-    res.json({ ok: true, veiculo: mapVeiculo(atualizado) });
+    res.json({ ok: true, veiculo: null });
   } catch (e) {
     next(e);
   }

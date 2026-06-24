@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
 import Chip from '@mui/material/Chip';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
@@ -13,6 +12,7 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { api, fmtData } from '../../api/client';
 import type { FrotaResumoMobile } from '../../api/client';
+import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
@@ -23,18 +23,21 @@ function CardOpcao({
   icon,
   onClick,
   badge,
+  disabled,
 }: {
   titulo: string;
   descricao: string;
   icon: ReactNode;
   onClick: () => void;
   badge?: ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <Paper
       component="button"
       type="button"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       sx={{
         p: 2,
         mb: 1.5,
@@ -42,24 +45,26 @@ function CardOpcao({
         textAlign: 'left',
         border: '1px solid rgba(27, 42, 107, 0.1)',
         borderRadius: 2,
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
         gap: 1.5,
-        bgcolor: '#fff',
+        bgcolor: disabled ? 'rgba(0,0,0,0.02)' : '#fff',
+        opacity: disabled ? 0.55 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
       }}
     >
-      <Box sx={{ color: ORANGE, display: 'flex' }}>{icon}</Box>
+      <Box sx={{ color: disabled ? 'text.disabled' : ORANGE, display: 'flex' }}>{icon}</Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 700, color: NAVY }}>{titulo}</Typography>
+          <Typography sx={{ fontWeight: 700, color: disabled ? 'text.disabled' : NAVY }}>{titulo}</Typography>
           {badge}
         </Box>
         <Typography variant="body2" color="text.secondary">
           {descricao}
         </Typography>
       </Box>
-      <ArrowForwardIcon sx={{ color: 'text.disabled', flexShrink: 0 }} />
+      {!disabled && <ArrowForwardIcon sx={{ color: 'text.disabled', flexShrink: 0 }} />}
     </Paper>
   );
 }
@@ -69,14 +74,34 @@ export default function FrotaMobileHubPage() {
   const [loading, setLoading] = useState(true);
   const [resumo, setResumo] = useState<FrotaResumoMobile | null>(null);
   const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  async function carregar() {
+    const r = await api.frotaResumo();
+    setResumo(r);
+    return r;
+  }
 
   useEffect(() => {
-    api
-      .frotaResumo()
-      .then(setResumo)
+    carregar()
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar'))
       .finally(() => setLoading(false));
   }, []);
+
+  async function desassumir() {
+    setSalvando(true);
+    setErro('');
+    try {
+      await api.frotaDesassumirVeiculo();
+      await carregar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao desassumir veículo');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const temVeiculo = Boolean(resumo?.veiculo);
 
   if (loading) return <LinearProgress sx={{ mt: 1 }} />;
 
@@ -89,33 +114,29 @@ export default function FrotaMobileHubPage() {
       )}
 
       {resumo?.veiculo ? (
-        <Paper sx={{ p: 2, mb: 2, borderRadius: 2, bgcolor: 'rgba(27, 42, 107, 0.04)' }}>
-          <Typography variant="overline" color="text.secondary">
-            Veículo sob seu controle
-          </Typography>
-          <Typography sx={{ fontWeight: 800, color: NAVY, fontSize: '1.1rem' }}>
-            {resumo.veiculo.placa}
-            {resumo.veiculo.modelo ? ` · ${resumo.veiculo.marca || ''} ${resumo.veiculo.modelo}`.trim() : ''}
-          </Typography>
-          {resumo.veiculo.km_atual != null && (
-            <Typography variant="body2" color="text.secondary">
-              KM atual: {resumo.veiculo.km_atual.toLocaleString('pt-BR')} km
-            </Typography>
-          )}
-        </Paper>
+        <FrotaVeiculoControleCard
+          veiculo={resumo.veiculo}
+          salvando={salvando}
+          onDesassumir={() => void desassumir()}
+        />
       ) : (
         <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px dashed rgba(232, 82, 10, 0.4)' }}>
           <Typography variant="body2" color="text.secondary">
-            Nenhum veículo atribuído. Assuma o controle na aba Veículo.
+            Nenhum veículo atribuído. Assuma o controle na aba Veículo para liberar abastecimento e manutenção.
           </Typography>
         </Paper>
       )}
 
       <CardOpcao
         titulo="Abastecimento"
-        descricao="KM atual, valor e foto do comprovante"
+        descricao={
+          temVeiculo
+            ? 'KM atual, valor e foto do comprovante'
+            : 'Assuma um veículo para registrar abastecimento'
+        }
         icon={<LocalGasStationIcon />}
         onClick={() => navigate('/frota/mobile/abastecimento')}
+        disabled={!temVeiculo}
       />
       <CardOpcao
         titulo="Termo de ferramentas"
@@ -132,9 +153,20 @@ export default function FrotaMobileHubPage() {
       />
       <CardOpcao
         titulo="Veículo"
-        descricao="Assumir controle, documentos, multas e manutenção"
+        descricao="Assumir controle com CNH e fotos do veículo"
         icon={<DirectionsCarIcon />}
         onClick={() => navigate('/frota/mobile/veiculo')}
+      />
+      <CardOpcao
+        titulo="Manutenção do veículo"
+        descricao={
+          temVeiculo
+            ? 'Registrar serviços, descrição do que foi feito e fatura'
+            : 'Assuma um veículo para registrar manutenção'
+        }
+        icon={<BuildIcon />}
+        onClick={() => navigate('/frota/mobile/manutencao')}
+        disabled={!temVeiculo}
       />
 
       {!!resumo?.abastecimentos.length && (
@@ -150,16 +182,6 @@ export default function FrotaMobileHubPage() {
           ))}
         </Box>
       )}
-
-      <Button
-        fullWidth
-        variant="text"
-        startIcon={<BuildIcon />}
-        sx={{ mt: 2 }}
-        onClick={() => navigate('/frota/mobile/veiculo')}
-      >
-        Configuração e manutenção do carro
-      </Button>
     </Box>
   );
 }

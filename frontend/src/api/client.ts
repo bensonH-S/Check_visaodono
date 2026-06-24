@@ -371,11 +371,21 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
-  frotaAssumirVeiculo: (body: { id_veiculo: number; km_atual?: number }) =>
-    request<{ ok: boolean; veiculo: FrotaVeiculo | null }>('/frota/me/assumir', {
+  frotaAssumirVeiculo: async (formData: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/frota/me/assumir`, {
       method: 'POST',
-      body: JSON.stringify(body),
-    }),
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao assumir veículo');
+    }
+    return res.json() as Promise<{ ok: boolean; veiculo: FrotaVeiculo | null }>;
+  },
+  frotaDesassumirVeiculo: () =>
+    request<{ ok: boolean; veiculo: null }>('/frota/me/desassumir', { method: 'POST' }),
   frotaTermo: () => request<FrotaTermoInfo>('/frota/termo'),
   frotaEnviarAbastecimento: async (formData: FormData) => {
     const token = getToken();

@@ -75,6 +75,9 @@ interface Props {
   /** Lado da miniatura em px quando compactThumbs */
   thumbSize?: number;
 
+  /** Colunas da grade de miniaturas (com inlineActions). Padrão: 2 */
+  thumbColumns?: number;
+
   /** Exige ao menos 1 foto para avançar */
   obrigatoria?: boolean;
 
@@ -309,6 +312,8 @@ export default function PhotoCaptureMulti({
 
   thumbSize = TAMANHO_THUMB_COMPACTO,
 
+  thumbColumns,
+
   obrigatoria = false,
 
   comErro = false,
@@ -325,7 +330,7 @@ export default function PhotoCaptureMulti({
 
   const podeMais = fotos.length < max;
 
-
+  const cols = thumbColumns ?? (inlineActions ? 2 : 1);
 
   const processar = async (file: File | undefined) => {
 
@@ -425,9 +430,11 @@ export default function PhotoCaptureMulti({
 
             flexWrap: compactThumbs ? 'wrap' : undefined,
 
-            gridTemplateColumns: compactThumbs ? undefined : inlineActions ? 'repeat(2, 1fr)' : '1fr',
+            gridTemplateColumns: compactThumbs
+              ? undefined
+              : `repeat(${cols}, minmax(0, 1fr))`,
 
-            gap: compactThumbs ? 0.75 : inlineActions ? 1 : 1.5,
+            gap: compactThumbs ? 0.75 : cols >= 3 ? 0.75 : inlineActions ? 1 : 1.5,
 
             mb: compactThumbs ? 1 : 2,
 

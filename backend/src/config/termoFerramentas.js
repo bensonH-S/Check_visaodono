@@ -12,7 +12,7 @@ export const TERMO_FERRAMENTAS_VERSAO = '1.0';
 
 export function textoTermoFerramentas(nomeColaborador) {
   const e = EMPRESA_TERMO;
-  return `TERMO DE COMPROMISSO E RESPONSABILIDADE — FERRAMENTAS E EQUIPAMENTOS
+  return `TERMO DE COMPROMISSO E RESPONSABILIDADE · FERRAMENTAS E EQUIPAMENTOS
 
 ${e.razaoSocial}, inscrita no CNPJ ${e.cnpj}, Inscrição Estadual ${e.ie}, com sede em ${e.endereco}, doravante "${e.nomeFantasia}", e o(a) colaborador(a) ${nomeColaborador}, doravante "RESPONSÁVEL", firmam o presente termo:
 

@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
+import LinearProgress from '@mui/material/LinearProgress';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import { api } from '../../api/client';
 import { extensaoMidia } from '../../utils/mediaFile';
+import { filtrarKmAoDigitar, kmInputParaNumero, labelFixo, ph } from '../../constants/frotaVeiculo';
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
@@ -20,12 +22,23 @@ function dataUrlToBlob(dataUrl: string): Blob {
 
 export default function FrotaAbastecimentoPage() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const [km, setKm] = useState('');
   const [valor, setValor] = useState('');
   const [fotos, setFotos] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [ok, setOk] = useState('');
+
+  useEffect(() => {
+    api
+      .frotaResumo()
+      .then((r) => {
+        if (!r.veiculo) navigate('/frota/mobile', { replace: true });
+      })
+      .catch(() => navigate('/frota/mobile', { replace: true }))
+      .finally(() => setLoading(false));
+  }, [navigate]);
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
@@ -35,10 +48,15 @@ export default function FrotaAbastecimentoPage() {
       setErro('Tire a foto do comprovante de abastecimento');
       return;
     }
+    const kmNum = kmInputParaNumero(km);
+    if (kmNum == null) {
+      setErro('Informe o KM atual');
+      return;
+    }
     setSalvando(true);
     try {
       const fd = new FormData();
-      fd.append('km_atual', km.replace(/\D/g, ''));
+      fd.append('km_atual', String(kmNum));
       fd.append('valor_abastecido', valor.replace(',', '.'));
       const blob = dataUrlToBlob(fotos[0]);
       fd.append('comprovante', blob, `comprovante${extensaoMidia(blob)}`);
@@ -52,6 +70,8 @@ export default function FrotaAbastecimentoPage() {
     }
   }
 
+  if (loading) return <LinearProgress sx={{ mt: 1 }} />;
+
   return (
     <Box component="form" onSubmit={salvar} sx={{ px: 2, py: 1 }}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -63,10 +83,12 @@ export default function FrotaAbastecimentoPage() {
         fullWidth
         label="KM atual"
         value={km}
-        onChange={(e) => setKm(e.target.value.replace(/[^\d]/g, ''))}
+        onChange={(e) => setKm(filtrarKmAoDigitar(e.target.value))}
         inputMode="numeric"
         required
+        placeholder={ph.km}
         sx={{ mb: 2 }}
+        slotProps={{ inputLabel: labelFixo.inputLabel }}
       />
       <TextField
         fullWidth
@@ -80,7 +102,7 @@ export default function FrotaAbastecimentoPage() {
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
         Foto do comprovante
       </Typography>
-      <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={1} />
+      <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={1} inlineActions />
       <Button fullWidth type="submit" variant="contained" size="large" disabled={salvando} sx={{ mt: 3, minHeight: 48 }}>
         {salvando ? 'Salvando…' : 'Registrar abastecimento'}
       </Button>

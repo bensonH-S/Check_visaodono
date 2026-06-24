@@ -8,7 +8,7 @@ import {
   CORES_VEICULO,
   MARCAS_VEICULO,
   labelFixo,
-  formatarKmInput,
+  filtrarKmAoDigitar,
   ph,
   type FormVeiculoFrota,
 } from '../../constants/frotaVeiculo';
@@ -180,7 +180,7 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
           label="KM atual"
           size="small"
           value={form.km_atual}
-          onChange={(e) => onChange({ km_atual: formatarKmInput(e.target.value) })}
+          onChange={(e) => onChange({ km_atual: filtrarKmAoDigitar(e.target.value) })}
           placeholder={ph.km}
           inputMode="numeric"
           slotProps={{ inputLabel: labelFixo.inputLabel }}
