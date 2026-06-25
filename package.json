@@ -63,6 +63,7 @@
     "docker:build": "powershell -ExecutionPolicy Bypass -File scripts/docker-build.ps1",
     "install:all": "node scripts/install-requirements.js",
     "install:requirements": "node scripts/install-requirements.js",
+    "postinstall": "node scripts/install-requirements.js --workspaces-only",
     "requirements:sync": "node scripts/sync-requirements.js"
   },
   "dependencies": {

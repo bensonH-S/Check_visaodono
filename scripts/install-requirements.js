@@ -8,15 +8,19 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const somenteWorkspaces = process.argv.includes('--workspaces-only');
+
+/** No Windows, `npm` no PowerShell aponta para npm.ps1 (bloqueado por política de assinatura). */
+const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 const WORKSPACES = [
   { label: 'raiz', dir: root },
   { label: 'backend', dir: path.join(root, 'backend') },
   { label: 'frontend', dir: path.join(root, 'frontend') },
-];
+].filter((ws) => !somenteWorkspaces || ws.label !== 'raiz');
 
 function runNpm(cwd, args) {
-  const r = spawnSync('npm', args, { cwd, stdio: 'inherit', shell: true });
+  const r = spawnSync(NPM, args, { cwd, stdio: 'inherit', shell: true });
   return r.status ?? 1;
 }
 

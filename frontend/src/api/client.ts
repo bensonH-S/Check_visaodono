@@ -685,6 +685,7 @@ export interface PerguntaInput {
 export interface VisitaResumo {
   id_visita: number;
   id_loja: number;
+  id_usuario?: number;
   name: string;
   bk_number: string | null;
   nome_usuario: string;

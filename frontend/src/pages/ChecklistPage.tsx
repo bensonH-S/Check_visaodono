@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { checklistPaths } from '../config/mobileRoutes';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -19,9 +19,9 @@ import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import { api } from '../api/client';
-import { getUsuario, temPermissao } from '../lib/auth';
-import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput, TipoChecklist, MetaVisitaTimeCampo } from '../api/client';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { api, fmtData } from '../api/client';
+import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput, TipoChecklist, MetaVisitaTimeCampo, VisitaResumo } from '../api/client';
 import ChecklistPerguntaCard, {
   perguntaRespondida,
   type ErroPerguntaCampo,
@@ -33,6 +33,16 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { selectMenuScrollProps } from '../utils/selectMenuScroll';
 import { showToast } from '../utils/toast';
 import { CHECKLIST_REFRESH } from '../utils/checklistEvent';
+import {
+  getSessaoChecklist,
+  salvarSessaoChecklist,
+  limparSessaoChecklist,
+  indiceSecaoParaRetomar,
+  secaoTemPendencia,
+  type ChecklistSessaoLocal,
+  type FaseChecklist,
+} from '../utils/checklistSessao';
+import { getUsuario, temPermissao } from '../lib/auth';
 import { dataHojeBrasilia, normalizarDataVisita, calcularDuracaoVisitaMinutos } from '../utils/dateBr';
 import {
   exibeFoto,
@@ -177,7 +187,9 @@ type Fase = 'setup' | 'iniciada' | 'perguntas';
 export default function ChecklistPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const paths = checklistPaths(location.pathname);
+  const retomadaIniciada = useRef(false);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [tiposChecklist, setTiposChecklist] = useState<TipoChecklist[]>([]);
@@ -197,6 +209,9 @@ export default function ChecklistPage() {
   const [fase, setFase] = useState<Fase>('setup');
   const [indiceSecao, setIndiceSecao] = useState(0);
   const [errosPerguntas, setErrosPerguntas] = useState<Record<number, ErroPerguntaCampo>>({});
+  const [rascunhos, setRascunhos] = useState<VisitaResumo[]>([]);
+  const [sessaoLocal, setSessaoLocal] = useState<ChecklistSessaoLocal | null>(null);
+  const [retomando, setRetomando] = useState(false);
 
   const totalPerguntas = useMemo(
     () => checklist.reduce((n, c) => n + c.perguntas.length, 0),
@@ -233,6 +248,28 @@ export default function ChecklistPage() {
   const secaoCompleta = (cat: CategoriaChecklist) =>
     cat.perguntas.every((p) => !p.obrigatoria || perguntaRespondida(p, respostas[p.id_pergunta]));
 
+  const rascunhosOrdenados = useMemo(() => {
+    const user = getUsuario();
+    const lista = [...rascunhos];
+    lista.sort((a, b) => {
+      const aLocal = sessaoLocal?.visitaId === a.id_visita;
+      const bLocal = sessaoLocal?.visitaId === b.id_visita;
+      if (aLocal !== bLocal) return aLocal ? -1 : 1;
+      if (user?.id_usuario) {
+        const aMine = a.id_usuario === user.id_usuario;
+        const bMine = b.id_usuario === user.id_usuario;
+        if (aMine !== bMine) return aMine ? -1 : 1;
+      }
+      return b.id_visita - a.id_visita;
+    });
+    return lista;
+  }, [rascunhos, sessaoLocal?.visitaId]);
+
+  const lojaSel = useMemo(
+    () => lojas.find((l) => l.id_loja === idLoja),
+    [lojas, idLoja],
+  );
+
   const sessao = getUsuario();
   const somenteVisualizacao = !temPermissao('checklist.executar', sessao);
 
@@ -263,6 +300,9 @@ export default function ChecklistPage() {
   useEffect(() => {
     const reiniciar = (location.state as { reiniciar?: boolean })?.reiniciar;
     if (reiniciar) {
+      const user = getUsuario();
+      if (user) limparSessaoChecklist(user.id_usuario);
+      setSessaoLocal(null);
       setFase('setup');
       setVisitaId(null);
       setDataVisita(null);
@@ -273,6 +313,26 @@ export default function ChecklistPage() {
       navigate(paths.base, { replace: true, state: {} });
     }
   }, [location.state, navigate, paths.base]);
+
+  useEffect(() => {
+    const user = getUsuario();
+    if (user) setSessaoLocal(getSessaoChecklist(user.id_usuario));
+  }, []);
+
+  useEffect(() => {
+    if (loading || fase !== 'setup') return;
+    api
+      .visitas({ status: 'Rascunho' })
+      .then(setRascunhos)
+      .catch(() => setRascunhos([]));
+  }, [loading, fase]);
+
+  useEffect(() => {
+    const user = getUsuario();
+    if (!user?.id_usuario || !visitaId || fase === 'setup') return;
+    salvarSessaoChecklist(user.id_usuario, { visitaId, indiceSecao, fase });
+    setSessaoLocal(getSessaoChecklist(user.id_usuario));
+  }, [visitaId, indiceSecao, fase]);
 
   useEffect(() => {
     const sessao = getUsuario();
@@ -320,6 +380,105 @@ export default function ChecklistPage() {
       }
     }
   };
+
+  const retomarVisita = useCallback(
+    async (
+      idVisita: number,
+      opts?: { indiceSecao?: number; fase?: FaseChecklist; silencioso?: boolean },
+    ) => {
+      if (loading || tiposChecklist.length === 0) {
+        setMsg('Aguarde o carregamento do checklist e tente novamente.');
+        return false;
+      }
+      setRetomando(true);
+      setSaving(true);
+      setMsg('');
+      try {
+        const det = await api.visita(idVisita);
+        const v = det.visita;
+        if (v.status !== 'Rascunho') {
+          const user = getUsuario();
+          if (user) limparSessaoChecklist(user.id_usuario);
+          setSessaoLocal(null);
+          setMsg('Esta visita já foi finalizada.');
+          setFase('setup');
+          return false;
+        }
+        const codigo = v.tipo_checklist_codigo ?? tiposChecklist[0]?.codigo;
+        if (!codigo) throw new Error('Tipo de checklist não encontrado');
+        const tipo = tiposChecklist.find((t) => t.codigo === codigo) ?? null;
+        const c = await api.checklist(codigo);
+        if (!c.length) {
+          throw new Error('Checklist vazio ou indisponível para esta visita.');
+        }
+        const respostasMap = mapRespostasApi(det.respostas);
+        const temRespostas = det.respostas.length > 0;
+        const idx = indiceSecaoParaRetomar(c, respostasMap, opts?.indiceSecao);
+        const temPendencia = c.some((_, i) => secaoTemPendencia(c, respostasMap, i));
+
+        setChecklist(c);
+        setTipoSelecionado(tipo);
+        setMetaVisita(v.meta_visita ?? {});
+        setIdLoja(v.id_loja);
+        if (v.id_usuario) setIdUsuario(v.id_usuario);
+        setVisitaId(v.id_visita);
+        setDataVisita(normalizarDataVisita(v.data_visita));
+        setHoraInicio(v.hora_inicio ?? null);
+        setRespostas(respostasMap);
+        setIndiceSecao(idx);
+        const novaFase =
+          temRespostas || temPendencia || opts?.fase === 'perguntas' ? 'perguntas' : 'iniciada';
+        setFase(novaFase);
+        const user = getUsuario();
+        if (user) {
+          salvarSessaoChecklist(user.id_usuario, {
+            visitaId: v.id_visita,
+            indiceSecao: idx,
+            fase: novaFase,
+          });
+          setSessaoLocal(getSessaoChecklist(user.id_usuario));
+        }
+        if (!opts?.silencioso) showToast('Checklist retomado de onde parou', 'success');
+        return true;
+      } catch (e) {
+        setMsg((e as Error).message);
+        setFase('setup');
+        return false;
+      } finally {
+        setSaving(false);
+        setRetomando(false);
+      }
+    },
+    [loading, tiposChecklist],
+  );
+
+  useEffect(() => {
+    if (loading || retomadaIniciada.current) return;
+    const param = searchParams.get('visita');
+    const stateId = (location.state as { retomarVisitaId?: number } | null)?.retomarVisitaId;
+    const id = param ? Number(param) : stateId;
+    if (!id || Number.isNaN(id)) return;
+    retomadaIniciada.current = true;
+    const user = getUsuario();
+    const local = user ? getSessaoChecklist(user.id_usuario) : null;
+    const sessaoDaVisita = local?.visitaId === id ? local : null;
+    void retomarVisita(id, {
+      silencioso: true,
+      indiceSecao: sessaoDaVisita?.indiceSecao,
+      fase: sessaoDaVisita?.fase,
+    }).finally(() => {
+      if (param) {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('visita');
+            return next;
+          },
+          { replace: true },
+        );
+      }
+    });
+  }, [loading, searchParams, location.state, retomarVisita, setSearchParams]);
 
   const patchResposta = (id: number, patch: Partial<RespostaLocal>) => {
     setRespostas((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -522,6 +681,11 @@ export default function ChecklistPage() {
       if (!ok) return;
       const duracao = calcularDuracaoVisitaMinutos(dataVisita, horaInicio);
       await api.finalizarVisita(visitaId!, duracao != null ? { duracao_minutos: duracao } : {});
+      const user = getUsuario();
+      if (user) {
+        limparSessaoChecklist(user.id_usuario);
+        setSessaoLocal(null);
+      }
       navigate(paths.concluido(visitaId!));
     } catch (e) {
       setMsg((e as Error).message);
@@ -530,10 +694,13 @@ export default function ChecklistPage() {
     }
   };
 
-  if (loading) {
+  if (loading || retomando) {
     return (
       <Box sx={{ p: 2 }}>
         <LinearProgress />
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
+          {retomando ? 'Retomando checklist…' : 'Carregando…'}
+        </Typography>
       </Box>
     );
   }
@@ -549,8 +716,6 @@ export default function ChecklistPage() {
     );
   }
 
-  const lojaSel = lojas.find((l) => l.id_loja === idLoja);
-
   if (fase === 'setup') {
     return (
       <Box sx={{ p: 2, pb: 4, flex: 1 }}>
@@ -558,6 +723,105 @@ export default function ChecklistPage() {
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMsg('')}>
             {msg}
           </Alert>
+        )}
+
+        {sessaoLocal && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
+                <Button
+                  size="small"
+                  color="warning"
+                  variant="contained"
+                  startIcon={<PlayArrowIcon />}
+                  disabled={saving || retomando}
+                  onClick={() =>
+                    void retomarVisita(sessaoLocal.visitaId, {
+                      indiceSecao: sessaoLocal.indiceSecao,
+                      fase: sessaoLocal.fase,
+                    })
+                  }
+                >
+                  Continuar
+                </Button>
+                <Button
+                  size="small"
+                  color="inherit"
+                  disabled={saving || retomando}
+                  onClick={() => {
+                    const user = getUsuario();
+                    if (user) limparSessaoChecklist(user.id_usuario);
+                    setSessaoLocal(null);
+                  }}
+                >
+                  Esquecer
+                </Button>
+              </Box>
+            }
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Checklist interrompido neste aparelho
+            </Typography>
+            <Typography variant="body2">
+              Visita #{sessaoLocal.visitaId} — retome de onde parou para concluir.
+            </Typography>
+          </Alert>
+        )}
+
+        {rascunhosOrdenados.length > 0 && (
+          <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+              Visitas em andamento ({rascunhosOrdenados.length})
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {rascunhosOrdenados.map((r) => (
+                <Box
+                  key={r.id_visita}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                    p: 1.25,
+                    borderRadius: 1.5,
+                    bgcolor: 'rgba(27, 42, 107, 0.03)',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                      {r.name}
+                      {r.bk_number ? ` · BKN ${r.bk_number}` : ''}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Visita #{r.id_visita} · {r.tipo_checklist_nome ?? 'Checklist'} ·{' '}
+                      {fmtData(r.data_visita)}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<PlayArrowIcon />}
+                    disabled={saving || retomando}
+                    onClick={() =>
+                      void retomarVisita(r.id_visita, {
+                        indiceSecao:
+                          sessaoLocal?.visitaId === r.id_visita ? sessaoLocal.indiceSecao : undefined,
+                        fase:
+                          sessaoLocal?.visitaId === r.id_visita ? sessaoLocal.fase : undefined,
+                      })
+                    }
+                    sx={{ flexShrink: 0 }}
+                  >
+                    Continuar
+                  </Button>
+                </Box>
+              ))}
+            </Box>
+          </Paper>
         )}
         <Paper
           sx={{
@@ -739,7 +1003,23 @@ export default function ChecklistPage() {
     );
   }
 
-  if (!secaoAtual) return null;
+  if (!secaoAtual) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Não foi possível abrir a seção do checklist. Tente retomar novamente.
+        </Alert>
+        {msg && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {msg}
+          </Typography>
+        )}
+        <Button variant="contained" onClick={() => setFase('setup')}>
+          Voltar ao início
+        </Button>
+      </Box>
+    );
+  }
 
   const ehUltimaSecao = indiceSecao === totalSecoes - 1;
   const respondidasSecao = secaoAtual.perguntas.filter((p) =>

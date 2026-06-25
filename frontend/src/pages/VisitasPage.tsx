@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -19,6 +19,7 @@ import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
@@ -83,12 +84,20 @@ function MetaLinha({
   );
 }
 
-function VisitaCardMobile({ visita: v }: { visita: VisitaResumo }) {
+function checklistBasePath(pathname: string) {
+  return pathname.includes('/mobile') ? '/checklist/mobile' : '/checklist';
+}
+
+function VisitaCardMobile({ visita: v, checklistBase }: { visita: VisitaResumo; checklistBase: string }) {
   const accent = statusAccent(v.status);
+  const emRascunho = v.status === 'Rascunho';
+  const destino = emRascunho
+    ? `${checklistBase}?visita=${v.id_visita}`
+    : `/relatorio/visita/${v.id_visita}`;
   return (
     <Paper
       component={Link}
-      to={`/relatorio/visita/${v.id_visita}`}
+      to={destino}
       elevation={0}
       sx={{
         display: 'flex',
@@ -164,9 +173,13 @@ function VisitaCardMobile({ visita: v }: { visita: VisitaResumo }) {
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: colors.navy }}>
-            <StorefrontOutlinedIcon sx={{ fontSize: 16 }} />
+            {emRascunho ? (
+              <PlayArrowIcon sx={{ fontSize: 16 }} />
+            ) : (
+              <StorefrontOutlinedIcon sx={{ fontSize: 16 }} />
+            )}
             <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              Ver relatório
+              {emRascunho ? 'Continuar checklist' : 'Ver relatório'}
             </Typography>
           </Box>
           <ChevronRightIcon sx={{ fontSize: 20, color: colors.textMuted }} />
@@ -250,6 +263,8 @@ function FiltrosStatus({
 
 export default function VisitasPage() {
   const theme = useTheme();
+  const location = useLocation();
+  const checklistBase = checklistBasePath(location.pathname);
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [visitas, setVisitas] = useState<VisitaResumo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -328,7 +343,7 @@ export default function VisitasPage() {
           }}
         >
           {visitasFiltradas.map((v) => (
-            <VisitaCardMobile key={v.id_visita} visita={v} />
+            <VisitaCardMobile key={v.id_visita} visita={v} checklistBase={checklistBase} />
           ))}
           {!visitasFiltradas.length && (
             <Paper
@@ -374,9 +389,21 @@ export default function VisitasPage() {
                     <TableCell align="center">{notaChip(v.nota_final)}</TableCell>
                     <TableCell align="center">{statusChip(v.status)}</TableCell>
                     <TableCell align="center">
-                      <Button component={Link} to={`/relatorio/visita/${v.id_visita}`} size="small">
-                        Ver
-                      </Button>
+                      {v.status === 'Rascunho' ? (
+                        <Button
+                          component={Link}
+                          to={`${checklistBase}?visita=${v.id_visita}`}
+                          size="small"
+                          color="warning"
+                          startIcon={<PlayArrowIcon />}
+                        >
+                          Continuar
+                        </Button>
+                      ) : (
+                        <Button component={Link} to={`/relatorio/visita/${v.id_visita}`} size="small">
+                          Ver
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
