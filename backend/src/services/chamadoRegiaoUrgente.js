@@ -1,5 +1,9 @@
 import { pool } from '../db.js';
-import { mensagemChamadoAtribuido, mensagemUrgenteRegiao } from '../textosNotificacaoChamado.js';
+import {
+  mensagemChamadoAtribuido,
+  mensagemNovoChamadoRegiao,
+  mensagemUrgenteRegiao,
+} from '../textosNotificacaoChamado.js';
 import { distanciaKm } from '../utils/geo.js';
 import { obterCoordenadasLoja } from './geocodificarLoja.js';
 
@@ -103,13 +107,19 @@ export async function coletarDestinatariosRegiaoLoja(idLoja) {
   return destinatarios;
 }
 
+async function coletarDestinatariosRegiao(idLoja, idAutor) {
+  const destinatarios = await coletarDestinatariosRegiaoLoja(idLoja);
+  const idAutorNum = Number(idAutor);
+  if (Number.isFinite(idAutorNum)) destinatarios.delete(idAutorNum);
+  return destinatarios;
+}
+
 /**
- * Chamado alta/crítica em loja de região cadastrada:
- * 1) notifica técnicos + regional (WhatsApp + push)
- * 2) atribui ao técnico mais próximo (GPS)
- * 3) notifica todos sobre a atribuição
+ * Abertura de chamado em loja com região cadastrada:
+ * 1) notifica técnicos + regional (qualquer urgência)
+ * 2) se alta/crítica: atribui ao técnico mais próximo (GPS) e notifica atribuição
  */
-export async function processarChamadoUrgenteRegiao({
+export async function processarAberturaChamadoRegiao({
   idChamado,
   idLoja,
   urgencia,
@@ -119,34 +129,39 @@ export async function processarChamadoUrgenteRegiao({
   criarNotificacao,
   temColunaAssumidoEm,
 }) {
-  if (!isUrgenciaAltaOuCritica(urgencia)) {
-    return { processado: false, motivo: 'urgencia' };
-  }
-
   const regiao = await buscarRegiaoDaLoja(idLoja);
   if (!regiao) return { processado: false, motivo: 'sem_regiao' };
 
   const tecnicos = await buscarTecnicosRegiao(regiao.id_regiao);
-  const destinatarios = new Set(tecnicos.map((t) => Number(t.id_usuario)));
-  if (regiao.id_regional) destinatarios.add(Number(regiao.id_regional));
-
-  const idAutorNum = Number(idAutor);
-  destinatarios.delete(idAutorNum);
+  const destinatarios = await coletarDestinatariosRegiao(idLoja, idAutor);
 
   if (!destinatarios.size) {
     return { processado: false, motivo: 'sem_destinatarios' };
   }
 
-  const msgUrgente = await mensagemUrgenteRegiao(numero, nomeLoja);
+  const urgente = isUrgenciaAltaOuCritica(urgencia);
+  const tipoAbertura = urgente ? 'chamado_urgente_regiao' : 'novo_chamado';
+  const msgAbertura = urgente
+    ? await mensagemUrgenteRegiao(numero, nomeLoja)
+    : await mensagemNovoChamadoRegiao(numero, nomeLoja);
 
   for (const idUsuario of destinatarios) {
     await criarNotificacao({
       idUsuario,
       idChamado,
-      tipo: 'chamado_urgente_regiao',
-      mensagem: msgUrgente,
+      tipo: tipoAbertura,
+      mensagem: msgAbertura,
       enviarPush: true,
     });
+  }
+
+  if (!urgente) {
+    return {
+      processado: true,
+      atribuido: false,
+      urgente: false,
+      notificacoes_abertura: destinatarios.size,
+    };
   }
 
   const lojaCoords = await obterCoordenadasLoja(idLoja);
@@ -157,8 +172,9 @@ export async function processarChamadoUrgenteRegiao({
     return {
       processado: true,
       atribuido: false,
+      urgente: true,
       motivo: lojaCoords ? 'sem_gps_tecnico' : 'sem_coordenadas_loja',
-      notificacoes_urgente: destinatarios.size,
+      notificacoes_abertura: destinatarios.size,
     };
   }
 
@@ -173,13 +189,20 @@ export async function processarChamadoUrgenteRegiao({
   );
 
   if (!rowCount) {
-    return { processado: true, atribuido: false, motivo: 'ja_atribuido' };
+    return {
+      processado: true,
+      atribuido: false,
+      urgente: true,
+      motivo: 'ja_atribuido',
+      notificacoes_abertura: destinatarios.size,
+    };
   }
 
   const msgAtribuido = await mensagemChamadoAtribuido(numero, tecnicoProximo.nome);
 
   const destinatariosAtribuicao = new Set(destinatarios);
   destinatariosAtribuicao.add(Number(tecnicoProximo.id_usuario));
+  const idAutorNum = Number(idAutor);
   if (Number.isFinite(idAutorNum)) destinatariosAtribuicao.add(idAutorNum);
 
   for (const idUsuario of await buscarGestoresLoja(idLoja)) {
@@ -199,9 +222,13 @@ export async function processarChamadoUrgenteRegiao({
   return {
     processado: true,
     atribuido: true,
+    urgente: true,
     id_tecnico: tecnicoProximo.id_usuario,
     tecnico_nome: tecnicoProximo.nome,
     distancia_km: tecnicoProximo.distancia_km,
-    notificacoes_urgente: destinatarios.size,
+    notificacoes_abertura: destinatarios.size,
   };
 }
+
+/** @deprecated use processarAberturaChamadoRegiao */
+export const processarChamadoUrgenteRegiao = processarAberturaChamadoRegiao;

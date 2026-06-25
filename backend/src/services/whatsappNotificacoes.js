@@ -46,12 +46,10 @@ async function eventoWhatsAppAtivo(tipo) {
 }
 
 function tituloPorTipo(tipo, numero, mensagem, loja) {
-  if (tipo === 'assumido' || tipo === 'chamado_urgente_regiao') {
+  if (tipo === 'assumido' || tipo === 'chamado_urgente_regiao' || tipo === 'novo_chamado') {
     return tituloNotificacaoOps(tipo, { numero, loja, mensagem });
   }
   switch (tipo) {
-    case 'novo_chamado':
-      return `Novo chamado #${numero}`;
     case 'resposta':
       return `Nova mensagem no chamado #${numero}`;
     case 'anexo':
@@ -91,7 +89,7 @@ function montarMensagemWhatsApp({ tipo, numero, mensagem, link, loja }) {
   const titulo = tituloPorTipo(tipo, numero, mensagem, loja);
   const linhas = ['🔔 *Vision Check*', titulo, ''];
   const corpo = String(mensagem || '').trim();
-  const ops = tipo === 'assumido' || tipo === 'chamado_urgente_regiao';
+  const ops = tipo === 'assumido' || tipo === 'chamado_urgente_regiao' || tipo === 'novo_chamado';
   if (corpo && !(ops && corpo === titulo)) linhas.push(corpo, '');
   if (link) linhas.push(`👉 Abrir: ${link}`);
   return linhas.join('\n').trim();

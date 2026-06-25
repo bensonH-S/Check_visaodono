@@ -129,12 +129,10 @@ export function montarTituloPush({ tipo, mensagem, numero, loja }) {
       return /cancelado/i.test(mensagem || '')
         ? `Chamado #${num} - Cancelado`
         : `Chamado #${num} - Concluído`;
-    case 'novo_chamado': {
-      const nomeLoja = loja?.trim() || '';
-      return nomeLoja
-        ? `Novo Chamado #${num} - Aberto (${nomeLoja})`
-        : `Novo Chamado #${num} - Aberto`;
-    }
+    case 'novo_chamado':
+    case 'assumido':
+    case 'chamado_urgente_regiao':
+      return tituloNotificacaoOps(tipo, { numero: num, loja, mensagem });
     case 'anexo':
       return `Novo anexo adicionado no chamado #${num}`;
     case 'aguardando_aprovacao':
@@ -143,9 +141,6 @@ export function montarTituloPush({ tipo, mensagem, numero, loja }) {
       return `Chamado #${num} - Orçamento aprovado`;
     case 'recusa_aprovacao':
       return `Orçamento do chamado #${num} - Não Aprovado`;
-    case 'assumido':
-    case 'chamado_urgente_regiao':
-      return tituloNotificacaoOps(tipo, { numero: num, loja, mensagem });
     case 'reabertura':
       return `Chamado #${num} - Reaberto`;
     default:
@@ -271,7 +266,7 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
     });
 
     const body =
-      tipo === 'chamado_urgente_regiao' || tipo === 'assumido'
+      tipo === 'chamado_urgente_regiao' || tipo === 'novo_chamado' || tipo === 'assumido'
         ? title
         : mensagem || title;
 

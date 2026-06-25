@@ -45,9 +45,12 @@ export function tituloNotificacaoChamado(
   const p = prefixoChamado(num, contexto);
 
   if (contexto === 'chamados' || contexto === 'chamados-mobile') {
-    if (tipo === 'assumido' || tipo === 'chamado_urgente_regiao') {
+    if (tipo === 'assumido' || tipo === 'chamado_urgente_regiao' || tipo === 'novo_chamado') {
       if (n.mensagem?.trim()) return n.mensagem.trim();
-      return tituloAlertaChamadoOps(tipo, num, { loja: n.loja, mensagem: n.mensagem });
+      return tituloAlertaChamadoOps(tipo as 'assumido' | 'chamado_urgente_regiao' | 'novo_chamado', num, {
+        loja: n.loja,
+        mensagem: n.mensagem,
+      });
     }
     return '';
   }
@@ -55,6 +58,8 @@ export function tituloNotificacaoChamado(
   switch (tipo) {
     case 'assumido':
     case 'chamado_urgente_regiao':
+    case 'novo_chamado':
+      if (n.mensagem?.trim()) return n.mensagem.trim();
       return tituloAlertaChamadoOps(tipo, num, { loja: n.loja, mensagem: n.mensagem });
     case 'resposta':
       return `Nova Mensagem Chamado #${num}`;
@@ -62,12 +67,6 @@ export function tituloNotificacaoChamado(
       return /cancelado/i.test(n.mensagem)
         ? `Chamado #${num} - Cancelado`
         : `Chamado #${num} - Concluído`;
-    case 'novo_chamado': {
-      const loja = n.loja?.trim() || '';
-      return loja
-        ? `Novo Chamado #${num} - Aberto (${loja})`
-        : `Novo Chamado #${num} - Aberto`;
-    }
     case 'anexo':
       return `Novo anexo adicionado no chamado #${num}`;
     case 'aguardando_aprovacao':

@@ -19,7 +19,7 @@ import {
 } from '../fotos.js';
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
 import { mensagemChamadoAtribuido } from '../textosNotificacaoChamado.js';
-import { processarChamadoUrgenteRegiao, coletarDestinatariosRegiaoLoja } from '../services/chamadoRegiaoUrgente.js';
+import { processarAberturaChamadoRegiao, coletarDestinatariosRegiaoLoja } from '../services/chamadoRegiaoUrgente.js';
 import {
   DEFAULTS_TEMPLATES,
   invalidateTemplateCache,
@@ -1113,7 +1113,7 @@ router.post('/chamados', requirePermissao('chamados.abrir'), async (req, res, ne
     const lojaRow = await pool.query('SELECT name FROM lojas WHERE id_loja = $1', [id_loja]);
     const nomeLoja = lojaRow.rows[0]?.name || 'Loja';
 
-    const regiaoUrgente = await processarChamadoUrgenteRegiao({
+    const regiaoAbertura = await processarAberturaChamadoRegiao({
       idChamado: id_chamado,
       idLoja: id_loja,
       urgencia: urg,
@@ -1124,7 +1124,7 @@ router.post('/chamados', requirePermissao('chamados.abrir'), async (req, res, ne
       temColunaAssumidoEm,
     });
 
-    res.status(201).json({ ...rows[0], regiao_urgente: regiaoUrgente });
+    res.status(201).json({ ...rows[0], regiao_abertura: regiaoAbertura });
   } catch (e) {
     next(e);
   }

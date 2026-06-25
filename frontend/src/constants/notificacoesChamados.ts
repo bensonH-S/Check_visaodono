@@ -1,5 +1,5 @@
 /** Espelha backend/notificacoesFiltro.js — alertas operacionais de chamados. */
-export const TIPOS_ALERTA_CHAMADOS_OPS = ['chamado_urgente_regiao', 'assumido'] as const;
+export const TIPOS_ALERTA_CHAMADOS_OPS = ['chamado_urgente_regiao', 'novo_chamado', 'assumido'] as const;
 
 export type TipoAlertaChamadoOps = (typeof TIPOS_ALERTA_CHAMADOS_OPS)[number];
 
@@ -16,6 +16,11 @@ export function filtrarNotificacoesChamadosOps<T extends { tipo: string }>(lista
 export function mensagemUrgenteRegiao(numero: number, nomeLoja?: string | null): string {
   const loja = String(nomeLoja || '').trim() || 'Loja';
   return `Novo chamado urgente #${numero} - ${loja}. Verifique Imediatamente!`;
+}
+
+export function mensagemNovoChamadoRegiao(numero: number, nomeLoja?: string | null): string {
+  const loja = String(nomeLoja || '').trim() || 'Loja';
+  return `Novo Chamado #${numero} - Aberto (${loja})`;
 }
 
 export function mensagemChamadoAtribuido(
@@ -49,6 +54,9 @@ export function tituloAlertaChamadoOps(
 ): string {
   if (tipo === 'chamado_urgente_regiao') {
     return mensagemUrgenteRegiao(numero, opts?.loja);
+  }
+  if (tipo === 'novo_chamado') {
+    return mensagemNovoChamadoRegiao(numero, opts?.loja);
   }
   const parsed = extrairTecnicoDaMensagemAtribuido(opts?.mensagem || '');
   if (parsed.paraVoce) return mensagemChamadoAtribuido(numero, null, { paraVoce: true });

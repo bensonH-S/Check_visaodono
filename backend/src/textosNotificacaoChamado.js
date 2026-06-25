@@ -4,6 +4,12 @@ import {
   renderMensagemSync,
 } from './services/notificacaoTemplates.js';
 
+export async function mensagemNovoChamadoRegiao(numero, nomeLoja) {
+  const num = Number(numero) || 0;
+  const loja = String(nomeLoja || '').trim() || 'Loja';
+  return renderMensagemNotificacao('novo_chamado', { numero: num, loja });
+}
+
 export async function mensagemUrgenteRegiao(numero, nomeLoja) {
   const num = Number(numero) || 0;
   const loja = String(nomeLoja || '').trim() || 'Loja';
@@ -31,6 +37,12 @@ export function tituloNotificacaoOps(tipo, { numero, loja, mensagem, tecnicoNome
   const num = Number(numero) || 0;
   if (tipo === 'chamado_urgente_regiao') {
     return renderMensagemSync('chamado_urgente_regiao', {
+      numero: num,
+      loja: String(loja || '').trim() || 'Loja',
+    });
+  }
+  if (tipo === 'novo_chamado') {
+    return renderMensagemSync('novo_chamado', {
       numero: num,
       loja: String(loja || '').trim() || 'Loja',
     });

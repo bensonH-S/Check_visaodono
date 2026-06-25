@@ -1,5 +1,5 @@
 /** Alertas operacionais de chamados (push, sino, WhatsApp). */
-export const TIPOS_ALERTA_CHAMADOS_OPS = ['chamado_urgente_regiao', 'assumido'];
+export const TIPOS_ALERTA_CHAMADOS_OPS = ['chamado_urgente_regiao', 'novo_chamado', 'assumido'];
 
 /** Push no celular: só estes dois. */
 export const TIPOS_PUSH_PERMITIDOS = new Set(TIPOS_ALERTA_CHAMADOS_OPS);

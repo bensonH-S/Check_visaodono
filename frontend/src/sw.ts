@@ -51,7 +51,7 @@ function parsePushData(event: PushEvent): PushPayload {
 self.addEventListener('push', (event) => {
   const data = parsePushData(event);
   const tipo = data.tipo;
-  if (tipo && tipo !== 'chamado_urgente_regiao' && tipo !== 'assumido') {
+  if (tipo && tipo !== 'chamado_urgente_regiao' && tipo !== 'novo_chamado' && tipo !== 'assumido') {
     return;
   }
 
