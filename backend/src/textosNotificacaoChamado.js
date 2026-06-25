@@ -1,20 +1,23 @@
-/** Textos padronizados — sino, push e WhatsApp (chamados operacionais). */
+/** Textos de notificação — lê templates do banco (com fallback em código). */
+import {
+  renderMensagemNotificacao,
+  renderMensagemSync,
+} from './services/notificacaoTemplates.js';
 
-export function mensagemUrgenteRegiao(numero, nomeLoja) {
+export async function mensagemUrgenteRegiao(numero, nomeLoja) {
   const num = Number(numero) || 0;
   const loja = String(nomeLoja || '').trim() || 'Loja';
-  return `Novo chamado urgente #${num} - ${loja}. Verifique Imediatamente!`;
+  return renderMensagemNotificacao('chamado_urgente_regiao', { numero: num, loja });
 }
 
-export function mensagemChamadoAtribuido(numero, tecnicoNome, { paraVoce = false } = {}) {
+export async function mensagemChamadoAtribuido(numero, tecnicoNome, { paraVoce = false } = {}) {
   const num = Number(numero) || 0;
-  if (paraVoce) {
-    return `Chamado atribuído! Chamado #${num} atribuído a você`;
-  }
   const nome = String(tecnicoNome || '').trim();
-  return nome
-    ? `Chamado atribuído! Chamado #${num} atribuído ${nome}`
-    : `Chamado atribuído! Chamado #${num}`;
+  return renderMensagemNotificacao(
+    'assumido',
+    { numero: num, tecnico: nome },
+    { destinatario: paraVoce },
+  );
 }
 
 export function extrairTecnicoDaMensagemAtribuido(mensagem) {
@@ -27,13 +30,24 @@ export function extrairTecnicoDaMensagemAtribuido(mensagem) {
 export function tituloNotificacaoOps(tipo, { numero, loja, mensagem, tecnicoNome }) {
   const num = Number(numero) || 0;
   if (tipo === 'chamado_urgente_regiao') {
-    return mensagemUrgenteRegiao(num, loja);
+    return renderMensagemSync('chamado_urgente_regiao', {
+      numero: num,
+      loja: String(loja || '').trim() || 'Loja',
+    });
   }
   if (tipo === 'assumido') {
-    if (tecnicoNome) return mensagemChamadoAtribuido(num, tecnicoNome);
+    if (tecnicoNome) {
+      return renderMensagemSync('assumido', { numero: num, tecnico: String(tecnicoNome).trim() });
+    }
     const parsed = extrairTecnicoDaMensagemAtribuido(mensagem);
-    if (parsed.paraVoce) return mensagemChamadoAtribuido(num, null, { paraVoce: true });
-    return mensagemChamadoAtribuido(num, parsed.nome);
+    if (parsed.paraVoce) {
+      return renderMensagemSync('assumido', { numero: num }, { destinatario: true });
+    }
+    return renderMensagemSync('assumido', { numero: num, tecnico: parsed.nome || '' });
   }
   return mensagem || '';
+}
+
+export async function mensagemPorEvento(codigo, vars = {}, opts = {}) {
+  return renderMensagemNotificacao(codigo, vars, opts);
 }

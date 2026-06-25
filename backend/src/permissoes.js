@@ -6,6 +6,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'checklist.ver', nome: 'Acessar checklist em loja', grupo: 'Checklist', ordem: 26 },
   { codigo: 'checklist.executar', nome: 'Executar checklist e registrar visita', grupo: 'Checklist', ordem: 28 },
   { codigo: 'configuracoes.perguntas', nome: 'Perguntas do checklist', grupo: 'Configurações', ordem: 68 },
+  { codigo: 'configuracoes.notificacoes', nome: 'Gerir notificações', grupo: 'Configurações', ordem: 69 },
   { codigo: 'configuracoes.ver', nome: 'Acessar configurações', grupo: 'Configurações', ordem: 70 },
   { codigo: 'configuracoes.auditoria', nome: 'Ver auditoria do sistema', grupo: 'Configurações', ordem: 71 },
   { codigo: 'portal.lojas.ver', nome: 'Ver cadastro de lojas', grupo: 'Configurações', ordem: 72 },

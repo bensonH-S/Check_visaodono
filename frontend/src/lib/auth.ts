@@ -198,6 +198,11 @@ export function podeVerAuditoria(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('configuracoes.auditoria', usuario);
 }
 
+/** Configurações → aba Notificações (templates de alertas). */
+export function podeGerirNotificacoes(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('configuracoes.notificacoes', usuario);
+}
+
 /** Usuário autenticado no app mobile unificado (ChamadosMobileLayout). */
 export function usaFluxoChamadosMobile(usuario?: UsuarioSessao | null): boolean {
   return !!(usuario ?? getUsuario());

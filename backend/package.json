@@ -51,6 +51,8 @@
     "migrate:config-perguntas-perm": "node scripts/run-sql.js migrations/055_configuracoes_perguntas_perm.sql",
     "migrate:perguntas-foto-opcional": "node scripts/run-sql.js migrations/056_perguntas_foto_opcional.sql",
     "migrate:notif-chamados-cleanup": "node scripts/run-sql.js migrations/057_notificacoes_chamados_somente_ops.sql",
+    "migrate:notif-templates": "node scripts/run-sql.js migrations/058_notificacao_templates.sql",
+    "migrate:config-notificacoes-perm": "node scripts/run-sql.js migrations/059_configuracoes_notificacoes_perm.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "validate:vapid": "node scripts/validate-vapid.js",

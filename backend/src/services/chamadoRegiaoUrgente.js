@@ -137,7 +137,7 @@ export async function processarChamadoUrgenteRegiao({
     return { processado: false, motivo: 'sem_destinatarios' };
   }
 
-  const msgUrgente = mensagemUrgenteRegiao(numero, nomeLoja);
+  const msgUrgente = await mensagemUrgenteRegiao(numero, nomeLoja);
 
   for (const idUsuario of destinatarios) {
     await criarNotificacao({
@@ -176,7 +176,7 @@ export async function processarChamadoUrgenteRegiao({
     return { processado: true, atribuido: false, motivo: 'ja_atribuido' };
   }
 
-  const msgAtribuido = mensagemChamadoAtribuido(numero, tecnicoProximo.nome);
+  const msgAtribuido = await mensagemChamadoAtribuido(numero, tecnicoProximo.nome);
 
   const destinatariosAtribuicao = new Set(destinatarios);
   destinatariosAtribuicao.add(Number(tecnicoProximo.id_usuario));

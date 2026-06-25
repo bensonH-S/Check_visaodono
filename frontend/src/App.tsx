@@ -44,6 +44,7 @@ import SlaPage from './pages/configuracoes/SlaPage';
 import CargosPage from './pages/configuracoes/CargosPage';
 import ChecklistPerguntasPage from './pages/configuracoes/ChecklistPerguntasPage';
 import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
+import NotificacoesPage from './pages/configuracoes/NotificacoesPage';
 import AuditoriaPage from './pages/configuracoes/AuditoriaPage';
 import RotaAuditoria from './components/RotaAuditoria';
 import RotaConfiguracoes from './components/RotaConfiguracoes';
@@ -365,6 +366,14 @@ export default function App() {
                 element={
                   <RotaPermissao permissoes={['configuracoes.ver']}>
                     <CargosPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="notificacoes"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.notificacoes']}>
+                    <NotificacoesPage />
                   </RotaPermissao>
                 }
               />

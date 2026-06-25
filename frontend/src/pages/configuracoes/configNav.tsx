@@ -5,6 +5,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import HistoryIcon from '@mui/icons-material/History';
 import { getUsuario, temPermissao } from '../../lib/auth';
 import type { UsuarioSessao } from '../../lib/auth';
@@ -83,6 +84,12 @@ const CONFIG_NAV: ConfigNavSection[] = [
         label: 'Cargos',
         icon: <BadgeIcon fontSize="small" />,
         permissoes: ['configuracoes.ver'],
+      },
+      {
+        to: '/configuracoes/notificacoes',
+        label: 'Notificações',
+        icon: <NotificationsIcon fontSize="small" />,
+        permissoes: ['configuracoes.notificacoes'],
       },
       {
         to: '/configuracoes/whatsapp',

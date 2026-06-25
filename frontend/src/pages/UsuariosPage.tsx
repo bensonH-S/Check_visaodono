@@ -636,15 +636,6 @@ export default function UsuariosPage() {
                 >
                   {grupo}
                 </Typography>
-                {grupo === 'Configurações' && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mb: 0.5, fontSize: '0.65rem', lineHeight: 1.3 }}
-                  >
-                    Marque &quot;Perguntas do checklist&quot; para habilitar a aba Perguntas em Configurações.
-                  </Typography>
-                )}
                 <FormGroup
                   row
                   sx={{

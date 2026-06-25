@@ -46,6 +46,7 @@ export function tituloNotificacaoChamado(
 
   if (contexto === 'chamados' || contexto === 'chamados-mobile') {
     if (tipo === 'assumido' || tipo === 'chamado_urgente_regiao') {
+      if (n.mensagem?.trim()) return n.mensagem.trim();
       return tituloAlertaChamadoOps(tipo, num, { loja: n.loja, mensagem: n.mensagem });
     }
     return '';

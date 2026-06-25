@@ -223,6 +223,25 @@ export const api = {
     request<ManutSla>(`/manutencao/sla/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   manutSlaExcluir: (id: number) =>
     request<void>(`/manutencao/sla/${id}`, { method: 'DELETE' }),
+  manutNotificacaoEventos: () =>
+    request<ManutNotificacaoEventosResponse>('/manutencao/notificacao-eventos'),
+  manutNotificacaoEventoCriar: (body: ManutNotificacaoEventoInput) =>
+    request<ManutNotificacaoEvento>('/manutencao/notificacao-eventos', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  manutNotificacaoEventoAtualizar: (codigo: string, body: Partial<ManutNotificacaoEventoInput>) =>
+    request<ManutNotificacaoEvento>(`/manutencao/notificacao-eventos/${encodeURIComponent(codigo)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  manutNotificacaoEventoExcluir: (codigo: string) =>
+    request<void>(`/manutencao/notificacao-eventos/${encodeURIComponent(codigo)}`, { method: 'DELETE' }),
+  manutNotificacaoEventoPreview: (body: ManutNotificacaoPreviewInput) =>
+    request<{ preview: string }>('/manutencao/notificacao-eventos/preview', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   manutFormulario: () => request<ManutFormulario>('/manutencao/formulario'),
   manutChamados: (opts?: { mobile?: boolean }) => {
     const qs = opts?.mobile ? '?mobile=1' : '';
@@ -753,6 +772,46 @@ export interface ManutSlaInput {
   horas: number;
   urgencia_padrao: string;
   ativo?: boolean;
+}
+
+export interface ManutNotificacaoPlaceholder {
+  chave: string;
+  descricao: string;
+}
+
+export interface ManutNotificacaoEvento {
+  codigo: string;
+  descricao: string;
+  notifica_abrir: boolean;
+  notifica_ver: boolean;
+  ativo: boolean;
+  sistema: boolean;
+  template_mensagem: string;
+  template_destinatario: string;
+  envia_push: boolean;
+}
+
+export interface ManutNotificacaoEventosResponse {
+  eventos: ManutNotificacaoEvento[];
+  placeholders: ManutNotificacaoPlaceholder[];
+}
+
+export interface ManutNotificacaoEventoInput {
+  codigo?: string;
+  descricao: string;
+  template_mensagem: string;
+  template_destinatario?: string | null;
+  notifica_abrir?: boolean;
+  notifica_ver?: boolean;
+  ativo?: boolean;
+}
+
+export interface ManutNotificacaoPreviewInput {
+  codigo: string;
+  template_mensagem?: string;
+  template_destinatario?: string | null;
+  destinatario?: boolean;
+  vars?: Record<string, string | number>;
 }
 
 export interface ManutCategoria {

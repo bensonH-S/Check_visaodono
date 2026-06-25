@@ -20,6 +20,13 @@ import {
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
 import { mensagemChamadoAtribuido } from '../textosNotificacaoChamado.js';
 import { processarChamadoUrgenteRegiao, coletarDestinatariosRegiaoLoja } from '../services/chamadoRegiaoUrgente.js';
+import {
+  DEFAULTS_TEMPLATES,
+  invalidateTemplateCache,
+  PLACEHOLDERS_NOTIFICACAO,
+  previewTemplate,
+  warmupTemplateCache,
+} from '../services/notificacaoTemplates.js';
 
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
 const ENCERRADOS = new Set(['concluido', 'cancelado']);
@@ -208,8 +215,15 @@ async function ensureNotificacaoEventosTable() {
         descricao TEXT NOT NULL,
         notifica_abrir BOOLEAN NOT NULL DEFAULT TRUE,
         notifica_ver BOOLEAN NOT NULL DEFAULT TRUE,
-        ativo BOOLEAN NOT NULL DEFAULT TRUE
+        ativo BOOLEAN NOT NULL DEFAULT TRUE,
+        template_mensagem TEXT,
+        template_destinatario TEXT,
+        sistema BOOLEAN NOT NULL DEFAULT TRUE
       );
+      ALTER TABLE manut_notificacao_eventos
+        ADD COLUMN IF NOT EXISTS template_mensagem TEXT,
+        ADD COLUMN IF NOT EXISTS template_destinatario TEXT,
+        ADD COLUMN IF NOT EXISTS sistema BOOLEAN NOT NULL DEFAULT TRUE;
       INSERT INTO manut_notificacao_eventos (codigo, descricao, notifica_abrir, notifica_ver) VALUES
         ('novo_chamado', 'Novo chamado aberto na loja', TRUE, TRUE),
         ('resposta', 'Nova mensagem no chamado', TRUE, TRUE),
@@ -226,6 +240,16 @@ async function ensureNotificacaoEventosTable() {
         ('chamado_urgente_regiao', 'Chamado urgente na região de atuação', TRUE, TRUE)
       ON CONFLICT (codigo) DO NOTHING;
     `);
+    await pool.query(`
+      UPDATE manut_notificacao_eventos SET
+        template_mensagem = 'Novo chamado urgente #{numero} - {loja}. Verifique Imediatamente!'
+      WHERE codigo = 'chamado_urgente_regiao' AND template_mensagem IS NULL;
+      UPDATE manut_notificacao_eventos SET
+        template_mensagem = 'Chamado atribuído! Chamado #{numero} atribuído {tecnico}',
+        template_destinatario = 'Chamado atribuído! Chamado #{numero} atribuído a você'
+      WHERE codigo = 'assumido' AND template_mensagem IS NULL;
+    `).catch(() => {});
+    await warmupTemplateCache();
     _tabelaEventosNotifOk = true;
     return true;
   } catch (e) {
@@ -330,7 +354,7 @@ async function notificarAssumidoChamado(idChamado, idTecnico, idAutorAcao, tecni
     for (const id of regiao) destinatarios.add(id);
   }
 
-  const msgGeral = mensagemChamadoAtribuido(numero, tecnicoNome);
+  const msgGeral = await mensagemChamadoAtribuido(numero, tecnicoNome);
 
   for (const idUsuario of destinatarios) {
     if (!Number.isFinite(idUsuario) || idUsuario === idTec) continue;
@@ -349,7 +373,7 @@ async function notificarAssumidoChamado(idChamado, idTecnico, idAutorAcao, tecni
       idUsuario: idTec,
       idChamado,
       tipo: 'assumido',
-      mensagem: mensagemChamadoAtribuido(numero, null, { paraVoce: true }),
+      mensagem: await mensagemChamadoAtribuido(numero, null, { paraVoce: true }),
       enviarPush: true,
     });
     if (ok) enviadas += 1;
@@ -1895,6 +1919,222 @@ router.patch(
   } catch (e) {
     next(e);
   }
+  },
+);
+
+const CODIGO_EVENTO_RE = /^[a-z][a-z0-9_]{2,39}$/;
+
+function mapEventoNotificacaoRow(row) {
+  const codigo = row.codigo;
+  const defs = DEFAULTS_TEMPLATES[codigo] || {};
+  return {
+    codigo,
+    descricao: row.descricao,
+    notifica_abrir: row.notifica_abrir !== false,
+    notifica_ver: row.notifica_ver !== false,
+    ativo: row.ativo !== false,
+    sistema: row.sistema !== false,
+    template_mensagem: row.template_mensagem ?? defs.template_mensagem ?? '',
+    template_destinatario: row.template_destinatario ?? defs.template_destinatario ?? '',
+    envia_push: tipoEnviaPush(codigo),
+  };
+}
+
+router.get(
+  '/notificacao-eventos',
+  requirePermissao('configuracoes.notificacoes'),
+  async (_req, res, next) => {
+    try {
+      await ensureNotificacaoEventosTable();
+      const { rows } = await pool.query(
+        `SELECT codigo, descricao, notifica_abrir, notifica_ver, ativo, sistema,
+                template_mensagem, template_destinatario
+         FROM manut_notificacao_eventos
+         ORDER BY sistema DESC, codigo`,
+      );
+      res.json({
+        eventos: rows.map(mapEventoNotificacaoRow),
+        placeholders: PLACEHOLDERS_NOTIFICACAO,
+      });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.post(
+  '/notificacao-eventos',
+  requirePermissao('configuracoes.notificacoes'),
+  async (req, res, next) => {
+    try {
+      await ensureNotificacaoEventosTable();
+      const {
+        codigo,
+        descricao,
+        template_mensagem,
+        template_destinatario,
+        notifica_abrir = true,
+        notifica_ver = true,
+        ativo = true,
+      } = req.body || {};
+      const cod = String(codigo || '')
+        .trim()
+        .toLowerCase();
+      if (!CODIGO_EVENTO_RE.test(cod)) {
+        return res.status(400).json({
+          error: 'Código inválido. Use letras minúsculas, números e _ (ex.: meu_evento)',
+        });
+      }
+      if (!descricao?.trim()) {
+        return res.status(400).json({ error: 'Informe a descrição do evento' });
+      }
+      if (!template_mensagem?.trim()) {
+        return res.status(400).json({ error: 'Informe o template da mensagem' });
+      }
+      const { rows } = await pool.query(
+        `INSERT INTO manut_notificacao_eventos
+           (codigo, descricao, notifica_abrir, notifica_ver, ativo, template_mensagem,
+            template_destinatario, sistema)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
+         RETURNING codigo, descricao, notifica_abrir, notifica_ver, ativo, sistema,
+                   template_mensagem, template_destinatario`,
+        [
+          cod,
+          descricao.trim(),
+          !!notifica_abrir,
+          !!notifica_ver,
+          !!ativo,
+          template_mensagem.trim(),
+          template_destinatario?.trim() || null,
+        ],
+      );
+      invalidateTemplateCache();
+      await warmupTemplateCache();
+      res.status(201).json(mapEventoNotificacaoRow(rows[0]));
+    } catch (e) {
+      if (e.code === '23505') {
+        return res.status(409).json({ error: 'Já existe um evento com este código' });
+      }
+      next(e);
+    }
+  },
+);
+
+router.post(
+  '/notificacao-eventos/preview',
+  requirePermissao('configuracoes.notificacoes'),
+  async (req, res, next) => {
+    try {
+      const {
+        codigo,
+        template_mensagem,
+        template_destinatario,
+        destinatario = false,
+        vars,
+      } = req.body || {};
+      if (!codigo) return res.status(400).json({ error: 'Informe o código do evento' });
+      const texto = previewTemplate({
+        codigo,
+        template_mensagem,
+        template_destinatario,
+        destinatario: !!destinatario,
+        vars,
+      });
+      res.json({ preview: texto });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.patch(
+  '/notificacao-eventos/:codigo',
+  requirePermissao('configuracoes.notificacoes'),
+  async (req, res, next) => {
+    try {
+      await ensureNotificacaoEventosTable();
+      const codigo = String(req.params.codigo || '').trim();
+      const {
+        descricao,
+        template_mensagem,
+        template_destinatario,
+        notifica_abrir,
+        notifica_ver,
+        ativo,
+      } = req.body || {};
+      const campos = [];
+      const params = [];
+      let i = 1;
+
+      if (descricao !== undefined) {
+        if (!descricao?.trim()) return res.status(400).json({ error: 'Descrição inválida' });
+        campos.push(`descricao = $${i++}`);
+        params.push(descricao.trim());
+      }
+      if (template_mensagem !== undefined) {
+        if (!template_mensagem?.trim()) {
+          return res.status(400).json({ error: 'Template da mensagem não pode ficar vazio' });
+        }
+        campos.push(`template_mensagem = $${i++}`);
+        params.push(template_mensagem.trim());
+      }
+      if (template_destinatario !== undefined) {
+        campos.push(`template_destinatario = $${i++}`);
+        params.push(template_destinatario?.trim() || null);
+      }
+      if (notifica_abrir !== undefined) {
+        campos.push(`notifica_abrir = $${i++}`);
+        params.push(!!notifica_abrir);
+      }
+      if (notifica_ver !== undefined) {
+        campos.push(`notifica_ver = $${i++}`);
+        params.push(!!notifica_ver);
+      }
+      if (ativo !== undefined) {
+        campos.push(`ativo = $${i++}`);
+        params.push(!!ativo);
+      }
+      if (!campos.length) return res.status(400).json({ error: 'Nada para atualizar' });
+
+      params.push(codigo);
+      const { rows, rowCount } = await pool.query(
+        `UPDATE manut_notificacao_eventos SET ${campos.join(', ')}
+         WHERE codigo = $${i}
+         RETURNING codigo, descricao, notifica_abrir, notifica_ver, ativo, sistema,
+                   template_mensagem, template_destinatario`,
+        params,
+      );
+      if (!rowCount) return res.status(404).json({ error: 'Evento não encontrado' });
+      invalidateTemplateCache();
+      await warmupTemplateCache();
+      res.json(mapEventoNotificacaoRow(rows[0]));
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+router.delete(
+  '/notificacao-eventos/:codigo',
+  requirePermissao('configuracoes.notificacoes'),
+  async (req, res, next) => {
+    try {
+      const codigo = String(req.params.codigo || '').trim();
+      const { rowCount } = await pool.query(
+        `DELETE FROM manut_notificacao_eventos WHERE codigo = $1 AND sistema = FALSE`,
+        [codigo],
+      );
+      if (!rowCount) {
+        return res.status(400).json({
+          error: 'Não é possível excluir este evento (sistema ou inexistente)',
+        });
+      }
+      invalidateTemplateCache();
+      await warmupTemplateCache();
+      res.status(204).end();
+    } catch (e) {
+      next(e);
+    }
   },
 );
 
