@@ -71,7 +71,13 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'autoUpdate',
-      includeAssets: ['Logo_Icon.png', 'logo-grupo-alvim.png'],
+      includeAssets: [
+        'Logo_Icon.png',
+        'Logo_Icon-192.png',
+        'Logo_Icon-512.png',
+        'Logo_Icon-maskable.png',
+        'logo-grupo-alvim.png',
+      ],
       manifest: {
         name: 'Meridian — Grupo Alvim',
         short_name: 'Meridian',
@@ -87,17 +93,19 @@ export default defineConfig({
         categories: ['business', 'productivity'],
         icons: [
           {
-            src: 'Logo_Icon.png',
+            src: 'Logo_Icon-192.png',
             sizes: '192x192',
             type: 'image/png',
+            purpose: 'any',
           },
           {
-            src: 'Logo_Icon.png',
+            src: 'Logo_Icon-512.png',
             sizes: '512x512',
             type: 'image/png',
+            purpose: 'any',
           },
           {
-            src: 'Logo_Icon.png',
+            src: 'Logo_Icon-maskable.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
