@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -22,8 +22,6 @@ import type { ManutFormulario, ManutLoja } from '../../api/client';
 import {
   getUsuario,
   temPermissao,
-  ehGestorLojaMobile,
-  deveEscolherLojaNovoChamadoMobile,
 } from '../../lib/auth';
 import { urgenciaChip } from '../../utils/manutencaoUi';
 import { extensaoMidia } from '../../utils/mediaFile';
@@ -34,6 +32,29 @@ const ROTA_LISTA = '/chamados/mobile';
 const CACHE_KEY = 'manut_formulario_mobile_v1';
 const ORANGE = '#E8520A';
 const NAVY = '#1B2A6B';
+
+const campoFormularioProps = {
+  size: 'small' as const,
+  fullWidth: true,
+  slotProps: {
+    inputLabel: {
+      shrink: true,
+      sx: {
+        whiteSpace: 'nowrap',
+        maxWidth: 'calc(133% - 24px)',
+      },
+    },
+    input: { style: { fontSize: 16 } },
+  },
+  sx: {
+    '& .MuiInputLabel-root.MuiInputLabel-shrink': {
+      transform: 'translate(14px, -9px) scale(0.75)',
+    },
+    '& .MuiOutlinedInput-input': {
+      py: 1.1,
+    },
+  },
+};
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
@@ -103,8 +124,8 @@ function SeletorLojaNovoChamado({
 }) {
   const [dialogAberto, setDialogAberto] = useState(false);
   const multiplas = lojas.length > 1;
-  const lojaAtual = lojas.find((l) => l.id_loja === idLoja);
-  const nomeExibido = lojaAtual?.nome ?? (multiplas ? 'Selecione sua loja' : lojas[0]?.nome ?? '—');
+  const lojaAtual = lojas.find((l) => Number(l.id_loja) === Number(idLoja));
+  const nomeExibido = lojaAtual?.nome ?? (multiplas ? 'Selecione a Loja' : lojas[0]?.nome ?? '—');
 
   if (!lojas.length) {
     return (
@@ -175,7 +196,7 @@ function SeletorLojaNovoChamado({
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1 }}>
           {lojas.map((loja) => {
-            const ativa = loja.id_loja === idLoja;
+            const ativa = Number(loja.id_loja) === Number(idLoja);
             return (
               <ListItemButton
                 key={loja.id_loja}
@@ -212,7 +233,7 @@ function SeletorLojaNovoChamado({
 export default function ChamadosMobileNovoPage() {
   const navigate = useNavigate();
   const sessao = getUsuario();
-  const { idLoja: lojaSelecionada, setIdLoja: setLojaContexto } = useChamadosMobileLoja();
+  const { setIdLoja: setLojaContexto } = useChamadosMobileLoja();
   const [form, setForm] = useState<ManutFormulario | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -224,6 +245,7 @@ export default function ChamadosMobileNovoPage() {
   const [idCategoria, setIdCategoria] = useState<number | ''>('');
   const [idLoja, setIdLoja] = useState<number | ''>('');
   const [local, setLocal] = useState('');
+  const fotosRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const usuario = getUsuario();
@@ -247,28 +269,14 @@ export default function ChamadosMobileNovoPage() {
       }
     }
 
-    const acessoTodas = temPermissao('lojas.todas', usuario);
-    const escolherLoja = deveEscolherLojaNovoChamadoMobile(usuario);
-    const gestorLoja = ehGestorLojaMobile(usuario);
-
     api
       .manutFormulario()
       .then((f) => {
         if (!ativo) return;
         setForm(f);
         sessionStorage.setItem(CACHE_KEY, JSON.stringify(f));
-        if (gestorLoja && !acessoTodas) {
-          const lojaCtx =
-            lojaSelecionada && f.lojas.some((l) => l.id_loja === lojaSelecionada)
-              ? lojaSelecionada
-              : usuario.lojas?.[0]?.id_loja;
-          const lojaId =
-            lojaCtx && f.lojas.some((l) => l.id_loja === lojaCtx)
-              ? lojaCtx
-              : f.lojas[0]?.id_loja;
-          if (lojaId) setIdLoja(lojaId);
-        } else if (!escolherLoja && lojaSelecionada && f.lojas.some((l) => l.id_loja === lojaSelecionada)) {
-          setIdLoja(lojaSelecionada);
+        if (f.lojas.length === 1) {
+          setIdLoja(f.lojas[0].id_loja);
         }
       })
       .catch((e) => {
@@ -281,14 +289,17 @@ export default function ChamadosMobileNovoPage() {
     return () => {
       ativo = false;
     };
-  }, [navigate, lojaSelecionada]);
+  }, [navigate]);
 
-  const cat = form?.categorias.find((c) => c.id_categoria === idCategoria);
+  const cat = form?.categorias.find((c) => Number(c.id_categoria) === Number(idCategoria));
   const lojasDisponiveis = form?.lojas ?? [];
-  const descricaoCompleta = Boolean(
-    idLoja && idCategoria && titulo.trim().length > 0 && descricao.trim().length >= 10,
+  const categoriaOk = !form?.categorias?.length || (idCategoria !== '' && idCategoria != null);
+  const podeAnexarFotos = Boolean(
+    categoriaOk && titulo.trim().length > 0 && descricao.trim().length > 0,
   );
-  const etapaAtiva: 0 | 1 = descricaoCompleta ? 1 : 0;
+  const descricaoValidaEnvio = descricao.trim().length >= 10;
+  const descricaoCompleta = Boolean(idLoja && categoriaOk && titulo.trim().length > 0 && descricaoValidaEnvio);
+  const etapaAtiva: 0 | 1 = podeAnexarFotos ? 1 : 0;
   const podeEnviar = descricaoCompleta && fotos.length > 0;
 
   useEffect(() => {
@@ -300,8 +311,14 @@ export default function ChamadosMobileNovoPage() {
   }, [lojasDisponiveis, idLoja, setLojaContexto]);
 
   useEffect(() => {
-    if (!descricaoCompleta && fotos.length) setFotos([]);
-  }, [descricaoCompleta, fotos.length]);
+    if (!podeAnexarFotos && fotos.length) setFotos([]);
+  }, [podeAnexarFotos, fotos.length]);
+
+  useEffect(() => {
+    if (podeAnexarFotos && fotosRef.current) {
+      fotosRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [podeAnexarFotos]);
 
   function selecionarLoja(lojaId: number) {
     setIdLoja(lojaId);
@@ -312,11 +329,15 @@ export default function ChamadosMobileNovoPage() {
     e.preventDefault();
     setErro('');
     if (!sessao) return;
+    if (!idLoja) {
+      setErro('Selecione a loja antes de abrir o chamado.');
+      return;
+    }
     if (!fotos.length) {
       setErro('Adicione pelo menos uma foto ou vídeo.');
       return;
     }
-    if (!titulo.trim() || descricao.trim().length < 10 || !idCategoria || !idLoja) {
+    if (!titulo.trim() || !descricaoValidaEnvio || !idCategoria || !idLoja) {
       setErro('Preencha título, descrição (mín. 10 caracteres), loja e categoria.');
       return;
     }
@@ -367,47 +388,51 @@ export default function ChamadosMobileNovoPage() {
           sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: 0.75,
+            justifyContent: 'space-between',
+            gap: 1,
             minWidth: 0,
             minHeight: 24,
           }}
         >
-          <PersonOutlineOutlinedIcon
-            sx={{
-              fontSize: 20,
-              color: NAVY,
-              opacity: 0.75,
-              flexShrink: 0,
-              display: 'block',
-            }}
-          />
-          <Typography
-            component="div"
-            variant="body2"
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              minWidth: 0,
-              lineHeight: 1.25,
-            }}
-          >
-            <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
-              Solicitante:
-            </Box>
-            <Box
-              component="span"
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
+            <PersonOutlineOutlinedIcon
               sx={{
+                fontSize: 20,
                 color: NAVY,
-                fontWeight: 700,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                opacity: 0.75,
+                flexShrink: 0,
+                display: 'block',
+              }}
+            />
+            <Typography
+              component="div"
+              variant="body2"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                minWidth: 0,
+                lineHeight: 1.25,
               }}
             >
-              {sessao?.nome}
-            </Box>
-          </Typography>
+              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
+                Solicitante:
+              </Box>
+              <Box
+                component="span"
+                sx={{
+                  color: NAVY,
+                  fontWeight: 700,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {sessao?.nome}
+              </Box>
+            </Typography>
+          </Box>
+          {cat && <Box sx={{ flexShrink: 0 }}>{urgenciaChip(cat.urgencia_padrao)}</Box>}
         </Box>
 
         {lojasDisponiveis.length > 0 && (
@@ -423,82 +448,82 @@ export default function ChamadosMobileNovoPage() {
         <IndicadorEtapasNovoChamado etapaAtiva={etapaAtiva} />
 
         {form && form.categorias.length > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-            <TextField
-              select
-              label="Categoria"
-              required
-              size="small"
-              value={idCategoria}
-              onChange={(e) => {
-                const v = e.target.value;
-                setIdCategoria(v ? Number(v) : '');
-              }}
-              slotProps={{
-                inputLabel: { shrink: true },
-                select: {
-                  ...selectMenuScrollProps,
-                  displayEmpty: true,
-                  renderValue: (selected: unknown) => {
-                    if (selected === '' || selected == null) {
-                      return (
-                        <Typography component="span" variant="body2" color="text.secondary">
-                          Selecione uma categoria
-                        </Typography>
-                      );
-                    }
-                    const categoria = form.categorias.find((c) => c.id_categoria === Number(selected));
-                    return categoria?.nome ?? '';
-                  },
+          <TextField
+            select
+            label="Categoria"
+            required
+            fullWidth
+            size="small"
+            value={idCategoria === '' ? '' : String(idCategoria)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setIdCategoria(v === '' ? '' : Number(v));
+            }}
+            slotProps={{
+              inputLabel: { shrink: true },
+              select: {
+                ...selectMenuScrollProps,
+                displayEmpty: true,
+                renderValue: (selected: unknown) => {
+                  if (selected === '' || selected == null) {
+                    return (
+                      <Typography component="span" variant="body2" color="text.secondary">
+                        Selecione uma categoria
+                      </Typography>
+                    );
+                  }
+                  const categoria = form.categorias.find(
+                    (c) => String(c.id_categoria) === String(selected),
+                  );
+                  return categoria?.nome ?? '';
                 },
-              }}
-              sx={{ flex: 1, minWidth: 160 }}
-            >
-              <MenuItem value="">
-                <em>Selecione uma categoria</em>
+              },
+            }}
+          >
+            <MenuItem value="">
+              <em>Selecione uma categoria</em>
+            </MenuItem>
+            {form.categorias.map((c) => (
+              <MenuItem key={c.id_categoria} value={String(c.id_categoria)}>
+                {c.nome}
               </MenuItem>
-              {form.categorias.map((c) => (
-                <MenuItem key={c.id_categoria} value={c.id_categoria}>
-                  {c.nome}
-                </MenuItem>
-              ))}
-            </TextField>
-            {cat && <Box sx={{ flexShrink: 0 }}>{urgenciaChip(cat.urgencia_padrao)}</Box>}
-          </Box>
+            ))}
+          </TextField>
         )}
 
         <TextField
           label="Título"
           required
-          fullWidth
-          size="small"
+          {...campoFormularioProps}
           value={titulo}
           onChange={(e) => setTitulo(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 16 } } }}
         />
 
         <TextField
           label="Local do ocorrido"
-          fullWidth
-          size="small"
+          {...campoFormularioProps}
           value={local}
           onChange={(e) => setLocal(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 16 } } }}
         />
 
         <TextField
           label="Descrição"
           required
-          fullWidth
+          {...campoFormularioProps}
           multiline
           minRows={4}
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 16 } } }}
+          sx={{
+            ...campoFormularioProps.sx,
+            '& .MuiOutlinedInput-input': {
+              py: 1.25,
+            },
+          }}
         />
 
-        {descricaoCompleta && (
-          <Box sx={{ pt: 0.5 }}>
+        {podeAnexarFotos && (
+          <Box ref={fotosRef} sx={{ pt: 0.5 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
               Fotos e vídeos do problema *
             </Typography>
