@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -8,12 +8,20 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
-import InputAdornment from '@mui/material/InputAdornment';
+import Stepper from '@mui/material/Stepper';
+import Step from '@mui/material/Step';
+import StepLabel from '@mui/material/StepLabel';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
+import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
+import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import { api } from '../../api/client';
-import type { ManutFormulario } from '../../api/client';
-import { getUsuario, temPermissao, ehGestorLojaMobile, deveEscolherLojaNovoChamadoMobile } from '../../lib/auth';
+import type { ManutFormulario, ManutLoja } from '../../api/client';import {
+  getUsuario,
+  temPermissao,
+  ehGestorLojaMobile,
+  deveEscolherLojaNovoChamadoMobile,
+} from '../../lib/auth';
 import { urgenciaChip } from '../../utils/manutencaoUi';
 import { extensaoMidia } from '../../utils/mediaFile';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
@@ -22,6 +30,7 @@ import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
 const ROTA_LISTA = '/chamados/mobile';
 const CACHE_KEY = 'manut_formulario_mobile_v1';
 const ORANGE = '#E8520A';
+const NAVY = '#1B2A6B';
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
@@ -32,10 +41,206 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([arr], { type: mime });
 }
 
-export default function ChamadosMobileNovoPage() {
-  const navigate = useNavigate();
+function SeletorLojaNovoChamado({
+  lojas,
+  idLoja,
+  onSelecionar,
+}: {
+  lojas: ManutLoja[];
+  idLoja: number | '';
+  onSelecionar: (id: number) => void;
+}) {
+  const [expandido, setExpandido] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const multiplas = lojas.length > 1;
+  const lojaAtual = lojas.find((l) => l.id_loja === idLoja) ?? lojas[0];
+  const nomeExibido = lojaAtual?.nome ?? 'Selecione a loja';
+
+  useEffect(() => {
+    if (!expandido) return;
+    function fecharFora(e: MouseEvent | TouchEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setExpandido(false);
+      }
+    }
+    document.addEventListener('mousedown', fecharFora);
+    document.addEventListener('touchstart', fecharFora);
+    return () => {
+      document.removeEventListener('mousedown', fecharFora);
+      document.removeEventListener('touchstart', fecharFora);
+    };
+  }, [expandido]);
+
+  if (!lojas.length) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1.25, pt: 1.25, borderTop: '1px solid rgba(27, 42, 107, 0.08)' }}>
+        Nenhuma loja disponível
+      </Typography>
+    );
+  }
+
+  return (
+    <Box
+      ref={containerRef}
+      sx={{
+        position: 'relative',
+        mt: 1.25,
+        pt: 1.25,
+        borderTop: '1px solid rgba(27, 42, 107, 0.08)',
+        zIndex: expandido ? 40 : 'auto',
+      }}
+    >
+      <Box
+        role={multiplas ? 'button' : undefined}
+        tabIndex={multiplas ? 0 : undefined}
+        onClick={() => multiplas && setExpandido((v) => !v)}
+        onKeyDown={(e) => {
+          if (multiplas && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            setExpandido((v) => !v);
+          }
+        }}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          minWidth: 0,
+          minHeight: 24,
+          cursor: multiplas ? 'pointer' : 'default',
+          borderRadius: 1.5,
+          py: 0.35,
+          px: 0.25,
+          mx: -0.25,
+          bgcolor: multiplas && expandido ? 'rgba(27, 42, 107, 0.05)' : 'transparent',
+          '&:hover': multiplas ? { bgcolor: 'rgba(27, 42, 107, 0.05)' } : undefined,
+        }}
+      >
+        <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE, flexShrink: 0, display: 'block' }} />
+        <Typography
+          component="div"
+          variant="body2"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            minWidth: 0,
+            flex: 1,
+            lineHeight: 1.25,
+          }}
+        >
+          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
+            Loja:
+          </Box>
+          <Box
+            component="span"
+            sx={{
+              color: lojaAtual ? NAVY : 'text.secondary',
+              fontWeight: lojaAtual ? 700 : 500,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {nomeExibido}
+          </Box>
+        </Typography>
+        {multiplas && (
+          <UnfoldMoreIcon
+            sx={{
+              fontSize: 18,
+              color: 'text.secondary',
+              flexShrink: 0,
+              transform: expandido ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.15s ease',
+            }}
+          />
+        )}
+      </Box>
+
+      {multiplas && expandido && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            mt: 0.5,
+            zIndex: 50,
+            borderRadius: 2,
+            border: '1px solid rgba(27, 42, 107, 0.15)',
+            bgcolor: '#fff',
+            maxHeight: 280,
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            boxShadow: '0 8px 24px rgba(27, 42, 107, 0.18)',
+          }}
+        >
+          {lojas.map((loja) => {
+            const ativa = loja.id_loja === idLoja;
+            return (
+              <Box
+                key={loja.id_loja}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  onSelecionar(loja.id_loja);
+                  setExpandido(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelecionar(loja.id_loja);
+                    setExpandido(false);
+                  }
+                }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 1,
+                  px: 1.5,
+                  py: 1.15,
+                  minHeight: 44,
+                  cursor: 'pointer',
+                  bgcolor: ativa ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
+                  borderBottom: '1px solid rgba(27, 42, 107, 0.08)',
+                  '&:last-child': { borderBottom: 'none' },
+                  '&:hover': { bgcolor: ativa ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.04)' },
+                }}
+              >
+                <LocationOnOutlinedIcon
+                  sx={{
+                    fontSize: 18,
+                    color: ativa ? ORANGE : 'text.secondary',
+                    flexShrink: 0,
+                    mt: 0.1,
+                  }}
+                />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: ativa ? 700 : 600,
+                    color: ativa ? NAVY : 'text.secondary',
+                    lineHeight: 1.35,
+                    textAlign: 'left',
+                    flex: 1,
+                    minWidth: 0,
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {loja.nome}
+                </Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+export default function ChamadosMobileNovoPage() {  const navigate = useNavigate();
   const sessao = getUsuario();
-  const { idLoja: lojaSelecionada } = useChamadosMobileLoja();
+  const { idLoja: lojaSelecionada, setIdLoja: setLojaContexto } = useChamadosMobileLoja();
   const [form, setForm] = useState<ManutFormulario | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -73,8 +278,6 @@ export default function ChamadosMobileNovoPage() {
     const acessoTodas = temPermissao('lojas.todas', usuario);
     const escolherLoja = deveEscolherLojaNovoChamadoMobile(usuario);
     const gestorLoja = ehGestorLojaMobile(usuario);
-    const lojaUnicaGestor =
-      gestorLoja && !acessoTodas && usuario.lojas?.length === 1 ? usuario.lojas[0].id_loja : null;
 
     api
       .manutFormulario()
@@ -82,9 +285,15 @@ export default function ChamadosMobileNovoPage() {
         if (!ativo) return;
         setForm(f);
         sessionStorage.setItem(CACHE_KEY, JSON.stringify(f));
-        if (lojaUnicaGestor) {
+        if (gestorLoja && !acessoTodas) {
+          const lojaCtx =
+            lojaSelecionada && f.lojas.some((l) => l.id_loja === lojaSelecionada)
+              ? lojaSelecionada
+              : usuario.lojas?.[0]?.id_loja;
           const lojaId =
-            f.lojas.find((l) => l.id_loja === lojaUnicaGestor)?.id_loja ?? f.lojas[0]?.id_loja;
+            lojaCtx && f.lojas.some((l) => l.id_loja === lojaCtx)
+              ? lojaCtx
+              : f.lojas[0]?.id_loja;
           if (lojaId) setIdLoja(lojaId);
         } else if (!escolherLoja && lojaSelecionada && f.lojas.some((l) => l.id_loja === lojaSelecionada)) {
           setIdLoja(lojaSelecionada);
@@ -103,12 +312,29 @@ export default function ChamadosMobileNovoPage() {
   }, [navigate, lojaSelecionada]);
 
   const cat = form?.categorias.find((c) => c.id_categoria === idCategoria);
-  const acessoTodasLojas = sessao && temPermissao('lojas.todas', sessao);
-  const lojaFixa =
-    sessao &&
-    ehGestorLojaMobile(sessao) &&
-    !acessoTodasLojas &&
-    (sessao.lojas?.length ?? 0) === 1;
+  const lojasDisponiveis = form?.lojas ?? [];
+  const descricaoCompleta = Boolean(
+    idLoja && idCategoria && titulo.trim().length > 0 && descricao.trim().length >= 10,
+  );
+  const etapaAtiva = descricaoCompleta ? 1 : 0;
+  const podeEnviar = descricaoCompleta && fotos.length > 0;
+
+  useEffect(() => {
+    if (lojasDisponiveis.length === 1 && !idLoja) {
+      const unica = lojasDisponiveis[0].id_loja;
+      setIdLoja(unica);
+      setLojaContexto(unica);
+    }
+  }, [lojasDisponiveis, idLoja, setLojaContexto]);
+
+  useEffect(() => {
+    if (!descricaoCompleta && fotos.length) setFotos([]);
+  }, [descricaoCompleta, fotos.length]);
+
+  function selecionarLoja(lojaId: number) {
+    setIdLoja(lojaId);
+    setLojaContexto(lojaId);
+  }
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
@@ -165,38 +391,71 @@ export default function ChamadosMobileNovoPage() {
   return (
     <Box component="form" onSubmit={enviar} className="max-w-lg mx-auto w-full">
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="caption" color="text.secondary">
-          Solicitante
-        </Typography>
-        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-          {sessao?.nome}
-        </Typography>
-      </Paper>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            minWidth: 0,
+            minHeight: 24,
+          }}
+        >
+          <PersonOutlineOutlinedIcon
+            sx={{
+              fontSize: 20,
+              color: NAVY,
+              opacity: 0.75,
+              flexShrink: 0,
+              display: 'block',
+            }}
+          />
+          <Typography
+            component="div"
+            variant="body2"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              minWidth: 0,
+              lineHeight: 1.25,
+            }}
+          >
+            <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
+              Solicitante:
+            </Box>
+            <Box
+              component="span"
+              sx={{
+                color: NAVY,
+                fontWeight: 700,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {sessao?.nome}
+            </Box>
+          </Typography>
+        </Box>
 
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-          Fotos e vídeos do problema *
-        </Typography>
-        <PhotoCaptureMulti
-          fotos={fotos}
-          onChange={setFotos}
-          max={10}
-          disabled={salvando}
-          inlineActions
-          hideCaption
-        />
+        {lojasDisponiveis.length > 0 && (
+          <SeletorLojaNovoChamado
+            lojas={lojasDisponiveis}
+            idLoja={idLoja}
+            onSelecionar={selecionarLoja}
+          />
+        )}
       </Paper>
 
       <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <TextField
-          label="Título"
-          required
-          fullWidth
-          size="small"
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          slotProps={{ input: { style: { fontSize: 16 } } }}
-        />
+        <Stepper activeStep={etapaAtiva} alternativeLabel sx={{ mb: 0.5 }}>
+          <Step>
+            <StepLabel>Descrição</StepLabel>
+          </Step>
+          <Step>
+            <StepLabel>Fotos</StepLabel>
+          </Step>
+        </Stepper>
 
         {form && form.categorias.length > 0 && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -243,72 +502,18 @@ export default function ChamadosMobileNovoPage() {
           </Box>
         )}
 
-        {form && form.lojas.length > 0 && (
-          lojaFixa ? (
-            <Paper variant="outlined" sx={{ p: 1.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE, flexShrink: 0 }} />
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Loja
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {form.lojas.find((l) => l.id_loja === idLoja)?.nome}
-                  </Typography>
-                </Box>
-              </Box>
-            </Paper>
-          ) : (
-            <TextField
-              select
-              label="Loja"
-              required
-              fullWidth
-              size="small"
-              value={idLoja}
-              onChange={(e) => {
-                const v = e.target.value;
-                setIdLoja(v ? Number(v) : '');
-              }}
-              slotProps={{
-                inputLabel: { shrink: true },
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE }} />
-                    </InputAdornment>
-                  ),
-                },
-                select: {
-                  ...selectMenuScrollProps,
-                  displayEmpty: true,
-                  renderValue: (selected: unknown) => {
-                    if (selected === '' || selected == null) {
-                      return (
-                        <Typography component="span" variant="body2" color="text.secondary">
-                          Selecione a Loja
-                        </Typography>
-                      );
-                    }
-                    return form.lojas.find((l) => l.id_loja === Number(selected))?.nome ?? '';
-                  },
-                },
-              }}
-            >
-              <MenuItem value="">
-                <em>Selecione a Loja</em>
-              </MenuItem>
-              {form.lojas.map((l) => (
-                <MenuItem key={l.id_loja} value={l.id_loja}>
-                  {l.nome}
-                </MenuItem>
-              ))}
-            </TextField>
-          )
-        )}
+        <TextField
+          label="Título"
+          required
+          fullWidth
+          size="small"
+          value={titulo}
+          onChange={(e) => setTitulo(e.target.value)}
+          slotProps={{ input: { style: { fontSize: 16 } } }}
+        />
 
         <TextField
-          label="Local / detalhe"
+          label="Local do ocorrido"
           fullWidth
           size="small"
           value={local}
@@ -326,6 +531,28 @@ export default function ChamadosMobileNovoPage() {
           onChange={(e) => setDescricao(e.target.value)}
           slotProps={{ input: { style: { fontSize: 16 } } }}
         />
+
+        {descricaoCompleta && (
+          <Box sx={{ pt: 0.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+              Fotos e vídeos do problema *
+            </Typography>
+            <PhotoCaptureMulti
+              fotos={fotos}
+              onChange={setFotos}
+              max={10}
+              disabled={salvando}
+              inlineActions
+              hideCaption
+            />
+          </Box>
+        )}
+
+        {!descricaoCompleta && (
+          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+            Preencha categoria, título e descrição (mín. 10 caracteres) para liberar as fotos.
+          </Typography>
+        )}
       </Paper>
 
       {erro && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
@@ -340,7 +567,7 @@ export default function ChamadosMobileNovoPage() {
         >
           Cancelar
         </Button>
-        <Button fullWidth type="submit" variant="contained" disabled={salvando}>
+        <Button fullWidth type="submit" variant="contained" disabled={salvando || !podeEnviar}>
           {salvando ? 'Enviando...' : 'Abrir chamado'}
         </Button>
       </Box>

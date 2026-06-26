@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -10,9 +11,18 @@ import { showToast } from '../../utils/toast';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
+import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import { api } from '../../api/client';
 import type { ManutChamado } from '../../api/client';
-import { getUsuario, modoCabecalhoContextoMobile, filtraChamadosPorLojaMobile, rotuloRegiaoMobile, rotuloLojaMobile, tecnicoCampoSemRegiao, temPermissao } from '../../lib/auth';
+import {
+  getUsuario,
+  filtraChamadosPorLojaMobile,
+  modoCabecalhoContextoMobile,
+  rotuloLojaMobile,
+  rotuloRegiaoMobile,
+  tecnicoCampoSemRegiao,
+  temPermissao,
+} from '../../lib/auth';
 import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
 import { parseDataApi } from '../../utils/dateBr';
@@ -28,26 +38,16 @@ function primeiroNome(nome?: string) {
   return nome?.trim().split(/\s+/)[0] || 'Olá';
 }
 
-function StatMini({ valor, rotulo }: { valor: number; rotulo: string }) {
-  return (
-    <Box
-      sx={{
-        flex: 1,
-        textAlign: 'center',
-        py: 1.25,
-        px: 1,
-        borderRadius: 1.5,
-        bgcolor: 'rgba(255,255,255,0.12)',
-      }}
-    >
-      <Typography sx={{ fontWeight: 800, fontSize: '1.35rem', lineHeight: 1.1, color: '#fff' }}>
-        {valor}
-      </Typography>
-      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600, fontSize: '0.68rem' }}>
-        {rotulo}
-      </Typography>
-    </Box>
-  );
+function subtituloMobile(abertos: number, urgentes: number) {
+  if (urgentes > 0) {
+    return urgentes === 1
+      ? '1 chamado precisa de atenção prioritária'
+      : `${urgentes} chamados precisam de atenção prioritária`;
+  }
+  if (abertos > 0) {
+    return 'Toque em um chamado para acompanhar';
+  }
+  return 'Tudo em dia por aqui';
 }
 
 export default function ChamadosMobileHistoricoPage() {
@@ -59,6 +59,7 @@ export default function ChamadosMobileHistoricoPage() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [aba, setAba] = useState<AbaLista>('abertos');
+  const [assumindoId, setAssumindoId] = useState<number | null>(null);
 
   function recarregar() {
     return api
@@ -93,8 +94,14 @@ export default function ChamadosMobileHistoricoPage() {
     recarregar();
   }, [location.state, location.pathname, navigate]);
 
-  const modoCabecalho = modoCabecalhoContextoMobile(sessao);
   const semRegiaoVinculada = tecnicoCampoSemRegiao(sessao);
+  const modoCabecalho = modoCabecalhoContextoMobile(sessao);
+  const contextoAtuacao =
+    modoCabecalho === 'regiao'
+      ? rotuloRegiaoMobile(sessao)
+      : modoCabecalho === 'loja'
+        ? rotuloLojaMobile(sessao, idLoja)
+        : null;
 
   const multiplasLojas = (sessao?.lojas?.length ?? 0) > 1;
   const filtrarPorLoja = filtraChamadosPorLojaMobile(sessao);
@@ -126,6 +133,27 @@ export default function ChamadosMobileHistoricoPage() {
 
   const listaAba = aba === 'abertos' ? emAberto : fechados;
 
+  const urgentes = useMemo(
+    () => emAberto.filter((c) => c.urgencia === 'alta' || c.urgencia === 'critica').length,
+    [emAberto],
+  );
+
+  async function assumirTicket(e: MouseEvent, c: ManutChamado) {
+    e.stopPropagation();
+    if (assumindoId != null) return;
+    setAssumindoId(c.id_chamado);
+    try {
+      await api.manutAssumirChamado(c.id_chamado);
+      showToast('Ticket assumido!', 'success');
+      window.dispatchEvent(new CustomEvent(NOTIFICACOES_REFRESH));
+      await recarregar();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao assumir ticket', 'error');
+    } finally {
+      setAssumindoId(null);
+    }
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
@@ -142,68 +170,95 @@ export default function ChamadosMobileHistoricoPage() {
         </Alert>
       )}
 
-      {/* Resumo */}
-      <Paper
-        elevation={0}
+      {/* Cabeçalho da lista — saudação + contexto de atuação */}
+      <Box
         sx={{
           mb: 2,
-          borderRadius: 2.5,
-          overflow: 'hidden',
-          bgcolor: NAVY,
-          color: '#fff',
-          boxShadow: '0 8px 24px rgba(27, 42, 107, 0.22)',
+          ml: 'calc(-1 * max(16px, env(safe-area-inset-left, 0px)))',
+          mr: 'calc(-1 * max(16px, env(safe-area-inset-right, 0px)))',
+          width:
+            'calc(100% + max(16px, env(safe-area-inset-left, 0px)) + max(16px, env(safe-area-inset-right, 0px)))',
+          pl: 'calc(max(16px, env(safe-area-inset-left, 0px)) + 12px)',
+          pr: 'max(16px, env(safe-area-inset-right, 0px))',
+          pt: 2.5,
+          pb: 1.35,
+          borderRadius: 0,
+          border: 'none',
+          borderBottom: '1px solid rgba(27, 42, 107, 0.1)',
+          bgcolor: '#fff',
+          boxShadow: '0 2px 8px rgba(27, 42, 107, 0.04)',
         }}
       >
-        <Box sx={{ px: 2, pt: 2, pb: 1.5 }}>
-          {modoCabecalho === 'regiao' && (
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600, display: 'block' }}>
-              {rotuloRegiaoMobile(sessao)}
-            </Typography>
-          )}
-          {modoCabecalho === 'loja' && (
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600, display: 'block' }}>
-              {rotuloLojaMobile(sessao, idLoja)}
-            </Typography>
-          )}
-          <Typography
-            variant="caption"
+        <Typography
+          component="h1"
+          sx={{
+            fontWeight: 800,
+            fontSize: { xs: '1.5rem', sm: '1.35rem' },
+            lineHeight: 1.15,
+            color: NAVY,
+            letterSpacing: '-0.03em',
+          }}
+        >
+          Olá, {primeiroNome(sessao?.nome)}
+        </Typography>
+
+        {contextoAtuacao && (
+          <Box
             sx={{
-              color: 'rgba(255,255,255,0.75)',
-              fontWeight: 600,
-              display: 'block',
-              mt: modoCabecalho === 'regiao' || modoCabecalho === 'loja' ? 0.25 : 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              mt: 0.5,
+              minWidth: 0,
             }}
           >
-            {modoCabecalho === 'loja' ? 'Manutenção da loja' : 'Central de chamados'}
-          </Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.25, mt: 0.25 }}>
-            Olá, {primeiroNome(sessao?.nome)}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 0.5, fontSize: '0.8rem' }}>
-            Acompanhe chamados em aberto e consulte o histórico de encerrados.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, px: 2, pb: 2 }}>
-          <StatMini valor={emAberto.length} rotulo="Em aberto" />
-          <StatMini valor={fechados.length} rotulo="Fechados" />
-        </Box>
-      </Paper>
+            <LocationOnOutlinedIcon sx={{ fontSize: 16, color: ORANGE, flexShrink: 0 }} />
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                lineHeight: 1.35,
+                color: NAVY,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {contextoAtuacao}
+            </Typography>
+          </Box>
+        )}
+
+        <Typography
+          variant="body2"
+          sx={{
+            mt: contextoAtuacao ? 0.65 : 0.55,
+            pt: contextoAtuacao ? 0.65 : 0,
+            borderTop: contextoAtuacao ? '1px solid rgba(27, 42, 107, 0.07)' : 'none',
+            fontSize: '0.84rem',
+            lineHeight: 1.4,
+            color: urgentes > 0 ? ORANGE : 'text.secondary',
+            fontWeight: urgentes > 0 ? 600 : 400,
+          }}
+        >
+          {subtituloMobile(emAberto.length, urgentes)}
+        </Typography>
+      </Box>
 
       {/* Abas */}
       <Box
         sx={{
           display: 'flex',
-          gap: 0.5,
-          p: 0.5,
-          mb: 2,
+          gap: 0.25,
+          p: 0.3,
+          mb: 1.75,
           borderRadius: 2.5,
-          bgcolor: 'rgba(27, 42, 107, 0.07)',
-          border: '1px solid rgba(27, 42, 107, 0.08)',
+          bgcolor: 'rgba(27, 42, 107, 0.08)',
         }}
       >
         {(
           [
-            { id: 'abertos' as const, label: 'Em aberto', icon: InboxOutlinedIcon, qtd: emAberto.length },
+            { id: 'abertos' as const, label: 'Abertos', icon: InboxOutlinedIcon, qtd: emAberto.length },
             { id: 'fechados' as const, label: 'Fechados', icon: ArchiveOutlinedIcon, qtd: fechados.length },
           ] as const
         ).map(({ id, label, icon: Icon, qtd }) => {
@@ -213,34 +268,38 @@ export default function ChamadosMobileHistoricoPage() {
               key={id}
               fullWidth
               onClick={() => setAba(id)}
-              startIcon={<Icon sx={{ fontSize: '18px !important' }} />}
+              startIcon={<Icon sx={{ fontSize: '15px !important', mr: '-2px !important' }} />}
               sx={{
-                py: 1.1,
+                minHeight: 0,
+                py: 0.7,
+                px: 0.75,
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 700,
-                fontSize: '0.82rem',
+                fontSize: '0.8rem',
                 color: ativa ? NAVY : 'text.secondary',
                 bgcolor: ativa ? '#fff' : 'transparent',
-                boxShadow: ativa ? '0 2px 8px rgba(27, 42, 107, 0.12)' : 'none',
-                '&:hover': { bgcolor: ativa ? '#fff' : 'rgba(255,255,255,0.5)' },
+                boxShadow: ativa ? '0 1px 6px rgba(27, 42, 107, 0.12)' : 'none',
+                '&:hover': { bgcolor: ativa ? '#fff' : 'rgba(255,255,255,0.35)' },
+                '& .MuiButton-startIcon': { mr: 0.5 },
               }}
             >
               {label}
               <Box
                 component="span"
                 sx={{
-                  ml: 0.75,
-                  minWidth: 22,
-                  height: 22,
-                  px: 0.75,
-                  borderRadius: 10,
+                  ml: 0.5,
+                  minWidth: 18,
+                  height: 18,
+                  px: 0.5,
+                  borderRadius: 9,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '0.72rem',
+                  fontSize: '0.65rem',
                   fontWeight: 800,
-                  bgcolor: ativa ? (id === 'abertos' ? ORANGE : 'rgba(27,42,107,0.12)') : 'rgba(27,42,107,0.1)',
+                  lineHeight: 1,
+                  bgcolor: ativa ? (id === 'abertos' ? ORANGE : 'rgba(27,42,107,0.12)') : 'rgba(27,42,107,0.09)',
                   color: ativa && id === 'abertos' ? '#fff' : ativa ? NAVY : 'text.secondary',
                 }}
               >
@@ -269,14 +328,14 @@ export default function ChamadosMobileHistoricoPage() {
             <ArchiveOutlinedIcon sx={{ fontSize: 40, color: NAVY, mb: 1, opacity: 0.5 }} />
           )}
           <Typography sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
-            {aba === 'abertos' ? 'Nenhum chamado em aberto' : 'Nenhum chamado fechado'}
+            {aba === 'abertos' ? 'Nenhum chamado aberto' : 'Nenhum chamado fechado'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: aba === 'abertos' ? 2 : 0 }}>
             {semRegiaoVinculada
               ? 'Você não está vinculado a nenhuma região. Peça ao administrador para associar sua região de atuação.'
               : aba === 'abertos'
                 ? 'Quando houver uma solicitação de manutenção, ela aparecerá aqui.'
-                : 'Chamados concluídos ou cancelados ficam registrados nesta aba.'}
+                : 'Chamados concluídos ou cancelados aparecem na aba Fechados.'}
           </Typography>
           {aba === 'abertos' && sessao && temPermissao('chamados.abrir', sessao) && !semRegiaoVinculada && (
             <Button
@@ -296,10 +355,14 @@ export default function ChamadosMobileHistoricoPage() {
           <ChamadoCardResumo
             key={c.id_chamado}
             chamado={c}
+            variant="mobile"
             compact={aba === 'fechados'}
-            showLoja={multiplasLojas}
+            showLoja={multiplasLojas || modoCabecalho === 'regiao'}
             showSla={aba === 'abertos'}
             showDataEncerramento={aba === 'fechados'}
+            mostrarAssumir={aba === 'abertos'}
+            onAssumir={(e) => void assumirTicket(e, c)}
+            assumindo={assumindoId === c.id_chamado}
             onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
           />
         ))}

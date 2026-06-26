@@ -57,8 +57,8 @@ export function slaChip(horas: number) {
 }
 
 export const STATUS_CHAMADO: Record<string, { label: string; color: string; bg: string }> = {
-  aberto: { label: 'Solicitado', color: '#92400E', bg: '#FEF3C7' },
-  em_atendimento: { label: 'Em andamento', color: '#1E40AF', bg: '#DBEAFE' },
+  aberto: { label: 'Em aberto', color: '#92400E', bg: '#FEF3C7' },
+  em_atendimento: { label: 'Em Tratamento', color: '#1E40AF', bg: '#DBEAFE' },
   em_aprovacao: { label: 'Em aprovação', color: '#7C3AED', bg: '#EDE9FE' },
   aprovado: { label: 'Aprovado', color: '#0F766E', bg: '#CCFBF1' },
   concluido: { label: 'Concluído', color: '#166534', bg: '#DCFCE7' },
@@ -66,8 +66,8 @@ export const STATUS_CHAMADO: Record<string, { label: string; color: string; bg: 
 };
 
 export const KANBAN_COLUNAS = [
-  { status: 'aberto', label: 'Solicitado', accent: '#F59E0B', icon: 'schedule' },
-  { status: 'em_atendimento', label: 'Em andamento', accent: '#3B82F6', icon: 'schedule' },
+  { status: 'aberto', label: 'Em aberto', accent: '#F59E0B', icon: 'schedule' },
+  { status: 'em_atendimento', label: 'Em Tratamento', accent: '#3B82F6', icon: 'schedule' },
   { status: 'em_aprovacao', label: 'Em aprovação', accent: '#8B5CF6', icon: 'schedule' },
   { status: 'aprovado', label: 'Aprovado', accent: '#14B8A6', icon: 'schedule' },
   { status: 'concluido', label: 'Concluído', accent: '#22C55E', icon: 'check' },
@@ -359,6 +359,172 @@ export function SlaBarraProgresso({
       >
         {label}
       </Typography>
+    </Box>
+  );
+}
+
+export function rotuloPrazoSlaResumo(
+  abertoEm: string | undefined,
+  prazoSla: string,
+  opts?: { status?: string; fechadoEm?: string | null },
+) {
+  const { percentual, estourado } = calcularProgressoSla(abertoEm, prazoSla, opts);
+  const prazo = parseDataApi(prazoSla);
+  if (Number.isNaN(prazo.getTime())) {
+    return { texto: '—', cor: '#9CA3AF', destaque: false };
+  }
+  if (estourado) {
+    return { texto: 'Prazo estourado', cor: '#DC2626', destaque: true };
+  }
+
+  const diffMs = prazo.getTime() - Date.now();
+  if (diffMs < 60 * 60 * 1000) {
+    const mins = Math.max(1, Math.ceil(diffMs / (60 * 1000)));
+    return {
+      texto: mins === 1 ? 'Vence em 1 min' : `Vence em ${mins} min`,
+      cor: '#D97706',
+      destaque: true,
+    };
+  }
+  if (diffMs < 24 * 60 * 60 * 1000) {
+    const horas = Math.floor(diffMs / (60 * 60 * 1000));
+    const mins = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
+    const texto = mins > 0 ? `Vence em ${horas}h ${mins}min` : `Vence em ${horas}h`;
+    return {
+      texto,
+      cor: percentual >= 85 ? '#D97706' : '#6B7280',
+      destaque: percentual >= 85,
+    };
+  }
+
+  return {
+    texto: formatDataHoraBrasilia(prazoSla),
+    cor: '#6B7280',
+    destaque: false,
+  };
+}
+
+/** Círculo compacto com % do SLA consumido. */
+export function SlaCirculoPercentual({
+  abertoEm,
+  prazoSla,
+  status,
+  fechadoEm,
+  size = 38,
+}: {
+  abertoEm?: string;
+  prazoSla: string;
+  status?: string;
+  fechadoEm?: string | null;
+  size?: number;
+}) {
+  const { percentual, estourado, cancelado } = calcularProgressoSla(abertoEm, prazoSla, { status, fechadoEm });
+  const stroke = cancelado ? '#9CA3AF' : estourado ? '#EF4444' : percentual >= 85 ? '#F59E0B' : '#22C55E';
+  const textoCor = cancelado ? '#6B7280' : estourado ? '#DC2626' : percentual >= 85 ? '#B45309' : '#1B2A6B';
+  const raio = (size - 5) / 2;
+  const centro = size / 2;
+  const circunferencia = 2 * Math.PI * raio;
+  const offset = circunferencia - (percentual / 100) * circunferencia;
+
+  return (
+    <Box
+      aria-label={`SLA ${percentual}%`}
+      sx={{ position: 'relative', width: size, height: size, flexShrink: 0 }}
+    >
+      <Box
+        component="svg"
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        sx={{ display: 'block', transform: 'rotate(-90deg)' }}
+      >
+        <circle
+          cx={centro}
+          cy={centro}
+          r={raio}
+          fill="none"
+          stroke="rgba(27, 42, 107, 0.1)"
+          strokeWidth={3}
+        />
+        <circle
+          cx={centro}
+          cy={centro}
+          r={raio}
+          fill="none"
+          stroke={stroke}
+          strokeWidth={3}
+          strokeDasharray={circunferencia}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </Box>
+      <Typography
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 800,
+          fontSize: size <= 34 ? '0.52rem' : '0.58rem',
+          color: textoCor,
+          lineHeight: 1,
+        }}
+      >
+        {cancelado ? '—' : `${percentual}%`}
+      </Typography>
+    </Box>
+  );
+}
+
+/** SLA para listas mobile — círculo com % e texto do prazo. */
+export function SlaIndicadorSubtil({
+  abertoEm,
+  prazoSla,
+  status,
+  fechadoEm,
+}: {
+  abertoEm?: string;
+  prazoSla: string;
+  status?: string;
+  fechadoEm?: string | null;
+}) {
+  const { texto, cor, destaque } = rotuloPrazoSlaResumo(abertoEm, prazoSla, { status, fechadoEm });
+
+  return (
+    <Box
+      sx={{
+        mt: 1.25,
+        pt: 1,
+        borderTop: '1px solid rgba(27, 42, 107, 0.06)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.25,
+      }}
+    >
+      <SlaCirculoPercentual
+        abertoEm={abertoEm}
+        prazoSla={prazoSla}
+        status={status}
+        fechadoEm={fechadoEm}
+      />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.68rem', fontWeight: 500, display: 'block' }}>
+          Prazo SLA
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            color: destaque ? cor : 'text.secondary',
+            fontWeight: destaque ? 700 : 500,
+            fontSize: '0.74rem',
+            lineHeight: 1.35,
+            display: 'block',
+          }}
+        >
+          {texto}
+        </Typography>
+      </Box>
     </Box>
   );
 }

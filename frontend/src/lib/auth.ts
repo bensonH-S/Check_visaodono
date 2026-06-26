@@ -240,6 +240,28 @@ export function tecnicoCampoSemRegiao(usuario?: UsuarioSessao | null): boolean {
   return (ehTecnicoCampoMobile(usuario) || ehSupervisorRegiaoMobile(usuario)) && !(usuario ?? getUsuario())?.regioes_atuacao?.length;
 }
 
+/** Botão «Assumir» na lista mobile — quem pode assumir (exceto diretoria e gestor de loja). */
+export function podeAssumirTicketListaMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (!temPermissao('chamados.assumir', u)) return false;
+  if (podeReceberPainelDiretorChamados(u) || temPermissao('lojas.todas', u)) return false;
+  if (ehGestorLojaMobile(u) && !ehSupervisorRegiaoMobile(u)) return false;
+  return true;
+}
+
+export function chamadoPodeAssumirNaListaMobile(
+  chamado: { status: string; id_tecnico?: number | null },
+  usuario?: UsuarioSessao | null,
+): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u || !podeAssumirTicketListaMobile(u)) return false;
+  if (!['aberto', 'em_atendimento'].includes(chamado.status)) return false;
+  const idTec = chamado.id_tecnico != null ? Number(chamado.id_tecnico) : null;
+  if (idTec != null && !Number.isNaN(idTec) && idTec === Number(u.id_usuario)) return false;
+  return true;
+}
+
 export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {
   return (
     temPermissao('frota.usar', usuario) ||

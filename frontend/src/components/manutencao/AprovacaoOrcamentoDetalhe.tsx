@@ -700,7 +700,7 @@ export default function AprovacaoOrcamentoDetalhe({ idChamado, onConcluido }: Pr
         <DialogTitle>Não aprovar orçamento?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
-            O chamado #{detalhe.numero} voltará para <strong>Em andamento</strong> para a equipe de manutenção revisar o orçamento.
+            O chamado #{detalhe.numero} voltará para <strong>Em Tratamento</strong> para a equipe de manutenção revisar o orçamento.
           </Typography>
         </DialogContent>
         <DialogActions>

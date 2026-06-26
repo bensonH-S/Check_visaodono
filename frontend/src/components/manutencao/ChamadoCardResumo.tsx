@@ -1,14 +1,33 @@
+import type { ReactNode, MouseEvent } from 'react';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
+import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
+import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import type { ManutChamado } from '../../api/client';
 import NotificacaoBadge from '../NotificacaoBadge';
-import { KANBAN_COLUNAS, STATUS_CHAMADO, SlaBarraProgresso, tipoChamadoChip, urgenciaChip } from '../../utils/manutencaoUi';
+import {
+  KANBAN_COLUNAS,
+  STATUS_CHAMADO,
+  SlaBarraProgresso,
+  SlaCirculoPercentual,
+  tipoChamadoChip,
+  urgenciaChip,
+} from '../../utils/manutencaoUi';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
+import {
+  ehTecnicoCampoMobile,
+  filtraNotificacoesPorRegiaoMobile,
+  getUsuario,
+  podeReceberPainelDiretorChamados,
+  temPermissao,
+} from '../../lib/auth';
 
 const NAVY = '#1B2A6B';
 
@@ -24,9 +43,15 @@ function statusAccent(status: string) {
   return '#9CA3AF';
 }
 
+function urgenciaPrioritaria(urgencia: string) {
+  return urgencia === 'alta' || urgencia === 'critica';
+}
+
 type Props = {
   chamado: ManutChamado;
   onClick?: () => void;
+  /** Layout otimizado para listas mobile */
+  variant?: 'default' | 'mobile';
   /** Card menor para histórico ou kanban denso */
   compact?: boolean;
   /** Exibe loja (portal com várias unidades) */
@@ -37,17 +62,373 @@ type Props = {
   showSla?: boolean;
   /** Data de encerramento (aba fechados) */
   showDataEncerramento?: boolean;
+  /** Botão assumir ticket (técnicos da região) */
+  mostrarAssumir?: boolean;
+  onAssumir?: (e: MouseEvent) => void;
+  assumindo?: boolean;
 };
+
+function MetaLinha({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+      <Box sx={{ color: 'text.disabled', display: 'flex', flexShrink: 0 }}>{icon}</Box>
+      <Typography
+        variant="caption"
+        sx={{
+          color: 'text.secondary',
+          fontSize: '0.72rem',
+          fontWeight: 500,
+          lineHeight: 1.35,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {children}
+      </Typography>
+    </Box>
+  );
+}
+
+function ChamadoCardMobile({
+  chamado,
+  onClick,
+  compact,
+  showLoja,
+  showSla,
+  showDataEncerramento,
+  mostrarAssumir,
+  onAssumir,
+  assumindo,
+}: Omit<Props, 'variant' | 'hideStatus'>) {
+  const accent = statusAccent(chamado.status);
+  const tecnico = rotuloTecnicoCard(chamado.tecnico);
+  const sessao = getUsuario();
+  const jaEhTecnico =
+    sessao &&
+    chamado.id_tecnico != null &&
+    Number(chamado.id_tecnico) === Number(sessao.id_usuario);
+  const podeAssumirUsuario = Boolean(
+    sessao &&
+      filtraNotificacoesPorRegiaoMobile(sessao) &&
+      !podeReceberPainelDiretorChamados(sessao) &&
+      !temPermissao('lojas.todas', sessao) &&
+      (temPermissao('chamados.assumir', sessao) || ehTecnicoCampoMobile(sessao) || sessao.perfil === 'tecnico'),
+  );
+  const exibirAssumir = Boolean(
+    mostrarAssumir &&
+      podeAssumirUsuario &&
+      ['aberto', 'em_atendimento'].includes(chamado.status) &&
+      !jaEhTecnico,
+  );
+  const st = STATUS_CHAMADO[chamado.status] || {
+    label: chamado.status,
+    color: '#4B5563',
+    bg: '#F3F4F6',
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      onClick={onClick}
+      sx={{
+        display: 'flex',
+        borderRadius: 2.5,
+        border: '1px solid rgba(27, 42, 107, 0.09)',
+        bgcolor: '#fff',
+        boxShadow: '0 2px 12px rgba(27, 42, 107, 0.06)',
+        cursor: onClick ? 'pointer' : 'default',
+        overflow: 'hidden',
+        transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
+        '&:hover': onClick
+          ? { boxShadow: '0 4px 18px rgba(27, 42, 107, 0.11)', borderColor: 'rgba(27, 42, 107, 0.16)' }
+          : undefined,
+        '&:active': onClick ? { boxShadow: '0 1px 6px rgba(27, 42, 107, 0.08)' } : undefined,
+      }}
+    >
+      <Box aria-hidden sx={{ width: 3, flexShrink: 0, bgcolor: accent }} />
+      <Box
+        sx={{
+          position: 'relative',
+          flex: 1,
+          minWidth: 0,
+          px: 1.75,
+          py: 1.5,
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.85,
+            mb: 0.75,
+            py: 0.65,
+            px: 0.75,
+            borderRadius: 1.75,
+            bgcolor: 'rgba(27, 42, 107, 0.045)',
+            border: '1px solid rgba(27, 42, 107, 0.08)',
+          }}
+        >
+          <Box
+            component="span"
+            sx={{
+              flexShrink: 0,
+              alignSelf: 'center',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: 40,
+              px: 0.75,
+              py: 0.35,
+              borderRadius: 1.25,
+              bgcolor: NAVY,
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: '0.72rem',
+              lineHeight: 1.2,
+              letterSpacing: '-0.02em',
+              boxShadow: '0 2px 8px rgba(27, 42, 107, 0.22)',
+            }}
+          >
+            #{chamado.numero}
+          </Box>
+          <Box
+            aria-hidden
+            sx={{
+              width: '1px',
+              alignSelf: 'stretch',
+              my: 0.35,
+              bgcolor: 'rgba(27, 42, 107, 0.14)',
+              flexShrink: 0,
+            }}
+          />
+          <Typography
+            sx={{
+              fontWeight: 700,
+              lineHeight: 1.38,
+              color: 'text.primary',
+              fontSize: compact ? '0.9rem' : '0.94rem',
+              flex: 1,
+              minWidth: 0,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {chamado.titulo}
+          </Typography>
+        </Box>
+
+        {(urgenciaPrioritaria(chamado.urgencia) || chamado.tipo_chamado === 'orcamento') && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', mb: 0.35 }}>
+            {urgenciaPrioritaria(chamado.urgencia) && urgenciaChip(chamado.urgencia)}
+            {chamado.tipo_chamado === 'orcamento' && tipoChamadoChip('orcamento')}
+          </Box>
+        )}
+
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.65,
+            minWidth: 0,
+            mb: 0.15,
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              minWidth: 0,
+              flex: 1,
+              overflow: 'hidden',
+            }}
+          >
+            {showLoja && chamado.loja && (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, minWidth: 0, flexShrink: 1 }}>
+                  <LocationOnOutlinedIcon sx={{ fontSize: 14, color: '#E8520A', flexShrink: 0 }} />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.72rem',
+                      lineHeight: 1.4,
+                      fontWeight: 600,
+                      color: NAVY,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {chamado.loja}
+                  </Typography>
+                </Box>
+                <Typography
+                  component="span"
+                  aria-hidden
+                  sx={{
+                    color: 'rgba(27, 42, 107, 0.28)',
+                    fontSize: '0.72rem',
+                    fontWeight: 300,
+                    lineHeight: 1,
+                    flexShrink: 0,
+                  }}
+                >
+                  |
+                </Typography>
+              </>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, minWidth: 0, flexShrink: 1 }}>
+              <CategoryOutlinedIcon sx={{ fontSize: 14, color: 'text.disabled', flexShrink: 0 }} />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  fontSize: '0.72rem',
+                  lineHeight: 1.4,
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {chamado.categoria}
+              </Typography>
+            </Box>
+          </Box>
+          <Chip
+            label={st.label}
+            size="small"
+            sx={{
+              height: 22,
+              flexShrink: 0,
+              ml: 'auto',
+              fontWeight: 700,
+              fontSize: '0.62rem',
+              bgcolor: st.bg,
+              color: st.color,
+              border: `1px solid ${accent}40`,
+            }}
+          />
+        </Box>
+
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+            mt: 1,
+            pt: 0.85,
+            borderTop: '1px solid rgba(27, 42, 107, 0.06)',
+          }}
+        >
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              overflow: 'hidden',
+            }}
+          >
+            <MetaLinha icon={<PersonOutlineOutlinedIcon sx={{ fontSize: 14 }} />}>
+              {tecnico || 'Sem técnico'}
+            </MetaLinha>
+            <Box aria-hidden sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: 'rgba(27,42,107,0.2)', flexShrink: 0 }} />
+            <MetaLinha icon={<ScheduleOutlinedIcon sx={{ fontSize: 14 }} />}>
+              {showDataEncerramento && chamado.fechado_em
+                ? `Encerrado ${formatDataHoraBrasilia(chamado.fechado_em)}`
+                : formatDataHoraBrasilia(chamado.aberto_em || chamado.prazo_sla)}
+            </MetaLinha>
+            <NotificacaoBadge count={chamado.notificacoes_nao_lidas} />
+          </Box>
+
+          {(exibirAssumir || showSla) && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.65,
+                flexShrink: 0,
+              }}
+            >
+              {exibirAssumir && onAssumir && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={assumindo}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAssumir(e);
+                  }}
+                  sx={{
+                    minWidth: 0,
+                    height: 28,
+                    px: 1.1,
+                    py: 0,
+                    fontSize: '0.62rem',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    borderRadius: 1.5,
+                    bgcolor: NAVY,
+                    boxShadow: 'none',
+                    whiteSpace: 'nowrap',
+                    '&:hover': { bgcolor: '#152258', boxShadow: 'none' },
+                  }}
+                >
+                  {assumindo ? <CircularProgress size={13} color="inherit" /> : 'Assumir'}
+                </Button>
+              )}
+              {showSla && (
+                <SlaCirculoPercentual
+                  abertoEm={chamado.aberto_em}
+                  prazoSla={chamado.prazo_sla}
+                  status={chamado.status}
+                  fechadoEm={chamado.fechado_em}
+                  size={34}
+                />
+              )}
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
 
 export default function ChamadoCardResumo({
   chamado,
   onClick,
+  variant = 'default',
   compact = false,
   showLoja = false,
   hideStatus = false,
   showSla = false,
   showDataEncerramento = false,
+  mostrarAssumir = false,
+  onAssumir,
+  assumindo = false,
 }: Props) {
+  if (variant === 'mobile') {
+    return (
+      <ChamadoCardMobile
+        chamado={chamado}
+        onClick={onClick}
+        compact={compact}
+        showLoja={showLoja}
+        showSla={showSla}
+        showDataEncerramento={showDataEncerramento}
+        mostrarAssumir={mostrarAssumir}
+        onAssumir={onAssumir}
+        assumindo={assumindo}
+      />
+    );
+  }
+
   const st = STATUS_CHAMADO[chamado.status] || {
     label: chamado.status,
     color: '#4B5563',

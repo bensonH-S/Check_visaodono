@@ -17,7 +17,7 @@ import SobreSistemaButton from '../components/SobreSistemaButton';
 import PwaInstallBanner from '../components/PwaInstallBanner';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
-import { toAppPath } from '../config/paths';
+import { assetUrl, FAVICON_ICON, toAppPath } from '../config/paths';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
@@ -56,14 +56,14 @@ function RegiaoAtuacaoCabecalho({ user }: { user: UsuarioSessao | null }) {
         textAlign: 'center',
       }}
     >
-      <LocationOnOutlinedIcon sx={{ fontSize: { xs: 20, sm: 18 }, color: '#E8520A', flexShrink: 0 }} />
+      <LocationOnOutlinedIcon sx={{ fontSize: { xs: 18, sm: 16 }, color: '#E8520A', flexShrink: 0 }} />
       <Typography
         variant="body2"
         sx={{
           color: NAVY,
           fontWeight: 700,
-          fontSize: { xs: '0.9rem', sm: '0.8rem' },
-          lineHeight: 1.35,
+          fontSize: { xs: '0.82rem', sm: '0.78rem' },
+          lineHeight: 1.3,
         }}
       >
         {rotulo}
@@ -132,7 +132,7 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
           textAlign: 'center',
           cursor: multiplas ? 'pointer' : 'default',
           borderRadius: 2,
-          py: { xs: 0.5, sm: 0.5 },
+          py: { xs: 0.25, sm: 0.25 },
           bgcolor: multiplas && expandido ? 'rgba(27, 42, 107, 0.06)' : 'transparent',
           '&:hover': multiplas ? { bgcolor: 'rgba(27, 42, 107, 0.06)' } : undefined,
         }}
@@ -148,15 +148,15 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
             px: 0.5,
           }}
         >
-          <LocationOnOutlinedIcon sx={{ fontSize: { xs: 20, sm: 18 }, color: '#E8520A', flexShrink: 0 }} />
+          <LocationOnOutlinedIcon sx={{ fontSize: { xs: 18, sm: 16 }, color: '#E8520A', flexShrink: 0 }} />
           <Typography
             variant="body2"
             component="span"
             sx={{
               color: NAVY,
               fontWeight: 600,
-              fontSize: { xs: '0.9rem', sm: '0.8rem' },
-              lineHeight: 1.35,
+              fontSize: { xs: '0.82rem', sm: '0.78rem' },
+              lineHeight: 1.3,
             }}
           >
             {nomeLoja(lojaAtual)}
@@ -264,6 +264,7 @@ function ChamadosMobileLayoutInner() {
   const isFrotaSub = isFrota && path !== '/frota/mobile';
   const isVisitas = path === '/visitas/mobile';
   const isRelatorio = path.startsWith('/relatorio/visita/');
+  const isChamadosLista = path === '/chamados/mobile';
   const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
   const podeChecklist = user && podeUsarChecklist(user);
@@ -272,6 +273,10 @@ function ChamadosMobileLayoutInner() {
   const podeFrota = user && podeUsarFrota(user);
   const podeVisitas = user && podeVerVisitasMobile(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
+  const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
+  const ocultarContextoNoHeader =
+    isChamadosLista &&
+    (modoCabecalho === 'regiao' || (modoCabecalho === 'loja' && !multiplasLojasHeader));
 
   const mobileTabs = [
     {
@@ -388,14 +393,14 @@ function ChamadosMobileLayoutInner() {
           bgcolor: '#fff',
           ...safeAreaX(16),
           ...SAFE_AREA_TOP,
-          pb: 1,
-          borderBottom: '1px solid rgba(27, 42, 107, 0.1)',
+          pt: 0.5,
+          pb: 0.5,
           boxShadow: '0 2px 12px rgba(27, 42, 107, 0.06)',
           overflow: 'visible',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
             {(isChamadosSubPage || isFrotaSub || isRelatorio) && (
               <IconButton
                 type="button"
@@ -412,14 +417,14 @@ function ChamadosMobileLayoutInner() {
                 <ArrowBackIcon fontSize="small" />
               </IconButton>
             )}
-            <BrandLogo maxWidth={68} sx={{ flexShrink: 0 }} />
+            <BrandLogo maxWidth={64} sx={{ flexShrink: 0 }} />
             <Box sx={{ minWidth: 0 }}>
               <Typography
                 sx={{
                   fontWeight: 800,
                   color: '#E8520A',
-                  fontSize: '1rem',
-                  lineHeight: 1.15,
+                  fontSize: '0.92rem',
+                  lineHeight: 1.1,
                 }}
               >
                 {APP_NAME}
@@ -428,10 +433,10 @@ function ChamadosMobileLayoutInner() {
                 variant="caption"
                 sx={{
                   fontWeight: 600,
-                  lineHeight: 1.25,
+                  lineHeight: 1.2,
                   color: NAVY,
                   display: 'block',
-                  fontSize: '0.75rem',
+                  fontSize: '0.7rem',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -441,7 +446,7 @@ function ChamadosMobileLayoutInner() {
               </Typography>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
             <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
             <AtivarPushHeaderButton />
             <SobreSistemaButton variante="mobile" />
@@ -465,18 +470,16 @@ function ChamadosMobileLayoutInner() {
             </IconButton>
           </Box>
         </Box>
-        <Box sx={{ mt: isSubPage ? 0 : 1 }}>
-          <PwaInstallBanner />
-        </Box>
-        {modoCabecalho && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && (
+        <PwaInstallBanner />
+        {modoCabecalho && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && !ocultarContextoNoHeader && (
           modoCabecalho === 'loja' || modoCabecalho === 'regiao' ? (
           <Box
             sx={{
-              mt: 1,
+              mt: 0.5,
               width: '100%',
-              px: 1.25,
-              py: 0.75,
-              borderRadius: 2,
+              px: 1,
+              py: 0.5,
+              borderRadius: 1.5,
               bgcolor: 'rgba(27, 42, 107, 0.04)',
               border: '1px solid rgba(27, 42, 107, 0.08)',
             }}
@@ -492,21 +495,52 @@ function ChamadosMobileLayoutInner() {
       </Box>
 
       <Box
+        aria-hidden
+        sx={{
+          flexShrink: 0,
+          height: 3,
+          bgcolor: NAVY,
+          boxShadow: '0 4px 10px rgba(27, 42, 107, 0.35)',
+          position: 'relative',
+          zIndex: 25,
+        }}
+      />
+
+      <Box
         component="main"
         sx={{
+          position: 'relative',
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'fixed',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 'min(92vw, 480px)',
+            height: 'min(92vw, 480px)',
+            backgroundImage: `url(${assetUrl(FAVICON_ICON)})`,
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: 0.035,
+            pointerEvents: 'none',
+            zIndex: 0,
+          },
           ...(isChecklist || isFrota || isVisitas || isRelatorio ? safeAreaX(8) : safeAreaX(16)),
-          pt: isChecklist || isFrota || isVisitas || isRelatorio ? 0 : 2,
+          pt: isChecklist || isFrota || isVisitas || isRelatorio || isChamadosLista ? 0 : 1.5,
           pb: safeAreaBottomCalc(
             rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio ? 64 : 16),
           ),
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        <Outlet />
+        <Box sx={{ position: 'relative', zIndex: 1, minHeight: '100%' }}>
+          <Outlet />
+        </Box>
       </Box>
 
       {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && (
