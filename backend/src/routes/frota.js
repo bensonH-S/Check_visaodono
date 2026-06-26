@@ -1039,7 +1039,6 @@ router.post(
       const assinaturaFile = req.files?.assinatura?.[0];
       const fotosFiles = req.files?.fotos || [];
       if (!assinaturaFile) return res.status(400).json({ error: 'Assinatura digital obrigatória' });
-      if (!fotosFiles.length) return res.status(400).json({ error: 'Envie ao menos uma foto dos equipamentos' });
 
       const { rows: existente } = await pool.query(
         `SELECT id_termo FROM frota_termos_ferramentas

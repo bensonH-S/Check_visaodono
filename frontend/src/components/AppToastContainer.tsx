@@ -11,7 +11,8 @@ export default function AppToastContainer() {
       hideProgressBar
       newestOnTop
       closeOnClick
-      pauseOnHover
+      pauseOnHover={false}
+      pauseOnFocusLoss={false}
       draggable={false}
       theme="light"
       limit={3}

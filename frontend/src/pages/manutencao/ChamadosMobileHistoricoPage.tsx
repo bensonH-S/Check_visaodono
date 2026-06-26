@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -11,15 +11,24 @@ import { showToast } from '../../utils/toast';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import PauseOutlinedIcon from '@mui/icons-material/PauseOutlined';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
+import IconButton from '@mui/material/IconButton';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import IconeMenuTresTracos from '../../components/IconeMenuTresTracos';
 import { api } from '../../api/client';
 import type { ManutChamado } from '../../api/client';
 import {
   getUsuario,
   filtraChamadosPorLojaMobile,
   modoCabecalhoContextoMobile,
-  rotuloLojaMobile,
-  rotuloRegiaoMobile,
   tecnicoCampoSemRegiao,
   temPermissao,
 } from '../../lib/auth';
@@ -30,42 +39,111 @@ import ChamadoCardResumo from '../../components/manutencao/ChamadoCardResumo';
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
+const PAGE_BG = '#f5f5f3';
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
 
 type AbaLista = 'abertos' | 'fechados';
 
-function primeiroNome(nome?: string) {
-  return nome?.trim().split(/\s+/)[0] || 'Olá';
-}
-
-function subtituloMobile(abertos: number, urgentes: number) {
-  if (urgentes > 0) {
-    return urgentes === 1
-      ? '1 chamado precisa de atenção prioritária'
-      : `${urgentes} chamados precisam de atenção prioritária`;
-  }
-  if (abertos > 0) {
-    return 'Toque em um chamado para acompanhar';
-  }
-  return 'Tudo em dia por aqui';
+function CardResumoChamados({
+  valor,
+  rotulo,
+  fundoIcone,
+  bordaIcone,
+  icone,
+}: {
+  valor: number;
+  rotulo: string;
+  fundoIcone: string;
+  bordaIcone: string;
+  icone: ReactNode;
+}) {
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        px: 1.5,
+        py: 2,
+        minHeight: 92,
+        borderRadius: 3.5,
+        bgcolor: '#fff',
+        border: 'none',
+        boxShadow: '0 4px 20px rgba(27, 42, 107, 0.07)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.15,
+      }}
+    >
+      <Box
+        sx={{
+          width: 46,
+          height: 46,
+          borderRadius: 1.75,
+          bgcolor: fundoIcone,
+          border: `2px solid ${bordaIcone}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {icone}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography
+          sx={{
+            fontWeight: 800,
+            fontSize: '2.35rem',
+            lineHeight: 1,
+            color: NAVY,
+            letterSpacing: '-0.04em',
+          }}
+        >
+          {valor}
+        </Typography>
+        <Typography
+          sx={{
+            mt: 0.45,
+            fontSize: '0.78rem',
+            fontWeight: 500,
+            color: NAVY,
+            opacity: 0.72,
+            lineHeight: 1.2,
+          }}
+        >
+          {rotulo}
+        </Typography>
+      </Box>
+    </Paper>
+  );
 }
 
 export default function ChamadosMobileHistoricoPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessao = getUsuario();
-  const { idLoja } = useChamadosMobileLoja();
+  const { idLoja, setIdLoja } = useChamadosMobileLoja();
   const [lista, setLista] = useState<ManutChamado[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [aba, setAba] = useState<AbaLista>('abertos');
+  const [modoLista, setModoLista] = useState(false);
   const [assumindoId, setAssumindoId] = useState<number | null>(null);
+  const [filtroLojaAberto, setFiltroLojaAberto] = useState(false);
 
   function recarregar() {
     return api
       .manutChamados({ mobile: true })
       .then(setLista)
-      .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar'));
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : 'Erro ao carregar';
+        if (/internal|500|fetch|network|proxy|refused/i.test(msg)) {
+          setErro('Não foi possível conectar ao servidor. Verifique se a API está rodando (npm run dev).');
+        } else {
+          setErro(msg);
+        }
+      });
   }
 
   useEffect(() => {
@@ -96,12 +174,6 @@ export default function ChamadosMobileHistoricoPage() {
 
   const semRegiaoVinculada = tecnicoCampoSemRegiao(sessao);
   const modoCabecalho = modoCabecalhoContextoMobile(sessao);
-  const contextoAtuacao =
-    modoCabecalho === 'regiao'
-      ? rotuloRegiaoMobile(sessao)
-      : modoCabecalho === 'loja'
-        ? rotuloLojaMobile(sessao, idLoja)
-        : null;
 
   const multiplasLojas = (sessao?.lojas?.length ?? 0) > 1;
   const filtrarPorLoja = filtraChamadosPorLojaMobile(sessao);
@@ -138,6 +210,18 @@ export default function ChamadosMobileHistoricoPage() {
     [emAberto],
   );
 
+  const qtdEmAberto = useMemo(
+    () => emAberto.filter((c) => c.status === 'aberto').length,
+    [emAberto],
+  );
+
+  const qtdEmTratamento = useMemo(
+    () => emAberto.filter((c) => c.status === 'em_atendimento').length,
+    [emAberto],
+  );
+
+  const lojasUsuario = sessao?.lojas ?? [];
+
   async function assumirTicket(e: MouseEvent, c: ManutChamado) {
     e.stopPropagation();
     if (assumindoId != null) return;
@@ -163,151 +247,167 @@ export default function ChamadosMobileHistoricoPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%' }}>
+    <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG, minHeight: '100%' }}>
       {erro && (
-        <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2.5 }}>
           {erro}
         </Alert>
       )}
 
-      {/* Cabeçalho da lista — saudação + contexto de atuação */}
-      <Box
-        sx={{
-          mb: 2,
-          ml: 'calc(-1 * max(16px, env(safe-area-inset-left, 0px)))',
-          mr: 'calc(-1 * max(16px, env(safe-area-inset-right, 0px)))',
-          width:
-            'calc(100% + max(16px, env(safe-area-inset-left, 0px)) + max(16px, env(safe-area-inset-right, 0px)))',
-          pl: 'calc(max(16px, env(safe-area-inset-left, 0px)) + 12px)',
-          pr: 'max(16px, env(safe-area-inset-right, 0px))',
-          pt: 2.5,
-          pb: 1.35,
-          borderRadius: 0,
-          border: 'none',
-          borderBottom: '1px solid rgba(27, 42, 107, 0.1)',
-          bgcolor: '#fff',
-          boxShadow: '0 2px 8px rgba(27, 42, 107, 0.04)',
-        }}
-      >
-        <Typography
-          component="h1"
-          sx={{
-            fontWeight: 800,
-            fontSize: { xs: '1.5rem', sm: '1.35rem' },
-            lineHeight: 1.15,
-            color: NAVY,
-            letterSpacing: '-0.03em',
-          }}
-        >
-          Olá, {primeiroNome(sessao?.nome)}
+      {urgentes > 0 && (
+        <Typography sx={{ mb: 2.25, fontSize: '0.8rem', fontWeight: 600, color: ORANGE }}>
+          {urgentes === 1
+            ? '1 chamado precisa de atenção prioritária'
+            : `${urgentes} chamados precisam de atenção prioritária`}
         </Typography>
+      )}
 
-        {contextoAtuacao && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              mt: 0.5,
-              minWidth: 0,
-            }}
-          >
-            <LocationOnOutlinedIcon sx={{ fontSize: 16, color: ORANGE, flexShrink: 0 }} />
-            <Typography
-              sx={{
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                lineHeight: 1.35,
-                color: NAVY,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {contextoAtuacao}
-            </Typography>
-          </Box>
-        )}
-
-        <Typography
-          variant="body2"
-          sx={{
-            mt: contextoAtuacao ? 0.65 : 0.55,
-            pt: contextoAtuacao ? 0.65 : 0,
-            borderTop: contextoAtuacao ? '1px solid rgba(27, 42, 107, 0.07)' : 'none',
-            fontSize: '0.84rem',
-            lineHeight: 1.4,
-            color: urgentes > 0 ? ORANGE : 'text.secondary',
-            fontWeight: urgentes > 0 ? 600 : 400,
-          }}
-        >
-          {subtituloMobile(emAberto.length, urgentes)}
-        </Typography>
+      {/* Cards resumo */}
+      <Box sx={{ display: 'flex', gap: 1.25, mb: 2.25 }}>
+        <CardResumoChamados
+          valor={qtdEmAberto}
+          rotulo="em aberto"
+          fundoIcone="rgba(232, 82, 10, 0.14)"
+          bordaIcone={ORANGE}
+          icone={<TrendingUpIcon sx={{ color: ORANGE, fontSize: 22 }} />}
+        />
+        <CardResumoChamados
+          valor={qtdEmTratamento}
+          rotulo="em andamento"
+          fundoIcone="rgba(27, 42, 107, 0.14)"
+          bordaIcone={NAVY}
+          icone={<PauseOutlinedIcon sx={{ color: NAVY, fontSize: 22 }} />}
+        />
       </Box>
 
-      {/* Abas */}
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 0.25,
-          p: 0.3,
-          mb: 1.75,
-          borderRadius: 2.5,
-          bgcolor: 'rgba(27, 42, 107, 0.08)',
-        }}
-      >
-        {(
-          [
-            { id: 'abertos' as const, label: 'Abertos', icon: InboxOutlinedIcon, qtd: emAberto.length },
-            { id: 'fechados' as const, label: 'Fechados', icon: ArchiveOutlinedIcon, qtd: fechados.length },
-          ] as const
-        ).map(({ id, label, icon: Icon, qtd }) => {
-          const ativa = aba === id;
-          return (
-            <Button
-              key={id}
-              fullWidth
-              onClick={() => setAba(id)}
-              startIcon={<Icon sx={{ fontSize: '15px !important', mr: '-2px !important' }} />}
-              sx={{
-                minHeight: 0,
-                py: 0.7,
-                px: 0.75,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                color: ativa ? NAVY : 'text.secondary',
-                bgcolor: ativa ? '#fff' : 'transparent',
-                boxShadow: ativa ? '0 1px 6px rgba(27, 42, 107, 0.12)' : 'none',
-                '&:hover': { bgcolor: ativa ? '#fff' : 'rgba(255,255,255,0.35)' },
-                '& .MuiButton-startIcon': { mr: 0.5 },
-              }}
-            >
-              {label}
-              <Box
-                component="span"
+      {/* Abas + filtro */}
+      <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, mb: 2 }}>
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            bgcolor: '#fff',
+            borderRadius: 999,
+            p: 0.4,
+            boxShadow: '0 2px 14px rgba(27, 42, 107, 0.07)',
+            minWidth: 0,
+          }}
+        >
+          {(
+            [
+              { id: 'abertos' as const, label: 'Em aberto' },
+              { id: 'fechados' as const, label: 'Fechados' },
+            ] as const
+          ).map(({ id, label }) => {
+            const ativa = aba === id;
+            return (
+              <Button
+                key={id}
+                fullWidth
+                onClick={() => setAba(id)}
                 sx={{
-                  ml: 0.5,
-                  minWidth: 18,
-                  height: 18,
-                  px: 0.5,
-                  borderRadius: 9,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.65rem',
-                  fontWeight: 800,
-                  lineHeight: 1,
-                  bgcolor: ativa ? (id === 'abertos' ? ORANGE : 'rgba(27,42,107,0.12)') : 'rgba(27,42,107,0.09)',
-                  color: ativa && id === 'abertos' ? '#fff' : ativa ? NAVY : 'text.secondary',
+                  minHeight: 0,
+                  py: 0.9,
+                  px: 1.5,
+                  borderRadius: 999,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.84rem',
+                  color: ativa ? '#fff' : 'rgba(27, 42, 107, 0.55)',
+                  bgcolor: ativa ? ORANGE : 'transparent',
+                  boxShadow: ativa ? '0 2px 10px rgba(232, 82, 10, 0.32)' : 'none',
+                  '&:hover': { bgcolor: ativa ? ORANGE : 'rgba(27, 42, 107, 0.04)' },
                 }}
               >
-                {qtd}
-              </Box>
-            </Button>
-          );
-        })}
+                {label}
+              </Button>
+            );
+          })}
+        </Box>
+
+        <Box
+          component="button"
+          type="button"
+          aria-label={modoLista ? 'Ver em cards' : 'Ver em lista'}
+          aria-pressed={modoLista}
+          onClick={() => setModoLista((v) => !v)}
+          sx={{
+            flexShrink: 0,
+            alignSelf: 'stretch',
+            aspectRatio: '1',
+            width: 'auto',
+            minWidth: 40,
+            borderRadius: 2.5,
+            bgcolor: '#fff',
+            boxShadow: '0 2px 14px rgba(27, 42, 107, 0.07)',
+            border: 'none',
+            outline: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            p: 0,
+            font: 'inherit',
+          }}
+        >
+          <IconeMenuTresTracos ativo={modoLista} />
+        </Box>
+
+        {multiplasLojas && filtrarPorLoja && (
+          <>
+            <IconButton
+              aria-label="Filtrar loja"
+              onClick={() => setFiltroLojaAberto(true)}
+              sx={{
+                flexShrink: 0,
+                alignSelf: 'stretch',
+                aspectRatio: '1',
+                width: 'auto',
+                minWidth: 40,
+                borderRadius: 2.5,
+                bgcolor: '#fff',
+                boxShadow: '0 2px 12px rgba(27, 42, 107, 0.08)',
+                border: idLoja ? '2px solid rgba(232, 82, 10, 0.35)' : '1px solid rgba(27, 42, 107, 0.08)',
+              }}
+            >
+              <FilterListIcon sx={{ color: NAVY, fontSize: 22 }} />
+            </IconButton>
+
+            <Dialog open={filtroLojaAberto} onClose={() => setFiltroLojaAberto(false)} fullWidth maxWidth="xs">
+              <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY }}>
+                Filtrar por loja
+              </DialogTitle>
+              <List sx={{ pt: 0, pb: 1 }}>
+                {lojasUsuario.map((loja) => {
+                  const ativa = loja.id_loja === idLoja;
+                  return (
+                    <ListItemButton
+                      key={loja.id_loja}
+                      selected={ativa}
+                      onClick={() => {
+                        setIdLoja(loja.id_loja);
+                        setFiltroLojaAberto(false);
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36 }}>
+                        <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE }} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={loja.nome}
+                        slotProps={{
+                          primary: {
+                            sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' },
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            </Dialog>
+          </>
+        )}
       </Box>
 
       {/* Lista */}
@@ -350,23 +450,49 @@ export default function ChamadosMobileHistoricoPage() {
         </Paper>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-        {listaAba.map((c) => (
-          <ChamadoCardResumo
-            key={c.id_chamado}
-            chamado={c}
-            variant="mobile"
-            compact={aba === 'fechados'}
-            showLoja={multiplasLojas || modoCabecalho === 'regiao'}
-            showSla={aba === 'abertos'}
-            showDataEncerramento={aba === 'fechados'}
-            mostrarAssumir={aba === 'abertos'}
-            onAssumir={(e) => void assumirTicket(e, c)}
-            assumindo={assumindoId === c.id_chamado}
-            onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
-          />
-        ))}
-      </Box>
+      {modoLista ? (
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            overflow: 'hidden',
+            bgcolor: '#fff',
+            border: '1px solid rgba(27, 42, 107, 0.08)',
+            boxShadow: '0 4px 18px rgba(27, 42, 107, 0.06)',
+          }}
+        >
+          {listaAba.map((c, i) => (
+            <ChamadoCardResumo
+              key={c.id_chamado}
+              chamado={c}
+              variant="mobile"
+              mobileLayout="lista"
+              isLast={i === listaAba.length - 1}
+              showLoja={multiplasLojas || modoCabecalho === 'regiao'}
+              showSla={aba === 'abertos'}
+              onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
+            />
+          ))}
+        </Paper>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+          {listaAba.map((c) => (
+            <ChamadoCardResumo
+              key={c.id_chamado}
+              chamado={c}
+              variant="mobile"
+              compact={aba === 'fechados'}
+              showLoja={multiplasLojas || modoCabecalho === 'regiao'}
+              showSla={aba === 'abertos'}
+              showDataEncerramento={aba === 'fechados'}
+              mostrarAssumir={aba === 'abertos'}
+              onAssumir={(e) => void assumirTicket(e, c)}
+              assumindo={assumindoId === c.id_chamado}
+              onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
+            />
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }

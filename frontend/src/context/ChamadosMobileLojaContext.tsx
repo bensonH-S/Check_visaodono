@@ -48,9 +48,13 @@ export function ChamadosMobileLojaProvider({ children }: { children: ReactNode }
 }
 
 export function useChamadosMobileLoja() {
-  const ctx = useContext(ChamadosMobileLojaContext);
+  const ctx = useChamadosMobileLojaOpcional();
   if (!ctx) {
     throw new Error('useChamadosMobileLoja deve ser usado dentro de ChamadosMobileLojaProvider');
   }
   return ctx;
+}
+
+export function useChamadosMobileLojaOpcional() {
+  return useContext(ChamadosMobileLojaContext);
 }

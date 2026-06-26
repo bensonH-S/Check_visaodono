@@ -39,16 +39,18 @@ const campoFormularioProps = {
   slotProps: {
     inputLabel: {
       shrink: true,
-      sx: {
-        whiteSpace: 'nowrap',
-        maxWidth: 'calc(133% - 24px)',
-      },
     },
-    input: { style: { fontSize: 16 } },
+    input: {
+      notched: true,
+      style: { fontSize: 16 },
+    },
   },
   sx: {
     '& .MuiInputLabel-root.MuiInputLabel-shrink': {
       transform: 'translate(14px, -9px) scale(0.75)',
+    },
+    '& .MuiOutlinedInput-notchedOutline legend': {
+      maxWidth: '100%',
     },
     '& .MuiOutlinedInput-input': {
       py: 1.1,
@@ -123,9 +125,9 @@ function SeletorLojaNovoChamado({
   onSelecionar: (id: number) => void;
 }) {
   const [dialogAberto, setDialogAberto] = useState(false);
-  const multiplas = lojas.length > 1;
   const lojaAtual = lojas.find((l) => Number(l.id_loja) === Number(idLoja));
-  const nomeExibido = lojaAtual?.nome ?? (multiplas ? 'Selecione a Loja' : lojas[0]?.nome ?? '—');
+  const nomeExibido = lojaAtual?.nome ?? 'Selecione a Loja';
+  const precisaEscolherLoja = lojas.length > 1 || !idLoja;
 
   if (!lojas.length) {
     return (
@@ -138,11 +140,11 @@ function SeletorLojaNovoChamado({
   return (
     <>
       <Box
-        role={multiplas ? 'button' : undefined}
-        tabIndex={multiplas ? 0 : undefined}
-        onClick={() => multiplas && setDialogAberto(true)}
+        role={precisaEscolherLoja ? 'button' : undefined}
+        tabIndex={precisaEscolherLoja ? 0 : undefined}
+        onClick={() => precisaEscolherLoja && setDialogAberto(true)}
         onKeyDown={(e) => {
-          if (multiplas && (e.key === 'Enter' || e.key === ' ')) {
+          if (precisaEscolherLoja && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
             setDialogAberto(true);
           }
@@ -156,7 +158,7 @@ function SeletorLojaNovoChamado({
           mt: 1.25,
           pt: 1.25,
           borderTop: '1px solid rgba(27, 42, 107, 0.08)',
-          cursor: multiplas ? 'pointer' : 'default',
+          cursor: precisaEscolherLoja ? 'pointer' : 'default',
         }}
       >
         <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE, flexShrink: 0, display: 'block' }} />
@@ -215,10 +217,14 @@ function SeletorLojaNovoChamado({
                 </ListItemIcon>
                 <ListItemText
                   primary={loja.nome}
-                  primaryTypographyProps={{
-                    fontWeight: ativa ? 700 : 600,
-                    color: ativa ? NAVY : 'text.primary',
-                    fontSize: '0.9rem',
+                  slotProps={{
+                    primary: {
+                      sx: {
+                        fontWeight: ativa ? 700 : 600,
+                        color: ativa ? NAVY : 'text.primary',
+                        fontSize: '0.9rem',
+                      },
+                    },
                   }}
                 />
               </ListItemButton>
@@ -293,22 +299,35 @@ export default function ChamadosMobileNovoPage() {
 
   const cat = form?.categorias.find((c) => Number(c.id_categoria) === Number(idCategoria));
   const lojasDisponiveis = form?.lojas ?? [];
+  const idLojaEfetivo =
+    idLoja !== '' && idLoja != null
+      ? Number(idLoja)
+      : lojasDisponiveis.length === 1
+        ? Number(lojasDisponiveis[0].id_loja)
+        : null;
   const categoriaOk = !form?.categorias?.length || (idCategoria !== '' && idCategoria != null);
+  const descricaoValidaEnvio = descricao.trim().length >= 10;
   const podeAnexarFotos = Boolean(
     categoriaOk && titulo.trim().length > 0 && descricao.trim().length > 0,
   );
-  const descricaoValidaEnvio = descricao.trim().length >= 10;
-  const descricaoCompleta = Boolean(idLoja && categoriaOk && titulo.trim().length > 0 && descricaoValidaEnvio);
+  const formularioPronto = Boolean(
+    idLojaEfetivo && categoriaOk && titulo.trim().length > 0 && descricaoValidaEnvio,
+  );
   const etapaAtiva: 0 | 1 = podeAnexarFotos ? 1 : 0;
-  const podeEnviar = descricaoCompleta && fotos.length > 0;
+  const podeEnviar = formularioPronto && fotos.length >= 1;
 
   useEffect(() => {
-    if (lojasDisponiveis.length === 1 && !idLoja) {
+    if (!form || idLoja) return;
+    if (lojasDisponiveis.length === 1) {
       const unica = lojasDisponiveis[0].id_loja;
       setIdLoja(unica);
       setLojaContexto(unica);
     }
-  }, [lojasDisponiveis, idLoja, setLojaContexto]);
+  }, [form, idLoja, lojasDisponiveis, setLojaContexto]);
+
+  useEffect(() => {
+    if (idLoja) setLojaContexto(Number(idLoja));
+  }, [idLoja, setLojaContexto]);
 
   useEffect(() => {
     if (!podeAnexarFotos && fotos.length) setFotos([]);
@@ -329,16 +348,20 @@ export default function ChamadosMobileNovoPage() {
     e.preventDefault();
     setErro('');
     if (!sessao) return;
-    if (!idLoja) {
+    if (!idLojaEfetivo) {
       setErro('Selecione a loja antes de abrir o chamado.');
       return;
     }
-    if (!fotos.length) {
+    if (fotos.length < 1) {
       setErro('Adicione pelo menos uma foto ou vídeo.');
       return;
     }
-    if (!titulo.trim() || !descricaoValidaEnvio || !idCategoria || !idLoja) {
+    if (!titulo.trim() || !descricaoValidaEnvio || !categoriaOk) {
       setErro('Preencha título, descrição (mín. 10 caracteres), loja e categoria.');
+      return;
+    }
+    if (form?.categorias?.length && !idCategoria) {
+      setErro('Selecione a categoria do chamado.');
       return;
     }
 
@@ -347,8 +370,8 @@ export default function ChamadosMobileNovoPage() {
       const chamado = await api.manutCriarChamado({
         titulo: titulo.trim(),
         descricao: descricao.trim(),
-        id_categoria: idCategoria,
-        id_loja: idLoja,
+        id_categoria: Number(idCategoria),
+        id_loja: idLojaEfetivo,
         id_solicitante: sessao.id_usuario,
         local_detalhe: local.trim() || undefined,
         urgencia: cat?.urgencia_padrao || undefined,
@@ -438,7 +461,7 @@ export default function ChamadosMobileNovoPage() {
         {lojasDisponiveis.length > 0 && (
           <SeletorLojaNovoChamado
             lojas={lojasDisponiveis}
-            idLoja={idLoja}
+            idLoja={idLojaEfetivo ?? ''}
             onSelecionar={selecionarLoja}
           />
         )}
@@ -514,6 +537,12 @@ export default function ChamadosMobileNovoPage() {
           minRows={4}
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
+          helperText={
+            descricao.trim().length > 0 && !descricaoValidaEnvio
+              ? `Mínimo 10 caracteres (${descricao.trim().length}/10)`
+              : 'Mínimo 10 caracteres'
+          }
+          error={descricao.trim().length > 0 && !descricaoValidaEnvio}
           sx={{
             ...campoFormularioProps.sx,
             '& .MuiOutlinedInput-input': {
@@ -534,6 +563,7 @@ export default function ChamadosMobileNovoPage() {
               disabled={salvando}
               inlineActions
               hideCaption
+              thumbColumns={4}
             />
           </Box>
         )}

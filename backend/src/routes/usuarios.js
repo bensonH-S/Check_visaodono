@@ -66,6 +66,30 @@ router.get('/permissoes/catalogo', requirePermissao('usuarios.gerenciar'), async
   }
 });
 
+router.get('/auditores-checklist', requirePermissao('checklist.executar'), async (_req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT DISTINCT u.id_usuario, u.nome, u.cargo, u.avatar_inicial, u.perfil::text AS perfil
+       FROM usuarios u
+       WHERE u.ativo = TRUE
+         AND EXISTS (
+           SELECT 1 FROM usuario_permissoes up
+           JOIN permissoes p ON p.codigo = up.codigo
+           WHERE up.id_usuario = u.id_usuario AND p.codigo = 'checklist.executar'
+         )
+         AND EXISTS (
+           SELECT 1 FROM usuario_permissoes up
+           JOIN permissoes p ON p.codigo = up.codigo
+           WHERE up.id_usuario = u.id_usuario AND p.codigo = 'checklist.ver'
+         )
+       ORDER BY u.nome`,
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/', requirePermissao('usuarios.listar'), async (_req, res, next) => {
   try {
     const { rows } = await pool.query(`${SQL_USUARIO} WHERE u.ativo = TRUE ORDER BY nome`);

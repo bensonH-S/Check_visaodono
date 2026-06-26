@@ -52,6 +52,8 @@ type Props = {
   onClick?: () => void;
   /** Layout otimizado para listas mobile */
   variant?: 'default' | 'mobile';
+  /** Visualização mobile: card (padrão) ou linha compacta */
+  mobileLayout?: 'card' | 'lista';
   /** Card menor para histórico ou kanban denso */
   compact?: boolean;
   /** Exibe loja (portal com várias unidades) */
@@ -66,6 +68,8 @@ type Props = {
   mostrarAssumir?: boolean;
   onAssumir?: (e: MouseEvent) => void;
   assumindo?: boolean;
+  /** Última linha no modo lista (sem borda inferior) */
+  isLast?: boolean;
 };
 
 function MetaLinha({ icon, children }: { icon: ReactNode; children: ReactNode }) {
@@ -400,10 +404,117 @@ function ChamadoCardMobile({
   );
 }
 
+function ChamadoLinhaMobile({
+  chamado,
+  onClick,
+  showLoja,
+  showSla,
+  isLast,
+}: {
+  chamado: ManutChamado;
+  onClick?: () => void;
+  showLoja?: boolean;
+  showSla?: boolean;
+  isLast?: boolean;
+}) {
+  const accent = statusAccent(chamado.status);
+  const st = STATUS_CHAMADO[chamado.status] || {
+    label: chamado.status,
+    color: '#4B5563',
+    bg: '#F3F4F6',
+  };
+
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        display: 'flex',
+        alignItems: 'stretch',
+        minHeight: 56,
+        cursor: onClick ? 'pointer' : 'default',
+        bgcolor: '#fff',
+        borderBottom: isLast ? 'none' : '1px solid rgba(27, 42, 107, 0.08)',
+        '&:active': { bgcolor: 'rgba(27, 42, 107, 0.03)' },
+      }}
+    >
+      <Box aria-hidden sx={{ width: 3, flexShrink: 0, bgcolor: accent }} />
+      <Box sx={{ flex: 1, minWidth: 0, py: 1.1, px: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box
+          component="span"
+          sx={{
+            flexShrink: 0,
+            fontWeight: 800,
+            fontSize: '0.72rem',
+            color: NAVY,
+            minWidth: 36,
+          }}
+        >
+          #{chamado.numero}
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            sx={{
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              lineHeight: 1.3,
+              color: 'text.primary',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {chamado.titulo}
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              mt: 0.2,
+              fontSize: '0.68rem',
+              color: 'text.secondary',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {showLoja && chamado.loja ? `${chamado.loja} · ` : ''}
+            {chamado.categoria}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+          <Chip
+            label={st.label}
+            size="small"
+            sx={{
+              height: 20,
+              fontWeight: 700,
+              fontSize: '0.58rem',
+              bgcolor: st.bg,
+              color: st.color,
+              border: `1px solid ${accent}40`,
+            }}
+          />
+          {showSla && (
+            <SlaCirculoPercentual
+              abertoEm={chamado.aberto_em}
+              prazoSla={chamado.prazo_sla}
+              status={chamado.status}
+              fechadoEm={chamado.fechado_em}
+              size={32}
+            />
+          )}
+          <NotificacaoBadge count={chamado.notificacoes_nao_lidas} />
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
 export default function ChamadoCardResumo({
   chamado,
   onClick,
   variant = 'default',
+  mobileLayout = 'card',
   compact = false,
   showLoja = false,
   hideStatus = false,
@@ -412,7 +523,20 @@ export default function ChamadoCardResumo({
   mostrarAssumir = false,
   onAssumir,
   assumindo = false,
+  isLast = false,
 }: Props) {
+  if (variant === 'mobile' && mobileLayout === 'lista') {
+    return (
+      <ChamadoLinhaMobile
+        chamado={chamado}
+        onClick={onClick}
+        showLoja={showLoja}
+        showSla={showSla}
+        isLast={isLast}
+      />
+    );
+  }
+
   if (variant === 'mobile') {
     return (
       <ChamadoCardMobile

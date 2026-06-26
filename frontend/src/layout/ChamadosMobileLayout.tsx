@@ -4,23 +4,23 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Fab from '@mui/material/Fab';
 import IconButton from '@mui/material/IconButton';
-import { showToast } from '../utils/toast';
+import { showWelcomeToast } from '../utils/toast';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import LogoutIcon from '@mui/icons-material/Logout';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import BuildIcon from '@mui/icons-material/Build';
+import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import BrandLogo from '../components/BrandLogo';
 import NotificacoesSino from '../components/NotificacoesSino';
-import SobreSistemaButton from '../components/SobreSistemaButton';
+import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
+import MobilePaginaTitulo from '../components/MobilePaginaTitulo';
 import PwaInstallBanner from '../components/PwaInstallBanner';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { assetUrl, FAVICON_ICON, toAppPath } from '../config/paths';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
@@ -36,6 +36,7 @@ import {
 
 const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
+const ORANGE = '#E8520A';
 const TAB_NAV_H = 52;
 
 function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
@@ -265,6 +266,10 @@ function ChamadosMobileLayoutInner() {
   const isVisitas = path === '/visitas/mobile';
   const isRelatorio = path.startsWith('/relatorio/visita/');
   const isChamadosLista = path === '/chamados/mobile';
+  const isChecklistHub = path === '/checklist/mobile';
+  /** Mesmo cabeçalho da lista de chamados: só logo grande + sino + perfil */
+  const headerEstiloLista =
+    isChamadosLista || isFrota || isChecklistHub || isNovo || isVisitas || isRelatorio;
   const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
   const podeChecklist = user && podeUsarChecklist(user);
@@ -275,8 +280,23 @@ function ChamadosMobileLayoutInner() {
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
   const ocultarContextoNoHeader =
-    isChamadosLista &&
+    headerEstiloLista &&
     (modoCabecalho === 'regiao' || (modoCabecalho === 'loja' && !multiplasLojasHeader));
+
+  const contextoAtuacaoMobile =
+    modoCabecalho === 'regiao'
+      ? rotuloRegiaoMobile(user)
+      : modoCabecalho === 'loja'
+        ? rotuloLojaMobile(user, idLoja)
+        : null;
+  const tagLojaCompleta = modoCabecalho === 'loja';
+  const tagRegiaoMobile = contextoAtuacaoMobile
+    ? tagLojaCompleta
+      ? contextoAtuacaoMobile
+      : contextoAtuacaoMobile.length > 14
+        ? `${contextoAtuacaoMobile.slice(0, 12)}…`
+        : contextoAtuacaoMobile
+    : null;
 
   const mobileTabs = [
     {
@@ -294,7 +314,7 @@ function ChamadosMobileLayoutInner() {
     {
       to: '/chamados/mobile',
       label: 'Chamados',
-      icon: <BuildIcon fontSize="small" />,
+      icon: <HeadsetMicOutlinedIcon fontSize="small" />,
       show: !!podeChamados,
     },
     {
@@ -365,10 +385,13 @@ function ChamadosMobileLayoutInner() {
     return () => window.removeEventListener(PUSH_ATUALIZADO_EVENT, atualizarBotaoPush);
   }, [user]);
 
+  const welcomeShown = useRef(false);
+
   useEffect(() => {
     const nome = (location.state as { welcome?: string } | null)?.welcome;
-    if (!nome) return;
-    showToast(`Bem-vindo, ${nome}!`, 'success');
+    if (!nome || welcomeShown.current) return;
+    welcomeShown.current = true;
+    showWelcomeToast(nome);
     navigate(location.pathname + location.search + location.hash, { replace: true, state: {} });
   }, [location.state, location.pathname, location.search, location.hash, navigate]);
 
@@ -390,18 +413,18 @@ function ChamadosMobileLayoutInner() {
           position: 'relative',
           zIndex: 30,
           flexShrink: 0,
-          bgcolor: '#fff',
+          bgcolor: PAGE_BG,
           ...safeAreaX(16),
           ...SAFE_AREA_TOP,
-          pt: 0.5,
-          pb: 0.5,
-          boxShadow: '0 2px 12px rgba(27, 42, 107, 0.06)',
+          pt: headerEstiloLista ? 0.75 : 0.5,
+          pb: headerEstiloLista ? 0.25 : 0.5,
+          boxShadow: 'none',
           overflow: 'visible',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-            {(isChamadosSubPage || isFrotaSub || isRelatorio) && (
+            {(isDetalhe || isFrotaSub || isRelatorio) && (
               <IconButton
                 type="button"
                 size="small"
@@ -417,7 +440,11 @@ function ChamadosMobileLayoutInner() {
                 <ArrowBackIcon fontSize="small" />
               </IconButton>
             )}
-            <BrandLogo maxWidth={64} sx={{ flexShrink: 0 }} />
+            <BrandLogo
+              maxWidth={headerEstiloLista ? (isFrotaSub ? 84 : 98) : 72}
+              sx={{ flexShrink: 0 }}
+            />
+            {!headerEstiloLista && (
             <Box sx={{ minWidth: 0 }}>
               <Typography
                 sx={{
@@ -445,11 +472,11 @@ function ChamadosMobileLayoutInner() {
                 {subtituloPagina}
               </Typography>
             </Box>
+            )}
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
             <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
             <AtivarPushHeaderButton />
-            <SobreSistemaButton variante="mobile" />
             {veSinoChamados && (
               <NotificacoesSino
                 variante="mobile"
@@ -457,17 +484,13 @@ function ChamadosMobileLayoutInner() {
                 idLoja={filtraNotificacoesPorRegiaoMobile(user) ? null : idLoja}
               />
             )}
-            <IconButton
-              size="small"
-              onClick={() => {
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
                 logout();
                 navigate('/login/mobile');
               }}
-              aria-label="Sair"
-              sx={{ color: NAVY }}
-            >
-              <LogoutIcon fontSize="small" />
-            </IconButton>
+            />
           </Box>
         </Box>
         <PwaInstallBanner />
@@ -494,6 +517,7 @@ function ChamadosMobileLayoutInner() {
         )}
       </Box>
 
+      {!headerEstiloLista && (
       <Box
         aria-hidden
         sx={{
@@ -505,6 +529,7 @@ function ChamadosMobileLayoutInner() {
           zIndex: 25,
         }}
       />
+      )}
 
       <Box
         component="main"
@@ -530,8 +555,8 @@ function ChamadosMobileLayoutInner() {
             pointerEvents: 'none',
             zIndex: 0,
           },
-          ...(isChecklist || isFrota || isVisitas || isRelatorio ? safeAreaX(8) : safeAreaX(16)),
-          pt: isChecklist || isFrota || isVisitas || isRelatorio || isChamadosLista ? 0 : 1.5,
+          ...(headerEstiloLista ? safeAreaX(16) : isChecklist || isFrota || isVisitas || isRelatorio ? safeAreaX(8) : safeAreaX(16)),
+          pt: isChecklist || isFrota || isVisitas || isRelatorio || headerEstiloLista ? 0 : 1.5,
           pb: safeAreaBottomCalc(
             rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio ? 64 : 16),
           ),
@@ -539,13 +564,21 @@ function ChamadosMobileLayoutInner() {
         }}
       >
         <Box sx={{ position: 'relative', zIndex: 1, minHeight: '100%' }}>
+          <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%' }}>
+            <MobilePaginaTitulo
+              titulo={subtituloPagina}
+              nomeUsuario={user?.nome}
+              tagRegiao={tagRegiaoMobile}
+              tagRegiaoTitulo={contextoAtuacaoMobile}
+              tagExpandida={tagLojaCompleta}
+            />
+          </Box>
           <Outlet />
         </Box>
       </Box>
 
       {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && (
         <Fab
-          color="primary"
           aria-label="Abrir novo chamado"
           onClick={() => navigate('/chamados/mobile/novo')}
           sx={{
@@ -553,7 +586,10 @@ function ChamadosMobileLayoutInner() {
             right: safeAreaRightCalc(20),
             bottom: safeAreaBottomCalc(rodapeTotalH + 16),
             zIndex: 40,
-            boxShadow: '0 6px 20px rgba(27, 42, 107, 0.35)',
+            bgcolor: '#E8520A',
+            color: '#fff',
+            boxShadow: '0 6px 20px rgba(232, 82, 10, 0.42)',
+            '&:hover': { bgcolor: '#d14a09' },
           }}
         >
           <AddIcon />
@@ -567,29 +603,51 @@ function ChamadosMobileLayoutInner() {
           sx={mobileTabBarShellSx()}
         >
           <Box component="nav" sx={mobileTabBarNavSx(TAB_NAV_H)}>
-            {mobileTabs.map((item) => (
+            {mobileTabs.map((item) => {
+              const abaChecklist = item.to === '/checklist/mobile';
+              const abaChamados = item.to === '/chamados/mobile';
+              const abaFrota = item.to === '/frota/mobile';
+              const abaVisitas = item.to === '/visitas/mobile';
+              const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas;
+              return (
               <NavLink
                 key={item.to}
                 to={item.to}
-                end
+                end={!abaComSubpaginas}
                 style={{ textDecoration: 'none', flex: 1 }}
               >
-                {({ isActive }) => (
+                {({ isActive }) => {
+                  const ativa = abaChecklist
+                    ? isChecklist
+                    : abaChamados
+                      ? path === '/chamados/mobile' || path.startsWith('/chamados/mobile/')
+                      : abaFrota
+                        ? isFrota
+                        : abaVisitas
+                          ? isVisitas || isRelatorio
+                          : isActive;
+                  return (
                   <Box
                     sx={{
                       ...mobileTabBarItemSx(TAB_NAV_H),
-                      color: isActive ? NAVY : 'text.secondary',
+                      color: ativa ? ORANGE : 'text.secondary',
                       fontSize: '0.625rem',
-                      fontWeight: isActive ? 700 : 500,
-                      '& .MuiSvgIcon-root': { fontSize: 22, mb: 0.25 },
+                      fontWeight: ativa ? 700 : 500,
+                      '& .MuiSvgIcon-root': {
+                        fontSize: 22,
+                        mb: 0.25,
+                        color: ativa ? ORANGE : 'inherit',
+                      },
                     }}
                   >
                     {item.icon}
                     {item.label}
                   </Box>
-                )}
+                  );
+                }}
               </NavLink>
-            ))}
+              );
+            })}
           </Box>
         </Box>
       )}

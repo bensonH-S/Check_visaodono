@@ -425,6 +425,14 @@ export function SlaCirculoPercentual({
   const centro = size / 2;
   const circunferencia = 2 * Math.PI * raio;
   const offset = circunferencia - (percentual / 100) * circunferencia;
+  const fontSizePct =
+    size <= 26
+      ? '0.5rem'
+      : size <= 32
+        ? '0.54rem'
+        : size <= 34
+          ? '0.56rem'
+          : '0.58rem';
 
   return (
     <Box
@@ -466,7 +474,7 @@ export function SlaCirculoPercentual({
           alignItems: 'center',
           justifyContent: 'center',
           fontWeight: 800,
-          fontSize: size <= 34 ? '0.52rem' : '0.58rem',
+          fontSize: fontSizePct,
           color: textoCor,
           lineHeight: 1,
         }}

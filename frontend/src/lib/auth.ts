@@ -91,6 +91,17 @@ export function labelPerfil(perfil: string) {
   return map[perfil] || perfil;
 }
 
+/** Iniciais do avatar (ex.: João Carlos → JC). */
+export function iniciaisUsuario(usuario?: Pick<UsuarioSessao, 'avatar_inicial' | 'nome'> | null) {
+  if (usuario?.avatar_inicial?.trim()) return usuario.avatar_inicial.trim().slice(0, 2).toUpperCase();
+  const partes = usuario?.nome?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (partes.length >= 2) {
+    return `${partes[0][0]}${partes[partes.length - 1][0]}`.toUpperCase();
+  }
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return '?';
+}
+
 /** Nome exibido na sessão: prioriza cargo da tabela Cargos, não o perfil interno legado. */
 export function nomeExibicaoUsuario(usuario?: Pick<UsuarioSessao, 'cargo_nome' | 'cargo' | 'perfil'> | null) {
   if (!usuario) return '—';

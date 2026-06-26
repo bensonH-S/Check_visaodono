@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { checklistPaths } from '../config/mobileRoutes';
+import { toAppPath } from '../config/paths';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -12,6 +13,16 @@ import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormLabel from '@mui/material/FormLabel';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import SaveIcon from '@mui/icons-material/Save';
@@ -43,6 +54,7 @@ import {
   type FaseChecklist,
 } from '../utils/checklistSessao';
 import { getUsuario, temPermissao } from '../lib/auth';
+import { useChamadosMobileLojaOpcional } from '../context/ChamadosMobileLojaContext';
 import { dataHojeBrasilia, normalizarDataVisita, calcularDuracaoVisitaMinutos } from '../utils/dateBr';
 import {
   exibeFoto,
@@ -57,6 +69,274 @@ import {
 } from '../utils/checklistRules';
 
 const BRAND_ORANGE = '#E8520A';
+const NAVY = '#1B2A6B';
+
+function SeletorAuditorChecklistMobile({
+  auditores,
+  idAuditor,
+  nomeFallback,
+  onSelecionar,
+}: {
+  auditores: Usuario[];
+  idAuditor: number | '';
+  nomeFallback: string;
+  onSelecionar: (id: number) => void;
+}) {
+  const [dialogAberto, setDialogAberto] = useState(false);
+  const multiplos = auditores.length > 1;
+  const auditorAtual = auditores.find((u) => u.id_usuario === idAuditor);
+  const nomeExibido = auditorAtual?.nome ?? nomeFallback;
+
+  return (
+    <>
+      <Box
+        role={multiplos ? 'button' : undefined}
+        tabIndex={multiplos ? 0 : undefined}
+        onClick={() => multiplos && setDialogAberto(true)}
+        onKeyDown={(e) => {
+          if (multiplos && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            setDialogAberto(true);
+          }
+        }}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          minWidth: 0,
+          minHeight: 24,
+          cursor: multiplos ? 'pointer' : 'default',
+        }}
+      >
+        <PersonOutlineOutlinedIcon
+          sx={{ fontSize: 20, color: NAVY, opacity: 0.75, flexShrink: 0, display: 'block' }}
+        />
+        <Typography
+          component="div"
+          variant="body2"
+          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: 1, lineHeight: 1.25 }}
+        >
+          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
+            Auditor:
+          </Box>
+          <Box
+            component="span"
+            sx={{
+              color: NAVY,
+              fontWeight: 700,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {nomeExibido}
+          </Box>
+        </Typography>
+      </Box>
+
+      <Dialog open={dialogAberto} onClose={() => setDialogAberto(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+          Escolher auditor
+        </DialogTitle>
+        <List sx={{ pt: 0, pb: 1 }}>
+          {auditores.map((u) => {
+            const ativo = u.id_usuario === idAuditor;
+            return (
+              <ListItemButton
+                key={u.id_usuario}
+                selected={ativo}
+                onClick={() => {
+                  onSelecionar(u.id_usuario);
+                  setDialogAberto(false);
+                }}
+                sx={{ py: 1.25, '&.Mui-selected': { bgcolor: 'rgba(232, 82, 10, 0.08)' } }}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <PersonOutlineOutlinedIcon sx={{ fontSize: 20, color: BRAND_ORANGE }} />
+                </ListItemIcon>
+                <ListItemText
+                  primary={u.nome}
+                  slotProps={{
+                    primary: {
+                      sx: {
+                        fontWeight: ativo ? 700 : 600,
+                        color: ativo ? NAVY : 'text.primary',
+                        fontSize: '0.9rem',
+                      },
+                    },
+                  }}
+                />
+              </ListItemButton>
+            );
+          })}
+        </List>
+      </Dialog>
+    </>
+  );
+}
+
+function SeletorLojaChecklistMobile({
+  lojas,
+  idLoja,
+  onSelecionar,
+}: {
+  lojas: Loja[];
+  idLoja: number | '';
+  onSelecionar: (id: number) => void;
+}) {
+  const [dialogAberto, setDialogAberto] = useState(false);
+  const multiplas = lojas.length > 1;
+  const lojaAtual = lojas.find((l) => l.id_loja === idLoja);
+  const nomeExibido = lojaAtual?.name ?? (multiplas ? 'Selecione a Loja' : lojas[0]?.name ?? '—');
+
+  if (!lojas.length) {
+    return (
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ mt: 1.25, pt: 1.25, borderTop: '1px solid rgba(27, 42, 107, 0.08)' }}
+      >
+        Nenhuma loja disponível
+      </Typography>
+    );
+  }
+
+  return (
+    <>
+      <Box
+        role={multiplas ? 'button' : undefined}
+        tabIndex={multiplas ? 0 : undefined}
+        onClick={() => multiplas && setDialogAberto(true)}
+        onKeyDown={(e) => {
+          if (multiplas && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            setDialogAberto(true);
+          }
+        }}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          minWidth: 0,
+          minHeight: 24,
+          mt: 1.25,
+          pt: 1.25,
+          borderTop: '1px solid rgba(27, 42, 107, 0.08)',
+          cursor: multiplas ? 'pointer' : 'default',
+        }}
+      >
+        <LocationOnOutlinedIcon sx={{ fontSize: 20, color: BRAND_ORANGE, flexShrink: 0, display: 'block' }} />
+        <Typography
+          component="div"
+          variant="body2"
+          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: 1, lineHeight: 1.25 }}
+        >
+          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
+            Loja:
+          </Box>
+          <Box
+            component="span"
+            sx={{
+              color: lojaAtual ? NAVY : 'text.secondary',
+              fontWeight: lojaAtual ? 700 : 500,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {nomeExibido}
+          </Box>
+        </Typography>
+      </Box>
+
+      <Dialog open={dialogAberto} onClose={() => setDialogAberto(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+          Escolher loja
+        </DialogTitle>
+        <List sx={{ pt: 0, pb: 1 }}>
+          {lojas.map((loja) => {
+            const ativa = loja.id_loja === idLoja;
+            return (
+              <ListItemButton
+                key={loja.id_loja}
+                selected={ativa}
+                onClick={() => {
+                  onSelecionar(loja.id_loja);
+                  setDialogAberto(false);
+                }}
+                sx={{ py: 1.25, '&.Mui-selected': { bgcolor: 'rgba(232, 82, 10, 0.08)' } }}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: BRAND_ORANGE }} />
+                </ListItemIcon>
+                <ListItemText
+                  primary={loja.name}
+                  secondary={loja.bk_number ? `BKN ${loja.bk_number}` : undefined}
+                  slotProps={{
+                    primary: {
+                      sx: {
+                        fontWeight: ativa ? 700 : 600,
+                        color: ativa ? NAVY : 'text.primary',
+                        fontSize: '0.9rem',
+                      },
+                    },
+                    secondary: { sx: { fontSize: '0.75rem' } },
+                  }}
+                />
+              </ListItemButton>
+            );
+          })}
+        </List>
+      </Dialog>
+    </>
+  );
+}
+
+function BannerResumoChecklist({
+  titulo,
+  totalPerguntas,
+  totalSecoes,
+  carregando,
+}: {
+  titulo: string;
+  totalPerguntas: number;
+  totalSecoes: number;
+  carregando?: boolean;
+}) {
+  return (
+    <Paper
+      sx={{
+        p: { xs: 2, sm: 2.5 },
+        mb: 2,
+        borderRadius: 2,
+        background: 'linear-gradient(135deg, #1B2A6B 0%, #2a3d8f 100%)',
+        color: 'white',
+      }}
+    >
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
+        {titulo}
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
+        <Chip
+          label={carregando ? 'Carregando…' : `${totalPerguntas} perguntas`}
+          size="small"
+          sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
+        />
+        <Chip
+          label={carregando ? '…' : `${totalSecoes} seções`}
+          size="small"
+          sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
+        />
+      </Box>
+      <Typography
+        variant="body2"
+        sx={{ opacity: 0.92, fontSize: { xs: '0.78rem', sm: '0.875rem' }, lineHeight: 1.45 }}
+      >
+        Responda uma seção por vez durante a visita na loja.
+      </Typography>
+    </Paper>
+  );
+}
 
 function getFotos(r?: RespostaLocal): string[] {
   if (r?.fotos?.length) return r.fotos;
@@ -212,6 +492,10 @@ export default function ChecklistPage() {
   const [rascunhos, setRascunhos] = useState<VisitaResumo[]>([]);
   const [sessaoLocal, setSessaoLocal] = useState<ChecklistSessaoLocal | null>(null);
   const [retomando, setRetomando] = useState(false);
+  const [carregandoTipo, setCarregandoTipo] = useState(false);
+  const lojaMobileCtx = useChamadosMobileLojaOpcional();
+  const pathChecklist = toAppPath(location.pathname);
+  const prevPathChecklist = useRef('');
 
   const totalPerguntas = useMemo(
     () => checklist.reduce((n, c) => n + c.perguntas.length, 0),
@@ -265,12 +549,21 @@ export default function ChecklistPage() {
     return lista;
   }, [rascunhos, sessaoLocal?.visitaId]);
 
+  const sessao = getUsuario();
+
   const lojaSel = useMemo(
     () => lojas.find((l) => l.id_loja === idLoja),
     [lojas, idLoja],
   );
 
-  const sessao = getUsuario();
+  const lojasMobile = useMemo(() => {
+    if (!paths.mobile || !sessao?.lojas?.length) return lojas;
+    const ids = new Set(sessao.lojas.map((l) => l.id_loja));
+    const filtradas = lojas.filter((l) => ids.has(l.id_loja));
+    return filtradas.length ? filtradas : lojas;
+  }, [lojas, paths.mobile, sessao?.lojas]);
+
+  const podeIniciarChecklist = Boolean(idLoja && idUsuario && tipoSelecionado);
   const somenteVisualizacao = !temPermissao('checklist.executar', sessao);
 
   useEffect(() => {
@@ -336,31 +629,65 @@ export default function ChecklistPage() {
 
   useEffect(() => {
     const sessao = getUsuario();
-    const comUsuarios = sessao && temPermissao('usuarios.listar', sessao);
+    const carregarAuditores = sessao && temPermissao('checklist.executar', sessao);
 
     Promise.all([
       api.lojas({ ativas: true, operacionais: true }),
       api.checklistTipos(),
-      comUsuarios ? api.usuarios() : Promise.resolve([] as Usuario[]),
+      carregarAuditores ? api.auditoresChecklist() : Promise.resolve([] as Usuario[]),
     ])
-      .then(async ([l, tipos, u]) => {
+      .then(async ([l, tipos, auditoresList]) => {
         setLojas(l);
-        setUsuarios(u);
-        const tipo = tipos[0] ?? null;
+        setUsuarios(auditoresList);
         setTiposChecklist(tipos);
-        setTipoSelecionado(tipo);
-        if (sessao) setIdUsuario(sessao.id_usuario);
-        if (sessao?.lojas?.length === 1) setIdLoja(sessao.lojas[0].id_loja);
-        else if (l.length === 1) setIdLoja(l[0].id_loja);
-        else if (l[0]) setIdLoja(l[0].id_loja);
-        if (tipo) {
-          const c = await api.checklist(tipo.codigo);
-          setChecklist(c);
+        if (paths.mobile) {
+          setTipoSelecionado(null);
+          setChecklist([]);
+        } else {
+          const tipo = tipos[0] ?? null;
+          setTipoSelecionado(tipo);
+          if (tipo) {
+            const c = await api.checklist(tipo.codigo);
+            setChecklist(c);
+          }
+        }
+        if (sessao) {
+          const auditorPadrao = auditoresList.find((u) => u.id_usuario === sessao.id_usuario);
+          setIdUsuario(auditorPadrao?.id_usuario ?? auditoresList[0]?.id_usuario ?? sessao.id_usuario);
+        }
+        const idsLojasUsuario = sessao?.lojas?.map((loja) => loja.id_loja) ?? [];
+        const lojasIniciais =
+          paths.mobile && idsLojasUsuario.length
+            ? l.filter((loja) => idsLojasUsuario.includes(loja.id_loja))
+            : l;
+        const listaLojas = lojasIniciais.length ? lojasIniciais : l;
+        if (paths.mobile) {
+          if (listaLojas.length === 1) setIdLoja(listaLojas[0].id_loja);
+        } else if (sessao?.lojas?.length === 1) {
+          setIdLoja(sessao.lojas[0].id_loja);
+        } else if (l.length === 1) {
+          setIdLoja(l[0].id_loja);
+        } else if (l[0]) {
+          setIdLoja(l[0].id_loja);
         }
       })
       .catch((e) => setMsg(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [paths.mobile]);
+
+  useEffect(() => {
+    if (!paths.mobile || fase !== 'setup') return;
+    const entrouNoHub =
+      pathChecklist === '/checklist/mobile' && prevPathChecklist.current !== '/checklist/mobile';
+    prevPathChecklist.current = pathChecklist;
+    if (!entrouNoHub || lojasMobile.length <= 1) return;
+    setIdLoja('');
+  }, [pathChecklist, paths.mobile, fase, lojasMobile.length]);
+
+  const selecionarLojaMobile = (lojaId: number) => {
+    setIdLoja(lojaId);
+    lojaMobileCtx?.setIdLoja(lojaId);
+  };
 
   const selecionarTipo = async (codigo: string) => {
     const tipo = tiposChecklist.find((t) => t.codigo === codigo) ?? null;
@@ -369,15 +696,17 @@ export default function ChecklistPage() {
     setRespostas({});
     setIndiceSecao(0);
     if (tipo) {
-      setLoading(true);
+      setCarregandoTipo(true);
       try {
         const c = await api.checklist(tipo.codigo);
         setChecklist(c);
       } catch (e) {
         setMsg((e as Error).message);
       } finally {
-        setLoading(false);
+        setCarregandoTipo(false);
       }
+    } else {
+      setChecklist([]);
     }
   };
 
@@ -718,7 +1047,7 @@ export default function ChecklistPage() {
 
   if (fase === 'setup') {
     return (
-      <Box sx={{ p: 2, pb: 4, flex: 1 }}>
+      <Box sx={{ px: 2, pb: 4, pt: 0, flex: 1 }}>
         {msg && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMsg('')}>
             {msg}
@@ -770,7 +1099,7 @@ export default function ChecklistPage() {
           </Alert>
         )}
 
-        {rascunhosOrdenados.length > 0 && (
+        {rascunhosOrdenados.length > 0 && !paths.mobile && (
           <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
               Visitas em andamento ({rascunhosOrdenados.length})
@@ -823,37 +1152,106 @@ export default function ChecklistPage() {
             </Box>
           </Paper>
         )}
-        <Paper
-          sx={{
-            p: { xs: 2, sm: 2.5 },
-            mb: 2,
-            borderRadius: 2,
-            background: 'linear-gradient(135deg, #1B2A6B 0%, #2a3d8f 100%)',
-            color: 'white',
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-            {tipoSelecionado?.nome ?? 'Nova visita'}
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
-            <Chip
-              label={`${totalPerguntas} perguntas`}
-              size="small"
-              sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
+        {paths.mobile ? (
+          <>
+            <BannerResumoChecklist
+              titulo={tipoSelecionado?.nome ?? 'Nova visita'}
+              totalPerguntas={totalPerguntas}
+              totalSecoes={totalSecoes}
+              carregando={carregandoTipo}
             />
-            <Chip
-              label={`${totalSecoes} seções`}
-              size="small"
-              sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
-            />
-          </Box>
-          <Typography
-            variant="body2"
-            sx={{ opacity: 0.92, fontSize: { xs: '0.78rem', sm: '0.875rem' }, lineHeight: 1.45 }}
-          >
-            Responda uma seção por vez durante a visita na loja.
-          </Typography>
-        </Paper>
+
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <SeletorAuditorChecklistMobile
+                auditores={usuarios}
+                idAuditor={idUsuario}
+                nomeFallback={sessao?.nome ?? '—'}
+                onSelecionar={setIdUsuario}
+              />
+              <SeletorLojaChecklistMobile
+                lojas={lojasMobile}
+                idLoja={idLoja}
+                onSelecionar={selecionarLojaMobile}
+              />
+            </Paper>
+
+            <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {carregandoTipo && <LinearProgress sx={{ mb: 0.5 }} />}
+              <FormControl component="fieldset" fullWidth>
+                <FormLabel
+                  component="legend"
+                  sx={{ fontWeight: 700, color: NAVY, fontSize: '0.875rem', mb: 0.5 }}
+                >
+                  Tipo de checklist
+                </FormLabel>
+                <RadioGroup
+                  value={tipoSelecionado?.codigo ?? ''}
+                  onChange={(e) => void selecionarTipo(e.target.value)}
+                >
+                  {tiposChecklist.map((t) => (
+                    <FormControlLabel
+                      key={t.codigo}
+                      value={t.codigo}
+                      control={
+                        <Radio
+                          sx={{
+                            color: 'rgba(27, 42, 107, 0.45)',
+                            '&.Mui-checked': { color: BRAND_ORANGE },
+                          }}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: NAVY }}>
+                            {t.nome}
+                          </Typography>
+                          {t.descricao && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {t.descricao}
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                      sx={{
+                        mx: 0,
+                        py: 0.75,
+                        px: 0.5,
+                        borderRadius: 2,
+                        alignItems: 'flex-start',
+                        '&:has(.Mui-checked)': { bgcolor: 'rgba(232, 82, 10, 0.06)' },
+                      }}
+                    />
+                  ))}
+                </RadioGroup>
+              </FormControl>
+
+              {tipoSelecionado?.codigo === 'time_de_campo' && (
+                <TimeCampoMetaForm
+                  value={metaVisita}
+                  onChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
+                />
+              )}
+            </Paper>
+
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={saving || carregandoTipo || !podeIniciarChecklist}
+              onClick={iniciarVisita}
+              sx={{ minHeight: 48, fontWeight: 700 }}
+            >
+              {saving ? 'Iniciando…' : 'Iniciar checklist'}
+            </Button>
+          </>
+        ) : (
+          <>
+        <BannerResumoChecklist
+          titulo={tipoSelecionado?.nome ?? 'Nova visita'}
+          totalPerguntas={totalPerguntas}
+          totalSecoes={totalSecoes}
+          carregando={carregandoTipo}
+        />
 
         {tiposChecklist.length > 1 && (
           <FormControl fullWidth sx={{ mb: 2 }}>
@@ -921,7 +1319,7 @@ export default function ChecklistPage() {
           </Select>
         </FormControl>
 
-        {getUsuario() && temPermissao('usuarios.listar', getUsuario()) ? (
+        {usuarios.length > 1 ? (
           <FormControl fullWidth sx={{ mb: 3 }}>
             <InputLabel>Auditor</InputLabel>
             <Select
@@ -930,24 +1328,13 @@ export default function ChecklistPage() {
               onChange={(e) => setIdUsuario(Number(e.target.value))}
               renderValue={(value) => {
                 const auditor = usuarios.find((u) => u.id_usuario === value);
-                if (!auditor) return '';
-                return (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                    <PersonOutlineOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0 }} />
-                    <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-                      {auditor.nome}
-                    </Typography>
-                  </Box>
-                );
+                return auditor?.nome ?? '';
               }}
               {...selectMenuScrollProps}
             >
               {usuarios.map((u) => (
-                <MenuItem key={u.id_usuario} value={u.id_usuario} sx={{ py: 0.85, alignItems: 'center' }}>
-                  <PersonOutlineOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary', mr: 1, flexShrink: 0 }} />
-                  <Typography variant="body2" sx={{ fontSize: '0.78rem', fontWeight: 500, lineHeight: 1.3 }}>
-                    {u.nome}
-                  </Typography>
+                <MenuItem key={u.id_usuario} value={u.id_usuario}>
+                  {u.nome}
                 </MenuItem>
               ))}
             </Select>
@@ -955,10 +1342,10 @@ export default function ChecklistPage() {
         ) : (
           <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
             <Typography variant="caption" color="text.secondary">
-              Responsável
+              Auditor
             </Typography>
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {getUsuario()?.nome}
+              {usuarios[0]?.nome ?? getUsuario()?.nome}
             </Typography>
           </Paper>
         )}
@@ -974,12 +1361,14 @@ export default function ChecklistPage() {
           fullWidth
           variant="contained"
           size="large"
-          disabled={saving || !idLoja || !idUsuario || !tipoSelecionado}
+          disabled={saving || carregandoTipo || !podeIniciarChecklist}
           onClick={iniciarVisita}
           sx={{ minHeight: 56, fontSize: '1.05rem', fontWeight: 700 }}
         >
           Iniciar checklist
         </Button>
+          </>
+        )}
       </Box>
     );
   }

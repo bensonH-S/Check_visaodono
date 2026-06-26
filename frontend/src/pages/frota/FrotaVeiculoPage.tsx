@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -32,7 +31,6 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 export default function FrotaVeiculoPage() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [meuVeiculo, setMeuVeiculo] = useState<FrotaVeiculo | null>(null);
@@ -291,10 +289,6 @@ export default function FrotaVeiculoPage() {
           )}
         </Paper>
       )}
-
-      <Button fullWidth sx={{ mt: 2 }} onClick={() => navigate('/frota/mobile')}>
-        Voltar ao início da frota
-      </Button>
     </Box>
   );
 }

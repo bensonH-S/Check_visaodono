@@ -19,7 +19,7 @@ import MapIcon from '@mui/icons-material/Map';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useEffect, useRef } from 'react';
-import { showToast } from '../utils/toast';
+import { showWelcomeToast } from '../utils/toast';
 import NotificacoesSino from '../components/NotificacoesSino';
 import SobreSistemaButton from '../components/SobreSistemaButton';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
@@ -61,7 +61,7 @@ export default function PortalLayout() {
     const nome = (location.state as { welcome?: string } | null)?.welcome;
     if (!nome || welcomeShown.current) return;
     welcomeShown.current = true;
-    showToast(`Bem-vindo, ${nome}!`, 'success');
+    showWelcomeToast(nome);
     navigate(location.pathname + location.search + location.hash, { replace: true, state: {} });
   }, [location.state, location.pathname, location.search, location.hash, navigate]);
 

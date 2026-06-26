@@ -101,6 +101,7 @@ export const api = {
   lojaAtualizar: (id: number, body: LojaAtualizarInput) =>
     request<Loja>(`/lojas/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   usuarios: () => request<Usuario[]>('/usuarios'),
+  auditoresChecklist: () => request<Usuario[]>('/usuarios/auditores-checklist'),
   permissoesCatalogo: () =>
     request<PermissaoCatalogo[]>('/usuarios/permissoes/catalogo', { cache: 'no-store' }),
   usuariosGestao: () => request<UsuarioGestao[]>('/usuarios/gestao'),

@@ -305,14 +305,18 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
   return (
     <>
       <IconButton
-        size="small"
+        size={menuMobile ? 'medium' : 'small'}
         aria-label={tituloMenu}
         aria-expanded={!!anchor}
         onClick={(e) => {
           setAnchor(e.currentTarget);
           carregar();
         }}
-        sx={{ color: colors.navy, position: 'relative' }}
+        sx={{
+          color: colors.navy,
+          position: 'relative',
+          ...(menuMobile && { p: 1 }),
+        }}
       >
         <Badge
           badgeContent={naoLidas > 0 ? naoLidas : null}
@@ -324,14 +328,14 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
               backgroundColor: '#DC2626',
               color: '#fff',
               fontWeight: 700,
-              fontSize: '0.65rem',
-              minWidth: 18,
-              height: 18,
+              fontSize: menuMobile ? '0.7rem' : '0.65rem',
+              minWidth: menuMobile ? 20 : 18,
+              height: menuMobile ? 20 : 18,
               border: '2px solid #f5f5f3',
             },
           }}
         >
-          <NotificationsNoneOutlinedIcon fontSize="small" />
+          <NotificationsNoneOutlinedIcon sx={{ fontSize: menuMobile ? 28 : 20 }} />
         </Badge>
       </IconButton>
 

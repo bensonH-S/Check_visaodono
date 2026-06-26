@@ -47,11 +47,7 @@ export default function FrotaTermoPage() {
     e.preventDefault();
     if (!termo || termo.assinado) return;
     if (!assinatura) {
-      setErro('Assine digitalmente o termo');
-      return;
-    }
-    if (!fotos.length) {
-      setErro('Fotografe os equipamentos/ferramentas');
+      setErro('Assine o termo antes de confirmar');
       return;
     }
     setSalvando(true);
@@ -91,6 +87,14 @@ export default function FrotaTermoPage() {
   return (
     <Box component="form" onSubmit={assinar} sx={{ px: 2, py: 1, pb: 4 }}>
       {erro && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
+
+      <Typography variant="caption" sx={{ display: 'block', mb: 1.25, fontSize: '0.72rem', color: 'text.secondary' }}>
+        Leia o termo abaixo com atenção
+        <Box component="span" sx={{ color: '#DC2626', fontWeight: 700 }}>
+          *
+        </Box>
+      </Typography>
+
       <Paper sx={{ p: 2, mb: 2, maxHeight: 220, overflowY: 'auto', bgcolor: '#fafafa' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
           {termo?.empresa.razaoSocial} · CNPJ {termo?.empresa.cnpj}
@@ -99,20 +103,23 @@ export default function FrotaTermoPage() {
           {termo?.texto}
         </Typography>
       </Paper>
+
       <SignaturePad onChange={setAssinatura} />
+
       <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 2, mb: 1 }}>
-        Fotos dos equipamentos
+        Fotos dos equipamentos <Typography component="span" variant="caption" color="text.secondary">(opcional)</Typography>
       </Typography>
       <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={8} inlineActions />
+
       <Button
         fullWidth
         type="submit"
         variant="contained"
         size="large"
-        disabled={salvando}
+        disabled={salvando || !assinatura}
         sx={{ mt: 3, minHeight: 48 }}
       >
-        {salvando ? 'Registrando…' : 'Assinar termo digitalmente'}
+        {salvando ? 'Registrando…' : 'Assinar termo'}
       </Button>
     </Box>
   );
