@@ -4,6 +4,8 @@ import {
   mensagemNovoChamadoRegiao,
   mensagemUrgenteRegiao,
 } from '../textosNotificacaoChamado.js';
+import { coletarDestinatariosDiretoriaLoja } from './destinatariosDiretoria.js';
+import { coletarDestinatariosPorEvento } from './destinatariosNotificacao.js';
 import { distanciaKm } from '../utils/geo.js';
 import { obterCoordenadasLoja } from './geocodificarLoja.js';
 
@@ -107,6 +109,16 @@ export async function coletarDestinatariosRegiaoLoja(idLoja) {
   return destinatarios;
 }
 
+async function coletarDestinatariosAbertura(idLoja, idAutor) {
+  const destinatarios = await coletarDestinatariosRegiaoLoja(idLoja);
+  for (const id of await coletarDestinatariosDiretoriaLoja(idLoja)) {
+    destinatarios.add(id);
+  }
+  const idAutorNum = Number(idAutor);
+  if (Number.isFinite(idAutorNum)) destinatarios.delete(idAutorNum);
+  return destinatarios;
+}
+
 async function coletarDestinatariosRegiao(idLoja, idAutor) {
   const destinatarios = await coletarDestinatariosRegiaoLoja(idLoja);
   const idAutorNum = Number(idAutor);
@@ -130,17 +142,16 @@ export async function processarAberturaChamadoRegiao({
   temColunaAssumidoEm,
 }) {
   const regiao = await buscarRegiaoDaLoja(idLoja);
-  if (!regiao) return { processado: false, motivo: 'sem_regiao' };
-
-  const tecnicos = await buscarTecnicosRegiao(regiao.id_regiao);
-  const destinatarios = await coletarDestinatariosRegiao(idLoja, idAutor);
-
-  if (!destinatarios.size) {
-    return { processado: false, motivo: 'sem_destinatarios' };
-  }
-
   const urgente = isUrgenciaAltaOuCritica(urgencia);
   const tipoAbertura = urgente ? 'chamado_urgente_regiao' : 'novo_chamado';
+  const destinatarios = await coletarDestinatariosPorEvento(idChamado, tipoAbertura);
+  const idAutorNum = Number(idAutor);
+  if (Number.isFinite(idAutorNum)) destinatarios.delete(idAutorNum);
+
+  if (!destinatarios.size) {
+    return { processado: false, motivo: regiao ? 'sem_destinatarios' : 'sem_regiao' };
+  }
+
   const msgAbertura = urgente
     ? await mensagemUrgenteRegiao(numero, nomeLoja)
     : await mensagemNovoChamadoRegiao(numero, nomeLoja);
@@ -155,15 +166,17 @@ export async function processarAberturaChamadoRegiao({
     });
   }
 
-  if (!urgente) {
+  if (!urgente || !regiao) {
     return {
       processado: true,
       atribuido: false,
-      urgente: false,
+      urgente: !!urgente,
+      motivo: !regiao && urgente ? 'sem_regiao_auto_atribuir' : undefined,
       notificacoes_abertura: destinatarios.size,
     };
   }
 
+  const tecnicos = await buscarTecnicosRegiao(regiao.id_regiao);
   const lojaCoords = await obterCoordenadasLoja(idLoja);
   const posicoes = await buscarPosicoesTecnicos(tecnicos.map((t) => t.id_usuario));
   const tecnicoProximo = escolherTecnicoMaisProximo(tecnicos, posicoes, lojaCoords);
@@ -199,22 +212,19 @@ export async function processarAberturaChamadoRegiao({
   }
 
   const msgAtribuido = await mensagemChamadoAtribuido(numero, tecnicoProximo.nome);
-
-  const destinatariosAtribuicao = new Set(destinatarios);
+  const destinatariosAtribuicao = await coletarDestinatariosPorEvento(idChamado, 'assumido');
   destinatariosAtribuicao.add(Number(tecnicoProximo.id_usuario));
-  const idAutorNum = Number(idAutor);
-  if (Number.isFinite(idAutorNum)) destinatariosAtribuicao.add(idAutorNum);
-
-  for (const idUsuario of await buscarGestoresLoja(idLoja)) {
-    destinatariosAtribuicao.add(idUsuario);
-  }
+  if (Number.isFinite(idAutorNum)) destinatariosAtribuicao.delete(idAutorNum);
 
   for (const idUsuario of destinatariosAtribuicao) {
+    const paraTecnico = idUsuario === Number(tecnicoProximo.id_usuario);
     await criarNotificacao({
       idUsuario,
       idChamado,
       tipo: 'assumido',
-      mensagem: msgAtribuido,
+      mensagem: paraTecnico
+        ? await mensagemChamadoAtribuido(numero, null, { paraVoce: true })
+        : msgAtribuido,
       enviarPush: true,
     });
   }

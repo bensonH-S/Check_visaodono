@@ -1,9 +1,27 @@
 /** Espelha backend/notificacoesFiltro.js — alertas operacionais de chamados. */
 export const TIPOS_ALERTA_CHAMADOS_OPS = ['chamado_urgente_regiao', 'novo_chamado', 'assumido'] as const;
 
+export const TIPOS_MOVIMENTACAO_CHAMADO = ['resposta', 'anexo', 'fechamento', 'reabertura'] as const;
+
+export const TIPOS_NOTIF_APROVACOES = [
+  'envio_aprovacao',
+  'encaminhar_diretor',
+  'aprovacao_diretor',
+] as const;
+
+export const TIPOS_APROVACAO_RESULTADO = ['aguardando_aprovacao', 'aprovacao', 'recusa_aprovacao'] as const;
+
+export const TIPOS_PAINEL_DIRETOR = [
+  ...TIPOS_ALERTA_CHAMADOS_OPS,
+  ...TIPOS_MOVIMENTACAO_CHAMADO,
+  ...TIPOS_NOTIF_APROVACOES,
+  ...TIPOS_APROVACAO_RESULTADO,
+] as const;
+
 export type TipoAlertaChamadoOps = (typeof TIPOS_ALERTA_CHAMADOS_OPS)[number];
 
 const SET_OPS = new Set<string>(TIPOS_ALERTA_CHAMADOS_OPS);
+const SET_PAINEL_DIRETOR = new Set<string>(TIPOS_PAINEL_DIRETOR);
 
 export function tipoAlertaChamadoOps(tipo: string): tipo is TipoAlertaChamadoOps {
   return SET_OPS.has(tipo);
@@ -11,6 +29,16 @@ export function tipoAlertaChamadoOps(tipo: string): tipo is TipoAlertaChamadoOps
 
 export function filtrarNotificacoesChamadosOps<T extends { tipo: string }>(lista: T[]): T[] {
   return lista.filter((n) => tipoAlertaChamadoOps(n.tipo));
+}
+
+export function filtrarNotificacoesVisiveisChamados<T extends { tipo: string }>(
+  lista: T[],
+  opts?: { painelDiretor?: boolean },
+): T[] {
+  if (opts?.painelDiretor) {
+    return lista.filter((n) => SET_PAINEL_DIRETOR.has(n.tipo));
+  }
+  return filtrarNotificacoesChamadosOps(lista);
 }
 
 export function mensagemUrgenteRegiao(numero: number, nomeLoja?: string | null): string {

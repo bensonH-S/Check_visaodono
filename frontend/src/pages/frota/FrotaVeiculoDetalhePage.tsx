@@ -8,13 +8,14 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { api, type FrotaVeiculo } from '../../api/client';
 import FrotaVeiculoDialog from '../../components/frota/FrotaVeiculoDialog';
 import FrotaVeiculoDocumentosPanel from '../../components/frota/FrotaVeiculoDocumentosPanel';
+import FrotaVeiculoKmPanel from '../../components/frota/FrotaVeiculoKmPanel';
+import FrotaVeiculoAbasEdicao from '../../components/frota/FrotaVeiculoAbasEdicao';
+import { periodoSemanaAtualKm } from '../../components/frota/FrotaVeiculosKmSemanaPanel';
 import { colors } from '../../theme/tokens';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { showToast } from '../../utils/toast';
@@ -29,6 +30,8 @@ export default function FrotaVeiculoDetalhePage() {
   const [qtdDocumentos, setQtdDocumentos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editAberto, setEditAberto] = useState(false);
+  const [kmDataInicio, setKmDataInicio] = useState(() => periodoSemanaAtualKm().inicio);
+  const [kmDataFim, setKmDataFim] = useState(() => periodoSemanaAtualKm().fim);
 
   const carregar = useCallback(() => {
     if (!Number.isFinite(idVeiculo)) return;
@@ -84,16 +87,18 @@ export default function FrotaVeiculoDetalhePage() {
         )}
       </Box>
 
-      <Tabs
-        value={aba}
-        onChange={(_, v) => setAba(v)}
-        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
-      >
-        <Tab label="Dados do veículo" />
-        <Tab label={`Documentos (${qtdDocumentos})`} />
-      </Tabs>
+      <FrotaVeiculoAbasEdicao
+        semPadding
+        aba={aba}
+        onChangeAba={setAba}
+        labelDocumentos={`Documentos (${qtdDocumentos})`}
+        kmDataInicio={kmDataInicio}
+        kmDataFim={kmDataFim}
+        onChangeKmInicio={setKmDataInicio}
+        onChangeKmFim={setKmDataFim}
+      />
 
-      {aba === 0 && (
+      <Box sx={{ display: aba === 0 ? 'block' : 'none' }}>
         <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: colors.border }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
             Identificação
@@ -113,10 +118,6 @@ export default function FrotaVeiculoDetalhePage() {
             <Info label="Ano" value={veiculo.ano ? String(veiculo.ano) : '—'} />
             <Info label="Cor" value={veiculo.cor || '—'} />
             <Info label="Combustível" value={veiculo.combustivel || '—'} />
-            <Info
-              label="KM atual"
-              value={veiculo.km_atual != null ? veiculo.km_atual.toLocaleString('pt-BR') : '—'}
-            />
           </Box>
 
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
@@ -133,16 +134,29 @@ export default function FrotaVeiculoDetalhePage() {
             </Box>
           </Box>
         </Paper>
-      )}
+      </Box>
 
-      {aba === 1 && (
+      <Box sx={{ display: aba === 1 ? 'block' : 'none' }}>
+        <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: colors.border }}>
+          <FrotaVeiculoKmPanel
+            idVeiculo={veiculo.id_veiculo}
+            ocultarFiltro
+            dataInicio={kmDataInicio}
+            dataFim={kmDataFim}
+            onChangeInicio={setKmDataInicio}
+            onChangeFim={setKmDataFim}
+          />
+        </Paper>
+      </Box>
+
+      <Box sx={{ display: aba === 2 ? 'block' : 'none' }}>
         <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: colors.border }}>
           <FrotaVeiculoDocumentosPanel
             idVeiculo={veiculo.id_veiculo}
             onDocumentosChange={setQtdDocumentos}
           />
         </Paper>
-      )}
+      </Box>
 
       <FrotaVeiculoDialog
         open={editAberto}

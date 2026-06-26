@@ -22,6 +22,7 @@ import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import MapIcon from '@mui/icons-material/Map';
+import SpeedIcon from '@mui/icons-material/Speed';
 
 import { colors } from '../theme/tokens';
 
@@ -45,6 +46,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/frota': { title: 'Gestão de frota', icon: <DirectionsCarIcon sx={iconSx} /> },
   '/frota/veiculos': { title: 'Gestão de veículos', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/relatorio-km': { title: 'Relatório de KM', icon: <SpeedIcon sx={iconSx} /> },
   '/frota/uso': { title: 'Uso e assunção', icon: <PersonPinCircleIcon sx={iconSx} /> },
   '/frota/combustivel': { title: 'Controle de combustível', icon: <LocalGasStationIcon sx={iconSx} /> },
   '/frota/manutencoes': { title: 'Manutenções', icon: <BuildIcon sx={iconSx} /> },

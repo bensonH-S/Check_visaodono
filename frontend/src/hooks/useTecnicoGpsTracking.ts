@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { api } from '../api/client';
 import { deveRastrearGpsTecnico, getUsuario } from '../lib/auth';
 import {
   GPS_ATUALIZADO_EVENT,
   geolocalizacaoDisponivel,
-  obterPosicaoAtual,
+  monitorarPosicao,
+  registrarSyncGpsRetry,
+  solicitarWakeLock,
 } from '../utils/geolocation';
+import { enfileirarPosicaoGps, enviarPosicaoGps, flushGpsOutbox } from '../utils/gpsOutbox';
 
 type GpsConfig = {
   gpsTecnicosEnabled?: boolean;
@@ -13,58 +15,95 @@ type GpsConfig = {
 };
 
 /**
- * Envia a posição do técnico periodicamente (padrão: 2 min).
- * Controlado por GPS_TECNICOS_ENABLED no servidor.
+ * Rastreamento contínuo do técnico (watchPosition + wake lock).
+ * Com app minimizado continua enquanto o processo estiver vivo no Android.
+ * Com app totalmente fechado, reenvia pendências ao reabrir (outbox + Background Sync).
  */
 export function useTecnicoGpsTracking(config?: GpsConfig) {
   const enviando = useRef(false);
-  const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ultimoEnvio = useRef(0);
+  const liberarWake = useRef<(() => void) | null>(null);
 
-  const enviarPosicao = useCallback(async () => {
-    if (enviando.current || !config?.gpsTecnicosEnabled) return;
-    const user = getUsuario();
-    if (!deveRastrearGpsTecnico(user)) return;
-    if (!geolocalizacaoDisponivel()) return;
+  const intervaloMs =
+    config?.gpsTecnicosIntervalMs && config.gpsTecnicosIntervalMs >= 30_000
+      ? config.gpsTecnicosIntervalMs
+      : 120_000;
 
-    enviando.current = true;
-    try {
-      const pos = await obterPosicaoAtual();
-      await api.frotaAtualizarPosicao({
-        latitude: pos.latitude,
-        longitude: pos.longitude,
-        precisao_metros: pos.precisao_metros ?? undefined,
-      });
-      window.dispatchEvent(new Event(GPS_ATUALIZADO_EVENT));
-    } catch {
-      window.dispatchEvent(new Event(GPS_ATUALIZADO_EVENT));
-    } finally {
-      enviando.current = false;
-    }
-  }, [config?.gpsTecnicosEnabled]);
+  const enviarPosicao = useCallback(
+    async (pos: { latitude: number; longitude: number; precisao_metros: number | null }) => {
+      if (enviando.current || !config?.gpsTecnicosEnabled) return;
+      const user = getUsuario();
+      if (!deveRastrearGpsTecnico(user)) return;
+
+      const agora = Date.now();
+      if (agora - ultimoEnvio.current < intervaloMs - 5_000) return;
+
+      enviando.current = true;
+      try {
+        const ok = await enviarPosicaoGps(pos);
+        if (!ok) {
+          await enfileirarPosicaoGps(pos);
+          await registrarSyncGpsRetry();
+        } else {
+          ultimoEnvio.current = agora;
+        }
+        window.dispatchEvent(new Event(GPS_ATUALIZADO_EVENT));
+      } catch {
+        await enfileirarPosicaoGps(pos).catch(() => {});
+        window.dispatchEvent(new Event(GPS_ATUALIZADO_EVENT));
+      } finally {
+        enviando.current = false;
+      }
+    },
+    [config?.gpsTecnicosEnabled, intervaloMs],
+  );
 
   useEffect(() => {
     if (!config?.gpsTecnicosEnabled) return;
     if (!deveRastrearGpsTecnico(getUsuario())) return;
+    if (!geolocalizacaoDisponivel()) return;
 
-    void enviarPosicao();
-    const ms = config.gpsTecnicosIntervalMs && config.gpsTecnicosIntervalMs >= 30_000
-      ? config.gpsTecnicosIntervalMs
-      : 120_000;
+    void flushGpsOutbox();
 
-    intervaloRef.current = setInterval(() => {
-      void enviarPosicao();
-    }, ms);
+    void solicitarWakeLock().then((release) => {
+      liberarWake.current = release;
+    });
+
+    const pararWatch = monitorarPosicao(
+      (pos) => {
+        void enviarPosicao(pos);
+      },
+      () => {
+        window.dispatchEvent(new Event(GPS_ATUALIZADO_EVENT));
+      },
+    );
 
     const onVisivel = () => {
-      if (document.visibilityState === 'visible') void enviarPosicao();
+      if (document.visibilityState === 'visible') {
+        void flushGpsOutbox();
+      }
     };
+    const onPageHide = () => {
+      void flushGpsOutbox();
+    };
+
     document.addEventListener('visibilitychange', onVisivel);
+    window.addEventListener('pagehide', onPageHide);
+
+    const onSwMessage = (ev: MessageEvent) => {
+      if (ev.data?.type === 'GPS_FLUSH_OUTBOX') void flushGpsOutbox();
+    };
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
 
     return () => {
-      if (intervaloRef.current) clearInterval(intervaloRef.current);
+      pararWatch();
       document.removeEventListener('visibilitychange', onVisivel);
+      window.removeEventListener('pagehide', onPageHide);
+      navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+      liberarWake.current?.();
+      liberarWake.current = null;
     };
-  }, [config?.gpsTecnicosEnabled, config?.gpsTecnicosIntervalMs, enviarPosicao]);
+  }, [config?.gpsTecnicosEnabled, enviarPosicao]);
 
   return { enviarPosicao };
 }

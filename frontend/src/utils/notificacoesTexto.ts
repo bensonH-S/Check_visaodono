@@ -52,6 +52,7 @@ export function tituloNotificacaoChamado(
         mensagem: n.mensagem,
       });
     }
+    if (n.mensagem?.trim()) return n.mensagem.trim();
     return '';
   }
 

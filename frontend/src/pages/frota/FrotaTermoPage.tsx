@@ -10,6 +10,7 @@ import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import SignaturePad from '../../components/frota/SignaturePad';
 import { api } from '../../api/client';
 import type { FrotaTermoInfo } from '../../api/client';
+import { getUsuario, podeAssinarTermoFerramentasMobile } from '../../lib/auth';
 import { extensaoMidia } from '../../utils/mediaFile';
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -31,12 +32,16 @@ export default function FrotaTermoPage() {
   const [erro, setErro] = useState('');
 
   useEffect(() => {
+    if (!podeAssinarTermoFerramentasMobile(getUsuario())) {
+      navigate('/frota/mobile', { replace: true });
+      return;
+    }
     api
       .frotaTermo()
       .then(setTermo)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [navigate]);
 
   async function assinar(e: React.FormEvent) {
     e.preventDefault();

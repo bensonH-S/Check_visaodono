@@ -212,10 +212,14 @@ export function ehRotaMobileChamados(): boolean {
   return appPath === '/chamados/mobile' || appPath.startsWith('/chamados/mobile/');
 }
 
-/** Técnicos no portal (/chamados) ou loja no fluxo mobile — rotas onde push é oferecido. */
+/** Técnicos no portal ou diretoria — rotas onde push operacional é oferecido. */
 export function usuarioAdministraChamados(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
-  return temPermissao('chamados.ver', u) || temPermissao('chamados.assumir', u);
+  return (
+    temPermissao('chamados.ver', u) ||
+    temPermissao('chamados.assumir', u) ||
+    (u?.cargo_aprovacao === 'diretor' && temPermissao('chamados.aprovar', u))
+  );
 }
 
 export function ehRotaComPush(): boolean {

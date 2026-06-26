@@ -79,7 +79,7 @@ type Props = {
 
 export default function FrotaVeiculoDocumentosPanel({
   idVeiculo,
-  ativo = true,
+  ativo: _ativo = true,
   onDocumentosChange,
   anexarNoRodape = false,
   onSalvandoChange,
@@ -131,8 +131,8 @@ export default function FrotaVeiculoDocumentosPanel({
   }, [idVeiculo]);
 
   useEffect(() => {
-    if (ativo && idVeiculo) carregar();
-  }, [ativo, idVeiculo, carregar]);
+    if (idVeiculo) carregar();
+  }, [idVeiculo, carregar]);
 
   async function excluirDocumento(doc: FrotaDocumento, e: React.MouseEvent) {
     e.preventDefault();

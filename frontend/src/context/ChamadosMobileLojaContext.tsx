@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { getUsuario } from '../lib/auth';
+import { getUsuario, ehGestorLojaMobile, deveEscolherLojaNovoChamadoMobile } from '../lib/auth';
 
 const STORAGE_KEY = 'chamados_mobile_loja_id';
 
@@ -31,7 +31,10 @@ export function ChamadosMobileLojaProvider({ children }: { children: ReactNode }
   }, []);
 
   useEffect(() => {
-    const lojas = getUsuario()?.lojas ?? [];
+    const usuario = getUsuario();
+    if (!usuario || deveEscolherLojaNovoChamadoMobile(usuario)) return;
+    if (!ehGestorLojaMobile(usuario)) return;
+    const lojas = usuario.lojas ?? [];
     if (!lojas.length) return;
     const valido = idLoja != null && lojas.some((l) => l.id_loja === idLoja);
     if (!valido) setIdLoja(lojas[0].id_loja);

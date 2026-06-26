@@ -1,5 +1,5 @@
 import { pool } from '../db.js';
-import { tipoEnviaPush } from '../notificacoesFiltro.js';
+import { tipoEnviaPush, tipoMovimentacaoChamado, tipoAprovacaoChamado } from '../notificacoesFiltro.js';
 import { tituloNotificacaoOps } from '../textosNotificacaoChamado.js';
 import { normalizarTelefoneBr } from '../utils/telefone.js';
 import { enviarMensagemWpp, wppEnabled } from './wppClient.js';
@@ -89,7 +89,12 @@ function montarMensagemWhatsApp({ tipo, numero, mensagem, link, loja }) {
   const titulo = tituloPorTipo(tipo, numero, mensagem, loja);
   const linhas = ['🔔 *Vision Check*', titulo, ''];
   const corpo = String(mensagem || '').trim();
-  const ops = tipo === 'assumido' || tipo === 'chamado_urgente_regiao' || tipo === 'novo_chamado';
+  const ops =
+    tipo === 'assumido' ||
+    tipo === 'chamado_urgente_regiao' ||
+    tipo === 'novo_chamado' ||
+    tipoMovimentacaoChamado(tipo) ||
+    tipoAprovacaoChamado(tipo);
   if (corpo && !(ops && corpo === titulo)) linhas.push(corpo, '');
   if (link) linhas.push(`👉 Abrir: ${link}`);
   return linhas.join('\n').trim();

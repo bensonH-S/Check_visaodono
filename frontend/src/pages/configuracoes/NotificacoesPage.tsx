@@ -19,10 +19,8 @@ import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
-import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { api } from '../../api/client';
 import type {
   ManutNotificacaoEvento,
@@ -39,6 +37,11 @@ type FormState = {
   template_destinatario: string;
   notifica_abrir: boolean;
   notifica_ver: boolean;
+  notifica_diretor: boolean;
+  notifica_tecnico: boolean;
+  notifica_supervisor: boolean;
+  notifica_coordenador: boolean;
+  notifica_gerente: boolean;
   ativo: boolean;
 };
 
@@ -49,6 +52,11 @@ const emptyForm: FormState = {
   template_destinatario: '',
   notifica_abrir: true,
   notifica_ver: true,
+  notifica_diretor: true,
+  notifica_tecnico: true,
+  notifica_supervisor: true,
+  notifica_coordenador: true,
+  notifica_gerente: true,
   ativo: true,
 };
 
@@ -149,6 +157,11 @@ export default function NotificacoesPage() {
       template_destinatario: ev.template_destinatario || '',
       notifica_abrir: ev.notifica_abrir,
       notifica_ver: ev.notifica_ver,
+      notifica_diretor: ev.notifica_diretor,
+      notifica_tecnico: ev.notifica_tecnico,
+      notifica_supervisor: ev.notifica_supervisor,
+      notifica_coordenador: ev.notifica_coordenador,
+      notifica_gerente: ev.notifica_gerente,
       ativo: ev.ativo,
     });
     setErro('');
@@ -173,6 +186,11 @@ export default function NotificacoesPage() {
         template_destinatario: form.template_destinatario.trim() || null,
         notifica_abrir: form.notifica_abrir,
         notifica_ver: form.notifica_ver,
+        notifica_diretor: form.notifica_diretor,
+        notifica_tecnico: form.notifica_tecnico,
+        notifica_supervisor: form.notifica_supervisor,
+        notifica_coordenador: form.notifica_coordenador,
+        notifica_gerente: form.notifica_gerente,
         ativo: form.ativo,
       };
       if (editCodigo) {
@@ -246,8 +264,8 @@ export default function NotificacoesPage() {
                 <TableCell sx={{ width: 160 }}>Código</TableCell>
                 <TableCell sx={{ minWidth: 180 }}>Descrição</TableCell>
                 <TableCell>Template</TableCell>
-                <TableCell align="center" sx={{ width: 72 }}>
-                  Push
+                <TableCell align="center" sx={{ width: 120 }}>
+                  Destinatários
                 </TableCell>
                 <TableCell align="center" sx={{ width: 80 }}>
                   Status
@@ -272,14 +290,16 @@ export default function NotificacoesPage() {
                   <TableCell sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
                     {resumoTemplate(ev.template_mensagem)}
                   </TableCell>
-                  <TableCell align="center">
-                    {ev.envia_push ? (
-                      <Tooltip title="Envia push e WhatsApp">
-                        <NotificationsActiveIcon fontSize="small" color="primary" />
-                      </Tooltip>
-                    ) : (
-                      '—'
-                    )}
+                  <TableCell align="center" sx={{ fontSize: '0.75rem' }}>
+                    {[
+                      ev.notifica_diretor && 'Dir.',
+                      ev.notifica_coordenador && 'Coord.',
+                      ev.notifica_gerente && 'Ger.',
+                      ev.notifica_tecnico && 'Téc.',
+                      ev.notifica_supervisor && 'Sup.',
+                    ]
+                      .filter(Boolean)
+                      .join(' ') || '—'}
                   </TableCell>
                   <TableCell align="center">
                     <Chip
@@ -383,25 +403,63 @@ export default function NotificacoesPage() {
               }
               label="Evento ativo"
             />
+          </Box>
+
+          <Typography variant="subtitle2" sx={{ mt: 0.5 }}>
+            Enviar para
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             <FormControlLabel
               control={
                 <Switch
-                  checked={form.notifica_abrir}
-                  onChange={(e) => setForm((f) => ({ ...f, notifica_abrir: e.target.checked }))}
+                  checked={form.notifica_diretor}
+                  onChange={(e) => setForm((f) => ({ ...f, notifica_diretor: e.target.checked }))}
                 />
               }
-              label="Notifica quem abre chamados"
+              label="Diretor"
             />
             <FormControlLabel
               control={
                 <Switch
-                  checked={form.notifica_ver}
-                  onChange={(e) => setForm((f) => ({ ...f, notifica_ver: e.target.checked }))}
+                  checked={form.notifica_coordenador}
+                  onChange={(e) => setForm((f) => ({ ...f, notifica_coordenador: e.target.checked }))}
                 />
               }
-              label="Notifica quem vê chamados"
+              label="Coordenador"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.notifica_gerente}
+                  onChange={(e) => setForm((f) => ({ ...f, notifica_gerente: e.target.checked }))}
+                />
+              }
+              label="Gerente"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.notifica_tecnico}
+                  onChange={(e) => setForm((f) => ({ ...f, notifica_tecnico: e.target.checked }))}
+                />
+              }
+              label="Técnico"
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.notifica_supervisor}
+                  onChange={(e) => setForm((f) => ({ ...f, notifica_supervisor: e.target.checked }))}
+                />
+              }
+              label="Supervisor regional"
             />
           </Box>
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            Apenas os papéis marcados recebem a notificação. Coordenador e gerente são os vinculados à loja do chamado.
+            O técnico inclui o responsável pelo chamado e os da região.
+          </Typography>
 
           {erro && dialog && <Alert severity="error">{erro}</Alert>}
         </DialogContent>

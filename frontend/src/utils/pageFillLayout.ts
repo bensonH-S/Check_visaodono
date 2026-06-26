@@ -15,6 +15,9 @@ export function isPaginaScrollInterno(path: string): boolean {
     path === '/chamados' ||
     path === '/visitas' ||
     path === '/chamados/aprovacoes' ||
+    path === '/frota/regioes' ||
+    path === '/frota/veiculos' ||
+    path === '/frota/relatorio-km' ||
     path.startsWith('/configuracoes/')
   );
 }

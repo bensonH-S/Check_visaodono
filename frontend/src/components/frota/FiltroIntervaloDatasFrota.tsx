@@ -20,6 +20,8 @@ type Props = {
   dataFim: string;
   onChangeInicio: (value: string) => void;
   onChangeFim: (value: string) => void;
+  /** Versão compacta para a barra de abas do modal. */
+  compacto?: boolean;
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
@@ -37,11 +39,46 @@ function formatarTexto(inicio: string, fim: string) {
 
 const filtroDataSx = {
   mb: 0,
-  minWidth: 220,
-  flex: '1 1 220px',
+  minWidth: 260,
+  flex: '0 0 auto',
+  pt: 0.75,
   '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
     minHeight: 40,
     height: 40,
+  },
+  '& .MuiInputLabel-root.MuiInputLabel-shrink': {
+    transform: 'translate(14px, -9px) scale(0.75)',
+  },
+} as const;
+
+const filtroDataCompactoSx = {
+  mb: 0,
+  width: 198,
+  minWidth: 198,
+  maxWidth: 198,
+  flex: '0 0 auto',
+  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+    minHeight: 32,
+    height: 32,
+  },
+  '& .MuiInputBase-input': {
+    fontSize: '0.73rem',
+    py: 0.25,
+    px: 0.5,
+    letterSpacing: '-0.01em',
+  },
+  '& .MuiInputLabel-root': {
+    fontSize: '0.72rem',
+    transform: 'translate(10px, 7px) scale(1)',
+    '&.MuiInputLabel-shrink': {
+      transform: 'translate(10px, -7px) scale(0.72)',
+    },
+  },
+  '& .MuiInputLabel-root.Mui-focused': {
+    transform: 'translate(10px, -7px) scale(0.72)',
+  },
+  '& .MuiInputAdornment-root .MuiSvgIcon-root': {
+    fontSize: '0.95rem',
   },
 } as const;
 
@@ -50,6 +87,7 @@ export default function FiltroIntervaloDatasFrota({
   dataFim,
   onChangeInicio,
   onChangeFim,
+  compacto = false,
 }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const aberto = Boolean(anchorEl);
@@ -95,38 +133,50 @@ export default function FiltroIntervaloDatasFrota({
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
-      <Box sx={filtroDataSx}>
+      <Box sx={compacto ? filtroDataCompactoSx : filtroDataSx}>
         <TextField
           fullWidth
           size="small"
           label="Período"
           value={texto}
-          placeholder="Selecione o intervalo"
+          placeholder={compacto ? 'Datas' : 'Selecione o intervalo'}
           onClick={abrir}
-          slotProps={{
-            inputLabel: labelFixo.inputLabel,
+            slotProps={{
+            inputLabel: compacto
+              ? { shrink: true }
+              : labelFixo.inputLabel,
             input: {
               readOnly: true,
               sx: { cursor: 'pointer' },
               endAdornment: (
-                <InputAdornment position="end">
+                <InputAdornment position="end" sx={{ ml: 0 }}>
                   {temValor && (
-                    <IconButton size="small" onClick={limpar} aria-label="Limpar período" edge="end">
-                      <ClearIcon fontSize="small" />
+                    <IconButton
+                      size="small"
+                      onClick={limpar}
+                      aria-label="Limpar período"
+                      edge="end"
+                      sx={compacto ? { p: 0.25 } : undefined}
+                    >
+                      <ClearIcon sx={{ fontSize: compacto ? '0.85rem' : undefined }} />
                     </IconButton>
                   )}
-                  <CalendarMonthIcon fontSize="small" color="action" sx={{ ml: temValor ? 0 : 0.5 }} />
+                  <CalendarMonthIcon
+                    fontSize="small"
+                    color="action"
+                    sx={{ fontSize: compacto ? '0.95rem' : undefined, ml: temValor ? 0 : 0.25 }}
+                  />
                 </InputAdornment>
               ),
             },
           }}
           sx={{
-            ...campoAlturaFrotaSx,
+            ...(compacto ? {} : campoAlturaFrotaSx),
             mb: 0,
             '& .MuiInputBase-input::placeholder': {
               color: 'text.disabled',
               opacity: 1,
-              fontSize: '0.8rem',
+              fontSize: compacto ? '0.72rem' : '0.8rem',
             },
           }}
         />

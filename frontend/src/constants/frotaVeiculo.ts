@@ -103,6 +103,22 @@ export function kmInputParaNumero(val: string): number | null {
   return Number(digits);
 }
 
+/** Marca e modelo para exibição em tabelas. */
+export function rotuloMarcaModelo(marca?: string | null, modelo?: string | null): string {
+  const texto = [marca, modelo].filter(Boolean).join(' ');
+  return texto || '—';
+}
+
+/** Rótulo compacto para listas/select de veículos (placa · marca modelo). */
+export function rotuloVeiculoOpcao(v: {
+  placa: string;
+  marca?: string | null;
+  modelo?: string | null;
+}): string {
+  const detalhe = [v.marca, v.modelo].filter(Boolean).join(' ');
+  return detalhe ? `${v.placa} · ${detalhe}` : v.placa;
+}
+
 /** Rótulo compacto para listas/select de veículos (placa · marca modelo). */
 export function rotuloVeiculoLista(v: {
   placa: string;
@@ -111,10 +127,9 @@ export function rotuloVeiculoLista(v: {
   nome_responsavel?: string | null;
   id_usuario_responsavel?: number | null;
 }): string {
-  const detalhe = [v.marca, v.modelo].filter(Boolean).join(' ');
-  let label = detalhe ? `${v.placa} · ${detalhe}` : v.placa;
+  const label = rotuloVeiculoOpcao(v);
   if (v.nome_responsavel && v.id_usuario_responsavel) {
-    label += ` (${v.nome_responsavel})`;
+    return `${label} (${v.nome_responsavel})`;
   }
   return label;
 }
@@ -128,10 +143,12 @@ export function veiculoParaForm(v: {
   ano?: number | null;
   cor?: string | null;
   combustivel?: string | null;
+  km_inicial?: number | null;
   km_atual?: number | null;
   observacoes?: string | null;
   id_regiao?: number | null;
 }): FormVeiculoFrota {
+  const kmBase = v.km_inicial != null ? v.km_inicial : v.km_atual;
   return {
     placa: v.placa || '',
     renavam: v.renavam || '',
@@ -141,7 +158,7 @@ export function veiculoParaForm(v: {
     ano: v.ano != null ? String(v.ano) : '',
     cor: v.cor || '',
     combustivel: v.combustivel || '',
-    km_atual: v.km_atual != null ? formatarKmInput(String(v.km_atual)) : '',
+    km_atual: kmBase != null ? formatarKmInput(String(kmBase)) : '',
     observacoes: v.observacoes || '',
     id_regiao: v.id_regiao != null ? String(v.id_regiao) : '',
   };
@@ -163,7 +180,9 @@ export function formParaBody(
     observacoes: form.observacoes.trim() || undefined,
   };
   if (!opts?.omitirKm) {
-    body.km_atual = kmInputParaNumero(form.km_atual);
+    const km = kmInputParaNumero(form.km_atual);
+    body.km_inicial = km;
+    body.km_atual = km;
   }
   if (!opts?.omitirRegiao) {
     body.id_regiao = form.id_regiao ? Number(form.id_regiao) : null;
@@ -183,6 +202,7 @@ export const ph = {
   cor: 'Selecione a cor',
   combustivel: 'Selecione o combustível',
   km: 'Digite o KM atual',
+  kmInicial: 'Digite o KM inicial do veículo',
   valor: 'Digite o valor',
   regiao: 'Selecione a região',
   observacoes: 'Digite observações (opcional)',

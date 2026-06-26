@@ -4,8 +4,6 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -16,6 +14,9 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import { api, type FrotaVeiculo } from '../../api/client';
 import FrotaVeiculoFormFields from './FrotaVeiculoFormFields';
 import FrotaVeiculoDocumentosPanel, { FROTA_DOC_FORM_ID } from './FrotaVeiculoDocumentosPanel';
+import FrotaVeiculoKmPanel from './FrotaVeiculoKmPanel';
+import FrotaVeiculoAbasEdicao from './FrotaVeiculoAbasEdicao';
+import { periodoSemanaAtualKm } from './FrotaVeiculosKmSemanaPanel';
 import { formParaBody, formVeiculoVazio, veiculoParaForm, type FormVeiculoFrota } from '../../constants/frotaVeiculo';
 import { colors } from '../../theme/tokens';
 import { showToast } from '../../utils/toast';
@@ -37,13 +38,20 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
   const [excluindo, setExcluindo] = useState(false);
   const [confirmExcluir, setConfirmExcluir] = useState(false);
   const [podeAnexarDoc, setPodeAnexarDoc] = useState(false);
+  const [kmDataInicio, setKmDataInicio] = useState('');
+  const [kmDataFim, setKmDataFim] = useState('');
 
   useEffect(() => {
     if (!open) {
       setPodeAnexarDoc(false);
       setConfirmExcluir(false);
+      setKmDataInicio('');
+      setKmDataFim('');
       return;
     }
+    const semana = periodoSemanaAtualKm();
+    setKmDataInicio(semana.inicio);
+    setKmDataFim(semana.fim);
     setAba(0);
     if (veiculo) {
       void api
@@ -58,7 +66,7 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
   async function salvarDados() {
     if (!form.placa.trim()) {
       showToast('Informe a placa', 'warning');
-      if (editando && aba === 1) setAba(0);
+      if (editando && aba !== 0) setAba(0);
       return;
     }
     setSalvando(true);
@@ -68,6 +76,7 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
         await api.frotaAtualizarVeiculo(veiculo.id_veiculo, body);
         showToast('Veículo atualizado com sucesso!');
         onSalvo();
+        onClose();
       } else {
         await api.frotaCriarVeiculo(body);
         showToast('Veículo cadastrado com sucesso!');
@@ -108,37 +117,56 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
 
   return (
     <>
-      <Dialog open={open} onClose={fechar} fullWidth maxWidth="sm" scroll="paper">
+      <Dialog open={open} onClose={fechar} fullWidth maxWidth="md" scroll="paper">
         <DialogTitle sx={{ pb: editando ? 0 : 1, display: 'flex', alignItems: 'center', gap: 1 }}>
           <TituloIcon sx={{ color: colors.navy, fontSize: 22 }} />
           {titulo}
         </DialogTitle>
 
         {editando && veiculo && (
-          <Box sx={{ px: 3, borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={aba} onChange={(_, v) => setAba(v)}>
-              <Tab label="Dados do veículo" />
-              <Tab label="Documentos" />
-            </Tabs>
-          </Box>
+          <FrotaVeiculoAbasEdicao
+            aba={aba}
+            onChangeAba={setAba}
+            kmDataInicio={kmDataInicio}
+            kmDataFim={kmDataFim}
+            onChangeKmInicio={setKmDataInicio}
+            onChangeKmFim={setKmDataFim}
+          />
         )}
 
         <DialogContent dividers sx={{ pt: 2 }}>
-          {(!editando || aba === 0) && (
-            <FrotaVeiculoFormFields
-              form={form}
-              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
-            />
+          {(!editando || (editando && veiculo)) && (
+            <Box sx={{ display: !editando || aba === 0 ? 'block' : 'none' }}>
+              <FrotaVeiculoFormFields
+                form={form}
+                onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+              />
+            </Box>
           )}
 
-          {editando && veiculo && aba === 1 && (
-            <FrotaVeiculoDocumentosPanel
-              idVeiculo={veiculo.id_veiculo}
-              ativo={aba === 1}
-              anexarNoRodape
-              onSalvandoChange={setSalvandoDoc}
-              onPodeAnexarChange={setPodeAnexarDoc}
-            />
+          {editando && veiculo && (
+            <Box sx={{ display: aba === 1 ? 'block' : 'none' }}>
+              <FrotaVeiculoKmPanel
+                idVeiculo={veiculo.id_veiculo}
+                emDialogo
+                ocultarFiltro
+                dataInicio={kmDataInicio}
+                dataFim={kmDataFim}
+                onChangeInicio={setKmDataInicio}
+                onChangeFim={setKmDataFim}
+              />
+            </Box>
+          )}
+
+          {editando && veiculo && (
+            <Box sx={{ display: aba === 2 ? 'block' : 'none' }}>
+              <FrotaVeiculoDocumentosPanel
+                idVeiculo={veiculo.id_veiculo}
+                anexarNoRodape
+                onSalvandoChange={setSalvandoDoc}
+                onPodeAnexarChange={setPodeAnexarDoc}
+              />
+            </Box>
           )}
         </DialogContent>
 
@@ -163,7 +191,7 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
               </Tooltip>
             )}
           </Box>
-          {editando && aba === 1 ? (
+          {editando && aba === 2 ? (
             <Button
               type="submit"
               form={FROTA_DOC_FORM_ID}

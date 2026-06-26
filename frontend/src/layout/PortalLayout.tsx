@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarFrota, podeGerenciarRegioesFrota, podeGerenciarChecklistPerguntas, podeVerAuditoria } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarFrota, podeGerenciarRegioesFrota, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -24,7 +24,6 @@ import NotificacoesSino from '../components/NotificacoesSino';
 import SobreSistemaButton from '../components/SobreSistemaButton';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
-import AppFooter from '../components/AppFooter';
 import { colors } from '../theme/tokens';
 import { isPaginaScrollInterno } from '../utils/pageFillLayout';
 import {
@@ -46,6 +45,7 @@ type NavItem = {
   end?: boolean;
   mobileTab?: boolean;
   mobileOnly?: boolean;
+  isActive?: (pathname: string) => boolean;
 };
 
 export default function PortalLayout() {
@@ -73,7 +73,9 @@ export default function PortalLayout() {
 
   const podeChamados = temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user);
   const podeAprovar = temPermissao('chamados.aprovar', user);
+  const painelDiretor = podeReceberPainelDiretorChamados(user);
   const administraChamados = usuarioAdministraChamados(user);
+  const veSinoChamados = podeChamados || painelDiretor;
 
   useEffect(() => {
     if (!user || !administraChamados) return;
@@ -89,9 +91,9 @@ export default function PortalLayout() {
   /** Dashboard: um sino só (chamados). Aprovações só na rota de aprovações. */
   const notificacoes = (
     <>
-      {podeChamados && (emChamados || isDashboard) && (
+      {veSinoChamados && (emChamados || isDashboard) && (
         <>
-          {administraChamados && emChamados && <AtivarPushHeaderButton />}
+          {administraChamados && (emChamados || isDashboard) && <AtivarPushHeaderButton />}
           <NotificacoesSino variante="portal" contexto="chamados" menuLargo />
         </>
       )}
@@ -109,7 +111,14 @@ export default function PortalLayout() {
     { to: '/dashboard', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true, mobileTab: true },
     { to: '/checklist', label: 'Checklist', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), end: true, mobileTab: true, mobileOnly: true },
     { to: '/chamados', label: 'Chamados', icon: <BuildIcon fontSize="small" />, show: temPermissao('chamados.ver', user), end: true, mobileTab: true },
-    { to: '/frota', label: 'Frota', icon: <DirectionsCarIcon fontSize="small" />, show: podeGerenciarFrota(user), end: true },
+    {
+      to: '/frota',
+      label: 'Frota',
+      icon: <DirectionsCarIcon fontSize="small" />,
+      show: podeGerenciarFrota(user),
+      isActive: (p: string) =>
+        p === '/frota' || (p.startsWith('/frota/') && !p.startsWith('/frota/regioes')),
+    },
     { to: '/frota/regioes', label: 'Região de atuação', icon: <MapIcon fontSize="small" />, show: podeGerenciarRegioesFrota(user), end: true },
     { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, mobileTab: true },
     { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user) },
@@ -225,10 +234,6 @@ export default function PortalLayout() {
           }}
         >
           <Outlet />
-        </Box>
-
-        <Box sx={{ display: { xs: 'none', md: 'block' }, flexShrink: 0 }}>
-          <AppFooter compact />
         </Box>
 
         {mobileTabsRodape.length > 0 && !isChamadoNovo && (

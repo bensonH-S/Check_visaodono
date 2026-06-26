@@ -20,7 +20,7 @@ import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { toAppPath } from '../config/paths';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegioesAtuacao, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
@@ -43,8 +43,7 @@ function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
 }
 
 function RegiaoAtuacaoCabecalho({ user }: { user: UsuarioSessao | null }) {
-  const rotulo = rotuloRegioesAtuacao(user);
-  if (!rotulo) return null;
+  const rotulo = rotuloRegiaoMobile(user);
 
   return (
     <Box
@@ -269,6 +268,7 @@ function ChamadosMobileLayoutInner() {
   const podeAbrir = user && temPermissao('chamados.abrir', user);
   const podeChecklist = user && podeUsarChecklist(user);
   const podeChamados = user && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
+  const veSinoChamados = !!podeChamados || (user != null && podeReceberPainelDiretorChamados(user));
   const podeFrota = user && podeUsarFrota(user);
   const podeVisitas = user && podeVerVisitasMobile(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
@@ -445,11 +445,13 @@ function ChamadosMobileLayoutInner() {
             <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
             <AtivarPushHeaderButton />
             <SobreSistemaButton variante="mobile" />
-            <NotificacoesSino
-              variante="mobile"
-              contexto="chamados-mobile"
-              idLoja={filtraNotificacoesPorRegiaoMobile(user) ? null : idLoja}
-            />
+            {veSinoChamados && (
+              <NotificacoesSino
+                variante="mobile"
+                contexto="chamados-mobile"
+                idLoja={filtraNotificacoesPorRegiaoMobile(user) ? null : idLoja}
+              />
+            )}
             <IconButton
               size="small"
               onClick={() => {
@@ -467,7 +469,7 @@ function ChamadosMobileLayoutInner() {
           <PwaInstallBanner />
         </Box>
         {modoCabecalho && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && (
-          modoCabecalho === 'loja' || (modoCabecalho === 'regiao' && !!rotuloRegioesAtuacao(user)) ? (
+          modoCabecalho === 'loja' || modoCabecalho === 'regiao' ? (
           <Box
             sx={{
               mt: 1,

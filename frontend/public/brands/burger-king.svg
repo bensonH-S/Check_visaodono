@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Burger King">
+  <circle cx="32" cy="32" r="30" fill="#d62300" stroke="#fff" stroke-width="3"/>
+  <path fill="#f5eb16" d="M18 28c0-6 6-10 14-10s14 4 14 10v2H18v-2zm28 6c0 6-6 10-14 10S18 40 18 34v-2h28v2z"/>
+  <text x="32" y="37" text-anchor="middle" fill="#502314" font-family="Arial Black, Arial, sans-serif" font-size="16" font-weight="900">BK</text>
+</svg>

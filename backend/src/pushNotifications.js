@@ -1,6 +1,6 @@
 import { pool } from './db.js';
 import { logger } from './logger.js';
-import { tipoVisivelPushUsuario, urlPushChamado, tipoEnviaPush } from './notificacoesFiltro.js';
+import { tipoVisivelPushUsuario, urlPushChamado, tipoEnviaPush, tipoMovimentacaoChamado, tipoAprovacaoChamado } from './notificacoesFiltro.js';
 import { tituloNotificacaoOps } from './textosNotificacaoChamado.js';
 import {
   normalizarVapidSubject,
@@ -266,7 +266,11 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
     });
 
     const body =
-      tipo === 'chamado_urgente_regiao' || tipo === 'novo_chamado' || tipo === 'assumido'
+      tipo === 'chamado_urgente_regiao' ||
+      tipo === 'novo_chamado' ||
+      tipo === 'assumido' ||
+      tipoMovimentacaoChamado(tipo) ||
+      tipoAprovacaoChamado(tipo)
         ? title
         : mensagem || title;
 

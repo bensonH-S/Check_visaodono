@@ -13,7 +13,7 @@ import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import { api } from '../../api/client';
 import type { ManutFormulario } from '../../api/client';
-import { getUsuario, temPermissao } from '../../lib/auth';
+import { getUsuario, temPermissao, ehGestorLojaMobile, deveEscolherLojaNovoChamadoMobile } from '../../lib/auth';
 import { urgenciaChip } from '../../utils/manutencaoUi';
 import { extensaoMidia } from '../../utils/mediaFile';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
@@ -71,8 +71,10 @@ export default function ChamadosMobileNovoPage() {
     }
 
     const acessoTodas = temPermissao('lojas.todas', usuario);
-    const lojaUnicaUsuario =
-      !acessoTodas && usuario.lojas?.length === 1 ? usuario.lojas[0].id_loja : null;
+    const escolherLoja = deveEscolherLojaNovoChamadoMobile(usuario);
+    const gestorLoja = ehGestorLojaMobile(usuario);
+    const lojaUnicaGestor =
+      gestorLoja && !acessoTodas && usuario.lojas?.length === 1 ? usuario.lojas[0].id_loja : null;
 
     api
       .manutFormulario()
@@ -80,11 +82,11 @@ export default function ChamadosMobileNovoPage() {
         if (!ativo) return;
         setForm(f);
         sessionStorage.setItem(CACHE_KEY, JSON.stringify(f));
-        if (lojaUnicaUsuario) {
+        if (lojaUnicaGestor) {
           const lojaId =
-            f.lojas.find((l) => l.id_loja === lojaUnicaUsuario)?.id_loja ?? f.lojas[0]?.id_loja;
+            f.lojas.find((l) => l.id_loja === lojaUnicaGestor)?.id_loja ?? f.lojas[0]?.id_loja;
           if (lojaId) setIdLoja(lojaId);
-        } else if (lojaSelecionada && f.lojas.some((l) => l.id_loja === lojaSelecionada)) {
+        } else if (!escolherLoja && lojaSelecionada && f.lojas.some((l) => l.id_loja === lojaSelecionada)) {
           setIdLoja(lojaSelecionada);
         }
       })
@@ -103,7 +105,10 @@ export default function ChamadosMobileNovoPage() {
   const cat = form?.categorias.find((c) => c.id_categoria === idCategoria);
   const acessoTodasLojas = sessao && temPermissao('lojas.todas', sessao);
   const lojaFixa =
-    sessao && !acessoTodasLojas && (sessao.lojas?.length ?? 0) === 1;
+    sessao &&
+    ehGestorLojaMobile(sessao) &&
+    !acessoTodasLojas &&
+    (sessao.lojas?.length ?? 0) === 1;
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();

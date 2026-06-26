@@ -12,10 +12,9 @@ const router = Router();
 
 function precisaRegioesAtuacaoSessao(row, permissoes) {
   const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes, cargo_aprovacao: row.cargo_aprovacao };
-  return (
-    temPermissao(userCtx, 'chamados.assumir') ||
-    temPermissao(userCtx, 'frota.regioes')
-  );
+  if (temPermissao(userCtx, 'chamados.assumir') || temPermissao(userCtx, 'frota.regioes')) return true;
+  const cargo = String(row.cargo_aprovacao || row.perfil || '').toLowerCase();
+  return cargo === 'supervisor_regional' || cargo === 'regional' || cargo === 'supervisor';
 }
 
 async function mapUsuario(row) {

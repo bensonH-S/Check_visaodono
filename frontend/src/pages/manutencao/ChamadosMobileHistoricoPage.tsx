@@ -12,7 +12,7 @@ import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
 import { api } from '../../api/client';
 import type { ManutChamado } from '../../api/client';
-import { getUsuario, modoCabecalhoContextoMobile, filtraChamadosPorLojaMobile, rotuloRegioesAtuacao, temPermissao } from '../../lib/auth';
+import { getUsuario, modoCabecalhoContextoMobile, filtraChamadosPorLojaMobile, rotuloRegiaoMobile, rotuloLojaMobile, tecnicoCampoSemRegiao, temPermissao } from '../../lib/auth';
 import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
 import { parseDataApi } from '../../utils/dateBr';
@@ -94,7 +94,7 @@ export default function ChamadosMobileHistoricoPage() {
   }, [location.state, location.pathname, navigate]);
 
   const modoCabecalho = modoCabecalhoContextoMobile(sessao);
-  const rotuloRegiao = rotuloRegioesAtuacao(sessao);
+  const semRegiaoVinculada = tecnicoCampoSemRegiao(sessao);
 
   const multiplasLojas = (sessao?.lojas?.length ?? 0) > 1;
   const filtrarPorLoja = filtraChamadosPorLojaMobile(sessao);
@@ -155,12 +155,26 @@ export default function ChamadosMobileHistoricoPage() {
         }}
       >
         <Box sx={{ px: 2, pt: 2, pb: 1.5 }}>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600 }}>
-            {modoCabecalho === 'regiao' && rotuloRegiao
-              ? rotuloRegiao
-              : modoCabecalho === 'loja'
-                ? 'Manutenção da loja'
-                : 'Central de chamados'}
+          {modoCabecalho === 'regiao' && (
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600, display: 'block' }}>
+              {rotuloRegiaoMobile(sessao)}
+            </Typography>
+          )}
+          {modoCabecalho === 'loja' && (
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', fontWeight: 600, display: 'block' }}>
+              {rotuloLojaMobile(sessao, idLoja)}
+            </Typography>
+          )}
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'rgba(255,255,255,0.75)',
+              fontWeight: 600,
+              display: 'block',
+              mt: modoCabecalho === 'regiao' || modoCabecalho === 'loja' ? 0.25 : 0,
+            }}
+          >
+            {modoCabecalho === 'loja' ? 'Manutenção da loja' : 'Central de chamados'}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.25, mt: 0.25 }}>
             Olá, {primeiroNome(sessao?.nome)}
@@ -258,11 +272,13 @@ export default function ChamadosMobileHistoricoPage() {
             {aba === 'abertos' ? 'Nenhum chamado em aberto' : 'Nenhum chamado fechado'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: aba === 'abertos' ? 2 : 0 }}>
-            {aba === 'abertos'
-              ? 'Quando houver uma solicitação de manutenção, ela aparecerá aqui.'
-              : 'Chamados concluídos ou cancelados ficam registrados nesta aba.'}
+            {semRegiaoVinculada
+              ? 'Você não está vinculado a nenhuma região. Peça ao administrador para associar sua região de atuação.'
+              : aba === 'abertos'
+                ? 'Quando houver uma solicitação de manutenção, ela aparecerá aqui.'
+                : 'Chamados concluídos ou cancelados ficam registrados nesta aba.'}
           </Typography>
-          {aba === 'abertos' && sessao && temPermissao('chamados.abrir', sessao) && (
+          {aba === 'abertos' && sessao && temPermissao('chamados.abrir', sessao) && !semRegiaoVinculada && (
             <Button
               variant="contained"
               startIcon={<AddIcon />}

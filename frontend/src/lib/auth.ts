@@ -145,6 +145,50 @@ export function rotuloRegioesAtuacao(usuario?: UsuarioSessao | null): string | n
   return regioes.map((r) => r.nome).join(' · ');
 }
 
+/** Região do técnico no mobile; exibe fallback quando não há região cadastrada. */
+export function rotuloRegiaoMobile(usuario?: UsuarioSessao | null): string {
+  return rotuloRegioesAtuacao(usuario) ?? 'Sem região';
+}
+
+/** Nome da loja selecionada no app mobile (gerente/coordenador). */
+export function rotuloLojaMobile(usuario?: UsuarioSessao | null, idLoja?: number | null): string {
+  const u = usuario ?? getUsuario();
+  const lojas = u?.lojas ?? [];
+  if (!lojas.length) return '—';
+  const loja =
+    idLoja != null ? lojas.find((l) => l.id_loja === idLoja) ?? lojas[0] : lojas[0];
+  return loja?.nome ?? '—';
+}
+
+export function ehGestorLojaMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (ehSupervisorRegiaoMobile(u)) return false;
+  const cargosGestor = new Set(['gerente', 'coordenador']);
+  const cargo = (u.cargo_aprovacao || '').toLowerCase();
+  if (cargo && cargosGestor.has(cargo)) return true;
+  return cargosGestor.has(u.perfil);
+}
+
+/** Supervisor regional — cabeçalho e lojas por região (como técnico). */
+export function ehSupervisorRegiaoMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (temPermissao('frota.regioes', u)) return true;
+  const cargo = (u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  return cargo === 'supervisor_regional' || cargo === 'regional' || cargo === 'supervisor';
+}
+
+/** Técnico ou supervisor de campo — cabeçalho por região (não diretor nem gestor de loja). */
+export function ehTecnicoCampoMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (podeReceberPainelDiretorChamados(u) || temPermissao('lojas.todas', u)) return false;
+  if (ehGestorLojaMobile(u)) return false;
+  if (ehSupervisorRegiaoMobile(u)) return true;
+  return temPermissao('chamados.assumir', u);
+}
+
 /** Cabeçalho de contexto no app mobile de chamados: região, loja ou oculto. */
 export function modoCabecalhoContextoMobile(
   usuario?: UsuarioSessao | null,
@@ -152,12 +196,19 @@ export function modoCabecalhoContextoMobile(
   const u = usuario ?? getUsuario();
   if (!u) return null;
 
-  if (temPermissao('chamados.assumir', u) || temPermissao('frota.regioes', u)) {
-    return 'regiao';
+  if (temPermissao('lojas.todas', u) || podeReceberPainelDiretorChamados(u)) {
+    return null;
   }
 
-  if (temPermissao('lojas.todas', u)) {
-    return null;
+  if (
+    ehGestorLojaMobile(u) &&
+    (temPermissao('chamados.ver', u) || temPermissao('chamados.abrir', u))
+  ) {
+    return 'loja';
+  }
+
+  if (ehTecnicoCampoMobile(u)) {
+    return 'regiao';
   }
 
   if (temPermissao('chamados.ver', u) || temPermissao('chamados.abrir', u)) {
@@ -175,11 +226,35 @@ export function filtraNotificacoesPorRegiaoMobile(usuario?: UsuarioSessao | null
   return modoCabecalhoContextoMobile(usuario) === 'regiao';
 }
 
+/** Deve escolher a loja ao abrir chamado (sem pré-seleção). */
+export function deveEscolherLojaNovoChamadoMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return true;
+  if (temPermissao('lojas.todas', u) || podeReceberPainelDiretorChamados(u)) return true;
+  if (ehGestorLojaMobile(u)) return false;
+  return ehTecnicoCampoMobile(u) || ehSupervisorRegiaoMobile(u);
+}
+
+/** Técnico/supervisor de campo sem região vinculada — sem escopo de gestão de chamados. */
+export function tecnicoCampoSemRegiao(usuario?: UsuarioSessao | null): boolean {
+  return (ehTecnicoCampoMobile(usuario) || ehSupervisorRegiaoMobile(usuario)) && !(usuario ?? getUsuario())?.regioes_atuacao?.length;
+}
+
 export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {
   return (
     temPermissao('frota.usar', usuario) ||
     temPermissao('frota.gerenciar', usuario)
   );
+}
+
+/** Termo de ferramentas no app mobile — somente técnico de campo (não diretor nem supervisor). */
+export function podeAssinarTermoFerramentasMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (podeReceberPainelDiretorChamados(u) || temPermissao('lojas.todas', u)) return false;
+  if (ehSupervisorRegiaoMobile(u)) return false;
+  if (ehGestorLojaMobile(u)) return false;
+  return temPermissao('chamados.assumir', u);
 }
 
 export function podeGerenciarFrota(usuario?: UsuarioSessao | null): boolean {
@@ -191,6 +266,12 @@ export function podeGerenciarRegioesFrota(usuario?: UsuarioSessao | null): boole
     temPermissao('frota.gerenciar', usuario) ||
     temPermissao('frota.regioes', usuario)
   );
+}
+
+/** Diretor: painel completo de chamados (todas as lojas com lojas.todas). */
+export function podeReceberPainelDiretorChamados(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  return u?.cargo_aprovacao === 'diretor' && temPermissao('chamados.aprovar', u);
 }
 
 /** Auditoria do sistema — somente permissão marcada em Usuários. */

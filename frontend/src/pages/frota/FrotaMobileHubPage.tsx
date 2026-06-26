@@ -12,6 +12,8 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { api, fmtData } from '../../api/client';
 import type { FrotaResumoMobile } from '../../api/client';
+import { getUsuario, podeAssinarTermoFerramentasMobile } from '../../lib/auth';
+import { showToast } from '../../utils/toast';
 import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
 
 const NAVY = '#1B2A6B';
@@ -71,6 +73,8 @@ function CardOpcao({
 
 export default function FrotaMobileHubPage() {
   const navigate = useNavigate();
+  const sessao = getUsuario();
+  const exibeTermoFerramentas = podeAssinarTermoFerramentasMobile(sessao);
   const [loading, setLoading] = useState(true);
   const [resumo, setResumo] = useState<FrotaResumoMobile | null>(null);
   const [erro, setErro] = useState('');
@@ -88,12 +92,13 @@ export default function FrotaMobileHubPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function desassumir() {
+  async function desassumir(kmAtual: number) {
     setSalvando(true);
     setErro('');
     try {
-      await api.frotaDesassumirVeiculo();
+      await api.frotaDesassumirVeiculo(kmAtual);
       await carregar();
+      showToast('Carro devolvido com sucesso!', 'success');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao desassumir veículo');
     } finally {
@@ -117,7 +122,7 @@ export default function FrotaMobileHubPage() {
         <FrotaVeiculoControleCard
           veiculo={resumo.veiculo}
           salvando={salvando}
-          onDesassumir={() => void desassumir()}
+          onDesassumir={(km) => void desassumir(km)}
         />
       ) : (
         <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px dashed rgba(232, 82, 10, 0.4)' }}>
@@ -138,19 +143,21 @@ export default function FrotaMobileHubPage() {
         onClick={() => navigate('/frota/mobile/abastecimento')}
         disabled={!temVeiculo}
       />
-      <CardOpcao
-        titulo="Termo de ferramentas"
-        descricao="Assinatura digital e fotos dos equipamentos"
-        icon={<AssignmentIcon />}
-        onClick={() => navigate('/frota/mobile/termo')}
-        badge={
-          resumo?.termo.assinado ? (
-            <Chip label="Assinado" size="small" color="success" />
-          ) : (
-            <Chip label="Pendente" size="small" color="warning" />
-          )
-        }
-      />
+      {exibeTermoFerramentas && (
+        <CardOpcao
+          titulo="Termo de ferramentas"
+          descricao="Assinatura digital e fotos dos equipamentos"
+          icon={<AssignmentIcon />}
+          onClick={() => navigate('/frota/mobile/termo')}
+          badge={
+            resumo?.termo.assinado ? (
+              <Chip label="Assinado" size="small" color="success" />
+            ) : (
+              <Chip label="Pendente" size="small" color="warning" />
+            )
+          }
+        />
+      )}
       <CardOpcao
         titulo="Veículo"
         descricao="Assumir controle com CNH e fotos do veículo"

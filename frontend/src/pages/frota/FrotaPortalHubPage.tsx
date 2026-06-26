@@ -6,6 +6,7 @@ import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import SpeedIcon from '@mui/icons-material/Speed';
 import FrotaHubCard from '../../components/frota/FrotaHubCard';
 
 export default function FrotaPortalHubPage() {
@@ -29,6 +30,12 @@ export default function FrotaPortalHubPage() {
           descricao="Cadastre, edite e consulte documentos de cada veículo da frota."
           icon={<DirectionsCarIcon />}
           onClick={() => navigate('/frota/veiculos')}
+        />
+        <FrotaHubCard
+          titulo="Relatório de KM"
+          descricao="Quilometragem da frota por período — assunções, abastecimentos e manutenções."
+          icon={<SpeedIcon />}
+          onClick={() => navigate('/frota/relatorio-km')}
         />
         <FrotaHubCard
           titulo="Uso e assunção"

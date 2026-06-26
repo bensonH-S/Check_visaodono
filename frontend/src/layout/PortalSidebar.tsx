@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
@@ -7,6 +7,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import BrandLogo from '../components/BrandLogo';
 import { nomeExibicaoUsuario } from '../lib/auth';
 import type { UsuarioSessao } from '../lib/auth';
+import { toAppPath } from '../config/paths';
 import { colors, layout, radius, sectionLabelSx } from '../theme/tokens';
 import { APP_NAME } from '../config/brand';
 import { useAppConfig } from '../hooks/useAppConfig';
@@ -16,6 +17,7 @@ export type SidebarNavItem = {
   label: string;
   icon: React.ReactNode;
   end?: boolean;
+  isActive?: (pathname: string) => boolean;
 };
 
 type Props = {
@@ -27,6 +29,8 @@ type Props = {
 
 export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) {
   const { version, environment } = useAppConfig();
+  const { pathname } = useLocation();
+  const appPath = toAppPath(pathname);
   const versionLabel = version === 'dev' ? 'dev' : version.startsWith('v') ? version : `v${version}`;
 
   return (
@@ -72,7 +76,9 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
         <Typography sx={{ ...sectionLabelSx, px: 1, mb: 1 }}>Navegação</Typography>
         {nav.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.end} style={{ textDecoration: 'none' }}>
-            {({ isActive }) => (
+            {({ isActive: navActive }) => {
+              const isActive = item.isActive ? item.isActive(appPath) : navActive;
+              return (
               <Box
                 sx={{
                   display: 'flex',
@@ -102,7 +108,8 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
                 {item.icon}
                 {item.label}
               </Box>
-            )}
+            );
+            }}
           </NavLink>
         ))}
       </Box>

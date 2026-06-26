@@ -20,6 +20,8 @@ import {
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
 import { mensagemChamadoAtribuido } from '../textosNotificacaoChamado.js';
 import { processarAberturaChamadoRegiao, coletarDestinatariosRegiaoLoja } from '../services/chamadoRegiaoUrgente.js';
+import { coletarDestinatariosDiretoriaLoja, usuarioEhDiretorNotificacoes } from '../services/destinatariosDiretoria.js';
+import { coletarDestinatariosPorEvento } from '../services/destinatariosNotificacao.js';
 import {
   DEFAULTS_TEMPLATES,
   invalidateTemplateCache,
@@ -223,7 +225,12 @@ async function ensureNotificacaoEventosTable() {
       ALTER TABLE manut_notificacao_eventos
         ADD COLUMN IF NOT EXISTS template_mensagem TEXT,
         ADD COLUMN IF NOT EXISTS template_destinatario TEXT,
-        ADD COLUMN IF NOT EXISTS sistema BOOLEAN NOT NULL DEFAULT TRUE;
+        ADD COLUMN IF NOT EXISTS sistema BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS notifica_diretor BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS notifica_tecnico BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS notifica_supervisor BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS notifica_coordenador BOOLEAN NOT NULL DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS notifica_gerente BOOLEAN NOT NULL DEFAULT TRUE;
       INSERT INTO manut_notificacao_eventos (codigo, descricao, notifica_abrir, notifica_ver) VALUES
         ('novo_chamado', 'Novo chamado aberto na loja', TRUE, TRUE),
         ('resposta', 'Nova mensagem no chamado', TRUE, TRUE),
@@ -237,7 +244,9 @@ async function ensureNotificacaoEventosTable() {
         ('aprovacao_diretor', 'Orçamento aprovado pelo Diretor', TRUE, TRUE),
         ('aprovacao', 'Orçamento aprovado', TRUE, TRUE),
         ('recusa_aprovacao', 'Orçamento recusado', TRUE, TRUE),
-        ('chamado_urgente_regiao', 'Chamado urgente na região de atuação', TRUE, TRUE)
+        ('chamado_urgente_regiao', 'Chamado urgente na região de atuação', TRUE, TRUE),
+        ('sla_alerta_80', 'SLA do chamado atingiu 80% do prazo', TRUE, TRUE),
+        ('sla_estourado', 'SLA do chamado estourado', TRUE, TRUE)
       ON CONFLICT (codigo) DO NOTHING;
     `);
     await pool.query(`
@@ -330,6 +339,8 @@ async function coletarDestinatariosChamado(idChamado, idAutorNum) {
       [c.id_loja],
     );
     for (const r of equipe) destinatarios.add(Number(r.id_usuario));
+    const diretoria = await coletarDestinatariosDiretoriaLoja(c.id_loja);
+    for (const id of diretoria) destinatarios.add(id);
   } catch {
     /* ignore */
   }
@@ -338,21 +349,15 @@ async function coletarDestinatariosChamado(idChamado, idAutorNum) {
   return { destinatarios, numero: c.numero };
 }
 
-async function notificarAssumidoChamado(idChamado, idTecnico, idAutorAcao, tecnicoNome, numero, idLoja) {
+async function notificarAssumidoChamado(idChamado, idTecnico, idAutorAcao, tecnicoNome, numero, _idLoja) {
   if (!(await eventoNotificacaoAtivo('assumido'))) return 0;
 
   const idTec = Number(idTecnico);
   const idAutor = Number(idAutorAcao);
   let enviadas = 0;
 
-  const destinatarios = new Set();
-  const { destinatarios: doChamado } = await coletarDestinatariosChamado(idChamado, idAutor);
-  for (const id of doChamado) destinatarios.add(id);
-
-  if (idLoja) {
-    const regiao = await coletarDestinatariosRegiaoLoja(idLoja);
-    for (const id of regiao) destinatarios.add(id);
-  }
+  const destinatarios = await coletarDestinatariosPorEvento(idChamado, 'assumido');
+  destinatarios.delete(idAutor);
 
   const msgGeral = await mensagemChamadoAtribuido(numero, tecnicoNome);
 
@@ -387,8 +392,8 @@ async function notificarEventoChamado(idChamado, idAutor, tipo, mensagem) {
   if (!(await eventoNotificacaoAtivo(tipo))) return 0;
 
   const idAutorNum = Number(idAutor);
-  const { destinatarios, numero } = await coletarDestinatariosChamado(idChamado, idAutorNum);
-  if (!numero) return 0;
+  const destinatarios = await coletarDestinatariosPorEvento(idChamado, tipo);
+  destinatarios.delete(idAutorNum);
 
   let enviadas = 0;
   for (const idUsuario of destinatarios) {
@@ -477,6 +482,8 @@ async function notificarAprovadoresOrcamento(
 
   const dest = (await normalizarDestinoAprovacao(destino)) || rows[0].aprovacao_destino;
   const aprovadores = await coletarAprovadoresChamado(rows[0].id_loja, idAutorNum, dest);
+  const diretoria = await coletarDestinatariosDiretoriaLoja(rows[0].id_loja);
+  for (const id of diretoria) aprovadores.add(id);
   let enviadas = 0;
   for (const idUsuario of aprovadores) {
     if (!Number.isFinite(idUsuario)) continue;
@@ -511,6 +518,33 @@ async function notificarSolicitanteChamado(idChamado, idAutor, tipo, mensagem) {
   return ok ? 1 : 0;
 }
 
+async function notificarDiretoriaChamado(idChamado, idAutor, tipo, mensagem) {
+  if (!(await eventoNotificacaoAtivo(tipo))) return 0;
+
+  const idAutorNum = Number(idAutor);
+  const { rows } = await pool.query(
+    `SELECT id_loja FROM manut_chamados WHERE id_chamado = $1`,
+    [idChamado],
+  );
+  if (!rows[0]) return 0;
+
+  const destinatarios = await coletarDestinatariosDiretoriaLoja(rows[0].id_loja);
+  destinatarios.delete(idAutorNum);
+
+  let enviadas = 0;
+  for (const idUsuario of destinatarios) {
+    const ok = await criarNotificacao({
+      idUsuario,
+      idChamado,
+      tipo,
+      mensagem,
+      enviarPush: true,
+    });
+    if (ok) enviadas += 1;
+  }
+  return enviadas;
+}
+
 function sqlExcluirTiposNotificacaoCard() {
   return ` AND n.tipo IN ('${TIPOS_ALERTA_CHAMADOS_OPS.join("','")}')`;
 }
@@ -533,7 +567,7 @@ async function filtroNotificacoesAprovacoes(idUsuario, contexto, params) {
 
 import { authMiddleware } from '../auth.js';
 import { requirePermissao, attachPermissoesUsuario, temPermissao } from '../permissoes.js';
-import { attachLojasUsuario, filtroSqlLojas, sqlUsuarioAtendeLojaNotificacao, usuarioPodeLoja } from '../lojasUsuario.js';
+import { attachLojasUsuario, filtroSqlLojas, filtroSqlListaChamados, sqlUsuarioAtendeLojaNotificacao, usuarioPodeAcessarChamado, usuarioPodeLoja } from '../lojasUsuario.js';
 
 const router = Router();
 
@@ -792,6 +826,7 @@ router.get('/formulario', requirePermissao('chamados.abrir', 'chamados.ver'), as
 
 function podeVerDetalheChamado(user, chamado, cargoAprovacao) {
   if (temPermissao(user, 'chamados.ver') || temPermissao(user, 'chamados.abrir')) return true;
+  if (temPermissao(user, 'chamados.assumir') && usuarioPodeAcessarChamado(user, chamado)) return true;
   if (
     !temPermissao(user, 'chamados.aprovar') ||
     !['em_aprovacao', 'aprovado'].includes(chamado.status) ||
@@ -880,10 +915,10 @@ router.get(
   },
 );
 
-router.get('/chamados', requirePermissao('chamados.ver', 'chamados.abrir'), async (req, res, next) => {
+router.get('/chamados', requirePermissao('chamados.ver', 'chamados.abrir', 'chamados.assumir'), async (req, res, next) => {
   try {
     const params = [];
-    const filtro = filtroSqlLojas(req.user, 'c', 'id_loja', params);
+    const filtro = filtroSqlListaChamados(req.user, 'c', params);
     const idUsuario = Number(req.user.sub);
     params.push(idUsuario);
     const idxUser = params.length;
@@ -926,7 +961,7 @@ router.get('/chamados', requirePermissao('chamados.ver', 'chamados.abrir'), asyn
 
 router.get(
   '/chamados/:idChamado',
-  requirePermissao('chamados.ver', 'chamados.abrir', 'chamados.aprovar'),
+  requirePermissao('chamados.ver', 'chamados.abrir', 'chamados.aprovar', 'chamados.assumir'),
   async (req, res, next) => {
   try {
     const idChamado = Number(req.params.idChamado);
@@ -951,7 +986,7 @@ router.get(
       [idChamado],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-    if (!usuarioPodeLoja(req.user, rows[0].id_loja)) {
+    if (!usuarioPodeAcessarChamado(req.user, rows[0])) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     const cargoAprovacao = await carregarCargoAprovacao(req.user.sub);
@@ -999,7 +1034,7 @@ router.post(
       [idChamado],
     );
     if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-    if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+    if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
     if (!ABERTOS.has(chamado.rows[0].status)) {
@@ -1137,14 +1172,14 @@ router.get(
   try {
     const idAnexo = Number(req.params.idAnexo);
     const { rows } = await pool.query(
-      `SELECT a.arquivo_url, a.tipo_mime, c.id_loja
+      `SELECT a.arquivo_url, a.tipo_mime, c.id_loja, c.id_tecnico, c.status::text AS status
        FROM manut_anexos a
        JOIN manut_chamados c ON c.id_chamado = a.id_chamado
        WHERE a.id_anexo = $1`,
       [idAnexo],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Anexo não encontrado' });
-    if (!usuarioPodeLoja(req.user, rows[0].id_loja)) {
+    if (!usuarioPodeAcessarChamado(req.user, rows[0])) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
@@ -1172,7 +1207,7 @@ router.post('/chamados/:id/fotos', upload.array('fotos', 10), async (req, res, n
       [idChamado],
     );
     if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-    if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+    if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
       return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
     }
     if (!ABERTOS.has(chamado.rows[0].status)) {
@@ -1229,7 +1264,7 @@ router.patch('/chamados/:id/assumir', requirePermissao('chamados.assumir'), asyn
       [idChamado],
     );
     if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-    if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+    if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
       return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
     }
 
@@ -1289,7 +1324,7 @@ router.patch(
         [idChamado],
       );
       if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-      if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+      if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
         return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
       }
       if (!['aberto', 'em_atendimento'].includes(chamado.rows[0].status)) {
@@ -1360,6 +1395,12 @@ router.patch(
         'aguardando_aprovacao',
         `Chamado #${numero} - aguardando aprovação do Orçamento`,
       );
+      await notificarDiretoriaChamado(
+        idChamado,
+        req.user.sub,
+        'aguardando_aprovacao',
+        `Chamado #${numero} - aguardando aprovação do Orçamento`,
+      );
 
       res.json({ ...rows[0], aviso });
     } catch (e) {
@@ -1382,7 +1423,7 @@ router.patch(
         [idChamado],
       );
       if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-      if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+      if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
         return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
       }
       if (chamado.rows[0].status !== 'em_aprovacao') {
@@ -1468,7 +1509,7 @@ router.patch(
         [idChamado],
       );
       if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-      if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+      if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
         return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
       }
       if (chamado.rows[0].status !== 'em_aprovacao') {
@@ -1597,7 +1638,7 @@ router.patch(
         [idChamado],
       );
       if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-      if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+      if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
         return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
       }
       if (chamado.rows[0].status !== 'em_aprovacao') {
@@ -1677,7 +1718,7 @@ router.patch(
         [idChamado],
       );
       if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-      if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+      if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
         return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
       }
       if (ENCERRADOS.has(chamado.rows[0].status)) {
@@ -1756,7 +1797,7 @@ router.patch(
         [idChamado],
       );
       if (!chamado.rows[0]) return res.status(404).json({ error: 'Chamado não encontrado' });
-      if (!usuarioPodeLoja(req.user, chamado.rows[0].id_loja)) {
+      if (!usuarioPodeAcessarChamado(req.user, chamado.rows[0])) {
         return res.status(403).json({ error: 'Chamado fora das lojas do seu usuário' });
       }
       if (!ENCERRADOS.has(chamado.rows[0].status)) {
@@ -1804,7 +1845,8 @@ router.get(
     await ensureNotificacoesTable();
     const idUsuario = Number(req.user.sub);
     const contexto = String(req.query.contexto || '').trim();
-    const filtroCtx = sqlFiltroContextoNotificacoes(contexto);
+    const painelDiretor = await usuarioEhDiretorNotificacoes(idUsuario);
+    const filtroCtx = sqlFiltroContextoNotificacoes(contexto, 'n', { painelDiretor });
     const params = [idUsuario];
     const filtroLojas = filtroSqlLojas(req.user, 'c', 'id_loja', params);
     const { filtroExtra } = await filtroNotificacoesAprovacoes(idUsuario, contexto, params);
@@ -1836,7 +1878,8 @@ router.get(
     const idLoja = req.query.id_loja != null ? Number(req.query.id_loja) : null;
     const filtrarLoja = idLoja != null && Number.isFinite(idLoja);
     const contexto = String(req.query.contexto || '').trim();
-    const filtroCtx = sqlFiltroContextoNotificacoes(contexto);
+    const painelDiretor = await usuarioEhDiretorNotificacoes(idUsuario);
+    const filtroCtx = sqlFiltroContextoNotificacoes(contexto, 'n', { painelDiretor });
     const params = [idUsuario];
     if (filtrarLoja) params.push(idLoja);
     const { filtroExtra } = await filtroNotificacoesAprovacoes(idUsuario, contexto, params);
@@ -1903,7 +1946,8 @@ router.patch(
     const idLoja = req.query.id_loja != null ? Number(req.query.id_loja) : null;
     const filtrarLoja = idLoja != null && Number.isFinite(idLoja);
     const contexto = String(req.query.contexto || '').trim();
-    const filtroCtx = sqlFiltroContextoNotificacoes(contexto, 'n');
+    const painelDiretor = await usuarioEhDiretorNotificacoes(idUsuario);
+    const filtroCtx = sqlFiltroContextoNotificacoes(contexto, 'n', { painelDiretor });
     const params = [idUsuario];
     if (filtrarLoja) params.push(idLoja);
     const { filtroExtra } = await filtroNotificacoesAprovacoes(idUsuario, contexto, params);
@@ -1932,6 +1976,11 @@ function mapEventoNotificacaoRow(row) {
     descricao: row.descricao,
     notifica_abrir: row.notifica_abrir !== false,
     notifica_ver: row.notifica_ver !== false,
+    notifica_diretor: row.notifica_diretor !== false,
+    notifica_tecnico: row.notifica_tecnico !== false,
+    notifica_supervisor: row.notifica_supervisor !== false,
+    notifica_coordenador: row.notifica_coordenador !== false,
+    notifica_gerente: row.notifica_gerente !== false,
     ativo: row.ativo !== false,
     sistema: row.sistema !== false,
     template_mensagem: row.template_mensagem ?? defs.template_mensagem ?? '',
@@ -1947,8 +1996,10 @@ router.get(
     try {
       await ensureNotificacaoEventosTable();
       const { rows } = await pool.query(
-        `SELECT codigo, descricao, notifica_abrir, notifica_ver, ativo, sistema,
-                template_mensagem, template_destinatario
+        `SELECT codigo, descricao, notifica_abrir, notifica_ver,
+                notifica_diretor, notifica_tecnico, notifica_supervisor,
+                notifica_coordenador, notifica_gerente,
+                ativo, sistema, template_mensagem, template_destinatario
          FROM manut_notificacao_eventos
          ORDER BY sistema DESC, codigo`,
       );
@@ -1975,6 +2026,11 @@ router.post(
         template_destinatario,
         notifica_abrir = true,
         notifica_ver = true,
+        notifica_diretor = true,
+        notifica_tecnico = true,
+        notifica_supervisor = true,
+        notifica_coordenador = true,
+        notifica_gerente = true,
         ativo = true,
       } = req.body || {};
       const cod = String(codigo || '')
@@ -1993,16 +2049,25 @@ router.post(
       }
       const { rows } = await pool.query(
         `INSERT INTO manut_notificacao_eventos
-           (codigo, descricao, notifica_abrir, notifica_ver, ativo, template_mensagem,
-            template_destinatario, sistema)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
-         RETURNING codigo, descricao, notifica_abrir, notifica_ver, ativo, sistema,
-                   template_mensagem, template_destinatario`,
+           (codigo, descricao, notifica_abrir, notifica_ver,
+            notifica_diretor, notifica_tecnico, notifica_supervisor,
+            notifica_coordenador, notifica_gerente,
+            ativo, template_mensagem, template_destinatario, sistema)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, FALSE)
+         RETURNING codigo, descricao, notifica_abrir, notifica_ver,
+                   notifica_diretor, notifica_tecnico, notifica_supervisor,
+                   notifica_coordenador, notifica_gerente,
+                   ativo, sistema, template_mensagem, template_destinatario`,
         [
           cod,
           descricao.trim(),
           !!notifica_abrir,
           !!notifica_ver,
+          !!notifica_diretor,
+          !!notifica_tecnico,
+          !!notifica_supervisor,
+          !!notifica_coordenador,
+          !!notifica_gerente,
           !!ativo,
           template_mensagem.trim(),
           template_destinatario?.trim() || null,
@@ -2060,6 +2125,11 @@ router.patch(
         template_destinatario,
         notifica_abrir,
         notifica_ver,
+        notifica_diretor,
+        notifica_tecnico,
+        notifica_supervisor,
+        notifica_coordenador,
+        notifica_gerente,
         ativo,
       } = req.body || {};
       const campos = [];
@@ -2090,6 +2160,26 @@ router.patch(
         campos.push(`notifica_ver = $${i++}`);
         params.push(!!notifica_ver);
       }
+      if (notifica_diretor !== undefined) {
+        campos.push(`notifica_diretor = $${i++}`);
+        params.push(!!notifica_diretor);
+      }
+      if (notifica_tecnico !== undefined) {
+        campos.push(`notifica_tecnico = $${i++}`);
+        params.push(!!notifica_tecnico);
+      }
+      if (notifica_supervisor !== undefined) {
+        campos.push(`notifica_supervisor = $${i++}`);
+        params.push(!!notifica_supervisor);
+      }
+      if (notifica_coordenador !== undefined) {
+        campos.push(`notifica_coordenador = $${i++}`);
+        params.push(!!notifica_coordenador);
+      }
+      if (notifica_gerente !== undefined) {
+        campos.push(`notifica_gerente = $${i++}`);
+        params.push(!!notifica_gerente);
+      }
       if (ativo !== undefined) {
         campos.push(`ativo = $${i++}`);
         params.push(!!ativo);
@@ -2100,8 +2190,10 @@ router.patch(
       const { rows, rowCount } = await pool.query(
         `UPDATE manut_notificacao_eventos SET ${campos.join(', ')}
          WHERE codigo = $${i}
-         RETURNING codigo, descricao, notifica_abrir, notifica_ver, ativo, sistema,
-                   template_mensagem, template_destinatario`,
+         RETURNING codigo, descricao, notifica_abrir, notifica_ver,
+                   notifica_diretor, notifica_tecnico, notifica_supervisor,
+                   notifica_coordenador, notifica_gerente,
+                   ativo, sistema, template_mensagem, template_destinatario`,
         params,
       );
       if (!rowCount) return res.status(404).json({ error: 'Evento não encontrado' });
@@ -2145,3 +2237,4 @@ ensureNotificacoesTable().catch((e) => {
 });
 
 export default router;
+export { criarNotificacao };

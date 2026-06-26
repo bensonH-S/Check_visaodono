@@ -432,8 +432,11 @@ export const api = {
     }
     return res.json() as Promise<{ ok: boolean; veiculo: FrotaVeiculo | null }>;
   },
-  frotaDesassumirVeiculo: () =>
-    request<{ ok: boolean; veiculo: null }>('/frota/me/desassumir', { method: 'POST' }),
+  frotaDesassumirVeiculo: (kmAtual: number) =>
+    request<{ ok: boolean; veiculo: null }>('/frota/me/desassumir', {
+      method: 'POST',
+      body: JSON.stringify({ km_atual: kmAtual }),
+    }),
   frotaTermo: () => request<FrotaTermoInfo>('/frota/termo'),
   frotaEnviarAbastecimento: async (formData: FormData) => {
     const token = getToken();
@@ -785,6 +788,11 @@ export interface ManutNotificacaoEvento {
   descricao: string;
   notifica_abrir: boolean;
   notifica_ver: boolean;
+  notifica_diretor: boolean;
+  notifica_tecnico: boolean;
+  notifica_supervisor: boolean;
+  notifica_coordenador: boolean;
+  notifica_gerente: boolean;
   ativo: boolean;
   sistema: boolean;
   template_mensagem: string;
@@ -804,6 +812,11 @@ export interface ManutNotificacaoEventoInput {
   template_destinatario?: string | null;
   notifica_abrir?: boolean;
   notifica_ver?: boolean;
+  notifica_diretor?: boolean;
+  notifica_tecnico?: boolean;
+  notifica_supervisor?: boolean;
+  notifica_coordenador?: boolean;
+  notifica_gerente?: boolean;
   ativo?: boolean;
 }
 
@@ -852,6 +865,7 @@ export interface FrotaVeiculo {
   ano: number | null;
   cor: string | null;
   combustivel?: string | null;
+  km_inicial?: number | null;
   km_atual: number | null;
   observacoes?: string | null;
   assuncao_em: string | null;
@@ -870,6 +884,7 @@ export type FrotaVeiculoBody = {
   ano?: number | null;
   cor?: string;
   combustivel?: string;
+  km_inicial?: number | null;
   km_atual?: number | null;
   observacoes?: string;
   id_regiao?: number | null;
@@ -890,6 +905,7 @@ export interface FrotaAssuncao {
   placa: string;
   nome_usuario: string;
   km_inicio: number | null;
+  km_fim: number | null;
   data_inicio: string;
   data_fim: string | null;
 }
@@ -934,8 +950,12 @@ export interface FrotaRegiaoLoja {
   id_loja: number;
   name: string;
   bk_number: string | null;
+  address?: string | null;
+  neighborhood?: string | null;
   city: string;
   state: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
 }
 
 export interface FrotaRegiaoResumo {
@@ -945,6 +965,8 @@ export interface FrotaRegiaoResumo {
   ativo: boolean;
   id_regional?: number | null;
   nome_regional?: string | null;
+  email_regional?: string | null;
+  regionais?: FrotaRegiaoUsuario[];
   qtd_lojas: number;
   qtd_tecnicos: number;
   qtd_veiculos: number;
@@ -999,6 +1021,7 @@ export interface FrotaRegiaoDetalhe {
   nome_regional: string | null;
   email_regional?: string | null;
   cargo_regional?: string | null;
+  regionais: FrotaRegiaoUsuario[];
   created_at: string;
   updated_at: string;
   lojas: FrotaRegiaoLoja[];
@@ -1010,6 +1033,7 @@ export type FrotaRegiaoBody = {
   nome?: string;
   descricao?: string;
   id_regional?: number | null;
+  id_regionais?: number[];
   id_lojas?: number[];
   id_usuarios?: number[];
   id_veiculos?: number[];

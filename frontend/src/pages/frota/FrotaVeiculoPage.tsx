@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -17,7 +17,8 @@ import { api } from '../../api/client';
 import type { FrotaVeiculo } from '../../api/client';
 import { extensaoMidia } from '../../utils/mediaFile';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
-import { filtrarKmAoDigitar, kmInputParaNumero, labelFixo, ph, rotuloVeiculoLista } from '../../constants/frotaVeiculo';
+import { filtrarKmAoDigitar, kmInputParaNumero, labelFixo, ph, rotuloVeiculoOpcao } from '../../constants/frotaVeiculo';
+import { showToast } from '../../utils/toast';
 
 const MAX_FOTOS_VEICULO = 6;
 
@@ -50,12 +51,22 @@ export default function FrotaVeiculoPage() {
 
   const etapaAtiva = !dadosPreenchidos ? 0 : !cnhPreenchida ? 1 : !fotosVeiculoOk ? 2 : 3;
 
+  const veiculosDisponiveis = useMemo(
+    () => veiculos.filter((v) => v.id_usuario_responsavel == null),
+    [veiculos],
+  );
+
   async function carregar() {
     setLoading(true);
     try {
       const [lista, resumo] = await Promise.all([api.frotaVeiculos(), api.frotaResumo()]);
       setVeiculos(lista);
       setMeuVeiculo(resumo.veiculo);
+      setIdVeiculoAssumir((atual) => {
+        if (!atual) return atual;
+        const v = lista.find((item) => item.id_veiculo === atual);
+        return v?.id_usuario_responsavel == null ? atual : '';
+      });
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
     } finally {
@@ -87,19 +98,19 @@ export default function FrotaVeiculoPage() {
     if (!fotos.length) setFotosVeiculo([]);
   }
 
-  async function desassumir() {
+  async function desassumir(kmAtual: number) {
     if (!meuVeiculo) return;
     setSalvando(true);
     setErro('');
     setOk('');
     try {
-      await api.frotaDesassumirVeiculo();
+      await api.frotaDesassumirVeiculo(kmAtual);
       setMeuVeiculo(null);
       setIdVeiculoAssumir('');
       setKmAssumir('');
       setFotoCnh([]);
       setFotosVeiculo([]);
-      setOk('Veículo liberado com sucesso.');
+      showToast('Carro devolvido com sucesso!', 'success');
       await carregar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao desassumir');
@@ -161,7 +172,7 @@ export default function FrotaVeiculoPage() {
         <FrotaVeiculoControleCard
           veiculo={meuVeiculo}
           salvando={salvando}
-          onDesassumir={() => void desassumir()}
+          onDesassumir={(km) => void desassumir(km)}
         />
       ) : (
         <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
@@ -206,16 +217,16 @@ export default function FrotaVeiculoPage() {
                       </Box>
                     );
                   }
-                  const v = veiculos.find((item) => item.id_veiculo === Number(selected));
-                  return v ? rotuloVeiculoLista(v) : String(selected);
+                  const v = veiculosDisponiveis.find((item) => item.id_veiculo === Number(selected));
+                  return v ? rotuloVeiculoOpcao(v) : String(selected);
                 },
                 ...selectMenuScrollProps,
               },
             }}
           >
-            {veiculos.map((v) => (
+            {veiculosDisponiveis.map((v) => (
               <MenuItem key={v.id_veiculo} value={v.id_veiculo}>
-                {rotuloVeiculoLista(v)}
+                {rotuloVeiculoOpcao(v)}
               </MenuItem>
             ))}
           </TextField>

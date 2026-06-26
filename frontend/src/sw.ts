@@ -18,6 +18,22 @@ self.addEventListener('message', (event) => {
   }
 });
 
+const TIPOS_PUSH_SW = new Set([
+  'chamado_urgente_regiao',
+  'novo_chamado',
+  'assumido',
+  'resposta',
+  'anexo',
+  'fechamento',
+  'reabertura',
+  'envio_aprovacao',
+  'encaminhar_diretor',
+  'aprovacao_diretor',
+  'aguardando_aprovacao',
+  'aprovacao',
+  'recusa_aprovacao',
+]);
+
 type PushPayload = {
   title?: string;
   body?: string;
@@ -51,7 +67,7 @@ function parsePushData(event: PushEvent): PushPayload {
 self.addEventListener('push', (event) => {
   const data = parsePushData(event);
   const tipo = data.tipo;
-  if (tipo && tipo !== 'chamado_urgente_regiao' && tipo !== 'novo_chamado' && tipo !== 'assumido') {
+  if (tipo && !TIPOS_PUSH_SW.has(tipo)) {
     return;
   }
 
@@ -86,6 +102,18 @@ self.addEventListener('push', (event) => {
         idChamado: data.idChamado ?? null,
       }),
     ),
+  );
+});
+
+self.addEventListener('sync', (event: Event) => {
+  const ev = event as Event & { tag?: string; waitUntil: (p: Promise<unknown>) => void };
+  if (ev.tag !== 'gps-posicao-retry') return;
+  ev.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        client.postMessage({ type: 'GPS_FLUSH_OUTBOX' });
+      }
+    }),
   );
 });
 

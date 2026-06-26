@@ -177,11 +177,11 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
           ))}
         </TextField>
         <TextField
-          label="KM atual"
+          label="KM inicial"
           size="small"
           value={form.km_atual}
           onChange={(e) => onChange({ km_atual: filtrarKmAoDigitar(e.target.value) })}
-          placeholder={ph.km}
+          placeholder={ph.kmInicial}
           inputMode="numeric"
           slotProps={{ inputLabel: labelFixo.inputLabel }}
           sx={inputSx}

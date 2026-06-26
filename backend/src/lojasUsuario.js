@@ -37,6 +37,20 @@ function unirIdsLojas(...listas) {
   return [...new Set(listas.flat().map(Number).filter(Boolean))];
 }
 
+function ehSupervisorRegiao(user) {
+  if (temPermissao(user, 'frota.regioes')) return true;
+  const cargo = String(user?.cargo_aprovacao || user?.perfil || '').toLowerCase();
+  return cargo === 'supervisor_regional' || cargo === 'regional' || cargo === 'supervisor';
+}
+
+function ehGestorLoja(user) {
+  if (ehSupervisorRegiao(user)) return false;
+  const cargos = new Set(['gerente', 'coordenador']);
+  const cargo = String(user?.cargo_aprovacao || '').toLowerCase();
+  if (cargo && cargos.has(cargo)) return true;
+  return cargos.has(user?.perfil);
+}
+
 export async function carregarLojasIds(user) {
   if (acessoTodasLojas(user)) {
     const { rows } = await pool.query(
@@ -44,13 +58,14 @@ export async function carregarLojasIds(user) {
     );
     return rows.map((r) => r.id_loja);
   }
-  let ids = await lojasUsuarioBase(user.sub);
   const escopoRegiao =
-    temPermissao(user, 'chamados.assumir') || temPermissao(user, 'frota.regioes');
+    (temPermissao(user, 'chamados.assumir') || temPermissao(user, 'frota.regioes') || ehSupervisorRegiao(user)) &&
+    !ehGestorLoja(user);
   if (escopoRegiao) {
-    ids = unirIdsLojas(ids, await lojasRegiaoUsuario(user.sub));
+    // Técnico/supervisor de campo: escopo só pelas regiões vinculadas (não usuario_lojas).
+    return unirIdsLojas(await lojasRegiaoUsuario(user.sub));
   }
-  return ids;
+  return lojasUsuarioBase(user.sub);
 }
 
 export async function carregarLojasDetalhe(user) {
@@ -113,6 +128,44 @@ export function filtroSqlLojas(user, alias, col, params) {
   params.push(ids);
   const colRef = alias ? `${alias}.${col}` : col;
   return ` AND ${colRef} = ANY($${params.length})`;
+}
+
+/**
+ * Lista de chamados: técnicos (assumir) veem lojas da região + chamados atribuídos a si.
+ * Sem região vinculada, não há escopo de gestão (lista vazia).
+ */
+export function filtroSqlListaChamados(user, alias, params) {
+  if (acessoTodasLojas(user)) return '';
+  const ids = user.lojas_ids || [];
+  const tecnicoCampo = temPermissao(user, 'chamados.assumir');
+  const col = (c) => (alias ? `${alias}.${c}` : c);
+
+  if (!ids.length) return ' AND FALSE';
+
+  params.push(ids);
+  const idxLojas = params.length;
+
+  if (tecnicoCampo) {
+    params.push(Number(user.sub));
+    const idxUser = params.length;
+    return ` AND (${col('id_loja')} = ANY($${idxLojas}) OR ${col('id_tecnico')} = $${idxUser})`;
+  }
+
+  return ` AND ${col('id_loja')} = ANY($${idxLojas})`;
+}
+
+/** Acesso a um chamado (detalhe, assumir, etc.). */
+export function usuarioPodeAcessarChamado(user, chamado) {
+  if (acessoTodasLojas(user)) return true;
+  const idLoja = Number(chamado?.id_loja ?? chamado);
+  const ids = user.lojas_ids || [];
+  if (ids.includes(idLoja)) return true;
+  if (!temPermissao(user, 'chamados.assumir')) return false;
+
+  const idUsuario = Number(user.sub);
+  if (Number(chamado?.id_tecnico) === idUsuario) return true;
+
+  return false;
 }
 
 export function usuarioPodeLoja(user, idLoja) {

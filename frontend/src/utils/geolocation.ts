@@ -32,6 +32,14 @@ export function mensagemErroGps(err: unknown): string {
   return 'Não foi possível obter a localização.';
 }
 
+function posicaoParaResultado(pos: GeolocationPosition): GeolocationResult {
+  return {
+    latitude: pos.coords.latitude,
+    longitude: pos.coords.longitude,
+    precisao_metros: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
+  };
+}
+
 export function obterPosicaoAtual(timeoutMs = 15_000): Promise<GeolocationResult> {
   return new Promise((resolve, reject) => {
     if (!geolocalizacaoDisponivel()) {
@@ -39,15 +47,51 @@ export function obterPosicaoAtual(timeoutMs = 15_000): Promise<GeolocationResult
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        resolve({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          precisao_metros: Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null,
-        });
-      },
+      (pos) => resolve(posicaoParaResultado(pos)),
       (err) => reject(err),
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: timeoutMs },
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: timeoutMs },
     );
   });
+}
+
+/** Monitora GPS continuamente (melhor em segundo plano com app minimizado). */
+export function monitorarPosicao(
+  onPosicao: (pos: GeolocationResult) => void,
+  onErro?: (err: GeolocationPositionError) => void,
+): () => void {
+  if (!geolocalizacaoDisponivel()) return () => {};
+
+  const watchId = navigator.geolocation.watchPosition(
+    (pos) => onPosicao(posicaoParaResultado(pos)),
+    (err) => onErro?.(err),
+    { enableHighAccuracy: true, maximumAge: 30_000, timeout: 20_000 },
+  );
+
+  return () => navigator.geolocation.clearWatch(watchId);
+}
+
+export async function solicitarWakeLock(): Promise<(() => void) | null> {
+  try {
+    const nav = navigator as Navigator & {
+      wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> };
+    };
+    if (!nav.wakeLock) return null;
+    const lock = await nav.wakeLock.request('screen');
+    return () => {
+      void lock.release();
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function registrarSyncGpsRetry(): Promise<void> {
+  try {
+    const reg = await navigator.serviceWorker?.ready;
+    const sync = (reg as ServiceWorkerRegistration & { sync?: { register: (tag: string) => Promise<void> } })
+      ?.sync;
+    if (sync) await sync.register('gps-posicao-retry');
+  } catch {
+    /* Background Sync indisponível */
+  }
 }

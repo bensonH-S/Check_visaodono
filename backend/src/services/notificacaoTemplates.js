@@ -62,6 +62,14 @@ export const DEFAULTS_TEMPLATES = {
     template_mensagem: 'Orçamento recusado — chamado #{numero}',
     template_destinatario: null,
   },
+  sla_alerta_80: {
+    template_mensagem: 'Atenção: chamado #{numero} ({loja}) está com 80% do prazo de SLA consumido.',
+    template_destinatario: null,
+  },
+  sla_estourado: {
+    template_mensagem: 'Urgente: chamado #{numero} ({loja}) estourou o prazo de SLA.',
+    template_destinatario: null,
+  },
 };
 
 let cacheMap = null;
