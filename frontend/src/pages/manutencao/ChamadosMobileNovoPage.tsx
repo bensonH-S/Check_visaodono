@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -8,15 +8,18 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
-import Stepper from '@mui/material/Stepper';
-import Step from '@mui/material/Step';
-import StepLabel from '@mui/material/StepLabel';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import List from '@mui/material/List';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
-import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import { api } from '../../api/client';
-import type { ManutFormulario, ManutLoja } from '../../api/client';import {
+import type { ManutFormulario, ManutLoja } from '../../api/client';
+import {
   getUsuario,
   temPermissao,
   ehGestorLojaMobile,
@@ -41,6 +44,54 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([arr], { type: mime });
 }
 
+function IndicadorEtapasNovoChamado({ etapaAtiva }: { etapaAtiva: 0 | 1 }) {
+  const passos = ['Descrição', 'Fotos'] as const;
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', py: 0.5 }}>
+      {passos.map((label, i) => (
+        <Box key={label} sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.45, minWidth: 76 }}>
+            <Box
+              sx={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                bgcolor: etapaAtiva === i || etapaAtiva > i ? ORANGE : 'rgba(27, 42, 107, 0.2)',
+                boxShadow: etapaAtiva === i ? '0 0 0 3px rgba(232, 82, 10, 0.22)' : 'none',
+                transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: etapaAtiva === i ? 700 : 500,
+                color: etapaAtiva === i ? NAVY : etapaAtiva > i ? ORANGE : 'text.secondary',
+                lineHeight: 1.2,
+              }}
+            >
+              {label}
+            </Typography>
+          </Box>
+          {i < passos.length - 1 && (
+            <Box
+              sx={{
+                width: 56,
+                height: 2,
+                mx: 0.5,
+                mt: 0.45,
+                borderRadius: 1,
+                bgcolor: etapaAtiva > i ? ORANGE : 'rgba(27, 42, 107, 0.12)',
+              }}
+            />
+          )}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 function SeletorLojaNovoChamado({
   lojas,
   idLoja,
@@ -50,26 +101,10 @@ function SeletorLojaNovoChamado({
   idLoja: number | '';
   onSelecionar: (id: number) => void;
 }) {
-  const [expandido, setExpandido] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [dialogAberto, setDialogAberto] = useState(false);
   const multiplas = lojas.length > 1;
-  const lojaAtual = lojas.find((l) => l.id_loja === idLoja) ?? lojas[0];
-  const nomeExibido = lojaAtual?.nome ?? 'Selecione a loja';
-
-  useEffect(() => {
-    if (!expandido) return;
-    function fecharFora(e: MouseEvent | TouchEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setExpandido(false);
-      }
-    }
-    document.addEventListener('mousedown', fecharFora);
-    document.addEventListener('touchstart', fecharFora);
-    return () => {
-      document.removeEventListener('mousedown', fecharFora);
-      document.removeEventListener('touchstart', fecharFora);
-    };
-  }, [expandido]);
+  const lojaAtual = lojas.find((l) => l.id_loja === idLoja);
+  const nomeExibido = lojaAtual?.nome ?? (multiplas ? 'Selecione sua loja' : lojas[0]?.nome ?? '—');
 
   if (!lojas.length) {
     return (
@@ -80,24 +115,15 @@ function SeletorLojaNovoChamado({
   }
 
   return (
-    <Box
-      ref={containerRef}
-      sx={{
-        position: 'relative',
-        mt: 1.25,
-        pt: 1.25,
-        borderTop: '1px solid rgba(27, 42, 107, 0.08)',
-        zIndex: expandido ? 40 : 'auto',
-      }}
-    >
+    <>
       <Box
         role={multiplas ? 'button' : undefined}
         tabIndex={multiplas ? 0 : undefined}
-        onClick={() => multiplas && setExpandido((v) => !v)}
+        onClick={() => multiplas && setDialogAberto(true)}
         onKeyDown={(e) => {
           if (multiplas && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
-            setExpandido((v) => !v);
+            setDialogAberto(true);
           }
         }}
         sx={{
@@ -106,13 +132,10 @@ function SeletorLojaNovoChamado({
           gap: 0.75,
           minWidth: 0,
           minHeight: 24,
+          mt: 1.25,
+          pt: 1.25,
+          borderTop: '1px solid rgba(27, 42, 107, 0.08)',
           cursor: multiplas ? 'pointer' : 'default',
-          borderRadius: 1.5,
-          py: 0.35,
-          px: 0.25,
-          mx: -0.25,
-          bgcolor: multiplas && expandido ? 'rgba(27, 42, 107, 0.05)' : 'transparent',
-          '&:hover': multiplas ? { bgcolor: 'rgba(27, 42, 107, 0.05)' } : undefined,
         }}
       >
         <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE, flexShrink: 0, display: 'block' }} />
@@ -144,101 +167,50 @@ function SeletorLojaNovoChamado({
             {nomeExibido}
           </Box>
         </Typography>
-        {multiplas && (
-          <UnfoldMoreIcon
-            sx={{
-              fontSize: 18,
-              color: 'text.secondary',
-              flexShrink: 0,
-              transform: expandido ? 'rotate(180deg)' : 'none',
-              transition: 'transform 0.15s ease',
-            }}
-          />
-        )}
       </Box>
 
-      {multiplas && expandido && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            mt: 0.5,
-            zIndex: 50,
-            borderRadius: 2,
-            border: '1px solid rgba(27, 42, 107, 0.15)',
-            bgcolor: '#fff',
-            maxHeight: 280,
-            overflowY: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            boxShadow: '0 8px 24px rgba(27, 42, 107, 0.18)',
-          }}
-        >
+      <Dialog open={dialogAberto} onClose={() => setDialogAberto(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+          Escolher loja
+        </DialogTitle>
+        <List sx={{ pt: 0, pb: 1 }}>
           {lojas.map((loja) => {
             const ativa = loja.id_loja === idLoja;
             return (
-              <Box
+              <ListItemButton
                 key={loja.id_loja}
-                role="button"
-                tabIndex={0}
+                selected={ativa}
                 onClick={() => {
                   onSelecionar(loja.id_loja);
-                  setExpandido(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onSelecionar(loja.id_loja);
-                    setExpandido(false);
-                  }
+                  setDialogAberto(false);
                 }}
                 sx={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 1,
-                  px: 1.5,
-                  py: 1.15,
-                  minHeight: 44,
-                  cursor: 'pointer',
-                  bgcolor: ativa ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
-                  borderBottom: '1px solid rgba(27, 42, 107, 0.08)',
-                  '&:last-child': { borderBottom: 'none' },
-                  '&:hover': { bgcolor: ativa ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.04)' },
+                  py: 1.25,
+                  '&.Mui-selected': { bgcolor: 'rgba(232, 82, 10, 0.08)' },
                 }}
               >
-                <LocationOnOutlinedIcon
-                  sx={{
-                    fontSize: 18,
-                    color: ativa ? ORANGE : 'text.secondary',
-                    flexShrink: 0,
-                    mt: 0.1,
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE }} />
+                </ListItemIcon>
+                <ListItemText
+                  primary={loja.nome}
+                  primaryTypographyProps={{
+                    fontWeight: ativa ? 700 : 600,
+                    color: ativa ? NAVY : 'text.primary',
+                    fontSize: '0.9rem',
                   }}
                 />
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: ativa ? 700 : 600,
-                    color: ativa ? NAVY : 'text.secondary',
-                    lineHeight: 1.35,
-                    textAlign: 'left',
-                    flex: 1,
-                    minWidth: 0,
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {loja.nome}
-                </Typography>
-              </Box>
+              </ListItemButton>
             );
           })}
-        </Box>
-      )}
-    </Box>
+        </List>
+      </Dialog>
+    </>
   );
 }
 
-export default function ChamadosMobileNovoPage() {  const navigate = useNavigate();
+export default function ChamadosMobileNovoPage() {
+  const navigate = useNavigate();
   const sessao = getUsuario();
   const { idLoja: lojaSelecionada, setIdLoja: setLojaContexto } = useChamadosMobileLoja();
   const [form, setForm] = useState<ManutFormulario | null>(null);
@@ -316,7 +288,7 @@ export default function ChamadosMobileNovoPage() {  const navigate = useNavigate
   const descricaoCompleta = Boolean(
     idLoja && idCategoria && titulo.trim().length > 0 && descricao.trim().length >= 10,
   );
-  const etapaAtiva = descricaoCompleta ? 1 : 0;
+  const etapaAtiva: 0 | 1 = descricaoCompleta ? 1 : 0;
   const podeEnviar = descricaoCompleta && fotos.length > 0;
 
   useEffect(() => {
@@ -448,14 +420,7 @@ export default function ChamadosMobileNovoPage() {  const navigate = useNavigate
       </Paper>
 
       <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Stepper activeStep={etapaAtiva} alternativeLabel sx={{ mb: 0.5 }}>
-          <Step>
-            <StepLabel>Descrição</StepLabel>
-          </Step>
-          <Step>
-            <StepLabel>Fotos</StepLabel>
-          </Step>
-        </Stepper>
+        <IndicadorEtapasNovoChamado etapaAtiva={etapaAtiva} />
 
         {form && form.categorias.length > 0 && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -509,7 +474,7 @@ export default function ChamadosMobileNovoPage() {  const navigate = useNavigate
           size="small"
           value={titulo}
           onChange={(e) => setTitulo(e.target.value)}
-          slotProps={{ input: { style: { fontSize: 16 } } }}
+          slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 16 } } }}
         />
 
         <TextField
@@ -518,7 +483,7 @@ export default function ChamadosMobileNovoPage() {  const navigate = useNavigate
           size="small"
           value={local}
           onChange={(e) => setLocal(e.target.value)}
-          slotProps={{ input: { style: { fontSize: 16 } } }}
+          slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 16 } } }}
         />
 
         <TextField
@@ -529,7 +494,7 @@ export default function ChamadosMobileNovoPage() {  const navigate = useNavigate
           minRows={4}
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
-          slotProps={{ input: { style: { fontSize: 16 } } }}
+          slotProps={{ inputLabel: { shrink: true }, input: { style: { fontSize: 16 } } }}
         />
 
         {descricaoCompleta && (
@@ -548,11 +513,6 @@ export default function ChamadosMobileNovoPage() {  const navigate = useNavigate
           </Box>
         )}
 
-        {!descricaoCompleta && (
-          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-            Preencha categoria, título e descrição (mín. 10 caracteres) para liberar as fotos.
-          </Typography>
-        )}
       </Paper>
 
       {erro && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
