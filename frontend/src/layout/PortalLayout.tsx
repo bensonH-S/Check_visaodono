@@ -35,7 +35,7 @@ import {
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { SAFE_AREA_TOP, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaX } from '../theme/safeArea';
+import { mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
 
 type NavItem = {
   to: string;
@@ -189,11 +189,12 @@ export default function PortalLayout() {
         {/* Topbar mobile */}
         <Box
           component="header"
+          className="mobile-app-header"
           sx={{
             display: { xs: 'flex', md: 'none' },
             alignItems: 'center',
             ...safeAreaX(16),
-            ...SAFE_AREA_TOP,
+            pt: safeAreaTopPadding(8),
             pb: 1,
             minHeight: 52,
             flexShrink: 0,

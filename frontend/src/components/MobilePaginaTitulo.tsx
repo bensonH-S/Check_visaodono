@@ -13,6 +13,8 @@ type Props = {
   tagRegiaoTitulo?: string | null;
   /** Gerente/coordenador: mostra o nome completo da loja */
   tagExpandida?: boolean;
+  /** Oculta só a tag de loja/região ao lado do “Olá” */
+  ocultarTagLoja?: boolean;
 };
 
 function nomeSaudacao(nome?: string | null) {
@@ -25,6 +27,7 @@ export default function MobilePaginaTitulo({
   tagRegiao,
   tagRegiaoTitulo,
   tagExpandida = false,
+  ocultarTagLoja = false,
 }: Props) {
   return (
     <Box sx={{ mb: 2, pt: 0, pl: 0.5 }}>
@@ -68,7 +71,7 @@ export default function MobilePaginaTitulo({
             {nomeSaudacao(nomeUsuario)}
           </Box>
         </Typography>
-        {tagRegiao && (
+        {!ocultarTagLoja && tagRegiao && (
           <Box
             component="span"
             sx={{

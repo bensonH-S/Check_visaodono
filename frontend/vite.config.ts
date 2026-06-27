@@ -73,6 +73,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: [
         'Logo_Icon.png',
+        'Logo_Icon-light.png',
         'Logo_Icon-192.png',
         'Logo_Icon-512.png',
         'Logo_Icon-maskable.png',
@@ -83,7 +84,7 @@ export default defineConfig({
         short_name: 'Meridian',
         description: 'Chamados, checklist, frota e auditoria — Grupo Alvim',
         theme_color: '#1B2A6B',
-        background_color: '#f5f5f3',
+        background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
         lang: 'pt-BR',

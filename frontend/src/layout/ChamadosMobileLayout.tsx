@@ -27,8 +27,7 @@ import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { APP_NAME } from '../config/brand';
-import { MOBILE_VIEWPORT, SAFE_AREA_TOP, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaX } from '../theme/safeArea';
+import { MOBILE_VIEWPORT, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -41,36 +40,6 @@ const TAB_NAV_H = 52;
 
 function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
   return loja.nome;
-}
-
-function RegiaoAtuacaoCabecalho({ user }: { user: UsuarioSessao | null }) {
-  const rotulo = rotuloRegiaoMobile(user);
-
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 0.75,
-        width: '100%',
-        textAlign: 'center',
-      }}
-    >
-      <LocationOnOutlinedIcon sx={{ fontSize: { xs: 18, sm: 16 }, color: '#E8520A', flexShrink: 0 }} />
-      <Typography
-        variant="body2"
-        sx={{
-          color: NAVY,
-          fontWeight: 700,
-          fontSize: { xs: '0.82rem', sm: '0.78rem' },
-          lineHeight: 1.3,
-        }}
-      >
-        {rotulo}
-      </Typography>
-    </Box>
-  );
 }
 
 function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
@@ -265,11 +234,15 @@ function ChamadosMobileLayoutInner() {
   const isFrotaSub = isFrota && path !== '/frota/mobile';
   const isVisitas = path === '/visitas/mobile';
   const isRelatorio = path.startsWith('/relatorio/visita/');
-  const isChamadosLista = path === '/chamados/mobile';
   const isChecklistHub = path === '/checklist/mobile';
-  /** Mesmo cabeçalho da lista de chamados: só logo grande + sino + perfil */
-  const headerEstiloLista =
-    isChamadosLista || isFrota || isChecklistHub || isNovo || isVisitas || isRelatorio;
+  const isChecklistEmAndamento = isChecklist && !isChecklistHub && !isChecklistConcluido;
+  const temBotaoVoltar =
+    isDetalhe ||
+    isNovo ||
+    isFrotaSub ||
+    isRelatorio ||
+    isChecklistConcluido ||
+    isChecklistEmAndamento;
   const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
   const podeChecklist = user && podeUsarChecklist(user);
@@ -279,9 +252,6 @@ function ChamadosMobileLayoutInner() {
   const podeVisitas = user && podeVerVisitasMobile(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
-  const ocultarContextoNoHeader =
-    headerEstiloLista &&
-    (modoCabecalho === 'regiao' || (modoCabecalho === 'loja' && !multiplasLojasHeader));
 
   const contextoAtuacaoMobile =
     modoCabecalho === 'regiao'
@@ -395,6 +365,14 @@ function ChamadosMobileLayoutInner() {
     navigate(location.pathname + location.search + location.hash, { replace: true, state: {} });
   }, [location.state, location.pathname, location.search, location.hash, navigate]);
 
+  function rotaVoltarMobile() {
+    if (isFrotaSub) return '/frota/mobile';
+    if (isRelatorio) return '/visitas/mobile';
+    if (isChecklistConcluido || isChecklistEmAndamento) return '/checklist/mobile';
+    if (isNovo || isDetalhe) return '/chamados/mobile';
+    return '/chamados/mobile';
+  }
+
   return (
     <Box
       sx={{
@@ -409,31 +387,26 @@ function ChamadosMobileLayoutInner() {
       <PwaInstallDialog />
       <Box
         component="header"
+        className="mobile-app-header"
         sx={{
           position: 'relative',
           zIndex: 30,
           flexShrink: 0,
           bgcolor: PAGE_BG,
           ...safeAreaX(16),
-          ...SAFE_AREA_TOP,
-          pt: headerEstiloLista ? 0.75 : 0.5,
-          pb: headerEstiloLista ? 0.25 : 0.5,
+          pt: safeAreaTopPadding(8),
+          pb: 0.25,
           boxShadow: 'none',
           overflow: 'visible',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-            {(isDetalhe || isFrotaSub || isRelatorio) && (
+            {temBotaoVoltar && (
               <IconButton
                 type="button"
                 size="small"
-                onClick={() =>
-                  navigate(
-                    isFrotaSub ? '/frota/mobile' : isRelatorio ? '/visitas/mobile' : '/chamados/mobile',
-                    { replace: true },
-                  )
-                }
+                onClick={() => navigate(rotaVoltarMobile(), { replace: true })}
                 aria-label="Voltar"
                 sx={{ color: NAVY, ml: -0.5, flexShrink: 0 }}
               >
@@ -441,38 +414,9 @@ function ChamadosMobileLayoutInner() {
               </IconButton>
             )}
             <BrandLogo
-              maxWidth={headerEstiloLista ? (isFrotaSub ? 84 : 98) : 72}
+              maxWidth={temBotaoVoltar ? 84 : 98}
               sx={{ flexShrink: 0 }}
             />
-            {!headerEstiloLista && (
-            <Box sx={{ minWidth: 0 }}>
-              <Typography
-                sx={{
-                  fontWeight: 800,
-                  color: '#E8520A',
-                  fontSize: '0.92rem',
-                  lineHeight: 1.1,
-                }}
-              >
-                {APP_NAME}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 600,
-                  lineHeight: 1.2,
-                  color: NAVY,
-                  display: 'block',
-                  fontSize: '0.7rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {subtituloPagina}
-              </Typography>
-            </Box>
-            )}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
             <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
@@ -494,8 +438,13 @@ function ChamadosMobileLayoutInner() {
           </Box>
         </Box>
         <PwaInstallBanner />
-        {modoCabecalho && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && !ocultarContextoNoHeader && (
-          modoCabecalho === 'loja' || modoCabecalho === 'regiao' ? (
+        {modoCabecalho === 'loja' &&
+          !isSubPage &&
+          !isChecklist &&
+          !isFrota &&
+          !isVisitas &&
+          !isRelatorio &&
+          multiplasLojasHeader && (
           <Box
             sx={{
               mt: 0.5,
@@ -507,29 +456,10 @@ function ChamadosMobileLayoutInner() {
               border: '1px solid rgba(27, 42, 107, 0.08)',
             }}
           >
-            {modoCabecalho === 'regiao' ? (
-              <RegiaoAtuacaoCabecalho user={user} />
-            ) : (
-              <SeletorLocalizacao user={user} />
-            )}
+            <SeletorLocalizacao user={user} />
           </Box>
-          ) : null
         )}
       </Box>
-
-      {!headerEstiloLista && (
-      <Box
-        aria-hidden
-        sx={{
-          flexShrink: 0,
-          height: 3,
-          bgcolor: NAVY,
-          boxShadow: '0 4px 10px rgba(27, 42, 107, 0.35)',
-          position: 'relative',
-          zIndex: 25,
-        }}
-      />
-      )}
 
       <Box
         component="main"
@@ -555,8 +485,8 @@ function ChamadosMobileLayoutInner() {
             pointerEvents: 'none',
             zIndex: 0,
           },
-          ...(headerEstiloLista ? safeAreaX(16) : isChecklist || isFrota || isVisitas || isRelatorio ? safeAreaX(8) : safeAreaX(16)),
-          pt: isChecklist || isFrota || isVisitas || isRelatorio || headerEstiloLista ? 0 : 1.5,
+          ...safeAreaX(16),
+          pt: 0,
           pb: safeAreaBottomCalc(
             rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio ? 64 : 16),
           ),
@@ -571,6 +501,7 @@ function ChamadosMobileLayoutInner() {
               tagRegiao={tagRegiaoMobile}
               tagRegiaoTitulo={contextoAtuacaoMobile}
               tagExpandida={tagLojaCompleta}
+              ocultarTagLoja={isDetalhe}
             />
           </Box>
           <Outlet />

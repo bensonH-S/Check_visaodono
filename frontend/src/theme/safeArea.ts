@@ -12,6 +12,11 @@ export const SAFE_AREA_TOP = {
   pt: 'env(safe-area-inset-top, 0px)',
 } as const;
 
+/** Padding superior combinando safe area + espaço extra (evita sobrescrever pt depois do spread). */
+export function safeAreaTopPadding(extraPx = 8) {
+  return `calc(${extraPx}px + env(safe-area-inset-top, 0px))`;
+}
+
 export const SAFE_AREA_BOTTOM = {
   pb: 'env(safe-area-inset-bottom, 0px)',
 } as const;
@@ -35,11 +40,11 @@ export function safeAreaLeftCalc(basePx: number) {
 
 export const MOBILE_VIEWPORT = {
   width: '100%',
-  height: '100%',
-  minHeight: '-webkit-fill-available',
+  height: ['100%', '100dvh'],
+  minHeight: ['-webkit-fill-available', '100dvh'],
 } as const;
 
-/** Barra de abas fixa no rodapé — fundo branco até a borda (iPhone / safe area). */
+/** Barra de abas fixa no rodapé — fundo branco até a borda física (iPhone / home indicator). */
 export function mobileTabBarShellSx(bgcolor = '#fff', zIndex = 30) {
   return {
     position: 'fixed' as const,
@@ -51,17 +56,19 @@ export function mobileTabBarShellSx(bgcolor = '#fff', zIndex = 30) {
     bgcolor,
     boxSizing: 'border-box' as const,
     borderTop: '1px solid rgba(27, 42, 107, 0.1)',
+    pb: 'env(safe-area-inset-bottom, 0px)',
     ...safeAreaX(8),
     transform: 'translateZ(0)',
   };
 }
 
-/** Ícones alinhados embaixo, ocupando também a área do gesto (home indicator). */
+/** Conteúdo das abas — altura fixa; o padding inferior fica no shell. */
 export function mobileTabBarNavSx(tabHeightPx: number) {
   return {
     display: 'flex',
     alignItems: 'stretch',
-    minHeight: `calc(${tabHeightPx}px + env(safe-area-inset-bottom, 0px))`,
+    height: `${tabHeightPx}px`,
+    minHeight: `${tabHeightPx}px`,
     boxSizing: 'border-box' as const,
   } as const;
 }
@@ -71,11 +78,12 @@ export function mobileTabBarItemSx(tabHeightPx: number) {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     flex: 1,
-    pt: 0.5,
-    pb: 'max(6px, env(safe-area-inset-bottom, 0px))',
-    minHeight: `calc(${tabHeightPx}px + env(safe-area-inset-bottom, 0px))`,
+    height: `${tabHeightPx}px`,
+    minHeight: `${tabHeightPx}px`,
+    pt: 0.25,
+    pb: 0.25,
     boxSizing: 'border-box' as const,
   };
 }

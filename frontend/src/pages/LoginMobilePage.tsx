@@ -21,7 +21,7 @@ import { destinoPosLoginMobile, getToken, logout, setSessao } from '../lib/auth'
 import { usePageTitle } from '../hooks/usePageTitle';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { MOBILE_VIEWPORT, SAFE_AREA_TOP, safeAreaX } from '../theme/safeArea';
+import { MOBILE_VIEWPORT, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
 import { APP_NAME } from '../config/brand';
 
 const PAGE_BG = '#f5f5f3';
@@ -135,7 +135,7 @@ export default function LoginMobilePage() {
           alignItems: 'center',
           justifyContent: 'center',
           ...safeAreaX(16),
-          ...SAFE_AREA_TOP,
+          pt: safeAreaTopPadding(12),
           pb: 2,
         }}
       >

@@ -17,6 +17,8 @@ import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import {
   KANBAN_COLUNAS,
   SlaBarraProgresso,
+  SlaCirculoPercentual,
+  STATUS_CHAMADO,
   statusChip,
   tipoChamadoChip,
   urgenciaChip,
@@ -146,8 +148,18 @@ export default function ChamadoDetalheHeader({
       chave: 'loja',
       icone: <LocationOnOutlinedIcon sx={{ fontSize: iconSize, color: '#E8520A' }} />,
       rotulo: 'Loja',
-      valor: detalhe.loja,
+      valor: detalhe.loja?.trim() || '—',
     },
+  ];
+  if (detalhe.local_detalhe?.trim()) {
+    itensMetadadosMobile.push({
+      chave: 'local',
+      icone: <PlaceOutlinedIcon sx={{ fontSize: iconSize }} />,
+      rotulo: 'Localização',
+      valor: detalhe.local_detalhe.trim(),
+    });
+  }
+  itensMetadadosMobile.push(
     {
       chave: 'categoria',
       icone: <CategoryOutlinedIcon sx={{ fontSize: iconSize }} />,
@@ -160,7 +172,7 @@ export default function ChamadoDetalheHeader({
       rotulo: 'Solicitante',
       valor: detalhe.solicitante,
     },
-  ];
+  );
   if (detalhe.tecnico) {
     itensMetadadosMobile.push({
       chave: 'tecnico',
@@ -169,21 +181,13 @@ export default function ChamadoDetalheHeader({
       valor: detalhe.tecnico,
     });
   }
-  if (detalhe.local_detalhe) {
-    itensMetadadosMobile.push({
-      chave: 'local',
-      icone: <PlaceOutlinedIcon sx={{ fontSize: iconSize }} />,
-      rotulo: 'Local',
-      valor: detalhe.local_detalhe,
-    });
-  }
   itensMetadadosMobile.push({
     chave: 'aberto_em',
     icone: <ScheduleOutlinedIcon sx={{ fontSize: iconSize }} />,
     rotulo: 'Aberto em',
     valor: formatDataHoraBrasilia(detalhe.aberto_em || detalhe.prazo_sla),
   });
-  if (!semSla) {
+  if (!semSla && !isMobile) {
     itensMetadadosMobile.push({
       chave: 'prazo_sla',
       icone: <ScheduleOutlinedIcon sx={{ fontSize: iconSize }} />,
@@ -192,8 +196,39 @@ export default function ChamadoDetalheHeader({
     });
   }
 
+  const badgeStatusMobile = (() => {
+    const st = STATUS_CHAMADO[detalhe.status] || {
+      label: detalhe.status,
+      color: '#4B5563',
+      bg: '#F3F4F6',
+    };
+    return (
+      <Box
+        component="span"
+        sx={{
+          flexShrink: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          height: 22,
+          px: 0.85,
+          borderRadius: 999,
+          fontWeight: 700,
+          fontSize: '0.62rem',
+          bgcolor: st.bg,
+          color: st.color,
+          border: `1px solid ${accent}40`,
+        }}
+      >
+        {st.label}
+      </Box>
+    );
+  })();
+
   const gridMetadados = isMobile ? (
-    <MetadadosFlex itens={itensMetadadosMobile} compacto />
+    <MetadadosFlex
+      itens={itensMetadadosMobile.filter((i) => i.chave !== 'aberto_em')}
+      compacto
+    />
   ) : (
     <Box
       sx={{
@@ -208,6 +243,13 @@ export default function ChamadoDetalheHeader({
         rotulo="Loja"
         valor={detalhe.loja}
       />
+      {detalhe.local_detalhe?.trim() && (
+        <InfoCelula
+          icone={<PlaceOutlinedIcon sx={{ fontSize: iconSize }} />}
+          rotulo="Localização"
+          valor={detalhe.local_detalhe.trim()}
+        />
+      )}
       <InfoCelula
         icone={<CategoryOutlinedIcon sx={{ fontSize: iconSize }} />}
         rotulo="Categoria"
@@ -223,13 +265,6 @@ export default function ChamadoDetalheHeader({
           icone={<EngineeringOutlinedIcon sx={{ fontSize: iconSize }} />}
           rotulo="Técnico responsável"
           valor={detalhe.tecnico}
-        />
-      )}
-      {detalhe.local_detalhe && (
-        <InfoCelula
-          icone={<PlaceOutlinedIcon sx={{ fontSize: iconSize }} />}
-          rotulo="Local"
-          valor={detalhe.local_detalhe}
         />
       )}
       <InfoCelula
@@ -278,6 +313,156 @@ export default function ChamadoDetalheHeader({
         <Box sx={{ height: 4, bgcolor: accent }} />
 
         <Box sx={{ p: isMobile ? 1.25 : { xs: 2, md: 2.5 } }}>
+          {isMobile ? (
+            <>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  mb: detalhe.descricao ? 0.85 : 1,
+                  py: 0.65,
+                  px: 0.75,
+                  borderRadius: 1.75,
+                  bgcolor: 'rgba(27, 42, 107, 0.045)',
+                  border: '1px solid rgba(27, 42, 107, 0.08)',
+                }}
+              >
+                <Box
+                  component="span"
+                  sx={{
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: 40,
+                    px: 0.75,
+                    py: 0.35,
+                    borderRadius: 1.25,
+                    bgcolor: NAVY,
+                    color: '#fff',
+                    fontWeight: 800,
+                    fontSize: '0.72rem',
+                    lineHeight: 1.2,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  #{detalhe.numero}
+                </Box>
+                <Box
+                  aria-hidden
+                  sx={{
+                    width: '1px',
+                    alignSelf: 'stretch',
+                    my: 0.35,
+                    bgcolor: 'rgba(27, 42, 107, 0.14)',
+                    flexShrink: 0,
+                  }}
+                />
+                <Typography
+                  sx={{
+                    fontWeight: 700,
+                    lineHeight: 1.38,
+                    color: 'text.primary',
+                    fontSize: '0.94rem',
+                    flex: 1,
+                    minWidth: 0,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {detalhe.titulo}
+                </Typography>
+              </Box>
+
+              {podeAssumir && onAssumir && (
+                <Box sx={{ mb: 0.85 }}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<AssignmentIndIcon sx={{ fontSize: 16 }} />}
+                    disabled={assumindo}
+                    onClick={onAssumir}
+                    sx={{ fontSize: '0.72rem', py: 0.35, px: 1, whiteSpace: 'nowrap' }}
+                  >
+                    {assumindo ? 'Assumindo...' : rotuloAssumir}
+                  </Button>
+                </Box>
+              )}
+
+              {detalhe.descricao && (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                    lineHeight: 1.5,
+                    mb: 1,
+                    whiteSpace: 'pre-wrap',
+                    fontSize: '0.8rem',
+                    bgcolor: 'rgba(27, 42, 107, 0.03)',
+                    borderRadius: 1.5,
+                    px: 1,
+                    py: 0.75,
+                    border: '1px solid rgba(27, 42, 107, 0.06)',
+                  }}
+                >
+                  {detalhe.descricao}
+                </Typography>
+              )}
+
+              {gridMetadados}
+
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.65,
+                  mt: 1,
+                  pt: 0.85,
+                  borderTop: '1px solid rgba(27, 42, 107, 0.06)',
+                  minWidth: 0,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                  <ScheduleOutlinedIcon sx={{ fontSize: 14, color: 'text.disabled', flexShrink: 0 }} />
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontSize: '0.68rem', fontWeight: 600, flexShrink: 0 }}
+                  >
+                    Aberto em
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      color: NAVY,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {formatDataHoraBrasilia(detalhe.aberto_em || detalhe.prazo_sla)}
+                  </Typography>
+                </Box>
+                {badgeStatusMobile}
+                {urgenciaChip(detalhe.urgencia)}
+                {chipsExtras}
+                {detalhe.tipo_chamado === 'orcamento' && tipoChamadoChip('orcamento')}
+                <SlaCirculoPercentual
+                  abertoEm={detalhe.aberto_em}
+                  prazoSla={detalhe.prazo_sla}
+                  status={detalhe.status}
+                  fechadoEm={detalhe.fechado_em ?? undefined}
+                  size={34}
+                />
+              </Box>
+            </>
+          ) : (
+            <>
           <Box
             sx={{
               display: 'flex',
@@ -293,7 +478,7 @@ export default function ChamadoDetalheHeader({
                 bgcolor: 'rgba(27, 42, 107, 0.08)',
                 color: NAVY,
                 fontWeight: 800,
-                fontSize: isMobile ? '0.85rem' : { xs: '0.9rem', md: '1rem' },
+                fontSize: { xs: '0.9rem', md: '1rem' },
                 px: 1.25,
                 py: 0.4,
                 borderRadius: 1,
@@ -326,9 +511,9 @@ export default function ChamadoDetalheHeader({
             sx={{
               fontWeight: 800,
               color: NAVY,
-              fontSize: isMobile ? '1rem' : { xs: '1.15rem', md: '1.35rem' },
+              fontSize: { xs: '1.15rem', md: '1.35rem' },
               lineHeight: 1.3,
-              mb: isMobile ? 1 : 1.5,
+              mb: 1.5,
               letterSpacing: '-0.02em',
             }}
           >
@@ -341,13 +526,12 @@ export default function ChamadoDetalheHeader({
               sx={{
                 color: 'text.secondary',
                 lineHeight: 1.5,
-                mb: isMobile ? 1.25 : 2,
+                mb: 2,
                 whiteSpace: 'pre-wrap',
-                fontSize: isMobile ? '0.8rem' : undefined,
                 bgcolor: 'rgba(27, 42, 107, 0.03)',
                 borderRadius: 1.5,
-                px: isMobile ? 1 : 1.5,
-                py: isMobile ? 0.75 : 1.25,
+                px: 1.5,
+                py: 1.25,
                 border: '1px solid rgba(27, 42, 107, 0.06)',
               }}
             >
@@ -372,10 +556,11 @@ export default function ChamadoDetalheHeader({
                     status={detalhe.status}
                     fechadoEm={detalhe.fechado_em ?? undefined}
                     larguraTotal
-                    compact={isMobile}
                   />
                 </Box>
               </Box>
+            </>
+          )}
             </>
           )}
         </Box>

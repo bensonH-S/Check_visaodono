@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npx vite",
     "build": "tsc -b && vite build",
+    "icons:pwa": "node scripts/generate-pwa-icons.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -36,6 +37,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "sharp": "^0.35.2",
     "tailwindcss": "^4.3.0",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.30.1",

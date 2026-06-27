@@ -28,7 +28,6 @@ import type { ManutChamado } from '../../api/client';
 import {
   getUsuario,
   filtraChamadosPorLojaMobile,
-  modoCabecalhoContextoMobile,
   tecnicoCampoSemRegiao,
   temPermissao,
 } from '../../lib/auth';
@@ -173,7 +172,6 @@ export default function ChamadosMobileHistoricoPage() {
   }, [location.state, location.pathname, navigate]);
 
   const semRegiaoVinculada = tecnicoCampoSemRegiao(sessao);
-  const modoCabecalho = modoCabecalhoContextoMobile(sessao);
 
   const multiplasLojas = (sessao?.lojas?.length ?? 0) > 1;
   const filtrarPorLoja = filtraChamadosPorLojaMobile(sessao);
@@ -468,7 +466,7 @@ export default function ChamadosMobileHistoricoPage() {
               variant="mobile"
               mobileLayout="lista"
               isLast={i === listaAba.length - 1}
-              showLoja={multiplasLojas || modoCabecalho === 'regiao'}
+              showLoja
               showSla={aba === 'abertos'}
               onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
             />
@@ -482,7 +480,7 @@ export default function ChamadosMobileHistoricoPage() {
               chamado={c}
               variant="mobile"
               compact={aba === 'fechados'}
-              showLoja={multiplasLojas || modoCabecalho === 'regiao'}
+              showLoja
               showSla={aba === 'abertos'}
               showDataEncerramento={aba === 'fechados'}
               mostrarAssumir={aba === 'abertos'}
