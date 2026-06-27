@@ -31,7 +31,7 @@ import ChamadoDetalheHeader from './ChamadoDetalheHeader';
 import ChamadoAnexosGaleria from './ChamadoAnexosGaleria';
 import DetalheSecao from './DetalheSecao';
 import { api, type ManutChamadoDetalhe, type Cargo } from '../../api/client';
-import { getUsuario, temPermissao } from '../../lib/auth';
+import { getUsuario, temPermissao, chamadoPodeAssumirMobile } from '../../lib/auth';
 import { extensaoMidia } from '../../utils/mediaFile';
 import { chamadoEncerrado, destinoPermiteCargoAprovacao } from '../../utils/manutencaoUi';
 import { useToast } from '../../hooks/useToast';
@@ -163,16 +163,13 @@ export default function ChamadoDetalheConteudo({
 
   const encerrado = detalhe ? chamadoEncerrado(detalhe.status) : false;
   const podeAssumir = Boolean(
-    !modoAprovacao &&
-      detalhe &&
-      sessao &&
-      temPermissao('chamados.assumir', sessao) &&
-      ['aberto', 'em_atendimento'].includes(detalhe.status) &&
-      (!detalhe.id_tecnico || detalhe.id_tecnico !== sessao.id_usuario),
+    !modoAprovacao && detalhe && sessao && chamadoPodeAssumirMobile(detalhe, sessao),
   );
 
   const rotuloAssumir =
-    detalhe?.status === 'em_atendimento' && detalhe.id_tecnico ? 'Assumir chamado' : 'Assumir ticket';
+    detalhe?.status === 'em_atendimento' && detalhe.id_tecnico
+      ? 'Assumir chamado'
+      : 'Assumir ticket';
 
   const podeEditar =
     !modoAprovacao &&

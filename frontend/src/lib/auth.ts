@@ -251,26 +251,48 @@ export function tecnicoCampoSemRegiao(usuario?: UsuarioSessao | null): boolean {
   return (ehTecnicoCampoMobile(usuario) || ehSupervisorRegiaoMobile(usuario)) && !(usuario ?? getUsuario())?.regioes_atuacao?.length;
 }
 
-/** Botão «Assumir» na lista mobile — quem pode assumir (exceto diretoria e gestor de loja). */
-export function podeAssumirTicketListaMobile(usuario?: UsuarioSessao | null): boolean {
+/**
+ * Técnico, supervisor regional ou diretor — podem assumir/reassumir chamados no mobile.
+ * Gestor de loja (sem perfil supervisor) não assume.
+ */
+export function perfilPodeAssumirChamadoMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
-  if (!u) return false;
-  if (!temPermissao('chamados.assumir', u)) return false;
-  if (podeReceberPainelDiretorChamados(u) || temPermissao('lojas.todas', u)) return false;
+  if (!u || !temPermissao('chamados.assumir', u)) return false;
   if (ehGestorLojaMobile(u) && !ehSupervisorRegiaoMobile(u)) return false;
-  return true;
+
+  if (podeReceberPainelDiretorChamados(u) || temPermissao('lojas.todas', u)) return true;
+  if (ehSupervisorRegiaoMobile(u)) return true;
+  if (ehTecnicoCampoMobile(u) || u.perfil === 'tecnico') return true;
+
+  return temPermissao('chamados.assumir', u);
 }
 
-export function chamadoPodeAssumirNaListaMobile(
+/** Exibe botão Assumir — inclusive se outro técnico já estiver no ticket (reassumir). */
+export function chamadoPodeAssumirMobile(
   chamado: { status: string; id_tecnico?: number | null },
   usuario?: UsuarioSessao | null,
 ): boolean {
   const u = usuario ?? getUsuario();
-  if (!u || !podeAssumirTicketListaMobile(u)) return false;
+  if (!u || !perfilPodeAssumirChamadoMobile(u)) return false;
   if (!['aberto', 'em_atendimento'].includes(chamado.status)) return false;
+
   const idTec = chamado.id_tecnico != null ? Number(chamado.id_tecnico) : null;
   if (idTec != null && !Number.isNaN(idTec) && idTec === Number(u.id_usuario)) return false;
+
   return true;
+}
+
+/** @deprecated Use perfilPodeAssumirChamadoMobile */
+export function podeAssumirTicketListaMobile(usuario?: UsuarioSessao | null): boolean {
+  return perfilPodeAssumirChamadoMobile(usuario);
+}
+
+/** @deprecated Use chamadoPodeAssumirMobile */
+export function chamadoPodeAssumirNaListaMobile(
+  chamado: { status: string; id_tecnico?: number | null },
+  usuario?: UsuarioSessao | null,
+): boolean {
+  return chamadoPodeAssumirMobile(chamado, usuario);
 }
 
 export function podeUsarFrota(usuario?: UsuarioSessao | null): boolean {

@@ -22,11 +22,8 @@ import {
 } from '../../utils/manutencaoUi';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import {
-  ehTecnicoCampoMobile,
-  filtraNotificacoesPorRegiaoMobile,
+  chamadoPodeAssumirMobile,
   getUsuario,
-  podeReceberPainelDiretorChamados,
-  temPermissao,
 } from '../../lib/auth';
 
 const NAVY = '#1B2A6B';
@@ -108,22 +105,8 @@ function ChamadoCardMobile({
   const accent = statusAccent(chamado.status);
   const tecnico = rotuloTecnicoCard(chamado.tecnico);
   const sessao = getUsuario();
-  const jaEhTecnico =
-    sessao &&
-    chamado.id_tecnico != null &&
-    Number(chamado.id_tecnico) === Number(sessao.id_usuario);
-  const podeAssumirUsuario = Boolean(
-    sessao &&
-      filtraNotificacoesPorRegiaoMobile(sessao) &&
-      !podeReceberPainelDiretorChamados(sessao) &&
-      !temPermissao('lojas.todas', sessao) &&
-      (temPermissao('chamados.assumir', sessao) || ehTecnicoCampoMobile(sessao) || sessao.perfil === 'tecnico'),
-  );
   const exibirAssumir = Boolean(
-    mostrarAssumir &&
-      podeAssumirUsuario &&
-      ['aberto', 'em_atendimento'].includes(chamado.status) &&
-      !jaEhTecnico,
+    mostrarAssumir && sessao && chamadoPodeAssumirMobile(chamado, sessao),
   );
   const st = STATUS_CHAMADO[chamado.status] || {
     label: chamado.status,
@@ -339,10 +322,23 @@ function ChamadoCardMobile({
               overflow: 'hidden',
             }}
           >
-            <MetaLinha icon={<PersonOutlineOutlinedIcon sx={{ fontSize: 14 }} />}>
-              {tecnico || 'Sem técnico'}
-            </MetaLinha>
-            <Box aria-hidden sx={{ width: 3, height: 3, borderRadius: '50%', bgcolor: 'rgba(27,42,107,0.2)', flexShrink: 0 }} />
+            {tecnico ? (
+              <>
+                <MetaLinha icon={<PersonOutlineOutlinedIcon sx={{ fontSize: 14 }} />}>
+                  {tecnico}
+                </MetaLinha>
+                <Box
+                  aria-hidden
+                  sx={{
+                    width: 3,
+                    height: 3,
+                    borderRadius: '50%',
+                    bgcolor: 'rgba(27,42,107,0.2)',
+                    flexShrink: 0,
+                  }}
+                />
+              </>
+            ) : null}
             <MetaLinha icon={<ScheduleOutlinedIcon sx={{ fontSize: 14 }} />}>
               {showDataEncerramento && chamado.fechado_em
                 ? `Encerrado ${formatDataHoraBrasilia(chamado.fechado_em)}`
@@ -369,12 +365,19 @@ function ChamadoCardMobile({
                     e.stopPropagation();
                     onAssumir(e);
                   }}
+                  startIcon={
+                    assumindo ? undefined : (
+                      <AssignmentIndOutlinedIcon
+                        sx={{ fontSize: '1.2em', width: '1.2em', height: '1.2em' }}
+                      />
+                    )
+                  }
                   sx={{
                     minWidth: 0,
                     height: 28,
-                    px: 1.1,
+                    px: 0.9,
                     py: 0,
-                    fontSize: '0.62rem',
+                    fontSize: '0.68rem',
                     fontWeight: 700,
                     textTransform: 'none',
                     borderRadius: 1.5,
@@ -382,6 +385,11 @@ function ChamadoCardMobile({
                     boxShadow: 'none',
                     whiteSpace: 'nowrap',
                     '&:hover': { bgcolor: '#152258', boxShadow: 'none' },
+                    '& .MuiButton-startIcon': {
+                      mr: 0.25,
+                      ml: 0,
+                      '& svg': { fontSize: '1.2em', width: '1.2em', height: '1.2em' },
+                    },
                   }}
                 >
                   {assumindo ? <CircularProgress size={13} color="inherit" /> : 'Assumir'}
@@ -713,20 +721,7 @@ export default function ChamadoCardResumo({
                 },
               }}
             />
-          ) : (
-            <Chip
-              label="Sem técnico"
-              size="small"
-              variant="outlined"
-              sx={{
-                height: 22,
-                fontSize: '0.65rem',
-                fontWeight: 500,
-                color: 'text.secondary',
-                borderColor: 'rgba(27, 42, 107, 0.12)',
-              }}
-            />
-          )}
+          ) : null}
           {!compact && (
             <Chip
               icon={<ScheduleOutlinedIcon sx={{ fontSize: '12px !important', color: `${NAVY} !important` }} />}

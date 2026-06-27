@@ -41,12 +41,13 @@ function InfoCelula({
 }: {
   icone: React.ReactNode;
   rotulo: string;
-  valor: string;
+  valor?: string;
   compacto?: boolean;
 }) {
+  const valorExibir = valor?.trim();
   return (
-    <Box sx={{ display: 'flex', gap: compacto ? 0.5 : 1, alignItems: 'flex-start', minWidth: 0 }}>
-      <Box sx={{ color: NAVY, opacity: 0.7, mt: 0.1, flexShrink: 0 }}>{icone}</Box>
+    <Box sx={{ display: 'flex', gap: compacto ? 0.5 : 1, alignItems: 'center', minWidth: 0 }}>
+      <Box sx={{ color: NAVY, opacity: 0.7, flexShrink: 0, display: 'flex' }}>{icone}</Box>
       <Box sx={{ minWidth: 0 }}>
         <Typography
           variant="caption"
@@ -55,18 +56,20 @@ function InfoCelula({
         >
           {rotulo}
         </Typography>
-        <Typography
-          variant="body2"
-          sx={{
-            fontWeight: 600,
-            color: NAVY,
-            lineHeight: 1.3,
-            wordBreak: 'break-word',
-            fontSize: compacto ? '0.78rem' : undefined,
-          }}
-        >
-          {valor}
-        </Typography>
+        {valorExibir ? (
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 600,
+              color: NAVY,
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+              fontSize: compacto ? '0.78rem' : undefined,
+            }}
+          >
+            {valorExibir}
+          </Typography>
+        ) : null}
       </Box>
     </Box>
   );
@@ -139,24 +142,98 @@ function LinhaTecnicoResponsavel({
     <Button
       variant="contained"
       size="small"
-      startIcon={<AssignmentIndIcon sx={{ fontSize: compacto ? 16 : 18 }} />}
       disabled={assumindo}
       onClick={onAssumir}
+      startIcon={
+        assumindo ? undefined : (
+          <AssignmentIndIcon sx={{ fontSize: '1.2em', width: '1.2em', height: '1.2em' }} />
+        )
+      }
       sx={{
         flexShrink: 0,
-        fontSize: compacto ? '0.72rem' : '0.78rem',
-        py: compacto ? 0.35 : 0.5,
-        px: compacto ? 1 : 1.25,
+        minWidth: 'auto !important',
+        width: 'auto',
+        px: compacto ? 0.85 : 1.25,
+        py: compacto ? 0.45 : 0.5,
+        fontSize: compacto ? '0.7rem' : '0.78rem',
+        fontWeight: 700,
+        lineHeight: compacto ? 1.15 : undefined,
         whiteSpace: 'nowrap',
+        boxShadow: 'none',
+        '& .MuiButton-startIcon': {
+          mr: compacto ? 0.25 : 0.35,
+          ml: 0,
+          '& svg': { fontSize: '1.2em', width: '1.2em', height: '1.2em' },
+        },
       }}
     >
-      {assumindo ? 'Assumindo...' : rotuloAssumir}
+      {assumindo ? (compacto ? '…' : 'Assumindo...') : compacto ? 'Assumir' : rotuloAssumir}
     </Button>
   ) : null;
 
   if (!temTecnico) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          mb: 1.5,
+          width: '100%',
+        }}
+      >
+        {botaoAssumir}
+      </Box>
+    );
+  }
+
+  if (compacto) {
+    return (
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: botaoAssumir ? 'minmax(0, 1fr) auto' : '1fr',
+          alignItems: 'center',
+          columnGap: 0.5,
+          rowGap: 0,
+          mb: 1.5,
+          width: '100%',
+          minWidth: 0,
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.45,
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <EngineeringOutlinedIcon
+            sx={{ fontSize: iconSize, flexShrink: 0, color: NAVY, opacity: 0.72 }}
+          />
+          <Typography
+            component="div"
+            noWrap
+            sx={{
+              minWidth: 0,
+              fontSize: '0.75rem',
+              lineHeight: 1.25,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+              Técnico responsável
+            </Box>
+            <Box component="span" sx={{ color: 'text.secondary' }}>
+              {': '}
+            </Box>
+            <Box component="span" sx={{ fontWeight: 700, color: NAVY }}>
+              {tecnico!.trim()}
+            </Box>
+          </Typography>
+        </Box>
         {botaoAssumir}
       </Box>
     );
@@ -165,17 +242,17 @@ function LinhaTecnicoResponsavel({
   return (
     <Box
       sx={{
-        display: 'flex',
+        display: 'grid',
+        gridTemplateColumns: botaoAssumir ? 'minmax(0, 1fr) auto' : '1fr',
         alignItems: 'center',
-        justifyContent: 'space-between',
         gap: 1,
         mb: 1.5,
         minWidth: 0,
+        width: '100%',
       }}
     >
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box sx={{ minWidth: 0, overflow: 'hidden' }}>
         <InfoCelula
-          compacto={compacto}
           icone={<EngineeringOutlinedIcon sx={{ fontSize: iconSize }} />}
           rotulo="Técnico responsável"
           valor={tecnico!.trim()}
@@ -290,7 +367,7 @@ export default function ChamadoDetalheHeader({
   })();
 
   const gridMetadados = isMobile ? (
-    <>
+    <Box sx={{ width: '100%', minWidth: 0, mb: 0 }}>
       <MetadadosFlex
         itens={itensMetadadosMobile.filter((i) => i.chave !== 'aberto_em')}
         compacto
@@ -304,7 +381,7 @@ export default function ChamadoDetalheHeader({
         onAssumir={onAssumir}
         rotuloAssumir={rotuloAssumir}
       />
-    </>
+    </Box>
   ) : (
     <Box
       sx={{

@@ -62,16 +62,16 @@ export const MOBILE_SCROLL_AREA = {
   WebkitOverflowScrolling: 'touch',
 } as const;
 
-/** Logo de fundo (marca d'água) — vmin escala com o menor lado da viewport (todos os telefones). */
+/** Logo de fundo (marca d'água) nas páginas após login — grande, responsivo à largura da tela. */
 export const MOBILE_WATERMARK_LOGO = {
-  width: 'clamp(5.5rem, 32vmin, 12rem)',
-  height: 'clamp(5.5rem, 32vmin, 12rem)',
+  width: 'min(92vw, 480px)',
+  height: 'min(92vw, 480px)',
 } as const;
 
 /** Mesma lógica da splash PWA (#pwa-splash em index.html) — referência para manter valores alinhados. */
 export const MOBILE_SPLASH_LOGO = {
-  width: 'clamp(3.25rem, 17vmin, 6.5rem)',
-  height: 'clamp(3.25rem, 17vmin, 6.5rem)',
+  width: 'clamp(5.5rem, 32vmin, 10.5rem)',
+  height: 'clamp(5.5rem, 32vmin, 10.5rem)',
 } as const;
 
 /** Barra de abas fixa no rodapé — fundo branco até a borda física (iPhone / home indicator). */
