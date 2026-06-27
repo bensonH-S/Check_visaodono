@@ -286,6 +286,8 @@ export default function MobileUsuarioMenu({ user, onLogout }: Props) {
       <CameraCaptureOverlay
         open={cameraAberta}
         onClose={() => setCameraAberta(false)}
+        facingMode="user"
+        allowFlipCamera
         onCapture={(file) => {
           setCameraAberta(false);
           void abrirCropComArquivo(file);

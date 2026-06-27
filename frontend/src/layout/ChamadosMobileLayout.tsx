@@ -18,6 +18,7 @@ import PwaInstallBanner from '../components/PwaInstallBanner';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { assetUrl, FAVICON_ICON, toAppPath } from '../config/paths';
+import { mobilePaginaCabecalhoFixo } from '../config/mobileRoutes';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
@@ -27,7 +28,7 @@ import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { MOBILE_VIEWPORT, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -227,6 +228,7 @@ function ChamadosMobileLayoutInner() {
   const { idLoja } = useChamadosMobileLoja();
   const isNovo = Boolean(useMatch('/chamados/mobile/novo')) || path === '/chamados/mobile/novo';
   const isDetalhe = Boolean(useMatch('/chamados/mobile/:idChamado'));
+  const paginaCabecalhoFixo = mobilePaginaCabecalhoFixo(path);
   const isChamadosSubPage = isNovo || isDetalhe;
   const isChecklist = path === '/checklist/mobile' || path.startsWith('/checklist/mobile/');
   const isChecklistConcluido = path.startsWith('/checklist/mobile/concluido/');
@@ -467,8 +469,9 @@ function ChamadosMobileLayoutInner() {
           position: 'relative',
           flex: 1,
           minHeight: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
           '&::before': {
             content: '""',
             position: 'fixed',
@@ -485,15 +488,16 @@ function ChamadosMobileLayoutInner() {
             pointerEvents: 'none',
             zIndex: 0,
           },
-          ...safeAreaX(16),
-          pt: 0,
-          pb: safeAreaBottomCalc(
-            rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio ? 64 : 16),
-          ),
-          WebkitOverflowScrolling: 'touch',
         }}
       >
-        <Box sx={{ position: 'relative', zIndex: 1, minHeight: '100%' }}>
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            flexShrink: 0,
+            ...safeAreaX(16),
+          }}
+        >
           <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%' }}>
             <MobilePaginaTitulo
               titulo={subtituloPagina}
@@ -504,6 +508,18 @@ function ChamadosMobileLayoutInner() {
               ocultarTagLoja={isDetalhe}
             />
           </Box>
+        </Box>
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            ...(paginaCabecalhoFixo ? MOBILE_PAGE_COLUMN : MOBILE_SCROLL_AREA),
+            ...safeAreaX(16),
+            pb: safeAreaBottomCalc(
+              rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio ? 64 : 16),
+            ),
+          }}
+        >
           <Outlet />
         </Box>
       </Box>

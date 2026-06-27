@@ -15,6 +15,7 @@ import type { FrotaResumoMobile } from '../../api/client';
 import { getUsuario, podeAssinarTermoFerramentasMobile } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../../theme/safeArea';
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
@@ -111,27 +112,30 @@ export default function FrotaMobileHubPage() {
   if (loading) return <LinearProgress sx={{ mt: 1 }} />;
 
   return (
-    <Box sx={{ px: 2, py: 1 }}>
-      {erro && (
-        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-          {erro}
-        </Typography>
-      )}
-
-      {resumo?.veiculo ? (
-        <FrotaVeiculoControleCard
-          veiculo={resumo.veiculo}
-          salvando={salvando}
-          onDesassumir={(km) => void desassumir(km)}
-        />
-      ) : (
-        <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px dashed rgba(232, 82, 10, 0.4)' }}>
-          <Typography variant="body2" color="text.secondary">
-            Nenhum veículo atribuído. Assuma o controle na aba Veículo para liberar abastecimento e manutenção.
+    <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%' }}>
+      <Box sx={{ flexShrink: 0, py: 1 }}>
+        {erro && (
+          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+            {erro}
           </Typography>
-        </Paper>
-      )}
+        )}
 
+        {resumo?.veiculo ? (
+          <FrotaVeiculoControleCard
+            veiculo={resumo.veiculo}
+            salvando={salvando}
+            onDesassumir={(km) => void desassumir(km)}
+          />
+        ) : (
+          <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px dashed rgba(232, 82, 10, 0.4)' }}>
+            <Typography variant="body2" color="text.secondary">
+              Nenhum veículo atribuído. Assuma o controle na aba Veículo para liberar abastecimento e manutenção.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
+
+      <Box sx={{ ...MOBILE_SCROLL_AREA, py: 1, pt: 0 }}>
       <CardOpcao
         titulo="Abastecimento"
         descricao={
@@ -189,6 +193,7 @@ export default function FrotaMobileHubPage() {
           ))}
         </Box>
       )}
+      </Box>
     </Box>
   );
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -15,6 +15,10 @@ import type { VisitaDetalhe } from '../api/client';
 import { gerarPdfVisita } from '../utils/gerarPdfVisita';
 import { showToast } from '../utils/toast';
 import { formatarHoraVisita, formatarLocalVisita } from '../utils/visitaFormat';
+import { isMobileAppPath } from '../config/mobileRoutes';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../theme/safeArea';
+
+const NAVY = '#1B2A6B';
 
 function MetaLinha({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (
@@ -32,25 +36,6 @@ function MetaLinha({ rotulo, valor }: { rotulo: string; valor: string }) {
   );
 }
 
-function MetaParLinha({
-  esq,
-  dir,
-}: {
-  esq: { rotulo: string; valor: string };
-  dir: { rotulo: string; valor: string };
-}) {
-  return (
-    <Box sx={{ display: 'flex', gap: { xs: 1.5, sm: 2 } }}>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <MetaLinha rotulo={esq.rotulo} valor={esq.valor} />
-      </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <MetaLinha rotulo={dir.rotulo} valor={dir.valor} />
-      </Box>
-    </Box>
-  );
-}
-
 function formatarResposta(r: VisitaDetalhe['respostas'][0]): string {
   if (r.nota_estrelas != null) return `${r.nota_estrelas} estrela(s)`;
   if (r.resposta) return r.resposta;
@@ -59,6 +44,8 @@ function formatarResposta(r: VisitaDetalhe['respostas'][0]): string {
 
 export default function RelatorioPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const mobileApp = isMobileAppPath(location.pathname);
   const [data, setData] = useState<VisitaDetalhe | null>(null);
   const [err, setErr] = useState('');
   const [exportandoPdf, setExportandoPdf] = useState(false);
@@ -93,6 +80,7 @@ export default function RelatorioPage() {
   const diff = anterior ? nota - Number(anterior.nota) : null;
   const hora = formatarHoraVisita(v.hora_inicio);
   const dataTxt = hora ? `${fmtData(v.data_visita)} às ${hora}` : fmtData(v.data_visita);
+  const tituloChecklist = 'Auditoria Operacional';
 
   const porCategoria = new Map<string, VisitaDetalhe['respostas']>();
   for (const r of data.respostas) {
@@ -101,9 +89,8 @@ export default function RelatorioPage() {
     porCategoria.get(cat)!.push(r);
   }
 
-  return (
-    <Box>
-      <Paper sx={{ p: 1.75, mb: 2.5, borderRadius: 2 }}>
+  const cabecalhoRelatorio = (
+      <Paper sx={{ p: 1.75, mb: mobileApp ? 0 : 2.5, borderRadius: 2 }}>
         <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
           <Box
             sx={{
@@ -135,19 +122,34 @@ export default function RelatorioPage() {
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',
                 gap: 0.5,
-                mb: 0.5,
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, flex: 1, minWidth: 0 }}>
                 <LocationOnOutlinedIcon
-                  sx={{ fontSize: 20, color: 'primary.main', mt: 0.1, flexShrink: 0 }}
+                  sx={{ fontSize: 20, color: 'primary.main', mt: 0.15, flexShrink: 0 }}
                 />
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: 700, fontSize: '1rem', lineHeight: 1.3, pr: 0.5 }}
-                >
-                  {v.name}
-                </Typography>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 700, fontSize: '1rem', lineHeight: 1.25, pr: 0.5 }}
+                  >
+                    {v.name}
+                  </Typography>
+                  {v.bk_number && (
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        mt: 0,
+                        fontSize: '0.8125rem',
+                        color: 'text.secondary',
+                        fontWeight: 600,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      BKN {v.bk_number}
+                    </Typography>
+                  )}
+                </Box>
               </Box>
               <Tooltip title="Baixar relatório em PDF">
                 <span>
@@ -174,30 +176,31 @@ export default function RelatorioPage() {
               </Tooltip>
             </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <MetaParLinha
-                esq={{ rotulo: 'BKN', valor: v.bk_number || '—' }}
-                dir={{ rotulo: 'Data', valor: dataTxt }}
-              />
-              <MetaParLinha
-                esq={{ rotulo: 'Local', valor: formatarLocalVisita(v) }}
-                dir={{ rotulo: 'Auditor', valor: v.nome_usuario }}
-              />
-              <MetaParLinha
-                esq={{ rotulo: 'Status', valor: v.status }}
-                dir={{
-                  rotulo: 'Checklist',
-                  valor: v.tipo_checklist_nome ?? 'Auditoria Operacional',
+            <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0 }}>
+              <Typography
+                sx={{
+                  mb: 0.85,
+                  fontWeight: 800,
+                  fontSize: '1.05rem',
+                  lineHeight: 1.25,
+                  color: NAVY,
+                  letterSpacing: '-0.02em',
                 }}
-              />
+              >
+                {tituloChecklist}
+              </Typography>
+              <MetaLinha rotulo="Auditor" valor={v.nome_usuario} />
+              <MetaLinha rotulo="Local" valor={formatarLocalVisita(v)} />
+              <MetaLinha rotulo="Status" valor={v.status} />
+              <MetaLinha rotulo="Data" valor={dataTxt} />
               {v.meta_visita?.gerente && (
-                <MetaParLinha
-                  esq={{ rotulo: 'Gerente', valor: String(v.meta_visita.gerente) }}
-                  dir={{
-                    rotulo: 'Território',
-                    valor: String(v.meta_visita.territorio ?? '—'),
-                  }}
-                />
+                <>
+                  <MetaLinha rotulo="Gerente" valor={String(v.meta_visita.gerente)} />
+                  <MetaLinha
+                    rotulo="Território"
+                    valor={String(v.meta_visita.territorio ?? '—')}
+                  />
+                </>
               )}
             </Box>
 
@@ -223,7 +226,10 @@ export default function RelatorioPage() {
           </Box>
         </Box>
       </Paper>
+  );
 
+  const corpoRelatorio = (
+    <>
       <Paper className="p-4 mb-4">
         <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
           Desempenho por categoria
@@ -253,9 +259,25 @@ export default function RelatorioPage() {
       </Paper>
 
       <Paper className="p-4 mb-4">
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-          Respostas do checklist
-        </Typography>
+        <Box
+          sx={{
+            mb: 2.5,
+            pb: 1.25,
+            borderBottom: `2px solid rgba(232, 82, 10, 0.35)`,
+          }}
+        >
+          <Typography
+            sx={{
+              fontWeight: 800,
+              fontSize: { xs: '1.12rem', sm: '1.2rem' },
+              lineHeight: 1.25,
+              color: NAVY,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Respostas da {tituloChecklist}
+          </Typography>
+        </Box>
         {[...porCategoria.entries()].map(([categoria, items]) => (
           <Box key={categoria} sx={{ mb: 3 }}>
             <Typography
@@ -286,6 +308,22 @@ export default function RelatorioPage() {
           ))}
         </Paper>
       )}
+    </>
+  );
+
+  if (mobileApp) {
+    return (
+      <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%' }}>
+        <Box sx={{ flexShrink: 0, mb: 2 }}>{cabecalhoRelatorio}</Box>
+        <Box sx={MOBILE_SCROLL_AREA}>{corpoRelatorio}</Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      {cabecalhoRelatorio}
+      {corpoRelatorio}
     </Box>
   );
 }

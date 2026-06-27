@@ -4,14 +4,21 @@ import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
+import CameraswitchIcon from '@mui/icons-material/Cameraswitch';
 
 const MAX_VIDEO_SEG = 60;
 const HOLD_MS = 280;
+
+export type CameraFacing = 'user' | 'environment';
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onCapture: (file: File) => void;
+  /** Câmera inicial: 'user' = frontal, 'environment' = traseira */
+  facingMode?: CameraFacing;
+  /** Botão para alternar frontal ↔ traseira */
+  allowFlipCamera?: boolean;
 };
 
 function mimeGravacao() {
@@ -29,7 +36,13 @@ function extensaoMime(mime: string) {
   return '.webm';
 }
 
-export default function CameraCaptureOverlay({ open, onClose, onCapture }: Props) {
+export default function CameraCaptureOverlay({
+  open,
+  onClose,
+  onCapture,
+  facingMode: facingModeInicial = 'environment',
+  allowFlipCamera = false,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -46,10 +59,15 @@ export default function CameraCaptureOverlay({ open, onClose, onCapture }: Props
   const [gravando, setGravando] = useState(false);
   const [segurando, setSegurando] = useState(false);
   const [segundos, setSegundos] = useState(0);
+  const [facing, setFacing] = useState<CameraFacing>(facingModeInicial);
 
   useEffect(() => {
     gravandoRef.current = gravando;
   }, [gravando]);
+
+  useEffect(() => {
+    if (open) setFacing(facingModeInicial);
+  }, [open, facingModeInicial]);
 
   function limparTimers() {
     if (longPressRef.current) {
@@ -88,9 +106,23 @@ export default function CameraCaptureOverlay({ open, onClose, onCapture }: Props
     descartarRef.current = false;
     let cancelado = false;
 
+    function pararStreamAtual() {
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        recorderRef.current.stop();
+      }
+      recorderRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
+    }
+
+    pararStreamAtual();
+    setPronto(false);
+    setErro('');
+
     navigator.mediaDevices
       .getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
+        video: { facingMode: { ideal: facing } },
         audio: true,
       })
       .then((stream) => {
@@ -107,20 +139,23 @@ export default function CameraCaptureOverlay({ open, onClose, onCapture }: Props
         };
       })
       .catch(() => {
-        setErro('Não foi possível acessar a câmera. Verifique as permissões do navegador.');
+        if (!cancelado) {
+          setErro('Não foi possível acessar a câmera. Verifique as permissões do navegador.');
+        }
       });
 
     return () => {
       cancelado = true;
       descartarRef.current = true;
       limparTimers();
-      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-        recorderRef.current.stop();
-      }
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+      pararStreamAtual();
     };
-  }, [open]);
+  }, [open, facing]);
+
+  function alternarCamera() {
+    if (gravandoRef.current || !allowFlipCamera) return;
+    setFacing((atual) => (atual === 'user' ? 'environment' : 'user'));
+  }
 
   function capturarFoto() {
     const video = videoRef.current;
@@ -252,8 +287,18 @@ export default function CameraCaptureOverlay({ open, onClose, onCapture }: Props
             <CloseIcon />
           </IconButton>
           <Typography sx={{ color: '#fff', flex: 1, fontWeight: 600 }}>
-            {gravando ? `Gravando ${segundos}s` : 'Câmera'}
+            {gravando ? `Gravando ${segundos}s` : facing === 'user' ? 'Câmera frontal' : 'Câmera traseira'}
           </Typography>
+          {allowFlipCamera && !erro && (
+            <IconButton
+              onClick={alternarCamera}
+              disabled={!pronto || gravando}
+              aria-label={facing === 'user' ? 'Usar câmera traseira' : 'Usar câmera frontal'}
+              sx={{ color: '#fff' }}
+            >
+              <CameraswitchIcon />
+            </IconButton>
+          )}
           {gravando && (
             <Box
               sx={{

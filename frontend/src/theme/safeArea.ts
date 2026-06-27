@@ -44,6 +44,24 @@ export const MOBILE_VIEWPORT = {
   minHeight: ['-webkit-fill-available', '100dvh'],
 } as const;
 
+export const MOBILE_PAGE_COLUMN = {
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
+  minHeight: 0,
+  height: '100%',
+  overflow: 'hidden',
+} as const;
+
+/** Área rolável dentro de página mobile (lista de cards, formulário, etc.). */
+export const MOBILE_SCROLL_AREA = {
+  flex: 1,
+  minHeight: 0,
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  WebkitOverflowScrolling: 'touch',
+} as const;
+
 /** Barra de abas fixa no rodapé — fundo branco até a borda física (iPhone / home indicator). */
 export function mobileTabBarShellSx(bgcolor = '#fff', zIndex = 30) {
   return {
@@ -56,20 +74,20 @@ export function mobileTabBarShellSx(bgcolor = '#fff', zIndex = 30) {
     bgcolor,
     boxSizing: 'border-box' as const,
     borderTop: '1px solid rgba(27, 42, 107, 0.1)',
-    pb: 'env(safe-area-inset-bottom, 0px)',
     ...safeAreaX(8),
     transform: 'translateZ(0)',
   };
 }
 
-/** Conteúdo das abas — altura fixa; o padding inferior fica no shell. */
+/** Ícones alinhados embaixo; safe area fica abaixo dos ícones (home indicator). */
 export function mobileTabBarNavSx(tabHeightPx: number) {
   return {
     display: 'flex',
-    alignItems: 'stretch',
-    height: `${tabHeightPx}px`,
-    minHeight: `${tabHeightPx}px`,
+    alignItems: 'flex-end',
     boxSizing: 'border-box' as const,
+    pt: '6px',
+    pb: 'max(4px, env(safe-area-inset-bottom, 0px))',
+    minHeight: `calc(${tabHeightPx}px + 6px + env(safe-area-inset-bottom, 0px))`,
   } as const;
 }
 
@@ -78,11 +96,9 @@ export function mobileTabBarItemSx(tabHeightPx: number) {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     flex: 1,
     height: `${tabHeightPx}px`,
-    minHeight: `${tabHeightPx}px`,
-    pt: 0.25,
     pb: 0.25,
     boxSizing: 'border-box' as const,
   };

@@ -1,5 +1,17 @@
 import { toAppPath } from './paths';
 
+/** Rotas hub mobile: título + resumo fixos; lista/conteúdo principal rola na página. */
+export function mobilePaginaCabecalhoFixo(pathname: string): boolean {
+  const p = toAppPath(pathname);
+  return (
+    p === '/chamados/mobile' ||
+    p === '/visitas/mobile' ||
+    p === '/frota/mobile' ||
+    p === '/checklist/mobile' ||
+    p.startsWith('/relatorio/visita/')
+  );
+}
+
 /** Rotas do app instalado (PWA) — login/mobile + chamados/mobile + checklist/mobile */
 export function isMobileAppPath(pathname: string): boolean {
   const p = toAppPath(pathname);

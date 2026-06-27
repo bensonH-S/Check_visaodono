@@ -25,6 +25,7 @@ import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
 import { colors } from '../theme/tokens';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../theme/safeArea';
 
 const STATUS_VISITA = [
   { value: 'Rascunho', label: 'Rascunho', color: '#92400E', bg: '#FEF3C7', accent: '#F59E0B' },
@@ -394,7 +395,7 @@ export default function VisitasPage() {
     <Box
       sx={{
         ...(isMobileApp
-          ? { maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG, minHeight: '100%', pb: 2 }
+          ? { ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG }
           : tablePageLayoutSx),
         gap: { xs: 1, md: 1.5 },
       }}
@@ -405,7 +406,100 @@ export default function VisitasPage() {
       </Typography>
       )}
 
-      <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, flexShrink: 0, mb: isMobileApp ? 2 : 0 }}>
+      {isMobileApp ? (
+        <>
+          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 1, mb: 2 }}>
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+              <FiltrosStatus
+                visitas={visitas}
+                filtroStatus={filtroStatus}
+                onFiltro={setFiltroStatus}
+                mobile={isMobile}
+              />
+            </Box>
+            <Box
+              component="button"
+              type="button"
+              aria-label={modoLista ? 'Ver em cards' : 'Ver em lista'}
+              aria-pressed={modoLista}
+              onClick={() => setModoLista((v) => !v)}
+              sx={{
+                flexShrink: 0,
+                alignSelf: 'stretch',
+                aspectRatio: '1',
+                width: 'auto',
+                minWidth: 32,
+                borderRadius: 999,
+                bgcolor: modoLista ? 'rgba(232, 82, 10, 0.12)' : '#fff',
+                border: modoLista
+                  ? '1px solid rgba(232, 82, 10, 0.35)'
+                  : '1px solid rgba(27, 42, 107, 0.12)',
+                outline: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                p: 0,
+                font: 'inherit',
+                '& svg': { transform: 'scale(0.85)' },
+              }}
+            >
+              <IconeMenuTresTracos ativo={modoLista} />
+            </Box>
+          </Box>
+
+          <Box sx={{ ...MOBILE_SCROLL_AREA, display: 'flex', flexDirection: 'column', gap: 1.25, pb: 0.5 }}>
+            {modoLista ? (
+              <Paper
+                elevation={0}
+                sx={{
+                  borderRadius: 3,
+                  overflow: 'hidden',
+                  bgcolor: '#fff',
+                  border: '1px solid rgba(27, 42, 107, 0.08)',
+                  boxShadow: '0 4px 18px rgba(27, 42, 107, 0.06)',
+                }}
+              >
+                {visitasFiltradas.map((v, i) => (
+                  <VisitaLinhaMobile
+                    key={v.id_visita}
+                    visita={v}
+                    checklistBase={checklistBase}
+                    isLast={i === visitasFiltradas.length - 1}
+                  />
+                ))}
+                {!visitasFiltradas.length && (
+                  <Typography color="text.secondary" sx={{ p: 3, textAlign: 'center' }}>
+                    Nenhuma visita com este status.
+                  </Typography>
+                )}
+              </Paper>
+            ) : (
+              <>
+                {visitasFiltradas.map((v) => (
+                  <VisitaCardMobile key={v.id_visita} visita={v} checklistBase={checklistBase} />
+                ))}
+                {!visitasFiltradas.length && (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3,
+                      textAlign: 'center',
+                      border: '1px solid',
+                      borderColor: colors.border,
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Typography color="text.secondary">Nenhuma visita com este status.</Typography>
+                  </Paper>
+                )}
+              </>
+            )}
+          </Box>
+        </>
+      ) : (
+        <>
+      <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, flexShrink: 0, mb: 0 }}>
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
           <FiltrosStatus
             visitas={visitas}
@@ -414,66 +508,9 @@ export default function VisitasPage() {
             mobile={isMobile}
           />
         </Box>
-        {isMobileApp && (
-          <Box
-            component="button"
-            type="button"
-            aria-label={modoLista ? 'Ver em cards' : 'Ver em lista'}
-            aria-pressed={modoLista}
-            onClick={() => setModoLista((v) => !v)}
-            sx={{
-              flexShrink: 0,
-              alignSelf: 'stretch',
-              aspectRatio: '1',
-              width: 'auto',
-              minWidth: 32,
-              borderRadius: 999,
-              bgcolor: modoLista ? 'rgba(232, 82, 10, 0.12)' : '#fff',
-              border: modoLista
-                ? '1px solid rgba(232, 82, 10, 0.35)'
-                : '1px solid rgba(27, 42, 107, 0.12)',
-              outline: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              p: 0,
-              font: 'inherit',
-              '& svg': { transform: 'scale(0.85)' },
-            }}
-          >
-            <IconeMenuTresTracos ativo={modoLista} />
-          </Box>
-        )}
       </Box>
 
       {isMobile ? (
-        modoLista && isMobileApp ? (
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: 3,
-              overflow: 'hidden',
-              bgcolor: '#fff',
-              border: '1px solid rgba(27, 42, 107, 0.08)',
-              boxShadow: '0 4px 18px rgba(27, 42, 107, 0.06)',
-            }}
-          >
-            {visitasFiltradas.map((v, i) => (
-              <VisitaLinhaMobile
-                key={v.id_visita}
-                visita={v}
-                checklistBase={checklistBase}
-                isLast={i === visitasFiltradas.length - 1}
-              />
-            ))}
-            {!visitasFiltradas.length && (
-              <Typography color="text.secondary" sx={{ p: 3, textAlign: 'center' }}>
-                Nenhuma visita com este status.
-              </Typography>
-            )}
-          </Paper>
-        ) : (
         <Box
           sx={{
             flex: 1,
@@ -504,7 +541,6 @@ export default function VisitasPage() {
             </Paper>
           )}
         </Box>
-        )
       ) : (
         <Paper elevation={0} sx={tablePaperSx}>
           <TableContainer sx={tableContainerSx}>
@@ -563,6 +599,8 @@ export default function VisitasPage() {
             </Table>
           </TableContainer>
         </Paper>
+      )}
+        </>
       )}
     </Box>
   );

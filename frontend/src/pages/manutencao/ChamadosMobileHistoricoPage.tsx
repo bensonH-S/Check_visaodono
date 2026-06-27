@@ -35,6 +35,7 @@ import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
 import { parseDataApi } from '../../utils/dateBr';
 import ChamadoCardResumo from '../../components/manutencao/ChamadoCardResumo';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../../theme/safeArea';
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
@@ -238,48 +239,51 @@ export default function ChamadosMobileHistoricoPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-        <CircularProgress sx={{ color: NAVY }} />
+      <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+          <CircularProgress sx={{ color: NAVY }} />
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG, minHeight: '100%' }}>
-      {erro && (
-        <Alert severity="error" sx={{ mb: 2, borderRadius: 2.5 }}>
-          {erro}
-        </Alert>
-      )}
+    <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG }}>
+      <Box sx={{ flexShrink: 0 }}>
+        {erro && (
+          <Alert severity="error" sx={{ mb: 2, borderRadius: 2.5 }}>
+            {erro}
+          </Alert>
+        )}
 
-      {urgentes > 0 && (
-        <Typography sx={{ mb: 2.25, fontSize: '0.8rem', fontWeight: 600, color: ORANGE }}>
-          {urgentes === 1
-            ? '1 chamado precisa de atenção prioritária'
-            : `${urgentes} chamados precisam de atenção prioritária`}
-        </Typography>
-      )}
+        {urgentes > 0 && (
+          <Typography sx={{ mb: 2.25, fontSize: '0.8rem', fontWeight: 600, color: ORANGE }}>
+            {urgentes === 1
+              ? '1 chamado precisa de atenção prioritária'
+              : `${urgentes} chamados precisam de atenção prioritária`}
+          </Typography>
+        )}
 
-      {/* Cards resumo */}
-      <Box sx={{ display: 'flex', gap: 1.25, mb: 2.25 }}>
-        <CardResumoChamados
-          valor={qtdEmAberto}
-          rotulo="em aberto"
-          fundoIcone="rgba(232, 82, 10, 0.14)"
-          bordaIcone={ORANGE}
-          icone={<TrendingUpIcon sx={{ color: ORANGE, fontSize: 22 }} />}
-        />
-        <CardResumoChamados
-          valor={qtdEmTratamento}
-          rotulo="em andamento"
-          fundoIcone="rgba(27, 42, 107, 0.14)"
-          bordaIcone={NAVY}
-          icone={<PauseOutlinedIcon sx={{ color: NAVY, fontSize: 22 }} />}
-        />
-      </Box>
+        {/* Cards resumo */}
+        <Box sx={{ display: 'flex', gap: 1.25, mb: 2.25 }}>
+          <CardResumoChamados
+            valor={qtdEmAberto}
+            rotulo="em aberto"
+            fundoIcone="rgba(232, 82, 10, 0.14)"
+            bordaIcone={ORANGE}
+            icone={<TrendingUpIcon sx={{ color: ORANGE, fontSize: 22 }} />}
+          />
+          <CardResumoChamados
+            valor={qtdEmTratamento}
+            rotulo="em andamento"
+            fundoIcone="rgba(27, 42, 107, 0.14)"
+            bordaIcone={NAVY}
+            icone={<PauseOutlinedIcon sx={{ color: NAVY, fontSize: 22 }} />}
+          />
+        </Box>
 
-      {/* Abas + filtro */}
-      <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, mb: 2 }}>
+        {/* Abas + filtro */}
+        <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, mb: 2 }}>
         <Box
           sx={{
             flex: 1,
@@ -407,8 +411,10 @@ export default function ChamadosMobileHistoricoPage() {
           </>
         )}
       </Box>
+      </Box>
 
-      {/* Lista */}
+      {/* Lista — única área rolável */}
+      <Box sx={MOBILE_SCROLL_AREA}>
       {!listaAba.length && !erro && (
         <Paper
           elevation={0}
@@ -491,6 +497,7 @@ export default function ChamadosMobileHistoricoPage() {
           ))}
         </Box>
       )}
+      </Box>
     </Box>
   );
 }

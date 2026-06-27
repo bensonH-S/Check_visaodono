@@ -43,6 +43,7 @@ import TimeCampoMetaForm from '../components/checklist/TimeCampoMetaForm';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { selectMenuScrollProps } from '../utils/selectMenuScroll';
 import { showToast } from '../utils/toast';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../theme/safeArea';
 import { CHECKLIST_REFRESH } from '../utils/checklistEvent';
 import {
   getSessaoChecklist,
@@ -1047,7 +1048,162 @@ export default function ChecklistPage() {
 
   if (fase === 'setup') {
     return (
-      <Box sx={{ px: 2, pb: 4, pt: 0, flex: 1 }}>
+      <Box
+        sx={
+          paths.mobile
+            ? { ...MOBILE_PAGE_COLUMN, px: 2, width: '100%', maxWidth: 480, mx: 'auto' }
+            : { px: 2, pb: 4, pt: 0, flex: 1 }
+        }
+      >
+        {paths.mobile ? (
+          <>
+            <Box sx={{ flexShrink: 0, pt: 0, pb: 1 }}>
+        {msg && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMsg('')}>
+            {msg}
+          </Alert>
+        )}
+
+        {sessaoLocal && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
+                <Button
+                  size="small"
+                  color="warning"
+                  variant="contained"
+                  startIcon={<PlayArrowIcon />}
+                  disabled={saving || retomando}
+                  onClick={() =>
+                    void retomarVisita(sessaoLocal.visitaId, {
+                      indiceSecao: sessaoLocal.indiceSecao,
+                      fase: sessaoLocal.fase,
+                    })
+                  }
+                >
+                  Continuar
+                </Button>
+                <Button
+                  size="small"
+                  color="inherit"
+                  disabled={saving || retomando}
+                  onClick={() => {
+                    const user = getUsuario();
+                    if (user) limparSessaoChecklist(user.id_usuario);
+                    setSessaoLocal(null);
+                  }}
+                >
+                  Esquecer
+                </Button>
+              </Box>
+            }
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Checklist interrompido neste aparelho
+            </Typography>
+            <Typography variant="body2">
+              Visita #{sessaoLocal.visitaId} — retome de onde parou para concluir.
+            </Typography>
+          </Alert>
+        )}
+
+            <BannerResumoChecklist
+              titulo={tipoSelecionado?.nome ?? 'Nova visita'}
+              totalPerguntas={totalPerguntas}
+              totalSecoes={totalSecoes}
+              carregando={carregandoTipo}
+            />
+            </Box>
+
+            <Box sx={{ ...MOBILE_SCROLL_AREA, pb: 4 }}>
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <SeletorAuditorChecklistMobile
+                auditores={usuarios}
+                idAuditor={idUsuario}
+                nomeFallback={sessao?.nome ?? '—'}
+                onSelecionar={setIdUsuario}
+              />
+              <SeletorLojaChecklistMobile
+                lojas={lojasMobile}
+                idLoja={idLoja}
+                onSelecionar={selecionarLojaMobile}
+              />
+            </Paper>
+
+            <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {carregandoTipo && <LinearProgress sx={{ mb: 0.5 }} />}
+              <FormControl component="fieldset" fullWidth>
+                <FormLabel
+                  component="legend"
+                  sx={{ fontWeight: 700, color: NAVY, fontSize: '0.875rem', mb: 0.5 }}
+                >
+                  Tipo de checklist
+                </FormLabel>
+                <RadioGroup
+                  value={tipoSelecionado?.codigo ?? ''}
+                  onChange={(e) => void selecionarTipo(e.target.value)}
+                >
+                  {tiposChecklist.map((t) => (
+                    <FormControlLabel
+                      key={t.codigo}
+                      value={t.codigo}
+                      control={
+                        <Radio
+                          sx={{
+                            color: 'rgba(27, 42, 107, 0.45)',
+                            '&.Mui-checked': { color: BRAND_ORANGE },
+                          }}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: NAVY }}>
+                            {t.nome}
+                          </Typography>
+                          {t.descricao && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {t.descricao}
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                      sx={{
+                        mx: 0,
+                        py: 0.75,
+                        px: 0.5,
+                        borderRadius: 2,
+                        alignItems: 'flex-start',
+                        '&:has(.Mui-checked)': { bgcolor: 'rgba(232, 82, 10, 0.06)' },
+                      }}
+                    />
+                  ))}
+                </RadioGroup>
+              </FormControl>
+
+              {tipoSelecionado?.codigo === 'time_de_campo' && (
+                <TimeCampoMetaForm
+                  value={metaVisita}
+                  onChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
+                />
+              )}
+            </Paper>
+
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={saving || carregandoTipo || !podeIniciarChecklist}
+              onClick={iniciarVisita}
+              sx={{ minHeight: 48, fontWeight: 700 }}
+            >
+              {saving ? 'Iniciando…' : 'Iniciar checklist'}
+            </Button>
+            </Box>
+          </>
+        ) : (
+          <>
         {msg && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMsg('')}>
             {msg}
@@ -1152,100 +1308,6 @@ export default function ChecklistPage() {
             </Box>
           </Paper>
         )}
-        {paths.mobile ? (
-          <>
-            <BannerResumoChecklist
-              titulo={tipoSelecionado?.nome ?? 'Nova visita'}
-              totalPerguntas={totalPerguntas}
-              totalSecoes={totalSecoes}
-              carregando={carregandoTipo}
-            />
-
-            <Paper sx={{ p: 2, mb: 2 }}>
-              <SeletorAuditorChecklistMobile
-                auditores={usuarios}
-                idAuditor={idUsuario}
-                nomeFallback={sessao?.nome ?? '—'}
-                onSelecionar={setIdUsuario}
-              />
-              <SeletorLojaChecklistMobile
-                lojas={lojasMobile}
-                idLoja={idLoja}
-                onSelecionar={selecionarLojaMobile}
-              />
-            </Paper>
-
-            <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {carregandoTipo && <LinearProgress sx={{ mb: 0.5 }} />}
-              <FormControl component="fieldset" fullWidth>
-                <FormLabel
-                  component="legend"
-                  sx={{ fontWeight: 700, color: NAVY, fontSize: '0.875rem', mb: 0.5 }}
-                >
-                  Tipo de checklist
-                </FormLabel>
-                <RadioGroup
-                  value={tipoSelecionado?.codigo ?? ''}
-                  onChange={(e) => void selecionarTipo(e.target.value)}
-                >
-                  {tiposChecklist.map((t) => (
-                    <FormControlLabel
-                      key={t.codigo}
-                      value={t.codigo}
-                      control={
-                        <Radio
-                          sx={{
-                            color: 'rgba(27, 42, 107, 0.45)',
-                            '&.Mui-checked': { color: BRAND_ORANGE },
-                          }}
-                        />
-                      }
-                      label={
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: NAVY }}>
-                            {t.nome}
-                          </Typography>
-                          {t.descricao && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              {t.descricao}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                      sx={{
-                        mx: 0,
-                        py: 0.75,
-                        px: 0.5,
-                        borderRadius: 2,
-                        alignItems: 'flex-start',
-                        '&:has(.Mui-checked)': { bgcolor: 'rgba(232, 82, 10, 0.06)' },
-                      }}
-                    />
-                  ))}
-                </RadioGroup>
-              </FormControl>
-
-              {tipoSelecionado?.codigo === 'time_de_campo' && (
-                <TimeCampoMetaForm
-                  value={metaVisita}
-                  onChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
-                />
-              )}
-            </Paper>
-
-            <Button
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={saving || carregandoTipo || !podeIniciarChecklist}
-              onClick={iniciarVisita}
-              sx={{ minHeight: 48, fontWeight: 700 }}
-            >
-              {saving ? 'Iniciando…' : 'Iniciar checklist'}
-            </Button>
-          </>
-        ) : (
-          <>
         <BannerResumoChecklist
           titulo={tipoSelecionado?.nome ?? 'Nova visita'}
           totalPerguntas={totalPerguntas}
