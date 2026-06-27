@@ -50,7 +50,6 @@ import {
   salvarSessaoChecklist,
   limparSessaoChecklist,
   indiceSecaoParaRetomar,
-  secaoTemPendencia,
   type ChecklistSessaoLocal,
   type FaseChecklist,
 } from '../utils/checklistSessao';
@@ -642,8 +641,15 @@ export default function ChecklistPage() {
         setUsuarios(auditoresList);
         setTiposChecklist(tipos);
         if (paths.mobile) {
-          setTipoSelecionado(null);
-          setChecklist([]);
+          if (tipos.length === 1) {
+            const unico = tipos[0];
+            setTipoSelecionado(unico);
+            const c = await api.checklist(unico.codigo);
+            setChecklist(c);
+          } else {
+            setTipoSelecionado(null);
+            setChecklist([]);
+          }
         } else {
           const tipo = tipos[0] ?? null;
           setTipoSelecionado(tipo);
@@ -742,9 +748,7 @@ export default function ChecklistPage() {
           throw new Error('Checklist vazio ou indisponível para esta visita.');
         }
         const respostasMap = mapRespostasApi(det.respostas);
-        const temRespostas = det.respostas.length > 0;
         const idx = indiceSecaoParaRetomar(c, respostasMap, opts?.indiceSecao);
-        const temPendencia = c.some((_, i) => secaoTemPendencia(c, respostasMap, i));
 
         setChecklist(c);
         setTipoSelecionado(tipo);
@@ -756,8 +760,7 @@ export default function ChecklistPage() {
         setHoraInicio(v.hora_inicio ?? null);
         setRespostas(respostasMap);
         setIndiceSecao(idx);
-        const novaFase =
-          temRespostas || temPendencia || opts?.fase === 'perguntas' ? 'perguntas' : 'iniciada';
+        const novaFase: Fase = 'perguntas';
         setFase(novaFase);
         const user = getUsuario();
         if (user) {
@@ -925,12 +928,21 @@ export default function ChecklistPage() {
         body.meta_visita = metaVisita;
       }
       const v = await api.criarVisita(body);
+      let cats = checklist;
+      if (!cats.length) {
+        cats = await api.checklist(tipoSelecionado.codigo);
+        setChecklist(cats);
+      }
+      if (!cats.length) {
+        setMsg('Checklist sem seções disponíveis. Verifique a configuração.');
+        return;
+      }
       setVisitaId(v.id_visita);
       setDataVisita(normalizarDataVisita(v.data_visita) ?? hoje);
       setHoraInicio(v.hora_inicio ?? null);
       setRespostas({});
       setIndiceSecao(0);
-      setFase('iniciada');
+      setFase('perguntas');
     } catch (e) {
       const m = (e as Error).message;
       setMsg(
@@ -1438,7 +1450,7 @@ export default function ChecklistPage() {
   const auditorSel = usuarios.find((u) => u.id_usuario === idUsuario);
 
   if (fase === 'iniciada' && visitaId) {
-    return (
+    const telaIniciada = (
       <VisitaIniciadaScreen
         visitaId={visitaId}
         loja={lojaSel}
@@ -1452,6 +1464,16 @@ export default function ChecklistPage() {
         onComecar={comecarAvaliacao}
       />
     );
+    if (paths.mobile) {
+      return (
+        <Box sx={{ ...MOBILE_PAGE_COLUMN, width: '100%', maxWidth: 480, mx: 'auto' }}>
+          <Box sx={{ ...MOBILE_SCROLL_AREA, display: 'flex', flexDirection: 'column' }}>
+            {telaIniciada}
+          </Box>
+        </Box>
+      );
+    }
+    return telaIniciada;
   }
 
   if (!secaoAtual) {
@@ -1477,8 +1499,8 @@ export default function ChecklistPage() {
     perguntaRespondida(p, respostas[p.id_pergunta])
   ).length;
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+  const telaPerguntas = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, width: '100%' }}>
       <Box sx={{ px: 2, pt: 1.5, pb: 1, bgcolor: 'white', borderBottom: 1, borderColor: 'divider' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
           {lojaSel?.name}
@@ -1669,4 +1691,14 @@ export default function ChecklistPage() {
 
     </Box>
   );
+
+  if (paths.mobile) {
+    return (
+      <Box sx={{ ...MOBILE_PAGE_COLUMN, width: '100%', maxWidth: 480, mx: 'auto' }}>
+        {telaPerguntas}
+      </Box>
+    );
+  }
+
+  return telaPerguntas;
 }
