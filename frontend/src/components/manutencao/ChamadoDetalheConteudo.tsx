@@ -37,6 +37,7 @@ import { chamadoEncerrado, destinoPermiteCargoAprovacao } from '../../utils/manu
 import { useToast } from '../../hooks/useToast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { detalheChamadoSx } from '../../utils/responsiveLayout';
+import { MOBILE_SCROLL_AREA } from '../../theme/safeArea';
 
 const NAVY = '#1B2A6B';
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
@@ -385,7 +386,16 @@ export default function ChamadoDetalheConteudo({
 
   if (loading && !detalhe) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <Box
+        sx={{
+          ...(isMobile ? detalheChamadoSx('mobile') : {}),
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          flex: 1,
+          py: 8,
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -424,19 +434,21 @@ export default function ChamadoDetalheConteudo({
     }
   }
 
-  return (
-    <Box sx={detalheChamadoSx(variante)}>
-      <ChamadoDetalheHeader
-        detalhe={detalhe}
-        variante={variante}
-        onVoltar={onVoltar}
-        voltarLabel={voltarLabel}
-        podeAssumir={podeAssumir}
-        assumindo={assumindo}
-        onAssumir={assumirChamado}
-        rotuloAssumir={rotuloAssumir}
-      />
+  const headerChamado = (
+    <ChamadoDetalheHeader
+      detalhe={detalhe}
+      variante={variante}
+      onVoltar={onVoltar}
+      voltarLabel={voltarLabel}
+      podeAssumir={podeAssumir}
+      assumindo={assumindo}
+      onAssumir={assumirChamado}
+      rotuloAssumir={rotuloAssumir}
+    />
+  );
 
+  const corpoAposHeader = (
+    <>
       {encerrado && !modoAprovacao && (
         <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
           Este chamado está encerrado e não aceita novas informações até ser reaberto.
@@ -588,6 +600,24 @@ export default function ChamadoDetalheConteudo({
           {erro}
         </Alert>
       )}
+    </>
+  );
+
+  return (
+    <>
+    <Box sx={detalheChamadoSx(variante)}>
+      {isMobile ? (
+        <>
+          <Box sx={{ flexShrink: 0 }}>{headerChamado}</Box>
+          <Box sx={{ ...MOBILE_SCROLL_AREA, pt: 0.5 }}>{corpoAposHeader}</Box>
+        </>
+      ) : (
+        <>
+          {headerChamado}
+          {corpoAposHeader}
+        </>
+      )}
+    </Box>
 
       <Dialog
         open={acaoDialog === 'orcamento'}
@@ -818,6 +848,6 @@ export default function ChamadoDetalheConteudo({
       </Dialog>
 
       <ToastSnackbar />
-    </Box>
+    </>
   );
 }

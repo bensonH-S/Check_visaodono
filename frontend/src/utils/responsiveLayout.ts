@@ -1,4 +1,5 @@
 import type { SxProps, Theme } from '@mui/material/styles';
+import { MOBILE_PAGE_COLUMN } from '../theme/safeArea';
 
 /**
  * Coluna estreita só em telas pequenas; a partir de md usa a largura disponível.
@@ -13,7 +14,7 @@ export const portalContentSx: SxProps<Theme> = {
 /** Detalhe de chamado / aprovação no portal (não confundir com rota /chamados/mobile). */
 export function detalheChamadoSx(variante: 'desktop' | 'mobile' = 'desktop'): SxProps<Theme> {
   if (variante === 'mobile') {
-    return { width: '100%', maxWidth: 480, mx: 'auto' };
+    return { width: '100%', maxWidth: 480, mx: 'auto', ...MOBILE_PAGE_COLUMN };
   }
   return portalContentSx;
 }

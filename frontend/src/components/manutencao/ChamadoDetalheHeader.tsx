@@ -113,6 +113,79 @@ function MetadadosFlex({
   );
 }
 
+function LinhaTecnicoResponsavel({
+  tecnico,
+  iconSize,
+  compacto,
+  podeAssumir,
+  assumindo,
+  onAssumir,
+  rotuloAssumir,
+}: {
+  tecnico?: string | null;
+  iconSize: number;
+  compacto?: boolean;
+  podeAssumir?: boolean;
+  assumindo?: boolean;
+  onAssumir?: () => void;
+  rotuloAssumir: string;
+}) {
+  const temTecnico = Boolean(tecnico?.trim());
+  const exibirAssumir = Boolean(podeAssumir && onAssumir);
+
+  if (!temTecnico && !exibirAssumir) return null;
+
+  const botaoAssumir = exibirAssumir ? (
+    <Button
+      variant="contained"
+      size="small"
+      startIcon={<AssignmentIndIcon sx={{ fontSize: compacto ? 16 : 18 }} />}
+      disabled={assumindo}
+      onClick={onAssumir}
+      sx={{
+        flexShrink: 0,
+        fontSize: compacto ? '0.72rem' : '0.78rem',
+        py: compacto ? 0.35 : 0.5,
+        px: compacto ? 1 : 1.25,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {assumindo ? 'Assumindo...' : rotuloAssumir}
+    </Button>
+  ) : null;
+
+  if (!temTecnico) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+        {botaoAssumir}
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 1,
+        mb: 1.5,
+        minWidth: 0,
+      }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <InfoCelula
+          compacto={compacto}
+          icone={<EngineeringOutlinedIcon sx={{ fontSize: iconSize }} />}
+          rotulo="Técnico responsável"
+          valor={tecnico!.trim()}
+        />
+      </Box>
+      {botaoAssumir}
+    </Box>
+  );
+}
+
 type Props = {
   detalhe: ManutChamadoDetalhe;
   variante?: 'desktop' | 'mobile';
@@ -173,14 +246,6 @@ export default function ChamadoDetalheHeader({
       valor: detalhe.solicitante,
     },
   );
-  if (detalhe.tecnico) {
-    itensMetadadosMobile.push({
-      chave: 'tecnico',
-      icone: <EngineeringOutlinedIcon sx={{ fontSize: iconSize }} />,
-      rotulo: 'Técnico responsável',
-      valor: detalhe.tecnico,
-    });
-  }
   itensMetadadosMobile.push({
     chave: 'aberto_em',
     icone: <ScheduleOutlinedIcon sx={{ fontSize: iconSize }} />,
@@ -225,10 +290,21 @@ export default function ChamadoDetalheHeader({
   })();
 
   const gridMetadados = isMobile ? (
-    <MetadadosFlex
-      itens={itensMetadadosMobile.filter((i) => i.chave !== 'aberto_em')}
-      compacto
-    />
+    <>
+      <MetadadosFlex
+        itens={itensMetadadosMobile.filter((i) => i.chave !== 'aberto_em')}
+        compacto
+      />
+      <LinhaTecnicoResponsavel
+        tecnico={detalhe.tecnico}
+        iconSize={iconSize}
+        compacto
+        podeAssumir={podeAssumir}
+        assumindo={assumindo}
+        onAssumir={onAssumir}
+        rotuloAssumir={rotuloAssumir}
+      />
+    </>
   ) : (
     <Box
       sx={{
@@ -260,13 +336,16 @@ export default function ChamadoDetalheHeader({
         rotulo="Solicitante"
         valor={detalhe.solicitante}
       />
-      {detalhe.tecnico && (
-        <InfoCelula
-          icone={<EngineeringOutlinedIcon sx={{ fontSize: iconSize }} />}
-          rotulo="Técnico responsável"
-          valor={detalhe.tecnico}
+      <Box sx={{ gridColumn: { xs: '1', sm: '1 / -1' } }}>
+        <LinhaTecnicoResponsavel
+          tecnico={detalhe.tecnico}
+          iconSize={iconSize}
+          podeAssumir={podeAssumir}
+          assumindo={assumindo}
+          onAssumir={onAssumir}
+          rotuloAssumir={rotuloAssumir}
         />
-      )}
+      </Box>
       <InfoCelula
         icone={<ScheduleOutlinedIcon sx={{ fontSize: iconSize }} />}
         rotulo="Aberto em"
@@ -283,7 +362,7 @@ export default function ChamadoDetalheHeader({
   );
 
   return (
-    <Box sx={{ mb: isMobile ? 1.5 : 2 }}>
+    <Box sx={{ mb: isMobile ? 0 : 2 }}>
       {onVoltar && (
         <Button
           size="small"
@@ -376,21 +455,6 @@ export default function ChamadoDetalheHeader({
                   {detalhe.titulo}
                 </Typography>
               </Box>
-
-              {podeAssumir && onAssumir && (
-                <Box sx={{ mb: 0.85 }}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<AssignmentIndIcon sx={{ fontSize: 16 }} />}
-                    disabled={assumindo}
-                    onClick={onAssumir}
-                    sx={{ fontSize: '0.72rem', py: 0.35, px: 1, whiteSpace: 'nowrap' }}
-                  >
-                    {assumindo ? 'Assumindo...' : rotuloAssumir}
-                  </Button>
-                </Box>
-              )}
 
               {detalhe.descricao && (
                 <Typography
@@ -488,18 +552,6 @@ export default function ChamadoDetalheHeader({
               #{detalhe.numero}
             </Box>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, justifyContent: 'flex-end' }}>
-              {podeAssumir && onAssumir && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<AssignmentIndIcon sx={{ fontSize: 18 }} />}
-                  disabled={assumindo}
-                  onClick={onAssumir}
-                  sx={{ fontSize: '0.78rem', py: 0.5, px: 1.25, whiteSpace: 'nowrap' }}
-                >
-                  {assumindo ? 'Assumindo...' : rotuloAssumir}
-                </Button>
-              )}
               {statusChip(detalhe.status)}
               {urgenciaChip(detalhe.urgencia)}
               {chipsExtras}

@@ -1,10 +1,16 @@
 import { toAppPath } from './paths';
 
 /** Rotas hub mobile: título + resumo fixos; lista/conteúdo principal rola na página. */
+export function mobileDetalheChamado(pathname: string): boolean {
+  const p = toAppPath(pathname);
+  return /^\/chamados\/mobile\/\d+$/.test(p);
+}
+
 export function mobilePaginaCabecalhoFixo(pathname: string): boolean {
   const p = toAppPath(pathname);
   return (
     p === '/chamados/mobile' ||
+    mobileDetalheChamado(pathname) ||
     p === '/visitas/mobile' ||
     p === '/frota/mobile' ||
     p === '/checklist/mobile' ||

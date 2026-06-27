@@ -32,15 +32,16 @@
         pointer-events: none;
       }
       #pwa-splash img {
-        width: 128px;
-        height: 128px;
+        /* vmin = menor lado da tela → escala em qualquer aparelho (S29, compactos, etc.) */
+        width: clamp(3.25rem, 17vmin, 6.5rem);
+        height: clamp(3.25rem, 17vmin, 6.5rem);
         object-fit: contain;
       }
     </style>
   </head>
   <body>
     <div id="pwa-splash" aria-hidden="true">
-      <img src="Logo_Icon-light.png" alt="" width="128" height="128" decoding="sync" fetchpriority="high" />
+      <img src="Logo_Icon-light.png" alt="" decoding="sync" fetchpriority="high" />
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

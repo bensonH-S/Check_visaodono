@@ -28,7 +28,7 @@ import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, MOBILE_WATERMARK_LOGO, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -478,8 +478,7 @@ function ChamadosMobileLayoutInner() {
             left: '50%',
             top: '50%',
             transform: 'translate(-50%, -50%)',
-            width: 'min(92vw, 480px)',
-            height: 'min(92vw, 480px)',
+            ...MOBILE_WATERMARK_LOGO,
             backgroundImage: `url(${assetUrl(FAVICON_ICON)})`,
             backgroundSize: 'contain',
             backgroundRepeat: 'no-repeat',
