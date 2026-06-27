@@ -19,6 +19,8 @@ type Props = {
   facingMode?: CameraFacing;
   /** Botão para alternar frontal ↔ traseira */
   allowFlipCamera?: boolean;
+  /** Modo retrato/quadrado para selfie de perfil — evita distorção e mostra guia de rosto */
+  profileMode?: boolean;
 };
 
 function mimeGravacao() {
@@ -42,6 +44,7 @@ export default function CameraCaptureOverlay({
   onCapture,
   facingMode: facingModeInicial = 'environment',
   allowFlipCamera = false,
+  profileMode = false,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -122,8 +125,15 @@ export default function CameraCaptureOverlay({
 
     navigator.mediaDevices
       .getUserMedia({
-        video: { facingMode: { ideal: facing } },
-        audio: true,
+        video: profileMode
+          ? {
+              facingMode: { ideal: facing },
+              width: { ideal: 1080 },
+              height: { ideal: 1080 },
+              aspectRatio: { ideal: 1 },
+            }
+          : { facingMode: { ideal: facing } },
+        audio: !profileMode,
       })
       .then((stream) => {
         if (cancelado) {
@@ -150,7 +160,7 @@ export default function CameraCaptureOverlay({
       limparTimers();
       pararStreamAtual();
     };
-  }, [open, facing]);
+  }, [open, facing, profileMode]);
 
   function alternarCamera() {
     if (gravandoRef.current || !allowFlipCamera) return;
@@ -161,12 +171,37 @@ export default function CameraCaptureOverlay({
     const video = videoRef.current;
     if (!video || !video.videoWidth || gravandoRef.current) return;
 
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const espelhar = facing === 'user';
+
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0);
+    if (profileMode) {
+      const lado = Math.min(vw, vh);
+      canvas.width = lado;
+      canvas.height = lado;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const sx = (vw - lado) / 2;
+      const sy = (vh - lado) / 2;
+      if (espelhar) {
+        ctx.translate(lado, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, sx, sy, lado, lado, 0, 0, lado, lado);
+    } else {
+      canvas.width = vw;
+      canvas.height = vh;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      if (espelhar) {
+        ctx.translate(vw, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0);
+      } else {
+        ctx.drawImage(video, 0, 0);
+      }
+    }
 
     canvas.toBlob(
       (blob) => {
@@ -175,7 +210,7 @@ export default function CameraCaptureOverlay({
         fechar(true);
       },
       'image/jpeg',
-      0.92,
+      profileMode ? 0.92 : 0.92,
     );
   }
 
@@ -287,9 +322,15 @@ export default function CameraCaptureOverlay({
             <CloseIcon />
           </IconButton>
           <Typography sx={{ color: '#fff', flex: 1, fontWeight: 600 }}>
-            {gravando ? `Gravando ${segundos}s` : facing === 'user' ? 'Câmera frontal' : 'Câmera traseira'}
+            {gravando
+              ? `Gravando ${segundos}s`
+              : profileMode
+                ? 'Posicione o rosto'
+                : facing === 'user'
+                  ? 'Câmera frontal'
+                  : 'Câmera traseira'}
           </Typography>
-          {allowFlipCamera && !erro && (
+          {allowFlipCamera && !erro && !profileMode && (
             <IconButton
               onClick={alternarCamera}
               disabled={!pronto || gravando}
@@ -321,6 +362,77 @@ export default function CameraCaptureOverlay({
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
             <Typography sx={{ color: '#fff', textAlign: 'center' }}>{erro}</Typography>
           </Box>
+        ) : profileMode ? (
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              px: 2,
+              py: 1,
+              minHeight: 0,
+            }}
+          >
+            <Box
+              sx={{
+                position: 'relative',
+                width: 'min(92vw, 360px)',
+                aspectRatio: '1',
+                borderRadius: 3,
+                overflow: 'hidden',
+                bgcolor: '#000',
+                flexShrink: 0,
+              }}
+            >
+              <Box
+                component="video"
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  objectPosition: 'center center',
+                  transform: facing === 'user' ? 'scaleX(-1)' : 'none',
+                }}
+              />
+              <Box
+                aria-hidden
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  pointerEvents: 'none',
+                  background:
+                    'radial-gradient(ellipse 36% 44% at 50% 42%, transparent 68%, rgba(0,0,0,0.55) 69%)',
+                }}
+              />
+              <Box
+                aria-hidden
+                sx={{
+                  position: 'absolute',
+                  left: '50%',
+                  top: '42%',
+                  width: '72%',
+                  height: '88%',
+                  transform: 'translate(-50%, -50%)',
+                  border: '2px solid rgba(255,255,255,0.9)',
+                  borderRadius: '50%',
+                  pointerEvents: 'none',
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.2)',
+                }}
+              />
+            </Box>
+            <Typography
+              variant="body2"
+              sx={{ color: 'rgba(255,255,255,0.82)', textAlign: 'center', mt: 2, px: 1, lineHeight: 1.45 }}
+            >
+              Centralize o rosto dentro do oval. A imagem não será distorcida.
+            </Typography>
+          </Box>
         ) : (
           <Box
             component="video"
@@ -328,7 +440,14 @@ export default function CameraCaptureOverlay({
             autoPlay
             playsInline
             muted
-            sx={{ flex: 1, width: '100%', objectFit: 'cover', bgcolor: '#000' }}
+            sx={{
+              flex: 1,
+              width: '100%',
+              objectFit: 'cover',
+              objectPosition: 'center center',
+              transform: facing === 'user' ? 'scaleX(-1)' : 'none',
+              bgcolor: '#000',
+            }}
           />
         )}
 
@@ -342,6 +461,34 @@ export default function CameraCaptureOverlay({
             gap: 1.5,
           }}
         >
+          {profileMode ? (
+            <>
+              <Box
+                role="button"
+                aria-label="Capturar foto"
+                onClick={() => {
+                  if (pronto && !erro) capturarFoto();
+                }}
+                sx={{
+                  width: 76,
+                  height: 76,
+                  borderRadius: '50%',
+                  border: '4px solid #fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: pronto && !erro ? 'pointer' : 'default',
+                  opacity: pronto && !erro ? 1 : 0.45,
+                }}
+              >
+                <Box sx={{ width: 60, height: 60, borderRadius: '50%', bgcolor: '#fff' }} />
+              </Box>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)', textAlign: 'center' }}>
+                Toque para capturar
+              </Typography>
+            </>
+          ) : (
+            <>
           <Box
             role="button"
             aria-label="Toque para foto, segure para vídeo"
@@ -384,6 +531,8 @@ export default function CameraCaptureOverlay({
               ? 'Solte para parar'
               : `Toque para foto · Segure para vídeo (até ${MAX_VIDEO_SEG}s)`}
           </Typography>
+            </>
+          )}
         </Box>
       </Box>
     </Dialog>

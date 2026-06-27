@@ -120,7 +120,7 @@ export default function FotoPerfilCropDialog({ open, imageSrc, onClose, onConfir
       <DialogTitle sx={{ fontWeight: 700, color: NAVY, pb: 0.5 }}>Ajustar foto</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Arraste e ajuste o zoom para enquadrar a foto dentro do círculo.
+          Arraste e ajuste o zoom para centralizar o rosto no círculo.
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Box
