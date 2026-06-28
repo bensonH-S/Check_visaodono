@@ -413,8 +413,8 @@ export default function ChamadosMobileHistoricoPage() {
       </Box>
       </Box>
 
-      {/* Lista — única área rolável */}
-      <Box sx={MOBILE_SCROLL_AREA}>
+      {/* Lista — única área rolável (pb reserva espaço para o FAB flutuante) */}
+      <Box sx={{ ...MOBILE_SCROLL_AREA, pb: 9 }}>
       {!listaAba.length && !erro && (
         <Paper
           elevation={0}

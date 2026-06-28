@@ -31,6 +31,9 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import QuizOutlinedIcon from '@mui/icons-material/QuizOutlined';
+import ViewAgendaOutlinedIcon from '@mui/icons-material/ViewAgendaOutlined';
+import type { ReactNode } from 'react';
 import { api, fmtData } from '../api/client';
 import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput, TipoChecklist, MetaVisitaTimeCampo, VisitaResumo } from '../api/client';
 import ChecklistPerguntaCard, {
@@ -70,6 +73,120 @@ import {
 
 const BRAND_ORANGE = '#E8520A';
 const NAVY = '#1B2A6B';
+const PAGE_BG = '#f5f5f3';
+
+const MOBILE_CARD_SX = {
+  p: 2,
+  mb: 2,
+  borderRadius: 3,
+  bgcolor: '#fff',
+  border: 'none',
+  boxShadow: '0 4px 20px rgba(27, 42, 107, 0.07)',
+} as const;
+
+function CardResumoChecklistMobile({
+  valor,
+  rotulo,
+  fundoIcone,
+  bordaIcone,
+  icone,
+}: {
+  valor: number | string;
+  rotulo: string;
+  fundoIcone: string;
+  bordaIcone: string;
+  icone: ReactNode;
+}) {
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        px: 1.5,
+        py: 2,
+        minHeight: 92,
+        borderRadius: 3.5,
+        bgcolor: '#fff',
+        border: 'none',
+        boxShadow: '0 4px 20px rgba(27, 42, 107, 0.07)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.15,
+      }}
+    >
+      <Box
+        sx={{
+          width: 46,
+          height: 46,
+          borderRadius: 1.75,
+          bgcolor: fundoIcone,
+          border: `2px solid ${bordaIcone}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {icone}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography
+          sx={{
+            fontWeight: 800,
+            fontSize: '2.35rem',
+            lineHeight: 1,
+            color: NAVY,
+            letterSpacing: '-0.04em',
+          }}
+        >
+          {valor}
+        </Typography>
+        <Typography
+          sx={{
+            mt: 0.45,
+            fontSize: '0.78rem',
+            fontWeight: 500,
+            color: NAVY,
+            opacity: 0.72,
+            lineHeight: 1.2,
+          }}
+        >
+          {rotulo}
+        </Typography>
+      </Box>
+    </Paper>
+  );
+}
+
+function CardsResumoChecklistMobile({
+  totalPerguntas,
+  totalSecoes,
+  carregando,
+}: {
+  totalPerguntas: number;
+  totalSecoes: number;
+  carregando?: boolean;
+}) {
+  return (
+    <Box sx={{ display: 'flex', gap: 1.25, mb: 2.25 }}>
+      <CardResumoChecklistMobile
+        valor={carregando ? '…' : totalPerguntas}
+        rotulo="perguntas"
+        fundoIcone="rgba(232, 82, 10, 0.14)"
+        bordaIcone={BRAND_ORANGE}
+        icone={<QuizOutlinedIcon sx={{ color: BRAND_ORANGE, fontSize: 22 }} />}
+      />
+      <CardResumoChecklistMobile
+        valor={carregando ? '…' : totalSecoes}
+        rotulo="seções"
+        fundoIcone="rgba(27, 42, 107, 0.14)"
+        bordaIcone={NAVY}
+        icone={<ViewAgendaOutlinedIcon sx={{ color: NAVY, fontSize: 22 }} />}
+      />
+    </Box>
+  );
+}
 
 function SeletorAuditorChecklistMobile({
   auditores,
@@ -1038,8 +1155,14 @@ export default function ChecklistPage() {
 
   if (loading || retomando) {
     return (
-      <Box sx={{ p: 2 }}>
-        <LinearProgress />
+      <Box
+        sx={
+          paths.mobile
+            ? { ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG, p: 2 }
+            : { p: 2 }
+        }
+      >
+        <LinearProgress sx={{ borderRadius: 1 }} />
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
           {retomando ? 'Retomando checklist…' : 'Carregando…'}
         </Typography>
@@ -1063,15 +1186,15 @@ export default function ChecklistPage() {
       <Box
         sx={
           paths.mobile
-            ? { ...MOBILE_PAGE_COLUMN, px: 2, width: '100%', maxWidth: 480, mx: 'auto' }
+            ? { ...MOBILE_PAGE_COLUMN, width: '100%', maxWidth: 480, mx: 'auto', bgcolor: PAGE_BG }
             : { px: 2, pb: 4, pt: 0, flex: 1 }
         }
       >
         {paths.mobile ? (
           <>
-            <Box sx={{ flexShrink: 0, pt: 0, pb: 1 }}>
+            <Box sx={{ flexShrink: 0, pt: 0 }}>
         {msg && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMsg('')}>
+          <Alert severity="error" sx={{ mb: 2, borderRadius: 2.5 }} onClose={() => setMsg('')}>
             {msg}
           </Alert>
         )}
@@ -1079,7 +1202,7 @@ export default function ChecklistPage() {
         {sessaoLocal && (
           <Alert
             severity="warning"
-            sx={{ mb: 2 }}
+            sx={{ mb: 2, borderRadius: 2.5 }}
             action={
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
                 <Button
@@ -1121,16 +1244,15 @@ export default function ChecklistPage() {
           </Alert>
         )}
 
-            <BannerResumoChecklist
-              titulo={tipoSelecionado?.nome ?? 'Nova visita'}
+            <CardsResumoChecklistMobile
               totalPerguntas={totalPerguntas}
               totalSecoes={totalSecoes}
               carregando={carregandoTipo}
             />
             </Box>
 
-            <Box sx={{ ...MOBILE_SCROLL_AREA, pb: 4 }}>
-            <Paper sx={{ p: 2, mb: 2 }}>
+            <Box sx={{ ...MOBILE_SCROLL_AREA, pb: 2 }}>
+            <Paper elevation={0} sx={MOBILE_CARD_SX}>
               <SeletorAuditorChecklistMobile
                 auditores={usuarios}
                 idAuditor={idUsuario}
@@ -1144,8 +1266,8 @@ export default function ChecklistPage() {
               />
             </Paper>
 
-            <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {carregandoTipo && <LinearProgress sx={{ mb: 0.5 }} />}
+            <Paper elevation={0} sx={{ ...MOBILE_CARD_SX, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {carregandoTipo && <LinearProgress sx={{ mb: 0.5, borderRadius: 1 }} />}
               <FormControl component="fieldset" fullWidth>
                 <FormLabel
                   component="legend"
@@ -1208,7 +1330,17 @@ export default function ChecklistPage() {
               size="large"
               disabled={saving || carregandoTipo || !podeIniciarChecklist}
               onClick={iniciarVisita}
-              sx={{ minHeight: 48, fontWeight: 700 }}
+              sx={{
+                minHeight: 48,
+                fontWeight: 700,
+                borderRadius: 3,
+                bgcolor: BRAND_ORANGE,
+                textTransform: 'none',
+                fontSize: '0.95rem',
+                boxShadow: '0 6px 20px rgba(232, 82, 10, 0.32)',
+                '&:hover': { bgcolor: '#d14a09' },
+                '&.Mui-disabled': { bgcolor: 'rgba(232, 82, 10, 0.35)', color: '#fff' },
+              }}
             >
               {saving ? 'Iniciando…' : 'Iniciar checklist'}
             </Button>

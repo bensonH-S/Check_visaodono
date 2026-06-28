@@ -514,9 +514,7 @@ function ChamadosMobileLayoutInner() {
             zIndex: 1,
             ...(paginaCabecalhoFixo ? MOBILE_PAGE_COLUMN : MOBILE_SCROLL_AREA),
             ...safeAreaX(16),
-            pb: safeAreaBottomCalc(
-              rodapeTotalH + (podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio ? 64 : 16),
-            ),
+            pb: safeAreaBottomCalc(rodapeTotalH + 16),
           }}
         >
           <Outlet />
