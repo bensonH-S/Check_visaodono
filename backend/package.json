@@ -59,6 +59,7 @@
     "migrate:sla-notificacoes-papeis": "node scripts/run-sql.js migrations/063_sla_notificacoes_papeis.sql",
     "migrate:notif-coord-gerente": "node scripts/run-sql.js migrations/064_notificacao_coordenador_gerente.sql",
     "migrate:assuncao-km-fim": "node scripts/run-sql.js migrations/065_assuncao_km_fim.sql",
+    "migrate:cargo-checklist-diretor-ceo": "node scripts/run-sql.js migrations/066_cargo_checklist_diretor_ceo.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "validate:vapid": "node scripts/validate-vapid.js",

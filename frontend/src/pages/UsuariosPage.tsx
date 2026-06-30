@@ -34,8 +34,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
-import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo, type Cargo } from '../api/client';
-import { getUsuario } from '../lib/auth';
+import { Link as RouterLink } from 'react-router-dom';
+import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo, type Cargo, type TipoChecklist } from '../api/client';
+import { getUsuario, temPermissao } from '../lib/auth';
 import { dialogContentSxCompact, dialogFieldPropsResponsive } from '../utils/dialogForm';
 import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx, tableCellWrapSx } from '../utils/tablePageLayout';
 import { useToast } from '../hooks/useToast';
@@ -62,6 +63,8 @@ export default function UsuariosPage() {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [catalogo, setCatalogo] = useState<PermissaoCatalogo[]>([]);
+  const [tiposCatalogo, setTiposCatalogo] = useState<TipoChecklist[]>([]);
+  const [cargoTiposChecklist, setCargoTiposChecklist] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [modalAberto, setModalAberto] = useState(false);
@@ -78,6 +81,8 @@ export default function UsuariosPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const sessao = getUsuario();
+  const podeEditarChecklistsCargo =
+    temPermissao('configuracoes.ver', sessao) || temPermissao('usuarios.gerenciar', sessao);
   const todasLojas = form.permissoes.includes('lojas.todas');
   const exigeCargoAprovador = form.permissoes.includes('chamados.aprovar');
 
@@ -91,8 +96,33 @@ export default function UsuariosPage() {
     return [...map.entries()].sort((a, b) => (a[1][0]?.ordem ?? 0) - (b[1][0]?.ordem ?? 0));
   }, [catalogo]);
 
+  function sincronizarTiposDoCargo(codigo: string, listaCargos = cargos) {
+    const cargo = listaCargos.find((c) => c.codigo === codigo);
+    setCargoTiposChecklist((cargo?.tipos_checklist || []).map((t) => t.codigo));
+  }
+
+  function alternarTipoChecklistCargo(codigo: string) {
+    setCargoTiposChecklist((atual) => {
+      const set = new Set(atual);
+      if (set.has(codigo)) set.delete(codigo);
+      else set.add(codigo);
+      return [...set];
+    });
+  }
+
+  function tiposChecklistAlterados(codigo: string, listaCargos = cargos) {
+    const cargo = listaCargos.find((c) => c.codigo === codigo);
+    const orig = (cargo?.tipos_checklist || []).map((t) => t.codigo).sort().join(',');
+    const novo = [...cargoTiposChecklist].sort().join(',');
+    return orig !== novo;
+  }
+
   function cargoSelecionado(codigo: string) {
     return cargos.find((c) => c.codigo === codigo);
+  }
+
+  function nomeTipoChecklist(codigo: string) {
+    return tiposCatalogo.find((t) => t.codigo === codigo)?.nome || codigo;
   }
 
   function nomePerfilUsuario(u: UsuarioGestao) {
@@ -136,16 +166,18 @@ export default function UsuariosPage() {
   async function carregar() {
     setLoading(true);
     try {
-      const [u, l, cat, cargosLista] = await Promise.all([
+      const [u, l, cat, cargosLista, tipos] = await Promise.all([
         api.usuariosGestao(),
         api.lojas({ ativas: true }),
         api.permissoesCatalogo(),
         api.cargos(),
+        podeEditarChecklistsCargo ? api.checklistTiposCatalogo().catch(() => []) : Promise.resolve([]),
       ]);
       setLista(u);
       setLojas(l);
       setCatalogo(cat);
       setCargos(cargosLista);
+      setTiposCatalogo(tipos);
       setErro('');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
@@ -160,10 +192,12 @@ export default function UsuariosPage() {
 
   function abrirNovo() {
     setEditId(null);
+    const codigo = cargos[0]?.codigo || '';
     setForm({
       ...emptyForm,
-      cargo_aprovacao: cargos[0]?.codigo || '',
+      cargo_aprovacao: codigo,
     });
+    sincronizarTiposDoCargo(codigo);
     setMostrarSenha(false);
     setErro('');
     setModalAberto(true);
@@ -171,17 +205,19 @@ export default function UsuariosPage() {
 
   function abrirEditar(u: UsuarioGestao) {
     setEditId(u.id_usuario);
+    const codigo = u.cargo_aprovacao || '';
     setForm({
       nome: u.nome,
       email: u.email,
       senha: '',
-      cargo_aprovacao: u.cargo_aprovacao || '',
+      cargo_aprovacao: codigo,
       lojas_ids: u.lojas_ids || [],
       permissoes: u.permissoes || [],
       ativo: u.ativo !== false,
       telefone_whatsapp: u.telefone_whatsapp || '',
       notifica_whatsapp: u.notifica_whatsapp !== false,
     });
+    sincronizarTiposDoCargo(codigo);
     setMostrarSenha(false);
     setErro('');
     setModalAberto(true);
@@ -234,6 +270,18 @@ export default function UsuariosPage() {
         await api.usuarioGestaoCriar({ ...body, senha: form.senha });
         showToast('Usuário criado com sucesso!');
       }
+
+      if (
+        podeEditarChecklistsCargo &&
+        form.cargo_aprovacao &&
+        tiposChecklistAlterados(form.cargo_aprovacao)
+      ) {
+        const cargo = cargoSelecionado(form.cargo_aprovacao);
+        if (cargo) {
+          await api.cargoGestaoAtualizar(cargo.id_cargo, { tipos_checklist: cargoTiposChecklist });
+        }
+      }
+
       setModalAberto(false);
       await carregar();
     } catch (e) {
@@ -551,6 +599,7 @@ export default function UsuariosPage() {
                   ...f,
                   cargo_aprovacao: codigo,
                 }));
+                sincronizarTiposDoCargo(codigo);
               }}
             >
               {cargos.map((c) => {
@@ -579,6 +628,58 @@ export default function UsuariosPage() {
               })}
             </TextField>
           </Box>
+
+          {form.cargo_aprovacao && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5, fontSize: '0.8rem' }}>
+                Checklists do perfil
+              </Typography>
+              {podeEditarChecklistsCargo && tiposCatalogo.length > 0 ? (
+                <>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
+                    Vale para todos os usuários com o perfil{' '}
+                    <strong>{cargoSelecionado(form.cargo_aprovacao)?.nome || form.cargo_aprovacao}</strong>.
+                    Também em{' '}
+                    <RouterLink to="/configuracoes/cargos" style={{ color: colors.navy }}>
+                      Configurações → Cargos
+                    </RouterLink>
+                    .
+                  </Typography>
+                  <FormGroup row sx={{ flexWrap: 'wrap' }}>
+                    {tiposCatalogo.map((t) => (
+                      <FormControlLabel
+                        key={t.codigo}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={cargoTiposChecklist.includes(t.codigo)}
+                            onChange={() => alternarTipoChecklistCargo(t.codigo)}
+                          />
+                        }
+                        label={
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>
+                            {t.nome}
+                          </Typography>
+                        }
+                      />
+                    ))}
+                  </FormGroup>
+                </>
+              ) : (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {cargoTiposChecklist.length ? (
+                    cargoTiposChecklist.map((codigo) => (
+                      <Chip key={codigo} label={nomeTipoChecklist(codigo)} size="small" variant="outlined" />
+                    ))
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      Nenhum checklist vinculado a este perfil.
+                    </Typography>
+                  )}
+                </Box>
+              )}
+            </Box>
+          )}
 
           <Box
             sx={{

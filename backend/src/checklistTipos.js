@@ -104,3 +104,66 @@ export async function obterTipoChecklistDaVisita(idVisita) {
   );
   return rows[0] || null;
 }
+
+export async function listarTiposChecklistDoCargo(cargoCodigo) {
+  if (!(await schemaTiposChecklistAtivo()) || !cargoCodigo) return [];
+  const { rows } = await pool.query(
+    `SELECT t.id_tipo_checklist, t.codigo, t.nome, t.descricao, t.ordem, t.ativo
+     FROM tipos_checklist t
+     JOIN cargo_checklist cc ON cc.id_tipo_checklist = t.id_tipo_checklist
+     WHERE cc.cargo_codigo = $1
+     ORDER BY t.ordem, t.nome`,
+    [cargoCodigo],
+  );
+  return rows;
+}
+
+export async function mapaTiposChecklistPorCargos(codigosCargos) {
+  const codigos = [...new Set((codigosCargos || []).filter(Boolean))];
+  if (!codigos.length || !(await schemaTiposChecklistAtivo())) return new Map();
+  const { rows } = await pool.query(
+    `SELECT cc.cargo_codigo, t.id_tipo_checklist, t.codigo, t.nome, t.ordem
+     FROM cargo_checklist cc
+     JOIN tipos_checklist t ON t.id_tipo_checklist = cc.id_tipo_checklist
+     WHERE cc.cargo_codigo = ANY($1::text[])
+     ORDER BY t.ordem, t.nome`,
+    [codigos],
+  );
+  const mapa = new Map();
+  for (const row of rows) {
+    if (!mapa.has(row.cargo_codigo)) mapa.set(row.cargo_codigo, []);
+    mapa.get(row.cargo_codigo).push({
+      id_tipo_checklist: row.id_tipo_checklist,
+      codigo: row.codigo,
+      nome: row.nome,
+    });
+  }
+  return mapa;
+}
+
+export async function syncCargoChecklist(cargoCodigo, codigosTipos) {
+  if (!(await schemaTiposChecklistAtivo())) return [];
+  const codigos = [...new Set((codigosTipos || []).map((c) => String(c).trim()).filter(Boolean))];
+  if (!codigos.length) {
+    await pool.query('DELETE FROM cargo_checklist WHERE cargo_codigo = $1', [cargoCodigo]);
+    return [];
+  }
+  const { rows } = await pool.query(
+    `SELECT id_tipo_checklist, codigo FROM tipos_checklist
+     WHERE codigo = ANY($1::text[]) AND ativo = TRUE`,
+    [codigos],
+  );
+  const invalidos = codigos.filter((c) => !rows.some((r) => r.codigo === c));
+  if (invalidos.length) {
+    return { error: `Tipo(s) de checklist inválido(s): ${invalidos.join(', ')}` };
+  }
+  await pool.query('DELETE FROM cargo_checklist WHERE cargo_codigo = $1', [cargoCodigo]);
+  for (const row of rows) {
+    await pool.query(
+      `INSERT INTO cargo_checklist (cargo_codigo, id_tipo_checklist) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [cargoCodigo, row.id_tipo_checklist],
+    );
+  }
+  return listarTiposChecklistDoCargo(cargoCodigo);
+}

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
 import { auditar } from '../auditoriaHelpers.js';
+import { mapaTiposChecklistPorCargos, syncCargoChecklist } from '../checklistTipos.js';
 
 const router = Router();
 
@@ -39,20 +40,28 @@ router.get('/', async (req, res, next) => {
        ORDER BY nome`,
       params,
     );
-    res.json(rows);
+    res.json(await anexarTiposChecklist(rows));
   } catch (e) {
     next(e);
   }
 });
 
-router.get('/gestao', requirePermissao('configuracoes.ver'), async (_req, res, next) => {
+async function anexarTiposChecklist(cargos) {
+  const mapa = await mapaTiposChecklistPorCargos(cargos.map((c) => c.codigo));
+  return cargos.map((c) => ({
+    ...c,
+    tipos_checklist: mapa.get(c.codigo) || [],
+  }));
+}
+
+router.get('/gestao', requirePermissao('configuracoes.ver', 'usuarios.gerenciar'), async (_req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT id_cargo, nome, codigo, aprovador, ativo, descricao, created_at
        FROM cargos
        ORDER BY ativo DESC, nome`,
     );
-    res.json(rows);
+    res.json(await anexarTiposChecklist(rows));
   } catch (e) {
     next(e);
   }
@@ -82,6 +91,12 @@ router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, n
        RETURNING id_cargo, nome, codigo, aprovador, ativo, descricao, created_at`,
       [nome, tentativa, aprovador, ativo, descricao],
     );
+    let tiposChecklist = [];
+    if (Array.isArray(req.body?.tipos_checklist)) {
+      const sync = await syncCargoChecklist(rows[0].codigo, req.body.tipos_checklist);
+      if (sync.error) return res.status(400).json({ error: sync.error });
+      tiposChecklist = sync;
+    }
     await auditar(req, {
       modulo: 'cargos',
       acao: 'criar',
@@ -89,19 +104,22 @@ router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, n
       idReferencia: rows[0].id_cargo,
       descricao: `Cargo criado: ${rows[0].nome} (${rows[0].codigo})`,
     });
-    res.status(201).json(rows[0]);
+    res.status(201).json({ ...rows[0], tipos_checklist: tiposChecklist });
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Já existe um cargo com este código' });
     next(e);
   }
 });
 
-router.patch('/gestao/:id', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+router.patch('/gestao/:id', requirePermissao('configuracoes.ver', 'usuarios.gerenciar'), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const { nome, descricao, aprovador, ativo } = req.body;
 
-    const atual = await pool.query('SELECT id_cargo FROM cargos WHERE id_cargo = $1', [id]);
+    const atual = await pool.query(
+      'SELECT id_cargo, codigo, nome FROM cargos WHERE id_cargo = $1',
+      [id],
+    );
     if (!atual.rows[0]) return res.status(404).json({ error: 'Cargo não encontrado' });
 
     const sets = [];
@@ -127,22 +145,39 @@ router.patch('/gestao/:id', requirePermissao('configuracoes.ver'), async (req, r
       vals.push(!!ativo);
     }
 
-    if (!sets.length) return res.status(400).json({ error: 'Nada para atualizar' });
+    if (!sets.length && !Array.isArray(req.body?.tipos_checklist)) {
+      return res.status(400).json({ error: 'Nada para atualizar' });
+    }
 
-    vals.push(id);
-    const { rows } = await pool.query(
-      `UPDATE cargos SET ${sets.join(', ')} WHERE id_cargo = $${i}
-       RETURNING id_cargo, nome, codigo, aprovador, ativo, descricao, created_at`,
-      vals,
-    );
+    let cargo = atual.rows[0];
+    if (sets.length) {
+      vals.push(id);
+      const { rows } = await pool.query(
+        `UPDATE cargos SET ${sets.join(', ')} WHERE id_cargo = $${i}
+         RETURNING id_cargo, nome, codigo, aprovador, ativo, descricao, created_at`,
+        vals,
+      );
+      cargo = rows[0];
+    }
+
+    let tiposChecklist;
+    if (Array.isArray(req.body?.tipos_checklist)) {
+      const sync = await syncCargoChecklist(cargo.codigo, req.body.tipos_checklist);
+      if (sync.error) return res.status(400).json({ error: sync.error });
+      tiposChecklist = sync;
+    } else {
+      const [comTipos] = await anexarTiposChecklist([cargo]);
+      tiposChecklist = comTipos.tipos_checklist;
+    }
+
     await auditar(req, {
       modulo: 'cargos',
       acao: 'atualizar',
       entidade: 'cargo',
       idReferencia: id,
-      descricao: `Cargo atualizado: ${rows[0].nome}`,
+      descricao: `Cargo atualizado: ${cargo.nome}`,
     });
-    res.json(rows[0]);
+    res.json({ ...cargo, tipos_checklist: tiposChecklist });
   } catch (e) {
     next(e);
   }

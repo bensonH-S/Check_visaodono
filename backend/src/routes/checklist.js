@@ -8,6 +8,7 @@ import {
   resolverTipoChecklist,
   tiposChecklistDoUsuario,
   schemaTiposChecklistAtivo,
+  listarTiposChecklist,
 } from '../checklistTipos.js';
 
 const router = Router();
@@ -43,6 +44,26 @@ async function resolverIdTipoGestao(codigo) {
   );
   return rows[0]?.id_tipo_checklist ?? null;
 }
+
+router.get('/tipos/catalogo', requirePermissao('configuracoes.ver', 'usuarios.gerenciar'), async (_req, res, next) => {
+  try {
+    if (!(await schemaTiposChecklistAtivo())) {
+      return res.json([
+        {
+          id_tipo_checklist: 0,
+          codigo: 'auditoria_operacional',
+          nome: 'Auditoria Operacional',
+          descricao: null,
+          ordem: 1,
+          ativo: true,
+        },
+      ]);
+    }
+    res.json(await listarTiposChecklist());
+  } catch (e) {
+    next(e);
+  }
+});
 
 router.get('/tipos', async (req, res, next) => {
   try {

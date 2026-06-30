@@ -1,6 +1,6 @@
 import { apiBasePath, appBasePath } from '../config/paths';
 import { getToken } from '../lib/auth';
-import type { UsuarioSessao } from '../lib/auth';
+import type { UsuarioSessao, TipoChecklistResumo } from '../lib/auth';
 import { formatDataCampoData } from '../utils/dateBr';
 
 const BASE = apiBasePath;
@@ -148,6 +148,7 @@ export const api = {
   cargoGestaoExcluir: (id: number) =>
     request<void>(`/cargos/gestao/${id}`, { method: 'DELETE' }),
   checklistTipos: () => request<TipoChecklist[]>('/checklist/tipos'),
+  checklistTiposCatalogo: () => request<TipoChecklist[]>('/checklist/tipos/catalogo'),
   checklist: (tipo?: string) => {
     const q = tipo ? `?tipo=${encodeURIComponent(tipo)}` : '';
     return request<CategoriaChecklist[]>(`/checklist${q}`);
@@ -555,6 +556,7 @@ export interface Cargo {
   aprovador: boolean;
   ativo: boolean;
   created_at?: string;
+  tipos_checklist?: TipoChecklistResumo[];
 }
 
 export interface CargoInput {
@@ -562,6 +564,7 @@ export interface CargoInput {
   descricao?: string | null;
   aprovador?: boolean;
   ativo?: boolean;
+  tipos_checklist?: string[];
 }
 
 export interface PermissaoCatalogo {

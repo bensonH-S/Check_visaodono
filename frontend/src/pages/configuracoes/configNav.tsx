@@ -51,6 +51,12 @@ const CONFIG_NAV: ConfigNavSection[] = [
         icon: <StoreIcon fontSize="small" />,
         permissoes: ['portal.lojas.ver'],
       },
+      {
+        to: '/configuracoes/cargos',
+        label: 'Cargos',
+        icon: <BadgeIcon fontSize="small" />,
+        permissoes: ['configuracoes.ver', 'usuarios.gerenciar'],
+      },
     ],
   },
   {
@@ -77,12 +83,6 @@ const CONFIG_NAV: ConfigNavSection[] = [
         to: '/configuracoes/sla',
         label: 'SLA',
         icon: <ScheduleIcon fontSize="small" />,
-        permissoes: ['configuracoes.ver'],
-      },
-      {
-        to: '/configuracoes/cargos',
-        label: 'Cargos',
-        icon: <BadgeIcon fontSize="small" />,
         permissoes: ['configuracoes.ver'],
       },
       {

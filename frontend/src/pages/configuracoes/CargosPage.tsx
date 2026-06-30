@@ -19,11 +19,14 @@ import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import FormGroup from '@mui/material/FormGroup';
+import Checkbox from '@mui/material/Checkbox';
+import FormLabel from '@mui/material/FormLabel';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BadgeIcon from '@mui/icons-material/Badge';
 import { api } from '../../api/client';
-import type { Cargo } from '../../api/client';
+import type { Cargo, TipoChecklist } from '../../api/client';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { useToast } from '../../hooks/useToast';
@@ -35,10 +38,12 @@ const emptyForm = {
   descricao: '',
   aprovador: false,
   ativo: true,
+  tipos_checklist: [] as string[],
 };
 
 export default function CargosPage() {
   const [lista, setLista] = useState<Cargo[]>([]);
+  const [tiposCatalogo, setTiposCatalogo] = useState<TipoChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [dialog, setDialog] = useState(false);
@@ -52,7 +57,9 @@ export default function CargosPage() {
   async function carregar() {
     setLoading(true);
     try {
-      setLista(await api.cargosGestao());
+      const [cargos, tipos] = await Promise.all([api.cargosGestao(), api.checklistTiposCatalogo()]);
+      setLista(cargos);
+      setTiposCatalogo(tipos);
       setErro('');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
@@ -79,9 +86,19 @@ export default function CargosPage() {
       descricao: cargo.descricao || '',
       aprovador: !!cargo.aprovador,
       ativo: cargo.ativo !== false,
+      tipos_checklist: (cargo.tipos_checklist || []).map((t) => t.codigo),
     });
     setErro('');
     setDialog(true);
+  }
+
+  function alternarTipoChecklist(codigo: string) {
+    setForm((f) => {
+      const atual = new Set(f.tipos_checklist);
+      if (atual.has(codigo)) atual.delete(codigo);
+      else atual.add(codigo);
+      return { ...f, tipos_checklist: [...atual] };
+    });
   }
 
   async function salvar() {
@@ -97,6 +114,7 @@ export default function CargosPage() {
         descricao: form.descricao.trim() || null,
         aprovador: form.aprovador,
         ativo: form.ativo,
+        tipos_checklist: form.tipos_checklist,
       };
       if (editId) await api.cargoGestaoAtualizar(editId, body);
       else await api.cargoGestaoCriar(body);
@@ -148,6 +166,7 @@ export default function CargosPage() {
               <TableCell>Nome</TableCell>
               <TableCell>Descrição</TableCell>
               <TableCell>Código</TableCell>
+              <TableCell>Checklists</TableCell>
               <TableCell>Aprovador</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
@@ -165,6 +184,19 @@ export default function CargosPage() {
                   <Typography variant="body2" color="text.secondary">
                     {c.codigo}
                   </Typography>
+                </TableCell>
+                <TableCell>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {(c.tipos_checklist || []).length ? (
+                      c.tipos_checklist!.map((t) => (
+                        <Chip key={t.codigo} label={t.nome} size="small" variant="outlined" />
+                      ))
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        —
+                      </Typography>
+                    )}
+                  </Box>
                 </TableCell>
                 <TableCell>
                   <Chip
@@ -185,7 +217,7 @@ export default function CargosPage() {
             ))}
             {!loading && !lista.length && (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                   Nenhum cargo cadastrado.
                 </TableCell>
               </TableRow>
@@ -240,6 +272,30 @@ export default function CargosPage() {
             }
             label="Cargo ativo"
           />
+          {tiposCatalogo.length > 0 && (
+            <Box>
+              <FormLabel component="legend" sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 0.5 }}>
+                Tipos de checklist
+              </FormLabel>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Define quais checklists usuários deste cargo podem executar no app.
+              </Typography>
+              <FormGroup>
+                {tiposCatalogo.map((t) => (
+                  <FormControlLabel
+                    key={t.codigo}
+                    control={
+                      <Checkbox
+                        checked={form.tipos_checklist.includes(t.codigo)}
+                        onChange={() => alternarTipoChecklist(t.codigo)}
+                      />
+                    }
+                    label={t.nome}
+                  />
+                ))}
+              </FormGroup>
+            </Box>
+          )}
           {erro && dialog && <Alert severity="error">{erro}</Alert>}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
