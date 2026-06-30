@@ -391,7 +391,6 @@ export default function FrotaLocalizacaoMap({
       doubleClickZoom: true,
       boxZoom: !mobile,
       keyboard: !mobile,
-      tap: true,
       zoomSnap: mobile ? 0.5 : 1,
       zoomDelta: mobile ? 0.5 : 1,
     });

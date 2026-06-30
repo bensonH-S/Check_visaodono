@@ -100,12 +100,14 @@ export default function MapaTecnicosListaLojas() {
         anchor="bottom"
         open={aberto}
         onClose={() => setAberto(false)}
-        PaperProps={{
-          sx: {
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            maxHeight: '82vh',
-            pb: 'env(safe-area-inset-bottom, 0px)',
+        slotProps={{
+          paper: {
+            sx: {
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              maxHeight: '82vh',
+              pb: 'env(safe-area-inset-bottom, 0px)',
+            },
           },
         }}
       >
@@ -172,8 +174,10 @@ export default function MapaTecnicosListaLojas() {
                     secondary={[loja.bk_number ? `BKN ${loja.bk_number}` : null, loja.city, loja.state]
                       .filter(Boolean)
                       .join(' · ')}
-                    primaryTypographyProps={{ fontWeight: 700, fontSize: '0.875rem' }}
-                    secondaryTypographyProps={{ fontSize: '0.75rem' }}
+                    slotProps={{
+                      primary: { sx: { fontWeight: 700, fontSize: '0.875rem' } },
+                      secondary: { sx: { fontSize: '0.75rem' } },
+                    }}
                   />
                 </ListItemButton>
               );

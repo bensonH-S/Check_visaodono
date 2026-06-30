@@ -197,7 +197,7 @@ export const api = {
     hora_inicio?: string;
     codigo_tipo_checklist?: string;
     id_tipo_checklist?: number;
-    meta_visita?: MetaVisitaTimeCampo & Record<string, unknown>;
+    meta_visita?: MetaVisitaTimeCampo;
   }) =>
     request<VisitaResumo>('/visitas', { method: 'POST', body: JSON.stringify(body) }),
   salvarRespostas: (id: number, respostas: RespostaInput[]) =>
