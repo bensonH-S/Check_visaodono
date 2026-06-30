@@ -352,3 +352,18 @@ export function usaFluxoMobileApp(usuario?: UsuarioSessao | null): boolean {
 export function deveRastrearGpsTecnico(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('chamados.assumir', usuario);
 }
+
+/** Mapa de técnicos em tempo real no app (diretor/CEO = todos; regional = sua região). */
+export function podeVerMapaTecnicosMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (temPermissao('lojas.todas', u)) return true;
+  if (
+    temPermissao('frota.mapa.ver', u) ||
+    temPermissao('frota.regioes', u) ||
+    temPermissao('frota.gerenciar', u)
+  ) {
+    return (u.regioes_atuacao?.length ?? 0) > 0;
+  }
+  return false;
+}

@@ -194,9 +194,10 @@ export const api = {
     id_loja: number;
     id_usuario: number;
     data_visita?: string;
+    hora_inicio?: string;
     codigo_tipo_checklist?: string;
     id_tipo_checklist?: number;
-    meta_visita?: MetaVisitaTimeCampo;
+    meta_visita?: MetaVisitaTimeCampo & Record<string, unknown>;
   }) =>
     request<VisitaResumo>('/visitas', { method: 'POST', body: JSON.stringify(body) }),
   salvarRespostas: (id: number, respostas: RespostaInput[]) =>
@@ -404,6 +405,7 @@ export const api = {
   frotaRegiao: (idRegiao: number) => request<FrotaRegiaoDetalhe>(`/frota/regioes/${idRegiao}`),
   frotaRegiaoPosicoes: (idRegiao: number) =>
     request<FrotaTecnicoPosicao[]>(`/frota/regioes/${idRegiao}/posicoes`),
+  frotaMapaPosicoes: () => request<FrotaMapaPosicoes>('/frota/mapa/posicoes'),
   frotaCriarRegiao: (body: Pick<FrotaRegiaoBody, 'nome' | 'descricao'>) =>
     request<FrotaRegiaoCriada>('/frota/regioes', { method: 'POST', body: JSON.stringify(body) }),
   frotaAtualizarRegiao: (idRegiao: number, body: Partial<FrotaRegiaoBody>) =>
@@ -643,6 +645,9 @@ export interface MetaVisitaTimeCampo {
   coordenador_madrugada_2?: string;
   time_total?: string | number;
   territorio?: string;
+  agendada_mapa?: boolean;
+  agendada_por?: string;
+  observacao_mapa?: string;
 }
 
 export interface CategoriaChecklistResumo {
@@ -995,6 +1000,14 @@ export interface FrotaTecnicoPosicao {
   longitude: number | string | null;
   precisao_metros?: number | string | null;
   atualizado_em?: string | null;
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
+}
+
+export interface FrotaMapaPosicoes {
+  tecnicos: FrotaTecnicoPosicao[];
+  lojas: FrotaRegiaoLoja[];
+  regioes: { id_regiao: number; nome: string }[];
 }
 
 export interface FrotaRegiaoVeiculo {

@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { pool } from '../db.js';
-import { requirePermissao } from '../permissoes.js';
+import {
+  acessoTodasLojas,
+  temPermissao,
+  requirePermissao,
+} from '../permissoes.js';
+import {
+  idsRegioesVisiveisMapaFrota,
+  usuarioPodeVerRegiaoMapa,
+} from '../lojasUsuario.js';
 import { gpsTecnicosAtivo } from '../gpsTecnicos.js';
 import { encryptAnexo, decryptAnexo } from '../fotos.js';
 import {
@@ -127,6 +135,12 @@ async function syncRegiaoVeiculos(idRegiao, idVeiculos) {
 }
 
 const requirePermRegioes = requirePermissao('frota.gerenciar', 'frota.regioes');
+const requirePermMapaTecnicos = requirePermissao(
+  'frota.mapa.ver',
+  'lojas.todas',
+  'frota.regioes',
+  'frota.gerenciar',
+);
 
 function parseRegionaisJson(val) {
   if (!val) return [];
@@ -362,6 +376,49 @@ router.get('/termos/:id', requirePermissao('frota.gerenciar'), async (req, res, 
   }
 });
 
+router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => {
+  try {
+    const idsRegiao = await idsRegioesVisiveisMapaFrota(req.user);
+    if (!idsRegiao.length) {
+      return res.json({ tecnicos: [], lojas: [], regioes: [] });
+    }
+
+    const { rows: tecnicos } = await pool.query(
+      `SELECT u.id_usuario, u.nome, u.email,
+              r.id_regiao, r.nome AS nome_regiao,
+              p.latitude, p.longitude, p.precisao_metros, p.atualizado_em
+       FROM frota_regiao_tecnicos rt
+       JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
+       JOIN usuarios u ON u.id_usuario = rt.id_usuario AND u.ativo = TRUE
+       LEFT JOIN frota_tecnico_posicao p ON p.id_usuario = u.id_usuario
+       WHERE rt.id_regiao = ANY($1::int[])
+       ORDER BY r.nome, u.nome`,
+      [idsRegiao],
+    );
+
+    const { rows: lojas } = await pool.query(
+      `SELECT DISTINCT l.id_loja, l.name, l.bk_number, l.address, l.neighborhood, l.city, l.state,
+              l.latitude, l.longitude
+       FROM frota_regiao_lojas rl
+       JOIN lojas l ON l.id_loja = rl.id_loja
+       WHERE rl.id_regiao = ANY($1::int[]) AND l.is_active = TRUE
+       ORDER BY l.name`,
+      [idsRegiao],
+    );
+
+    const { rows: regioes } = await pool.query(
+      `SELECT id_regiao, nome FROM frota_regioes
+       WHERE id_regiao = ANY($1::int[]) AND ativo = TRUE
+       ORDER BY nome`,
+      [idsRegiao],
+    );
+
+    res.json({ tecnicos, lojas, regioes });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/regioes', requirePermRegioes, async (req, res, next) => {
   try {
     const { rows } = await pool.query(
@@ -498,6 +555,9 @@ router.get('/regioes/:id', requirePermRegioes, async (req, res, next) => {
 router.get('/regioes/:id/posicoes', requirePermRegioes, async (req, res, next) => {
   try {
     const idRegiao = Number(req.params.id);
+    if (!(await usuarioPodeVerRegiaoMapa(req.user, idRegiao))) {
+      return res.status(403).json({ error: 'Sem permissão para ver técnicos desta região' });
+    }
     const { rows } = await pool.query(
       `SELECT u.id_usuario, u.nome, u.email,
               p.latitude, p.longitude, p.precisao_metros, p.atualizado_em

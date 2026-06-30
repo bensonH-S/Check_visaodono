@@ -27,6 +27,10 @@ async function lojasRegiaoUsuario(idUsuario) {
            WHERE rt.id_regiao = r.id_regiao AND rt.id_usuario = $1
          )
          OR r.id_regional = $1
+         OR EXISTS (
+           SELECT 1 FROM frota_regiao_regionais rr
+           WHERE rr.id_regiao = r.id_regiao AND rr.id_usuario = $1
+         )
        )`,
     [idUsuario],
   );
@@ -100,6 +104,10 @@ export async function carregarRegioesAtuacaoTecnico(idUsuario) {
            WHERE rt.id_regiao = r.id_regiao AND rt.id_usuario = $1
          )
          OR r.id_regional = $1
+         OR EXISTS (
+           SELECT 1 FROM frota_regiao_regionais rr
+           WHERE rr.id_regiao = r.id_regiao AND rr.id_usuario = $1
+         )
        )
      ORDER BY r.nome`,
     [idUsuario],
@@ -109,6 +117,29 @@ export async function carregarRegioesAtuacaoTecnico(idUsuario) {
     nome: r.nome,
     nome_regional: r.nome_regional || null,
   }));
+}
+
+/** IDs de regiões cujo mapa de técnicos o usuário pode ver. */
+export async function idsRegioesVisiveisMapaFrota(user) {
+  if (acessoTodasLojas(user) || temPermissao(user, 'frota.gerenciar')) {
+    const { rows } = await pool.query(
+      'SELECT id_regiao FROM frota_regioes WHERE ativo = TRUE ORDER BY nome',
+    );
+    return rows.map((r) => r.id_regiao);
+  }
+  if (
+    !temPermissao(user, 'frota.mapa.ver') &&
+    !temPermissao(user, 'frota.regioes')
+  ) {
+    return [];
+  }
+  const regioes = await carregarRegioesAtuacaoTecnico(user.sub);
+  return regioes.map((r) => r.id_regiao);
+}
+
+export async function usuarioPodeVerRegiaoMapa(user, idRegiao) {
+  const ids = await idsRegioesVisiveisMapaFrota(user);
+  return ids.includes(Number(idRegiao));
 }
 
 export async function attachLojasUsuario(req, _res, next) {
@@ -202,6 +233,10 @@ export function sqlUsuarioAtendeLojaNotificacao(aliasUsuario, paramLoja) {
               WHERE rt.id_regiao = r.id_regiao AND rt.id_usuario = ${aliasUsuario}
             )
             OR r.id_regional = ${aliasUsuario}
+            OR EXISTS (
+              SELECT 1 FROM frota_regiao_regionais rr
+              WHERE rr.id_regiao = r.id_regiao AND rr.id_usuario = ${aliasUsuario}
+            )
           )
       )
     )

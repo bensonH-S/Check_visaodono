@@ -9,16 +9,23 @@ import Alert from '@mui/material/Alert';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import './mapaMarcadores.css';
 import type { FrotaRegiaoLoja, FrotaTecnicoPosicao } from '../../api/client';
 import { colors } from '../../theme/tokens';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
+import { iniciaisNomeMapa, primeiroNomeMapa } from '../../utils/mapaGeo';
 
 /** Zoom fixo quando há só um ponto (~nível de bairro). */
 const ZOOM_PONTO_UNICO = 13;
+const ZOOM_PONTO_UNICO_MOBILE = 15;
 /** Limite máximo ao enquadrar vários pontos. */
 const ZOOM_MAXIMO_ENQUADRE = 13;
+const ZOOM_MAXIMO_ENQUADRE_MOBILE = 17;
 const ZOOM_PADRAO_BRASIL = 4;
+/** Centro de Brasília/DF — padrão do mapa mobile. */
+const CENTRO_DISTRITO_FEDERAL: L.LatLngExpression = [-15.7801, -47.9292];
+const ZOOM_INICIAL_DF_MOBILE = 11;
 const TAMANHO_ICONE_LOJA = 28;
 const TAMANHO_ICONE_TECNICO = 20;
 /** Deslocamento em metros quando técnico está na mesma coordenada (ou muito perto) de uma loja. */
@@ -71,7 +78,37 @@ function anexarBotoesCopiar(container: HTMLElement | null | undefined) {
   });
 }
 
-function marcadorTecnico() {
+function marcadorTecnico(mobile = false, nome = '', destacado = false, comGps = true) {
+  if (mobile) {
+    const iniciais = iniciaisNomeMapa(nome);
+    const label = primeiroNomeMapa(nome);
+    const w = destacado ? 58 : 50;
+    const cls = [
+      'marker-tech-pin',
+      destacado ? 'is-destaque' : '',
+      comGps ? 'is-live' : 'is-offline',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return L.divIcon({
+      className: 'marcador-tecnico-pin',
+      html: `<div class="${cls}" style="width:${w}px">
+        <div class="marker-tech-halo">
+          <span class="marker-tech-ring marker-tech-ring--1"></span>
+          <span class="marker-tech-ring marker-tech-ring--2"></span>
+        </div>
+        <div class="marker-tech-core">
+          <span class="marker-tech-iniciais">${escapeHtml(iniciais)}</span>
+          <span class="marker-tech-status" aria-hidden="true"></span>
+        </div>
+        <div class="marker-tech-pointer"></div>
+        <div class="marker-tech-label">${escapeHtml(label)}</div>
+      </div>`,
+      iconSize: [w, w + 32],
+      iconAnchor: [w / 2, w + 24],
+      popupAnchor: [0, -(w + 26)],
+    });
+  }
   const size = TAMANHO_ICONE_TECNICO;
   const altura = size + 6;
   const icone = size - 10;
@@ -91,15 +128,20 @@ function marcadorTecnico() {
   });
 }
 
-function marcadorLoja(loja: Pick<FrotaRegiaoLoja, 'name' | 'bk_number'>) {
+function marcadorLoja(loja: Pick<FrotaRegiaoLoja, 'name' | 'bk_number'>, mobile = false, destacada = false) {
   const src = escapeHtml(iconeMarcaLojaPorNome(loja));
-  const size = TAMANHO_ICONE_LOJA;
-  const altura = size + 6;
+  const size = mobile ? (destacada ? 36 : 32) : TAMANHO_ICONE_LOJA;
+  const altura = size + (mobile ? 8 : 6);
+  const ring = destacada
+    ? `box-shadow:0 0 0 3px ${colors.orange}, 0 4px 14px rgba(0,0,0,.35);`
+    : mobile
+      ? 'box-shadow:0 2px 10px rgba(0,0,0,.28);'
+      : 'box-shadow:0 1px 2px rgba(0,0,0,.35);';
   return L.divIcon({
-    className: 'marcador-loja-marca',
+    className: destacada ? 'marcador-loja-marca is-destaque' : 'marcador-loja-marca',
     html: `<div style="display:flex;flex-direction:column;align-items:center;width:${size}px;line-height:0;">
-      <div style="width:${size}px;height:${size}px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.35);">
-        <img src="${src}" alt="" style="width:${size}px;height:${size}px;max-width:${size}px;max-height:${size}px;object-fit:contain;display:block;" />
+      <div style="width:${size}px;height:${size}px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:${mobile ? 10 : 3}px;${ring}">
+        <img src="${src}" alt="" style="width:${size - 4}px;height:${size - 4}px;object-fit:contain;display:block;" />
       </div>
       <div style="width:0;height:0;margin-top:-1px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid #fff;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));"></div>
     </div>`,
@@ -109,11 +151,14 @@ function marcadorLoja(loja: Pick<FrotaRegiaoLoja, 'name' | 'bk_number'>) {
   });
 }
 
-function criarCamadaRua() {
+function criarCamadaRua(mobile = false) {
   return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO',
     subdomains: 'abcd',
     maxZoom: 20,
+    updateWhenIdle: mobile,
+    keepBuffer: mobile ? 4 : 2,
+    updateWhenZooming: !mobile,
   });
 }
 
@@ -230,6 +275,18 @@ type Props = {
   preencherAltura?: boolean;
   /** Aba Localização visível — força recálculo do tamanho do Leaflet. */
   visivel?: boolean;
+  /** Atualização automática (ms). Ex.: alinhado ao intervalo de GPS dos técnicos. */
+  autoRefreshIntervalMs?: number;
+  /** Visual e interação otimizados para o app mobile. */
+  modo?: 'gestao' | 'mobile';
+  /** Exibe botão manual de atualizar (portal). */
+  mostrarBotaoAtualizar?: boolean;
+  /** Mapa / Satélite (portal). No mobile fica só o mapa de ruas. */
+  mostrarAlternarTipoMapa?: boolean;
+  tecnicoDestaqueId?: number | null;
+  lojaDestaqueId?: number | null;
+  onLojaClick?: (loja: FrotaRegiaoLoja) => void;
+  onTecnicoClick?: (tecnico: FrotaTecnicoPosicao) => void;
 };
 
 const btnMapaSx = {
@@ -253,17 +310,56 @@ export default function FrotaLocalizacaoMap({
   onAtualizar,
   preencherAltura = false,
   visivel = true,
+  autoRefreshIntervalMs,
+  modo = 'gestao',
+  mostrarBotaoAtualizar,
+  mostrarAlternarTipoMapa,
+  tecnicoDestaqueId = null,
+  lojaDestaqueId = null,
+  onLojaClick,
+  onTecnicoClick,
 }: Props) {
+  const mobile = modo === 'mobile';
+  const exibirAtualizar = mostrarBotaoAtualizar ?? !mobile;
+  const exibirAlternarMapa = mostrarAlternarTipoMapa ?? !mobile;
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const tecnicosLayer = useRef<L.LayerGroup | null>(null);
   const lojasLayer = useRef<L.LayerGroup | null>(null);
+  const linhaLayer = useRef<L.LayerGroup | null>(null);
   const baseLayer = useRef<L.TileLayer | null>(null);
+  const vistaInicialAplicada = useRef(false);
+  const usuarioMoveuMapa = useRef(false);
+  const onLojaClickRef = useRef(onLojaClick);
+  const onTecnicoClickRef = useRef(onTecnicoClick);
+  const onAtualizarRef = useRef(onAtualizar);
+  const marcadoresMobileRef = useRef<{ lojas: Map<number, L.Marker>; tecnicos: Map<number, L.Marker> }>({
+    lojas: new Map(),
+    tecnicos: new Map(),
+  });
+  const lojaFocoAnterior = useRef<number | null>(null);
+  const lojaDestaqueIdRef = useRef(lojaDestaqueId);
   const [mapaPronto, setMapaPronto] = useState(false);
   const [tipoMapa, setTipoMapa] = useState<TipoMapa>('rua');
   const [trafegoAtivo, setTrafegoAtivo] = useState(false);
 
-  const aplicarCamadas = useCallback((tipo: TipoMapa, trafego: boolean) => {
+  useEffect(() => {
+    onLojaClickRef.current = onLojaClick;
+  }, [onLojaClick]);
+
+  useEffect(() => {
+    onTecnicoClickRef.current = onTecnicoClick;
+  }, [onTecnicoClick]);
+
+  useEffect(() => {
+    lojaDestaqueIdRef.current = lojaDestaqueId;
+  }, [lojaDestaqueId]);
+
+  useEffect(() => {
+    onAtualizarRef.current = onAtualizar;
+  }, [onAtualizar]);
+
+  const aplicarCamadas = useCallback((tipo: TipoMapa, trafego: boolean, isMobile: boolean) => {
     const mapa = mapInstance.current;
     if (!mapa) return;
 
@@ -273,9 +369,9 @@ export default function FrotaLocalizacaoMap({
     }
 
     if (tipo === 'rua') {
-      baseLayer.current = (trafego ? criarCamadaRuaComTrafego() : criarCamadaRua()).addTo(mapa);
+      baseLayer.current = (trafego && !isMobile ? criarCamadaRuaComTrafego() : criarCamadaRua(isMobile)).addTo(mapa);
     } else {
-      baseLayer.current = (trafego ? criarCamadaSateliteComTrafego() : criarCamadaSatelite()).addTo(mapa);
+      baseLayer.current = (trafego && !isMobile ? criarCamadaSateliteComTrafego() : criarCamadaSatelite()).addTo(mapa);
     }
   }, []);
 
@@ -283,17 +379,33 @@ export default function FrotaLocalizacaoMap({
     if (!mapRef.current || mapInstance.current) return;
 
     const mapa = L.map(mapRef.current, {
-      center: [-15.78, -47.93],
-      zoom: ZOOM_PADRAO_BRASIL,
+      center: mobile ? CENTRO_DISTRITO_FEDERAL : [-15.78, -47.93],
+      zoom: mobile ? ZOOM_INICIAL_DF_MOBILE : ZOOM_PADRAO_BRASIL,
       zoomControl: false,
+      fadeAnimation: !mobile,
+      zoomAnimation: !mobile,
+      markerZoomAnimation: !mobile,
+      touchZoom: true,
+      dragging: true,
+      scrollWheelZoom: !mobile,
+      doubleClickZoom: true,
+      boxZoom: !mobile,
+      keyboard: !mobile,
+      tap: true,
+      zoomSnap: mobile ? 0.5 : 1,
+      zoomDelta: mobile ? 0.5 : 1,
     });
 
-    L.control.zoom({ position: 'topleft' }).addTo(mapa);
+    L.control.zoom({ position: mobile ? 'bottomright' : 'topleft' }).addTo(mapa);
+    mapa.on('movestart', () => {
+      usuarioMoveuMapa.current = true;
+    });
 
     tecnicosLayer.current = L.layerGroup().addTo(mapa);
     lojasLayer.current = L.layerGroup().addTo(mapa);
+    linhaLayer.current = L.layerGroup().addTo(mapa);
     mapInstance.current = mapa;
-    aplicarCamadas('rua', false);
+    aplicarCamadas('rua', false, mobile);
     setMapaPronto(true);
 
     const onClickCopiar = (ev: MouseEvent) => {
@@ -320,21 +432,40 @@ export default function FrotaLocalizacaoMap({
       mapInstance.current = null;
       tecnicosLayer.current = null;
       lojasLayer.current = null;
+      linhaLayer.current = null;
       baseLayer.current = null;
+      marcadoresMobileRef.current.lojas.clear();
+      marcadoresMobileRef.current.tecnicos.clear();
       setMapaPronto(false);
     };
-  }, [aplicarCamadas]);
+  }, [aplicarCamadas, mobile]);
+
+  useEffect(() => {
+    if (!mapaPronto || !mapInstance.current || !mobile) return;
+    const mapa = mapInstance.current;
+    const centralizarDf = () => {
+      if (usuarioMoveuMapa.current || lojaDestaqueIdRef.current) return;
+      mapa.setView(CENTRO_DISTRITO_FEDERAL, ZOOM_INICIAL_DF_MOBILE, { animate: false });
+    };
+    centralizarDf();
+    const t1 = window.setTimeout(centralizarDf, 120);
+    const t2 = window.setTimeout(centralizarDf, 450);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [mapaPronto, mobile]);
 
   useEffect(() => {
     if (!mapaPronto) return;
-    aplicarCamadas(tipoMapa, trafegoAtivo);
-  }, [tipoMapa, trafegoAtivo, mapaPronto, aplicarCamadas]);
+    aplicarCamadas(tipoMapa, trafegoAtivo, mobile);
+  }, [tipoMapa, trafegoAtivo, mapaPronto, aplicarCamadas, mobile]);
 
   useEffect(() => {
-    if (!mapaPronto || !tecnicosLayer.current || !lojasLayer.current || !mapInstance.current) return;
+    if (!mapaPronto || !tecnicosLayer.current || !lojasLayer.current || !linhaLayer.current || !mapInstance.current) return;
 
-    tecnicosLayer.current.clearLayers();
-    lojasLayer.current.clearLayers();
+    const mapa = mapInstance.current;
+    mapa.closePopup();
 
     const comGps = posicoes.filter(temCoordenadaTecnico);
     const comLoja = lojas.filter(temCoordenadaLoja);
@@ -345,56 +476,255 @@ export default function FrotaLocalizacaoMap({
     }));
     const ocupacaoTecnico = new Map<string, number>();
 
+    const tecnicoSel = posicoes.find((p) => p.id_usuario === tecnicoDestaqueId);
+    const lojaSel = lojas.find((l) => l.id_loja === lojaDestaqueId);
+
+    if (mobile) {
+      const cache = marcadoresMobileRef.current;
+      const idsLoja = new Set(comLoja.map((l) => l.id_loja));
+
+      for (const [id, marker] of cache.lojas) {
+        if (!idsLoja.has(id)) {
+          lojasLayer.current.removeLayer(marker);
+          cache.lojas.delete(id);
+        }
+      }
+
+      for (const l of comLoja) {
+        const lat = Number(l.latitude);
+        const lng = Number(l.longitude);
+        bounds.push([lat, lng]);
+        const destacada = lojaDestaqueId === l.id_loja;
+        let marker = cache.lojas.get(l.id_loja);
+        if (!marker) {
+          marker = L.marker([lat, lng], {
+            icon: marcadorLoja(l, true, destacada),
+            zIndexOffset: destacada ? 400 : 200,
+          });
+          marker.on('click', (ev) => {
+            L.DomEvent.stopPropagation(ev);
+            onLojaClickRef.current?.(l);
+          });
+          marker.addTo(lojasLayer.current);
+          cache.lojas.set(l.id_loja, marker);
+        } else {
+          marker.setLatLng([lat, lng]);
+          marker.setIcon(marcadorLoja(l, true, destacada));
+          marker.setZIndexOffset(destacada ? 400 : 200);
+        }
+      }
+
+      const idsTecnicos = new Set(comGps.map((p) => p.id_usuario));
+      for (const [id, marker] of cache.tecnicos) {
+        if (!idsTecnicos.has(id)) {
+          tecnicosLayer.current.removeLayer(marker);
+          cache.tecnicos.delete(id);
+        }
+      }
+
+      for (const p of comGps) {
+        const lat = Number(p.latitude);
+        const lng = Number(p.longitude);
+        const destacado = tecnicoDestaqueId === p.id_usuario;
+        const [latMarcador, lngMarcador] = posicaoMarcadorTecnico(lat, lng, lojasCoords, ocupacaoTecnico);
+        bounds.push([latMarcador, lngMarcador]);
+        let marker = cache.tecnicos.get(p.id_usuario);
+        if (!marker) {
+          marker = L.marker([latMarcador, lngMarcador], {
+            icon: marcadorTecnico(true, p.nome, destacado, true),
+            zIndexOffset: destacado ? 800 : 500,
+          });
+          marker.on('click', (ev) => {
+            L.DomEvent.stopPropagation(ev);
+            onTecnicoClickRef.current?.(p);
+          });
+          marker.addTo(tecnicosLayer.current);
+          cache.tecnicos.set(p.id_usuario, marker);
+        } else {
+          marker.setLatLng([latMarcador, lngMarcador]);
+          marker.setIcon(marcadorTecnico(true, p.nome, destacado, true));
+          marker.setZIndexOffset(destacado ? 800 : 500);
+        }
+      }
+
+      linhaLayer.current.clearLayers();
+      if (
+        tecnicoSel &&
+        temCoordenadaTecnico(tecnicoSel) &&
+        lojaSel &&
+        temCoordenadaLoja(lojaSel)
+      ) {
+        L.polyline(
+          [
+            [Number(tecnicoSel.latitude), Number(tecnicoSel.longitude)],
+            [Number(lojaSel.latitude), Number(lojaSel.longitude)],
+          ],
+          {
+            color: colors.orange,
+            weight: 3,
+            opacity: 0.85,
+            dashArray: '8 8',
+            lineCap: 'round',
+          },
+        ).addTo(linhaLayer.current);
+      }
+
+      if (!bounds.length) {
+        if (!vistaInicialAplicada.current) {
+          mapInstance.current.setView(CENTRO_DISTRITO_FEDERAL, ZOOM_INICIAL_DF_MOBILE);
+          vistaInicialAplicada.current = true;
+        }
+        return;
+      }
+
+      if (!vistaInicialAplicada.current && !usuarioMoveuMapa.current) {
+        mapInstance.current.setView(CENTRO_DISTRITO_FEDERAL, ZOOM_INICIAL_DF_MOBILE);
+        vistaInicialAplicada.current = true;
+      }
+      return;
+    }
+
+    tecnicosLayer.current.clearLayers();
+    lojasLayer.current.clearLayers();
+    linhaLayer.current.clearLayers();
+
     for (const l of comLoja) {
       const lat = Number(l.latitude);
       const lng = Number(l.longitude);
       bounds.push([lat, lng]);
-      const marker = L.marker([lat, lng], { icon: marcadorLoja(l), zIndexOffset: 200 });
-      const conteudoLoja = htmlInfoLoja(l);
-      marker.bindTooltip(conteudoLoja, {
-        direction: 'top',
-        offset: [0, -TAMANHO_ICONE_LOJA - 10],
-        opacity: 1,
-        className: 'tooltip-loja-mapa',
-        sticky: true,
-        interactive: true,
+      const destacada = mobile && lojaDestaqueId === l.id_loja;
+      const marker = L.marker([lat, lng], {
+        icon: marcadorLoja(l, mobile, destacada),
+        zIndexOffset: destacada ? 400 : 200,
       });
-      marker.bindPopup(conteudoLoja, { maxWidth: 360, className: 'popup-loja-mapa' });
+      const conteudoLoja = htmlInfoLoja(l);
+      if (mobile && onLojaClickRef.current) {
+        marker.on('click', (ev) => {
+          L.DomEvent.stopPropagation(ev);
+          onLojaClickRef.current?.(l);
+        });
+      } else {
+        marker.bindTooltip(conteudoLoja, {
+          direction: 'top',
+          offset: [0, -TAMANHO_ICONE_LOJA - 10],
+          opacity: 1,
+          className: 'tooltip-loja-mapa',
+          sticky: true,
+          interactive: true,
+        });
+        marker.bindPopup(conteudoLoja, { maxWidth: 360, className: 'popup-loja-mapa' });
+      }
       marker.addTo(lojasLayer.current);
     }
 
-    for (const p of comGps) {
-      const lat = Number(p.latitude);
-      const lng = Number(p.longitude);
-      const [latMarcador, lngMarcador] = posicaoMarcadorTecnico(lat, lng, lojasCoords, ocupacaoTecnico);
+    for (const p of posicoes) {
+      const temGps = temCoordenadaTecnico(p);
+      const lat = temGps ? Number(p.latitude) : null;
+      const lng = temGps ? Number(p.longitude) : null;
+      const destacado = tecnicoDestaqueId === p.id_usuario;
+      if (!temGps) continue;
+      const [latMarcador, lngMarcador] = posicaoMarcadorTecnico(lat!, lng!, lojasCoords, ocupacaoTecnico);
       bounds.push([latMarcador, lngMarcador]);
-      const marker = L.marker([latMarcador, lngMarcador], { icon: marcadorTecnico(), zIndexOffset: 500 });
-      marker.bindTooltip(escapeHtml(p.nome), {
-        direction: 'top',
-        offset: [0, -TAMANHO_ICONE_TECNICO - 8],
-        opacity: 0.95,
-        className: 'tooltip-tecnico-mapa',
+      const marker = L.marker([latMarcador, lngMarcador], {
+        icon: marcadorTecnico(mobile, p.nome, destacado, temGps),
+        zIndexOffset: destacado ? 800 : 500,
       });
-      marker.bindPopup(
-        `<strong>${escapeHtml(p.nome)}</strong>${p.email ? `<br/>${escapeHtml(p.email)}` : ''}<br/><small>${formatarAtualizado(p.atualizado_em)}</small>`,
-      );
+      if (mobile) {
+        marker.bindPopup(
+          `<strong>${escapeHtml(p.nome)}</strong>${p.nome_regiao ? `<br/><small>${escapeHtml(p.nome_regiao)}</small>` : ''}<br/><small>${formatarAtualizado(p.atualizado_em)}</small>`,
+        );
+      } else {
+        marker.bindTooltip(escapeHtml(p.nome), {
+          direction: 'top',
+          offset: [0, -TAMANHO_ICONE_TECNICO - 8],
+          opacity: 0.95,
+          className: 'tooltip-tecnico-mapa',
+        });
+        marker.bindPopup(
+          `<strong>${escapeHtml(p.nome)}</strong>${p.nome_regiao ? `<br/><small>${escapeHtml(p.nome_regiao)}</small>` : ''}${p.email ? `<br/>${escapeHtml(p.email)}` : ''}<br/><small>${formatarAtualizado(p.atualizado_em)}</small>`,
+        );
+      }
       marker.addTo(tecnicosLayer.current);
     }
 
+    if (
+      mobile &&
+      tecnicoSel &&
+      temCoordenadaTecnico(tecnicoSel) &&
+      lojaSel &&
+      temCoordenadaLoja(lojaSel)
+    ) {
+      const pts: L.LatLngExpression[] = [
+        [Number(tecnicoSel.latitude), Number(tecnicoSel.longitude)],
+        [Number(lojaSel.latitude), Number(lojaSel.longitude)],
+      ];
+      L.polyline(pts, {
+        color: colors.orange,
+        weight: 3,
+        opacity: 0.85,
+        dashArray: '8 8',
+        lineCap: 'round',
+      }).addTo(linhaLayer.current);
+    }
+
+    const zoomUnico = mobile ? ZOOM_PONTO_UNICO_MOBILE : ZOOM_PONTO_UNICO;
+    const zoomMaxEnquadre = mobile ? ZOOM_MAXIMO_ENQUADRE_MOBILE : ZOOM_MAXIMO_ENQUADRE;
+
     if (!bounds.length) {
-      mapInstance.current.setView([-15.78, -47.93], ZOOM_PADRAO_BRASIL);
+      if (!vistaInicialAplicada.current) {
+        mapInstance.current.setView(
+          mobile ? CENTRO_DISTRITO_FEDERAL : [-15.78, -47.93],
+          mobile ? ZOOM_INICIAL_DF_MOBILE : ZOOM_PADRAO_BRASIL,
+        );
+        vistaInicialAplicada.current = true;
+      }
       return;
     }
 
-    if (bounds.length === 1) {
-      mapInstance.current.setView(bounds[0], ZOOM_PONTO_UNICO);
-    } else {
-      mapInstance.current.fitBounds(bounds as L.LatLngBoundsExpression, {
-        padding: [40, 40],
-        maxZoom: ZOOM_MAXIMO_ENQUADRE,
-      });
+    if (!vistaInicialAplicada.current && !usuarioMoveuMapa.current) {
+      if (mobile) {
+        mapInstance.current.setView(CENTRO_DISTRITO_FEDERAL, ZOOM_INICIAL_DF_MOBILE);
+      } else if (bounds.length === 1) {
+        mapInstance.current.setView(bounds[0], zoomUnico);
+      } else {
+        mapInstance.current.fitBounds(bounds as L.LatLngBoundsExpression, {
+          padding: [40, 40],
+          maxZoom: zoomMaxEnquadre,
+        });
+      }
+      vistaInicialAplicada.current = true;
     }
-  }, [posicoes, lojas, mapaPronto]);
+  }, [posicoes, lojas, mapaPronto, mobile, tecnicoDestaqueId, lojaDestaqueId]);
+
+  useEffect(() => {
+    if (!mapaPronto || !mapInstance.current || !mobile || !lojaDestaqueId) return;
+    if (lojaFocoAnterior.current === lojaDestaqueId) return;
+    lojaFocoAnterior.current = lojaDestaqueId;
+
+    const loja = lojas.find((l) => l.id_loja === lojaDestaqueId);
+    if (!loja || !temCoordenadaLoja(loja)) return;
+    const mapa = mapInstance.current;
+    const pontos: L.LatLngExpression[] = [[Number(loja.latitude), Number(loja.longitude)]];
+    const tecnico = posicoes.find((p) => p.id_usuario === tecnicoDestaqueId && temCoordenadaTecnico(p));
+    if (tecnico) {
+      pontos.push([Number(tecnico.latitude), Number(tecnico.longitude)]);
+    }
+    if (pontos.length === 1) {
+      mapa.flyTo(pontos[0], Math.max(mapa.getZoom(), 13), { duration: 0.55 });
+      return;
+    }
+    mapa.flyToBounds(pontos as L.LatLngBoundsExpression, {
+      padding: [120, 48],
+      maxZoom: 14,
+      duration: 0.55,
+    });
+  }, [lojaDestaqueId, tecnicoDestaqueId, mapaPronto, mobile, lojas, posicoes]);
+
+  useEffect(() => {
+    if (!lojaDestaqueId) {
+      lojaFocoAnterior.current = null;
+    }
+  }, [lojaDestaqueId]);
 
   useEffect(() => {
     if (!mapaPronto || !mapInstance.current || !mapRef.current || !preencherAltura) return;
@@ -408,7 +738,7 @@ export default function FrotaLocalizacaoMap({
   }, [mapaPronto, preencherAltura]);
 
   useEffect(() => {
-    if (!visivel || !mapaPronto || !mapInstance.current) return;
+    if (!visivel || !mapaPronto || !mapInstance.current || mobile) return;
     const mapa = mapInstance.current;
     const invalidar = () => mapa.invalidateSize();
     invalidar();
@@ -420,7 +750,13 @@ export default function FrotaLocalizacaoMap({
       window.clearTimeout(t2);
       window.clearTimeout(t3);
     };
-  }, [visivel, mapaPronto]);
+  }, [visivel, mapaPronto, mobile]);
+
+  useEffect(() => {
+    if (!autoRefreshIntervalMs || autoRefreshIntervalMs < 5000 || mobile) return;
+    const id = window.setInterval(() => onAtualizarRef.current(), autoRefreshIntervalMs);
+    return () => window.clearInterval(id);
+  }, [autoRefreshIntervalMs, mobile]);
 
   const lojasNoMapa = lojas.filter(temCoordenadaLoja).length;
 
@@ -432,13 +768,13 @@ export default function FrotaLocalizacaoMap({
           : undefined
       }
     >
-      {!gpsAtivo && (
+      {!gpsAtivo && !mobile && (
         <Alert severity="info" sx={{ mb: 1.25, py: 0.5, fontSize: '0.8rem', flexShrink: 0 }}>
           Rastreamento desativado no servidor (<code>GPS_TECNICOS_ENABLED=false</code>).
         </Alert>
       )}
 
-      {lojas.length > 0 && lojasNoMapa === 0 && (
+      {lojas.length > 0 && lojasNoMapa === 0 && !mobile && (
         <Alert severity="warning" sx={{ mb: 1.25, py: 0.5, fontSize: '0.8rem', flexShrink: 0 }}>
           As lojas vinculadas ainda não têm coordenadas GPS cadastradas.
         </Alert>
@@ -446,11 +782,13 @@ export default function FrotaLocalizacaoMap({
 
       <Paper
         variant="outlined"
+        elevation={mobile ? 0 : undefined}
         sx={{
-          borderColor: colors.border,
-          borderRadius: 2,
+          borderColor: mobile ? 'transparent' : colors.border,
+          borderRadius: mobile ? 3 : 2,
           overflow: 'hidden',
           position: 'relative',
+          bgcolor: mobile ? 'transparent' : undefined,
           ...(preencherAltura
             ? { flex: 1, minHeight: { xs: 240, md: 300 }, height: '100%' }
             : { height: { xs: 280, sm: 360 } }),
@@ -458,13 +796,132 @@ export default function FrotaLocalizacaoMap({
             width: '100%',
             height: '100%',
             minHeight: preencherAltura ? { xs: 240, md: 300 } : undefined,
+            touchAction: 'none',
+            fontFamily: 'inherit',
           },
           '& .leaflet-control-zoom': {
             border: 'none',
-            boxShadow: '0 1px 4px rgba(0,0,0,.3)',
-            borderRadius: 1,
-            marginLeft: 1.25,
-            marginTop: 1.25,
+            boxShadow: mobile ? '0 4px 16px rgba(0,0,0,.18)' : '0 1px 4px rgba(0,0,0,.3)',
+            borderRadius: mobile ? 2 : 1,
+            marginRight: mobile ? 1.25 : undefined,
+            marginBottom: mobile ? 1.25 : undefined,
+            marginLeft: mobile ? undefined : 1.25,
+            marginTop: mobile ? undefined : 1.25,
+            overflow: 'hidden',
+          },
+          '& .leaflet-control-zoom a': {
+            width: mobile ? 36 : 30,
+            height: mobile ? 36 : 30,
+            lineHeight: mobile ? '36px' : '30px',
+            fontSize: mobile ? '1.1rem' : undefined,
+          },
+          '@keyframes markerTechRing': {
+            '0%': { transform: 'scale(0.55)', opacity: 0.75 },
+            '100%': { transform: 'scale(1.45)', opacity: 0 },
+          },
+          '& .marcador-tecnico-pin': {
+            background: 'transparent !important',
+            border: 'none !important',
+          },
+          '& .marker-tech-pin': {
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            pointerEvents: 'auto',
+          },
+          '& .marker-tech-halo': {
+            position: 'absolute',
+            top: 2,
+            width: 44,
+            height: 44,
+            pointerEvents: 'none',
+          },
+          '& .marker-tech-ring': {
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            border: `2px solid rgba(27, 42, 107, 0.45)`,
+          },
+          '& .marker-tech-ring--1': {
+            animation: 'markerTechRing 2.4s ease-out infinite',
+          },
+          '& .marker-tech-ring--2': {
+            animation: 'markerTechRing 2.4s ease-out infinite 1.2s',
+          },
+          '& .marker-tech-pin.is-offline .marker-tech-halo': {
+            display: 'none',
+          },
+          '& .marker-tech-core': {
+            position: 'relative',
+            zIndex: 2,
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            background: `linear-gradient(155deg, ${colors.navy} 0%, #3d52a8 55%, ${colors.navy} 100%)`,
+            border: '3px solid #fff',
+            boxShadow: '0 6px 18px rgba(0,0,0,.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          '& .marker-tech-iniciais': {
+            color: '#fff',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+            letterSpacing: '0.03em',
+          },
+          '& .marker-tech-status': {
+            position: 'absolute',
+            right: -1,
+            bottom: -1,
+            width: 12,
+            height: 12,
+            borderRadius: '50%',
+            background: '#22c55e',
+            border: '2px solid #fff',
+            boxShadow: '0 1px 4px rgba(0,0,0,.25)',
+          },
+          '& .marker-tech-pin.is-offline .marker-tech-core': {
+            background: 'linear-gradient(155deg, #9e9e9e 0%, #bdbdbd 100%)',
+          },
+          '& .marker-tech-pin.is-offline .marker-tech-status': {
+            background: '#bdbdbd',
+          },
+          '& .marker-tech-pin.is-destaque .marker-tech-core': {
+            width: 46,
+            height: 46,
+            boxShadow: `0 0 0 4px rgba(27, 42, 107, 0.2), 0 8px 22px rgba(0,0,0,.4)`,
+          },
+          '& .marker-tech-pin.is-destaque .marker-tech-ring': {
+            borderColor: 'rgba(232, 82, 10, 0.55)',
+          },
+          '& .marker-tech-pointer': {
+            width: 0,
+            height: 0,
+            marginTop: -2,
+            borderLeft: '7px solid transparent',
+            borderRight: '7px solid transparent',
+            borderTop: `9px solid ${colors.navy}`,
+            filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.25))',
+            zIndex: 1,
+          },
+          '& .marker-tech-pin.is-destaque .marker-tech-pointer': {
+            borderTopColor: colors.orange,
+          },
+          '& .marker-tech-label': {
+            marginTop: 2,
+            padding: '2px 8px',
+            borderRadius: 999,
+            background: 'rgba(255,255,255,.96)',
+            color: colors.navy,
+            fontSize: '0.62rem',
+            fontWeight: 700,
+            boxShadow: '0 1px 6px rgba(0,0,0,.2)',
+            whiteSpace: 'nowrap',
+            maxWidth: 76,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           },
           '& .marcador-loja-marca': {
             background: 'transparent !important',
@@ -563,44 +1020,48 @@ export default function FrotaLocalizacaoMap({
       >
         <Box ref={mapRef} sx={{ width: '100%', height: '100%' }} />
 
-        <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
-          <Tooltip title="Atualizar localizações">
-            <span>
-              <IconButton
-                size="small"
-                onClick={onAtualizar}
-                disabled={carregando}
-                aria-label="Atualizar mapa"
-                sx={{
-                  bgcolor: 'background.paper',
-                  boxShadow: '0 1px 4px rgba(0,0,0,.3)',
-                  '&:hover': { bgcolor: 'grey.100' },
-                }}
-              >
-                {carregando ? <CircularProgress size={18} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Box>
+        {exibirAtualizar && (
+          <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
+            <Tooltip title="Atualizar localizações">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={onAtualizar}
+                  disabled={carregando}
+                  aria-label="Atualizar mapa"
+                  sx={{
+                    bgcolor: 'background.paper',
+                    boxShadow: '0 1px 4px rgba(0,0,0,.3)',
+                    '&:hover': { bgcolor: 'grey.100' },
+                  }}
+                >
+                  {carregando ? <CircularProgress size={18} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
+        )}
 
+        {exibirAlternarMapa && (
         <Box
           sx={{
             position: 'absolute',
-            left: 10,
-            bottom: 10,
+            left: mobile ? 'auto' : 10,
+            right: mobile ? 10 : 'auto',
+            bottom: mobile ? 72 : 10,
             zIndex: 1000,
             display: 'flex',
-            flexDirection: 'column',
+            flexDirection: mobile ? 'row' : 'column',
             gap: 0.75,
             pointerEvents: 'none',
           }}
         >
           <Paper
-            elevation={3}
+            elevation={mobile ? 4 : 3}
             sx={{
               display: 'flex',
               pointerEvents: 'auto',
-              borderRadius: 0.75,
+              borderRadius: mobile ? 999 : 0.75,
               overflow: 'hidden',
             }}
           >
@@ -610,7 +1071,11 @@ export default function FrotaLocalizacaoMap({
               onClick={() => setTipoMapa('rua')}
               sx={{
                 ...btnMapaSx,
-                bgcolor: tipoMapa === 'rua' ? 'grey.200' : 'background.paper',
+                px: mobile ? 1.5 : 1.25,
+                py: mobile ? 0.85 : 0.6,
+                fontSize: mobile ? '0.75rem' : '0.7rem',
+                bgcolor: tipoMapa === 'rua' ? (mobile ? colors.navy : 'grey.200') : 'background.paper',
+                color: tipoMapa === 'rua' && mobile ? '#fff' : 'text.primary',
                 border: 'none',
                 cursor: 'pointer',
                 borderRight: '1px solid',
@@ -625,7 +1090,11 @@ export default function FrotaLocalizacaoMap({
               onClick={() => setTipoMapa('satelite')}
               sx={{
                 ...btnMapaSx,
-                bgcolor: tipoMapa === 'satelite' ? 'grey.200' : 'background.paper',
+                px: mobile ? 1.5 : 1.25,
+                py: mobile ? 0.85 : 0.6,
+                fontSize: mobile ? '0.75rem' : '0.7rem',
+                bgcolor: tipoMapa === 'satelite' ? (mobile ? colors.navy : 'grey.200') : 'background.paper',
+                color: tipoMapa === 'satelite' && mobile ? '#fff' : 'text.primary',
                 border: 'none',
                 cursor: 'pointer',
               }}
@@ -634,6 +1103,7 @@ export default function FrotaLocalizacaoMap({
             </Box>
           </Paper>
 
+          {!mobile && (
           <Paper
             elevation={3}
             sx={{
@@ -669,7 +1139,9 @@ export default function FrotaLocalizacaoMap({
               Tráfego
             </Box>
           </Paper>
+          )}
         </Box>
+        )}
 
         {posicoes.length === 0 && lojas.length === 0 && !carregando && (
           <Box

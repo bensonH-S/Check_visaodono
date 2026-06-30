@@ -19,6 +19,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'lojas.todas', nome: 'Acesso a todas as lojas', grupo: 'Lojas', ordem: 130 },
   { codigo: 'frota.regioes', nome: 'Gerenciar regiões de atuação', grupo: 'Lojas', ordem: 131 },
   { codigo: 'frota.usar', nome: 'Usar módulo de frota no app mobile', grupo: 'Frota', ordem: 140 },
+  { codigo: 'frota.mapa.ver', nome: 'Ver mapa de técnicos em tempo real', grupo: 'Frota', ordem: 142 },
   { codigo: 'frota.gerenciar', nome: 'Cadastrar veículos e gerenciar frota', grupo: 'Frota', ordem: 145 },
 ];
 

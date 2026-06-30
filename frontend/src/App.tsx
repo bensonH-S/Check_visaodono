@@ -37,6 +37,7 @@ import FrotaCombustivelPortalPage from './pages/frota/FrotaCombustivelPortalPage
 import FrotaManutencaoPortalPage from './pages/frota/FrotaManutencaoPortalPage';
 import FrotaTermosPortalPage from './pages/frota/FrotaTermosPortalPage';
 import FrotaRegioesPortalPage from './pages/frota/FrotaRegioesPortalPage';
+import MapaTecnicosMobilePage from './pages/mapa/MapaTecnicosMobilePage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -53,6 +54,7 @@ import RotaPermissao from './components/RotaPermissao';
 import RotaChecklist from './components/RotaChecklist';
 import RotaVisitasMobile from './components/RotaVisitasMobile';
 import RotaFrota from './components/RotaFrota';
+import RotaMapaTecnicos from './components/RotaMapaTecnicos';
 import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
 
@@ -130,6 +132,14 @@ export default function App() {
                 <RotaFrota>
                   <FrotaMobileHubPage />
                 </RotaFrota>
+              }
+            />
+            <Route
+              path="mapa/mobile"
+              element={
+                <RotaMapaTecnicos>
+                  <MapaTecnicosMobilePage />
+                </RotaMapaTecnicos>
               }
             />
             <Route
