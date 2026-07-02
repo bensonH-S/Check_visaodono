@@ -360,7 +360,7 @@ export default function EscalaVisitasPage() {
                               {(grade?.regionais ?? []).map((r) => (
                                 <MenuItem key={r.id_usuario} value={r.id_usuario}>
                                   <Checkbox size="small" checked={idsReg.includes(r.id_usuario)} sx={{ py: 0, mr: 0.5 }} />
-                                  <ListItemText primary={r.nome} primaryTypographyProps={{ fontSize: '0.82rem' }} />
+                                  <ListItemText primary={r.nome} slotProps={{ primary: { sx: { fontSize: '0.82rem' } } }} />
                                 </MenuItem>
                               ))}
                             </Select>
