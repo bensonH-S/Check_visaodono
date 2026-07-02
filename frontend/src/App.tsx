@@ -38,6 +38,8 @@ import FrotaManutencaoPortalPage from './pages/frota/FrotaManutencaoPortalPage';
 import FrotaTermosPortalPage from './pages/frota/FrotaTermosPortalPage';
 import FrotaRegioesPortalPage from './pages/frota/FrotaRegioesPortalPage';
 import MapaTecnicosMobilePage from './pages/mapa/MapaTecnicosMobilePage';
+import EscalaVisitasPage from './pages/escalas/EscalaVisitasPage';
+import EscalaVisitasMobilePage from './pages/escalas/EscalaVisitasMobilePage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -148,6 +150,14 @@ export default function App() {
                 <RotaVisitasMobile>
                   <VisitasPage />
                 </RotaVisitasMobile>
+              }
+            />
+            <Route
+              path="escalas/visitas/mobile"
+              element={
+                <RotaPermissao permissoes={['escalas.visitas.ver', 'escalas.visitas.gerenciar']}>
+                  <EscalaVisitasMobilePage />
+                </RotaPermissao>
               }
             />
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
@@ -269,6 +279,14 @@ export default function App() {
               element={
                 <RotaPermissao permissoes={['portal.visitas.ver']}>
                   <VisitasPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="escalas/visitas"
+              element={
+                <RotaPermissao permissoes={['escalas.visitas.ver', 'escalas.visitas.gerenciar']}>
+                  <EscalaVisitasPage />
                 </RotaPermissao>
               }
             />

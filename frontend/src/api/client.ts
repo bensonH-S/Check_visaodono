@@ -501,6 +501,13 @@ export const api = {
   },
   frotaAtualizarPosicao: (body: { latitude: number; longitude: number; precisao_metros?: number }) =>
     request<{ ok: boolean }>('/frota/posicao', { method: 'POST', body: JSON.stringify(body) }),
+
+  escalaVisitasSemana: (query: string) =>
+    request<EscalaVisitasGrade>(`/escalas/visitas/semana?${query}`),
+  escalaVisitasSalvar: (body: EscalaVisitasSalvarBody) =>
+    request<EscalaVisitasGrade>('/escalas/visitas/semana', { method: 'PUT', body: JSON.stringify(body) }),
+  escalaVisitasCopiar: (body: { de: string; para: string }) =>
+    request<EscalaVisitasGrade>('/escalas/visitas/semana/copiar', { method: 'POST', body: JSON.stringify(body) }),
 };
 
 export interface Loja {
@@ -1008,6 +1015,49 @@ export interface FrotaMapaPosicoes {
   tecnicos: FrotaTecnicoPosicao[];
   lojas: FrotaRegiaoLoja[];
   regioes: { id_regiao: number; nome: string }[];
+}
+
+export interface EscalaVisitasRegional {
+  id_usuario: number;
+  nome: string;
+  avatar_inicial?: string | null;
+  cor: string;
+}
+
+export interface EscalaVisitasDia {
+  dia: number;
+  id_regional: number | null;
+  nome_regional?: string | null;
+  cor?: string | null;
+  observacao?: string | null;
+}
+
+export interface EscalaVisitasLinha {
+  id_loja: number;
+  nome: string;
+  bk_number?: string | null;
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
+  total_visitas: number;
+  dias: EscalaVisitasDia[];
+}
+
+export interface EscalaVisitasGrade {
+  id_semana: number;
+  semana_inicio: string;
+  semana_fim: string;
+  semana_label: string;
+  pode_editar: boolean;
+  id_regiao_filtro: number | null;
+  regionais: EscalaVisitasRegional[];
+  regioes: Array<{ id_regiao: number; nome: string }>;
+  linhas: EscalaVisitasLinha[];
+}
+
+export interface EscalaVisitasSalvarBody {
+  semana_inicio: string;
+  id_regiao?: number | null;
+  celulas: Array<{ id_loja: number; dia: number; id_regional: number | null; observacao?: string | null }>;
 }
 
 export interface FrotaRegiaoVeiculo {

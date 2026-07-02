@@ -15,6 +15,8 @@ type Props = {
   tagExpandida?: boolean;
   /** Oculta só a tag de loja/região ao lado do “Olá” */
   ocultarTagLoja?: boolean;
+  /** Layout enxuto — páginas com muito conteúdo rolável (ex.: escala) */
+  compacto?: boolean;
 };
 
 function nomeSaudacao(nome?: string | null) {
@@ -28,22 +30,24 @@ export default function MobilePaginaTitulo({
   tagRegiaoTitulo,
   tagExpandida = false,
   ocultarTagLoja = false,
+  compacto = false,
 }: Props) {
   return (
-    <Box sx={{ mb: 2, pt: 0, pl: 0.5 }}>
+    <Box sx={{ mb: compacto ? 0.75 : 2, pt: 0, pl: 0.5 }}>
       <Typography
         component="h1"
         sx={{
           fontWeight: 900,
-          fontSize: '1.95rem',
+          fontSize: compacto ? '1.35rem' : '1.95rem',
           lineHeight: 1.1,
           color: NAVY,
           letterSpacing: '-0.03em',
-          mb: 1.25,
+          mb: compacto ? 0 : 1.25,
         }}
       >
         {titulo}
       </Typography>
+      {!compacto && (
       <Box
         sx={{
           display: 'flex',
@@ -111,6 +115,7 @@ export default function MobilePaginaTitulo({
           </Box>
         )}
       </Box>
+      )}
     </Box>
   );
 }

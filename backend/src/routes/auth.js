@@ -12,7 +12,7 @@ const router = Router();
 
 function precisaRegioesAtuacaoSessao(row, permissoes) {
   const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes, cargo_aprovacao: row.cargo_aprovacao };
-  if (temPermissao(userCtx, 'chamados.assumir') || temPermissao(userCtx, 'frota.regioes') || temPermissao(userCtx, 'frota.mapa.ver')) return true;
+  if (temPermissao(userCtx, 'chamados.assumir') || temPermissao(userCtx, 'frota.regioes') || temPermissao(userCtx, 'frota.mapa.ver') || temPermissao(userCtx, 'escalas.visitas.ver')) return true;
   const cargo = String(row.cargo_aprovacao || row.perfil || '').toLowerCase();
   return cargo === 'supervisor_regional' || cargo === 'regional' || cargo === 'supervisor';
 }

@@ -367,3 +367,11 @@ export function podeVerMapaTecnicosMobile(usuario?: UsuarioSessao | null): boole
   }
   return false;
 }
+
+export function podeGerenciarEscalaVisitas(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('escalas.visitas.gerenciar', usuario);
+}
+
+export function podeVerEscalaVisitas(usuario?: UsuarioSessao | null): boolean {
+  return podeGerenciarEscalaVisitas(usuario) || temPermissao('escalas.visitas.ver', usuario);
+}

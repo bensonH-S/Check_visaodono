@@ -12,6 +12,7 @@ export function mobilePaginaCabecalhoFixo(pathname: string): boolean {
     p === '/chamados/mobile' ||
     mobileDetalheChamado(pathname) ||
     p === '/visitas/mobile' ||
+    p === '/escalas/visitas/mobile' ||
     p === '/mapa/mobile' ||
     p === '/frota/mobile' ||
     p === '/checklist/mobile' ||
@@ -28,6 +29,7 @@ export function isMobileAppPath(pathname: string): boolean {
     p.startsWith('/frota/mobile') ||
     p.startsWith('/mapa/mobile') ||
     p.startsWith('/visitas/mobile') ||
+    p.startsWith('/escalas/visitas/mobile') ||
     p.startsWith('/relatorio/visita/') ||
     p === '/login/mobile'
   );

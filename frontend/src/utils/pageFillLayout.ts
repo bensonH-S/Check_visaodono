@@ -14,6 +14,7 @@ export function isPaginaScrollInterno(path: string): boolean {
   return (
     path === '/chamados' ||
     path === '/visitas' ||
+    path === '/escalas/visitas' ||
     path === '/chamados/aprovacoes' ||
     path === '/frota/regioes' ||
     path === '/frota/veiculos' ||

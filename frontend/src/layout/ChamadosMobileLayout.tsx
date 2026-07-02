@@ -11,6 +11,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import BrandLogo from '../components/BrandLogo';
 import NotificacoesSino from '../components/NotificacoesSino';
 import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
@@ -24,7 +25,7 @@ import MapaTecnicosListaLojas from '../components/mapa/MapaTecnicosListaLojas';
 import { MapaTecnicosMobileProvider } from '../pages/mapa/MapaTecnicosMobileContext';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
@@ -239,6 +240,7 @@ function ChamadosMobileLayoutInner() {
   const isMapa = path === '/mapa/mobile';
   const isFrotaSub = isFrota && path !== '/frota/mobile';
   const isVisitas = path === '/visitas/mobile';
+  const isEscalaVisitas = path === '/escalas/visitas/mobile';
   const isRelatorio = path.startsWith('/relatorio/visita/');
   const isChecklistHub = path === '/checklist/mobile';
   const isChecklistEmAndamento = isChecklist && !isChecklistHub && !isChecklistConcluido;
@@ -257,6 +259,7 @@ function ChamadosMobileLayoutInner() {
   const podeFrota = user && podeUsarFrota(user);
   const podeMapa = user && podeVerMapaTecnicosMobile(user);
   const podeVisitas = user && podeVerVisitasMobile(user);
+  const podeEscalaVisitas = user && podeVerEscalaVisitas(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
 
@@ -301,6 +304,12 @@ function ChamadosMobileLayoutInner() {
       show: !!podeFrota,
     },
     {
+      to: '/escalas/visitas/mobile',
+      label: 'Escala',
+      icon: <CalendarMonthIcon fontSize="small" />,
+      show: !!podeEscalaVisitas,
+    },
+    {
       to: '/mapa/mobile',
       label: 'Mapa',
       icon: <MapOutlinedIcon fontSize="small" />,
@@ -321,6 +330,8 @@ function ChamadosMobileLayoutInner() {
           ? 'Checklist'
           : isVisitas
             ? 'Visitas e relatórios'
+          : isEscalaVisitas
+            ? 'Escala de visitas'
           : isMapa
             ? 'Mapa de técnicos'
           : isRelatorio
@@ -348,6 +359,8 @@ function ChamadosMobileLayoutInner() {
             ? 'Checklist'
             : isVisitas
               ? 'Visitas e relatórios'
+            : isEscalaVisitas
+              ? 'Escala de visitas'
             : isMapa
               ? 'Mapa de técnicos'
             : isRelatorio
@@ -520,6 +533,7 @@ function ChamadosMobileLayoutInner() {
               tagRegiaoTitulo={contextoAtuacaoMobile}
               tagExpandida={tagLojaCompleta}
               ocultarTagLoja={isDetalhe}
+              compacto={isEscalaVisitas}
             />
           </Box>
         </Box>
@@ -547,7 +561,7 @@ function ChamadosMobileLayoutInner() {
         </Box>
       </Box>
 
-      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isRelatorio && !isMapa && (
+      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && (
         <Fab
           aria-label="Abrir novo chamado"
           onClick={() => navigate('/chamados/mobile/novo')}

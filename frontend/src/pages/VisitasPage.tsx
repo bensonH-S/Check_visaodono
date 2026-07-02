@@ -21,6 +21,7 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import IconeMenuTresTracos from '../components/IconeMenuTresTracos';
+import EscalaMinhaSemanaCard from '../components/escalas/EscalaMinhaSemanaCard';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
@@ -449,6 +450,10 @@ export default function VisitasPage() {
           </Box>
 
           <Box sx={{ ...MOBILE_SCROLL_AREA, display: 'flex', flexDirection: 'column', gap: 1.25, pb: 0.5 }}>
+            <EscalaMinhaSemanaCard linkGrade="/escalas/visitas/mobile" />
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, px: 0.5 }}>
+              Histórico de visitas realizadas
+            </Typography>
             {modoLista ? (
               <Paper
                 elevation={0}

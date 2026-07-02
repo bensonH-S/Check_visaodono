@@ -61,6 +61,7 @@
     "migrate:assuncao-km-fim": "node scripts/run-sql.js migrations/065_assuncao_km_fim.sql",
     "migrate:cargo-checklist-diretor-ceo": "node scripts/run-sql.js migrations/066_cargo_checklist_diretor_ceo.sql",
     "migrate:frota-mapa-tecnicos": "node scripts/run-sql.js migrations/067_frota_mapa_tecnicos_perm.sql",
+    "migrate:escala-visitas": "node scripts/run-sql.js migrations/068_escala_visitas.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "validate:vapid": "node scripts/validate-vapid.js",
