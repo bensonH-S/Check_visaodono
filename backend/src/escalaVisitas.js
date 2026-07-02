@@ -147,6 +147,16 @@ async function lojasGrade(user, idRegiaoFiltro) {
   return rows;
 }
 
+function regionaisParaSalvar(item) {
+  if (Array.isArray(item.id_regionais)) {
+    return [...new Set(item.id_regionais.map(Number).filter(Boolean))];
+  }
+  if (item.id_regional != null && item.id_regional !== '') {
+    return [Number(item.id_regional)];
+  }
+  return [];
+}
+
 async function obterOuCriarSemana(semanaInicio, idUsuario) {
   const { rows } = await pool.query(
     `INSERT INTO escala_visitas_semana (semana_inicio, atualizado_por)
@@ -173,10 +183,11 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
   let celulas = [];
   if (idsLojas.length) {
     const { rows } = await pool.query(
-      `SELECT c.id_loja, c.dia, c.id_regional, c.observacao, u.nome AS nome_regional
+      `SELECT c.id_celula, c.id_loja, c.dia, c.id_regional, c.observacao, u.nome AS nome_regional
        FROM escala_visitas_celula c
        LEFT JOIN usuarios u ON u.id_usuario = c.id_regional
-       WHERE c.id_semana = $1 AND c.id_loja = ANY($2::int[])`,
+       WHERE c.id_semana = $1 AND c.id_loja = ANY($2::int[])
+       ORDER BY c.id_loja, c.dia, c.id_celula`,
       [semana.id_semana, idsLojas],
     );
     celulas = rows;
@@ -184,7 +195,9 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
 
   const mapCel = new Map();
   for (const c of celulas) {
-    mapCel.set(`${c.id_loja}-${c.dia}`, c);
+    const key = `${c.id_loja}-${c.dia}`;
+    if (!mapCel.has(key)) mapCel.set(key, []);
+    mapCel.get(key).push(c);
   }
 
   const mapCor = new Map(regionais.map((r) => [r.id_usuario, r.cor]));
@@ -193,14 +206,25 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     const dias = [];
     let totalVisitas = 0;
     for (let dia = 0; dia < 7; dia++) {
-      const c = mapCel.get(`${loja.id_loja}-${dia}`);
-      if (c?.id_regional) totalVisitas += 1;
+      const lista = mapCel.get(`${loja.id_loja}-${dia}`) ?? [];
+      const atribuicoes = lista
+        .filter((c) => c.id_regional != null)
+        .map((c) => ({
+          id_celula: c.id_celula,
+          id_regional: c.id_regional,
+          nome_regional: c.nome_regional ?? null,
+          cor: mapCor.get(c.id_regional) || '#64748B',
+          observacao: c.observacao ?? null,
+        }));
+      totalVisitas += atribuicoes.length;
+      const primeira = atribuicoes[0];
       dias.push({
         dia,
-        id_regional: c?.id_regional ?? null,
-        nome_regional: c?.nome_regional ?? null,
-        cor: c?.id_regional ? mapCor.get(c.id_regional) || '#64748B' : null,
-        observacao: c?.observacao ?? null,
+        atribuicoes,
+        id_regional: primeira?.id_regional ?? null,
+        nome_regional: primeira?.nome_regional ?? null,
+        cor: primeira?.cor ?? null,
+        observacao: primeira?.observacao ?? null,
       });
     }
     return {
@@ -242,25 +266,30 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
       const dia = Number(item.dia);
       if (!idLoja || dia < 0 || dia > 6) continue;
 
-      const idRegional = item.id_regional != null && item.id_regional !== ''
-        ? Number(item.id_regional)
-        : null;
+      const idsRegional = regionaisParaSalvar(item);
       const obs = item.observacao != null ? String(item.observacao).trim() || null : null;
 
-      if (!idRegional && !obs) {
-        await client.query(
-          `DELETE FROM escala_visitas_celula
-           WHERE id_semana = $1 AND id_loja = $2 AND dia = $3`,
-          [semana.id_semana, idLoja, dia],
-        );
-      } else {
+      await client.query(
+        `DELETE FROM escala_visitas_celula
+         WHERE id_semana = $1 AND id_loja = $2 AND dia = $3`,
+        [semana.id_semana, idLoja, dia],
+      );
+
+      if (!idsRegional.length && !obs) continue;
+
+      for (const idRegional of idsRegional) {
         await client.query(
           `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_regional, observacao)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (id_semana, id_loja, dia) DO UPDATE SET
-             id_regional = EXCLUDED.id_regional,
-             observacao = EXCLUDED.observacao`,
+           VALUES ($1, $2, $3, $4, $5)`,
           [semana.id_semana, idLoja, dia, idRegional, obs],
+        );
+      }
+
+      if (!idsRegional.length && obs) {
+        await client.query(
+          `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_regional, observacao)
+           VALUES ($1, $2, $3, NULL, $4)`,
+          [semana.id_semana, idLoja, dia, obs],
         );
       }
     }
@@ -298,7 +327,8 @@ export async function copiarSemanaVisitas(user, { de, para }) {
     `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_regional, observacao)
      SELECT $2, id_loja, dia, id_regional, observacao
      FROM escala_visitas_celula
-     WHERE id_semana = $1`,
+     WHERE id_semana = $1
+     ORDER BY id_celula`,
     [semOrigem.id_semana, semDestino.id_semana],
   );
 

@@ -62,6 +62,7 @@
     "migrate:cargo-checklist-diretor-ceo": "node scripts/run-sql.js migrations/066_cargo_checklist_diretor_ceo.sql",
     "migrate:frota-mapa-tecnicos": "node scripts/run-sql.js migrations/067_frota_mapa_tecnicos_perm.sql",
     "migrate:escala-visitas": "node scripts/run-sql.js migrations/068_escala_visitas.sql",
+    "migrate:escala-visitas-multi": "node scripts/run-sql.js migrations/069_escala_visitas_multiplos_regionais.sql",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",
     "validate:vapid": "node scripts/validate-vapid.js",

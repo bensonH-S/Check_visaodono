@@ -33,6 +33,7 @@ import {
   primeiroNome,
   segundaFeiraAtual,
 } from './escalaVisitasUtils';
+import { atribuicoesDoDia, diaTemRegional } from './escalaVisitasModel';
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
@@ -50,16 +51,23 @@ function LojaVisitaCard({
   nome,
   bk,
   regional,
+  regionais,
   cor,
   ocultarRegional = false,
 }: {
   nome: string;
   bk?: string | null;
   regional?: string | null;
+  regionais?: Array<{ nome: string; cor?: string | null }>;
   cor?: string | null;
   ocultarRegional?: boolean;
 }) {
-  const accent = cor || colors.navy;
+  const lista = regionais?.length
+    ? regionais
+    : regional
+      ? [{ nome: regional, cor }]
+      : [];
+  const accent = lista[0]?.cor || cor || colors.navy;
   return (
     <Paper
       elevation={0}
@@ -80,20 +88,24 @@ function LojaVisitaCard({
           {bk ? `${bk} · ` : ''}
           {nome}
         </Typography>
-        {!ocultarRegional && regional && (
-          <Chip
-            size="small"
-            label={primeiroNome(regional)}
-            sx={{
-              mt: 0.35,
-              height: 20,
-              fontWeight: 600,
-              fontSize: '0.68rem',
-              bgcolor: `${accent}14`,
-              color: colors.navy,
-              border: `1px solid ${accent}44`,
-            }}
-          />
+        {!ocultarRegional && lista.length > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.35 }}>
+            {lista.map((r) => (
+              <Chip
+                key={r.nome}
+                size="small"
+                label={primeiroNome(r.nome)}
+                sx={{
+                  height: 20,
+                  fontWeight: 600,
+                  fontSize: '0.68rem',
+                  bgcolor: `${r.cor || accent}14`,
+                  color: colors.navy,
+                  border: `1px solid ${r.cor || accent}44`,
+                }}
+              />
+            ))}
+          </Box>
         )}
       </Box>
     </Paper>
@@ -210,15 +222,23 @@ function FaixaSemanaLoja({ dias }: { dias: EscalaVisitasDia[] }) {
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 0.5, mt: 1.25 }}>
       {dias.map((d, i) => {
-        const temVisita = d.id_regional != null;
-        const cor = d.cor || colors.border;
+        const attrs = atribuicoesDoDia(d);
+        const temVisita = attrs.length > 0;
+        const cor = attrs[0]?.cor || colors.border;
+        const rotulo =
+          attrs.length > 1
+            ? String(attrs.length)
+            : attrs[0]?.nome_regional
+              ? primeiroNome(attrs[0].nome_regional).slice(0, 3)
+              : '—';
+        const titulo = attrs.map((a) => a.nome_regional).filter(Boolean).join(', ') || 'Sem visita';
         return (
           <Box key={d.dia} sx={{ textAlign: 'center', minWidth: 0 }}>
             <Typography variant="caption" sx={{ fontSize: '0.62rem', color: colors.textMuted, fontWeight: 600 }}>
               {DIAS_ABREV[i]}
             </Typography>
             <Box
-              title={d.nome_regional ?? 'Sem visita'}
+              title={titulo}
               sx={{
                 mt: 0.35,
                 py: 0.65,
@@ -235,7 +255,7 @@ function FaixaSemanaLoja({ dias }: { dias: EscalaVisitasDia[] }) {
                 whiteSpace: 'nowrap',
               }}
             >
-              {temVisita && d.nome_regional ? primeiroNome(d.nome_regional).slice(0, 3) : '—'}
+              {temVisita ? rotulo : '—'}
             </Box>
           </Box>
         );
@@ -308,7 +328,9 @@ export default function EscalaVisitasMobileView() {
     for (const r of grade?.regionais ?? []) m.set(r.id_usuario, r.nome);
     for (const linha of grade?.linhas ?? []) {
       for (const d of linha.dias) {
-        if (d.id_regional != null && d.nome_regional) m.set(d.id_regional, d.nome_regional);
+        for (const a of atribuicoesDoDia(d)) {
+          if (a.id_regional != null && a.nome_regional) m.set(a.id_regional, a.nome_regional);
+        }
       }
     }
     return m;
@@ -321,18 +343,22 @@ export default function EscalaVisitasMobileView() {
         id_loja: number;
         nome: string;
         bk?: string | null;
-        regional?: string | null;
+        regionais: Array<{ nome: string; cor?: string | null }>;
         cor?: string | null;
       }> = [];
       for (const linha of grade.linhas) {
         const c = linha.dias[dia];
-        if (c.id_regional == null) continue;
+        const attrs = atribuicoesDoDia(c);
+        if (!attrs.length) continue;
         itens.push({
           id_loja: linha.id_loja,
           nome: linha.nome,
           bk: linha.bk_number,
-          regional: c.nome_regional ?? mapNome.get(c.id_regional) ?? undefined,
-          cor: c.cor ?? undefined,
+          regionais: attrs.map((a) => ({
+            nome: a.nome_regional ?? mapNome.get(a.id_regional!) ?? '—',
+            cor: a.cor ?? undefined,
+          })),
+          cor: attrs[0]?.cor ?? undefined,
         });
       }
       return {
@@ -352,16 +378,20 @@ export default function EscalaVisitasMobileView() {
         itens: d.itens.filter((i) => {
           const linha = grade?.linhas.find((l) => l.id_loja === i.id_loja);
           const c = linha?.dias[d.dia];
-          return c?.id_regional === idEu;
+          return c != null && diaTemRegional(c, idEu);
         }),
       }))
       .filter((d) => d.itens.length > 0);
   }, [visitasPorDia, idEu, grade]);
 
-  const totalVisitas = useMemo(
-    () => visitasPorDia.reduce((acc, d) => acc + d.itens.length, 0),
-    [visitasPorDia],
-  );
+  const totalVisitas = useMemo(() => {
+    if (!grade) return 0;
+    let n = 0;
+    for (const linha of grade.linhas) {
+      for (const d of linha.dias) n += atribuicoesDoDia(d).length;
+    }
+    return n;
+  }, [grade]);
   const hojeIndex = diaIndexNaSemana(semanaInicio);
   const visitasHojeMinhas = useMemo(() => {
     if (hojeIndex == null || !idEu) return 0;
@@ -552,7 +582,7 @@ export default function EscalaVisitasMobileView() {
                   key={`${d.dia}-${item.id_loja}`}
                   nome={item.nome}
                   bk={item.bk}
-                  regional={item.regional}
+                  regionais={item.regionais}
                   cor={item.cor}
                   ocultarRegional
                 />
@@ -659,7 +689,7 @@ export default function EscalaVisitasMobileView() {
               key={item.id_loja}
               nome={item.nome}
               bk={item.bk}
-              regional={item.regional}
+              regionais={item.regionais}
               cor={item.cor}
             />
           ))}

@@ -1024,9 +1024,19 @@ export interface EscalaVisitasRegional {
   cor: string;
 }
 
+export interface EscalaVisitasAtribuicao {
+  id_celula?: number;
+  id_regional: number | null;
+  nome_regional?: string | null;
+  cor?: string | null;
+  observacao?: string | null;
+}
+
 export interface EscalaVisitasDia {
   dia: number;
-  id_regional: number | null;
+  atribuicoes: EscalaVisitasAtribuicao[];
+  /** Primeira atribuição — compatibilidade */
+  id_regional?: number | null;
   nome_regional?: string | null;
   cor?: string | null;
   observacao?: string | null;
@@ -1057,7 +1067,13 @@ export interface EscalaVisitasGrade {
 export interface EscalaVisitasSalvarBody {
   semana_inicio: string;
   id_regiao?: number | null;
-  celulas: Array<{ id_loja: number; dia: number; id_regional: number | null; observacao?: string | null }>;
+  celulas: Array<{
+    id_loja: number;
+    dia: number;
+    id_regionais?: number[];
+    id_regional?: number | null;
+    observacao?: string | null;
+  }>;
 }
 
 export interface FrotaRegiaoVeiculo {

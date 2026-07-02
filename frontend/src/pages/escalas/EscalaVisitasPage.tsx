@@ -7,7 +7,10 @@ import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import LinearProgress from '@mui/material/LinearProgress';
+import Checkbox from '@mui/material/Checkbox';
+import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
+import OutlinedInput from '@mui/material/OutlinedInput';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import Table from '@mui/material/Table';
@@ -27,6 +30,8 @@ import { podeGerenciarEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
+import { atribuicoesDoDia, idsRegionaisDoDia } from '../../components/escalas/escalaVisitasModel';
+import { primeiroNome } from '../../components/escalas/escalaVisitasUtils';
 
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 
@@ -50,7 +55,7 @@ function fmtDataCurta(iso: string) {
 }
 
 type CelulaChave = string;
-type PendingMap = Map<CelulaChave, { id_loja: number; dia: number; id_regional: number | null }>;
+type PendingMap = Map<CelulaChave, { id_loja: number; dia: number; id_regionais: number[] }>;
 
 function chaveCelula(idLoja: number, dia: number) {
   return `${idLoja}-${dia}`;
@@ -70,8 +75,8 @@ export default function EscalaVisitasPage() {
     for (const r of grade?.regionais ?? []) m.set(r.id_usuario, r.cor);
     for (const linha of grade?.linhas ?? []) {
       for (const d of linha.dias) {
-        if (d.id_regional != null && d.cor) {
-          m.set(d.id_regional, d.cor);
+        for (const a of atribuicoesDoDia(d)) {
+          if (a.id_regional != null && a.cor) m.set(a.id_regional, a.cor);
         }
       }
     }
@@ -83,8 +88,8 @@ export default function EscalaVisitasPage() {
     for (const r of grade?.regionais ?? []) m.set(r.id_usuario, r.nome);
     for (const linha of grade?.linhas ?? []) {
       for (const d of linha.dias) {
-        if (d.id_regional != null && d.nome_regional) {
-          m.set(d.id_regional, d.nome_regional);
+        for (const a of atribuicoesDoDia(d)) {
+          if (a.id_regional != null && a.nome_regional) m.set(a.id_regional, a.nome_regional);
         }
       }
     }
@@ -110,19 +115,19 @@ export default function EscalaVisitasPage() {
     void carregar();
   }, [carregar]);
 
-  function alterarCelula(idLoja: number, dia: number, idRegional: number | null) {
+  function alterarCelula(idLoja: number, dia: number, idRegionais: number[]) {
     if (!podeEditar) return;
     setPending((prev) => {
       const next = new Map(prev);
-      next.set(chaveCelula(idLoja, dia), { id_loja: idLoja, dia, id_regional: idRegional });
+      next.set(chaveCelula(idLoja, dia), { id_loja: idLoja, dia, id_regionais: idRegionais });
       return next;
     });
   }
 
-  function valorCelula(idLoja: number, dia: number, original: number | null) {
+  function valorCelula(idLoja: number, dia: number, original: EscalaVisitasLinha['dias'][number]) {
     const p = pending.get(chaveCelula(idLoja, dia));
-    if (p) return p.id_regional;
-    return original;
+    if (p) return p.id_regionais;
+    return idsRegionaisDoDia(original);
   }
 
   async function salvar() {
@@ -169,9 +174,9 @@ export default function EscalaVisitasPage() {
     return grade.linhas.map((linha: EscalaVisitasLinha) => {
       let total = 0;
       const dias = linha.dias.map((d) => {
-        const idReg = valorCelula(linha.id_loja, d.dia, d.id_regional);
-        if (idReg) total += 1;
-        return { ...d, id_regional_efetivo: idReg };
+        const idsReg = valorCelula(linha.id_loja, d.dia, d);
+        total += idsReg.length;
+        return { ...d, ids_regional_efetivo: idsReg };
       });
       return { ...linha, dias, total_visitas_efetivo: total };
     });
@@ -315,61 +320,78 @@ export default function EscalaVisitasPage() {
                       )}
                     </TableCell>
                     {linha.dias.map((d) => {
-                      const idReg = d.id_regional_efetivo;
-                      const cor = idReg ? mapCorRegional.get(idReg) || '#64748B' : undefined;
-                      const nome = idReg ? mapNomeRegional.get(idReg) || '—' : '';
-                      const primeiroNome = nome.split(' ')[0] || '';
+                      const idsReg = d.ids_regional_efetivo;
+                      const nomes = idsReg
+                        .map((id) => mapNomeRegional.get(id))
+                        .filter(Boolean)
+                        .map((n) => primeiroNome(n!));
+                      const tooltip = nomes.length ? nomes.join(', ') : 'Sem visita';
+                      const cor = idsReg.length === 1 ? mapCorRegional.get(idsReg[0]) || '#64748B' : undefined;
                       return (
-                        <TableCell key={d.dia} align="center" sx={{ p: 0.5 }}>
+                        <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
                           {podeEditar ? (
                             <Select
+                              multiple
                               size="small"
                               displayEmpty
-                              value={idReg ?? ''}
+                              value={idsReg}
+                              input={<OutlinedInput />}
                               onChange={(e) => {
                                 const v = e.target.value;
-                                alterarCelula(linha.id_loja, d.dia, String(v) === '' ? null : Number(v));
+                                const lista = typeof v === 'string' ? v.split(',').map(Number) : (v as number[]);
+                                alterarCelula(linha.id_loja, d.dia, lista);
+                              }}
+                              renderValue={(selected) => {
+                                const ids = selected as number[];
+                                if (!ids.length) return '—';
+                                return ids
+                                  .map((id) => primeiroNome(mapNomeRegional.get(id) ?? ''))
+                                  .filter(Boolean)
+                                  .join(', ');
                               }}
                               sx={{
                                 width: '100%',
-                                maxWidth: 120,
-                                fontSize: '0.75rem',
-                                bgcolor: cor ? `${cor}18` : undefined,
-                                '& .MuiSelect-select': { py: 0.75 },
-                              }}
-                              renderValue={(v) => {
-                                if (!v) return '—';
-                                const n = mapNomeRegional.get(Number(v));
-                                return n?.split(' ')[0] ?? '—';
+                                maxWidth: 132,
+                                fontSize: '0.72rem',
+                                bgcolor: cor ? `${cor}18` : idsReg.length > 1 ? 'rgba(27, 42, 107, 0.04)' : undefined,
+                                '& .MuiSelect-select': { py: 0.75, whiteSpace: 'normal', lineHeight: 1.25 },
                               }}
                             >
-                              <MenuItem value="">
-                                <em>Vazio</em>
-                              </MenuItem>
                               {(grade?.regionais ?? []).map((r) => (
                                 <MenuItem key={r.id_usuario} value={r.id_usuario}>
-                                  {r.nome}
+                                  <Checkbox size="small" checked={idsReg.includes(r.id_usuario)} sx={{ py: 0, mr: 0.5 }} />
+                                  <ListItemText primary={r.nome} primaryTypographyProps={{ fontSize: '0.82rem' }} />
                                 </MenuItem>
                               ))}
                             </Select>
                           ) : (
-                            <Tooltip title={nome || 'Sem visita'}>
+                            <Tooltip title={tooltip}>
                               <Box
                                 sx={{
-                                  py: 0.75,
+                                  py: 0.65,
                                   px: 0.5,
                                   borderRadius: 1,
-                                  bgcolor: cor ? `${cor}22` : 'transparent',
-                                  border: cor ? `1px solid ${cor}` : '1px dashed #e5e7eb',
-                                  fontSize: '0.75rem',
+                                  bgcolor: cor ? `${cor}22` : idsReg.length ? 'rgba(27, 42, 107, 0.05)' : 'transparent',
+                                  border: idsReg.length ? `1px solid ${cor ?? colors.border}` : '1px dashed #e5e7eb',
+                                  fontSize: '0.72rem',
                                   fontWeight: 600,
                                   minHeight: 32,
                                   display: 'flex',
+                                  flexDirection: 'column',
                                   alignItems: 'center',
                                   justifyContent: 'center',
+                                  gap: 0.25,
                                 }}
                               >
-                                {primeiroNome || '—'}
+                                {nomes.length ? (
+                                  nomes.map((n) => (
+                                    <Box key={n} component="span" sx={{ lineHeight: 1.2 }}>
+                                      {n}
+                                    </Box>
+                                  ))
+                                ) : (
+                                  '—'
+                                )}
                               </Box>
                             </Tooltip>
                           )}

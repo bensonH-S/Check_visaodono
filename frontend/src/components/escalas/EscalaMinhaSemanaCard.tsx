@@ -19,6 +19,7 @@ import {
   primeiroNome,
   segundaFeiraAtual,
 } from './escalaVisitasUtils';
+import { atribuicoesDoDia, diaTemRegional } from './escalaVisitasModel';
 
 type Props = {
   linkGrade?: string;
@@ -59,11 +60,11 @@ export default function EscalaMinhaSemanaCard({ linkGrade = '/escalas/visitas/mo
 
     for (const linha of grade.linhas) {
       for (const d of linha.dias) {
-        if (d.id_regional === idEu) {
-          totalMinhas += 1;
-          if (hojeIdx != null && d.dia === hojeIdx) {
-            hoje.push({ nome: linha.nome, bk: linha.bk_number, cor: d.cor ?? undefined });
-          }
+        if (!diaTemRegional(d, idEu)) continue;
+        totalMinhas += 1;
+        if (hojeIdx != null && d.dia === hojeIdx) {
+          const minha = atribuicoesDoDia(d).find((a) => a.id_regional === idEu);
+          hoje.push({ nome: linha.nome, bk: linha.bk_number, cor: minha?.cor ?? undefined });
         }
       }
     }
