@@ -148,26 +148,78 @@ subir_app() {
 # GIT TAGS
 ########################################
 
+# Evita abrir o pager (less) e travar o terminal com "END" na tela.
+export GIT_PAGER=cat
+
+verificar_git_repo() {
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    echo "ERRO: este diretório não é um repositório Git."
+    exit 1
+  fi
+
+  if ! git status >/dev/null 2>&1; then
+    echo "ERRO: o Git bloqueou este repositório (dubious ownership)."
+    echo "Execute no servidor:"
+    echo "  git config --global --add safe.directory $(pwd)"
+    echo "ou ajuste o dono da pasta com chown."
+    exit 1
+  fi
+}
+
+verificar_git_repo
+
 echo "Atualizando tags..."
 git fetch origin --tags 2>/dev/null || {
   echo "AVISO: não foi possível atualizar tags remotas."
 }
 
+TAGS_RECENTES_QTD="${TAGS_RECENTES_QTD:-10}"
+
 listar_tags() {
-  git tag --sort=v:refname 2>/dev/null || git tag | sort -V
+  git --no-pager tag --sort=v:refname 2>/dev/null || git --no-pager tag | sort -V
 }
 
 listar_tags_com_mensagem() {
-  git tag --sort=v:refname -n 2>/dev/null || git tag | sort -V
+  git --no-pager tag --sort=v:refname -n 2>/dev/null || git --no-pager tag | sort -V
 }
 
-LATEST_TAG="$(listar_tags | tail -n 1)"
+mapfile -t TODAS_TAGS < <(listar_tags)
+TOTAL_TAGS="${#TODAS_TAGS[@]}"
+LATEST_TAG="${TODAS_TAGS[$((TOTAL_TAGS - 1))]}"
 
 echo ""
 echo "Última versão: ${LATEST_TAG:-nenhuma}"
-echo "Tags disponíveis:"
-listar_tags_com_mensagem
+
+if [ "$TOTAL_TAGS" -eq 0 ]; then
+  echo "Nenhuma tag encontrada. Crie tags no repositório antes do deploy."
+  exit 1
+fi
+
+if [ "$TOTAL_TAGS" -le "$TAGS_RECENTES_QTD" ]; then
+  echo "Tags disponíveis (${TOTAL_TAGS}):"
+  listar_tags_com_mensagem
+else
+  INICIO=$((TOTAL_TAGS - TAGS_RECENTES_QTD))
+  echo "Tags recentes (últimas ${TAGS_RECENTES_QTD} de ${TOTAL_TAGS}):"
+  for ((i = INICIO; i < TOTAL_TAGS; i++)); do
+  tag="${TODAS_TAGS[$i]}"
+  msg="$(git --no-pager tag -l --format='%(contents:subject)' "$tag" 2>/dev/null | head -n 1)"
+  if [ -n "$msg" ]; then
+    printf '  %s  %s\n' "$tag" "$msg"
+  else
+    printf '  %s\n' "$tag"
+  fi
+  done
+  echo ""
+  echo "Para ver todas: git tag --sort=v:refname"
+fi
+
 echo ""
+echo "────────────────────────────────────────"
+if [ -n "$LATEST_TAG" ]; then
+  echo "Enter = usar a última versão (${LATEST_TAG})"
+fi
+echo "Ctrl+C = cancelar o deploy"
 
 ########################################
 # SELEÇÃO DE TAG
@@ -177,6 +229,11 @@ while true; do
   read -r -p "Digite a tag para deploy: " TAG
 
   if [ -z "$TAG" ]; then
+    if [ -n "$LATEST_TAG" ]; then
+      TAG="$LATEST_TAG"
+      echo "Usando: $TAG"
+      break
+    fi
     echo "Tag vazia."
     continue
   fi
