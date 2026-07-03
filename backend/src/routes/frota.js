@@ -397,12 +397,13 @@ router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => 
     );
 
     const { rows: lojas } = await pool.query(
-      `SELECT DISTINCT l.id_loja, l.name, l.bk_number, l.address, l.neighborhood, l.city, l.state,
-              l.latitude, l.longitude
+      `SELECT l.id_loja, l.name, l.bk_number, l.address, l.neighborhood, l.city, l.state,
+              l.latitude, l.longitude, rl.id_regiao, r.nome AS nome_regiao
        FROM frota_regiao_lojas rl
+       JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
        JOIN lojas l ON l.id_loja = rl.id_loja
        WHERE rl.id_regiao = ANY($1::int[]) AND l.is_active = TRUE
-       ORDER BY l.name`,
+       ORDER BY r.nome, l.name`,
       [idsRegiao],
     );
 

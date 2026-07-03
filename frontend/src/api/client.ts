@@ -972,6 +972,8 @@ export interface FrotaRegiaoLoja {
   state: string;
   latitude?: number | string | null;
   longitude?: number | string | null;
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
 }
 
 export interface FrotaRegiaoResumo {

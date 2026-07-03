@@ -118,7 +118,7 @@ export default function TecnicoProximoPainel({ loja, tecnico, distanciaKm, atual
           }}
         >
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-            Nenhum técnico com GPS ativo no momento para calcular a distância.
+            Nenhum técnico da região desta loja com GPS ativo para calcular a distância.
           </Typography>
         </Box>
       )}

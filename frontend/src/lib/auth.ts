@@ -353,6 +353,17 @@ export function deveRastrearGpsTecnico(usuario?: UsuarioSessao | null): boolean 
   return temPermissao('chamados.assumir', usuario);
 }
 
+/** Diretor, administrador ou CEO — vê e filtra todas as regiões no mapa mobile. */
+export function podeFiltrarRegioesMapaMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  return (
+    temPermissao('lojas.todas', u) ||
+    podeReceberPainelDiretorChamados(u) ||
+    temPermissao('frota.gerenciar', u)
+  );
+}
+
 /** Mapa de técnicos em tempo real no app (diretor/CEO = todos; regional = sua região). */
 export function podeVerMapaTecnicosMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();

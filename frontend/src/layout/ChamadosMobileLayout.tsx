@@ -333,7 +333,7 @@ function ChamadosMobileLayoutInner() {
           : isEscalaVisitas
             ? 'Escala de visitas'
           : isMapa
-            ? 'Mapa de técnicos'
+            ? 'Mapa de Técnicos'
           : isRelatorio
             ? 'Relatório da visita'
           : isFrotaSub
@@ -362,7 +362,7 @@ function ChamadosMobileLayoutInner() {
             : isEscalaVisitas
               ? 'Escala de visitas'
             : isMapa
-              ? 'Mapa de técnicos'
+              ? 'Mapa de Técnicos'
             : isRelatorio
               ? 'Relatório da visita'
             : isFrotaSub

@@ -14,7 +14,7 @@ import type { FrotaRegiaoLoja, FrotaTecnicoPosicao } from '../../api/client';
 import { colors } from '../../theme/tokens';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
-import { iniciaisNomeMapa, primeiroNomeMapa } from '../../utils/mapaGeo';
+import { iniciaisNomeMapa, mesmaRegiaoLojaTecnico, primeiroNomeMapa } from '../../utils/mapaGeo';
 
 /** Zoom fixo quando há só um ponto (~nível de bairro). */
 const ZOOM_PONTO_UNICO = 13;
@@ -381,22 +381,30 @@ export default function FrotaLocalizacaoMap({
     const mapa = L.map(mapRef.current, {
       center: mobile ? CENTRO_DISTRITO_FEDERAL : [-15.78, -47.93],
       zoom: mobile ? ZOOM_INICIAL_DF_MOBILE : ZOOM_PADRAO_BRASIL,
+      minZoom: mobile ? 4 : 3,
+      maxZoom: mobile ? 19 : 20,
       zoomControl: false,
       fadeAnimation: !mobile,
-      zoomAnimation: !mobile,
+      zoomAnimation: true,
       markerZoomAnimation: !mobile,
       touchZoom: true,
       dragging: true,
-      scrollWheelZoom: !mobile,
+      scrollWheelZoom: true,
       doubleClickZoom: true,
       boxZoom: !mobile,
       keyboard: !mobile,
       zoomSnap: mobile ? 0.5 : 1,
       zoomDelta: mobile ? 0.5 : 1,
+      wheelDebounceTime: mobile ? 30 : 40,
+      wheelPxPerZoomLevel: mobile ? 80 : 60,
+      bounceAtZoomLimits: true,
     });
 
     L.control.zoom({ position: mobile ? 'bottomright' : 'topleft' }).addTo(mapa);
     mapa.on('movestart', () => {
+      usuarioMoveuMapa.current = true;
+    });
+    mapa.on('zoomstart', () => {
       usuarioMoveuMapa.current = true;
     });
 
@@ -549,9 +557,10 @@ export default function FrotaLocalizacaoMap({
       linhaLayer.current.clearLayers();
       if (
         tecnicoSel &&
-        temCoordenadaTecnico(tecnicoSel) &&
         lojaSel &&
-        temCoordenadaLoja(lojaSel)
+        temCoordenadaTecnico(tecnicoSel) &&
+        temCoordenadaLoja(lojaSel) &&
+        mesmaRegiaoLojaTecnico(lojaSel, tecnicoSel)
       ) {
         L.polyline(
           [
@@ -649,9 +658,10 @@ export default function FrotaLocalizacaoMap({
     if (
       mobile &&
       tecnicoSel &&
-      temCoordenadaTecnico(tecnicoSel) &&
       lojaSel &&
-      temCoordenadaLoja(lojaSel)
+      temCoordenadaTecnico(tecnicoSel) &&
+      temCoordenadaLoja(lojaSel) &&
+      mesmaRegiaoLojaTecnico(lojaSel, tecnicoSel)
     ) {
       const pts: L.LatLngExpression[] = [
         [Number(tecnicoSel.latitude), Number(tecnicoSel.longitude)],
@@ -704,7 +714,15 @@ export default function FrotaLocalizacaoMap({
     if (!loja || !temCoordenadaLoja(loja)) return;
     const mapa = mapInstance.current;
     const pontos: L.LatLngExpression[] = [[Number(loja.latitude), Number(loja.longitude)]];
-    const tecnico = posicoes.find((p) => p.id_usuario === tecnicoDestaqueId && temCoordenadaTecnico(p));
+    const tecnico =
+      tecnicoDestaqueId != null
+        ? posicoes.find(
+            (p) =>
+              p.id_usuario === tecnicoDestaqueId &&
+              temCoordenadaTecnico(p) &&
+              mesmaRegiaoLojaTecnico(loja, p),
+          )
+        : undefined;
     if (tecnico) {
       pontos.push([Number(tecnico.latitude), Number(tecnico.longitude)]);
     }
