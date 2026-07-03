@@ -150,6 +150,7 @@ subir_app() {
 
 # Evita abrir o pager (less) e travar o terminal com "END" na tela.
 export GIT_PAGER=cat
+export PAGER=cat
 
 verificar_git_repo() {
   if ! git rev-parse --git-dir >/dev/null 2>&1; then
@@ -179,39 +180,47 @@ listar_tags() {
   git --no-pager tag --sort=v:refname 2>/dev/null || git --no-pager tag | sort -V
 }
 
-listar_tags_com_mensagem() {
-  git --no-pager tag --sort=v:refname -n 2>/dev/null || git --no-pager tag | sort -V
-}
-
-mapfile -t TODAS_TAGS < <(listar_tags)
-TOTAL_TAGS="${#TODAS_TAGS[@]}"
-LATEST_TAG="${TODAS_TAGS[$((TOTAL_TAGS - 1))]}"
+TOTAL_TAGS="$(listar_tags | wc -l | tr -d '[:space:]')"
+LATEST_TAG="$(listar_tags | tail -n 1)"
+mapfile -t TAGS_LIST < <(listar_tags | tail -n "$TAGS_RECENTES_QTD")
 
 echo ""
+echo "Deploy — mostrando até ${TAGS_RECENTES_QTD} versões recentes (total no repo: ${TOTAL_TAGS})"
 echo "Última versão: ${LATEST_TAG:-nenhuma}"
 
-if [ "$TOTAL_TAGS" -eq 0 ]; then
+if [ "$TOTAL_TAGS" -eq 0 ] || [ "${#TAGS_LIST[@]}" -eq 0 ]; then
   echo "Nenhuma tag encontrada. Crie tags no repositório antes do deploy."
   exit 1
 fi
 
-if [ "$TOTAL_TAGS" -le "$TAGS_RECENTES_QTD" ]; then
-  echo "Tags disponíveis (${TOTAL_TAGS}):"
-  listar_tags_com_mensagem
+echo ""
+if [ "$TOTAL_TAGS" -gt "$TAGS_RECENTES_QTD" ]; then
+  echo "Versões recentes:"
 else
-  INICIO=$((TOTAL_TAGS - TAGS_RECENTES_QTD))
-  echo "Tags recentes (últimas ${TAGS_RECENTES_QTD} de ${TOTAL_TAGS}):"
-  for ((i = INICIO; i < TOTAL_TAGS; i++)); do
-  tag="${TODAS_TAGS[$i]}"
+  echo "Versões disponíveis:"
+fi
+
+for tag in "${TAGS_LIST[@]}"; do
+  [ -z "$tag" ] && continue
   msg="$(git --no-pager tag -l --format='%(contents:subject)' "$tag" 2>/dev/null | head -n 1)"
   if [ -n "$msg" ]; then
-    printf '  %s  %s\n' "$tag" "$msg"
+    if [ "$tag" = "$LATEST_TAG" ]; then
+      printf '  * %s  %s  (mais recente)\n' "$tag" "$msg"
+    else
+      printf '    %s  %s\n' "$tag" "$msg"
+    fi
   else
-    printf '  %s\n' "$tag"
+    if [ "$tag" = "$LATEST_TAG" ]; then
+      printf '  * %s  (mais recente)\n' "$tag"
+    else
+      printf '    %s\n' "$tag"
+    fi
   fi
-  done
+done
+
+if [ "$TOTAL_TAGS" -gt "$TAGS_RECENTES_QTD" ]; then
   echo ""
-  echo "Para ver todas: git tag --sort=v:refname"
+  echo "Tags mais antigas omitidas. Ver todas: git --no-pager tag --sort=v:refname"
 fi
 
 echo ""
