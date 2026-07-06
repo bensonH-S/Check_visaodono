@@ -25,6 +25,8 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'escalas.visitas.ver', nome: 'Ver escala de visitas semanal', grupo: 'Escalas', ordem: 151 },
   { codigo: 'metas.gerenciar', nome: 'Gerenciar metas e indicadores', grupo: 'Metas', ordem: 160 },
   { codigo: 'metas.ver', nome: 'Ver metas da empresa e gestores', grupo: 'Metas', ordem: 161 },
+  { codigo: 'ncs.ver', nome: 'Ver não conformidades da região', grupo: 'Não conformidades', ordem: 170 },
+  { codigo: 'ncs.resolver', nome: 'Resolver não conformidades (foto e encerramento)', grupo: 'Não conformidades', ordem: 171 },
 ];
 
 const PERMISSOES_DASHBOARD = new Set([

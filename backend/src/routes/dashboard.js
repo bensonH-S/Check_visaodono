@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
+import { SQL_NC_CHECKLIST_FINALIZADO } from '../naoConformidadesChecklist.js';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.get('/', async (_req, res, next) => {
       SELECT nc.*, l.name
       FROM nao_conformidades nc
       JOIN lojas l ON l.id_loja = nc.id_loja
+      ${SQL_NC_CHECKLIST_FINALIZADO}
       WHERE nc.status = 'Em aberto'
       ORDER BY
         CASE nc.gravidade WHEN 'Crítica' THEN 1 WHEN 'Moderada' THEN 2 ELSE 3 END,
@@ -24,19 +26,24 @@ router.get('/', async (_req, res, next) => {
     `);
 
     const ncsGravidade = await pool.query(`
-      SELECT gravidade, COUNT(*)::int AS total
-      FROM nao_conformidades
-      WHERE status = 'Em aberto'
-      GROUP BY gravidade
-      ORDER BY CASE gravidade WHEN 'Crítica' THEN 1 WHEN 'Moderada' THEN 2 ELSE 3 END
+      SELECT nc.gravidade, COUNT(*)::int AS total
+      FROM nao_conformidades nc
+      ${SQL_NC_CHECKLIST_FINALIZADO}
+      WHERE nc.status = 'Em aberto'
+      GROUP BY nc.gravidade
+      ORDER BY CASE nc.gravidade WHEN 'Crítica' THEN 1 WHEN 'Moderada' THEN 2 ELSE 3 END
     `);
+
+    const ncsAbertas = ncsGravidade.rows.reduce((s, r) => s + r.total, 0);
+    const ncsCriticas =
+      ncsGravidade.rows.find((r) => r.gravidade === 'Crítica')?.total ?? 0;
 
     res.json({
       metricas: {
         media_geral: Number(metricas.media_geral) || 0,
         visitas_mes: Number(metricas.visitas_mes) || 0,
-        total_ncs_abertas: Number(metricas.total_ncs_abertas) || 0,
-        ncs_criticas: Number(metricas.ncs_criticas) || 0,
+        total_ncs_abertas: ncsAbertas,
+        ncs_criticas: ncsCriticas,
         lojas_abaixo_75: Number(metricas.lojas_abaixo_75) || 0,
         lojas_ativas: Number(metricas.lojas_ativas) || 0,
       },

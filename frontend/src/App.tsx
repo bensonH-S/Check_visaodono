@@ -41,6 +41,9 @@ import MapaTecnicosMobilePage from './pages/mapa/MapaTecnicosMobilePage';
 import EscalaVisitasPage from './pages/escalas/EscalaVisitasPage';
 import EscalaVisitasMobilePage from './pages/escalas/EscalaVisitasMobilePage';
 import MetasPage from './pages/metas/MetasPage';
+import NcMobileListaPage from './pages/nc/NcMobileListaPage';
+import NcMobileResolverPage from './pages/nc/NcMobileResolverPage';
+import RotaNcMobile from './components/RotaNcMobile';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -159,6 +162,22 @@ export default function App() {
                 <RotaPermissao permissoes={['escalas.visitas.ver', 'escalas.visitas.gerenciar']}>
                   <EscalaVisitasMobilePage />
                 </RotaPermissao>
+              }
+            />
+            <Route
+              path="nc/mobile/:idNc"
+              element={
+                <RotaNcMobile>
+                  <NcMobileResolverPage />
+                </RotaNcMobile>
+              }
+            />
+            <Route
+              path="nc/mobile"
+              element={
+                <RotaNcMobile>
+                  <NcMobileListaPage />
+                </RotaNcMobile>
               }
             />
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />

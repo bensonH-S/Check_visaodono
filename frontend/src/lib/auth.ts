@@ -126,6 +126,7 @@ export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
   }
   if (podeUsarChecklist(usuario)) return '/checklist/mobile';
   if (podeVerVisitasMobile(usuario)) return '/visitas/mobile';
+  if (podeVerNcMobile(usuario)) return '/nc/mobile';
   if (podeUsarFrota(usuario)) return '/frota/mobile';
   return '/chamados/mobile';
 }
@@ -393,4 +394,16 @@ export function podeGerenciarMetas(usuario?: UsuarioSessao | null): boolean {
 
 export function podeVerMetas(usuario?: UsuarioSessao | null): boolean {
   return podeGerenciarMetas(usuario) || temPermissao('metas.ver', usuario);
+}
+
+export function podeVerNcMobile(usuario?: UsuarioSessao | null): boolean {
+  return (
+    temPermissao('ncs.ver', usuario) ||
+    temPermissao('ncs.resolver', usuario) ||
+    temPermissao('portal.dashboard.ver', usuario)
+  );
+}
+
+export function podeResolverNc(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('ncs.resolver', usuario) || temPermissao('portal.dashboard.ver', usuario);
 }

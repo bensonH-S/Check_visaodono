@@ -13,6 +13,7 @@ import {
   obterTipoChecklistDaVisita,
 } from '../checklistTipos.js';
 import { auditar } from '../auditoriaHelpers.js';
+import { gerarNcsFromVisita } from '../naoConformidadesChecklist.js';
 
 const router = Router();
 
@@ -336,27 +337,39 @@ router.post('/:id/respostas', async (req, res, next) => {
 });
 
 router.patch('/:id/finalizar', async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const { hora_fim, duracao_minutos, observacoes_gerais } = req.body;
-    const atual = await pool.query(
-      'SELECT hora_inicio, data_visita FROM visitas WHERE id_visita = $1',
-      [req.params.id],
+    const idVisita = Number(req.params.id);
+
+    await client.query('BEGIN');
+
+    const atual = await client.query(
+      'SELECT hora_inicio, data_visita, id_loja FROM visitas WHERE id_visita = $1',
+      [idVisita],
     );
-    if (!atual.rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
+    if (!atual.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Visita não encontrada' });
+    }
+    if (!usuarioPodeLoja(req.user, atual.rows[0].id_loja)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
 
     let duracao = duracao_minutos != null ? Number(duracao_minutos) : null;
     if ((duracao == null || Number.isNaN(duracao)) && atual.rows[0].hora_inicio) {
-      const { rows: calc } = await pool.query(
+      const { rows: calc } = await client.query(
         `SELECT GREATEST(1, EXTRACT(EPOCH FROM (
            (timezone('America/Sao_Paulo', now()))::time - hora_inicio
          )) / 60)::int AS mins
          FROM visitas WHERE id_visita = $1 AND hora_inicio IS NOT NULL`,
-        [req.params.id],
+        [idVisita],
       );
       duracao = calc[0]?.mins ?? null;
     }
 
-    const { rows } = await pool.query(
+    const { rows } = await client.query(
       `UPDATE visitas SET
          status = 'Finalizada',
          hora_fim = COALESCE($2::time, (timezone('America/Sao_Paulo', now()))::time),
@@ -365,20 +378,33 @@ router.patch('/:id/finalizar', async (req, res, next) => {
          updated_at = NOW()
        WHERE id_visita = $1
        RETURNING *`,
-      [req.params.id, hora_fim ?? null, duracao, observacoes_gerais ?? null],
+      [idVisita, hora_fim ?? null, duracao, observacoes_gerais ?? null],
     );
-    if (!rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
-    const { rows: lojaRow } = await pool.query('SELECT name FROM lojas WHERE id_loja = $1', [rows[0].id_loja]);
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Visita não encontrada' });
+    }
+
+    const ncResult = await gerarNcsFromVisita(client, idVisita);
+
+    await client.query('COMMIT');
+
+    const { rows: lojaRow } = await pool.query('SELECT name FROM lojas WHERE id_loja = $1', [
+      rows[0].id_loja,
+    ]);
     await auditar(req, {
       modulo: 'visitas',
       acao: 'finalizar',
       entidade: 'visita',
       idReferencia: rows[0].id_visita,
-      descricao: `Visita finalizada — loja ${lojaRow[0]?.name || rows[0].id_loja} (${rows[0].duracao_minutos ?? '?'} min)`,
+      descricao: `Visita finalizada — loja ${lojaRow[0]?.name || rows[0].id_loja} (${rows[0].duracao_minutos ?? '?'} min)${ncResult.criadas ? ` — ${ncResult.criadas} NC(s) gerada(s)` : ''}`,
     });
-    res.json(serializarVisita(rows[0]));
+    res.json({ ...serializarVisita(rows[0]), ncs_geradas: ncResult.criadas });
   } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
     next(e);
+  } finally {
+    client.release();
   }
 });
 

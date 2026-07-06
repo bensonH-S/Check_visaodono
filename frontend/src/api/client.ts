@@ -210,7 +210,27 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body || {}),
     }),
-  naoConformidades: () => request<NcResponse>('/nao-conformidades'),
+  naoConformidades: (params?: { status?: string; loja?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.loja != null) q.set('loja', String(params.loja));
+    const suffix = q.toString() ? `?${q}` : '';
+    return request<NcResponse>(`/nao-conformidades${suffix}`);
+  },
+  ncDetalhe: (id: number) => request<NcDetalhe>(`/nao-conformidades/${id}`),
+  ncResolver: async (id: number, form: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/nao-conformidades/${id}/resolver`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao resolver NC');
+    }
+    return res.json() as Promise<NcDetalhe>;
+  },
 
   manutCategorias: () => request<ManutCategoria[]>('/manutencao/categorias'),
   manutCategoriaCriar: (body: ManutCategoriaInput) =>
@@ -1369,17 +1389,42 @@ export interface ManutCriarBody {
   tipo_chamado?: 'normal' | 'orcamento';
 }
 
+export interface NcItem {
+  id_nc: number;
+  id_visita: number | null;
+  id_loja?: number;
+  area: string;
+  descricao: string;
+  name: string;
+  data_cadastro: string;
+  data_visita?: string | null;
+  nota_final?: string | number | null;
+  gravidade: string;
+  status: string;
+  observacao_resolucao?: string | null;
+  data_resolucao?: string | null;
+  nome_resolvido_por?: string | null;
+}
+
+export interface NcAnexo {
+  id_anexo: number;
+  tipo_mime: string;
+  media_url: string;
+  created_at?: string;
+}
+
+export interface NcDetalhe extends NcItem {
+  nome_loja?: string;
+  anexos: NcAnexo[];
+}
+
 export interface NcResponse {
-  items: Array<{
-    id_nc: number;
-    area: string;
-    descricao: string;
-    name: string;
-    data_cadastro: string;
-    gravidade: string;
-    status: string;
-  }>;
-  stats: { total_aberto: string; criticas: string };
+  items: NcItem[];
+  stats: {
+    total_aberto: string;
+    criticas: string;
+    visitas_pendentes?: string;
+  };
 }
 
 export function fmtNota(n: string | number | null | undefined) {

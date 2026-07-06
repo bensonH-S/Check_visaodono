@@ -12,6 +12,7 @@ import HeadsetMicOutlinedIcon from '@mui/icons-material/HeadsetMicOutlined';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import BrandLogo from '../components/BrandLogo';
 import NotificacoesSino from '../components/NotificacoesSino';
 import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
@@ -25,7 +26,7 @@ import MapaTecnicosListaLojas from '../components/mapa/MapaTecnicosListaLojas';
 import { MapaTecnicosMobileProvider } from '../pages/mapa/MapaTecnicosMobileContext';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
@@ -241,6 +242,8 @@ function ChamadosMobileLayoutInner() {
   const isFrotaSub = isFrota && path !== '/frota/mobile';
   const isVisitas = path === '/visitas/mobile';
   const isEscalaVisitas = path === '/escalas/visitas/mobile';
+  const isNc = path === '/nc/mobile' || path.startsWith('/nc/mobile/');
+  const isNcResolver = Boolean(useMatch('/nc/mobile/:idNc'));
   const isRelatorio = path.startsWith('/relatorio/visita/');
   const isChecklistHub = path === '/checklist/mobile';
   const isChecklistEmAndamento = isChecklist && !isChecklistHub && !isChecklistConcluido;
@@ -249,9 +252,10 @@ function ChamadosMobileLayoutInner() {
     isNovo ||
     isFrotaSub ||
     isRelatorio ||
+    isNcResolver ||
     isChecklistConcluido ||
     isChecklistEmAndamento;
-  const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio;
+  const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio || isNcResolver;
   const podeAbrir = user && temPermissao('chamados.abrir', user);
   const podeChecklist = user && podeUsarChecklist(user);
   const podeChamados = user && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
@@ -260,6 +264,7 @@ function ChamadosMobileLayoutInner() {
   const podeMapa = user && podeVerMapaTecnicosMobile(user);
   const podeVisitas = user && podeVerVisitasMobile(user);
   const podeEscalaVisitas = user && podeVerEscalaVisitas(user);
+  const podeNc = user && podeVerNcMobile(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
 
@@ -310,6 +315,12 @@ function ChamadosMobileLayoutInner() {
       show: !!podeEscalaVisitas,
     },
     {
+      to: '/nc/mobile',
+      label: 'NCs',
+      icon: <WarningAmberIcon fontSize="small" />,
+      show: !!podeNc,
+    },
+    {
       to: '/mapa/mobile',
       label: 'Mapa',
       icon: <MapOutlinedIcon fontSize="small" />,
@@ -332,6 +343,10 @@ function ChamadosMobileLayoutInner() {
             ? 'Visitas e relatórios'
           : isEscalaVisitas
             ? 'Escala de visitas'
+          : isNcResolver
+            ? 'Resolver NC'
+          : isNc
+            ? 'Não conformidades'
           : isMapa
             ? 'Mapa de Técnicos'
           : isRelatorio
@@ -361,6 +376,10 @@ function ChamadosMobileLayoutInner() {
               ? 'Visitas e relatórios'
             : isEscalaVisitas
               ? 'Escala de visitas'
+            : isNcResolver
+              ? 'Resolver NC'
+            : isNc
+              ? 'Não conformidades'
             : isMapa
               ? 'Mapa de Técnicos'
             : isRelatorio
@@ -396,6 +415,7 @@ function ChamadosMobileLayoutInner() {
   }, [location.state, location.pathname, location.search, location.hash, navigate]);
 
   function rotaVoltarMobile() {
+    if (isNcResolver) return '/nc/mobile';
     if (isFrotaSub) return '/frota/mobile';
     if (isRelatorio) return '/visitas/mobile';
     if (isChecklistConcluido || isChecklistEmAndamento) return '/checklist/mobile';
@@ -592,7 +612,8 @@ function ChamadosMobileLayoutInner() {
               const abaChamados = item.to === '/chamados/mobile';
               const abaFrota = item.to === '/frota/mobile';
               const abaVisitas = item.to === '/visitas/mobile';
-              const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas;
+              const abaNc = item.to === '/nc/mobile';
+              const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc;
               return (
               <NavLink
                 key={item.to}
