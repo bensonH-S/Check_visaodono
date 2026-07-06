@@ -229,8 +229,13 @@ export default function MetasRankingTable({
           {grupo.nome}
         </Typography>
         {grupo.meta_minima != null && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             Meta mínima: {formatValorPercentualLeitura(grupo.meta_minima, null)}
+          </Typography>
+        )}
+        {podeEditar && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+            Salve ao pressionar Enter ou ao clicar fora do campo (sem botão separado).
           </Typography>
         )}
       </Box>
@@ -245,7 +250,7 @@ export default function MetasRankingTable({
                 {valorPercentual ? 'Valor (%)' : 'Valor'}
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>Pts</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>{colRevRec ? 'REV / REC_' : 'Classe'}</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>{colRevRec ? 'REV / REC' : 'Classe'}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

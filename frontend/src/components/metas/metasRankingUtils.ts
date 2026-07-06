@@ -21,7 +21,7 @@ export function rankingColunaRevRec(codigo: string): boolean {
 export const OPCOES_REV_CLASSE = [
   { value: '', label: '—' },
   { value: 'REV', label: 'REV' },
-  { value: 'REC_', label: 'REC_' },
+  { value: 'REC', label: 'REC' },
 ] as const;
 
 export function formatValorPercentualExibicao(valor_numero: number | null, valor_texto: string | null): string {

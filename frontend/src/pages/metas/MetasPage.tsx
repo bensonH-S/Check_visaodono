@@ -340,6 +340,7 @@ export default function MetasPage() {
             })),
           };
         });
+        showToast('Ranking salvo', 'success', { toastId: 'metas-ranking-salvo' });
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Erro ao salvar ranking', 'error');
       }
@@ -376,7 +377,14 @@ export default function MetasPage() {
             </FormControl>
           )}
         </Box>
-        <Tabs value={aba} onChange={(_, v) => setAba(v)} sx={{ mt: 2, minHeight: 40 }}>
+        <Tabs
+          value={aba}
+          onChange={(_, v) => {
+            (document.activeElement as HTMLElement | null)?.blur?.();
+            setAba(v);
+          }}
+          sx={{ mt: 2, minHeight: 40 }}
+        >
           <Tab label="Resumo" sx={{ minHeight: 40, py: 0 }} />
           <Tab label="Rankings" sx={{ minHeight: 40, py: 0 }} />
           <Tab label="Prêmios" sx={{ minHeight: 40, py: 0 }} />
@@ -432,7 +440,10 @@ export default function MetasPage() {
               <Chip
                 key={g.codigo}
                 label={g.nome}
-                onClick={() => setRankingIdx(i)}
+                onClick={() => {
+                  (document.activeElement as HTMLElement | null)?.blur?.();
+                  setRankingIdx(i);
+                }}
                 color={rankingIdx === i ? 'primary' : 'default'}
                 variant={rankingIdx === i ? 'filled' : 'outlined'}
                 size="small"
