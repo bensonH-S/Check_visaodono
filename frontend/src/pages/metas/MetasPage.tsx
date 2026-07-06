@@ -22,11 +22,12 @@ import {
   type MetasPainel,
   type MetasPeriodoDetalhe,
   type MetasPeriodoResumo,
-  type MetasRankingGrupo,
 } from '../../api/client';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
+import { agruparPaineisResumo, calcValorMetaPorLoja, fmtMoedaMeta } from '../../components/metas/metasPageUtils';
+import MetasRankingTable from '../../components/metas/MetasRankingTable';
 
 const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -58,14 +59,34 @@ function fmtValorCelula(valor_texto: string | null, valor_numero: number | null,
 }
 
 function celulaSx(valor_texto: string | null, atingiu: boolean | null) {
-  const ok = atingiu === true || valor_texto === 'X' || valor_texto === 'OK';
-  if (!ok && !valor_texto && atingiu == null) return {};
-  return {
-    bgcolor: ok ? 'rgba(22, 163, 74, 0.1)' : 'rgba(234, 88, 12, 0.08)',
-    fontWeight: 600,
-    color: ok ? '#166534' : colors.textPrimary,
-  };
+  if (valor_texto === 'OK' || (atingiu === true && valor_texto !== 'X')) {
+    return {
+      bgcolor: 'rgba(22, 163, 74, 0.1)',
+      fontWeight: 600,
+      color: '#166534',
+    };
+  }
+  if (valor_texto === 'X' || atingiu === false) {
+    return {
+      bgcolor: 'rgba(234, 88, 12, 0.1)',
+      fontWeight: 600,
+      color: '#9a3412',
+    };
+  }
+  return {};
 }
+
+const subtotalRowSx = {
+  bgcolor: 'rgba(59, 130, 246, 0.12)',
+  '& td': { fontWeight: 700, color: '#1e3a8a', borderTop: '2px solid rgba(59, 130, 246, 0.35)' },
+} as const;
+
+const finalRowSx = {
+  bgcolor: 'rgba(22, 163, 74, 0.06)',
+  outline: '2px dashed rgba(22, 163, 74, 0.45)',
+  outlineOffset: -2,
+  '& td': { fontWeight: 700, color: '#166534', borderTop: '1px solid rgba(22, 163, 74, 0.25)' },
+} as const;
 
 function PainelResumoTable({
   painel,
@@ -76,18 +97,17 @@ function PainelResumoTable({
   podeEditar: boolean;
   onAlterarCelula: (idIndicador: number, idLoja: number, valor: string) => void;
 }) {
+  const valorPorLoja = useMemo(() => calcValorMetaPorLoja(painel), [painel]);
+
   return (
     <Paper sx={{ ...tablePaperSx, mb: 2 }}>
-      <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-        <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            {painel.titulo}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {painel.tipo === 'empresa' ? 'Metas da empresa por loja' : 'Metas do gestor por loja'}
-          </Typography>
-        </Box>
-        <Chip size="small" label={`Subtotal: ${painel.subtotal_peso} pts`} sx={{ fontWeight: 700 }} />
+      <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+          {painel.titulo}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {painel.tipo === 'empresa' ? 'Metas da empresa por loja' : 'Metas dos gerentes por loja'}
+        </Typography>
       </Box>
       <TableContainer sx={tableContainerSx}>
         <Table size="small" stickyHeader sx={tableSx}>
@@ -134,7 +154,12 @@ function PainelResumoTable({
                             fontSize: '0.78rem',
                             fontWeight: 700,
                             '& .MuiSelect-select': { py: 0.5, px: 0.75 },
-                            bgcolor: valorAtual ? `${valorAtual === 'X' || valorAtual === 'OK' ? 'rgba(22,163,74,0.12)' : 'transparent'}` : 'transparent',
+                            bgcolor:
+                              valorAtual === 'OK'
+                                ? 'rgba(22,163,74,0.12)'
+                                : valorAtual === 'X'
+                                  ? 'rgba(234,88,12,0.12)'
+                                  : 'transparent',
                           }}
                         >
                           {OPCOES_STATUS_RESUMO.map((op) => (
@@ -151,60 +176,38 @@ function PainelResumoTable({
                 })}
               </TableRow>
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Paper>
-  );
-}
-
-function RankingTable({ grupo }: { grupo: MetasRankingGrupo }) {
-  return (
-    <Paper sx={{ ...tablePaperSx, mb: 2 }}>
-      <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-          {grupo.nome}
-        </Typography>
-        {grupo.meta_minima != null && (
-          <Typography variant="caption" color="text.secondary">
-            Meta mínima: {grupo.meta_minima}
-          </Typography>
-        )}
-      </Box>
-      <TableContainer sx={tableContainerSx}>
-        <Table size="small" sx={tableSx}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 700, width: 48 }}>Pos</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Loja</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>BKN</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>Valor</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700 }}>Pts</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Classe</TableCell>
+            <TableRow sx={subtotalRowSx}>
+              <TableCell sx={{ position: 'sticky', left: 0, bgcolor: 'rgba(59, 130, 246, 0.12)', zIndex: 1 }}>
+                SUBTOTAL
+              </TableCell>
+              <TableCell align="center" sx={{ position: 'sticky', left: 180, bgcolor: 'rgba(59, 130, 246, 0.12)', zIndex: 1 }}>
+                {painel.subtotal_peso}
+              </TableCell>
+              {painel.lojas.map((l) => {
+                const total = valorPorLoja.get(l.id_loja) ?? 0;
+                return (
+                  <TableCell key={l.id_loja} align="center">
+                    {total > 0 ? total : '—'}
+                  </TableCell>
+                );
+              })}
             </TableRow>
-          </TableHead>
-          <TableBody>
-            {grupo.linhas.map((linha, idx) => (
-              <TableRow key={`${linha.id_loja ?? 'x'}-${idx}`} hover>
-                <TableCell>{linha.posicao ?? '—'}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{linha.nome_loja || linha.valor_texto || '—'}</TableCell>
-                <TableCell>{linha.bk_number || '—'}</TableCell>
-                <TableCell align="right">
-                  {linha.valor_texto ?? (linha.valor_numero != null ? linha.valor_numero : '—')}
-                </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>
-                  {linha.pontos ?? '—'}
-                </TableCell>
-                <TableCell>{linha.classe || '—'}</TableCell>
-              </TableRow>
-            ))}
-            {!grupo.linhas.length && (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary">Sem dados neste ranking.</Typography>
-                </TableCell>
-              </TableRow>
-            )}
+            <TableRow sx={finalRowSx}>
+              <TableCell sx={{ position: 'sticky', left: 0, bgcolor: 'rgba(22, 163, 74, 0.06)', zIndex: 1 }}>
+                FINAL
+              </TableCell>
+              <TableCell align="center" sx={{ position: 'sticky', left: 180, bgcolor: 'rgba(22, 163, 74, 0.06)', zIndex: 1 }}>
+                {fmtMoedaMeta(painel.subtotal_peso)}
+              </TableCell>
+              {painel.lojas.map((l) => {
+                const total = valorPorLoja.get(l.id_loja) ?? 0;
+                return (
+                  <TableCell key={l.id_loja} align="center">
+                    {fmtMoedaMeta(total)}
+                  </TableCell>
+                );
+              })}
+            </TableRow>
           </TableBody>
         </Table>
       </TableContainer>
@@ -255,15 +258,14 @@ export default function MetasPage() {
     void carregarPeriodo();
   }, [carregarPeriodo]);
 
-  const paineisEmpresa = useMemo(() => dados?.paineis.filter((p) => p.tipo === 'empresa') ?? [], [dados]);
-  const paineisGestor = useMemo(() => dados?.paineis.filter((p) => p.tipo === 'gestor') ?? [], [dados]);
+  const gruposResumo = useMemo(() => agruparPaineisResumo(dados?.paineis ?? []), [dados]);
   const rankingAtual = dados?.rankings[rankingIdx] ?? null;
 
   const alterarCelulaResumo = useCallback(
     async (idPainel: number, idIndicador: number, idLoja: number, valor: string) => {
       if (!dados) return;
       const valor_texto = valor || null;
-      const atingiu = valor === 'X' || valor === 'OK' ? true : null;
+      const atingiu = valor === 'OK' ? true : valor === 'X' ? false : null;
       try {
         await api.metasSalvarRealizado({
           id_painel: idPainel,
@@ -300,6 +302,46 @@ export default function MetasPage() {
         });
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
+      }
+    },
+    [dados],
+  );
+
+  const salvarLinhaRanking = useCallback(
+    async (
+      idRanking: number,
+      patch: {
+        valor_numero?: number | null;
+        valor_texto?: string | null;
+        pontos?: number | null;
+        classe?: string | null;
+      },
+    ) => {
+      if (!dados) return;
+      try {
+        await api.metasSalvarRanking({ id_ranking: idRanking, ...patch });
+        setDados((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            rankings: prev.rankings.map((grupo) => ({
+              ...grupo,
+              linhas: grupo.linhas.map((linha) =>
+                linha.id_ranking !== idRanking
+                  ? linha
+                  : {
+                      ...linha,
+                      valor_numero: patch.valor_numero !== undefined ? patch.valor_numero : linha.valor_numero,
+                      valor_texto: patch.valor_texto !== undefined ? patch.valor_texto : linha.valor_texto,
+                      pontos: patch.pontos !== undefined ? patch.pontos : linha.pontos,
+                      classe: patch.classe !== undefined ? patch.classe : linha.classe,
+                    },
+              ),
+            })),
+          };
+        });
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Erro ao salvar ranking', 'error');
       }
     },
     [dados],
@@ -352,29 +394,34 @@ export default function MetasPage() {
       ) : null}
 
       {!loading && dados && aba === 0 && (
-        <Box>
-          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            Empresa
-          </Typography>
-          {paineisEmpresa.map((p) => (
-            <PainelResumoTable
-              key={p.id_painel}
-              painel={p}
-              podeEditar={!!dados.pode_editar}
-              onAlterarCelula={(idInd, idLoja, valor) => void alterarCelulaResumo(p.id_painel, idInd, idLoja, valor)}
-            />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {gruposResumo.map((grupo) => (
+            <Box key={grupo.grupo}>
+              {grupo.empresa && (
+                <PainelResumoTable
+                  painel={grupo.empresa}
+                  podeEditar={!!dados.pode_editar}
+                  onAlterarCelula={(idInd, idLoja, valor) =>
+                    void alterarCelulaResumo(grupo.empresa!.id_painel, idInd, idLoja, valor)
+                  }
+                />
+              )}
+              {grupo.gestor && (
+                <PainelResumoTable
+                  painel={grupo.gestor}
+                  podeEditar={!!dados.pode_editar}
+                  onAlterarCelula={(idInd, idLoja, valor) =>
+                    void alterarCelulaResumo(grupo.gestor!.id_painel, idInd, idLoja, valor)
+                  }
+                />
+              )}
+            </Box>
           ))}
-          <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1, mt: 1 }}>
-            Gestores
-          </Typography>
-          {paineisGestor.map((p) => (
-            <PainelResumoTable
-              key={p.id_painel}
-              painel={p}
-              podeEditar={!!dados.pode_editar}
-              onAlterarCelula={(idInd, idLoja, valor) => void alterarCelulaResumo(p.id_painel, idInd, idLoja, valor)}
-            />
-          ))}
+          {!gruposResumo.length && (
+            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, border: `1px solid ${colors.border}` }}>
+              <Typography color="text.secondary">Nenhum painel de resumo neste período.</Typography>
+            </Paper>
+          )}
         </Box>
       )}
 
@@ -393,7 +440,13 @@ export default function MetasPage() {
               />
             ))}
           </Box>
-          {rankingAtual ? <RankingTable grupo={rankingAtual} /> : null}
+          {rankingAtual ? (
+            <MetasRankingTable
+              grupo={rankingAtual}
+              podeEditar={!!dados.pode_editar}
+              onSalvarLinha={salvarLinhaRanking}
+            />
+          ) : null}
         </Box>
       )}
 

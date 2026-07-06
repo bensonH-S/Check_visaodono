@@ -92,7 +92,8 @@ function parseValorCelula(v) {
   if (typeof v === 'number') return { valor_texto: String(v), valor_numero: v, atingiu: null };
   const s = String(v).trim();
   const upper = s.toUpperCase();
-  if (upper === 'X' || upper === 'OK') return { valor_texto: upper, valor_numero: null, atingiu: true };
+  if (upper === 'OK') return { valor_texto: upper, valor_numero: null, atingiu: true };
+  if (upper === 'X') return { valor_texto: upper, valor_numero: null, atingiu: false };
   const num = Number(s.replace(',', '.'));
   if (!Number.isNaN(num) && s.match(/^[\d.,]+$/)) {
     return { valor_texto: s, valor_numero: num, atingiu: null };

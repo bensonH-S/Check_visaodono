@@ -539,6 +539,13 @@ export const api = {
     valor_numero?: number | null;
     atingiu?: boolean | null;
   }) => request('/metas/realizados', { method: 'PUT', body: JSON.stringify(body) }),
+  metasSalvarRanking: (body: {
+    id_ranking: number;
+    valor_numero?: number | null;
+    valor_texto?: string | null;
+    pontos?: number | null;
+    classe?: string | null;
+  }) => request('/metas/rankings', { method: 'PUT', body: JSON.stringify(body) }),
 };
 
 export interface Loja {
@@ -1151,6 +1158,7 @@ export interface MetasPainel {
 }
 
 export interface MetasRankingLinha {
+  id_ranking: number;
   posicao: number | null;
   id_loja: number | null;
   nome_loja: string | null;

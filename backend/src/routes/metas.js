@@ -3,6 +3,7 @@ import {
   carregarMetasPeriodo,
   listarPeriodosMetas,
   podeVerMetas,
+  salvarRankingMetas,
   salvarRealizadoMetas,
 } from '../metas.js';
 
@@ -39,6 +40,18 @@ router.put('/realizados', async (req, res, next) => {
   } catch (e) {
     if (e.message.includes('Sem permissão')) {
       return res.status(403).json({ error: e.message });
+    }
+    next(e);
+  }
+});
+
+router.put('/rankings', async (req, res, next) => {
+  try {
+    const row = await salvarRankingMetas(req.user, req.body || {});
+    res.json(row);
+  } catch (e) {
+    if (e.message.includes('Sem permissão') || e.message.includes('não encontrado')) {
+      return res.status(e.message.includes('Sem permissão') ? 403 : 404).json({ error: e.message });
     }
     next(e);
   }

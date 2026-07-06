@@ -109,7 +109,7 @@ async function carregarRankings(idPeriodo) {
   const grupos = [];
   for (const ind of indicadores) {
     const { rows } = await pool.query(
-      `SELECT r.posicao, r.valor_numero, r.valor_texto, r.pontos, r.classe, r.destaque,
+      `SELECT r.id_ranking, r.posicao, r.valor_numero, r.valor_texto, r.pontos, r.classe, r.destaque,
               r.nome_gestor, r.id_gestor, r.nome_loja_planilha, r.ordem_linha,
               l.id_loja, l.name AS nome_loja, l.bk_number,
               u.nome AS gestor_cadastro
@@ -126,6 +126,7 @@ async function carregarRankings(idPeriodo) {
       nome: ind.nome,
       meta_minima: ind.meta_minima != null ? Number(ind.meta_minima) : null,
       linhas: rows.map((row) => ({
+        id_ranking: row.id_ranking,
         posicao: row.posicao,
         ordem_linha: row.ordem_linha,
         id_loja: row.id_loja,
@@ -217,6 +218,37 @@ export async function salvarRealizadoMetas(user, { id_painel, id_indicador, id_l
       valor_numero ?? null,
       atingiu ?? null,
       pontos_obtidos ?? null,
+    ],
+  );
+  return rows[0];
+}
+
+export async function salvarRankingMetas(user, { id_ranking, valor_numero, valor_texto, pontos, classe }) {
+  if (!podeGerenciarMetas(user)) throw new Error('Sem permissão para editar');
+
+  if (!id_ranking) throw new Error('id_ranking obrigatório');
+
+  const { rows: atual } = await pool.query(
+    `SELECT id_ranking, valor_numero, valor_texto, pontos, classe FROM metas_rankings WHERE id_ranking = $1`,
+    [id_ranking],
+  );
+  if (!atual[0]) throw new Error('Registro de ranking não encontrado');
+
+  const cur = atual[0];
+  const { rows } = await pool.query(
+    `UPDATE metas_rankings SET
+       valor_numero = $2,
+       valor_texto = $3,
+       pontos = $4,
+       classe = $5
+     WHERE id_ranking = $1
+     RETURNING id_ranking, valor_numero, valor_texto, pontos, classe`,
+    [
+      id_ranking,
+      valor_numero !== undefined ? valor_numero : cur.valor_numero,
+      valor_texto !== undefined ? valor_texto : cur.valor_texto,
+      pontos !== undefined ? pontos : cur.pontos,
+      classe !== undefined ? classe : cur.classe,
     ],
   );
   return rows[0];
