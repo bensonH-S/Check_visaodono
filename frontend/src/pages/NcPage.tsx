@@ -102,7 +102,7 @@ export default function NcPage() {
 
   return (
     <div>
-      <Grid container spacing={2} sx={{ mb: 2 }} alignItems="center">
+      <Grid container spacing={2} sx={{ mb: 2, alignItems: 'center' }}>
         <Grid size={{ xs: 6, md: 3 }}>
           <Paper className="p-4">
             <Typography variant="caption" color="text.secondary">

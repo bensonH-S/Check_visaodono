@@ -42,7 +42,11 @@ export default function NcMobileListaPage() {
             ? res.items.filter((i) => i.status === 'Resolvida')
             : res.items;
         setItens(lista);
-        setStats(res.stats);
+        setStats({
+          total_aberto: res.stats.total_aberto,
+          criticas: res.stats.criticas,
+          visitas_pendentes: res.stats.visitas_pendentes ?? '0',
+        });
       })
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));

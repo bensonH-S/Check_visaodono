@@ -170,9 +170,10 @@ verificar_git_repo() {
 verificar_git_repo
 
 echo "Atualizando tags..."
-git fetch origin --tags 2>/dev/null || {
-  echo "AVISO: não foi possível atualizar tags remotas."
-}
+if ! git fetch origin --tags 2>&1; then
+  echo "AVISO: não foi possível atualizar todas as tags remotas."
+  echo "      Se a tag não aparecer, rode: git fetch origin --tags"
+fi
 
 TAGS_RECENTES_QTD="${TAGS_RECENTES_QTD:-10}"
 
@@ -251,7 +252,15 @@ while true; do
     break
   fi
 
-  echo "Tag inválida: $TAG"
+  echo "Tag «$TAG» não encontrada localmente. Buscando no GitHub..."
+  if git fetch origin "refs/tags/${TAG}:refs/tags/${TAG}" 2>&1 || git fetch origin --tags 2>&1; then
+    if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+      echo "Tag $TAG obtida com sucesso."
+      break
+    fi
+  fi
+
+  echo "Tag inválida: $TAG (verifique git remote e permissões de fetch)"
 done
 
 ########################################
