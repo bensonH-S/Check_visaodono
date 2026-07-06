@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarFrota, podeGerenciarRegioesFrota, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados, podeVerEscalaVisitas } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarFrota, podeGerenciarRegioesFrota, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -17,6 +17,7 @@ import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useEffect, useRef } from 'react';
@@ -122,6 +123,7 @@ export default function PortalLayout() {
     },
     { to: '/frota/regioes', label: 'Região de atuação', icon: <MapIcon fontSize="small" />, show: podeGerenciarRegioesFrota(user), end: true },
     { to: '/escalas/visitas', label: 'Escala visitas', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), end: true, mobileTab: true },
+    { to: '/metas', label: 'Metas', icon: <TrackChangesIcon fontSize="small" />, show: podeVerMetas(user), end: true },
     { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, mobileTab: true },
     { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user) },
     {

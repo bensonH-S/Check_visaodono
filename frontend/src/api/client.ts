@@ -508,6 +508,17 @@ export const api = {
     request<EscalaVisitasGrade>('/escalas/visitas/semana', { method: 'PUT', body: JSON.stringify(body) }),
   escalaVisitasCopiar: (body: { de: string; para: string }) =>
     request<EscalaVisitasGrade>('/escalas/visitas/semana/copiar', { method: 'POST', body: JSON.stringify(body) }),
+
+  metasPeriodos: () => request<MetasPeriodoResumo[]>('/metas/periodos'),
+  metasPeriodo: (id: number) => request<MetasPeriodoDetalhe>(`/metas/periodos/${id}`),
+  metasSalvarRealizado: (body: {
+    id_painel: number;
+    id_indicador: number;
+    id_loja: number;
+    valor_texto?: string | null;
+    valor_numero?: number | null;
+    atingiu?: boolean | null;
+  }) => request('/metas/realizados', { method: 'PUT', body: JSON.stringify(body) }),
 };
 
 export interface Loja {
@@ -1077,6 +1088,87 @@ export interface EscalaVisitasSalvarBody {
     id_regional?: number | null;
     observacao?: string | null;
   }>;
+}
+
+export interface MetasPeriodoResumo {
+  id_periodo: number;
+  ano: number;
+  mes: number;
+  titulo: string | null;
+  observacao: string | null;
+  criado_em: string;
+}
+
+export interface MetasCelulaRealizado {
+  id_loja: number;
+  rotulo_curto: string | null;
+  nome_loja: string;
+  bk_number: string | null;
+  valor_texto: string | null;
+  valor_numero: number | null;
+  atingiu: boolean | null;
+  pontos_obtidos: number | null;
+}
+
+export interface MetasPainelIndicador {
+  id_indicador: number;
+  codigo: string;
+  nome: string;
+  peso: number;
+  tipo_valor: string;
+  celulas: MetasCelulaRealizado[];
+}
+
+export interface MetasPainel {
+  id_painel: number;
+  codigo: string;
+  titulo: string;
+  tipo: string;
+  ordem: number;
+  subtotal_peso: number;
+  lojas: Array<{ id_loja: number; rotulo_curto: string | null; ordem: number; nome_loja: string; bk_number: string | null }>;
+  indicadores: MetasPainelIndicador[];
+}
+
+export interface MetasRankingLinha {
+  posicao: number | null;
+  id_loja: number | null;
+  nome_loja: string | null;
+  bk_number: string | null;
+  valor_numero: number | null;
+  valor_texto: string | null;
+  pontos: number | null;
+  classe: string | null;
+  destaque: string | null;
+  nome_gestor: string | null;
+}
+
+export interface MetasRankingGrupo {
+  id_indicador: number;
+  codigo: string;
+  nome: string;
+  meta_minima: number | null;
+  linhas: MetasRankingLinha[];
+}
+
+export interface MetasPremio {
+  id_premio: number;
+  id_usuario: number | null;
+  nome: string;
+  premio_saude: number | null;
+  premio_rev: number | null;
+  valor_unitario: number | null;
+  subtotal: number | null;
+  total: number | null;
+  observacao: string | null;
+}
+
+export interface MetasPeriodoDetalhe {
+  periodo: MetasPeriodoResumo;
+  pode_editar: boolean;
+  paineis: MetasPainel[];
+  rankings: MetasRankingGrupo[];
+  premios: MetasPremio[];
 }
 
 export interface FrotaRegiaoVeiculo {

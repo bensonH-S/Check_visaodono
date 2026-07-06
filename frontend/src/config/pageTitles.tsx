@@ -23,6 +23,7 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import SpeedIcon from '@mui/icons-material/Speed';
 
 import { colors } from '../theme/tokens';
@@ -54,6 +55,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/frota/termos': { title: 'Termos de ferramentas', icon: <AssignmentTurnedInIcon sx={iconSx} /> },
   '/frota/regioes': { title: 'Região de atuação', icon: <MapIcon sx={iconSx} /> },
   '/escalas/visitas': { title: 'Escala de visitas', icon: <CalendarMonthIcon sx={iconSx} /> },
+  '/metas': { title: 'Metas', icon: <TrackChangesIcon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
   '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },

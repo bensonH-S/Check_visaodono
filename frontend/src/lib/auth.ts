@@ -386,3 +386,11 @@ export function podeGerenciarEscalaVisitas(usuario?: UsuarioSessao | null): bool
 export function podeVerEscalaVisitas(usuario?: UsuarioSessao | null): boolean {
   return podeGerenciarEscalaVisitas(usuario) || temPermissao('escalas.visitas.ver', usuario);
 }
+
+export function podeGerenciarMetas(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('metas.gerenciar', usuario);
+}
+
+export function podeVerMetas(usuario?: UsuarioSessao | null): boolean {
+  return podeGerenciarMetas(usuario) || temPermissao('metas.ver', usuario);
+}

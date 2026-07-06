@@ -23,6 +23,8 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'frota.gerenciar', nome: 'Cadastrar veículos e gerenciar frota', grupo: 'Frota', ordem: 145 },
   { codigo: 'escalas.visitas.gerenciar', nome: 'Gerenciar escala de visitas semanal', grupo: 'Escalas', ordem: 150 },
   { codigo: 'escalas.visitas.ver', nome: 'Ver escala de visitas semanal', grupo: 'Escalas', ordem: 151 },
+  { codigo: 'metas.gerenciar', nome: 'Gerenciar metas e indicadores', grupo: 'Metas', ordem: 160 },
+  { codigo: 'metas.ver', nome: 'Ver metas da empresa e gestores', grupo: 'Metas', ordem: 161 },
 ];
 
 const PERMISSOES_DASHBOARD = new Set([

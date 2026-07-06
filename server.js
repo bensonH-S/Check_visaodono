@@ -99,6 +99,7 @@ const { gpsTecnicosConfigPublica } = await import('./backend/src/gpsTecnicos.js'
 const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
 const frotaRouter = (await import('./backend/src/routes/frota.js')).default;
 const escalaVisitasRouter = (await import('./backend/src/routes/escalaVisitas.js')).default;
+const metasRouter = (await import('./backend/src/routes/metas.js')).default;
 const auditoriaRouter = (await import('./backend/src/routes/auditoria.js')).default;
 await import('./backend/src/cryptoMedia.js');
 initPushNotifications();
@@ -204,6 +205,7 @@ api.use('/nao-conformidades', ncRouter);
 api.use('/manutencao', manutencaoRouter);
 api.use('/frota', frotaRouter);
 api.use('/escalas/visitas', escalaVisitasRouter);
+api.use('/metas', metasRouter);
 api.use('/auditoria', auditoriaRouter);
 api.use('/push', pushRouter);
 api.use('/wpp', wppRouter);

@@ -40,6 +40,7 @@ import FrotaRegioesPortalPage from './pages/frota/FrotaRegioesPortalPage';
 import MapaTecnicosMobilePage from './pages/mapa/MapaTecnicosMobilePage';
 import EscalaVisitasPage from './pages/escalas/EscalaVisitasPage';
 import EscalaVisitasMobilePage from './pages/escalas/EscalaVisitasMobilePage';
+import MetasPage from './pages/metas/MetasPage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -287,6 +288,14 @@ export default function App() {
               element={
                 <RotaPermissao permissoes={['escalas.visitas.ver', 'escalas.visitas.gerenciar']}>
                   <EscalaVisitasPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="metas"
+              element={
+                <RotaPermissao permissoes={['metas.ver', 'metas.gerenciar']}>
+                  <MetasPage />
                 </RotaPermissao>
               }
             />
