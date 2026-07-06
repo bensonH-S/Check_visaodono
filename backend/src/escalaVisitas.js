@@ -17,6 +17,128 @@ export const CORES_REGIONAIS = [
 
 export const DIAS_SEMANA = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 
+/** Ordem fixa no topo da legenda / seletor da escala de visitas. */
+export const ESCALA_VISITAS_PRIORIDADE_TOPO = ['renato frota', 'renato', 'igor'];
+
+/** Supervisores de região — cada um agrupa os regionais e técnicos vinculados na frota. */
+export const ESCALA_VISITAS_LIDERES_GRUPO = ['plinio', 'fagno', 'barbara'];
+
+function normNomeEscala(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+function nomeCorrespondeChave(nome, chave) {
+  const n = normNomeEscala(nome);
+  const c = normNomeEscala(chave);
+  if (!n || !c) return false;
+  if (n === c) return true;
+  return n.startsWith(`${c} `);
+}
+
+export function indicePrioridadeTopoEscala(nome) {
+  for (let i = 0; i < ESCALA_VISITAS_PRIORIDADE_TOPO.length; i += 1) {
+    if (nomeCorrespondeChave(nome, ESCALA_VISITAS_PRIORIDADE_TOPO[i])) return i;
+  }
+  return -1;
+}
+
+export function indiceLiderGrupoEscala(nomeLider) {
+  for (let i = 0; i < ESCALA_VISITAS_LIDERES_GRUPO.length; i += 1) {
+    if (nomeCorrespondeChave(nomeLider, ESCALA_VISITAS_LIDERES_GRUPO[i])) return i;
+  }
+  return -1;
+}
+
+export function rotuloGrupoEscala(nomeLider) {
+  if (!nomeLider) return null;
+  const chave = ESCALA_VISITAS_LIDERES_GRUPO.find((item) => nomeCorrespondeChave(nomeLider, item));
+  if (!chave) return null;
+  return chave.charAt(0).toUpperCase() + chave.slice(1);
+}
+
+async function carregarMembrosRegioesFrotaEscala() {
+  const { rows } = await pool.query(`
+    SELECT
+      lid.id_usuario AS id_lider,
+      lid.nome AS nome_lider,
+      mem.id_usuario,
+      mem.papel
+    FROM frota_regioes r
+    JOIN usuarios lid ON lid.id_usuario = r.id_regional AND lid.ativo = TRUE
+    JOIN LATERAL (
+      SELECT r.id_regional AS id_usuario, 'lider' AS papel
+      UNION ALL
+      SELECT rr.id_usuario, 'regional'
+      FROM frota_regiao_regionais rr
+      WHERE rr.id_regiao = r.id_regiao
+      UNION ALL
+      SELECT rt.id_usuario, 'tecnico'
+      FROM frota_regiao_tecnicos rt
+      WHERE rt.id_regiao = r.id_regiao
+    ) mem ON TRUE
+    WHERE r.ativo = TRUE AND r.id_regional IS NOT NULL
+  `);
+
+  const porUsuario = new Map();
+  for (const row of rows) {
+    const grupoIdx = indiceLiderGrupoEscala(row.nome_lider);
+    if (grupoIdx < 0) continue;
+
+    const papelOrd = row.papel === 'lider' ? 0 : row.papel === 'regional' ? 1 : 2;
+    const atual = porUsuario.get(row.id_usuario);
+    if (
+      !atual
+      || grupoIdx < atual.grupoIdx
+      || (grupoIdx === atual.grupoIdx && papelOrd < atual.papelOrd)
+    ) {
+      porUsuario.set(row.id_usuario, {
+        id_lider: row.id_lider,
+        nome_lider: row.nome_lider,
+        grupoIdx,
+        papelOrd,
+      });
+    }
+  }
+  return porUsuario;
+}
+
+export function ordenarRegionaisEscala(regionais, membrosMap = new Map()) {
+  function chaveOrdenacao(regional) {
+    const topo = indicePrioridadeTopoEscala(regional.nome);
+    if (topo >= 0) {
+      return { tier: 0, sub: topo, nome: regional.nome, grupo: null };
+    }
+
+    const membro = membrosMap.get(regional.id_usuario);
+    if (membro) {
+      return {
+        tier: 1 + membro.grupoIdx,
+        sub: membro.papelOrd,
+        nome: regional.nome,
+        grupo: rotuloGrupoEscala(membro.nome_lider),
+      };
+    }
+
+    return { tier: 100, sub: 0, nome: regional.nome, grupo: 'Outros' };
+  }
+
+  return [...regionais]
+    .map((regional) => ({ regional, ord: chaveOrdenacao(regional) }))
+    .sort((a, b) => {
+      if (a.ord.tier !== b.ord.tier) return a.ord.tier - b.ord.tier;
+      if (a.ord.sub !== b.ord.sub) return a.ord.sub - b.ord.sub;
+      return a.ord.nome.localeCompare(b.ord.nome, 'pt-BR');
+    })
+    .map(({ regional, ord }) => ({
+      ...regional,
+      grupo_nome: ord.grupo,
+    }));
+}
+
 export function podeGerenciarEscalaVisitas(user) {
   return temPermissao(user, 'escalas.visitas.gerenciar');
 }
@@ -58,26 +180,31 @@ async function idsRegioesVisiveis(user) {
 }
 
 export async function listarRegionaisEscala() {
-  const { rows } = await pool.query(`
-    SELECT DISTINCT u.id_usuario, u.nome, u.avatar_inicial
-    FROM usuarios u
-    WHERE u.ativo = TRUE
-      AND (
-        u.id_usuario IN (SELECT id_regional FROM frota_regioes WHERE id_regional IS NOT NULL AND ativo = TRUE)
-        OR u.id_usuario IN (SELECT id_usuario FROM frota_regiao_regionais)
-        OR u.id_usuario IN (SELECT id_usuario FROM frota_regiao_tecnicos)
-        OR COALESCE(u.cargo_aprovacao, u.perfil::text) = 'supervisor_regional'
-        OR COALESCE(u.cargo_aprovacao, u.perfil::text) = 'diretor'
-        OR u.id_usuario IN (
-          SELECT DISTINCT c.id_regional FROM escala_visitas_celula c WHERE c.id_regional IS NOT NULL
+  const [queryRegionais, membrosMap] = await Promise.all([
+    pool.query(`
+      SELECT DISTINCT u.id_usuario, u.nome, u.avatar_inicial
+      FROM usuarios u
+      WHERE u.ativo = TRUE
+        AND (
+          u.id_usuario IN (SELECT id_regional FROM frota_regioes WHERE id_regional IS NOT NULL AND ativo = TRUE)
+          OR u.id_usuario IN (SELECT id_usuario FROM frota_regiao_regionais)
+          OR u.id_usuario IN (SELECT id_usuario FROM frota_regiao_tecnicos)
+          OR COALESCE(u.cargo_aprovacao, u.perfil::text) = 'supervisor_regional'
+          OR COALESCE(u.cargo_aprovacao, u.perfil::text) = 'diretor'
+          OR u.id_usuario IN (
+            SELECT DISTINCT c.id_regional FROM escala_visitas_celula c WHERE c.id_regional IS NOT NULL
+          )
         )
-      )
-    ORDER BY u.nome
-  `);
-  return rows.map((r, i) => ({
+    `),
+    carregarMembrosRegioesFrotaEscala(),
+  ]);
+
+  const ordenados = ordenarRegionaisEscala(queryRegionais.rows, membrosMap);
+  return ordenados.map((r, i) => ({
     id_usuario: r.id_usuario,
     nome: r.nome,
     avatar_inicial: r.avatar_inicial,
+    grupo_nome: r.grupo_nome ?? null,
     cor: CORES_REGIONAIS[i % CORES_REGIONAIS.length],
   }));
 }

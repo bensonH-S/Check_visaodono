@@ -30,3 +30,25 @@ export function diaIndexNaSemana(semanaInicio: string, iso = new Date().toISOStr
 export function primeiroNome(nome: string) {
   return nome.trim().split(/\s+/)[0] || nome;
 }
+
+export type GrupoRegionaisEscala<T extends { grupo_nome?: string | null }> = {
+  nome: string | null;
+  items: T[];
+};
+
+/** Agrupa regionais já ordenados para legenda e seletor da escala. */
+export function agruparRegionaisEscala<T extends { grupo_nome?: string | null }>(
+  regionais: T[],
+): GrupoRegionaisEscala<T>[] {
+  const grupos: GrupoRegionaisEscala<T>[] = [];
+  for (const regional of regionais) {
+    const nome = regional.grupo_nome ?? null;
+    const ultimo = grupos[grupos.length - 1];
+    if (!ultimo || ultimo.nome !== nome) {
+      grupos.push({ nome, items: [regional] });
+    } else {
+      ultimo.items.push(regional);
+    }
+  }
+  return grupos;
+}

@@ -1024,6 +1024,7 @@ export interface EscalaVisitasRegional {
   nome: string;
   avatar_inicial?: string | null;
   cor: string;
+  grupo_nome?: string | null;
 }
 
 export interface EscalaVisitasAtribuicao {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -31,7 +31,7 @@ import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { atribuicoesDoDia, idsRegionaisDoDia } from '../../components/escalas/escalaVisitasModel';
-import { primeiroNome } from '../../components/escalas/escalaVisitasUtils';
+import { agruparRegionaisEscala, primeiroNome } from '../../components/escalas/escalaVisitasUtils';
 
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 
@@ -182,6 +182,11 @@ export default function EscalaVisitasPage() {
     });
   }, [grade, pending]);
 
+  const regionaisAgrupados = useMemo(
+    () => agruparRegionaisEscala(grade?.regionais ?? []),
+    [grade?.regionais],
+  );
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, flex: 1 }}>
       <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${colors.border}` }}>
@@ -252,20 +257,58 @@ export default function EscalaVisitasPage() {
         </Box>
 
         {grade && grade.regionais.length > 0 && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
-            {grade.regionais.map((r) => (
-              <Chip
-                key={r.id_usuario}
-                size="small"
-                label={r.nome}
-                sx={{
-                  bgcolor: `${r.cor}22`,
-                  border: `1px solid ${r.cor}`,
-                  fontWeight: 600,
-                  '& .MuiChip-label': { color: colors.textPrimary },
-                }}
-              />
-            ))}
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 0.75,
+              mt: 2,
+              pt: 1.5,
+              borderTop: `1px solid ${colors.border}`,
+            }}
+          >
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mr: 0.25 }}>
+              Legenda
+            </Typography>
+            {regionaisAgrupados.flatMap((grupo, indexGrupo) => {
+              const bloco: ReactNode[] = [];
+              if (indexGrupo > 0) {
+                bloco.push(
+                  <Box
+                    key={`sep-${indexGrupo}`}
+                    aria-hidden
+                    sx={{
+                      width: '1px',
+                      height: 18,
+                      bgcolor: 'rgba(27, 42, 107, 0.16)',
+                      alignSelf: 'center',
+                      mx: 0.25,
+                      flexShrink: 0,
+                    }}
+                  />,
+                );
+              }
+              for (const r of grupo.items) {
+                bloco.push(
+                  <Chip
+                    key={r.id_usuario}
+                    size="small"
+                    label={primeiroNome(r.nome)}
+                    title={r.nome}
+                    sx={{
+                      bgcolor: `${r.cor}22`,
+                      border: `1px solid ${r.cor}`,
+                      fontWeight: 600,
+                      height: 26,
+                      flexShrink: 0,
+                      '& .MuiChip-label': { px: 1, color: colors.textPrimary, fontSize: '0.72rem' },
+                    }}
+                  />,
+                );
+              }
+              return bloco;
+            })}
           </Box>
         )}
       </Paper>
@@ -358,9 +401,16 @@ export default function EscalaVisitasPage() {
                               }}
                             >
                               {(grade?.regionais ?? []).map((r) => (
-                                <MenuItem key={r.id_usuario} value={r.id_usuario}>
-                                  <Checkbox size="small" checked={idsReg.includes(r.id_usuario)} sx={{ py: 0, mr: 0.5 }} />
-                                  <ListItemText primary={r.nome} slotProps={{ primary: { sx: { fontSize: '0.82rem' } } }} />
+                                <MenuItem key={r.id_usuario} value={r.id_usuario} sx={{ py: 0.35 }}>
+                                  <Checkbox
+                                    size="small"
+                                    checked={idsReg.includes(r.id_usuario)}
+                                    sx={{ py: 0, mr: 0.5 }}
+                                  />
+                                  <ListItemText
+                                    primary={r.nome}
+                                    slotProps={{ primary: { sx: { fontSize: '0.82rem' } } }}
+                                  />
                                 </MenuItem>
                               ))}
                             </Select>
