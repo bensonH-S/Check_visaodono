@@ -575,6 +575,8 @@ export const api = {
     valor_texto?: string | null;
     pontos?: number | null;
     classe?: string | null;
+    destaque?: string | null;
+    critico?: number | null;
   }) => request('/metas/rankings', { method: 'PUT', body: JSON.stringify(body) }),
 };
 
@@ -1320,6 +1322,7 @@ export interface MetasRankingLinha {
   pontos: number | null;
   classe: string | null;
   destaque: string | null;
+  critico: number | null;
   nome_gestor: string | null;
 }
 

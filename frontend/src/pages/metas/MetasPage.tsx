@@ -28,6 +28,7 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors } from '../../theme/tokens';
 import { agruparPaineisResumo, calcValorMetaPorLoja, fmtMoedaMeta } from '../../components/metas/metasPageUtils';
 import MetasRankingTable from '../../components/metas/MetasRankingTable';
+import { lojasRevDemanda } from '../../components/metas/metasRankingUtils';
 
 const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -91,13 +92,23 @@ const finalRowSx = {
 function PainelResumoTable({
   painel,
   podeEditar,
+  lojasRevReprovadas,
   onAlterarCelula,
 }: {
   painel: MetasPainel;
   podeEditar: boolean;
+  lojasRevReprovadas: Set<number>;
   onAlterarCelula: (idIndicador: number, idLoja: number, valor: string) => void;
 }) {
-  const valorPorLoja = useMemo(() => calcValorMetaPorLoja(painel), [painel]);
+  const valorPorLoja = useMemo(
+    () => calcValorMetaPorLoja(painel, lojasRevReprovadas),
+    [painel, lojasRevReprovadas],
+  );
+
+  const colDemandaSx = (idLoja: number) =>
+    lojasRevReprovadas.has(idLoja)
+      ? { bgcolor: 'rgba(220, 38, 38, 0.12)', color: '#991b1b', fontWeight: 700 }
+      : {};
 
   return (
     <Paper sx={{ ...tablePaperSx, mb: 2 }}>
@@ -120,7 +131,11 @@ function PainelResumoTable({
                 Peso
               </TableCell>
               {painel.lojas.map((l) => (
-                <TableCell key={l.id_loja} align="center" sx={{ fontWeight: 700, minWidth: 72, whiteSpace: 'nowrap' }}>
+                <TableCell
+                  key={l.id_loja}
+                  align="center"
+                  sx={{ fontWeight: 700, minWidth: 72, whiteSpace: 'nowrap', ...colDemandaSx(l.id_loja) }}
+                >
                   {l.rotulo_curto || l.nome_loja}
                 </TableCell>
               ))}
@@ -141,7 +156,12 @@ function PainelResumoTable({
                     <TableCell
                       key={c.id_loja}
                       align="center"
-                      sx={{ ...celulaSx(c.valor_texto, c.atingiu), fontSize: '0.8rem', p: podeEditar ? 0.35 : undefined }}
+                      sx={{
+                        ...celulaSx(c.valor_texto, c.atingiu),
+                        ...colDemandaSx(c.id_loja),
+                        fontSize: '0.8rem',
+                        p: podeEditar ? 0.35 : undefined,
+                      }}
                     >
                       {podeEditar ? (
                         <Select
@@ -184,10 +204,11 @@ function PainelResumoTable({
                 {painel.subtotal_peso}
               </TableCell>
               {painel.lojas.map((l) => {
+                const reprovada = lojasRevReprovadas.has(l.id_loja);
                 const total = valorPorLoja.get(l.id_loja) ?? 0;
                 return (
-                  <TableCell key={l.id_loja} align="center">
-                    {total > 0 ? total : '—'}
+                  <TableCell key={l.id_loja} align="center" sx={colDemandaSx(l.id_loja)}>
+                    {reprovada ? '—' : total > 0 ? total : '—'}
                   </TableCell>
                 );
               })}
@@ -200,10 +221,11 @@ function PainelResumoTable({
                 {fmtMoedaMeta(painel.subtotal_peso)}
               </TableCell>
               {painel.lojas.map((l) => {
+                const reprovada = lojasRevReprovadas.has(l.id_loja);
                 const total = valorPorLoja.get(l.id_loja) ?? 0;
                 return (
-                  <TableCell key={l.id_loja} align="center">
-                    {fmtMoedaMeta(total)}
+                  <TableCell key={l.id_loja} align="center" sx={colDemandaSx(l.id_loja)}>
+                    {reprovada ? 'R$ —' : fmtMoedaMeta(total)}
                   </TableCell>
                 );
               })}
@@ -259,6 +281,7 @@ export default function MetasPage() {
   }, [carregarPeriodo]);
 
   const gruposResumo = useMemo(() => agruparPaineisResumo(dados?.paineis ?? []), [dados]);
+  const lojasRevReprovadas = useMemo(() => lojasRevDemanda(dados?.rankings ?? []), [dados]);
   const rankingAtual = dados?.rankings[rankingIdx] ?? null;
 
   const alterarCelulaResumo = useCallback(
@@ -315,6 +338,8 @@ export default function MetasPage() {
         valor_texto?: string | null;
         pontos?: number | null;
         classe?: string | null;
+        destaque?: string | null;
+        critico?: number | null;
       },
     ) => {
       if (!dados) return;
@@ -335,6 +360,8 @@ export default function MetasPage() {
                       valor_texto: patch.valor_texto !== undefined ? patch.valor_texto : linha.valor_texto,
                       pontos: patch.pontos !== undefined ? patch.pontos : linha.pontos,
                       classe: patch.classe !== undefined ? patch.classe : linha.classe,
+                      destaque: patch.destaque !== undefined ? patch.destaque : linha.destaque,
+                      critico: patch.critico !== undefined ? patch.critico : linha.critico,
                     },
               ),
             })),
@@ -409,6 +436,7 @@ export default function MetasPage() {
                 <PainelResumoTable
                   painel={grupo.empresa}
                   podeEditar={!!dados.pode_editar}
+                  lojasRevReprovadas={lojasRevReprovadas}
                   onAlterarCelula={(idInd, idLoja, valor) =>
                     void alterarCelulaResumo(grupo.empresa!.id_painel, idInd, idLoja, valor)
                   }
@@ -418,6 +446,7 @@ export default function MetasPage() {
                 <PainelResumoTable
                   painel={grupo.gestor}
                   podeEditar={!!dados.pode_editar}
+                  lojasRevReprovadas={lojasRevReprovadas}
                   onAlterarCelula={(idInd, idLoja, valor) =>
                     void alterarCelulaResumo(grupo.gestor!.id_painel, idInd, idLoja, valor)
                   }

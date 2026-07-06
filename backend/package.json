@@ -65,6 +65,7 @@
     "migrate:escala-visitas-multi": "node scripts/run-sql.js migrations/069_escala_visitas_multiplos_regionais.sql",
     "migrate:metas": "node scripts/run-sql.js migrations/070_metas.sql",
     "migrate:metas-rankings": "node scripts/run-sql.js migrations/071_metas_rankings_ordem.sql",
+    "migrate:metas-rev": "node scripts/run-sql.js migrations/073_metas_ranking_critico.sql",
     "migrate:nc-resolucao": "node scripts/run-sql.js migrations/072_nc_resolucao_mobile.sql",
     "seed:metas-junho": "node scripts/seed-metas-junho-2026.mjs",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",

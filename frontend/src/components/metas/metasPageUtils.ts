@@ -8,12 +8,13 @@ export function celulaMetaBatida(c: MetasCelulaRealizado): boolean {
 }
 
 /** Soma dos pesos (valor R$) por loja — só indicadores com OK. */
-export function calcValorMetaPorLoja(painel: MetasPainel): Map<number, number> {
+export function calcValorMetaPorLoja(painel: MetasPainel, lojasRevReprovadas?: Set<number>): Map<number, number> {
   const map = new Map<number, number>();
   for (const loja of painel.lojas) map.set(loja.id_loja, 0);
   for (const ind of painel.indicadores) {
     const peso = Number(ind.peso) || 0;
     for (const c of ind.celulas) {
+      if (lojasRevReprovadas?.has(c.id_loja)) continue;
       if (celulaMetaBatida(c)) {
         map.set(c.id_loja, (map.get(c.id_loja) ?? 0) + peso);
       }

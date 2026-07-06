@@ -18,10 +18,14 @@ import { colors } from '../../theme/tokens';
 import {
   formatValorPercentualExibicao,
   formatValorPercentualLeitura,
+  linhaRevDemanda,
+  OPCOES_CRITICO,
   OPCOES_REV_CLASSE,
+  OPCOES_REV_FAIXA,
   parsePontosRanking,
   parseValorPercentual,
   rankingColunaRevRec,
+  rankingDecimaisValor,
   rankingValorPercentual,
 } from './metasRankingUtils';
 
@@ -30,41 +34,63 @@ const inputSx = {
   '& .MuiInputBase-input': { py: 0.65, px: 0.75, fontSize: '0.8rem', textAlign: 'right' },
 } as const;
 
+const rowDemandaSx = {
+  bgcolor: 'rgba(220, 38, 38, 0.1)',
+  '& td': { color: '#991b1b', borderColor: 'rgba(220, 38, 38, 0.2)' },
+} as const;
+
+type RankingPatch = {
+  valor_numero?: number | null;
+  valor_texto?: string | null;
+  pontos?: number | null;
+  classe?: string | null;
+  destaque?: string | null;
+  critico?: number | null;
+};
+
 function RankingLinhaValor({
   linha,
   codigo,
   podeEditar,
+  demanda,
   onSalvar,
 }: {
   linha: MetasRankingLinha;
   codigo: string;
   podeEditar: boolean;
-  onSalvar: (patch: Partial<Pick<MetasRankingLinha, 'valor_numero' | 'valor_texto'>>) => void;
+  demanda: boolean;
+  onSalvar: (patch: Pick<RankingPatch, 'valor_numero' | 'valor_texto'>) => void;
 }) {
   const percentual = rankingValorPercentual(codigo);
-  const [local, setLocal] = useState(() => formatValorPercentualExibicao(linha.valor_numero, linha.valor_texto));
+  const decimais = rankingDecimaisValor(codigo);
+  const [local, setLocal] = useState(() => formatValorPercentualExibicao(linha.valor_numero, linha.valor_texto, decimais));
 
   useEffect(() => {
-    setLocal(formatValorPercentualExibicao(linha.valor_numero, linha.valor_texto));
-  }, [linha.valor_numero, linha.valor_texto]);
+    setLocal(formatValorPercentualExibicao(linha.valor_numero, linha.valor_texto, decimais));
+  }, [linha.valor_numero, linha.valor_texto, decimais]);
+
+  if (demanda) {
+    return (
+      <Typography component="span" variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#991b1b' }}>
+        DEMANDA
+      </Typography>
+    );
+  }
 
   if (!podeEditar) {
     return (
       <Typography component="span" variant="body2" sx={{ fontSize: '0.8rem' }}>
         {percentual
-          ? formatValorPercentualLeitura(linha.valor_numero, linha.valor_texto)
+          ? formatValorPercentualLeitura(linha.valor_numero, linha.valor_texto, codigo)
           : linha.valor_texto ?? (linha.valor_numero != null ? linha.valor_numero : '—')}
       </Typography>
     );
   }
 
   const commit = () => {
-    if (percentual || linha.valor_texto === 'DEMANDA') {
-      const parsed = parseValorPercentual(local);
-      if (
-        parsed.valor_numero !== linha.valor_numero ||
-        parsed.valor_texto !== linha.valor_texto
-      ) {
+    if (percentual) {
+      const parsed = parseValorPercentual(local, decimais);
+      if (parsed.valor_numero !== linha.valor_numero || parsed.valor_texto !== linha.valor_texto) {
         onSalvar(parsed);
       }
       return;
@@ -86,13 +112,7 @@ function RankingLinhaValor({
       sx={inputSx}
       slotProps={{
         input: percentual
-          ? {
-              endAdornment: linha.valor_texto !== 'DEMANDA' ? (
-                <InputAdornment position="end" sx={{ '& p': { fontSize: '0.75rem' } }}>
-                  %
-                </InputAdornment>
-              ) : undefined,
-            }
+          ? { endAdornment: <InputAdornment position="end" sx={{ '& p': { fontSize: '0.75rem' } }}>%</InputAdornment> }
           : undefined,
       }}
     />
@@ -102,10 +122,12 @@ function RankingLinhaValor({
 function RankingLinhaPontos({
   linha,
   podeEditar,
+  demanda,
   onSalvar,
 }: {
   linha: MetasRankingLinha;
   podeEditar: boolean;
+  demanda: boolean;
   onSalvar: (pontos: number | null) => void;
 }) {
   const [local, setLocal] = useState(linha.pontos != null ? String(linha.pontos) : '');
@@ -113,6 +135,10 @@ function RankingLinhaPontos({
   useEffect(() => {
     setLocal(linha.pontos != null ? String(linha.pontos) : '');
   }, [linha.pontos]);
+
+  if (demanda) {
+    return <Typography component="span" sx={{ fontWeight: 700, color: '#991b1b' }}>—</Typography>;
+  }
 
   if (!podeEditar) {
     return <>{linha.pontos ?? '—'}</>;
@@ -134,50 +160,57 @@ function RankingLinhaPontos({
   );
 }
 
-function RankingLinhaClasse({
+function RankingSelectColuna({
+  valor,
+  opcoes,
+  podeEditar,
+  minWidth,
+  onSalvar,
+}: {
+  valor: string | number | null;
+  opcoes: ReadonlyArray<{ value: string; label: string }>;
+  podeEditar: boolean;
+  minWidth?: number;
+  onSalvar: (v: string | null) => void;
+}) {
+  const str = valor == null || valor === '' ? '' : String(valor);
+  if (!podeEditar) return <>{str || '—'}</>;
+  return (
+    <Select
+      size="small"
+      value={str}
+      displayEmpty
+      onChange={(e) => {
+        const v = String(e.target.value);
+        onSalvar(v || null);
+      }}
+      sx={{ minWidth: minWidth ?? 72, fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.65 } }}
+    >
+      {opcoes.map((op) => (
+        <MenuItem key={op.value || 'vazio'} value={op.value} sx={{ fontSize: '0.82rem' }}>
+          {op.label}
+        </MenuItem>
+      ))}
+    </Select>
+  );
+}
+
+function RankingLinhaClasseTexto({
   linha,
-  codigo,
   podeEditar,
   onSalvar,
 }: {
   linha: MetasRankingLinha;
-  codigo: string;
   podeEditar: boolean;
   onSalvar: (classe: string | null) => void;
 }) {
-  const revRec = rankingColunaRevRec(codigo);
   const [local, setLocal] = useState(linha.classe ?? '');
 
   useEffect(() => {
     setLocal(linha.classe ?? '');
   }, [linha.classe]);
 
-  if (!podeEditar) {
-    return <>{linha.classe || '—'}</>;
-  }
-
-  if (revRec) {
-    return (
-      <Select
-        size="small"
-        value={local}
-        displayEmpty
-        onChange={(e) => {
-          const v = String(e.target.value);
-          setLocal(v);
-          const classe = v || null;
-          if (classe !== linha.classe) onSalvar(classe);
-        }}
-        sx={{ minWidth: 88, fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.65 } }}
-      >
-        {OPCOES_REV_CLASSE.map((op) => (
-          <MenuItem key={op.value || 'vazio'} value={op.value} sx={{ fontSize: '0.82rem' }}>
-            {op.label}
-          </MenuItem>
-        ))}
-      </Select>
-    );
-  }
+  if (!podeEditar) return <>{linha.classe || '—'}</>;
 
   return (
     <TextField
@@ -201,22 +234,14 @@ export default function MetasRankingTable({
 }: {
   grupo: MetasRankingGrupo;
   podeEditar: boolean;
-  onSalvarLinha: (
-    idRanking: number,
-    patch: {
-      valor_numero?: number | null;
-      valor_texto?: string | null;
-      pontos?: number | null;
-      classe?: string | null;
-    },
-  ) => Promise<void>;
+  onSalvarLinha: (idRanking: number, patch: RankingPatch) => Promise<void>;
 }) {
   const valorPercentual = rankingValorPercentual(grupo.codigo);
-  const colRevRec = rankingColunaRevRec(grupo.codigo);
-  const colunas = 6;
+  const isRev = rankingColunaRevRec(grupo.codigo);
+  const colunas = isRev ? 8 : 6;
 
   const salvar = useCallback(
-    (idRanking: number, patch: Parameters<typeof onSalvarLinha>[1]) => {
+    (idRanking: number, patch: RankingPatch) => {
       void onSalvarLinha(idRanking, patch);
     },
     [onSalvarLinha],
@@ -230,12 +255,13 @@ export default function MetasRankingTable({
         </Typography>
         {grupo.meta_minima != null && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            Meta mínima: {formatValorPercentualLeitura(grupo.meta_minima, null)}
+            Meta mínima: {formatValorPercentualLeitura(grupo.meta_minima, null, grupo.codigo)}
           </Typography>
         )}
         {podeEditar && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-            Salve ao pressionar Enter ou ao clicar fora do campo (sem botão separado).
+            Salve ao pressionar Enter ou ao clicar fora do campo.
+            {isRev && ' Loja com DEMANDA fica reprovada no R.E.V. e não contabiliza no Resumo.'}
           </Typography>
         )}
       </Box>
@@ -247,43 +273,89 @@ export default function MetasRankingTable({
               <TableCell sx={{ fontWeight: 700 }}>Loja</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>BKN</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700 }}>
-                {valorPercentual ? 'Valor (%)' : 'Valor'}
+                {valorPercentual ? `Valor (${isRev ? '4 dec.' : '3 dec.'} %)` : 'Valor'}
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>Pts</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>{colRevRec ? 'REV / REC' : 'Classe'}</TableCell>
+              {isRev ? (
+                <>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>Crítico</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700 }}>Faixa</TableCell>
+                </>
+              ) : null}
+              <TableCell sx={{ fontWeight: 700 }}>{isRev ? 'REV / REC' : 'Classe'}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {grupo.linhas.map((linha) => (
-              <TableRow key={linha.id_ranking} hover>
-                <TableCell>{linha.posicao ?? '—'}</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{linha.nome_loja || linha.valor_texto || '—'}</TableCell>
-                <TableCell>{linha.bk_number || '—'}</TableCell>
-                <TableCell align="right">
-                  <RankingLinhaValor
-                    linha={linha}
-                    codigo={grupo.codigo}
-                    podeEditar={podeEditar}
-                    onSalvar={(patch) => salvar(linha.id_ranking, patch)}
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <RankingLinhaPontos
-                    linha={linha}
-                    podeEditar={podeEditar}
-                    onSalvar={(pontos) => salvar(linha.id_ranking, { pontos })}
-                  />
-                </TableCell>
-                <TableCell>
-                  <RankingLinhaClasse
-                    linha={linha}
-                    codigo={grupo.codigo}
-                    podeEditar={podeEditar}
-                    onSalvar={(classe) => salvar(linha.id_ranking, { classe })}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
+            {grupo.linhas.map((linha) => {
+              const demanda = isRev && linhaRevDemanda(linha);
+              return (
+                <TableRow key={linha.id_ranking} hover sx={demanda ? rowDemandaSx : undefined}>
+                  <TableCell>{linha.posicao ?? '—'}</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{linha.nome_loja || linha.valor_texto || '—'}</TableCell>
+                  <TableCell>{linha.bk_number || '—'}</TableCell>
+                  <TableCell align="right">
+                    <RankingLinhaValor
+                      linha={linha}
+                      codigo={grupo.codigo}
+                      podeEditar={podeEditar}
+                      demanda={demanda}
+                      onSalvar={(patch) => salvar(linha.id_ranking, patch)}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <RankingLinhaPontos
+                      linha={linha}
+                      podeEditar={podeEditar}
+                      demanda={demanda}
+                      onSalvar={(pontos) => salvar(linha.id_ranking, { pontos })}
+                    />
+                  </TableCell>
+                  {isRev ? (
+                    <>
+                      <TableCell align="center">
+                        <RankingSelectColuna
+                          valor={linha.critico}
+                          opcoes={OPCOES_CRITICO}
+                          podeEditar={podeEditar}
+                          minWidth={64}
+                          onSalvar={(v) => salvar(linha.id_ranking, { critico: v ? Number(v) : null })}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <RankingSelectColuna
+                          valor={linha.destaque}
+                          opcoes={OPCOES_REV_FAIXA}
+                          podeEditar={podeEditar}
+                          minWidth={96}
+                          onSalvar={(v) =>
+                            salvar(linha.id_ranking, {
+                              destaque: v,
+                              pontos: v?.toUpperCase() === 'DEMANDA' ? null : undefined,
+                            })
+                          }
+                        />
+                      </TableCell>
+                    </>
+                  ) : null}
+                  <TableCell>
+                    {isRev ? (
+                      <RankingSelectColuna
+                        valor={linha.classe}
+                        opcoes={OPCOES_REV_CLASSE}
+                        podeEditar={podeEditar}
+                        onSalvar={(v) => salvar(linha.id_ranking, { classe: v })}
+                      />
+                    ) : (
+                      <RankingLinhaClasseTexto
+                        linha={linha}
+                        podeEditar={podeEditar}
+                        onSalvar={(classe) => salvar(linha.id_ranking, { classe })}
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {!grupo.linhas.length && (
               <TableRow>
                 <TableCell colSpan={colunas} align="center" sx={{ py: 3 }}>

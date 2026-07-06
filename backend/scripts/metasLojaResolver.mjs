@@ -3,6 +3,7 @@ export const ALIAS_LOJAS = {
   'bk asa sul': '408 SUL',
   'bk 201n': '201 NORTE',
   'bk 201 norte': '201 NORTE',
+  'bk carref': 'SEBASTI',
   'bk ss': 'SEBASTI',
   'bk lago': 'LAGO SUL',
   'bk estrut': 'ESTRUTURAL',

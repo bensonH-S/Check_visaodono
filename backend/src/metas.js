@@ -109,7 +109,7 @@ async function carregarRankings(idPeriodo) {
   const grupos = [];
   for (const ind of indicadores) {
     const { rows } = await pool.query(
-      `SELECT r.id_ranking, r.posicao, r.valor_numero, r.valor_texto, r.pontos, r.classe, r.destaque,
+      `SELECT r.id_ranking, r.posicao, r.valor_numero, r.valor_texto, r.pontos, r.classe, r.destaque, r.critico,
               r.nome_gestor, r.id_gestor, r.nome_loja_planilha, r.ordem_linha,
               l.id_loja, l.name AS nome_loja, l.bk_number,
               u.nome AS gestor_cadastro
@@ -137,6 +137,7 @@ async function carregarRankings(idPeriodo) {
         pontos: row.pontos,
         classe: row.classe,
         destaque: row.destaque,
+        critico: row.critico != null ? Number(row.critico) : null,
         nome_gestor: row.nome_gestor || row.gestor_cadastro,
       })),
     });
@@ -223,32 +224,44 @@ export async function salvarRealizadoMetas(user, { id_painel, id_indicador, id_l
   return rows[0];
 }
 
-export async function salvarRankingMetas(user, { id_ranking, valor_numero, valor_texto, pontos, classe }) {
+export async function salvarRankingMetas(user, { id_ranking, valor_numero, valor_texto, pontos, classe, destaque, critico }) {
   if (!podeGerenciarMetas(user)) throw new Error('Sem permissão para editar');
 
   if (!id_ranking) throw new Error('id_ranking obrigatório');
 
   const { rows: atual } = await pool.query(
-    `SELECT id_ranking, valor_numero, valor_texto, pontos, classe FROM metas_rankings WHERE id_ranking = $1`,
+    `SELECT id_ranking, valor_numero, valor_texto, pontos, classe, destaque, critico FROM metas_rankings WHERE id_ranking = $1`,
     [id_ranking],
   );
   if (!atual[0]) throw new Error('Registro de ranking não encontrado');
 
   const cur = atual[0];
+  const destaqueFinal = destaque !== undefined ? destaque : cur.destaque;
+  const pontosFinal =
+    destaqueFinal != null && String(destaqueFinal).toUpperCase() === 'DEMANDA'
+      ? null
+      : pontos !== undefined
+        ? pontos
+        : cur.pontos;
+
   const { rows } = await pool.query(
     `UPDATE metas_rankings SET
        valor_numero = $2,
        valor_texto = $3,
        pontos = $4,
-       classe = $5
+       classe = $5,
+       destaque = $6,
+       critico = $7
      WHERE id_ranking = $1
-     RETURNING id_ranking, valor_numero, valor_texto, pontos, classe`,
+     RETURNING id_ranking, valor_numero, valor_texto, pontos, classe, destaque, critico`,
     [
       id_ranking,
       valor_numero !== undefined ? valor_numero : cur.valor_numero,
       valor_texto !== undefined ? valor_texto : cur.valor_texto,
-      pontos !== undefined ? pontos : cur.pontos,
+      pontosFinal,
       classe !== undefined ? classe : cur.classe,
+      destaqueFinal,
+      critico !== undefined ? critico : cur.critico,
     ],
   );
   return rows[0];
