@@ -19,6 +19,8 @@ export function isPaginaScrollInterno(path: string): boolean {
     path === '/frota/regioes' ||
     path === '/frota/veiculos' ||
     path === '/frota/relatorio-km' ||
+    path === '/frota/relatorio-rotas' ||
+    path === '/frota/relatorio-velocidade' ||
     path.startsWith('/configuracoes/')
   );
 }

@@ -31,6 +31,8 @@ import FrotaManutencaoMobilePage from './pages/frota/FrotaManutencaoMobilePage';
 import FrotaPortalHubPage from './pages/frota/FrotaPortalHubPage';
 import FrotaVeiculosPortalPage from './pages/frota/FrotaVeiculosPortalPage';
 import FrotaRelatorioKmPage from './pages/frota/FrotaRelatorioKmPage';
+import FrotaRelatorioRotasPage from './pages/frota/FrotaRelatorioRotasPage';
+import FrotaRelatorioVelocidadePage from './pages/frota/FrotaRelatorioVelocidadePage';
 import FrotaVeiculoDetalhePage from './pages/frota/FrotaVeiculoDetalhePage';
 import FrotaUsoPortalPage from './pages/frota/FrotaUsoPortalPage';
 import FrotaCombustivelPortalPage from './pages/frota/FrotaCombustivelPortalPage';
@@ -219,6 +221,22 @@ export default function App() {
               element={
                 <RotaPermissao permissoes={['frota.gerenciar']}>
                   <FrotaRelatorioKmPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/relatorio-rotas"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaRelatorioRotasPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="frota/relatorio-velocidade"
+              element={
+                <RotaPermissao permissoes={['frota.gerenciar']}>
+                  <FrotaRelatorioVelocidadePage />
                 </RotaPermissao>
               }
             />

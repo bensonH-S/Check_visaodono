@@ -7,6 +7,8 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import SpeedIcon from '@mui/icons-material/Speed';
+import MapIcon from '@mui/icons-material/Map';
+import AvTimerIcon from '@mui/icons-material/AvTimer';
 import FrotaHubCard from '../../components/frota/FrotaHubCard';
 
 export default function FrotaPortalHubPage() {
@@ -33,9 +35,21 @@ export default function FrotaPortalHubPage() {
         />
         <FrotaHubCard
           titulo="Relatório de KM"
-          descricao="Quilometragem da frota por período — assunções, abastecimentos e manutenções."
+          descricao="Quilometragem da frota por período — assunções, abastecimentos, manutenções e odômetro do rastreador."
           icon={<SpeedIcon />}
           onClick={() => navigate('/frota/relatorio-km')}
+        />
+        <FrotaHubCard
+          titulo="Relatório de rotas"
+          descricao="Filtre veículo e período para ver no mapa as rotas percorridas e o KM do intervalo."
+          icon={<MapIcon />}
+          onClick={() => navigate('/frota/relatorio-rotas')}
+        />
+        <FrotaHubCard
+          titulo="Relatório de velocidades"
+          descricao="Velocidade média, máxima e excessos acima do limite por veículo e período."
+          icon={<AvTimerIcon />}
+          onClick={() => navigate('/frota/relatorio-velocidade')}
         />
         <FrotaHubCard
           titulo="Uso e assunção"

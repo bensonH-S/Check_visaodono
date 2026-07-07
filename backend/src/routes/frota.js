@@ -23,6 +23,14 @@ import {
   resolverKmOdometro,
   sincronizarKmAtualVeiculo,
 } from '../services/frotaKmVeiculo.js';
+import {
+  combinarVeiculosComRastreamento,
+  fulltrackRastreamentoAtivo,
+  historicoVeiculoFulltrack,
+  kmRastreadorVeiculoPeriodo,
+  relatorioRotaVeiculoPeriodo,
+  relatorioVelocidadeVeiculoPeriodo,
+} from '../services/fulltrackFleet.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -117,22 +125,46 @@ async function syncRegiaoRegionais(idRegiao, idRegionais) {
   ]);
 }
 
-async function syncRegiaoVeiculos(idRegiao, idVeiculos) {
-  const ids = [...new Set((idVeiculos || []).map(Number).filter((n) => n > 0))];
-  if (ids.length) {
-    await pool.query(
-      `UPDATE frota_veiculos SET id_regiao = NULL
-       WHERE id_regiao = $1 AND NOT (id_veiculo = ANY($2::int[]))`,
-      [idRegiao, ids],
-    );
-    await pool.query(
-      `UPDATE frota_veiculos SET id_regiao = $1 WHERE id_veiculo = ANY($2::int[]) AND ativo = TRUE`,
-      [idRegiao, ids],
-    );
-  } else {
-    await pool.query(`UPDATE frota_veiculos SET id_regiao = NULL WHERE id_regiao = $1`, [idRegiao]);
-  }
+async function syncRegiaoVeiculos(_idRegiao, _idVeiculos) {
+  // Veículos não são vinculados manualmente à região — associação é dinâmica via assunção/devolução.
 }
+
+/** Região de atuação do técnico (primeira região vinculada). */
+async function regiaoDoTecnico(idUsuario) {
+  const { rows } = await pool.query(
+    `SELECT rt.id_regiao
+     FROM frota_regiao_tecnicos rt
+     JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
+     WHERE rt.id_usuario = $1
+     ORDER BY r.nome
+     LIMIT 1`,
+    [idUsuario],
+  );
+  return rows[0]?.id_regiao ?? null;
+}
+
+const SQL_VEICULOS_REGIOES = `
+  SELECT DISTINCT ON (v.id_veiculo)
+         v.id_veiculo, v.placa, v.marca, v.modelo,
+         rt.id_regiao AS id_regiao,
+         r.nome AS nome_regiao
+  FROM frota_veiculos v
+  INNER JOIN frota_regiao_tecnicos rt ON rt.id_usuario = v.id_usuario_responsavel
+  INNER JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
+  WHERE v.ativo = TRUE
+    AND v.id_usuario_responsavel IS NOT NULL
+    AND rt.id_regiao = ANY($1::int[])
+  ORDER BY v.id_veiculo, v.placa`;
+
+const SQL_VEICULOS_REGIAO_DETALHE = `
+  SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano, v.cor, v.combustivel,
+         rt.id_regiao, r.nome AS nome_regiao, u.nome AS nome_responsavel
+  FROM frota_veiculos v
+  INNER JOIN frota_regiao_tecnicos rt ON rt.id_usuario = v.id_usuario_responsavel AND rt.id_regiao = $1
+  LEFT JOIN frota_regioes r ON r.id_regiao = rt.id_regiao
+  LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+  WHERE v.ativo = TRUE AND v.id_usuario_responsavel IS NOT NULL
+  ORDER BY v.placa`;
 
 const requirePermRegioes = requirePermissao('frota.gerenciar', 'frota.regioes');
 const requirePermMapaTecnicos = requirePermissao(
@@ -328,7 +360,16 @@ router.get('/termos', requirePermissao('frota.gerenciar'), async (req, res, next
   try {
     const { rows } = await pool.query(
       `SELECT t.id_termo, t.id_usuario, t.termo_versao, t.assinado_em, t.assinatura_url,
-              u.nome AS nome_usuario
+              u.nome AS nome_usuario,
+              COALESCE(
+                (
+                  SELECT string_agg(r.nome, ', ' ORDER BY r.nome)
+                  FROM frota_regiao_tecnicos rt
+                  JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
+                  WHERE rt.id_usuario = t.id_usuario
+                ),
+                '—'
+              ) AS nome_regiao
        FROM frota_termos_ferramentas t
        JOIN usuarios u ON u.id_usuario = t.id_usuario
        ORDER BY t.assinado_em DESC
@@ -414,7 +455,17 @@ router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => 
       [idsRegiao],
     );
 
-    res.json({ tecnicos, lojas, regioes });
+    const { rows: veiculosDb } = await pool.query(SQL_VEICULOS_REGIOES, [idsRegiao]);
+
+    let veiculos = await combinarVeiculosComRastreamento(veiculosDb);
+
+    res.json({
+      tecnicos,
+      lojas,
+      regioes,
+      veiculos,
+      rastreamento_ativo: fulltrackRastreamentoAtivo(),
+    });
   } catch (e) {
     next(e);
   }
@@ -441,11 +492,27 @@ router.get('/regioes', requirePermRegioes, async (req, res, next) => {
               ) AS regionais,
               COUNT(DISTINCT rl.id_loja)::int AS qtd_lojas,
               COUNT(DISTINCT rt.id_usuario)::int AS qtd_tecnicos,
-              COUNT(DISTINCT v.id_veiculo)::int AS qtd_veiculos
+              COUNT(DISTINCT v.id_veiculo) FILTER (
+                WHERE v.ativo = TRUE
+                  AND v.id_usuario_responsavel IS NOT NULL
+                  AND EXISTS (
+                    SELECT 1
+                    FROM frota_regiao_tecnicos rtv
+                    WHERE rtv.id_usuario = v.id_usuario_responsavel
+                      AND rtv.id_regiao = r.id_regiao
+                  )
+              )::int AS qtd_veiculos
        FROM frota_regioes r
        LEFT JOIN frota_regiao_lojas rl ON rl.id_regiao = r.id_regiao
        LEFT JOIN frota_regiao_tecnicos rt ON rt.id_regiao = r.id_regiao
-       LEFT JOIN frota_veiculos v ON v.id_regiao = r.id_regiao AND v.ativo = TRUE
+       LEFT JOIN frota_veiculos v ON v.ativo = TRUE
+         AND v.id_usuario_responsavel IS NOT NULL
+         AND EXISTS (
+           SELECT 1
+           FROM frota_regiao_tecnicos rtv
+           WHERE rtv.id_usuario = v.id_usuario_responsavel
+             AND rtv.id_regiao = r.id_regiao
+         )
        WHERE r.ativo = TRUE
        GROUP BY r.id_regiao
        ORDER BY r.nome`,
@@ -530,13 +597,19 @@ router.get('/regioes/:id', requirePermRegioes, async (req, res, next) => {
       [idRegiao],
     );
 
-    const { rows: veiculos } = await pool.query(
-      `SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano, v.cor, v.combustivel
-       FROM frota_veiculos v
-       WHERE v.id_regiao = $1 AND v.ativo = TRUE
-       ORDER BY v.placa`,
-      [idRegiao],
-    );
+    const { rows: veiculosDb } = await pool.query(SQL_VEICULOS_REGIAO_DETALHE, [idRegiao]);
+    const telemetria = await combinarVeiculosComRastreamento(veiculosDb);
+    const telemetriaPorId = new Map(telemetria.map((t) => [t.id_veiculo, t]));
+    const veiculos = veiculosDb.map((v) => {
+      const t = telemetriaPorId.get(v.id_veiculo);
+      return {
+        ...v,
+        odometro_km: t?.odometro_km ?? null,
+        combustivel_litros: t?.combustivel_litros ?? null,
+        rastreamento_disponivel: t?.rastreamento_disponivel ?? false,
+        telemetria_atualizada_em: t?.atualizado_em ?? null,
+      };
+    });
 
     res.json({
       ...rows[0],
@@ -559,7 +632,7 @@ router.get('/regioes/:id/posicoes', requirePermRegioes, async (req, res, next) =
     if (!(await usuarioPodeVerRegiaoMapa(req.user, idRegiao))) {
       return res.status(403).json({ error: 'Sem permissão para ver técnicos desta região' });
     }
-    const { rows } = await pool.query(
+    const { rows: tecnicos } = await pool.query(
       `SELECT u.id_usuario, u.nome, u.email,
               p.latitude, p.longitude, p.precisao_metros, p.atualizado_em
        FROM frota_regiao_tecnicos rt
@@ -569,7 +642,281 @@ router.get('/regioes/:id/posicoes', requirePermRegioes, async (req, res, next) =
        ORDER BY u.nome`,
       [idRegiao],
     );
-    res.json(rows);
+
+    const { rows: veiculosDb } = await pool.query(SQL_VEICULOS_REGIAO_DETALHE, [idRegiao]);
+
+    let veiculos = await combinarVeiculosComRastreamento(veiculosDb);
+
+    res.json({
+      tecnicos,
+      veiculos,
+      rastreamento_ativo: fulltrackRastreamentoAtivo(),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/rastreamento/telemetria', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id_veiculo, placa, marca, modelo
+       FROM frota_veiculos
+       WHERE ativo = TRUE
+       ORDER BY placa`,
+    );
+    const veiculos = await combinarVeiculosComRastreamento(rows);
+    res.json({
+      veiculos: veiculos.map((v) => ({
+        id_veiculo: v.id_veiculo,
+        placa: v.placa,
+        marca: v.marca,
+        modelo: v.modelo,
+        odometro_km: v.odometro_km ?? null,
+        combustivel_litros: v.combustivel_litros ?? null,
+        rastreamento_disponivel: v.rastreamento_disponivel ?? false,
+        atualizado_em: v.atualizado_em ?? null,
+      })),
+      rastreamento_ativo: fulltrackRastreamentoAtivo(),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/rastreamento/veiculos/:id/rota-dia', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const dataInicio = String(req.query.data_inicio || req.query.data || '').trim();
+    const dataFim = String(req.query.data_fim || req.query.data || dataInicio).trim();
+    if (!Number.isFinite(idVeiculo) || idVeiculo <= 0) {
+      return res.status(400).json({ error: 'Veículo inválido' });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(dataFim)) {
+      return res.status(400).json({ error: 'Informe as datas no formato AAAA-MM-DD' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT id_veiculo, placa, marca, modelo
+       FROM frota_veiculos
+       WHERE id_veiculo = $1 AND ativo = TRUE`,
+      [idVeiculo],
+    );
+    const veiculo = rows[0];
+    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+
+    const [comRastreamento] = await combinarVeiculosComRastreamento([veiculo]);
+    if (!comRastreamento?.id_rastreamento) {
+      return res.json({
+        veiculo,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        pontos: [],
+        rotas: [],
+        km_gps: 0,
+        km_odometro: null,
+        combustivel_litros: null,
+        total_pontos: 0,
+        rastreamento_ativo: fulltrackRastreamentoAtivo(),
+      });
+    }
+
+    const relatorio = await relatorioRotaVeiculoPeriodo(
+      comRastreamento.id_rastreamento,
+      dataInicio,
+      dataFim,
+    );
+    res.json({
+      veiculo,
+      ...relatorio,
+      rastreamento_ativo: fulltrackRastreamentoAtivo(),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/rastreamento/veiculos/:id/velocidade', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const dataInicio = String(req.query.data_inicio || '').trim();
+    const dataFim = String(req.query.data_fim || dataInicio).trim();
+    if (!Number.isFinite(idVeiculo) || idVeiculo <= 0) {
+      return res.status(400).json({ error: 'Veículo inválido' });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(dataFim)) {
+      return res.status(400).json({ error: 'Informe as datas no formato AAAA-MM-DD' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT id_veiculo, placa, marca, modelo
+       FROM frota_veiculos WHERE id_veiculo = $1 AND ativo = TRUE`,
+      [idVeiculo],
+    );
+    const veiculo = rows[0];
+    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+
+    const [comRastreamento] = await combinarVeiculosComRastreamento([veiculo]);
+    if (!comRastreamento?.id_rastreamento) {
+      return res.json({
+        veiculo,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        limite_kmh: 80,
+        velocidade_media: 0,
+        velocidade_maxima: 0,
+        total_pontos: 0,
+        qtd_excessos: 0,
+        excessos: [],
+        km_gps: 0,
+        rastreamento_ativo: fulltrackRastreamentoAtivo(),
+      });
+    }
+
+    const relatorio = await relatorioVelocidadeVeiculoPeriodo(
+      comRastreamento.id_rastreamento,
+      dataInicio,
+      dataFim,
+    );
+    res.json({
+      veiculo,
+      ...relatorio,
+      rastreamento_ativo: fulltrackRastreamentoAtivo(),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/rastreamento/relatorio-km-confronto', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const dataInicio = String(req.query.data_inicio || '').trim();
+    const dataFim = String(req.query.data_fim || dataInicio).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(dataFim)) {
+      return res.status(400).json({ error: 'Informe as datas no formato AAAA-MM-DD' });
+    }
+
+    const { rows: veiculosDb } = await pool.query(
+      `SELECT id_veiculo, placa, marca, modelo FROM frota_veiculos WHERE ativo = TRUE ORDER BY placa`,
+    );
+    const telemetria = await combinarVeiculosComRastreamento(veiculosDb);
+
+    const { rows: assuncoes } = await pool.query(
+      `SELECT a.id_veiculo, v.placa, a.km_inicio, a.km_fim, a.data_inicio, a.data_fim
+       FROM frota_assuncoes a
+       JOIN frota_veiculos v ON v.id_veiculo = a.id_veiculo
+       WHERE a.data_inicio::date <= $2::date
+         AND COALESCE(a.data_fim, NOW())::date >= $1::date`,
+      [dataInicio, dataFim],
+    );
+
+    const kmManualPorVeiculo = new Map();
+    for (const a of assuncoes) {
+      if (a.km_inicio == null) continue;
+      const kmFim = a.km_fim ?? a.km_inicio;
+      const diff = Number(kmFim) - Number(a.km_inicio);
+      if (diff < 0) continue;
+      const atual = kmManualPorVeiculo.get(a.id_veiculo) || {
+        id_veiculo: a.id_veiculo,
+        placa: a.placa,
+        km_percorrido: 0,
+        registros: 0,
+      };
+      atual.km_percorrido += diff;
+      atual.registros += 1;
+      kmManualPorVeiculo.set(a.id_veiculo, atual);
+    }
+
+    const rastreador = [];
+    for (const v of telemetria) {
+      if (!v.id_rastreamento) {
+        rastreador.push({
+          id_veiculo: v.id_veiculo,
+          placa: v.placa,
+          km_gps: null,
+          km_odometro: null,
+        });
+        continue;
+      }
+      const km = await kmRastreadorVeiculoPeriodo(v.id_rastreamento, dataInicio, dataFim);
+      rastreador.push({
+        id_veiculo: v.id_veiculo,
+        placa: v.placa,
+        km_gps: km.km_gps,
+        km_odometro: km.km_odometro,
+      });
+    }
+
+    const manual = [...kmManualPorVeiculo.values()].map((m) => ({
+      ...m,
+      km_percorrido: Math.round(m.km_percorrido * 10) / 10,
+    }));
+
+    const confronto = veiculosDb.map((v) => {
+      const m = manual.find((x) => x.id_veiculo === v.id_veiculo);
+      const r = rastreador.find((x) => x.id_veiculo === v.id_veiculo);
+      const kmManual = m?.km_percorrido ?? null;
+      const kmRastreador = r?.km_odometro ?? r?.km_gps ?? null;
+      const diferenca =
+        kmManual != null && kmRastreador != null
+          ? Math.round((kmRastreador - kmManual) * 10) / 10
+          : null;
+      return {
+        id_veiculo: v.id_veiculo,
+        placa: v.placa,
+        veiculo: [v.marca, v.modelo].filter(Boolean).join(' ') || '—',
+        km_manual: kmManual,
+        km_rastreador: kmRastreador,
+        diferenca,
+      };
+    }).filter((c) => c.km_manual != null || c.km_rastreador != null);
+
+    res.json({
+      data_inicio: dataInicio,
+      data_fim: dataFim,
+      manual,
+      rastreador,
+      confronto,
+      rastreamento_ativo: fulltrackRastreamentoAtivo(),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/rastreamento/veiculos/:id/historico', requirePermMapaTecnicos, async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    if (!Number.isFinite(idVeiculo) || idVeiculo <= 0) {
+      return res.status(400).json({ error: 'Veículo inválido' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT v.id_veiculo, v.placa, v.id_regiao
+       FROM frota_veiculos v
+       WHERE v.id_veiculo = $1 AND v.ativo = TRUE`,
+      [idVeiculo],
+    );
+    const veiculo = rows[0];
+    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+
+    if (veiculo.id_regiao != null && !(await usuarioPodeVerRegiaoMapa(req.user, veiculo.id_regiao))) {
+      return res.status(403).json({ error: 'Sem permissão para ver este veículo' });
+    }
+
+    const [comRastreamento] = await combinarVeiculosComRastreamento([veiculo]);
+    if (!comRastreamento?.id_rastreamento) {
+      return res.json({ pontos: [], rastreamento_ativo: fulltrackRastreamentoAtivo() });
+    }
+
+    const inicio = req.query.inicio != null ? Number(req.query.inicio) : null;
+    const fim = req.query.fim != null ? Number(req.query.fim) : null;
+    const pontos = await historicoVeiculoFulltrack(comRastreamento.id_rastreamento, inicio, fim);
+
+    res.json({
+      pontos,
+      rastreamento_ativo: fulltrackRastreamentoAtivo(),
+    });
   } catch (e) {
     next(e);
   }
@@ -600,7 +947,7 @@ router.post('/regioes', requirePermRegioes, async (req, res, next) => {
 router.patch('/regioes/:id', requirePermRegioes, async (req, res, next) => {
   try {
     const idRegiao = Number(req.params.id);
-    const { nome, descricao, id_lojas, id_usuarios, id_veiculos, id_regionais, id_regional } = req.body || {};
+    const { nome, descricao, id_lojas, id_usuarios, id_regionais, id_regional } = req.body || {};
     const sets = ['updated_at = NOW()'];
     const vals = [idRegiao];
     let i = 2;
@@ -638,7 +985,6 @@ router.patch('/regioes/:id', requirePermRegioes, async (req, res, next) => {
 
     if (Array.isArray(id_lojas)) await syncRegiaoLojas(idRegiao, id_lojas);
     if (Array.isArray(id_usuarios)) await syncRegiaoTecnicos(idRegiao, id_usuarios);
-    if (Array.isArray(id_veiculos)) await syncRegiaoVeiculos(idRegiao, id_veiculos);
 
     await auditar(req, {
       modulo: 'frota',
@@ -650,7 +996,6 @@ router.patch('/regioes/:id', requirePermRegioes, async (req, res, next) => {
         regionais: Array.isArray(id_regionais) ? id_regionais : undefined,
         lojas: Array.isArray(id_lojas) ? id_lojas : undefined,
         tecnicos: Array.isArray(id_usuarios) ? id_usuarios : undefined,
-        veiculos: Array.isArray(id_veiculos) ? id_veiculos : undefined,
       },
     });
 
@@ -870,6 +1215,8 @@ router.post(
         return res.status(400).json({ error: 'Informe a quilometragem atual' });
       }
 
+      const idRegiaoTecnico = await regiaoDoTecnico(idUsuario);
+
       const client = await pool.connect();
       let idAssuncao;
       try {
@@ -882,16 +1229,16 @@ router.post(
         );
 
         await client.query(
-          `UPDATE frota_veiculos SET id_usuario_responsavel = NULL, assuncao_em = NULL
+          `UPDATE frota_veiculos SET id_usuario_responsavel = NULL, assuncao_em = NULL, id_regiao = NULL
            WHERE id_usuario_responsavel = $1 AND id_veiculo != $2`,
           [idUsuario, idVeiculo],
         );
 
         await client.query(
           `UPDATE frota_veiculos
-           SET id_usuario_responsavel = $1, assuncao_em = NOW(), km_atual = $3, updated_at = NOW()
+           SET id_usuario_responsavel = $1, assuncao_em = NOW(), km_atual = $3, id_regiao = $4, updated_at = NOW()
            WHERE id_veiculo = $2`,
-          [idUsuario, idVeiculo, kmEfetivo],
+          [idUsuario, idVeiculo, kmEfetivo, idRegiaoTecnico],
         );
 
         const { rows: assRows } = await client.query(
@@ -974,7 +1321,7 @@ router.post('/me/desassumir', requirePermissao('frota.usar'), async (req, res, n
       );
       await client.query(
         `UPDATE frota_veiculos
-         SET id_usuario_responsavel = NULL, assuncao_em = NULL, km_atual = $3, updated_at = NOW()
+         SET id_usuario_responsavel = NULL, assuncao_em = NULL, km_atual = $3, id_regiao = NULL, updated_at = NOW()
          WHERE id_veiculo = $1 AND id_usuario_responsavel = $2`,
         [veiculo.id_veiculo, idUsuario, kmEfetivo],
       );

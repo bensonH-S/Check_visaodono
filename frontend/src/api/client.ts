@@ -424,8 +424,38 @@ export const api = {
   frotaRegiaoCatalogo: () => request<FrotaRegiaoCatalogo>('/frota/regioes/catalogo'),
   frotaRegiao: (idRegiao: number) => request<FrotaRegiaoDetalhe>(`/frota/regioes/${idRegiao}`),
   frotaRegiaoPosicoes: (idRegiao: number) =>
-    request<FrotaTecnicoPosicao[]>(`/frota/regioes/${idRegiao}/posicoes`),
+    request<FrotaRegiaoPosicoesMapa>(`/frota/regioes/${idRegiao}/posicoes`),
   frotaMapaPosicoes: () => request<FrotaMapaPosicoes>('/frota/mapa/posicoes'),
+  frotaVeiculoHistoricoRastreamento: (idVeiculo: number, opts?: { inicio?: number; fim?: number }) => {
+    const qs = new URLSearchParams();
+    if (opts?.inicio != null) qs.set('inicio', String(opts.inicio));
+    if (opts?.fim != null) qs.set('fim', String(opts.fim));
+    const query = qs.toString();
+    return request<FrotaVeiculoHistoricoRastreamento>(
+      `/frota/rastreamento/veiculos/${idVeiculo}/historico${query ? `?${query}` : ''}`,
+    );
+  },
+  frotaRastreamentoTelemetria: () =>
+    request<FrotaRastreamentoTelemetria>('/frota/rastreamento/telemetria'),
+  frotaVeiculoRotaDia: (idVeiculo: number, dataInicio: string, dataFim?: string) => {
+    const qs = new URLSearchParams({
+      data_inicio: dataInicio,
+      data_fim: dataFim || dataInicio,
+    });
+    return request<FrotaVeiculoRotaDiaRelatorio>(
+      `/frota/rastreamento/veiculos/${idVeiculo}/rota-dia?${qs.toString()}`,
+    );
+  },
+  frotaVeiculoVelocidade: (idVeiculo: number, dataInicio: string, dataFim: string) => {
+    const qs = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim });
+    return request<FrotaVeiculoVelocidadeRelatorio>(
+      `/frota/rastreamento/veiculos/${idVeiculo}/velocidade?${qs.toString()}`,
+    );
+  },
+  frotaKmConfronto: (dataInicio: string, dataFim: string) => {
+    const qs = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim });
+    return request<FrotaKmConfrontoRelatorio>(`/frota/rastreamento/relatorio-km-confronto?${qs.toString()}`);
+  },
   frotaCriarRegiao: (body: Pick<FrotaRegiaoBody, 'nome' | 'descricao'>) =>
     request<FrotaRegiaoCriada>('/frota/regioes', { method: 'POST', body: JSON.stringify(body) }),
   frotaAtualizarRegiao: (idRegiao: number, body: Partial<FrotaRegiaoBody>) =>
@@ -989,6 +1019,7 @@ export interface FrotaTermoPortalResumo {
   id_termo: number;
   id_usuario: number;
   nome_usuario: string;
+  nome_regiao?: string | null;
   termo_versao: string;
   assinado_em: string;
   assinatura_url: string;
@@ -1051,10 +1082,131 @@ export interface FrotaTecnicoPosicao {
   nome_regiao?: string | null;
 }
 
+export interface FrotaVeiculoPosicao {
+  id_veiculo: number;
+  placa: string;
+  marca?: string | null;
+  modelo?: string | null;
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
+  id_rastreamento?: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  velocidade?: number | null;
+  ignicao?: boolean | null;
+  direcao?: string | null;
+  atualizado_em?: string | null;
+  motorista?: string | null;
+  odometro_km?: number | null;
+  combustivel_litros?: number | null;
+  rastreamento_disponivel?: boolean;
+}
+
+export interface FrotaVeiculoHistoricoPonto {
+  id: number;
+  latitude: number;
+  longitude: number;
+  velocidade?: number;
+  ignicao?: boolean;
+  atualizado_em?: string | null;
+  odometro_km?: number | null;
+  combustivel_litros?: number | null;
+}
+
+export interface FrotaVeiculoHistoricoRastreamento {
+  pontos: FrotaVeiculoHistoricoPonto[];
+  rastreamento_ativo?: boolean;
+}
+
+export interface FrotaTelemetriaVeiculo {
+  id_veiculo: number;
+  placa: string;
+  marca?: string | null;
+  modelo?: string | null;
+  odometro_km?: number | null;
+  combustivel_litros?: number | null;
+  rastreamento_disponivel?: boolean;
+  atualizado_em?: string | null;
+}
+
+export interface FrotaRastreamentoTelemetria {
+  veiculos: FrotaTelemetriaVeiculo[];
+  rastreamento_ativo?: boolean;
+}
+
+export interface FrotaRotaDiaSegmento {
+  id: number;
+  pontos: FrotaVeiculoHistoricoPonto[];
+  km: number;
+  inicio?: string | null;
+  fim?: string | null;
+}
+
+export interface FrotaVeiculoRotaDiaRelatorio {
+  veiculo: { id_veiculo: number; placa: string; marca?: string | null; modelo?: string | null };
+  data_inicio: string;
+  data_fim: string;
+  pontos: FrotaVeiculoHistoricoPonto[];
+  rotas: FrotaRotaDiaSegmento[];
+  km_gps: number;
+  km_odometro?: number | null;
+  combustivel_litros?: number | null;
+  total_pontos: number;
+  rastreamento_ativo?: boolean;
+}
+
+export interface FrotaExcessoVelocidade {
+  velocidade: number;
+  limite: number;
+  latitude: number;
+  longitude: number;
+  atualizado_em?: string | null;
+}
+
+export interface FrotaVeiculoVelocidadeRelatorio {
+  veiculo: { id_veiculo: number; placa: string; marca?: string | null; modelo?: string | null };
+  data_inicio: string;
+  data_fim: string;
+  limite_kmh: number;
+  velocidade_media: number;
+  velocidade_maxima: number;
+  total_pontos: number;
+  qtd_excessos: number;
+  excessos: FrotaExcessoVelocidade[];
+  km_gps: number;
+  rastreamento_ativo?: boolean;
+}
+
+export interface FrotaKmConfrontoItem {
+  id_veiculo: number;
+  placa: string;
+  veiculo: string;
+  km_manual: number | null;
+  km_rastreador: number | null;
+  diferenca: number | null;
+}
+
+export interface FrotaKmConfrontoRelatorio {
+  data_inicio: string;
+  data_fim: string;
+  manual: { id_veiculo: number; placa: string; km_percorrido: number; registros: number }[];
+  rastreador: { id_veiculo: number; placa: string; km_gps: number | null; km_odometro: number | null }[];
+  confronto: FrotaKmConfrontoItem[];
+  rastreamento_ativo?: boolean;
+}
+
+export interface FrotaRegiaoPosicoesMapa {
+  tecnicos: FrotaTecnicoPosicao[];
+  veiculos: FrotaVeiculoPosicao[];
+  rastreamento_ativo?: boolean;
+}
+
 export interface FrotaMapaPosicoes {
   tecnicos: FrotaTecnicoPosicao[];
   lojas: FrotaRegiaoLoja[];
   regioes: { id_regiao: number; nome: string }[];
+  veiculos: FrotaVeiculoPosicao[];
+  rastreamento_ativo?: boolean;
 }
 
 export interface EscalaVisitasRegional {
@@ -1209,6 +1361,11 @@ export interface FrotaRegiaoVeiculo {
   combustivel?: string | null;
   id_regiao?: number | null;
   nome_regiao?: string | null;
+  nome_responsavel?: string | null;
+  odometro_km?: number | null;
+  combustivel_litros?: number | null;
+  rastreamento_disponivel?: boolean;
+  telemetria_atualizada_em?: string | null;
 }
 
 export interface FrotaRegiaoCatalogo {

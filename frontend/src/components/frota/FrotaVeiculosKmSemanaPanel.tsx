@@ -14,7 +14,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import { api } from '../../api/client';
+import { api, type FrotaKmConfrontoItem } from '../../api/client';
 import FiltroIntervaloDatasFrota from './FiltroIntervaloDatasFrota';
 import { colors } from '../../theme/tokens';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
@@ -57,6 +57,8 @@ export default function FrotaVeiculosKmSemanaPanel({
 }: Props) {
   const semana = periodoSemanaAtualKm();
   const [registros, setRegistros] = useState<RegistroKmFrota[]>([]);
+  const [confronto, setConfronto] = useState<FrotaKmConfrontoItem[]>([]);
+  const [rastreamentoAtivo, setRastreamentoAtivo] = useState(true);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [dataInicioLocal, setDataInicioLocal] = useState(semana.inicio);
@@ -70,21 +72,33 @@ export default function FrotaVeiculosKmSemanaPanel({
   const carregar = useCallback(() => {
     setLoading(true);
     setErro('');
+    const inicio = dataInicio || semana.inicio;
+    const fim = dataFim || semana.fim;
     Promise.all([
       api.frotaAssuncoes(),
       api.frotaAbastecimentosPortal(),
       api.frotaManutencoesPortal(),
       api.frotaVeiculos(),
+      api.frotaKmConfronto(inicio, fim).catch(() => ({
+        confronto: [],
+        rastreamento_ativo: false,
+        data_inicio: inicio,
+        data_fim: fim,
+        manual: [],
+        rastreador: [],
+      })),
     ])
-      .then(([assuncoes, abastecimentos, manutencoes, veiculos]) => {
+      .then(([assuncoes, abastecimentos, manutencoes, veiculos, kmConf]) => {
         const veiculosPorId = new Map(
           veiculos.map((v) => [v.id_veiculo, { marca: v.marca, modelo: v.modelo }]),
         );
         setRegistros(montarRegistrosKm(assuncoes, abastecimentos, manutencoes, undefined, veiculosPorId));
+        setConfronto(kmConf.confronto ?? []);
+        setRastreamentoAtivo(kmConf.rastreamento_ativo !== false);
       })
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar quilometragem'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [dataInicio, dataFim, semana.inicio, semana.fim]);
 
   useEffect(() => {
     if (ativo) carregar();
@@ -136,8 +150,61 @@ export default function FrotaVeiculosKmSemanaPanel({
         </Typography>
       )}
 
-      <Paper elevation={0} sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
-        {loading && <LinearProgress />}
+      {loading && <LinearProgress sx={{ flexShrink: 0 }} />}
+
+      {rastreamentoAtivo && confronto.length > 0 && (
+        <Paper elevation={0} sx={{ ...tablePaperSx, flexShrink: 0, maxHeight: 240 }}>
+          <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5, pb: 0.5, fontWeight: 700 }}>
+            Confronto KM — rastreador x apontamento manual
+          </Typography>
+          <TableContainer sx={tableContainerSx}>
+            <Table size="small" stickyHeader sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Placa</TableCell>
+                  <TableCell>Veículo</TableCell>
+                  <TableCell align="right">KM rastreador</TableCell>
+                  <TableCell align="right">KM apontado</TableCell>
+                  <TableCell align="right">Diferença</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {confronto.map((c) => (
+                  <TableRow key={c.id_veiculo} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{c.placa}</TableCell>
+                    <TableCell sx={tableCellWrapSx}>{c.veiculo}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>
+                      {c.km_rastreador != null ? c.km_rastreador.toLocaleString('pt-BR') : '—'}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600 }}>
+                      {c.km_manual != null ? c.km_manual.toLocaleString('pt-BR') : '—'}
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        fontWeight: 700,
+                        color:
+                          c.diferenca != null && Math.abs(c.diferenca) > 5
+                            ? 'error.main'
+                            : 'text.primary',
+                      }}
+                    >
+                      {c.diferenca != null
+                        ? `${c.diferenca > 0 ? '+' : ''}${c.diferenca.toLocaleString('pt-BR')}`
+                        : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      <Paper elevation={0} sx={{ ...tablePaperSx, flex: 1, minHeight: 0, maxHeight: '42%' }}>
+        <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5, pb: 0.5, fontWeight: 700 }}>
+          KM apontado (assunções, abastecimentos e manutenções)
+        </Typography>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>
             <TableHead>

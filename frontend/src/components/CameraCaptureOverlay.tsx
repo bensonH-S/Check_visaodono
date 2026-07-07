@@ -55,6 +55,7 @@ export default function CameraCaptureOverlay({
   const pressStartRef = useRef(0);
   const gravandoRef = useRef(false);
   const descartarRef = useRef(false);
+  const capturandoFotoRef = useRef(false);
   const mimeRef = useRef('');
 
   const [erro, setErro] = useState('');
@@ -107,6 +108,7 @@ export default function CameraCaptureOverlay({
     }
 
     descartarRef.current = false;
+    capturandoFotoRef.current = false;
     let cancelado = false;
 
     function pararStreamAtual() {
@@ -169,7 +171,9 @@ export default function CameraCaptureOverlay({
 
   function capturarFoto() {
     const video = videoRef.current;
-    if (!video || !video.videoWidth || gravandoRef.current) return;
+    if (!video || !video.videoWidth || gravandoRef.current || capturandoFotoRef.current) return;
+
+    capturandoFotoRef.current = true;
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
@@ -205,7 +209,11 @@ export default function CameraCaptureOverlay({
 
     canvas.toBlob(
       (blob) => {
-        if (!blob) return;
+        capturandoFotoRef.current = false;
+        if (!blob) {
+          setErro('Não foi possível capturar a foto. Tente novamente.');
+          return;
+        }
         onCapture(new File([blob], `foto-${Date.now()}.jpg`, { type: 'image/jpeg' }));
         fechar(true);
       },

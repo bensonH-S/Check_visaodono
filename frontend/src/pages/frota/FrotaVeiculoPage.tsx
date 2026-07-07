@@ -88,11 +88,10 @@ export default function FrotaVeiculoPage() {
 
   function aoMudarKm(valor: string) {
     setKmAssumir(filtrarKmAoDigitar(valor));
-    limparFotosAoAlterarDados();
   }
 
   function aoMudarCnh(fotos: string[]) {
-    setFotoCnh(fotos);
+    setFotoCnh(fotos.slice(0, 1));
     if (!fotos.length) setFotosVeiculo([]);
   }
 
@@ -178,7 +177,7 @@ export default function FrotaVeiculoPage() {
             Assumir controle do carro
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Preencha cada etapa na ordem: veículo e KM, foto da CNH e fotos do veículo.
+            Preencha veículo e KM, depois anexe a CNH e as fotos do carro — uma etapa de cada vez.
           </Typography>
 
           <Stepper activeStep={etapaAtiva} alternativeLabel sx={{ mb: 3 }}>
@@ -241,17 +240,26 @@ export default function FrotaVeiculoPage() {
             slotProps={{ inputLabel: labelFixo.inputLabel }}
           />
 
-          {dadosPreenchidos && (
+          {dadosPreenchidos && !cnhPreenchida && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                 Foto da CNH
               </Typography>
-              <PhotoCaptureMulti fotos={fotoCnh} onChange={aoMudarCnh} max={1} inlineActions />
+              <PhotoCaptureMulti
+                fotos={fotoCnh}
+                onChange={aoMudarCnh}
+                max={1}
+                inlineActions
+                hideCaption
+              />
             </Box>
           )}
 
-          {dadosPreenchidos && cnhPreenchida && (
+          {dadosPreenchidos && cnhPreenchida && !fotosVeiculoOk && (
             <Box sx={{ mb: 2 }}>
+              <Alert severity="success" variant="outlined" sx={{ mb: 2 }}>
+                CNH anexada. Agora tire ao menos uma foto do veículo.
+              </Alert>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
                 Fotos do veículo
               </Typography>
@@ -264,8 +272,26 @@ export default function FrotaVeiculoPage() {
                 max={MAX_FOTOS_VEICULO}
                 inlineActions
                 thumbColumns={3}
+                hideCaption
               />
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => {
+                  setFotoCnh([]);
+                  setFotosVeiculo([]);
+                }}
+                sx={{ mt: 1, color: 'text.secondary' }}
+              >
+                Alterar foto da CNH
+              </Button>
             </Box>
+          )}
+
+          {dadosPreenchidos && cnhPreenchida && fotosVeiculoOk && (
+            <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
+              CNH e fotos do veículo prontas. Confirme a atribuição abaixo.
+            </Alert>
           )}
 
           <Button
@@ -275,7 +301,7 @@ export default function FrotaVeiculoPage() {
             disabled={salvando || !podeAssumir}
             sx={{ mt: 1, minHeight: 48 }}
           >
-            {salvando ? 'Registrando…' : 'Assumir controle hoje'}
+            {salvando ? 'Registrando…' : 'Atribuir veículo'}
           </Button>
 
           {!podeAssumir && (
@@ -283,8 +309,10 @@ export default function FrotaVeiculoPage() {
               {!dadosPreenchidos
                 ? 'Selecione o veículo e informe a quilometragem para continuar.'
                 : !cnhPreenchida
-                  ? 'Tire a foto da CNH para liberar as fotos do veículo.'
-                  : 'Adicione ao menos uma foto do veículo para assumir.'}
+                  ? 'Anexe a foto da CNH para seguir para as fotos do veículo.'
+                  : !fotosVeiculoOk
+                    ? 'Anexe ao menos uma foto do veículo para atribuir.'
+                    : null}
             </Typography>
           )}
         </Paper>

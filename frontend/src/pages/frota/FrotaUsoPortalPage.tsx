@@ -303,10 +303,10 @@ export default function FrotaUsoPortalPage() {
                       <TableCell>{a.data_fim ? formatDataHoraBrasilia(a.data_fim) : '—'}</TableCell>
                       <TableCell>
                         <Chip
-                          label={a.data_fim ? 'Encerrada' : 'Em andamento'}
+                          label={a.data_fim ? 'Encerrado' : 'Atribuído'}
                           size="small"
-                          color={a.data_fim ? 'default' : 'success'}
-                          variant="outlined"
+                          color={a.data_fim ? 'error' : 'success'}
+                          variant="filled"
                           sx={{ fontWeight: 600 }}
                         />
                       </TableCell>

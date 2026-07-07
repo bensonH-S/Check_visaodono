@@ -36,6 +36,8 @@ import {
   type FrotaRegiaoTecnico,
   type FrotaRegiaoVeiculo,
   type FrotaTecnicoPosicao,
+  type FrotaVeiculoHistoricoPonto,
+  type FrotaVeiculoPosicao,
 } from '../../api/client';
 import FrotaLocalizacaoMap from '../../components/frota/FrotaLocalizacaoMap';
 import { useAppConfig } from '../../hooks/useAppConfig';
@@ -832,58 +834,45 @@ function SelecaoRegionaisRegiao({
   );
 }
 
-function SelecaoVeiculosRegiao({
-  veiculos,
-  selecionados,
-  onChange,
-}: {
-  veiculos: FrotaRegiaoVeiculo[];
-  selecionados: number[];
-  onChange: (ids: number[]) => void;
-}) {
-  const itens = useMemo(
-    () =>
-      veiculos
-        .map((v) => ({ ...v, id: v.id_veiculo }))
-        .sort(ordenarVeiculos),
-    [veiculos],
-  );
+function VeiculosRegiaoLeitura({ veiculos }: { veiculos: FrotaRegiaoVeiculo[] }) {
+  const ordenados = useMemo(() => [...veiculos].sort(ordenarVeiculos), [veiculos]);
 
   return (
-    <SelecaoPickerMultiplo
-      label="Adicionar veículos"
-      placeholder="Selecione os veículos"
-      helperText="Selecione um ou mais veículos. Os já vinculados aparecem somente na lista abaixo."
-      vazioTexto="Nenhum veículo vinculado a esta região."
-      itemSingular="veículo"
-      itemPlural="veículos"
-      itens={itens}
-      selecionados={selecionados}
-      onChange={onChange}
-      menuMinWidth={340}
-      renderItem={(v) => (
-        <VeiculoLinhaMenu veiculo={v} compacto mostrarRegiao={!!v.id_regiao && !!v.nome_regiao} />
-      )}
-      renderLista={(lista, remover) => (
+    <>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        Aparecem aqui somente veículos sob responsabilidade de um técnico vinculado a esta região.
+        Ao devolver o veículo ou quando o responsável não pertence à região, o veículo sai da lista.
+      </Alert>
+      {ordenados.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+          Nenhum veículo vinculado a esta região no momento.
+        </Typography>
+      ) : (
         <Box sx={gridCardsVinculoSx}>
-          {lista.map((v) => (
+          {ordenados.map((v) => (
             <Paper key={v.id_veiculo} variant="outlined" sx={{ ...paperCardVinculoSx, alignItems: 'flex-start' }}>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <VeiculoLinhaMenu veiculo={v} modoCard />
+                {v.nome_responsavel ? (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Responsável: {v.nome_responsavel}
+                  </Typography>
+                ) : null}
+                {(v.odometro_km != null || v.combustivel_litros != null) && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.35, display: 'block' }}>
+                    {v.odometro_km != null ? `KM rastreador: ${v.odometro_km.toLocaleString('pt-BR')}` : null}
+                    {v.odometro_km != null && v.combustivel_litros != null ? ' · ' : null}
+                    {v.combustivel_litros != null
+                      ? `Combustível: ${v.combustivel_litros.toLocaleString('pt-BR')} L`
+                      : null}
+                  </Typography>
+                )}
               </Box>
-              <IconButton
-                size="small"
-                aria-label={`Remover ${v.placa}`}
-                onClick={() => remover(v.id_veiculo)}
-                sx={{ flexShrink: 0 }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
             </Paper>
           ))}
         </Box>
       )}
-    />
+    </>
   );
 }
 
@@ -1062,7 +1051,6 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
   const [idsRegionais, setIdsRegionais] = useState<number[]>([]);
   const [idsLojas, setIdsLojas] = useState<number[]>([]);
   const [idsTecnicos, setIdsTecnicos] = useState<number[]>([]);
-  const [idsVeiculos, setIdsVeiculos] = useState<number[]>([]);
   const [regionaisDetalhe, setRegionaisDetalhe] = useState<FrotaRegiaoTecnico[]>([]);
   const [lojasDetalhe, setLojasDetalhe] = useState<FrotaRegiaoLoja[]>([]);
   const [tecnicosDetalhe, setTecnicosDetalhe] = useState<FrotaRegiaoTecnico[]>([]);
@@ -1073,6 +1061,10 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
   const [nomeNova, setNomeNova] = useState('');
   const [criando, setCriando] = useState(false);
   const [posicoes, setPosicoes] = useState<FrotaTecnicoPosicao[]>([]);
+  const [veiculosRastreamento, setVeiculosRastreamento] = useState<FrotaVeiculoPosicao[]>([]);
+  const [historicoVeiculo, setHistoricoVeiculo] = useState<FrotaVeiculoHistoricoPonto[]>([]);
+  const [veiculoDestaqueId, setVeiculoDestaqueId] = useState<number | null>(null);
+  const [rastreamentoAtivo, setRastreamentoAtivo] = useState(true);
   const [carregandoPosicoes, setCarregandoPosicoes] = useState(false);
   const appConfig = useAppConfig();
 
@@ -1141,15 +1133,6 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
     return [...mapa.values()].sort(ordenarTecnicos);
   }, [catalogo.tecnicos, tecnicosDetalhe]);
 
-  const veiculosOrdenados = useMemo(() => {
-    const mapa = new Map<number, FrotaRegiaoVeiculo>();
-    for (const v of catalogo.veiculos) mapa.set(v.id_veiculo, v);
-    for (const v of veiculosDetalhe) {
-      if (!mapa.has(v.id_veiculo)) mapa.set(v.id_veiculo, v);
-    }
-    return [...mapa.values()].sort(ordenarVeiculos);
-  }, [catalogo.veiculos, veiculosDetalhe]);
-
   const regiaoSelecionada = useMemo(
     () => regioes.find((r) => r.id_regiao === selecionadaId) ?? null,
     [regioes, selecionadaId],
@@ -1164,7 +1147,6 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
     setLojasDetalhe(detalhe.lojas);
     setIdsTecnicos(detalhe.tecnicos.map((t) => t.id_usuario));
     setTecnicosDetalhe(detalhe.tecnicos);
-    setIdsVeiculos(detalhe.veiculos.map((v) => v.id_veiculo));
     setVeiculosDetalhe(detalhe.veiculos);
   }, []);
 
@@ -1193,8 +1175,10 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
     if (id == null) return;
     setCarregandoPosicoes(true);
     try {
-      const lista = await api.frotaRegiaoPosicoes(id);
-      setPosicoes(lista);
+      const data = await api.frotaRegiaoPosicoes(id);
+      setPosicoes(data.tecnicos);
+      setVeiculosRastreamento(data.veiculos);
+      setRastreamentoAtivo(data.rastreamento_ativo !== false);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar localizações', 'error');
     } finally {
@@ -1202,10 +1186,36 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
     }
   }, [selecionadaId]);
 
+  const carregarHistoricoVeiculo = useCallback(async (idVeiculo: number) => {
+    try {
+      const fim = Math.floor(Date.now() / 1000);
+      const inicio = fim - 24 * 60 * 60;
+      const data = await api.frotaVeiculoHistoricoRastreamento(idVeiculo, { inicio, fim });
+      setHistoricoVeiculo(data.pontos);
+    } catch {
+      setHistoricoVeiculo([]);
+    }
+  }, []);
+
+  const selecionarVeiculoMapa = useCallback(
+    (veiculo: FrotaVeiculoPosicao) => {
+      setVeiculoDestaqueId(veiculo.id_veiculo);
+      void carregarHistoricoVeiculo(veiculo.id_veiculo);
+    },
+    [carregarHistoricoVeiculo],
+  );
+
   useEffect(() => {
     if (selecionadaId == null || aba !== 3) return;
+    setVeiculoDestaqueId(null);
+    setHistoricoVeiculo([]);
     void carregarPosicoes(selecionadaId);
   }, [selecionadaId, aba, carregarPosicoes, idsTecnicos]);
+
+  useEffect(() => {
+    if (selecionadaId == null || aba !== 4) return;
+    void carregarDetalhe(selecionadaId);
+  }, [selecionadaId, aba, carregarDetalhe]);
 
   function selecionarRegiao(id: number) {
     setSelecionadaId(id);
@@ -1241,7 +1251,6 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
         setLojasDetalhe([]);
         setIdsTecnicos([]);
         setTecnicosDetalhe([]);
-        setIdsVeiculos([]);
         setVeiculosDetalhe([]);
       }
     } catch (e) {
@@ -1265,7 +1274,6 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
       id_regionais: idsRegionais,
       id_lojas: idsLojas,
       id_usuarios: idsTecnicos,
-      id_veiculos: idsVeiculos,
     });
     if (patch.nome) setNome(nomeSalvar);
     if (patch.descricao !== undefined) setDescricao(descSalvar);
@@ -1287,7 +1295,6 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
         id_regionais: idsRegionais,
         id_lojas: idsLojas,
         id_usuarios: idsTecnicos,
-        id_veiculos: idsVeiculos,
       });
       showToast('Região atualizada!');
       await carregarLista();
@@ -1579,7 +1586,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                           icon={<EngineeringIcon />}
                         />
                         <ChipContagem
-                          qtd={idsVeiculos.length}
+                          qtd={veiculosDetalhe.length}
                           singular="veículo"
                           plural="veículos"
                           icon={<DirectionsCarIcon />}
@@ -1635,11 +1642,16 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                     <FrotaLocalizacaoMap
                       posicoes={posicoes}
                       lojas={lojasNoMapa}
+                      veiculos={veiculosRastreamento}
+                      historicoVeiculo={historicoVeiculo}
                       carregando={carregandoPosicoes}
                       gpsAtivo={appConfig.gpsTecnicosEnabled !== false}
+                      rastreamentoAtivo={rastreamentoAtivo}
                       onAtualizar={() => void carregarPosicoes()}
                       preencherAltura
                       visivel={aba === 3}
+                      veiculoDestaqueId={veiculoDestaqueId}
+                      onVeiculoClick={selecionarVeiculoMapa}
                     />
                   </Box>
                 ) : null}
@@ -1694,17 +1706,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
 
                 {aba === 4 && (
                   <Box>
-                    {catalogo.veiculos.length === 0 ? (
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        Nenhum veículo cadastrado na frota.
-                      </Alert>
-                    ) : (
-                      <SelecaoVeiculosRegiao
-                        veiculos={veiculosOrdenados}
-                        selecionados={idsVeiculos}
-                        onChange={setIdsVeiculos}
-                      />
-                    )}
+                    <VeiculosRegiaoLeitura veiculos={veiculosDetalhe} />
                   </Box>
                 )}
 

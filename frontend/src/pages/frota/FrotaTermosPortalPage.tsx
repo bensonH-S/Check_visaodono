@@ -164,7 +164,7 @@ export default function FrotaTermosPortalPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>Colaborador</TableCell>
-                  <TableCell>Versão</TableCell>
+                  <TableCell>Região</TableCell>
                   <TableCell>Assinado em</TableCell>
                   <TableCell align="center" width={140}>
                     Termo assinado
@@ -175,7 +175,7 @@ export default function FrotaTermosPortalPage() {
                 {termosFiltrados.map((t) => (
                   <TableRow key={t.id_termo} hover>
                     <TableCell sx={{ ...tableCellWrapSx, fontWeight: 600 }}>{t.nome_usuario}</TableCell>
-                    <TableCell>v{t.termo_versao}</TableCell>
+                    <TableCell sx={tableCellWrapSx}>{t.nome_regiao || '—'}</TableCell>
                     <TableCell>{formatDataHoraBrasilia(t.assinado_em)}</TableCell>
                     <TableCell align="center">
                       <Button size="small" onClick={() => setTermoModalId(t.id_termo)}>

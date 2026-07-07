@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import Box from '@mui/material/Box';
 
@@ -321,7 +321,8 @@ export default function PhotoCaptureMulti({
 }: Props) {
 
   const galleryRef = useRef<HTMLInputElement>(null);
-
+  const fotosRef = useRef(fotos);
+  const processandoRef = useRef(false);
   const [loading, setLoading] = useState(false);
 
   const [erro, setErro] = useState('');
@@ -330,45 +331,41 @@ export default function PhotoCaptureMulti({
 
   const podeMais = fotos.length < max;
 
+  useEffect(() => {
+    fotosRef.current = fotos;
+  }, [fotos]);
+
   const cols = thumbColumns ?? (inlineActions ? 2 : 1);
 
   const processar = async (file: File | undefined) => {
+    if (!file || disabled || fotosRef.current.length >= max || processandoRef.current) return;
 
-    if (!file || disabled || !podeMais) return;
-
+    processandoRef.current = true;
     setErro('');
-
     setLoading(true);
 
     try {
-
       const dataUrl =
-
         file.type.startsWith('video/')
-
           ? await fileToDataUrl(file)
-
           : await compressImage(file, 1024, 0.72);
 
-      onChange([...fotos, dataUrl]);
-
+      const novas = max === 1 ? [dataUrl] : [...fotosRef.current, dataUrl].slice(0, max);
+      fotosRef.current = novas;
+      onChange(novas);
     } catch (err) {
-
       setErro(err instanceof Error ? err.message : 'Não foi possível processar o arquivo.');
-
     } finally {
-
+      processandoRef.current = false;
       setLoading(false);
-
       if (galleryRef.current) galleryRef.current.value = '';
-
     }
-
   };
 
 
 
-  const remover = (idx: number) => onChange(fotos.filter((_, i) => i !== idx));
+  const remover = (idx: number) =>
+    onChange(fotosRef.current.filter((_, i) => i !== idx));
 
 
 

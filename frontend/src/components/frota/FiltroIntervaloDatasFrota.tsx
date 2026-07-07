@@ -5,9 +5,7 @@ import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Popover from '@mui/material/Popover';
 import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
 import ClearIcon from '@mui/icons-material/Clear';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
@@ -20,7 +18,6 @@ type Props = {
   dataFim: string;
   onChangeInicio: (value: string) => void;
   onChangeFim: (value: string) => void;
-  /** Versão compacta para a barra de abas do modal. */
   compacto?: boolean;
 };
 
@@ -32,8 +29,8 @@ function isoParaDayjs(iso: string): Dayjs | null {
 
 function formatarTexto(inicio: string, fim: string) {
   const fmt = (iso: string) => dayjs(iso, 'YYYY-MM-DD').format('DD/MM/YYYY');
-  if (inicio && fim) return `${fmt(inicio)} – ${fmt(fim)}`;
-  if (inicio) return `${fmt(inicio)} – ...`;
+  if (inicio && fim) return `${fmt(inicio)} a ${fmt(fim)}`;
+  if (inicio) return `${fmt(inicio)} a ...`;
   return '';
 }
 
@@ -42,7 +39,8 @@ const filtroDataSx = {
   minWidth: 260,
   flex: '0 0 auto',
   pt: 0.75,
-  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+  position: 'relative',
+  '& .MuiOutlinedInput-root': {
     minHeight: 40,
     height: 40,
   },
@@ -57,7 +55,8 @@ const filtroDataCompactoSx = {
   minWidth: 198,
   maxWidth: 198,
   flex: '0 0 auto',
-  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+  position: 'relative',
+  '& .MuiOutlinedInput-root': {
     minHeight: 32,
     height: 32,
   },
@@ -65,7 +64,6 @@ const filtroDataCompactoSx = {
     fontSize: '0.73rem',
     py: 0.25,
     px: 0.5,
-    letterSpacing: '-0.01em',
   },
   '& .MuiInputLabel-root': {
     fontSize: '0.72rem',
@@ -73,12 +71,6 @@ const filtroDataCompactoSx = {
     '&.MuiInputLabel-shrink': {
       transform: 'translate(10px, -7px) scale(0.72)',
     },
-  },
-  '& .MuiInputLabel-root.Mui-focused': {
-    transform: 'translate(10px, -7px) scale(0.72)',
-  },
-  '& .MuiInputAdornment-root .MuiSvgIcon-root': {
-    fontSize: '0.95rem',
   },
 } as const;
 
@@ -139,40 +131,32 @@ export default function FiltroIntervaloDatasFrota({
           size="small"
           label="Período"
           value={texto}
-          placeholder={compacto ? 'Datas' : 'Selecione o intervalo'}
+          placeholder={compacto ? 'Datas' : 'Clique para selecionar'}
           onClick={abrir}
-            slotProps={{
-            inputLabel: compacto
-              ? { shrink: true }
-              : labelFixo.inputLabel,
+          slotProps={{
+            inputLabel: compacto ? { shrink: true } : labelFixo.inputLabel,
             input: {
               readOnly: true,
               sx: { cursor: 'pointer' },
-              endAdornment: (
-                <InputAdornment position="end" sx={{ ml: 0 }}>
-                  {temValor && (
-                    <IconButton
-                      size="small"
-                      onClick={limpar}
-                      aria-label="Limpar período"
-                      edge="end"
-                      sx={compacto ? { p: 0.25 } : undefined}
-                    >
-                      <ClearIcon sx={{ fontSize: compacto ? '0.85rem' : undefined }} />
-                    </IconButton>
-                  )}
-                  <CalendarMonthIcon
-                    fontSize="small"
-                    color="action"
-                    sx={{ fontSize: compacto ? '0.95rem' : undefined, ml: temValor ? 0 : 0.25 }}
-                  />
-                </InputAdornment>
-              ),
+              endAdornment: temValor ? (
+                <IconButton
+                  size="small"
+                  onClick={limpar}
+                  aria-label="Limpar período"
+                  edge="end"
+                  sx={compacto ? { p: 0.25 } : undefined}
+                >
+                  <ClearIcon sx={{ fontSize: compacto ? '0.85rem' : undefined }} />
+                </IconButton>
+              ) : undefined,
             },
           }}
           sx={{
             ...(compacto ? {} : campoAlturaFrotaSx),
             mb: 0,
+            '& .MuiInputBase-input': {
+              letterSpacing: '0.01em',
+            },
             '& .MuiInputBase-input::placeholder': {
               color: 'text.disabled',
               opacity: 1,
