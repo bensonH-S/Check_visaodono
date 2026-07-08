@@ -38,6 +38,19 @@ function SecaoTitulo({ children, extra }: { children: ReactNode; extra?: ReactNo
   );
 }
 
+const COR_EM_USO = '#2e7d32';
+const COR_LIVRE = '#546e7a';
+
+function chipLivreSx() {
+  return {
+    fontWeight: 700,
+    height: 22,
+    bgcolor: 'rgba(84, 110, 122, 0.14)',
+    color: COR_LIVRE,
+    border: '1px solid rgba(84, 110, 122, 0.4)',
+  } as const;
+}
+
 function VeiculoPortalCard({
   veiculo,
   variant,
@@ -46,14 +59,15 @@ function VeiculoPortalCard({
   variant: 'em_uso' | 'livre';
 }) {
   const emUso = variant === 'em_uso';
+  const corStatus = emUso ? COR_EM_USO : COR_LIVRE;
   return (
     <Paper
       elevation={0}
       sx={{
         p: 1.5,
         border: '1px solid',
-        borderColor: emUso ? 'rgba(46, 125, 50, 0.25)' : colors.border,
-        borderLeft: `4px solid ${emUso ? '#2e7d32' : colors.navy}`,
+        borderColor: emUso ? 'rgba(46, 125, 50, 0.25)' : 'rgba(84, 110, 122, 0.28)',
+        borderLeft: `4px solid ${corStatus}`,
         borderRadius: 2,
         height: '100%',
       }}
@@ -64,12 +78,12 @@ function VeiculoPortalCard({
             width: 36,
             height: 36,
             borderRadius: 1.5,
-            bgcolor: emUso ? 'rgba(46, 125, 50, 0.1)' : 'rgba(27, 42, 107, 0.08)',
+            bgcolor: emUso ? 'rgba(46, 125, 50, 0.1)' : 'rgba(84, 110, 122, 0.12)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
-            color: emUso ? '#2e7d32' : colors.navy,
+            color: corStatus,
           }}
         >
           <DirectionsCarIcon sx={{ fontSize: 20 }} />
@@ -80,9 +94,9 @@ function VeiculoPortalCard({
             <Chip
               label={emUso ? 'Em uso' : 'Livre'}
               size="small"
-              color={emUso ? 'success' : 'default'}
-              variant="outlined"
-              sx={{ fontWeight: 600, height: 22 }}
+              color={emUso ? 'success' : undefined}
+              variant={emUso ? 'outlined' : 'filled'}
+              sx={emUso ? { fontWeight: 600, height: 22 } : chipLivreSx()}
             />
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.35 }}>
@@ -167,8 +181,11 @@ export default function FrotaUsoPortalPage() {
           <ArrowBackIcon fontSize="small" />
         </IconButton>
         <Typography variant="body2" color="text.secondary">
-          {emUso.length} em uso · {livres.length} livre{livres.length !== 1 ? 's' : ''} · {assuncoesFiltradas.length}{' '}
-          assunç{assuncoesFiltradas.length !== 1 ? 'ões' : 'ão'}
+          {emUso.length} em uso ·{' '}
+          <Box component="span" sx={{ color: COR_LIVRE, fontWeight: 600 }}>
+            {livres.length} livre{livres.length !== 1 ? 's' : ''}
+          </Box>{' '}
+          · {assuncoesFiltradas.length} assunç{assuncoesFiltradas.length !== 1 ? 'ões' : 'ão'}
         </Typography>
       </Box>
 
@@ -249,7 +266,21 @@ export default function FrotaUsoPortalPage() {
             </Box>
           )}
 
-          <SecaoTitulo extra={<Chip label={livres.length} size="small" variant="outlined" />}>
+          <SecaoTitulo
+            extra={
+              <Chip
+                label={livres.length}
+                size="small"
+                variant="outlined"
+                sx={{
+                  color: COR_LIVRE,
+                  borderColor: 'rgba(84, 110, 122, 0.45)',
+                  bgcolor: 'rgba(84, 110, 122, 0.08)',
+                  fontWeight: 700,
+                }}
+              />
+            }
+          >
             Veículos livres
           </SecaoTitulo>
           {livres.length === 0 ? (

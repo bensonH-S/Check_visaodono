@@ -345,3 +345,106 @@
   color: #ca8a04;
   margin-top: 1px;
 }
+
+.leaflet-tooltip.tooltip-loja-mapa,
+.leaflet-popup.popup-loja-mapa .leaflet-popup-content-wrapper {
+  background: #fff;
+  color: #1b2a6b;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.leaflet-tooltip.tooltip-loja-mapa {
+  padding: 8px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 280px;
+  max-width: 360px;
+  white-space: normal;
+}
+
+.leaflet-tooltip.tooltip-loja-mapa.leaflet-tooltip-top:before {
+  border-top-color: #fff;
+}
+
+.leaflet-popup.popup-loja-mapa .leaflet-popup-content {
+  margin: 10px 14px;
+  min-width: 260px;
+}
+
+.info-loja-mapa {
+  min-width: 252px;
+}
+
+.info-loja-mapa-nome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-loja-mapa-marca {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.info-loja-mapa strong {
+  color: #1b2a6b;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+}
+
+.info-loja-mapa-endereco {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.info-loja-mapa-pin {
+  flex-shrink: 0;
+  margin-top: 1px;
+  line-height: 0;
+  display: inline-flex;
+}
+
+.info-loja-mapa-endereco--so-icone {
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.info-loja-mapa-endereco small {
+  flex: 1;
+  line-height: 1.4;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: #666;
+}
+
+.btn-copiar-endereco-loja {
+  flex-shrink: 0;
+  margin-top: 1px;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #bdbdbd;
+  opacity: 0.45;
+  line-height: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.btn-copiar-endereco-loja:hover {
+  opacity: 0.9;
+  color: #757575;
+}

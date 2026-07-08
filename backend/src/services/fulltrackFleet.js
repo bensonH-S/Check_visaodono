@@ -70,8 +70,16 @@ function normalizarCombustivel(val) {
 }
 
 function parseDataHoraPonto(str) {
-  if (!str) return null;
-  const d = new Date(String(str).replace(' ', 'T'));
+  if (str == null || str === '') return null;
+  const s = String(str).trim();
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (br) {
+    const d = new Date(
+      `${br[3]}-${br[2]}-${br[1]}T${br[4]}:${br[5]}:${br[6] || '00'}-03:00`,
+    );
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+  const d = new Date(s.includes(' ') ? s.replace(' ', 'T') : s);
   return Number.isFinite(d.getTime()) ? d : null;
 }
 
@@ -237,6 +245,40 @@ export async function posicoesVeiculosPorPlacas(placas = []) {
   return resultado;
 }
 
+function mapearPontoHistorico(h, index) {
+  const lat = parseFloat(h.ras_eve_latitude || h.ras_tel_latitude || h.latitude);
+  const lng = parseFloat(h.ras_eve_longitude || h.ras_tel_longitude || h.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return {
+    id: index,
+    latitude: lat,
+    longitude: lng,
+    velocidade: parseInt(h.ras_eve_velocidade, 10) || 0,
+    ignicao: h.ras_eve_ignicao === '1' || h.ras_eve_ignicao === 1,
+    atualizado_em: h.ras_eve_data_gps || h.ras_tel_data || h.data_gps || null,
+    odometro_km: normalizarOdometroKm(h.ras_eve_hodometro),
+    combustivel_litros: normalizarCombustivel(h.total_combustivel || h.sensor_combustivel),
+  };
+}
+
+function extrairListaHistorico(response) {
+  if (!response?.status) return [];
+  const { data } = response;
+  if (Array.isArray(data)) return data;
+  if (data?.evento && typeof data.evento === 'object') return [data.evento];
+  return [];
+}
+
+async function buscarHistoricoInterval(id, begin, end) {
+  const response = await fulltrackGet(`/events/interval/id/${id}/begin/${begin}/end/${end}`);
+  return extrairListaHistorico(response);
+}
+
+async function buscarHistoricoTelemetry(id, begin, end) {
+  const response = await fulltrackGet(`/events/telemetry/id/${id}/begin/${begin}/end/${end}`);
+  return extrairListaHistorico(response);
+}
+
 export async function historicoVeiculoFulltrack(idRastreamento, startUnix = null, endUnix = null) {
   if (!fulltrackRastreamentoAtivo()) return [];
   const id = Number(idRastreamento);
@@ -247,27 +289,11 @@ export async function historicoVeiculoFulltrack(idRastreamento, startUnix = null
   const begin = startUnix || now - 24 * 60 * 60;
 
   try {
-    const response = await fulltrackGet(
-      `/events/telemetry/id/${id}/begin/${begin}/end/${end}`,
-    );
-    if (!response?.status || !Array.isArray(response.data)) return [];
-    return response.data
-      .map((h, index) => {
-        const lat = parseFloat(h.ras_eve_latitude || h.ras_tel_latitude);
-        const lng = parseFloat(h.ras_eve_longitude || h.ras_tel_longitude);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-        return {
-          id: index,
-          latitude: lat,
-          longitude: lng,
-          velocidade: parseInt(h.ras_eve_velocidade, 10) || 0,
-          ignicao: h.ras_eve_ignicao === '1',
-          atualizado_em: h.ras_eve_data_gps || h.ras_tel_data || null,
-          odometro_km: normalizarOdometroKm(h.ras_eve_hodometro),
-          combustivel_litros: normalizarCombustivel(h.total_combustivel || h.sensor_combustivel),
-        };
-      })
-      .filter(Boolean);
+    let lista = await buscarHistoricoInterval(id, begin, end);
+    if (!lista.length) {
+      lista = await buscarHistoricoTelemetry(id, begin, end);
+    }
+    return lista.map(mapearPontoHistorico).filter(Boolean);
   } catch {
     return [];
   }

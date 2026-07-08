@@ -56,14 +56,20 @@ function iconeCopiarSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
 }
 
+function iconeLocalizacaoSvg() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="${colors.orange}" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`;
+}
+
 function htmlInfoLoja(loja: FrotaRegiaoLoja) {
   const endereco = formatarEnderecoLoja(loja);
   const textoCopiar = endereco || loja.name;
+  const marcaSrc = escapeHtml(iconeMarcaLojaPorNome(loja));
   const iconBtn = `<button type="button" class="btn-copiar-endereco-loja" data-copiar-endereco="${escapeHtml(textoCopiar)}" aria-label="Copiar endereço" title="Copiar endereço">${iconeCopiarSvg()}</button>`;
+  const tituloHtml = `<div class="info-loja-mapa-nome"><img src="${marcaSrc}" alt="" class="info-loja-mapa-marca" /><strong>${escapeHtml(loja.name)}</strong></div>`;
   const enderecoHtml = endereco
-    ? `<div class="info-loja-mapa-endereco"><small>${escapeHtml(endereco)}</small>${iconBtn}</div>`
+    ? `<div class="info-loja-mapa-endereco"><span class="info-loja-mapa-pin" aria-hidden="true">${iconeLocalizacaoSvg()}</span><small>${escapeHtml(endereco)}</small>${iconBtn}</div>`
     : `<div class="info-loja-mapa-endereco info-loja-mapa-endereco--so-icone">${iconBtn}</div>`;
-  return `<div class="info-loja-mapa"><strong>${escapeHtml(loja.name)}</strong>${enderecoHtml}</div>`;
+  return `<div class="info-loja-mapa">${tituloHtml}${enderecoHtml}</div>`;
 }
 
 function anexarBotoesCopiar(container: HTMLElement | null | undefined) {
@@ -1335,17 +1341,35 @@ export default function FrotaLocalizacaoMap({
           '& .info-loja-mapa': {
             minWidth: 252,
           },
+          '& .info-loja-mapa-nome': {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          },
+          '& .info-loja-mapa-marca': {
+            width: 18,
+            height: 18,
+            objectFit: 'contain',
+            flexShrink: 0,
+          },
           '& .info-loja-mapa strong': {
             color: colors.navy,
             fontSize: '0.8rem',
             lineHeight: 1.35,
-            display: 'block',
+            flex: 1,
+            minWidth: 0,
           },
           '& .info-loja-mapa-endereco': {
             display: 'flex',
             alignItems: 'flex-start',
             gap: '8px',
             marginTop: '5px',
+          },
+          '& .info-loja-mapa-pin': {
+            flexShrink: 0,
+            marginTop: '1px',
+            lineHeight: 0,
+            display: 'inline-flex',
           },
           '& .info-loja-mapa-endereco--so-icone': {
             justifyContent: 'flex-end',

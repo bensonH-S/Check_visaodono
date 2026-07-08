@@ -187,6 +187,7 @@ export default function FrotaRelatorioRotasPage() {
 
           <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
             <FrotaRotaDiaMap
+              key={`${relatorio.veiculo.id_veiculo}-${relatorio.data_inicio}-${relatorio.data_fim}`}
               rotas={relatorio.rotas}
               pontos={relatorio.pontos}
               altura="100%"
