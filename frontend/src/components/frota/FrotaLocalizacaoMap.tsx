@@ -29,7 +29,6 @@ const CENTRO_DISTRITO_FEDERAL: L.LatLngExpression = [-15.7801, -47.9292];
 const ZOOM_INICIAL_DF_MOBILE = 11;
 const TAMANHO_ICONE_LOJA = 28;
 const TAMANHO_ICONE_TECNICO = 20;
-const TAMANHO_ICONE_VEICULO = 26;
 /** Deslocamento em metros quando técnico está na mesma coordenada (ou muito perto) de uma loja. */
 const DESLOCAMENTO_TECNICO_METROS = 58;
 /** Raio em metros para considerar técnico na mesma loja. */
