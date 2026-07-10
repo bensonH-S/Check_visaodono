@@ -27,7 +27,7 @@ import { rotuloVeiculoLista } from '../../constants/frotaVeiculo';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import { colors } from '../../theme/tokens';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
-import { dataDentroIntervalo, matchVeiculo } from '../../utils/frotaPortalFiltros';
+import { dataDentroIntervalo } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tableSx } from '../../utils/tablePageLayout';
 
 export default function FrotaCombustivelPortalPage() {
@@ -36,7 +36,6 @@ export default function FrotaCombustivelPortalPage() {
   const [lista, setLista] = useState<FrotaAbastecimentoPortal[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
-  const [buscaVeiculo, setBuscaVeiculo] = useState('');
   const [veiculoSelecionado, setVeiculoSelecionado] = useState<FrotaVeiculo | null>(null);
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
@@ -56,20 +55,18 @@ export default function FrotaCombustivelPortalPage() {
     carregar();
   }, [carregar]);
 
-  const idVeiculoFiltro = veiculoSelecionado?.id_veiculo ?? null;
-
   const listaFiltrada = useMemo(
     () =>
       lista.filter(
         (a) =>
-          matchVeiculo(a, idVeiculoFiltro, buscaVeiculo, veiculos) &&
+          (!veiculoSelecionado || a.id_veiculo === veiculoSelecionado.id_veiculo) &&
           dataDentroIntervalo(a.data_abastecimento, dataInicio, dataFim),
       ),
-    [lista, idVeiculoFiltro, buscaVeiculo, veiculos, dataInicio, dataFim],
+    [lista, veiculoSelecionado, dataInicio, dataFim],
   );
 
   const total = listaFiltrada.reduce((s, a) => s + a.valor_abastecido, 0);
-  const filtrosAtivos = !!buscaVeiculo.trim() || veiculoSelecionado != null || !!dataInicio || !!dataFim;
+  const filtrosAtivos = veiculoSelecionado != null || !!dataInicio || !!dataFim;
 
   async function abrirComprovante(url: string) {
     try {
@@ -162,16 +159,8 @@ export default function FrotaCombustivelPortalPage() {
             getOptionLabel={(v) => rotuloVeiculoLista(v)}
             isOptionEqualToValue={(a, b) => a.id_veiculo === b.id_veiculo}
             renderInput={(params) => <TextField {...params} label="Veículo" placeholder="Todos" />}
-            sx={{ minWidth: 200, flex: '1 1 200px' }}
+            sx={{ minWidth: 240, flex: '1 1 240px' }}
             clearOnEscape
-          />
-          <TextField
-            size="small"
-            label="Buscar placa ou modelo"
-            value={buscaVeiculo}
-            onChange={(e) => setBuscaVeiculo(e.target.value)}
-            disabled={!!veiculoSelecionado}
-            sx={{ minWidth: 160, flex: '1 1 160px' }}
           />
           <FiltroIntervaloDatasFrota
             dataInicio={dataInicio}
@@ -183,7 +172,6 @@ export default function FrotaCombustivelPortalPage() {
             <Button
               size="small"
               onClick={() => {
-                setBuscaVeiculo('');
                 setVeiculoSelecionado(null);
                 setDataInicio('');
                 setDataFim('');

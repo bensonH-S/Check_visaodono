@@ -7,6 +7,7 @@ import { acessoTodasLojas, carregarPermissoesUsuario, temPermissao } from '../pe
 import { tiposChecklistDoUsuario } from '../checklistTipos.js';
 import { logger } from '../logger.js';
 import { auditar } from '../auditoriaHelpers.js';
+import { gpsCapturaHabilitadaUsuario } from '../gpsTecnicos.js';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ function precisaRegioesAtuacaoSessao(row, permissoes) {
 async function mapUsuario(row) {
   const permissoes = await carregarPermissoesUsuario(row.id_usuario);
   const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes, cargo_aprovacao: row.cargo_aprovacao };
-  const [lojas, tiposChecklist, regioesAtuacao] = await Promise.all([
+  const [lojas, tiposChecklist, regioesAtuacao, gpsCapturaHabilitada] = await Promise.all([
     carregarLojasDetalhe(userCtx),
     temPermissao(userCtx, 'checklist.ver') || temPermissao(userCtx, 'checklist.executar')
       ? tiposChecklistDoUsuario(row.id_usuario)
@@ -28,6 +29,7 @@ async function mapUsuario(row) {
     precisaRegioesAtuacaoSessao(row, permissoes)
       ? carregarRegioesAtuacaoTecnico(row.id_usuario)
       : Promise.resolve([]),
+    gpsCapturaHabilitadaUsuario(row.id_usuario),
   ]);
   return {
     id_usuario: row.id_usuario,
@@ -47,6 +49,7 @@ async function mapUsuario(row) {
       nome: t.nome,
     })),
     regioes_atuacao: regioesAtuacao,
+    gps_captura_habilitada: gpsCapturaHabilitada,
   };
 }
 

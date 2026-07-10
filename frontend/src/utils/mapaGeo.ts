@@ -1,5 +1,27 @@
 import type { FrotaRegiaoLoja, FrotaTecnicoPosicao } from '../api/client';
 
+export function extrairIndiceRegiaoNome(nome: string): number | null {
+  const m =
+    nome.match(/regi[oã]o\s*[#.]?\s*(\d+)/i) ??
+    nome.match(/\breg\.?\s*(\d+)/i) ??
+    nome.match(/(\d+)\s*$/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Rótulo da região no mapa mobile — em telas pequenas usa "Reg. 1", "Reg. 2", etc. */
+export function rotuloRegiaoMapa(
+  regiao: { id_regiao: number; nome: string },
+  opts?: { compacto?: boolean; indiceLista?: number },
+): string {
+  if (!opts?.compacto) return regiao.nome;
+  const num =
+    extrairIndiceRegiaoNome(regiao.nome) ??
+    (opts.indiceLista != null ? opts.indiceLista + 1 : regiao.id_regiao);
+  return `Reg. ${num}`;
+}
+
 export function distanciaKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -36,6 +58,24 @@ export function mesmaRegiaoLojaTecnico(
   return Number(loja.id_regiao) === Number(tecnico.id_regiao);
 }
 
+export function tecnicoGpsHabilitado(tecnico: Pick<FrotaTecnicoPosicao, 'gps_habilitado'>): boolean {
+  return tecnico.gps_habilitado !== false;
+}
+
+export function lojaTemGpsTecnicosHabilitados(
+  loja: Pick<FrotaRegiaoLoja, 'id_regiao'>,
+  tecnicos: FrotaTecnicoPosicao[],
+): boolean {
+  if (loja.id_regiao == null) return false;
+  const idRegiaoLoja = Number(loja.id_regiao);
+  return tecnicos.some(
+    (t) =>
+      t.id_regiao != null &&
+      Number(t.id_regiao) === idRegiaoLoja &&
+      tecnicoGpsHabilitado(t),
+  );
+}
+
 export function tecnicoMaisProximoLoja(
   loja: Pick<FrotaRegiaoLoja, 'latitude' | 'longitude' | 'id_regiao'>,
   tecnicos: FrotaTecnicoPosicao[],
@@ -47,7 +87,10 @@ export function tecnicoMaisProximoLoja(
 
   const idRegiaoLoja = Number(loja.id_regiao);
   const tecnicosDaRegiao = tecnicos.filter(
-    (t) => t.id_regiao != null && Number(t.id_regiao) === idRegiaoLoja,
+    (t) =>
+      t.id_regiao != null &&
+      Number(t.id_regiao) === idRegiaoLoja &&
+      tecnicoGpsHabilitado(t),
   );
 
   let melhor: { tecnico: FrotaTecnicoPosicao; distanciaKm: number } | null = null;

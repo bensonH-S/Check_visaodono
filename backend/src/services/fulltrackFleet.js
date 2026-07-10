@@ -1,3 +1,5 @@
+import { ajustarRotaAsRuas } from './routeMatching.js';
+
 const CACHE_TTL_MS = 45_000;
 
 let cachePosicoes = null;
@@ -116,9 +118,104 @@ function ordenarPontos(pontos = []) {
   });
 }
 
-function limiteVelocidadeKmh() {
+export function limiteVelocidadeKmh() {
   const n = Number(process.env.FULLTRACK_LIMITE_VELOCIDADE_KMH || 80);
   return Number.isFinite(n) && n > 0 ? n : 80;
+}
+
+function statusVelocidadePonto(velocidade, limite) {
+  const v = Number(velocidade) || 0;
+  if (v > limite) return 'excesso';
+  if (v > 0) return 'normal';
+  return 'parado';
+}
+
+export function calcularTempoParadoMs(pontos = []) {
+  const ordenados = ordenarPontos(pontos);
+  let total = 0;
+  for (let i = 0; i < ordenados.length - 1; i += 1) {
+    const atual = ordenados[i];
+    if ((Number(atual.velocidade) || 0) > 0) continue;
+    total += intervaloEntrePontosMs(atual, ordenados[i + 1]);
+  }
+  return total;
+}
+
+function pontoLigadoOuMovimento(p) {
+  if (p.ignicao === false) return false;
+  return p.ignicao === true || (Number(p.velocidade) || 0) > 3;
+}
+
+function intervaloEntrePontosMs(atual, prox) {
+  const ta = parseDataHoraPonto(atual.atualizado_em)?.getTime();
+  const tb = parseDataHoraPonto(prox.atualizado_em)?.getTime();
+  if (!Number.isFinite(ta) || !Number.isFinite(tb) || tb <= ta) return 0;
+  return Math.min(tb - ta, MAX_INTERVALO_PARADO_MS);
+}
+
+export function calcularTemposIgnicaoMs(pontos = []) {
+  const ordenados = ordenarPontos(pontos);
+  let tempo_ligado_ms = 0;
+  let tempo_desligado_ms = 0;
+  for (let i = 0; i < ordenados.length - 1; i += 1) {
+    const atual = ordenados[i];
+    const delta = intervaloEntrePontosMs(atual, ordenados[i + 1]);
+    if (!delta) continue;
+    if (atual.ignicao === false) tempo_desligado_ms += delta;
+    else if (pontoLigadoOuMovimento(atual)) tempo_ligado_ms += delta;
+  }
+  return { tempo_ligado_ms, tempo_desligado_ms };
+}
+
+const MIN_PARADO_MS = 2 * 60 * 1000;
+const MAX_INTERVALO_PARADO_MS = 30 * 60 * 1000;
+
+export function contarParadas(pontos = [], minParadoMs = MIN_PARADO_MS) {
+  const ordenados = ordenarPontos(pontos);
+  let count = 0;
+  let grupo = null;
+
+  const fechar = () => {
+    if (!grupo) return;
+    const ta = parseDataHoraPonto(grupo.inicio.atualizado_em)?.getTime();
+    const tb = parseDataHoraPonto(grupo.fim.atualizado_em)?.getTime();
+    if (Number.isFinite(ta) && Number.isFinite(tb) && tb - ta >= minParadoMs) count += 1;
+    grupo = null;
+  };
+
+  for (const p of ordenados) {
+    if ((Number(p.velocidade) || 0) <= 0) {
+      if (!grupo) grupo = { inicio: p, fim: p };
+      else {
+        const gap =
+          (parseDataHoraPonto(p.atualizado_em)?.getTime() ?? 0) -
+          (parseDataHoraPonto(grupo.fim.atualizado_em)?.getTime() ?? 0);
+        if (gap > MAX_INTERVALO_PARADO_MS) {
+          fechar();
+          grupo = { inicio: p, fim: p };
+        } else {
+          grupo.fim = p;
+        }
+      }
+    } else {
+      fechar();
+    }
+  }
+  fechar();
+  return count;
+}
+
+export function velocidadeMediaPontos(pontos = []) {
+  let soma = 0;
+  let count = 0;
+  for (const p of pontos) {
+    const v = Number(p.velocidade) || 0;
+    if (v > 0) {
+      soma += v;
+      count += 1;
+    }
+  }
+  return count ? Math.round((soma / count) * 10) / 10 : 0;
 }
 
 export function calcularKmPercorridoGps(pontos = []) {
@@ -245,6 +342,14 @@ export async function posicoesVeiculosPorPlacas(placas = []) {
   return resultado;
 }
 
+function velocidadePontoHistorico(h) {
+  for (const key of ['ras_eve_velocidade', 'ras_tel_velocidade', 'velocidade', 'speed']) {
+    const n = parseInt(h?.[key], 10);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
 function mapearPontoHistorico(h, index) {
   const lat = parseFloat(h.ras_eve_latitude || h.ras_tel_latitude || h.latitude);
   const lng = parseFloat(h.ras_eve_longitude || h.ras_tel_longitude || h.longitude);
@@ -253,7 +358,7 @@ function mapearPontoHistorico(h, index) {
     id: index,
     latitude: lat,
     longitude: lng,
-    velocidade: parseInt(h.ras_eve_velocidade, 10) || 0,
+    velocidade: velocidadePontoHistorico(h),
     ignicao: h.ras_eve_ignicao === '1' || h.ras_eve_ignicao === 1,
     atualizado_em: h.ras_eve_data_gps || h.ras_tel_data || h.data_gps || null,
     odometro_km: normalizarOdometroKm(h.ras_eve_hodometro),
@@ -299,9 +404,93 @@ export async function historicoVeiculoFulltrack(idRastreamento, startUnix = null
   }
 }
 
+function coordsDePontos(pontos = []) {
+  return pontos
+    .map((p) => [Number(p.latitude), Number(p.longitude)])
+    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+}
+
+function agruparExcessosMapa(pontos = [], limiteKmh) {
+  const eventos = [];
+  let atual = null;
+  for (const p of ordenarPontos(pontos)) {
+    const v = Number(p.velocidade) || 0;
+    if (v > limiteKmh) {
+      if (!atual) {
+        atual = { inicio: p, fim: p, pontos: [p], vMax: v };
+      } else {
+        atual.fim = p;
+        atual.pontos.push(p);
+        atual.vMax = Math.max(atual.vMax, v);
+      }
+    } else if (atual) {
+      eventos.push(atual);
+      atual = null;
+    }
+  }
+  if (atual) eventos.push(atual);
+  return eventos;
+}
+
+function distanciaCoordsMetros(a, b) {
+  const [lat1, lng1] = a;
+  const [lat2, lng2] = b;
+  if (![lat1, lng1, lat2, lng2].every(Number.isFinite)) return 0;
+  const toRad = (n) => (n * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const s1 = Math.sin(dLat / 2);
+  const s2 = Math.sin(dLng / 2);
+  const h = s1 * s1 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * s2 * s2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+async function montarExcessosMapa(pontos = [], limiteKmh) {
+  const ordenados = ordenarPontos(pontos);
+  const grupos = agruparExcessosMapa(ordenados, limiteKmh);
+  const resultados = await Promise.all(
+    grupos.map(async (evento) => {
+      const coordsGps = coordsDePontos(evento.pontos ?? [evento.inicio, evento.fim]);
+      if (!coordsGps.length) return null;
+
+      const cInicio = coordsGps[0];
+      const cFim = coordsGps[coordsGps.length - 1];
+      const mesmoPonto = distanciaCoordsMetros(cInicio, cFim) < 12;
+
+      let coordsLinha = [cInicio, cFim];
+      if (!mesmoPonto) {
+        try {
+          const roteada = await ajustarRotaAsRuas([cInicio, cFim]);
+          if (roteada.length >= 2) {
+            coordsLinha = roteada;
+            coordsLinha[0] = cInicio;
+            coordsLinha[coordsLinha.length - 1] = cFim;
+          }
+        } catch {
+          /* mantém linha direta entre início e fim do excesso */
+        }
+      }
+
+      return {
+        inicio: cInicio,
+        fim: cFim,
+        coords_linha: coordsLinha,
+        v_max: evento.vMax,
+        inicio_em: evento.inicio.atualizado_em ?? null,
+        fim_em: evento.fim.atualizado_em ?? null,
+        vel_inicio: Number(evento.inicio.velocidade) || 0,
+        vel_fim: Number(evento.fim.velocidade) || 0,
+        mesmo_ponto: mesmoPonto,
+      };
+    }),
+  );
+  return resultados.filter(Boolean);
+}
+
 export async function relatorioRotaVeiculoPeriodo(idRastreamento, dataInicio, dataFim) {
   const { begin, end } = intervaloPeriodoBrasilia(dataInicio, dataFim);
   const pontos = ordenarPontos(await historicoVeiculoFulltrack(idRastreamento, begin, end));
+  const limite = limiteVelocidadeKmh();
   const segmentos = segmentarRotasPorIntervalo(pontos);
   const rotasBase =
     segmentos.length > 0
@@ -310,17 +499,50 @@ export async function relatorioRotaVeiculoPeriodo(idRastreamento, dataInicio, da
         ? [pontos]
         : [];
 
+  let qtdExcessos = 0;
+  for (const p of pontos) {
+    if ((Number(p.velocidade) || 0) > limite) qtdExcessos += 1;
+  }
+
+  const [rotas, excessos_mapa] = await Promise.all([
+    Promise.all(
+      rotasBase.map(async (seg, idx) => {
+        const coordsGps = coordsDePontos(seg);
+        let coords_rua = coordsGps;
+        if (coordsGps.length >= 2) {
+          try {
+            coords_rua = await ajustarRotaAsRuas(coordsGps);
+          } catch {
+            coords_rua = coordsGps;
+          }
+        }
+        const qtdExcessosRota = seg.filter((p) => (Number(p.velocidade) || 0) > limite).length;
+        return {
+          id: idx + 1,
+          pontos: seg,
+          coords_rua,
+          km: calcularKmPercorridoGps(seg),
+          inicio: seg[0]?.atualizado_em ?? null,
+          fim: seg[seg.length - 1]?.atualizado_em ?? null,
+          qtd_excessos: qtdExcessosRota,
+        };
+      }),
+    ),
+    montarExcessosMapa(pontos, limite),
+  ]);
+
   return {
     data_inicio: dataInicio,
     data_fim: dataFim,
+    limite_kmh: limite,
+    qtd_excessos: qtdExcessos,
+    qtd_paradas: contarParadas(pontos),
+    tempo_parado_ms: calcularTempoParadoMs(pontos),
+    ...calcularTemposIgnicaoMs(pontos),
+    velocidade_media: velocidadeMediaPontos(pontos),
     pontos,
-    rotas: rotasBase.map((seg, idx) => ({
-      id: idx + 1,
-      pontos: seg,
-      km: calcularKmPercorridoGps(seg),
-      inicio: seg[0]?.atualizado_em ?? null,
-      fim: seg[seg.length - 1]?.atualizado_em ?? null,
-    })),
+    rotas,
+    excessos_mapa,
     km_gps: calcularKmPercorridoGps(pontos),
     km_odometro: calcularKmOdometro(pontos),
     combustivel_litros: pontos[pontos.length - 1]?.combustivel_litros ?? null,
@@ -340,15 +562,25 @@ export async function relatorioVelocidadeVeiculoPeriodo(idRastreamento, dataInic
   let count = 0;
   let velocidadeMaxima = 0;
   const excessos = [];
+  const registros = [];
 
   for (const p of pontos) {
     const v = Number(p.velocidade) || 0;
+    const status = statusVelocidadePonto(v, limite);
     if (v > 0) {
       soma += v;
       count += 1;
     }
     if (v > velocidadeMaxima) velocidadeMaxima = v;
-    if (v > limite) {
+    registros.push({
+      velocidade: v,
+      limite,
+      latitude: p.latitude,
+      longitude: p.longitude,
+      atualizado_em: p.atualizado_em ?? null,
+      status,
+    });
+    if (status === 'excesso') {
       excessos.push({
         velocidade: v,
         limite,
@@ -359,6 +591,10 @@ export async function relatorioVelocidadeVeiculoPeriodo(idRastreamento, dataInic
     }
   }
 
+  const qtdNormais = registros.filter((r) => r.status === 'normal').length;
+  const qtdParados = registros.filter((r) => r.status === 'parado').length;
+  const tempoParadoMs = calcularTempoParadoMs(pontos);
+
   return {
     data_inicio: dataInicio,
     data_fim: dataFim,
@@ -367,7 +603,11 @@ export async function relatorioVelocidadeVeiculoPeriodo(idRastreamento, dataInic
     velocidade_maxima: velocidadeMaxima,
     total_pontos: pontos.length,
     qtd_excessos: excessos.length,
+    qtd_normais: qtdNormais,
+    qtd_parados: qtdParados,
+    tempo_parado_ms: tempoParadoMs,
     excessos,
+    registros,
     km_gps: calcularKmPercorridoGps(pontos),
   };
 }

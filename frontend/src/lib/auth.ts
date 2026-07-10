@@ -33,6 +33,7 @@ export type UsuarioSessao = {
   acesso_todas_lojas?: boolean;
   tipos_checklist?: TipoChecklistResumo[];
   regioes_atuacao?: RegiaoAtuacaoResumo[];
+  gps_captura_habilitada?: boolean;
 };
 
 export function getToken(): string | null {
@@ -351,7 +352,10 @@ export function usaFluxoMobileApp(usuario?: UsuarioSessao | null): boolean {
 
 /** Técnicos de campo cujo GPS deve ser rastreado (portal ou app mobile). */
 export function deveRastrearGpsTecnico(usuario?: UsuarioSessao | null): boolean {
-  return temPermissao('chamados.assumir', usuario);
+  const u = usuario ?? getUsuario();
+  if (!u || !temPermissao('chamados.assumir', u)) return false;
+  if (u.gps_captura_habilitada === false) return false;
+  return true;
 }
 
 /** Diretor, administrador ou CEO — vê e filtra todas as regiões no mapa mobile. */
@@ -363,6 +367,15 @@ export function podeFiltrarRegioesMapaMobile(usuario?: UsuarioSessao | null): bo
     podeReceberPainelDiretorChamados(u) ||
     temPermissao('frota.gerenciar', u)
   );
+}
+
+/** Diretor, administrador ou supervisor — filtra trajeto do veículo por data no mapa mobile. */
+export function podeFiltrarDataTrajetoMapaMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (podeFiltrarRegioesMapaMobile(u)) return true;
+  if (u.perfil === 'administrador') return true;
+  return ehSupervisorRegiaoMobile(u);
 }
 
 /** Mapa de técnicos em tempo real no app (diretor/CEO = todos; regional = sua região). */

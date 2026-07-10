@@ -45,6 +45,9 @@ type Props = {
   onChangeInicio?: (value: string) => void;
   onChangeFim?: (value: string) => void;
   ocultarFiltro?: boolean;
+  somenteApontado?: boolean;
+  /** Filtra registros e resumo por veículo (relatório individual). */
+  idVeiculoFiltro?: number | null;
 };
 
 export default function FrotaVeiculosKmSemanaPanel({
@@ -54,6 +57,8 @@ export default function FrotaVeiculosKmSemanaPanel({
   onChangeInicio,
   onChangeFim,
   ocultarFiltro = false,
+  somenteApontado = false,
+  idVeiculoFiltro = null,
 }: Props) {
   const semana = periodoSemanaAtualKm();
   const [registros, setRegistros] = useState<RegistroKmFrota[]>([]);
@@ -79,16 +84,27 @@ export default function FrotaVeiculosKmSemanaPanel({
       api.frotaAbastecimentosPortal(),
       api.frotaManutencoesPortal(),
       api.frotaVeiculos(),
-      api.frotaKmConfronto(inicio, fim).catch(() => ({
-        confronto: [],
-        rastreamento_ativo: false,
-        data_inicio: inicio,
-        data_fim: fim,
-        manual: [],
-        rastreador: [],
-      })),
+      ...(somenteApontado
+        ? []
+        : [
+            api.frotaKmConfronto(inicio, fim).catch(() => ({
+              confronto: [],
+              rastreamento_ativo: false,
+              data_inicio: inicio,
+              data_fim: fim,
+              manual: [],
+              rastreador: [],
+            })),
+          ]),
     ])
-      .then(([assuncoes, abastecimentos, manutencoes, veiculos, kmConf]) => {
+      .then((resultados) => {
+        const assuncoes = resultados[0];
+        const abastecimentos = resultados[1];
+        const manutencoes = resultados[2];
+        const veiculos = resultados[3];
+        const kmConf = somenteApontado
+          ? { confronto: [], rastreamento_ativo: false }
+          : resultados[4];
         const veiculosPorId = new Map(
           veiculos.map((v) => [v.id_veiculo, { marca: v.marca, modelo: v.modelo }]),
         );
@@ -98,16 +114,44 @@ export default function FrotaVeiculosKmSemanaPanel({
       })
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar quilometragem'))
       .finally(() => setLoading(false));
-  }, [dataInicio, dataFim, semana.inicio, semana.fim]);
+  }, [dataInicio, dataFim, semana.inicio, semana.fim, somenteApontado]);
 
   useEffect(() => {
     if (ativo) carregar();
   }, [ativo, carregar]);
 
-  const registrosFiltrados = useMemo(
-    () => registros.filter((r) => dataDentroIntervalo(r.data, dataInicio, dataFim)),
-    [registros, dataInicio, dataFim],
-  );
+  const registrosFiltrados = useMemo(() => {
+    let lista = registros.filter((r) => dataDentroIntervalo(r.data, dataInicio, dataFim));
+    if (idVeiculoFiltro != null) {
+      lista = lista.filter((r) => r.id_veiculo === idVeiculoFiltro);
+    }
+    return lista;
+  }, [registros, dataInicio, dataFim, idVeiculoFiltro]);
+
+  const resumoKm = useMemo(() => {
+    const porVeiculo = new Map<number, number[]>();
+    for (const r of registrosFiltrados) {
+      if (r.km == null) continue;
+      const lista = porVeiculo.get(r.id_veiculo) ?? [];
+      lista.push(r.km);
+      porVeiculo.set(r.id_veiculo, lista);
+    }
+    let kmRodados = 0;
+    let somaKmAtual = 0;
+    let qtdVeiculos = 0;
+    porVeiculo.forEach((kms) => {
+      const min = Math.min(...kms);
+      const max = Math.max(...kms);
+      if (max >= min) kmRodados += max - min;
+      somaKmAtual += max;
+      qtdVeiculos += 1;
+    });
+    return {
+      kmRodados: Math.round(kmRodados),
+      kmAtualMedio: qtdVeiculos ? Math.round(somaKmAtual / qtdVeiculos) : 0,
+      qtdVeiculos,
+    };
+  }, [registrosFiltrados]);
 
   return (
     <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -152,7 +196,38 @@ export default function FrotaVeiculosKmSemanaPanel({
 
       {loading && <LinearProgress sx={{ flexShrink: 0 }} />}
 
-      {rastreamentoAtivo && confronto.length > 0 && (
+      {somenteApontado && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(2, minmax(0, 1fr))' },
+            gap: 1.25,
+            flexShrink: 0,
+          }}
+        >
+          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+            <Typography variant="caption" color="text.secondary">
+              KM rodados no período
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              {resumoKm.kmRodados.toLocaleString('pt-BR')} km
+            </Typography>
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+            <Typography variant="caption" color="text.secondary">
+              KM atual (média última leitura)
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              {resumoKm.kmAtualMedio.toLocaleString('pt-BR')} km
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {resumoKm.qtdVeiculos} veículo{resumoKm.qtdVeiculos !== 1 ? 's' : ''} com apontamento
+            </Typography>
+          </Paper>
+        </Box>
+      )}
+
+      {!somenteApontado && rastreamentoAtivo && confronto.length > 0 && (
         <Paper elevation={0} sx={{ ...tablePaperSx, flexShrink: 0, maxHeight: 240 }}>
           <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5, pb: 0.5, fontWeight: 700 }}>
             Confronto KM — rastreador x apontamento manual
@@ -201,9 +276,9 @@ export default function FrotaVeiculosKmSemanaPanel({
         </Paper>
       )}
 
-      <Paper elevation={0} sx={{ ...tablePaperSx, flex: 1, minHeight: 0, maxHeight: '42%' }}>
+      <Paper elevation={0} sx={{ ...tablePaperSx, flex: 1, minHeight: 0, maxHeight: somenteApontado ? undefined : '42%' }}>
         <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5, pb: 0.5, fontWeight: 700 }}>
-          KM apontado (assunções, abastecimentos e manutenções)
+          {somenteApontado ? 'KM apontado no sistema' : 'KM apontado (assunções, abastecimentos e manutenções)'}
         </Typography>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>

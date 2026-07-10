@@ -51,10 +51,10 @@ const filtroDataSx = {
 
 const filtroDataCompactoSx = {
   mb: 0,
-  width: 198,
-  minWidth: 198,
-  maxWidth: 198,
-  flex: '0 0 auto',
+  width: '100%',
+  minWidth: 220,
+  maxWidth: 280,
+  flex: '1 1 auto',
   position: 'relative',
   '& .MuiOutlinedInput-root': {
     minHeight: 32,
@@ -64,6 +64,9 @@ const filtroDataCompactoSx = {
     fontSize: '0.73rem',
     py: 0.25,
     px: 0.5,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   '& .MuiInputLabel-root': {
     fontSize: '0.72rem',

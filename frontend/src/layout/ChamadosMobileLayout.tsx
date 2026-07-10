@@ -28,6 +28,8 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useAppConfig } from '../hooks/useAppConfig';
+import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, MOBILE_WATERMARK_LOGO, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
@@ -223,6 +225,8 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
 function ChamadosMobileLayoutInner() {
   const navigate = useNavigate();
   const location = useLocation();
+  const appConfig = useAppConfig();
+  useTecnicoGpsTracking(appConfig ?? undefined);
   const path = toAppPath(location.pathname);
   const user = getUsuario();
   const { idLoja } = useChamadosMobileLoja();
@@ -343,7 +347,7 @@ function ChamadosMobileLayoutInner() {
           : isNc
             ? 'Não conformidades'
           : isMapa
-            ? 'Mapa de Técnicos'
+            ? 'Mapa da Frota'
           : isRelatorio
             ? 'Relatório da visita'
           : isFrotaSub
@@ -376,7 +380,7 @@ function ChamadosMobileLayoutInner() {
             : isNc
               ? 'Não conformidades'
             : isMapa
-              ? 'Mapa de Técnicos'
+              ? 'Mapa da Frota'
             : isRelatorio
               ? 'Relatório da visita'
             : isFrotaSub

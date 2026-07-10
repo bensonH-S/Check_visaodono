@@ -6,23 +6,17 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Button from '@mui/material/Button';
-import Autocomplete from '@mui/material/Autocomplete';
-import TextField from '@mui/material/TextField';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
 import SearchIcon from '@mui/icons-material/Search';
-import { api, type FrotaVeiculo, type FrotaVeiculoRotaDiaRelatorio } from '../../api/client';
+import { api, type FrotaVeiculo, type FrotaVeiculoPosicao, type FrotaVeiculoRotaDiaRelatorio, type Loja } from '../../api/client';
 import FrotaRotaDiaMap from '../../components/frota/FrotaRotaDiaMap';
+import FrotaVeiculoAutocomplete from '../../components/frota/FrotaVeiculoAutocomplete';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
-import { tableContainerSx, tablePaperSx, tableSx, tablePageLayoutSx } from '../../utils/tablePageLayout';
-import { formatDataHoraBrasilia } from '../../utils/dateBr';
+import { tablePageLayoutSx } from '../../utils/tablePageLayout';
+import { calcularTempoParadoMs, calcularTemposIgnicaoMs } from '../../utils/frotaTempoParado';
+import { formatarDuracaoMs } from '../../utils/dateBr';
 
 export default function FrotaRelatorioRotasPage() {
   const navigate = useNavigate();
@@ -31,15 +25,23 @@ export default function FrotaRelatorioRotasPage() {
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
+  const [lojas, setLojas] = useState<Loja[]>([]);
   const [relatorio, setRelatorio] = useState<FrotaVeiculoRotaDiaRelatorio | null>(null);
+  const [veiculosMapa, setVeiculosMapa] = useState<FrotaVeiculoPosicao[]>([]);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
+
+  const periodoSoHoje = (dataInicio || hoje) === hoje && (dataFim || dataInicio || hoje) === hoje;
 
   useEffect(() => {
     api
       .frotaVeiculos()
       .then(setVeiculos)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar veículos'));
+    api
+      .lojas()
+      .then((lista) => setLojas(lista.filter((l) => l.latitude != null && l.longitude != null)))
+      .catch(() => setLojas([]));
   }, []);
 
   const veiculosOrdenados = useMemo(
@@ -67,10 +69,59 @@ export default function FrotaRelatorioRotasPage() {
       .finally(() => setLoading(false));
   }, [veiculoSel, dataInicio, dataFim]);
 
+  useEffect(() => {
+    if (!periodoSoHoje) {
+      setVeiculosMapa([]);
+      return;
+    }
+    api
+      .frotaMapaPosicoes()
+      .then((d) => setVeiculosMapa(d.veiculos ?? []))
+      .catch(() => setVeiculosMapa([]));
+  }, [periodoSoHoje, relatorio?.veiculo.id_veiculo]);
+
+  const veiculoAoVivo = useMemo(() => {
+    if (!periodoSoHoje || !veiculoSel) return null;
+    return veiculosMapa.find((v) => v.id_veiculo === veiculoSel.id_veiculo) ?? null;
+  }, [periodoSoHoje, veiculoSel, veiculosMapa]);
+
+  const kmGps = relatorio?.km_gps ?? 0;
+  const velocidadeMedia = useMemo(() => {
+    if (relatorio?.velocidade_media != null) return relatorio.velocidade_media;
+    const pts = relatorio?.pontos ?? [];
+    let soma = 0;
+    let count = 0;
+    for (const p of pts) {
+      const v = Number(p.velocidade) || 0;
+      if (v > 0) {
+        soma += v;
+        count += 1;
+      }
+    }
+    return count ? Math.round((soma / count) * 10) / 10 : 0;
+  }, [relatorio]);
+  const qtdParadas = relatorio?.qtd_paradas ?? 0;
+  const qtdExcessos = relatorio?.qtd_excessos ?? 0;
+  const tempoParadoMs = useMemo(() => {
+    if (relatorio?.tempo_parado_ms != null) return relatorio.tempo_parado_ms;
+    return calcularTempoParadoMs(relatorio?.pontos ?? []);
+  }, [relatorio]);
+  const temposIgnicao = useMemo(() => {
+    if (relatorio?.tempo_ligado_ms != null && relatorio?.tempo_desligado_ms != null) {
+      return {
+        tempoLigadoMs: relatorio.tempo_ligado_ms,
+        tempoDesligadoMs: relatorio.tempo_desligado_ms,
+      };
+    }
+    return calcularTemposIgnicaoMs(relatorio?.pontos ?? []);
+  }, [relatorio]);
   const kmExibicao = relatorio?.km_odometro ?? relatorio?.km_gps ?? 0;
+  const mapKey = relatorio
+    ? `${relatorio.veiculo.id_veiculo}-${relatorio.data_inicio}-${relatorio.data_fim}`
+    : 'mapa-vazio';
 
   return (
-    <Box sx={{ ...tablePageLayoutSx, gap: 1.25 }}>
+    <Box sx={{ ...tablePageLayoutSx, gap: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
         <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
           <ArrowBackIcon fontSize="small" />
@@ -83,7 +134,7 @@ export default function FrotaRelatorioRotasPage() {
       <Paper
         elevation={0}
         sx={{
-          p: 2,
+          p: 1.5,
           flexShrink: 0,
           border: '1px solid',
           borderColor: 'divider',
@@ -94,16 +145,10 @@ export default function FrotaRelatorioRotasPage() {
           alignItems: 'flex-end',
         }}
       >
-        <Autocomplete
+        <FrotaVeiculoAutocomplete
           options={veiculosOrdenados}
           value={veiculoSel}
-          onChange={(_, v) => setVeiculoSel(v)}
-          getOptionLabel={(v) =>
-            `${v.placa} — ${[v.marca, v.modelo].filter(Boolean).join(' ') || 'Veículo'}`
-          }
-          isOptionEqualToValue={(a, b) => a.id_veiculo === b.id_veiculo}
-          sx={{ minWidth: 280, flex: 1 }}
-          renderInput={(params) => <TextField {...params} label="Veículo" size="small" />}
+          onChange={setVeiculoSel}
         />
         <FiltroIntervaloDatasFrota
           dataInicio={dataInicio}
@@ -122,115 +167,153 @@ export default function FrotaRelatorioRotasPage() {
       </Paper>
 
       {erro && (
-        <Alert severity="error" onClose={() => setErro('')}>
+        <Alert severity="error" onClose={() => setErro('')} sx={{ flexShrink: 0 }}>
           {erro}
         </Alert>
       )}
 
       {relatorio?.rastreamento_ativo === false && (
-        <Alert severity="warning">Rastreamento Fulltrack desativado ou sem credenciais.</Alert>
+        <Alert severity="warning" sx={{ flexShrink: 0 }}>
+          Rastreamento Fulltrack desativado ou sem credenciais.
+        </Alert>
       )}
 
       {loading && <LinearProgress sx={{ flexShrink: 0 }} />}
 
-      {relatorio && (
-        <>
-          <Box
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, minmax(0, 1fr))', xl: 'repeat(7, minmax(0, 1fr))' },
+          gap: 0.75,
+          flexShrink: 0,
+        }}
+      >
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            KM no período (GPS)
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+            {kmGps.toLocaleString('pt-BR')} km
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            Velocidade média rodada
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+            {velocidadeMedia.toLocaleString('pt-BR')} km/h
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            Quantidade de paradas
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+            {qtdParadas}
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            Tempo ligado / em movimento
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2, color: 'success.main' }}>
+            {formatarDuracaoMs(temposIgnicao.tempoLigadoMs)}
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            Tempo desligado
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2, color: 'error.main' }}>
+            {formatarDuracaoMs(temposIgnicao.tempoDesligadoMs)}
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            Tempo parado no período
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+            {formatarDuracaoMs(tempoParadoMs)}
+          </Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.25, borderRadius: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            Excessos de velocidade
+          </Typography>
+          <Typography
+            variant="h6"
             sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, minmax(0, 1fr))' },
-              gap: 1.25,
-              flexShrink: 0,
+              fontWeight: 800,
+              lineHeight: 1.2,
+              color: qtdExcessos > 0 ? 'error.main' : 'success.main',
             }}
           >
-            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                KM no período (GPS)
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                {relatorio.km_gps.toLocaleString('pt-BR')} km
-              </Typography>
-            </Paper>
-            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                KM no período (odômetro)
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                {relatorio.km_odometro != null
-                  ? `${relatorio.km_odometro.toLocaleString('pt-BR')} km`
-                  : '—'}
-              </Typography>
-            </Paper>
-            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                Rotas detectadas
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                {relatorio.rotas.length}
-              </Typography>
-            </Paper>
-            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-              <Typography variant="caption" color="text.secondary">
-                Pontos GPS
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                {relatorio.total_pontos}
-              </Typography>
-            </Paper>
-          </Box>
-
-          <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
-            {relatorio.veiculo.placa} — {relatorio.data_inicio}
-            {relatorio.data_fim !== relatorio.data_inicio ? ` a ${relatorio.data_fim}` : ''} — melhor
-            estimativa: <strong>{kmExibicao.toLocaleString('pt-BR')} km</strong>
+            {qtdExcessos}
           </Typography>
+        </Paper>
+      </Box>
 
-          <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-            <FrotaRotaDiaMap
-              key={`${relatorio.veiculo.id_veiculo}-${relatorio.data_inicio}-${relatorio.data_fim}`}
-              rotas={relatorio.rotas}
-              pontos={relatorio.pontos}
-              altura="100%"
-            />
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          gap: 0.75,
+        }}
+      >
+        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <FrotaRotaDiaMap
+            key={mapKey}
+            rotas={relatorio?.rotas ?? []}
+            pontos={relatorio?.pontos ?? []}
+            excessosMapa={relatorio?.excessos_mapa ?? []}
+            lojas={lojas}
+            limiteKmh={relatorio?.limite_kmh ?? 80}
+            altura="100%"
+            diaAtual={periodoSoHoje}
+            veiculoAoVivo={veiculoAoVivo}
+            veiculoInfo={
+              relatorio
+                ? {
+                    id_veiculo: relatorio.veiculo.id_veiculo,
+                    placa: relatorio.veiculo.placa,
+                    marca: relatorio.veiculo.marca,
+                    modelo: relatorio.veiculo.modelo,
+                  }
+                : undefined
+            }
+          />
+        </Box>
 
-            <Paper elevation={0} sx={{ ...tablePaperSx, flexShrink: 0, maxHeight: 220 }}>
-              <TableContainer sx={tableContainerSx}>
-                <Table size="small" stickyHeader sx={tableSx}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Rota</TableCell>
-                      <TableCell>Início</TableCell>
-                      <TableCell>Fim</TableCell>
-                      <TableCell align="right">KM</TableCell>
-                      <TableCell align="right">Pontos</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {relatorio.rotas.map((r) => (
-                      <TableRow key={r.id} hover>
-                        <TableCell sx={{ fontWeight: 600 }}>#{r.id}</TableCell>
-                        <TableCell>{r.inicio ? formatDataHoraBrasilia(r.inicio) : '—'}</TableCell>
-                        <TableCell>{r.fim ? formatDataHoraBrasilia(r.fim) : '—'}</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>
-                          {r.km.toLocaleString('pt-BR')}
-                        </TableCell>
-                        <TableCell align="right">{r.pontos.length}</TableCell>
-                      </TableRow>
-                    ))}
-                    {!relatorio.rotas.length && (
-                      <TableRow>
-                        <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                          Nenhuma rota registrada no período.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-          </Box>
-        </>
-      )}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{
+            flexShrink: 0,
+            lineHeight: 1.35,
+            px: 0.25,
+            pb: 0.25,
+          }}
+        >
+          {relatorio ? (
+            <>
+              {relatorio.veiculo.placa} · {relatorio.data_inicio}
+              {relatorio.data_fim !== relatorio.data_inicio ? ` a ${relatorio.data_fim}` : ''} · melhor estimativa:{' '}
+              <strong>{kmExibicao.toLocaleString('pt-BR')} km</strong> ·{' '}
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                vermelho = excesso · placas {relatorio.limite_kmh ?? 80} km/h · cinza = parada · clique na rota = detalhes
+                {periodoSoHoje
+                  ? ' · carro verde/vermelho = posição atual (ligado/desligado)'
+                  : ' · carro verde = 1ª ligada · carro vermelho = parada com desligamento'}
+              </Box>
+            </>
+          ) : (
+            'Selecione veículo e período, depois clique em Consultar.'
+          )}
+        </Typography>
+      </Box>
     </Box>
   );
 }

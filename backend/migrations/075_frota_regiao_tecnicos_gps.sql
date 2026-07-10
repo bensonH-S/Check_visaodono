@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE frota_regiao_tecnicos
+  ADD COLUMN IF NOT EXISTS gps_habilitado BOOLEAN NOT NULL DEFAULT TRUE;
+
+COMMIT;

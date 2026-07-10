@@ -14,6 +14,7 @@ type Props = {
   tecnico: FrotaTecnicoPosicao | null;
   distanciaKm: number | null;
   atualizadoEm?: string | null;
+  mostrarTecnico?: boolean;
   onClose: () => void;
 };
 
@@ -29,7 +30,14 @@ function formatarAtualizado(iso: string | null | undefined) {
   return 'GPS hoje';
 }
 
-export default function TecnicoProximoPainel({ loja, tecnico, distanciaKm, atualizadoEm, onClose }: Props) {
+export default function TecnicoProximoPainel({
+  loja,
+  tecnico,
+  distanciaKm,
+  atualizadoEm,
+  mostrarTecnico = true,
+  onClose,
+}: Props) {
   return (
     <Box
       onMouseDown={(e) => e.stopPropagation()}
@@ -64,7 +72,7 @@ export default function TecnicoProximoPainel({ loja, tecnico, distanciaKm, atual
         </IconButton>
       </Box>
 
-      {tecnico && distanciaKm != null ? (
+      {mostrarTecnico && tecnico && distanciaKm != null ? (
         <Box
           sx={{
             display: 'flex',
@@ -107,7 +115,7 @@ export default function TecnicoProximoPainel({ loja, tecnico, distanciaKm, atual
             </Box>
           </Box>
         </Box>
-      ) : (
+      ) : mostrarTecnico ? (
         <Box
           sx={{
             p: 1.25,
@@ -121,7 +129,7 @@ export default function TecnicoProximoPainel({ loja, tecnico, distanciaKm, atual
             Nenhum técnico da região desta loja com GPS ativo para calcular a distância.
           </Typography>
         </Box>
-      )}
+      ) : null}
     </Box>
   );
 }

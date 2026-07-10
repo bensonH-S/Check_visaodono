@@ -97,7 +97,8 @@ export default function FrotaVeiculoCard({ veiculo: v, onEditar }: Props) {
           {v.cor ? ` · ${v.cor}` : ''}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-          KM: {v.km_atual != null ? v.km_atual.toLocaleString('pt-BR') : '—'}
+          KM atual: {v.km_atual != null ? v.km_atual.toLocaleString('pt-BR') : '—'}
+          {v.km_rodados != null ? ` · ${v.km_rodados.toLocaleString('pt-BR')} rodados` : ''}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
           {v.nome_responsavel ? v.nome_responsavel : 'Sem responsável'}
@@ -154,8 +155,16 @@ export default function FrotaVeiculoCard({ veiculo: v, onEditar }: Props) {
         <InfoLinha label="Cor" value={v.cor || '—'} />
         <InfoLinha label="Combustível" value={v.combustivel || '—'} />
         <InfoLinha
+          label="KM inicial"
+          value={v.km_inicial != null ? `${v.km_inicial.toLocaleString('pt-BR')} km` : '—'}
+        />
+        <InfoLinha
           label="KM atual"
           value={v.km_atual != null ? `${v.km_atual.toLocaleString('pt-BR')} km` : '—'}
+        />
+        <InfoLinha
+          label="KM rodados"
+          value={v.km_rodados != null ? `${v.km_rodados.toLocaleString('pt-BR')} km` : '—'}
         />
         <InfoLinha label="Responsável" value={v.nome_responsavel || 'Sem responsável'} />
         <InfoLinha

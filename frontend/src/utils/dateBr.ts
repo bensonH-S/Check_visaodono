@@ -89,6 +89,17 @@ export function formatDataHoraBrasilia(value: string | Date | null | undefined):
   });
 }
 
+/** Data/hora em balões do mapa: DD/MM/AAAA, HH:mm (Brasília). */
+export function formatDataHoraBalaoMapa(value: string | Date | null | undefined): string {
+  return formatDataBrasilia(value, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function formatDataSomenteData(value: string | Date | null | undefined): string {
   if (value == null || value === '') return '—';
   const s = typeof value === 'string' ? value.trim() : '';
@@ -130,4 +141,14 @@ export function calcularDuracaoVisitaMinutos(
   if (diff < 1) return 1;
   if (diff > 24 * 60) return undefined;
   return diff;
+}
+
+/** Formata milissegundos em texto legível (ex.: 2h 15min). */
+export function formatarDuracaoMs(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms) || ms <= 0) return '0 min';
+  const totalMin = Math.round(ms / 60000);
+  const horas = Math.floor(totalMin / 60);
+  const minutos = totalMin % 60;
+  if (horas > 0) return `${horas}h ${minutos}min`;
+  return `${minutos} min`;
 }

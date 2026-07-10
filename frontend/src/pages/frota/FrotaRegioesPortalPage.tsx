@@ -19,6 +19,8 @@ import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import PersonIcon from '@mui/icons-material/Person';
@@ -679,11 +681,15 @@ function SelecaoPickerMultiplo<T extends { id: number }>({
 function SelecaoTecnicosRegiao({
   tecnicos,
   selecionados,
+  gpsPorTecnico,
   onChange,
+  onGpsChange,
 }: {
   tecnicos: FrotaRegiaoTecnico[];
   selecionados: number[];
+  gpsPorTecnico: Record<number, boolean>;
   onChange: (ids: number[]) => void;
+  onGpsChange: (idUsuario: number, habilitado: boolean) => void;
 }) {
   const itens = useMemo(
     () =>
@@ -694,64 +700,87 @@ function SelecaoTecnicosRegiao({
   );
 
   return (
-    <SelecaoPickerMultiplo
-      label="Adicionar técnicos"
-      placeholder="Selecione os técnicos"
-      helperText="Selecione um ou mais técnicos. Os já vinculados aparecem somente na lista abaixo."
-      vazioTexto="Nenhum técnico vinculado a esta região."
-      itemSingular="técnico"
-      itemPlural="técnicos"
-      itens={itens}
-      selecionados={selecionados}
-      onChange={onChange}
-      renderItem={(t) => <TecnicoLinhaMenu tecnico={t} />}
-      renderLista={(lista, remover) => (
-        <Box sx={gridCardsVinculoSx}>
-          {lista.map((t) => (
-            <Paper
-              key={t.id_usuario}
-              variant="outlined"
-              sx={{ ...paperCardVinculoSx, alignItems: 'flex-start' }}
-            >
-              <Box
-                sx={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  bgcolor: 'rgba(27, 42, 107, 0.08)',
-                  color: colors.navy,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '0.68rem',
-                  flexShrink: 0,
-                }}
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+        <MyLocationIcon sx={{ fontSize: 18, color: colors.navy }} />
+        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+          Ative o GPS no celular de cada técnico vinculado. Desligado, o app não envia localização.
+        </Typography>
+      </Box>
+      <SelecaoPickerMultiplo
+        label="Adicionar técnicos"
+        placeholder="Selecione os técnicos"
+        helperText="Selecione um ou mais técnicos. Os já vinculados aparecem somente na lista abaixo."
+        vazioTexto="Nenhum técnico vinculado a esta região."
+        itemSingular="técnico"
+        itemPlural="técnicos"
+        itens={itens}
+        selecionados={selecionados}
+        onChange={onChange}
+        renderItem={(t) => <TecnicoLinhaMenu tecnico={t} />}
+        renderLista={(lista, remover) => (
+          <Box sx={gridCardsVinculoSx}>
+            {lista.map((t) => (
+              <Paper
+                key={t.id_usuario}
+                variant="outlined"
+                sx={{ ...paperCardVinculoSx, alignItems: 'flex-start' }}
               >
-                {t.nome
-                  .split(/\s+/)
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .map((p) => p[0])
-                  .join('')
-                  .toUpperCase()}
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <TecnicoLinhaMenu tecnico={t} compacto />
-              </Box>
-              <IconButton
-                size="small"
-                aria-label={`Remover ${t.nome}`}
-                onClick={() => remover(t.id_usuario)}
-                sx={{ flexShrink: 0, mt: -0.25 }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Paper>
-          ))}
-        </Box>
-      )}
-    />
+                <Box
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    bgcolor: 'rgba(27, 42, 107, 0.08)',
+                    color: colors.navy,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '0.68rem',
+                    flexShrink: 0,
+                  }}
+                >
+                  {t.nome
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((p) => p[0])
+                    .join('')
+                    .toUpperCase()}
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <TecnicoLinhaMenu tecnico={t} compacto />
+                  <FormControlLabel
+                    sx={{ m: 0, mt: 0.5, alignItems: 'center' }}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={gpsPorTecnico[t.id_usuario] !== false}
+                        onChange={(_, checked) => onGpsChange(t.id_usuario, checked)}
+                      />
+                    }
+                    label={
+                      <Typography variant="caption" color="text.secondary">
+                        GPS no celular
+                      </Typography>
+                    }
+                  />
+                </Box>
+                <IconButton
+                  size="small"
+                  aria-label={`Remover ${t.nome}`}
+                  onClick={() => remover(t.id_usuario)}
+                  sx={{ flexShrink: 0, mt: -0.25 }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Paper>
+            ))}
+          </Box>
+        )}
+      />
+    </Box>
   );
 }
 
@@ -1051,6 +1080,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
   const [idsRegionais, setIdsRegionais] = useState<number[]>([]);
   const [idsLojas, setIdsLojas] = useState<number[]>([]);
   const [idsTecnicos, setIdsTecnicos] = useState<number[]>([]);
+  const [gpsPorTecnico, setGpsPorTecnico] = useState<Record<number, boolean>>({});
   const [regionaisDetalhe, setRegionaisDetalhe] = useState<FrotaRegiaoTecnico[]>([]);
   const [lojasDetalhe, setLojasDetalhe] = useState<FrotaRegiaoLoja[]>([]);
   const [tecnicosDetalhe, setTecnicosDetalhe] = useState<FrotaRegiaoTecnico[]>([]);
@@ -1138,6 +1168,29 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
     [regioes, selecionadaId],
   );
 
+  const montarTecnicosSalvar = useCallback(
+    () =>
+      idsTecnicos.map((id) => ({
+        id_usuario: id,
+        gps_habilitado: gpsPorTecnico[id] !== false,
+      })),
+    [idsTecnicos, gpsPorTecnico],
+  );
+
+  const alterarTecnicosVinculados = useCallback((ids: number[]) => {
+    setIdsTecnicos(ids);
+    setGpsPorTecnico((prev) => {
+      const next = { ...prev };
+      for (const id of ids) {
+        if (!(id in next)) next[id] = true;
+      }
+      for (const key of Object.keys(next)) {
+        if (!ids.includes(Number(key))) delete next[Number(key)];
+      }
+      return next;
+    });
+  }, []);
+
   const aplicarDetalhe = useCallback((detalhe: FrotaRegiaoDetalhe) => {
     setNome(detalhe.nome);
     setDescricao(detalhe.descricao || '');
@@ -1146,6 +1199,9 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
     setIdsLojas(detalhe.lojas.map((l) => l.id_loja));
     setLojasDetalhe(detalhe.lojas);
     setIdsTecnicos(detalhe.tecnicos.map((t) => t.id_usuario));
+    setGpsPorTecnico(
+      Object.fromEntries(detalhe.tecnicos.map((t) => [t.id_usuario, t.gps_habilitado !== false])),
+    );
     setTecnicosDetalhe(detalhe.tecnicos);
     setVeiculosDetalhe(detalhe.veiculos);
   }, []);
@@ -1250,6 +1306,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
         setIdsLojas([]);
         setLojasDetalhe([]);
         setIdsTecnicos([]);
+        setGpsPorTecnico({});
         setTecnicosDetalhe([]);
         setVeiculosDetalhe([]);
       }
@@ -1273,7 +1330,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
       descricao: descSalvar.trim() || undefined,
       id_regionais: idsRegionais,
       id_lojas: idsLojas,
-      id_usuarios: idsTecnicos,
+      tecnicos: montarTecnicosSalvar(),
     });
     if (patch.nome) setNome(nomeSalvar);
     if (patch.descricao !== undefined) setDescricao(descSalvar);
@@ -1294,7 +1351,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
         descricao: descricao.trim() || undefined,
         id_regionais: idsRegionais,
         id_lojas: idsLojas,
-        id_usuarios: idsTecnicos,
+        tecnicos: montarTecnicosSalvar(),
       });
       showToast('Região atualizada!');
       await carregarLista();
@@ -1648,6 +1705,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                       gpsAtivo={appConfig.gpsTecnicosEnabled !== false}
                       rastreamentoAtivo={rastreamentoAtivo}
                       onAtualizar={() => void carregarPosicoes()}
+                      autoRefreshIntervalMs={appConfig.gpsTecnicosIntervalMs ?? 120_000}
                       preencherAltura
                       visivel={aba === 3}
                       veiculoDestaqueId={veiculoDestaqueId}
@@ -1698,7 +1756,11 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                       <SelecaoTecnicosRegiao
                         tecnicos={tecnicosOrdenados}
                         selecionados={idsTecnicos}
-                        onChange={setIdsTecnicos}
+                        gpsPorTecnico={gpsPorTecnico}
+                        onChange={alterarTecnicosVinculados}
+                        onGpsChange={(idUsuario, habilitado) =>
+                          setGpsPorTecnico((prev) => ({ ...prev, [idUsuario]: habilitado }))
+                        }
                       />
                     )}
                   </Box>

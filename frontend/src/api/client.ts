@@ -444,14 +444,21 @@ export const api = {
     });
     return request<FrotaVeiculoRotaDiaRelatorio>(
       `/frota/rastreamento/veiculos/${idVeiculo}/rota-dia?${qs.toString()}`,
+      { cache: 'no-store' },
     );
   },
   frotaVeiculoVelocidade: (idVeiculo: number, dataInicio: string, dataFim: string) => {
     const qs = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim });
     return request<FrotaVeiculoVelocidadeRelatorio>(
       `/frota/rastreamento/veiculos/${idVeiculo}/velocidade?${qs.toString()}`,
+      { cache: 'no-store' },
     );
   },
+  frotaAjustarRotaMapa: (coords: [number, number][]) =>
+    request<{ coords: [number, number][] }>('/frota/rastreamento/ajustar-rota', {
+      method: 'POST',
+      body: JSON.stringify({ coords }),
+    }),
   frotaKmConfronto: (dataInicio: string, dataFim: string) => {
     const qs = new URLSearchParams({ data_inicio: dataInicio, data_fim: dataFim });
     return request<FrotaKmConfrontoRelatorio>(`/frota/rastreamento/relatorio-km-confronto?${qs.toString()}`);
@@ -953,6 +960,7 @@ export interface FrotaVeiculo {
   combustivel?: string | null;
   km_inicial?: number | null;
   km_atual: number | null;
+  km_rodados?: number | null;
   observacoes?: string | null;
   assuncao_em: string | null;
   nome_responsavel?: string | null;
@@ -1068,6 +1076,7 @@ export interface FrotaRegiaoUsuario {
   nome: string;
   email: string | null;
   cargo?: string | null;
+  gps_habilitado?: boolean;
 }
 
 export type FrotaRegiaoTecnico = FrotaRegiaoUsuario;
@@ -1082,6 +1091,7 @@ export interface FrotaTecnicoPosicao {
   atualizado_em?: string | null;
   id_regiao?: number | null;
   nome_regiao?: string | null;
+  gps_habilitado?: boolean;
 }
 
 export interface FrotaVeiculoPosicao {
@@ -1139,22 +1149,57 @@ export interface FrotaRastreamentoTelemetria {
 export interface FrotaRotaDiaSegmento {
   id: number;
   pontos: FrotaVeiculoHistoricoPonto[];
+  coords_rua?: [number, number][];
   km: number;
   inicio?: string | null;
   fim?: string | null;
+  qtd_excessos?: number;
+  id_usuario_tecnico?: number | null;
+  nome_tecnico?: string | null;
+}
+
+export interface FrotaExcessoMapaItem {
+  inicio: [number, number];
+  fim: [number, number];
+  coords_linha: [number, number][];
+  v_max: number;
+  inicio_em?: string | null;
+  fim_em?: string | null;
+  vel_inicio: number;
+  vel_fim: number;
+  mesmo_ponto?: boolean;
 }
 
 export interface FrotaVeiculoRotaDiaRelatorio {
   veiculo: { id_veiculo: number; placa: string; marca?: string | null; modelo?: string | null };
   data_inicio: string;
   data_fim: string;
+  limite_kmh?: number;
+  qtd_excessos?: number;
+  qtd_paradas?: number;
+  tempo_parado_ms?: number;
+  tempo_ligado_ms?: number;
+  tempo_desligado_ms?: number;
+  velocidade_media?: number;
   pontos: FrotaVeiculoHistoricoPonto[];
   rotas: FrotaRotaDiaSegmento[];
+  excessos_mapa?: FrotaExcessoMapaItem[];
   km_gps: number;
   km_odometro?: number | null;
   combustivel_litros?: number | null;
   total_pontos: number;
   rastreamento_ativo?: boolean;
+}
+
+export interface FrotaRegistroVelocidade {
+  velocidade: number;
+  limite: number;
+  latitude: number;
+  longitude: number;
+  atualizado_em?: string | null;
+  status: 'normal' | 'excesso' | 'parado';
+  id_usuario_tecnico?: number | null;
+  nome_tecnico?: string | null;
 }
 
 export interface FrotaExcessoVelocidade {
@@ -1163,6 +1208,8 @@ export interface FrotaExcessoVelocidade {
   latitude: number;
   longitude: number;
   atualizado_em?: string | null;
+  id_usuario_tecnico?: number | null;
+  nome_tecnico?: string | null;
 }
 
 export interface FrotaVeiculoVelocidadeRelatorio {
@@ -1174,7 +1221,13 @@ export interface FrotaVeiculoVelocidadeRelatorio {
   velocidade_maxima: number;
   total_pontos: number;
   qtd_excessos: number;
+  qtd_normais?: number;
+  qtd_parados?: number;
+  tempo_parado_ms?: number;
+  tempo_ligado_ms?: number;
+  tempo_desligado_ms?: number;
   excessos: FrotaExcessoVelocidade[];
+  registros: FrotaRegistroVelocidade[];
   km_gps: number;
   rastreamento_ativo?: boolean;
 }
@@ -1402,6 +1455,7 @@ export type FrotaRegiaoBody = {
   id_regionais?: number[];
   id_lojas?: number[];
   id_usuarios?: number[];
+  tecnicos?: { id_usuario: number; gps_habilitado?: boolean }[];
   id_veiculos?: number[];
 };
 

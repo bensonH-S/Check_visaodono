@@ -135,6 +135,64 @@
   border: none !important;
 }
 
+.marcador-loja-marca.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.marker-loja-wrap-mobile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0;
+  pointer-events: auto;
+}
+
+.marker-loja-nome-mobile {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 5px;
+  margin-bottom: 4px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.97);
+  color: #1b2a6b;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.3;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+.marker-loja-nome-pin {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  margin-top: 1px;
+}
+
+.marker-loja-nome-pin-svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.marker-loja-nome-texto {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
+  text-align: left;
+}
+
+.marcador-loja-marca.is-destaque .marker-loja-nome-mobile {
+  box-shadow: 0 0 0 2px rgba(232, 82, 10, 0.25), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
 .marker-veiculo-wrap {
   display: flex;
   flex-direction: row;
@@ -238,6 +296,16 @@
   box-shadow: 0 0 0 2px rgba(27, 42, 107, 0.15), 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
+.leaflet-popup.popup-veiculo-mapa,
+.leaflet-popup.popup-rota-mapa,
+.leaflet-popup.popup-loja-mapa {
+  z-index: 850 !important;
+}
+
+.leaflet-tooltip.tooltip-loja-nome-lateral {
+  z-index: 760 !important;
+}
+
 .leaflet-popup.popup-veiculo-mapa .leaflet-popup-content-wrapper {
   background: #ffffff;
   border: 2px solid #ca8a04;
@@ -294,6 +362,9 @@
 }
 
 .info-veiculo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 800;
   color: #ca8a04;
   font-size: 0.88rem;
@@ -301,6 +372,34 @@
   margin-bottom: 8px;
   padding-bottom: 7px;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.info-veiculo-titulo-icone {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.info-veiculo-titulo-icone .info-veiculo-icone {
+  width: 16px;
+  height: 16px;
+  margin-top: 0;
+}
+
+.info-veiculo-titulo-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.info-veiculo-evento {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  margin: -2px 0 6px;
+  line-height: 1.35;
 }
 
 .info-veiculo-mapa--movimento .info-veiculo-titulo,
@@ -322,18 +421,37 @@
 }
 
 .info-veiculo-linha {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
   gap: 8px;
+  align-items: start;
   margin-top: 7px;
   font-size: 0.76rem;
-  line-height: 1.4;
+  line-height: 1.45;
   color: #475569;
 }
 
-.info-veiculo-linha span {
-  flex: 1;
+.info-veiculo-linha-icone {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 20px;
+  min-height: 18px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.info-veiculo-linha-icone .info-veiculo-icone {
+  display: block;
+  width: 15px;
+  height: 15px;
+  margin-top: 1px;
+}
+
+.info-veiculo-linha-texto {
   min-width: 0;
+  word-break: break-word;
+  line-height: 1.45;
 }
 
 .info-veiculo-rotulo {
@@ -341,9 +459,37 @@
 }
 
 .info-veiculo-icone {
+  display: block;
   flex-shrink: 0;
   color: #ca8a04;
-  margin-top: 1px;
+  width: 15px;
+  height: 15px;
+}
+
+.info-balao-rodape-atualizado {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.info-balao-rodape-rotulo {
+  font-weight: 700;
+  color: #475569;
+}
+
+.info-veiculo-mapa--movimento .info-balao-rodape-rotulo {
+  color: #16a34a;
+}
+
+.info-veiculo-mapa--desligado .info-balao-rodape-rotulo {
+  color: #dc2626;
+}
+
+.info-veiculo-mapa--alerta .info-balao-rodape-rotulo {
+  color: #ca8a04;
 }
 
 .leaflet-tooltip.tooltip-loja-mapa,
@@ -366,6 +512,49 @@
 
 .leaflet-tooltip.tooltip-loja-mapa.leaflet-tooltip-top:before {
   border-top-color: #fff;
+}
+
+.leaflet-tooltip.tooltip-loja-nome-lateral {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #fff;
+  color: #1b2a6b;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.tooltip-loja-nome-lateral.leaflet-tooltip-right:before {
+  border-right-color: #fff;
+}
+
+.tooltip-loja-nome-mapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  line-height: 1.2;
+}
+
+.tooltip-loja-nome-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tooltip-loja-nome-pin-svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.tooltip-loja-nome-texto {
+  font-weight: 700;
+  color: #1b2a6b;
 }
 
 .leaflet-popup.popup-loja-mapa .leaflet-popup-content {
@@ -447,4 +636,235 @@
 .btn-copiar-endereco-loja:hover {
   opacity: 0.9;
   color: #757575;
+}
+
+.leaflet-popup.popup-rota-mapa .leaflet-popup-content-wrapper {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
+}
+
+.leaflet-popup.popup-rota-mapa .leaflet-popup-content {
+  margin: 8px 10px;
+  min-width: 0;
+  width: 200px;
+  max-width: 220px;
+}
+
+.leaflet-popup.popup-rota-mapa .leaflet-popup-close-button {
+  font-size: 16px;
+  width: 22px;
+  height: 22px;
+  top: 4px;
+  right: 4px;
+}
+
+.info-rota-mapa {
+  color: #334155;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.info-rota-resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.info-rota-km {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1b2a6b;
+  line-height: 1.2;
+}
+
+.info-rota-duracao {
+  font-size: 0.62rem;
+  color: #64748b;
+}
+
+.info-rota-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.info-rota-etapa {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.info-rota-marcador {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.info-rota-marcador--inicio {
+  background: #16a34a;
+}
+
+.info-rota-marcador--fim {
+  background: #991b1b;
+}
+
+.info-rota-ligacao {
+  width: 1.5px;
+  min-height: 10px;
+  margin: 1px 0 1px 3px;
+  background: linear-gradient(180deg, #16a34a 0%, #dc2626 100%);
+  border-radius: 1px;
+}
+
+.info-rota-conteudo {
+  flex: 1;
+  min-width: 0;
+}
+
+.info-rota-rotulo {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.info-rota-linha {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 5px;
+  align-items: start;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.info-rota-linha-icone {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 14px;
+  min-height: 12px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.info-rota-linha-icone .info-rota-icone {
+  display: block;
+  width: 11px;
+  height: 11px;
+  margin-top: 1px;
+}
+
+.info-rota-linha-texto {
+  min-width: 0;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.info-rota-linha--local .info-rota-linha-texto {
+  color: #64748b;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.info-rota-icone {
+  flex-shrink: 0;
+  color: #1b2a6b;
+  display: block;
+  width: 11px;
+  height: 11px;
+}
+
+.info-rota-excesso {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.info-rota-excesso-titulo {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #dc2626;
+  margin-bottom: 3px;
+}
+
+.info-rota-excesso-valor {
+  font-size: 0.62rem;
+  line-height: 1.35;
+  color: #dc2626;
+}
+
+.info-rota-excesso-valor strong {
+  font-weight: 900;
+}
+
+.info-rota-excesso-qtd {
+  font-size: 0.58rem;
+  color: #b91c1c;
+  margin-top: 2px;
+}
+
+.info-rota-excesso-lista {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.info-rota-excesso-item {
+  font-size: 0.56rem;
+  line-height: 1.3;
+  color: #991b1b;
+}
+
+.marcador-rota-ponteiro.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.marker-rota-pin-svg {
+  display: block;
+  filter: drop-shadow(0 3px 6px rgba(15, 23, 42, 0.35));
+}
+
+.marcador-placa-limite.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.marker-placa-limite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+}
+
+.marker-placa-limite svg {
+  display: block;
+  filter: drop-shadow(0 2px 5px rgba(15, 23, 42, 0.28));
+}
+
+.leaflet-pane.paneExcesso {
+  z-index: 680 !important;
+}
+
+.leaflet-pane.paneExcessoLinha {
+  z-index: 480 !important;
 }

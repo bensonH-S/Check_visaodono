@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { deveRastrearGpsTecnico, getUsuario } from '../lib/auth';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '../api/client';
+import { deveRastrearGpsTecnico, getToken, getUsuario, setSessao } from '../lib/auth';
 import {
   GPS_ATUALIZADO_EVENT,
   geolocalizacaoDisponivel,
@@ -23,6 +24,7 @@ export function useTecnicoGpsTracking(config?: GpsConfig) {
   const enviando = useRef(false);
   const ultimoEnvio = useRef(0);
   const liberarWake = useRef<(() => void) | null>(null);
+  const [gpsPermitido, setGpsPermitido] = useState(() => deveRastrearGpsTecnico(getUsuario()));
 
   const intervaloMs =
     config?.gpsTecnicosIntervalMs && config.gpsTecnicosIntervalMs >= 30_000
@@ -60,7 +62,25 @@ export function useTecnicoGpsTracking(config?: GpsConfig) {
 
   useEffect(() => {
     if (!config?.gpsTecnicosEnabled) return;
-    if (!deveRastrearGpsTecnico(getUsuario())) return;
+    const atualizarSessao = async () => {
+      const token = getToken();
+      if (!token) return;
+      try {
+        const me = await api.me({ skipSessionRedirect: true });
+        setSessao(token, me);
+        setGpsPermitido(deveRastrearGpsTecnico(me));
+      } catch {
+        setGpsPermitido(deveRastrearGpsTecnico(getUsuario()));
+      }
+    };
+    void atualizarSessao();
+    const id = window.setInterval(() => void atualizarSessao(), intervaloMs);
+    return () => window.clearInterval(id);
+  }, [config?.gpsTecnicosEnabled, intervaloMs]);
+
+  useEffect(() => {
+    if (!config?.gpsTecnicosEnabled) return;
+    if (!gpsPermitido) return;
     if (!geolocalizacaoDisponivel()) return;
 
     void flushGpsOutbox();
@@ -103,7 +123,7 @@ export function useTecnicoGpsTracking(config?: GpsConfig) {
       liberarWake.current?.();
       liberarWake.current = null;
     };
-  }, [config?.gpsTecnicosEnabled, enviarPosicao]);
+  }, [config?.gpsTecnicosEnabled, gpsPermitido, enviarPosicao]);
 
   return { enviarPosicao };
 }

@@ -7,6 +7,26 @@ export function kmBaseVeiculo(veiculo) {
   return Math.max(Number.isFinite(ini) ? ini : 0, Number.isFinite(atual) ? atual : 0);
 }
 
+export function kmRodadosVeiculo(veiculo) {
+  const ini = Number(veiculo?.km_inicial);
+  const atual = Number(veiculo?.km_atual);
+  const kmIni = Number.isFinite(ini) ? ini : 0;
+  const kmAtual = Number.isFinite(atual) ? atual : kmIni;
+  return Math.max(0, kmAtual - kmIni);
+}
+
+export function enriquecerKmVeiculo(veiculo) {
+  if (!veiculo) return veiculo;
+  const kmInicial = Number.isFinite(Number(veiculo.km_inicial)) ? Number(veiculo.km_inicial) : 0;
+  const kmAtual = Number.isFinite(Number(veiculo.km_atual)) ? Number(veiculo.km_atual) : kmInicial;
+  return {
+    ...veiculo,
+    km_inicial: kmInicial,
+    km_atual: Math.max(kmInicial, kmAtual),
+    km_rodados: Math.max(0, kmAtual - kmInicial),
+  };
+}
+
 /**
  * Se o valor informado for menor que a base, trata como KM rodado e soma à base.
  * Caso contrário, usa o hodômetro absoluto informado.
