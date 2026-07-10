@@ -157,6 +157,38 @@ export async function dispatchWhatsAppNotificacao({ idUsuario, idChamado, tipo, 
   }
 }
 
+/** Envio genérico para qualquer usuário com WhatsApp cadastrado. */
+export async function enviarWhatsAppParaUsuario(idUsuario, mensagem) {
+  if (!wppEnabled()) return false;
+
+  const uid = Number(idUsuario);
+  if (!Number.isFinite(uid)) return false;
+
+  const { rows } = await pool.query(
+    `SELECT telefone_whatsapp, notifica_whatsapp, ativo FROM usuarios WHERE id_usuario = $1`,
+    [uid],
+  );
+  const u = rows[0];
+  if (!u?.ativo || u.notifica_whatsapp === false) return false;
+
+  const telefone = normalizarTelefoneBr(u.telefone_whatsapp);
+  if (!telefone) return false;
+
+  const cred = await carregarCredenciaisWpp();
+  if (!cred?.token) {
+    console.warn('[whatsapp] Credenciais WPP indisponíveis');
+    return false;
+  }
+
+  try {
+    await enviarMensagemWpp(cred.token, telefone, mensagem);
+    return true;
+  } catch (e) {
+    console.error('[whatsapp] Falha ao enviar para usuário', uid, e.message);
+    return false;
+  }
+}
+
 export async function enviarWhatsAppTeste(telefone, mensagem) {
   if (!wppEnabled()) throw new Error('WhatsApp desabilitado (WPP_ENABLED=false)');
   const tel = normalizarTelefoneBr(telefone);

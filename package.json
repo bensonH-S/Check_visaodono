@@ -48,6 +48,7 @@
     "migrate:checklist-auditoria": "npm run migrate:checklist-auditoria --prefix backend",
     "migrate:tipos-checklist": "npm run migrate:tipos-checklist --prefix backend",
     "migrate:time-campo-dados": "npm run migrate:time-campo-dados --prefix backend",
+    "migrate:time-campo-notif": "npm run migrate:time-campo-notif --prefix backend",
     "migrate:auditoria-foto": "npm run migrate:auditoria-foto --prefix backend",
     "migrate:frota-regioes": "npm run migrate:frota-regioes --prefix backend",
     "migrate:frota-regioes-perm": "npm run migrate:frota-regioes-perm --prefix backend",

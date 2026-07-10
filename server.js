@@ -339,6 +339,10 @@ app.listen(PORT, async () => {
     console.log('[server] Conexão com PostgreSQL OK');
     const { iniciarMonitorSlaNotificacoes } = await import('./backend/src/services/slaNotificacoes.js');
     iniciarMonitorSlaNotificacoes();
+    const { iniciarMonitorTimeCampoNotificacoes } = await import(
+      './backend/src/services/timeCampoNotificacoes.js'
+    );
+    iniciarMonitorTimeCampoNotificacoes();
     if (!isProd) {
       try {
         const { ensureAuthUsersSeNecessario } = await import('./backend/src/seedAuth.js');

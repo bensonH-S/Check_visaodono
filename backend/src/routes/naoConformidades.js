@@ -9,6 +9,7 @@ import {
   midiaPermitida,
 } from '../fotos.js';
 import { SQL_NC_CHECKLIST_FINALIZADO } from '../naoConformidadesChecklist.js';
+import { processarNcsVisitaResolvidas } from '../services/timeCampoNotificacoes.js';
 
 const router = Router();
 const APP_BASE_PATH = '/auditoria';
@@ -196,6 +197,12 @@ router.post(
         );
 
         await client.query('COMMIT');
+
+        if (nc.id_visita) {
+          void processarNcsVisitaResolvidas(nc.id_visita).catch((e) => {
+            console.error('[time-campo] Falha ao notificar resolução:', e.message);
+          });
+        }
 
         const anexos = await pool.query(
           `SELECT id_anexo, tipo_mime FROM nc_anexos WHERE id_nc = $1 ORDER BY created_at ASC`,
