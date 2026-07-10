@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -29,6 +31,7 @@ import { colors } from '../../theme/tokens';
 import { agruparPaineisResumo, calcValorMetaPorLoja, fmtMoedaMeta } from '../../components/metas/metasPageUtils';
 import MetasRankingTable from '../../components/metas/MetasRankingTable';
 import { lojasRevDemanda } from '../../components/metas/metasRankingUtils';
+import { gerarPdfMetasResumo } from '../../utils/gerarPdfMetasResumo';
 
 const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -244,6 +247,7 @@ export default function MetasPage() {
   const [loading, setLoading] = useState(true);
   const [aba, setAba] = useState(0);
   const [rankingIdx, setRankingIdx] = useState(0);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const carregarPeriodos = useCallback(async () => {
     setLoading(true);
@@ -329,6 +333,19 @@ export default function MetasPage() {
     },
     [dados],
   );
+
+  const gerarRelatorio = useCallback(async () => {
+    if (!dados) return;
+    setGerandoPdf(true);
+    try {
+      await gerarPdfMetasResumo(dados);
+      showToast('Relatório PDF gerado', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar relatório', 'error');
+    } finally {
+      setGerandoPdf(false);
+    }
+  }, [dados]);
 
   const salvarLinhaRanking = useCallback(
     async (
@@ -430,6 +447,24 @@ export default function MetasPage() {
 
       {!loading && dados && aba === 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={gerandoPdf ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfIcon />}
+              onClick={() => void gerarRelatorio()}
+              disabled={gerandoPdf || !gruposResumo.length}
+              sx={{
+                bgcolor: '#E8520A',
+                fontWeight: 700,
+                textTransform: 'none',
+                '&:hover': { bgcolor: '#c94508' },
+                '&.Mui-disabled': { bgcolor: 'rgba(232, 82, 10, 0.35)', color: '#fff' },
+              }}
+            >
+              {gerandoPdf ? 'Gerando…' : 'Gerar relatório'}
+            </Button>
+          </Box>
           {gruposResumo.map((grupo) => (
             <Box key={grupo.grupo}>
               {grupo.empresa && (
