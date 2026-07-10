@@ -1,5 +1,5 @@
 export const LOGO_GRUPO_ALVIM = 'logo-grupo-alvim.png';
-export const FAVICON_ICON = 'Logo_Icon.png';
+export const FAVICON_ICON = 'Logo_Icon-favicon.png';
 
 /** Caminho base do app em produção: /auditoria (sem barra final) */
 export const appBasePath =

@@ -73,6 +73,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: [
         'Logo_Icon.png',
+        'Logo_Icon-favicon.png',
         'Logo_Icon-light.png',
         'Logo_Icon-192.png',
         'Logo_Icon-512.png',
