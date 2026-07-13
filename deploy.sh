@@ -93,9 +93,15 @@ limpar_containers_residuals() {
 
 compose_build_up() {
   local servico="$1"
-
-  compose_cmd build "$servico"
-  compose_cmd up -d --no-recreate "$servico"
+  # App precisa recriar para aplicar imagem nova após tag.
+  # WPP mantém container se já estiver saudável (start sem rebuild).
+  if [ "$servico" = "app" ]; then
+    compose_cmd build "$servico"
+    compose_cmd up -d --force-recreate --remove-orphans "$servico"
+  else
+    compose_cmd build "$servico"
+    compose_cmd up -d --no-recreate "$servico"
+  fi
 }
 
 ########################################
