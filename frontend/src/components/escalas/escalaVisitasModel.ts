@@ -55,3 +55,9 @@ export function rotuloLojaDestino(
   const nome = loja.nome.split(' - ').pop() ?? loja.nome;
   return nome.length > 12 ? `${nome.slice(0, 11)}…` : nome;
 }
+
+export function linhaDeliveryDaGrade(
+  linhas?: Array<{ tipo?: string; id_loja: number; dias: EscalaVisitasDia[]; nome: string }>,
+) {
+  return linhas?.find((l) => l.tipo === 'delivery') ?? null;
+}

@@ -13,6 +13,8 @@ import MenuItem from '@mui/material/MenuItem';
 import OutlinedInput from '@mui/material/OutlinedInput';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -28,12 +30,20 @@ import SaveIcon from '@mui/icons-material/Save';
 import { api, type EscalaVisitasGrade, type EscalaVisitasLinha } from '../../api/client';
 import { podeGerenciarEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
-import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
+import { tableContainerSx, tablePaperSx, tablePageLayoutSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
-import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, rotuloLojaDestino } from '../../components/escalas/escalaVisitasModel';
+import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
 import { agruparRegionaisEscala, primeiroNome } from '../../components/escalas/escalaVisitasUtils';
 
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
+const COL_DIA_MIN_WIDTH = 136;
+const COL_LOJA_MIN_WIDTH = 220;
+const SELECT_CELULA_SX = {
+  width: '100%',
+  minWidth: 118,
+  fontSize: '0.8rem',
+  '& .MuiSelect-select': { py: 1, px: 1, whiteSpace: 'normal', lineHeight: 1.3, minHeight: 40 },
+} as const;
 
 function addDaysIso(iso: string, days: number) {
   const d = new Date(`${iso}T12:00:00`);
@@ -71,6 +81,7 @@ export default function EscalaVisitasPage() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
+  const [aba, setAba] = useState<'visitas' | 'delivery'>('visitas');
   const podeEditar = podeGerenciarEscalaVisitas();
 
   const mapCorRegional = useMemo(() => {
@@ -98,27 +109,6 @@ export default function EscalaVisitasPage() {
     }
     return m;
   }, [grade?.regionais, grade?.linhas]);
-
-  const mapNomeLojaDestino = useMemo(() => {
-    const m = new Map<number, { nome: string; bk_number?: string | null }>();
-    for (const loja of grade?.lojas_destino ?? []) {
-      m.set(loja.id_loja, { nome: loja.nome, bk_number: loja.bk_number });
-    }
-    for (const linha of grade?.linhas ?? []) {
-      if (linha.tipo !== 'delivery') continue;
-      for (const d of linha.dias) {
-        for (const a of atribuicoesDoDia(d)) {
-          if (a.id_loja_destino != null && a.nome_loja_destino) {
-            m.set(a.id_loja_destino, {
-              nome: a.nome_loja_destino,
-              bk_number: a.bk_loja_destino,
-            });
-          }
-        }
-      }
-    }
-    return m;
-  }, [grade?.lojas_destino, grade?.linhas]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -155,6 +145,29 @@ export default function EscalaVisitasPage() {
       next.set(chaveCelula(idLoja, dia), { id_loja: idLoja, dia, id_lojas_destino: idLojasDestino });
       return next;
     });
+  }
+
+  function toggleLojaDelivery(dia: number, idLojaDestino: number) {
+    const linhaDelivery = linhaDeliveryDaGrade(grade?.linhas);
+    if (!linhaDelivery) return;
+    const atual = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
+    const next = atual.includes(idLojaDestino)
+      ? atual.filter((id) => id !== idLojaDestino)
+      : [...atual, idLojaDestino];
+    alterarCelulaDelivery(linhaDelivery.id_loja, dia, next);
+  }
+
+  function toggleDiaDeliveryInteiro(dia: number) {
+    const linhaDelivery = linhaDeliveryDaGrade(grade?.linhas);
+    const lojas = grade?.lojas_destino ?? [];
+    if (!linhaDelivery || !lojas.length) return;
+    const atual = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
+    const todasMarcadas = lojas.every((l) => atual.includes(l.id_loja));
+    alterarCelulaDelivery(
+      linhaDelivery.id_loja,
+      dia,
+      todasMarcadas ? [] : lojas.map((l) => l.id_loja),
+    );
   }
 
   function valorCelulaRegional(idLoja: number, dia: number, original: EscalaVisitasLinha['dias'][number]) {
@@ -226,21 +239,43 @@ export default function EscalaVisitasPage() {
     });
   }, [grade, pending]);
 
+  const linhasVisitasComTotais = useMemo(
+    () => linhasComTotais.filter((linha) => linha.tipo !== 'delivery'),
+    [linhasComTotais],
+  );
+
+  const linhaDelivery = useMemo(() => linhaDeliveryDaGrade(grade?.linhas), [grade?.linhas]);
+
+  const lojasDelivery = grade?.lojas_destino ?? [];
+
+  const deliveryLinhas = useMemo(() => {
+    if (!linhaDelivery) return [];
+    return lojasDelivery.map((loja) => {
+      let total = 0;
+      const dias = DIAS.map((_, dia) => {
+        const marcada = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]).includes(loja.id_loja);
+        if (marcada) total += 1;
+        return { dia, marcada };
+      });
+      return { ...loja, dias, total };
+    });
+  }, [linhaDelivery, lojasDelivery, grade, pending]);
+
   const regionaisAgrupados = useMemo(
     () => agruparRegionaisEscala(grade?.regionais ?? []),
     [grade?.regionais],
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, flex: 1 }}>
-      <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${colors.border}` }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Box sx={{ ...tablePageLayoutSx, gap: 1.25 }}>
+      <Paper sx={{ p: 1.5, borderRadius: 2, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))} aria-label="Semana anterior">
               <ChevronLeftIcon />
             </IconButton>
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                 Semana {grade?.semana_label ?? fmtDataCurta(semanaInicio)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -250,6 +285,34 @@ export default function EscalaVisitasPage() {
             <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))} aria-label="Próxima semana">
               <ChevronRightIcon />
             </IconButton>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={aba}
+              onChange={(_, v: 'visitas' | 'delivery' | null) => {
+                if (v) setAba(v);
+              }}
+              sx={{
+                ml: { sm: 0.5 },
+                bgcolor: colors.canvasAlt,
+                '& .MuiToggleButton-root': {
+                  px: 1.75,
+                  py: 0.45,
+                  fontWeight: 700,
+                  textTransform: 'none',
+                  border: 'none',
+                  fontSize: '0.82rem',
+                },
+                '& .Mui-selected': {
+                  bgcolor: aba === 'delivery' ? 'rgba(232, 82, 10, 0.14)' : '#fff',
+                  color: aba === 'delivery' ? colors.orange : colors.navy,
+                  boxShadow: '0 1px 4px rgba(27, 42, 107, 0.12)',
+                },
+              }}
+            >
+              <ToggleButton value="visitas">Visitas</ToggleButton>
+              <ToggleButton value="delivery">Delivery</ToggleButton>
+            </ToggleButtonGroup>
           </Box>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
@@ -300,15 +363,15 @@ export default function EscalaVisitasPage() {
           </Box>
         </Box>
 
-        {grade && grade.regionais.length > 0 && (
+        {grade && grade.regionais.length > 0 && aba === 'visitas' && (
           <Box
             sx={{
               display: 'flex',
               flexWrap: 'wrap',
               alignItems: 'center',
               gap: 0.75,
-              mt: 2,
-              pt: 1.5,
+              mt: 1.25,
+              pt: 1.25,
               borderTop: `1px solid ${colors.border}`,
             }}
           >
@@ -357,12 +420,109 @@ export default function EscalaVisitasPage() {
         )}
       </Paper>
 
-      {(loading || salvando) && <LinearProgress />}
+      {(loading || salvando) && <LinearProgress sx={{ flexShrink: 0 }} />}
 
       {loading && !grade ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
           <CircularProgress />
         </Box>
+      ) : aba === 'delivery' ? (
+        <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {!linhaDelivery ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">Linha de delivery não configurada.</Typography>
+            </Box>
+          ) : (
+            <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
+              <Table size="small" stickyHeader sx={tableSx}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ minWidth: 72, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                      BKN
+                    </TableCell>
+                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 72, zIndex: 3 }}>
+                      Loja
+                    </TableCell>
+                    {DIAS.map((label, dia) => {
+                      const idsDia = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
+                      const todas = lojasDelivery.length > 0 && idsDia.length === lojasDelivery.length;
+                      return (
+                        <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: colors.orange }}>
+                            {label}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            {fmtDataCurta(addDaysIso(semanaInicio, dia))}
+                          </Typography>
+                          {podeEditar && lojasDelivery.length > 0 && (
+                            <Button
+                              size="small"
+                              onClick={() => toggleDiaDeliveryInteiro(dia)}
+                              sx={{
+                                mt: 0.35,
+                                minWidth: 0,
+                                px: 0.75,
+                                py: 0.15,
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                textTransform: 'none',
+                                color: todas ? colors.orange : 'text.secondary',
+                              }}
+                            >
+                              {todas ? 'Limpar' : 'Todas'}
+                            </Button>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell align="center" sx={{ fontWeight: 700, minWidth: 48 }}>
+                      DIAS
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {deliveryLinhas.map((linha) => (
+                    <TableRow key={linha.id_loja} hover>
+                      <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
+                        {linha.bk_number || '—'}
+                      </TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 72, bgcolor: '#fff', zIndex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
+                          {linha.nome}
+                        </Typography>
+                      </TableCell>
+                      {linha.dias.map((d) => (
+                        <TableCell key={d.dia} align="center" sx={{ p: 0.75 }}>
+                          <Checkbox
+                            size="medium"
+                            checked={d.marcada}
+                            disabled={!podeEditar}
+                            onChange={() => toggleLojaDelivery(d.dia, linha.id_loja)}
+                            sx={{
+                              p: 0.5,
+                              color: colors.orange,
+                              '&.Mui-checked': { color: colors.orange },
+                            }}
+                          />
+                        </TableCell>
+                      ))}
+                      <TableCell align="center" sx={{ fontWeight: 700 }}>
+                        {linha.total}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!deliveryLinhas.length && (
+                    <TableRow>
+                      <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                        <Typography color="text.secondary">Nenhuma loja neste filtro.</Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
       ) : (
         <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
@@ -372,11 +532,11 @@ export default function EscalaVisitasPage() {
                   <TableCell sx={{ minWidth: 72, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
                     BKN
                   </TableCell>
-                  <TableCell sx={{ minWidth: 200, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 72, zIndex: 3 }}>
+                  <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 72, zIndex: 3 }}>
                     Loja
                   </TableCell>
                   {DIAS.map((label, i) => (
-                    <TableCell key={label} align="center" sx={{ minWidth: 108, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
                       <Typography variant="caption" sx={{ display: 'block', fontWeight: 700 }}>
                         {label}
                       </Typography>
@@ -391,21 +551,13 @@ export default function EscalaVisitasPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {linhasComTotais.map((linha) => (
+                {linhasVisitasComTotais.map((linha) => (
                   <TableRow key={linha.id_loja} hover>
                     <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
-                      {linha.tipo === 'delivery' ? '—' : (linha.bk_number || '—')}
+                      {linha.bk_number || '—'}
                     </TableCell>
                     <TableCell sx={{ position: 'sticky', left: 72, bgcolor: '#fff', zIndex: 1 }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 700,
-                          color: linha.tipo === 'delivery' ? colors.orange : undefined,
-                        }}
-                        noWrap
-                        title={linha.nome}
-                      >
+                      <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
                         {linha.nome}
                       </Typography>
                       {linha.nome_regiao && (
@@ -415,97 +567,6 @@ export default function EscalaVisitasPage() {
                       )}
                     </TableCell>
                     {linha.dias.map((d) => {
-                      const ehDelivery = linha.tipo === 'delivery';
-                      if (ehDelivery) {
-                        const idsLojas = 'ids_loja_destino_efetivo' in d ? d.ids_loja_destino_efetivo : [];
-                        const nomes = idsLojas
-                          .map((id) => rotuloLojaDestino(id, mapNomeLojaDestino))
-                          .filter(Boolean);
-                        const tooltip = nomes.length
-                          ? idsLojas
-                            .map((id) => mapNomeLojaDestino.get(id)?.nome)
-                            .filter(Boolean)
-                            .join(', ')
-                          : 'Sem loja';
-                        return (
-                          <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
-                            {podeEditar ? (
-                              <Select
-                                multiple
-                                size="small"
-                                displayEmpty
-                                value={idsLojas}
-                                input={<OutlinedInput />}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  const lista = typeof v === 'string' ? v.split(',').map(Number) : (v as number[]);
-                                  alterarCelulaDelivery(linha.id_loja, d.dia, lista);
-                                }}
-                                renderValue={(selected) => {
-                                  const ids = selected as number[];
-                                  if (!ids.length) return '—';
-                                  return ids
-                                    .map((id) => rotuloLojaDestino(id, mapNomeLojaDestino))
-                                    .filter(Boolean)
-                                    .join(', ');
-                                }}
-                                sx={{
-                                  width: '100%',
-                                  maxWidth: 132,
-                                  fontSize: '0.72rem',
-                                  bgcolor: idsLojas.length ? 'rgba(232, 82, 10, 0.06)' : undefined,
-                                  '& .MuiSelect-select': { py: 0.75, whiteSpace: 'normal', lineHeight: 1.25 },
-                                }}
-                              >
-                                {(grade?.lojas_destino ?? []).map((loja) => (
-                                  <MenuItem key={loja.id_loja} value={loja.id_loja} sx={{ py: 0.35 }}>
-                                    <Checkbox
-                                      size="small"
-                                      checked={idsLojas.includes(loja.id_loja)}
-                                      sx={{ py: 0, mr: 0.5 }}
-                                    />
-                                    <ListItemText
-                                      primary={loja.bk_number ? `${loja.bk_number} · ${loja.nome}` : loja.nome}
-                                      slotProps={{ primary: { sx: { fontSize: '0.82rem' } } }}
-                                    />
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            ) : (
-                              <Tooltip title={tooltip}>
-                                <Box
-                                  sx={{
-                                    py: 0.65,
-                                    px: 0.5,
-                                    borderRadius: 1,
-                                    bgcolor: idsLojas.length ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
-                                    border: idsLojas.length ? '1px solid rgba(232, 82, 10, 0.35)' : '1px dashed #e5e7eb',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 600,
-                                    minHeight: 32,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: 0.25,
-                                  }}
-                                >
-                                  {nomes.length ? (
-                                    nomes.map((n) => (
-                                      <Box key={n} component="span" sx={{ lineHeight: 1.2 }}>
-                                        {n}
-                                      </Box>
-                                    ))
-                                  ) : (
-                                    '—'
-                                  )}
-                                </Box>
-                              </Tooltip>
-                            )}
-                          </TableCell>
-                        );
-                      }
-
                       const idsReg = 'ids_regional_efetivo' in d ? d.ids_regional_efetivo : [];
                       const nomes = idsReg
                         .map((id) => mapNomeRegional.get(id))
@@ -514,11 +575,10 @@ export default function EscalaVisitasPage() {
                       const tooltip = nomes.length ? nomes.join(', ') : 'Sem visita';
                       const cor = idsReg.length === 1 ? mapCorRegional.get(idsReg[0]) || '#64748B' : undefined;
                       return (
-                        <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
+                        <TableCell key={d.dia} align="center" sx={{ p: 0.75, verticalAlign: 'middle' }}>
                           {podeEditar ? (
                             <Select
                               multiple
-                              size="small"
                               displayEmpty
                               value={idsReg}
                               input={<OutlinedInput />}
@@ -536,11 +596,8 @@ export default function EscalaVisitasPage() {
                                   .join(', ');
                               }}
                               sx={{
-                                width: '100%',
-                                maxWidth: 132,
-                                fontSize: '0.72rem',
+                                ...SELECT_CELULA_SX,
                                 bgcolor: cor ? `${cor}18` : idsReg.length > 1 ? 'rgba(27, 42, 107, 0.04)' : undefined,
-                                '& .MuiSelect-select': { py: 0.75, whiteSpace: 'normal', lineHeight: 1.25 },
                               }}
                             >
                               {(grade?.regionais ?? []).map((r) => (
@@ -561,14 +618,14 @@ export default function EscalaVisitasPage() {
                             <Tooltip title={tooltip}>
                               <Box
                                 sx={{
-                                  py: 0.65,
-                                  px: 0.5,
+                                  py: 0.85,
+                                  px: 0.65,
                                   borderRadius: 1,
                                   bgcolor: cor ? `${cor}22` : idsReg.length ? 'rgba(27, 42, 107, 0.05)' : 'transparent',
                                   border: idsReg.length ? `1px solid ${cor ?? colors.border}` : '1px dashed #e5e7eb',
-                                  fontSize: '0.72rem',
+                                  fontSize: '0.8rem',
                                   fontWeight: 600,
-                                  minHeight: 32,
+                                  minHeight: 40,
                                   display: 'flex',
                                   flexDirection: 'column',
                                   alignItems: 'center',
@@ -596,7 +653,7 @@ export default function EscalaVisitasPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {!linhasComTotais.length && (
+                {!linhasVisitasComTotais.length && (
                   <TableRow>
                     <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">Nenhuma loja neste filtro.</Typography>
@@ -610,7 +667,7 @@ export default function EscalaVisitasPage() {
       )}
 
       {!podeEditar && (
-        <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           Modo leitura — somente o diretor pode editar a escala.
         </Typography>
       )}

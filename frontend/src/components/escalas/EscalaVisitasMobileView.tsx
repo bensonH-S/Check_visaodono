@@ -33,18 +33,19 @@ import {
   primeiroNome,
   segundaFeiraAtual,
 } from './escalaVisitasUtils';
-import { atribuicoesDoDia, diaTemRegional } from './escalaVisitasModel';
+import { atribuicoesDoDia, diaTemRegional, idsLojasDestinoDoDia, linhaDeliveryDaGrade } from './escalaVisitasModel';
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
 const PAGE_BG = '#f5f5f3';
 
-type ModoVisualizacao = 'minhas' | 'dia' | 'lojas';
+type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery';
 
 const MODOS: Array<{ id: ModoVisualizacao; label: string }> = [
   { id: 'minhas', label: 'Minhas' },
   { id: 'dia', label: 'Por dia' },
   { id: 'lojas', label: 'Por loja' },
+  { id: 'delivery', label: 'Delivery' },
 ];
 
 function LojaVisitaCard({
@@ -332,6 +333,26 @@ export default function EscalaVisitasMobileView() {
     setDiaSelecionado(hoje ?? 0);
   }, [semanaInicio]);
 
+  const linhaDelivery = useMemo(() => linhaDeliveryDaGrade(grade?.linhas), [grade?.linhas]);
+
+  const deliveryPorDia = useMemo(() => {
+    if (!grade || !linhaDelivery) return [];
+    return DIAS_LONGO.map((label, dia) => {
+      const idsMarcados = idsLojasDestinoDoDia(linhaDelivery.dias[dia]);
+      const lojas = grade.lojas_destino ?? [];
+      return {
+        dia,
+        label,
+        data: fmtDataCurta(addDaysIso(grade.semana_inicio, dia)),
+        lojas: lojas.map((loja) => ({
+          ...loja,
+          marcada: idsMarcados.includes(loja.id_loja),
+        })),
+        totalMarcadas: idsMarcados.length,
+      };
+    });
+  }, [grade, linhaDelivery]);
+
   const mapNome = useMemo(() => {
     const m = new Map<number, string>();
     for (const r of grade?.regionais ?? []) m.set(r.id_usuario, r.nome);
@@ -356,25 +377,10 @@ export default function EscalaVisitasMobileView() {
         cor?: string | null;
       }> = [];
       for (const linha of grade.linhas) {
+        if (linha.tipo === 'delivery') continue;
         const c = linha.dias[dia];
         const attrs = atribuicoesDoDia(c);
         if (!attrs.length) continue;
-        if (linha.tipo === 'delivery') {
-          itens.push({
-            id_loja: linha.id_loja,
-            nome: linha.nome,
-            bk: null,
-            regionais: attrs.map((a) => ({
-              nome: a.bk_loja_destino
-                ? `${a.bk_loja_destino} · ${a.nome_loja_destino ?? '—'}`
-                : (a.nome_loja_destino ?? '—'),
-              cor: ORANGE,
-            })),
-            cor: ORANGE,
-            ehDelivery: true,
-          });
-          continue;
-        }
         itens.push({
           id_loja: linha.id_loja,
           nome: linha.nome,
@@ -617,6 +623,106 @@ export default function EscalaVisitasMobileView() {
         ))}
       </Box>
     )
+  ) : modo === 'delivery' ? (
+    <>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 0.75,
+          overflowX: 'auto',
+          pb: 1.25,
+          mx: -0.25,
+          px: 0.25,
+          scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        {deliveryPorDia.map((d) => {
+          const selected = d.dia === diaSelecionado;
+          const isToday = hojeIndex === d.dia;
+          return (
+            <Paper
+              key={d.dia}
+              component="button"
+              type="button"
+              onClick={() => setDiaSelecionado(d.dia)}
+              elevation={0}
+              sx={{
+                flexShrink: 0,
+                scrollSnapAlign: 'start',
+                minWidth: 64,
+                p: 1,
+                borderRadius: 2.5,
+                textAlign: 'center',
+                cursor: 'pointer',
+                border: selected
+                  ? `2px solid ${ORANGE}`
+                  : isToday
+                    ? `1px solid ${ORANGE}`
+                    : '1px solid rgba(27, 42, 107, 0.1)',
+                bgcolor: selected ? 'rgba(232, 82, 10, 0.08)' : '#fff',
+                boxShadow: selected ? '0 2px 10px rgba(232, 82, 10, 0.18)' : '0 2px 14px rgba(27, 42, 107, 0.07)',
+                font: 'inherit',
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 700, color: NAVY, display: 'block' }}>
+                {DIAS_ABREV[d.dia]}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem' }}>
+                {d.data}
+              </Typography>
+              <Box
+                sx={{
+                  mt: 0.5,
+                  mx: 'auto',
+                  minWidth: 18,
+                  height: 18,
+                  px: 0.5,
+                  borderRadius: 99,
+                  bgcolor: selected ? ORANGE : 'rgba(27, 42, 107, 0.12)',
+                  color: selected ? '#fff' : NAVY,
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {d.totalMarcadas}
+              </Box>
+            </Paper>
+          );
+        })}
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.65 }}>
+        {(deliveryPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
+          <Paper
+            key={loja.id_loja}
+            elevation={0}
+            sx={{
+              display: 'flex',
+              overflow: 'hidden',
+              borderRadius: 2,
+              border: loja.marcada ? '1px solid rgba(232, 82, 10, 0.35)' : '1px solid rgba(27, 42, 107, 0.08)',
+              bgcolor: loja.marcada ? 'rgba(232, 82, 10, 0.05)' : '#fff',
+            }}
+          >
+            <Box aria-hidden sx={{ width: 3, flexShrink: 0, bgcolor: loja.marcada ? ORANGE : colors.border }} />
+            <Box sx={{ flex: 1, minWidth: 0, py: 1, px: 1.25 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, lineHeight: 1.3 }}>
+                {loja.bk_number ? `${loja.bk_number} · ` : ''}
+                {loja.nome}
+              </Typography>
+              <Typography variant="caption" sx={{ color: loja.marcada ? ORANGE : 'text.secondary', fontWeight: 600 }}>
+                {loja.marcada ? 'Delivery agendado' : 'Sem delivery'}
+              </Typography>
+            </Box>
+          </Paper>
+        ))}
+      </Box>
+    </>
   ) : modo === 'dia' ? (
     <>
       <Box
@@ -728,7 +834,7 @@ export default function EscalaVisitasMobileView() {
           Nenhuma loja neste filtro.
         </Typography>
       ) : (
-        grade?.linhas.map((linha) => <CardLojaSemana key={linha.id_loja} linha={linha} />)
+        grade?.linhas.filter((linha) => linha.tipo !== 'delivery').map((linha) => <CardLojaSemana key={linha.id_loja} linha={linha} />)
       )}
     </Box>
       )}
