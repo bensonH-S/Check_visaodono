@@ -218,20 +218,26 @@ function CardResumoSemana({
   );
 }
 
-function FaixaSemanaLoja({ dias }: { dias: EscalaVisitasDia[] }) {
+function FaixaSemanaLoja({ dias, ehDelivery = false }: { dias: EscalaVisitasDia[]; ehDelivery?: boolean }) {
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 0.5, mt: 1.25 }}>
       {dias.map((d, i) => {
         const attrs = atribuicoesDoDia(d);
         const temVisita = attrs.length > 0;
-        const cor = attrs[0]?.cor || colors.border;
-        const rotulo =
-          attrs.length > 1
+        const cor = ehDelivery ? ORANGE : attrs[0]?.cor || colors.border;
+        const rotulo = ehDelivery
+          ? attrs.length > 1
+            ? String(attrs.length)
+            : (attrs[0]?.bk_loja_destino
+              || (attrs[0]?.nome_loja_destino ? primeiroNome(attrs[0].nome_loja_destino).slice(0, 3) : '—'))
+          : attrs.length > 1
             ? String(attrs.length)
             : attrs[0]?.nome_regional
               ? primeiroNome(attrs[0].nome_regional).slice(0, 3)
               : '—';
-        const titulo = attrs.map((a) => a.nome_regional).filter(Boolean).join(', ') || 'Sem visita';
+        const titulo = ehDelivery
+          ? attrs.map((a) => a.nome_loja_destino).filter(Boolean).join(', ') || 'Sem loja'
+          : attrs.map((a) => a.nome_regional).filter(Boolean).join(', ') || 'Sem visita';
         return (
           <Box key={d.dia} sx={{ textAlign: 'center', minWidth: 0 }}>
             <Typography variant="caption" sx={{ fontSize: '0.62rem', color: colors.textMuted, fontWeight: 600 }}>
@@ -265,22 +271,25 @@ function FaixaSemanaLoja({ dias }: { dias: EscalaVisitasDia[] }) {
 }
 
 function CardLojaSemana({ linha }: { linha: EscalaVisitasLinha }) {
+  const ehDelivery = linha.tipo === 'delivery';
   return (
     <Paper
       elevation={0}
       sx={{
         p: 1.5,
         borderRadius: 2.5,
-        border: '1px solid rgba(27, 42, 107, 0.08)',
+        border: `1px solid ${ehDelivery ? 'rgba(232, 82, 10, 0.2)' : 'rgba(27, 42, 107, 0.08)'}`,
         bgcolor: '#fff',
         boxShadow: shadows.sm,
       }}
     >
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy, lineHeight: 1.3 }}>
-        {linha.bk_number ? `${linha.bk_number} · ` : ''}
-        {linha.nome}
+      <Typography
+        variant="subtitle2"
+        sx={{ fontWeight: 700, color: ehDelivery ? ORANGE : colors.navy, lineHeight: 1.3 }}
+      >
+        {ehDelivery ? linha.nome : `${linha.bk_number ? `${linha.bk_number} · ` : ''}${linha.nome}`}
       </Typography>
-      <FaixaSemanaLoja dias={linha.dias} />
+      <FaixaSemanaLoja dias={linha.dias} ehDelivery={ehDelivery} />
     </Paper>
   );
 }
@@ -350,6 +359,22 @@ export default function EscalaVisitasMobileView() {
         const c = linha.dias[dia];
         const attrs = atribuicoesDoDia(c);
         if (!attrs.length) continue;
+        if (linha.tipo === 'delivery') {
+          itens.push({
+            id_loja: linha.id_loja,
+            nome: linha.nome,
+            bk: null,
+            regionais: attrs.map((a) => ({
+              nome: a.bk_loja_destino
+                ? `${a.bk_loja_destino} · ${a.nome_loja_destino ?? '—'}`
+                : (a.nome_loja_destino ?? '—'),
+              cor: ORANGE,
+            })),
+            cor: ORANGE,
+            ehDelivery: true,
+          });
+          continue;
+        }
         itens.push({
           id_loja: linha.id_loja,
           nome: linha.nome,

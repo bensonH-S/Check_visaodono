@@ -1274,9 +1274,12 @@ export interface EscalaVisitasRegional {
 
 export interface EscalaVisitasAtribuicao {
   id_celula?: number;
-  id_regional: number | null;
+  id_regional?: number | null;
   nome_regional?: string | null;
   cor?: string | null;
+  id_loja_destino?: number | null;
+  nome_loja_destino?: string | null;
+  bk_loja_destino?: string | null;
   observacao?: string | null;
 }
 
@@ -1296,8 +1299,15 @@ export interface EscalaVisitasLinha {
   bk_number?: string | null;
   id_regiao?: number | null;
   nome_regiao?: string | null;
+  tipo?: 'loja' | 'delivery';
   total_visitas: number;
   dias: EscalaVisitasDia[];
+}
+
+export interface EscalaVisitasLojaDestino {
+  id_loja: number;
+  nome: string;
+  bk_number?: string | null;
 }
 
 export interface EscalaVisitasGrade {
@@ -1309,6 +1319,7 @@ export interface EscalaVisitasGrade {
   id_regiao_filtro: number | null;
   regionais: EscalaVisitasRegional[];
   regioes: Array<{ id_regiao: number; nome: string }>;
+  lojas_destino?: EscalaVisitasLojaDestino[];
   linhas: EscalaVisitasLinha[];
 }
 
@@ -1320,6 +1331,8 @@ export interface EscalaVisitasSalvarBody {
     dia: number;
     id_regionais?: number[];
     id_regional?: number | null;
+    id_lojas_destino?: number[];
+    id_loja_destino?: number | null;
     observacao?: string | null;
   }>;
 }

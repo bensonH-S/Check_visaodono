@@ -30,7 +30,7 @@ import { podeGerenciarEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
-import { atribuicoesDoDia, idsRegionaisDoDia } from '../../components/escalas/escalaVisitasModel';
+import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, rotuloLojaDestino } from '../../components/escalas/escalaVisitasModel';
 import { agruparRegionaisEscala, primeiroNome } from '../../components/escalas/escalaVisitasUtils';
 
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
@@ -55,7 +55,10 @@ function fmtDataCurta(iso: string) {
 }
 
 type CelulaChave = string;
-type PendingMap = Map<CelulaChave, { id_loja: number; dia: number; id_regionais: number[] }>;
+type PendingCelula =
+  | { id_loja: number; dia: number; id_regionais: number[] }
+  | { id_loja: number; dia: number; id_lojas_destino: number[] };
+type PendingMap = Map<CelulaChave, PendingCelula>;
 
 function chaveCelula(idLoja: number, dia: number) {
   return `${idLoja}-${dia}`;
@@ -96,6 +99,27 @@ export default function EscalaVisitasPage() {
     return m;
   }, [grade?.regionais, grade?.linhas]);
 
+  const mapNomeLojaDestino = useMemo(() => {
+    const m = new Map<number, { nome: string; bk_number?: string | null }>();
+    for (const loja of grade?.lojas_destino ?? []) {
+      m.set(loja.id_loja, { nome: loja.nome, bk_number: loja.bk_number });
+    }
+    for (const linha of grade?.linhas ?? []) {
+      if (linha.tipo !== 'delivery') continue;
+      for (const d of linha.dias) {
+        for (const a of atribuicoesDoDia(d)) {
+          if (a.id_loja_destino != null && a.nome_loja_destino) {
+            m.set(a.id_loja_destino, {
+              nome: a.nome_loja_destino,
+              bk_number: a.bk_loja_destino,
+            });
+          }
+        }
+      }
+    }
+    return m;
+  }, [grade?.lojas_destino, grade?.linhas]);
+
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
@@ -115,7 +139,7 @@ export default function EscalaVisitasPage() {
     void carregar();
   }, [carregar]);
 
-  function alterarCelula(idLoja: number, dia: number, idRegionais: number[]) {
+  function alterarCelulaRegional(idLoja: number, dia: number, idRegionais: number[]) {
     if (!podeEditar) return;
     setPending((prev) => {
       const next = new Map(prev);
@@ -124,10 +148,25 @@ export default function EscalaVisitasPage() {
     });
   }
 
-  function valorCelula(idLoja: number, dia: number, original: EscalaVisitasLinha['dias'][number]) {
+  function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {
+    if (!podeEditar) return;
+    setPending((prev) => {
+      const next = new Map(prev);
+      next.set(chaveCelula(idLoja, dia), { id_loja: idLoja, dia, id_lojas_destino: idLojasDestino });
+      return next;
+    });
+  }
+
+  function valorCelulaRegional(idLoja: number, dia: number, original: EscalaVisitasLinha['dias'][number]) {
     const p = pending.get(chaveCelula(idLoja, dia));
-    if (p) return p.id_regionais;
+    if (p && 'id_regionais' in p) return p.id_regionais;
     return idsRegionaisDoDia(original);
+  }
+
+  function valorCelulaDelivery(idLoja: number, dia: number, original: EscalaVisitasLinha['dias'][number]) {
+    const p = pending.get(chaveCelula(idLoja, dia));
+    if (p && 'id_lojas_destino' in p) return p.id_lojas_destino;
+    return idsLojasDestinoDoDia(original);
   }
 
   async function salvar() {
@@ -173,10 +212,15 @@ export default function EscalaVisitasPage() {
     if (!grade) return [];
     return grade.linhas.map((linha: EscalaVisitasLinha) => {
       let total = 0;
+      const ehDelivery = linha.tipo === 'delivery';
       const dias = linha.dias.map((d) => {
-        const idsReg = valorCelula(linha.id_loja, d.dia, d);
-        total += idsReg.length;
-        return { ...d, ids_regional_efetivo: idsReg };
+        const idsEfetivo = ehDelivery
+          ? valorCelulaDelivery(linha.id_loja, d.dia, d)
+          : valorCelulaRegional(linha.id_loja, d.dia, d);
+        total += idsEfetivo.length;
+        return ehDelivery
+          ? { ...d, ids_loja_destino_efetivo: idsEfetivo }
+          : { ...d, ids_regional_efetivo: idsEfetivo };
       });
       return { ...linha, dias, total_visitas_efetivo: total };
     });
@@ -350,10 +394,18 @@ export default function EscalaVisitasPage() {
                 {linhasComTotais.map((linha) => (
                   <TableRow key={linha.id_loja} hover>
                     <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
-                      {linha.bk_number || '—'}
+                      {linha.tipo === 'delivery' ? '—' : (linha.bk_number || '—')}
                     </TableCell>
                     <TableCell sx={{ position: 'sticky', left: 72, bgcolor: '#fff', zIndex: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 700,
+                          color: linha.tipo === 'delivery' ? colors.orange : undefined,
+                        }}
+                        noWrap
+                        title={linha.nome}
+                      >
                         {linha.nome}
                       </Typography>
                       {linha.nome_regiao && (
@@ -363,7 +415,98 @@ export default function EscalaVisitasPage() {
                       )}
                     </TableCell>
                     {linha.dias.map((d) => {
-                      const idsReg = d.ids_regional_efetivo;
+                      const ehDelivery = linha.tipo === 'delivery';
+                      if (ehDelivery) {
+                        const idsLojas = 'ids_loja_destino_efetivo' in d ? d.ids_loja_destino_efetivo : [];
+                        const nomes = idsLojas
+                          .map((id) => rotuloLojaDestino(id, mapNomeLojaDestino))
+                          .filter(Boolean);
+                        const tooltip = nomes.length
+                          ? idsLojas
+                            .map((id) => mapNomeLojaDestino.get(id)?.nome)
+                            .filter(Boolean)
+                            .join(', ')
+                          : 'Sem loja';
+                        return (
+                          <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
+                            {podeEditar ? (
+                              <Select
+                                multiple
+                                size="small"
+                                displayEmpty
+                                value={idsLojas}
+                                input={<OutlinedInput />}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  const lista = typeof v === 'string' ? v.split(',').map(Number) : (v as number[]);
+                                  alterarCelulaDelivery(linha.id_loja, d.dia, lista);
+                                }}
+                                renderValue={(selected) => {
+                                  const ids = selected as number[];
+                                  if (!ids.length) return '—';
+                                  return ids
+                                    .map((id) => rotuloLojaDestino(id, mapNomeLojaDestino))
+                                    .filter(Boolean)
+                                    .join(', ');
+                                }}
+                                sx={{
+                                  width: '100%',
+                                  maxWidth: 132,
+                                  fontSize: '0.72rem',
+                                  bgcolor: idsLojas.length ? 'rgba(232, 82, 10, 0.06)' : undefined,
+                                  '& .MuiSelect-select': { py: 0.75, whiteSpace: 'normal', lineHeight: 1.25 },
+                                }}
+                              >
+                                {(grade?.lojas_destino ?? []).map((loja) => (
+                                  <MenuItem key={loja.id_loja} value={loja.id_loja} sx={{ py: 0.35 }}>
+                                    <Checkbox
+                                      size="small"
+                                      checked={idsLojas.includes(loja.id_loja)}
+                                      sx={{ py: 0, mr: 0.5 }}
+                                    />
+                                    <ListItemText
+                                      primary={loja.bk_number ? `${loja.bk_number} · ${loja.nome}` : loja.nome}
+                                      slotProps={{ primary: { sx: { fontSize: '0.82rem' } } }}
+                                    />
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            ) : (
+                              <Tooltip title={tooltip}>
+                                <Box
+                                  sx={{
+                                    py: 0.65,
+                                    px: 0.5,
+                                    borderRadius: 1,
+                                    bgcolor: idsLojas.length ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
+                                    border: idsLojas.length ? '1px solid rgba(232, 82, 10, 0.35)' : '1px dashed #e5e7eb',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 600,
+                                    minHeight: 32,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 0.25,
+                                  }}
+                                >
+                                  {nomes.length ? (
+                                    nomes.map((n) => (
+                                      <Box key={n} component="span" sx={{ lineHeight: 1.2 }}>
+                                        {n}
+                                      </Box>
+                                    ))
+                                  ) : (
+                                    '—'
+                                  )}
+                                </Box>
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                        );
+                      }
+
+                      const idsReg = 'ids_regional_efetivo' in d ? d.ids_regional_efetivo : [];
                       const nomes = idsReg
                         .map((id) => mapNomeRegional.get(id))
                         .filter(Boolean)
@@ -382,7 +525,7 @@ export default function EscalaVisitasPage() {
                               onChange={(e) => {
                                 const v = e.target.value;
                                 const lista = typeof v === 'string' ? v.split(',').map(Number) : (v as number[]);
-                                alterarCelula(linha.id_loja, d.dia, lista);
+                                alterarCelulaRegional(linha.id_loja, d.dia, lista);
                               }}
                               renderValue={(selected) => {
                                 const ids = selected as number[];

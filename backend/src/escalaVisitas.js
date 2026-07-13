@@ -23,6 +23,32 @@ export const ESCALA_VISITAS_PRIORIDADE_TOPO = ['renato frota', 'renato', 'igor']
 /** Supervisores de região — cada um agrupa os regionais e técnicos vinculados na frota. */
 export const ESCALA_VISITAS_LIDERES_GRUPO = ['plinio', 'fagno', 'barbara'];
 
+/** Loja âncora da linha DELIVERY e lojas que não entram como linha normal na grade. */
+export const ESCALA_VISITAS_NOME_LOJA_DELIVERY = 'DELIVERY';
+export const ESCALA_VISITAS_LOJAS_EXCLUIDAS_GRADE = [
+  'GA - KING ASSESSORIA E CONSULTORIA',
+  ESCALA_VISITAS_NOME_LOJA_DELIVERY,
+];
+
+function normNomeLojaEscala(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+export function lojaExcluidaDaGradeEscala(nomeLoja) {
+  const n = normNomeLojaEscala(nomeLoja);
+  return ESCALA_VISITAS_LOJAS_EXCLUIDAS_GRADE.some(
+    (item) => normNomeLojaEscala(item) === n,
+  );
+}
+
+export function isLinhaDeliveryEscala(nomeLoja) {
+  return normNomeLojaEscala(nomeLoja) === normNomeLojaEscala(ESCALA_VISITAS_NOME_LOJA_DELIVERY);
+}
+
 function normNomeEscala(valor) {
   return String(valor || '')
     .normalize('NFD')
@@ -271,7 +297,18 @@ async function lojasGrade(user, idRegiaoFiltro) {
      ORDER BY COALESCE(NULLIF(TRIM(l.bk_number), ''), '99999'), l.name`,
     params,
   );
-  return rows;
+  return rows.filter((loja) => !lojaExcluidaDaGradeEscala(loja.name));
+}
+
+async function obterLojaDeliveryAnchor() {
+  const { rows } = await pool.query(
+    `SELECT id_loja, name, bk_number
+     FROM lojas
+     WHERE LOWER(TRIM(name)) = LOWER($1)
+     LIMIT 1`,
+    [ESCALA_VISITAS_NOME_LOJA_DELIVERY],
+  );
+  return rows[0] ?? null;
 }
 
 function regionaisParaSalvar(item) {
@@ -280,6 +317,16 @@ function regionaisParaSalvar(item) {
   }
   if (item.id_regional != null && item.id_regional !== '') {
     return [Number(item.id_regional)];
+  }
+  return [];
+}
+
+function lojasDestinoParaSalvar(item) {
+  if (Array.isArray(item.id_lojas_destino)) {
+    return [...new Set(item.id_lojas_destino.map(Number).filter(Boolean))];
+  }
+  if (item.id_loja_destino != null && item.id_loja_destino !== '') {
+    return [Number(item.id_loja_destino)];
   }
   return [];
 }
@@ -299,23 +346,28 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
   if (!podeVerEscalaVisitas(user)) throw new Error('Sem permissão');
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
-  const [semana, lojas, regionais, regioes] = await Promise.all([
+  const [semana, lojas, regionais, regioes, lojaDelivery] = await Promise.all([
     obterOuCriarSemana(semanaInicio, user.sub),
     lojasGrade(user, id_regiao),
     listarRegionaisEscala(),
     listarRegioesEscala(user),
+    obterLojaDeliveryAnchor(),
   ]);
 
   const idsLojas = lojas.map((l) => l.id_loja);
+  const idsConsulta = lojaDelivery ? [...idsLojas, lojaDelivery.id_loja] : idsLojas;
   let celulas = [];
-  if (idsLojas.length) {
+  if (idsConsulta.length) {
     const { rows } = await pool.query(
-      `SELECT c.id_celula, c.id_loja, c.dia, c.id_regional, c.observacao, u.nome AS nome_regional
+      `SELECT c.id_celula, c.id_loja, c.dia, c.id_regional, c.id_loja_destino, c.observacao,
+              u.nome AS nome_regional,
+              ld.name AS nome_loja_destino, ld.bk_number AS bk_loja_destino
        FROM escala_visitas_celula c
        LEFT JOIN usuarios u ON u.id_usuario = c.id_regional
+       LEFT JOIN lojas ld ON ld.id_loja = c.id_loja_destino
        WHERE c.id_semana = $1 AND c.id_loja = ANY($2::int[])
        ORDER BY c.id_loja, c.dia, c.id_celula`,
-      [semana.id_semana, idsLojas],
+      [semana.id_semana, idsConsulta],
     );
     celulas = rows;
   }
@@ -329,20 +381,30 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
 
   const mapCor = new Map(regionais.map((r) => [r.id_usuario, r.cor]));
 
-  const linhas = lojas.map((loja) => {
+  function montarDiasLinha(idLoja, tipo) {
     const dias = [];
     let totalVisitas = 0;
     for (let dia = 0; dia < 7; dia++) {
-      const lista = mapCel.get(`${loja.id_loja}-${dia}`) ?? [];
-      const atribuicoes = lista
-        .filter((c) => c.id_regional != null)
-        .map((c) => ({
-          id_celula: c.id_celula,
-          id_regional: c.id_regional,
-          nome_regional: c.nome_regional ?? null,
-          cor: mapCor.get(c.id_regional) || '#64748B',
-          observacao: c.observacao ?? null,
-        }));
+      const lista = mapCel.get(`${idLoja}-${dia}`) ?? [];
+      const atribuicoes = tipo === 'delivery'
+        ? lista
+          .filter((c) => c.id_loja_destino != null)
+          .map((c) => ({
+            id_celula: c.id_celula,
+            id_loja_destino: c.id_loja_destino,
+            nome_loja_destino: c.nome_loja_destino ?? null,
+            bk_loja_destino: c.bk_loja_destino ?? null,
+            observacao: c.observacao ?? null,
+          }))
+        : lista
+          .filter((c) => c.id_regional != null)
+          .map((c) => ({
+            id_celula: c.id_celula,
+            id_regional: c.id_regional,
+            nome_regional: c.nome_regional ?? null,
+            cor: mapCor.get(c.id_regional) || '#64748B',
+            observacao: c.observacao ?? null,
+          }));
       totalVisitas += atribuicoes.length;
       const primeira = atribuicoes[0];
       dias.push({
@@ -351,19 +413,47 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
         id_regional: primeira?.id_regional ?? null,
         nome_regional: primeira?.nome_regional ?? null,
         cor: primeira?.cor ?? null,
+        id_loja_destino: primeira?.id_loja_destino ?? null,
+        nome_loja_destino: primeira?.nome_loja_destino ?? null,
         observacao: primeira?.observacao ?? null,
       });
     }
+    return { dias, totalVisitas };
+  }
+
+  const linhas = lojas.map((loja) => {
+    const { dias, totalVisitas } = montarDiasLinha(loja.id_loja, 'loja');
     return {
       id_loja: loja.id_loja,
       nome: loja.name,
       bk_number: loja.bk_number,
       id_regiao: loja.id_regiao,
       nome_regiao: loja.nome_regiao,
+      tipo: 'loja',
       total_visitas: totalVisitas,
       dias,
     };
   });
+
+  if (lojaDelivery) {
+    const { dias, totalVisitas } = montarDiasLinha(lojaDelivery.id_loja, 'delivery');
+    linhas.push({
+      id_loja: lojaDelivery.id_loja,
+      nome: ESCALA_VISITAS_NOME_LOJA_DELIVERY,
+      bk_number: lojaDelivery.bk_number,
+      id_regiao: null,
+      nome_regiao: null,
+      tipo: 'delivery',
+      total_visitas: totalVisitas,
+      dias,
+    });
+  }
+
+  const lojasDestino = lojas.map((loja) => ({
+    id_loja: loja.id_loja,
+    nome: loja.name,
+    bk_number: loja.bk_number,
+  }));
 
   return {
     id_semana: semana.id_semana,
@@ -374,6 +464,7 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     id_regiao_filtro: id_regiao ? Number(id_regiao) : null,
     regionais,
     regioes,
+    lojas_destino: lojasDestino,
     linhas,
   };
 }
@@ -384,6 +475,7 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
   const semanaInicio = segundaFeiraDaSemana(semana_inicio);
   const semana = await obterOuCriarSemana(semanaInicio, user.sub);
   const lista = Array.isArray(celulas) ? celulas : [];
+  const lojaDelivery = await obterLojaDeliveryAnchor();
 
   const client = await pool.connect();
   try {
@@ -393,7 +485,9 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
       const dia = Number(item.dia);
       if (!idLoja || dia < 0 || dia > 6) continue;
 
-      const idsRegional = regionaisParaSalvar(item);
+      const ehDelivery = lojaDelivery && idLoja === lojaDelivery.id_loja;
+      const idsRegional = ehDelivery ? [] : regionaisParaSalvar(item);
+      const idsLojaDestino = ehDelivery ? lojasDestinoParaSalvar(item) : [];
       const obs = item.observacao != null ? String(item.observacao).trim() || null : null;
 
       await client.query(
@@ -402,7 +496,7 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
         [semana.id_semana, idLoja, dia],
       );
 
-      if (!idsRegional.length && !obs) continue;
+      if (!idsRegional.length && !idsLojaDestino.length && !obs) continue;
 
       for (const idRegional of idsRegional) {
         await client.query(
@@ -412,7 +506,15 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
         );
       }
 
-      if (!idsRegional.length && obs) {
+      for (const idLojaDestino of idsLojaDestino) {
+        await client.query(
+          `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_loja_destino, observacao)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [semana.id_semana, idLoja, dia, idLojaDestino, obs],
+        );
+      }
+
+      if (!idsRegional.length && !idsLojaDestino.length && obs) {
         await client.query(
           `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_regional, observacao)
            VALUES ($1, $2, $3, NULL, $4)`,
@@ -451,8 +553,8 @@ export async function copiarSemanaVisitas(user, { de, para }) {
   );
 
   await pool.query(
-    `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_regional, observacao)
-     SELECT $2, id_loja, dia, id_regional, observacao
+    `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_regional, id_loja_destino, observacao)
+     SELECT $2, id_loja, dia, id_regional, id_loja_destino, observacao
      FROM escala_visitas_celula
      WHERE id_semana = $1
      ORDER BY id_celula`,
