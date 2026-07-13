@@ -1290,6 +1290,9 @@ export interface EscalaVisitasDia {
   id_regional?: number | null;
   nome_regional?: string | null;
   cor?: string | null;
+  id_loja_destino?: number | null;
+  nome_loja_destino?: string | null;
+  bk_loja_destino?: string | null;
   observacao?: string | null;
 }
 
