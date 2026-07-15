@@ -36,7 +36,8 @@ import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
 import { formatDataHoraBrasilia, formatarDuracaoMs } from '../../utils/dateBr';
 import { geocodificarReversa } from '../../utils/geocodificarReversa';
 import { colors, radius, shadows } from '../../theme/tokens';
-import { iconeMarcaLojaUrl } from '../../utils/marcaLojaMapa';
+import { iconeMarcaLojaPorNome, iconeMarcaLojaUrl } from '../../utils/marcaLojaMapa';
+import { contarPassagensPorLoja } from '../../utils/frotaPassagensLoja';
 
 function resumirEndereco(endereco: string): string {
   if (!endereco || endereco === 'Carregando…' || endereco === 'Endereço indisponível') return endereco;
@@ -290,10 +291,27 @@ export default function FrotaAcompanhamentoPage() {
     ? `${rota.veiculo.id_veiculo}-${rota.data_inicio}-${rota.data_fim}`
     : 'mapa-vazio';
 
+  const passagensLoja = useMemo(() => {
+    if (!rota?.pontos?.length || !lojasComCoordenada.length) return [];
+    return contarPassagensPorLoja(rota.pontos, lojasComCoordenada);
+  }, [rota?.pontos, lojasComCoordenada]);
+
+  const passagensPorLoja = useMemo(() => {
+    const map: Record<number, number> = {};
+    for (const p of passagensLoja) map[p.id_loja] = p.passagens;
+    return map;
+  }, [passagensLoja]);
+
+  const totalPassagensLoja = useMemo(
+    () => passagensLoja.reduce((acc, p) => acc + p.passagens, 0),
+    [passagensLoja],
+  );
+
   const kpiKm = consultou ? `${kmGps.toLocaleString('pt-BR')} km` : '—';
   const kpiExcessos = consultou ? String(qtdExcessos) : '—';
   const kpiMax = consultou ? `${velocidadeMaxima.toLocaleString('pt-BR')} km/h` : '—';
   const kpiParado = consultou ? formatarDuracaoMs(tempoParadoMs) : '—';
+  const kpiLojas = consultou ? String(passagensLoja.length) : '—';
 
   return (
     <Box sx={{ ...tablePageLayoutSx, gap: 1.25 }}>
@@ -365,7 +383,7 @@ export default function FrotaAcompanhamentoPage() {
           bgcolor: colors.surface,
           boxShadow: shadows.sm,
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, minmax(0, 1fr))' },
+          gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(5, minmax(0, 1fr))' },
           '& > *:not(:last-child)': {
             borderRight: { md: `1px solid ${colors.border}` },
           },
@@ -386,6 +404,7 @@ export default function FrotaAcompanhamentoPage() {
           destaque={consultou && velocidadeMaxima > limiteKmh ? 'alerta' : 'neutro'}
         />
         <KpiItem label="Tempo parado" valor={kpiParado} />
+        <KpiItem label="Lojas visitadas" valor={kpiLojas} />
       </Paper>
 
       <Box
@@ -444,6 +463,7 @@ export default function FrotaAcompanhamentoPage() {
               pontos={rota?.pontos ?? []}
               excessosMapa={rota?.excessos_mapa ?? []}
               lojas={lojasComCoordenada}
+              passagensPorLoja={passagensPorLoja}
               limiteKmh={limiteKmh}
               altura="100%"
               diaAtual={periodoSoHoje}
@@ -538,63 +558,188 @@ export default function FrotaAcompanhamentoPage() {
           </Box>
         </Paper>
 
-        <Paper
-          elevation={0}
+        <Box
           sx={{
             flex: '0 0 auto',
             height: { xs: 210, md: 240 },
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            border: '1px solid',
-            borderColor: colors.border,
-            borderRadius: `${radius.lg}px`,
-            bgcolor: colors.surface,
-            boxShadow: shadows.sm,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+            gap: 1,
+            minHeight: 0,
           }}
         >
-          <Box
+          <Paper
+            elevation={0}
             sx={{
-              px: 1.75,
-              py: 1.1,
-              borderBottom: '1px solid',
-              borderColor: colors.border,
               display: 'flex',
-              alignItems: 'baseline',
-              gap: 1,
-              flexShrink: 0,
+              flexDirection: 'column',
+              overflow: 'hidden',
+              border: '1px solid',
+              borderColor: colors.border,
+              borderRadius: `${radius.lg}px`,
+              bgcolor: colors.surface,
+              boxShadow: shadows.sm,
+              minHeight: 0,
             }}
           >
-            <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.navy }}>
-              Excessos
-              {consultou ? ` · ${excessos.length}` : ''}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              acima de {limiteKmh} km/h · ordenados pelo mais grave
-            </Typography>
-          </Box>
-          <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            {excessos.length > 0 ? (
-              excessos.map((r, idx) => (
-                <LinhaExcesso
-                  key={`${r.atualizado_em ?? idx}-${r.velocidade}-${r.latitude}`}
-                  item={r}
-                  multiDia={multiDia}
-                />
-              ))
-            ) : (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ px: 1.75, py: 3, textAlign: 'center' }}
-              >
-                {consultou
-                  ? 'Nenhum excesso no período.'
-                  : 'Os excessos do veículo aparecem aqui após consultar.'}
+            <Box
+              sx={{
+                px: 1.75,
+                py: 1.1,
+                borderBottom: '1px solid',
+                borderColor: colors.border,
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 1,
+                flexShrink: 0,
+              }}
+            >
+              <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.navy }}>
+                Excessos
+                {consultou ? ` · ${excessos.length}` : ''}
               </Typography>
-            )}
-          </Box>
-        </Paper>
+              <Typography variant="caption" color="text.secondary">
+                acima de {limiteKmh} km/h
+              </Typography>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              {excessos.length > 0 ? (
+                excessos.map((r, idx) => (
+                  <LinhaExcesso
+                    key={`${r.atualizado_em ?? idx}-${r.velocidade}-${r.latitude}`}
+                    item={r}
+                    multiDia={multiDia}
+                  />
+                ))
+              ) : (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1.75, py: 3, textAlign: 'center' }}
+                >
+                  {consultou
+                    ? 'Nenhum excesso no período.'
+                    : 'Os excessos do veículo aparecem aqui após consultar.'}
+                </Typography>
+              )}
+            </Box>
+          </Paper>
+
+          <Paper
+            elevation={0}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              border: '1px solid',
+              borderColor: colors.border,
+              borderRadius: `${radius.lg}px`,
+              bgcolor: colors.surface,
+              boxShadow: shadows.sm,
+              minHeight: 0,
+            }}
+          >
+            <Box
+              sx={{
+                px: 1.75,
+                py: 1.1,
+                borderBottom: '1px solid',
+                borderColor: colors.border,
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 1,
+                flexShrink: 0,
+              }}
+            >
+              <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.navy }}>
+                Passagens nas lojas
+                {consultou ? ` · ${passagensLoja.length}` : ''}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {consultou
+                  ? `${totalPassagensLoja} ${totalPassagensLoja === 1 ? 'entrada' : 'entradas'} · raio 80 m`
+                  : 'quantas vezes o veículo entrou na loja'}
+              </Typography>
+            </Box>
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              {passagensLoja.length > 0 ? (
+                passagensLoja.map((item) => (
+                  <Box
+                    key={item.id_loja}
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: '28px 1fr auto',
+                      gap: 1.25,
+                      alignItems: 'center',
+                      px: 1.75,
+                      py: 1.05,
+                      borderBottom: '1px solid',
+                      borderColor: colors.border,
+                      '&:hover': { bgcolor: colors.navyMuted },
+                      '&:last-of-type': { borderBottom: 'none' },
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={iconeMarcaLojaPorNome({ name: item.nome })}
+                      alt=""
+                      sx={{
+                        width: 28,
+                        height: 28,
+                        objectFit: 'contain',
+                        bgcolor: '#fff',
+                        borderRadius: 0.75,
+                        boxShadow: '0 0 0 1px rgba(0,0,0,.08)',
+                      }}
+                    />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        title={item.nome}
+                        sx={{ fontWeight: 600, color: colors.textPrimary }}
+                      >
+                        {item.nome}
+                      </Typography>
+                      {item.bk_number ? (
+                        <Typography variant="caption" color="text.secondary">
+                          BKN {item.bk_number}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                    <Typography
+                      sx={{
+                        fontWeight: 800,
+                        fontVariantNumeric: 'tabular-nums',
+                        color: colors.navy,
+                        fontSize: '1.05rem',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {item.passagens}
+                      <Box
+                        component="span"
+                        sx={{ ml: 0.4, fontSize: '0.68rem', fontWeight: 600, color: colors.textMuted }}
+                      >
+                        {item.passagens === 1 ? 'vez' : 'vezes'}
+                      </Box>
+                    </Typography>
+                  </Box>
+                ))
+              ) : (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1.75, py: 3, textAlign: 'center' }}
+                >
+                  {consultou
+                    ? 'Nenhuma passagem detectada perto de lojas no período.'
+                    : 'Após consultar, aparece aqui quantas vezes o veículo passou em cada loja.'}
+                </Typography>
+              )}
+            </Box>
+          </Paper>
+        </Box>
       </Box>
 
       <Accordion

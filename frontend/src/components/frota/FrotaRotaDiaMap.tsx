@@ -64,6 +64,8 @@ type Props = {
   mostrarParadas?: boolean;
   /** Placas circulares de limite nos excessos (default true). */
   mostrarPlacasExcesso?: boolean;
+  /** Contagem de passagens por id_loja (badge no marcador). */
+  passagensPorLoja?: Record<number, number>;
 };
 
 type EventoExcesso = {
@@ -143,20 +145,35 @@ function iconePinLocalizacaoSvg() {
   return `<svg class="tooltip-loja-nome-pin-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="#E8520A" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`;
 }
 
-function htmlTooltipLoja(loja: Pick<Loja, 'name' | 'bk_number' | 'corporate_name'>) {
+function htmlTooltipLoja(
+  loja: Pick<Loja, 'name' | 'bk_number' | 'corporate_name'>,
+  passagens?: number,
+) {
   const nome = loja.bk_number ? `${loja.name} (BKN ${loja.bk_number})` : loja.name;
-  return `<div class="tooltip-loja-nome-mapa"><span class="tooltip-loja-nome-pin" aria-hidden="true">${iconePinLocalizacaoSvg()}</span><span class="tooltip-loja-nome-texto">${escapeHtml(nome)}</span></div>`;
+  const vezes =
+    passagens != null && passagens > 0
+      ? `<div class="tooltip-loja-passagens">${passagens} ${passagens === 1 ? 'passagem' : 'passagens'}</div>`
+      : '';
+  return `<div class="tooltip-loja-nome-mapa"><span class="tooltip-loja-nome-pin" aria-hidden="true">${iconePinLocalizacaoSvg()}</span><span class="tooltip-loja-nome-texto">${escapeHtml(nome)}</span>${vezes}</div>`;
 }
 
-function marcadorLoja(loja: Pick<Loja, 'name' | 'bk_number' | 'corporate_name'>) {
+function marcadorLoja(
+  loja: Pick<Loja, 'name' | 'bk_number' | 'corporate_name'>,
+  passagens = 0,
+) {
   const src = escapeHtml(iconeMarcaLojaPorNome(loja));
   const size = 38;
   const altura = size + 8;
+  const badge =
+    passagens > 0
+      ? `<span class="marker-loja-passagens-badge">${passagens > 9 ? '9+' : passagens}</span>`
+      : '';
   return L.divIcon({
     className: 'marcador-loja-marca',
-    html: `<div style="display:flex;flex-direction:column;align-items:center;width:${size}px;line-height:0;">
-      <div style="width:${size}px;height:${size}px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.35);">
+    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;width:${size}px;line-height:0;">
+      <div style="position:relative;width:${size}px;height:${size}px;overflow:visible;display:flex;align-items:center;justify-content:center;background:#fff;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.35);">
         <img src="${src}" alt="" style="width:${size - 6}px;height:${size - 6}px;object-fit:contain;display:block;" />
+        ${badge}
       </div>
       <div style="width:0;height:0;margin-top:-1px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #fff;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));"></div>
     </div>`,
@@ -682,6 +699,7 @@ export default function FrotaRotaDiaMap({
   mostrarLegenda = true,
   mostrarParadas = true,
   mostrarPlacasExcesso = true,
+  passagensPorLoja = {},
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -739,9 +757,10 @@ export default function FrotaRotaDiaMap({
         const lat = Number(loja.latitude);
         const lng = Number(loja.longitude);
         const coord: LatLngPar = [lat, lng];
+        const passagens = passagensPorLoja[loja.id_loja] ?? 0;
         const alturaMarcador = 46;
-        L.marker(coord, { pane: PANE_LOJA, icon: marcadorLoja(loja), zIndexOffset: 600 })
-          .bindTooltip(htmlTooltipLoja(loja), {
+        L.marker(coord, { pane: PANE_LOJA, icon: marcadorLoja(loja, passagens), zIndexOffset: passagens > 0 ? 650 : 600 })
+          .bindTooltip(htmlTooltipLoja(loja, passagens), {
             direction: 'right',
             offset: [8, -Math.round(alturaMarcador / 2) + 2],
             opacity: 1,
@@ -831,7 +850,7 @@ export default function FrotaRotaDiaMap({
         setAlinhandoRuas(false);
       }
     }
-  }, [rotas, pontos, excessosMapa, lojas, limiteKmh, diaAtual, veiculoAoVivo, veiculoInfo, mostrarParadas, mostrarPlacasExcesso, ajustarVista]);
+  }, [rotas, pontos, excessosMapa, lojas, limiteKmh, diaAtual, veiculoAoVivo, veiculoInfo, mostrarParadas, mostrarPlacasExcesso, passagensPorLoja, ajustarVista]);
 
   useEffect(() => {
     const container = containerRef.current;

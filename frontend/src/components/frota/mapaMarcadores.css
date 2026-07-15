@@ -568,8 +568,39 @@
 .tooltip-loja-nome-mapa {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
   line-height: 1.2;
+  max-width: 220px;
+}
+
+.tooltip-loja-passagens {
+  flex-basis: 100%;
+  margin-left: 25px;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #e8520a;
+}
+
+.marker-loja-passagens-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #1b2a6b;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+  border: 2px solid #fff;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
 }
 
 .tooltip-loja-nome-pin {
