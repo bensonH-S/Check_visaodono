@@ -39,10 +39,26 @@ export const OPCOES_REV_FAIXA = [
   { value: 'DEMANDA', label: 'DEMANDA' },
 ] as const;
 
+/** Crítico do R.E.V.: 0 a 12 (planilha permite zero). */
 export const OPCOES_CRITICO = [
   { value: '', label: '—' },
-  ...Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) })),
+  ...Array.from({ length: 13 }, (_, i) => ({ value: String(i), label: String(i) })),
 ] as const;
+
+/** Menor crítico primeiro; sem valor vai para o fim. */
+export function ordenarLinhasPorCriticoAsc<T extends { critico?: number | null; posicao?: number | null }>(
+  linhas: T[],
+): T[] {
+  return [...linhas].sort((a, b) => {
+    const ca = a.critico;
+    const cb = b.critico;
+    if (ca == null && cb == null) return (a.posicao ?? 9999) - (b.posicao ?? 9999);
+    if (ca == null) return 1;
+    if (cb == null) return -1;
+    if (ca !== cb) return ca - cb;
+    return (a.posicao ?? 9999) - (b.posicao ?? 9999);
+  });
+}
 
 export function linhaRevDemanda(linha: { destaque?: string | null }): boolean {
   return String(linha.destaque || '').toUpperCase() === 'DEMANDA';
@@ -81,11 +97,18 @@ export function parseValorPercentual(
   if (upper === 'DEMANDA') return { valor_numero: null, valor_texto: upper };
   const n = Number(s.replace(',', '.'));
   if (Number.isNaN(n)) return { valor_numero: null, valor_texto: s };
-  let decimal: number;
-  if (n > 1 && n <= 100) decimal = n / 100;
-  else decimal = n;
-  const factor = 10 ** decimais;
-  decimal = Math.round(decimal * factor) / factor;
+
+  const factorPct = 10 ** decimais;
+  // Entrada > 1: pontos percentuais (ex.: 4,99). Arredonda nessa escala e só então
+  // converte para fração — senão 4,99 → 0,0499 → round(3) → 0,05 → 5%.
+  if (Math.abs(n) > 1 && Math.abs(n) <= 100) {
+    const pct = Math.round(n * factorPct) / factorPct;
+    return { valor_numero: pct / 100, valor_texto: null };
+  }
+
+  // Já em fração (ex.: 0,0499): preserva as casas do percentual exibido (+2).
+  const factorFrac = 10 ** (decimais + 2);
+  const decimal = Math.round(n * factorFrac) / factorFrac;
   return { valor_numero: decimal, valor_texto: null };
 }
 

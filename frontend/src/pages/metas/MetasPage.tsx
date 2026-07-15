@@ -499,6 +499,12 @@ export default function MetasPage() {
 
       {!loading && dados && aba === 1 && (
         <Box>
+          {dados.pode_editar && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}>
+              Qualquer alteração nesta aba é salva automaticamente — ao sair do campo, pressionar Enter
+              ou selecionar uma opção na lista.
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
             {dados.rankings.map((g, i) => (
               <Chip

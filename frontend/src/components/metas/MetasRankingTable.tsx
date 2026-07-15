@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
@@ -22,6 +22,7 @@ import {
   OPCOES_CRITICO,
   OPCOES_REV_CLASSE,
   OPCOES_REV_FAIXA,
+  ordenarLinhasPorCriticoAsc,
   parsePontosRanking,
   parseValorPercentual,
   rankingColunaRevRec,
@@ -174,15 +175,22 @@ function RankingSelectColuna({
   onSalvar: (v: string | null) => void;
 }) {
   const str = valor == null || valor === '' ? '' : String(valor);
-  if (!podeEditar) return <>{str || '—'}</>;
+  const valoresValidos = new Set(opcoes.map((op) => op.value));
+  // Evita warning do MUI quando o banco tem valor fora das opções (ex.: classe com "3").
+  const valorSelect = str === '' || valoresValidos.has(str) ? str : '';
+  if (!podeEditar) {
+    if (!str) return <>—</>;
+    const label = opcoes.find((op) => op.value === str)?.label ?? str;
+    return <>{label}</>;
+  }
   return (
     <Select
       size="small"
-      value={str}
+      value={valorSelect}
       displayEmpty
       onChange={(e) => {
         const v = String(e.target.value);
-        onSalvar(v || null);
+        onSalvar(v === '' ? null : v);
       }}
       sx={{ minWidth: minWidth ?? 72, fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.65 } }}
     >
@@ -240,6 +248,11 @@ export default function MetasRankingTable({
   const isRev = rankingColunaRevRec(grupo.codigo);
   const colunas = isRev ? 8 : 6;
 
+  const linhasExibidas = useMemo(
+    () => (isRev ? ordenarLinhasPorCriticoAsc(grupo.linhas) : grupo.linhas),
+    [grupo.linhas, isRev],
+  );
+
   const salvar = useCallback(
     (idRanking: number, patch: RankingPatch) => {
       void onSalvarLinha(idRanking, patch);
@@ -260,7 +273,8 @@ export default function MetasRankingTable({
         )}
         {podeEditar && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-            Salve ao pressionar Enter ou ao clicar fora do campo.
+            As alterações são salvas automaticamente: ao sair do campo (Tab/clique fora), ao pressionar
+            Enter ou ao escolher um valor na lista.
             {isRev && ' Loja com DEMANDA fica reprovada no R.E.V. e não contabiliza no Resumo.'}
           </Typography>
         )}
@@ -286,7 +300,7 @@ export default function MetasRankingTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {grupo.linhas.map((linha) => {
+            {linhasExibidas.map((linha) => {
               const demanda = isRev && linhaRevDemanda(linha);
               return (
                 <TableRow key={linha.id_ranking} hover sx={demanda ? rowDemandaSx : undefined}>
@@ -318,7 +332,11 @@ export default function MetasRankingTable({
                           opcoes={OPCOES_CRITICO}
                           podeEditar={podeEditar}
                           minWidth={64}
-                          onSalvar={(v) => salvar(linha.id_ranking, { critico: v ? Number(v) : null })}
+                          onSalvar={(v) =>
+                            salvar(linha.id_ranking, {
+                              critico: v == null || v === '' ? null : Number(v),
+                            })
+                          }
                         />
                       </TableCell>
                       <TableCell align="center">
