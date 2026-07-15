@@ -585,6 +585,11 @@ export const api = {
     destaque?: string | null;
     critico?: number | null;
   }) => request('/metas/rankings', { method: 'PUT', body: JSON.stringify(body) }),
+  metasSalvarPremio: (body: {
+    id_premio: number;
+    premio_saude?: number | null;
+    premio_rev?: number | null;
+  }) => request<MetasPremio>('/metas/premios', { method: 'PUT', body: JSON.stringify(body) }),
 };
 
 export interface Loja {

@@ -145,26 +145,183 @@ async function carregarRankings(idPeriodo) {
   return grupos;
 }
 
+/** Colaboradores e valores unitários fixos da aba Prêmios (Saúde / R.E.V.). */
+export const PREMIOS_COLABORADORES_PADRAO = [
+  { nome: 'Eshely', valor_unitario: 100 },
+  { nome: 'Mikaele', valor_unitario: 120 },
+  { nome: 'Renato', valor_unitario: 350 },
+  { nome: 'Millena', valor_unitario: 100 },
+  { nome: 'Laysa', valor_unitario: 50 },
+  { nome: 'Ana', valor_unitario: 35 },
+  { nome: 'Igor', valor_unitario: 100 },
+  { nome: 'Delivery', valor_unitario: 50 },
+  { nome: 'Barbara', valor_unitario: 400 },
+  { nome: 'Plinio', valor_unitario: 400 },
+  { nome: 'Fagno', valor_unitario: 400 },
+];
+
+const PREMIOS_NOME_LEGADO = {
+  amanda: 'Eshely',
+  eshely: 'Eshely',
+  mikaele: 'Mikaele',
+  renato: 'Renato',
+  millena: 'Millena',
+  paula: 'Millena',
+  laysa: 'Laysa',
+  ana: 'Ana',
+  igor: 'Igor',
+  delivery: 'Delivery',
+  andressa: 'Delivery',
+  barbara: 'Barbara',
+  babara: 'Barbara',
+  plinio: 'Plinio',
+  fagno: 'Fagno',
+};
+
+function normNomePremio(nome) {
+  return String(nome || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+export function calcularPremioValores({ premio_saude, premio_rev, valor_unitario }) {
+  const saude = Math.max(0, Number(premio_saude) || 0);
+  const rev = Math.max(0, Number(premio_rev) || 0);
+  const valor = Number(valor_unitario) || 0;
+  return {
+    subtotal: saude * valor,
+    total: (saude + rev) * valor,
+  };
+}
+
+function serializarPremio(r) {
+  const valor_unitario = r.valor_unitario != null ? Number(r.valor_unitario) : null;
+  const calc = calcularPremioValores({
+    premio_saude: r.premio_saude,
+    premio_rev: r.premio_rev,
+    valor_unitario,
+  });
+  return {
+    id_premio: r.id_premio,
+    id_usuario: r.id_usuario,
+    nome: r.nome,
+    premio_saude: r.premio_saude != null ? Number(r.premio_saude) : 0,
+    premio_rev: r.premio_rev != null ? Number(r.premio_rev) : 0,
+    valor_unitario,
+    subtotal: calc.subtotal,
+    total: calc.total,
+    observacao: r.observacao,
+  };
+}
+
+/** Garante a lista oficial de colaboradores com valor unitário fixo no período. */
+export async function sincronizarPremiosPadrao(idPeriodo) {
+  const { rows: existentes } = await pool.query(
+    `SELECT id_premio, nome, premio_saude, premio_rev
+     FROM metas_premios WHERE id_periodo = $1`,
+    [idPeriodo],
+  );
+
+  const score = (r) => (Number(r.premio_saude) || 0) + (Number(r.premio_rev) || 0);
+  const porCanonico = new Map();
+  for (const row of existentes) {
+    const chave = normNomePremio(row.nome);
+    const canonico =
+      PREMIOS_NOME_LEGADO[chave]
+      || PREMIOS_COLABORADORES_PADRAO.find((p) => normNomePremio(p.nome) === chave)?.nome;
+    if (!canonico) continue;
+    const atual = porCanonico.get(canonico);
+    if (!atual || score(row) > score(atual)) porCanonico.set(canonico, row);
+  }
+
+  const idsManter = [];
+  for (const padrao of PREMIOS_COLABORADORES_PADRAO) {
+    const herdado = porCanonico.get(padrao.nome);
+    const saude = Number(herdado?.premio_saude) || 0;
+    const rev = Number(herdado?.premio_rev) || 0;
+    const calc = calcularPremioValores({
+      premio_saude: saude,
+      premio_rev: rev,
+      valor_unitario: padrao.valor_unitario,
+    });
+
+    if (herdado) {
+      await pool.query(
+        `UPDATE metas_premios SET
+           nome = $2,
+           premio_saude = $3,
+           premio_rev = $4,
+           valor_unitario = $5,
+           subtotal = $6,
+           total = $7
+         WHERE id_premio = $1`,
+        [herdado.id_premio, padrao.nome, saude, rev, padrao.valor_unitario, calc.subtotal, calc.total],
+      );
+      idsManter.push(herdado.id_premio);
+    } else {
+      const { rows: inserido } = await pool.query(
+        `INSERT INTO metas_premios (id_periodo, nome, premio_saude, premio_rev, valor_unitario, subtotal, total)
+         VALUES ($1, $2, 0, 0, $3, 0, 0)
+         RETURNING id_premio`,
+        [idPeriodo, padrao.nome, padrao.valor_unitario],
+      );
+      idsManter.push(inserido[0].id_premio);
+    }
+  }
+
+  await pool.query(
+    `DELETE FROM metas_premios
+     WHERE id_periodo = $1
+       AND NOT (id_premio = ANY($2::int[]))`,
+    [idPeriodo, idsManter],
+  );
+}
+
 async function carregarPremios(idPeriodo) {
+  await sincronizarPremiosPadrao(idPeriodo);
   const { rows } = await pool.query(
     `SELECT p.*, u.nome AS nome_usuario
      FROM metas_premios p
      LEFT JOIN usuarios u ON u.id_usuario = p.id_usuario
      WHERE p.id_periodo = $1
-     ORDER BY p.nome`,
-    [idPeriodo],
+     ORDER BY array_position($2::text[], p.nome), p.nome`,
+    [idPeriodo, PREMIOS_COLABORADORES_PADRAO.map((p) => p.nome)],
   );
-  return rows.map((r) => ({
-    id_premio: r.id_premio,
-    id_usuario: r.id_usuario,
-    nome: r.nome,
-    premio_saude: r.premio_saude,
-    premio_rev: r.premio_rev,
-    valor_unitario: r.valor_unitario != null ? Number(r.valor_unitario) : null,
-    subtotal: r.subtotal != null ? Number(r.subtotal) : null,
-    total: r.total != null ? Number(r.total) : null,
-    observacao: r.observacao,
-  }));
+  return rows.map(serializarPremio);
+}
+
+export async function salvarPremioMetas(user, { id_premio, premio_saude, premio_rev }) {
+  if (!podeGerenciarMetas(user)) throw new Error('Sem permissão para editar');
+  if (!id_premio) throw new Error('id_premio obrigatório');
+
+  const { rows: atual } = await pool.query(
+    `SELECT id_premio, premio_saude, premio_rev, valor_unitario FROM metas_premios WHERE id_premio = $1`,
+    [id_premio],
+  );
+  if (!atual[0]) throw new Error('Prêmio não encontrado');
+
+  const cur = atual[0];
+  const saude = premio_saude !== undefined ? premio_saude : cur.premio_saude;
+  const rev = premio_rev !== undefined ? premio_rev : cur.premio_rev;
+  const calc = calcularPremioValores({
+    premio_saude: saude,
+    premio_rev: rev,
+    valor_unitario: cur.valor_unitario,
+  });
+
+  const { rows } = await pool.query(
+    `UPDATE metas_premios SET
+       premio_saude = $2,
+       premio_rev = $3,
+       subtotal = $4,
+       total = $5
+     WHERE id_premio = $1
+     RETURNING *`,
+    [id_premio, saude ?? 0, rev ?? 0, calc.subtotal, calc.total],
+  );
+  return serializarPremio(rows[0]);
 }
 
 export async function carregarMetasPeriodo(idPeriodo, user) {

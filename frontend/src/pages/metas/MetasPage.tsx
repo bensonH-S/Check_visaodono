@@ -30,6 +30,7 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors } from '../../theme/tokens';
 import { agruparPaineisResumo, calcValorMetaPorLoja, fmtMoedaMeta } from '../../components/metas/metasPageUtils';
 import MetasRankingTable from '../../components/metas/MetasRankingTable';
+import MetasPremiosTable from '../../components/metas/MetasPremiosTable';
 import { lojasRevDemanda } from '../../components/metas/metasRankingUtils';
 import { gerarPdfMetasResumo } from '../../utils/gerarPdfMetasResumo';
 
@@ -392,6 +393,25 @@ export default function MetasPage() {
     [dados],
   );
 
+  const salvarLinhaPremio = useCallback(
+    async (idPremio: number, patch: { premio_saude?: number; premio_rev?: number }) => {
+      try {
+        const atualizado = await api.metasSalvarPremio({ id_premio: idPremio, ...patch });
+        setDados((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            premios: prev.premios.map((p) => (p.id_premio === idPremio ? { ...p, ...atualizado } : p)),
+          };
+        });
+        showToast('Prêmio salvo', 'success', { toastId: 'metas-premio-salvo' });
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Erro ao salvar prêmio', 'error');
+      }
+    },
+    [],
+  );
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, flex: 1 }}>
       <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${colors.border}` }}>
@@ -532,47 +552,11 @@ export default function MetasPage() {
       )}
 
       {!loading && dados && aba === 2 && (
-        <Paper sx={{ ...tablePaperSx }}>
-          <TableContainer sx={tableContainerSx}>
-            <Table size="small" sx={tableSx}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Colaborador</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700 }}>Saúde</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700 }}>R.E.V.</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>Valor</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>Subtotal</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>Total</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {dados.premios.map((p) => (
-                  <TableRow key={p.id_premio} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{p.nome}</TableCell>
-                    <TableCell align="center">{p.premio_saude ?? '—'}</TableCell>
-                    <TableCell align="center">{p.premio_rev ?? '—'}</TableCell>
-                    <TableCell align="right">
-                      {p.valor_unitario != null ? p.valor_unitario.toLocaleString('pt-BR') : '—'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {p.subtotal != null ? p.subtotal.toLocaleString('pt-BR') : '—'}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                      {p.total != null ? p.total.toLocaleString('pt-BR') : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!dados.premios.length && (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                      <Typography color="text.secondary">Nenhum prêmio cadastrado neste período.</Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+        <MetasPremiosTable
+          premios={dados.premios}
+          podeEditar={!!dados.pode_editar}
+          onSalvar={salvarLinhaPremio}
+        />
       )}
 
       {loading && !dados && (
