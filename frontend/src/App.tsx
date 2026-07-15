@@ -28,7 +28,7 @@ import FrotaAbastecimentoPage from './pages/frota/FrotaAbastecimentoPage';
 import FrotaTermoPage from './pages/frota/FrotaTermoPage';
 import FrotaVeiculoPage from './pages/frota/FrotaVeiculoPage';
 import FrotaManutencaoMobilePage from './pages/frota/FrotaManutencaoMobilePage';
-import FrotaPortalHubPage from './pages/frota/FrotaPortalHubPage';
+import FrotaPortalIndexPage from './pages/frota/FrotaPortalIndexPage';
 import FrotaVeiculosPortalPage from './pages/frota/FrotaVeiculosPortalPage';
 import FrotaRelatorioKmPage from './pages/frota/FrotaRelatorioKmPage';
 import FrotaRelatorioRotasPage from './pages/frota/FrotaRelatorioRotasPage';
@@ -49,6 +49,7 @@ import RotaNcMobile from './components/RotaNcMobile';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
+import FrotaLayout from './layout/FrotaLayout';
 import CategoriasPage from './pages/configuracoes/CategoriasPage';
 import SlaPage from './pages/configuracoes/SlaPage';
 import CargosPage from './pages/configuracoes/CargosPage';
@@ -65,7 +66,6 @@ import RotaFrota from './components/RotaFrota';
 import RotaMapaTecnicos from './components/RotaMapaTecnicos';
 import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
-
 export default function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -201,93 +201,95 @@ export default function App() {
               }
             />
             <Route
-              path="frota/veiculos/:id"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaVeiculoDetalhePage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/veiculos"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaVeiculosPortalPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/relatorio-km"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaRelatorioKmPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/relatorio-rotas"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaRelatorioRotasPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/relatorio-velocidade"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaRelatorioVelocidadePage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/uso"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaUsoPortalPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/combustivel"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaCombustivelPortalPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/manutencoes"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaManutencaoPortalPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/termos"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaTermosPortalPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="frota/regioes"
-              element={
-                <RotaPermissao permissoes={['frota.gerenciar', 'frota.regioes']}>
-                  <FrotaRegioesPortalPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
               path="frota"
               element={
-                <RotaPermissao permissoes={['frota.gerenciar']}>
-                  <FrotaPortalHubPage />
+                <RotaPermissao permissoes={['frota.gerenciar', 'frota.regioes']}>
+                  <FrotaLayout />
                 </RotaPermissao>
               }
-            />
+            >
+              <Route index element={<FrotaPortalIndexPage />} />
+              <Route
+                path="veiculos/:id"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaVeiculoDetalhePage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="veiculos"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaVeiculosPortalPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="relatorio-km"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaRelatorioKmPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="relatorio-rotas"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaRelatorioRotasPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="relatorio-velocidade"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaRelatorioVelocidadePage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="uso"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaUsoPortalPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="combustivel"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaCombustivelPortalPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="manutencoes"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaManutencaoPortalPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="termos"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar']}>
+                    <FrotaTermosPortalPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="regioes"
+                element={
+                  <RotaPermissao permissoes={['frota.gerenciar', 'frota.regioes']}>
+                    <FrotaRegioesPortalPage />
+                  </RotaPermissao>
+                }
+              />
+            </Route>
             <Route
               path="ranking"
               element={

@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
-import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
@@ -15,7 +13,6 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import {
   api,
@@ -31,7 +28,6 @@ import { dataDentroIntervalo } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tableSx } from '../../utils/tablePageLayout';
 
 export default function FrotaCombustivelPortalPage() {
-  const navigate = useNavigate();
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [lista, setLista] = useState<FrotaAbastecimentoPortal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,11 +75,8 @@ export default function FrotaCombustivelPortalPage() {
   }
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <Box sx={{ pb: 4, flex: 1, minHeight: 0, overflow: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
         <Typography variant="body2" color="text.secondary">
           {listaFiltrada.length} de {lista.length} abastecimento{lista.length !== 1 ? 's' : ''}
           {listaFiltrada.length > 0 && ` · Total R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}

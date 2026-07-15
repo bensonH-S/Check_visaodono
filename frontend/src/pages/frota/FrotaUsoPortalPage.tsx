@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
-import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
@@ -17,7 +15,6 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Divider from '@mui/material/Divider';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import { api, type FrotaAssuncao, type FrotaVeiculo } from '../../api/client';
 import { rotuloVeiculoLista } from '../../constants/frotaVeiculo';
@@ -118,7 +115,6 @@ function VeiculoPortalCard({
 }
 
 export default function FrotaUsoPortalPage() {
-  const navigate = useNavigate();
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [assuncoes, setAssuncoes] = useState<FrotaAssuncao[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,11 +171,8 @@ export default function FrotaUsoPortalPage() {
   const filtrosAtivos = !!buscaVeiculo.trim() || veiculoSelecionado != null || !!dataInicio || !!dataFim;
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <Box sx={{ pb: 4, flex: 1, minHeight: 0, overflow: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
         <Typography variant="body2" color="text.secondary">
           {emUso.length} em uso ·{' '}
           <Box component="span" sx={{ color: COR_LIVRE, fontWeight: 600 }}>

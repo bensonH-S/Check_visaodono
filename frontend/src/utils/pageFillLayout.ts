@@ -11,16 +11,14 @@ export const pageFillLayoutSx = {
 } as const;
 
 export function isPaginaScrollInterno(path: string): boolean {
+  const emFrotaPortal =
+    path === '/frota' || (path.startsWith('/frota/') && !path.startsWith('/frota/mobile'));
   return (
     path === '/chamados' ||
     path === '/visitas' ||
     path === '/escalas/visitas' ||
     path === '/chamados/aprovacoes' ||
-    path === '/frota/regioes' ||
-    path === '/frota/veiculos' ||
-    path === '/frota/relatorio-km' ||
-    path === '/frota/relatorio-rotas' ||
-    path === '/frota/relatorio-velocidade' ||
+    emFrotaPortal ||
     path.startsWith('/configuracoes/')
   );
 }

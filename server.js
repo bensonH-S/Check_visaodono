@@ -18,7 +18,8 @@ function normalizeAppVersion(raw) {
 }
 
 dotenv.config({ path: path.join(__dirname, '.env'), override: false });
-dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: false });
+// backend/.env prevalece (credenciais Fulltrack, DB, etc.)
+dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: true });
 
 function readVersionFromDist() {
   const distVersionFile = path.join(__dirname, 'frontend', 'dist', 'app-version.json');
@@ -323,6 +324,18 @@ app.listen(PORT, async () => {
   console.log(`[server] versão ${APP_VERSION}`);
   console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
   console.log(`[server] Logs → ${getLogDir()}`);
+  try {
+    const { fulltrackStatus } = await import('./backend/src/services/fulltrackFleet.js');
+    const ft = fulltrackStatus();
+    console.log(
+      `[server] Fulltrack ${ft.ativo ? 'ativo' : 'inativo'}` +
+        ` (api_key=${ft.tem_api_key ? 'ok' : 'ausente'}, secret=${ft.tem_secret_key ? 'ok' : 'ausente'}, url=${ft.base_url}` +
+        (ft.motivo ? `, motivo=${ft.motivo}` : '') +
+        ')',
+    );
+  } catch (e) {
+    console.log(`[server] Fulltrack status indisponível: ${e.message}`);
+  }
   if (String(process.env.WPP_ENABLED || '').toLowerCase() === 'true') {
     const { wppConfig } = await import('./backend/src/services/wppClient.js');
     const wpp = wppConfig();

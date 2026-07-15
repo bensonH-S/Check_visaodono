@@ -8,15 +8,12 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import IconButton from '@mui/material/IconButton';
 import { api, type FrotaVeiculo } from '../../api/client';
 import FrotaVeiculoDialog from '../../components/frota/FrotaVeiculoDialog';
 import FrotaVeiculoCard from '../../components/frota/FrotaVeiculoCard';
 import { colors } from '../../theme/tokens';
 
 export default function FrotaVeiculosPortalPage() {
-  const navigate = useNavigate();
   const [lista, setLista] = useState<FrotaVeiculo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -49,11 +46,8 @@ export default function FrotaVeiculosPortalPage() {
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
+    <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexShrink: 0 }}>
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
           {lista.length} veículo{lista.length !== 1 ? 's' : ''} cadastrado{lista.length !== 1 ? 's' : ''}
         </Typography>

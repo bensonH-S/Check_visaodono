@@ -27,6 +27,7 @@ import {
 import {
   combinarVeiculosComRastreamento,
   fulltrackRastreamentoAtivo,
+  fulltrackStatus,
   historicoVeiculoFulltrack,
   kmRastreadorVeiculoPeriodo,
   limiteVelocidadeKmh,
@@ -710,6 +711,7 @@ router.get('/rastreamento/telemetria', requirePermissao('frota.gerenciar'), asyn
        ORDER BY placa`,
     );
     const veiculos = await combinarVeiculosComRastreamento(rows);
+    const statusFt = fulltrackStatus();
     res.json({
       veiculos: veiculos.map((v) => ({
         id_veiculo: v.id_veiculo,
@@ -721,7 +723,8 @@ router.get('/rastreamento/telemetria', requirePermissao('frota.gerenciar'), asyn
         rastreamento_disponivel: v.rastreamento_disponivel ?? false,
         atualizado_em: v.atualizado_em ?? null,
       })),
-      rastreamento_ativo: fulltrackRastreamentoAtivo(),
+      rastreamento_ativo: statusFt.ativo,
+      fulltrack: statusFt,
     });
   } catch (e) {
     next(e);

@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
-import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
@@ -14,7 +12,6 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import { api, type FrotaTermoPortalResumo } from '../../api/client';
 import FrotaTermoAssinadoModal from '../../components/frota/FrotaTermoAssinadoModal';
@@ -25,7 +22,6 @@ import { dataDentroIntervalo } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tableSx } from '../../utils/tablePageLayout';
 
 export default function FrotaTermosPortalPage() {
-  const navigate = useNavigate();
   const [termos, setTermos] = useState<FrotaTermoPortalResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -57,11 +53,8 @@ export default function FrotaTermosPortalPage() {
   }, [termos, busca, dataInicio, dataFim]);
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <Box sx={{ pb: 4, flex: 1, minHeight: 0, overflow: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
         <Typography variant="body2" color="text.secondary">
           {termosFiltrados.length} de {termos.length} assinatura{termos.length !== 1 ? 's' : ''}
         </Typography>

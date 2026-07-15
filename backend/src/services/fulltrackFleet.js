@@ -5,24 +5,47 @@ const CACHE_TTL_MS = 45_000;
 let cachePosicoes = null;
 let cacheExpiraEm = 0;
 
+function limparCredencialEnv(raw) {
+  if (raw == null) return '';
+  let s = String(raw).trim().replace(/^\uFEFF/, '');
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
+function primeiraEnv(...keys) {
+  for (const key of keys) {
+    const v = limparCredencialEnv(process.env[key]);
+    if (v) return v;
+  }
+  return '';
+}
+
 function credenciaisFulltrack() {
-  const apiKey =
-    process.env.FULLTRACK_API_KEY ||
-    process.env.APIKEY ||
-    process.env.VITE_API_KEY ||
-    '';
-  const secretKey =
-    process.env.FULLTRACK_SECRET_KEY ||
-    process.env.SECRETKEY ||
-    process.env.VITE_SECRET_KEY ||
-    '';
+  const apiKey = primeiraEnv(
+    'FULLTRACK_API_KEY',
+    'APIKEY',
+    'API_KEY',
+    'VITE_API_KEY',
+  );
+  const secretKey = primeiraEnv(
+    'FULLTRACK_SECRET_KEY',
+    'SECRETKEY',
+    'SECRET_KEY',
+    'VITE_SECRET_KEY',
+  );
   const baseUrl = resolverBaseUrlFulltrack();
-  return { apiKey: apiKey.trim(), secretKey: secretKey.trim(), baseUrl };
+  return { apiKey, secretKey, baseUrl };
 }
 
 function resolverBaseUrlFulltrack() {
-  const raw = process.env.FULLTRACK_API_URL || process.env.API_URL || 'http://ws.fulltrack2.com';
-  const url = String(raw).trim().replace(/\/$/, '');
+  const raw =
+    primeiraEnv('FULLTRACK_API_URL', 'API_URL') || 'http://ws.fulltrack2.com';
+  const url = raw.replace(/\/$/, '');
   // A API Fulltrack (ws.fulltrack2.com) responde via HTTP — igual ao projeto Fleet/
   if (/ws\.fulltrack2\.com/i.test(url)) {
     return 'http://ws.fulltrack2.com';
@@ -30,11 +53,32 @@ function resolverBaseUrlFulltrack() {
   return url.replace(/^https:/i, 'http:');
 }
 
+export function fulltrackStatus() {
+  const enabledRaw = String(process.env.FULLTRACK_RASTREAMENTO_ENABLED ?? 'true')
+    .trim()
+    .toLowerCase();
+  const habilitadoFlag = !['0', 'false', 'off', 'no'].includes(enabledRaw);
+  const { apiKey, secretKey, baseUrl } = credenciaisFulltrack();
+  const temApiKey = apiKey.length > 0;
+  const temSecretKey = secretKey.length > 0;
+  const ativo = habilitadoFlag && temApiKey && temSecretKey;
+  let motivo = null;
+  if (!habilitadoFlag) motivo = 'desabilitado_por_env';
+  else if (!temApiKey && !temSecretKey) motivo = 'credenciais_ausentes';
+  else if (!temApiKey) motivo = 'api_key_ausente';
+  else if (!temSecretKey) motivo = 'secret_key_ausente';
+  return {
+    ativo,
+    habilitado_flag: habilitadoFlag,
+    tem_api_key: temApiKey,
+    tem_secret_key: temSecretKey,
+    base_url: baseUrl,
+    motivo,
+  };
+}
+
 export function fulltrackRastreamentoAtivo() {
-  const v = String(process.env.FULLTRACK_RASTREAMENTO_ENABLED ?? 'true').trim().toLowerCase();
-  if (v === '0' || v === 'false' || v === 'off' || v === 'no') return false;
-  const { apiKey, secretKey } = credenciaisFulltrack();
-  return !!(apiKey && secretKey);
+  return fulltrackStatus().ativo;
 }
 
 function normalizarPlaca(placa) {

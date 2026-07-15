@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
-import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
@@ -15,7 +13,6 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BuildIcon from '@mui/icons-material/Build';
 import { api, type FrotaManutencaoPortal, type FrotaVeiculo } from '../../api/client';
 import { rotuloVeiculoLista } from '../../constants/frotaVeiculo';
@@ -31,7 +28,6 @@ function fmtData(d: string | null) {
 }
 
 export default function FrotaManutencaoPortalPage() {
-  const navigate = useNavigate();
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [lista, setLista] = useState<FrotaManutencaoPortal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,11 +67,8 @@ export default function FrotaManutencaoPortalPage() {
   const filtrosAtivos = !!buscaVeiculo.trim() || veiculoSelecionado != null || !!dataInicio || !!dataFim;
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <Box sx={{ pb: 4, flex: 1, minHeight: 0, overflow: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
         <Typography variant="body2" color="text.secondary">
           {listaFiltrada.length} de {lista.length} manutenção{lista.length !== 1 ? 'ões' : ''}
         </Typography>

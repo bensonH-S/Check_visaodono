@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import IconButton from '@mui/material/IconButton';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import { api, type FrotaVeiculo } from '../../api/client';
@@ -13,7 +10,6 @@ import { rotuloVeiculoOpcao } from '../../constants/frotaVeiculo';
 import { tablePageLayoutSx } from '../../utils/tablePageLayout';
 
 export default function FrotaRelatorioKmPage() {
-  const navigate = useNavigate();
   const semana = periodoSemanaAtualKm();
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
@@ -45,9 +41,6 @@ export default function FrotaRelatorioKmPage() {
           pb: 0.25,
         }}
       >
-        <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar" sx={{ mb: 0.5 }}>
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1, minWidth: 160, pb: 1 }}>
           Relatório de KM apontado no sistema
         </Typography>

@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import IconButton from '@mui/material/IconButton';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
@@ -19,7 +16,6 @@ import { calcularTempoParadoMs, calcularTemposIgnicaoMs } from '../../utils/frot
 import { formatarDuracaoMs } from '../../utils/dateBr';
 
 export default function FrotaRelatorioRotasPage() {
-  const navigate = useNavigate();
   const hoje = dayjs().format('YYYY-MM-DD');
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
@@ -123,9 +119,6 @@ export default function FrotaRelatorioRotasPage() {
   return (
     <Box sx={{ ...tablePageLayoutSx, gap: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-        <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
           Relatório de rotas do veículo
         </Typography>
@@ -174,7 +167,9 @@ export default function FrotaRelatorioRotasPage() {
 
       {relatorio?.rastreamento_ativo === false && (
         <Alert severity="warning" sx={{ flexShrink: 0 }}>
-          Rastreamento Fulltrack desativado ou sem credenciais.
+          Rastreamento Fulltrack desativado ou sem credenciais no servidor.
+          Confira no .env: FULLTRACK_API_KEY (ou APIKEY) e FULLTRACK_SECRET_KEY (ou SECRETKEY),
+          depois reinicie a API.
         </Alert>
       )}
 

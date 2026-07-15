@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarFrota, podeGerenciarRegioesFrota, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -15,7 +15,6 @@ import HistoryIcon from '@mui/icons-material/History';
 import BuildIcon from '@mui/icons-material/Build';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -28,6 +27,7 @@ import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import { colors } from '../theme/tokens';
 import { isPaginaScrollInterno } from '../utils/pageFillLayout';
+import { podeAcessarModuloFrota } from '../pages/frota/frotaNav';
 import {
   prepararNotificacoesPush,
   PUSH_ATUALIZADO_EVENT,
@@ -109,6 +109,7 @@ export default function PortalLayout() {
   const scrollInterno = isPaginaScrollInterno(path);
   const paginaEscalaVisitas = path === '/escalas/visitas';
   const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
+  const emFrota = path === '/frota' || (path.startsWith('/frota/') && !path.startsWith('/frota/mobile'));
 
   const nav: NavItem[] = [
     { to: '/dashboard', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true, mobileTab: true },
@@ -118,11 +119,9 @@ export default function PortalLayout() {
       to: '/frota',
       label: 'Frota',
       icon: <DirectionsCarIcon fontSize="small" />,
-      show: podeGerenciarFrota(user),
-      isActive: (p: string) =>
-        p === '/frota' || (p.startsWith('/frota/') && !p.startsWith('/frota/regioes')),
+      show: podeAcessarModuloFrota(user),
+      isActive: (p: string) => p === '/frota' || (p.startsWith('/frota/') && !p.startsWith('/frota/mobile')),
     },
-    { to: '/frota/regioes', label: 'Região de atuação', icon: <MapIcon fontSize="small" />, show: podeGerenciarRegioesFrota(user), end: true },
     { to: '/escalas/visitas', label: 'Escala visitas', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), end: true, mobileTab: true },
     { to: '/metas', label: 'Metas', icon: <TrackChangesIcon fontSize="small" />, show: podeVerMetas(user), end: true },
     { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, mobileTab: true },
@@ -232,7 +231,7 @@ export default function PortalLayout() {
               ? { xs: 1, md: 1 }
               : scrollInterno
                 ? { xs: 2, md: 2 }
-                : emConfiguracoes
+                : emConfiguracoes || emFrota
                   ? { xs: 2, md: 2.5 }
                   : { xs: 2.5, md: 3 },
             pb:

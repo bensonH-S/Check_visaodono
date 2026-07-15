@@ -47,16 +47,16 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados': { title: 'Chamados', icon: <BuildIcon sx={iconSx} /> },
   '/chamados/novo': { title: 'Abrir chamado', icon: <AddIcon sx={iconSx} /> },
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
-  '/frota': { title: 'Gestão de frota', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/veiculos': { title: 'Gestão de veículos', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/relatorio-km': { title: 'Relatório de KM', icon: <SpeedIcon sx={iconSx} /> },
-  '/frota/relatorio-rotas': { title: 'Relatório de rotas', icon: <MapIcon sx={iconSx} /> },
-  '/frota/relatorio-velocidade': { title: 'Relatório de velocidades', icon: <AvTimerIcon sx={iconSx} /> },
-  '/frota/uso': { title: 'Uso e assunção', icon: <PersonPinCircleIcon sx={iconSx} /> },
-  '/frota/combustivel': { title: 'Controle de combustível', icon: <LocalGasStationIcon sx={iconSx} /> },
-  '/frota/manutencoes': { title: 'Manutenções', icon: <BuildIcon sx={iconSx} /> },
-  '/frota/termos': { title: 'Termos de ferramentas', icon: <AssignmentTurnedInIcon sx={iconSx} /> },
-  '/frota/regioes': { title: 'Região de atuação', icon: <MapIcon sx={iconSx} /> },
+  '/frota': { title: 'Frota', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/veiculos': { title: 'Frota · Veículos', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/relatorio-km': { title: 'Frota · KM', icon: <SpeedIcon sx={iconSx} /> },
+  '/frota/relatorio-rotas': { title: 'Frota · Rotas', icon: <MapIcon sx={iconSx} /> },
+  '/frota/relatorio-velocidade': { title: 'Frota · Velocidades', icon: <AvTimerIcon sx={iconSx} /> },
+  '/frota/uso': { title: 'Frota · Uso', icon: <PersonPinCircleIcon sx={iconSx} /> },
+  '/frota/combustivel': { title: 'Frota · Combustível', icon: <LocalGasStationIcon sx={iconSx} /> },
+  '/frota/manutencoes': { title: 'Frota · Manutenções', icon: <BuildIcon sx={iconSx} /> },
+  '/frota/termos': { title: 'Frota · Termos', icon: <AssignmentTurnedInIcon sx={iconSx} /> },
+  '/frota/regioes': { title: 'Frota · Regiões', icon: <MapIcon sx={iconSx} /> },
   '/escalas/visitas': { title: 'Escala de visitas', icon: <CalendarMonthIcon sx={iconSx} /> },
   '/metas': { title: 'Metas', icon: <TrackChangesIcon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
@@ -80,7 +80,7 @@ export function resolvePageTitle(path: string): PageTitleConfig {
   }
   if (path.startsWith('/relatorio/')) return PAGE_TITLES['/relatorio'];
   if (path.startsWith('/frota/veiculos/')) {
-    return { title: 'Detalhe do veículo', icon: <DirectionsCarIcon sx={iconSx} /> };
+    return { title: 'Frota · Veículo', icon: <DirectionsCarIcon sx={iconSx} /> };
   }
   if (path.startsWith('/frota/')) return PAGE_TITLES[path] ?? PAGE_TITLES['/frota'];
   if (path.startsWith('/chamados/aprovacoes/')) return PAGE_TITLES['/chamados/aprovacoes'];

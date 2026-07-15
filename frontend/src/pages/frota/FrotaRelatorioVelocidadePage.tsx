@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import IconButton from '@mui/material/IconButton';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Button from '@mui/material/Button';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
@@ -106,7 +103,6 @@ function calcularTempoParadoFrontend(registros: FrotaRegistroVelocidade[]): numb
 }
 
 export default function FrotaRelatorioVelocidadePage() {
-  const navigate = useNavigate();
   const semana = periodoSemanaAtualKm();
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
@@ -165,9 +161,6 @@ export default function FrotaRelatorioVelocidadePage() {
   return (
     <Box sx={{ ...tablePageLayoutSx, gap: 1.25 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-        <IconButton size="small" onClick={() => navigate('/frota')} aria-label="Voltar">
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
           Relatório de velocidades
         </Typography>
@@ -219,7 +212,11 @@ export default function FrotaRelatorioVelocidadePage() {
       )}
 
       {relatorio?.rastreamento_ativo === false && (
-        <Alert severity="warning">Rastreamento Fulltrack desativado ou sem credenciais.</Alert>
+        <Alert severity="warning">
+          Rastreamento Fulltrack desativado ou sem credenciais no servidor.
+          Confira no .env: FULLTRACK_API_KEY (ou APIKEY) e FULLTRACK_SECRET_KEY (ou SECRETKEY),
+          depois reinicie a API.
+        </Alert>
       )}
 
       {loading && <LinearProgress sx={{ flexShrink: 0 }} />}
