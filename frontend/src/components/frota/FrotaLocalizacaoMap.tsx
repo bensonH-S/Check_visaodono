@@ -29,6 +29,10 @@ import {
   type CamadasRotaDiaMapa,
 } from './frotaMapaRotaDiaDesenho';
 import {
+  criarCamadaBasemapLimpo,
+  FROTA_MAPA_FUNDO,
+} from './frotaMapaBasemap';
+import {
   marcadorVeiculo,
   vincularPopupVeiculo,
   desenharMarcadorVeiculoAoVivo,
@@ -263,14 +267,7 @@ function marcadorLoja(loja: Pick<FrotaRegiaoLoja, 'name' | 'bk_number'>, mobile 
 }
 
 function criarCamadaRua(mobile = false) {
-  return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20,
-    updateWhenIdle: mobile,
-    keepBuffer: mobile ? 4 : 2,
-    updateWhenZooming: !mobile,
-  });
+  return criarCamadaBasemapLimpo({ mobile });
 }
 
 function criarCamadaRuaComTrafego() {
@@ -559,6 +556,7 @@ export default function FrotaLocalizacaoMap({
       wheelPxPerZoomLevel: mobile ? 80 : 60,
       bounceAtZoomLimits: true,
     });
+    mapa.getContainer().style.background = FROTA_MAPA_FUNDO;
 
     L.control.zoom({ position: mobile ? 'bottomright' : 'topleft' }).addTo(mapa);
     mapa.on('movestart', () => {

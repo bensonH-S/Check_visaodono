@@ -3,9 +3,8 @@ import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
-import SpeedIcon from '@mui/icons-material/Speed';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import MapIcon from '@mui/icons-material/Map';
-import AvTimerIcon from '@mui/icons-material/AvTimer';
 import {
   getUsuario,
   temPermissao,
@@ -68,21 +67,9 @@ const FROTA_NAV: FrotaNavSection[] = [
     title: 'Relatórios',
     items: [
       {
-        to: '/frota/relatorio-km',
-        label: 'KM',
-        icon: <SpeedIcon fontSize="small" />,
-        permissoes: ['frota.gerenciar'],
-      },
-      {
-        to: '/frota/relatorio-rotas',
-        label: 'Rotas',
-        icon: <MapIcon fontSize="small" />,
-        permissoes: ['frota.gerenciar'],
-      },
-      {
-        to: '/frota/relatorio-velocidade',
-        label: 'Velocidades',
-        icon: <AvTimerIcon fontSize="small" />,
+        to: '/frota/acompanhamento',
+        label: 'Acompanhamento',
+        icon: <TimelineIcon fontSize="small" />,
         permissoes: ['frota.gerenciar'],
       },
     ],

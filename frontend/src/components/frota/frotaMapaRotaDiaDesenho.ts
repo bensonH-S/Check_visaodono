@@ -8,17 +8,24 @@ import { formatDataHoraBalaoMapa, formatarDuracaoMs } from '../../utils/dateBr';
 import { geocodificarReversa } from '../../utils/geocodificarReversa';
 import type { LatLngPar } from '../../utils/osrmMapMatch';
 import { rodapeAtualizadoBalaoHtml } from './frotaMapaVeiculo';
+import {
+  CORES_TRAJETO_FROTA,
+  COR_EXCESSO_FROTA,
+  COR_FIM_TRAJETO,
+  COR_INICIO_TRAJETO,
+  COR_PARADO_FROTA,
+} from './frotaMapaBasemap';
 
-const CORES_ROTAS = ['#1b2a6b', '#0f766e', '#ca8a04', '#7c3aed', '#0891b2', '#0369a1'];
+const CORES_ROTAS = [...CORES_TRAJETO_FROTA];
 const PANE_ROTA = 'paneRotaLocalizacao';
 const PANE_PARADO = 'paneParadoLocalizacao';
 const PANE_EXCESSO = 'paneExcessoLocalizacao';
 const PANE_EXCESSO_LINHA = 'paneExcessoLinhaLocalizacao';
 const PANE_DESTAQUE = 'paneDestaqueLocalizacao';
-const COR_EXCESSO = '#dc2626';
-const COR_PARADO = '#475569';
-const COR_INICIO_ROTA = '#16a34a';
-const COR_FIM_ROTA = '#dc2626';
+const COR_EXCESSO = COR_EXCESSO_FROTA;
+const COR_PARADO = COR_PARADO_FROTA;
+const COR_INICIO_ROTA = COR_INICIO_TRAJETO;
+const COR_FIM_ROTA = COR_FIM_TRAJETO;
 const MIN_PARADO_MS = 2 * 60 * 1000;
 
 export type CamadasRotaDiaMapa = {
@@ -291,7 +298,7 @@ function marcadorPlacaLimite(kmh: number) {
     className: 'marcador-placa-limite',
     html: `<div class="marker-placa-limite" aria-hidden="true">
       <svg width="${w}" height="${h}" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="16" cy="16" r="14" fill="#ffffff" stroke="#dc2626" stroke-width="2.5"/>
+        <circle cx="16" cy="16" r="14" fill="#ffffff" stroke="${COR_EXCESSO}" stroke-width="2.5"/>
         <text x="16" y="20" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${fontSize}" font-weight="900" fill="#111111">${escapeHtml(texto)}</text>
       </svg>
     </div>`,
@@ -302,16 +309,12 @@ function marcadorPlacaLimite(kmh: number) {
 
 function marcadorPonteiroRota(tipo: 'inicio' | 'fim') {
   const cor = tipo === 'inicio' ? COR_INICIO_ROTA : COR_FIM_ROTA;
-  const w = 28;
-  const h = 36;
+  const size = 16;
   return L.divIcon({
-    className: 'marcador-rota-ponteiro',
-    html: `<svg class="marker-rota-pin-svg" width="${w}" height="${h}" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="${cor}" stroke="#ffffff" stroke-width="2"/>
-      <circle cx="14" cy="14" r="5" fill="#ffffff"/>
-    </svg>`,
-    iconSize: [w, h],
-    iconAnchor: [w / 2, h],
+    className: 'marcador-rota-ponto',
+    html: `<span class="marker-rota-ponto" style="background:${cor};width:${size}px;height:${size}px;border:2.5px solid #fff;border-radius:50%;display:block;box-shadow:0 2px 8px rgba(27,42,107,.28)" aria-hidden="true"></span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 

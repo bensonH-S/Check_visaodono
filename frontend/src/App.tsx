@@ -30,9 +30,7 @@ import FrotaVeiculoPage from './pages/frota/FrotaVeiculoPage';
 import FrotaManutencaoMobilePage from './pages/frota/FrotaManutencaoMobilePage';
 import FrotaPortalIndexPage from './pages/frota/FrotaPortalIndexPage';
 import FrotaVeiculosPortalPage from './pages/frota/FrotaVeiculosPortalPage';
-import FrotaRelatorioKmPage from './pages/frota/FrotaRelatorioKmPage';
-import FrotaRelatorioRotasPage from './pages/frota/FrotaRelatorioRotasPage';
-import FrotaRelatorioVelocidadePage from './pages/frota/FrotaRelatorioVelocidadePage';
+import FrotaAcompanhamentoPage from './pages/frota/FrotaAcompanhamentoPage';
 import FrotaVeiculoDetalhePage from './pages/frota/FrotaVeiculoDetalhePage';
 import FrotaUsoPortalPage from './pages/frota/FrotaUsoPortalPage';
 import FrotaCombustivelPortalPage from './pages/frota/FrotaCombustivelPortalPage';
@@ -226,28 +224,18 @@ export default function App() {
                 }
               />
               <Route
-                path="relatorio-km"
+                path="acompanhamento"
                 element={
                   <RotaPermissao permissoes={['frota.gerenciar']}>
-                    <FrotaRelatorioKmPage />
+                    <FrotaAcompanhamentoPage />
                   </RotaPermissao>
                 }
               />
-              <Route
-                path="relatorio-rotas"
-                element={
-                  <RotaPermissao permissoes={['frota.gerenciar']}>
-                    <FrotaRelatorioRotasPage />
-                  </RotaPermissao>
-                }
-              />
+              <Route path="relatorio-km" element={<Navigate to="/frota/acompanhamento" replace />} />
+              <Route path="relatorio-rotas" element={<Navigate to="/frota/acompanhamento" replace />} />
               <Route
                 path="relatorio-velocidade"
-                element={
-                  <RotaPermissao permissoes={['frota.gerenciar']}>
-                    <FrotaRelatorioVelocidadePage />
-                  </RotaPermissao>
-                }
+                element={<Navigate to="/frota/acompanhamento" replace />}
               />
               <Route
                 path="uso"

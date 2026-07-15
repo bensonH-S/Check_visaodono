@@ -4,6 +4,7 @@ import Paper from '@mui/material/Paper';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { colors } from '../../theme/tokens';
+import { criarCamadaBasemapLimpo } from '../frota/frotaMapaBasemap';
 
 const PIN_ICON = L.divIcon({
   className: '',
@@ -28,11 +29,7 @@ const btnMapaSx = {
 };
 
 function criarCamadaRua() {
-  return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20,
-  });
+  return criarCamadaBasemapLimpo();
 }
 
 function criarCamadaSatelite() {

@@ -11,7 +11,6 @@ import type {
   FrotaVeiculoPosicao,
   Loja,
 } from '../../api/client';
-import { colors } from '../../theme/tokens';
 import type { LatLngPar } from '../../utils/osrmMapMatch';
 import { formatDataHoraBalaoMapa, formatarDuracaoMs } from '../../utils/dateBr';
 import { geocodificarReversa } from '../../utils/geocodificarReversa';
@@ -22,9 +21,18 @@ import {
   desenharMarcadoresIgnicaoDia,
   rodapeAtualizadoBalaoHtml,
 } from './frotaMapaVeiculo';
+import {
+  CORES_TRAJETO_FROTA,
+  COR_EXCESSO_FROTA,
+  COR_FIM_TRAJETO,
+  COR_INICIO_TRAJETO,
+  COR_PARADO_FROTA,
+  FROTA_MAPA_FUNDO,
+  criarCamadaBasemapLimpo,
+} from './frotaMapaBasemap';
 import './mapaMarcadores.css';
 
-const CORES_ROTAS = ['#1b2a6b', '#0f766e', '#ca8a04', '#7c3aed', '#0891b2', '#0369a1'];
+const CORES_ROTAS = [...CORES_TRAJETO_FROTA];
 const VISTA_BRASILIA: L.LatLngExpression = [-15.7939, -47.8828];
 const ZOOM_BRASILIA = 11;
 const PANE_ROTA = 'paneRota';
@@ -34,10 +42,10 @@ const PANE_EXCESSO_LINHA = 'paneExcessoLinha';
 const PANE_DESTAQUE = 'paneDestaque';
 const PANE_LOJA = 'paneLoja';
 const PANE_VEICULO = 'paneVeiculoHistorico';
-const COR_INICIO_ROTA = '#16a34a';
-const COR_FIM_ROTA = '#dc2626';
-const COR_EXCESSO_VELOCIDADE = '#dc2626';
-const COR_PARADO = '#475569';
+const COR_INICIO_ROTA = COR_INICIO_TRAJETO;
+const COR_FIM_ROTA = COR_FIM_TRAJETO;
+const COR_EXCESSO_VELOCIDADE = COR_EXCESSO_FROTA;
+const COR_PARADO = COR_PARADO_FROTA;
 const MIN_PARADO_MS = 2 * 60 * 1000;
 
 type Props = {
@@ -50,6 +58,12 @@ type Props = {
   diaAtual?: boolean;
   veiculoAoVivo?: FrotaVeiculoPosicao | null;
   veiculoInfo?: Pick<FrotaVeiculoPosicao, 'id_veiculo' | 'placa' | 'marca' | 'modelo'>;
+  /** Overlay de legenda no canto (default true). */
+  mostrarLegenda?: boolean;
+  /** Marcadores cinza de parada (default true). */
+  mostrarParadas?: boolean;
+  /** Placas circulares de limite nos excessos (default true). */
+  mostrarPlacasExcesso?: boolean;
 };
 
 type EventoExcesso = {
@@ -373,16 +387,12 @@ function htmlPopupRotaTimeline(
 
 function marcadorPonteiroRota(tipo: 'inicio' | 'fim') {
   const cor = tipo === 'inicio' ? COR_INICIO_ROTA : COR_FIM_ROTA;
-  const w = 28;
-  const h = 36;
+  const size = 16;
   return L.divIcon({
-    className: 'marcador-rota-ponteiro',
-    html: `<svg class="marker-rota-pin-svg" width="${w}" height="${h}" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.27 21.73 0 14 0z" fill="${cor}" stroke="#ffffff" stroke-width="2"/>
-      <circle cx="14" cy="14" r="5" fill="#ffffff"/>
-    </svg>`,
-    iconSize: [w, h],
-    iconAnchor: [w / 2, h],
+    className: 'marcador-rota-ponto',
+    html: `<span class="marker-rota-ponto" style="background:${cor};width:${size}px;height:${size}px;border:2.5px solid #fff;border-radius:50%;display:block;box-shadow:0 2px 8px rgba(27,42,107,.28)" aria-hidden="true"></span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -499,7 +509,7 @@ function desenharMarcadoresRota(
       radius: 6,
       color: '#ffffff',
       weight: 2,
-      fillColor: colors.orange,
+      fillColor: COR_FIM_ROTA,
       fillOpacity: 1,
     })
       .bindTooltip(`Rota ${rotaId} — fim`, { direction: 'top' })
@@ -516,7 +526,7 @@ function marcadorPlacaLimite(kmh: number) {
     className: 'marcador-placa-limite',
     html: `<div class="marker-placa-limite" aria-hidden="true">
       <svg width="${w}" height="${h}" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="16" cy="16" r="14" fill="#ffffff" stroke="#dc2626" stroke-width="2.5"/>
+        <circle cx="16" cy="16" r="14" fill="#ffffff" stroke="${COR_EXCESSO_VELOCIDADE}" stroke-width="2.5"/>
         <text x="16" y="20" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,sans-serif" font-size="${fontSize}" font-weight="900" fill="#111111">${escapeHtml(texto)}</text>
       </svg>
     </div>`,
@@ -558,6 +568,7 @@ function desenharExcessoMapa(
   marcadorLayer: L.LayerGroup,
   linhaLayer: L.LayerGroup,
   bounds: L.LatLngBounds,
+  comPlacas = true,
 ) {
   const cInicio = excesso.inicio as LatLngPar;
   const cFim = excesso.fim as LatLngPar;
@@ -575,31 +586,50 @@ function desenharExcessoMapa(
     distanciaCoordsMetros(coordsLinha[0], coordsLinha[coordsLinha.length - 1]) >= 8;
 
   if (!desenharLinha && excesso.mesmo_ponto) {
-    adicionarMarcadorExcesso(
-      cInicio,
-      limiteKmh,
-      `${excesso.inicio_em ? formatDataHoraBalaoMapa(excesso.inicio_em) : '—'}<br/><strong>${excesso.v_max} km/h</strong> (limite ${limiteKmh} km/h)`,
-      marcadorLayer,
-      bounds,
-    );
+    if (comPlacas) {
+      adicionarMarcadorExcesso(
+        cInicio,
+        limiteKmh,
+        `${excesso.inicio_em ? formatDataHoraBalaoMapa(excesso.inicio_em) : '—'}<br/><strong>${excesso.v_max} km/h</strong> (limite ${limiteKmh} km/h)`,
+        marcadorLayer,
+        bounds,
+      );
+    } else {
+      bounds.extend(cInicio);
+      L.circleMarker(cInicio, {
+        pane: PANE_EXCESSO,
+        radius: 5,
+        color: COR_EXCESSO_VELOCIDADE,
+        weight: 2,
+        fillColor: COR_EXCESSO_VELOCIDADE,
+        fillOpacity: 0.85,
+      })
+        .bindTooltip(
+          `${excesso.inicio_em ? formatDataHoraBalaoMapa(excesso.inicio_em) : '—'}<br/><strong>${excesso.v_max} km/h</strong>`,
+          { direction: 'top' },
+        )
+        .addTo(marcadorLayer);
+    }
     return;
   }
 
-  adicionarMarcadorExcesso(
-    cInicio,
-    limiteKmh,
-    `Início do excesso<br/>${excesso.inicio_em ? formatDataHoraBalaoMapa(excesso.inicio_em) : '—'}<br/>${excesso.vel_inicio} km/h`,
-    marcadorLayer,
-    bounds,
-  );
+  if (comPlacas) {
+    adicionarMarcadorExcesso(
+      cInicio,
+      limiteKmh,
+      `Início do excesso<br/>${excesso.inicio_em ? formatDataHoraBalaoMapa(excesso.inicio_em) : '—'}<br/>${excesso.vel_inicio} km/h`,
+      marcadorLayer,
+      bounds,
+    );
 
-  adicionarMarcadorExcesso(
-    cFim,
-    limiteKmh,
-    `Fim do excesso<br/>${excesso.fim_em ? formatDataHoraBalaoMapa(excesso.fim_em) : '—'}<br/>${excesso.vel_fim} km/h`,
-    marcadorLayer,
-    bounds,
-  );
+    adicionarMarcadorExcesso(
+      cFim,
+      limiteKmh,
+      `Fim do excesso<br/>${excesso.fim_em ? formatDataHoraBalaoMapa(excesso.fim_em) : '—'}<br/>${excesso.vel_fim} km/h`,
+      marcadorLayer,
+      bounds,
+    );
+  }
 
   L.polyline(coordsLinha, {
     pane: PANE_EXCESSO_LINHA,
@@ -649,6 +679,9 @@ export default function FrotaRotaDiaMap({
   diaAtual = false,
   veiculoAoVivo = null,
   veiculoInfo,
+  mostrarLegenda = true,
+  mostrarParadas = true,
+  mostrarPlacasExcesso = true,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -721,7 +754,7 @@ export default function FrotaRotaDiaMap({
       const rotasDesenho = prepararRotasDesenho(rotas, pontos);
       const pontosTrajeto =
         pontos.length >= 2 ? ordenarPontos(pontos) : rotasDesenho.flatMap((r) => r.pontos ?? []);
-      const eventosParado = agruparEventosParado(pontosTrajeto);
+      const eventosParado = mostrarParadas ? agruparEventosParado(pontosTrajeto) : [];
       const excessosDesenho =
         excessosMapa.length > 0 ? excessosMapa : [];
 
@@ -733,7 +766,7 @@ export default function FrotaRotaDiaMap({
 
       if (excessosDesenho.length > 0) {
         for (const excesso of excessosDesenho) {
-          desenharExcessoMapa(excesso, limiteKmh, excessoLayer, excessoLinhaLayer, bounds);
+          desenharExcessoMapa(excesso, limiteKmh, excessoLayer, excessoLinhaLayer, bounds, mostrarPlacasExcesso);
         }
       } else {
         const eventosExcesso = agruparEventosExcesso(pontosTrajeto, limiteKmh);
@@ -759,6 +792,7 @@ export default function FrotaRotaDiaMap({
             excessoLayer,
             excessoLinhaLayer,
             bounds,
+            mostrarPlacasExcesso,
           );
         }
       }
@@ -797,7 +831,7 @@ export default function FrotaRotaDiaMap({
         setAlinhandoRuas(false);
       }
     }
-  }, [rotas, pontos, excessosMapa, lojas, limiteKmh, diaAtual, veiculoAoVivo, veiculoInfo, ajustarVista]);
+  }, [rotas, pontos, excessosMapa, lojas, limiteKmh, diaAtual, veiculoAoVivo, veiculoInfo, mostrarParadas, mostrarPlacasExcesso, ajustarVista]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -823,10 +857,10 @@ export default function FrotaRotaDiaMap({
     }
     elevarPanesPopupMapa(mapa);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap',
-    }).addTo(mapa);
+    criarCamadaBasemapLimpo().addTo(mapa);
+    if (container) {
+      container.style.background = FROTA_MAPA_FUNDO;
+    }
     rotaLayerRef.current = L.layerGroup().addTo(mapa);
     lojasLayerRef.current = L.layerGroup().addTo(mapa);
     paradoLayerRef.current = L.layerGroup().addTo(mapa);
@@ -881,7 +915,13 @@ export default function FrotaRotaDiaMap({
   }, [pontos, rotas]);
 
   const qtdExcessosLegenda = excessosMapa.length || agruparEventosExcesso(pontosTrajeto, limiteKmh).length;
-  const eventosParado = useMemo(() => agruparEventosParado(pontosTrajeto), [pontosTrajeto]);
+  const eventosParado = useMemo(
+    () => (mostrarParadas ? agruparEventosParado(pontosTrajeto) : []),
+    [pontosTrajeto, mostrarParadas],
+  );
+  const qtdLojas = lojas.filter(temCoordenadaLoja).length;
+  const exibirLegenda =
+    mostrarLegenda && (qtdExcessosLegenda > 0 || eventosParado.length > 0 || qtdLojas > 0);
 
   return (
     <Box sx={{ position: 'relative', width: '100%', height: altura, minHeight: 0, flex: 1, display: 'flex' }}>
@@ -928,7 +968,7 @@ export default function FrotaRotaDiaMap({
           </Typography>
         </Box>
       )}
-      {(qtdExcessosLegenda > 0 || eventosParado.length > 0 || lojas.filter(temCoordenadaLoja).length > 0) && (
+      {exibirLegenda && (
         <Box
           sx={{
             position: 'absolute',
@@ -953,7 +993,7 @@ export default function FrotaRotaDiaMap({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Box sx={{ width: 24, height: 4, bgcolor: COR_EXCESSO_VELOCIDADE, borderRadius: 1, flexShrink: 0 }} />
                 <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                  Linha vermelha (início → fim do excesso)
+                  Linha do excesso (início → fim)
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -981,7 +1021,7 @@ export default function FrotaRotaDiaMap({
               </Box>
             </>
           )}
-          {lojas.filter(temCoordenadaLoja).length > 0 && (
+          {qtdLojas > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#fff', border: '1px solid', borderColor: 'divider', flexShrink: 0 }} />
               <Typography variant="caption">Loja</Typography>

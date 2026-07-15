@@ -7,7 +7,8 @@ import { geocodificarReversa } from '../../utils/geocodificarReversa';
 export const VELOCIDADE_MINIMA_MOVIMENTO_KMH = 3;
 const MIN_PARADO_MS = 2 * 60 * 1000;
 
-export type StatusVeiculoMapa = 'movimento' | 'desligado' | 'alerta';
+/** em_rota=azul · disponivel=verde · parado=cinza · sem_sinal=cinza claro */
+export type StatusVeiculoMapa = 'em_rota' | 'disponivel' | 'parado' | 'sem_sinal';
 
 function escapeHtml(texto: string) {
   return texto
@@ -63,13 +64,20 @@ export function statusVeiculoMapa(
   veiculo: Pick<FrotaVeiculoPosicao, 'ignicao' | 'velocidade' | 'rastreamento_disponivel'>,
   comGps = true,
 ): StatusVeiculoMapa {
-  if (!comGps || veiculo.rastreamento_disponivel === false) return 'alerta';
-  if (veiculo.ignicao === false) return 'desligado';
+  if (!comGps || veiculo.rastreamento_disponivel === false) return 'sem_sinal';
+  if (veiculo.ignicao === false) return 'parado';
   const velocidade = Number(veiculo.velocidade);
   if (veiculo.ignicao === true && Number.isFinite(velocidade) && velocidade > VELOCIDADE_MINIMA_MOVIMENTO_KMH) {
-    return 'movimento';
+    return 'em_rota';
   }
-  return 'alerta';
+  return 'disponivel';
+}
+
+export function rotuloStatusVeiculoMapa(status: StatusVeiculoMapa): string {
+  if (status === 'em_rota') return 'Em rota';
+  if (status === 'disponivel') return 'Disponível';
+  if (status === 'parado') return 'Parado';
+  return 'Sem sinal';
 }
 
 function iconePopupVeiculoCarro() {
@@ -124,15 +132,15 @@ export function htmlInfoVeiculo(
   const velocidade = v.velocidade != null ? `${v.velocidade} km/h` : '—';
   const enderecoValor =
     endereco === undefined ? 'Buscando endereço…' : endereco || 'Endereço indisponível';
-  const estaParado = status !== 'movimento';
+  const estaParado = status !== 'em_rota';
 
   let linhaEstado = '';
-  if (v.ignicao === false && v.atualizado_em) {
+  if (status === 'parado' && v.atualizado_em) {
     const ha = formatarDuracaoDesde(v.atualizado_em);
     const desde = formatDataHoraBalaoMapa(v.atualizado_em);
     const valor = ha === 'agora' ? desde : `${desde} (há ${ha})`;
     linhaEstado = linhaPopupVeiculo('ignicao', 'Desligado desde:', valor);
-  } else if (estaParado) {
+  } else if (estaParado && status !== 'sem_sinal') {
     linhaEstado = linhaPopupVeiculo('atualizado', 'Parado há:', formatarDuracaoDesde(v.atualizado_em));
   }
 
@@ -391,7 +399,7 @@ export function desenharMarcadoresIgnicaoDia(
       const v = pontoHistoricoParaVeiculo(primeiraLigada, veiculo);
       const marker = L.marker(coord, {
         pane,
-        icon: marcadorVeiculo(v, true, false, true, 'movimento'),
+        icon: marcadorVeiculo(v, true, false, true, 'em_rota'),
         zIndexOffset: 850,
       });
       vincularPopupEventoHistorico(marker, 'Primeira ligada do dia', primeiraLigada, veiculo);
@@ -412,7 +420,7 @@ export function desenharMarcadoresIgnicaoDia(
     const titulo = ehUltimo ? 'Parada com desligamento · Último desligamento' : 'Parada com desligamento';
     const marker = L.marker(coord, {
       pane,
-      icon: marcadorVeiculo(v, true, ehUltimo, true, 'desligado'),
+      icon: marcadorVeiculo(v, true, ehUltimo, true, 'parado'),
       zIndexOffset: ehUltimo ? 860 : 840,
     });
     vincularPopupEventoHistorico(marker, titulo, evento.inicio, veiculo, {
@@ -432,7 +440,7 @@ export function desenharMarcadoresIgnicaoDia(
         const v = pontoHistoricoParaVeiculo(ultimoPonto, veiculo);
         const marker = L.marker(coord, {
           pane,
-          icon: marcadorVeiculo(v, true, true, true, 'desligado'),
+          icon: marcadorVeiculo(v, true, true, true, 'parado'),
           zIndexOffset: 860,
         });
         vincularPopupEventoHistorico(marker, 'Último desligamento do dia', ultimoPonto, veiculo);
@@ -454,16 +462,9 @@ export function desenharMarcadorVeiculoAoVivo(
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
   const coord: [number, number] = [lat, lng];
   bounds.extend(coord);
-  const status = statusVeiculoMapa(veiculo, veiculo.rastreamento_disponivel !== false);
   const marker = L.marker(coord, {
     pane,
-    icon: marcadorVeiculo(
-      veiculo,
-      true,
-      true,
-      veiculo.rastreamento_disponivel !== false,
-      status === 'desligado' ? 'desligado' : 'movimento',
-    ),
+    icon: marcadorVeiculo(veiculo, true, true, veiculo.rastreamento_disponivel !== false),
     zIndexOffset: 900,
   });
   vincularPopupVeiculo(marker, veiculo, undefined, veiculo.rastreamento_disponivel !== false);

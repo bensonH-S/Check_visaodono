@@ -24,8 +24,7 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
-import AvTimerIcon from '@mui/icons-material/AvTimer';
-import SpeedIcon from '@mui/icons-material/Speed';
+import TimelineIcon from '@mui/icons-material/Timeline';
 
 import { colors } from '../theme/tokens';
 
@@ -49,9 +48,10 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/frota': { title: 'Frota', icon: <DirectionsCarIcon sx={iconSx} /> },
   '/frota/veiculos': { title: 'Frota · Veículos', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/relatorio-km': { title: 'Frota · KM', icon: <SpeedIcon sx={iconSx} /> },
-  '/frota/relatorio-rotas': { title: 'Frota · Rotas', icon: <MapIcon sx={iconSx} /> },
-  '/frota/relatorio-velocidade': { title: 'Frota · Velocidades', icon: <AvTimerIcon sx={iconSx} /> },
+  '/frota/acompanhamento': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
+  '/frota/relatorio-km': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
+  '/frota/relatorio-rotas': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
+  '/frota/relatorio-velocidade': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
   '/frota/uso': { title: 'Frota · Uso', icon: <PersonPinCircleIcon sx={iconSx} /> },
   '/frota/combustivel': { title: 'Frota · Combustível', icon: <LocalGasStationIcon sx={iconSx} /> },
   '/frota/manutencoes': { title: 'Frota · Manutenções', icon: <BuildIcon sx={iconSx} /> },
