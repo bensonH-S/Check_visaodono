@@ -392,7 +392,7 @@ export default function FrotaAcompanhamentoPage() {
           },
         }}
       >
-        <KpiItem label="KM no período" valor={kpiKm} />
+        <KpiItem label={periodoSoHoje ? 'KM rodado hoje' : 'KM no período'} valor={kpiKm} />
         <KpiItem
           label="Excessos"
           valor={kpiExcessos}

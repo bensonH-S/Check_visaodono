@@ -128,31 +128,6 @@ export default function FrotaVeiculosKmSemanaPanel({
     return lista;
   }, [registros, dataInicio, dataFim, idVeiculoFiltro]);
 
-  const resumoKm = useMemo(() => {
-    const porVeiculo = new Map<number, number[]>();
-    for (const r of registrosFiltrados) {
-      if (r.km == null) continue;
-      const lista = porVeiculo.get(r.id_veiculo) ?? [];
-      lista.push(r.km);
-      porVeiculo.set(r.id_veiculo, lista);
-    }
-    let kmRodados = 0;
-    let somaKmAtual = 0;
-    let qtdVeiculos = 0;
-    porVeiculo.forEach((kms) => {
-      const min = Math.min(...kms);
-      const max = Math.max(...kms);
-      if (max >= min) kmRodados += max - min;
-      somaKmAtual += max;
-      qtdVeiculos += 1;
-    });
-    return {
-      kmRodados: Math.round(kmRodados),
-      kmAtualMedio: qtdVeiculos ? Math.round(somaKmAtual / qtdVeiculos) : 0,
-      qtdVeiculos,
-    };
-  }, [registrosFiltrados]);
-
   return (
     <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
       {erro && (
@@ -191,41 +166,12 @@ export default function FrotaVeiculosKmSemanaPanel({
       {ocultarFiltro && (
         <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
           {registrosFiltrados.length} registro{registrosFiltrados.length !== 1 ? 's' : ''}
+          {' · '}
+          assunções, abastecimentos e manutenções (KM do odômetro na hora do registro)
         </Typography>
       )}
 
       {loading && <LinearProgress sx={{ flexShrink: 0 }} />}
-
-      {somenteApontado && (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(2, minmax(0, 1fr))' },
-            gap: 1.25,
-            flexShrink: 0,
-          }}
-        >
-          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              KM rodados no período
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              {resumoKm.kmRodados.toLocaleString('pt-BR')} km
-            </Typography>
-          </Paper>
-          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              KM atual (média última leitura)
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              {resumoKm.kmAtualMedio.toLocaleString('pt-BR')} km
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {resumoKm.qtdVeiculos} veículo{resumoKm.qtdVeiculos !== 1 ? 's' : ''} com apontamento
-            </Typography>
-          </Paper>
-        </Box>
-      )}
 
       {!somenteApontado && rastreamentoAtivo && confronto.length > 0 && (
         <Paper elevation={0} sx={{ ...tablePaperSx, flexShrink: 0, maxHeight: 240 }}>

@@ -29,9 +29,9 @@ function isoParaDayjs(iso: string): Dayjs | null {
 
 function formatarTexto(inicio: string, fim: string) {
   const fmt = (iso: string) => dayjs(iso, 'YYYY-MM-DD').format('DD/MM/YYYY');
-  if (inicio && fim) return `${fmt(inicio)} a ${fmt(fim)}`;
-  if (inicio) return `${fmt(inicio)} a ...`;
-  return '';
+  if (!inicio && !fim) return '';
+  if (inicio && fim && inicio !== fim) return `${fmt(inicio)} a ${fmt(fim)}`;
+  return fmt(inicio || fim);
 }
 
 const filtroDataSx = {
@@ -97,6 +97,9 @@ export default function FiltroIntervaloDatasFrota({
   }
 
   function fechar() {
+    if (dataInicio && !dataFim) {
+      onChangeFim(dataInicio);
+    }
     setAnchorEl(null);
   }
 
@@ -110,20 +113,27 @@ export default function FiltroIntervaloDatasFrota({
     if (!day?.isValid()) return;
     const iso = day.format('YYYY-MM-DD');
 
-    if (!dataInicio || (dataInicio && dataFim)) {
-      onChangeInicio(iso);
-      onChangeFim('');
+    // Ainda escolhendo o fim do intervalo
+    if (dataInicio && !dataFim) {
+      const inicio = dayjs(dataInicio, 'YYYY-MM-DD');
+      if (day.isSame(inicio, 'day')) {
+        onChangeFim(iso);
+        setAnchorEl(null);
+        return;
+      }
+      if (day.isBefore(inicio, 'day')) {
+        onChangeFim(dataInicio);
+        onChangeInicio(iso);
+      } else {
+        onChangeFim(iso);
+      }
+      setAnchorEl(null);
       return;
     }
 
-    const inicio = dayjs(dataInicio, 'YYYY-MM-DD');
-    if (day.isBefore(inicio, 'day')) {
-      onChangeFim(dataInicio);
-      onChangeInicio(iso);
-    } else {
-      onChangeFim(iso);
-    }
-    fechar();
+    // Novo período: 1º clique = um dia só (início = fim)
+    onChangeInicio(iso);
+    onChangeFim('');
   }
 
   return (
@@ -175,11 +185,26 @@ export default function FiltroIntervaloDatasFrota({
           transformOrigin={{ vertical: 'top', horizontal: 'left' }}
           slotProps={{ paper: { sx: { mt: 0.5, borderRadius: 2 } } }}
         >
-          <DateCalendar
-            value={fimDayjs ?? inicioDayjs}
-            onChange={selecionarDia}
-            maxDate={dayjs()}
-          />
+          <Box sx={{ px: 2, pb: 1.5, pt: 0 }}>
+            <DateCalendar
+              value={fimDayjs ?? inicioDayjs}
+              onChange={selecionarDia}
+              maxDate={dayjs()}
+            />
+            <Box
+              sx={{
+                px: 1,
+                mt: -0.5,
+                fontSize: '0.75rem',
+                color: 'text.secondary',
+                lineHeight: 1.35,
+              }}
+            >
+              {dataInicio && !dataFim
+                ? 'Clique de novo no mesmo dia para confirmar, ou em outro para o intervalo.'
+                : 'Clique num dia (só hoje) ou em dois dias para um período.'}
+            </Box>
+          </Box>
         </Popover>
       </Box>
     </LocalizationProvider>
