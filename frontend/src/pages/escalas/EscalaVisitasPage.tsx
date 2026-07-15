@@ -270,19 +270,26 @@ export default function EscalaVisitasPage() {
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, flex: 1, height: '100%', overflow: 'hidden' }}>
-      <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        minHeight: 0,
+        flex: 1,
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      <Paper sx={{ px: 1.25, py: 1, borderRadius: 2, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
             <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))} aria-label="Semana anterior">
               <ChevronLeftIcon />
             </IconButton>
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.15 }}>
                 Semana {grade?.semana_label ?? fmtDataCurta(semanaInicio)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Escala de visitas — time de campo
               </Typography>
             </Box>
             <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))} aria-label="Próxima semana">
@@ -367,7 +374,7 @@ export default function EscalaVisitasPage() {
         </Box>
 
         {grade && grade.regionais.length > 0 && aba === 'visitas' && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
             {regionaisAgrupados.flatMap((grupo, indexGrupo) => {
               const bloco: ReactNode[] = [];
               if (indexGrupo > 0) {
@@ -415,7 +422,15 @@ export default function EscalaVisitasPage() {
           <CircularProgress />
         </Box>
       ) : aba === 'delivery' ? (
-        <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <Paper
+          sx={{
+            ...tablePaperSx,
+            flex: 1,
+            minHeight: { xs: 560, md: 0 },
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           {!linhaDelivery ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary">Linha de delivery não configurada.</Typography>
@@ -512,7 +527,15 @@ export default function EscalaVisitasPage() {
           )}
         </Paper>
       ) : (
-        <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <Paper
+          sx={{
+            ...tablePaperSx,
+            flex: 1,
+            minHeight: { xs: 560, md: 0 },
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
             <Table size="small" stickyHeader sx={tableSx}>
               <TableHead>

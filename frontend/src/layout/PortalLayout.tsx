@@ -107,6 +107,7 @@ export default function PortalLayout() {
 
   const colunaEstreita = isChecklist || isChamadoNovo;
   const scrollInterno = isPaginaScrollInterno(path);
+  const paginaEscalaVisitas = path === '/escalas/visitas';
   const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
 
   const nav: NavItem[] = [
@@ -225,9 +226,15 @@ export default function PortalLayout() {
           component="main"
           className={`flex-1 min-h-0 flex flex-col ${scrollInterno ? 'overflow-hidden' : 'overflow-y-auto'}`}
           sx={{
-            pl: { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: 2, xl: 2.5 },
-            pr: { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: 2, xl: 2.5 },
-            py: scrollInterno ? { xs: 2, md: 2 } : emConfiguracoes ? { xs: 2, md: 2.5 } : { xs: 2.5, md: 3 },
+            pl: { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: paginaEscalaVisitas ? 1.5 : 2, xl: paginaEscalaVisitas ? 1.5 : 2.5 },
+            pr: { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: paginaEscalaVisitas ? 1.5 : 2, xl: paginaEscalaVisitas ? 1.5 : 2.5 },
+            py: paginaEscalaVisitas
+              ? { xs: 1, md: 1 }
+              : scrollInterno
+                ? { xs: 2, md: 2 }
+                : emConfiguracoes
+                  ? { xs: 2, md: 2.5 }
+                  : { xs: 2.5, md: 3 },
             pb:
               mobileTabsRodape.length > 0 && !isChamadoNovo
                 ? { xs: safeAreaBottomCalc(80), md: undefined }
