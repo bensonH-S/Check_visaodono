@@ -2,18 +2,36 @@ import { pool } from './db.js';
 import { acessoTodasLojas, temPermissao } from './permissoes.js';
 import { carregarRegioesAtuacaoTecnico } from './lojasUsuario.js';
 
-export const CORES_REGIONAIS = [
-  '#16A34A',
-  '#EA580C',
-  '#2563EB',
-  '#0891B2',
-  '#9333EA',
-  '#CA8A04',
-  '#DC2626',
-  '#64748B',
-  '#DB2777',
-  '#0D9488',
+/**
+ * Cores da legenda da planilha "Time de Campo" (Escala Grupo Alvim).
+ * Renato=verde, Bárbara=amarelo, Igor=cinza, Kadu=laranja, Plinio=azul, Fagno=ciano.
+ */
+export const CORES_ESCALA_POR_NOME = [
+  { chave: 'renato', cor: '#00B050' },
+  { chave: 'barbara', cor: '#FFFF00' },
+  { chave: 'igor', cor: '#CCCCCC' },
+  { chave: 'kadu', cor: '#FF9900' },
+  { chave: 'cadu', cor: '#FF9900' },
+  { chave: 'plinio', cor: '#4A86E8' },
+  { chave: 'fagno', cor: '#00FFFF' },
 ];
+
+/** Fallback quando o nome não está na legenda da planilha. */
+export const CORES_REGIONAIS = [
+  '#00B050',
+  '#FFFF00',
+  '#CCCCCC',
+  '#FF9900',
+  '#4A86E8',
+  '#00FFFF',
+  '#7030A0',
+  '#FF0000',
+  '#00FF00',
+  '#64748B',
+];
+
+/** Roxo da planilha para célula multi (ex.: I/R). */
+export const COR_ESCALA_MULTI = '#7030A0';
 
 export const DIAS_SEMANA = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 
@@ -63,6 +81,14 @@ function nomeCorrespondeChave(nome, chave) {
   if (!n || !c) return false;
   if (n === c) return true;
   return n.startsWith(`${c} `);
+}
+
+/** Cor de marcação do regional conforme a planilha Time de Campo. */
+export function corEscalaPorNome(nome, indexFallback = 0) {
+  for (const item of CORES_ESCALA_POR_NOME) {
+    if (nomeCorrespondeChave(nome, item.chave)) return item.cor;
+  }
+  return CORES_REGIONAIS[indexFallback % CORES_REGIONAIS.length];
 }
 
 export function indicePrioridadeTopoEscala(nome) {
@@ -231,7 +257,7 @@ export async function listarRegionaisEscala() {
     nome: r.nome,
     avatar_inicial: r.avatar_inicial,
     grupo_nome: r.grupo_nome ?? null,
-    cor: CORES_REGIONAIS[i % CORES_REGIONAIS.length],
+    cor: corEscalaPorNome(r.nome, i),
   }));
 }
 
@@ -294,7 +320,15 @@ async function lojasGrade(user, idRegiaoFiltro) {
             ) AS nome_regiao
      FROM lojas l
      WHERE ${where}
-     ORDER BY COALESCE(NULLIF(TRIM(l.bk_number), ''), '99999'), l.name`,
+     ORDER BY
+       CASE
+         WHEN TRIM(l.bk_number) = '15022'
+           OR UPPER(TRIM(l.name)) LIKE '%VALPARA%'
+         THEN 1
+         ELSE 0
+       END,
+       COALESCE(NULLIF(TRIM(l.bk_number), ''), '99999'),
+       l.name`,
     params,
   );
   return rows.filter((loja) => !lojaExcluidaDaGradeEscala(loja.name));

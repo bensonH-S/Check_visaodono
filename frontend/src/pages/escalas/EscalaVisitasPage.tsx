@@ -30,19 +30,22 @@ import SaveIcon from '@mui/icons-material/Save';
 import { api, type EscalaVisitasGrade, type EscalaVisitasLinha } from '../../api/client';
 import { podeGerenciarEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
-import { tableContainerSx, tablePaperSx, tablePageLayoutSx, tableSx } from '../../utils/tablePageLayout';
+import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
 import { agruparRegionaisEscala, primeiroNome } from '../../components/escalas/escalaVisitasUtils';
 
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
-const COL_DIA_MIN_WIDTH = 136;
-const COL_LOJA_MIN_WIDTH = 220;
+/** Roxo da planilha Time de Campo para célula multi (ex.: I/R). */
+const COR_ESCALA_MULTI = '#7030A0';
+const COL_DIA_MIN_WIDTH = 108;
+const COL_LOJA_MIN_WIDTH = 200;
+const COL_BKN_WIDTH = 72;
 const SELECT_CELULA_SX = {
   width: '100%',
-  minWidth: 118,
-  fontSize: '0.8rem',
-  '& .MuiSelect-select': { py: 1, px: 1, whiteSpace: 'normal', lineHeight: 1.3, minHeight: 40 },
+  maxWidth: 132,
+  fontSize: '0.72rem',
+  '& .MuiSelect-select': { py: 0.75, whiteSpace: 'normal', lineHeight: 1.25 },
 } as const;
 
 function addDaysIso(iso: string, days: number) {
@@ -267,9 +270,9 @@ export default function EscalaVisitasPage() {
   );
 
   return (
-    <Box sx={{ ...tablePageLayoutSx, gap: 1.25 }}>
-      <Paper sx={{ p: 1.5, borderRadius: 2, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', justifyContent: 'space-between' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, flex: 1, height: '100%', overflow: 'hidden' }}>
+      <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))} aria-label="Semana anterior">
               <ChevronLeftIcon />
@@ -364,20 +367,7 @@ export default function EscalaVisitasPage() {
         </Box>
 
         {grade && grade.regionais.length > 0 && aba === 'visitas' && (
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              gap: 0.75,
-              mt: 1.25,
-              pt: 1.25,
-              borderTop: `1px solid ${colors.border}`,
-            }}
-          >
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mr: 0.25 }}>
-              Legenda
-            </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
             {regionaisAgrupados.flatMap((grupo, indexGrupo) => {
               const bloco: ReactNode[] = [];
               if (indexGrupo > 0) {
@@ -407,9 +397,7 @@ export default function EscalaVisitasPage() {
                       bgcolor: `${r.cor}22`,
                       border: `1px solid ${r.cor}`,
                       fontWeight: 600,
-                      height: 26,
-                      flexShrink: 0,
-                      '& .MuiChip-label': { px: 1, color: colors.textPrimary, fontSize: '0.72rem' },
+                      '& .MuiChip-label': { color: colors.textPrimary },
                     }}
                   />,
                 );
@@ -420,10 +408,10 @@ export default function EscalaVisitasPage() {
         )}
       </Paper>
 
-      {(loading || salvando) && <LinearProgress sx={{ flexShrink: 0 }} />}
+      {(loading || salvando) && <LinearProgress />}
 
       {loading && !grade ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6, flex: 1 }}>
           <CircularProgress />
         </Box>
       ) : aba === 'delivery' ? (
@@ -437,10 +425,10 @@ export default function EscalaVisitasPage() {
               <Table size="small" stickyHeader sx={tableSx}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ minWidth: 72, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                    <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
                       BKN
                     </TableCell>
-                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 72, zIndex: 3 }}>
+                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
                       Loja
                     </TableCell>
                     {DIAS.map((label, dia) => {
@@ -486,13 +474,13 @@ export default function EscalaVisitasPage() {
                       <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
                         {linha.bk_number || '—'}
                       </TableCell>
-                      <TableCell sx={{ position: 'sticky', left: 72, bgcolor: '#fff', zIndex: 1 }}>
+                      <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: '#fff', zIndex: 1 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
                           {linha.nome}
                         </Typography>
                       </TableCell>
                       {linha.dias.map((d) => (
-                        <TableCell key={d.dia} align="center" sx={{ p: 0.75 }}>
+                        <TableCell key={d.dia} align="center" sx={{ p: 0.5 }}>
                           <Checkbox
                             size="medium"
                             checked={d.marcada}
@@ -529,10 +517,10 @@ export default function EscalaVisitasPage() {
             <Table size="small" stickyHeader sx={tableSx}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ minWidth: 72, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                  <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
                     BKN
                   </TableCell>
-                  <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 72, zIndex: 3 }}>
+                  <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
                     Loja
                   </TableCell>
                   {DIAS.map((label, i) => (
@@ -556,7 +544,7 @@ export default function EscalaVisitasPage() {
                     <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
                       {linha.bk_number || '—'}
                     </TableCell>
-                    <TableCell sx={{ position: 'sticky', left: 72, bgcolor: '#fff', zIndex: 1 }}>
+                    <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: '#fff', zIndex: 1 }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
                         {linha.nome}
                       </Typography>
@@ -575,10 +563,11 @@ export default function EscalaVisitasPage() {
                       const tooltip = nomes.length ? nomes.join(', ') : 'Sem visita';
                       const cor = idsReg.length === 1 ? mapCorRegional.get(idsReg[0]) || '#64748B' : undefined;
                       return (
-                        <TableCell key={d.dia} align="center" sx={{ p: 0.75, verticalAlign: 'middle' }}>
+                        <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
                           {podeEditar ? (
                             <Select
                               multiple
+                              size="small"
                               displayEmpty
                               value={idsReg}
                               input={<OutlinedInput />}
@@ -597,7 +586,11 @@ export default function EscalaVisitasPage() {
                               }}
                               sx={{
                                 ...SELECT_CELULA_SX,
-                                bgcolor: cor ? `${cor}18` : idsReg.length > 1 ? 'rgba(27, 42, 107, 0.04)' : undefined,
+                                bgcolor: cor
+                                  ? `${cor}33`
+                                  : idsReg.length > 1
+                                    ? `${COR_ESCALA_MULTI}33`
+                                    : undefined,
                               }}
                             >
                               {(grade?.regionais ?? []).map((r) => (
@@ -618,14 +611,20 @@ export default function EscalaVisitasPage() {
                             <Tooltip title={tooltip}>
                               <Box
                                 sx={{
-                                  py: 0.85,
-                                  px: 0.65,
+                                  py: 0.65,
+                                  px: 0.5,
                                   borderRadius: 1,
-                                  bgcolor: cor ? `${cor}22` : idsReg.length ? 'rgba(27, 42, 107, 0.05)' : 'transparent',
-                                  border: idsReg.length ? `1px solid ${cor ?? colors.border}` : '1px dashed #e5e7eb',
-                                  fontSize: '0.8rem',
+                                  bgcolor: cor
+                                    ? `${cor}44`
+                                    : idsReg.length
+                                      ? `${COR_ESCALA_MULTI}33`
+                                      : 'transparent',
+                                  border: idsReg.length
+                                    ? `1px solid ${cor ?? COR_ESCALA_MULTI}`
+                                    : '1px dashed #e5e7eb',
+                                  fontSize: '0.72rem',
                                   fontWeight: 600,
-                                  minHeight: 40,
+                                  minHeight: 32,
                                   display: 'flex',
                                   flexDirection: 'column',
                                   alignItems: 'center',
