@@ -23,6 +23,7 @@ import {
   OPCOES_REV_CLASSE,
   OPCOES_REV_FAIXA,
   ordenarLinhasPorCriticoAsc,
+  mesmosValoresPercentuais,
   parsePontosRanking,
   parseValorPercentual,
   rankingColunaRevRec,
@@ -91,9 +92,13 @@ function RankingLinhaValor({
   const commit = () => {
     if (percentual) {
       const parsed = parseValorPercentual(local, decimais);
-      if (parsed.valor_numero !== linha.valor_numero || parsed.valor_texto !== linha.valor_texto) {
+      const mudouNumero = !mesmosValoresPercentuais(parsed.valor_numero, linha.valor_numero);
+      const mudouTexto = (parsed.valor_texto ?? null) !== (linha.valor_texto ?? null);
+      if (mudouNumero || mudouTexto) {
         onSalvar(parsed);
       }
+      // Normaliza na hora (ex.: 86,00 → 86.0000 no R.E.V.), mesmo se não precisou POST.
+      setLocal(formatValorPercentualExibicao(parsed.valor_numero, parsed.valor_texto, decimais));
       return;
     }
     const n = Number(local.replace(',', '.'));

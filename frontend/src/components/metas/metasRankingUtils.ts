@@ -72,8 +72,10 @@ export function formatValorPercentualExibicao(
   if (valor_texto && valor_texto.toUpperCase() !== 'DEMANDA') return valor_texto;
   if (valor_numero == null) return '';
   const abs = Math.abs(valor_numero);
+  // Fração (0–1) → pontos percentuais; valores > 1 já estão em %.
   const pct = abs <= 1 ? valor_numero * 100 : valor_numero;
-  return pct.toFixed(decimais).replace(/\.?0+$/, '').replace(/\.$/, '');
+  // Mantém as casas da coluna (ex.: 86,00 → 86.0000 no R.E.V. com 4 dec.).
+  return pct.toFixed(decimais);
 }
 
 export function formatValorPercentualLeitura(
@@ -99,9 +101,10 @@ export function parseValorPercentual(
   if (Number.isNaN(n)) return { valor_numero: null, valor_texto: s };
 
   const factorPct = 10 ** decimais;
-  // Entrada > 1: pontos percentuais (ex.: 4,99). Arredonda nessa escala e só então
+  // Pontos percentuais (1 a 100, ex.: 86,00 / 4,99). Arredonda nessa escala e
   // converte para fração — senão 4,99 → 0,0499 → round(3) → 0,05 → 5%.
-  if (Math.abs(n) > 1 && Math.abs(n) <= 100) {
+  // Inclui 1,00 (antes caía como fração e virava 100%).
+  if (Math.abs(n) >= 1 && Math.abs(n) <= 100) {
     const pct = Math.round(n * factorPct) / factorPct;
     return { valor_numero: pct / 100, valor_texto: null };
   }
@@ -110,6 +113,16 @@ export function parseValorPercentual(
   const factorFrac = 10 ** (decimais + 2);
   const decimal = Math.round(n * factorFrac) / factorFrac;
   return { valor_numero: decimal, valor_texto: null };
+}
+
+/** Compara valores percentuais sem falhar por float (0.86 vs 0.8600000001). */
+export function mesmosValoresPercentuais(
+  a: number | null | undefined,
+  b: number | null | undefined,
+): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return Math.abs(Number(a) - Number(b)) < 1e-10;
 }
 
 export function parsePontosRanking(input: string): number | null {
