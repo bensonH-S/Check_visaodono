@@ -15,6 +15,7 @@ import {
 import { auditar } from '../auditoriaHelpers.js';
 import { gerarNcsFromVisita } from '../naoConformidadesChecklist.js';
 import { processarVisitaTimeCampoReprovada } from '../services/timeCampoNotificacoes.js';
+import { processarEnvioRelatorioVisita } from '../services/visitaRelatorioEmail.js';
 
 const router = Router();
 
@@ -401,8 +402,12 @@ router.patch('/:id/finalizar', async (req, res, next) => {
       descricao: `Visita finalizada — loja ${lojaRow[0]?.name || rows[0].id_loja} (${rows[0].duracao_minutos ?? '?'} min)${ncResult.criadas ? ` — ${ncResult.criadas} NC(s) gerada(s)` : ''}`,
     });
 
-    void processarVisitaTimeCampoReprovada(idVisita).catch((e) => {
+    processarVisitaTimeCampoReprovada(idVisita).catch((e) => {
       console.error('[time-campo] Falha ao notificar reprovação:', e.message);
+    });
+
+    void processarEnvioRelatorioVisita(idVisita).catch((e) => {
+      console.error('[visita-email] Falha ao enviar relatório:', e.message);
     });
 
     res.json({ ...serializarVisita(rows[0]), ncs_geradas: ncResult.criadas });

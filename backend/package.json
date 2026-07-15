@@ -80,7 +80,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "image-size": "^2.0.2",
     "jsonwebtoken": "^9.0.2",
+    "jspdf": "^4.2.1",
+    "nodemailer": "^9.0.3",
     "pg": "^8.13.3",
     "web-push": "^3.6.7"
   }

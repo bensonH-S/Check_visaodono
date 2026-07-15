@@ -1,7 +1,7 @@
 import { pool } from '../db.js';
 import { indiceLiderGrupoEscala, rotuloGrupoEscala } from '../escalaVisitas.js';
 
-/** Regionais supervisores (Bárbara, Fagno, Plínio). Igor = qualidade, fora deste fluxo. */
+/** Regionais supervisores — recebem só relatório das lojas da região deles. */
 export const REGIONAIS_SUPERVISORES_EMAIL = [
   'barbara@grupoalvim.com.br',
   'fagno@grupoalvim.com.br',
@@ -11,7 +11,35 @@ export const REGIONAIS_SUPERVISORES_EMAIL = [
 export const LIDERANCA_EMAIL = {
   ceo: 'felipe@grupoalvim.com.br',
   diretor: 'frotadf@gmail.com',
+  supervisor_geral: 'igor@grupoalvim.com.br',
+  ti: 'benson.henriquesilva@gmail.com',
 };
+
+/** Destinatários fixos de todo relatório de visita (além do regional da loja). */
+export const RELATORIO_EMAIL_SEMPRE = [
+  { email: LIDERANCA_EMAIL.supervisor_geral, papel: 'supervisor_geral', nome: 'Igor' },
+  { email: LIDERANCA_EMAIL.diretor, papel: 'diretor', nome: 'Diretor' },
+  { email: LIDERANCA_EMAIL.ceo, papel: 'dono', nome: 'Felipe' },
+  { email: LIDERANCA_EMAIL.ti, papel: 'ti', nome: 'Benson' },
+];
+
+/** Regionais vinculados à região da loja (frota_regiao_regionais + id_regional legado). */
+export async function resolverRegionaisLoja(idLoja) {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT u.id_usuario, u.nome, u.email, r.nome AS nome_regiao
+     FROM frota_regiao_lojas rl
+     JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
+     LEFT JOIN frota_regiao_regionais rr ON rr.id_regiao = r.id_regiao
+     JOIN usuarios u ON u.id_usuario = COALESCE(rr.id_usuario, r.id_regional)
+     WHERE rl.id_loja = $1
+       AND u.ativo = TRUE
+       AND u.email IS NOT NULL
+       AND TRIM(u.email) <> ''
+     ORDER BY u.nome`,
+    [idLoja],
+  );
+  return rows;
+}
 
 /** Supervisor regional da loja via frota (líder de grupo: Bárbara / Fagno / Plínio). */
 export async function resolverSupervisorRegionalLoja(idLoja) {
