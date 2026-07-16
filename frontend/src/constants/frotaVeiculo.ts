@@ -230,10 +230,33 @@ export const ph = {
   combustivel: 'Selecione o combustível',
   km: 'Digite o KM atual',
   kmInicial: 'Digite o KM inicial do veículo',
-  valor: 'Digite o valor',
+  valor: '0,00',
   regiao: 'Selecione a região',
   observacoes: 'Digite observações (opcional)',
 } as const;
+
+/**
+ * Máscara monetária BR por centavos (digita 15090 → 150,90).
+ * Colagem de "R$ 1.150,90" ou "150,90" também funciona.
+ */
+export function filtrarMoedaAoDigitar(texto: string): string {
+  const digitos = String(texto || '').replace(/\D/g, '').slice(0, 12);
+  if (!digitos) return '';
+  const centavos = Number(digitos);
+  if (!Number.isFinite(centavos)) return '';
+  return (centavos / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function moedaInputParaNumero(texto: string): number | null {
+  const digitos = String(texto || '').replace(/\D/g, '');
+  if (!digitos) return null;
+  const n = Number(digitos) / 100;
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+}
 
 /** Evita label flutuante “pulando” ao focar no diálogo. */
 export const labelFixo = { inputLabel: { shrink: true } };

@@ -358,6 +358,43 @@ router.get('/mobile/abastecimentos', requirePermissao('frota.usar', 'frota.geren
   }
 });
 
+/** Histórico mobile: manutenções do técnico (e do veículo atual, se houver). */
+router.get('/mobile/manutencoes', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idUsuario = req.user.sub;
+    const veiculo = await veiculoDoUsuario(idUsuario);
+    const idVeiculo = veiculo?.id_veiculo ?? null;
+
+    const { rows } = await pool.query(
+      `SELECT m.id_manutencao, m.id_veiculo, m.descricao, m.km, m.valor,
+              m.data_manutencao, m.proxima_manutencao_km, m.id_anexo, v.placa
+       FROM frota_manutencoes_veiculo m
+       JOIN frota_veiculos v ON v.id_veiculo = m.id_veiculo
+       WHERE m.id_usuario = $1
+          OR ($2::int IS NOT NULL AND m.id_veiculo = $2)
+       ORDER BY m.data_manutencao DESC, m.created_at DESC
+       LIMIT 50`,
+      [idUsuario, idVeiculo],
+    );
+
+    res.json(
+      rows.map((m) => ({
+        id_manutencao: m.id_manutencao,
+        id_veiculo: m.id_veiculo,
+        placa: m.placa,
+        descricao: m.descricao,
+        km: m.km != null ? Number(m.km) : null,
+        valor: m.valor != null ? Number(m.valor) : null,
+        data_manutencao: m.data_manutencao,
+        proxima_manutencao_km: m.proxima_manutencao_km != null ? Number(m.proxima_manutencao_km) : null,
+        comprovante_url: m.id_anexo ? midiaUrlFrota(m.id_anexo) : null,
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
   try {
     const { rows: ids } = await pool.query(
