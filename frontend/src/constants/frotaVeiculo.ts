@@ -82,25 +82,52 @@ export const formVeiculoVazio = (): FormVeiculoFrota => ({
 });
 
 export function apenasDigitosKm(val: string): string {
-  return val.replace(/\D/g, '');
+  let s = String(val ?? '').trim();
+  if (!s) return '';
+
+  const hasComma = s.includes(',');
+  const hasDot = s.includes('.');
+
+  // Descarta parte decimal (KM é inteiro). Ex.: "308.684,500" → "308.684"
+  if (hasComma && hasDot) {
+    const lastComma = s.lastIndexOf(',');
+    const lastDot = s.lastIndexOf('.');
+    // pt-BR: 308.684,50 | en-US: 308,684.50
+    s = lastComma > lastDot ? s.slice(0, lastComma) : s.slice(0, lastDot);
+  } else if (hasComma) {
+    const [esq, dir = ''] = s.split(',');
+    const dec = dir.replace(/\D/g, '');
+    // "308684,5" / "308684,50" → decimal; "308,684" (EN) → milhar
+    if (dec.length > 0 && dec.length <= 2) {
+      s = esq;
+    } else {
+      s = esq + dir;
+    }
+  }
+
+  // Pontos restantes = separador de milhar (pt-BR)
+  return s.replace(/\D/g, '');
 }
 
 /** Formata KM com separador de milhar (pt-BR: 80.000). */
 export function formatarKmInput(val: string): string {
   const digits = apenasDigitosKm(val);
   if (!digits) return '';
-  return Number(digits).toLocaleString('pt-BR');
+  // Evita números absurdos por colagem (ex.: decimal virando dígitos)
+  const limitado = digits.slice(0, 8);
+  return Number(limitado).toLocaleString('pt-BR');
 }
 
 /** Aceita dígitos, pontos e vírgulas; formata milhar pt-BR (ex.: 80.000). */
 export function filtrarKmAoDigitar(valor: string): string {
-  return formatarKmInput(valor.replace(/[^\d.,]/g, ''));
+  return formatarKmInput(valor);
 }
 
 export function kmInputParaNumero(val: string): number | null {
-  const digits = apenasDigitosKm(val);
+  const digits = apenasDigitosKm(val).slice(0, 8);
   if (!digits) return null;
-  return Number(digits);
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** Marca e modelo para exibição em tabelas. */
