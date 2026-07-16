@@ -18,8 +18,6 @@ import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
-import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -47,14 +45,15 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados/novo': { title: 'Abrir chamado', icon: <AddIcon sx={iconSx} /> },
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/frota': { title: 'Frota', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/veiculos': { title: 'Frota · Veículos', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/operacao': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/veiculos': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
   '/frota/acompanhamento': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
   '/frota/relatorio-km': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
   '/frota/relatorio-rotas': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
   '/frota/relatorio-velocidade': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
-  '/frota/uso': { title: 'Frota · Uso', icon: <PersonPinCircleIcon sx={iconSx} /> },
-  '/frota/combustivel': { title: 'Frota · Combustível', icon: <LocalGasStationIcon sx={iconSx} /> },
-  '/frota/manutencoes': { title: 'Frota · Manutenções', icon: <BuildIcon sx={iconSx} /> },
+  '/frota/uso': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/combustivel': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/manutencoes': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
   '/frota/termos': { title: 'Frota · Termos', icon: <AssignmentTurnedInIcon sx={iconSx} /> },
   '/frota/regioes': { title: 'Frota · Regiões', icon: <MapIcon sx={iconSx} /> },
   '/escalas/visitas': { title: 'Escala de visitas', icon: <CalendarMonthIcon sx={iconSx} /> },

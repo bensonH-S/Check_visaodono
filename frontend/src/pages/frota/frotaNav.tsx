@@ -1,7 +1,4 @@
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import PersonPinCircleIcon from '@mui/icons-material/PersonPinCircle';
-import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
-import BuildIcon from '@mui/icons-material/Build';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import MapIcon from '@mui/icons-material/Map';
@@ -32,27 +29,9 @@ const FROTA_NAV: FrotaNavSection[] = [
     title: 'Operação',
     items: [
       {
-        to: '/frota/veiculos',
-        label: 'Veículos',
+        to: '/frota/operacao',
+        label: 'Operação',
         icon: <DirectionsCarIcon fontSize="small" />,
-        permissoes: ['frota.gerenciar'],
-      },
-      {
-        to: '/frota/uso',
-        label: 'Uso',
-        icon: <PersonPinCircleIcon fontSize="small" />,
-        permissoes: ['frota.gerenciar'],
-      },
-      {
-        to: '/frota/combustivel',
-        label: 'Combustível',
-        icon: <LocalGasStationIcon fontSize="small" />,
-        permissoes: ['frota.gerenciar'],
-      },
-      {
-        to: '/frota/manutencoes',
-        label: 'Manutenções',
-        icon: <BuildIcon fontSize="small" />,
         permissoes: ['frota.gerenciar'],
       },
       {
@@ -102,7 +81,7 @@ export function getFrotaNavSections(user: UsuarioSessao | null = getUsuario()) {
 }
 
 export function primeiraRotaFrota(user: UsuarioSessao | null = getUsuario()) {
-  return getFrotaNavSections(user)[0]?.items[0]?.to ?? '/frota/veiculos';
+  return getFrotaNavSections(user)[0]?.items[0]?.to ?? '/frota/operacao';
 }
 
 export function podeAcessarModuloFrota(user: UsuarioSessao | null = getUsuario()) {

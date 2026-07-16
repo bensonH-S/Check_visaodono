@@ -168,7 +168,7 @@ export default function FrotaVeiculoCard({ veiculo: v, onEditar }: Props) {
         />
         <InfoLinha label="Responsável" value={v.nome_responsavel || 'Sem responsável'} />
         <InfoLinha
-          label="Assunção"
+          label="Atribuição"
           value={v.assuncao_em ? formatDataHoraBrasilia(v.assuncao_em) : '—'}
         />
         {v.observacoes && (

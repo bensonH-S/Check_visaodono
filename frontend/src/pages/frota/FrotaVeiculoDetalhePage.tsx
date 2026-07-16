@@ -59,7 +59,7 @@ export default function FrotaVeiculoDetalhePage() {
     return (
       <Alert severity="error">
         Veículo não encontrado.{' '}
-        <Button size="small" onClick={() => navigate('/frota/veiculos')}>
+        <Button size="small" onClick={() => navigate('/frota/operacao?aba=cadastro')}>
           Voltar
         </Button>
       </Alert>
@@ -71,7 +71,7 @@ export default function FrotaVeiculoDetalhePage() {
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={() => navigate('/frota/veiculos')} aria-label="Voltar">
+        <IconButton size="small" onClick={() => navigate('/frota/operacao?aba=cadastro')} aria-label="Voltar">
           <ArrowBackIcon fontSize="small" />
         </IconButton>
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -126,7 +126,7 @@ export default function FrotaVeiculoDetalhePage() {
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
             <Info label="Responsável" value={veiculo.nome_responsavel || 'Sem responsável'} />
             <Info
-              label="Assunção"
+              label="Atribuição"
               value={veiculo.assuncao_em ? formatDataHoraBrasilia(veiculo.assuncao_em) : '—'}
             />
             <Box sx={{ gridColumn: { sm: '1 / -1' } }}>

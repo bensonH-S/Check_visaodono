@@ -28,6 +28,7 @@ export default function FrotaManutencaoMobilePage() {
   const [veiculo, setVeiculo] = useState<FrotaVeiculo | null>(null);
   const [descricao, setDescricao] = useState('');
   const [km, setKm] = useState('');
+  const [proximaKm, setProximaKm] = useState('');
   const [valor, setValor] = useState('');
   const [dataManutencao, setDataManutencao] = useState(dataHojeIso);
   const [fotos, setFotos] = useState<string[]>([]);
@@ -70,6 +71,9 @@ export default function FrotaManutencaoMobilePage() {
       fd.append('descricao', descricao.trim());
       const kmNum = kmInputParaNumero(km);
       if (kmNum != null) fd.append('km', String(kmNum));
+      const proxNum = kmInputParaNumero(proximaKm);
+      if (proxNum != null) fd.append('proxima_manutencao_km', String(proxNum));
+      else if (kmNum != null) fd.append('proxima_manutencao_km', String(kmNum + 10000));
       if (valor.trim()) fd.append('valor', valor.replace(',', '.'));
       if (dataManutencao) fd.append('data_manutencao', dataManutencao);
       if (fotos[0]) {
@@ -80,6 +84,7 @@ export default function FrotaManutencaoMobilePage() {
       setOk('Manutenção registrada!');
       setDescricao('');
       setKm('');
+      setProximaKm('');
       setValor('');
       setDataManutencao(dataHojeIso());
       setFotos([]);
@@ -133,8 +138,26 @@ export default function FrotaManutencaoMobilePage() {
         label="KM no momento da manutenção"
         value={km}
         onChange={(e) => setKm(filtrarKmAoDigitar(e.target.value))}
+        onBlur={() => {
+          const n = kmInputParaNumero(km);
+          if (n != null && !proximaKm.trim()) {
+            setProximaKm(filtrarKmAoDigitar(String(n + 10000)));
+          }
+        }}
         inputMode="numeric"
         placeholder={ph.km}
+        disabled={!veiculo}
+        sx={campoAlturaFrotaSx}
+        slotProps={{ inputLabel: labelFixo.inputLabel }}
+      />
+      <TextField
+        fullWidth
+        label="KM da próxima manutenção"
+        value={proximaKm}
+        onChange={(e) => setProximaKm(filtrarKmAoDigitar(e.target.value))}
+        inputMode="numeric"
+        placeholder="Ex.: 220000"
+        helperText="Informe o odômetro da próxima (ex.: troca de óleo +10.000 km)"
         disabled={!veiculo}
         sx={campoAlturaFrotaSx}
         slotProps={{ inputLabel: labelFixo.inputLabel }}

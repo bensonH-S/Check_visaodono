@@ -23,6 +23,7 @@ import {
   resolverKmOdometro,
   sincronizarKmAtualVeiculo,
   enriquecerKmVeiculo,
+  sincronizarKmAtualComGpsDesdeAssuncao,
 } from '../services/frotaKmVeiculo.js';
 import {
   combinarVeiculosComRastreamento,
@@ -93,6 +94,7 @@ function mapVeiculo(row) {
     combustivel: row.combustivel,
     km_inicial: row.km_inicial,
     km_atual: row.km_atual,
+    proxima_manutencao_km: row.proxima_manutencao_km,
     observacoes: row.observacoes,
     assuncao_em: row.assuncao_em,
     nome_responsavel: row.nome_responsavel,
@@ -100,7 +102,7 @@ function mapVeiculo(row) {
 }
 
 const COLS_VEICULO = `v.id_veiculo, v.placa, v.renavam, v.chassi, v.marca, v.modelo, v.ano, v.cor,
-  v.combustivel, v.km_inicial, v.km_atual, v.observacoes, v.id_usuario_responsavel, v.assuncao_em, v.ativo,
+  v.combustivel, v.km_inicial, v.km_atual, v.proxima_manutencao_km, v.observacoes, v.id_usuario_responsavel, v.assuncao_em, v.ativo,
   v.id_regiao, v.created_at, v.updated_at, u.nome AS nome_responsavel, r.nome AS nome_regiao`;
 
 async function syncRegiaoLojas(idRegiao, idLojas) {
@@ -328,15 +330,50 @@ router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async
     );
     await Promise.all(ids.map((r) => sincronizarKmAtualVeiculo(r.id_veiculo)));
 
+    // KM atual = KM da atribuição + KM rodado no GPS desde então
+    try {
+      await sincronizarKmAtualComGpsDesdeAssuncao();
+    } catch {
+      /* rastreador indisponível — mantém KM dos registros manuais */
+    }
+
     const { rows } = await pool.query(
-      `SELECT ${COLS_VEICULO}
+      `SELECT ${COLS_VEICULO},
+              (
+                SELECT a.km_inicio
+                FROM frota_assuncoes a
+                WHERE a.id_veiculo = v.id_veiculo AND a.data_fim IS NULL
+                ORDER BY a.data_inicio DESC
+                LIMIT 1
+              ) AS km_assuncao
        FROM frota_veiculos v
        LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
        LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
        WHERE v.ativo = TRUE
        ORDER BY v.placa`,
     );
-    res.json(rows.map(enriquecerKmVeiculo));
+
+    let gpsPorId = new Map();
+    try {
+      const comGps = await combinarVeiculosComRastreamento(rows);
+      gpsPorId = new Map(comGps.map((g) => [g.id_veiculo, g]));
+    } catch {
+      /* ok */
+    }
+
+    res.json(
+      rows.map((row) => {
+        const base = enriquecerKmVeiculo(row);
+        const g = gpsPorId.get(row.id_veiculo);
+        return {
+          ...base,
+          id_rastreamento: g?.id_rastreamento ?? null,
+          gps_instalado: g?.id_rastreamento != null,
+          rastreamento_disponivel: g?.rastreamento_disponivel ?? false,
+          odometro_gps: g?.odometro_km ?? null,
+        };
+      }),
+    );
   } catch (e) {
     next(e);
   }
@@ -387,8 +424,8 @@ router.get('/manutencoes', requirePermissao('frota.gerenciar'), async (req, res,
   try {
     const { rows } = await pool.query(
       `SELECT m.id_manutencao, m.id_veiculo, m.id_usuario, m.descricao, m.km, m.valor,
-              m.data_manutencao, m.proxima_manutencao, m.created_at,
-              v.placa, u.nome AS nome_usuario
+              m.data_manutencao, m.proxima_manutencao, m.proxima_manutencao_km, m.created_at,
+              v.placa, v.km_atual AS km_atual_veiculo, u.nome AS nome_usuario
        FROM frota_manutencoes_veiculo m
        JOIN frota_veiculos v ON v.id_veiculo = m.id_veiculo
        JOIN usuarios u ON u.id_usuario = m.id_usuario
@@ -398,6 +435,9 @@ router.get('/manutencoes', requirePermissao('frota.gerenciar'), async (req, res,
     res.json(
       rows.map((m) => ({
         ...m,
+        km: m.km != null ? Number(m.km) : null,
+        km_atual_veiculo: m.km_atual_veiculo != null ? Number(m.km_atual_veiculo) : null,
+        proxima_manutencao_km: m.proxima_manutencao_km != null ? Number(m.proxima_manutencao_km) : null,
         valor: m.valor != null ? Number(m.valor) : null,
       })),
     );
@@ -1281,6 +1321,341 @@ router.delete('/veiculos/:id', requirePermissao('frota.gerenciar'), async (req, 
   }
 });
 
+/** Atribuição manual pelo portal (sem CNH/fotos do app). */
+router.post('/veiculos/:id/atribuir', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const idUsuario = Number(req.body?.id_usuario);
+    const kmRaw = req.body?.km_atual;
+    if (!idVeiculo) return res.status(400).json({ error: 'Veículo inválido' });
+    if (!Number.isFinite(idUsuario) || idUsuario <= 0) {
+      return res.status(400).json({ error: 'Selecione o responsável' });
+    }
+
+    const { rows: veiculos } = await pool.query(
+      `SELECT id_veiculo, id_usuario_responsavel, placa, km_inicial, km_atual
+       FROM frota_veiculos WHERE id_veiculo = $1 AND ativo = TRUE`,
+      [idVeiculo],
+    );
+    const veiculo = veiculos[0];
+    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+
+    const { rows: usuarios } = await pool.query(
+      `SELECT id_usuario, nome FROM usuarios WHERE id_usuario = $1 AND ativo = TRUE`,
+      [idUsuario],
+    );
+    if (!usuarios[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    let kmEfetivo = null;
+    if (kmRaw != null && String(kmRaw).trim() !== '') {
+      const kmNum = Number(String(kmRaw).replace(/\D/g, ''));
+      if (!Number.isFinite(kmNum) || kmNum < 0) {
+        return res.status(400).json({ error: 'Informe a quilometragem válida' });
+      }
+      kmEfetivo = resolverKmOdometro(kmNum, kmBaseVeiculo(veiculo));
+      if (kmEfetivo == null) return res.status(400).json({ error: 'Informe a quilometragem válida' });
+    } else {
+      kmEfetivo = Number(veiculo.km_atual) || Number(veiculo.km_inicial) || 0;
+    }
+
+    const idRegiaoTecnico = await regiaoDoTecnico(idUsuario);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      if (veiculo.id_usuario_responsavel) {
+        await client.query(
+          `UPDATE frota_assuncoes
+           SET data_fim = NOW(), km_fim = $2
+           WHERE id_veiculo = $1 AND data_fim IS NULL`,
+          [idVeiculo, kmEfetivo],
+        );
+      }
+
+      await client.query(
+        `UPDATE frota_veiculos SET id_usuario_responsavel = NULL, assuncao_em = NULL, id_regiao = NULL
+         WHERE id_usuario_responsavel = $1 AND id_veiculo != $2`,
+        [idUsuario, idVeiculo],
+      );
+
+      await client.query(
+        `UPDATE frota_veiculos
+         SET id_usuario_responsavel = $1, assuncao_em = NOW(), km_atual = $3, id_regiao = $4, updated_at = NOW()
+         WHERE id_veiculo = $2`,
+        [idUsuario, idVeiculo, kmEfetivo, idRegiaoTecnico],
+      );
+
+      await client.query(
+        `INSERT INTO frota_assuncoes (id_veiculo, id_usuario, km_inicio)
+         VALUES ($1, $2, $3)`,
+        [idVeiculo, idUsuario, kmEfetivo],
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await sincronizarKmAtualVeiculo(idVeiculo);
+    const { rows: full } = await pool.query(
+      `SELECT ${COLS_VEICULO}
+       FROM frota_veiculos v
+       LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
+       WHERE v.id_veiculo = $1`,
+      [idVeiculo],
+    );
+
+    await auditar(req, {
+      idUsuario: req.user.sub,
+      modulo: 'frota',
+      acao: 'atribuir_veiculo',
+      entidade: 'veiculo',
+      idReferencia: idVeiculo,
+      descricao: `Atribuiu ${veiculo.placa} para ${usuarios[0].nome}`,
+    });
+    res.json(full[0]);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Corrige o KM da atribuição ativa (odômetro no início do uso / instalação GPS).
+ * Body: { km_atribuicao: number, km_atual?: number }
+ */
+router.patch('/veiculos/:id/km-atribuicao', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const kmAtribRaw = req.body?.km_atribuicao ?? req.body?.km_inicio;
+    const kmAtualRaw = req.body?.km_atual;
+
+    if (!idVeiculo) return res.status(400).json({ error: 'Veículo inválido' });
+    const kmAtrib = Number(String(kmAtribRaw ?? '').replace(/\D/g, ''));
+    if (!Number.isFinite(kmAtrib) || kmAtrib < 0) {
+      return res.status(400).json({ error: 'Informe o KM da atribuição' });
+    }
+
+    const { rows: veiculos } = await pool.query(
+      `SELECT id_veiculo, id_usuario_responsavel, placa, km_inicial, km_atual
+       FROM frota_veiculos WHERE id_veiculo = $1 AND ativo = TRUE`,
+      [idVeiculo],
+    );
+    const veiculo = veiculos[0];
+    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+    if (!veiculo.id_usuario_responsavel) {
+      return res.status(400).json({ error: 'Veículo sem atribuição ativa — atribua alguém antes' });
+    }
+
+    const { rows: assuncao } = await pool.query(
+      `SELECT id_assuncao, km_inicio
+       FROM frota_assuncoes
+       WHERE id_veiculo = $1 AND data_fim IS NULL
+       ORDER BY data_inicio DESC
+       LIMIT 1`,
+      [idVeiculo],
+    );
+    if (!assuncao[0]) {
+      return res.status(400).json({ error: 'Nenhuma atribuição aberta encontrada' });
+    }
+
+    let kmAtual = Number(veiculo.km_atual) || kmAtrib;
+    if (kmAtualRaw != null && String(kmAtualRaw).trim() !== '') {
+      const n = Number(String(kmAtualRaw).replace(/\D/g, ''));
+      if (!Number.isFinite(n) || n < 0) {
+        return res.status(400).json({ error: 'KM atual inválido' });
+      }
+      kmAtual = n;
+    }
+    kmAtual = Math.max(kmAtual, kmAtrib);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`UPDATE frota_assuncoes SET km_inicio = $1 WHERE id_assuncao = $2`, [
+        kmAtrib,
+        assuncao[0].id_assuncao,
+      ]);
+      await client.query(
+        `UPDATE frota_veiculos
+         SET km_inicial = $2, km_atual = $3, updated_at = NOW()
+         WHERE id_veiculo = $1`,
+        [idVeiculo, kmAtrib, kmAtual],
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    try {
+      await sincronizarKmAtualComGpsDesdeAssuncao();
+    } catch {
+      /* ok */
+    }
+
+    const { rows: full } = await pool.query(
+      `SELECT ${COLS_VEICULO},
+              (
+                SELECT a.km_inicio
+                FROM frota_assuncoes a
+                WHERE a.id_veiculo = v.id_veiculo AND a.data_fim IS NULL
+                ORDER BY a.data_inicio DESC
+                LIMIT 1
+              ) AS km_assuncao
+       FROM frota_veiculos v
+       LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
+       WHERE v.id_veiculo = $1`,
+      [idVeiculo],
+    );
+
+    await auditar(req, {
+      idUsuario: req.user.sub,
+      modulo: 'frota',
+      acao: 'editar_km_atribuicao',
+      entidade: 'veiculo',
+      idReferencia: idVeiculo,
+      descricao: `Ajustou KM atribuição de ${veiculo.placa}: ${assuncao[0].km_inicio ?? '—'} → ${kmAtrib}`,
+    });
+
+    res.json(enriquecerKmVeiculo(full[0]));
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Define o KM da próxima manutenção no cadastro do veículo. */
+router.patch('/veiculos/:id/proxima-manutencao', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const kmRaw = req.body?.proxima_manutencao_km;
+    if (!idVeiculo) return res.status(400).json({ error: 'Veículo inválido' });
+    const kmProx = Number(String(kmRaw ?? '').replace(/\D/g, ''));
+    if (!Number.isFinite(kmProx) || kmProx <= 0) {
+      return res.status(400).json({ error: 'Informe o KM da próxima manutenção' });
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE frota_veiculos
+       SET proxima_manutencao_km = $2, updated_at = NOW()
+       WHERE id_veiculo = $1 AND ativo = TRUE
+       RETURNING placa`,
+      [idVeiculo, Math.round(kmProx)],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Veículo não encontrado' });
+
+    const { rows: full } = await pool.query(
+      `SELECT ${COLS_VEICULO},
+              (
+                SELECT a.km_inicio
+                FROM frota_assuncoes a
+                WHERE a.id_veiculo = v.id_veiculo AND a.data_fim IS NULL
+                ORDER BY a.data_inicio DESC
+                LIMIT 1
+              ) AS km_assuncao
+       FROM frota_veiculos v
+       LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
+       WHERE v.id_veiculo = $1`,
+      [idVeiculo],
+    );
+
+    await auditar(req, {
+      idUsuario: req.user.sub,
+      modulo: 'frota',
+      acao: 'editar_proxima_manutencao',
+      entidade: 'veiculo',
+      idReferencia: idVeiculo,
+      descricao: `Definiu próxima manutenção de ${rows[0].placa} para ${kmProx} km`,
+    });
+
+    res.json(enriquecerKmVeiculo(full[0]));
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Liberação manual pelo portal. */
+router.post('/veiculos/:id/devolver', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    const kmRaw = req.body?.km_atual;
+
+    const { rows: veiculos } = await pool.query(
+      `SELECT id_veiculo, id_usuario_responsavel, placa, km_inicial, km_atual
+       FROM frota_veiculos WHERE id_veiculo = $1 AND ativo = TRUE`,
+      [idVeiculo],
+    );
+    const veiculo = veiculos[0];
+    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+    if (!veiculo.id_usuario_responsavel) {
+      return res.status(400).json({ error: 'Veículo já está livre' });
+    }
+
+    let kmEfetivo = Number(veiculo.km_atual) || Number(veiculo.km_inicial) || 0;
+    if (kmRaw != null && String(kmRaw).trim() !== '') {
+      const kmNum = Number(String(kmRaw).replace(/\D/g, ''));
+      if (!Number.isFinite(kmNum) || kmNum < 0) {
+        return res.status(400).json({ error: 'Informe a quilometragem válida' });
+      }
+      const resolvido = resolverKmOdometro(kmNum, kmBaseVeiculo(veiculo));
+      if (resolvido == null) return res.status(400).json({ error: 'Informe a quilometragem válida' });
+      kmEfetivo = resolvido;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE frota_assuncoes
+         SET data_fim = NOW(), km_fim = $2
+         WHERE id_veiculo = $1 AND data_fim IS NULL`,
+        [idVeiculo, kmEfetivo],
+      );
+      await client.query(
+        `UPDATE frota_veiculos
+         SET id_usuario_responsavel = NULL, assuncao_em = NULL, km_atual = $2, id_regiao = NULL, updated_at = NOW()
+         WHERE id_veiculo = $1`,
+        [idVeiculo, kmEfetivo],
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    await sincronizarKmAtualVeiculo(idVeiculo);
+    const { rows: full } = await pool.query(
+      `SELECT ${COLS_VEICULO}
+       FROM frota_veiculos v
+       LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
+       LEFT JOIN frota_regioes r ON r.id_regiao = v.id_regiao
+       WHERE v.id_veiculo = $1`,
+      [idVeiculo],
+    );
+
+    await auditar(req, {
+      idUsuario: req.user.sub,
+      modulo: 'frota',
+      acao: 'devolver_veiculo_portal',
+      entidade: 'veiculo',
+      idReferencia: idVeiculo,
+      descricao: `Liberou o veículo ${veiculo.placa} (KM ${kmEfetivo})`,
+    });
+    res.json(full[0]);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post(
   '/me/assumir',
   requirePermissao('frota.usar'),
@@ -1812,7 +2187,8 @@ router.post(
     try {
       const idVeiculo = Number(req.params.id);
       const idUsuario = req.user.sub;
-      const { descricao, km, valor, data_manutencao, proxima_manutencao } = req.body || {};
+      const { descricao, km, valor, data_manutencao, proxima_manutencao, proxima_manutencao_km } =
+        req.body || {};
       if (!descricao?.trim()) return res.status(400).json({ error: 'Informe a descrição da manutenção' });
 
       const veiculo = await veiculoDoUsuario(idUsuario);
@@ -1826,10 +2202,21 @@ router.post(
           ? resolverKmOdometro(kmNumRaw, kmBaseVeiculo(veiculo))
           : null;
 
+      const proxKmRaw =
+        proxima_manutencao_km != null && String(proxima_manutencao_km).trim() !== ''
+          ? Number(String(proxima_manutencao_km).replace(/\D/g, ''))
+          : null;
+      let proxKmEfetivo =
+        proxKmRaw != null && Number.isFinite(proxKmRaw) && proxKmRaw > 0 ? Math.round(proxKmRaw) : null;
+      // Se não informou próxima, sugere KM atual da manutenção + 10.000
+      if (proxKmEfetivo == null && kmEfetivo != null) {
+        proxKmEfetivo = kmEfetivo + 10000;
+      }
+
       const { rows } = await pool.query(
         `INSERT INTO frota_manutencoes_veiculo
-         (id_veiculo, id_usuario, descricao, km, valor, data_manutencao, proxima_manutencao)
-         VALUES ($1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE), $7)
+         (id_veiculo, id_usuario, descricao, km, valor, data_manutencao, proxima_manutencao, proxima_manutencao_km)
+         VALUES ($1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE), $7, $8)
          RETURNING id_manutencao`,
         [
           idVeiculo,
@@ -1839,6 +2226,7 @@ router.post(
           valor != null ? Number(String(valor).replace(',', '.')) : null,
           data_manutencao || null,
           proxima_manutencao || null,
+          proxKmEfetivo,
         ],
       );
 
@@ -1859,6 +2247,12 @@ router.post(
 
       if (kmEfetivo != null) {
         await sincronizarKmAtualVeiculo(idVeiculo);
+      }
+      if (proxKmEfetivo != null) {
+        await pool.query(
+          `UPDATE frota_veiculos SET proxima_manutencao_km = $2, updated_at = NOW() WHERE id_veiculo = $1`,
+          [idVeiculo, proxKmEfetivo],
+        );
       }
 
       res.status(201).json({ id_manutencao: rows[0].id_manutencao, media_url: mediaUrl });

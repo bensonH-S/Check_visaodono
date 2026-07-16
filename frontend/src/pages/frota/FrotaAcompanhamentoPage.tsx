@@ -766,7 +766,7 @@ export default function FrotaAcompanhamentoPage() {
             KM apontado
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5, alignSelf: 'center' }}>
-            Opcional · assunções e abastecimentos
+            Opcional · atribuições e abastecimentos
           </Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 0, px: 1.5, pb: 1.5, flex: 1, minHeight: 0, overflow: 'auto' }}>

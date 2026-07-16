@@ -167,7 +167,7 @@ export default function FrotaVeiculosKmSemanaPanel({
         <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
           {registrosFiltrados.length} registro{registrosFiltrados.length !== 1 ? 's' : ''}
           {' · '}
-          assunções, abastecimentos e manutenções (KM do odômetro na hora do registro)
+          atribuições, abastecimentos e manutenções (KM do odômetro na hora do registro)
         </Typography>
       )}
 
@@ -224,7 +224,7 @@ export default function FrotaVeiculosKmSemanaPanel({
 
       <Paper elevation={0} sx={{ ...tablePaperSx, flex: 1, minHeight: 0, maxHeight: somenteApontado ? undefined : '42%' }}>
         <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5, pb: 0.5, fontWeight: 700 }}>
-          {somenteApontado ? 'KM apontado no sistema' : 'KM apontado (assunções, abastecimentos e manutenções)'}
+          {somenteApontado ? 'KM apontado no sistema' : 'KM apontado (atribuições, abastecimentos e manutenções)'}
         </Typography>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>

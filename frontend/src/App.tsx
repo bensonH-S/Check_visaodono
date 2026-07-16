@@ -29,12 +29,9 @@ import FrotaTermoPage from './pages/frota/FrotaTermoPage';
 import FrotaVeiculoPage from './pages/frota/FrotaVeiculoPage';
 import FrotaManutencaoMobilePage from './pages/frota/FrotaManutencaoMobilePage';
 import FrotaPortalIndexPage from './pages/frota/FrotaPortalIndexPage';
-import FrotaVeiculosPortalPage from './pages/frota/FrotaVeiculosPortalPage';
+import FrotaOperacaoPage from './pages/frota/FrotaOperacaoPage';
 import FrotaAcompanhamentoPage from './pages/frota/FrotaAcompanhamentoPage';
 import FrotaVeiculoDetalhePage from './pages/frota/FrotaVeiculoDetalhePage';
-import FrotaUsoPortalPage from './pages/frota/FrotaUsoPortalPage';
-import FrotaCombustivelPortalPage from './pages/frota/FrotaCombustivelPortalPage';
-import FrotaManutencaoPortalPage from './pages/frota/FrotaManutencaoPortalPage';
 import FrotaTermosPortalPage from './pages/frota/FrotaTermosPortalPage';
 import FrotaRegioesPortalPage from './pages/frota/FrotaRegioesPortalPage';
 import MapaTecnicosMobilePage from './pages/mapa/MapaTecnicosMobilePage';
@@ -216,13 +213,14 @@ export default function App() {
                 }
               />
               <Route
-                path="veiculos"
+                path="operacao"
                 element={
                   <RotaPermissao permissoes={['frota.gerenciar']}>
-                    <FrotaVeiculosPortalPage />
+                    <FrotaOperacaoPage />
                   </RotaPermissao>
                 }
               />
+              <Route path="veiculos" element={<Navigate to="/frota/operacao?aba=cadastro" replace />} />
               <Route
                 path="acompanhamento"
                 element={
@@ -237,29 +235,14 @@ export default function App() {
                 path="relatorio-velocidade"
                 element={<Navigate to="/frota/acompanhamento" replace />}
               />
-              <Route
-                path="uso"
-                element={
-                  <RotaPermissao permissoes={['frota.gerenciar']}>
-                    <FrotaUsoPortalPage />
-                  </RotaPermissao>
-                }
-              />
+              <Route path="uso" element={<Navigate to="/frota/operacao?aba=cadastro" replace />} />
               <Route
                 path="combustivel"
-                element={
-                  <RotaPermissao permissoes={['frota.gerenciar']}>
-                    <FrotaCombustivelPortalPage />
-                  </RotaPermissao>
-                }
+                element={<Navigate to="/frota/operacao?aba=combustivel" replace />}
               />
               <Route
                 path="manutencoes"
-                element={
-                  <RotaPermissao permissoes={['frota.gerenciar']}>
-                    <FrotaManutencaoPortalPage />
-                  </RotaPermissao>
-                }
+                element={<Navigate to="/frota/operacao?aba=manutencoes" replace />}
               />
               <Route
                 path="termos"

@@ -491,6 +491,29 @@ export const api = {
     }),
   frotaExcluirVeiculo: (idVeiculo: number) =>
     request<{ ok: boolean }>(`/frota/veiculos/${idVeiculo}`, { method: 'DELETE' }),
+  frotaAtribuirVeiculo: (idVeiculo: number, body: { id_usuario: number; km_atual?: number }) =>
+    request<FrotaVeiculo>(`/frota/veiculos/${idVeiculo}/atribuir`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  frotaAtualizarKmAtribuicao: (
+    idVeiculo: number,
+    body: { km_atribuicao: number; km_atual?: number },
+  ) =>
+    request<FrotaVeiculo>(`/frota/veiculos/${idVeiculo}/km-atribuicao`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  frotaAtualizarProximaManutencao: (idVeiculo: number, body: { proxima_manutencao_km: number }) =>
+    request<FrotaVeiculo>(`/frota/veiculos/${idVeiculo}/proxima-manutencao`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  frotaDevolverVeiculoPortal: (idVeiculo: number, body?: { km_atual?: number }) =>
+    request<FrotaVeiculo>(`/frota/veiculos/${idVeiculo}/devolver`, {
+      method: 'POST',
+      body: JSON.stringify(body ?? {}),
+    }),
   frotaAssumirVeiculo: async (formData: FormData) => {
     const token = getToken();
     const res = await fetch(`${BASE}/frota/me/assumir`, {
@@ -976,7 +999,16 @@ export interface FrotaVeiculo {
   combustivel?: string | null;
   km_inicial?: number | null;
   km_atual: number | null;
+  /** KM informado na atribuição/assunção atual (se em uso) */
+  km_assuncao?: number | null;
+  /** KM em que deve ocorrer a próxima manutenção */
+  proxima_manutencao_km?: number | null;
   km_rodados?: number | null;
+  /** Veículo encontrado no rastreador (Fulltrack) */
+  gps_instalado?: boolean;
+  id_rastreamento?: number | string | null;
+  rastreamento_disponivel?: boolean;
+  odometro_gps?: number | null;
   observacoes?: string | null;
   assuncao_em: string | null;
   nome_responsavel?: string | null;
@@ -1034,10 +1066,15 @@ export interface FrotaManutencaoPortal {
   placa: string;
   nome_usuario: string;
   descricao: string;
+  /** KM do odômetro na data da manutenção */
   km: number | null;
+  /** KM atual do veículo (cadastro / sync GPS) */
+  km_atual_veiculo?: number | null;
   valor: number | null;
   data_manutencao: string;
   proxima_manutencao: string | null;
+  /** KM em que deve ocorrer a próxima manutenção (informado pelo técnico) */
+  proxima_manutencao_km?: number | null;
   created_at: string;
 }
 
