@@ -19,7 +19,7 @@ import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
 import { filtrarKmAoDigitar, kmInputParaNumero, labelFixo, ph, rotuloVeiculoOpcao } from '../../constants/frotaVeiculo';
 import { showToast } from '../../utils/toast';
 
-const MAX_FOTOS_VEICULO = 6;
+const MAX_FOTOS_VEICULO = 10;
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');

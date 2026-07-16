@@ -1661,7 +1661,7 @@ router.post(
   requirePermissao('frota.usar'),
   upload.fields([
     { name: 'cnh', maxCount: 1 },
-    { name: 'fotos_veiculo', maxCount: 6 },
+    { name: 'fotos_veiculo', maxCount: 10 },
   ]),
   async (req, res, next) => {
     try {
@@ -2012,7 +2012,7 @@ router.get('/veiculos/:id/documentos', requirePermissao('frota.usar', 'frota.ger
 router.post(
   '/veiculos/:id/documentos',
   requirePermissao('frota.usar', 'frota.gerenciar'),
-  upload.single('arquivo'),
+  upload.array('arquivo', 15),
   async (req, res, next) => {
     try {
       const idVeiculo = Number(req.params.id);
@@ -2021,8 +2021,12 @@ router.post(
       if (!tipo?.trim() || !titulo?.trim()) {
         return res.status(400).json({ error: 'Informe tipo e título' });
       }
-      if (!req.file) {
+      const arquivos = Array.isArray(req.files) ? req.files : req.file ? [req.file] : [];
+      if (!arquivos.length) {
         return res.status(400).json({ error: 'Selecione um arquivo (imagem ou PDF)' });
+      }
+      if (arquivos.length > 15) {
+        return res.status(400).json({ error: 'Máximo de 15 arquivos por envio' });
       }
 
       const podeGerenciar = req.user.permissoes?.includes('frota.gerenciar');
@@ -2033,45 +2037,6 @@ router.post(
         }
       }
 
-      const { rows: docInsert } = await pool.query(
-        `INSERT INTO frota_documentos (id_veiculo, tipo, titulo, data_vencimento, valor, observacao, id_usuario)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id_documento`,
-        [
-          idVeiculo,
-          tipo.trim(),
-          titulo.trim(),
-          data_vencimento || null,
-          valor != null ? Number(String(valor).replace(',', '.')) : null,
-          observacao || null,
-          idUsuario,
-        ],
-      );
-
-      let idAnexo = null;
-      if (req.file) {
-        const idDocumento = docInsert[0].id_documento;
-        const anexo = await salvarAnexo({
-          contexto: 'documento',
-          idReferencia: idDocumento,
-          idUsuario,
-          file: req.file,
-        });
-        idAnexo = anexo.id_anexo;
-        await pool.query(`UPDATE frota_documentos SET id_anexo = $1 WHERE id_documento = $2`, [
-          idAnexo,
-          idDocumento,
-        ]);
-        // Cópia em disco (além do BYTEA criptografado no banco)
-        salvarDocumentoDisco({
-          idVeiculo,
-          idDocumento,
-          idAnexo,
-          nomeArquivo: req.file.originalname || 'documento.pdf',
-          buffer: req.file.buffer,
-        });
-      }
-
       const { rows: placaRows } = await pool.query(
         `SELECT placa, modelo FROM frota_veiculos WHERE id_veiculo = $1`,
         [idVeiculo],
@@ -2079,27 +2044,79 @@ router.post(
       const placa = placaRows[0]?.placa || `#${idVeiculo}`;
       const modelo = placaRows[0]?.modelo || '';
       const veiculoLabel = modelo ? `${placa} (${modelo})` : placa;
-      const nomeArq = req.file.originalname || 'arquivo';
-      await auditar(req, {
-        idUsuario,
-        modulo: 'frota',
-        acao: 'anexar_documento',
-        entidade: 'veiculo',
-        idReferencia: idVeiculo,
-        descricao: `Enviou o arquivo “${nomeArq}” (${tipo.trim()}) no veículo ${veiculoLabel} — título “${titulo.trim()}”`,
-        detalhes: {
-          id_documento: docInsert[0].id_documento,
-          tipo: tipo.trim(),
-          placa,
-          modelo: modelo || null,
-          nome_arquivo: nomeArq,
-          titulo: titulo.trim(),
-        },
-      });
+      const tipoLimpo = tipo.trim();
+      const tituloBase = titulo.trim();
+      const criados = [];
+
+      for (let i = 0; i < arquivos.length; i++) {
+        const file = arquivos[i];
+        const tituloDoc =
+          arquivos.length === 1 ? tituloBase : `${tituloBase} (${i + 1}/${arquivos.length})`;
+
+        const { rows: docInsert } = await pool.query(
+          `INSERT INTO frota_documentos (id_veiculo, tipo, titulo, data_vencimento, valor, observacao, id_usuario)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING id_documento`,
+          [
+            idVeiculo,
+            tipoLimpo,
+            tituloDoc,
+            data_vencimento || null,
+            valor != null ? Number(String(valor).replace(',', '.')) : null,
+            observacao || null,
+            idUsuario,
+          ],
+        );
+
+        const idDocumento = docInsert[0].id_documento;
+        const anexo = await salvarAnexo({
+          contexto: 'documento',
+          idReferencia: idDocumento,
+          idUsuario,
+          file,
+        });
+        await pool.query(`UPDATE frota_documentos SET id_anexo = $1 WHERE id_documento = $2`, [
+          anexo.id_anexo,
+          idDocumento,
+        ]);
+        salvarDocumentoDisco({
+          idVeiculo,
+          idDocumento,
+          idAnexo: anexo.id_anexo,
+          nomeArquivo: file.originalname || 'documento.pdf',
+          buffer: file.buffer,
+        });
+
+        criados.push({
+          id_documento: idDocumento,
+          media_url: midiaUrlFrota(anexo.id_anexo),
+          titulo: tituloDoc,
+        });
+
+        await auditar(req, {
+          idUsuario,
+          modulo: 'frota',
+          acao: 'anexar_documento',
+          entidade: 'veiculo',
+          idReferencia: idVeiculo,
+          descricao: `Enviou o arquivo “${file.originalname || 'arquivo'}” (${tipoLimpo}) no veículo ${veiculoLabel} — título “${tituloDoc}”`,
+          detalhes: {
+            id_documento: idDocumento,
+            tipo: tipoLimpo,
+            placa,
+            modelo: modelo || null,
+            nome_arquivo: file.originalname || 'arquivo',
+            titulo: tituloDoc,
+          },
+        });
+      }
 
       res.status(201).json({
-        id_documento: docInsert[0].id_documento,
-        media_url: idAnexo ? midiaUrlFrota(idAnexo) : null,
+        ok: true,
+        qtd: criados.length,
+        documentos: criados,
+        id_documento: criados[0]?.id_documento ?? null,
+        media_url: criados[0]?.media_url ?? null,
       });
     } catch (e) {
       next(e);

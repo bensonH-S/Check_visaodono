@@ -6,6 +6,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
+import Chip from '@mui/material/Chip';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
@@ -22,17 +23,33 @@ import { FrotaDocumentoModal } from './FrotaDocumentoModal';
 
 export const FROTA_DOC_FORM_ID = 'frota-doc-upload-form';
 
+/** Máximo de arquivos por envio (fotos do veículo, CNH, etc.). */
+export const MAX_ARQUIVOS_DOC = 10;
+
 const TIPOS_DOC = [
+  { value: 'cnh', label: 'CNH' },
   { value: 'crlv', label: 'CRLV' },
-  { value: 'multa', label: 'Multa' },
   { value: 'foto_veiculo', label: 'Foto do veículo' },
+  { value: 'multa', label: 'Multa' },
   { value: 'manutencao', label: 'Comprovante de manutenção' },
   { value: 'outro', label: 'Outro' },
 ];
 
+const TITULO_PADRAO: Record<string, string> = {
+  cnh: 'CNH',
+  crlv: 'CRLV',
+  foto_veiculo: 'Foto do veículo',
+  multa: 'Multa',
+  manutencao: 'Comprovante de manutenção',
+};
+
 const inputSx = {
   '& .MuiInputBase-input::placeholder': { color: 'text.disabled', opacity: 1 },
 };
+
+function labelTipo(tipo: string) {
+  return TIPOS_DOC.find((t) => t.value === tipo)?.label ?? tipo;
+}
 
 function nomeArquivo(d: FrotaDocumento) {
   const nome = d.nome_arquivo?.trim();
@@ -90,9 +107,10 @@ export default function FrotaVeiculoDocumentosPanel({
   const [salvando, setSalvando] = useState(false);
   const [tipoDoc, setTipoDoc] = useState('');
   const [tituloDoc, setTituloDoc] = useState('');
-  const [arquivoDoc, setArquivoDoc] = useState<File | null>(null);
+  const [arquivosDoc, setArquivosDoc] = useState<File[]>([]);
   const [modalDoc, setModalDoc] = useState<FrotaDocumento | null>(null);
   const [excluindoDoc, setExcluindoDoc] = useState<number | null>(null);
+  const inputFileRef = useRef<HTMLInputElement>(null);
 
   const onDocumentosChangeRef = useRef(onDocumentosChange);
   const onSalvandoChangeRef = useRef(onSalvandoChange);
@@ -101,7 +119,7 @@ export default function FrotaVeiculoDocumentosPanel({
   onSalvandoChangeRef.current = onSalvandoChange;
   onPodeAnexarChangeRef.current = onPodeAnexarChange;
 
-  const podeAnexar = Boolean(tipoDoc && tituloDoc.trim() && arquivoDoc);
+  const podeAnexar = Boolean(tipoDoc && tituloDoc.trim() && arquivosDoc.length > 0);
 
   useEffect(() => {
     onSalvandoChangeRef.current?.(salvando);
@@ -134,6 +152,30 @@ export default function FrotaVeiculoDocumentosPanel({
     if (idVeiculo) carregar();
   }, [idVeiculo, carregar]);
 
+  function aoMudarTipo(tipo: string) {
+    setTipoDoc(tipo);
+    if (!tituloDoc.trim() || Object.values(TITULO_PADRAO).includes(tituloDoc.trim())) {
+      setTituloDoc(TITULO_PADRAO[tipo] || '');
+    }
+  }
+
+  function aoSelecionarArquivos(lista: FileList | null) {
+    if (!lista?.length) return;
+    const novos = Array.from(lista);
+    setArquivosDoc((atual) => {
+      const juntos = [...atual, ...novos].slice(0, MAX_ARQUIVOS_DOC);
+      if (atual.length + novos.length > MAX_ARQUIVOS_DOC) {
+        showToast(`Máximo de ${MAX_ARQUIVOS_DOC} arquivos por envio`, 'warning');
+      }
+      return juntos;
+    });
+    if (inputFileRef.current) inputFileRef.current.value = '';
+  }
+
+  function removerArquivo(idx: number) {
+    setArquivosDoc((atual) => atual.filter((_, i) => i !== idx));
+  }
+
   async function excluirDocumento(doc: FrotaDocumento, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -165,8 +207,8 @@ export default function FrotaVeiculoDocumentosPanel({
       showToast('Informe o título do documento', 'warning');
       return;
     }
-    if (!arquivoDoc) {
-      showToast('Selecione um arquivo (imagem ou PDF)', 'warning');
+    if (!arquivosDoc.length) {
+      showToast('Selecione ao menos um arquivo (imagem ou PDF)', 'warning');
       return;
     }
     setSalvando(true);
@@ -174,12 +216,15 @@ export default function FrotaVeiculoDocumentosPanel({
       const fd = new FormData();
       fd.append('tipo', tipoDoc);
       fd.append('titulo', tituloDoc.trim());
-      fd.append('arquivo', arquivoDoc, arquivoDoc.name);
-      await api.frotaEnviarDocumento(idVeiculo, fd);
+      for (const arq of arquivosDoc) {
+        fd.append('arquivo', arq, arq.name);
+      }
+      const r = await api.frotaEnviarDocumento(idVeiculo, fd);
+      const qtd = (r as { qtd?: number })?.qtd ?? arquivosDoc.length;
       setTipoDoc('');
       setTituloDoc('');
-      setArquivoDoc(null);
-      showToast('Documento adicionado com sucesso!');
+      setArquivosDoc([]);
+      showToast(qtd > 1 ? `${qtd} documentos adicionados!` : 'Documento adicionado com sucesso!');
       carregar();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Erro ao enviar documento', 'error');
@@ -198,18 +243,12 @@ export default function FrotaVeiculoDocumentosPanel({
 
   if (loading) return <LinearProgress sx={{ my: 2 }} />;
 
-  const iconeArquivo =
-    arquivoDoc?.type === 'application/pdf' ? (
-      <InsertDriveFileOutlinedIcon sx={{ fontSize: 32, color: colors.navy }} />
-    ) : (
-      <ImageOutlinedIcon sx={{ fontSize: 32, color: colors.navy }} />
-    );
-
   return (
     <Box>
       {documentos.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Nenhum documento cadastrado.
+          Nenhum documento cadastrado. Você pode anexar CNH, CRLV e até {MAX_ARQUIVOS_DOC} fotos do
+          veículo.
         </Typography>
       ) : (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2.5 }}>
@@ -252,10 +291,22 @@ export default function FrotaVeiculoDocumentosPanel({
                 <CloseIcon sx={{ fontSize: 14 }} />
               </IconButton>
               <DocumentoIconePequeno mime={d.tipo_mime} />
+              <Chip
+                label={labelTipo(d.tipo)}
+                size="small"
+                sx={{
+                  mt: 0.75,
+                  height: 18,
+                  fontSize: '0.62rem',
+                  fontWeight: 600,
+                  maxWidth: '100%',
+                  '& .MuiChip-label': { px: 0.75, overflow: 'hidden', textOverflow: 'ellipsis' },
+                }}
+              />
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ display: 'block', mt: 0.75, lineHeight: 1.25, fontSize: '0.68rem' }}
+                sx={{ display: 'block', mt: 0.5, lineHeight: 1.25, fontSize: '0.68rem' }}
               >
                 {formatDataHoraBrasilia(d.created_at)}
               </Typography>
@@ -295,7 +346,7 @@ export default function FrotaVeiculoDocumentosPanel({
             label="Tipo de documento"
             size="small"
             value={tipoDoc}
-            onChange={(e) => setTipoDoc(e.target.value)}
+            onChange={(e) => aoMudarTipo(e.target.value)}
             slotProps={{
               inputLabel: labelFixo.inputLabel,
               select: {
@@ -344,9 +395,9 @@ export default function FrotaVeiculoDocumentosPanel({
             gap: 2,
             p: 2,
             border: '2px dashed',
-            borderColor: arquivoDoc ? colors.navy : 'rgba(27, 42, 107, 0.2)',
+            borderColor: arquivosDoc.length ? colors.navy : 'rgba(27, 42, 107, 0.2)',
             borderRadius: 2,
-            bgcolor: arquivoDoc ? 'rgba(27, 42, 107, 0.04)' : 'rgba(27, 42, 107, 0.02)',
+            bgcolor: arquivosDoc.length ? 'rgba(27, 42, 107, 0.04)' : 'rgba(27, 42, 107, 0.02)',
             cursor: 'pointer',
             transition: 'border-color 0.2s, background-color 0.2s, box-shadow 0.2s',
             '&:hover': {
@@ -357,10 +408,12 @@ export default function FrotaVeiculoDocumentosPanel({
           }}
         >
           <input
+            ref={inputFileRef}
             type="file"
             hidden
+            multiple
             accept="image/*,application/pdf"
-            onChange={(e) => setArquivoDoc(e.target.files?.[0] || null)}
+            onChange={(e) => aoSelecionarArquivos(e.target.files)}
           />
           <Box
             sx={{
@@ -375,38 +428,69 @@ export default function FrotaVeiculoDocumentosPanel({
               flexShrink: 0,
             }}
           >
-            {arquivoDoc ? iconeArquivo : <CloudUploadOutlinedIcon sx={{ fontSize: 28, color: colors.navy }} />}
+            {arquivosDoc.length ? (
+              arquivosDoc[0].type === 'application/pdf' ? (
+                <InsertDriveFileOutlinedIcon sx={{ fontSize: 32, color: colors.navy }} />
+              ) : (
+                <ImageOutlinedIcon sx={{ fontSize: 32, color: colors.navy }} />
+              )
+            ) : (
+              <CloudUploadOutlinedIcon sx={{ fontSize: 28, color: colors.navy }} />
+            )}
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" sx={{ fontWeight: 600, color: colors.navy }}>
-              {arquivoDoc ? 'Arquivo selecionado' : 'Selecionar arquivo ou imagem'}
+              {arquivosDoc.length
+                ? `${arquivosDoc.length} arquivo${arquivosDoc.length > 1 ? 's' : ''} selecionado${arquivosDoc.length > 1 ? 's' : ''}`
+                : 'Selecionar arquivos ou imagens'}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              {arquivoDoc
-                ? arquivoDoc.name
-                : 'Clique para escolher imagem (JPG, PNG…) ou PDF · máx. 12 MB'}
+              CNH, CRLV, fotos do veículo (até {MAX_ARQUIVOS_DOC} de uma vez) · JPG, PNG ou PDF · máx. 12 MB
+              cada
             </Typography>
           </Box>
-          {arquivoDoc && (
-            <IconButton
-              size="small"
-              aria-label="Remover arquivo"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setArquivoDoc(null);
-              }}
-              sx={{ flexShrink: 0 }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          )}
         </Box>
+
+        {arquivosDoc.length > 0 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+            {arquivosDoc.map((arq, idx) => (
+              <Box
+                key={`${arq.name}-${idx}`}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 1.25,
+                  py: 0.75,
+                  borderRadius: 1,
+                  bgcolor: 'rgba(27, 42, 107, 0.04)',
+                  border: '1px solid rgba(27, 42, 107, 0.08)',
+                }}
+              >
+                {arq.type === 'application/pdf' ? (
+                  <InsertDriveFileOutlinedIcon sx={{ fontSize: 18, color: colors.navy }} />
+                ) : (
+                  <ImageOutlinedIcon sx={{ fontSize: 18, color: colors.navy }} />
+                )}
+                <Typography variant="caption" sx={{ flex: 1, minWidth: 0 }} noWrap title={arq.name}>
+                  {arq.name}
+                </Typography>
+                <IconButton size="small" aria-label="Remover arquivo" onClick={() => removerArquivo(idx)}>
+                  <CloseIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Box>
+            ))}
+          </Box>
+        )}
 
         {!anexarNoRodape && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button type="submit" variant="contained" size="small" disabled={salvando || !podeAnexar}>
-              {salvando ? 'Enviando…' : 'Anexar documento'}
+              {salvando
+                ? 'Enviando…'
+                : arquivosDoc.length > 1
+                  ? `Anexar ${arquivosDoc.length} arquivos`
+                  : 'Anexar documento'}
             </Button>
           </Box>
         )}
