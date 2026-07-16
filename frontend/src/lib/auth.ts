@@ -159,6 +159,11 @@ export function podeVerVisitasMobile(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('portal.visitas.ver', usuario);
 }
 
+/** Apagar relatórios/visitas de checklist (portal). */
+export function podeApagarVisitas(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('portal.visitas.apagar', usuario);
+}
+
 /** Configurações → aba Perguntas (somente esta permissão habilita a aba). */
 export function podeGerenciarChecklistPerguntas(usuario?: UsuarioSessao | null): boolean {
   return (

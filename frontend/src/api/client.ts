@@ -201,6 +201,8 @@ export const api = {
     return request<VisitaResumo[]>(`/visitas${s ? `?${s}` : ''}`);
   },
   visita: (id: number) => request<VisitaDetalhe>(`/visitas/${id}`),
+  apagarVisita: (id: number) =>
+    request<{ ok: boolean; id_visita: number }>(`/visitas/${id}`, { method: 'DELETE' }),
   criarVisita: (body: {
     id_loja: number;
     id_usuario: number;

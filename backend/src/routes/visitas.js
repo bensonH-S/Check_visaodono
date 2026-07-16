@@ -16,8 +16,10 @@ import { auditar } from '../auditoriaHelpers.js';
 import { gerarNcsFromVisita } from '../naoConformidadesChecklist.js';
 import { processarVisitaTimeCampoReprovada } from '../services/timeCampoNotificacoes.js';
 import { processarEnvioRelatorioVisita } from '../services/visitaRelatorioEmail.js';
+import { requirePermissao } from '../permissoes.js';
 
 const router = Router();
+const requireApagarVisita = requirePermissao('portal.visitas.apagar');
 
 /** Garante data_visita como YYYY-MM-DD (evita ISO UTC no JSON). */
 function dataVisitaIso(val) {
@@ -416,6 +418,60 @@ router.patch('/:id/finalizar', async (req, res, next) => {
     next(e);
   } finally {
     client.release();
+  }
+});
+
+/** Apaga visita/relatório (respostas em CASCADE; NCs e histórico limpos). */
+router.delete('/:id', requireApagarVisita, async (req, res, next) => {
+  try {
+    const idVisita = Number(req.params.id);
+    if (!Number.isFinite(idVisita) || idVisita <= 0) {
+      return res.status(400).json({ error: 'Visita inválida' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT v.id_visita, v.id_loja, v.status, v.data_visita, v.nota_final,
+              l.name AS nome_loja, u.nome AS nome_usuario
+       FROM visitas v
+       JOIN lojas l ON l.id_loja = v.id_loja
+       JOIN usuarios u ON u.id_usuario = v.id_usuario
+       WHERE v.id_visita = $1`,
+      [idVisita],
+    );
+    const visita = rows[0];
+    if (!visita) return res.status(404).json({ error: 'Visita não encontrada' });
+    if (!usuarioPodeLoja(req.user, visita.id_loja)) {
+      return res.status(403).json({ error: 'Acesso negado a esta loja' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`DELETE FROM nao_conformidades WHERE id_visita = $1`, [idVisita]);
+      await client.query(`DELETE FROM historico_notas WHERE id_visita = $1`, [idVisita]);
+      const del = await client.query(`DELETE FROM visitas WHERE id_visita = $1 RETURNING id_visita`, [
+        idVisita,
+      ]);
+      await client.query('COMMIT');
+      if (!del.rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    await auditar(req, {
+      modulo: 'visitas',
+      acao: 'excluir',
+      entidade: 'visita',
+      idReferencia: idVisita,
+      descricao: `Apagou relatório/visita #${idVisita} (${visita.nome_loja}, ${visita.status}, auditor ${visita.nome_usuario})`,
+    });
+
+    res.json({ ok: true, id_visita: idVisita });
+  } catch (e) {
+    next(e);
   }
 });
 

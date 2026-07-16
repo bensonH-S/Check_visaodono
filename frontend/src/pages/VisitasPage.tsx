@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
@@ -12,6 +12,12 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
+import IconButton from '@mui/material/IconButton';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Tooltip from '@mui/material/Tooltip';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
@@ -20,10 +26,13 @@ import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import IconeMenuTresTracos from '../components/IconeMenuTresTracos';
 import EscalaMinhaSemanaCard from '../components/escalas/EscalaMinhaSemanaCard';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
+import { getUsuario, podeApagarVisitas } from '../lib/auth';
+import { showToast } from '../utils/toast';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
 import { colors } from '../theme/tokens';
 import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../theme/safeArea';
@@ -162,7 +171,17 @@ function VisitaLinhaMobile({
   );
 }
 
-function VisitaCardMobile({ visita: v, checklistBase }: { visita: VisitaResumo; checklistBase: string }) {
+function VisitaCardMobile({
+  visita: v,
+  checklistBase,
+  podeApagar,
+  onApagar,
+}: {
+  visita: VisitaResumo;
+  checklistBase: string;
+  podeApagar?: boolean;
+  onApagar?: (v: VisitaResumo) => void;
+}) {
   const accent = statusAccent(v.status);
   const emRascunho = v.status === 'Rascunho';
   const destino = emRascunho
@@ -170,12 +189,9 @@ function VisitaCardMobile({ visita: v, checklistBase }: { visita: VisitaResumo; 
     : `/relatorio/visita/${v.id_visita}`;
   return (
     <Paper
-      component={Link}
-      to={destino}
       elevation={0}
       sx={{
         display: 'flex',
-        textDecoration: 'none',
         color: 'inherit',
         borderRadius: 2,
         border: '1px solid',
@@ -184,11 +200,21 @@ function VisitaCardMobile({ visita: v, checklistBase }: { visita: VisitaResumo; 
         boxShadow: '0 1px 3px rgba(27, 42, 107, 0.06)',
         overflow: 'hidden',
         flexShrink: 0,
-        '&:active': { bgcolor: 'rgba(27, 42, 107, 0.04)' },
       }}
     >
       <Box aria-hidden sx={{ width: 4, flexShrink: 0, bgcolor: accent }} />
-      <Box sx={{ flex: 1, minWidth: 0, p: 1.5 }}>
+      <Box
+        component={Link}
+        to={destino}
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          p: 1.5,
+          textDecoration: 'none',
+          color: 'inherit',
+          '&:active': { bgcolor: 'rgba(27, 42, 107, 0.04)' },
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.25 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy, lineHeight: 1.3 }}>
@@ -259,6 +285,22 @@ function VisitaCardMobile({ visita: v, checklistBase }: { visita: VisitaResumo; 
           <ChevronRightIcon sx={{ fontSize: 20, color: colors.textMuted }} />
         </Box>
       </Box>
+      {podeApagar && onApagar && (
+        <Box sx={{ display: 'flex', alignItems: 'center', pr: 0.75 }}>
+          <IconButton
+            size="small"
+            aria-label="Apagar relatório"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onApagar(v);
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <DeleteOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
     </Paper>
   );
 }
@@ -341,24 +383,47 @@ export default function VisitasPage() {
   const checklistBase = checklistBasePath(location.pathname);
   const isMobileApp = location.pathname.includes('/mobile');
   const isMobile = useMediaQuery(theme.breakpoints.down('md')) || isMobileApp;
+  const podeApagar = podeApagarVisitas(getUsuario());
   const [visitas, setVisitas] = useState<VisitaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [modoLista, setModoLista] = useState(false);
+  const [apagarAlvo, setApagarAlvo] = useState<VisitaResumo | null>(null);
+  const [apagando, setApagando] = useState(false);
 
-  useEffect(() => {
+  const carregar = useCallback(() => {
+    setLoading(true);
     api
       .visitas()
       .then(setVisitas)
-      .catch((e) => setErr(e.message))
+      .catch((e) => setErr(e instanceof Error ? e.message : 'Erro ao carregar'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
 
   const visitasFiltradas = useMemo(
     () => (filtroStatus ? visitas.filter((v) => v.status === filtroStatus) : visitas),
     [visitas, filtroStatus],
   );
+
+  async function confirmarApagar() {
+    if (!apagarAlvo) return;
+    setApagando(true);
+    try {
+      await api.apagarVisita(apagarAlvo.id_visita);
+      setVisitas((lista) => lista.filter((v) => v.id_visita !== apagarAlvo.id_visita));
+      showToast('Relatório apagado', 'success');
+      setApagarAlvo(null);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao apagar', 'error');
+    } finally {
+      setApagando(false);
+    }
+  }
 
   if (loading) return <LinearProgress />;
 
@@ -482,7 +547,13 @@ export default function VisitasPage() {
             ) : (
               <>
                 {visitasFiltradas.map((v) => (
-                  <VisitaCardMobile key={v.id_visita} visita={v} checklistBase={checklistBase} />
+                  <VisitaCardMobile
+                    key={v.id_visita}
+                    visita={v}
+                    checklistBase={checklistBase}
+                    podeApagar={podeApagar}
+                    onApagar={setApagarAlvo}
+                  />
                 ))}
                 {!visitasFiltradas.length && (
                   <Paper
@@ -529,7 +600,13 @@ export default function VisitasPage() {
           }}
         >
           {visitasFiltradas.map((v) => (
-            <VisitaCardMobile key={v.id_visita} visita={v} checklistBase={checklistBase} />
+            <VisitaCardMobile
+              key={v.id_visita}
+              visita={v}
+              checklistBase={checklistBase}
+              podeApagar={podeApagar}
+              onApagar={setApagarAlvo}
+            />
           ))}
           {!visitasFiltradas.length && (
             <Paper
@@ -559,7 +636,7 @@ export default function VisitasPage() {
                   <TableCell>Usuário</TableCell>
                   <TableCell align="center">Nota</TableCell>
                   <TableCell align="center">Status</TableCell>
-                  <TableCell align="center" width={88} />
+                  <TableCell align="center" width={podeApagar ? 140 : 88} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -575,21 +652,35 @@ export default function VisitasPage() {
                     <TableCell align="center">{notaChip(v.nota_final)}</TableCell>
                     <TableCell align="center">{statusChip(v.status)}</TableCell>
                     <TableCell align="center">
-                      {v.status === 'Rascunho' ? (
-                        <Button
-                          component={Link}
-                          to={`${checklistBase}?visita=${v.id_visita}`}
-                          size="small"
-                          color="warning"
-                          startIcon={<PlayArrowIcon />}
-                        >
-                          Continuar
-                        </Button>
-                      ) : (
-                        <Button component={Link} to={`/relatorio/visita/${v.id_visita}`} size="small">
-                          Ver
-                        </Button>
-                      )}
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                        {v.status === 'Rascunho' ? (
+                          <Button
+                            component={Link}
+                            to={`${checklistBase}?visita=${v.id_visita}`}
+                            size="small"
+                            color="warning"
+                            startIcon={<PlayArrowIcon />}
+                          >
+                            Continuar
+                          </Button>
+                        ) : (
+                          <Button component={Link} to={`/relatorio/visita/${v.id_visita}`} size="small">
+                            Ver
+                          </Button>
+                        )}
+                        {podeApagar && (
+                          <Tooltip title="Apagar relatório">
+                            <IconButton
+                              size="small"
+                              aria-label="Apagar relatório"
+                              onClick={() => setApagarAlvo(v)}
+                              sx={{ color: 'error.main' }}
+                            >
+                              <DeleteOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -607,6 +698,31 @@ export default function VisitasPage() {
       )}
         </>
       )}
+
+      <Dialog open={!!apagarAlvo} onClose={() => !apagando && setApagarAlvo(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Apagar relatório?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Isso remove permanentemente a visita
+            {apagarAlvo ? (
+              <>
+                {' '}
+                de <strong>{apagarAlvo.name}</strong> ({fmtData(apagarAlvo.data_visita)},{' '}
+                {apagarAlvo.nome_usuario})
+              </>
+            ) : null}
+            . Não dá para desfazer.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApagarAlvo(null)} disabled={apagando}>
+            Cancelar
+          </Button>
+          <Button color="error" variant="contained" onClick={() => void confirmarApagar()} disabled={apagando}>
+            {apagando ? 'Apagando…' : 'Apagar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

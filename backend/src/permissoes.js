@@ -3,6 +3,7 @@ import { pool } from './db.js';
 export const CATALOGO_PERMISSOES = [
   { codigo: 'portal.dashboard.ver', nome: 'Ver dashboard (início, ranking e NCs)', grupo: 'Início', ordem: 10 },
   { codigo: 'portal.visitas.ver', nome: 'Ver histórico de visitas', grupo: 'Visitas', ordem: 20 },
+  { codigo: 'portal.visitas.apagar', nome: 'Apagar relatórios de visitas', grupo: 'Visitas', ordem: 21 },
   { codigo: 'checklist.ver', nome: 'Acessar checklist em loja', grupo: 'Checklist', ordem: 26 },
   { codigo: 'checklist.executar', nome: 'Executar checklist e registrar visita', grupo: 'Checklist', ordem: 28 },
   { codigo: 'configuracoes.perguntas', nome: 'Perguntas do checklist', grupo: 'Configurações', ordem: 68 },
