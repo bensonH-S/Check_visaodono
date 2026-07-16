@@ -217,7 +217,7 @@ export function ehTecnicoCampoMobile(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('chamados.assumir', u);
 }
 
-/** Técnico de frota no app: só Mapa e Abastecimento (atribuição pelo portal). */
+/** Técnico de frota no app: Mapa, Combustível e Manutenção (atribuição pelo portal). */
 export function modoAppTecnicoFrotaRestrito(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;

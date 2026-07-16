@@ -425,6 +425,8 @@ export const api = {
     return res.json();
   },
   frotaResumo: () => request<FrotaResumoMobile>('/frota/mobile/resumo'),
+  frotaAbastecimentosMobile: () =>
+    request<FrotaAbastecimentoMobile[]>('/frota/mobile/abastecimentos'),
   frotaVeiculos: () => request<FrotaVeiculo[]>('/frota/veiculos'),
   frotaAssuncoes: () => request<FrotaAssuncao[]>('/frota/assuncoes'),
   frotaAbastecimentosPortal: () => request<FrotaAbastecimentoPortal[]>('/frota/abastecimentos'),
@@ -1038,6 +1040,11 @@ export interface FrotaAbastecimentoResumo {
   valor_abastecido: number;
   data_abastecimento: string;
   comprovante_url: string | null;
+}
+
+export interface FrotaAbastecimentoMobile extends FrotaAbastecimentoResumo {
+  id_veiculo: number;
+  placa: string;
 }
 
 export interface FrotaAssuncao {

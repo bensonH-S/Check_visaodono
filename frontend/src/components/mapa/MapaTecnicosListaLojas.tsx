@@ -14,6 +14,7 @@ import MapaFiltroTrajetoCalendario from './MapaFiltroTrajetoCalendario';
 import MapaFiltroTrajetoVeiculo from './MapaFiltroTrajetoVeiculo';
 import { colors } from '../../theme/tokens';
 import { rotuloRegiaoMapa } from '../../utils/mapaGeo';
+import { getUsuario, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
 
 export default function MapaTecnicosListaLojas() {
   const {
@@ -37,6 +38,7 @@ export default function MapaTecnicosListaLojas() {
 
   const hoje = dayjs().format('YYYY-MM-DD');
   const telefonePequeno = useMediaQuery('(max-width:400px)');
+  const modoRestrito = modoAppTecnicoFrotaRestrito(getUsuario());
 
   const regiaoAtiva = useMemo(
     () => regioes.find((r) => Number(r.id_regiao) === Number(regiaoFiltro)) ?? null,
@@ -57,6 +59,73 @@ export default function MapaTecnicosListaLojas() {
     selecionandoPeriodoTrajeto ||
     dataTrajetoInicio !== hoje ||
     dataTrajetoFim !== hoje;
+
+  if (modoRestrito) {
+    return (
+      <Box
+        sx={{
+          mb: 1,
+          px: 1.5,
+          py: 1.1,
+          borderRadius: 2.5,
+          bgcolor: '#fff',
+          boxShadow: '0 2px 14px rgba(27, 42, 107, 0.08)',
+          border: '1px solid rgba(27, 42, 107, 0.07)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.25,
+        }}
+      >
+        <Box
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: 2,
+            bgcolor: 'rgba(232, 82, 10, 0.1)',
+            color: colors.orange,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <MapOutlinedIcon sx={{ fontSize: 20 }} />
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography sx={{ fontWeight: 800, color: colors.navy, fontSize: '0.9rem', lineHeight: 1.2 }}>
+            Mapa ao vivo
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
+            {[nomeRegiaoExibido, `${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'}`]
+              .filter(Boolean)
+              .join(' · ')}
+          </Typography>
+        </Box>
+        {nomeRegiaoExibido && (
+          <Box
+            sx={{
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1,
+              py: 0.5,
+              borderRadius: 999,
+              bgcolor: 'rgba(27, 42, 107, 0.06)',
+            }}
+          >
+            <LocationOnOutlinedIcon sx={{ fontSize: 14, color: colors.orange }} />
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 700, color: colors.navy, whiteSpace: 'nowrap', maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >
+              {nomeRegiaoExibido}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+    );
+  }
 
   return (
     <Box

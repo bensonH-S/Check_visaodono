@@ -299,7 +299,7 @@ router.get('/mobile/resumo', requirePermissao('frota.usar', 'frota.gerenciar'), 
                     a.id_anexo_comprovante
              FROM frota_abastecimentos a
              WHERE a.id_veiculo = $1
-             ORDER BY a.data_abastecimento DESC LIMIT 5`,
+             ORDER BY a.data_abastecimento DESC LIMIT 10`,
             [veiculo.id_veiculo],
           )
         ).rows.map((a) => ({
@@ -318,6 +318,41 @@ router.get('/mobile/resumo', requirePermissao('frota.usar', 'frota.gerenciar'), 
       },
       abastecimentos,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Histórico mobile: abastecimentos do técnico (e do veículo atual, se houver). */
+router.get('/mobile/abastecimentos', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idUsuario = req.user.sub;
+    const veiculo = await veiculoDoUsuario(idUsuario);
+    const idVeiculo = veiculo?.id_veiculo ?? null;
+
+    const { rows } = await pool.query(
+      `SELECT a.id_abastecimento, a.id_veiculo, a.km_atual, a.valor_abastecido,
+              a.data_abastecimento, a.id_anexo_comprovante, v.placa
+       FROM frota_abastecimentos a
+       JOIN frota_veiculos v ON v.id_veiculo = a.id_veiculo
+       WHERE a.id_usuario = $1
+          OR ($2::int IS NOT NULL AND a.id_veiculo = $2)
+       ORDER BY a.data_abastecimento DESC
+       LIMIT 50`,
+      [idUsuario, idVeiculo],
+    );
+
+    res.json(
+      rows.map((a) => ({
+        id_abastecimento: a.id_abastecimento,
+        id_veiculo: a.id_veiculo,
+        placa: a.placa,
+        km_atual: Number(a.km_atual),
+        valor_abastecido: Number(a.valor_abastecido),
+        data_abastecimento: a.data_abastecimento,
+        comprovante_url: a.id_anexo_comprovante ? midiaUrlFrota(a.id_anexo_comprovante) : null,
+      })),
+    );
   } catch (e) {
     next(e);
   }

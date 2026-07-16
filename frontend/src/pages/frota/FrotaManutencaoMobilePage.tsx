@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -23,7 +22,6 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 export default function FrotaManutencaoMobilePage() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [veiculo, setVeiculo] = useState<FrotaVeiculo | null>(null);
   const [descricao, setDescricao] = useState('');
@@ -40,18 +38,13 @@ export default function FrotaManutencaoMobilePage() {
     api
       .frotaResumo()
       .then((r) => {
-        if (!r.veiculo) {
-          navigate('/frota/mobile', { replace: true });
-          return;
-        }
         setVeiculo(r.veiculo);
       })
       .catch((e) => {
         setErro(e instanceof Error ? e.message : 'Erro ao carregar');
-        navigate('/frota/mobile', { replace: true });
       })
       .finally(() => setLoading(false));
-  }, [navigate]);
+  }, []);
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
@@ -88,7 +81,6 @@ export default function FrotaManutencaoMobilePage() {
       setValor('');
       setDataManutencao(dataHojeIso());
       setFotos([]);
-      setTimeout(() => navigate('/frota/mobile', { replace: true }), 1200);
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {

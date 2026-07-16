@@ -119,7 +119,9 @@ export default function FrotaMobileHubPage() {
       : 'Assuma um veículo para registrar abastecimento';
   const msgManutencao = temVeiculo
     ? 'Registrar serviços, descrição do que foi feito e fatura'
-    : 'Assuma um veículo para registrar manutenção';
+    : modoRestrito
+      ? 'Aguarde a atribuição do veículo no portal'
+      : 'Assuma um veículo para registrar manutenção';
 
   if (loading) return <LinearProgress sx={{ mt: 1 }} />;
 
@@ -179,15 +181,13 @@ export default function FrotaMobileHubPage() {
           onClick={() => navigate('/frota/mobile/veiculo')}
         />
       )}
-      {!modoRestrito && (
-        <CardOpcao
-          titulo="Manutenção do veículo"
-          descricao={msgManutencao}
-          icon={<BuildIcon />}
-          onClick={() => navigate('/frota/mobile/manutencao')}
-          disabled={!temVeiculo}
-        />
-      )}
+      <CardOpcao
+        titulo="Manutenção do veículo"
+        descricao={msgManutencao}
+        icon={<BuildIcon />}
+        onClick={() => navigate('/frota/mobile/manutencao')}
+        disabled={!temVeiculo}
+      />
 
       {!!resumo?.abastecimentos.length && (
         <Box sx={{ mt: 2 }}>

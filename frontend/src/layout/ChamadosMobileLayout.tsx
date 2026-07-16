@@ -27,6 +27,7 @@ import { MapaTecnicosMobileProvider } from '../pages/mapa/MapaTecnicosMobileCont
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
+import BuildIcon from '@mui/icons-material/Build';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
@@ -241,7 +242,8 @@ function ChamadosMobileLayoutInner() {
   const isMapa = path === '/mapa/mobile';
   const modoRestrito = !!(user && modoAppTecnicoFrotaRestrito(user));
   const frotaAbaPrincipalRestrito =
-    modoRestrito && path.startsWith('/frota/mobile/abastecimento');
+    modoRestrito &&
+    (path.startsWith('/frota/mobile/abastecimento') || path.startsWith('/frota/mobile/manutencao'));
   const isFrotaSub = isFrota && path !== '/frota/mobile' && !frotaAbaPrincipalRestrito;
   const isVisitas = path === '/visitas/mobile';
   const isEscalaVisitas = path === '/escalas/visitas/mobile';
@@ -298,8 +300,14 @@ function ChamadosMobileLayoutInner() {
           },
           {
             to: '/frota/mobile/abastecimento',
-            label: 'Abastec.',
+            label: 'Combustível',
             icon: <LocalGasStationIcon fontSize="small" />,
+            show: !!podeFrota,
+          },
+          {
+            to: '/frota/mobile/manutencao',
+            label: 'Manutenção',
+            icon: <BuildIcon fontSize="small" />,
             show: !!podeFrota,
           },
         ]
@@ -372,13 +380,13 @@ function ChamadosMobileLayoutInner() {
             ? 'Mapa da Frota'
           : isRelatorio
             ? 'Relatório da visita'
-          : isFrotaSub
+          : isFrotaSub || frotaAbaPrincipalRestrito
             ? path.includes('abastecimento')
-              ? 'Abastecimento'
+              ? 'Combustível'
               : path.includes('termo')
                 ? 'Termo de ferramentas'
                 : path.includes('manutencao')
-                  ? 'Manutenção do veículo'
+                  ? 'Manutenção'
                   : 'Veículo'
             : isFrota
               ? 'Frota'
@@ -430,7 +438,8 @@ function ChamadosMobileLayoutInner() {
     const permitido =
       path.startsWith('/mapa/mobile') ||
       path === '/frota/mobile' ||
-      path.startsWith('/frota/mobile/abastecimento');
+      path.startsWith('/frota/mobile/abastecimento') ||
+      path.startsWith('/frota/mobile/manutencao');
     if (!permitido) {
       navigate('/mapa/mobile', { replace: true });
     }
@@ -643,6 +652,7 @@ function ChamadosMobileLayoutInner() {
               const abaChamados = item.to === '/chamados/mobile';
               const abaFrota = item.to === '/frota/mobile';
               const abaAbastecimento = item.to === '/frota/mobile/abastecimento';
+              const abaManutencao = item.to === '/frota/mobile/manutencao';
               const abaVisitas = item.to === '/visitas/mobile';
               const abaNc = item.to === '/nc/mobile';
               const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc;
@@ -662,18 +672,21 @@ function ChamadosMobileLayoutInner() {
                         ? isFrota
                         : abaAbastecimento
                           ? path.startsWith('/frota/mobile/abastecimento')
-                          : abaVisitas
-                            ? isVisitas || isRelatorio
-                            : isActive;
+                          : abaManutencao
+                            ? path.startsWith('/frota/mobile/manutencao')
+                            : abaVisitas
+                              ? isVisitas || isRelatorio
+                              : isActive;
                   return (
                   <Box
                     sx={{
                       ...mobileTabBarItemSx(TAB_NAV_H),
                       color: ativa ? ORANGE : 'text.secondary',
-                      fontSize: '0.625rem',
+                      fontSize: modoRestrito ? '0.7rem' : '0.625rem',
                       fontWeight: ativa ? 700 : 500,
+                      gap: modoRestrito ? 0.35 : 0,
                       '& .MuiSvgIcon-root': {
-                        fontSize: 22,
+                        fontSize: modoRestrito ? 24 : 22,
                         mb: 0.25,
                         color: ativa ? ORANGE : 'inherit',
                       },

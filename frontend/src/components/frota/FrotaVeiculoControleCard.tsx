@@ -107,7 +107,7 @@ export default function FrotaVeiculoControleCard({
             variant="overline"
             sx={{ color: 'text.secondary', letterSpacing: '0.08em', lineHeight: 1.2, display: 'block' }}
           >
-            Veículo sob seu controle
+            {exibeDevolucao ? 'Veículo sob seu controle' : 'Seu veículo'}
           </Typography>
           <Typography sx={{ fontWeight: 800, color: NAVY, fontSize: '1.05rem', lineHeight: 1.3, mt: 0.25 }}>
             {rotuloVeiculoLista(veiculo)}
