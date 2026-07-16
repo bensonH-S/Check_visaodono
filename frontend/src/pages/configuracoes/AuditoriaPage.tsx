@@ -195,12 +195,14 @@ export default function AuditoriaPage() {
           placeholder="Arquivo, placa, chamado, pessoa…"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+                </InputAdornment>
+              ),
+            },
           }}
         />
       </Box>

@@ -131,7 +131,6 @@ export default function FrotaOperacaoPage() {
   const [atribuirVeiculo, setAtribuirVeiculo] = useState<FrotaVeiculo | null>(null);
   const [atribuirUsuario, setAtribuirUsuario] = useState<Usuario | null>(null);
   const [atribuirKm, setAtribuirKm] = useState('');
-  const [atribuirKmAtual, setAtribuirKmAtual] = useState('');
   const [atribuirSalvando, setAtribuirSalvando] = useState(false);
   const [atribuirErro, setAtribuirErro] = useState('');
   const [kmAtribOpen, setKmAtribOpen] = useState(false);
@@ -302,7 +301,6 @@ export default function FrotaOperacaoPage() {
           ? String(v.km_atual)
           : '',
     );
-    setAtribuirKmAtual(v.km_atual != null ? String(v.km_atual) : '');
     setAtribuirErro('');
     setAtribuirOpen(true);
   }
