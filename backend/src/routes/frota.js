@@ -40,6 +40,12 @@ import {
   enriquecerRotasComTecnicoExcesso,
   listarAssuncoesVeiculoPeriodo,
 } from '../services/frotaAssuncaoHistorico.js';
+import {
+  encontrarDocumentoDisco,
+  lerDocumentoDisco,
+  removerDocumentoDisco,
+  salvarDocumentoDisco,
+} from '../frotaDocumentoArquivo.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -1669,17 +1675,26 @@ router.post(
 
       let idAnexo = null;
       if (req.file) {
+        const idDocumento = docInsert[0].id_documento;
         const anexo = await salvarAnexo({
           contexto: 'documento',
-          idReferencia: docInsert[0].id_documento,
+          idReferencia: idDocumento,
           idUsuario,
           file: req.file,
         });
         idAnexo = anexo.id_anexo;
         await pool.query(`UPDATE frota_documentos SET id_anexo = $1 WHERE id_documento = $2`, [
           idAnexo,
-          docInsert[0].id_documento,
+          idDocumento,
         ]);
+        // Cópia em disco (além do BYTEA criptografado no banco)
+        salvarDocumentoDisco({
+          idVeiculo,
+          idDocumento,
+          idAnexo,
+          nomeArquivo: req.file.originalname || 'documento.pdf',
+          buffer: req.file.buffer,
+        });
       }
 
       await auditar(req, {
@@ -1728,6 +1743,11 @@ router.delete(
       if (!rows[0]) return res.status(404).json({ error: 'Documento não encontrado' });
 
       if (rows[0].id_anexo) {
+        removerDocumentoDisco({
+          idVeiculo,
+          idDocumento,
+          idAnexo: rows[0].id_anexo,
+        });
         await pool.query(`DELETE FROM frota_anexos WHERE id_anexo = $1`, [rows[0].id_anexo]);
       }
 
@@ -1849,12 +1869,29 @@ router.get('/anexos/:idAnexo/media', requirePermissao('frota.usar', 'frota.geren
   try {
     const idAnexo = Number(req.params.idAnexo);
     const { rows } = await pool.query(
-      `SELECT arquivo_url, tipo_mime FROM frota_anexos WHERE id_anexo = $1`,
+      `SELECT a.arquivo_url, a.tipo_mime, a.contexto, a.id_referencia, a.nome_arquivo,
+              d.id_veiculo, d.id_documento
+       FROM frota_anexos a
+       LEFT JOIN frota_documentos d
+         ON a.contexto = 'documento' AND d.id_documento = a.id_referencia
+       WHERE a.id_anexo = $1`,
       [idAnexo],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Anexo não encontrado' });
 
-    const buffer = decryptAnexo(rows[0].arquivo_url);
+    let buffer = null;
+    if (rows[0].contexto === 'documento' && rows[0].id_veiculo != null) {
+      const diskPath = encontrarDocumentoDisco({
+        idVeiculo: rows[0].id_veiculo,
+        idDocumento: rows[0].id_documento,
+        idAnexo,
+      });
+      buffer = lerDocumentoDisco(diskPath);
+    }
+    if (!buffer) {
+      buffer = decryptAnexo(rows[0].arquivo_url);
+    }
+
     res.setHeader('Content-Type', rows[0].tipo_mime || 'application/octet-stream');
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.send(buffer);
