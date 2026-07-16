@@ -26,6 +26,7 @@ import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
+import PersonRemoveAlt1OutlinedIcon from '@mui/icons-material/PersonRemoveAlt1Outlined';
 import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined';
 import {
   api,
@@ -144,6 +145,11 @@ export default function FrotaOperacaoPage() {
   const [proxValor, setProxValor] = useState('');
   const [proxSalvando, setProxSalvando] = useState(false);
   const [proxErro, setProxErro] = useState('');
+  const [liberarOpen, setLiberarOpen] = useState(false);
+  const [liberarVeiculo, setLiberarVeiculo] = useState<FrotaVeiculo | null>(null);
+  const [liberarKm, setLiberarKm] = useState('');
+  const [liberarSalvando, setLiberarSalvando] = useState(false);
+  const [liberarErro, setLiberarErro] = useState('');
 
   const carregar = useCallback(() => {
     setLoading(true);
@@ -394,22 +400,39 @@ export default function FrotaOperacaoPage() {
     }
   }
 
-  async function confirmarLiberar() {
-    if (!atribuirVeiculo) return;
-    setAtribuirSalvando(true);
-    setAtribuirErro('');
+  function abrirLiberar(v: FrotaVeiculo) {
+    if (!v.id_usuario_responsavel) {
+      setErro('Este veículo já está livre');
+      return;
+    }
+    setLiberarVeiculo(v);
+    setLiberarKm(v.km_atual != null ? String(v.km_atual) : '');
+    setLiberarErro('');
+    setLiberarOpen(true);
+  }
+
+  async function confirmarLiberarVeiculo() {
+    if (!liberarVeiculo) return;
+    setLiberarSalvando(true);
+    setLiberarErro('');
     try {
-      const kmNum = (atribuirKmAtual || atribuirKm).replace(/\D/g, '');
-      await api.frotaDevolverVeiculoPortal(atribuirVeiculo.id_veiculo, {
+      const kmNum = liberarKm.replace(/\D/g, '');
+      await api.frotaDevolverVeiculoPortal(liberarVeiculo.id_veiculo, {
         ...(kmNum ? { km_atual: Number(kmNum) } : {}),
       });
+      setLiberarOpen(false);
       setAtribuirOpen(false);
       carregar();
     } catch (e) {
-      setAtribuirErro(e instanceof Error ? e.message : 'Erro ao liberar');
+      setLiberarErro(e instanceof Error ? e.message : 'Erro ao liberar');
     } finally {
-      setAtribuirSalvando(false);
+      setLiberarSalvando(false);
     }
+  }
+
+  async function confirmarLiberar() {
+    if (!atribuirVeiculo) return;
+    abrirLiberar(atribuirVeiculo);
   }
 
   async function abrirComprovante(url: string) {
@@ -572,7 +595,7 @@ export default function FrotaOperacaoPage() {
                   <TableCell>Região</TableCell>
                   <TableCell align="right">KM atribuição</TableCell>
                   <TableCell align="right">KM atual</TableCell>
-                  <TableCell align="right" width={128} />
+                  <TableCell align="right" width={160} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -606,6 +629,18 @@ export default function FrotaOperacaoPage() {
                       </TableCell>
                       <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                         {emUso && (
+                          <Tooltip title={`Remover ${v.nome_responsavel || 'responsável'}`}>
+                            <IconButton
+                              size="small"
+                              aria-label="Remover responsável"
+                              onClick={() => abrirLiberar(v)}
+                              sx={{ color: colors.orange }}
+                            >
+                              <PersonRemoveAlt1OutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {emUso && (
                           <Tooltip title="Editar KM da atribuição">
                             <IconButton
                               size="small"
@@ -617,7 +652,7 @@ export default function FrotaOperacaoPage() {
                             </IconButton>
                           </Tooltip>
                         )}
-                        <Tooltip title="Atribuir responsável">
+                        <Tooltip title={emUso ? 'Trocar responsável' : 'Atribuir responsável'}>
                           <IconButton
                             size="small"
                             aria-label="Atribuir responsável"
@@ -825,8 +860,12 @@ export default function FrotaOperacaoPage() {
         <DialogActions sx={{ px: 3, pb: 2, gap: 1, flexWrap: 'wrap' }}>
           {atribuirVeiculo?.id_usuario_responsavel ? (
             <>
-              <Button color="inherit" disabled={atribuirSalvando} onClick={() => void confirmarLiberar()}>
-                Liberar veículo
+              <Button
+                color="error"
+                disabled={atribuirSalvando}
+                onClick={() => void confirmarLiberar()}
+              >
+                Remover responsável
               </Button>
               <Button
                 color="inherit"
@@ -919,6 +958,44 @@ export default function FrotaOperacaoPage() {
           </Button>
           <Button variant="contained" disabled={proxSalvando} onClick={() => void confirmarProximaManutencao()}>
             Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={liberarOpen} onClose={() => !liberarSalvando && setLiberarOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, color: colors.navy }}>
+          Remover responsável · {liberarVeiculo?.placa}
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            O veículo volta a ficar livre no portal e no app.
+            {liberarVeiculo?.nome_responsavel ? (
+              <>
+                {' '}
+                Responsável atual: <strong>{liberarVeiculo.nome_responsavel}</strong>.
+              </>
+            ) : null}
+          </Typography>
+          {liberarErro && <Alert severity="error">{liberarErro}</Alert>}
+          <TextField
+            size="small"
+            label="KM atual na devolução"
+            value={liberarKm}
+            onChange={(e) => setLiberarKm(e.target.value.replace(/\D/g, ''))}
+            helperText="Opcional — se vazio, usa o KM atual já cadastrado"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button disabled={liberarSalvando} onClick={() => setLiberarOpen(false)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={liberarSalvando}
+            onClick={() => void confirmarLiberarVeiculo()}
+          >
+            Remover responsável
           </Button>
         </DialogActions>
       </Dialog>
