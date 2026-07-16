@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -14,64 +14,116 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
-import { api, type AuditoriaEvento } from '../../api/client';
+import InputAdornment from '@mui/material/InputAdornment';
+import SearchIcon from '@mui/icons-material/Search';
+import { api, type AuditoriaEvento, type AuditoriaUsuarioFiltro } from '../../api/client';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
 
 const MODULOS = [
-  { value: '', label: 'Todos os módulos' },
+  { value: '', label: 'Todos' },
+  { value: 'auth', label: 'Acesso' },
+  { value: 'chamados', label: 'Chamados' },
+  { value: 'frota', label: 'Frota' },
+  { value: 'escalas', label: 'Escalas' },
+  { value: 'visitas', label: 'Visitas' },
+  { value: 'metas', label: 'Metas' },
+  { value: 'configuracoes', label: 'Configurações' },
+  { value: 'checklist', label: 'Checklist' },
   { value: 'usuarios', label: 'Usuários' },
   { value: 'cargos', label: 'Cargos' },
   { value: 'lojas', label: 'Lojas' },
-  { value: 'configuracoes', label: 'Configurações' },
-  { value: 'auth', label: 'Acesso (login)' },
-  { value: 'chamados', label: 'Chamados' },
-  { value: 'frota', label: 'Frota' },
-  { value: 'visitas', label: 'Visitas' },
-  { value: 'checklist', label: 'Checklist' },
   { value: 'sistema', label: 'Sistema' },
 ];
 
-function rotuloModulo(modulo: string) {
-  const m = MODULOS.find((x) => x.value === modulo.toLowerCase());
-  return m?.label ?? modulo;
+/** Cores por tipo de ação (não pelo módulo). */
+function estiloAcao(tipo?: string) {
+  switch (tipo) {
+    case 'exclusao':
+      return { bg: 'rgba(220, 38, 38, 0.10)', color: '#B91C1C', border: 'rgba(220, 38, 38, 0.28)' };
+    case 'upload':
+      return { bg: 'rgba(37, 99, 235, 0.10)', color: '#1D4ED8', border: 'rgba(37, 99, 235, 0.28)' };
+    case 'acesso':
+      return { bg: 'rgba(217, 119, 6, 0.12)', color: '#B45309', border: 'rgba(217, 119, 6, 0.30)' };
+    case 'criacao':
+      return { bg: 'rgba(5, 150, 105, 0.10)', color: '#047857', border: 'rgba(5, 150, 105, 0.28)' };
+    case 'alteracao':
+      return { bg: 'rgba(124, 58, 237, 0.10)', color: '#6D28D9', border: 'rgba(124, 58, 237, 0.28)' };
+    case 'operacao':
+      return { bg: 'rgba(8, 145, 178, 0.10)', color: '#0E7490', border: 'rgba(8, 145, 178, 0.28)' };
+    default:
+      return { bg: 'rgba(100, 116, 139, 0.10)', color: '#475569', border: 'rgba(100, 116, 139, 0.25)' };
+  }
 }
 
-function chipModulo(modulo: string) {
-  const key = modulo.toLowerCase();
-  const color =
-    key === 'chamados'
-      ? 'primary'
-      : key === 'frota'
-        ? 'secondary'
-        : key === 'checklist' || key === 'visitas'
-          ? 'success'
-          : key === 'usuarios' || key === 'auth'
-            ? 'warning'
-            : key === 'cargos' || key === 'lojas' || key === 'configuracoes'
-              ? 'info'
-              : 'default';
-  return <Chip size="small" label={rotuloModulo(modulo)} color={color} variant="outlined" />;
+function ChipAcao({ ev }: { ev: AuditoriaEvento }) {
+  const estilo = estiloAcao(ev.tipo_acao);
+  return (
+    <Chip
+      size="small"
+      label={ev.acao_label || ev.acao}
+      sx={{
+        fontWeight: 600,
+        fontSize: '0.72rem',
+        height: 24,
+        bgcolor: estilo.bg,
+        color: estilo.color,
+        border: `1px solid ${estilo.border}`,
+      }}
+    />
+  );
+}
+
+function ChipModulo({ ev }: { ev: AuditoriaEvento }) {
+  const key = String(ev.modulo || '').toLowerCase();
+  const label = ev.modulo_label || MODULOS.find((m) => m.value === key)?.label || ev.modulo;
+  return (
+    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, letterSpacing: '0.02em' }}>
+      {label}
+    </Typography>
+  );
 }
 
 export default function AuditoriaPage() {
   const [lista, setLista] = useState<AuditoriaEvento[]>([]);
+  const [usuarios, setUsuarios] = useState<AuditoriaUsuarioFiltro[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [modulo, setModulo] = useState('');
+  const [idUsuario, setIdUsuario] = useState('');
+  const [busca, setBusca] = useState('');
+  const [buscaDebounced, setBuscaDebounced] = useState('');
   const [offset, setOffset] = useState(0);
   const limite = 80;
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setBuscaDebounced(busca.trim()), 350);
+    return () => window.clearTimeout(t);
+  }, [busca]);
+
+  useEffect(() => {
+    api
+      .auditoriaUsuariosFiltro()
+      .then(setUsuarios)
+      .catch(() => setUsuarios([]));
+  }, []);
 
   const carregar = useCallback(() => {
     setLoading(true);
     setErro('');
     api
-      .auditoriaEventos({ limite, offset, modulo: modulo || undefined })
+      .auditoriaEventos({
+        limite,
+        offset,
+        modulo: modulo || undefined,
+        id_usuario: idUsuario ? Number(idUsuario) : undefined,
+        q: buscaDebounced || undefined,
+      })
       .then((rows) => setLista(rows))
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar auditoria'))
       .finally(() => setLoading(false));
-  }, [modulo, offset]);
+  }, [modulo, offset, idUsuario, buscaDebounced]);
 
   useEffect(() => {
     carregar();
@@ -79,26 +131,38 @@ export default function AuditoriaPage() {
 
   useEffect(() => {
     setOffset(0);
-  }, [modulo]);
+  }, [modulo, idUsuario, buscaDebounced]);
+
+  const usuariosAtivos = useMemo(
+    () => [...usuarios].sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome)),
+    [usuarios],
+  );
 
   return (
     <Box sx={tablePageLayoutSx}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2 }}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Auditoria do sistema
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Alterações, criações, assunções de veículos, chamados, checklist e demais eventos.
-          </Typography>
-        </Box>
+      <Box sx={{ mb: 2.5 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+          Auditoria
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 640 }}>
+          Quem fez o quê — exclusões em vermelho, uploads em azul, acessos em âmbar.
+        </Typography>
+      </Box>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '180px 1fr 1.2fr' },
+          gap: 1.5,
+          mb: 2,
+        }}
+      >
         <TextField
           select
           size="small"
           label="Módulo"
           value={modulo}
           onChange={(e) => setModulo(e.target.value)}
-          sx={{ minWidth: 200 }}
           slotProps={{ select: selectMenuScrollProps }}
         >
           {MODULOS.map((m) => (
@@ -107,6 +171,61 @@ export default function AuditoriaPage() {
             </MenuItem>
           ))}
         </TextField>
+
+        <TextField
+          select
+          size="small"
+          label="Usuário"
+          value={idUsuario}
+          onChange={(e) => setIdUsuario(e.target.value)}
+          slotProps={{ select: selectMenuScrollProps }}
+        >
+          <MenuItem value="">Todos os usuários</MenuItem>
+          {usuariosAtivos.map((u) => (
+            <MenuItem key={u.id_usuario} value={String(u.id_usuario)}>
+              {u.nome}
+              {!u.ativo ? ' (inativo)' : ''}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          size="small"
+          label="Buscar"
+          placeholder="Arquivo, placa, chamado, pessoa…"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+        {(
+          [
+            ['exclusao', 'Exclusão'],
+            ['upload', 'Upload'],
+            ['acesso', 'Acesso'],
+            ['criacao', 'Criação'],
+            ['alteracao', 'Alteração'],
+            ['operacao', 'Operação'],
+          ] as const
+        ).map(([tipo, label]) => {
+          const e = estiloAcao(tipo);
+          return (
+            <Chip
+              key={tipo}
+              size="small"
+              label={label}
+              sx={{ bgcolor: e.bg, color: e.color, border: `1px solid ${e.border}`, fontWeight: 600, height: 22, fontSize: '0.7rem' }}
+            />
+          );
+        })}
       </Box>
 
       {erro && (
@@ -121,38 +240,53 @@ export default function AuditoriaPage() {
           <Table size="small" sx={tableSx}>
             <TableHead>
               <TableRow>
-                <TableCell>Data / hora</TableCell>
-                <TableCell>Módulo</TableCell>
-                <TableCell>Ação</TableCell>
-                <TableCell>Descrição</TableCell>
-                <TableCell>Usuário</TableCell>
+                <TableCell sx={{ width: 140 }}>Quando</TableCell>
+                <TableCell sx={{ width: 150 }}>Quem</TableCell>
+                <TableCell sx={{ width: 130 }}>Ação</TableCell>
+                <TableCell>Detalhe</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {lista.length === 0 && !loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    Nenhum registro encontrado.
+                  <TableCell colSpan={4} align="center" sx={{ py: 5, color: 'text.secondary' }}>
+                    Nenhum evento encontrado com esses filtros.
                   </TableCell>
                 </TableRow>
               ) : (
-                lista.map((ev, idx) => (
-                  <TableRow key={`${ev.created_at}-${ev.modulo}-${ev.acao}-${idx}`} hover>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDataHoraBrasilia(ev.created_at)}</TableCell>
-                    <TableCell>{chipModulo(ev.modulo)}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: '0.8125rem' }}>
-                        {ev.acao}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: '0.8125rem' }}>
-                        {ev.descricao}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{ev.usuario_nome || '—'}</TableCell>
-                  </TableRow>
-                ))
+                lista.map((ev, idx) => {
+                  const corLinha =
+                    ev.tipo_acao === 'exclusao'
+                      ? 'rgba(220, 38, 38, 0.03)'
+                      : ev.tipo_acao === 'upload'
+                        ? 'rgba(37, 99, 235, 0.03)'
+                        : 'transparent';
+                  return (
+                    <TableRow
+                      key={`${ev.created_at}-${ev.modulo}-${ev.acao}-${ev.id_referencia}-${idx}`}
+                      hover
+                      sx={{ bgcolor: corLinha }}
+                    >
+                      <TableCell sx={{ whiteSpace: 'nowrap', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                        {formatDataHoraBrasilia(ev.created_at)}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                          {ev.usuario_nome || 'Sistema'}
+                        </Typography>
+                        <ChipModulo ev={ev} />
+                      </TableCell>
+                      <TableCell>
+                        <ChipAcao ev={ev} />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontSize: '0.8125rem', lineHeight: 1.45, color: 'text.primary' }}>
+                          {ev.descricao}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -163,11 +297,7 @@ export default function AuditoriaPage() {
         <Button size="small" disabled={offset === 0 || loading} onClick={() => setOffset((o) => Math.max(0, o - limite))}>
           Anterior
         </Button>
-        <Button
-          size="small"
-          disabled={lista.length < limite || loading}
-          onClick={() => setOffset((o) => o + limite)}
-        >
+        <Button size="small" disabled={lista.length < limite || loading} onClick={() => setOffset((o) => o + limite)}>
           Próxima
         </Button>
       </Box>

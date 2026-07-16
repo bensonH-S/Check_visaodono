@@ -7,6 +7,7 @@ import {
   salvarGradeVisitas,
   segundaFeiraDaSemana,
 } from '../escalaVisitas.js';
+import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
 
@@ -35,6 +36,20 @@ router.get('/semana', async (req, res, next) => {
 router.put('/semana', async (req, res, next) => {
   try {
     const grade = await salvarGradeVisitas(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    const regiao = grade?.regiao?.nome || grade?.id_regiao || req.body?.id_regiao || '';
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'salvar_escala',
+      entidade: 'escala_visitas',
+      idReferencia: semana,
+      descricao: `Salvou a escala de visitas${semana ? ` (semana ${semana})` : ''}${regiao ? ` — ${regiao}` : ''}`,
+      detalhes: {
+        semana_inicio: semana || null,
+        id_regiao: grade?.id_regiao ?? req.body?.id_regiao ?? null,
+        dias: Array.isArray(req.body?.dias) ? req.body.dias.length : null,
+      },
+    });
     res.json(grade);
   } catch (e) {
     if (e.message.includes('Sem permissão')) {
@@ -51,6 +66,14 @@ router.post('/semana/copiar', async (req, res, next) => {
       return res.status(400).json({ error: 'Informe as semanas de origem (de) e destino (para)' });
     }
     const grade = await copiarSemanaVisitas(req.user, { de, para });
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'copiar_escala',
+      entidade: 'escala_visitas',
+      idReferencia: String(para),
+      descricao: `Copiou a escala de visitas de ${de} para ${para}`,
+      detalhes: { de, para, id_regiao: req.body?.id_regiao ?? null },
+    });
     res.json(grade);
   } catch (e) {
     if (e.message.includes('Sem permissão')) {

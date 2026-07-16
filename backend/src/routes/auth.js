@@ -68,12 +68,28 @@ router.post('/login', async (req, res, next) => {
     const user = rows[0];
     if (!user) {
       logger.warn('auth', 'Login falhou — e-mail não cadastrado', { email });
+      await auditar(null, {
+        modulo: 'auth',
+        acao: 'login_falha',
+        entidade: 'sessao',
+        descricao: `Tentativa de acesso com e-mail não cadastrado (${email})`,
+        detalhes: { motivo: 'email_nao_cadastrado', email },
+      });
       return res.status(401).json({
         error: 'E-mail não cadastrado. Entre em contato com o suporte de TI.',
       });
     }
     if (!user.senha_hash) {
       logger.warn('auth', 'Login falhou — usuário sem senha', { email, idUsuario: user.id_usuario });
+      await auditar(null, {
+        idUsuario: user.id_usuario,
+        modulo: 'auth',
+        acao: 'login_falha',
+        entidade: 'sessao',
+        idReferencia: user.id_usuario,
+        descricao: `Tentativa de acesso sem senha configurada: ${user.nome} (${email})`,
+        detalhes: { motivo: 'sem_senha', email },
+      });
       return res.status(401).json({
         error: 'Acesso ainda não configurado. Entre em contato com o suporte de TI.',
       });
@@ -81,6 +97,15 @@ router.post('/login', async (req, res, next) => {
     const ok = await bcrypt.compare(senha, user.senha_hash);
     if (!ok) {
       logger.warn('auth', 'Login falhou — senha incorreta', { email, idUsuario: user.id_usuario });
+      await auditar(null, {
+        idUsuario: user.id_usuario,
+        modulo: 'auth',
+        acao: 'login_falha',
+        entidade: 'sessao',
+        idReferencia: user.id_usuario,
+        descricao: `Senha incorreta no acesso de ${user.nome} (${email})`,
+        detalhes: { motivo: 'senha_incorreta', email },
+      });
       return res.status(401).json({ error: 'E-mail ou senha incorretos' });
     }
 
@@ -92,7 +117,8 @@ router.post('/login', async (req, res, next) => {
       acao: 'login',
       entidade: 'sessao',
       idReferencia: user.id_usuario,
-      descricao: `Login realizado: ${user.nome} (${email})`,
+      descricao: `${user.nome} entrou no sistema`,
+      detalhes: { email, origem: 'login' },
     });
     res.json({
       accessToken: signToken(usuario),
@@ -121,6 +147,27 @@ router.get('/me', authMiddleware, async (req, res, next) => {
     );
     if (!rows[0]) return res.status(401).json({ error: 'Usuário inativo ou não encontrado' });
     res.json(await mapUsuario(rows[0]));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/logout', authMiddleware, async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id_usuario, nome, email FROM usuarios WHERE id_usuario = $1`,
+      [req.user.sub],
+    );
+    const u = rows[0];
+    await auditar(req, {
+      modulo: 'auth',
+      acao: 'logout',
+      entidade: 'sessao',
+      idReferencia: req.user.sub,
+      descricao: u ? `${u.nome} saiu do sistema` : 'Usuário saiu do sistema',
+      detalhes: u ? { email: u.email } : null,
+    });
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

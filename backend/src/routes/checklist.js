@@ -330,14 +330,22 @@ router.delete('/perguntas/:id', requireGestaoChecklist, async (req, res, next) =
         error: 'Pergunta já usada em visitas. Edite o texto em vez de excluir.',
       });
     }
+    const { rows: antes } = await pool.query(
+      'SELECT id_pergunta, texto, codigo FROM perguntas WHERE id_pergunta = $1',
+      [id],
+    );
     const { rowCount } = await pool.query('DELETE FROM perguntas WHERE id_pergunta = $1', [id]);
     if (!rowCount) return res.status(404).json({ error: 'Pergunta não encontrada' });
+    const pergunta = antes[0];
     await auditar(req, {
       modulo: 'checklist',
       acao: 'excluir',
       entidade: 'pergunta',
       idReferencia: id,
-      descricao: `Pergunta excluída (id ${id})`,
+      descricao: pergunta
+        ? `Excluiu a pergunta do checklist “${String(pergunta.texto || pergunta.codigo || id).slice(0, 120)}”`
+        : `Excluiu pergunta do checklist #${id}`,
+      detalhes: pergunta ? { codigo: pergunta.codigo, texto: pergunta.texto } : null,
     });
     res.status(204).end();
   } catch (e) {

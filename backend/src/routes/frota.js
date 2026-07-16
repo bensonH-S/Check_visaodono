@@ -1697,14 +1697,29 @@ router.post(
         });
       }
 
+      const { rows: placaRows } = await pool.query(
+        `SELECT placa, modelo FROM frota_veiculos WHERE id_veiculo = $1`,
+        [idVeiculo],
+      );
+      const placa = placaRows[0]?.placa || `#${idVeiculo}`;
+      const modelo = placaRows[0]?.modelo || '';
+      const veiculoLabel = modelo ? `${placa} (${modelo})` : placa;
+      const nomeArq = req.file.originalname || 'arquivo';
       await auditar(req, {
         idUsuario,
         modulo: 'frota',
         acao: 'anexar_documento',
         entidade: 'veiculo',
         idReferencia: idVeiculo,
-        descricao: `Documento anexado: ${titulo.trim()}`,
-        detalhes: { id_documento: docInsert[0].id_documento, tipo: tipo.trim() },
+        descricao: `Enviou o arquivo “${nomeArq}” (${tipo.trim()}) no veículo ${veiculoLabel} — título “${titulo.trim()}”`,
+        detalhes: {
+          id_documento: docInsert[0].id_documento,
+          tipo: tipo.trim(),
+          placa,
+          modelo: modelo || null,
+          nome_arquivo: nomeArq,
+          titulo: titulo.trim(),
+        },
       });
 
       res.status(201).json({
@@ -1737,12 +1752,18 @@ router.delete(
       const { rows } = await pool.query(
         `DELETE FROM frota_documentos
          WHERE id_documento = $1 AND id_veiculo = $2
-         RETURNING id_anexo, titulo`,
+         RETURNING id_anexo, titulo, tipo`,
         [idDocumento, idVeiculo],
       );
       if (!rows[0]) return res.status(404).json({ error: 'Documento não encontrado' });
 
+      let nomeArquivo = null;
       if (rows[0].id_anexo) {
+        const { rows: anexoRows } = await pool.query(
+          `SELECT nome_arquivo FROM frota_anexos WHERE id_anexo = $1`,
+          [rows[0].id_anexo],
+        );
+        nomeArquivo = anexoRows[0]?.nome_arquivo || null;
         removerDocumentoDisco({
           idVeiculo,
           idDocumento,
@@ -1751,14 +1772,29 @@ router.delete(
         await pool.query(`DELETE FROM frota_anexos WHERE id_anexo = $1`, [rows[0].id_anexo]);
       }
 
+      const { rows: placaRows } = await pool.query(
+        `SELECT placa, modelo FROM frota_veiculos WHERE id_veiculo = $1`,
+        [idVeiculo],
+      );
+      const placa = placaRows[0]?.placa || `#${idVeiculo}`;
+      const modelo = placaRows[0]?.modelo || '';
+      const veiculoLabel = modelo ? `${placa} (${modelo})` : placa;
+      const arq = nomeArquivo ? `arquivo “${nomeArquivo}”` : `documento “${rows[0].titulo}”`;
       await auditar(req, {
         idUsuario,
         modulo: 'frota',
         acao: 'excluir_documento',
         entidade: 'veiculo',
         idReferencia: idVeiculo,
-        descricao: `Documento removido: ${rows[0].titulo}`,
-        detalhes: { id_documento: idDocumento },
+        descricao: `Removeu ${arq} (${rows[0].tipo || 'doc'}) do veículo ${veiculoLabel}`,
+        detalhes: {
+          id_documento: idDocumento,
+          placa,
+          modelo: modelo || null,
+          tipo: rows[0].tipo,
+          titulo: rows[0].titulo,
+          nome_arquivo: nomeArquivo,
+        },
       });
 
       res.json({ ok: true });
@@ -1833,6 +1869,8 @@ router.post(
 );
 
 router.post('/posicao', requirePermissao('frota.usar', 'chamados.assumir'), async (req, res, next) => {
+  // GPS em background — não polui a trilha de auditoria
+  req.auditoriaRegistrada = true;
   try {
     if (!gpsTecnicosAtivo()) {
       return res.json({ ok: true, skipped: true, motivo: 'gps_desativado' });

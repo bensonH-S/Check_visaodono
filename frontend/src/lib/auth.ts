@@ -61,6 +61,20 @@ export function setSessao(accessToken: string, usuario: UsuarioSessao) {
 
 export function logout() {
   const token = getToken();
+  if (token) {
+    void import('../config/paths')
+      .then(({ apiBasePath }) =>
+        fetch(`${apiBasePath}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: '{}',
+        }),
+      )
+      .catch(() => undefined);
+  }
   localStorage.removeItem('token');
   localStorage.removeItem('usuario');
   void import('../utils/pushNotifications').then((m) => m.cancelarPushNotificacoes(token));

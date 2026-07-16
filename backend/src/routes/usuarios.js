@@ -442,7 +442,8 @@ router.delete('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req,
       acao: 'excluir',
       entidade: 'usuario',
       idReferencia: id,
-      descricao: `Usuário excluído: ${rows[0].nome}`,
+      descricao: `Excluiu o usuário “${rows[0].nome}”`,
+      detalhes: { nome: rows[0].nome },
     });
     res.status(204).send();
   } catch (e) {

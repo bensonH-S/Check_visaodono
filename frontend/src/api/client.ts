@@ -125,14 +125,25 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  auditoriaEventos: (params?: { limite?: number; offset?: number; modulo?: string }) => {
+  auditoriaEventos: (params?: {
+    limite?: number;
+    offset?: number;
+    modulo?: string;
+    id_usuario?: number;
+    q?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params?.limite != null) q.set('limite', String(params.limite));
     if (params?.offset != null) q.set('offset', String(params.offset));
     if (params?.modulo) q.set('modulo', params.modulo);
+    if (params?.id_usuario != null) q.set('id_usuario', String(params.id_usuario));
+    if (params?.q?.trim()) q.set('q', params.q.trim());
     const s = q.toString();
     return request<AuditoriaEvento[]>(`/auditoria/eventos${s ? `?${s}` : ''}`);
   },
+  auditoriaUsuariosFiltro: () =>
+    request<AuditoriaUsuarioFiltro[]>('/auditoria/usuarios-filtro'),
+  logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST', body: '{}' }),
 
   cargos: (params?: { aprovador?: boolean }) => {
     const q = new URLSearchParams();
@@ -1508,12 +1519,23 @@ export interface FrotaTermoInfo {
 export interface AuditoriaEvento {
   created_at: string;
   modulo: string;
+  modulo_label?: string;
   acao: string;
+  acao_label?: string;
+  tipo_acao?: 'acesso' | 'criacao' | 'alteracao' | 'exclusao' | 'upload' | 'operacao' | 'outro';
   entidade: string | null;
   id_referencia: string | null;
   descricao: string;
   usuario_nome: string | null;
   id_usuario: number | null;
+  detalhes?: Record<string, unknown> | null;
+}
+
+export interface AuditoriaUsuarioFiltro {
+  id_usuario: number;
+  nome: string;
+  email: string;
+  ativo: boolean;
 }
 
 export interface FrotaDocumento {

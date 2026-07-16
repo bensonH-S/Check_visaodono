@@ -247,7 +247,7 @@ router.post('/', async (req, res, next) => {
       acao: 'iniciar',
       entidade: 'visita',
       idReferencia: visita.id_visita,
-      descricao: `Visita iniciada — loja ${lojaRow[0]?.name || visita.id_loja}`,
+      descricao: `Iniciou visita #${visita.id_visita} na loja ${lojaRow[0]?.name || visita.id_loja}`,
     });
     res.status(201).json(serializarVisita(visita));
   } catch (e) {
@@ -399,7 +399,7 @@ router.patch('/:id/finalizar', async (req, res, next) => {
       acao: 'finalizar',
       entidade: 'visita',
       idReferencia: rows[0].id_visita,
-      descricao: `Visita finalizada — loja ${lojaRow[0]?.name || rows[0].id_loja} (${rows[0].duracao_minutos ?? '?'} min)${ncResult.criadas ? ` — ${ncResult.criadas} NC(s) gerada(s)` : ''}`,
+      descricao: `Finalizou visita #${rows[0].id_visita} na loja ${lojaRow[0]?.name || rows[0].id_loja} (${rows[0].duracao_minutos ?? '?'} min)${ncResult.criadas ? ` — gerou ${ncResult.criadas} NC(s)` : ''}`,
     });
 
     processarVisitaTimeCampoReprovada(idVisita).catch((e) => {
