@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/ensure-deps.js && npx --yes kill-port 5000 5173 5174 5175",
+    "predev": "node scripts/write-version.js && node scripts/ensure-deps.js && npx --yes kill-port 5000 5173 5174 5175",
     "setup:local": "npm run migrate:full && npm run seed:auth",
     "prestart": "node scripts/install-requirements.js",
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",

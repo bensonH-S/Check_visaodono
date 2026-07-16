@@ -55,7 +55,7 @@ function resolveAppVersion() {
   }
 }
 
-const APP_VERSION = resolveAppVersion();
+const APP_VERSION_AT_BOOT = resolveAppVersion();
 
 const APP_BASE_PATH = '/auditoria';
 const PROD_PORT = 3007;
@@ -141,8 +141,10 @@ api.get('/health', async (_req, res) => {
 
 api.get('/public/config', (_req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  // Em dev a tag pode mudar sem reiniciar o processo; resolve a cada request.
+  const version = isProd ? APP_VERSION_AT_BOOT : resolveAppVersion();
   res.json({
-    version: APP_VERSION,
+    version,
     environment: isProd ? (process.env.APP_ENV || 'Production') : 'Development',
     support: {
       name: process.env.SUPPORT_NAME || 'Benson Henrique',
@@ -316,12 +318,12 @@ app.listen(PORT, async () => {
     modo,
     port: PORT,
     api: API_PREFIX,
-    versao: APP_VERSION,
+    versao: APP_VERSION_AT_BOOT,
     db: `${process.env.DB_HOST}/${process.env.DB_NAME}`,
     logs: getLogDir(),
   });
   console.log(`[server] ${modo} — :${PORT}${API_PREFIX}`);
-  console.log(`[server] versão ${APP_VERSION}`);
+  console.log(`[server] versão ${APP_VERSION_AT_BOOT}`);
   console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
   console.log(`[server] Logs → ${getLogDir()}`);
   try {
