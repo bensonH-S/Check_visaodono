@@ -133,6 +133,7 @@ export function destinoPosLoginMobile(usuario: UsuarioSessao): string {
 
 /** Primeira aba do app mobile conforme permissões do usuário. */
 export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
+  if (modoAppTecnicoFrotaRestrito(usuario)) return '/mapa/mobile';
   if (podeUsarChecklist(usuario) && !temPermissao('chamados.ver', usuario) && !temPermissao('chamados.abrir', usuario)) {
     return '/checklist/mobile';
   }
@@ -214,6 +215,17 @@ export function ehTecnicoCampoMobile(usuario?: UsuarioSessao | null): boolean {
   if (ehGestorLojaMobile(u)) return false;
   if (ehSupervisorRegiaoMobile(u)) return true;
   return temPermissao('chamados.assumir', u);
+}
+
+/** Técnico de frota no app: só Mapa e Abastecimento (atribuição pelo portal). */
+export function modoAppTecnicoFrotaRestrito(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (temPermissao('frota.gerenciar', u) || temPermissao('lojas.todas', u)) return false;
+  if (podeReceberPainelDiretorChamados(u)) return false;
+  if (ehGestorLojaMobile(u) || ehSupervisorRegiaoMobile(u)) return false;
+  if (!temPermissao('frota.usar', u)) return false;
+  return u.perfil === 'tecnico' || temPermissao('chamados.assumir', u);
 }
 
 /** Cabeçalho de contexto no app mobile de chamados: região, loja ou oculto. */
@@ -397,6 +409,8 @@ export function podeVerMapaTecnicosMobile(usuario?: UsuarioSessao | null): boole
   const u = usuario ?? getUsuario();
   if (!u) return false;
   if (temPermissao('lojas.todas', u)) return true;
+  // Técnico de frota: mapa liberado no app restrito
+  if (modoAppTecnicoFrotaRestrito(u)) return true;
   if (
     temPermissao('frota.mapa.ver', u) ||
     temPermissao('frota.regioes', u) ||

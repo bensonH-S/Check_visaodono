@@ -56,7 +56,7 @@ export default function FrotaManutencaoMobilePage() {
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     if (!veiculo) {
-      setErro('Assuma o controle de um veículo antes de registrar manutenção');
+      setErro('Aguarde a atribuição do veículo no portal antes de registrar manutenção');
       return;
     }
     if (!descricao.trim()) {
@@ -113,7 +113,7 @@ export default function FrotaManutencaoMobilePage() {
 
       {!veiculo ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Nenhum veículo sob seu controle. Assuma um veículo na aba Veículo antes de registrar manutenção.
+          Nenhum veículo sob seu controle. Peça ao responsável para atribuir pelo portal.
         </Alert>
       ) : (
         <Alert severity="info" sx={{ mb: 2 }}>

@@ -12,7 +12,7 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { api, fmtData } from '../../api/client';
 import type { FrotaResumoMobile } from '../../api/client';
-import { getUsuario, podeAssinarTermoFerramentasMobile } from '../../lib/auth';
+import { getUsuario, modoAppTecnicoFrotaRestrito, podeAssinarTermoFerramentasMobile } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
 import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../../theme/safeArea';
@@ -75,7 +75,8 @@ function CardOpcao({
 export default function FrotaMobileHubPage() {
   const navigate = useNavigate();
   const sessao = getUsuario();
-  const exibeTermoFerramentas = podeAssinarTermoFerramentasMobile(sessao);
+  const modoRestrito = modoAppTecnicoFrotaRestrito(sessao);
+  const exibeTermoFerramentas = !modoRestrito && podeAssinarTermoFerramentasMobile(sessao);
   const [loading, setLoading] = useState(true);
   const [resumo, setResumo] = useState<FrotaResumoMobile | null>(null);
   const [erro, setErro] = useState('');
@@ -108,6 +109,17 @@ export default function FrotaMobileHubPage() {
   }
 
   const temVeiculo = Boolean(resumo?.veiculo);
+  const msgSemVeiculo = modoRestrito
+    ? 'Nenhum veículo atribuído. Peça ao responsável para atribuir pelo portal.'
+    : 'Nenhum veículo atribuído. Assuma o controle na aba Veículo para liberar abastecimento e manutenção.';
+  const msgAbastecimento = temVeiculo
+    ? 'KM, valor (R$) e foto da nota fiscal'
+    : modoRestrito
+      ? 'Aguarde a atribuição do veículo no portal'
+      : 'Assuma um veículo para registrar abastecimento';
+  const msgManutencao = temVeiculo
+    ? 'Registrar serviços, descrição do que foi feito e fatura'
+    : 'Assuma um veículo para registrar manutenção';
 
   if (loading) return <LinearProgress sx={{ mt: 1 }} />;
 
@@ -124,12 +136,13 @@ export default function FrotaMobileHubPage() {
           <FrotaVeiculoControleCard
             veiculo={resumo.veiculo}
             salvando={salvando}
-            onDesassumir={(km) => void desassumir(km)}
+            permitirDevolver={!modoRestrito}
+            onDesassumir={modoRestrito ? undefined : (km) => void desassumir(km)}
           />
         ) : (
           <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px dashed rgba(232, 82, 10, 0.4)' }}>
             <Typography variant="body2" color="text.secondary">
-              Nenhum veículo atribuído. Assuma o controle na aba Veículo para liberar abastecimento e manutenção.
+              {msgSemVeiculo}
             </Typography>
           </Paper>
         )}
@@ -138,11 +151,7 @@ export default function FrotaMobileHubPage() {
       <Box sx={{ ...MOBILE_SCROLL_AREA, py: 1, pt: 0 }}>
       <CardOpcao
         titulo="Abastecimento"
-        descricao={
-          temVeiculo
-            ? 'KM atual, valor e foto do comprovante'
-            : 'Assuma um veículo para registrar abastecimento'
-        }
+        descricao={msgAbastecimento}
         icon={<LocalGasStationIcon />}
         onClick={() => navigate('/frota/mobile/abastecimento')}
         disabled={!temVeiculo}
@@ -162,23 +171,23 @@ export default function FrotaMobileHubPage() {
           }
         />
       )}
-      <CardOpcao
-        titulo="Veículo"
-        descricao="Assumir controle com CNH e fotos do veículo"
-        icon={<DirectionsCarIcon />}
-        onClick={() => navigate('/frota/mobile/veiculo')}
-      />
-      <CardOpcao
-        titulo="Manutenção do veículo"
-        descricao={
-          temVeiculo
-            ? 'Registrar serviços, descrição do que foi feito e fatura'
-            : 'Assuma um veículo para registrar manutenção'
-        }
-        icon={<BuildIcon />}
-        onClick={() => navigate('/frota/mobile/manutencao')}
-        disabled={!temVeiculo}
-      />
+      {!modoRestrito && (
+        <CardOpcao
+          titulo="Veículo"
+          descricao="Assumir controle com CNH e fotos do veículo"
+          icon={<DirectionsCarIcon />}
+          onClick={() => navigate('/frota/mobile/veiculo')}
+        />
+      )}
+      {!modoRestrito && (
+        <CardOpcao
+          titulo="Manutenção do veículo"
+          descricao={msgManutencao}
+          icon={<BuildIcon />}
+          onClick={() => navigate('/frota/mobile/manutencao')}
+          disabled={!temVeiculo}
+        />
+      )}
 
       {!!resumo?.abastecimentos.length && (
         <Box sx={{ mt: 2 }}>

@@ -26,7 +26,8 @@ import MapaTecnicosListaLojas from '../components/mapa/MapaTecnicosListaLojas';
 import { MapaTecnicosMobileProvider } from '../pages/mapa/MapaTecnicosMobileContext';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, type UsuarioSessao } from '../lib/auth';
+import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
@@ -238,7 +239,10 @@ function ChamadosMobileLayoutInner() {
   const isChecklistConcluido = path.startsWith('/checklist/mobile/concluido/');
   const isFrota = path === '/frota/mobile' || path.startsWith('/frota/mobile/');
   const isMapa = path === '/mapa/mobile';
-  const isFrotaSub = isFrota && path !== '/frota/mobile';
+  const modoRestrito = !!(user && modoAppTecnicoFrotaRestrito(user));
+  const frotaAbaPrincipalRestrito =
+    modoRestrito && path.startsWith('/frota/mobile/abastecimento');
+  const isFrotaSub = isFrota && path !== '/frota/mobile' && !frotaAbaPrincipalRestrito;
   const isVisitas = path === '/visitas/mobile';
   const isEscalaVisitas = path === '/escalas/visitas/mobile';
   const isNc = path === '/nc/mobile' || path.startsWith('/nc/mobile/');
@@ -255,15 +259,16 @@ function ChamadosMobileLayoutInner() {
     isChecklistConcluido ||
     isChecklistEmAndamento;
   const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio || isNcResolver;
-  const podeAbrir = user && temPermissao('chamados.abrir', user);
-  const podeChecklist = user && podeUsarChecklist(user);
-  const podeChamados = user && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
-  const veSinoChamados = !!podeChamados || (user != null && podeReceberPainelDiretorChamados(user));
+  const podeAbrir = user && !modoRestrito && temPermissao('chamados.abrir', user);
+  const podeChecklist = user && !modoRestrito && podeUsarChecklist(user);
+  const podeChamados =
+    user && !modoRestrito && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
+  const veSinoChamados = !!podeChamados || (user != null && !modoRestrito && podeReceberPainelDiretorChamados(user));
   const podeFrota = user && podeUsarFrota(user);
   const podeMapa = user && podeVerMapaTecnicosMobile(user);
-  const podeVisitas = user && podeVerVisitasMobile(user);
-  const podeEscalaVisitas = user && podeVerEscalaVisitas(user);
-  const podeNc = user && podeVerNcMobile(user);
+  const podeVisitas = user && !modoRestrito && podeVerVisitasMobile(user);
+  const podeEscalaVisitas = user && !modoRestrito && podeVerEscalaVisitas(user);
+  const podeNc = user && !modoRestrito && podeVerNcMobile(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
 
@@ -282,50 +287,67 @@ function ChamadosMobileLayoutInner() {
         : contextoAtuacaoMobile
     : null;
 
-  const mobileTabs = [
-    {
-      to: '/checklist/mobile',
-      label: 'Checklist',
-      icon: <AssignmentIcon fontSize="small" />,
-      show: !!podeChecklist,
-    },
-    {
-      to: '/visitas/mobile',
-      label: 'Visitas',
-      icon: <HistoryIcon fontSize="small" />,
-      show: !!podeVisitas,
-    },
-    {
-      to: '/chamados/mobile',
-      label: 'Chamados',
-      icon: <HeadsetMicOutlinedIcon fontSize="small" />,
-      show: !!podeChamados,
-    },
-    {
-      to: '/frota/mobile',
-      label: 'Frota',
-      icon: <DirectionsCarIcon fontSize="small" />,
-      show: !!podeFrota,
-    },
-    {
-      to: '/escalas/visitas/mobile',
-      label: 'Escala',
-      icon: <CalendarMonthIcon fontSize="small" />,
-      show: !!podeEscalaVisitas,
-    },
-    {
-      to: '/nc/mobile',
-      label: 'NCs',
-      icon: <WarningAmberIcon fontSize="small" />,
-      show: !!podeNc,
-    },
-    {
-      to: '/mapa/mobile',
-      label: 'Mapa',
-      icon: <MapOutlinedIcon fontSize="small" />,
-      show: !!podeMapa,
-    },
-  ].filter((t) => t.show);
+  const mobileTabs = (
+    modoRestrito
+      ? [
+          {
+            to: '/mapa/mobile',
+            label: 'Mapa',
+            icon: <MapOutlinedIcon fontSize="small" />,
+            show: true,
+          },
+          {
+            to: '/frota/mobile/abastecimento',
+            label: 'Abastec.',
+            icon: <LocalGasStationIcon fontSize="small" />,
+            show: !!podeFrota,
+          },
+        ]
+      : [
+          {
+            to: '/checklist/mobile',
+            label: 'Checklist',
+            icon: <AssignmentIcon fontSize="small" />,
+            show: !!podeChecklist,
+          },
+          {
+            to: '/visitas/mobile',
+            label: 'Visitas',
+            icon: <HistoryIcon fontSize="small" />,
+            show: !!podeVisitas,
+          },
+          {
+            to: '/chamados/mobile',
+            label: 'Chamados',
+            icon: <HeadsetMicOutlinedIcon fontSize="small" />,
+            show: !!podeChamados,
+          },
+          {
+            to: '/frota/mobile',
+            label: 'Frota',
+            icon: <DirectionsCarIcon fontSize="small" />,
+            show: !!podeFrota,
+          },
+          {
+            to: '/escalas/visitas/mobile',
+            label: 'Escala',
+            icon: <CalendarMonthIcon fontSize="small" />,
+            show: !!podeEscalaVisitas,
+          },
+          {
+            to: '/nc/mobile',
+            label: 'NCs',
+            icon: <WarningAmberIcon fontSize="small" />,
+            show: !!podeNc,
+          },
+          {
+            to: '/mapa/mobile',
+            label: 'Mapa',
+            icon: <MapOutlinedIcon fontSize="small" />,
+            show: !!podeMapa,
+          },
+        ]
+  ).filter((t) => t.show);
 
   const mostrarTabs = mobileTabs.length >= 1 && !isSubPage && !isChecklistConcluido;
   const rodapeTotalH = mostrarTabs ? TAB_NAV_H : 0;
@@ -402,6 +424,17 @@ function ChamadosMobileLayoutInner() {
     window.addEventListener(PUSH_ATUALIZADO_EVENT, atualizarBotaoPush);
     return () => window.removeEventListener(PUSH_ATUALIZADO_EVENT, atualizarBotaoPush);
   }, [user]);
+
+  useEffect(() => {
+    if (!modoRestrito) return;
+    const permitido =
+      path.startsWith('/mapa/mobile') ||
+      path === '/frota/mobile' ||
+      path.startsWith('/frota/mobile/abastecimento');
+    if (!permitido) {
+      navigate('/mapa/mobile', { replace: true });
+    }
+  }, [modoRestrito, path, navigate]);
 
   const welcomeShown = useRef(false);
 
@@ -609,6 +642,7 @@ function ChamadosMobileLayoutInner() {
               const abaChecklist = item.to === '/checklist/mobile';
               const abaChamados = item.to === '/chamados/mobile';
               const abaFrota = item.to === '/frota/mobile';
+              const abaAbastecimento = item.to === '/frota/mobile/abastecimento';
               const abaVisitas = item.to === '/visitas/mobile';
               const abaNc = item.to === '/nc/mobile';
               const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc;
@@ -626,9 +660,11 @@ function ChamadosMobileLayoutInner() {
                       ? path === '/chamados/mobile' || path.startsWith('/chamados/mobile/')
                       : abaFrota
                         ? isFrota
-                        : abaVisitas
-                          ? isVisitas || isRelatorio
-                          : isActive;
+                        : abaAbastecimento
+                          ? path.startsWith('/frota/mobile/abastecimento')
+                          : abaVisitas
+                            ? isVisitas || isRelatorio
+                            : isActive;
                   return (
                   <Box
                     sx={{

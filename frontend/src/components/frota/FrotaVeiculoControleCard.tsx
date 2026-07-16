@@ -16,10 +16,17 @@ const ORANGE = '#E8520A';
 type Props = {
   veiculo: FrotaVeiculo;
   salvando?: boolean;
-  onDesassumir: (kmAtual: number) => void;
+  onDesassumir?: (kmAtual: number) => void;
+  /** Quando false, oculta devolução (atribuição só pelo portal). Default: true. */
+  permitirDevolver?: boolean;
 };
 
-export default function FrotaVeiculoControleCard({ veiculo, salvando, onDesassumir }: Props) {
+export default function FrotaVeiculoControleCard({
+  veiculo,
+  salvando,
+  onDesassumir,
+  permitirDevolver = true,
+}: Props) {
   const kmInputRef = useRef<HTMLInputElement>(null);
   const [mostrarKmDevolucao, setMostrarKmDevolucao] = useState(false);
   const [kmDevolucao, setKmDevolucao] = useState(
@@ -44,11 +51,12 @@ export default function FrotaVeiculoControleCard({ veiculo, salvando, onDesassum
 
   function devolver() {
     const km = kmInputParaNumero(kmDevolucao);
-    if (km == null) return;
+    if (km == null || !onDesassumir) return;
     onDesassumir(km);
   }
 
   const kmValido = kmInputParaNumero(kmDevolucao) != null;
+  const exibeDevolucao = permitirDevolver && !!onDesassumir;
 
   return (
     <Paper
@@ -122,7 +130,7 @@ export default function FrotaVeiculoControleCard({ veiculo, salvando, onDesassum
         </Box>
       </Box>
 
-      {mostrarKmDevolucao && (
+      {exibeDevolucao && mostrarKmDevolucao && (
         <TextField
           fullWidth
           label="KM na devolução"
@@ -145,6 +153,7 @@ export default function FrotaVeiculoControleCard({ veiculo, salvando, onDesassum
         />
       )}
 
+      {exibeDevolucao && (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
         {mostrarKmDevolucao ? (
           <>
@@ -201,6 +210,7 @@ export default function FrotaVeiculoControleCard({ veiculo, salvando, onDesassum
           </Button>
         )}
       </Box>
+      )}
     </Paper>
   );
 }
