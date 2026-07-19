@@ -421,6 +421,36 @@ router.patch('/:id/finalizar', async (req, res, next) => {
   }
 });
 
+/**
+ * Recalcula lojas.nota_atual / ultima_visita a partir da última visita finalizada.
+ * Necessário ao apagar relatório — o trigger só atualiza a loja ao finalizar.
+ */
+async function sincronizarNotaLoja(client, idLoja) {
+  const { rows } = await client.query(
+    `SELECT nota_final, data_visita
+     FROM visitas
+     WHERE id_loja = $1 AND status = 'Finalizada' AND nota_final IS NOT NULL
+     ORDER BY data_visita DESC, id_visita DESC
+     LIMIT 1`,
+    [idLoja],
+  );
+  if (rows[0]) {
+    await client.query(
+      `UPDATE lojas
+       SET nota_atual = $1, ultima_visita = $2, updated_at = NOW()
+       WHERE id_loja = $3`,
+      [rows[0].nota_final, rows[0].data_visita, idLoja],
+    );
+  } else {
+    await client.query(
+      `UPDATE lojas
+       SET nota_atual = 0, ultima_visita = NULL, updated_at = NOW()
+       WHERE id_loja = $1`,
+      [idLoja],
+    );
+  }
+}
+
 /** Apaga visita/relatório (respostas em CASCADE; NCs e histórico limpos). */
 router.delete('/:id', requireApagarVisita, async (req, res, next) => {
   try {
@@ -452,8 +482,12 @@ router.delete('/:id', requireApagarVisita, async (req, res, next) => {
       const del = await client.query(`DELETE FROM visitas WHERE id_visita = $1 RETURNING id_visita`, [
         idVisita,
       ]);
+      if (!del.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Visita não encontrada' });
+      }
+      await sincronizarNotaLoja(client, visita.id_loja);
       await client.query('COMMIT');
-      if (!del.rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
     } catch (e) {
       await client.query('ROLLBACK').catch(() => {});
       throw e;
