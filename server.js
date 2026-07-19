@@ -66,7 +66,12 @@ const PORT = isProd ? Number(process.env.PORT) || PROD_PORT : DEV_PORT;
 const API_PREFIX = `${APP_BASE_PATH}/api`;
 const STATIC_BASE = `${APP_BASE_PATH}/`;
 
-for (const key of ['DB_HOST', 'DB_USER', 'DB_NAME']) {
+// Local → vision_check_dev; produção sem DB_NAME → vision_check
+process.env.DB_NAME = isProd
+  ? String(process.env.DB_NAME || '').trim() || 'vision_check'
+  : 'vision_check_dev';
+
+for (const key of ['DB_HOST', 'DB_USER']) {
   if (!process.env[key]) {
     console.error(
       `[server] Falta ${key}. Crie .env na raiz ou use backend/.env (copie DB_* de backend/.env.example).`
