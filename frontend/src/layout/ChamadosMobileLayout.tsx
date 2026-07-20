@@ -256,6 +256,8 @@ function ChamadosMobileLayoutInner() {
   const isEscalaVisitas = path === '/escalas/visitas/mobile';
   const isNc = path === '/nc/mobile' || path.startsWith('/nc/mobile/');
   const isNcResolver = Boolean(useMatch('/nc/mobile/:idNc'));
+  /** NCs: chrome próprio (lista + resolver). */
+  const isNcImmersive = isNc;
   const isRelatorio = path.startsWith('/relatorio/visita/');
   const { fase: checklistFaseUi, dispararVoltar: dispararVoltarChecklist } = useChecklistMobileUi();
   const isChecklistEmAndamento =
@@ -495,7 +497,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -612,7 +614,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && (
         <Box
           sx={{
             position: 'relative',
@@ -638,12 +640,19 @@ function ChamadosMobileLayoutInner() {
           sx={{
             position: 'relative',
             zIndex: 1,
-            ...(paginaCabecalhoFixo || isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas
+            ...(paginaCabecalhoFixo ||
+            isVisitas ||
+            isRelatorio ||
+            isFrotaImmersive ||
+            isEscalaVisitas ||
+            isNcImmersive
               ? MOBILE_PAGE_COLUMN
               : MOBILE_SCROLL_AREA),
-            ...(isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas ? { px: 0 } : safeAreaX(16)),
+            ...(isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas || isNcImmersive
+              ? { px: 0 }
+              : safeAreaX(16)),
             pb:
-              isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas
+              isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas || isNcImmersive
                 ? 0
                 : safeAreaBottomCalc(rodapeTotalH + 16),
           }}

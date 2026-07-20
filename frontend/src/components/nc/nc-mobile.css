@@ -1,0 +1,181 @@
+/* NCs mobile — estende o modelo ck-visitas */
+.ck-nc--page {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.ck-nc .ck-nc__visita {
+  margin-bottom: 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
+}
+
+.ck-nc .ck-nc__visita-head {
+  padding: 12px 14px;
+  background: rgba(27, 42, 107, 0.04);
+  border-bottom: 1px solid rgba(27, 42, 107, 0.08);
+}
+
+.ck-nc .ck-nc__visita-head strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+  line-height: 1.3;
+}
+
+.ck-nc .ck-nc__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ck-nc .ck-nc__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  color: var(--ck-navy);
+  background: #fff;
+}
+
+.ck-nc .ck-nc__chip--crit {
+  border-color: rgba(211, 47, 47, 0.35);
+  color: #c62828;
+  background: rgba(211, 47, 47, 0.08);
+}
+
+.ck-nc .ck-nc__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid rgba(27, 42, 107, 0.08);
+  background: #fff;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ck-nc .ck-nc__item:last-child {
+  border-bottom: 0;
+}
+
+.ck-nc .ck-nc__item:disabled {
+  cursor: default;
+}
+
+.ck-nc .ck-nc__item:active:not(:disabled) {
+  background: rgba(232, 82, 10, 0.06);
+}
+
+.ck-nc .ck-nc__item-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.ck-nc .ck-nc__item-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.ck-nc .ck-nc__item-copy small {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.5);
+  margin-bottom: 2px;
+}
+
+.ck-nc .ck-nc__item-copy span {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ck-ink);
+  line-height: 1.35;
+}
+
+.ck-nc .ck-nc__item-go {
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  font-weight: 300;
+  color: rgba(20, 32, 72, 0.35);
+  line-height: 1;
+}
+
+.ck-nc .ck-nc__empty {
+  padding: 28px 18px;
+  text-align: center;
+  border-radius: 16px;
+  border: 1.5px dashed rgba(27, 42, 107, 0.22);
+  background: rgba(27, 42, 107, 0.03);
+  color: rgba(20, 32, 72, 0.55);
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.ck-nc .ck-nc__form-card {
+  padding: 16px;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  box-shadow: 0 8px 24px rgba(15, 26, 69, 0.06);
+}
+
+.ck-nc .ck-nc__form-card h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+  line-height: 1.35;
+}
+
+.ck-nc .ck-nc__form-card .ck-nc__meta {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.5);
+}
+
+.ck-nc .ck-nc__cta {
+  min-height: 48px !important;
+  border-radius: 14px !important;
+  background: var(--ck-orange) !important;
+  font-weight: 800 !important;
+  text-transform: none !important;
+  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.35) !important;
+  font-family: Manrope, system-ui, sans-serif !important;
+}
+
+.ck-nc .ck-nc__done {
+  text-align: center;
+  padding: 24px 8px;
+}
+
+.ck-nc .ck-nc__done strong {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+}
+
+.ck-nc .ck-nc__done p {
+  margin: 0 0 20px;
+  font-size: 0.85rem;
+  color: rgba(20, 32, 72, 0.55);
+}

@@ -1,27 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { assetUrl } from '../../config/paths';
 import { api, fmtData, fmtNota, scoreColor } from '../../api/client';
 import type { NcItem } from '../../api/client';
 import { agruparNcsPorVisita, parseNcDescricao } from '../../components/nc/ncPageUtils';
-import { MOBILE_SCROLL_AREA } from '../../theme/safeArea';
-
-const NAVY = '#1B2A6B';
+import '../../components/visitas/visitas-mobile.css';
+import '../../components/nc/nc-mobile.css';
 
 type Aba = 'abertas' | 'resolvidas';
 
-function gravColor(g: string): 'error' | 'warning' | 'default' {
-  if (g === 'Crítica') return 'error';
-  if (g === 'Moderada') return 'warning';
-  return 'default';
+function gravTone(g: string): 'crit' | 'mod' | 'ok' {
+  if (g === 'Crítica') return 'crit';
+  if (g === 'Moderada') return 'mod';
+  return 'ok';
 }
 
 export default function NcMobileListaPage() {
@@ -54,152 +47,172 @@ export default function NcMobileListaPage() {
 
   const visitas = useMemo(() => agruparNcsPorVisita(itens), [itens]);
 
-  if (loading) return <LinearProgress />;
-  if (err) return <Typography color="error">{err}</Typography>;
-
   return (
-    <Box sx={{ ...MOBILE_SCROLL_AREA, maxWidth: 480, mx: 'auto', width: '100%', pb: 2 }}>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-        <Paper sx={{ flex: 1, p: 1.5, textAlign: 'center' }}>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: NAVY }}>
-            {stats.visitas_pendentes ?? visitas.length}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Visitas
-          </Typography>
-        </Paper>
-        <Paper sx={{ flex: 1, p: 1.5, textAlign: 'center' }}>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: NAVY }}>
-            {stats.total_aberto}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Em aberto
-          </Typography>
-        </Paper>
-        <Paper sx={{ flex: 1, p: 1.5, textAlign: 'center', borderTop: '3px solid #E8520A' }}>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: '#E8520A' }}>
-            {stats.criticas}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Críticas
-          </Typography>
-        </Paper>
-      </Box>
+    <div className="ck-visitas ck-nc">
+      <div className="ck-visitas__scroll">
+        <div className="ck-visitas__stage">
+          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+          <div className="ck-visitas__mesh" aria-hidden />
 
-      <ToggleButtonGroup
-        fullWidth
-        exclusive
-        size="small"
-        value={aba}
-        onChange={(_, v: Aba | null) => v && setAba(v)}
-        sx={{ mb: 2 }}
-      >
-        <ToggleButton value="abertas">Em aberto</ToggleButton>
-        <ToggleButton value="resolvidas">Resolvidas</ToggleButton>
-      </ToggleButtonGroup>
+          <div className="ck-visitas__stage-inner">
+            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+              <div>
+                <p className="ck-visitas__mark-text">Grupo Alvim</p>
+                <h1 className="ck-visitas__title">
+                  Não
+                  <br />
+                  conformidades
+                </h1>
+              </div>
+              <img
+                src={assetUrl('Logo_Icon-clear.png')}
+                alt=""
+                className="ck-visitas__mark-icon"
+                width={56}
+                height={56}
+              />
+            </div>
 
-      {visitas.length === 0 ? (
-        <Paper sx={{ p: 3, textAlign: 'center' }}>
-          <Typography color="text.secondary">
-            {aba === 'abertas'
-              ? 'Nenhuma pendência de checklist na sua região.'
-              : 'Nenhuma NC resolvida ainda.'}
-          </Typography>
-        </Paper>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {visitas.map((visita) => {
-            const nota = visita.nota_final;
-            const pendentes = visita.itens.filter((i) => i.status === 'Em aberto');
-            const lista = aba === 'abertas' ? pendentes : visita.itens.filter((i) => i.status === 'Resolvida');
-            if (!lista.length) return null;
+            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+              Pendências do checklist na sua região — abra para registrar a correção.
+            </p>
 
-            return (
-              <Paper key={visita.id_visita} sx={{ overflow: 'hidden' }}>
-                <Box sx={{ px: 2, py: 1.5, bgcolor: 'rgba(27,42,107,0.04)', borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-                    {visita.loja}
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
-                    <Chip label={fmtData(visita.data_visita)} size="small" variant="outlined" />
-                    {nota != null && (
-                      <Chip
-                        label={`Nota ${fmtNota(nota)}`}
-                        size="small"
-                        sx={{ fontWeight: 700, color: scoreColor(nota), borderColor: `${scoreColor(nota)}55` }}
-                        variant="outlined"
-                      />
-                    )}
-                    {visita.criticas > 0 && aba === 'abertas' && (
-                      <Chip label={`${visita.criticas} crítica(s)`} size="small" color="error" />
-                    )}
-                  </Box>
-                </Box>
+            <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+              <div className="ck-visitas__metric">
+                <strong>{loading ? '—' : stats.visitas_pendentes}</strong>
+                <span>visitas</span>
+              </div>
+              <div className="ck-visitas__metric">
+                <strong>{loading ? '—' : stats.total_aberto}</strong>
+                <span>em aberto</span>
+              </div>
+              <div className="ck-visitas__metric ck-visitas__metric--accent">
+                <strong>{loading ? '—' : stats.criticas}</strong>
+                <span>críticas</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-                {lista.map((nc) => {
-                  const { codigo, texto } = parseNcDescricao(nc.descricao);
-                  if (nc.area === 'Resultado geral') {
-                    return (
-                      <Box
-                        key={nc.id_nc}
-                        onClick={() => aba === 'abertas' && navigate(`/nc/mobile/${nc.id_nc}`)}
-                        sx={{
-                          px: 2,
-                          py: 1.25,
-                          borderBottom: '1px solid',
-                          borderColor: 'divider',
-                          cursor: aba === 'abertas' ? 'pointer' : 'default',
-                        }}
-                      >
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {nc.descricao}
-                        </Typography>
-                        <Chip label={nc.gravidade} size="small" color={gravColor(nc.gravidade)} sx={{ mt: 0.75 }} />
-                      </Box>
-                    );
-                  }
-                  return (
-                    <Box
-                      key={nc.id_nc}
-                      onClick={() => aba === 'abertas' && navigate(`/nc/mobile/${nc.id_nc}`)}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        px: 2,
-                        py: 1.25,
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        cursor: aba === 'abertas' ? 'pointer' : 'default',
-                        '&:active': aba === 'abertas' ? { bgcolor: 'action.hover' } : undefined,
-                      }}
-                    >
-                      <WarningAmberIcon
-                        fontSize="small"
-                        color={nc.gravidade === 'Crítica' ? 'error' : 'warning'}
-                        sx={{ flexShrink: 0 }}
-                      />
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {nc.area}
-                          {codigo ? ` · ${codigo}` : ''}
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.35 }}>
-                          {texto}
-                        </Typography>
-                      </Box>
-                      {aba === 'abertas' && <ChevronRightIcon color="action" />}
-                      {aba === 'resolvidas' && (
-                        <Chip label="Resolvida" size="small" color="success" variant="outlined" />
+        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+          {err && (
+            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
+              {err}
+            </p>
+          )}
+
+          <div className="ck-visitas__seg" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={aba === 'abertas'}
+              className={`ck-visitas__seg-btn${aba === 'abertas' ? ' is-on' : ''}`}
+              onClick={() => setAba('abertas')}
+            >
+              Em aberto
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={aba === 'resolvidas'}
+              className={`ck-visitas__seg-btn${aba === 'resolvidas' ? ' is-on' : ''}`}
+              onClick={() => setAba('resolvidas')}
+            >
+              Resolvidas
+            </button>
+          </div>
+
+          {loading ? (
+            <LinearProgress />
+          ) : visitas.length === 0 ? (
+            <div className="ck-nc__empty">
+              {aba === 'abertas'
+                ? 'Nenhuma pendência de checklist na sua região.'
+                : 'Nenhuma NC resolvida ainda.'}
+            </div>
+          ) : (
+            visitas.map((visita) => {
+              const nota = visita.nota_final;
+              const pendentes = visita.itens.filter((i) => i.status === 'Em aberto');
+              const lista =
+                aba === 'abertas' ? pendentes : visita.itens.filter((i) => i.status === 'Resolvida');
+              if (!lista.length) return null;
+
+              return (
+                <div key={visita.id_visita} className="ck-nc__visita">
+                  <div className="ck-nc__visita-head">
+                    <strong>{visita.loja}</strong>
+                    <div className="ck-nc__chips">
+                      <span className="ck-nc__chip">{fmtData(visita.data_visita)}</span>
+                      {nota != null && (
+                        <span
+                          className="ck-nc__chip"
+                          style={{ color: scoreColor(nota), borderColor: `${scoreColor(nota)}55` }}
+                        >
+                          Nota {fmtNota(nota)}
+                        </span>
                       )}
-                    </Box>
-                  );
-                })}
-              </Paper>
-            );
-          })}
-        </Box>
-      )}
-    </Box>
+                      {visita.criticas > 0 && aba === 'abertas' && (
+                        <span className="ck-nc__chip ck-nc__chip--crit">
+                          {visita.criticas} crítica(s)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {lista.map((nc) => {
+                    const { codigo, texto } = parseNcDescricao(nc.descricao);
+                    const tone = gravTone(nc.gravidade);
+                    const clicavel = aba === 'abertas';
+                    return (
+                      <button
+                        key={nc.id_nc}
+                        type="button"
+                        className="ck-nc__item"
+                        disabled={!clicavel}
+                        onClick={() => clicavel && navigate(`/nc/mobile/${nc.id_nc}`)}
+                      >
+                        <span className="ck-nc__item-icon" aria-hidden>
+                          <WarningAmberIcon
+                            fontSize="small"
+                            sx={{ color: tone === 'crit' ? '#d32f2f' : '#ed6c02' }}
+                          />
+                        </span>
+                        <span className="ck-nc__item-copy">
+                          {nc.area === 'Resultado geral' ? (
+                            <span>{nc.descricao}</span>
+                          ) : (
+                            <>
+                              <small>
+                                {nc.area}
+                                {codigo ? ` · ${codigo}` : ''}
+                              </small>
+                              <span>{texto}</span>
+                            </>
+                          )}
+                          {nc.area === 'Resultado geral' && (
+                            <small style={{ marginTop: 4 }}>{nc.gravidade}</small>
+                          )}
+                        </span>
+                        {aba === 'abertas' ? (
+                          <span className="ck-nc__item-go" aria-hidden>
+                            ›
+                          </span>
+                        ) : (
+                          <span className="ck-nc__chip" style={{ borderColor: 'rgba(46,125,50,0.35)', color: '#2e7d32' }}>
+                            Resolvida
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
