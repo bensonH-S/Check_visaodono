@@ -11,6 +11,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AddIcon from '@mui/icons-material/Add';
 import HomeIcon from '@mui/icons-material/Home';
 import { api, fmtNota, fmtData, scoreColor } from '../api/client';
+import ChecklistIonicConcluido from '../components/checklist/ChecklistIonicConcluido';
 
 export default function ChecklistConcluidoPage() {
   const { id } = useParams();
@@ -40,6 +41,23 @@ export default function ChecklistConcluidoPage() {
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
   }, [id]);
+
+  if (paths.mobile) {
+    return (
+      <ChecklistIonicConcluido
+        loading={loading}
+        err={err}
+        visita={visita}
+        categorias={categorias}
+        id={id}
+        dataFormatada={visita ? fmtData(visita.data_visita) : ''}
+        onVoltar={() => navigate(paths.base)}
+        onRelatorio={() => navigate(`/relatorio/visita/${id}`)}
+        onNovaVisita={() => navigate(paths.base, { state: { reiniciar: true } })}
+        onInicio={() => navigate(paths.base)}
+      />
+    );
+  }
 
   if (loading) {
     return (

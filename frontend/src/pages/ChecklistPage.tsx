@@ -13,27 +13,13 @@ import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import List from '@mui/material/List';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Radio from '@mui/material/Radio';
-import RadioGroup from '@mui/material/RadioGroup';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import FormLabel from '@mui/material/FormLabel';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import SaveIcon from '@mui/icons-material/Save';
 import CheckIcon from '@mui/icons-material/Check';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import QuizOutlinedIcon from '@mui/icons-material/QuizOutlined';
-import ViewAgendaOutlinedIcon from '@mui/icons-material/ViewAgendaOutlined';
-import type { ReactNode } from 'react';
 import { api, fmtData } from '../api/client';
 import type { CategoriaChecklist, Loja, Usuario, Pergunta, RespostaInput, TipoChecklist, MetaVisitaTimeCampo, VisitaResumo } from '../api/client';
 import ChecklistPerguntaCard, {
@@ -41,12 +27,15 @@ import ChecklistPerguntaCard, {
   type ErroPerguntaCampo,
   type RespostaLocal,
 } from '../components/checklist/ChecklistPerguntaCard';
+import ChecklistIonicShell from '../components/checklist/ChecklistIonicShell';
+import ChecklistStartScreen from '../components/checklist/ChecklistStartScreen';
+import ChecklistIonicFluxo from '../components/checklist/ChecklistIonicFluxo';
 import VisitaIniciadaScreen from '../components/checklist/VisitaIniciadaScreen';
 import TimeCampoMetaForm from '../components/checklist/TimeCampoMetaForm';
+import { useChecklistMobileUi } from '../context/ChecklistMobileUiContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { selectMenuScrollProps } from '../utils/selectMenuScroll';
 import { showToast } from '../utils/toast';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../theme/safeArea';
 import { CHECKLIST_REFRESH } from '../utils/checklistEvent';
 import {
   getSessaoChecklist,
@@ -72,343 +61,6 @@ import {
 } from '../utils/checklistRules';
 
 const BRAND_ORANGE = '#E8520A';
-const NAVY = '#1B2A6B';
-const PAGE_BG = '#f5f5f3';
-
-const MOBILE_CARD_SX = {
-  p: 2,
-  mb: 2,
-  borderRadius: 3,
-  bgcolor: '#fff',
-  border: 'none',
-  boxShadow: '0 4px 20px rgba(27, 42, 107, 0.07)',
-} as const;
-
-function CardResumoChecklistMobile({
-  valor,
-  rotulo,
-  fundoIcone,
-  bordaIcone,
-  icone,
-}: {
-  valor: number | string;
-  rotulo: string;
-  fundoIcone: string;
-  bordaIcone: string;
-  icone: ReactNode;
-}) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        flex: 1,
-        minWidth: 0,
-        px: 1.5,
-        py: 2,
-        minHeight: 92,
-        borderRadius: 3.5,
-        bgcolor: '#fff',
-        border: 'none',
-        boxShadow: '0 4px 20px rgba(27, 42, 107, 0.07)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.15,
-      }}
-    >
-      <Box
-        sx={{
-          width: 46,
-          height: 46,
-          borderRadius: 1.75,
-          bgcolor: fundoIcone,
-          border: `2px solid ${bordaIcone}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        {icone}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography
-          sx={{
-            fontWeight: 800,
-            fontSize: '2.35rem',
-            lineHeight: 1,
-            color: NAVY,
-            letterSpacing: '-0.04em',
-          }}
-        >
-          {valor}
-        </Typography>
-        <Typography
-          sx={{
-            mt: 0.45,
-            fontSize: '0.78rem',
-            fontWeight: 500,
-            color: NAVY,
-            opacity: 0.72,
-            lineHeight: 1.2,
-          }}
-        >
-          {rotulo}
-        </Typography>
-      </Box>
-    </Paper>
-  );
-}
-
-function CardsResumoChecklistMobile({
-  totalPerguntas,
-  totalSecoes,
-  carregando,
-}: {
-  totalPerguntas: number;
-  totalSecoes: number;
-  carregando?: boolean;
-}) {
-  return (
-    <Box sx={{ display: 'flex', gap: 1.25, mb: 2.25 }}>
-      <CardResumoChecklistMobile
-        valor={carregando ? '…' : totalPerguntas}
-        rotulo="perguntas"
-        fundoIcone="rgba(232, 82, 10, 0.14)"
-        bordaIcone={BRAND_ORANGE}
-        icone={<QuizOutlinedIcon sx={{ color: BRAND_ORANGE, fontSize: 22 }} />}
-      />
-      <CardResumoChecklistMobile
-        valor={carregando ? '…' : totalSecoes}
-        rotulo="seções"
-        fundoIcone="rgba(27, 42, 107, 0.14)"
-        bordaIcone={NAVY}
-        icone={<ViewAgendaOutlinedIcon sx={{ color: NAVY, fontSize: 22 }} />}
-      />
-    </Box>
-  );
-}
-
-function SeletorAuditorChecklistMobile({
-  auditores,
-  idAuditor,
-  nomeFallback,
-  onSelecionar,
-}: {
-  auditores: Usuario[];
-  idAuditor: number | '';
-  nomeFallback: string;
-  onSelecionar: (id: number) => void;
-}) {
-  const [dialogAberto, setDialogAberto] = useState(false);
-  const multiplos = auditores.length > 1;
-  const auditorAtual = auditores.find((u) => u.id_usuario === idAuditor);
-  const nomeExibido = auditorAtual?.nome ?? nomeFallback;
-
-  return (
-    <>
-      <Box
-        role={multiplos ? 'button' : undefined}
-        tabIndex={multiplos ? 0 : undefined}
-        onClick={() => multiplos && setDialogAberto(true)}
-        onKeyDown={(e) => {
-          if (multiplos && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            setDialogAberto(true);
-          }
-        }}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.75,
-          minWidth: 0,
-          minHeight: 24,
-          cursor: multiplos ? 'pointer' : 'default',
-        }}
-      >
-        <PersonOutlineOutlinedIcon
-          sx={{ fontSize: 20, color: NAVY, opacity: 0.75, flexShrink: 0, display: 'block' }}
-        />
-        <Typography
-          component="div"
-          variant="body2"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: 1, lineHeight: 1.25 }}
-        >
-          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
-            Auditor:
-          </Box>
-          <Box
-            component="span"
-            sx={{
-              color: NAVY,
-              fontWeight: 700,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {nomeExibido}
-          </Box>
-        </Typography>
-      </Box>
-
-      <Dialog open={dialogAberto} onClose={() => setDialogAberto(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
-          Escolher auditor
-        </DialogTitle>
-        <List sx={{ pt: 0, pb: 1 }}>
-          {auditores.map((u) => {
-            const ativo = u.id_usuario === idAuditor;
-            return (
-              <ListItemButton
-                key={u.id_usuario}
-                selected={ativo}
-                onClick={() => {
-                  onSelecionar(u.id_usuario);
-                  setDialogAberto(false);
-                }}
-                sx={{ py: 1.25, '&.Mui-selected': { bgcolor: 'rgba(232, 82, 10, 0.08)' } }}
-              >
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  <PersonOutlineOutlinedIcon sx={{ fontSize: 20, color: BRAND_ORANGE }} />
-                </ListItemIcon>
-                <ListItemText
-                  primary={u.nome}
-                  slotProps={{
-                    primary: {
-                      sx: {
-                        fontWeight: ativo ? 700 : 600,
-                        color: ativo ? NAVY : 'text.primary',
-                        fontSize: '0.9rem',
-                      },
-                    },
-                  }}
-                />
-              </ListItemButton>
-            );
-          })}
-        </List>
-      </Dialog>
-    </>
-  );
-}
-
-function SeletorLojaChecklistMobile({
-  lojas,
-  idLoja,
-  onSelecionar,
-}: {
-  lojas: Loja[];
-  idLoja: number | '';
-  onSelecionar: (id: number) => void;
-}) {
-  const [dialogAberto, setDialogAberto] = useState(false);
-  const multiplas = lojas.length > 1;
-  const lojaAtual = lojas.find((l) => l.id_loja === idLoja);
-  const nomeExibido = lojaAtual?.name ?? (multiplas ? 'Selecione a Loja' : lojas[0]?.name ?? '—');
-
-  if (!lojas.length) {
-    return (
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ mt: 1.25, pt: 1.25, borderTop: '1px solid rgba(27, 42, 107, 0.08)' }}
-      >
-        Nenhuma loja disponível
-      </Typography>
-    );
-  }
-
-  return (
-    <>
-      <Box
-        role={multiplas ? 'button' : undefined}
-        tabIndex={multiplas ? 0 : undefined}
-        onClick={() => multiplas && setDialogAberto(true)}
-        onKeyDown={(e) => {
-          if (multiplas && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault();
-            setDialogAberto(true);
-          }
-        }}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.75,
-          minWidth: 0,
-          minHeight: 24,
-          mt: 1.25,
-          pt: 1.25,
-          borderTop: '1px solid rgba(27, 42, 107, 0.08)',
-          cursor: multiplas ? 'pointer' : 'default',
-        }}
-      >
-        <LocationOnOutlinedIcon sx={{ fontSize: 20, color: BRAND_ORANGE, flexShrink: 0, display: 'block' }} />
-        <Typography
-          component="div"
-          variant="body2"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: 1, lineHeight: 1.25 }}
-        >
-          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
-            Loja:
-          </Box>
-          <Box
-            component="span"
-            sx={{
-              color: lojaAtual ? NAVY : 'text.secondary',
-              fontWeight: lojaAtual ? 700 : 500,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {nomeExibido}
-          </Box>
-        </Typography>
-      </Box>
-
-      <Dialog open={dialogAberto} onClose={() => setDialogAberto(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
-          Escolher loja
-        </DialogTitle>
-        <List sx={{ pt: 0, pb: 1 }}>
-          {lojas.map((loja) => {
-            const ativa = loja.id_loja === idLoja;
-            return (
-              <ListItemButton
-                key={loja.id_loja}
-                selected={ativa}
-                onClick={() => {
-                  onSelecionar(loja.id_loja);
-                  setDialogAberto(false);
-                }}
-                sx={{ py: 1.25, '&.Mui-selected': { bgcolor: 'rgba(232, 82, 10, 0.08)' } }}
-              >
-                <ListItemIcon sx={{ minWidth: 36 }}>
-                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: BRAND_ORANGE }} />
-                </ListItemIcon>
-                <ListItemText
-                  primary={loja.name}
-                  secondary={loja.bk_number ? `BKN ${loja.bk_number}` : undefined}
-                  slotProps={{
-                    primary: {
-                      sx: {
-                        fontWeight: ativa ? 700 : 600,
-                        color: ativa ? NAVY : 'text.primary',
-                        fontSize: '0.9rem',
-                      },
-                    },
-                    secondary: { sx: { fontSize: '0.75rem' } },
-                  }}
-                />
-              </ListItemButton>
-            );
-          })}
-        </List>
-      </Dialog>
-    </>
-  );
-}
-
 function BannerResumoChecklist({
   titulo,
   totalPerguntas,
@@ -611,8 +263,36 @@ export default function ChecklistPage() {
   const [retomando, setRetomando] = useState(false);
   const [carregandoTipo, setCarregandoTipo] = useState(false);
   const lojaMobileCtx = useChamadosMobileLojaOpcional();
+  const { setFase: setChecklistFaseUi, registrarVoltar } = useChecklistMobileUi();
   const pathChecklist = toAppPath(location.pathname);
   const prevPathChecklist = useRef('');
+
+  useEffect(() => {
+    if (!paths.mobile) {
+      setChecklistFaseUi(null);
+      return;
+    }
+    setChecklistFaseUi(fase);
+    return () => setChecklistFaseUi(null);
+  }, [paths.mobile, fase, setChecklistFaseUi]);
+
+  useEffect(() => {
+    if (!paths.mobile) {
+      registrarVoltar(null);
+      return;
+    }
+    registrarVoltar(() => {
+      setFase('setup');
+      setVisitaId(null);
+      setIndiceSecao(0);
+      setRespostas({});
+      setErrosPerguntas({});
+      setMsg('');
+      setMsgTitulo('');
+    });
+    return () => registrarVoltar(null);
+  }, [paths.mobile, registrarVoltar]);
+
 
   const totalPerguntas = useMemo(
     () => checklist.reduce((n, c) => n + c.perguntas.length, 0),
@@ -776,8 +456,8 @@ export default function ChecklistPage() {
           }
         }
         if (sessao) {
-          const auditorPadrao = auditoresList.find((u) => u.id_usuario === sessao.id_usuario);
-          setIdUsuario(auditorPadrao?.id_usuario ?? auditoresList[0]?.id_usuario ?? sessao.id_usuario);
+          /* Mobile: auditor = usuário logado (não escolhe outro). */
+          setIdUsuario(sessao.id_usuario);
         }
         const idsLojasUsuario = sessao?.lojas?.map((loja) => loja.id_loja) ?? [];
         const lojasIniciais =
@@ -1154,14 +834,20 @@ export default function ChecklistPage() {
   };
 
   if (loading || retomando) {
+    if (paths.mobile) {
+      return (
+        <ChecklistIonicShell>
+          <div className="checklist-ionic" style={{ padding: 24, textAlign: 'center' }}>
+            <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />
+            <Typography variant="body2" color="text.secondary">
+              {retomando ? 'Retomando checklist…' : 'Carregando…'}
+            </Typography>
+          </div>
+        </ChecklistIonicShell>
+      );
+    }
     return (
-      <Box
-        sx={
-          paths.mobile
-            ? { ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG, p: 2 }
-            : { p: 2 }
-        }
-      >
+      <Box sx={{ p: 2 }}>
         <LinearProgress sx={{ borderRadius: 1 }} />
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
           {retomando ? 'Retomando checklist…' : 'Carregando…'}
@@ -1182,172 +868,49 @@ export default function ChecklistPage() {
   }
 
   if (fase === 'setup') {
+    if (paths.mobile) {
+      return (
+        <ChecklistStartScreen
+          msg={msg}
+          onClearMsg={() => setMsg('')}
+          sessaoLocal={sessaoLocal}
+          onContinuar={() =>
+            void retomarVisita(sessaoLocal!.visitaId, {
+              indiceSecao: sessaoLocal!.indiceSecao,
+              fase: sessaoLocal!.fase,
+            })
+          }
+          onEsquecer={() => {
+            const user = getUsuario();
+            if (user) limparSessaoChecklist(user.id_usuario);
+            setSessaoLocal(null);
+          }}
+          saving={saving}
+          retomando={retomando}
+          totalPerguntas={totalPerguntas}
+          totalSecoes={totalSecoes}
+          carregandoTipo={carregandoTipo}
+          auditores={usuarios}
+          idAuditor={idUsuario}
+          nomeAuditorFallback={sessao?.nome ?? '—'}
+          onSelecionarAuditor={setIdUsuario}
+          lojas={lojasMobile}
+          idLoja={idLoja}
+          onSelecionarLoja={selecionarLojaMobile}
+          tiposChecklist={tiposChecklist}
+          tipoCodigo={tipoSelecionado?.codigo ?? ''}
+          onSelecionarTipo={(codigo) => void selecionarTipo(codigo)}
+          metaVisita={metaVisita}
+          onMetaChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
+          podeIniciar={podeIniciarChecklist}
+          onIniciar={iniciarVisita}
+        />
+      );
+    }
+
     return (
-      <Box
-        sx={
-          paths.mobile
-            ? { ...MOBILE_PAGE_COLUMN, width: '100%', maxWidth: 480, mx: 'auto', bgcolor: PAGE_BG }
-            : { px: 2, pb: 4, pt: 0, flex: 1 }
-        }
-      >
-        {paths.mobile ? (
-          <>
-            <Box sx={{ flexShrink: 0, pt: 0 }}>
-        {msg && (
-          <Alert severity="error" sx={{ mb: 2, borderRadius: 2.5 }} onClose={() => setMsg('')}>
-            {msg}
-          </Alert>
-        )}
+      <Box sx={{ px: 2, pb: 4, pt: 0, flex: 1 }}>
 
-        {sessaoLocal && (
-          <Alert
-            severity="warning"
-            sx={{ mb: 2, borderRadius: 2.5 }}
-            action={
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
-                <Button
-                  size="small"
-                  color="warning"
-                  variant="contained"
-                  startIcon={<PlayArrowIcon />}
-                  disabled={saving || retomando}
-                  onClick={() =>
-                    void retomarVisita(sessaoLocal.visitaId, {
-                      indiceSecao: sessaoLocal.indiceSecao,
-                      fase: sessaoLocal.fase,
-                    })
-                  }
-                >
-                  Continuar
-                </Button>
-                <Button
-                  size="small"
-                  color="inherit"
-                  disabled={saving || retomando}
-                  onClick={() => {
-                    const user = getUsuario();
-                    if (user) limparSessaoChecklist(user.id_usuario);
-                    setSessaoLocal(null);
-                  }}
-                >
-                  Esquecer
-                </Button>
-              </Box>
-            }
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Checklist interrompido neste aparelho
-            </Typography>
-            <Typography variant="body2">
-              Visita #{sessaoLocal.visitaId} — retome de onde parou para concluir.
-            </Typography>
-          </Alert>
-        )}
-
-            <CardsResumoChecklistMobile
-              totalPerguntas={totalPerguntas}
-              totalSecoes={totalSecoes}
-              carregando={carregandoTipo}
-            />
-            </Box>
-
-            <Box sx={{ ...MOBILE_SCROLL_AREA, pb: 2 }}>
-            <Paper elevation={0} sx={MOBILE_CARD_SX}>
-              <SeletorAuditorChecklistMobile
-                auditores={usuarios}
-                idAuditor={idUsuario}
-                nomeFallback={sessao?.nome ?? '—'}
-                onSelecionar={setIdUsuario}
-              />
-              <SeletorLojaChecklistMobile
-                lojas={lojasMobile}
-                idLoja={idLoja}
-                onSelecionar={selecionarLojaMobile}
-              />
-            </Paper>
-
-            <Paper elevation={0} sx={{ ...MOBILE_CARD_SX, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {carregandoTipo && <LinearProgress sx={{ mb: 0.5, borderRadius: 1 }} />}
-              <FormControl component="fieldset" fullWidth>
-                <FormLabel
-                  component="legend"
-                  sx={{ fontWeight: 700, color: NAVY, fontSize: '0.875rem', mb: 0.5 }}
-                >
-                  Tipo de checklist
-                </FormLabel>
-                <RadioGroup
-                  value={tipoSelecionado?.codigo ?? ''}
-                  onChange={(e) => void selecionarTipo(e.target.value)}
-                >
-                  {tiposChecklist.map((t) => (
-                    <FormControlLabel
-                      key={t.codigo}
-                      value={t.codigo}
-                      control={
-                        <Radio
-                          sx={{
-                            color: 'rgba(27, 42, 107, 0.45)',
-                            '&.Mui-checked': { color: BRAND_ORANGE },
-                          }}
-                        />
-                      }
-                      label={
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: NAVY }}>
-                            {t.nome}
-                          </Typography>
-                          {t.descricao && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              {t.descricao}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                      sx={{
-                        mx: 0,
-                        py: 0.75,
-                        px: 0.5,
-                        borderRadius: 2,
-                        alignItems: 'flex-start',
-                        '&:has(.Mui-checked)': { bgcolor: 'rgba(232, 82, 10, 0.06)' },
-                      }}
-                    />
-                  ))}
-                </RadioGroup>
-              </FormControl>
-
-              {tipoSelecionado?.codigo === 'time_de_campo' && (
-                <TimeCampoMetaForm
-                  value={metaVisita}
-                  onChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
-                />
-              )}
-            </Paper>
-
-            <Button
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={saving || carregandoTipo || !podeIniciarChecklist}
-              onClick={iniciarVisita}
-              sx={{
-                minHeight: 48,
-                fontWeight: 700,
-                borderRadius: 3,
-                bgcolor: BRAND_ORANGE,
-                textTransform: 'none',
-                fontSize: '0.95rem',
-                boxShadow: '0 6px 20px rgba(232, 82, 10, 0.32)',
-                '&:hover': { bgcolor: '#d14a09' },
-                '&.Mui-disabled': { bgcolor: 'rgba(232, 82, 10, 0.35)', color: '#fff' },
-              }}
-            >
-              {saving ? 'Iniciando…' : 'Iniciar checklist'}
-            </Button>
-            </Box>
-          </>
-        ) : (
-          <>
         {msg && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMsg('')}>
             {msg}
@@ -1399,7 +962,7 @@ export default function ChecklistPage() {
           </Alert>
         )}
 
-        {rascunhosOrdenados.length > 0 && !paths.mobile && (
+        {rascunhosOrdenados.length > 0 && (
           <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
               Visitas em andamento ({rascunhosOrdenados.length})
@@ -1573,8 +1136,7 @@ export default function ChecklistPage() {
         >
           Iniciar checklist
         </Button>
-          </>
-        )}
+
       </Box>
     );
   }
@@ -1582,7 +1144,24 @@ export default function ChecklistPage() {
   const auditorSel = usuarios.find((u) => u.id_usuario === idUsuario);
 
   if (fase === 'iniciada' && visitaId) {
-    const telaIniciada = (
+    if (paths.mobile) {
+      return (
+        <VisitaIniciadaScreen
+          visitaId={visitaId}
+          loja={lojaSel}
+          auditor={auditorSel}
+          dataVisita={dataVisita}
+          horaInicio={horaInicio}
+          totalSecoes={totalSecoes}
+          totalPerguntas={totalPerguntas}
+          tipoChecklist={tipoSelecionado?.nome}
+          metaVisita={tipoSelecionado?.codigo === 'time_de_campo' ? metaVisita : undefined}
+          onComecar={comecarAvaliacao}
+          ionic
+        />
+      );
+    }
+    return (
       <VisitaIniciadaScreen
         visitaId={visitaId}
         loja={lojaSel}
@@ -1596,16 +1175,6 @@ export default function ChecklistPage() {
         onComecar={comecarAvaliacao}
       />
     );
-    if (paths.mobile) {
-      return (
-        <Box sx={{ ...MOBILE_PAGE_COLUMN, width: '100%', maxWidth: 480, mx: 'auto' }}>
-          <Box sx={{ ...MOBILE_SCROLL_AREA, display: 'flex', flexDirection: 'column' }}>
-            {telaIniciada}
-          </Box>
-        </Box>
-      );
-    }
-    return telaIniciada;
   }
 
   if (!secaoAtual) {
@@ -1826,9 +1395,30 @@ export default function ChecklistPage() {
 
   if (paths.mobile) {
     return (
-      <Box sx={{ ...MOBILE_PAGE_COLUMN, width: '100%', maxWidth: 480, mx: 'auto' }}>
-        {telaPerguntas}
-      </Box>
+      <ChecklistIonicFluxo
+        loja={lojaSel}
+        visitaId={visitaId}
+        checklist={checklist}
+        indiceSecao={indiceSecao}
+        secaoAtual={secaoAtual}
+        respostas={respostas}
+        errosPerguntas={errosPerguntas}
+        respondidas={respondidas}
+        totalPerguntas={totalPerguntas}
+        progressoGeral={progressoGeral}
+        msg={msg}
+        msgTitulo={msgTitulo}
+        saving={saving}
+        onLimparMsg={limparMsg}
+        onIrParaSecao={irParaSecao}
+        onPatch={patchResposta}
+        onSimNao={escolherSimNao}
+        secaoCompleta={secaoCompleta}
+        onSecaoAnterior={irSecaoAnterior}
+        onSalvar={() => void salvarSecaoAtual(false)}
+        onProxima={() => void irProximaSecao()}
+        onFinalizar={() => void finalizar()}
+      />
     );
   }
 

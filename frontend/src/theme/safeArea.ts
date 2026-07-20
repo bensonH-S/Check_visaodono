@@ -74,6 +74,17 @@ export const MOBILE_SPLASH_LOGO = {
   height: 'clamp(5.5rem, 32vmin, 10.5rem)',
 } as const;
 
+/**
+ * Altura da área de ícones da tab bar (sem safe-area).
+ * Nav: TAB 52px + pt 6px → 58px; safe-area entra no CSS abaixo.
+ */
+export const MOBILE_TAB_BAR_INNER_H = 58;
+
+/** Offset total da tab bar fixed (ícones + home indicator). */
+export function mobileTabBarOffsetCss(innerH = MOBILE_TAB_BAR_INNER_H) {
+  return `calc(${innerH}px + env(safe-area-inset-bottom, 0px))`;
+}
+
 /** Barra de abas fixa no rodapé — fundo branco até a borda física (iPhone / home indicator). */
 export function mobileTabBarShellSx(bgcolor = '#fff', zIndex = 30) {
   return {

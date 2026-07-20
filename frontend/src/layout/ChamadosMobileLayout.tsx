@@ -34,11 +34,16 @@ import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, MOBILE_WATERMARK_LOGO, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, MOBILE_WATERMARK_LOGO, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarOffsetCss, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
 } from '../context/ChamadosMobileLojaContext';
+import {
+  ChecklistMobileUiProvider,
+  useChecklistMobileUi,
+} from '../context/ChecklistMobileUiContext';
+import ChecklistIonicRoot from '../components/checklist/ChecklistIonicRoot';
 
 const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
@@ -250,8 +255,12 @@ function ChamadosMobileLayoutInner() {
   const isNc = path === '/nc/mobile' || path.startsWith('/nc/mobile/');
   const isNcResolver = Boolean(useMatch('/nc/mobile/:idNc'));
   const isRelatorio = path.startsWith('/relatorio/visita/');
-  const isChecklistHub = path === '/checklist/mobile';
-  const isChecklistEmAndamento = isChecklist && !isChecklistHub && !isChecklistConcluido;
+  const { fase: checklistFaseUi, dispararVoltar: dispararVoltarChecklist } = useChecklistMobileUi();
+  const isChecklistEmAndamento =
+    isChecklist && (checklistFaseUi === 'iniciada' || checklistFaseUi === 'perguntas');
+  /** Tela inicial do checklist: sem header MUI (logo / Olá). */
+  const isChecklistStart =
+    isChecklist && !isChecklistConcluido && (checklistFaseUi === 'setup' || checklistFaseUi == null);
   const temBotaoVoltar =
     isDetalhe ||
     isNovo ||
@@ -357,8 +366,11 @@ function ChamadosMobileLayoutInner() {
         ]
   ).filter((t) => t.show);
 
-  const mostrarTabs = mobileTabs.length >= 1 && !isSubPage && !isChecklistConcluido;
+  const mostrarTabs =
+    mobileTabs.length >= 1 && !isSubPage && !isChecklistConcluido && !isChecklistEmAndamento;
   const rodapeTotalH = mostrarTabs ? TAB_NAV_H : 0;
+  /** Reserva espaço da tab bar fixed (iPhone / Android / PWA). */
+  const tabBarOffsetCss = mostrarTabs ? mobileTabBarOffsetCss() : '0px';
 
   const subtituloPagina = isNovo
     ? 'Novo chamado'
@@ -466,6 +478,7 @@ function ChamadosMobileLayoutInner() {
 
   return (
     <Box
+      className="mobile-app-shell"
       sx={{
         ...MOBILE_VIEWPORT,
         height: '100%',
@@ -473,9 +486,13 @@ function ChamadosMobileLayoutInner() {
         flexDirection: 'column',
         overflow: 'hidden',
         bgcolor: PAGE_BG,
+        /* Tab bar é position:fixed — reserva a faixa no fluxo p/ o CTA não ficar por baixo */
+        pb: isChecklistStart && mostrarTabs ? tabBarOffsetCss : 0,
+        ['--app-tabbar-offset' as string]: tabBarOffsetCss,
       }}
     >
       <PwaInstallDialog />
+      {!isChecklistStart && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -497,7 +514,10 @@ function ChamadosMobileLayoutInner() {
               <IconButton
                 type="button"
                 size="small"
-                onClick={() => navigate(rotaVoltarMobile(), { replace: true })}
+                onClick={() => {
+                  if (isChecklistEmAndamento && dispararVoltarChecklist()) return;
+                  navigate(rotaVoltarMobile(), { replace: true });
+                }}
                 aria-label="Voltar"
                 sx={{ color: NAVY, ml: -0.5, flexShrink: 0 }}
               >
@@ -550,7 +570,15 @@ function ChamadosMobileLayoutInner() {
           </Box>
         )}
       </Box>
+      )}
 
+      {isChecklist ? (
+        <div className={`mobile-checklist-host${isChecklistStart ? ' mobile-checklist-host--solo' : ''}`}>
+          <ChecklistIonicRoot>
+            <Outlet />
+          </ChecklistIonicRoot>
+        </div>
+      ) : (
       <Box
         component="main"
         sx={{
@@ -620,6 +648,7 @@ function ChamadosMobileLayoutInner() {
           )}
         </Box>
       </Box>
+      )}
 
       {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && (
         <Fab
@@ -710,7 +739,9 @@ function ChamadosMobileLayoutInner() {
 export default function ChamadosMobileLayout() {
   return (
     <ChamadosMobileLojaProvider>
-      <ChamadosMobileLayoutInner />
+      <ChecklistMobileUiProvider>
+        <ChamadosMobileLayoutInner />
+      </ChecklistMobileUiProvider>
     </ChamadosMobileLojaProvider>
   );
 }

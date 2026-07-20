@@ -7,8 +7,17 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import PersonIcon from '@mui/icons-material/Person';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import {
+  IonButton,
+  IonIcon,
+  IonItem,
+  IonLabel,
+  IonList,
+} from '@ionic/react';
+import { checkmarkCircle, clipboardOutline, personOutline, storefrontOutline } from 'ionicons/icons';
 import { formatDataHoraVisita } from '../../utils/dateBr';
 import type { Loja, Usuario, MetaVisitaTimeCampo } from '../../api/client';
+import ChecklistIonicShell from './ChecklistIonicShell';
 
 interface Props {
   visitaId: number;
@@ -21,6 +30,7 @@ interface Props {
   tipoChecklist?: string;
   metaVisita?: MetaVisitaTimeCampo;
   onComecar: () => void;
+  ionic?: boolean;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
@@ -47,9 +57,99 @@ export default function VisitaIniciadaScreen({
   tipoChecklist,
   metaVisita,
   onComecar,
+  ionic = false,
 }: Props) {
   const dataHoraVisita = formatDataHoraVisita(dataVisita, horaInicio);
   const meta = metaVisita ?? {};
+
+  if (ionic) {
+    return (
+      <ChecklistIonicShell>
+      <div style={{ paddingBottom: 24 }}>
+        <div className="ios-large-title">
+          <h1>Visita aberta</h1>
+          <p>Confira os dados e comece a avaliação em loja.</p>
+        </div>
+        <div style={{ textAlign: 'center', padding: '8px 16px' }}>
+          <IonIcon icon={checkmarkCircle} color="success" style={{ fontSize: 48 }} />
+        </div>
+
+        <IonList inset={true}>
+          {tipoChecklist && (
+            <IonItem>
+              <IonIcon slot="start" icon={clipboardOutline} color="secondary" />
+              <IonLabel>
+                <p>Checklist</p>
+                <h2>{tipoChecklist}</h2>
+              </IonLabel>
+            </IonItem>
+          )}
+          <IonItem>
+            <IonLabel>
+              <p>Protocolo</p>
+              <h2>#{visitaId}</h2>
+            </IonLabel>
+          </IonItem>
+          <IonItem>
+            <IonLabel>
+              <p>Data e hora</p>
+              <h2>{dataHoraVisita}</h2>
+            </IonLabel>
+          </IonItem>
+          <IonItem>
+            <IonIcon slot="start" icon={storefrontOutline} color="primary" />
+            <IonLabel>
+              <p>Loja avaliada</p>
+              <h2>{loja?.name ?? '—'}</h2>
+              {loja?.bk_number && <p>BKN {loja.bk_number}</p>}
+            </IonLabel>
+          </IonItem>
+          <IonItem>
+            <IonIcon slot="start" icon={personOutline} color="primary" />
+            <IonLabel>
+              <p>Supervisor / auditor</p>
+              <h2>{auditor?.nome ?? '—'}</h2>
+            </IonLabel>
+          </IonItem>
+          {meta.gerente && (
+            <IonItem>
+              <IonLabel>
+                <p>Gerente</p>
+                <h2>{meta.gerente}</h2>
+              </IonLabel>
+            </IonItem>
+          )}
+          {meta.territorio && (
+            <IonItem>
+              <IonLabel>
+                <p>Território</p>
+                <h2>{meta.territorio}</h2>
+              </IonLabel>
+            </IonItem>
+          )}
+        </IonList>
+
+        <IonList inset={true}>
+          <IonItem lines="none">
+            <IonLabel className="ion-text-wrap">
+              <h2>Escopo</h2>
+              <p>
+                {totalPerguntas} critérios em {totalSecoes} seções. Responda seção por seção e use
+                Salvar para preservar o progresso.
+              </p>
+            </IonLabel>
+          </IonItem>
+        </IonList>
+
+        <div className="cta-wrap">
+          <IonButton expand="block" size="large" color="secondary" onClick={onComecar}>
+            Começar avaliação
+          </IonButton>
+        </div>
+      </div>
+      </ChecklistIonicShell>
+    );
+  }
 
   return (
     <Box
