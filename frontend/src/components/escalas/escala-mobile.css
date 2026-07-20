@@ -1,0 +1,332 @@
+/* Escala mobile — estende o modelo ck-visitas */
+.ck-escala .ck-escala__week {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
+}
+
+.ck-escala .ck-escala__week-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.ck-escala .ck-escala__week-btn:active {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.ck-escala .ck-escala__week-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.ck-escala .ck-escala__hoje {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(232, 82, 10, 0.9);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ck-escala .ck-escala__hoje-spacer {
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.ck-escala .ck-escala__filtro-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ck-escala .ck-escala__filtro-row .ck-visitas__seg {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn {
+  font-size: 0.68rem;
+  padding: 0 4px;
+  min-height: 38px;
+}
+
+.ck-escala .ck-escala__filtro-btn {
+  flex-shrink: 0;
+  width: 44px;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ck-navy);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
+}
+
+.ck-escala .ck-escala__filtro-btn.is-on {
+  border-color: rgba(232, 82, 10, 0.45);
+  color: var(--ck-orange);
+}
+
+.ck-escala .ck-escala__regiao {
+  margin: -4px 0 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-escala .ck-escala__section {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.45);
+}
+
+.ck-escala .ck-escala__card {
+  display: flex;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
+}
+
+.ck-escala .ck-escala__card-stripe {
+  width: 3px;
+  flex-shrink: 0;
+}
+
+.ck-escala .ck-escala__card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.ck-escala .ck-escala__card-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ck-ink);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.ck-escala .ck-escala__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.ck-escala .ck-escala__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid;
+}
+
+.ck-escala .ck-escala__empty {
+  padding: 28px 18px;
+  text-align: center;
+  border-radius: 16px;
+  border: 1.5px dashed rgba(27, 42, 107, 0.22);
+  background: rgba(27, 42, 107, 0.03);
+}
+
+.ck-escala .ck-escala__empty strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.95rem;
+  color: var(--ck-ink);
+}
+
+.ck-escala .ck-escala__empty p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: rgba(20, 32, 72, 0.55);
+  line-height: 1.4;
+}
+
+.ck-escala .ck-escala__dias {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin: 0 -2px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.ck-escala .ck-escala__dias::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-escala .ck-escala__dia {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  min-width: 64px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  text-align: center;
+  cursor: pointer;
+  border: 1.5px solid rgba(27, 42, 107, 0.1);
+  background: #fff;
+  font-family: inherit;
+  color: inherit;
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
+}
+
+.ck-escala .ck-escala__dia.is-today {
+  border-color: rgba(232, 82, 10, 0.45);
+}
+
+.ck-escala .ck-escala__dia.is-on {
+  border-color: var(--ck-orange);
+  background: rgba(232, 82, 10, 0.08);
+  box-shadow: 0 4px 14px rgba(232, 82, 10, 0.18);
+}
+
+.ck-escala .ck-escala__dia strong {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--ck-navy);
+}
+
+.ck-escala .ck-escala__dia small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: rgba(20, 32, 72, 0.5);
+}
+
+.ck-escala .ck-escala__dia-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-top: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  background: rgba(27, 42, 107, 0.12);
+  color: var(--ck-navy);
+}
+
+.ck-escala .ck-escala__dia.is-on .ck-escala__dia-n {
+  background: var(--ck-orange);
+  color: #fff;
+}
+
+.ck-escala .ck-escala__loja-semana {
+  padding: 14px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
+}
+
+.ck-escala .ck-escala__loja-semana.is-delivery {
+  border-color: rgba(232, 82, 10, 0.22);
+}
+
+.ck-escala .ck-escala__loja-semana > strong {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+  line-height: 1.3;
+}
+
+.ck-escala .ck-escala__loja-semana.is-delivery > strong {
+  color: var(--ck-orange);
+}
+
+.ck-escala .ck-escala__faixa {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.ck-escala .ck-escala__faixa-cell {
+  text-align: center;
+  min-width: 0;
+}
+
+.ck-escala .ck-escala__faixa-cell > span {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: rgba(20, 32, 72, 0.45);
+}
+
+.ck-escala .ck-escala__faixa-pill {
+  margin-top: 4px;
+  padding: 6px 2px;
+  border-radius: 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ck-ink);
+  background: rgba(27, 42, 107, 0.04);
+  border: 1px dashed rgba(27, 42, 107, 0.18);
+}
+
+.ck-escala .ck-escala__faixa-pill.is-on {
+  border-style: solid;
+}
+
+.ck-escala .ck-escala__card.is-delivery-on {
+  border-color: rgba(232, 82, 10, 0.35);
+  background: rgba(232, 82, 10, 0.05);
+}
+
+.ck-escala .ck-escala__card-meta {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.ck-escala .ck-escala__card-meta.is-on {
+  color: var(--ck-orange);
+}
+
+.ck-escala .ck-escala__card-meta.is-off {
+  color: rgba(20, 32, 72, 0.45);
+}

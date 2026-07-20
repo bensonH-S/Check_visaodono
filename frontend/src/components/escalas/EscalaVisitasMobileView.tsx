@@ -1,29 +1,17 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
-import IconButton from '@mui/material/IconButton';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
-import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import { assetUrl } from '../../config/paths';
 import { api, type EscalaVisitasDia, type EscalaVisitasGrade, type EscalaVisitasLinha } from '../../api/client';
 import { getUsuario, podeGerenciarEscalaVisitas, podeVerEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
-import { colors, shadows } from '../../theme/tokens';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../../theme/safeArea';
 import {
   DIAS_ABREV,
   DIAS_LONGO,
@@ -34,10 +22,11 @@ import {
   segundaFeiraAtual,
 } from './escalaVisitasUtils';
 import { atribuicoesDoDia, diaTemRegional, idsLojasDestinoDoDia, linhaDeliveryDaGrade } from './escalaVisitasModel';
+import '../visitas/visitas-mobile.css';
+import './escala-mobile.css';
 
-const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
-const PAGE_BG = '#f5f5f3';
+const NAVY = '#1B2A6B';
 
 type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery';
 
@@ -68,169 +57,48 @@ function LojaVisitaCard({
     : regional
       ? [{ nome: regional, cor }]
       : [];
-  const accent = lista[0]?.cor || cor || colors.navy;
+  const accent = lista[0]?.cor || cor || NAVY;
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        display: 'flex',
-        overflow: 'hidden',
-        borderRadius: 2,
-        border: '1px solid rgba(27, 42, 107, 0.08)',
-        bgcolor: '#fff',
-      }}
-    >
-      <Box aria-hidden sx={{ width: 3, flexShrink: 0, bgcolor: accent }} />
-      <Box sx={{ flex: 1, minWidth: 0, py: 1, px: 1.25 }}>
-        <Typography
-          variant="body2"
-          sx={{ fontWeight: 700, color: colors.navy, lineHeight: 1.3, wordBreak: 'break-word' }}
-        >
+    <div className="ck-escala__card">
+      <div className="ck-escala__card-stripe" style={{ background: accent }} aria-hidden />
+      <div className="ck-escala__card-body">
+        <p className="ck-escala__card-title">
           {bk ? `${bk} · ` : ''}
           {nome}
-        </Typography>
+        </p>
         {!ocultarRegional && lista.length > 0 && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.35 }}>
-            {lista.map((r) => (
-              <Chip
-                key={r.nome}
-                size="small"
-                label={primeiroNome(r.nome)}
-                sx={{
-                  height: 20,
-                  fontWeight: 600,
-                  fontSize: '0.68rem',
-                  bgcolor: `${r.cor || accent}14`,
-                  color: colors.navy,
-                  border: `1px solid ${r.cor || accent}44`,
-                }}
-              />
-            ))}
-          </Box>
+          <div className="ck-escala__chips">
+            {lista.map((r) => {
+              const c = r.cor || accent;
+              return (
+                <span
+                  key={r.nome}
+                  className="ck-escala__chip"
+                  style={{ background: `${c}14`, color: NAVY, borderColor: `${c}44` }}
+                >
+                  {primeiroNome(r.nome)}
+                </span>
+              );
+            })}
+          </div>
         )}
-      </Box>
-    </Paper>
-  );
-}
-
-function MetricaCard({
-  valor,
-  rotulo,
-  fundoIcone,
-  bordaIcone,
-  icone,
-  loading,
-}: {
-  valor: number;
-  rotulo: string;
-  fundoIcone: string;
-  bordaIcone: string;
-  icone: ReactNode;
-  loading?: boolean;
-}) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        flex: 1,
-        minWidth: 0,
-        px: 1.35,
-        py: 1.65,
-        borderRadius: 3,
-        bgcolor: '#fff',
-        boxShadow: '0 4px 18px rgba(27, 42, 107, 0.07)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.1,
-      }}
-    >
-      <Box
-        sx={{
-          width: 42,
-          height: 42,
-          borderRadius: 1.75,
-          bgcolor: fundoIcone,
-          border: `2px solid ${bordaIcone}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        {icone}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography
-          sx={{
-            fontWeight: 800,
-            fontSize: '2rem',
-            lineHeight: 1,
-            color: NAVY,
-            letterSpacing: '-0.04em',
-          }}
-        >
-          {loading ? '—' : valor}
-        </Typography>
-        <Typography
-          sx={{
-            mt: 0.4,
-            fontSize: '0.74rem',
-            fontWeight: 500,
-            color: NAVY,
-            opacity: 0.72,
-            lineHeight: 1.25,
-          }}
-        >
-          {rotulo}
-        </Typography>
-      </Box>
-    </Paper>
-  );
-}
-
-function CardResumoSemana({
-  totalVisitas,
-  visitasHojeMinhas,
-  loading,
-}: {
-  totalVisitas: number;
-  visitasHojeMinhas: number;
-  loading: boolean;
-}) {
-  return (
-    <Box sx={{ display: 'flex', gap: 1.1, mb: 1 }}>
-      <MetricaCard
-        valor={visitasHojeMinhas}
-        rotulo="Suas visitas hoje"
-        fundoIcone="rgba(232, 82, 10, 0.14)"
-        bordaIcone={ORANGE}
-        icone={<EventAvailableOutlinedIcon sx={{ color: ORANGE, fontSize: 21 }} />}
-        loading={loading}
-      />
-      <MetricaCard
-        valor={totalVisitas}
-        rotulo="Visitas em lojas na semana"
-        fundoIcone="rgba(27, 42, 107, 0.12)"
-        bordaIcone={NAVY}
-        icone={<StorefrontOutlinedIcon sx={{ color: NAVY, fontSize: 21 }} />}
-        loading={loading}
-      />
-    </Box>
+      </div>
+    </div>
   );
 }
 
 function FaixaSemanaLoja({ dias, ehDelivery = false }: { dias: EscalaVisitasDia[]; ehDelivery?: boolean }) {
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 0.5, mt: 1.25 }}>
+    <div className="ck-escala__faixa">
       {dias.map((d, i) => {
         const attrs = atribuicoesDoDia(d);
         const temVisita = attrs.length > 0;
-        const cor = ehDelivery ? ORANGE : attrs[0]?.cor || colors.border;
+        const cor = ehDelivery ? ORANGE : attrs[0]?.cor || 'rgba(27,42,107,0.2)';
         const rotulo = ehDelivery
           ? attrs.length > 1
             ? String(attrs.length)
-            : (attrs[0]?.bk_loja_destino
-              || (attrs[0]?.nome_loja_destino ? primeiroNome(attrs[0].nome_loja_destino).slice(0, 3) : '—'))
+            : attrs[0]?.bk_loja_destino ||
+              (attrs[0]?.nome_loja_destino ? primeiroNome(attrs[0].nome_loja_destino).slice(0, 3) : '—')
           : attrs.length > 1
             ? String(attrs.length)
             : attrs[0]?.nome_regional
@@ -240,58 +108,35 @@ function FaixaSemanaLoja({ dias, ehDelivery = false }: { dias: EscalaVisitasDia[
           ? attrs.map((a) => a.nome_loja_destino).filter(Boolean).join(', ') || 'Sem loja'
           : attrs.map((a) => a.nome_regional).filter(Boolean).join(', ') || 'Sem visita';
         return (
-          <Box key={d.dia} sx={{ textAlign: 'center', minWidth: 0 }}>
-            <Typography variant="caption" sx={{ fontSize: '0.62rem', color: colors.textMuted, fontWeight: 600 }}>
-              {DIAS_ABREV[i]}
-            </Typography>
-            <Box
+          <div key={d.dia} className="ck-escala__faixa-cell">
+            <span>{DIAS_ABREV[i]}</span>
+            <div
               title={titulo}
-              sx={{
-                mt: 0.35,
-                py: 0.65,
-                px: 0.25,
-                borderRadius: 1,
-                fontSize: '0.62rem',
-                fontWeight: 700,
-                lineHeight: 1.1,
-                bgcolor: temVisita ? `${cor}20` : colors.canvasAlt,
-                border: temVisita ? `1px solid ${cor}` : `1px dashed ${colors.border}`,
-                color: temVisita ? colors.navy : colors.textMuted,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
+              className={`ck-escala__faixa-pill${temVisita ? ' is-on' : ''}`}
+              style={
+                temVisita
+                  ? { background: `${cor}20`, borderColor: cor }
+                  : undefined
+              }
             >
               {temVisita ? rotulo : '—'}
-            </Box>
-          </Box>
+            </div>
+          </div>
         );
       })}
-    </Box>
+    </div>
   );
 }
 
 function CardLojaSemana({ linha }: { linha: EscalaVisitasLinha }) {
   const ehDelivery = linha.tipo === 'delivery';
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 1.5,
-        borderRadius: 2.5,
-        border: `1px solid ${ehDelivery ? 'rgba(232, 82, 10, 0.2)' : 'rgba(27, 42, 107, 0.08)'}`,
-        bgcolor: '#fff',
-        boxShadow: shadows.sm,
-      }}
-    >
-      <Typography
-        variant="subtitle2"
-        sx={{ fontWeight: 700, color: ehDelivery ? ORANGE : colors.navy, lineHeight: 1.3 }}
-      >
+    <div className={`ck-escala__loja-semana${ehDelivery ? ' is-delivery' : ''}`}>
+      <strong>
         {ehDelivery ? linha.nome : `${linha.bk_number ? `${linha.bk_number} · ` : ''}${linha.nome}`}
-      </Typography>
+      </strong>
       <FaixaSemanaLoja dias={linha.dias} ehDelivery={ehDelivery} />
-    </Paper>
+    </div>
   );
 }
 
@@ -441,477 +286,284 @@ export default function EscalaVisitasMobileView() {
   const temFiltroRegiao = grade != null && grade.regioes.length > 1;
   const regiaoAtiva = grade?.regioes.find((r) => r.id_regiao === idRegiao);
 
-  const barraModos = (
-    <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 0.75, mb: 1.25 }}>
-      <Box
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          bgcolor: '#fff',
-          borderRadius: 999,
-          p: 0.3,
-          boxShadow: '0 1px 8px rgba(27, 42, 107, 0.08)',
-        }}
-      >
-        {MODOS.map(({ id, label }) => {
-          const ativa = modo === id;
-          return (
-            <Button
-              key={id}
-              fullWidth
-              onClick={() => setModo(id)}
-              sx={{
-                minHeight: 0,
-                py: 0.65,
-                px: 0.75,
-                borderRadius: 999,
-                textTransform: 'none',
-                fontWeight: 700,
-                fontSize: '0.76rem',
-                color: ativa ? '#fff' : 'rgba(27, 42, 107, 0.55)',
-                bgcolor: ativa ? ORANGE : 'transparent',
-                boxShadow: ativa ? '0 2px 8px rgba(232, 82, 10, 0.28)' : 'none',
-                '&:hover': { bgcolor: ativa ? ORANGE : 'rgba(27, 42, 107, 0.04)' },
-              }}
-            >
-              {label}
-            </Button>
-          );
-        })}
-      </Box>
-      {temFiltroRegiao && (
-        <>
-          <IconButton
-            aria-label="Filtrar região"
-            onClick={() => setFiltroRegiaoAberto(true)}
-            sx={{
-              flexShrink: 0,
-              alignSelf: 'stretch',
-              aspectRatio: '1',
-              width: 'auto',
-              minWidth: 40,
-              borderRadius: 2.5,
-              bgcolor: '#fff',
-              boxShadow: '0 2px 12px rgba(27, 42, 107, 0.08)',
-              border: idRegiao !== '' ? '2px solid rgba(232, 82, 10, 0.35)' : '1px solid rgba(27, 42, 107, 0.08)',
+  return (
+    <div className="ck-visitas ck-escala">
+      <div className="ck-visitas__scroll">
+        <div className="ck-visitas__stage">
+          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+          <div className="ck-visitas__mesh" aria-hidden />
+
+          <div className="ck-visitas__stage-inner">
+            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+              <div>
+                <p className="ck-visitas__mark-text">Grupo Alvim</p>
+                <h1 className="ck-visitas__title">
+                  Escala
+                  <br />
+                  visitas
+                </h1>
+              </div>
+              <img
+                src={assetUrl('Logo_Icon-clear.png')}
+                alt=""
+                className="ck-visitas__mark-icon"
+                width={56}
+                height={56}
+              />
+            </div>
+
+            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+              Veja suas visitas da semana, por dia, por loja ou delivery.
+            </p>
+
+            <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+              <div className="ck-visitas__metric ck-visitas__metric--accent">
+                <strong>{loading ? '—' : visitasHojeMinhas}</strong>
+                <span>suas hoje</span>
+              </div>
+              <div className="ck-visitas__metric">
+                <strong>{loading ? '—' : totalVisitas}</strong>
+                <span>na semana</span>
+              </div>
+              <div className="ck-visitas__metric">
+                <strong>{loading ? '—' : grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0}</strong>
+                <span>lojas</span>
+              </div>
+            </div>
+
+            <div className="ck-escala__week ck-visitas__anim ck-visitas__anim--3">
+              <button
+                type="button"
+                className="ck-escala__week-btn"
+                aria-label="Semana anterior"
+                onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
+              >
+                ‹
+              </button>
+              <span className="ck-escala__week-label">{labelSemanaCurta}</span>
+              {!semanaEhAtual ? (
+                <button
+                  type="button"
+                  className="ck-escala__hoje"
+                  onClick={() => setSemanaInicio(segundaFeiraAtual())}
+                >
+                  Hoje
+                </button>
+              ) : (
+                <span className="ck-escala__hoje-spacer" aria-hidden />
+              )}
+              <button
+                type="button"
+                className="ck-escala__week-btn"
+                aria-label="Próxima semana"
+                onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
+              >
+                ›
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+          <div className="ck-escala__filtro-row">
+            <div className="ck-visitas__seg" role="tablist">
+              {MODOS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={modo === id}
+                  className={`ck-visitas__seg-btn${modo === id ? ' is-on' : ''}`}
+                  onClick={() => setModo(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {temFiltroRegiao && (
+              <button
+                type="button"
+                className={`ck-escala__filtro-btn${idRegiao !== '' ? ' is-on' : ''}`}
+                aria-label="Filtrar região"
+                onClick={() => setFiltroRegiaoAberto(true)}
+              >
+                <FilterListIcon sx={{ fontSize: 20 }} />
+              </button>
+            )}
+          </div>
+
+          {regiaoAtiva && <p className="ck-escala__regiao">Exibindo: {regiaoAtiva.nome}</p>}
+
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+              <CircularProgress size={28} sx={{ color: NAVY }} />
+            </div>
+          ) : modo === 'minhas' ? (
+            minhasVisitas.length === 0 ? (
+              <div className="ck-escala__empty">
+                <strong>Nenhuma visita sua</strong>
+                <p>
+                  {ehDiretor
+                    ? 'Use “Por dia” ou “Por loja” para ver o planejamento do time.'
+                    : 'Nenhuma visita planejada para você nesta semana.'}
+                </p>
+              </div>
+            ) : (
+              minhasVisitas.map((d) => (
+                <div key={d.dia} style={{ marginBottom: 14 }}>
+                  <p className="ck-escala__section">
+                    {d.label} · {d.data}
+                  </p>
+                  {d.itens.map((item) => (
+                    <LojaVisitaCard
+                      key={`${d.dia}-${item.id_loja}`}
+                      nome={item.nome}
+                      bk={item.bk}
+                      regionais={item.regionais}
+                      cor={item.cor}
+                      ocultarRegional
+                    />
+                  ))}
+                </div>
+              ))
+            )
+          ) : modo === 'delivery' ? (
+            <>
+              <div className="ck-escala__dias">
+                {deliveryPorDia.map((d) => {
+                  const selected = d.dia === diaSelecionado;
+                  const isToday = hojeIndex === d.dia;
+                  return (
+                    <button
+                      key={d.dia}
+                      type="button"
+                      className={`ck-escala__dia${selected ? ' is-on' : ''}${isToday ? ' is-today' : ''}`}
+                      onClick={() => setDiaSelecionado(d.dia)}
+                    >
+                      <strong>{DIAS_ABREV[d.dia]}</strong>
+                      <small>{d.data}</small>
+                      <span className="ck-escala__dia-n">{d.totalMarcadas}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {(deliveryPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
+                <div
+                  key={loja.id_loja}
+                  className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}`}
+                >
+                  <div
+                    className="ck-escala__card-stripe"
+                    style={{ background: loja.marcada ? ORANGE : 'rgba(27,42,107,0.2)' }}
+                    aria-hidden
+                  />
+                  <div className="ck-escala__card-body">
+                    <p className="ck-escala__card-title">
+                      {loja.bk_number ? `${loja.bk_number} · ` : ''}
+                      {loja.nome}
+                    </p>
+                    <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
+                      {loja.marcada ? 'Delivery agendado' : 'Sem delivery'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : modo === 'dia' ? (
+            <>
+              <div className="ck-escala__dias">
+                {visitasPorDia.map((d) => {
+                  const selected = d.dia === diaSelecionado;
+                  const isToday = hojeIndex === d.dia;
+                  return (
+                    <button
+                      key={d.dia}
+                      type="button"
+                      className={`ck-escala__dia${selected ? ' is-on' : ''}${isToday ? ' is-today' : ''}`}
+                      onClick={() => setDiaSelecionado(d.dia)}
+                    >
+                      <strong>{DIAS_ABREV[d.dia]}</strong>
+                      <small>{d.data}</small>
+                      {d.itens.length > 0 && <span className="ck-escala__dia-n">{d.itens.length}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {diaAtual && diaAtual.itens.length === 0 ? (
+                <div className="ck-escala__empty">
+                  <p>
+                    Nenhuma visita em {diaAtual.label.toLowerCase()}, {diaAtual.data}.
+                  </p>
+                </div>
+              ) : (
+                diaAtual?.itens.map((item) => (
+                  <LojaVisitaCard
+                    key={item.id_loja}
+                    nome={item.nome}
+                    bk={item.bk}
+                    regionais={item.regionais}
+                    cor={item.cor}
+                  />
+                ))
+              )}
+            </>
+          ) : grade?.linhas.filter((linha) => linha.tipo !== 'delivery').length === 0 ? (
+            <div className="ck-escala__empty">
+              <p>Nenhuma loja neste filtro.</p>
+            </div>
+          ) : (
+            grade?.linhas
+              .filter((linha) => linha.tipo !== 'delivery')
+              .map((linha) => <CardLojaSemana key={linha.id_loja} linha={linha} />)
+          )}
+        </div>
+      </div>
+
+      <Dialog open={filtroRegiaoAberto} onClose={() => setFiltroRegiaoAberto(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+          Filtrar por região
+        </DialogTitle>
+        <List sx={{ pt: 0, pb: 1 }}>
+          <ListItemButton
+            selected={idRegiao === ''}
+            onClick={() => {
+              setIdRegiao('');
+              setFiltroRegiaoAberto(false);
             }}
           >
-            <FilterListIcon sx={{ color: NAVY, fontSize: 21 }} />
-          </IconButton>
-          <Dialog open={filtroRegiaoAberto} onClose={() => setFiltroRegiaoAberto(false)} fullWidth maxWidth="xs">
-            <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
-              Filtrar por região
-            </DialogTitle>
-            <List sx={{ pt: 0, pb: 1 }}>
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <LocationOnOutlinedIcon sx={{ fontSize: 20, color: idRegiao === '' ? ORANGE : 'text.disabled' }} />
+            </ListItemIcon>
+            <ListItemText
+              primary="Todas as regiões"
+              slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem' } } }}
+            />
+          </ListItemButton>
+          {grade?.regioes.map((r) => {
+            const ativa = idRegiao === r.id_regiao;
+            return (
               <ListItemButton
-                selected={idRegiao === ''}
+                key={r.id_regiao}
+                selected={ativa}
                 onClick={() => {
-                  setIdRegiao('');
+                  setIdRegiao(r.id_regiao);
                   setFiltroRegiaoAberto(false);
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: idRegiao === '' ? ORANGE : 'text.disabled' }} />
+                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ativa ? ORANGE : 'text.disabled' }} />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Todas as regiões"
-                  slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem' } } }}
+                  primary={r.nome}
+                  slotProps={{ primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' } } }}
                 />
               </ListItemButton>
-              {grade?.regioes.map((r) => {
-                const ativa = idRegiao === r.id_regiao;
-                return (
-                  <ListItemButton
-                    key={r.id_regiao}
-                    selected={ativa}
-                    onClick={() => {
-                      setIdRegiao(r.id_regiao);
-                      setFiltroRegiaoAberto(false);
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ativa ? ORANGE : 'text.disabled' }} />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={r.nome}
-                      slotProps={{ primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' } } }}
-                    />
-                  </ListItemButton>
-                );
-              })}
-            </List>
-          </Dialog>
-        </>
-      )}
-    </Box>
-  );
-
-  const conteudoScroll = (
-    <>
-      {barraModos}
-      {regiaoAtiva && (
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            mb: 1,
-            px: 0.5,
-            color: 'text.secondary',
-            fontWeight: 600,
-          }}
-        >
-          Exibindo: {regiaoAtiva.nome}
-        </Typography>
-      )}
-
-      {loading ? (
-    <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-      <CircularProgress size={28} sx={{ color: NAVY }} />
-    </Box>
-  ) : modo === 'minhas' ? (
-    minhasVisitas.length === 0 ? (
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3.5,
-          textAlign: 'center',
-          borderRadius: 2.5,
-          border: '1.5px dashed rgba(27, 42, 107, 0.25)',
-          bgcolor: 'rgba(27, 42, 107, 0.03)',
-        }}
-      >
-        <CalendarMonthOutlinedIcon sx={{ fontSize: 40, color: NAVY, mb: 1, opacity: 0.5 }} />
-        <Typography sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
-          Nenhuma visita sua
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {ehDiretor
-            ? 'Use “Por dia” ou “Por loja” para ver o planejamento do time.'
-            : 'Nenhuma visita planejada para você nesta semana.'}
-        </Typography>
-      </Paper>
-    ) : (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {minhasVisitas.map((d) => (
-          <Box key={d.dia}>
-            <Typography
-              variant="caption"
-              sx={{
-                fontWeight: 700,
-                color: colors.navy,
-                display: 'block',
-                mb: 0.5,
-                px: 0.25,
-              }}
-            >
-              {d.label} · {d.data}
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.65 }}>
-              {d.itens.map((item) => (
-                <LojaVisitaCard
-                  key={`${d.dia}-${item.id_loja}`}
-                  nome={item.nome}
-                  bk={item.bk}
-                  regionais={item.regionais}
-                  cor={item.cor}
-                  ocultarRegional
-                />
-              ))}
-            </Box>
-          </Box>
-        ))}
-      </Box>
-    )
-  ) : modo === 'delivery' ? (
-    <>
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 0.75,
-          overflowX: 'auto',
-          pb: 1.25,
-          mx: -0.25,
-          px: 0.25,
-          scrollSnapType: 'x mandatory',
-          WebkitOverflowScrolling: 'touch',
-          '&::-webkit-scrollbar': { display: 'none' },
-        }}
-      >
-        {deliveryPorDia.map((d) => {
-          const selected = d.dia === diaSelecionado;
-          const isToday = hojeIndex === d.dia;
-          return (
-            <Paper
-              key={d.dia}
-              component="button"
-              type="button"
-              onClick={() => setDiaSelecionado(d.dia)}
-              elevation={0}
-              sx={{
-                flexShrink: 0,
-                scrollSnapAlign: 'start',
-                minWidth: 64,
-                p: 1,
-                borderRadius: 2.5,
-                textAlign: 'center',
-                cursor: 'pointer',
-                border: selected
-                  ? `2px solid ${ORANGE}`
-                  : isToday
-                    ? `1px solid ${ORANGE}`
-                    : '1px solid rgba(27, 42, 107, 0.1)',
-                bgcolor: selected ? 'rgba(232, 82, 10, 0.08)' : '#fff',
-                boxShadow: selected ? '0 2px 10px rgba(232, 82, 10, 0.18)' : '0 2px 14px rgba(27, 42, 107, 0.07)',
-                font: 'inherit',
-              }}
-            >
-              <Typography variant="caption" sx={{ fontWeight: 700, color: NAVY, display: 'block' }}>
-                {DIAS_ABREV[d.dia]}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem' }}>
-                {d.data}
-              </Typography>
-              <Box
-                sx={{
-                  mt: 0.5,
-                  mx: 'auto',
-                  minWidth: 18,
-                  height: 18,
-                  px: 0.5,
-                  borderRadius: 99,
-                  bgcolor: selected ? ORANGE : 'rgba(27, 42, 107, 0.12)',
-                  color: selected ? '#fff' : NAVY,
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {d.totalMarcadas}
-              </Box>
-            </Paper>
-          );
-        })}
-      </Box>
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.65 }}>
-        {(deliveryPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
-          <Paper
-            key={loja.id_loja}
-            elevation={0}
-            sx={{
-              display: 'flex',
-              overflow: 'hidden',
-              borderRadius: 2,
-              border: loja.marcada ? '1px solid rgba(232, 82, 10, 0.35)' : '1px solid rgba(27, 42, 107, 0.08)',
-              bgcolor: loja.marcada ? 'rgba(232, 82, 10, 0.05)' : '#fff',
-            }}
-          >
-            <Box aria-hidden sx={{ width: 3, flexShrink: 0, bgcolor: loja.marcada ? ORANGE : colors.border }} />
-            <Box sx={{ flex: 1, minWidth: 0, py: 1, px: 1.25 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, lineHeight: 1.3 }}>
-                {loja.bk_number ? `${loja.bk_number} · ` : ''}
-                {loja.nome}
-              </Typography>
-              <Typography variant="caption" sx={{ color: loja.marcada ? ORANGE : 'text.secondary', fontWeight: 600 }}>
-                {loja.marcada ? 'Delivery agendado' : 'Sem delivery'}
-              </Typography>
-            </Box>
-          </Paper>
-        ))}
-      </Box>
-    </>
-  ) : modo === 'dia' ? (
-    <>
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 0.75,
-          overflowX: 'auto',
-          pb: 1.25,
-          mx: -0.25,
-          px: 0.25,
-          scrollSnapType: 'x mandatory',
-          WebkitOverflowScrolling: 'touch',
-          '&::-webkit-scrollbar': { display: 'none' },
-        }}
-      >
-        {visitasPorDia.map((d) => {
-          const selected = d.dia === diaSelecionado;
-          const isToday = hojeIndex === d.dia;
-          return (
-            <Paper
-              key={d.dia}
-              component="button"
-              type="button"
-              onClick={() => setDiaSelecionado(d.dia)}
-              elevation={0}
-              sx={{
-                flexShrink: 0,
-                scrollSnapAlign: 'start',
-                minWidth: 64,
-                p: 1,
-                borderRadius: 2.5,
-                textAlign: 'center',
-                cursor: 'pointer',
-                border: selected
-                  ? `2px solid ${ORANGE}`
-                  : isToday
-                    ? `1px solid ${ORANGE}`
-                    : '1px solid rgba(27, 42, 107, 0.1)',
-                bgcolor: selected ? 'rgba(232, 82, 10, 0.08)' : '#fff',
-                boxShadow: selected ? '0 2px 10px rgba(232, 82, 10, 0.18)' : '0 2px 14px rgba(27, 42, 107, 0.07)',
-                font: 'inherit',
-              }}
-            >
-              <Typography variant="caption" sx={{ fontWeight: 700, color: NAVY, display: 'block' }}>
-                {DIAS_ABREV[d.dia]}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.68rem' }}>
-                {d.data}
-              </Typography>
-              {d.itens.length > 0 && (
-                <Box
-                  sx={{
-                    mt: 0.5,
-                    mx: 'auto',
-                    minWidth: 18,
-                    height: 18,
-                    px: 0.5,
-                    borderRadius: 99,
-                    bgcolor: selected ? ORANGE : NAVY,
-                    color: '#fff',
-                    fontSize: '0.65rem',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {d.itens.length}
-                </Box>
-              )}
-            </Paper>
-          );
-        })}
-      </Box>
-
-      {diaAtual && diaAtual.itens.length === 0 ? (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            textAlign: 'center',
-            borderRadius: 2.5,
-            border: '1.5px dashed rgba(27, 42, 107, 0.25)',
-            bgcolor: 'rgba(27, 42, 107, 0.03)',
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            Nenhuma visita em {diaAtual.label.toLowerCase()}, {diaAtual.data}.
-          </Typography>
-        </Paper>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.65 }}>
-          {diaAtual?.itens.map((item) => (
-            <LojaVisitaCard
-              key={item.id_loja}
-              nome={item.nome}
-              bk={item.bk}
-              regionais={item.regionais}
-              cor={item.cor}
-            />
-          ))}
-        </Box>
-      )}
-    </>
-  ) : (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-      {grade?.linhas.length === 0 ? (
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-          Nenhuma loja neste filtro.
-        </Typography>
-      ) : (
-        grade?.linhas.filter((linha) => linha.tipo !== 'delivery').map((linha) => <CardLojaSemana key={linha.id_loja} linha={linha} />)
-      )}
-    </Box>
-      )}
-    </>
-  );
-
-  return (
-    <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG }}>
-      <Box sx={{ flexShrink: 0, pb: 1 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.25,
-            mb: 1,
-            px: 0.25,
-          }}
-        >
-          <IconButton
-            size="small"
-            aria-label="Semana anterior"
-            onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
-            sx={{ color: NAVY, p: 0.5 }}
-          >
-            <ChevronLeftIcon fontSize="small" />
-          </IconButton>
-          <Typography
-            sx={{
-              flex: 1,
-              textAlign: 'center',
-              fontWeight: 700,
-              fontSize: '0.84rem',
-              color: NAVY,
-              lineHeight: 1.2,
-            }}
-          >
-            {labelSemanaCurta}
-          </Typography>
-          {!semanaEhAtual ? (
-            <Button
-              size="small"
-              onClick={() => setSemanaInicio(segundaFeiraAtual())}
-              sx={{
-                minWidth: 0,
-                minHeight: 0,
-                py: 0.35,
-                px: 0.85,
-                fontSize: '0.68rem',
-                fontWeight: 700,
-                color: ORANGE,
-                textTransform: 'none',
-                flexShrink: 0,
-              }}
-            >
-              Hoje
-            </Button>
-          ) : (
-            <Box sx={{ width: 28, flexShrink: 0 }} />
-          )}
-          <IconButton
-            size="small"
-            aria-label="Próxima semana"
-            onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
-            sx={{ color: NAVY, p: 0.5 }}
-          >
-            <ChevronRightIcon fontSize="small" />
-          </IconButton>
-        </Box>
-
-        <CardResumoSemana
-          totalVisitas={totalVisitas}
-          visitasHojeMinhas={visitasHojeMinhas}
-          loading={loading}
-        />
-      </Box>
-
-      <Box sx={{ ...MOBILE_SCROLL_AREA, pb: 1 }}>{conteudoScroll}</Box>
-    </Box>
+            );
+          })}
+        </List>
+      </Dialog>
+    </div>
   );
 }

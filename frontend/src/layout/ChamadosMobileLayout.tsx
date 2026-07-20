@@ -495,7 +495,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -612,7 +612,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && !isFrotaImmersive && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && (
         <Box
           sx={{
             position: 'relative',
@@ -629,7 +629,7 @@ function ChamadosMobileLayoutInner() {
               tagRegiaoTitulo={contextoAtuacaoMobile}
               tagExpandida={tagLojaCompleta}
               ocultarTagLoja={isDetalhe}
-              compacto={isEscalaVisitas}
+              compacto={false}
             />
           </Box>
         </Box>
@@ -638,11 +638,14 @@ function ChamadosMobileLayoutInner() {
           sx={{
             position: 'relative',
             zIndex: 1,
-            ...(paginaCabecalhoFixo || isVisitas || isRelatorio || isFrotaImmersive
+            ...(paginaCabecalhoFixo || isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas
               ? MOBILE_PAGE_COLUMN
               : MOBILE_SCROLL_AREA),
-            ...(isVisitas || isRelatorio || isFrotaImmersive ? { px: 0 } : safeAreaX(16)),
-            pb: isVisitas || isRelatorio || isFrotaImmersive ? 0 : safeAreaBottomCalc(rodapeTotalH + 16),
+            ...(isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas ? { px: 0 } : safeAreaX(16)),
+            pb:
+              isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas
+                ? 0
+                : safeAreaBottomCalc(rodapeTotalH + 16),
           }}
         >
           {isMapa ? (
