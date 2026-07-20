@@ -7,16 +7,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import PersonIcon from '@mui/icons-material/Person';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import {
-  IonButton,
-  IonIcon,
-  IonItem,
-  IonLabel,
-  IonList,
-} from '@ionic/react';
-import { checkmarkCircle, clipboardOutline, personOutline, storefrontOutline } from 'ionicons/icons';
+import { assetUrl } from '../../config/paths';
 import { formatDataHoraVisita } from '../../utils/dateBr';
 import type { Loja, Usuario, MetaVisitaTimeCampo } from '../../api/client';
+import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import ChecklistIonicShell from './ChecklistIonicShell';
 
 interface Props {
@@ -46,6 +40,24 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function MetaLinhas({ meta }: { meta: MetaVisitaTimeCampo }) {
+  const linhas: { label: string; value: string }[] = [];
+  if (meta.gerente) linhas.push({ label: 'Gerente', value: meta.gerente });
+  if (meta.coordenador_1_dia) linhas.push({ label: 'Coord. 1º dia', value: meta.coordenador_1_dia });
+  if (meta.coordenador_2_dia) linhas.push({ label: 'Coord. 2º dia', value: meta.coordenador_2_dia });
+  if (meta.coordenador_madrugada_1) {
+    linhas.push({ label: 'Coord. madrugada 1', value: meta.coordenador_madrugada_1 });
+  }
+  if (meta.coordenador_madrugada_2) {
+    linhas.push({ label: 'Coord. madrugada 2', value: meta.coordenador_madrugada_2 });
+  }
+  if (meta.time_total != null && meta.time_total !== '') {
+    linhas.push({ label: 'Time total', value: String(meta.time_total) });
+  }
+  if (meta.territorio) linhas.push({ label: 'Território', value: meta.territorio });
+  return linhas;
+}
+
 export default function VisitaIniciadaScreen({
   visitaId,
   loja,
@@ -61,92 +73,99 @@ export default function VisitaIniciadaScreen({
 }: Props) {
   const dataHoraVisita = formatDataHoraVisita(dataVisita, horaInicio);
   const meta = metaVisita ?? {};
+  const { dispararVoltar } = useChecklistMobileUi();
+  const metaLinhas = MetaLinhas({ meta });
 
   if (ionic) {
     return (
-      <ChecklistIonicShell>
-      <div style={{ paddingBottom: 24 }}>
-        <div className="ios-large-title">
-          <h1>Visita aberta</h1>
-          <p>Confira os dados e comece a avaliação em loja.</p>
-        </div>
-        <div style={{ textAlign: 'center', padding: '8px 16px' }}>
-          <IonIcon icon={checkmarkCircle} color="success" style={{ fontSize: 48 }} />
-        </div>
+      <ChecklistIonicShell scrollY={false}>
+        <div className="ck-go ck-start--fixed">
+          <div className="ck-start__scroll">
+            <div className="ck-go__stage">
+              <div className="ck-start__glow ck-start__glow--a" aria-hidden />
+              <div className="ck-start__mesh" aria-hidden />
+              <div className="ck-go__stage-inner">
+                <button
+                  type="button"
+                  className="ck-go__back"
+                  onClick={() => dispararVoltar()}
+                  aria-label="Voltar"
+                >
+                  ←
+                </button>
+                <img
+                  src={assetUrl('Logo_Icon-clear.png')}
+                  alt=""
+                  className="ck-go__logo"
+                  width={44}
+                  height={44}
+                />
+                <p className="ck-go__eyebrow">Protocolo #{visitaId}</p>
+                <h1 className="ck-go__title">Visita aberta</h1>
+                <p className="ck-go__sub">Confira os dados e comece a avaliação.</p>
+                <div className="ck-go__metrics">
+                  <div className="ck-start__metric">
+                    <strong>{totalPerguntas}</strong>
+                    <span>perguntas</span>
+                  </div>
+                  <div className="ck-start__metric">
+                    <strong>{totalSecoes}</strong>
+                    <span>seções</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        <IonList inset={true}>
-          {tipoChecklist && (
-            <IonItem>
-              <IonIcon slot="start" icon={clipboardOutline} color="secondary" />
-              <IonLabel>
-                <p>Checklist</p>
-                <h2>{tipoChecklist}</h2>
-              </IonLabel>
-            </IonItem>
-          )}
-          <IonItem>
-            <IonLabel>
-              <p>Protocolo</p>
-              <h2>#{visitaId}</h2>
-            </IonLabel>
-          </IonItem>
-          <IonItem>
-            <IonLabel>
-              <p>Data e hora</p>
-              <h2>{dataHoraVisita}</h2>
-            </IonLabel>
-          </IonItem>
-          <IonItem>
-            <IonIcon slot="start" icon={storefrontOutline} color="primary" />
-            <IonLabel>
-              <p>Loja avaliada</p>
-              <h2>{loja?.name ?? '—'}</h2>
-              {loja?.bk_number && <p>BKN {loja.bk_number}</p>}
-            </IonLabel>
-          </IonItem>
-          <IonItem>
-            <IonIcon slot="start" icon={personOutline} color="primary" />
-            <IonLabel>
-              <p>Supervisor / auditor</p>
-              <h2>{auditor?.nome ?? '—'}</h2>
-            </IonLabel>
-          </IonItem>
-          {meta.gerente && (
-            <IonItem>
-              <IonLabel>
-                <p>Gerente</p>
-                <h2>{meta.gerente}</h2>
-              </IonLabel>
-            </IonItem>
-          )}
-          {meta.territorio && (
-            <IonItem>
-              <IonLabel>
-                <p>Território</p>
-                <h2>{meta.territorio}</h2>
-              </IonLabel>
-            </IonItem>
-          )}
-        </IonList>
+            <div className="ck-go__sheet">
+              <div className="ck-go__card">
+                {tipoChecklist && (
+                  <div className="ck-go__row">
+                    <span>Checklist</span>
+                    <strong>{tipoChecklist}</strong>
+                  </div>
+                )}
+                <div className="ck-go__row">
+                  <span>Data e hora</span>
+                  <strong>{dataHoraVisita}</strong>
+                </div>
+                <div className="ck-go__row">
+                  <span>Loja</span>
+                  <strong>
+                    {loja?.name ?? '—'}
+                    {loja?.bk_number ? ` · BKN ${loja.bk_number}` : ''}
+                  </strong>
+                </div>
+                <div className="ck-go__row">
+                  <span>Auditor</span>
+                  <strong>{auditor?.nome ?? '—'}</strong>
+                </div>
+                {metaLinhas.map((l) => (
+                  <div key={l.label} className="ck-go__row">
+                    <span>{l.label}</span>
+                    <strong>{l.value}</strong>
+                  </div>
+                ))}
+              </div>
 
-        <IonList inset={true}>
-          <IonItem lines="none">
-            <IonLabel className="ion-text-wrap">
-              <h2>Escopo</h2>
-              <p>
-                {totalPerguntas} critérios em {totalSecoes} seções. Responda seção por seção e use
-                Salvar para preservar o progresso.
-              </p>
-            </IonLabel>
-          </IonItem>
-        </IonList>
+              <div className="ck-go__tip">
+                <strong>Como funciona</strong>
+                <p>
+                  Responda seção por seção. Use Salvar para guardar o progresso e anexe fotos quando
+                  o critério pedir.
+                </p>
+              </div>
+            </div>
+          </div>
 
-        <div className="cta-wrap">
-          <IonButton expand="block" size="large" color="secondary" onClick={onComecar}>
-            Começar avaliação
-          </IonButton>
+          <footer className="ck-start__dock ck-go__dock">
+            <button type="button" className="ck-start__cta is-ready" onClick={onComecar}>
+              <span>Começar avaliação</span>
+              <span className="ck-start__cta-arrow" aria-hidden>
+                →
+              </span>
+            </button>
+          </footer>
         </div>
-      </div>
       </ChecklistIonicShell>
     );
   }
@@ -182,8 +201,8 @@ export default function VisitaIniciadaScreen({
           Visita registrada
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, px: 1 }}>
-          O checklist foi aberto com sucesso. Confira os dados abaixo antes de
-          iniciar a avaliação em loja.
+          O checklist foi aberto com sucesso. Confira os dados abaixo antes de iniciar a avaliação
+          em loja.
         </Typography>
       </Box>
 
@@ -234,19 +253,9 @@ export default function VisitaIniciadaScreen({
             </Typography>
           </Box>
         </Box>
-        {meta.gerente && <InfoRow label="Gerente" value={meta.gerente} />}
-        {meta.coordenador_1_dia && <InfoRow label="Coord. 1º dia" value={meta.coordenador_1_dia} />}
-        {meta.coordenador_2_dia && <InfoRow label="Coord. 2º dia" value={meta.coordenador_2_dia} />}
-        {meta.coordenador_madrugada_1 && (
-          <InfoRow label="Coord. madrugada 1" value={meta.coordenador_madrugada_1} />
-        )}
-        {meta.coordenador_madrugada_2 && (
-          <InfoRow label="Coord. madrugada 2" value={meta.coordenador_madrugada_2} />
-        )}
-        {meta.time_total != null && meta.time_total !== '' && (
-          <InfoRow label="Time total" value={String(meta.time_total)} />
-        )}
-        {meta.territorio && <InfoRow label="Território" value={meta.territorio} />}
+        {metaLinhas.map((l) => (
+          <InfoRow key={l.label} label={l.label} value={l.value} />
+        ))}
       </Paper>
 
       <Paper
@@ -267,7 +276,9 @@ export default function VisitaIniciadaScreen({
         </Typography>
         <Typography variant="caption" color="text.secondary" component="ul" sx={{ m: 0, pl: 2 }}>
           <li>Responda seção por seção, na ordem sugerida</li>
-          <li>Use <strong>Salvar</strong> para preservar o progresso</li>
+          <li>
+            Use <strong>Salvar</strong> para preservar o progresso
+          </li>
           <li>Anexe fotos quando indicado (evidências)</li>
         </Typography>
       </Paper>

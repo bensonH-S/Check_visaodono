@@ -1,13 +1,3 @@
-import {
-  IonBadge,
-  IonButton,
-  IonIcon,
-  IonItem,
-  IonLabel,
-  IonNote,
-  IonTextarea,
-} from '@ionic/react';
-import { checkmarkCircle, warning } from 'ionicons/icons';
 import Rating from '@mui/material/Rating';
 import type { Pergunta } from '../../api/client';
 import PhotoCaptureMulti from './PhotoCaptureMulti';
@@ -59,32 +49,20 @@ export default function ChecklistIonicPerguntaCard({
   const mostraObs = exibeObservacao(p, r?.resposta, r?.nota_estrelas);
 
   return (
-    <div className={`pergunta-card${ok ? ' ok' : ''}`}>
-      <IonItem lines="none">
-        <IonBadge slot="start" color={ok ? 'success' : 'medium'}>
-          {p.codigo}
-        </IonBadge>
-        <IonLabel className="ion-text-wrap">
-          <h2 style={{ fontWeight: 600, fontSize: '0.95rem' }}>{p.texto}</h2>
-          <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-            {p.critica && (
-              <IonBadge color="danger">
-                <IonIcon icon={warning} style={{ marginRight: 4 }} />
-                Crítico
-              </IonBadge>
-            )}
-            {ok && (
-              <IonBadge color="success">
-                <IonIcon icon={checkmarkCircle} style={{ marginRight: 4 }} />
-                Respondida
-              </IonBadge>
-            )}
+    <article className={`ck-q${ok ? ' is-ok' : ''}${erroCampo ? ' is-err' : ''}`}>
+      <header className="ck-q__head">
+        <span className={`ck-q__code${ok ? ' is-ok' : ''}`}>{p.codigo}</span>
+        <div className="ck-q__title-wrap">
+          <h3 className="ck-q__title">{p.texto}</h3>
+          <div className="ck-q__tags">
+            {p.critica && <span className="ck-q__tag ck-q__tag--crit">Crítico</span>}
+            {ok && <span className="ck-q__tag ck-q__tag--ok">Respondida</span>}
           </div>
-        </IonLabel>
-      </IonItem>
+        </div>
+      </header>
 
       {usaEstrelas(p) && (
-        <div style={{ textAlign: 'center', padding: '8px 12px 12px' }}>
+        <div className="ck-q__stars">
           <Rating
             value={r?.nota_estrelas ?? 0}
             onChange={(_, v) => {
@@ -94,49 +72,34 @@ export default function ChecklistIonicPerguntaCard({
             size="large"
           />
           {r?.nota_estrelas != null && r.nota_estrelas >= 1 && (
-            <IonNote style={{ display: 'block', marginTop: 4 }}>
-              Avaliação: {r.nota_estrelas} {r.nota_estrelas === 1 ? 'estrela' : 'estrelas'}
-            </IonNote>
+            <p>
+              {r.nota_estrelas} {r.nota_estrelas === 1 ? 'estrela' : 'estrelas'}
+            </p>
           )}
         </div>
       )}
 
       {usaSimNao(p) && (
-        <div className="sim-nao">
-          <IonButton
-            expand="block"
-            fill={r?.resposta === 'Sim' ? 'solid' : 'outline'}
-            color="success"
+        <div className="ck-q__yn">
+          <button
+            type="button"
+            className={`ck-q__yn-btn ck-q__yn-btn--yes${r?.resposta === 'Sim' ? ' is-on' : ''}`}
             onClick={() => onSimNao('Sim')}
           >
             Sim
-          </IonButton>
-          <IonButton
-            expand="block"
-            fill={r?.resposta === 'Não' ? 'solid' : 'outline'}
-            color="danger"
+          </button>
+          <button
+            type="button"
+            className={`ck-q__yn-btn ck-q__yn-btn--no${r?.resposta === 'Não' ? ' is-on' : ''}`}
             onClick={() => onSimNao('Não')}
           >
             Não
-          </IonButton>
+          </button>
         </div>
       )}
 
       {mostraFoto && (
-        <div
-          style={{
-            padding: '0 12px 12px',
-            ...(erroCampo === 'foto'
-              ? {
-                  margin: '0 12px 12px',
-                  padding: 8,
-                  borderRadius: 12,
-                  border: '1px solid var(--ion-color-danger)',
-                  background: 'rgba(255, 59, 48, 0.06)',
-                }
-              : {}),
-          }}
-        >
+        <div className={`ck-q__foto${erroCampo === 'foto' ? ' is-err' : ''}`}>
           <PhotoCaptureMulti
             fotos={fotos}
             max={maxFotos()}
@@ -156,24 +119,17 @@ export default function ChecklistIonicPerguntaCard({
       )}
 
       {mostraObs && (
-        <div style={{ padding: '0 12px 12px' }}>
-          <IonTextarea
-            fill="outline"
-            autoGrow
+        <div className="ck-q__obs">
+          <textarea
+            className={`ck-q__textarea${erroCampo === 'observacao' ? ' is-err' : ''}`}
             rows={2}
             value={r?.observacao || ''}
             placeholder={
-              p.codigo === '37'
-                ? 'Digite aqui o que foi observado'
-                : 'Digite aqui sua observação'
+              p.codigo === '37' ? 'Digite aqui o que foi observado' : 'Digite aqui sua observação'
             }
-            color={erroCampo === 'observacao' ? 'danger' : undefined}
-            onIonInput={(e) => onPatch({ observacao: e.detail.value ?? '' })}
+            onChange={(e) => onPatch({ observacao: e.target.value })}
           />
-          <IonNote
-            color={erroCampo === 'observacao' ? 'danger' : 'medium'}
-            style={{ display: 'block', marginTop: 4, fontSize: 12 }}
-          >
+          <p className={`ck-q__hint${erroCampo === 'observacao' ? ' is-err' : ''}`}>
             {erroCampo === 'observacao'
               ? p.requer_obs_em_nao
                 ? 'Observação obrigatória quando selecionado Não'
@@ -181,9 +137,9 @@ export default function ChecklistIonicPerguntaCard({
               : p.requer_obs_em_nao && r?.resposta === 'Não'
                 ? 'Obrigatória quando selecionado Não'
                 : 'Opcional — registre detalhes ou pendências'}
-          </IonNote>
+          </p>
         </div>
       )}
-    </div>
+    </article>
   );
 }

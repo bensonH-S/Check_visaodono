@@ -258,17 +258,18 @@ function ChamadosMobileLayoutInner() {
   const { fase: checklistFaseUi, dispararVoltar: dispararVoltarChecklist } = useChecklistMobileUi();
   const isChecklistEmAndamento =
     isChecklist && (checklistFaseUi === 'iniciada' || checklistFaseUi === 'perguntas');
-  /** Tela inicial do checklist: sem header MUI (logo / Olá). */
+  /** Setup: sem header MUI; tabs ainda aparecem. */
   const isChecklistStart =
     isChecklist && !isChecklistConcluido && (checklistFaseUi === 'setup' || checklistFaseUi == null);
+  /** Fluxo checklist inteiro (setup → perguntas): chrome próprio, sem header MUI. */
+  const isChecklistImmersive = isChecklist && !isChecklistConcluido;
   const temBotaoVoltar =
     isDetalhe ||
     isNovo ||
     isFrotaSub ||
     isRelatorio ||
     isNcResolver ||
-    isChecklistConcluido ||
-    isChecklistEmAndamento;
+    isChecklistConcluido;
   const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio || isNcResolver;
   const podeAbrir = user && !modoRestrito && temPermissao('chamados.abrir', user);
   const podeChecklist = user && !modoRestrito && podeUsarChecklist(user);
@@ -492,7 +493,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistStart && (
+      {!isChecklistImmersive && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -573,7 +574,11 @@ function ChamadosMobileLayoutInner() {
       )}
 
       {isChecklist ? (
-        <div className={`mobile-checklist-host${isChecklistStart ? ' mobile-checklist-host--solo' : ''}`}>
+        <div
+          className={`mobile-checklist-host${
+            isChecklistImmersive ? ' mobile-checklist-host--solo' : ''
+          }${isChecklistEmAndamento ? ' mobile-checklist-host--fluxo' : ''}`}
+        >
           <ChecklistIonicRoot>
             <Outlet />
           </ChecklistIonicRoot>

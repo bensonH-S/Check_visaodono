@@ -282,6 +282,18 @@ export default function ChecklistPage() {
       return;
     }
     registrarVoltar(() => {
+      if (fase === 'perguntas' && indiceSecao > 0) {
+        setIndiceSecao((i) => Math.max(0, i - 1));
+        setMsg('');
+        setMsgTitulo('');
+        return;
+      }
+      if (fase === 'perguntas') {
+        setFase('iniciada');
+        setMsg('');
+        setMsgTitulo('');
+        return;
+      }
       setFase('setup');
       setVisitaId(null);
       setIndiceSecao(0);
@@ -291,7 +303,7 @@ export default function ChecklistPage() {
       setMsgTitulo('');
     });
     return () => registrarVoltar(null);
-  }, [paths.mobile, registrarVoltar]);
+  }, [paths.mobile, registrarVoltar, fase, indiceSecao]);
 
 
   const totalPerguntas = useMemo(
