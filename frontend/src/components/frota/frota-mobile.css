@@ -1,0 +1,142 @@
+/* Frota mobile — estende o modelo ck-visitas */
+.ck-frota--page {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.ck-frota .ck-frota__sheet-label {
+  margin: 0 0 10px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.45);
+}
+
+.ck-frota .ck-frota__tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 14px;
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ck-frota .ck-frota__tile:active:not(:disabled) {
+  transform: scale(0.985);
+  border-color: var(--ck-orange);
+  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.16);
+}
+
+.ck-frota .ck-frota__tile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ck-frota .ck-frota__tile-mono {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: rgba(27, 42, 107, 0.08);
+  color: var(--ck-orange);
+}
+
+.ck-frota .ck-frota__tile-mono .MuiSvgIcon-root {
+  font-size: 22px !important;
+}
+
+.ck-frota .ck-frota__tile-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ck-frota .ck-frota__tile-copy strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+}
+
+.ck-frota .ck-frota__tile-copy small {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(20, 32, 72, 0.55);
+  line-height: 1.3;
+}
+
+.ck-frota .ck-frota__tile-go {
+  flex-shrink: 0;
+  font-size: 1.35rem;
+  font-weight: 300;
+  color: rgba(20, 32, 72, 0.35);
+  line-height: 1;
+}
+
+.ck-frota .ck-frota__form-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  box-shadow: 0 8px 24px rgba(15, 26, 69, 0.06);
+  margin-bottom: 12px;
+}
+
+.ck-frota .ck-frota__form-card .MuiOutlinedInput-root {
+  border-radius: 12px;
+  font-family: Manrope, system-ui, sans-serif;
+}
+
+.ck-frota .ck-frota__cta {
+  min-height: 48px !important;
+  border-radius: 14px !important;
+  background: var(--ck-orange) !important;
+  font-weight: 800 !important;
+  text-transform: none !important;
+  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.35) !important;
+  font-family: Manrope, system-ui, sans-serif !important;
+}
+
+.ck-frota .ck-frota__cta:hover {
+  background: #d14a09 !important;
+}
+
+.ck-frota .ck-frota__cta.Mui-disabled {
+  background: rgba(27, 42, 107, 0.12) !important;
+  color: rgba(27, 42, 107, 0.4) !important;
+  box-shadow: none !important;
+}
+
+.ck-frota .ck-frota__termo-box {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 14px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--ck-ink);
+}
+
+.ck-frota .ck-frota__veiculo-stage {
+  margin-top: 14px;
+}

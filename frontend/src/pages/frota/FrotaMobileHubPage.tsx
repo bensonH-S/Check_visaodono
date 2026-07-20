@@ -1,26 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
-import Chip from '@mui/material/Chip';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { api, fmtData } from '../../api/client';
 import type { FrotaResumoMobile } from '../../api/client';
 import { getUsuario, modoAppTecnicoFrotaRestrito, podeAssinarTermoFerramentasMobile } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../../theme/safeArea';
+import FrotaMobileShell from '../../components/frota/FrotaMobileShell';
 
-const NAVY = '#1B2A6B';
-const ORANGE = '#E8520A';
-
-function CardOpcao({
+function TileOpcao({
   titulo,
   descricao,
   icon,
@@ -36,39 +28,23 @@ function CardOpcao({
   disabled?: boolean;
 }) {
   return (
-    <Paper
-      component="button"
-      type="button"
-      onClick={disabled ? undefined : onClick}
-      disabled={disabled}
-      sx={{
-        p: 2,
-        mb: 1.5,
-        width: '100%',
-        textAlign: 'left',
-        border: '1px solid rgba(27, 42, 107, 0.1)',
-        borderRadius: 2,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        bgcolor: disabled ? 'rgba(0,0,0,0.02)' : '#fff',
-        opacity: disabled ? 0.55 : 1,
-        pointerEvents: disabled ? 'none' : 'auto',
-      }}
-    >
-      <Box sx={{ color: disabled ? 'text.disabled' : ORANGE, display: 'flex' }}>{icon}</Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 700, color: disabled ? 'text.disabled' : NAVY }}>{titulo}</Typography>
+    <button type="button" className="ck-frota__tile" onClick={onClick} disabled={disabled}>
+      <span className="ck-frota__tile-mono" aria-hidden>
+        {icon}
+      </span>
+      <span className="ck-frota__tile-copy">
+        <strong>
+          {titulo}
           {badge}
-        </Box>
-        <Typography variant="body2" color="text.secondary">
-          {descricao}
-        </Typography>
-      </Box>
-      {!disabled && <ArrowForwardIcon sx={{ color: 'text.disabled', flexShrink: 0 }} />}
-    </Paper>
+        </strong>
+        <small>{descricao}</small>
+      </span>
+      {!disabled && (
+        <span className="ck-frota__tile-go" aria-hidden>
+          ›
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -123,35 +99,77 @@ export default function FrotaMobileHubPage() {
       ? 'Aguarde a atribuição do veículo no portal'
       : 'Assuma um veículo para registrar manutenção';
 
-  if (loading) return <LinearProgress sx={{ mt: 1 }} />;
+  const placa = resumo?.veiculo?.placa ?? '—';
+  const kmLabel =
+    resumo?.veiculo?.km_atual != null
+      ? resumo.veiculo.km_atual.toLocaleString('pt-BR')
+      : '—';
+
+  if (loading) {
+    return (
+      <FrotaMobileShell
+        titleLine1="Sua"
+        titleLine2="frota"
+        sub="Carregando resumo do veículo…"
+        variant="hub"
+      >
+        <LinearProgress />
+      </FrotaMobileShell>
+    );
+  }
 
   return (
-    <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%' }}>
-      <Box sx={{ flexShrink: 0, py: 1 }}>
-        {erro && (
-          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
-            {erro}
-          </Typography>
-        )}
+    <FrotaMobileShell
+      titleLine1="Sua"
+      titleLine2="frota"
+      sub={
+        temVeiculo
+          ? 'Abastecimento, manutenção e controle do veículo sob sua responsabilidade.'
+          : 'Assuma um veículo ou aguarde a atribuição para liberar as operações.'
+      }
+      variant="hub"
+      metrics={[
+        { value: placa, label: 'placa', accent: temVeiculo },
+        { value: kmLabel, label: 'km atual' },
+        {
+          value: resumo?.abastecimentos.length ?? 0,
+          label: 'abastec.',
+        },
+      ]}
+    >
+      {erro && (
+        <p style={{ color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600, margin: '0 0 12px' }}>
+          {erro}
+        </p>
+      )}
 
-        {resumo?.veiculo ? (
-          <FrotaVeiculoControleCard
-            veiculo={resumo.veiculo}
-            salvando={salvando}
-            permitirDevolver={!modoRestrito}
-            onDesassumir={modoRestrito ? undefined : (km) => void desassumir(km)}
-          />
-        ) : (
-          <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px dashed rgba(232, 82, 10, 0.4)' }}>
-            <Typography variant="body2" color="text.secondary">
-              {msgSemVeiculo}
-            </Typography>
-          </Paper>
-        )}
-      </Box>
+      {resumo?.veiculo ? (
+        <FrotaVeiculoControleCard
+          veiculo={resumo.veiculo}
+          salvando={salvando}
+          permitirDevolver={!modoRestrito}
+          onDesassumir={modoRestrito ? undefined : (km) => void desassumir(km)}
+        />
+      ) : (
+        <div
+          className="ck-frota__form-card"
+          style={{
+            borderStyle: 'dashed',
+            borderColor: 'rgba(232, 82, 10, 0.4)',
+            background: 'rgba(232, 82, 10, 0.04)',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(20, 32, 72, 0.65)', lineHeight: 1.4 }}>
+            {msgSemVeiculo}
+          </p>
+        </div>
+      )}
 
-      <Box sx={{ ...MOBILE_SCROLL_AREA, py: 1, pt: 0 }}>
-      <CardOpcao
+      <p className="ck-frota__sheet-label" style={{ marginTop: 4 }}>
+        Operações
+      </p>
+
+      <TileOpcao
         titulo="Abastecimento"
         descricao={msgAbastecimento}
         icon={<LocalGasStationIcon />}
@@ -159,29 +177,38 @@ export default function FrotaMobileHubPage() {
         disabled={!temVeiculo}
       />
       {exibeTermoFerramentas && (
-        <CardOpcao
+        <TileOpcao
           titulo="Termo de ferramentas"
           descricao="Assinatura digital e fotos dos equipamentos"
           icon={<AssignmentIcon />}
           onClick={() => navigate('/frota/mobile/termo')}
           badge={
-            resumo?.termo.assinado ? (
-              <Chip label="Assinado" size="small" color="success" />
-            ) : (
-              <Chip label="Pendente" size="small" color="warning" />
-            )
+            <span
+              style={{
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: resumo?.termo.assinado
+                  ? 'rgba(46, 125, 50, 0.12)'
+                  : 'rgba(237, 108, 2, 0.14)',
+                color: resumo?.termo.assinado ? '#2e7d32' : '#ed6c02',
+              }}
+            >
+              {resumo?.termo.assinado ? 'Assinado' : 'Pendente'}
+            </span>
           }
         />
       )}
       {!modoRestrito && (
-        <CardOpcao
+        <TileOpcao
           titulo="Veículo"
           descricao="Assumir controle com CNH e fotos do veículo"
           icon={<DirectionsCarIcon />}
           onClick={() => navigate('/frota/mobile/veiculo')}
         />
       )}
-      <CardOpcao
+      <TileOpcao
         titulo="Manutenção do veículo"
         descricao={msgManutencao}
         icon={<BuildIcon />}
@@ -190,19 +217,24 @@ export default function FrotaMobileHubPage() {
       />
 
       {!!resumo?.abastecimentos.length && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: NAVY }}>
-            Últimos abastecimentos
-          </Typography>
+        <div style={{ marginTop: 16 }}>
+          <p className="ck-frota__sheet-label">Últimos abastecimentos</p>
           {resumo.abastecimentos.map((a) => (
-            <Typography key={a.id_abastecimento} variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            <p
+              key={a.id_abastecimento}
+              style={{
+                margin: '0 0 6px',
+                fontSize: '0.8rem',
+                color: 'rgba(20, 32, 72, 0.55)',
+                fontWeight: 500,
+              }}
+            >
               {fmtData(a.data_abastecimento)} · {a.km_atual.toLocaleString('pt-BR')} km · R${' '}
               {a.valor_abastecido.toFixed(2)}
-            </Typography>
+            </p>
           ))}
-        </Box>
+        </div>
       )}
-      </Box>
-    </Box>
+    </FrotaMobileShell>
   );
 }

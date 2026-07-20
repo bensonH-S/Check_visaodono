@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -6,12 +7,9 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
-import Paper from '@mui/material/Paper';
-import Stepper from '@mui/material/Stepper';
-import Step from '@mui/material/Step';
-import StepLabel from '@mui/material/StepLabel';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
+import FrotaMobileShell from '../../components/frota/FrotaMobileShell';
 import { api } from '../../api/client';
 import type { FrotaVeiculo } from '../../api/client';
 import { extensaoMidia } from '../../utils/mediaFile';
@@ -31,6 +29,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 export default function FrotaVeiculoPage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [meuVeiculo, setMeuVeiculo] = useState<FrotaVeiculo | null>(null);
@@ -150,10 +149,49 @@ export default function FrotaVeiculoPage() {
     }
   }
 
-  if (loading) return <LinearProgress sx={{ mt: 1 }} />;
+  const passosLabels = ['Dados', 'CNH', 'Fotos', 'OK'];
+
+  if (loading) {
+    return (
+      <FrotaMobileShell
+        titleLine1="Con"
+        titleLine2="trole"
+        sub="Carregando veículos…"
+        variant="page"
+        onBack={() => navigate('/frota/mobile')}
+      >
+        <LinearProgress />
+      </FrotaMobileShell>
+    );
+  }
 
   return (
-    <Box sx={{ px: 2, py: 1, pb: 4 }}>
+    <FrotaMobileShell
+      titleLine1="Con"
+      titleLine2="trole"
+      sub={
+        meuVeiculo
+          ? 'Veículo sob seu controle — devolva quando terminar o uso.'
+          : 'Assuma com CNH e fotos do carro, uma etapa de cada vez.'
+      }
+      variant="page"
+      onBack={() => navigate('/frota/mobile')}
+      metrics={[
+        {
+          value: meuVeiculo?.placa ?? '—',
+          label: 'placa',
+          accent: Boolean(meuVeiculo),
+        },
+        {
+          value: veiculosDisponiveis.length,
+          label: 'livres',
+        },
+        {
+          value: meuVeiculo ? 'Em uso' : 'Livre',
+          label: 'status',
+        },
+      ]}
+    >
       {erro && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro('')}>
           {erro}
@@ -172,28 +210,27 @@ export default function FrotaVeiculoPage() {
           onDesassumir={(km) => void desassumir(km)}
         />
       ) : (
-        <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+        <div className="ck-frota__form-card">
+          <Typography sx={{ fontWeight: 800, color: '#142048', mb: 0.5, fontSize: '1rem' }}>
             Assumir controle do carro
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Preencha veículo e KM, depois anexe a CNH e as fotos do carro — uma etapa de cada vez.
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.82rem' }}>
+            Preencha veículo e KM, depois anexe a CNH e as fotos do carro.
           </Typography>
 
-          <Stepper activeStep={etapaAtiva} alternativeLabel sx={{ mb: 3 }}>
-            <Step>
-              <StepLabel>Veículo e KM</StepLabel>
-            </Step>
-            <Step>
-              <StepLabel>CNH</StepLabel>
-            </Step>
-            <Step>
-              <StepLabel>Fotos do carro</StepLabel>
-            </Step>
-            <Step>
-              <StepLabel>Confirmar</StepLabel>
-            </Step>
-          </Stepper>
+          <div className="ck-visitas__seg" role="list" style={{ marginBottom: 16 }}>
+            {passosLabels.map((label, i) => (
+              <button
+                key={label}
+                type="button"
+                className={`ck-visitas__seg-btn${i <= etapaAtiva ? ' is-on' : ''}`}
+                disabled
+                style={{ pointerEvents: 'none', opacity: i <= etapaAtiva ? 1 : 0.55 }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
           <TextField
             select
@@ -242,7 +279,7 @@ export default function FrotaVeiculoPage() {
 
           {dadosPreenchidos && !cnhPreenchida && (
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#142048' }}>
                 Foto da CNH
               </Typography>
               <PhotoCaptureMulti
@@ -260,7 +297,7 @@ export default function FrotaVeiculoPage() {
               <Alert severity="success" variant="outlined" sx={{ mb: 2 }}>
                 CNH anexada. Agora tire ao menos uma foto do veículo.
               </Alert>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5, color: '#142048' }}>
                 Fotos do veículo
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
@@ -299,13 +336,17 @@ export default function FrotaVeiculoPage() {
             variant="contained"
             onClick={() => void assumir()}
             disabled={salvando || !podeAssumir}
-            sx={{ mt: 1, minHeight: 48 }}
+            className="ck-frota__cta"
           >
             {salvando ? 'Registrando…' : 'Atribuir veículo'}
           </Button>
 
           {!podeAssumir && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', textAlign: 'center', mt: 1 }}
+            >
               {!dadosPreenchidos
                 ? 'Selecione o veículo e informe a quilometragem para continuar.'
                 : !cnhPreenchida
@@ -315,8 +356,8 @@ export default function FrotaVeiculoPage() {
                     : null}
             </Typography>
           )}
-        </Paper>
+        </div>
       )}
-    </Box>
+    </FrotaMobileShell>
   );
 }

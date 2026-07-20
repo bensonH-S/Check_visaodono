@@ -250,6 +250,8 @@ function ChamadosMobileLayoutInner() {
     modoRestrito &&
     (path.startsWith('/frota/mobile/abastecimento') || path.startsWith('/frota/mobile/manutencao'));
   const isFrotaSub = isFrota && path !== '/frota/mobile' && !frotaAbaPrincipalRestrito;
+  /** Frota inteira: chrome próprio (stage + sheet), sem header/título MUI. */
+  const isFrotaImmersive = isFrota;
   const isVisitas = path === '/visitas/mobile';
   const isEscalaVisitas = path === '/escalas/visitas/mobile';
   const isNc = path === '/nc/mobile' || path.startsWith('/nc/mobile/');
@@ -493,7 +495,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -610,7 +612,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && (
         <Box
           sx={{
             position: 'relative',
@@ -636,9 +638,11 @@ function ChamadosMobileLayoutInner() {
           sx={{
             position: 'relative',
             zIndex: 1,
-            ...(paginaCabecalhoFixo || isVisitas || isRelatorio ? MOBILE_PAGE_COLUMN : MOBILE_SCROLL_AREA),
-            ...(isVisitas || isRelatorio ? { px: 0 } : safeAreaX(16)),
-            pb: isVisitas || isRelatorio ? 0 : safeAreaBottomCalc(rodapeTotalH + 16),
+            ...(paginaCabecalhoFixo || isVisitas || isRelatorio || isFrotaImmersive
+              ? MOBILE_PAGE_COLUMN
+              : MOBILE_SCROLL_AREA),
+            ...(isVisitas || isRelatorio || isFrotaImmersive ? { px: 0 } : safeAreaX(16)),
+            pb: isVisitas || isRelatorio || isFrotaImmersive ? 0 : safeAreaBottomCalc(rodapeTotalH + 16),
           }}
         >
           {isMapa ? (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
@@ -8,9 +9,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 import InputAdornment from '@mui/material/InputAdornment';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import HistoryIcon from '@mui/icons-material/History';
-import AddIcon from '@mui/icons-material/Add';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
+import FrotaMobileShell from '../../components/frota/FrotaMobileShell';
 import {
   FrotaEmptyHistorico,
   FrotaEmptyVeiculo,
@@ -19,10 +19,8 @@ import {
   FrotaPassos,
   FrotaResumoHistorico,
   FrotaSecaoFoto,
-  FrotaSegControl,
   FrotaVeiculoFaixa,
   frotaCardSx,
-  frotaCtaSx,
 } from '../../components/frota/FrotaMobileUi';
 import {
   api,
@@ -33,7 +31,7 @@ import {
 import { extensaoMidia } from '../../utils/mediaFile';
 import { showToast } from '../../utils/toast';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../../theme/safeArea';
+import { getUsuario, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
 import {
   formatarKmInput,
   kmInputParaNumero,
@@ -56,6 +54,8 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 export default function FrotaAbastecimentoPage() {
+  const navigate = useNavigate();
+  const modoRestrito = modoAppTecnicoFrotaRestrito(getUsuario());
   const [loading, setLoading] = useState(true);
   const [aba, setAba] = useState<Aba>('novo');
   const [veiculo, setVeiculo] = useState<FrotaVeiculo | null>(null);
@@ -161,27 +161,65 @@ export default function FrotaAbastecimentoPage() {
     }
   }
 
-  if (loading) return <LinearProgress sx={{ mt: 1 }} />;
+  const shellProps = {
+    titleLine1: 'Abaste',
+    titleLine2: 'cimento',
+    sub: veiculo
+      ? `${veiculo.placa} · registre KM, valor e foto da nota`
+      : 'Registre combustível com nota fiscal',
+    variant: (modoRestrito ? 'hub' : 'page') as 'hub' | 'page',
+    onBack: modoRestrito ? undefined : () => navigate('/frota/mobile'),
+    metrics: [
+      {
+        value: historico.length,
+        label: 'registros',
+      },
+      {
+        value:
+          totalHistorico > 0
+            ? `R$ ${totalHistorico.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+            : '—',
+        label: 'total',
+        accent: true,
+      },
+      {
+        value: veiculo?.km_atual != null ? veiculo.km_atual.toLocaleString('pt-BR') : '—',
+        label: 'km',
+      },
+    ],
+  };
+
+  if (loading) {
+    return (
+      <FrotaMobileShell {...shellProps} sub="Carregando…">
+        <LinearProgress />
+      </FrotaMobileShell>
+    );
+  }
 
   return (
-    <Box
-      component="form"
-      onSubmit={salvar}
-      sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%' }}
-    >
-      <Box sx={{ ...MOBILE_SCROLL_AREA, py: 0.5, pb: 2 }}>
-        <FrotaSegControl
-          valor={aba}
-          onChange={setAba}
-          itens={[
-            { id: 'novo', label: 'Registrar', icon: <AddIcon sx={{ fontSize: 18 }} /> },
-            {
-              id: 'historico',
-              label: historico.length > 0 ? `Histórico (${historico.length})` : 'Histórico',
-              icon: <HistoryIcon sx={{ fontSize: 18 }} />,
-            },
-          ]}
-        />
+    <FrotaMobileShell {...shellProps}>
+      <Box component="form" onSubmit={salvar}>
+        <div className="ck-visitas__seg" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === 'novo'}
+            className={`ck-visitas__seg-btn${aba === 'novo' ? ' is-on' : ''}`}
+            onClick={() => setAba('novo')}
+          >
+            Registrar
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === 'historico'}
+            className={`ck-visitas__seg-btn${aba === 'historico' ? ' is-on' : ''}`}
+            onClick={() => setAba('historico')}
+          >
+            Histórico{historico.length > 0 ? ` · ${historico.length}` : ''}
+          </button>
+        </div>
 
         {aba === 'novo' && (
           <>
@@ -264,7 +302,7 @@ export default function FrotaAbastecimentoPage() {
                     size="large"
                     disabled={!podeSalvar}
                     startIcon={<LocalGasStationIcon />}
-                    sx={frotaCtaSx}
+                    className="ck-frota__cta"
                   >
                     {salvando ? 'Registrando…' : 'Registrar abastecimento'}
                   </Button>
@@ -317,6 +355,6 @@ export default function FrotaAbastecimentoPage() {
           </Alert>
         )}
       </Box>
-    </Box>
+    </FrotaMobileShell>
   );
 }

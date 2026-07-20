@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
-import Paper from '@mui/material/Paper';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import SignaturePad from '../../components/frota/SignaturePad';
+import FrotaMobileShell from '../../components/frota/FrotaMobileShell';
 import { api } from '../../api/client';
 import type { FrotaTermoInfo } from '../../api/client';
 import { getUsuario, podeAssinarTermoFerramentasMobile } from '../../lib/auth';
@@ -68,59 +67,98 @@ export default function FrotaTermoPage() {
     }
   }
 
-  if (loading) return <LinearProgress sx={{ mt: 1 }} />;
+  if (loading) {
+    return (
+      <FrotaMobileShell
+        titleLine1="Termo"
+        titleLine2="ferramentas"
+        sub="Carregando…"
+        variant="page"
+        onBack={() => navigate('/frota/mobile')}
+      >
+        <LinearProgress />
+      </FrotaMobileShell>
+    );
+  }
 
   if (termo?.assinado) {
     return (
-      <Box sx={{ px: 2, py: 2 }}>
-        <Alert severity="success">
+      <FrotaMobileShell
+        titleLine1="Termo"
+        titleLine2="ferramentas"
+        sub="Assinatura já registrada"
+        variant="page"
+        onBack={() => navigate('/frota/mobile')}
+        metrics={[{ value: `v${termo.versao}`, label: 'versão', accent: true }]}
+      >
+        <Alert severity="success" sx={{ mb: 2 }}>
           Termo v{termo.versao} já assinado
           {termo.assinado_em ? ` em ${new Date(termo.assinado_em).toLocaleString('pt-BR')}` : ''}.
         </Alert>
-        <Button fullWidth sx={{ mt: 2 }} onClick={() => navigate('/frota/mobile')}>
-          Voltar
+        <Button fullWidth className="ck-frota__cta" onClick={() => navigate('/frota/mobile')}>
+          Voltar à frota
         </Button>
-      </Box>
+      </FrotaMobileShell>
     );
   }
 
   return (
-    <Box component="form" onSubmit={assinar} sx={{ px: 2, py: 1, pb: 4 }}>
-      {erro && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
+    <FrotaMobileShell
+      titleLine1="Termo"
+      titleLine2="ferramentas"
+      sub="Leia com atenção, assine e anexe fotos dos equipamentos se precisar."
+      variant="page"
+      onBack={() => navigate('/frota/mobile')}
+      metrics={[
+        { value: termo ? `v${termo.versao}` : '—', label: 'versão' },
+        { value: fotos.length, label: 'fotos' },
+        { value: assinatura ? 'OK' : '—', label: 'assinatura', accent: Boolean(assinatura) },
+      ]}
+    >
+      <form onSubmit={assinar}>
+        {erro && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {erro}
+          </Alert>
+        )}
 
-      <Typography variant="caption" sx={{ display: 'block', mb: 1.25, fontSize: '0.72rem', color: 'text.secondary' }}>
-        Leia o termo abaixo com atenção
-        <Box component="span" sx={{ color: '#DC2626', fontWeight: 700 }}>
-          *
-        </Box>
-      </Typography>
-
-      <Paper sx={{ p: 2, mb: 2, maxHeight: 220, overflowY: 'auto', bgcolor: '#fafafa' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-          {termo?.empresa.razaoSocial} · CNPJ {termo?.empresa.cnpj}
+        <Typography
+          variant="caption"
+          sx={{ display: 'block', mb: 1.25, fontSize: '0.72rem', color: 'text.secondary' }}
+        >
+          Leia o termo abaixo com atenção
+          <span style={{ color: '#DC2626', fontWeight: 700 }}>*</span>
         </Typography>
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.8rem', lineHeight: 1.5 }}>
+
+        <div className="ck-frota__termo-box">
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            {termo?.empresa.razaoSocial} · CNPJ {termo?.empresa.cnpj}
+          </Typography>
           {termo?.texto}
+        </div>
+
+        <SignaturePad onChange={setAssinatura} />
+
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mt: 2, mb: 1, color: '#142048' }}>
+          Fotos dos equipamentos{' '}
+          <Typography component="span" variant="caption" color="text.secondary">
+            (opcional)
+          </Typography>
         </Typography>
-      </Paper>
+        <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={8} inlineActions />
 
-      <SignaturePad onChange={setAssinatura} />
-
-      <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 2, mb: 1 }}>
-        Fotos dos equipamentos <Typography component="span" variant="caption" color="text.secondary">(opcional)</Typography>
-      </Typography>
-      <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={8} inlineActions />
-
-      <Button
-        fullWidth
-        type="submit"
-        variant="contained"
-        size="large"
-        disabled={salvando || !assinatura}
-        sx={{ mt: 3, minHeight: 48 }}
-      >
-        {salvando ? 'Registrando…' : 'Assinar termo'}
-      </Button>
-    </Box>
+        <Button
+          fullWidth
+          type="submit"
+          variant="contained"
+          size="large"
+          disabled={salvando || !assinatura}
+          className="ck-frota__cta"
+          sx={{ mt: 3 }}
+        >
+          {salvando ? 'Registrando…' : 'Assinar termo'}
+        </Button>
+      </form>
+    </FrotaMobileShell>
   );
 }
