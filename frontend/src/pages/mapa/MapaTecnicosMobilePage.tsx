@@ -142,12 +142,10 @@ export default function MapaTecnicosMobilePage() {
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
-        mx: { xs: -2, sm: -2.5 },
-        mb: -1,
       }}
     >
       {erro && (
-        <Alert severity="error" sx={{ mx: 2, mb: 1, flexShrink: 0, py: 0.5, fontSize: '0.8rem' }}>
+        <Alert severity="error" sx={{ mx: 1.5, my: 1, flexShrink: 0, py: 0.5, fontSize: '0.8rem' }}>
           {erro}
         </Alert>
       )}

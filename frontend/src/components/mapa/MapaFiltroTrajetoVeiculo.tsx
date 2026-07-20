@@ -17,6 +17,8 @@ type Props = {
   veiculoId: number | null;
   regiaoFiltro: number | '';
   onSelect: (veiculo: FrotaVeiculo) => void;
+  /** Botão sobre fundo navy (stage immersive). */
+  tomEscuro?: boolean;
 };
 
 function rotuloVeiculo(v: FrotaVeiculo) {
@@ -29,7 +31,12 @@ function rotuloModelo(v: FrotaVeiculo) {
   return modelo || 'Modelo não informado';
 }
 
-export default function MapaFiltroTrajetoVeiculo({ veiculoId, regiaoFiltro, onSelect }: Props) {
+export default function MapaFiltroTrajetoVeiculo({
+  veiculoId,
+  regiaoFiltro,
+  onSelect,
+  tomEscuro = false,
+}: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -81,11 +88,19 @@ export default function MapaFiltroTrajetoVeiculo({ veiculoId, regiaoFiltro, onSe
             flexShrink: 0,
             width: 36,
             height: 36,
-            bgcolor: veiculoId ? colors.orange : 'rgba(27, 42, 107, 0.06)',
-            color: veiculoId ? '#fff' : colors.navy,
+            bgcolor: veiculoId
+              ? colors.orange
+              : tomEscuro
+                ? 'rgba(255, 255, 255, 0.14)'
+                : 'rgba(27, 42, 107, 0.06)',
+            color: veiculoId || tomEscuro ? '#fff' : colors.navy,
             boxShadow: veiculoId ? '0 2px 8px rgba(232, 82, 10, 0.28)' : 'none',
             '&:hover': {
-              bgcolor: veiculoId ? colors.orange : 'rgba(27, 42, 107, 0.1)',
+              bgcolor: veiculoId
+                ? colors.orange
+                : tomEscuro
+                  ? 'rgba(255, 255, 255, 0.22)'
+                  : 'rgba(27, 42, 107, 0.1)',
             },
           }}
         >

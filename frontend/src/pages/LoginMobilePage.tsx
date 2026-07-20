@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
@@ -13,20 +11,20 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
-import BrandLogo from '../components/BrandLogo';
-import MobileLoginFooter from '../components/MobileLoginFooter';
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
 import { destinoPosLoginMobile, getToken, logout, setSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useAppConfig } from '../hooks/useAppConfig';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { MOBILE_VIEWPORT, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
+import { formatMobileVersionNumber } from '../components/MobileVersionBadge';
+import { assetUrl } from '../config/paths';
 import { APP_NAME } from '../config/brand';
+import { MOBILE_VIEWPORT } from '../theme/safeArea';
+import './login-mobile.css';
 
-const PAGE_BG = '#f5f5f3';
-const NAVY = '#1B2A6B';
-const MOBILE_MODULES = ['Checklist', 'Chamados', 'Frota'] as const;
+const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
 
 const ERROS_CONHECIDOS = [
   'incorretos',
@@ -39,6 +37,8 @@ const ERROS_CONHECIDOS = [
 
 export default function LoginMobilePage() {
   const navigate = useNavigate();
+  const { version } = useAppConfig();
+  const versao = formatMobileVersionNumber(version);
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -108,7 +108,7 @@ export default function LoginMobilePage() {
       setErro(
         msg && ERROS_CONHECIDOS.some((t) => msg.includes(t))
           ? msg
-          : 'E-mail ou senha incorretos'
+          : 'E-mail ou senha incorretos',
       );
     } finally {
       setLoading(false);
@@ -116,154 +116,59 @@ export default function LoginMobilePage() {
   }
 
   return (
-    <Box
-      sx={{
-        ...MOBILE_VIEWPORT,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        bgcolor: PAGE_BG,
-      }}
-    >
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          ...safeAreaX(16),
-          pt: safeAreaTopPadding(12),
-          pb: 2,
-        }}
-      >
-        <Paper
-          elevation={0}
-          sx={{
-            width: '100%',
-            maxWidth: 400,
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            textAlign: 'center',
-            overflow: 'hidden',
-          }}
-        >
-          <Box
-            sx={{
-              height: 5,
-              bgcolor: NAVY,
-              boxShadow: '0 4px 12px rgba(27, 42, 107, 0.35)',
-            }}
+    <Box className="ck-login" sx={{ ...MOBILE_VIEWPORT, height: '100%' }}>
+      <div className="ck-login__scroll">
+        <div className="ck-login__stage">
+          <div className="ck-login__glow--a" aria-hidden />
+          <div className="ck-login__glow--b" aria-hidden />
+          <div className="ck-login__mesh" aria-hidden />
+
+          <img
+            src={assetUrl('Logo_Icon-clear.png')}
+            alt=""
+            className="ck-login__logo"
+            width={88}
+            height={88}
           />
-          <Box sx={{ px: 2.5, pt: 2, pb: 2.5 }}>
-            <BrandLogo maxWidth={{ xs: 120, sm: 136 }} sx={{ mx: 'auto', mb: 0.75 }} />
-
-            <Typography
-              sx={{
-                fontWeight: 800,
-                color: '#E8520A',
-                fontSize: { xs: '1.2rem', sm: '1.3rem' },
-                lineHeight: 1.2,
-                mb: { xs: 1.25, sm: 1.5 },
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {APP_NAME}
-            </Typography>
-
-            <Box
-              sx={{
-                display: 'inline-flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 0.5,
-                mt: { xs: 0.25, sm: 0.5 },
-                mb: { xs: 0.5, sm: 0.65 },
-                py: 0.5,
-                px: 1,
-                mx: 'auto',
-                borderRadius: 1.5,
-                bgcolor: 'rgba(27, 42, 107, 0.07)',
-                border: '1px solid rgba(27, 42, 107, 0.1)',
-                maxWidth: '100%',
-              }}
-            >
-              {MOBILE_MODULES.map((label, index) => (
-                <Box
-                  key={label}
-                  component="span"
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-                >
-                  {index > 0 && (
-                    <Typography
-                      component="span"
-                      sx={{
-                        color: '#E8520A',
-                        fontSize: '0.65rem',
-                        fontWeight: 600,
-                        lineHeight: 1,
-                        opacity: 0.8,
-                      }}
-                    >
-                      |
-                    </Typography>
-                  )}
-                  <Typography
-                    component="span"
-                    sx={{
-                      color: NAVY,
-                      lineHeight: 1.2,
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      letterSpacing: '0.02em',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {label}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-
-            <Typography
-              sx={{
-                lineHeight: 1.5,
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                color: NAVY,
-                opacity: 0.8,
-                mt: 0,
-                mb: 2.5,
-                px: 0.5,
-              }}
-            >
+          <div className="ck-login__stage-inner">
+            <p className="ck-login__mark">Grupo Alvim</p>
+            <h1 className="ck-login__title">{APP_NAME}</h1>
+            <p className="ck-login__sub">
               Manutenção, visitas e controle de frota.
-            </Typography>
+            </p>
+          </div>
+        </div>
+
+        <div className="ck-login__sheet">
+          <div className="ck-login__sheet-inner">
+            <p className="ck-login__sheet-label">Acesso</p>
 
             <Box
               component="form"
               noValidate
               onSubmit={handleSubmit}
-              sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}
+              className="ck-login__form"
             >
               <TextField
                 label="E-mail"
                 type="email"
                 fullWidth
-                size="small"
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nome@grupoalvim.com.br"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    bgcolor: '#fff',
+                    fontFamily: 'Manrope, system-ui, sans-serif',
+                  },
+                }}
                 slotProps={{
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <EmailOutlinedIcon fontSize="small" color="action" />
+                        <EmailOutlinedIcon fontSize="small" sx={{ color: '#E8520A' }} />
                       </InputAdornment>
                     ),
                   },
@@ -273,16 +178,22 @@ export default function LoginMobilePage() {
                 label="Senha"
                 type={mostrarSenha ? 'text' : 'password'}
                 fullWidth
-                size="small"
                 autoComplete="current-password"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 placeholder={senha ? undefined : '••••••••'}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    bgcolor: '#fff',
+                    fontFamily: 'Manrope, system-ui, sans-serif',
+                  },
+                }}
                 slotProps={{
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <LockOutlinedIcon fontSize="small" color="action" />
+                        <LockOutlinedIcon fontSize="small" sx={{ color: '#E8520A' }} />
                       </InputAdornment>
                     ),
                     endAdornment: (
@@ -306,28 +217,33 @@ export default function LoginMobilePage() {
                 }}
               />
               {erro && (
-                <Alert severity="error" variant="filled" sx={{ py: 0.25 }}>
+                <Alert severity="error" variant="filled" sx={{ py: 0.25, borderRadius: 2 }}>
                   {erro}
                 </Alert>
               )}
               <Button
                 type="submit"
                 variant="contained"
-                size="medium"
                 fullWidth
                 disabled={loading}
-                sx={{ py: 1, fontWeight: 600 }}
+                className="ck-login__cta"
               >
                 {loading ? 'Entrando…' : 'Acessar'}
               </Button>
             </Box>
 
-            <SupportContact compact />
-          </Box>
-        </Paper>
-      </Box>
-
-      <MobileLoginFooter />
+            <div className="ck-login__bottom">
+              <div className="ck-login__support">
+                <SupportContact compact />
+              </div>
+              <footer className="ck-login__footer">
+                {COPYRIGHT}
+                {versao ? ` · ${versao}` : ''}
+              </footer>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <PwaInstallDialog />
 

@@ -497,7 +497,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isMapa && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -614,7 +614,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isMapa && (
         <Box
           sx={{
             position: 'relative',
@@ -645,26 +645,37 @@ function ChamadosMobileLayoutInner() {
             isRelatorio ||
             isFrotaImmersive ||
             isEscalaVisitas ||
-            isNcImmersive
+            isNcImmersive ||
+            isMapa
               ? MOBILE_PAGE_COLUMN
               : MOBILE_SCROLL_AREA),
-            ...(isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas || isNcImmersive
+            ...(isVisitas ||
+            isRelatorio ||
+            isFrotaImmersive ||
+            isEscalaVisitas ||
+            isNcImmersive ||
+            isMapa
               ? { px: 0 }
               : safeAreaX(16)),
             pb:
-              isVisitas || isRelatorio || isFrotaImmersive || isEscalaVisitas || isNcImmersive
+              isVisitas ||
+              isRelatorio ||
+              isFrotaImmersive ||
+              isEscalaVisitas ||
+              isNcImmersive ||
+              isMapa
                 ? 0
                 : safeAreaBottomCalc(rodapeTotalH + 16),
           }}
         >
           {isMapa ? (
             <MapaTecnicosMobileProvider>
-              <Box sx={{ flexShrink: 0, maxWidth: 480, mx: 'auto', width: '100%' }}>
+              <div className="ck-mapa">
                 <MapaTecnicosListaLojas />
-              </Box>
-              <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                <Outlet />
-              </Box>
+                <div className="ck-mapa__map">
+                  <Outlet />
+                </div>
+              </div>
             </MapaTecnicosMobileProvider>
           ) : (
             <Outlet />

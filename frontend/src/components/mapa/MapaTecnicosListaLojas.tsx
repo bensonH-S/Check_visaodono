@@ -1,22 +1,23 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import { useMapaTecnicosMobile } from '../../pages/mapa/MapaTecnicosMobileContext';
 import MapaFiltroTrajetoCalendario from './MapaFiltroTrajetoCalendario';
 import MapaFiltroTrajetoVeiculo from './MapaFiltroTrajetoVeiculo';
-import { colors } from '../../theme/tokens';
+import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import { rotuloRegiaoMapa } from '../../utils/mapaGeo';
-import { getUsuario, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
+import { getUsuario, logout, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
+import './mapa-mobile.css';
 
 export default function MapaTecnicosListaLojas() {
+  const navigate = useNavigate();
+  const user = getUsuario();
   const {
     lojasComCoordenadas,
     regioes,
@@ -38,7 +39,7 @@ export default function MapaTecnicosListaLojas() {
 
   const hoje = dayjs().format('YYYY-MM-DD');
   const telefonePequeno = useMediaQuery('(max-width:400px)');
-  const modoRestrito = modoAppTecnicoFrotaRestrito(getUsuario());
+  const modoRestrito = modoAppTecnicoFrotaRestrito(user);
 
   const regiaoAtiva = useMemo(
     () => regioes.find((r) => Number(r.id_regiao) === Number(regiaoFiltro)) ?? null,
@@ -53,6 +54,7 @@ export default function MapaTecnicosListaLojas() {
       indiceLista: regioes.findIndex((r) => r.id_regiao === regiao.id_regiao),
     });
   }, [regiaoAtiva, regioes, telefonePequeno]);
+
   const qtdUnidades = lojasComCoordenadas.length;
   const filtroTrajetoAtivo =
     veiculoTrajetoId != null ||
@@ -60,279 +62,139 @@ export default function MapaTecnicosListaLojas() {
     dataTrajetoInicio !== hoje ||
     dataTrajetoFim !== hoje;
 
-  if (modoRestrito) {
-    return (
-      <Box
-        sx={{
-          mb: 1,
-          px: 1.5,
-          py: 1.1,
-          borderRadius: 2.5,
-          bgcolor: '#fff',
-          boxShadow: '0 2px 14px rgba(27, 42, 107, 0.08)',
-          border: '1px solid rgba(27, 42, 107, 0.07)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.25,
-        }}
-      >
-        <Box
-          sx={{
-            width: 36,
-            height: 36,
-            borderRadius: 2,
-            bgcolor: 'rgba(232, 82, 10, 0.1)',
-            color: colors.orange,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <MapOutlinedIcon sx={{ fontSize: 20 }} />
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontWeight: 800, color: colors.navy, fontSize: '0.9rem', lineHeight: 1.2 }}>
-            Mapa ao vivo
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
-            {[nomeRegiaoExibido, `${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'}`]
-              .filter(Boolean)
-              .join(' · ')}
-          </Typography>
-        </Box>
-        {nomeRegiaoExibido && (
-          <Box
-            sx={{
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              px: 1,
-              py: 0.5,
-              borderRadius: 999,
-              bgcolor: 'rgba(27, 42, 107, 0.06)',
-            }}
-          >
-            <LocationOnOutlinedIcon sx={{ fontSize: 14, color: colors.orange }} />
-            <Typography
-              variant="caption"
-              sx={{ fontWeight: 700, color: colors.navy, whiteSpace: 'nowrap', maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis' }}
-            >
-              {nomeRegiaoExibido}
-            </Typography>
-          </Box>
-        )}
-      </Box>
-    );
-  }
+  const hint = podeFiltrarDataTrajeto
+    ? selecionandoPeriodoTrajeto
+      ? 'Escolha a data final do período no calendário.'
+      : modoHistoricoTrajeto
+        ? 'Escolha o veículo para ver o trajeto do período.'
+        : 'Toque no veículo no mapa para ver o trajeto de hoje.'
+    : podeFiltrarRegioes && regiaoAtiva
+      ? `${rotuloRegiaoMapa(regiaoAtiva, {
+          compacto: telefonePequeno,
+          indiceLista: regioes.findIndex((r) => r.id_regiao === regiaoAtiva.id_regiao),
+        })} · ${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'}`
+      : podeFiltrarRegioes
+        ? `${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'} · toque no mapa`
+        : 'Toque no mapa para escolher a unidade';
 
   return (
-    <Box
-      sx={{
-        mb: 1,
-        borderRadius: 2.5,
-        overflow: 'hidden',
-        bgcolor: '#fff',
-        boxShadow: '0 2px 14px rgba(27, 42, 107, 0.08)',
-        border: '1px solid rgba(27, 42, 107, 0.07)',
-      }}
-    >
-      <Box
-        sx={{
-          px: 1.5,
-          py: 1,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.75,
-          bgcolor: 'rgba(27, 42, 107, 0.04)',
-          borderBottom: '1px solid rgba(27, 42, 107, 0.06)',
-        }}
-      >
-        <MapOutlinedIcon sx={{ fontSize: 17, color: colors.navy, opacity: 0.85 }} />
-        <Typography variant="caption" sx={{ fontWeight: 700, color: colors.navy, letterSpacing: 0.2 }}>
-          {podeFiltrarRegioes ? 'Escolha a região' : 'Sua região'}
-        </Typography>
-      </Box>
+    <div className="ck-mapa__stage">
+      <div className="ck-mapa__glow" aria-hidden />
 
-      <Box sx={{ p: 1.25 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            minWidth: 0,
-          }}
-        >
-          <Box
-            sx={{
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              overflowX: 'auto',
-              WebkitOverflowScrolling: 'touch',
-              pb: 0.25,
-              '&::-webkit-scrollbar': { display: 'none' },
-            }}
-          >
-          {podeFiltrarRegioes && regioes.length > 0 ? (
-            <>
-              <Button
-                onClick={() => selecionarRegiao('')}
-                sx={{
-                  flexShrink: 0,
-                  minWidth: 0,
-                  px: 1.75,
-                  py: 0.85,
-                  borderRadius: 999,
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: '0.8rem',
-                  lineHeight: 1.2,
-                  color: regiaoFiltro === '' ? '#fff' : 'rgba(27, 42, 107, 0.62)',
-                  bgcolor: regiaoFiltro === '' ? colors.orange : 'rgba(27, 42, 107, 0.06)',
-                  boxShadow: regiaoFiltro === '' ? '0 2px 8px rgba(232, 82, 10, 0.28)' : 'none',
-                  '&:hover': {
-                    bgcolor: regiaoFiltro === '' ? colors.orange : 'rgba(27, 42, 107, 0.1)',
-                  },
-                }}
-              >
-                Todas
-              </Button>
-              {!ocultarRegioesIndividuaisTrajeto &&
-                regioes.map((regiao, indice) => {
-                const ativa = Number(regiaoFiltro) === Number(regiao.id_regiao);
-                const rotulo = rotuloRegiaoMapa(regiao, { compacto: telefonePequeno, indiceLista: indice });
-                return (
-                  <Button
-                    key={regiao.id_regiao}
-                    onClick={() => selecionarRegiao(regiao.id_regiao)}
-                    title={telefonePequeno ? regiao.nome : undefined}
-                    startIcon={
-                      <LocationOnOutlinedIcon
-                        sx={{
-                          fontSize: telefonePequeno ? '14px !important' : '15px !important',
-                          ml: ativa ? 0 : telefonePequeno ? -0.15 : -0.25,
-                        }}
-                      />
-                    }
-                    sx={{
-                      flexShrink: 0,
-                      minWidth: 0,
-                      px: telefonePequeno ? 1 : 1.5,
-                      py: 0.85,
-                      borderRadius: 999,
-                      textTransform: 'none',
-                      fontWeight: 700,
-                      fontSize: telefonePequeno ? '0.72rem' : '0.8rem',
-                      lineHeight: 1.2,
-                      color: ativa ? '#fff' : 'rgba(27, 42, 107, 0.62)',
-                      bgcolor: ativa ? colors.orange : 'rgba(27, 42, 107, 0.06)',
-                      boxShadow: ativa ? '0 2px 8px rgba(232, 82, 10, 0.28)' : 'none',
-                      '& .MuiButton-startIcon': { mr: telefonePequeno ? 0.35 : 0.5 },
-                      '&:hover': {
-                        bgcolor: ativa ? colors.orange : 'rgba(27, 42, 107, 0.1)',
-                      },
-                    }}
-                  >
-                    {rotulo}
-                  </Button>
-                );
-              })}
-            </>
-          ) : (
-            nomeRegiaoExibido && (
-              <Box
-                sx={{
-                  flexShrink: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.75,
-                  px: 1.25,
-                  py: 0.65,
-                  borderRadius: 999,
-                  bgcolor: 'rgba(27, 42, 107, 0.06)',
-                  borderLeft: `3px solid ${colors.orange}`,
-                }}
-              >
-                <LocationOnOutlinedIcon sx={{ fontSize: 16, color: colors.orange, flexShrink: 0 }} />
-                <Typography
-                  variant="body2"
-                  sx={{ fontWeight: 700, color: colors.navy, lineHeight: 1.2, fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-                >
-                  {nomeRegiaoExibido}
-                </Typography>
-              </Box>
-            )
-          )}
-          </Box>
-
-          {podeFiltrarDataTrajeto && (
-            <Box sx={{ display: 'flex', flexShrink: 0, alignItems: 'center', gap: 0.5 }}>
-              <MapaFiltroTrajetoCalendario
-                dataInicio={dataTrajetoInicio}
-                dataFim={dataTrajetoFim}
-                onPeriodoChange={selecionarPeriodoTrajeto}
-              />
-              {modoHistoricoTrajeto && periodoTrajetoCompleto && (
-                <MapaFiltroTrajetoVeiculo
-                  veiculoId={veiculoTrajetoId}
-                  regiaoFiltro={regiaoFiltro}
-                  onSelect={selecionarVeiculoTrajeto}
-                />
-              )}
-              {filtroTrajetoAtivo && (
-                <Tooltip title="Limpar filtro de data e trajeto" arrow>
-                  <IconButton
-                    size="small"
-                    onClick={limparFiltrosTrajeto}
-                    aria-label="Limpar filtros de trajeto"
-                    sx={{
-                      flexShrink: 0,
-                      width: 32,
-                      height: 32,
-                      bgcolor: 'rgba(220, 38, 38, 0.1)',
-                      color: '#dc2626',
-                      '&:hover': { bgcolor: 'rgba(220, 38, 38, 0.18)' },
-                    }}
-                  >
-                    <CloseIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          )}
-        </Box>
-
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{
-            display: 'block',
-            mt: 0.85,
-            px: 0.25,
-            lineHeight: 1.45,
-            fontWeight: 500,
-          }}
-        >
-          {podeFiltrarDataTrajeto
-            ? selecionandoPeriodoTrajeto
-              ? 'Escolha a data final do período no calendário.'
-              : modoHistoricoTrajeto
-                ? 'Escolha o veículo para ver o trajeto do período.'
-                : 'Toque no veículo no mapa para ver o trajeto de hoje.'
-            : podeFiltrarRegioes && regiaoAtiva
-              ? `${rotuloRegiaoMapa(regiaoAtiva, {
-                  compacto: telefonePequeno,
-                  indiceLista: regioes.findIndex((r) => r.id_regiao === regiaoAtiva.id_regiao),
-                })} · ${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'} · toque no mapa para escolher`
+      <div className="ck-mapa__top">
+        <div>
+          <p className="ck-mapa__mark">Grupo Alvim</p>
+          <h1 className="ck-mapa__title">{modoRestrito ? 'Mapa ao vivo' : 'Mapa'}</h1>
+          <p className="ck-mapa__sub">
+            {modoRestrito
+              ? [nomeRegiaoExibido, `${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'}`]
+                  .filter(Boolean)
+                  .join(' · ') || 'Rastreamento da frota'
               : podeFiltrarRegioes
-                ? `${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'} · toque no mapa para escolher`
-                : 'Toque no mapa para escolher a unidade'}
-        </Typography>
-      </Box>
-    </Box>
+                ? 'Escolha a região e acompanhe a frota'
+                : nomeRegiaoExibido
+                  ? `Sua região · ${nomeRegiaoExibido}`
+                  : 'Acompanhe a frota na região'}
+          </p>
+        </div>
+        <div className="ck-mapa__menu">
+          <MobileUsuarioMenu
+            user={user}
+            onLogout={() => {
+              logout();
+              navigate('/login/mobile');
+            }}
+          />
+        </div>
+      </div>
+
+      {!modoRestrito && (
+        <>
+          <div className="ck-mapa__chips">
+            <div className="ck-mapa__chips-scroll">
+              {podeFiltrarRegioes && regioes.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    className={`ck-mapa__chip${regiaoFiltro === '' ? ' is-on' : ''}`}
+                    onClick={() => selecionarRegiao('')}
+                  >
+                    Todas
+                  </button>
+                  {!ocultarRegioesIndividuaisTrajeto &&
+                    regioes.map((regiao, indice) => {
+                      const ativa = Number(regiaoFiltro) === Number(regiao.id_regiao);
+                      const rotulo = rotuloRegiaoMapa(regiao, {
+                        compacto: telefonePequeno,
+                        indiceLista: indice,
+                      });
+                      return (
+                        <button
+                          key={regiao.id_regiao}
+                          type="button"
+                          title={telefonePequeno ? regiao.nome : undefined}
+                          className={`ck-mapa__chip${ativa ? ' is-on' : ''}`}
+                          onClick={() => selecionarRegiao(regiao.id_regiao)}
+                        >
+                          <LocationOnOutlinedIcon sx={{ fontSize: 15 }} />
+                          {rotulo}
+                        </button>
+                      );
+                    })}
+                </>
+              ) : (
+                nomeRegiaoExibido && (
+                  <span className="ck-mapa__chip ck-mapa__chip-static">
+                    <LocationOnOutlinedIcon sx={{ fontSize: 15 }} />
+                    {nomeRegiaoExibido}
+                  </span>
+                )
+              )}
+            </div>
+
+            {podeFiltrarDataTrajeto && (
+              <Box className="ck-mapa__tools">
+                <MapaFiltroTrajetoCalendario
+                  dataInicio={dataTrajetoInicio}
+                  dataFim={dataTrajetoFim}
+                  onPeriodoChange={selecionarPeriodoTrajeto}
+                  tomEscuro
+                />
+                {modoHistoricoTrajeto && periodoTrajetoCompleto && (
+                  <MapaFiltroTrajetoVeiculo
+                    veiculoId={veiculoTrajetoId}
+                    regiaoFiltro={regiaoFiltro}
+                    onSelect={selecionarVeiculoTrajeto}
+                    tomEscuro
+                  />
+                )}
+                {filtroTrajetoAtivo && (
+                  <Tooltip title="Limpar filtro de data e trajeto" arrow>
+                    <IconButton
+                      size="small"
+                      onClick={limparFiltrosTrajeto}
+                      aria-label="Limpar filtros de trajeto"
+                      sx={{ width: 32, height: 32, bgcolor: 'rgba(220,38,38,0.25) !important' }}
+                    >
+                      <CloseIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            )}
+          </div>
+          <p className="ck-mapa__hint">{hint}</p>
+        </>
+      )}
+
+      {modoRestrito && nomeRegiaoExibido && (
+        <div className="ck-mapa__chips" style={{ marginTop: 10 }}>
+          <span className="ck-mapa__chip ck-mapa__chip-static">
+            <LocationOnOutlinedIcon sx={{ fontSize: 15 }} />
+            {nomeRegiaoExibido}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }

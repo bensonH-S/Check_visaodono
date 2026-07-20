@@ -19,6 +19,8 @@ type Props = {
   dataInicio: string;
   dataFim: string;
   onPeriodoChange: (inicio: string, fim: string) => void;
+  /** Botão sobre fundo navy (stage immersive). */
+  tomEscuro?: boolean;
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
@@ -37,7 +39,12 @@ function rotuloPeriodo(inicio: string, fim: string) {
   return 'Hoje';
 }
 
-export default function MapaFiltroTrajetoCalendario({ dataInicio, dataFim, onPeriodoChange }: Props) {
+export default function MapaFiltroTrajetoCalendario({
+  dataInicio,
+  dataFim,
+  onPeriodoChange,
+  tomEscuro = false,
+}: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const aberto = Boolean(anchorEl);
   const hoje = dayjs().format('YYYY-MM-DD');
@@ -81,11 +88,21 @@ export default function MapaFiltroTrajetoCalendario({ dataInicio, dataFim, onPer
             flexShrink: 0,
             width: 36,
             height: 36,
-            bgcolor: periodoAtivo || selecionandoFim ? colors.orange : 'rgba(27, 42, 107, 0.06)',
-            color: periodoAtivo || selecionandoFim ? '#fff' : colors.navy,
+            bgcolor:
+              periodoAtivo || selecionandoFim
+                ? colors.orange
+                : tomEscuro
+                  ? 'rgba(255, 255, 255, 0.14)'
+                  : 'rgba(27, 42, 107, 0.06)',
+            color: periodoAtivo || selecionandoFim || tomEscuro ? '#fff' : colors.navy,
             boxShadow: periodoAtivo || selecionandoFim ? '0 2px 8px rgba(232, 82, 10, 0.28)' : 'none',
             '&:hover': {
-              bgcolor: periodoAtivo || selecionandoFim ? colors.orange : 'rgba(27, 42, 107, 0.1)',
+              bgcolor:
+                periodoAtivo || selecionandoFim
+                  ? colors.orange
+                  : tomEscuro
+                    ? 'rgba(255, 255, 255, 0.22)'
+                    : 'rgba(27, 42, 107, 0.1)',
             },
           }}
         >
