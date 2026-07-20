@@ -5,6 +5,7 @@ import {
   exibeFoto,
   exibeObservacao,
   exigeFoto,
+  isObsSomenteEmSim,
   maxFotos,
   parseFotos,
   serializeFotos,
@@ -33,7 +34,7 @@ interface Props {
   resposta?: RespostaLocal;
   erroCampo?: ErroPerguntaCampo;
   onPatch: (patch: Partial<RespostaLocal>) => void;
-  onSimNao: (opt: 'Sim' | 'Não') => void;
+  onSimNao: (opt: 'Sim' | 'Não' | 'N/A') => void;
 }
 
 export default function ChecklistIonicPerguntaCard({
@@ -80,7 +81,7 @@ export default function ChecklistIonicPerguntaCard({
       )}
 
       {usaSimNao(p) && (
-        <div className="ck-q__yn">
+        <div className="ck-q__yn ck-q__yn--3">
           <button
             type="button"
             className={`ck-q__yn-btn ck-q__yn-btn--yes${r?.resposta === 'Sim' ? ' is-on' : ''}`}
@@ -94,6 +95,15 @@ export default function ChecklistIonicPerguntaCard({
             onClick={() => onSimNao('Não')}
           >
             Não
+          </button>
+          <button
+            type="button"
+            className={`ck-q__yn-btn ck-q__yn-btn--na${r?.resposta === 'N/A' ? ' is-on' : ''}`}
+            onClick={() => onSimNao('N/A')}
+            aria-label="Não se aplica"
+            title="Não se aplica"
+          >
+            N/A
           </button>
         </div>
       )}
@@ -125,7 +135,9 @@ export default function ChecklistIonicPerguntaCard({
             rows={2}
             value={r?.observacao || ''}
             placeholder={
-              p.codigo === '37' ? 'Digite aqui o que foi observado' : 'Digite aqui sua observação'
+              isObsSomenteEmSim(p)
+                ? 'Digite aqui o que foi observado'
+                : 'Digite aqui sua observação'
             }
             onChange={(e) => onPatch({ observacao: e.target.value })}
           />

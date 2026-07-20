@@ -14,6 +14,7 @@ import {
   exibeObservacao,
   exigeFoto,
   exigeObservacao,
+  isObsSomenteEmSim,
   maxFotos,
   parseFotos,
   serializeFotos,
@@ -25,6 +26,8 @@ export interface RespostaLocal {
   foto_url?: string;
   fotos?: string[];
   observacao?: string;
+  /** Marca limpeza explícita de foto (não reenviar null a cada seção). */
+  limpar_foto?: boolean;
 }
 
 function usaEstrelas(p: Pergunta) {
@@ -57,7 +60,7 @@ interface Props {
   resposta?: RespostaLocal;
   erroCampo?: ErroPerguntaCampo;
   onPatch: (patch: Partial<RespostaLocal>) => void;
-  onSimNao: (opt: 'Sim' | 'Não') => void;
+  onSimNao: (opt: 'Sim' | 'Não' | 'N/A') => void;
 }
 
 export default function ChecklistPerguntaCard({
@@ -136,10 +139,14 @@ export default function ChecklistPerguntaCard({
 
       {usaSimNao(p) && (
         <Box sx={{ display: 'flex', gap: 0.75, mb: mostraFoto || mostraObs ? 1.25 : 0 }}>
-          {(['Sim', 'Não'] as const).map((opt) => {
+          {(
+            [
+              { opt: 'Sim' as const, label: 'Sim', cor: '#3B6D11', hoverBg: 'rgba(59, 109, 17, 0.08)' },
+              { opt: 'Não' as const, label: 'Não', cor: '#A32D2D', hoverBg: 'rgba(163, 45, 45, 0.08)' },
+              { opt: 'N/A' as const, label: 'N/A', cor: '#1B2A6B', hoverBg: 'rgba(27, 42, 107, 0.08)' },
+            ] as const
+          ).map(({ opt, label, cor, hoverBg }) => {
             const sel = r?.resposta === opt;
-            const cor = opt === 'Sim' ? '#3B6D11' : '#A32D2D';
-            const hoverBg = opt === 'Sim' ? 'rgba(59, 109, 17, 0.08)' : 'rgba(163, 45, 45, 0.08)';
             return (
               <Button
                 key={opt}
@@ -147,11 +154,12 @@ export default function ChecklistPerguntaCard({
                 size="small"
                 variant={sel ? 'contained' : 'outlined'}
                 onClick={() => onSimNao(opt)}
+                aria-label={opt === 'N/A' ? 'Não se aplica' : label}
                 sx={{
                   flex: 1,
                   minHeight: 34,
                   py: 0.5,
-                  px: 1,
+                  px: 0.5,
                   fontSize: '0.8125rem',
                   fontWeight: 700,
                   borderRadius: 1.5,
@@ -167,7 +175,7 @@ export default function ChecklistPerguntaCard({
                       }),
                 }}
               >
-                {opt}
+                {label}
               </Button>
             );
           })}
@@ -212,7 +220,7 @@ export default function ChecklistPerguntaCard({
           size="small"
           error={erroCampo === 'observacao'}
           placeholder={
-            p.codigo === '37'
+            isObsSomenteEmSim(p)
               ? 'Digite aqui o que foi observado'
               : 'Digite aqui sua observação'
           }

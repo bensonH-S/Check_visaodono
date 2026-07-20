@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { pool } from '../db.js';
 import {
   persistirFotos,
+  classificarFotoCliente,
+  mesclarFotoUrlSalva,
   midiaUrlsResposta,
   decryptMidiaResposta,
   countMidiaResposta,
@@ -282,50 +284,125 @@ router.post('/:id/respostas', async (req, res, next) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      for (const r of respostas) {
-        if (tipoVisita) {
-          const { rows: okPergunta } = await client.query(
-            `SELECT 1 FROM perguntas p
+
+      if (tipoVisita) {
+        const ids = [...new Set(respostas.map((r) => Number(r.id_pergunta)).filter(Boolean))];
+        if (ids.length) {
+          const { rows: okRows } = await client.query(
+            `SELECT p.id_pergunta FROM perguntas p
              JOIN categorias_checklist c ON c.id_categoria = p.id_categoria
-             WHERE p.id_pergunta = $1 AND c.id_tipo_checklist = $2`,
-            [r.id_pergunta, tipoVisita.id_tipo_checklist],
+             WHERE p.id_pergunta = ANY($1::int[]) AND c.id_tipo_checklist = $2`,
+            [ids, tipoVisita.id_tipo_checklist],
           );
-          if (!okPergunta[0]) {
+          const okSet = new Set(okRows.map((row) => Number(row.id_pergunta)));
+          const invalida = ids.find((id) => !okSet.has(id));
+          if (invalida != null) {
             await client.query('ROLLBACK');
             return res.status(400).json({ error: 'Pergunta não pertence ao checklist desta visita' });
           }
         }
+      }
+
+      const rowsOut = [];
+      for (const r of respostas) {
         const resposta = normalizarResposta(r);
         const nota =
           r.nota_estrelas != null && r.nota_estrelas !== ''
             ? Number(r.nota_estrelas)
             : null;
         const notaValida = nota != null && !Number.isNaN(nota) && nota >= 1 && nota <= 5;
-        if (!resposta && !notaValida && !r.foto_url) {
+        const fotoCls = classificarFotoCliente(
+          Object.prototype.hasOwnProperty.call(r, 'foto_url') ? r.foto_url ?? null : undefined,
+        );
+        if (!resposta && !notaValida && fotoCls.acao === 'manter' && r.observacao == null) {
           continue;
         }
-        const fotoSalva = await persistirFotos(idVisita, r.id_pergunta, r.foto_url ?? null);
-        await client.query(
-          `INSERT INTO respostas (id_visita, id_pergunta, resposta, nota_estrelas, observacao, foto_url)
-           VALUES ($1, $2, $3::resposta_checklist, $4, $5, $6)
-           ON CONFLICT (id_visita, id_pergunta)
-           DO UPDATE SET
-             resposta = COALESCE(EXCLUDED.resposta, respostas.resposta),
-             nota_estrelas = COALESCE(EXCLUDED.nota_estrelas, respostas.nota_estrelas),
-             observacao = EXCLUDED.observacao,
-             foto_url = EXCLUDED.foto_url`,
-          [
-            idVisita,
-            r.id_pergunta,
-            resposta,
-            notaValida ? nota : null,
-            r.observacao ?? null,
-            fotoSalva,
-          ]
+        rowsOut.push({
+          id_pergunta: Number(r.id_pergunta),
+          resposta,
+          nota: notaValida ? nota : null,
+          observacao: r.observacao ?? null,
+          foto_url_raw: r.foto_url ?? null,
+          foto_acao: fotoCls.acao,
+        });
+      }
+
+      if (rowsOut.length) {
+        const idsGravar = rowsOut.filter((x) => x.foto_acao === 'gravar').map((x) => x.id_pergunta);
+        let prevFotos = new Map();
+        if (idsGravar.length) {
+          const { rows: prevRows } = await client.query(
+            `SELECT id_pergunta, foto_url FROM respostas
+             WHERE id_visita = $1 AND id_pergunta = ANY($2::int[])`,
+            [idVisita, idsGravar],
+          );
+          prevFotos = new Map(prevRows.map((row) => [Number(row.id_pergunta), row.foto_url]));
+        }
+
+        for (const row of rowsOut) {
+          if (row.foto_acao === 'gravar') {
+            const novas = await persistirFotos(idVisita, row.id_pergunta, row.foto_url_raw);
+            row.foto_salva = mesclarFotoUrlSalva(prevFotos.get(row.id_pergunta) ?? null, novas);
+          } else {
+            row.foto_salva = null;
+          }
+        }
+
+        const upsertGrupo = async (grupo, modoFoto) => {
+          if (!grupo.length) return;
+          const ids = grupo.map((x) => x.id_pergunta);
+          const respArr = grupo.map((x) => x.resposta);
+          const notas = grupo.map((x) => x.nota);
+          const obsArr = grupo.map((x) => x.observacao);
+          const fotosArr = grupo.map((x) => x.foto_salva);
+          const setFoto =
+            modoFoto === 'gravar'
+              ? 'foto_url = EXCLUDED.foto_url'
+              : modoFoto === 'limpar'
+                ? 'foto_url = NULL'
+                : null;
+          await client.query(
+            `INSERT INTO respostas (id_visita, id_pergunta, resposta, nota_estrelas, observacao, foto_url)
+             SELECT
+               $1::int,
+               u.id_pergunta,
+               u.resposta::resposta_checklist,
+               u.nota_estrelas,
+               u.observacao,
+               u.foto_url
+             FROM unnest(
+               $2::int[],
+               $3::text[],
+               $4::int[],
+               $5::text[],
+               $6::text[]
+             ) AS u(id_pergunta, resposta, nota_estrelas, observacao, foto_url)
+             ON CONFLICT (id_visita, id_pergunta)
+             DO UPDATE SET
+               resposta = COALESCE(EXCLUDED.resposta, respostas.resposta),
+               nota_estrelas = COALESCE(EXCLUDED.nota_estrelas, respostas.nota_estrelas),
+               observacao = EXCLUDED.observacao
+               ${setFoto ? `, ${setFoto}` : ''}`,
+            [idVisita, ids, respArr, notas, obsArr, fotosArr],
+          );
+        };
+
+        await upsertGrupo(
+          rowsOut.filter((x) => x.foto_acao === 'manter'),
+          'manter',
+        );
+        await upsertGrupo(
+          rowsOut.filter((x) => x.foto_acao === 'limpar'),
+          'limpar',
+        );
+        await upsertGrupo(
+          rowsOut.filter((x) => x.foto_acao === 'gravar'),
+          'gravar',
         );
       }
+
       await client.query('COMMIT');
-      const detail = await pool.query('SELECT * FROM visitas WHERE id_visita = $1', [idVisita]);
+      const detail = await client.query('SELECT * FROM visitas WHERE id_visita = $1', [idVisita]);
       res.json(serializarVisita(detail.rows[0]));
     } catch (e) {
       await client.query('ROLLBACK');

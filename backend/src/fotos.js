@@ -49,21 +49,59 @@ function parseClientLista(fotoUrl) {
   return items;
 }
 
+/**
+ * Classifica o payload de foto do cliente:
+ * - gravar: data URLs novas → criptografa
+ * - limpar: vazio / null → apaga no banco
+ * - manter: só URLs da API (já salvas) → não mexe na coluna
+ */
+export function classificarFotoCliente(fotoUrl) {
+  /* undefined = campo omitido → não mexer na foto já salva */
+  if (fotoUrl === undefined) return { acao: 'manter' };
+  if (fotoUrl == null || fotoUrl === '' || fotoUrl === '[]') {
+    return { acao: 'limpar' };
+  }
+  const items = parseClientLista(fotoUrl);
+  if (items.length) return { acao: 'gravar', items };
+  /* URLs da API / payload já persistido → manter */
+  return { acao: 'manter' };
+}
+
 /** Persiste mídia do checklist em `respostas.foto_url` (JSON criptografado). */
 export async function persistirFotos(_idVisita, _idPergunta, fotoUrl) {
-  if (!fotoUrl) return null;
-
-  const items = parseClientLista(fotoUrl);
-  if (!items.length) return null;
+  const cls = classificarFotoCliente(fotoUrl);
+  if (cls.acao !== 'gravar' || !cls.items?.length) return null;
 
   const stored = {
     v: 1,
-    items: items.map(({ buffer, mime }) => ({
+    items: cls.items.map(({ buffer, mime }) => ({
       m: mime,
       d: encryptToBase64(buffer),
     })),
   };
   return JSON.stringify(stored);
+}
+
+/** Junta fotos já salvas com payload novo (data URLs criptografadas). */
+export function mesclarFotoUrlSalva(existente, novasJson) {
+  if (!novasJson) return existente ?? null;
+  let novosItems = [];
+  try {
+    const parsed = JSON.parse(novasJson);
+    if (parsed?.v === 1 && Array.isArray(parsed.items)) novosItems = parsed.items;
+  } catch {
+    return novasJson;
+  }
+  let antigos = [];
+  if (existente) {
+    try {
+      const prev = JSON.parse(existente);
+      if (prev?.v === 1 && Array.isArray(prev.items)) antigos = prev.items;
+    } catch {
+      antigos = [];
+    }
+  }
+  return JSON.stringify({ v: 1, items: [...antigos, ...novosItems] });
 }
 
 export function countMidiaResposta(fotoUrl) {

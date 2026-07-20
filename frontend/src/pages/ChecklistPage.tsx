@@ -201,7 +201,16 @@ function toRespostaInput(p: Pergunta, r: RespostaLocal): RespostaInput {
     input.nota_estrelas = r.nota_estrelas;
   }
 
-  if (exibeFoto(p, r.resposta, r.nota_estrelas)) input.foto_url = serializeFotos(fotos);
+  if (exibeFoto(p, r.resposta, r.nota_estrelas)) {
+    const soDataUrl = fotos.filter((f) => typeof f === 'string' && f.startsWith('data:'));
+    if (soDataUrl.length) {
+      /* Só reenvia fotos novas; as já salvas (URL da API) ficam no banco. */
+      input.foto_url = serializeFotos(soDataUrl);
+    } else if (r.limpar_foto) {
+      input.foto_url = null;
+    }
+    /* vazio/URLs da API sem limpar_foto → omite (backend mantém) */
+  }
   if (exibeObservacao(p, r.resposta, r.nota_estrelas) && r.observacao) input.observacao = r.observacao;
 
   return input;
@@ -623,7 +632,15 @@ export default function ChecklistPage() {
   }, [loading, searchParams, location.state, retomarVisita, setSearchParams]);
 
   const patchResposta = (id: number, patch: Partial<RespostaLocal>) => {
-    setRespostas((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+    setRespostas((prev) => {
+      const nextPatch = { ...patch };
+      if ('fotos' in patch) {
+        const prevFotos = getFotos(prev[id]);
+        if ((patch.fotos?.length ?? 0) === 0 && prevFotos.length > 0) nextPatch.limpar_foto = true;
+        if (patch.fotos?.length) nextPatch.limpar_foto = false;
+      }
+      return { ...prev, [id]: { ...prev[id], ...nextPatch } };
+    });
     setErrosPerguntas((prev) => {
       if (!prev[id]) return prev;
       const next = { ...prev };
@@ -632,15 +649,19 @@ export default function ChecklistPage() {
     });
   };
 
-  const escolherSimNao = (p: Pergunta, opt: 'Sim' | 'Não') => {
+  const escolherSimNao = (p: Pergunta, opt: 'Sim' | 'Não' | 'N/A') => {
     const patch: Partial<RespostaLocal> = { resposta: opt };
     if (deveLimparFotos(p, opt)) {
       patch.fotos = [];
       patch.foto_url = undefined;
+      patch.limpar_foto = true;
     }
     if (deveLimparObservacao(p, opt)) patch.observacao = undefined;
     patchResposta(p.id_pergunta, patch);
   };
+
+  /** Fila serial: não bloqueia a UI ao avançar seção (DB remoto ~2–3s). */
+  const saveQueueRef = useRef(Promise.resolve());
 
   const salvarItens = async (
     itens: RespostaInput[],
@@ -663,6 +684,24 @@ export default function ChecklistPage() {
     }
   };
 
+  const enfileirarSalvarSecao = (itens: RespostaInput[]) => {
+    if (!visitaId || !itens.length) return;
+    const id = visitaId;
+    saveQueueRef.current = saveQueueRef.current
+      .then(async () => {
+        try {
+          await api.salvarRespostas(id, itens);
+        } catch {
+          showToast('Não foi possível salvar o progresso.', 'error');
+        }
+      })
+      .catch(() => {
+        /* mantém a fila viva após erro */
+      });
+  };
+
+  const aguardarSalvosPendentes = () => saveQueueRef.current;
+
   const itensSecao = (cat: CategoriaChecklist): RespostaInput[] => {
     const itens: RespostaInput[] = [];
     for (const p of cat.perguntas) {
@@ -673,21 +712,9 @@ export default function ChecklistPage() {
     return itens;
   };
 
-  const salvarSecaoEmSegundoPlano = (cat: CategoriaChecklist) => {
-    const itens = itensSecao(cat);
-    if (!itens.length) return;
-    void salvarItens(itens, true, { emSegundoPlano: true });
-  };
-
   const salvarSecaoAtual = async (silencioso = true) => {
     if (!secaoAtual || !visitaId) return true;
     return salvarItens(itensSecao(secaoAtual), silencioso);
-  };
-
-  const salvarTodas = async () => {
-    const itens: RespostaInput[] = [];
-    for (const cat of checklist) itens.push(...itensSecao(cat));
-    return salvarItens(itens, true);
   };
 
   const validarSecao = (cat: CategoriaChecklist): ResultadoValidacaoSecao | null => {
@@ -772,25 +799,25 @@ export default function ChecklistPage() {
       return;
     }
     limparMsg();
-    const secaoSalvar = secaoAtual;
+    const itens = itensSecao(secaoAtual);
     if (indiceSecao < totalSecoes - 1) setIndiceSecao((i) => i + 1);
-    salvarSecaoEmSegundoPlano(secaoSalvar);
+    enfileirarSalvarSecao(itens);
   };
 
   const irSecaoAnterior = () => {
     if (indiceSecao === 0 || !secaoAtual) return;
     limparMsg();
-    const secaoSalvar = secaoAtual;
+    const itens = itensSecao(secaoAtual);
     setIndiceSecao((i) => Math.max(0, i - 1));
-    salvarSecaoEmSegundoPlano(secaoSalvar);
+    enfileirarSalvarSecao(itens);
   };
 
   const irParaSecao = (idx: number) => {
     if (idx === indiceSecao || !secaoAtual) return;
     limparMsg();
-    const secaoSalvar = secaoAtual;
+    const itens = itensSecao(secaoAtual);
     setIndiceSecao(idx);
-    salvarSecaoEmSegundoPlano(secaoSalvar);
+    enfileirarSalvarSecao(itens);
   };
 
   const comecarAvaliacao = async () => {
@@ -828,7 +855,9 @@ export default function ChecklistPage() {
     setSaving(true);
     setMsg('');
     try {
-      const ok = await salvarTodas();
+      await aguardarSalvosPendentes();
+      /* Seções anteriores já foram enfileiradas ao avançar — garante a atual. */
+      const ok = await salvarSecaoAtual(true);
       if (!ok) return;
       const duracao = calcularDuracaoVisitaMinutos(dataVisita, horaInicio);
       await api.finalizarVisita(visitaId!, duracao != null ? { duracao_minutos: duracao } : {});
@@ -1428,7 +1457,7 @@ export default function ChecklistPage() {
         secaoCompleta={secaoCompleta}
         onSecaoAnterior={irSecaoAnterior}
         onSalvar={() => void salvarSecaoAtual(false)}
-        onProxima={() => void irProximaSecao()}
+        onProxima={irProximaSecao}
         onFinalizar={() => void finalizar()}
       />
     );

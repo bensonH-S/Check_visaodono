@@ -11,6 +11,11 @@ export function respostaSimNaoEscolhida(resposta?: 'Sim' | 'Não' | 'N/A'): bool
   return resposta === 'Sim' || resposta === 'Não';
 }
 
+/** Obs só em Sim (mesa de sanduíches) — identifica pelo texto, não pelo código. */
+export function isObsSomenteEmSim(p: Pergunta): boolean {
+  return /mesa de preparação de sanduíches/i.test(p.texto || '');
+}
+
 /** Exibir bloco de foto na UI (somente após responder Sim/Não ou escolher estrelas). */
 export function exibeFoto(
   p: Pergunta,
@@ -47,7 +52,7 @@ export function exibeObservacao(
   if (p.tipo_resposta === 'estrelas' || p.tipo_resposta === 'estrelas_foto') {
     return notaEstrelas != null && notaEstrelas >= 1;
   }
-  if (p.codigo === '37') return resposta === 'Sim';
+  if (isObsSomenteEmSim(p)) return resposta === 'Sim';
   return respostaSimNaoEscolhida(resposta);
 }
 
@@ -57,7 +62,7 @@ export function exigeObservacao(
   obs?: string
 ): boolean {
   if (!exibeObservacao(p, resposta)) return false;
-  if (p.codigo === '37') return false;
+  if (isObsSomenteEmSim(p)) return false;
   if (resposta !== 'Não' || !p.requer_obs_em_nao) return false;
   return !obs?.trim();
 }

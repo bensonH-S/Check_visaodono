@@ -1665,15 +1665,35 @@
   margin-top: 12px;
 }
 
+.ck-q__yn--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
 .ck-q__yn-btn {
   min-height: 46px;
   border-radius: 12px;
   border: 1.5px solid rgba(27, 42, 107, 0.14);
   background: #fff;
+  color: #142048;
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 800;
   cursor: pointer;
+}
+
+.ck-q__yn-btn--yes {
+  border-color: rgba(59, 109, 17, 0.35);
+  color: #3b6d11;
+}
+
+.ck-q__yn-btn--no {
+  border-color: rgba(185, 28, 28, 0.35);
+  color: #b91c1c;
+}
+
+.ck-q__yn-btn--na {
+  border-color: rgba(27, 42, 107, 0.28);
+  color: #1b2a6b;
 }
 
 .ck-q__yn-btn--yes.is-on {
@@ -1685,6 +1705,12 @@
 .ck-q__yn-btn--no.is-on {
   border-color: #b91c1c;
   background: #b91c1c;
+  color: #fff;
+}
+
+.ck-q__yn-btn--na.is-on {
+  border-color: #1b2a6b;
+  background: #1b2a6b;
   color: #fff;
 }
 
