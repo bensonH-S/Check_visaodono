@@ -27,7 +27,6 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import EscalaMinhaSemanaCard from '../components/escalas/EscalaMinhaSemanaCard';
 import VisitasMobileScreen from '../components/visitas/VisitasMobileScreen';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
@@ -233,6 +232,8 @@ function VisitaCardMobile({
   );
 }
 
+type FiltroStatusVisita = '' | 'Rascunho' | 'Finalizada';
+
 function FiltrosStatus({
   visitas,
   filtroStatus,
@@ -240,8 +241,8 @@ function FiltrosStatus({
   mobile,
 }: {
   visitas: VisitaResumo[];
-  filtroStatus: string;
-  onFiltro: (status: string) => void;
+  filtroStatus: FiltroStatusVisita;
+  onFiltro: (status: FiltroStatusVisita) => void;
   mobile: boolean;
 }) {
   const contagemPorStatus = useMemo(() => {
