@@ -493,7 +493,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistImmersive && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -610,6 +610,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
+        {!isVisitas && !isRelatorio && (
         <Box
           sx={{
             position: 'relative',
@@ -630,13 +631,14 @@ function ChamadosMobileLayoutInner() {
             />
           </Box>
         </Box>
+        )}
         <Box
           sx={{
             position: 'relative',
             zIndex: 1,
-            ...(paginaCabecalhoFixo ? MOBILE_PAGE_COLUMN : MOBILE_SCROLL_AREA),
-            ...safeAreaX(16),
-            pb: safeAreaBottomCalc(rodapeTotalH + 16),
+            ...(paginaCabecalhoFixo || isVisitas || isRelatorio ? MOBILE_PAGE_COLUMN : MOBILE_SCROLL_AREA),
+            ...(isVisitas || isRelatorio ? { px: 0 } : safeAreaX(16)),
+            pb: isVisitas || isRelatorio ? 0 : safeAreaBottomCalc(rodapeTotalH + 16),
           }}
         >
           {isMapa ? (

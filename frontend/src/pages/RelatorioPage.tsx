@@ -6,7 +6,6 @@ import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { api, fmtNota, fmtData, fetchMediaAutenticada } from '../api/client';
@@ -15,10 +14,11 @@ import { gerarPdfVisita } from '../utils/gerarPdfVisita';
 import { showToast } from '../utils/toast';
 import { formatarHoraVisita, formatarLocalVisita } from '../utils/visitaFormat';
 import { isMobileAppPath } from '../config/mobileRoutes';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../theme/safeArea';
 import { assetUrl, FAVICON_ICON } from '../config/paths';
+import RelatorioMobileScreen from '../components/visitas/RelatorioMobileScreen';
+import '../components/visitas/visitas-mobile.css';
 
-const NAVY = '#0B1A3B';
+const NAVY = '#0F1A45';
 const NAVY_MID = '#1B2A6B';
 const ACCENT = '#E8520A';
 const OK = '#15803D';
@@ -197,6 +197,28 @@ export default function RelatorioPage() {
       .catch((e) => setErr(e.message));
   }, [id]);
 
+  if (mobileApp) {
+    if (err) {
+      return (
+        <div className="ck-visitas">
+          <div className="ck-visitas__sheet" style={{ marginTop: 0, borderRadius: 0, minHeight: '100%' }}>
+            <div className="ck-visitas__empty" style={{ color: '#b91c1c' }}>
+              {err}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (!data) return <LinearProgress />;
+    return (
+      <RelatorioMobileScreen
+        data={data}
+        exportandoPdf={exportandoPdf}
+        onExportarPdf={() => void exportarPdf()}
+      />
+    );
+  }
+
   if (err) return <Typography color="error">{err}</Typography>;
   if (!data) return <LinearProgress />;
 
@@ -216,122 +238,7 @@ export default function RelatorioPage() {
     porCategoria.get(cat)!.push(r);
   }
 
-  const cabecalhoRelatorio = mobileApp ? (
-    <Box sx={{ mb: 1.5 }}>
-      <Box
-        sx={{
-          bgcolor: NAVY,
-          borderRadius: '10px 10px 0 0',
-          px: 1.25,
-          py: 0.85,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 0.75,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-          <Box
-            component="img"
-            src={assetUrl(FAVICON_ICON)}
-            alt=""
-            sx={{ width: 22, height: 22, borderRadius: 0.75, flexShrink: 0 }}
-          />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 800, color: '#fff', fontSize: '0.82rem', lineHeight: 1.2 }}>
-              {titulo}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ color: '#B4C3DC', fontSize: '0.65rem', display: 'block', lineHeight: 1.2 }}
-              noWrap
-            >
-              {v.name}
-              {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
-            </Typography>
-          </Box>
-        </Box>
-        <IconButton
-          aria-label="Baixar PDF"
-          disabled={exportandoPdf}
-          onClick={() => void exportarPdf()}
-          size="small"
-          sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.12)', flexShrink: 0 }}
-        >
-          {exportandoPdf ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : <PictureAsPdfIcon fontSize="small" />}
-        </IconButton>
-      </Box>
-
-      <Box sx={{ height: 2, bgcolor: ACCENT }} />
-
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: '0 0 10px 10px',
-          border: `1px solid ${LINE}`,
-          borderTop: 'none',
-          overflow: 'hidden',
-          px: 1.25,
-          py: 1,
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-          <Box
-            sx={{
-              width: 52,
-              height: 52,
-              borderRadius: '50%',
-              border: `2.5px solid ${corNota(nota)}`,
-              bgcolor: '#fff',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', lineHeight: 1, color: corNota(nota) }}>
-              {fmtNota(v.nota_final)}
-            </Typography>
-            <Typography variant="caption" sx={{ fontSize: '0.5rem', color: SLATE_LIGHT, lineHeight: 1 }}>
-              nota
-            </Typography>
-          </Box>
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="caption" sx={{ color: SLATE, fontSize: '0.7rem', display: 'block', lineHeight: 1.35 }}>
-              {v.nome_usuario}
-            </Typography>
-            <Typography variant="caption" sx={{ color: SLATE_LIGHT, fontSize: '0.65rem', display: 'block' }}>
-              {dataTxt}
-            </Typography>
-            <Chip
-              size="small"
-              label={v.status}
-              sx={{
-                mt: 0.4,
-                height: 18,
-                fontSize: '0.62rem',
-                fontWeight: 700,
-                bgcolor: v.status === 'Finalizada' ? '#ECFDF5' : '#FFF7ED',
-                color: v.status === 'Finalizada' ? OK : ACCENT,
-              }}
-            />
-          </Box>
-        </Box>
-
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0.6 }}>
-          <CardMetrica compact label="CAT." value={String(data.desempenho_categorias.length)} />
-          <CardMetrica compact label="RESP." value={String(data.respostas.length)} />
-          <CardMetrica compact label="NCs" value={String(data.nao_conformidades.length)} />
-          <CardMetrica
-            compact
-            label="TEMPO"
-            value={v.duracao_minutos != null ? `${v.duracao_minutos}m` : '—'}
-          />
-        </Box>
-      </Paper>
-    </Box>
-  ) : (
+  const cabecalhoRelatorio = (
     <Box sx={{ mb: 2.5 }}>
       <Box
         sx={{
@@ -518,7 +425,7 @@ export default function RelatorioPage() {
               <Typography
                 variant="caption"
                 sx={{
-                  width: mobileApp ? 90 : 130,
+                  width: 130,
                   textAlign: 'right',
                   flexShrink: 0,
                   fontWeight: 500,
@@ -567,7 +474,7 @@ export default function RelatorioPage() {
               </Box>
             </Box>
             {items.map((r, idx) => (
-              <RespostaRelatorio key={r.id_pergunta} resposta={r} idx={idx} mobileApp={mobileApp} />
+              <RespostaRelatorio key={r.id_pergunta} resposta={r} idx={idx} mobileApp={false} />
             ))}
           </Box>
         ))}
@@ -605,15 +512,6 @@ export default function RelatorioPage() {
       )}
     </>
   );
-
-  if (mobileApp) {
-    return (
-      <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%' }}>
-        <Box sx={{ flexShrink: 0, mb: 2 }}>{cabecalhoRelatorio}</Box>
-        <Box sx={MOBILE_SCROLL_AREA}>{corpoRelatorio}</Box>
-      </Box>
-    );
-  }
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto' }}>

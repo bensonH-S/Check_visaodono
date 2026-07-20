@@ -27,15 +27,14 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import IconeMenuTresTracos from '../components/IconeMenuTresTracos';
 import EscalaMinhaSemanaCard from '../components/escalas/EscalaMinhaSemanaCard';
+import VisitasMobileScreen from '../components/visitas/VisitasMobileScreen';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
 import { getUsuario, podeApagarVisitas } from '../lib/auth';
 import { showToast } from '../utils/toast';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
 import { colors } from '../theme/tokens';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../theme/safeArea';
 
 const STATUS_VISITA = [
   { value: 'Rascunho', label: 'Rascunho', color: '#92400E', bg: '#FEF3C7', accent: '#F59E0B' },
@@ -98,77 +97,6 @@ function MetaLinha({
 
 function checklistBasePath(pathname: string) {
   return pathname.includes('/mobile') ? '/checklist/mobile' : '/checklist';
-}
-
-const NAVY = '#1B2A6B';
-const PAGE_BG = '#f5f5f3';
-
-function VisitaLinhaMobile({
-  visita: v,
-  checklistBase,
-  isLast,
-}: {
-  visita: VisitaResumo;
-  checklistBase: string;
-  isLast?: boolean;
-}) {
-  const accent = statusAccent(v.status);
-  const emRascunho = v.status === 'Rascunho';
-  const destino = emRascunho
-    ? `${checklistBase}?visita=${v.id_visita}`
-    : `/relatorio/visita/${v.id_visita}`;
-
-  return (
-    <Box
-      component={Link}
-      to={destino}
-      sx={{
-        display: 'flex',
-        alignItems: 'stretch',
-        textDecoration: 'none',
-        color: 'inherit',
-        bgcolor: '#fff',
-        borderBottom: isLast ? 'none' : '1px solid rgba(27, 42, 107, 0.08)',
-        '&:active': { bgcolor: 'rgba(27, 42, 107, 0.03)' },
-      }}
-    >
-      <Box aria-hidden sx={{ width: 3, flexShrink: 0, bgcolor: accent }} />
-      <Box sx={{ flex: 1, minWidth: 0, py: 1.1, px: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            sx={{
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              lineHeight: 1.3,
-              color: NAVY,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {v.name}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              display: 'block',
-              fontSize: '0.68rem',
-              color: 'text.secondary',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {fmtData(v.data_visita)} · {v.tipo_checklist_nome ?? 'Checklist'}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-          {statusChip(v.status)}
-          {notaChip(v.nota_final)}
-        </Box>
-      </Box>
-    </Box>
-  );
 }
 
 function VisitaCardMobile({
@@ -387,8 +315,7 @@ export default function VisitasPage() {
   const [visitas, setVisitas] = useState<VisitaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
-  const [filtroStatus, setFiltroStatus] = useState('');
-  const [modoLista, setModoLista] = useState(false);
+  const [filtroStatus, setFiltroStatus] = useState<'' | 'Rascunho' | 'Finalizada'>('');
   const [apagarAlvo, setApagarAlvo] = useState<VisitaResumo | null>(null);
   const [apagando, setApagando] = useState(false);
 
@@ -429,6 +356,40 @@ export default function VisitasPage() {
 
   if (err) return <Typography color="error">{err}</Typography>;
 
+  if (isMobileApp) {
+    return (
+      <>
+        <VisitasMobileScreen
+          visitas={visitas}
+          visitasFiltradas={visitasFiltradas}
+          filtroStatus={filtroStatus}
+          onFiltro={setFiltroStatus}
+          checklistBase={checklistBase}
+          podeApagar={podeApagar}
+          onApagar={setApagarAlvo}
+        />
+        <Dialog open={!!apagarAlvo} onClose={() => !apagando && setApagarAlvo(null)}>
+          <DialogTitle>Apagar relatório?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">
+              {apagarAlvo
+                ? `A visita em ${apagarAlvo.name} (${fmtData(apagarAlvo.data_visita)}) será removida.`
+                : ''}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setApagarAlvo(null)} disabled={apagando}>
+              Cancelar
+            </Button>
+            <Button color="error" variant="contained" onClick={() => void confirmarApagar()} disabled={apagando}>
+              {apagando ? 'Apagando…' : 'Apagar'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
+    );
+  }
+
   if (!visitas.length) {
     return (
       <Box sx={tablePageLayoutSx}>
@@ -460,121 +421,14 @@ export default function VisitasPage() {
   return (
     <Box
       sx={{
-        ...(isMobileApp
-          ? { ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG }
-          : tablePageLayoutSx),
+        ...tablePageLayoutSx,
         gap: { xs: 1, md: 1.5 },
       }}
     >
-      {!isMobileApp && (
       <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0, fontSize: { xs: '0.8rem', md: '0.875rem' } }}>
         {visitasFiltradas.length} de {visitas.length} visita(s)
       </Typography>
-      )}
 
-      {isMobileApp ? (
-        <>
-          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'stretch', gap: 1, mb: 2 }}>
-            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
-              <FiltrosStatus
-                visitas={visitas}
-                filtroStatus={filtroStatus}
-                onFiltro={setFiltroStatus}
-                mobile={isMobile}
-              />
-            </Box>
-            <Box
-              component="button"
-              type="button"
-              aria-label={modoLista ? 'Ver em cards' : 'Ver em lista'}
-              aria-pressed={modoLista}
-              onClick={() => setModoLista((v) => !v)}
-              sx={{
-                flexShrink: 0,
-                alignSelf: 'stretch',
-                aspectRatio: '1',
-                width: 'auto',
-                minWidth: 32,
-                borderRadius: 999,
-                bgcolor: modoLista ? 'rgba(232, 82, 10, 0.12)' : '#fff',
-                border: modoLista
-                  ? '1px solid rgba(232, 82, 10, 0.35)'
-                  : '1px solid rgba(27, 42, 107, 0.12)',
-                outline: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                p: 0,
-                font: 'inherit',
-                '& svg': { transform: 'scale(0.85)' },
-              }}
-            >
-              <IconeMenuTresTracos ativo={modoLista} />
-            </Box>
-          </Box>
-
-          <Box sx={{ ...MOBILE_SCROLL_AREA, display: 'flex', flexDirection: 'column', gap: 1.25, pb: 0.5 }}>
-            <EscalaMinhaSemanaCard linkGrade="/escalas/visitas/mobile" />
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, px: 0.5 }}>
-              Histórico de visitas realizadas
-            </Typography>
-            {modoLista ? (
-              <Paper
-                elevation={0}
-                sx={{
-                  borderRadius: 3,
-                  overflow: 'hidden',
-                  bgcolor: '#fff',
-                  border: '1px solid rgba(27, 42, 107, 0.08)',
-                  boxShadow: '0 4px 18px rgba(27, 42, 107, 0.06)',
-                }}
-              >
-                {visitasFiltradas.map((v, i) => (
-                  <VisitaLinhaMobile
-                    key={v.id_visita}
-                    visita={v}
-                    checklistBase={checklistBase}
-                    isLast={i === visitasFiltradas.length - 1}
-                  />
-                ))}
-                {!visitasFiltradas.length && (
-                  <Typography color="text.secondary" sx={{ p: 3, textAlign: 'center' }}>
-                    Nenhuma visita com este status.
-                  </Typography>
-                )}
-              </Paper>
-            ) : (
-              <>
-                {visitasFiltradas.map((v) => (
-                  <VisitaCardMobile
-                    key={v.id_visita}
-                    visita={v}
-                    checklistBase={checklistBase}
-                    podeApagar={podeApagar}
-                    onApagar={setApagarAlvo}
-                  />
-                ))}
-                {!visitasFiltradas.length && (
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 3,
-                      textAlign: 'center',
-                      border: '1px solid',
-                      borderColor: colors.border,
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Typography color="text.secondary">Nenhuma visita com este status.</Typography>
-                  </Paper>
-                )}
-              </>
-            )}
-          </Box>
-        </>
-      ) : (
-        <>
       <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, flexShrink: 0, mb: 0 }}>
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
           <FiltrosStatus
@@ -695,8 +549,6 @@ export default function VisitasPage() {
             </Table>
           </TableContainer>
         </Paper>
-      )}
-        </>
       )}
 
       <Dialog open={!!apagarAlvo} onClose={() => !apagando && setApagarAlvo(null)} maxWidth="xs" fullWidth>
