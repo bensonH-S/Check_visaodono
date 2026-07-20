@@ -1,3 +1,4 @@
+import { assetUrl } from '../../config/paths';
 import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import type { CategoriaChecklist, Loja, Pergunta } from '../../api/client';
 import ChecklistIonicPerguntaCard from './ChecklistIonicPerguntaCard';
@@ -86,6 +87,13 @@ export default function ChecklistIonicFluxo({
                 {respondidas}/{totalPerguntas} · {progressoGeral}%
               </strong>
             </div>
+            <img
+              src={assetUrl('Logo_Icon-clear.png')}
+              alt="Grupo Alvim"
+              className="ck-fluxo__logo"
+              width={36}
+              height={36}
+            />
           </div>
           <div className="ck-fluxo__bar" aria-hidden>
             <span style={{ width: `${Math.min(100, Math.max(0, progressoGeral))}%` }} />

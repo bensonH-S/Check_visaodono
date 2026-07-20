@@ -1332,6 +1332,14 @@
   gap: 10px;
 }
 
+.ck-fluxo__logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: transparent;
+}
+
 .ck-fluxo__back {
   width: 36px;
   height: 36px;
