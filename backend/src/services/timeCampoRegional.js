@@ -12,7 +12,7 @@ export const LIDERANCA_EMAIL = {
   ceo: 'felipe@grupoalvim.com.br',
   diretor: 'frotadf@gmail.com',
   supervisor_geral: 'igor@grupoalvim.com.br',
-  ti: 'benson.henriquesilva@gmail.com',
+  ti: 'benson@grupoalvim.com.br',
 };
 
 /** Destinatários fixos de todo relatório de visita (além do regional da loja). */
@@ -20,8 +20,10 @@ export const RELATORIO_EMAIL_SEMPRE = [
   { email: LIDERANCA_EMAIL.supervisor_geral, papel: 'supervisor_geral', nome: 'Igor' },
   { email: LIDERANCA_EMAIL.diretor, papel: 'diretor', nome: 'Diretor' },
   { email: LIDERANCA_EMAIL.ceo, papel: 'dono', nome: 'Felipe' },
-  { email: LIDERANCA_EMAIL.ti, papel: 'ti', nome: 'Benson' },
 ];
+
+/** Sempre em cópia (CC) em todo relatório de visita. */
+export const RELATORIO_EMAIL_CC = [LIDERANCA_EMAIL.ti];
 
 /** Regionais vinculados à região da loja (frota_regiao_regionais + id_regional legado). */
 export async function resolverRegionaisLoja(idLoja) {

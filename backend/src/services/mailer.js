@@ -72,20 +72,31 @@ export function getLogoAttachment() {
   return null;
 }
 
-export async function sendMail({ to, subject, html, text, attachments, replyTo }) {
+function normalizeEmails(list) {
+  const raw = Array.isArray(list) ? list.filter(Boolean) : list ? [list] : [];
+  return [
+    ...new Set(
+      raw
+        .map((r) => (typeof r === 'string' ? r : r?.email))
+        .map((r) => String(r || '').trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+export async function sendMail({ to, cc, subject, html, text, attachments, replyTo }) {
   const { user } = mailCreds();
   if (!smtpConfigurado()) {
     throw new Error('Configuração SMTP ausente no ambiente (SMTP_USER/SMTP_PASS ou EMAIL_USER/EMAIL_PASS).');
   }
 
-  const rawRecipients = Array.isArray(to) ? to.filter(Boolean) : [String(to || '').trim()];
-  const recipients = rawRecipients
-    .map((r) => (typeof r === 'string' ? r : r?.email))
-    .map((r) => String(r || '').trim())
-    .filter(Boolean);
+  const recipients = normalizeEmails(to);
   if (recipients.length === 0) {
     throw new Error('Destinatário de e-mail não informado.');
   }
+
+  const recipientsLower = new Set(recipients.map((e) => e.toLowerCase()));
+  const ccList = normalizeEmails(cc).filter((e) => !recipientsLower.has(e.toLowerCase()));
 
   const fromName = cleanEnvValue(process.env.MAIL_FROM_NAME) || 'MERIDIAN';
   const fromAddr = cleanEnvValue(process.env.MAIL_FROM) || `"${fromName}" <${user}>`;
@@ -131,7 +142,15 @@ export async function sendMail({ to, subject, html, text, attachments, replyTo }
     mailOptions.bcc = recipients.join(', ');
   }
 
+  if (ccList.length) {
+    mailOptions.cc = ccList.join(', ');
+  }
+
   await sendWithTransport(mailOptions);
-  console.info(`[mailer] E-mail enviado para ${recipients.length} destinatário(s).`);
+  console.info(
+    `[mailer] E-mail enviado para ${recipients.length} destinatário(s)` +
+      (ccList.length ? ` + ${ccList.length} em CC` : '') +
+      '.',
+  );
   return true;
 }

@@ -7,6 +7,7 @@ import {
   resolverRegionaisLoja,
   REGIONAIS_SUPERVISORES_EMAIL,
   RELATORIO_EMAIL_SEMPRE,
+  RELATORIO_EMAIL_CC,
 } from './timeCampoRegional.js';
 
 const APP_BASE = '/auditoria';
@@ -66,7 +67,8 @@ async function registrarEnvio({ idVisita, idLoja, idUsuario, email, metadata = {
 /**
  * Destinatários do relatório:
  * - Regional da loja (só Bárbara / Fagno / Plínio, conforme região)
- * - Sempre: Igor (supervisor geral), diretor, dono (CEO), TI
+ * - Sempre: Igor (supervisor geral), diretor, dono (CEO)
+ * - CC: Benson (TI)
  */
 export async function resolverDestinatariosRelatorio(idLoja) {
   const mapa = new Map();
@@ -289,7 +291,7 @@ function nomeArquivoPdf(visita) {
   return `relatorio-visita-${visita.id_visita}-${bkn}-${dataArq}.pdf`;
 }
 
-async function montarEnvio(dados, { to, teste = false, registrar = true } = {}) {
+async function montarEnvio(dados, { to, cc = RELATORIO_EMAIL_CC, teste = false, registrar = true } = {}) {
   const v = dados.visita;
   const pdfBuffer = await gerarPdfVisitaBuffer(dados);
   const link = linkRelatorio(v.id_visita);
@@ -313,8 +315,11 @@ async function montarEnvio(dados, { to, teste = false, registrar = true } = {}) 
     });
   }
 
+  const ccList = Array.isArray(cc) ? cc.filter(Boolean) : cc ? [cc] : [];
+
   await sendMail({
     to,
+    cc: ccList,
     subject,
     text: renderTextEmail({ visita: v, dados, link, teste }),
     html: renderHtmlEmail({ visita: v, dados, link, teste }),
@@ -331,7 +336,7 @@ async function montarEnvio(dados, { to, teste = false, registrar = true } = {}) 
         idLoja: v.id_loja,
         idUsuario,
         email,
-        metadata,
+        metadata: { ...metadata, cc: ccList },
       });
     }
   }
@@ -341,6 +346,7 @@ async function montarEnvio(dados, { to, teste = false, registrar = true } = {}) 
     destinatarios: (Array.isArray(to) ? to : [to]).map((d) =>
       typeof d === 'string' ? d : { email: d.email, papel: d.papel },
     ),
+    cc: ccList,
   };
 }
 
