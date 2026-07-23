@@ -13,6 +13,7 @@ import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import BrandLogo from '../components/BrandLogo';
 import NotificacoesSino from '../components/NotificacoesSino';
 import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
@@ -28,7 +29,7 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeAprovarFreelancers, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
@@ -258,6 +259,9 @@ function ChamadosMobileLayoutInner() {
   const isNcResolver = Boolean(useMatch('/nc/mobile/:idNc'));
   /** NCs: chrome próprio (lista + resolver). */
   const isNcImmersive = isNc;
+  const isFreelancersAprovacao = path === '/freelancers/aprovacao/mobile';
+  /** Freelas: chrome próprio (stage + sheet), sem header/título MUI. */
+  const isFreelancersImmersive = isFreelancersAprovacao;
   const isRelatorio = path.startsWith('/relatorio/visita/');
   const { fase: checklistFaseUi, dispararVoltar: dispararVoltarChecklist } = useChecklistMobileUi();
   const isChecklistEmAndamento =
@@ -285,6 +289,7 @@ function ChamadosMobileLayoutInner() {
   const podeVisitas = user && !modoRestrito && podeVerVisitasMobile(user);
   const podeEscalaVisitas = user && !modoRestrito && podeVerEscalaVisitas(user);
   const podeNc = user && !modoRestrito && podeVerNcMobile(user);
+  const podeFreelancers = user && !modoRestrito && podeAprovarFreelancers(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
 
@@ -363,6 +368,12 @@ function ChamadosMobileLayoutInner() {
             show: !!podeNc,
           },
           {
+            to: '/freelancers/aprovacao/mobile',
+            label: 'Freelas',
+            icon: <BadgeOutlinedIcon fontSize="small" />,
+            show: !!podeFreelancers,
+          },
+          {
             to: '/mapa/mobile',
             label: 'Mapa',
             icon: <MapOutlinedIcon fontSize="small" />,
@@ -393,6 +404,8 @@ function ChamadosMobileLayoutInner() {
             ? 'Resolver NC'
           : isNc
             ? 'Não conformidades'
+          : isFreelancersAprovacao
+            ? 'Aprovar freelancers'
           : isMapa
             ? 'Mapa da Frota'
           : isRelatorio
@@ -497,7 +510,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isMapa && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isFreelancersImmersive && !isMapa && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -614,7 +627,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isMapa && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isFreelancersImmersive && !isMapa && (
         <Box
           sx={{
             position: 'relative',
@@ -646,6 +659,7 @@ function ChamadosMobileLayoutInner() {
             isFrotaImmersive ||
             isEscalaVisitas ||
             isNcImmersive ||
+            isFreelancersImmersive ||
             isMapa
               ? MOBILE_PAGE_COLUMN
               : MOBILE_SCROLL_AREA),
@@ -654,6 +668,7 @@ function ChamadosMobileLayoutInner() {
             isFrotaImmersive ||
             isEscalaVisitas ||
             isNcImmersive ||
+            isFreelancersImmersive ||
             isMapa
               ? { px: 0 }
               : safeAreaX(16)),
@@ -663,6 +678,7 @@ function ChamadosMobileLayoutInner() {
               isFrotaImmersive ||
               isEscalaVisitas ||
               isNcImmersive ||
+              isFreelancersImmersive ||
               isMapa
                 ? 0
                 : safeAreaBottomCalc(rodapeTotalH + 16),
@@ -684,7 +700,7 @@ function ChamadosMobileLayoutInner() {
       </Box>
       )}
 
-      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && (
+      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && !isFreelancersAprovacao && (
         <Fab
           aria-label="Abrir novo chamado"
           onClick={() => navigate('/chamados/mobile/novo')}
@@ -718,6 +734,7 @@ function ChamadosMobileLayoutInner() {
               const abaManutencao = item.to === '/frota/mobile/manutencao';
               const abaVisitas = item.to === '/visitas/mobile';
               const abaNc = item.to === '/nc/mobile';
+              const abaFreelancers = item.to === '/freelancers/aprovacao/mobile';
               const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc;
               return (
               <NavLink
@@ -739,6 +756,8 @@ function ChamadosMobileLayoutInner() {
                             ? path.startsWith('/frota/mobile/manutencao')
                             : abaVisitas
                               ? isVisitas || isRelatorio
+                              : abaFreelancers
+                                ? isFreelancersAprovacao
                               : isActive;
                   return (
                   <Box

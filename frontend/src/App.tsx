@@ -40,7 +40,9 @@ import EscalaVisitasMobilePage from './pages/escalas/EscalaVisitasMobilePage';
 import MetasPage from './pages/metas/MetasPage';
 import NcMobileListaPage from './pages/nc/NcMobileListaPage';
 import NcMobileResolverPage from './pages/nc/NcMobileResolverPage';
+import FreelancersAprovacaoMobilePage from './pages/freelancers/FreelancersAprovacaoMobilePage';
 import RotaNcMobile from './components/RotaNcMobile';
+import RotaFreelancersAprovacao from './components/RotaFreelancersAprovacao';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -175,6 +177,14 @@ export default function App() {
                 <RotaNcMobile>
                   <NcMobileListaPage />
                 </RotaNcMobile>
+              }
+            />
+            <Route
+              path="freelancers/aprovacao/mobile"
+              element={
+                <RotaFreelancersAprovacao>
+                  <FreelancersAprovacaoMobilePage />
+                </RotaFreelancersAprovacao>
               }
             />
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />

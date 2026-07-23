@@ -230,6 +230,28 @@ export const api = {
     const suffix = q.toString() ? `?${q}` : '';
     return request<NcResponse>(`/nao-conformidades${suffix}`);
   },
+  freelancersAprovacao: (params?: {
+    date_from?: string;
+    date_to?: string;
+    status?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.date_from) q.set('date_from', params.date_from);
+    if (params?.date_to) q.set('date_to', params.date_to);
+    if (params?.status) q.set('status', params.status);
+    const suffix = q.toString() ? `?${q}` : '';
+    return request<FreelancersAprovacaoResponse>(`/freelancers-aprovacao${suffix}`);
+  },
+  freelancersAprovar: (checkinId: number, body?: { note?: string }) =>
+    request<{ success?: boolean; item?: FreelancerTurnoAprovacao }>(
+      `/freelancers-aprovacao/${checkinId}/approve`,
+      { method: 'POST', body: JSON.stringify(body || {}) },
+    ),
+  freelancersRecusar: (checkinId: number, body?: { note?: string }) =>
+    request<{ success?: boolean; item?: FreelancerTurnoAprovacao }>(
+      `/freelancers-aprovacao/${checkinId}/reject`,
+      { method: 'POST', body: JSON.stringify(body || {}) },
+    ),
   ncDetalhe: (id: number) => request<NcDetalhe>(`/nao-conformidades/${id}`),
   ncResolver: async (id: number, form: FormData) => {
     const token = getToken();
@@ -1750,6 +1772,35 @@ export interface NcResponse {
     criticas: string;
     visitas_pendentes?: string;
   };
+}
+
+export interface FreelancerTurnoAprovacao {
+  checkin_id: number;
+  employee_id: number;
+  full_name: string;
+  store_id: string | number;
+  store_name: string;
+  bk_number: string;
+  work_date: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  hours?: number | null;
+  session_type?: string | null;
+  regional_approval_status: string;
+  regional_approval_label?: string;
+  regional_approved_by_name?: string | null;
+  regional_approval_note?: string | null;
+  selfie_photo?: string | null;
+}
+
+export interface FreelancersAprovacaoResponse {
+  items: FreelancerTurnoAprovacao[];
+  count: number;
+  lojas: Array<{ id_loja: number; nome: string; bk_number: string }>;
+  date_from?: string;
+  date_to?: string;
+  status?: string;
+  aviso?: string;
 }
 
 export function fmtNota(n: string | number | null | undefined) {

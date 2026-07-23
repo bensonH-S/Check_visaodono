@@ -14,6 +14,7 @@ export function mobilePaginaCabecalhoFixo(pathname: string): boolean {
     p === '/visitas/mobile' ||
     p === '/escalas/visitas/mobile' ||
     p === '/nc/mobile' ||
+    p === '/freelancers/aprovacao/mobile' ||
     p === '/mapa/mobile' ||
     p === '/frota/mobile' ||
     p === '/checklist/mobile' ||
@@ -32,6 +33,7 @@ export function isMobileAppPath(pathname: string): boolean {
     p.startsWith('/visitas/mobile') ||
     p.startsWith('/escalas/visitas/mobile') ||
     p.startsWith('/nc/mobile') ||
+    p.startsWith('/freelancers/aprovacao/mobile') ||
     p.startsWith('/relatorio/visita/') ||
     p === '/login/mobile'
   );

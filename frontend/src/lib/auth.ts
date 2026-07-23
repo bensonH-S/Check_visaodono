@@ -450,6 +450,17 @@ export function podeVerNcMobile(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
+/** Aprovar turnos freelancer — regional (permissão) ou TI/diretor/dono (todas as lojas). */
+export function podeAprovarFreelancers(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (temPermissao('freelancers.aprovar', u)) return true;
+  if (temPermissao('lojas.todas', u)) return true;
+  if (u.perfil === 'administrador') return true;
+  const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  return cargo === 'diretor' || cargo === 'ceo' || cargo === 'dono' || cargo === 'ti';
+}
+
 export function podeResolverNc(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('ncs.resolver', usuario) || temPermissao('portal.dashboard.ver', usuario);
 }
