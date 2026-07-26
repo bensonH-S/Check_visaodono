@@ -146,7 +146,15 @@ router.get('/', requireAprovarFreelancers, async (req, res, next) => {
   } catch (e) {
     if (e.status) {
       logger.warn('freelancers-aprovacao', e.message);
-      return res.status(e.status).json({ error: e.message });
+      // Nunca devolver 401 do FreeControl ao app — o front faz logout em qualquer 401.
+      const status =
+        e.status === 401 || e.status === 403 ? 502 : e.status >= 400 && e.status < 600 ? e.status : 502;
+      return res.status(status).json({
+        error:
+          e.status === 401 || e.status === 403
+            ? 'Falha na integração FreeControl (token/URL). Confira FREECONTROL_* no .env do Meridian e REGIONAL_APPROVAL_API_TOKEN no FreeControl.'
+            : e.message,
+      });
     }
     next(e);
   }
@@ -179,7 +187,15 @@ async function decidir(req, res, next, acao) {
     return res.json(data);
   } catch (e) {
     if (e.status) {
-      return res.status(e.status).json({ error: e.message, ...(e.data || {}) });
+      const status =
+        e.status === 401 || e.status === 403 ? 502 : e.status >= 400 && e.status < 600 ? e.status : 502;
+      return res.status(status).json({
+        error:
+          e.status === 401 || e.status === 403
+            ? 'Falha na integração FreeControl (token/URL).'
+            : e.message,
+        ...(e.data && e.status !== 401 && e.status !== 403 ? e.data : {}),
+      });
     }
     next(e);
   }

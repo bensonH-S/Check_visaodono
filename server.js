@@ -108,6 +108,7 @@ const escalaVisitasRouter = (await import('./backend/src/routes/escalaVisitas.js
 const metasRouter = (await import('./backend/src/routes/metas.js')).default;
 const auditoriaRouter = (await import('./backend/src/routes/auditoria.js')).default;
 const freelancersAprovacaoRouter = (await import('./backend/src/routes/freelancersAprovacao.js')).default;
+const sistemaRouter = (await import('./backend/src/routes/sistema.js')).default;
 await import('./backend/src/cryptoMedia.js');
 initPushNotifications();
 const { authMiddleware } = await import('./backend/src/auth.js');
@@ -217,6 +218,7 @@ api.use('/escalas/visitas', escalaVisitasRouter);
 api.use('/metas', metasRouter);
 api.use('/auditoria', auditoriaRouter);
 api.use('/freelancers-aprovacao', freelancersAprovacaoRouter);
+api.use('/sistema', sistemaRouter);
 api.use('/push', pushRouter);
 api.use('/wpp', wppRouter);
 

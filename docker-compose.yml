@@ -42,6 +42,9 @@ services:
     volumes:
       - wppconnect_tokens:/usr/src/wpp-server/tokens
       - wppconnect_userdata:/usr/src/wpp-server/userDataDir
+    # Publicado no host para FreeControl / dev Windows (localhost:21465)
+    ports:
+      - "21465:21465"
     expose:
       - "21465"
     shm_size: "512mb"
