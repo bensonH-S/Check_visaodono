@@ -16,8 +16,8 @@ async function usuarioPodeAprovarFreelancers(user) {
   if (acessoTodasLojas(user)) return true;
   if (String(user.perfil || '').toLowerCase() === 'administrador') return true;
 
-  let cargo = String(user.cargo_aprovacao || '').toLowerCase();
-  if (!cargo && user.sub) {
+  let cargo = String(user.cargo_aprovacao || user.perfil || '').toLowerCase();
+  if ((!cargo || cargo === 'usuario') && user.sub) {
     try {
       const { rows } = await pool.query(
         `SELECT cargo_aprovacao, perfil FROM usuarios WHERE id_usuario = $1 LIMIT 1`,
@@ -28,7 +28,14 @@ async function usuarioPodeAprovarFreelancers(user) {
       cargo = '';
     }
   }
-  return cargo === 'diretor' || cargo === 'ceo' || cargo === 'dono' || cargo === 'ti';
+  return (
+    cargo === 'supervisor_regional' ||
+    cargo === 'regional' ||
+    cargo === 'diretor' ||
+    cargo === 'ceo' ||
+    cargo === 'dono' ||
+    cargo === 'ti'
+  );
 }
 
 async function requireAprovarFreelancers(req, res, next) {

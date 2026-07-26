@@ -71,6 +71,7 @@
     "migrate:nc-resolucao": "node scripts/run-sql.js migrations/072_nc_resolucao_mobile.sql",
     "migrate:checklist-novas-perguntas": "node scripts/run-sql.js migrations/081_checklist_novas_perguntas.sql",
     "migrate:checklist-renumerar": "node scripts/run-sql.js migrations/082_checklist_renumerar_codigos.sql",
+    "migrate:freelancers-aprovar-regionais": "node scripts/run-sql.js migrations/083_freelancers_aprovar_regionais.sql",
     "seed:metas-junho": "node scripts/seed-metas-junho-2026.mjs",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",

@@ -450,7 +450,7 @@ export function podeVerNcMobile(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
-/** Aprovar turnos freelancer — regional (permissão) ou TI/diretor/dono (todas as lojas). */
+/** Aprovar turnos freelancer — regional (cargo/permissão) ou TI/diretor/dono (todas as lojas). */
 export function podeAprovarFreelancers(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;
@@ -458,7 +458,14 @@ export function podeAprovarFreelancers(usuario?: UsuarioSessao | null): boolean 
   if (temPermissao('lojas.todas', u)) return true;
   if (u.perfil === 'administrador') return true;
   const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
-  return cargo === 'diretor' || cargo === 'ceo' || cargo === 'dono' || cargo === 'ti';
+  return (
+    cargo === 'supervisor_regional' ||
+    cargo === 'regional' ||
+    cargo === 'diretor' ||
+    cargo === 'ceo' ||
+    cargo === 'dono' ||
+    cargo === 'ti'
+  );
 }
 
 export function podeResolverNc(usuario?: UsuarioSessao | null): boolean {
