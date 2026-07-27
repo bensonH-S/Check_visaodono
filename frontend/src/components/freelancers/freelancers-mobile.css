@@ -265,17 +265,19 @@
 
 .ck-freela .ck-freela__acoes {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
 }
 
 .ck-freela .ck-freela__btn {
-  flex: 1;
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
   min-height: 42px;
   border-radius: 12px;
   border: 0;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
   display: inline-flex;
@@ -304,6 +306,32 @@
   background: #fff;
   color: #b91c1c;
   border: 1.5px solid rgba(185, 28, 28, 0.35);
+}
+
+.ck-freela .ck-freela__btn--saida {
+  background: var(--ck-navy);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(27, 42, 107, 0.28);
+}
+
+.ck-freela .ck-freela__btn--ajuste {
+  background: #fff;
+  color: var(--ck-navy);
+  border: 1.5px solid rgba(27, 42, 107, 0.28);
+}
+
+.ck-freela .ck-freela__horario-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.ck-freela .ck-freela__horario-nome {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ck-ink);
 }
 
 .ck-freela .ck-freela__empty {

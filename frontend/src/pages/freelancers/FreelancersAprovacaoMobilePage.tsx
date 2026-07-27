@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import Button from '@mui/material/Button';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -11,6 +14,8 @@ import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { assetUrl } from '../../config/paths';
 import {
   api,
@@ -23,6 +28,10 @@ import '../../components/visitas/visitas-mobile.css';
 import '../../components/freelancers/freelancers-mobile.css';
 
 type StatusFiltro = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
+type DialogoHorario = {
+  modo: 'saida' | 'ajustar';
+  item: FreelancerTurnoAprovacao;
+} | null;
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
@@ -78,6 +87,24 @@ function fmtHora(iso: string | null | undefined) {
   }
 }
 
+/** Valor para input datetime-local (hora local do aparelho). */
+function toDatetimeLocalValue(isoOrDate: string | Date | null | undefined) {
+  const d = isoOrDate instanceof Date ? isoOrDate : isoOrDate ? new Date(isoOrDate) : new Date();
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${day}T${h}:${min}`;
+}
+
+function datetimeLocalToIso(local: string) {
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 function statusLabel(item: FreelancerTurnoAprovacao) {
   if (item.checkout_pending || (!item.check_out_time && item.check_in_time)) {
     return 'Saída pendente';
@@ -119,6 +146,10 @@ export default function FreelancersAprovacaoMobilePage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [err, setErr] = useState('');
+  const [dialogo, setDialogo] = useState<DialogoHorario>(null);
+  const [draftEntrada, setDraftEntrada] = useState('');
+  const [draftSaida, setDraftSaida] = useState('');
+  const [salvandoHorario, setSalvandoHorario] = useState(false);
 
   const datasPendentes = draftFrom !== dateFrom || draftTo !== dateTo;
 
@@ -161,7 +192,6 @@ export default function FreelancersAprovacaoMobilePage() {
     }
     setDateFrom(draftFrom);
     setDateTo(draftTo);
-    // Sempre busca de novo (mesmo se as datas não mudaram)
     void carregar(draftFrom, draftTo, status);
   }
 
@@ -195,6 +225,79 @@ export default function FreelancersAprovacaoMobilePage() {
 
   function toggleGrupo(chave: string) {
     setAbertos((prev) => ({ ...prev, [chave]: !prev[chave] }));
+  }
+
+  function abrirLancarSaida(item: FreelancerTurnoAprovacao) {
+    setDialogo({ modo: 'saida', item });
+    setDraftEntrada(toDatetimeLocalValue(item.check_in_time));
+    setDraftSaida(toDatetimeLocalValue(new Date()));
+  }
+
+  function abrirAjustar(item: FreelancerTurnoAprovacao) {
+    setDialogo({ modo: 'ajustar', item });
+    setDraftEntrada(toDatetimeLocalValue(item.check_in_time));
+    setDraftSaida(
+      item.check_out_time ? toDatetimeLocalValue(item.check_out_time) : toDatetimeLocalValue(new Date()),
+    );
+  }
+
+  function fecharDialogo() {
+    if (salvandoHorario) return;
+    setDialogo(null);
+  }
+
+  async function salvarHorario() {
+    if (!dialogo) return;
+    const { modo, item } = dialogo;
+
+    setSalvandoHorario(true);
+    setBusyId(item.checkin_id);
+    try {
+      if (modo === 'saida') {
+        const saidaIso = datetimeLocalToIso(draftSaida);
+        if (!saidaIso) {
+          showToast('Informe a hora de saída', 'error');
+          return;
+        }
+        if (item.check_in_time && new Date(saidaIso) <= new Date(item.check_in_time)) {
+          showToast('A saída deve ser depois da entrada', 'error');
+          return;
+        }
+        await api.freelancersLancarSaida(item.checkin_id, { checkout_time: saidaIso });
+        showToast('Saída lançada — agora pode aprovar ou recusar', 'success');
+      } else {
+        const entradaIso = datetimeLocalToIso(draftEntrada);
+        if (!entradaIso) {
+          showToast('Informe a hora de entrada', 'error');
+          return;
+        }
+        if (item.check_out_time) {
+          const saidaIso = datetimeLocalToIso(draftSaida);
+          if (!saidaIso) {
+            showToast('Informe a hora de saída', 'error');
+            return;
+          }
+          if (new Date(saidaIso) <= new Date(entradaIso)) {
+            showToast('A saída deve ser depois da entrada', 'error');
+            return;
+          }
+          await api.freelancersAjustarHorario(item.checkin_id, {
+            checkin_time: entradaIso,
+            checkout_time: saidaIso,
+          });
+        } else {
+          await api.freelancersAjustarHorario(item.checkin_id, { checkin_time: entradaIso });
+        }
+        showToast('Horário ajustado', 'success');
+      }
+      setDialogo(null);
+      await carregar(dateFrom, dateTo, status);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Falha ao salvar horário', 'error');
+    } finally {
+      setSalvandoHorario(false);
+      setBusyId(null);
+    }
   }
 
   async function aprovar(id: number) {
@@ -257,51 +360,33 @@ export default function FreelancersAprovacaoMobilePage() {
             <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
               <div className="ck-visitas__metric ck-visitas__metric--accent">
                 <strong>{loading ? '—' : filtrados.length}</strong>
-                <span>
-                  {status === 'PENDING'
-                    ? 'pendentes'
-                    : status === 'APPROVED'
-                      ? 'aprovados'
-                      : status === 'REJECTED'
-                        ? 'recusados'
-                        : 'turnos'}
-                </span>
+                <span>Turnos</span>
               </div>
               <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : lojas.length}</strong>
-                <span>lojas</span>
+                <strong>{loading ? '—' : porLoja.length}</strong>
+                <span>Lojas</span>
               </div>
               <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : totalHoras > 0 ? totalHoras.toFixed(0) : '—'}</strong>
-                <span>horas</span>
+                <strong>{loading ? '—' : totalHoras > 0 ? totalHoras.toFixed(1) : '—'}</strong>
+                <span>Horas</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+        <div className="ck-visitas__body ck-visitas__anim ck-visitas__anim--4">
           <div className="ck-freela__dates">
             <label className="ck-freela__date">
               <span>De</span>
               <input
                 type="date"
                 value={draftFrom}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (ymdValido(v) || v === '') setDraftFrom(v);
-                }}
+                onChange={(e) => setDraftFrom(e.target.value)}
               />
             </label>
             <label className="ck-freela__date">
               <span>Até</span>
-              <input
-                type="date"
-                value={draftTo}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (ymdValido(v) || v === '') setDraftTo(v);
-                }}
-              />
+              <input type="date" value={draftTo} onChange={(e) => setDraftTo(e.target.value)} />
             </label>
             <button
               type="button"
@@ -313,70 +398,63 @@ export default function FreelancersAprovacaoMobilePage() {
           </div>
 
           <div className="ck-freela__filtro-row">
-            <div className="ck-visitas__seg" role="tablist">
-              {STATUS_TABS.map(({ id, label }) => (
+            <div className="ck-visitas__seg" role="tablist" aria-label="Status">
+              {STATUS_TABS.map((t) => (
                 <button
-                  key={id}
+                  key={t.id}
                   type="button"
                   role="tab"
-                  aria-selected={status === id}
-                  className={`ck-visitas__seg-btn${status === id ? ' is-on' : ''}`}
-                  onClick={() => setStatus(id)}
+                  aria-selected={status === t.id}
+                  className={`ck-visitas__seg-btn${status === t.id ? ' is-on' : ''}`}
+                  onClick={() => setStatus(t.id)}
                 >
-                  {label}
+                  {t.label}
                 </button>
               ))}
             </div>
-            {lojas.length > 0 && (
-              <button
-                type="button"
-                className={`ck-freela__filtro-btn${bkFiltro ? ' is-on' : ''}`}
-                aria-label="Filtrar unidade"
-                onClick={() => setFiltroLojaAberto(true)}
-              >
-                <FilterListIcon sx={{ fontSize: 20 }} />
-              </button>
-            )}
+            <button
+              type="button"
+              className={`ck-freela__filtro-btn${bkFiltro ? ' is-on' : ''}`}
+              aria-label="Filtrar por unidade"
+              onClick={() => setFiltroLojaAberto(true)}
+            >
+              <FilterListIcon sx={{ fontSize: 20 }} />
+            </button>
           </div>
 
-          {!loading && (
+          {lojaAtiva ? (
             <p className="ck-freela__loja-tag">
-              Período: {fmtData(dateFrom)} → {fmtData(dateTo)}
-              {lojas.length > 0
-                ? ` · ${lojas.length} loja(s) · ${porLoja.length} com turno`
-                : ''}
+              Unidade: {lojaAtiva.nome}
+              {lojaAtiva.bk_number ? ` · BK ${lojaAtiva.bk_number}` : ''}
             </p>
-          )}
-          {lojaAtiva && (
-            <p className="ck-freela__loja-tag">Exibindo: {lojaAtiva.nome}</p>
-          )}
+          ) : null}
 
-          {err && (
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
-              {err}
-            </p>
-          )}
+          <p className="ck-freela__loja-tag" style={{ marginTop: lojaAtiva ? -8 : undefined }}>
+            Período: {fmtData(dateFrom)} → {fmtData(dateTo)}
+          </p>
+
+          {err ? <p className="ck-visitas__erro">{err}</p> : null}
+          {aviso && !err ? <p className="ck-visitas__aviso">{aviso}</p> : null}
 
           {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-              <CircularProgress size={28} sx={{ color: NAVY }} />
+            <div className="ck-visitas__loading">
+              <CircularProgress size={28} sx={{ color: ORANGE }} />
             </div>
-          ) : aviso && !filtrados.length ? (
-            <div className="ck-freela__empty">
-              <strong>Sem turnos</strong>
-              {aviso}
-            </div>
-          ) : !filtrados.length ? (
+          ) : porLoja.length === 0 ? (
             <div className="ck-freela__empty">
               <strong>Nenhum turno neste filtro</strong>
               Ajuste o período, o status ou a unidade.
             </div>
           ) : (
             porLoja.map(([chave, lista]) => {
-              const [bk, nomeLoja] = chave.split('::');
+              const [, nomeLoja] = chave.split('::');
+              const bk = lista[0]?.bk_number || '';
               const aberto = !!abertos[chave];
               const pendentes = lista.filter(
-                (i) => String(i.regional_approval_status || '').toUpperCase() === 'PENDING',
+                (i) =>
+                  !i.checkout_pending &&
+                  i.check_out_time &&
+                  String(i.regional_approval_status || '').toUpperCase() === 'PENDING',
               ).length;
               return (
                 <div key={chave} className={`ck-freela__grupo${aberto ? ' is-open' : ''}`}>
@@ -432,28 +510,52 @@ export default function FreelancersAprovacaoMobilePage() {
                           {item.session_type ? (
                             <p className="ck-freela__meta">{item.session_type}</p>
                           ) : null}
-                          {pendente && (
-                            <div className="ck-freela__acoes">
+                          <div className="ck-freela__acoes">
+                            {saidaPendente ? (
                               <button
                                 type="button"
-                                className="ck-freela__btn ck-freela__btn--ok"
+                                className="ck-freela__btn ck-freela__btn--saida"
                                 disabled={ocupado}
-                                onClick={() => void aprovar(item.checkin_id)}
+                                onClick={() => abrirLancarSaida(item)}
                               >
-                                <CheckCircleOutlinedIcon sx={{ fontSize: 18 }} />
-                                Aprovar
+                                <LogoutIcon sx={{ fontSize: 18 }} />
+                                Lançar saída
                               </button>
+                            ) : null}
+                            {item.check_in_time ? (
                               <button
                                 type="button"
-                                className="ck-freela__btn ck-freela__btn--no"
+                                className="ck-freela__btn ck-freela__btn--ajuste"
                                 disabled={ocupado}
-                                onClick={() => void recusar(item.checkin_id)}
+                                onClick={() => abrirAjustar(item)}
                               >
-                                <HighlightOffIcon sx={{ fontSize: 18 }} />
-                                Recusar
+                                <AccessTimeIcon sx={{ fontSize: 18 }} />
+                                Ajustar
                               </button>
-                            </div>
-                          )}
+                            ) : null}
+                            {pendente ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="ck-freela__btn ck-freela__btn--ok"
+                                  disabled={ocupado}
+                                  onClick={() => void aprovar(item.checkin_id)}
+                                >
+                                  <CheckCircleOutlinedIcon sx={{ fontSize: 18 }} />
+                                  Aprovar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ck-freela__btn ck-freela__btn--no"
+                                  disabled={ocupado}
+                                  onClick={() => void recusar(item.checkin_id)}
+                                >
+                                  <HighlightOffIcon sx={{ fontSize: 18 }} />
+                                  Recusar
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
                         </div>
                       );
                     })}
@@ -518,6 +620,63 @@ export default function FreelancersAprovacaoMobilePage() {
             );
           })}
         </List>
+      </Dialog>
+
+      <Dialog open={!!dialogo} onClose={fecharDialogo} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 0.5 }}>
+          {dialogo?.modo === 'saida' ? 'Lançar saída' : 'Ajustar horário'}
+        </DialogTitle>
+        <DialogContent>
+          {dialogo ? (
+            <div className="ck-freela__horario-form">
+              <p className="ck-freela__horario-nome">{dialogo.item.full_name}</p>
+              <p className="ck-freela__meta">
+                {fmtData(dialogo.item.work_date)} · {dialogo.item.store_name}
+              </p>
+              {dialogo.modo === 'ajustar' ? (
+                <label className="ck-freela__date">
+                  <span>Entrada</span>
+                  <input
+                    type="datetime-local"
+                    value={draftEntrada}
+                    onChange={(e) => setDraftEntrada(e.target.value)}
+                  />
+                </label>
+              ) : (
+                <p className="ck-freela__meta" style={{ marginTop: 10 }}>
+                  Entrada: {fmtHora(dialogo.item.check_in_time)}
+                </p>
+              )}
+              <label className="ck-freela__date" style={{ marginTop: 10 }}>
+                <span>Saída</span>
+                <input
+                  type="datetime-local"
+                  value={draftSaida}
+                  onChange={(e) => setDraftSaida(e.target.value)}
+                  disabled={dialogo.modo === 'ajustar' && !dialogo.item.check_out_time}
+                />
+              </label>
+              {dialogo.modo === 'ajustar' && !dialogo.item.check_out_time ? (
+                <p className="ck-freela__meta" style={{ marginTop: 8 }}>
+                  Sem saída ainda — use «Lançar saída» para fechar o turno.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ px: 2, pb: 2 }}>
+          <Button onClick={fecharDialogo} disabled={salvandoHorario} sx={{ fontWeight: 700 }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void salvarHorario()}
+            disabled={salvandoHorario}
+            sx={{ fontWeight: 800, bgcolor: ORANGE, '&:hover': { bgcolor: '#d04809' } }}
+          >
+            {salvandoHorario ? 'Salvando…' : 'Salvar'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </div>
   );

@@ -239,6 +239,99 @@ router.post('/:checkinId/reject', requireAprovarFreelancers, (req, res, next) =>
   decidir(req, res, next, 'reject'),
 );
 
+router.post('/:checkinId/checkout', requireAprovarFreelancers, async (req, res, next) => {
+  try {
+    const checkinId = parseInt(String(req.params.checkinId || ''), 10);
+    if (!Number.isFinite(checkinId) || checkinId < 1) {
+      return res.status(400).json({ error: 'checkinId inválido' });
+    }
+    const lojas = await bkNumbersDoUsuario(req.user);
+    const bkNumbers = lojas.map((l) => l.bk_number);
+    if (!bkNumbers.length) {
+      return res.status(403).json({ error: 'Sem unidades no escopo' });
+    }
+
+    const checkoutTime = String(req.body?.checkout_time || req.body?.check_out_time || '').trim();
+    if (!checkoutTime) {
+      return res.status(400).json({ error: 'Informe checkout_time' });
+    }
+
+    const byName = String(req.user?.nome || req.body?.by_name || '').trim();
+    const note = String(req.body?.note || '').trim();
+
+    const data = await callFreeControl(`/api/regional-approvals/${checkinId}/checkout`, {
+      method: 'POST',
+      body: {
+        bk_numbers: bkNumbers,
+        checkout_time: checkoutTime,
+        by_name: byName,
+        note,
+      },
+    });
+
+    return res.json(data);
+  } catch (e) {
+    if (e.status) {
+      const status =
+        e.status === 401 || e.status === 403 ? 502 : e.status >= 400 && e.status < 600 ? e.status : 502;
+      return res.status(status).json({
+        error:
+          e.status === 401 || e.status === 403
+            ? 'Falha na integração FreeControl (token/URL).'
+            : e.message,
+        ...(e.data && e.status !== 401 && e.status !== 403 ? e.data : {}),
+      });
+    }
+    next(e);
+  }
+});
+
+router.patch('/:checkinId', requireAprovarFreelancers, async (req, res, next) => {
+  try {
+    const checkinId = parseInt(String(req.params.checkinId || ''), 10);
+    if (!Number.isFinite(checkinId) || checkinId < 1) {
+      return res.status(400).json({ error: 'checkinId inválido' });
+    }
+    const lojas = await bkNumbersDoUsuario(req.user);
+    const bkNumbers = lojas.map((l) => l.bk_number);
+    if (!bkNumbers.length) {
+      return res.status(403).json({ error: 'Sem unidades no escopo' });
+    }
+
+    const checkinTime = String(req.body?.checkin_time || req.body?.check_in_time || '').trim();
+    const checkoutTime = String(req.body?.checkout_time || req.body?.check_out_time || '').trim();
+    if (!checkinTime && !checkoutTime) {
+      return res.status(400).json({ error: 'Informe checkin_time e/ou checkout_time' });
+    }
+
+    const byName = String(req.user?.nome || req.body?.by_name || '').trim();
+
+    const body = { bk_numbers: bkNumbers, by_name: byName };
+    if (checkinTime) body.checkin_time = checkinTime;
+    if (checkoutTime) body.checkout_time = checkoutTime;
+
+    const data = await callFreeControl(`/api/regional-approvals/${checkinId}`, {
+      method: 'PATCH',
+      body,
+    });
+
+    return res.json(data);
+  } catch (e) {
+    if (e.status) {
+      const status =
+        e.status === 401 || e.status === 403 ? 502 : e.status >= 400 && e.status < 600 ? e.status : 502;
+      return res.status(status).json({
+        error:
+          e.status === 401 || e.status === 403
+            ? 'Falha na integração FreeControl (token/URL).'
+            : e.message,
+        ...(e.data && e.status !== 401 && e.status !== 403 ? e.data : {}),
+      });
+    }
+    next(e);
+  }
+});
+
 export default router;
 
 export { usuarioPodeAprovarFreelancers };

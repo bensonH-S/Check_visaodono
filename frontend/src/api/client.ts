@@ -252,6 +252,19 @@ export const api = {
       `/freelancers-aprovacao/${checkinId}/reject`,
       { method: 'POST', body: JSON.stringify(body || {}) },
     ),
+  freelancersLancarSaida: (checkinId: number, body: { checkout_time: string; note?: string }) =>
+    request<{ success?: boolean; message?: string; item?: FreelancerTurnoAprovacao }>(
+      `/freelancers-aprovacao/${checkinId}/checkout`,
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  freelancersAjustarHorario: (
+    checkinId: number,
+    body: { checkin_time?: string; checkout_time?: string },
+  ) =>
+    request<{ success?: boolean; message?: string; item?: FreelancerTurnoAprovacao }>(
+      `/freelancers-aprovacao/${checkinId}`,
+      { method: 'PATCH', body: JSON.stringify(body) },
+    ),
   ncDetalhe: (id: number) => request<NcDetalhe>(`/nao-conformidades/${id}`),
   ncResolver: async (id: number, form: FormData) => {
     const token = getToken();
