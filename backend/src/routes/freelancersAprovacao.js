@@ -138,18 +138,16 @@ router.get('/', requireAprovarFreelancers, async (req, res, next) => {
       });
     }
 
-    // Fallback: semana passada (seg–dom) se o client não mandar datas
+    // Fallback: semana atual (seg–dom) se o client não mandar datas
     const agora = new Date();
     const diaSemana = (agora.getUTCDay() + 6) % 7;
     const inicioEsta = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()));
     inicioEsta.setUTCDate(inicioEsta.getUTCDate() - diaSemana);
-    const fimPassada = new Date(inicioEsta);
-    fimPassada.setUTCDate(inicioEsta.getUTCDate() - 1);
-    const inicioPassada = new Date(inicioEsta);
-    inicioPassada.setUTCDate(inicioEsta.getUTCDate() - 7);
+    const fimEsta = new Date(inicioEsta);
+    fimEsta.setUTCDate(inicioEsta.getUTCDate() + 6);
     const ymd = (d) => d.toISOString().slice(0, 10);
-    const dateFrom = String(req.query.date_from || req.query.from || ymd(inicioPassada)).slice(0, 10);
-    const dateTo = String(req.query.date_to || req.query.to || ymd(fimPassada)).slice(0, 10);
+    const dateFrom = String(req.query.date_from || req.query.from || ymd(inicioEsta)).slice(0, 10);
+    const dateTo = String(req.query.date_to || req.query.to || ymd(fimEsta)).slice(0, 10);
     const status = String(req.query.status || 'ALL').trim().toUpperCase() || 'ALL';
 
     // FreeControl trata status ausente como PENDING — sempre enviar ALL explicitamente.

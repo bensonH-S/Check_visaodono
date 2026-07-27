@@ -334,6 +334,37 @@
   color: var(--ck-ink);
 }
 
+.ck-freela .ck-freela__dh-block {
+  margin: 14px 0 0;
+  padding: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.12);
+  border-radius: 14px;
+  background: rgba(27, 42, 107, 0.03);
+}
+
+.ck-freela .ck-freela__dh-block legend {
+  padding: 0 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-freela .ck-freela__dh-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ck-freela .ck-freela__dh-row .ck-freela__date {
+  flex: 1;
+  min-width: 0;
+}
+
+.ck-freela .ck-freela__dh-row .ck-freela__date input[type='time'] {
+  font-variant-numeric: tabular-nums;
+}
+
 .ck-freela .ck-freela__empty {
   padding: 28px 18px;
   text-align: center;

@@ -50,17 +50,15 @@ function toYmd(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-/** Segunda–domingo da semana anterior (calendário BR). */
-function semanaPassadaYmd() {
+/** Segunda–domingo da semana atual (calendário BR). */
+function semanaAtualYmd() {
   const hoje = new Date();
   hoje.setHours(12, 0, 0, 0);
   const diaSemana = (hoje.getDay() + 6) % 7; // seg=0 … dom=6
-  const inicioEstaSemana = new Date(hoje);
-  inicioEstaSemana.setDate(hoje.getDate() - diaSemana);
-  const inicio = new Date(inicioEstaSemana);
-  inicio.setDate(inicioEstaSemana.getDate() - 7);
-  const fim = new Date(inicioEstaSemana);
-  fim.setDate(inicioEstaSemana.getDate() - 1);
+  const inicio = new Date(hoje);
+  inicio.setDate(hoje.getDate() - diaSemana);
+  const fim = new Date(inicio);
+  fim.setDate(inicio.getDate() + 6);
   return { from: toYmd(inicio), to: toYmd(fim) };
 }
 
@@ -87,20 +85,26 @@ function fmtHora(iso: string | null | undefined) {
   }
 }
 
-/** Valor para input datetime-local (hora local do aparelho). */
-function toDatetimeLocalValue(isoOrDate: string | Date | null | undefined) {
+type DataHoraPartes = { data: string; hora: string };
+
+function partesFromIso(isoOrDate: string | Date | null | undefined): DataHoraPartes {
   const d = isoOrDate instanceof Date ? isoOrDate : isoOrDate ? new Date(isoOrDate) : new Date();
-  if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${day}T${h}:${min}`;
+  if (Number.isNaN(d.getTime())) {
+    const agora = new Date();
+    return {
+      data: toYmd(agora),
+      hora: `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`,
+    };
+  }
+  return {
+    data: toYmd(d),
+    hora: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+  };
 }
 
-function datetimeLocalToIso(local: string) {
-  const d = new Date(local);
+function partesToIso(partes: DataHoraPartes) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(partes.data) || !/^\d{2}:\d{2}$/.test(partes.hora)) return null;
+  const d = new Date(`${partes.data}T${partes.hora}:00`);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
 }
@@ -128,7 +132,7 @@ function statusTone(status: string, item?: FreelancerTurnoAprovacao): 'pending' 
 
 export default function FreelancersAprovacaoMobilePage() {
   usePageTitle('Aprovar freelancers');
-  const inicial = useMemo(() => semanaPassadaYmd(), []);
+  const inicial = useMemo(() => semanaAtualYmd(), []);
   /** Datas aplicadas na busca (não mudam enquanto o usuário digita no input). */
   const [dateFrom, setDateFrom] = useState(inicial.from);
   const [dateTo, setDateTo] = useState(inicial.to);
@@ -147,8 +151,8 @@ export default function FreelancersAprovacaoMobilePage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [err, setErr] = useState('');
   const [dialogo, setDialogo] = useState<DialogoHorario>(null);
-  const [draftEntrada, setDraftEntrada] = useState('');
-  const [draftSaida, setDraftSaida] = useState('');
+  const [draftEntrada, setDraftEntrada] = useState<DataHoraPartes>({ data: '', hora: '' });
+  const [draftSaida, setDraftSaida] = useState<DataHoraPartes>({ data: '', hora: '' });
   const [salvandoHorario, setSalvandoHorario] = useState(false);
 
   const datasPendentes = draftFrom !== dateFrom || draftTo !== dateTo;
@@ -229,16 +233,17 @@ export default function FreelancersAprovacaoMobilePage() {
 
   function abrirLancarSaida(item: FreelancerTurnoAprovacao) {
     setDialogo({ modo: 'saida', item });
-    setDraftEntrada(toDatetimeLocalValue(item.check_in_time));
-    setDraftSaida(toDatetimeLocalValue(new Date()));
+    setDraftEntrada(partesFromIso(item.check_in_time));
+    // Mesmo dia da entrada, hora atual — mais natural no celular
+    const base = partesFromIso(item.check_in_time || new Date());
+    const agora = partesFromIso(new Date());
+    setDraftSaida({ data: base.data, hora: agora.hora });
   }
 
   function abrirAjustar(item: FreelancerTurnoAprovacao) {
     setDialogo({ modo: 'ajustar', item });
-    setDraftEntrada(toDatetimeLocalValue(item.check_in_time));
-    setDraftSaida(
-      item.check_out_time ? toDatetimeLocalValue(item.check_out_time) : toDatetimeLocalValue(new Date()),
-    );
+    setDraftEntrada(partesFromIso(item.check_in_time));
+    setDraftSaida(partesFromIso(item.check_out_time || item.check_in_time || new Date()));
   }
 
   function fecharDialogo() {
@@ -254,9 +259,9 @@ export default function FreelancersAprovacaoMobilePage() {
     setBusyId(item.checkin_id);
     try {
       if (modo === 'saida') {
-        const saidaIso = datetimeLocalToIso(draftSaida);
+        const saidaIso = partesToIso(draftSaida);
         if (!saidaIso) {
-          showToast('Informe a hora de saída', 'error');
+          showToast('Informe data e hora de saída', 'error');
           return;
         }
         if (item.check_in_time && new Date(saidaIso) <= new Date(item.check_in_time)) {
@@ -266,15 +271,15 @@ export default function FreelancersAprovacaoMobilePage() {
         await api.freelancersLancarSaida(item.checkin_id, { checkout_time: saidaIso });
         showToast('Saída lançada — agora pode aprovar ou recusar', 'success');
       } else {
-        const entradaIso = datetimeLocalToIso(draftEntrada);
+        const entradaIso = partesToIso(draftEntrada);
         if (!entradaIso) {
-          showToast('Informe a hora de entrada', 'error');
+          showToast('Informe data e hora de entrada', 'error');
           return;
         }
         if (item.check_out_time) {
-          const saidaIso = datetimeLocalToIso(draftSaida);
+          const saidaIso = partesToIso(draftSaida);
           if (!saidaIso) {
-            showToast('Informe a hora de saída', 'error');
+            showToast('Informe data e hora de saída', 'error');
             return;
           }
           if (new Date(saidaIso) <= new Date(entradaIso)) {
@@ -354,7 +359,7 @@ export default function FreelancersAprovacaoMobilePage() {
             </div>
 
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              Conferência da semana — pendentes, aprovados e recusados. Ajuste o período se precisar.
+              Conferência da semana atual — pendentes, aprovados e recusados. Ajuste o período se precisar.
             </p>
 
             <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
@@ -633,34 +638,66 @@ export default function FreelancersAprovacaoMobilePage() {
               <p className="ck-freela__meta">
                 {fmtData(dialogo.item.work_date)} · {dialogo.item.store_name}
               </p>
+
               {dialogo.modo === 'ajustar' ? (
-                <label className="ck-freela__date">
-                  <span>Entrada</span>
-                  <input
-                    type="datetime-local"
-                    value={draftEntrada}
-                    onChange={(e) => setDraftEntrada(e.target.value)}
-                  />
-                </label>
+                <fieldset className="ck-freela__dh-block">
+                  <legend>Entrada</legend>
+                  <div className="ck-freela__dh-row">
+                    <label className="ck-freela__date">
+                      <span>Data</span>
+                      <input
+                        type="date"
+                        value={draftEntrada.data}
+                        onChange={(e) =>
+                          setDraftEntrada((p) => ({ ...p, data: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="ck-freela__date">
+                      <span>Hora</span>
+                      <input
+                        type="time"
+                        value={draftEntrada.hora}
+                        onChange={(e) =>
+                          setDraftEntrada((p) => ({ ...p, hora: e.target.value }))
+                        }
+                      />
+                    </label>
+                  </div>
+                </fieldset>
               ) : (
                 <p className="ck-freela__meta" style={{ marginTop: 10 }}>
-                  Entrada: {fmtHora(dialogo.item.check_in_time)}
+                  Entrada: {fmtData(dialogo.item.work_date)} · {fmtHora(dialogo.item.check_in_time)}
                 </p>
               )}
-              <label className="ck-freela__date" style={{ marginTop: 10 }}>
-                <span>Saída</span>
-                <input
-                  type="datetime-local"
-                  value={draftSaida}
-                  onChange={(e) => setDraftSaida(e.target.value)}
-                  disabled={dialogo.modo === 'ajustar' && !dialogo.item.check_out_time}
-                />
-              </label>
-              {dialogo.modo === 'ajustar' && !dialogo.item.check_out_time ? (
+
+              {dialogo.modo === 'saida' || dialogo.item.check_out_time ? (
+                <fieldset className="ck-freela__dh-block">
+                  <legend>Saída</legend>
+                  <div className="ck-freela__dh-row">
+                    <label className="ck-freela__date">
+                      <span>Data</span>
+                      <input
+                        type="date"
+                        value={draftSaida.data}
+                        onChange={(e) => setDraftSaida((p) => ({ ...p, data: e.target.value }))}
+                      />
+                    </label>
+                    <label className="ck-freela__date">
+                      <span>Hora</span>
+                      <input
+                        type="time"
+                        value={draftSaida.hora}
+                        onChange={(e) => setDraftSaida((p) => ({ ...p, hora: e.target.value }))}
+                      />
+                    </label>
+                  </div>
+                </fieldset>
+              ) : (
                 <p className="ck-freela__meta" style={{ marginTop: 8 }}>
                   Sem saída ainda — use «Lançar saída» para fechar o turno.
                 </p>
-              ) : null}
+              )}
             </div>
           ) : null}
         </DialogContent>
