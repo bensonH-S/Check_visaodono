@@ -78,21 +78,25 @@ function fmtHora(iso: string | null | undefined) {
   }
 }
 
-function statusTone(status: string): 'pending' | 'approved' | 'rejected' | '' {
-  const s = String(status || '').toUpperCase();
-  if (s === 'PENDING') return 'pending';
-  if (s === 'APPROVED') return 'approved';
-  if (s === 'REJECTED') return 'rejected';
-  return '';
-}
-
 function statusLabel(item: FreelancerTurnoAprovacao) {
+  if (item.checkout_pending || (!item.check_out_time && item.check_in_time)) {
+    return 'Saída pendente';
+  }
   if (item.regional_approval_label) return item.regional_approval_label;
   const s = String(item.regional_approval_status || '').toUpperCase();
   if (s === 'PENDING') return 'Aguardando';
   if (s === 'APPROVED') return 'Aprovado';
   if (s === 'REJECTED') return 'Recusado';
   return s || '—';
+}
+
+function statusTone(status: string, item?: FreelancerTurnoAprovacao): 'pending' | 'approved' | 'rejected' | '' {
+  if (item?.checkout_pending || (!item?.check_out_time && item?.check_in_time)) return 'pending';
+  const s = String(status || '').toUpperCase();
+  if (s === 'PENDING') return 'pending';
+  if (s === 'APPROVED') return 'approved';
+  if (s === 'REJECTED') return 'rejected';
+  return '';
 }
 
 export default function FreelancersAprovacaoMobilePage() {
@@ -157,6 +161,8 @@ export default function FreelancersAprovacaoMobilePage() {
     }
     setDateFrom(draftFrom);
     setDateTo(draftTo);
+    // Sempre busca de novo (mesmo se as datas não mudaram)
+    void carregar(draftFrom, draftTo, status);
   }
 
   const filtrados = useMemo(() => {
@@ -333,13 +339,16 @@ export default function FreelancersAprovacaoMobilePage() {
             )}
           </div>
 
+          {!loading && (
+            <p className="ck-freela__loja-tag">
+              Período: {fmtData(dateFrom)} → {fmtData(dateTo)}
+              {lojas.length > 0
+                ? ` · ${lojas.length} loja(s) · ${porLoja.length} com turno`
+                : ''}
+            </p>
+          )}
           {lojaAtiva && (
             <p className="ck-freela__loja-tag">Exibindo: {lojaAtiva.nome}</p>
-          )}
-          {!loading && lojas.length > 0 && (
-            <p className="ck-freela__loja-tag">
-              Escopo: {lojas.length} loja(s) · {porLoja.length} com turno no período
-            </p>
           )}
 
           {err && (
@@ -396,10 +405,15 @@ export default function FreelancersAprovacaoMobilePage() {
                   </button>
                   {aberto &&
                     lista.map((item) => {
+                      const saidaPendente = !!(
+                        item.checkout_pending ||
+                        (item.check_in_time && !item.check_out_time)
+                      );
                       const pendente =
+                        !saidaPendente &&
                         String(item.regional_approval_status || '').toUpperCase() === 'PENDING';
                       const ocupado = busyId === item.checkin_id;
-                      const tone = statusTone(item.regional_approval_status);
+                      const tone = statusTone(item.regional_approval_status, item);
                       return (
                         <div key={item.checkin_id} className="ck-freela__item">
                           <div className="ck-freela__item-top">

@@ -1791,6 +1791,7 @@ export interface FreelancerTurnoAprovacao {
   regional_approved_by_name?: string | null;
   regional_approval_note?: string | null;
   selfie_photo?: string | null;
+  checkout_pending?: boolean;
 }
 
 export interface FreelancersAprovacaoResponse {
