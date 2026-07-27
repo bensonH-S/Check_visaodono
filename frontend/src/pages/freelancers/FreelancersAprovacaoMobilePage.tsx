@@ -10,6 +10,7 @@ import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { assetUrl } from '../../config/paths';
 import {
   api,
@@ -54,6 +55,10 @@ function semanaPassadaYmd() {
   return { from: toYmd(inicio), to: toYmd(fim) };
 }
 
+function ymdValido(s: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || '').trim());
+}
+
 function ordemStatus(status: string) {
   const s = String(status || '').toUpperCase();
   if (s === 'PENDING') return 0;
@@ -92,11 +97,18 @@ function statusLabel(item: FreelancerTurnoAprovacao) {
 
 export default function FreelancersAprovacaoMobilePage() {
   usePageTitle('Aprovar freelancers');
-  const [dateFrom, setDateFrom] = useState(() => semanaPassadaYmd().from);
-  const [dateTo, setDateTo] = useState(() => semanaPassadaYmd().to);
+  const inicial = useMemo(() => semanaPassadaYmd(), []);
+  /** Datas aplicadas na busca (não mudam enquanto o usuário digita no input). */
+  const [dateFrom, setDateFrom] = useState(inicial.from);
+  const [dateTo, setDateTo] = useState(inicial.to);
+  /** Rascunho dos inputs — evita o date picker mobile “pular” e disparar fetch no meio. */
+  const [draftFrom, setDraftFrom] = useState(inicial.from);
+  const [draftTo, setDraftTo] = useState(inicial.to);
   const [status, setStatus] = useState<StatusFiltro>('ALL');
   const [bkFiltro, setBkFiltro] = useState('');
   const [filtroLojaAberto, setFiltroLojaAberto] = useState(false);
+  /** Grupos abertos — começa tudo fechado. */
+  const [abertos, setAbertos] = useState<Record<string, boolean>>({});
   const [items, setItems] = useState<FreelancerTurnoAprovacao[]>([]);
   const [lojas, setLojas] = useState<Array<{ id_loja: number; nome: string; bk_number: string }>>([]);
   const [aviso, setAviso] = useState('');
@@ -104,14 +116,20 @@ export default function FreelancersAprovacaoMobilePage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [err, setErr] = useState('');
 
-  const carregar = useCallback(async () => {
+  const datasPendentes = draftFrom !== dateFrom || draftTo !== dateTo;
+
+  const carregar = useCallback(async (from: string, to: string, st: StatusFiltro) => {
+    if (!ymdValido(from) || !ymdValido(to)) {
+      setErr('Informe um período válido (De / Até).');
+      return;
+    }
     setLoading(true);
     setErr('');
     try {
       const res = await api.freelancersAprovacao({
-        date_from: dateFrom,
-        date_to: dateTo,
-        status,
+        date_from: from,
+        date_to: to,
+        status: st,
       });
       setItems(res.items || []);
       setLojas(res.lojas || []);
@@ -122,11 +140,24 @@ export default function FreelancersAprovacaoMobilePage() {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, status]);
+  }, []);
 
   useEffect(() => {
-    void carregar();
-  }, [carregar]);
+    void carregar(dateFrom, dateTo, status);
+  }, [carregar, dateFrom, dateTo, status]);
+
+  function aplicarPeriodo() {
+    if (!ymdValido(draftFrom) || !ymdValido(draftTo)) {
+      showToast('Período inválido', 'error');
+      return;
+    }
+    if (draftFrom > draftTo) {
+      showToast('A data inicial não pode ser maior que a final', 'error');
+      return;
+    }
+    setDateFrom(draftFrom);
+    setDateTo(draftTo);
+  }
 
   const filtrados = useMemo(() => {
     const base = !bkFiltro ? items : items.filter((i) => String(i.bk_number) === bkFiltro);
@@ -156,12 +187,16 @@ export default function FreelancersAprovacaoMobilePage() {
 
   const lojaAtiva = lojas.find((l) => l.bk_number === bkFiltro);
 
+  function toggleGrupo(chave: string) {
+    setAbertos((prev) => ({ ...prev, [chave]: !prev[chave] }));
+  }
+
   async function aprovar(id: number) {
     setBusyId(id);
     try {
       await api.freelancersAprovar(id);
       showToast('Turno aprovado — passa a contar na folha', 'success');
-      await carregar();
+      await carregar(dateFrom, dateTo, status);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Falha ao aprovar', 'error');
     } finally {
@@ -174,7 +209,7 @@ export default function FreelancersAprovacaoMobilePage() {
     try {
       await api.freelancersRecusar(id);
       showToast('Turno recusado', 'success');
-      await carregar();
+      await carregar(dateFrom, dateTo, status);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Falha ao recusar', 'error');
     } finally {
@@ -210,7 +245,7 @@ export default function FreelancersAprovacaoMobilePage() {
             </div>
 
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              Semana passada: pendentes, aprovados e recusados juntos — o que passar conta na folha.
+              Conferência da semana — pendentes, aprovados e recusados. Ajuste o período se precisar.
             </p>
 
             <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
@@ -223,12 +258,12 @@ export default function FreelancersAprovacaoMobilePage() {
                       ? 'aprovados'
                       : status === 'REJECTED'
                         ? 'recusados'
-                        : 'na semana'}
+                        : 'turnos'}
                 </span>
               </div>
               <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : porLoja.length}</strong>
-                <span>unidades</span>
+                <strong>{loading ? '—' : lojas.length}</strong>
+                <span>lojas</span>
               </div>
               <div className="ck-visitas__metric">
                 <strong>{loading ? '—' : totalHoras > 0 ? totalHoras.toFixed(0) : '—'}</strong>
@@ -244,18 +279,31 @@ export default function FreelancersAprovacaoMobilePage() {
               <span>De</span>
               <input
                 type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                value={draftFrom}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (ymdValido(v) || v === '') setDraftFrom(v);
+                }}
               />
             </label>
             <label className="ck-freela__date">
               <span>Até</span>
               <input
                 type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                value={draftTo}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (ymdValido(v) || v === '') setDraftTo(v);
+                }}
               />
             </label>
+            <button
+              type="button"
+              className={`ck-freela__buscar${datasPendentes ? ' is-on' : ''}`}
+              onClick={aplicarPeriodo}
+            >
+              Buscar
+            </button>
           </div>
 
           <div className="ck-freela__filtro-row">
@@ -288,6 +336,11 @@ export default function FreelancersAprovacaoMobilePage() {
           {lojaAtiva && (
             <p className="ck-freela__loja-tag">Exibindo: {lojaAtiva.nome}</p>
           )}
+          {!loading && lojas.length > 0 && (
+            <p className="ck-freela__loja-tag">
+              Escopo: {lojas.length} loja(s) · {porLoja.length} com turno no período
+            </p>
+          )}
 
           {err && (
             <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
@@ -312,62 +365,84 @@ export default function FreelancersAprovacaoMobilePage() {
           ) : (
             porLoja.map(([chave, lista]) => {
               const [bk, nomeLoja] = chave.split('::');
+              const aberto = !!abertos[chave];
+              const pendentes = lista.filter(
+                (i) => String(i.regional_approval_status || '').toUpperCase() === 'PENDING',
+              ).length;
               return (
-                <div key={chave} className="ck-freela__grupo">
-                  <div className="ck-freela__grupo-head">
-                    <div>
+                <div key={chave} className={`ck-freela__grupo${aberto ? ' is-open' : ''}`}>
+                  <button
+                    type="button"
+                    className="ck-freela__grupo-head"
+                    aria-expanded={aberto}
+                    onClick={() => toggleGrupo(chave)}
+                  >
+                    <div className="ck-freela__grupo-title">
                       <strong>{nomeLoja}</strong>
                       {bk ? <small>BK {bk}</small> : null}
+                      {pendentes > 0 ? (
+                        <small className="ck-freela__grupo-pend">
+                          {pendentes} pendente{pendentes > 1 ? 's' : ''}
+                        </small>
+                      ) : null}
                     </div>
-                    <span className="ck-freela__count">{lista.length}</span>
-                  </div>
-                  {lista.map((item) => {
-                    const pendente = String(item.regional_approval_status || '').toUpperCase() === 'PENDING';
-                    const ocupado = busyId === item.checkin_id;
-                    const tone = statusTone(item.regional_approval_status);
-                    return (
-                      <div key={item.checkin_id} className="ck-freela__item">
-                        <div className="ck-freela__item-top">
-                          <strong>{item.full_name}</strong>
-                          <span
-                            className={`ck-freela__chip${tone ? ` ck-freela__chip--${tone}` : ''}`}
-                          >
-                            {statusLabel(item)}
-                          </span>
-                        </div>
-                        <p className="ck-freela__meta">
-                          {fmtData(item.work_date)} · {fmtHora(item.check_in_time)} →{' '}
-                          {fmtHora(item.check_out_time)}
-                          {item.hours != null ? ` · ${Number(item.hours).toFixed(1)}h` : ''}
-                        </p>
-                        {item.session_type ? (
-                          <p className="ck-freela__meta">{item.session_type}</p>
-                        ) : null}
-                        {pendente && (
-                          <div className="ck-freela__acoes">
-                            <button
-                              type="button"
-                              className="ck-freela__btn ck-freela__btn--ok"
-                              disabled={ocupado}
-                              onClick={() => void aprovar(item.checkin_id)}
+                    <span className="ck-freela__grupo-meta">
+                      <span className="ck-freela__count">{lista.length}</span>
+                      <ExpandMoreIcon
+                        className={`ck-freela__chevron${aberto ? ' is-open' : ''}`}
+                        sx={{ fontSize: 22 }}
+                      />
+                    </span>
+                  </button>
+                  {aberto &&
+                    lista.map((item) => {
+                      const pendente =
+                        String(item.regional_approval_status || '').toUpperCase() === 'PENDING';
+                      const ocupado = busyId === item.checkin_id;
+                      const tone = statusTone(item.regional_approval_status);
+                      return (
+                        <div key={item.checkin_id} className="ck-freela__item">
+                          <div className="ck-freela__item-top">
+                            <strong>{item.full_name}</strong>
+                            <span
+                              className={`ck-freela__chip${tone ? ` ck-freela__chip--${tone}` : ''}`}
                             >
-                              <CheckCircleOutlinedIcon sx={{ fontSize: 18 }} />
-                              Aprovar
-                            </button>
-                            <button
-                              type="button"
-                              className="ck-freela__btn ck-freela__btn--no"
-                              disabled={ocupado}
-                              onClick={() => void recusar(item.checkin_id)}
-                            >
-                              <HighlightOffIcon sx={{ fontSize: 18 }} />
-                              Recusar
-                            </button>
+                              {statusLabel(item)}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          <p className="ck-freela__meta">
+                            {fmtData(item.work_date)} · {fmtHora(item.check_in_time)} →{' '}
+                            {fmtHora(item.check_out_time)}
+                            {item.hours != null ? ` · ${Number(item.hours).toFixed(1)}h` : ''}
+                          </p>
+                          {item.session_type ? (
+                            <p className="ck-freela__meta">{item.session_type}</p>
+                          ) : null}
+                          {pendente && (
+                            <div className="ck-freela__acoes">
+                              <button
+                                type="button"
+                                className="ck-freela__btn ck-freela__btn--ok"
+                                disabled={ocupado}
+                                onClick={() => void aprovar(item.checkin_id)}
+                              >
+                                <CheckCircleOutlinedIcon sx={{ fontSize: 18 }} />
+                                Aprovar
+                              </button>
+                              <button
+                                type="button"
+                                className="ck-freela__btn ck-freela__btn--no"
+                                disabled={ocupado}
+                                onClick={() => void recusar(item.checkin_id)}
+                              >
+                                <HighlightOffIcon sx={{ fontSize: 18 }} />
+                                Recusar
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               );
             })
@@ -394,8 +469,10 @@ export default function FreelancersAprovacaoMobilePage() {
             </ListItemIcon>
             <ListItemText
               primary="Todas da região"
+              secondary={`${lojas.length} loja(s) no escopo`}
               slotProps={{
                 primary: { sx: { fontWeight: bkFiltro === '' ? 700 : 600, fontSize: '0.9rem' } },
+                secondary: { sx: { fontSize: '0.72rem' } },
               }}
             />
           </ListItemButton>

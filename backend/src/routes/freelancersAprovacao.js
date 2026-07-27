@@ -62,7 +62,21 @@ function freecontrolToken() {
 }
 
 async function bkNumbersDoUsuario(user) {
-  const ids = await carregarLojasIds(user);
+  const idsRegiao = await carregarLojasIds(user);
+  // Também une lojas ligadas direto ao usuário (usuario_lojas), para não perder unidade
+  // se a região de frota estiver incompleta.
+  let idsUsuario = [];
+  if (user?.sub && !acessoTodasLojas(user)) {
+    const { rows } = await pool.query(
+      `SELECT ul.id_loja
+       FROM usuario_lojas ul
+       JOIN lojas l ON l.id_loja = ul.id_loja AND l.is_active = TRUE
+       WHERE ul.id_usuario = $1`,
+      [user.sub],
+    );
+    idsUsuario = rows.map((r) => r.id_loja);
+  }
+  const ids = [...new Set([...idsRegiao, ...idsUsuario].map(Number).filter(Boolean))];
   if (!ids.length) return [];
   const { rows } = await pool.query(
     `SELECT DISTINCT NULLIF(BTRIM(COALESCE(bk_number, '')), '') AS bk_number,
@@ -138,13 +152,13 @@ router.get('/', requireAprovarFreelancers, async (req, res, next) => {
     const dateTo = String(req.query.date_to || req.query.to || ymd(fimPassada)).slice(0, 10);
     const status = String(req.query.status || 'ALL').trim().toUpperCase() || 'ALL';
 
+    // FreeControl trata status ausente como PENDING — sempre enviar ALL explicitamente.
     const query = {
       bk_numbers: bkNumbers.join(','),
       date_from: dateFrom,
       date_to: dateTo,
+      status: status === 'ALL' ? 'ALL' : status,
     };
-    // FreeControl: omitir status = todos os registros do período
-    if (status && status !== 'ALL') query.status = status;
 
     const data = await callFreeControl('/api/regional-approvals', { query });
 
