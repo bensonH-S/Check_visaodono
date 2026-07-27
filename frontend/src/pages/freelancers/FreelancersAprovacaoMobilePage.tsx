@@ -27,27 +27,39 @@ const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
 
 const STATUS_TABS: Array<{ id: StatusFiltro; label: string }> = [
+  { id: 'ALL', label: 'Todos' },
   { id: 'PENDING', label: 'Pendentes' },
   { id: 'APPROVED', label: 'Aprovados' },
   { id: 'REJECTED', label: 'Recusados' },
-  { id: 'ALL', label: 'Todos' },
 ];
 
-function hojeYmd() {
-  const d = new Date();
+function toYmd(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
-function diasAtrasYmd(dias: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - dias);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+/** Segunda–domingo da semana anterior (calendário BR). */
+function semanaPassadaYmd() {
+  const hoje = new Date();
+  hoje.setHours(12, 0, 0, 0);
+  const diaSemana = (hoje.getDay() + 6) % 7; // seg=0 … dom=6
+  const inicioEstaSemana = new Date(hoje);
+  inicioEstaSemana.setDate(hoje.getDate() - diaSemana);
+  const inicio = new Date(inicioEstaSemana);
+  inicio.setDate(inicioEstaSemana.getDate() - 7);
+  const fim = new Date(inicioEstaSemana);
+  fim.setDate(inicioEstaSemana.getDate() - 1);
+  return { from: toYmd(inicio), to: toYmd(fim) };
+}
+
+function ordemStatus(status: string) {
+  const s = String(status || '').toUpperCase();
+  if (s === 'PENDING') return 0;
+  if (s === 'APPROVED') return 1;
+  if (s === 'REJECTED') return 2;
+  return 3;
 }
 
 function fmtHora(iso: string | null | undefined) {
@@ -80,9 +92,9 @@ function statusLabel(item: FreelancerTurnoAprovacao) {
 
 export default function FreelancersAprovacaoMobilePage() {
   usePageTitle('Aprovar freelancers');
-  const [dateFrom, setDateFrom] = useState(() => diasAtrasYmd(7));
-  const [dateTo, setDateTo] = useState(() => hojeYmd());
-  const [status, setStatus] = useState<StatusFiltro>('PENDING');
+  const [dateFrom, setDateFrom] = useState(() => semanaPassadaYmd().from);
+  const [dateTo, setDateTo] = useState(() => semanaPassadaYmd().to);
+  const [status, setStatus] = useState<StatusFiltro>('ALL');
   const [bkFiltro, setBkFiltro] = useState('');
   const [filtroLojaAberto, setFiltroLojaAberto] = useState(false);
   const [items, setItems] = useState<FreelancerTurnoAprovacao[]>([]);
@@ -117,8 +129,14 @@ export default function FreelancersAprovacaoMobilePage() {
   }, [carregar]);
 
   const filtrados = useMemo(() => {
-    if (!bkFiltro) return items;
-    return items.filter((i) => String(i.bk_number) === bkFiltro);
+    const base = !bkFiltro ? items : items.filter((i) => String(i.bk_number) === bkFiltro);
+    return [...base].sort((a, b) => {
+      const byStatus = ordemStatus(a.regional_approval_status) - ordemStatus(b.regional_approval_status);
+      if (byStatus !== 0) return byStatus;
+      const byDate = String(b.work_date || '').localeCompare(String(a.work_date || ''));
+      if (byDate !== 0) return byDate;
+      return String(a.full_name || '').localeCompare(String(b.full_name || ''), 'pt-BR');
+    });
   }, [items, bkFiltro]);
 
   const porLoja = useMemo(() => {
@@ -192,7 +210,7 @@ export default function FreelancersAprovacaoMobilePage() {
             </div>
 
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              Confira e aprove os turnos da região — o que passar conta na folha.
+              Semana passada: pendentes, aprovados e recusados juntos — o que passar conta na folha.
             </p>
 
             <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
@@ -205,7 +223,7 @@ export default function FreelancersAprovacaoMobilePage() {
                       ? 'aprovados'
                       : status === 'REJECTED'
                         ? 'recusados'
-                        : 'turnos'}
+                        : 'na semana'}
                 </span>
               </div>
               <div className="ck-visitas__metric">

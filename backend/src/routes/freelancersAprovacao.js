@@ -124,19 +124,29 @@ router.get('/', requireAprovarFreelancers, async (req, res, next) => {
       });
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const dateFrom = String(req.query.date_from || req.query.from || today).slice(0, 10);
-    const dateTo = String(req.query.date_to || req.query.to || today).slice(0, 10);
-    const status = String(req.query.status || 'PENDING').trim().toUpperCase() || 'PENDING';
+    // Fallback: semana passada (seg–dom) se o client não mandar datas
+    const agora = new Date();
+    const diaSemana = (agora.getUTCDay() + 6) % 7;
+    const inicioEsta = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()));
+    inicioEsta.setUTCDate(inicioEsta.getUTCDate() - diaSemana);
+    const fimPassada = new Date(inicioEsta);
+    fimPassada.setUTCDate(inicioEsta.getUTCDate() - 1);
+    const inicioPassada = new Date(inicioEsta);
+    inicioPassada.setUTCDate(inicioEsta.getUTCDate() - 7);
+    const ymd = (d) => d.toISOString().slice(0, 10);
+    const dateFrom = String(req.query.date_from || req.query.from || ymd(inicioPassada)).slice(0, 10);
+    const dateTo = String(req.query.date_to || req.query.to || ymd(fimPassada)).slice(0, 10);
+    const status = String(req.query.status || 'ALL').trim().toUpperCase() || 'ALL';
 
-    const data = await callFreeControl('/api/regional-approvals', {
-      query: {
-        bk_numbers: bkNumbers.join(','),
-        date_from: dateFrom,
-        date_to: dateTo,
-        status,
-      },
-    });
+    const query = {
+      bk_numbers: bkNumbers.join(','),
+      date_from: dateFrom,
+      date_to: dateTo,
+    };
+    // FreeControl: omitir status = todos os registros do período
+    if (status && status !== 'ALL') query.status = status;
+
+    const data = await callFreeControl('/api/regional-approvals', { query });
 
     return res.json({
       items: data.items || [],
