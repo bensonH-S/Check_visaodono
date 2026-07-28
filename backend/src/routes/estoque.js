@@ -48,25 +48,6 @@ function tituloConferencia(dataISO) {
   return `Conferência ${d}/${m}/${y}`;
 }
 
-async function ultimoEstoquePorProduto(idLoja) {
-  const { rows } = await pool.query(
-    `SELECT DISTINCT ON (i.id_produto)
-       i.id_produto,
-       COALESCE(i.estoque_contado, i.estoque_sistema, 0) AS estoque
-     FROM estoque_itens i
-     JOIN estoque_contagens c ON c.id_contagem = i.id_contagem
-     JOIN produtos p ON p.id_produto = i.id_produto
-     WHERE c.status = 'finalizada'
-       AND c.id_loja = $1
-       AND p.id_loja = $1
-     ORDER BY i.id_produto, c.data_contagem DESC, c.id_contagem DESC`,
-    [idLoja],
-  );
-  const map = new Map();
-  for (const r of rows) map.set(r.id_produto, num(r.estoque));
-  return map;
-}
-
 async function criarContagemComItens(
   client,
   { id_loja, data_contagem, titulo, observacao, idUsuario, usarUltimo },
@@ -80,19 +61,32 @@ async function criarContagemComItens(
     [id_loja, data_contagem, titulo, observacao, idUsuario || null],
   );
   const idContagem = cont[0].id_contagem;
-  const { rows: produtos } = await client.query(
-    `SELECT id_produto FROM produtos
-     WHERE ativo = TRUE AND id_loja = $1
-     ORDER BY descricao`,
-    [id_loja],
-  );
-  const ultimo = usarUltimo !== false ? await ultimoEstoquePorProduto(id_loja) : new Map();
-  for (const p of produtos) {
-    const sistema = ultimo.get(p.id_produto) ?? 0;
+
+  if (usarUltimo !== false) {
     await client.query(
       `INSERT INTO estoque_itens (id_contagem, id_produto, estoque_sistema, estoque_contado)
-       VALUES ($1, $2, $3, NULL)`,
-      [idContagem, p.id_produto, sistema],
+       SELECT $1, p.id_produto, COALESCE(u.estoque, 0), NULL
+       FROM produtos p
+       LEFT JOIN (
+         SELECT DISTINCT ON (i.id_produto)
+           i.id_produto,
+           COALESCE(i.estoque_contado, i.estoque_sistema, 0) AS estoque
+         FROM estoque_itens i
+         JOIN estoque_contagens c ON c.id_contagem = i.id_contagem
+         WHERE c.status = 'finalizada'
+           AND c.id_loja = $2
+         ORDER BY i.id_produto, c.data_contagem DESC, c.id_contagem DESC
+       ) u ON u.id_produto = p.id_produto
+       WHERE p.ativo = TRUE AND p.id_loja = $2`,
+      [idContagem, id_loja],
+    );
+  } else {
+    await client.query(
+      `INSERT INTO estoque_itens (id_contagem, id_produto, estoque_sistema, estoque_contado)
+       SELECT $1, p.id_produto, 0, NULL
+       FROM produtos p
+       WHERE p.ativo = TRUE AND p.id_loja = $2`,
+      [idContagem, id_loja],
     );
   }
   return idContagem;
@@ -527,31 +521,46 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
     if (!itens.length) return res.status(400).json({ error: 'Envie ao menos um item' });
 
+    const ids = [];
+    const contados = [];
+    const sistemas = [];
+    let temSistema = false;
     for (const item of itens) {
       const idItem = Number(item.id_item);
       if (!idItem) continue;
-      const estoque_contado =
+      ids.push(idItem);
+      contados.push(
         item.estoque_contado === null || item.estoque_contado === ''
           ? null
-          : num(item.estoque_contado);
-      const estoque_sistema =
-        item.estoque_sistema !== undefined ? num(item.estoque_sistema) : undefined;
-
-      if (estoque_sistema !== undefined) {
-        await pool.query(
-          `UPDATE estoque_itens
-           SET estoque_contado = $1, estoque_sistema = $2
-           WHERE id_item = $3 AND id_contagem = $4`,
-          [estoque_contado, estoque_sistema, idItem, id],
-        );
+          : num(item.estoque_contado),
+      );
+      if (item.estoque_sistema !== undefined) {
+        temSistema = true;
+        sistemas.push(num(item.estoque_sistema));
       } else {
-        await pool.query(
-          `UPDATE estoque_itens
-           SET estoque_contado = $1
-           WHERE id_item = $2 AND id_contagem = $3`,
-          [estoque_contado, idItem, id],
-        );
+        sistemas.push(null);
       }
+    }
+
+    if (!ids.length) return res.status(400).json({ error: 'Nenhum item válido' });
+
+    if (temSistema) {
+      await pool.query(
+        `UPDATE estoque_itens AS ei
+         SET estoque_contado = v.contado,
+             estoque_sistema = COALESCE(v.sistema, ei.estoque_sistema)
+         FROM unnest($1::int[], $2::numeric[], $3::numeric[]) AS v(id_item, contado, sistema)
+         WHERE ei.id_item = v.id_item AND ei.id_contagem = $4`,
+        [ids, contados, sistemas, id],
+      );
+    } else {
+      await pool.query(
+        `UPDATE estoque_itens AS ei
+         SET estoque_contado = v.contado
+         FROM unnest($1::int[], $2::numeric[]) AS v(id_item, contado)
+         WHERE ei.id_item = v.id_item AND ei.id_contagem = $3`,
+        [ids, contados, id],
+      );
     }
 
     res.json(await carregarContagem(id));

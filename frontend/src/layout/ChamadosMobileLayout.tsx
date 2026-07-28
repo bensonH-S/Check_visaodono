@@ -29,7 +29,8 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import HistoryIcon from '@mui/icons-material/History';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeAprovarFreelancers, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeAprovarFreelancers, podeConferenciaEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
@@ -159,10 +160,21 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
             borderRadius: 2,
             border: '1px solid rgba(27, 42, 107, 0.15)',
             bgcolor: '#fff',
-            maxHeight: { xs: 380, sm: 420 },
+            maxHeight: 'min(50dvh, 320px)',
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
             WebkitOverflowScrolling: 'touch',
             boxShadow: '0 8px 24px rgba(27, 42, 107, 0.18)',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(27, 42, 107, 0.35) transparent',
+            '&::-webkit-scrollbar': {
+              width: 6,
+              display: 'block',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(27, 42, 107, 0.35)',
+              borderRadius: 8,
+            },
           }}
         >
           {lojas.map((loja) => {
@@ -259,6 +271,10 @@ function ChamadosMobileLayoutInner() {
   const isNcResolver = Boolean(useMatch('/nc/mobile/:idNc'));
   /** NCs: chrome próprio (lista + resolver). */
   const isNcImmersive = isNc;
+  const isEstoque = path === '/estoque/mobile' || path.startsWith('/estoque/mobile/');
+  const isEstoqueDetalhe = Boolean(useMatch('/estoque/mobile/:idContagem'));
+  /** Estoque: chrome próprio (lista + conferência). */
+  const isEstoqueImmersive = isEstoque;
   const isFreelancersAprovacao = path === '/freelancers/aprovacao/mobile';
   /** Freelas: chrome próprio (stage + sheet), sem header/título MUI. */
   const isFreelancersImmersive = isFreelancersAprovacao;
@@ -277,8 +293,9 @@ function ChamadosMobileLayoutInner() {
     isFrotaSub ||
     isRelatorio ||
     isNcResolver ||
+    isEstoqueDetalhe ||
     isChecklistConcluido;
-  const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio || isNcResolver;
+  const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio || isNcResolver || isEstoqueDetalhe;
   const podeAbrir = user && !modoRestrito && temPermissao('chamados.abrir', user);
   const podeChecklist = user && !modoRestrito && podeUsarChecklist(user);
   const podeChamados =
@@ -289,6 +306,7 @@ function ChamadosMobileLayoutInner() {
   const podeVisitas = user && !modoRestrito && podeVerVisitasMobile(user);
   const podeEscalaVisitas = user && !modoRestrito && podeVerEscalaVisitas(user);
   const podeNc = user && !modoRestrito && podeVerNcMobile(user);
+  const podeEstoque = user && !modoRestrito && podeConferenciaEstoque(user);
   const podeFreelancers = user && !modoRestrito && podeAprovarFreelancers(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
@@ -368,6 +386,12 @@ function ChamadosMobileLayoutInner() {
             show: !!podeNc,
           },
           {
+            to: '/estoque/mobile',
+            label: 'Estoque',
+            icon: <Inventory2Icon fontSize="small" />,
+            show: !!podeEstoque,
+          },
+          {
             to: '/freelancers/aprovacao/mobile',
             label: 'Freelas',
             icon: <BadgeOutlinedIcon fontSize="small" />,
@@ -402,6 +426,10 @@ function ChamadosMobileLayoutInner() {
             ? 'Escala de visitas'
           : isNcResolver
             ? 'Resolver NC'
+          : isEstoqueDetalhe
+            ? 'Conferência'
+          : isEstoque
+            ? 'Estoque'
           : isNc
             ? 'Não conformidades'
           : isFreelancersAprovacao
@@ -437,6 +465,10 @@ function ChamadosMobileLayoutInner() {
               ? 'Escala de visitas'
             : isNcResolver
               ? 'Resolver NC'
+            : isEstoqueDetalhe
+              ? 'Conferência'
+            : isEstoque
+              ? 'Estoque'
             : isNc
               ? 'Não conformidades'
             : isMapa
@@ -487,6 +519,7 @@ function ChamadosMobileLayoutInner() {
 
   function rotaVoltarMobile() {
     if (isNcResolver) return '/nc/mobile';
+    if (isEstoqueDetalhe) return '/estoque/mobile';
     if (isFrotaSub) return '/frota/mobile';
     if (isRelatorio) return '/visitas/mobile';
     if (isChecklistConcluido || isChecklistEmAndamento) return '/checklist/mobile';
@@ -510,7 +543,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isFreelancersImmersive && !isMapa && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isMapa && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -627,7 +660,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isFreelancersImmersive && !isMapa && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isMapa && (
         <Box
           sx={{
             position: 'relative',
@@ -659,6 +692,7 @@ function ChamadosMobileLayoutInner() {
             isFrotaImmersive ||
             isEscalaVisitas ||
             isNcImmersive ||
+            isEstoqueImmersive ||
             isFreelancersImmersive ||
             isMapa
               ? MOBILE_PAGE_COLUMN
@@ -668,6 +702,7 @@ function ChamadosMobileLayoutInner() {
             isFrotaImmersive ||
             isEscalaVisitas ||
             isNcImmersive ||
+            isEstoqueImmersive ||
             isFreelancersImmersive ||
             isMapa
               ? { px: 0 }
@@ -678,6 +713,7 @@ function ChamadosMobileLayoutInner() {
               isFrotaImmersive ||
               isEscalaVisitas ||
               isNcImmersive ||
+              isEstoqueImmersive ||
               isFreelancersImmersive ||
               isMapa
                 ? 0
@@ -700,7 +736,7 @@ function ChamadosMobileLayoutInner() {
       </Box>
       )}
 
-      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && !isFreelancersAprovacao && (
+      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && !isFreelancersAprovacao && !isEstoque && !isNc && (
         <Fab
           aria-label="Abrir novo chamado"
           onClick={() => navigate('/chamados/mobile/novo')}
@@ -734,8 +770,9 @@ function ChamadosMobileLayoutInner() {
               const abaManutencao = item.to === '/frota/mobile/manutencao';
               const abaVisitas = item.to === '/visitas/mobile';
               const abaNc = item.to === '/nc/mobile';
+              const abaEstoque = item.to === '/estoque/mobile';
               const abaFreelancers = item.to === '/freelancers/aprovacao/mobile';
-              const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc;
+              const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc || abaEstoque;
               return (
               <NavLink
                 key={item.to}
@@ -756,6 +793,10 @@ function ChamadosMobileLayoutInner() {
                             ? path.startsWith('/frota/mobile/manutencao')
                             : abaVisitas
                               ? isVisitas || isRelatorio
+                              : abaNc
+                                ? isNc
+                              : abaEstoque
+                                ? isEstoque
                               : abaFreelancers
                                 ? isFreelancersAprovacao
                               : isActive;

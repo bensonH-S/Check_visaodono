@@ -144,6 +144,7 @@ export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
   if (podeVerVisitasMobile(usuario)) return '/visitas/mobile';
   if (podeVerNcMobile(usuario)) return '/nc/mobile';
   if (podeUsarFrota(usuario)) return '/frota/mobile';
+  if (podeConferenciaEstoque(usuario)) return '/estoque/mobile';
   return '/chamados/mobile';
 }
 

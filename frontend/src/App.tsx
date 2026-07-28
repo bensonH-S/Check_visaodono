@@ -39,6 +39,9 @@ import EscalaVisitasPage from './pages/escalas/EscalaVisitasPage';
 import EscalaVisitasMobilePage from './pages/escalas/EscalaVisitasMobilePage';
 import MetasPage from './pages/metas/MetasPage';
 import ControleEstoquePage from './pages/estoque/ControleEstoquePage';
+import EstoqueMobileListaPage from './pages/estoque/EstoqueMobileListaPage';
+import EstoqueMobileConferenciaPage from './pages/estoque/EstoqueMobileConferenciaPage';
+import RotaEstoqueMobile from './components/RotaEstoqueMobile';
 import NcMobileListaPage from './pages/nc/NcMobileListaPage';
 import NcMobileResolverPage from './pages/nc/NcMobileResolverPage';
 import FreelancersAprovacaoMobilePage from './pages/freelancers/FreelancersAprovacaoMobilePage';
@@ -178,6 +181,22 @@ export default function App() {
                 <RotaNcMobile>
                   <NcMobileListaPage />
                 </RotaNcMobile>
+              }
+            />
+            <Route
+              path="estoque/mobile/:idContagem"
+              element={
+                <RotaEstoqueMobile>
+                  <EstoqueMobileConferenciaPage />
+                </RotaEstoqueMobile>
+              }
+            />
+            <Route
+              path="estoque/mobile"
+              element={
+                <RotaEstoqueMobile>
+                  <EstoqueMobileListaPage />
+                </RotaEstoqueMobile>
               }
             />
             <Route

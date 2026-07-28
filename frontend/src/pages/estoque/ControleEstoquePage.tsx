@@ -532,6 +532,14 @@ export default function ControleEstoquePage() {
               value={idLoja}
               displayEmpty
               onChange={(e) => selecionarLoja(Number(e.target.value))}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxHeight: 360,
+                    overflowY: 'auto',
+                  },
+                },
+              }}
             >
               {!idLoja && (
                 <MenuItem value="" disabled>

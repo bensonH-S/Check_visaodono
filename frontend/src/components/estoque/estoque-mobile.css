@@ -1,0 +1,544 @@
+/* Conferência de estoque mobile — estende ck-visitas */
+.ck-estoque .ck-estoque__loja {
+  margin: 0 0 14px;
+}
+
+.ck-estoque .ck-estoque__loja-btn {
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  background: #fff;
+  color: var(--ck-ink);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ck-estoque .ck-estoque__loja-btn span {
+  color: rgba(20, 32, 72, 0.45);
+  flex-shrink: 0;
+}
+
+.ck-estoque .ck-estoque__loja-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.ck-estoque .ck-estoque__loja-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(15, 26, 69, 0.45);
+  cursor: pointer;
+}
+
+.ck-estoque .ck-estoque__loja-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: min(72dvh, 520px);
+  border-radius: 18px 18px 0 0;
+  background: #fff;
+  box-shadow: 0 -8px 32px rgba(15, 26, 69, 0.2);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.ck-estoque .ck-estoque__loja-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(27, 42, 107, 0.08);
+  flex-shrink: 0;
+}
+
+.ck-estoque .ck-estoque__loja-panel-head strong {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ck-navy);
+}
+
+.ck-estoque .ck-estoque__loja-fechar {
+  border: none;
+  background: transparent;
+  color: var(--ck-navy);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.ck-estoque .ck-estoque__loja-busca {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(27, 42, 107, 0.06);
+}
+
+.ck-estoque .ck-estoque__loja-busca input {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.ck-estoque .ck-estoque__loja-lista {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(27, 42, 107, 0.35) transparent;
+  padding: 6px 0 12px;
+}
+
+.ck-estoque .ck-estoque__loja-lista::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ck-estoque .ck-estoque__loja-lista::-webkit-scrollbar-thumb {
+  background: rgba(27, 42, 107, 0.35);
+  border-radius: 8px;
+}
+
+.ck-estoque .ck-estoque__loja-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 12px 16px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(20, 32, 72, 0.72);
+  cursor: pointer;
+  border-bottom: 1px solid rgba(27, 42, 107, 0.06);
+}
+
+.ck-estoque .ck-estoque__loja-item.is-on {
+  background: rgba(232, 82, 10, 0.08);
+  color: var(--ck-navy);
+  font-weight: 800;
+}
+
+.ck-estoque .ck-estoque__loja select {
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  background: #fff;
+  color: var(--ck-ink);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0 12px;
+}
+
+.ck-estoque--detalhe .ck-estoque__busca-fix {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px var(--ck-pad-x) 8px;
+  background: var(--ck-paper);
+  border-bottom: 1px solid rgba(27, 42, 107, 0.08);
+  z-index: 2;
+}
+
+.ck-estoque--detalhe .ck-estoque__busca-fix input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+  background: #fff;
+  color: var(--ck-ink);
+}
+
+.ck-estoque .ck-estoque__cta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ck-estoque .ck-estoque__btn {
+  flex: 1;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.ck-estoque .ck-estoque__btn--primary {
+  background: #e8520a;
+  color: #fff;
+}
+
+.ck-estoque .ck-estoque__btn--primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ck-estoque .ck-estoque__btn--ghost {
+  background: rgba(27, 42, 107, 0.06);
+  color: var(--ck-navy);
+  border: 1px solid rgba(27, 42, 107, 0.12);
+}
+
+.ck-estoque .ck-estoque__card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.ck-estoque .ck-estoque__card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ck-estoque .ck-estoque__card-top strong {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+  line-height: 1.3;
+}
+
+.ck-estoque .ck-estoque__meta {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: rgba(20, 32, 72, 0.62);
+  font-weight: 600;
+}
+
+.ck-estoque .ck-estoque__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.ck-estoque .ck-estoque__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  color: var(--ck-navy);
+  background: #fff;
+}
+
+.ck-estoque .ck-estoque__chip--aberta {
+  background: #fef08a;
+  border-color: #facc15;
+  color: #854d0e;
+}
+
+.ck-estoque .ck-estoque__chip--ok {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.ck-estoque .ck-estoque__chip--warn {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #991b1b;
+}
+
+.ck-estoque .ck-estoque__chip--pend {
+  background: #fef08a;
+  border-color: #facc15;
+  color: #854d0e;
+}
+
+.ck-estoque .ck-estoque__metric--pend {
+  background: rgba(250, 204, 21, 0.28) !important;
+  border-color: rgba(250, 204, 21, 0.55) !important;
+}
+
+.ck-estoque .ck-estoque__metric--pend strong,
+.ck-estoque .ck-estoque__metric--pend span {
+  color: #fef08a !important;
+}
+
+.ck-estoque .ck-estoque__metric--div {
+  background: rgba(220, 38, 38, 0.28) !important;
+  border-color: rgba(248, 113, 113, 0.55) !important;
+}
+
+.ck-estoque .ck-estoque__item.is-pend {
+  background: rgba(250, 204, 21, 0.12);
+  margin: 0 -14px;
+  padding-left: 14px;
+  padding-right: 14px;
+  border-radius: 10px;
+  border-bottom-color: transparent;
+}
+
+.ck-estoque .ck-estoque__empty {
+  text-align: center;
+  padding: 28px 12px;
+  color: rgba(20, 32, 72, 0.55);
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.ck-estoque .ck-estoque__item {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(27, 42, 107, 0.08);
+}
+
+.ck-estoque .ck-estoque__item:last-child {
+  border-bottom: none;
+}
+
+.ck-estoque .ck-estoque__item.is-ok {
+  background: rgba(22, 163, 74, 0.08);
+  margin: 0 -14px;
+  padding-left: 14px;
+  padding-right: 14px;
+  border-radius: 10px;
+  border-bottom-color: transparent;
+}
+
+.ck-estoque .ck-estoque__item.is-div {
+  background: rgba(220, 38, 38, 0.08);
+  margin: 0 -14px;
+  padding-left: 14px;
+  padding-right: 14px;
+  border-radius: 10px;
+  border-bottom-color: transparent;
+}
+
+.ck-estoque .ck-estoque__item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ck-estoque .ck-estoque__cod {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--ck-navy);
+}
+
+.ck-estoque .ck-estoque__und {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(20, 32, 72, 0.5);
+}
+
+.ck-estoque .ck-estoque__desc {
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+
+.ck-estoque .ck-estoque__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: end;
+}
+
+.ck-estoque .ck-estoque__field label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(20, 32, 72, 0.55);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ck-estoque .ck-estoque__field input,
+.ck-estoque .ck-estoque__sistema {
+  width: 100%;
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(27, 42, 107, 0.16);
+  background: #fff;
+  text-align: center;
+  font: inherit;
+  font-weight: 700;
+  font-size: 16px; /* teclado numérico + evita zoom no iOS */
+}
+
+.ck-estoque .ck-estoque__field input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+.ck-estoque .ck-estoque__field input[type='number']::-webkit-outer-spin-button,
+.ck-estoque .ck-estoque__field input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ck-estoque .ck-estoque__sistema {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(27, 42, 107, 0.04);
+  color: rgba(20, 32, 72, 0.75);
+}
+
+.ck-estoque .ck-estoque__dif {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.ck-estoque .ck-estoque__dif.is-zero {
+  color: #166534;
+}
+
+.ck-estoque .ck-estoque__dif.is-div {
+  color: #991b1b;
+}
+
+.ck-estoque .ck-estoque__actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent, var(--ck-paper) 28%);
+  margin-top: 8px;
+}
+
+.ck-estoque .ck-estoque__actions-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ck-estoque .ck-estoque__btn--save {
+  background: #ea580c;
+  color: #fff;
+}
+
+.ck-estoque .ck-estoque__btn--done {
+  background: #16a34a;
+  color: #fff;
+}
+
+.ck-estoque .ck-estoque__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ck-estoque .ck-estoque__back:active {
+  opacity: 0.75;
+}
+
+.ck-estoque .ck-estoque__back--busca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ck-navy);
+  font-size: 1.25rem;
+  line-height: 1;
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
+}
+
+.ck-estoque .ck-estoque__back--busca:active {
+  background: rgba(27, 42, 107, 0.06);
+  opacity: 1;
+}
+
+.ck-estoque .ck-estoque__metrics-gap {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+.ck-estoque--detalhe .ck-estoque__sticky-head {
+  flex-shrink: 0;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  padding-bottom: 18px;
+}
+
+.ck-estoque--detalhe .ck-visitas__mark-icon {
+  margin-top: 2px;
+}
+
+.ck-estoque--detalhe .ck-visitas__mark-text {
+  margin-bottom: 4px;
+}
+
+.ck-estoque--detalhe .ck-visitas__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ck-estoque--detalhe .ck-estoque__sheet-scroll {
+  margin-top: 0;
+  border-radius: 0;
+  min-height: 100%;
+  padding-top: 8px;
+  box-shadow: none;
+}
