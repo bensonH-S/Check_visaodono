@@ -12,6 +12,7 @@ visao/*.jpg
 visao/*.png
 visao/*.pt
 visao/runs/
+visao/events_log/
 *.log
 Logs/*
 !Logs/.gitkeep

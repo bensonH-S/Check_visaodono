@@ -1,11 +1,11 @@
 """
-Demo ao vivo: stream + detecção + tracking (ID por pessoa).
+Demo ao vivo: stream + tracking + zonas + eventos.
 
-Uso (pasta visao/, venv ativo):
+Uso:
   python -m scripts.live_demo --webcam
-  python -m scripts.live_demo --rtsp "rtsp://..."
 
 Teclas: q = sair | s = salvar snapshot
+Eventos: visao/events_log/events.jsonl
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,7 +25,9 @@ import cv2
 
 from config import get_settings
 from detector.person import PersonDetector
-from stream.source import resolve_source, VideoSource
+from events.engine import JsonlEventStore, ZoneEventEngine
+from stream.source import VideoSource, resolve_source
+from zones.roi import draw_zones, load_zones
 
 
 def _mask_rtsp(url: str) -> str:
@@ -62,19 +65,25 @@ def main() -> int:
         "--every",
         type=int,
         default=1,
-        help="Roda tracking a cada N frames (1 = todos; tracking precisa ser frequente)",
+        help="Roda tracking a cada N frames",
     )
     parser.add_argument(
-        "--no-track",
-        action="store_true",
-        help="Só detecta, sem ID (ByteTrack)",
+        "--dwell",
+        type=float,
+        default=20.0,
+        help="Segundos na zona para evento de permanência (auditoria)",
+    )
+    parser.add_argument(
+        "--zones",
+        default="",
+        help="Caminho do JSON de zonas (padrão: config/zones.json)",
     )
     args = parser.parse_args()
 
     settings = get_settings()
     if args.webcam:
         source: str | int = 0
-        title = "Visao — webcam + tracking"
+        title = "Visao — tracking + zonas"
     elif args.rtsp.strip():
         source = args.rtsp.strip()
         title = f"Visao — {_mask_rtsp(source)}"
@@ -83,8 +92,27 @@ def main() -> int:
         title = (
             f"Visao — {_mask_rtsp(source)}"
             if isinstance(source, str)
-            else "Visao — webcam + tracking"
+            else "Visao — tracking + zonas"
         )
+
+    zones_path = Path(args.zones) if args.zones else ROOT / "config" / "zones.json"
+    zones = load_zones(zones_path)
+    store = JsonlEventStore(ROOT / "events_log" / "events.jsonl")
+    recent: deque[str] = deque(maxlen=6)
+
+    def on_event(ev) -> None:
+        store.append(ev)
+        flag = " [AUDITORIA]" if ev.suspeito_auditoria else ""
+        line = f"{ev.tipo} zona={ev.zone_name} id={ev.track_id}{flag}"
+        recent.appendleft(line)
+        print(f"EVENTO {line} | {ev.nota}")
+
+    engine = ZoneEventEngine(
+        zones,
+        camera=settings.camera_name,
+        dwell_sec=args.dwell,
+        on_event=on_event,
+    )
 
     print(f"Carregando modelo {args.model}…")
     detector = PersonDetector(model_name=args.model, conf=args.conf)
@@ -94,15 +122,14 @@ def main() -> int:
         info = vs.open()
         if not info.opened:
             print("FALHA: não abriu o stream.")
-            print(
-                "Sem RTSP local, use --webcam. Para a loja: python -m scripts.probe_loja --ip IP"
-            )
+            print("Use --webcam ou configure RTSP. Loja: python -m scripts.probe_loja --ip IP")
             return 1
 
-        mode = "detect" if args.no_track else "track"
         print(
-            f"Stream OK {info.width}x{info.height} ({mode}). Teclas: q sair | s snapshot"
+            f"Stream OK {info.width}x{info.height}. Zonas: {[z.name for z in zones]}"
         )
+        print(f"Eventos → {store.path}")
+        print("Teclas: q sair | s snapshot")
         cv2.namedWindow(title, cv2.WINDOW_NORMAL)
 
         last_dets = []
@@ -117,19 +144,22 @@ def main() -> int:
                 break
 
             frame_i += 1
+            h, w = frame.shape[:2]
             if frame_i % max(1, args.every) == 0:
-                last_dets = (
-                    detector.detect(frame) if args.no_track else detector.track(frame)
-                )
+                last_dets = detector.track(frame)
+                engine.update(last_dets, w, h, time.perf_counter())
+
+            draw_zones(frame, zones)
 
             ids = {d.track_id for d in last_dets if d.track_id is not None}
             for d in last_dets:
                 color = _color_for_id(d.track_id)
                 cv2.rectangle(frame, (d.x1, d.y1), (d.x2, d.y2), color, 2)
-                if d.track_id is not None:
-                    label = f"ID {d.track_id}  {d.confidence:.2f}"
-                else:
-                    label = f"{d.label} {d.confidence:.2f}"
+                label = (
+                    f"ID {d.track_id}  {d.confidence:.2f}"
+                    if d.track_id is not None
+                    else f"{d.label} {d.confidence:.2f}"
+                )
                 cv2.putText(
                     frame,
                     label,
@@ -159,6 +189,20 @@ def main() -> int:
                 2,
                 cv2.LINE_AA,
             )
+
+            y = h - 12
+            for line in recent:
+                cv2.putText(
+                    frame,
+                    line[:70],
+                    (12, y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (230, 230, 230),
+                    1,
+                    cv2.LINE_AA,
+                )
+                y -= 18
 
             cv2.imshow(title, frame)
             key = cv2.waitKey(1) & 0xFF

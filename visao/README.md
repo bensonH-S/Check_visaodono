@@ -45,11 +45,13 @@ Preencha `VISAO_RTSP_URL` no `.env` quando tiver o endereço.
 
 ## Próximas etapas
 
-1. **Tracking** — `python -m scripts.live_demo --webcam` (mostra `ID 1`, `ID 2`…)
-2. **Câmera da loja** — precisa do **IP local** do DVR/câmera (mesma rede ou VPN):
+1. **Tracking + zonas + eventos** — `python -m scripts.live_demo --webcam`
+   - Zonas: `config/zones.json` (Expedicao / Montagem — ajuste as coordenadas)
+   - Eventos: `events_log/events.jsonl` (`zone_enter`, `zone_exit`, `zone_dwell`)
+   - Permanência longa gera sinal **para auditoria** (não afirma furto)
+2. **Câmera da loja** — precisa do **IP local** do DVR/câmera:
    ```bash
    python -m scripts.probe_loja --ip 192.168.X.X --save-env
    python -m scripts.live_demo
    ```
-3. Eventos por ROI → API / Postgres `_dev`
-4. Tela no frontend do check_visaodono
+3. Gravar eventos no Postgres `_dev` + tela no check_visaodono
