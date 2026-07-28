@@ -3,6 +3,13 @@ dist/
 .env
 backend/.env
 frontend/.env
+visao/.env
+visao/.venv/
+visao/venv/
+visao/**/__pycache__/
+visao/snapshots/
+visao/*.jpg
+visao/*.png
 *.log
 Logs/*
 !Logs/.gitkeep
