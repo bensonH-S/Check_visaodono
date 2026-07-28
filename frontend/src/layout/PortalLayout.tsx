@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -17,6 +17,7 @@ import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useEffect, useRef } from 'react';
@@ -124,6 +125,7 @@ export default function PortalLayout() {
     },
     { to: '/escalas/visitas', label: 'Escala visitas', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), end: true, mobileTab: true },
     { to: '/metas', label: 'Metas', icon: <TrackChangesIcon fontSize="small" />, show: podeVerMetas(user), end: true },
+    { to: '/estoque', label: 'Controle Estoque', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), end: true },
     { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, mobileTab: true },
     { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user) },
     {

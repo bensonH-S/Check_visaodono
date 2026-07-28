@@ -26,6 +26,8 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'escalas.visitas.ver', nome: 'Ver escala de visitas semanal', grupo: 'Escalas', ordem: 151 },
   { codigo: 'metas.gerenciar', nome: 'Gerenciar metas e indicadores', grupo: 'Metas', ordem: 160 },
   { codigo: 'metas.ver', nome: 'Ver metas da empresa e gestores', grupo: 'Metas', ordem: 161 },
+  { codigo: 'estoque.produtos', nome: 'Produtos — cadastrar e editar', grupo: 'Estoque', ordem: 200 },
+  { codigo: 'estoque.conferencia', nome: 'Conferência — iniciar, salvar e finalizar', grupo: 'Estoque', ordem: 201 },
   { codigo: 'ncs.ver', nome: 'Ver não conformidades da região', grupo: 'Não conformidades', ordem: 170 },
   { codigo: 'ncs.resolver', nome: 'Resolver não conformidades (foto e encerramento)', grupo: 'Não conformidades', ordem: 171 },
   { codigo: 'freelancers.aprovar', nome: 'Aprovar turnos de freelancers (ponto) na região', grupo: 'Freelancers', ordem: 180 },

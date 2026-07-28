@@ -665,6 +665,57 @@ export const api = {
     premio_saude?: number | null;
     premio_rev?: number | null;
   }) => request<MetasPremio>('/metas/premios', { method: 'PUT', body: JSON.stringify(body) }),
+
+  estoqueResumo: (idLoja: number) =>
+    request<EstoqueResumo>(`/estoque/resumo?id_loja=${idLoja}`),
+  estoqueProdutos: (params: { id_loja: number; q?: string; ativos?: boolean }) => {
+    const q = new URLSearchParams();
+    q.set('id_loja', String(params.id_loja));
+    if (params.q) q.set('q', params.q);
+    if (params.ativos === true) q.set('ativos', '1');
+    if (params.ativos === false) q.set('ativos', '0');
+    return request<ProdutoEstoque[]>(`/estoque/produtos?${q}`);
+  },
+  estoqueCriarProduto: (body: ProdutoEstoqueInput) =>
+    request<ProdutoEstoque>('/estoque/produtos', { method: 'POST', body: JSON.stringify(body) }),
+  estoqueAtualizarProduto: (id: number, body: Partial<ProdutoEstoqueInput> & { ativo?: boolean }) =>
+    request<ProdutoEstoque>(`/estoque/produtos/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  estoqueContagens: (idLoja: number) =>
+    request<EstoqueContagemResumo[]>(`/estoque/contagens?id_loja=${idLoja}`),
+  estoqueContagemAtual: (idLoja: number) =>
+    request<EstoqueContagemDetalhe>(`/estoque/contagens/atual?id_loja=${idLoja}`),
+  estoqueIniciarSabado: (body: { id_loja: number }) =>
+    request<EstoqueContagemDetalhe>('/estoque/contagens/iniciar-sabado', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueContagem: (id: number) => request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}`),
+  estoqueCriarContagem: (body: {
+    id_loja: number;
+    data_contagem?: string;
+    titulo?: string;
+    observacao?: string;
+    usar_ultimo_estoque?: boolean;
+  }) =>
+    request<EstoqueContagemDetalhe>('/estoque/contagens', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueSalvarItens: (
+    id: number,
+    itens: Array<{ id_item: number; estoque_contado?: number | null; estoque_sistema?: number }>,
+  ) =>
+    request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}/itens`, {
+      method: 'PUT',
+      body: JSON.stringify({ itens }),
+    }),
+  estoqueFinalizarContagem: (id: number) =>
+    request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}/finalizar`, { method: 'POST' }),
+  estoqueExcluirContagem: (id: number) =>
+    request<void>(`/estoque/contagens/${id}`, { method: 'DELETE' }),
 };
 
 export interface Loja {
@@ -1532,6 +1583,80 @@ export interface MetasPeriodoDetalhe {
   paineis: MetasPainel[];
   rankings: MetasRankingGrupo[];
   premios: MetasPremio[];
+}
+
+export interface ProdutoEstoque {
+  id_produto: number;
+  id_loja: number | null;
+  codigo: string;
+  descricao: string;
+  unidade_contagem: string;
+  preco_caixa: number;
+  und_convertida: number;
+  valor_unidade: number;
+  ativo: boolean;
+  criado_em?: string;
+  atualizado_em?: string;
+}
+
+export type ProdutoEstoqueInput = {
+  id_loja: number;
+  codigo: string;
+  descricao: string;
+  unidade_contagem?: string;
+  preco_caixa?: number;
+  und_convertida?: number;
+};
+
+export interface EstoqueContagemResumo {
+  id_contagem: number;
+  id_loja: number | null;
+  loja_nome?: string | null;
+  loja_codigo?: string | null;
+  data_contagem: string;
+  titulo: string | null;
+  status: 'aberta' | 'finalizada' | string;
+  observacao?: string | null;
+  total_valor: number | null;
+  itens_total?: number;
+  pendentes?: number;
+  divergencias?: number;
+  criado_por?: number | null;
+  criado_por_nome?: string | null;
+  criado_em?: string;
+  finalizado_em?: string | null;
+}
+
+export interface EstoqueItem {
+  id_item: number;
+  id_produto: number;
+  codigo: string;
+  descricao: string;
+  unidade_contagem: string;
+  preco_caixa: number;
+  und_convertida: number;
+  valor_unidade: number;
+  estoque_sistema: number;
+  estoque_contado: number | null;
+  diferenca: number | null;
+  valor_estoque: number | null;
+}
+
+export interface EstoqueContagemDetalhe extends EstoqueContagemResumo {
+  total_diferenca?: number;
+  itens: EstoqueItem[];
+  meta?: {
+    sabado?: string;
+    hoje?: string;
+    eh_sabado?: boolean;
+    iniciada_agora?: boolean;
+    aguardando_sabado?: boolean;
+  };
+}
+
+export interface EstoqueResumo {
+  produtos: { total: number; ativos: number };
+  contagens: { total: number; abertas: number; finalizadas: number };
 }
 
 export interface FrotaRegiaoVeiculo {

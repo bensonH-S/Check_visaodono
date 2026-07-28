@@ -8,6 +8,7 @@ export type RotaNav = {
 /** Ordem de fallback quando o usuário acessa rota sem permissão */
 export const ROTAS_NAV: RotaNav[] = [
   { path: '/dashboard', permissoes: ['portal.dashboard.ver'] },
+  { path: '/estoque', permissoes: ['estoque.produtos', 'estoque.conferencia'] },
   { path: '/frota', permissoes: ['frota.gerenciar', 'frota.regioes'] },
   { path: '/chamados', permissoes: ['chamados.ver'] },
   { path: '/chamados/aprovacoes', permissoes: ['chamados.aprovar'] },

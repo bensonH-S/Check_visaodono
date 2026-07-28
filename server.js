@@ -106,6 +106,7 @@ const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
 const frotaRouter = (await import('./backend/src/routes/frota.js')).default;
 const escalaVisitasRouter = (await import('./backend/src/routes/escalaVisitas.js')).default;
 const metasRouter = (await import('./backend/src/routes/metas.js')).default;
+const estoqueRouter = (await import('./backend/src/routes/estoque.js')).default;
 const auditoriaRouter = (await import('./backend/src/routes/auditoria.js')).default;
 const freelancersAprovacaoRouter = (await import('./backend/src/routes/freelancersAprovacao.js')).default;
 const sistemaRouter = (await import('./backend/src/routes/sistema.js')).default;
@@ -216,6 +217,7 @@ api.use('/manutencao', manutencaoRouter);
 api.use('/frota', frotaRouter);
 api.use('/escalas/visitas', escalaVisitasRouter);
 api.use('/metas', metasRouter);
+api.use('/estoque', estoqueRouter);
 api.use('/auditoria', auditoriaRouter);
 api.use('/freelancers-aprovacao', freelancersAprovacaoRouter);
 api.use('/sistema', sistemaRouter);
@@ -323,18 +325,45 @@ app.listen(PORT, async () => {
     logger.warn('schema', 'Catálogo de permissões / auditoria não sincronizado', { error: e.message });
   }
   const modo = isProd ? 'produção' : 'dev';
+  const dbHost = process.env.DB_HOST || '?';
+  const dbName = process.env.DB_NAME || '?';
+  let dbStatus = '❌ Offline';
+  try {
+    await pool.query('SELECT 1');
+    dbStatus = '✅ Online';
+    logger.info('server', 'Conexão PostgreSQL OK');
+  } catch (e) {
+    logger.error('server', 'Falha ao conectar PostgreSQL', { error: e.message });
+  }
+
   logger.info('server', 'API iniciada', {
     modo,
     port: PORT,
     api: API_PREFIX,
     versao: APP_VERSION_AT_BOOT,
-    db: `${process.env.DB_HOST}/${process.env.DB_NAME}`,
+    db: `${dbHost}/${dbName}`,
+    dbStatus,
     logs: getLogDir(),
   });
-  console.log(`[server] ${modo} — :${PORT}${API_PREFIX}`);
-  console.log(`[server] versão ${APP_VERSION_AT_BOOT}`);
-  console.log(`[server] DB ${process.env.DB_HOST}/${process.env.DB_NAME}`);
-  console.log(`[server] Logs → ${getLogDir()}`);
+
+  console.log(`
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║       🚀 Visão do Dono — Check / Auditoria                     ║
+║                                                                ║
+║    Versão: ${String(APP_VERSION_AT_BOOT).padEnd(47)}     ║
+║    Modo: ${String(modo).padEnd(49)}     ║    
+║    Servidor: http://localhost:${String(PORT).padEnd(33)}║
+║    API: ${String(API_PREFIX).padEnd(50)}     ║
+║                                                                ║
+║    Banco: ${String(dbName).padEnd(48)}     ║
+║    Host: ${String(dbHost).padEnd(49)}     ║
+║    Status: ${String(dbStatus).padEnd(47)}    ║
+║    Logs → ${String(getLogDir()).padEnd(48)}     ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+  `);
+
   try {
     const { fulltrackStatus } = await import('./backend/src/services/fulltrackFleet.js');
     const ft = fulltrackStatus();
@@ -357,10 +386,7 @@ app.listen(PORT, async () => {
     logger.warn('server', 'DB_PASS vazio no .env');
     console.warn('[server] DB_PASS vazio — o PostgreSQL local exige senha. Preencha no .env e reinicie.');
   }
-  try {
-    await pool.query('SELECT 1');
-    logger.info('server', 'Conexão PostgreSQL OK');
-    console.log('[server] Conexão com PostgreSQL OK');
+  if (dbStatus.includes('Online')) {
     const { iniciarMonitorSlaNotificacoes } = await import('./backend/src/services/slaNotificacoes.js');
     iniciarMonitorSlaNotificacoes();
     const { iniciarMonitorTimeCampoNotificacoes } = await import(
@@ -376,9 +402,7 @@ app.listen(PORT, async () => {
         console.warn('[server] Usuários não criados automaticamente:', e.message);
       }
     }
-  } catch (e) {
-    logger.error('server', 'Falha ao conectar PostgreSQL', { error: e.message });
-    console.error('[server] Falha ao conectar no PostgreSQL:', e.message);
-    console.error('[server] Ajuste DB_PASS no .env (senha do usuário postgres) e reinicie npm run dev');
+  } else {
+    console.error('[server] Falha ao conectar no PostgreSQL — ajuste DB_* no .env e reinicie npm run dev');
   }
 });

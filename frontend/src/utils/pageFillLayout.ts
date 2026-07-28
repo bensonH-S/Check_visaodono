@@ -17,6 +17,7 @@ export function isPaginaScrollInterno(path: string): boolean {
     path === '/chamados' ||
     path === '/visitas' ||
     path === '/escalas/visitas' ||
+    path === '/estoque' ||
     path === '/chamados/aprovacoes' ||
     emFrotaPortal ||
     path.startsWith('/configuracoes/')

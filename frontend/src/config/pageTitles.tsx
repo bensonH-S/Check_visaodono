@@ -22,6 +22,7 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import TimelineIcon from '@mui/icons-material/Timeline';
 
 import { colors } from '../theme/tokens';
@@ -58,6 +59,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/frota/regioes': { title: 'Frota · Regiões', icon: <MapIcon sx={iconSx} /> },
   '/escalas/visitas': { title: 'Escala de visitas', icon: <CalendarMonthIcon sx={iconSx} /> },
   '/metas': { title: 'Metas', icon: <TrackChangesIcon sx={iconSx} /> },
+  '/estoque': { title: 'Controle Estoque', icon: <Inventory2Icon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
   '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },

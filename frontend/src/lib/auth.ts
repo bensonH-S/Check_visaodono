@@ -442,6 +442,27 @@ export function podeVerMetas(usuario?: UsuarioSessao | null): boolean {
   return podeGerenciarMetas(usuario) || temPermissao('metas.ver', usuario);
 }
 
+export function podeProdutosEstoque(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('estoque.produtos', usuario);
+}
+
+export function podeConferenciaEstoque(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('estoque.conferencia', usuario);
+}
+
+export function podeVerEstoque(usuario?: UsuarioSessao | null): boolean {
+  return podeProdutosEstoque(usuario) || podeConferenciaEstoque(usuario);
+}
+
+/** Excluir conferência — administrador, diretor ou CEO com permissão de conferência. */
+export function podeExcluirEstoque(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u || !podeConferenciaEstoque(u)) return false;
+  if (u.perfil === 'administrador') return true;
+  const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  return cargo === 'administrador' || cargo === 'diretor' || cargo === 'ceo';
+}
+
 export function podeVerNcMobile(usuario?: UsuarioSessao | null): boolean {
   return (
     temPermissao('ncs.ver', usuario) ||

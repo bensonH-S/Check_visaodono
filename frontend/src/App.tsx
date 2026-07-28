@@ -38,6 +38,7 @@ import MapaTecnicosMobilePage from './pages/mapa/MapaTecnicosMobilePage';
 import EscalaVisitasPage from './pages/escalas/EscalaVisitasPage';
 import EscalaVisitasMobilePage from './pages/escalas/EscalaVisitasMobilePage';
 import MetasPage from './pages/metas/MetasPage';
+import ControleEstoquePage from './pages/estoque/ControleEstoquePage';
 import NcMobileListaPage from './pages/nc/NcMobileListaPage';
 import NcMobileResolverPage from './pages/nc/NcMobileResolverPage';
 import FreelancersAprovacaoMobilePage from './pages/freelancers/FreelancersAprovacaoMobilePage';
@@ -316,6 +317,14 @@ export default function App() {
               element={
                 <RotaPermissao permissoes={['metas.ver', 'metas.gerenciar']}>
                   <MetasPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="estoque"
+              element={
+                <RotaPermissao permissoes={['estoque.produtos', 'estoque.conferencia']}>
+                  <ControleEstoquePage />
                 </RotaPermissao>
               }
             />
