@@ -48,13 +48,21 @@ class VideoSource:
             fps=fps,
         )
 
+    def read(self) -> tuple[bool, np.ndarray | None]:
+        if self._cap is None or not self._cap.isOpened():
+            return False, None
+        ok, frame = self._cap.read()
+        if not ok:
+            return False, None
+        return True, frame
+
     def frames(self, limit: int | None = None) -> Iterator[tuple[int, np.ndarray]]:
         if self._cap is None or not self._cap.isOpened():
             raise RuntimeError("Stream não está aberto. Chame open() antes.")
 
         idx = 0
         while limit is None or idx < limit:
-            ok, frame = self._cap.read()
+            ok, frame = self.read()
             if not ok or frame is None:
                 break
             yield idx, frame

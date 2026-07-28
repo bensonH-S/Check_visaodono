@@ -24,6 +24,10 @@ copy .env.example .env
 python -m scripts.test_stream
 # smoke test sem câmera:
 python -m scripts.test_stream --webcam
+
+# Demo ao vivo com YOLOv11n (pessoas):
+python -m scripts.live_demo --webcam
+# Teclas: q sair | s snapshot
 ```
 
 ## Cloud / P2P vs RTSP

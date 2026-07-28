@@ -10,6 +10,8 @@ visao/**/__pycache__/
 visao/snapshots/
 visao/*.jpg
 visao/*.png
+visao/*.pt
+visao/runs/
 *.log
 Logs/*
 !Logs/.gitkeep
