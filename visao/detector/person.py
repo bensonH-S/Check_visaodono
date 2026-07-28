@@ -1,4 +1,4 @@
-"""Detecção de pessoas com YOLOv11 (ultralytics)."""
+"""Detecção e rastreamento de pessoas com YOLOv11 + ByteTrack (ultralytics)."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ class Detection:
     confidence: float
     class_id: int
     label: str
+    track_id: int | None = None
 
 
 class PersonDetector:
@@ -38,10 +39,26 @@ class PersonDetector:
         results = self.model.predict(
             source=frame,
             conf=self.conf,
-            classes=[0],  # person no COCO
+            classes=[0],
             verbose=False,
             device=self.device,
         )
+        return self._parse(results, with_track=False)
+
+    def track(self, frame: np.ndarray) -> list[Detection]:
+        """Mantém ID estável por pessoa (ByteTrack via ultralytics)."""
+        results = self.model.track(
+            source=frame,
+            conf=self.conf,
+            classes=[0],
+            verbose=False,
+            device=self.device,
+            persist=True,
+            tracker="bytetrack.yaml",
+        )
+        return self._parse(results, with_track=True)
+
+    def _parse(self, results: list, *, with_track: bool) -> list[Detection]:
         out: list[Detection] = []
         if not results:
             return out
@@ -53,6 +70,9 @@ class PersonDetector:
             xyxy = box.xyxy[0].tolist()
             cls_id = int(box.cls[0].item()) if box.cls is not None else 0
             conf = float(box.conf[0].item()) if box.conf is not None else 0.0
+            tid: int | None = None
+            if with_track and box.id is not None:
+                tid = int(box.id[0].item())
             out.append(
                 Detection(
                     x1=int(xyxy[0]),
@@ -62,6 +82,7 @@ class PersonDetector:
                     confidence=conf,
                     class_id=cls_id,
                     label=str(names.get(cls_id, "person")),
+                    track_id=tid,
                 )
             )
         return out

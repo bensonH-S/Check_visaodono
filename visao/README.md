@@ -43,9 +43,13 @@ Caminhos viáveis:
 
 Preencha `VISAO_RTSP_URL` no `.env` quando tiver o endereço.
 
-## Próximas etapas (depois do stream estável)
+## Próximas etapas
 
-1. Detecção de pessoas (YOLO)
-2. Tracking (ByteTrack)
-3. Eventos por ROI → API Node / Postgres `_dev`
+1. **Tracking** — `python -m scripts.live_demo --webcam` (mostra `ID 1`, `ID 2`…)
+2. **Câmera da loja** — precisa do **IP local** do DVR/câmera (mesma rede ou VPN):
+   ```bash
+   python -m scripts.probe_loja --ip 192.168.X.X --save-env
+   python -m scripts.live_demo
+   ```
+3. Eventos por ROI → API / Postgres `_dev`
 4. Tela no frontend do check_visaodono

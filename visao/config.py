@@ -19,6 +19,7 @@ class VisaoSettings(BaseSettings):
     )
 
     rtsp_url: str = Field(default="", alias="VISAO_RTSP_URL")
+    camera_ip: str = Field(default="", alias="VISAO_CAMERA_IP")
     camera_name: str = Field(default="camera", alias="VISAO_CAMERA_NAME")
     camera_serial: str = Field(default="", alias="VISAO_CAMERA_SERIAL")
     camera_port: int = Field(default=37777, alias="VISAO_CAMERA_PORT")
