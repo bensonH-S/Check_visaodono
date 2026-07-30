@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -27,10 +27,12 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import VisitasMobileScreen from '../components/visitas/VisitasMobileScreen';
+import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
-import { getUsuario, podeApagarVisitas } from '../lib/auth';
+import { getUsuario, podeApagarVisitas, podeReabrirVisitas } from '../lib/auth';
 import { showToast } from '../utils/toast';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
 import { colors } from '../theme/tokens';
@@ -103,11 +105,15 @@ function VisitaCardMobile({
   checklistBase,
   podeApagar,
   onApagar,
+  podeReabrir,
+  onReabrir,
 }: {
   visita: VisitaResumo;
   checklistBase: string;
   podeApagar?: boolean;
   onApagar?: (v: VisitaResumo) => void;
+  podeReabrir?: boolean;
+  onReabrir?: (v: VisitaResumo) => void;
 }) {
   const accent = statusAccent(v.status);
   const emRascunho = v.status === 'Rascunho';
@@ -212,22 +218,40 @@ function VisitaCardMobile({
           <ChevronRightIcon sx={{ fontSize: 20, color: colors.textMuted }} />
         </Box>
       </Box>
-      {podeApagar && onApagar && (
-        <Box sx={{ display: 'flex', alignItems: 'center', pr: 0.75 }}>
-          <IconButton
-            size="small"
-            aria-label="Apagar relatório"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onApagar(v);
-            }}
-            sx={{ color: 'error.main' }}
-          >
-            <DeleteOutlinedIcon fontSize="small" />
-          </IconButton>
+      {(podeReabrir && !emRascunho && onReabrir) || (podeApagar && onApagar) ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pr: 0.75, gap: 0.25 }}>
+          {podeReabrir && !emRascunho && onReabrir && (
+            <Tooltip title="Reabrir">
+              <IconButton
+                size="small"
+                aria-label="Reabrir visita"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onReabrir(v);
+                }}
+                sx={{ color: colors.navy }}
+              >
+                <LockOpenIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {podeApagar && onApagar && (
+            <IconButton
+              size="small"
+              aria-label="Apagar relatório"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onApagar(v);
+              }}
+              sx={{ color: 'error.main' }}
+            >
+              <DeleteOutlinedIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
-      )}
+      ) : null}
     </Paper>
   );
 }
@@ -309,16 +333,21 @@ function FiltrosStatus({
 export default function VisitasPage() {
   const theme = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
   const checklistBase = checklistBasePath(location.pathname);
   const isMobileApp = location.pathname.includes('/mobile');
   const isMobile = useMediaQuery(theme.breakpoints.down('md')) || isMobileApp;
-  const podeApagar = podeApagarVisitas(getUsuario());
+  const usuario = getUsuario();
+  const podeApagar = podeApagarVisitas(usuario);
+  const podeReabrir = podeReabrirVisitas(usuario);
   const [visitas, setVisitas] = useState<VisitaResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<'' | 'Rascunho' | 'Finalizada'>('');
   const [apagarAlvo, setApagarAlvo] = useState<VisitaResumo | null>(null);
   const [apagando, setApagando] = useState(false);
+  const [reabrirAlvo, setReabrirAlvo] = useState<VisitaResumo | null>(null);
+  const [reabrindo, setReabrindo] = useState(false);
 
   const carregar = useCallback(() => {
     setLoading(true);
@@ -353,6 +382,49 @@ export default function VisitasPage() {
     }
   }
 
+  async function confirmarReabrir() {
+    if (!reabrirAlvo) return;
+    setReabrindo(true);
+    try {
+      await api.reabrirVisita(reabrirAlvo.id_visita);
+      showToast('Visita reaberta para edição', 'success');
+      setReabrirAlvo(null);
+      navigate(`${checklistBase}?visita=${reabrirAlvo.id_visita}`);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível reabrir a visita', 'error');
+    } finally {
+      setReabrindo(false);
+    }
+  }
+
+  const dialogReabrir = (
+    <Dialog open={!!reabrirAlvo} onClose={() => !reabrindo && setReabrirAlvo(null)} maxWidth="xs" fullWidth>
+      <DialogTitleWithIcon plainIcon icon={<LockOpenIcon />}>
+        Reabrir visita
+      </DialogTitleWithIcon>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary">
+          A visita
+          {reabrirAlvo ? (
+            <>
+              {' '}
+              de <strong>{reabrirAlvo.name}</strong> ({fmtData(reabrirAlvo.data_visita)})
+            </>
+          ) : null}{' '}
+          voltará para rascunho e poderá ser editada no checklist.
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setReabrirAlvo(null)} disabled={reabrindo}>
+          Cancelar
+        </Button>
+        <Button variant="contained" disabled={reabrindo} onClick={() => void confirmarReabrir()}>
+          {reabrindo ? 'Reabrindo…' : 'Reabrir'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
   if (loading) return <LinearProgress />;
 
   if (err) return <Typography color="error">{err}</Typography>;
@@ -368,6 +440,8 @@ export default function VisitasPage() {
           checklistBase={checklistBase}
           podeApagar={podeApagar}
           onApagar={setApagarAlvo}
+          podeReabrir={podeReabrir}
+          onReabrir={setReabrirAlvo}
         />
         <Dialog open={!!apagarAlvo} onClose={() => !apagando && setApagarAlvo(null)}>
           <DialogTitle>Apagar relatório?</DialogTitle>
@@ -387,6 +461,7 @@ export default function VisitasPage() {
             </Button>
           </DialogActions>
         </Dialog>
+        {dialogReabrir}
       </>
     );
   }
@@ -461,6 +536,8 @@ export default function VisitasPage() {
               checklistBase={checklistBase}
               podeApagar={podeApagar}
               onApagar={setApagarAlvo}
+              podeReabrir={podeReabrir}
+              onReabrir={setReabrirAlvo}
             />
           ))}
           {!visitasFiltradas.length && (
@@ -491,7 +568,7 @@ export default function VisitasPage() {
                   <TableCell>Usuário</TableCell>
                   <TableCell align="center">Nota</TableCell>
                   <TableCell align="center">Status</TableCell>
-                  <TableCell align="center" width={podeApagar ? 140 : 88} />
+                  <TableCell align="center" width={podeApagar || podeReabrir ? 168 : 88} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -522,6 +599,18 @@ export default function VisitasPage() {
                           <Button component={Link} to={`/relatorio/visita/${v.id_visita}`} size="small">
                             Ver
                           </Button>
+                        )}
+                        {podeReabrir && v.status === 'Finalizada' && (
+                          <Tooltip title="Reabrir">
+                            <IconButton
+                              size="small"
+                              aria-label="Reabrir visita"
+                              onClick={() => setReabrirAlvo(v)}
+                              sx={{ color: colors.navy }}
+                            >
+                              <LockOpenIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         )}
                         {podeApagar && (
                           <Tooltip title="Apagar relatório">
@@ -576,6 +665,7 @@ export default function VisitasPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      {dialogReabrir}
     </Box>
   );
 }

@@ -63,6 +63,7 @@ const emptyPergunta = {
   requer_foto: false,
   requer_obs_em_nao: false,
   critica: false,
+  sim_indica_problema: false,
 };
 
 function labelTipo(tipo: TipoResposta) {
@@ -180,6 +181,7 @@ export default function ChecklistPerguntasPage() {
       requer_foto: p.requer_foto,
       requer_obs_em_nao: p.requer_obs_em_nao,
       critica: p.critica,
+      sim_indica_problema: !!p.sim_indica_problema,
     });
     setErro('');
     setDialog(true);
@@ -204,6 +206,7 @@ export default function ChecklistPerguntasPage() {
         requer_foto: form.requer_foto,
         requer_obs_em_nao: form.requer_obs_em_nao,
         critica: form.critica,
+        sim_indica_problema: form.sim_indica_problema,
       };
       if (editId) await api.checklistPerguntaAtualizar(editId, body);
       else await api.checklistPerguntaCriar(body);
@@ -612,6 +615,27 @@ export default function ChecklistPerguntasPage() {
               label="Pergunta crítica"
             />
           </SwitchRow>
+          <SwitchRow>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.sim_indica_problema}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, sim_indica_problema: e.target.checked }))
+                  }
+                />
+              }
+              label={'Sim indica problema (Não = 100 pts)'}
+            />
+          </SwitchRow>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', mt: -0.5, mb: 1, fontSize: '0.7rem', lineHeight: 1.35 }}
+          >
+            Use em perguntas como &quot;possui alguma obstrução?&quot;: responder Não não perde ponto;
+            responder Sim perde ponto e pode gerar NC.
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialog(false)} disabled={salvando}>

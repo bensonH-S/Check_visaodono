@@ -78,7 +78,18 @@ function formatarResposta(r: VisitaDetalhe['respostas'][0]): string {
   return 'Sem resposta';
 }
 
-function estiloResposta(resposta: string | null | undefined): { cor: Rgb; bg: Rgb | null } {
+function estiloResposta(
+  resposta: string | null | undefined,
+  pergunta?: { texto?: string; sim_indica_problema?: boolean },
+): { cor: Rgb; bg: Rgb | null } {
+  const invertida = pergunta
+    ? pergunta.sim_indica_problema === true ||
+      (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
+    : false;
+  if (invertida) {
+    if (resposta === 'Não') return { cor: OK, bg: [236, 253, 245] };
+    if (resposta === 'Sim') return { cor: FAIL, bg: NC_BG };
+  }
   if (resposta === 'Sim') return { cor: OK, bg: [236, 253, 245] };
   if (resposta === 'Não') return { cor: FAIL, bg: NC_BG };
   if (resposta === 'N/A') return { cor: MUTED, bg: ROW_ALT };
@@ -364,7 +375,7 @@ function desempenhoCategorias(
   for (let i = 0; i < cats.length; i++) {
     const c = cats[i];
     y = garantirEspaco(doc, y, rowH);
-    const pct = Number(c.percentual);
+    const pct = Number.isFinite(Number(c.percentual)) ? Number(c.percentual) : 0;
     const barColor: Rgb = pct >= 80 ? OK : pct >= 60 ? ACCENT : NAVY_MID;
 
     if (i % 2 === 1) {
@@ -389,7 +400,7 @@ function desempenhoCategorias(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     setText(doc, barColor);
-    doc.text(`${c.percentual}%`, PAGE_W - MARGIN - 2, y + 3.5, { align: 'right' });
+    doc.text(`${pct}%`, PAGE_W - MARGIN - 2, y + 3.5, { align: 'right' });
 
     y += rowH;
   }
@@ -520,7 +531,7 @@ function desenharBlocoResposta(
   }
 
   const respTxt = formatarResposta(r);
-  const st = estiloResposta(r.resposta);
+  const st = estiloResposta(r.resposta, r);
   const badgeW = Math.min(doc.getTextWidth(respTxt) + 8, innerW * 0.5);
 
   doc.setFont('helvetica', 'bold');

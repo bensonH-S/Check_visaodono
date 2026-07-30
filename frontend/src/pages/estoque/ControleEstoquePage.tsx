@@ -526,7 +526,7 @@ export default function ControleEstoquePage() {
           }}
           variant="scrollable"
           scrollButtons="auto"
-          sx={{ minHeight: 40, minWidth: 220, flex: 1 }}
+          sx={{ minHeight: 40, minWidth: 220, flex: '0 1 auto' }}
         >
           {podeConferencia && (
             <Tab
@@ -578,7 +578,7 @@ export default function ControleEstoquePage() {
           )}
         </Tabs>
         {!verDetalhe && (
-          <FormControl size="small" sx={{ minWidth: 260, maxWidth: 360, mb: 0.75 }}>
+          <FormControl size="small" sx={{ minWidth: 220, maxWidth: 320, mb: 0.75, flexShrink: 0 }}>
             <InputLabel shrink>Loja</InputLabel>
             <Select
               label="Loja"

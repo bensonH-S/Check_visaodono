@@ -130,13 +130,17 @@ export default function ChecklistIonicConcluido({
             </IonLabel>
           </IonItem>
           {categorias.map((c) => {
-            const pct = Number(c.percentual);
+            const temNota =
+              c.percentual != null &&
+              String(c.percentual) !== '' &&
+              Number.isFinite(Number(c.percentual));
+            const pct = temNota ? Number(c.percentual) : 0;
             return (
               <IonItem key={c.categoria} lines="none">
                 <IonLabel>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontWeight: 500 }}>{c.categoria}</span>
-                    <strong>{c.percentual}%</strong>
+                    <strong>{pct}%</strong>
                   </div>
                   <IonProgressBar
                     value={Math.min(1, pct / 100)}

@@ -196,6 +196,7 @@ router.post('/perguntas', requireGestaoChecklist, async (req, res, next) => {
       requer_foto,
       requer_obs_em_nao,
       critica,
+      sim_indica_problema,
     } = req.body;
     const idCat = Number(id_categoria);
     if (!idCat || !String(texto || '').trim()) {
@@ -232,8 +233,8 @@ router.post('/perguntas', requireGestaoChecklist, async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO perguntas (
          id_categoria, codigo, texto, tipo_resposta, obrigatoria, peso, ordem,
-         requer_foto, requer_obs_em_nao, critica
-       ) VALUES ($1, $2, $3, $4::tipo_resposta_checklist, $5, $6, $7, $8, $9, $10)
+         requer_foto, requer_obs_em_nao, critica, sim_indica_problema
+       ) VALUES ($1, $2, $3, $4::tipo_resposta_checklist, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         idCat,
@@ -246,6 +247,7 @@ router.post('/perguntas', requireGestaoChecklist, async (req, res, next) => {
         !!requer_foto,
         !!requer_obs_em_nao,
         !!critica,
+        !!sim_indica_problema,
       ],
     );
     await auditar(req, {
@@ -278,6 +280,7 @@ router.patch('/perguntas/:id', requireGestaoChecklist, async (req, res, next) =>
       requer_foto: 'bool',
       requer_obs_em_nao: 'bool',
       critica: 'bool',
+      sim_indica_problema: 'bool',
     };
     const sets = [];
     const vals = [];

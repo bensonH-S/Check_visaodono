@@ -8,7 +8,9 @@ import {
   isObsSomenteEmSim,
   maxFotos,
   parseFotos,
+  respostaIndicaProblema,
   serializeFotos,
+  simIndicaProblema,
 } from '../../utils/checklistRules';
 import {
   perguntaRespondida,
@@ -144,10 +146,14 @@ export default function ChecklistIonicPerguntaCard({
           <p className={`ck-q__hint${erroCampo === 'observacao' ? ' is-err' : ''}`}>
             {erroCampo === 'observacao'
               ? p.requer_obs_em_nao
-                ? 'Observação obrigatória quando selecionado Não'
+                ? simIndicaProblema(p)
+                  ? 'Observação obrigatória quando selecionado Sim'
+                  : 'Observação obrigatória quando selecionado Não'
                 : 'Preencha a observação para continuar'
-              : p.requer_obs_em_nao && r?.resposta === 'Não'
-                ? 'Obrigatória quando selecionado Não'
+              : p.requer_obs_em_nao && respostaIndicaProblema(p, r?.resposta)
+                ? simIndicaProblema(p)
+                  ? 'Obrigatória quando selecionado Sim'
+                  : 'Obrigatória quando selecionado Não'
                 : 'Opcional — registre detalhes ou pendências'}
           </p>
         </div>

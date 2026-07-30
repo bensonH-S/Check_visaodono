@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { SQL_PONTUACAO_RESPOSTA } from '../checklistPontuacao.js';
 
 function dataVisitaIso(val) {
   if (val == null) return val;
@@ -37,7 +38,8 @@ export async function carregarVisitaDetalhe(idVisita) {
   if (!visita.rows[0]) return null;
 
   const respostas = await pool.query(
-    `SELECT r.*, p.codigo, p.texto, p.tipo_resposta, p.id_categoria, c.nome AS categoria
+    `SELECT r.*, p.codigo, p.texto, p.tipo_resposta, p.sim_indica_problema, p.id_categoria,
+            c.nome AS categoria
      FROM respostas r
      JOIN perguntas p ON p.id_pergunta = r.id_pergunta
      JOIN categorias_checklist c ON c.id_categoria = p.id_categoria
@@ -48,16 +50,9 @@ export async function carregarVisitaDetalhe(idVisita) {
 
   const porCategoria = await pool.query(
     `SELECT c.nome AS categoria,
-        ROUND(AVG(
-          CASE
-            WHEN p.tipo_resposta IN ('estrelas', 'estrelas_foto') AND r.nota_estrelas IS NOT NULL
-              THEN (r.nota_estrelas::numeric / 5.0) * 100
-            WHEN r.resposta = 'Sim' THEN 100
-            WHEN r.resposta = 'Não' THEN 0
-            WHEN r.resposta = 'N/A' THEN 50
-            ELSE NULL
-          END * p.peso
-        )::numeric, 0) AS percentual
+        COALESCE(ROUND(AVG(
+          (${SQL_PONTUACAO_RESPOSTA}) * p.peso
+        )::numeric, 0), 0) AS percentual
        FROM respostas r
        JOIN perguntas p ON p.id_pergunta = r.id_pergunta
        JOIN categorias_checklist c ON c.id_categoria = p.id_categoria

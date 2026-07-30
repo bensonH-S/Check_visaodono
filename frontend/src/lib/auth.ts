@@ -165,6 +165,11 @@ export function podeApagarVisitas(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('portal.visitas.apagar', usuario);
 }
 
+/** Reabrir visita finalizada — quem tiver a permissão portal.visitas.reabrir. */
+export function podeReabrirVisitas(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('portal.visitas.reabrir', usuario);
+}
+
 /** Configurações → aba Perguntas (somente esta permissão habilita a aba). */
 export function podeGerenciarChecklistPerguntas(usuario?: UsuarioSessao | null): boolean {
   return (

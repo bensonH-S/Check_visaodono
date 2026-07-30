@@ -3,12 +3,41 @@ import type { Pergunta } from '../api/client';
 /** Máximo de fotos por pergunta no checklist. */
 export const MAX_FOTOS_POR_PERGUNTA = 5;
 
+const PADROES_SIM_INDICA_PROBLEMA = [
+  /foi encontrad/i,
+  /há presença/i,
+  /ha presenca/i,
+  /evidência de/i,
+  /evidencia de/i,
+  /possui alguma obstru/i,
+  /existe vazamento/i,
+  /há vazamento/i,
+  /ha vazamento/i,
+];
+
 export function maxFotos(): number {
   return MAX_FOTOS_POR_PERGUNTA;
 }
 
 export function respostaSimNaoEscolhida(resposta?: 'Sim' | 'Não' | 'N/A'): boolean {
   return resposta === 'Sim' || resposta === 'Não';
+}
+
+/** Perguntas em que "Sim" = problema (ex.: obstrução na pia). */
+export function simIndicaProblema(p: Pick<Pergunta, 'texto' | 'sim_indica_problema'>): boolean {
+  if (p.sim_indica_problema === true) return true;
+  if (p.sim_indica_problema === false) return false;
+  return PADROES_SIM_INDICA_PROBLEMA.some((re) => re.test(p.texto || ''));
+}
+
+/** Resposta que gera perda de ponto / NC nesta pergunta. */
+export function respostaIndicaProblema(
+  p: Pick<Pergunta, 'texto' | 'sim_indica_problema'>,
+  resposta?: 'Sim' | 'Não' | 'N/A',
+): boolean {
+  if (!resposta || resposta === 'N/A') return false;
+  if (simIndicaProblema(p)) return resposta === 'Sim';
+  return resposta === 'Não';
 }
 
 /** Obs só em Sim (mesa de sanduíches) — identifica pelo texto, não pelo código. */
@@ -43,7 +72,7 @@ export function exigeFoto(
   return fotos.length === 0;
 }
 
-/** Campo de observação — opcional em todas; obrigatório só em Não quando requer_obs_em_nao. */
+/** Campo de observação — opcional em todas; obrigatório só na resposta problemática quando requer_obs_em_nao. */
 export function exibeObservacao(
   p: Pergunta,
   resposta?: 'Sim' | 'Não' | 'N/A',
@@ -63,7 +92,8 @@ export function exigeObservacao(
 ): boolean {
   if (!exibeObservacao(p, resposta)) return false;
   if (isObsSomenteEmSim(p)) return false;
-  if (resposta !== 'Não' || !p.requer_obs_em_nao) return false;
+  if (!p.requer_obs_em_nao) return false;
+  if (!respostaIndicaProblema(p, resposta)) return false;
   return !obs?.trim();
 }
 

@@ -154,7 +154,11 @@ export default function ChecklistConcluidoPage() {
             Por seção
           </Typography>
           {categorias.map((c) => {
-            const pct = Number(c.percentual);
+            const temNota =
+              c.percentual != null &&
+              String(c.percentual) !== '' &&
+              Number.isFinite(Number(c.percentual));
+            const pct = temNota ? Number(c.percentual) : 0;
             return (
               <Box key={c.categoria} sx={{ mb: 1.25 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
@@ -162,7 +166,7 @@ export default function ChecklistConcluidoPage() {
                     {c.categoria}
                   </Typography>
                   <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                    {c.percentual}%
+                    {pct}%
                   </Typography>
                 </Box>
                 <LinearProgress
@@ -174,7 +178,12 @@ export default function ChecklistConcluidoPage() {
                     bgcolor: 'grey.200',
                     '& .MuiLinearProgress-bar': {
                       borderRadius: 4,
-                      bgcolor: pct >= 80 ? '#3B6D11' : pct >= 60 ? '#E8520A' : '#1B2A6B',
+                      bgcolor:
+                        pct >= 80
+                          ? '#3B6D11'
+                          : pct >= 60
+                            ? '#E8520A'
+                            : '#1B2A6B',
                     },
                   }}
                 />

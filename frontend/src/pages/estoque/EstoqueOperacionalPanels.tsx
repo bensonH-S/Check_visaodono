@@ -6,7 +6,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
@@ -21,6 +20,8 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
@@ -35,10 +36,13 @@ import {
   type FichaTecnicaResumo,
   type ProdutoEstoque,
 } from '../../api/client';
+import CampoDataFrota from '../../components/frota/CampoDataFrota';
+import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
+import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
-import { dialogFieldProps } from '../../utils/dialogForm';
+import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 
 type AbaOp = 'saldo' | 'vendas' | 'ficha' | 'break';
 
@@ -66,6 +70,76 @@ function fmtDataBR(iso: string | null | undefined) {
 function hojeISO() {
   return new Date().toISOString().slice(0, 10);
 }
+
+function labelStatusVenda(status: string | null | undefined) {
+  const s = String(status || '').toLowerCase();
+  const map: Record<string, string> = {
+    pendente: 'Pendente',
+    processada: 'Processada',
+    parcial: 'Parcial',
+    erro: 'Erro',
+  };
+  if (map[s]) return map[s];
+  if (!s) return '—';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function chipSxStatusVenda(status: string | null | undefined) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'processada') {
+    return { bgcolor: '#DCFCE7', color: '#166534', fontWeight: 700 };
+  }
+  if (s === 'parcial') {
+    return { bgcolor: '#FFEDD5', color: '#C2410C', fontWeight: 700 };
+  }
+  if (s === 'erro') {
+    return { bgcolor: '#FEE2E2', color: '#B91C1C', fontWeight: 700 };
+  }
+  return { bgcolor: '#FEF9C3', color: '#A16207', fontWeight: 700 };
+}
+
+const campoBreakBaseSx = {
+  minWidth: 0,
+  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+    borderRadius: 1,
+    minHeight: 40,
+    height: 40,
+    alignItems: 'center',
+  },
+  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
+    borderRadius: 1,
+  },
+  '& .MuiSelect-select, & .MuiOutlinedInput-input, & .MuiPickersInputBase-input': {
+    py: '8.5px',
+    display: 'flex',
+    alignItems: 'center',
+    boxSizing: 'border-box',
+    fontSize: '0.875rem',
+  },
+} as const;
+
+const campoBreakDataSx = {
+  ...campoBreakBaseSx,
+  flex: '0 0 36%',
+  maxWidth: '36%',
+} as const;
+
+const campoBreakModoSx = {
+  ...campoBreakBaseSx,
+  flex: '1 1 64%',
+} as const;
+
+const campoBreakFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 1,
+    minHeight: 40,
+    height: 40,
+  },
+  '& .MuiSelect-select, & .MuiOutlinedInput-input': {
+    py: '8.5px',
+    fontSize: '0.875rem',
+  },
+} as const;
 
 type Props = {
   aba: AbaOp;
@@ -318,26 +392,16 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
           Sync BK Office / Importar Excel
         </Typography>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-          <TextField
-            size="small"
-            type="date"
-            label="Início"
-            slotProps={{ inputLabel: { shrink: true } }}
-            value={dataIni}
-            onChange={(e) => setDataIni(e.target.value)}
-          />
-          <TextField
-            size="small"
-            type="date"
-            label="Fim"
-            slotProps={{ inputLabel: { shrink: true } }}
-            value={dataFim}
-            onChange={(e) => setDataFim(e.target.value)}
+          <FiltroIntervaloDatasFrota
+            dataInicio={dataIni}
+            dataFim={dataFim}
+            onChangeInicio={setDataIni}
+            onChangeFim={setDataFim}
           />
           <Button
             variant="contained"
             startIcon={syncing ? <CircularProgress size={16} color="inherit" /> : <CloudDownloadIcon />}
-            disabled={syncing || !sync?.configurado}
+            disabled={syncing || !sync?.configurado || !dataIni || !dataFim}
             onClick={() => void syncBk()}
           >
             Buscar no BK Office
@@ -356,12 +420,6 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
               onChange={(e) => void onUpload(e.target.files?.[0] || null)}
             />
           </Button>
-          <Chip
-            size="small"
-            label={sync?.configurado ? 'Credenciais OK' : 'Configure BKOFFICE_USER/PASS no .env'}
-            color={sync?.configurado ? 'success' : 'warning'}
-            variant="outlined"
-          />
         </Box>
         {sync?.ultimo && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
@@ -419,7 +477,11 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
                   <TableCell>{fmtDataBR(v.data_venda)}</TableCell>
                   <TableCell>{v.origem}</TableCell>
                   <TableCell>
-                    <Chip size="small" label={v.status} />
+                    <Chip
+                      size="small"
+                      label={labelStatusVenda(v.status)}
+                      sx={chipSxStatusVenda(v.status)}
+                    />
                   </TableCell>
                   <TableCell align="right">{v.itens ?? 0}</TableCell>
                   <TableCell align="right">{v.processados ?? 0}</TableCell>
@@ -615,8 +677,10 @@ function PainelFicha({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
       </Paper>
 
       <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Ficha técnica</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
+        <DialogTitleWithIcon plainIcon icon={<MenuBookOutlinedIcon />}>
+          Ficha técnica
+        </DialogTitleWithIcon>
+        <DialogContent sx={dialogContentSx}>
           <TextField
             {...dialogFieldProps}
             label="Código produto venda (BK)"
@@ -632,47 +696,83 @@ function PainelFicha({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
           <Typography variant="caption" color="text.secondary">
             Insumos (códigos do cadastro de produtos da loja)
           </Typography>
-          {itens.map((it, idx) => (
-            <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <TextField
-                {...dialogFieldProps}
-                select
-                label="Insumo"
-                value={it.codigo_insumo}
-                onChange={(e) => {
-                  const next = [...itens];
-                  next[idx] = { ...next[idx], codigo_insumo: e.target.value };
-                  setItens(next);
-                }}
-                sx={{ flex: 2 }}
-              >
-                <MenuItem value="">Selecione</MenuItem>
-                {produtos.map((p) => (
-                  <MenuItem key={p.id_produto} value={p.codigo}>
-                    {p.codigo} — {p.descricao}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                {...dialogFieldProps}
-                label="Qtd"
-                value={it.quantidade}
-                onChange={(e) => {
-                  const next = [...itens];
-                  next[idx] = { ...next[idx], quantidade: e.target.value };
-                  setItens(next);
-                }}
-                sx={{ width: 100 }}
-              />
-              <IconButton
-                size="small"
-                disabled={itens.length <= 1}
-                onClick={() => setItens(itens.filter((_, i) => i !== idx))}
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          ))}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              ...(itens.length > 5
+                ? {
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                    pr: 0.5,
+                    mr: -0.5,
+                  }
+                : {}),
+            }}
+          >
+            {itens.map((it, idx) => (
+              <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <TextField
+                  {...dialogFieldProps}
+                  select
+                  label="Insumo"
+                  value={it.codigo_insumo}
+                  onChange={(e) => {
+                    const next = [...itens];
+                    next[idx] = { ...next[idx], codigo_insumo: e.target.value };
+                    setItens(next);
+                  }}
+                  sx={{
+                    flex: '1 1 auto',
+                    minWidth: 0,
+                    '& .MuiSelect-select': {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    },
+                  }}
+                  slotProps={{
+                    ...dialogFieldProps.slotProps,
+                    select: {
+                      MenuProps: {
+                        PaperProps: { sx: { maxWidth: 560 } },
+                      },
+                    },
+                  }}
+                >
+                  <MenuItem value="">Selecione</MenuItem>
+                  {produtos.map((p) => (
+                    <MenuItem
+                      key={p.id_produto}
+                      value={p.codigo}
+                      sx={{ whiteSpace: 'normal', lineHeight: 1.35 }}
+                    >
+                      {p.codigo} — {p.descricao}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  {...dialogFieldProps}
+                  label="Qtd"
+                  value={it.quantidade}
+                  onChange={(e) => {
+                    const next = [...itens];
+                    next[idx] = { ...next[idx], quantidade: e.target.value };
+                    setItens(next);
+                  }}
+                  sx={{ width: 72, flexShrink: 0 }}
+                />
+                <IconButton
+                  size="small"
+                  disabled={itens.length <= 1}
+                  onClick={() => setItens(itens.filter((_, i) => i !== idx))}
+                >
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            ))}
+          </Box>
           <Button
             size="small"
             startIcon={<AddIcon />}
@@ -764,7 +864,7 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
           Consumo de colaboradores (refeição / break) — baixa o estoque na hora.
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
-          Lançar break
+          Lançar Break
         </Button>
       </Box>
 
@@ -804,37 +904,68 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
         </TableContainer>
       </Paper>
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Lançar break</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
-          <TextField
-            {...dialogFieldProps}
-            type="date"
-            label="Data"
-            slotProps={{ inputLabel: { shrink: true } }}
-            value={dataBreak}
-            onChange={(e) => setDataBreak(e.target.value)}
-          />
-          <TextField
-            {...dialogFieldProps}
-            select
-            label="Modo"
-            value={modo}
-            onChange={(e) => {
-              setModo(e.target.value as 'insumo' | 'venda');
-              setCodigo('');
-            }}
-          >
-            <MenuItem value="insumo">Insumo direto</MenuItem>
-            <MenuItem value="venda">Produto acabado (via ficha)</MenuItem>
-          </TextField>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{ paper: { sx: { maxWidth: 440 } } }}
+      >
+        <DialogTitleWithIcon plainIcon icon={<FreeBreakfastOutlinedIcon />}>
+          Lançar Break
+        </DialogTitleWithIcon>
+        <DialogContent sx={dialogContentSx}>
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+            <Box sx={campoBreakDataSx}>
+              <CampoDataFrota
+                label="Data"
+                value={dataBreak}
+                onChange={setDataBreak}
+                sx={{
+                  mb: 0,
+                  width: '100%',
+                  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+                    borderRadius: 1,
+                    minHeight: 40,
+                    height: 40,
+                    alignItems: 'center',
+                  },
+                  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
+                    borderRadius: 1,
+                  },
+                  '& .MuiOutlinedInput-input, & .MuiPickersInputBase-input': {
+                    py: '8.5px',
+                    boxSizing: 'border-box',
+                    fontSize: '0.875rem',
+                  },
+                }}
+              />
+            </Box>
+            <TextField
+              {...dialogFieldProps}
+              size="small"
+              select
+              label="Modo"
+              value={modo}
+              onChange={(e) => {
+                setModo(e.target.value as 'insumo' | 'venda');
+                setCodigo('');
+              }}
+              sx={campoBreakModoSx}
+            >
+              <MenuItem value="insumo">Insumo direto</MenuItem>
+              <MenuItem value="venda">Produto acabado (via ficha)</MenuItem>
+            </TextField>
+          </Box>
           {modo === 'insumo' ? (
             <TextField
               {...dialogFieldProps}
+              size="small"
               select
               label="Insumo"
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
+              sx={campoBreakFieldSx}
             >
               <MenuItem value="">Selecione</MenuItem>
               {produtos.map((p) => (
@@ -846,24 +977,29 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
           ) : (
             <TextField
               {...dialogFieldProps}
+              size="small"
               label="Código produto venda (BK)"
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
-              helperText="Ex.: 1050 — precisa ter ficha técnica"
+              sx={campoBreakFieldSx}
             />
           )}
           <TextField
             {...dialogFieldProps}
+            size="small"
             label="Quantidade"
             value={qtde}
             onChange={(e) => setQtde(e.target.value)}
+            sx={campoBreakFieldSx}
           />
           <TextField
             {...dialogFieldProps}
+            size="small"
             label="Motivo"
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
             placeholder="Almoço colaborador..."
+            sx={campoBreakFieldSx}
           />
         </DialogContent>
         <DialogActions>

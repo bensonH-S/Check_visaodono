@@ -16,12 +16,14 @@ import {
 } from '../checklistTipos.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { gerarNcsFromVisita } from '../naoConformidadesChecklist.js';
+import { SQL_PONTUACAO_RESPOSTA } from '../checklistPontuacao.js';
 import { processarVisitaTimeCampoReprovada } from '../services/timeCampoNotificacoes.js';
 import { processarEnvioRelatorioVisita } from '../services/visitaRelatorioEmail.js';
 import { requirePermissao } from '../permissoes.js';
 
 const router = Router();
 const requireApagarVisita = requirePermissao('portal.visitas.apagar');
+const requireReabrirVisita = requirePermissao('portal.visitas.reabrir');
 
 /** Garante data_visita como YYYY-MM-DD (evita ISO UTC no JSON). */
 function dataVisitaIso(val) {
@@ -125,7 +127,8 @@ router.get('/:id', async (req, res, next) => {
     if (!visita.rows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
 
     const respostas = await pool.query(
-      `SELECT r.*, p.codigo, p.texto, p.tipo_resposta, p.id_categoria, c.nome AS categoria
+      `SELECT r.*, p.codigo, p.texto, p.tipo_resposta, p.sim_indica_problema, p.id_categoria,
+              c.nome AS categoria
        FROM respostas r
        JOIN perguntas p ON p.id_pergunta = r.id_pergunta
        JOIN categorias_checklist c ON c.id_categoria = p.id_categoria
@@ -136,16 +139,9 @@ router.get('/:id', async (req, res, next) => {
 
     const porCategoria = await pool.query(
       `SELECT c.nome AS categoria,
-        ROUND(AVG(
-          CASE
-            WHEN p.tipo_resposta IN ('estrelas', 'estrelas_foto') AND r.nota_estrelas IS NOT NULL
-              THEN (r.nota_estrelas::numeric / 5.0) * 100
-            WHEN r.resposta = 'Sim' THEN 100
-            WHEN r.resposta = 'Não' THEN 0
-            WHEN r.resposta = 'N/A' THEN 50
-            ELSE NULL
-          END * p.peso
-        )::numeric, 0) AS percentual
+        COALESCE(ROUND(AVG(
+          (${SQL_PONTUACAO_RESPOSTA}) * p.peso
+        )::numeric, 0), 0) AS percentual
        FROM respostas r
        JOIN perguntas p ON p.id_pergunta = r.id_pergunta
        JOIN categorias_checklist c ON c.id_categoria = p.id_categoria
@@ -280,6 +276,17 @@ router.post('/:id/respostas', async (req, res, next) => {
       return res.status(400).json({ error: 'Lista de respostas obrigatória' });
     }
     const idVisita = Number(req.params.id);
+    const { rows: visitaRows } = await pool.query(
+      'SELECT status, id_loja FROM visitas WHERE id_visita = $1',
+      [idVisita],
+    );
+    if (!visitaRows[0]) return res.status(404).json({ error: 'Visita não encontrada' });
+    if (visitaRows[0].status !== 'Rascunho') {
+      return res.status(409).json({ error: 'Visita finalizada — reabra para editar' });
+    }
+    if (!usuarioPodeLoja(req.user, visitaRows[0].id_loja)) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
     const tipoVisita = await obterTipoChecklistDaVisita(idVisita);
     const client = await pool.connect();
     try {
@@ -490,6 +497,84 @@ router.patch('/:id/finalizar', async (req, res, next) => {
     });
 
     res.json({ ...serializarVisita(rows[0]), ncs_geradas: ncResult.criadas });
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    next(e);
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * Reabre visita finalizada para edição — permissão portal.visitas.reabrir.
+ * Remove NCs e histórico gerados na finalização; registra auditoria.
+ */
+router.patch('/:id/reabrir', requireReabrirVisita, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const idVisita = Number(req.params.id);
+    if (!Number.isFinite(idVisita) || idVisita <= 0) {
+      return res.status(400).json({ error: 'Visita inválida' });
+    }
+
+    await client.query('BEGIN');
+
+    const { rows: atuais } = await client.query(
+      `SELECT v.id_visita, v.id_loja, v.status, v.nota_final, v.data_visita,
+              l.name AS nome_loja
+       FROM visitas v
+       JOIN lojas l ON l.id_loja = v.id_loja
+       WHERE v.id_visita = $1
+       FOR UPDATE OF v`,
+      [idVisita],
+    );
+    const visita = atuais[0];
+    if (!visita) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Visita não encontrada' });
+    }
+    if (!usuarioPodeLoja(req.user, visita.id_loja)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    if (visita.status !== 'Finalizada') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Somente visitas finalizadas podem ser reabertas' });
+    }
+
+    const { rows } = await client.query(
+      `UPDATE visitas SET
+         status = 'Rascunho',
+         hora_fim = NULL,
+         updated_at = NOW()
+       WHERE id_visita = $1
+       RETURNING *`,
+      [idVisita],
+    );
+
+    const ncDel = await client.query(
+      `DELETE FROM nao_conformidades WHERE id_visita = $1`,
+      [idVisita],
+    );
+    await client.query(`DELETE FROM historico_notas WHERE id_visita = $1`, [idVisita]);
+    await sincronizarNotaLoja(client, visita.id_loja);
+
+    await client.query('COMMIT');
+
+    await auditar(req, {
+      modulo: 'visitas',
+      acao: 'reabrir',
+      entidade: 'visita',
+      idReferencia: idVisita,
+      descricao: `Reabriu visita #${idVisita} na loja ${visita.nome_loja} (nota anterior: ${visita.nota_final ?? '—'})`,
+      detalhes: {
+        nota_anterior: visita.nota_final,
+        ncs_removidas: ncDel.rowCount ?? 0,
+        data_visita: visita.data_visita,
+      },
+    });
+
+    res.json(serializarVisita(rows[0]));
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     next(e);

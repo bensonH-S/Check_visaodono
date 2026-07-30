@@ -29,6 +29,7 @@ const ACAO_LABEL = {
   excluir: 'Excluiu',
   iniciar: 'Iniciou',
   finalizar: 'Finalizou',
+  reabrir: 'Reabriu visita',
   anexar_documento: 'Anexou documento',
   excluir_documento: 'Removeu documento',
   assumir_veiculo: 'Assumiu veículo',

@@ -334,9 +334,55 @@
   border: 1px solid rgba(185, 28, 28, 0.3);
 }
 
-/* Relatório — mesma casca da aba Visitas */
+/* Relatório — topo fixo; só a folha (categorias/respostas) rola */
 .ck-visitas--relatorio {
   padding-bottom: 0;
+}
+
+.ck-visitas--relatorio .ck-visitas__stage {
+  flex-shrink: 0;
+}
+
+.ck-visitas--relatorio .ck-visitas__sheet {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: calc(20px + var(--app-tabbar-offset, 0px));
+}
+
+/* Lista de visitas — hero + abas fixos; só o histórico rola */
+.ck-visitas--lista {
+  padding-bottom: 0;
+}
+
+.ck-visitas--lista .ck-visitas__stage {
+  flex-shrink: 0;
+}
+
+.ck-visitas--lista .ck-visitas__sheet {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.ck-visitas--lista .ck-visitas__seg {
+  flex-shrink: 0;
+}
+
+.ck-visitas--lista .ck-visitas__sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: calc(20px + var(--app-tabbar-offset, 0px));
 }
 
 .ck-visitas__toolbar {
@@ -345,6 +391,21 @@
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.ck-visitas__toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.ck-visitas__toolbar-logo {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
 }
 
 .ck-visitas__back,

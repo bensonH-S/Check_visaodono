@@ -183,18 +183,66 @@ export default function FiltroIntervaloDatasFrota({
           onClose={fechar}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
           transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-          slotProps={{ paper: { sx: { mt: 0.5, borderRadius: 2 } } }}
+          slotProps={{
+            paper: {
+              sx: {
+                mt: 0.5,
+                borderRadius: 2,
+                overflow: 'hidden',
+                width: 320,
+                maxWidth: 'calc(100vw - 24px)',
+              },
+            },
+          }}
         >
-          <Box sx={{ px: 2, pb: 1.5, pt: 0 }}>
+          <Box sx={{ pb: 1, pt: 0 }}>
             <DateCalendar
               value={fimDayjs ?? inicioDayjs}
               onChange={selecionarDia}
               maxDate={dayjs()}
+              sx={{
+                width: '100%',
+                maxWidth: 320,
+                mx: 0,
+                my: 0,
+                height: 'auto',
+                maxHeight: 'none',
+                '& .MuiPickersCalendarHeader-root': {
+                  pl: 1.5,
+                  pr: 1.5,
+                  mt: 0.5,
+                  mb: 0,
+                },
+                '& .MuiPickersCalendarHeader-label': {
+                  fontSize: '0.9rem',
+                },
+                '& .MuiDayCalendar-header': {
+                  justifyContent: 'space-around',
+                  px: 0.5,
+                },
+                '& .MuiDayCalendar-weekContainer': {
+                  justifyContent: 'space-around',
+                  margin: 0,
+                },
+                '& .MuiDayCalendar-monthContainer': {
+                  paddingBottom: 0,
+                },
+                '& .MuiPickersSlideTransition-root': {
+                  minHeight: 0,
+                },
+                '& .MuiDateCalendar-viewTransitionContainer': {
+                  minHeight: 0,
+                },
+                '& .MuiPickersDay-root': {
+                  margin: 0,
+                },
+              }}
             />
             <Box
               sx={{
-                px: 1,
-                mt: -0.5,
+                px: 2,
+                mt: -0.75,
+                mb: 0,
                 fontSize: '0.75rem',
                 color: 'text.secondary',
                 lineHeight: 1.35,

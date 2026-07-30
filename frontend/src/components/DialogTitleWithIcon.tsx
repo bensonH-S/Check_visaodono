@@ -9,9 +9,18 @@ type Props = {
   endAction?: ReactNode;
   fixed?: boolean;
   compact?: boolean;
+  /** Ícone na mesma cor do título, sem caixa cinza. */
+  plainIcon?: boolean;
 };
 
-export default function DialogTitleWithIcon({ icon, children, endAction, fixed, compact }: Props) {
+export default function DialogTitleWithIcon({
+  icon,
+  children,
+  endAction,
+  fixed,
+  compact,
+  plainIcon,
+}: Props) {
   return (
     <DialogTitle
       sx={{
@@ -46,12 +55,26 @@ export default function DialogTitleWithIcon({ icon, children, endAction, fixed, 
         }}
       >
         <Box
-          sx={{
-            ...portalIconBoxSx,
-            width: compact ? 32 : 36,
-            height: compact ? 32 : 36,
-            '& .MuiSvgIcon-root': { fontSize: compact ? 18 : 20 },
-          }}
+          sx={
+            plainIcon
+              ? {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  color: 'inherit',
+                  '& .MuiSvgIcon-root': {
+                    fontSize: compact ? 22 : 24,
+                    color: 'inherit',
+                  },
+                }
+              : {
+                  ...portalIconBoxSx,
+                  width: compact ? 32 : 36,
+                  height: compact ? 32 : 36,
+                  '& .MuiSvgIcon-root': { fontSize: compact ? 18 : 20 },
+                }
+          }
         >
           {icon}
         </Box>

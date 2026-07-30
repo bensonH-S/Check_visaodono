@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { assetUrl } from '../../config/paths';
 import { fmtData, fmtNota, fetchMediaAutenticada } from '../../api/client';
 import type { VisitaDetalhe } from '../../api/client';
@@ -12,6 +13,9 @@ type Props = {
   data: VisitaDetalhe;
   exportandoPdf: boolean;
   onExportarPdf: () => void;
+  podeReabrir?: boolean;
+  reabrindo?: boolean;
+  onReabrir?: () => void;
 };
 
 function tituloChecklist(v: VisitaDetalhe['visita']): string {
@@ -26,7 +30,18 @@ function formatarResposta(r: VisitaDetalhe['respostas'][0]): string {
   return '—';
 }
 
-function chipClass(resposta: string | null | undefined): string {
+function chipClass(
+  resposta: string | null | undefined,
+  pergunta?: { texto?: string; sim_indica_problema?: boolean },
+): string {
+  const invertida = pergunta
+    ? pergunta.sim_indica_problema === true ||
+      (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
+    : false;
+  if (invertida) {
+    if (resposta === 'Não') return 'ck-visitas__chip--ok';
+    if (resposta === 'Sim') return 'ck-visitas__chip--fail';
+  }
   if (resposta === 'Sim') return 'ck-visitas__chip--ok';
   if (resposta === 'Não') return 'ck-visitas__chip--fail';
   return 'ck-visitas__chip--navy';
@@ -85,13 +100,20 @@ function RespostaCard({ r }: { r: VisitaDetalhe['respostas'][0] }) {
         )}
       </span>
       <span className="ck-visitas__side">
-        <span className={`ck-visitas__chip ${chipClass(r.resposta)}`}>{formatarResposta(r)}</span>
+        <span className={`ck-visitas__chip ${chipClass(r.resposta, r)}`}>{formatarResposta(r)}</span>
       </span>
     </article>
   );
 }
 
-export default function RelatorioMobileScreen({ data, exportandoPdf, onExportarPdf }: Props) {
+export default function RelatorioMobileScreen({
+  data,
+  exportandoPdf,
+  onExportarPdf,
+  podeReabrir,
+  reabrindo,
+  onReabrir,
+}: Props) {
   const navigate = useNavigate();
   const v = data.visita;
   const nota = Number(v.nota_final);
@@ -114,22 +136,39 @@ export default function RelatorioMobileScreen({ data, exportandoPdf, onExportarP
 
   return (
     <div className="ck-visitas ck-visitas--relatorio">
-      <div className="ck-visitas__scroll">
-        <div className="ck-visitas__stage">
-          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-          <div className="ck-visitas__mesh" aria-hidden />
+      <div className="ck-visitas__stage">
+        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+        <div className="ck-visitas__mesh" aria-hidden />
 
-          <div className="ck-visitas__stage-inner">
-            <div className="ck-visitas__toolbar ck-visitas__anim ck-visitas__anim--1">
-              <button
-                type="button"
-                className="ck-visitas__back"
-                aria-label="Voltar para visitas"
-                onClick={() => navigate('/visitas/mobile', { replace: true })}
-              >
-                ←
-              </button>
+        <div className="ck-visitas__stage-inner">
+          <div className="ck-visitas__toolbar ck-visitas__anim ck-visitas__anim--1">
+            <button
+              type="button"
+              className="ck-visitas__back"
+              aria-label="Voltar para visitas"
+              onClick={() => navigate('/visitas/mobile', { replace: true })}
+            >
+              ←
+            </button>
+            <div className="ck-visitas__toolbar-actions">
+              {podeReabrir && (
+                <button
+                  type="button"
+                  className="ck-visitas__pdf"
+                  aria-label="Reabrir visita"
+                  title="Reabrir"
+                  disabled={reabrindo}
+                  onClick={onReabrir}
+                  style={{ background: '#1B2A6B' }}
+                >
+                  {reabrindo ? (
+                    <CircularProgress size={18} sx={{ color: '#fff' }} />
+                  ) : (
+                    <LockOpenIcon fontSize="small" />
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 className="ck-visitas__pdf"
@@ -143,117 +182,124 @@ export default function RelatorioMobileScreen({ data, exportandoPdf, onExportarP
                   <PictureAsPdfIcon fontSize="small" />
                 )}
               </button>
-            </div>
-
-            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--2">
-              <div>
-                <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                <h1 className="ck-visitas__title">
-                  Relatório
-                  <br />
-                  da visita
-                </h1>
-              </div>
               <img
                 src={assetUrl('Logo_Icon-clear.png')}
                 alt=""
-                className="ck-visitas__mark-icon"
-                width={56}
-                height={56}
+                className="ck-visitas__toolbar-logo"
+                width={68}
+                height={68}
               />
             </div>
-
-            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--3">
-              {titulo} · {v.name}
-              {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
-            </p>
-
-            <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-              <div className="ck-visitas__metric ck-visitas__metric--accent">
-                <strong>{fmtNota(v.nota_final)}</strong>
-                <span>nota</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{data.desempenho_categorias.length}</strong>
-                <span>categorias</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{data.nao_conformidades.length}</strong>
-                <span>NCs</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{v.duracao_minutos != null ? `${v.duracao_minutos}m` : '—'}</strong>
-                <span>duração</span>
-              </div>
-            </div>
-
-            <p className="ck-visitas__auditor-line ck-visitas__anim ck-visitas__anim--4">
-              <span>Auditor</span>
-              <strong>{v.nome_usuario}</strong>
-              <em>
-                {dataTxt}
-                {hintNota ? ` · ${hintNota}` : ''}
-              </em>
-            </p>
           </div>
-        </div>
 
-        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-          <p className="ck-visitas__section">Desempenho por categoria</p>
-          {data.desempenho_categorias.length ? (
+          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--2">
+            <div>
+              <p className="ck-visitas__mark-text">Grupo Alvim</p>
+              <h1 className="ck-visitas__title">
+                Relatório
+                <br />
+                da visita
+              </h1>
+            </div>
+          </div>
+
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--3">
+            {titulo} · {v.name}
+            {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
+          </p>
+
+          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong>{fmtNota(v.nota_final)}</strong>
+              <span>nota</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{data.desempenho_categorias.length}</strong>
+              <span>categorias</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{data.nao_conformidades.length}</strong>
+              <span>NCs</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{v.duracao_minutos != null ? `${v.duracao_minutos}m` : '—'}</strong>
+              <span>duração</span>
+            </div>
+          </div>
+
+          <p className="ck-visitas__auditor-line ck-visitas__anim ck-visitas__anim--4">
+            <span>Auditor</span>
+            <strong>{v.nome_usuario}</strong>
+            <em>
+              {dataTxt}
+              {hintNota ? ` · ${hintNota}` : ''}
+            </em>
+          </p>
+        </div>
+      </div>
+
+      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+        <p className="ck-visitas__section">Desempenho por categoria</p>
+        {data.desempenho_categorias.length ? (
+          <div className="ck-visitas__list">
+            {data.desempenho_categorias.map((c) => {
+              const temNota =
+                c.percentual != null &&
+                c.percentual !== '' &&
+                Number.isFinite(Number(c.percentual));
+              const pct = temNota ? Number(c.percentual) : 0;
+              const cor = barColor(pct);
+              return (
+                <div key={c.categoria} className="ck-visitas__bar">
+                  <div className="ck-visitas__bar-head">
+                    <strong>{c.categoria}</strong>
+                    <span style={{ color: cor }}>{pct}%</span>
+                  </div>
+                  <div className="ck-visitas__bar-track">
+                    <div
+                      className="ck-visitas__bar-fill"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, pct))}%`,
+                        background: cor,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="ck-visitas__empty">Sem categorias registradas.</div>
+        )}
+
+        <p className="ck-visitas__section">Respostas do checklist</p>
+        {[...porCategoria.entries()].map(([categoria, items]) => (
+          <div key={categoria} className="ck-visitas__cat-block">
+            <h2 className="ck-visitas__cat">{categoria}</h2>
             <div className="ck-visitas__list">
-              {data.desempenho_categorias.map((c) => {
-                const pct = Number(c.percentual);
-                const cor = barColor(pct);
-                return (
-                  <div key={c.categoria} className="ck-visitas__bar">
-                    <div className="ck-visitas__bar-head">
-                      <strong>{c.categoria}</strong>
-                      <span style={{ color: cor }}>{c.percentual}%</span>
-                    </div>
-                    <div className="ck-visitas__bar-track">
-                      <div
-                        className="ck-visitas__bar-fill"
-                        style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: cor }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              {items.map((r) => (
+                <RespostaCard key={r.id_pergunta} r={r} />
+              ))}
             </div>
-          ) : (
-            <div className="ck-visitas__empty">Sem categorias registradas.</div>
-          )}
+          </div>
+        ))}
+        {!data.respostas.length && <div className="ck-visitas__empty">Nenhuma resposta registrada.</div>}
 
-          <p className="ck-visitas__section">Respostas do checklist</p>
-          {[...porCategoria.entries()].map(([categoria, items]) => (
-            <div key={categoria} className="ck-visitas__cat-block">
-              <h2 className="ck-visitas__cat">{categoria}</h2>
-              <div className="ck-visitas__list">
-                {items.map((r) => (
-                  <RespostaCard key={r.id_pergunta} r={r} />
-                ))}
-              </div>
+        {data.nao_conformidades.length > 0 && (
+          <>
+            <p className="ck-visitas__section">Não conformidades</p>
+            <div className="ck-visitas__list">
+              {data.nao_conformidades.map((nc, i) => (
+                <div key={i} className="ck-visitas__nc">
+                  <strong>
+                    [{nc.gravidade}] {nc.area}
+                  </strong>
+                  <p>{nc.descricao}</p>
+                </div>
+              ))}
             </div>
-          ))}
-          {!data.respostas.length && <div className="ck-visitas__empty">Nenhuma resposta registrada.</div>}
-
-          {data.nao_conformidades.length > 0 && (
-            <>
-              <p className="ck-visitas__section">Não conformidades</p>
-              <div className="ck-visitas__list">
-                {data.nao_conformidades.map((nc, i) => (
-                  <div key={i} className="ck-visitas__nc">
-                    <strong>
-                      [{nc.gravidade}] {nc.area}
-                    </strong>
-                    <p>{nc.descricao}</p>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -223,6 +223,8 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body || {}),
     }),
+  reabrirVisita: (id: number) =>
+    request<VisitaResumo>(`/visitas/${id}/reabrir`, { method: 'PATCH' }),
   naoConformidades: (params?: { status?: string; loja?: number }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);
@@ -982,6 +984,8 @@ export interface Pergunta {
   requer_foto: boolean;
   requer_obs_em_nao: boolean;
   critica: boolean;
+  /** Quando true, "Sim" indica problema (Não pontua 100). */
+  sim_indica_problema?: boolean;
   ordem: number;
 }
 
@@ -996,6 +1000,7 @@ export interface PerguntaInput {
   requer_foto?: boolean;
   requer_obs_em_nao?: boolean;
   critica?: boolean;
+  sim_indica_problema?: boolean;
 }
 
 export interface VisitaResumo {
@@ -1034,6 +1039,7 @@ export interface VisitaDetalhe {
     observacao?: string | null;
     midia_urls?: string[];
     texto: string;
+    sim_indica_problema?: boolean;
     categoria: string;
   }>;
   desempenho_categorias: Array<{ categoria: string; percentual: string }>;

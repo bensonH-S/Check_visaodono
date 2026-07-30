@@ -1,5 +1,7 @@
 /** Gera NCs automaticamente ao finalizar checklist. */
 
+import { perguntaSimIndicaProblema } from './checklistPontuacao.js';
+
 export const SQL_NC_CHECKLIST_FINALIZADO = `
   INNER JOIN visitas v ON v.id_visita = nc.id_visita AND v.status = 'Finalizada'
 `;
@@ -8,22 +10,7 @@ export const NOTA_MINIMA_NC = 80;
 const ESTRELAS_NC_LIMITE = 2;
 const ESTRELAS_CRITICA_LIMITE = 3;
 
-const PADROES_SIM_INDICA_PROBLEMA = [
-  /foi encontrad/i,
-  /há presença/i,
-  /ha presenca/i,
-  /evidência de/i,
-  /evidencia de/i,
-  /possui alguma obstru/i,
-  /existe vazamento/i,
-  /há vazamento/i,
-  /ha vazamento/i,
-];
-
-export function textoIndicaSimRuim(texto) {
-  const t = String(texto || '');
-  return PADROES_SIM_INDICA_PROBLEMA.some((re) => re.test(t));
-}
+export { textoIndicaSimRuim } from './checklistPontuacao.js';
 
 function observacaoIndicaNaoSeAplica(obs) {
   if (!obs?.trim()) return false;
@@ -37,7 +24,7 @@ export function respostaIndicaNc(pergunta, resposta) {
   const tipo = pergunta.tipo_resposta;
   if (tipo === 'sim_nao' || tipo === 'sim_nao_foto') {
     if (!resposta.resposta) return false;
-    if (textoIndicaSimRuim(pergunta.texto)) return resposta.resposta === 'Sim';
+    if (perguntaSimIndicaProblema(pergunta)) return resposta.resposta === 'Sim';
     return resposta.resposta === 'Não';
   }
   if (tipo === 'estrelas' || tipo === 'estrelas_foto') {
@@ -113,7 +100,7 @@ export async function gerarNcsFromVisita(client, idVisita) {
 
   const respostas = await client.query(
     `SELECT r.resposta, r.nota_estrelas, r.observacao,
-            p.id_pergunta, p.codigo, p.texto, p.tipo_resposta, p.critica,
+            p.id_pergunta, p.codigo, p.texto, p.tipo_resposta, p.critica, p.sim_indica_problema,
             c.nome AS categoria
      FROM respostas r
      JOIN perguntas p ON p.id_pergunta = r.id_pergunta

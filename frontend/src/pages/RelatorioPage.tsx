@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -7,7 +7,13 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import { api, fmtNota, fmtData, fetchMediaAutenticada } from '../api/client';
 import type { VisitaDetalhe } from '../api/client';
 import { gerarPdfVisita } from '../utils/gerarPdfVisita';
@@ -15,6 +21,8 @@ import { showToast } from '../utils/toast';
 import { formatarHoraVisita, formatarLocalVisita } from '../utils/visitaFormat';
 import { isMobileAppPath } from '../config/mobileRoutes';
 import { assetUrl, FAVICON_ICON } from '../config/paths';
+import { podeReabrirVisitas } from '../lib/auth';
+import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
 import RelatorioMobileScreen from '../components/visitas/RelatorioMobileScreen';
 import '../components/visitas/visitas-mobile.css';
 
@@ -40,7 +48,18 @@ function formatarResposta(r: VisitaDetalhe['respostas'][0]): string {
   return '—';
 }
 
-function corResposta(resposta: string | null | undefined): { color: string; bg: string } {
+function corResposta(
+  resposta: string | null | undefined,
+  pergunta?: { texto?: string; sim_indica_problema?: boolean },
+): { color: string; bg: string } {
+  const invertida = pergunta
+    ? pergunta.sim_indica_problema === true ||
+      (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
+    : false;
+  if (invertida) {
+    if (resposta === 'Não') return { color: OK, bg: '#ECFDF5' };
+    if (resposta === 'Sim') return { color: FAIL, bg: '#FEF2F2' };
+  }
   if (resposta === 'Sim') return { color: OK, bg: '#ECFDF5' };
   if (resposta === 'Não') return { color: FAIL, bg: '#FEF2F2' };
   if (resposta === 'N/A') return { color: SLATE, bg: ROW_ALT };
@@ -171,10 +190,14 @@ function SecaoTitulo({ children }: { children: string }) {
 export default function RelatorioPage() {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const mobileApp = isMobileAppPath(location.pathname);
   const [data, setData] = useState<VisitaDetalhe | null>(null);
   const [err, setErr] = useState('');
   const [exportandoPdf, setExportandoPdf] = useState(false);
+  const [reabrindo, setReabrindo] = useState(false);
+  const [dlgReabrir, setDlgReabrir] = useState(false);
+  const podeReabrir = podeReabrirVisitas();
 
   const exportarPdf = useCallback(async () => {
     if (!data) return;
@@ -188,6 +211,22 @@ export default function RelatorioPage() {
       setExportandoPdf(false);
     }
   }, [data]);
+
+  const confirmarReabrir = useCallback(async () => {
+    if (!id) return;
+    setReabrindo(true);
+    try {
+      await api.reabrirVisita(Number(id));
+      showToast('Visita reaberta para edição', 'success');
+      setDlgReabrir(false);
+      const base = mobileApp ? '/checklist/mobile' : '/checklist';
+      navigate(`${base}?visita=${id}`, { replace: true });
+    } catch (e) {
+      showToast((e as Error).message || 'Não foi possível reabrir a visita', 'error');
+    } finally {
+      setReabrindo(false);
+    }
+  }, [id, mobileApp, navigate]);
 
   useEffect(() => {
     if (!id) return;
@@ -211,11 +250,35 @@ export default function RelatorioPage() {
     }
     if (!data) return <LinearProgress />;
     return (
-      <RelatorioMobileScreen
-        data={data}
-        exportandoPdf={exportandoPdf}
-        onExportarPdf={() => void exportarPdf()}
-      />
+      <>
+        <RelatorioMobileScreen
+          data={data}
+          exportandoPdf={exportandoPdf}
+          onExportarPdf={() => void exportarPdf()}
+          podeReabrir={podeReabrir && data.visita.status === 'Finalizada'}
+          reabrindo={reabrindo}
+          onReabrir={() => setDlgReabrir(true)}
+        />
+        <Dialog open={dlgReabrir} onClose={() => !reabrindo && setDlgReabrir(false)} fullWidth maxWidth="xs">
+          <DialogTitleWithIcon plainIcon icon={<LockOpenIcon />}>
+            Reabrir visita
+          </DialogTitleWithIcon>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">
+              A visita voltará para rascunho e poderá ser editada. NCs geradas na finalização serão removidas.
+              Esta ação será registrada na auditoria.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDlgReabrir(false)} disabled={reabrindo}>
+              Cancelar
+            </Button>
+            <Button variant="contained" disabled={reabrindo} onClick={() => void confirmarReabrir()}>
+              {reabrindo ? 'Reabrindo…' : 'Reabrir'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
     );
   }
 
@@ -245,28 +308,87 @@ export default function RelatorioPage() {
           bgcolor: NAVY,
           borderRadius: '12px 12px 0 0',
           px: 2,
-          py: 1.75,
+          py: 1.5,
           display: 'flex',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 1,
+          gap: 1.5,
         }}
       >
-        <MarcaGrupoAlvim size={28} />
-        <Box sx={{ textAlign: 'right', minWidth: 0 }}>
-          <Typography
-            variant="caption"
-            sx={{ color: SLATE_LIGHT, letterSpacing: 1, fontSize: '0.62rem', display: 'block' }}
-          >
-            RELATÓRIO DE VISITA
-          </Typography>
-          <Typography sx={{ fontWeight: 800, color: '#fff', fontSize: '1.15rem', lineHeight: 1.2 }}>
-            {titulo}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#B4C3DC', fontSize: '0.72rem' }}>
-            {v.name}
-            {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1 }}>
+          <MarcaGrupoAlvim size={28} />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: SLATE_LIGHT, letterSpacing: 1, fontSize: '0.62rem', display: 'block' }}
+            >
+              RELATÓRIO DE VISITA
+            </Typography>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                color: '#fff',
+                fontSize: '1.05rem',
+                lineHeight: 1.2,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {titulo}
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#B4C3DC', fontSize: '0.72rem' }}>
+              {v.name}
+              {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+          {podeReabrir && v.status === 'Finalizada' && (
+            <Tooltip title="Reabrir">
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="Reabrir visita"
+                  disabled={reabrindo}
+                  onClick={() => setDlgReabrir(true)}
+                  sx={{
+                    color: '#fff',
+                    bgcolor: 'rgba(255,255,255,0.12)',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' },
+                  }}
+                >
+                  {reabrindo ? (
+                    <CircularProgress size={18} sx={{ color: '#fff' }} />
+                  ) : (
+                    <LockOpenIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+          <Tooltip title={exportandoPdf ? 'Gerando…' : 'Baixar PDF'}>
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Baixar PDF"
+                disabled={exportandoPdf}
+                onClick={() => void exportarPdf()}
+                sx={{
+                  color: '#fff',
+                  bgcolor: FAIL,
+                  '&:hover': { bgcolor: '#991B1B' },
+                  '&.Mui-disabled': { color: 'rgba(255,255,255,0.5)', bgcolor: 'rgba(185,28,28,0.5)' },
+                }}
+              >
+                {exportandoPdf ? (
+                  <CircularProgress size={18} sx={{ color: '#fff' }} />
+                ) : (
+                  <PictureAsPdfIcon fontSize="small" />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
         </Box>
       </Box>
 
@@ -354,48 +476,30 @@ export default function RelatorioPage() {
             pb: 1.5,
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 1,
+            gap: 0.75,
             alignItems: 'center',
-            justifyContent: 'space-between',
           }}
         >
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+          <Chip
+            size="small"
+            label={v.status}
+            sx={{
+              fontWeight: 700,
+              bgcolor: v.status === 'Finalizada' ? '#ECFDF5' : '#FFF7ED',
+              color: v.status === 'Finalizada' ? OK : ACCENT,
+            }}
+          />
+          <Chip size="small" variant="outlined" label={formatarLocalVisita(v)} />
+          {v.meta_visita?.gerente && (
+            <Chip size="small" variant="outlined" label={`Gerente: ${v.meta_visita.gerente}`} />
+          )}
+          {anterior && (
             <Chip
               size="small"
-              label={v.status}
-              sx={{
-                fontWeight: 700,
-                bgcolor: v.status === 'Finalizada' ? '#ECFDF5' : '#FFF7ED',
-                color: v.status === 'Finalizada' ? OK : ACCENT,
-              }}
+              variant="outlined"
+              label={`Anterior: ${fmtNota(anterior.nota)} (${fmtData(anterior.data_registro)})`}
             />
-            <Chip size="small" variant="outlined" label={formatarLocalVisita(v)} />
-            {v.meta_visita?.gerente && (
-              <Chip size="small" variant="outlined" label={`Gerente: ${v.meta_visita.gerente}`} />
-            )}
-            {anterior && (
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`Anterior: ${fmtNota(anterior.nota)} (${fmtData(anterior.data_registro)})`}
-              />
-            )}
-          </Box>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={exportandoPdf ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfIcon />}
-            disabled={exportandoPdf}
-            onClick={() => void exportarPdf()}
-            sx={{
-              bgcolor: FAIL,
-              fontWeight: 700,
-              '&:hover': { bgcolor: '#991B1B' },
-              flexShrink: 0,
-            }}
-          >
-            {exportandoPdf ? 'Gerando…' : 'Baixar PDF'}
-          </Button>
+          )}
         </Box>
       </Paper>
     </Box>
@@ -406,7 +510,9 @@ export default function RelatorioPage() {
       <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 2, border: `1px solid ${LINE}` }}>
         <SecaoTitulo>Desempenho por categoria</SecaoTitulo>
         {data.desempenho_categorias.map((c, i) => {
-          const pct = Number(c.percentual);
+          const pctRaw = c.percentual;
+          const temNota = pctRaw != null && pctRaw !== '' && Number.isFinite(Number(pctRaw));
+          const pct = temNota ? Number(pctRaw) : 0;
           const barColor = pct >= 80 ? OK : pct >= 60 ? ACCENT : NAVY_MID;
           return (
             <Box
@@ -426,32 +532,31 @@ export default function RelatorioPage() {
                 variant="caption"
                 sx={{
                   width: 130,
-                  textAlign: 'right',
                   flexShrink: 0,
-                  fontWeight: 500,
-                  color: SLATE,
-                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: NAVY,
+                  lineHeight: 1.25,
                 }}
               >
                 {c.categoria}
               </Typography>
-              <Box sx={{ flex: 1, height: 10, bgcolor: LINE, borderRadius: 5, overflow: 'hidden' }}>
-                <Box
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min(100, Math.max(0, pct))}
                   sx={{
-                    height: '100%',
-                    width: `${pct}%`,
-                    minWidth: pct > 0 ? 24 : 0,
-                    bgcolor: barColor,
-                    borderRadius: 5,
-                    transition: 'width 0.4s ease',
+                    height: 8,
+                    borderRadius: 4,
+                    bgcolor: '#E2E8F0',
+                    '& .MuiLinearProgress-bar': { bgcolor: barColor, borderRadius: 4 },
                   }}
                 />
               </Box>
               <Typography
                 variant="caption"
-                sx={{ fontWeight: 800, color: barColor, width: 36, flexShrink: 0, fontSize: '0.8rem' }}
+                sx={{ width: 44, textAlign: 'right', fontWeight: 700, color: barColor }}
               >
-                {c.percentual}%
+                {pct}%
               </Typography>
             </Box>
           );
@@ -517,6 +622,25 @@ export default function RelatorioPage() {
     <Box sx={{ maxWidth: 900, mx: 'auto' }}>
       {cabecalhoRelatorio}
       {corpoRelatorio}
+      <Dialog open={dlgReabrir} onClose={() => !reabrindo && setDlgReabrir(false)} fullWidth maxWidth="xs">
+        <DialogTitleWithIcon plainIcon icon={<LockOpenIcon />}>
+          Reabrir visita
+        </DialogTitleWithIcon>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            A visita voltará para rascunho e poderá ser editada. NCs geradas na finalização serão removidas.
+            Esta ação será registrada na auditoria.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDlgReabrir(false)} disabled={reabrindo}>
+            Cancelar
+          </Button>
+          <Button variant="contained" disabled={reabrindo} onClick={() => void confirmarReabrir()}>
+            {reabrindo ? 'Reabrindo…' : 'Reabrir'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
@@ -531,7 +655,7 @@ function RespostaRelatorio({
   mobileApp: boolean;
 }) {
   const [urls, setUrls] = useState<string[]>([]);
-  const st = corResposta(r.resposta);
+  const st = corResposta(r.resposta, r);
 
   useEffect(() => {
     let cancelado = false;
