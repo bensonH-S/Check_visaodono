@@ -1,6 +1,6 @@
 /**
  * Parse do Excel de Vendas exportado do BK Office (relatório CMV).
- * Aceita variações de cabeçalho comuns no export.
+ * Formato esperado: Relatório "Restaurante e Produto Venda" / "Produto Venda".
  */
 import * as XLSX from 'xlsx';
 
@@ -18,7 +18,6 @@ function parseNumeroBR(v) {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
   let s = String(v).trim();
   if (!s) return null;
-  // 22.545,39 ou 22545.39
   if (s.includes(',') && s.includes('.')) {
     s = s.replace(/\./g, '').replace(',', '.');
   } else if (s.includes(',')) {
@@ -43,7 +42,6 @@ function excelDateToISO(v) {
     }
   }
   const s = String(v).trim();
-  // dd/mm/yyyy
   const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
   if (m) {
     return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
@@ -57,52 +55,46 @@ function mapColunas(headers) {
   headers.forEach((h, i) => {
     const n = normHeader(h);
     if (!n) return;
-    if (
-      n.includes('codigo') ||
-      n === 'venda' ||
-      n === 'cod' ||
-      n === 'cod produto' ||
-      n === 'produto venda'
-    ) {
-      if (idx.codigo == null && !n.includes('restaurante') && !n.includes('liquida')) {
-        idx.codigo = i;
-      }
+
+    if (n === 'produto venda' || n === 'sku' || n === 'cod produto') {
+      idx.codigo = i;
+      return;
     }
-    if (n.includes('descricao') || n === 'produto' || n.includes('descric')) {
-      if (idx.descricao == null) idx.descricao = i;
+    if (n === 'bk number' || n === 'bknumber' || n === 'bk') {
+      idx.bk_number = i;
+      return;
     }
-    if (n === 'qtde' || n === 'qtd' || n.includes('quantidade') || n === 'qty') {
-      if (idx.qtde == null) idx.qtde = i;
+    if (n === 'quantidade' || n === 'qtde' || n === 'qtd' || n === 'qty') {
+      idx.qtde = i;
+      return;
     }
-    if (n.includes('venda l') || n.includes('liquida') || n === 'venda liquida') {
-      if (idx.venda_liquida == null) idx.venda_liquida = i;
+    if (n.includes('venda l') || n === 'venda liquida' || n === 'liquida') {
+      idx.venda_liquida = i;
+      return;
     }
-    if (n.includes('data') || n === 'dia' || n.includes('periodo')) {
+    if (n === 'descricao' || n.includes('descric')) {
+      idx.descricao = i;
+      return;
+    }
+    if (n === 'restaurante' || n === 'loja') {
+      idx.restaurante = i;
+      return;
+    }
+    if (n.includes('data') || n === 'dia') {
       if (idx.data == null) idx.data = i;
+      return;
     }
-    if (n.includes('restaurante') || n.includes('loja') || n.includes('plk')) {
-      if (idx.restaurante == null) idx.restaurante = i;
+    // fallback genérico (por último)
+    if ((n === 'codigo' || n === 'cod') && idx.codigo == null) {
+      idx.codigo = i;
     }
   });
   return idx;
 }
 
 /**
- * Detecta código + descrição em células misturadas (ex.: "1050 WHOPPER/Q").
- */
-function splitCodigoDescricao(raw) {
-  const s = String(raw || '').trim();
-  if (!s) return { codigo: null, descricao: '' };
-  const m = s.match(/^(\d+)\s+(.+)$/);
-  if (m) return { codigo: m[1], descricao: m[2].trim() };
-  if (/^\d+$/.test(s)) return { codigo: s, descricao: '' };
-  return { codigo: s, descricao: s };
-}
-
-/**
  * @param {Buffer|ArrayBuffer|Uint8Array} buffer
- * @param {{ dataPadrao?: string|null }} opts
- * @returns {Array<{ data_venda: string|null, codigo: string, descricao: string, qtde: number, venda_liquida: number|null, restaurante?: string }>}
+ * @param {{ dataPadrao?: string|null, bkNumber?: string|null }} opts
  */
 export function parseVendasExcelBuffer(buffer, opts = {}) {
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
@@ -112,68 +104,48 @@ export function parseVendasExcelBuffer(buffer, opts = {}) {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true });
   if (!rows.length) return [];
 
-  // Encontra linha de cabeçalho
   let headerRow = 0;
   let colMap = {};
   for (let r = 0; r < Math.min(rows.length, 30); r++) {
     const map = mapColunas(rows[r]);
-    if (map.codigo != null && (map.qtde != null || map.descricao != null)) {
+    // Relatório de produto precisa de código + quantidade
+    if (map.codigo != null && map.qtde != null) {
       headerRow = r;
       colMap = map;
       break;
     }
   }
 
-  if (colMap.codigo == null) {
-    // Fallback: tenta layout típico BK (código | descrição | qtde ...)
-    colMap = { codigo: 0, descricao: 1, qtde: 3, venda_liquida: 6, data: null };
+  if (colMap.codigo == null || colMap.qtde == null) {
+    return [];
   }
 
+  const filtroBk = opts.bkNumber ? String(opts.bkNumber).trim() : null;
   const out = [];
+
   for (let r = headerRow + 1; r < rows.length; r++) {
     const row = rows[r];
     if (!row || !row.length) continue;
 
-    let codigo = String(row[colMap.codigo] ?? '').trim();
-    let descricao =
+    const codigo = String(row[colMap.codigo] ?? '').trim();
+    if (!codigo || !/^\d+$/.test(codigo)) continue;
+
+    const descricao =
       colMap.descricao != null ? String(row[colMap.descricao] ?? '').trim() : '';
-
-    // Linhas de total / agrupamento
-    if (!codigo) continue;
-    const low = codigo.toLowerCase();
-    if (low.includes('total') || low.includes('grupo alvim') || low.startsWith('1005196')) {
-      continue;
-    }
-
-    // Às vezes código e descrição vêm na mesma coluna
-    if (!descricao || /^\d+$/.test(codigo) === false) {
-      const split = splitCodigoDescricao(codigo);
-      if (split.codigo && /^\d+$/.test(split.codigo)) {
-        codigo = split.codigo;
-        if (!descricao) descricao = split.descricao;
-      }
-    }
-
-    // Se a coluna "codigo" na verdade é numérica e descrição está ao lado
-    if (/^\d+$/.test(codigo) && !descricao && colMap.descricao == null && row[1]) {
-      descricao = String(row[1]).trim();
-    }
-
-    const qtde = parseNumeroBR(colMap.qtde != null ? row[colMap.qtde] : row[3]);
+    const qtde = parseNumeroBR(row[colMap.qtde]);
     if (qtde == null || qtde <= 0) continue;
 
-    // Ignora linhas que parecem restaurante (código PLK longo no meio)
-    if (codigo.includes(' - ') && codigo.length > 20) continue;
+    const bk_number =
+      colMap.bk_number != null ? String(row[colMap.bk_number] ?? '').trim() : '';
+    if (filtroBk && bk_number && bk_number !== filtroBk) continue;
 
+    const restaurante =
+      colMap.restaurante != null ? String(row[colMap.restaurante] ?? '').trim() : '';
     const data_venda =
       excelDateToISO(colMap.data != null ? row[colMap.data] : null) || opts.dataPadrao || null;
-
     const venda_liquida = parseNumeroBR(
       colMap.venda_liquida != null ? row[colMap.venda_liquida] : null,
     );
-
-    const restaurante =
-      colMap.restaurante != null ? String(row[colMap.restaurante] || '').trim() : '';
 
     out.push({
       data_venda,
@@ -181,6 +153,7 @@ export function parseVendasExcelBuffer(buffer, opts = {}) {
       descricao,
       qtde,
       venda_liquida,
+      bk_number: bk_number || undefined,
       restaurante: restaurante || undefined,
     });
   }
