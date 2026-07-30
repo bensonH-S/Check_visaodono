@@ -42,11 +42,20 @@ import {
   type Loja,
   type ProdutoEstoque,
 } from '../../api/client';
-import { getUsuario, podeConferenciaEstoque, podeExcluirEstoque, podeProdutosEstoque } from '../../lib/auth';
+import {
+  getUsuario,
+  podeConferenciaEstoque,
+  podeExcluirEstoque,
+  podeOperacionalEstoque,
+  podeProdutosEstoque,
+} from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { dialogFieldProps } from '../../utils/dialogForm';
+import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
+
+type AbaEstoque = 'conferencia' | 'produtos' | AbaOp;
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
@@ -185,12 +194,15 @@ export default function ControleEstoquePage() {
   const user = getUsuario();
   const podeProdutos = podeProdutosEstoque(user);
   const podeConferencia = podeConferenciaEstoque(user);
+  const podeOperacional = podeOperacionalEstoque(user);
   const podeEditarProdutos = podeProdutos;
   const podeEditarConferencia = podeConferencia;
   const podeExcluir = podeExcluirEstoque(user);
-  const [aba, setAba] = useState<'conferencia' | 'produtos'>(() =>
-    podeConferenciaEstoque(getUsuario()) ? 'conferencia' : 'produtos',
-  );
+  const [aba, setAba] = useState<AbaEstoque>(() => {
+    if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
+    if (podeProdutosEstoque(getUsuario())) return 'produtos';
+    return 'saldo';
+  });
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>(() => {
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
@@ -293,7 +305,7 @@ export default function ControleEstoquePage() {
     setLoading(true);
     try {
       const jobs: Promise<unknown>[] = [];
-      if (podeProdutos) jobs.push(carregarProdutos());
+      if (podeProdutos || podeOperacional) jobs.push(carregarProdutos());
       if (podeConferencia) jobs.push(carregarListaContagens());
       await Promise.all(jobs);
     } catch (e) {
@@ -301,7 +313,7 @@ export default function ControleEstoquePage() {
     } finally {
       setLoading(false);
     }
-  }, [idLoja, podeProdutos, podeConferencia, carregarProdutos, carregarListaContagens]);
+  }, [idLoja, podeProdutos, podeOperacional, podeConferencia, carregarProdutos, carregarListaContagens]);
 
   useEffect(() => {
     setVerDetalhe(false);
@@ -310,14 +322,22 @@ export default function ControleEstoquePage() {
   }, [idLoja]); // eslint-disable-line react-hooks/exhaustive-deps -- só ao trocar loja
 
   useEffect(() => {
-    if (!idLoja || !podeProdutos) return;
+    if (!idLoja || !(podeProdutos || podeOperacional)) return;
     void carregarProdutos();
-  }, [carregarProdutos, idLoja, podeProdutos]);
+  }, [carregarProdutos, idLoja, podeProdutos, podeOperacional]);
 
   useEffect(() => {
-    if (aba === 'conferencia' && !podeConferencia && podeProdutos) setAba('produtos');
-    if (aba === 'produtos' && !podeProdutos && podeConferencia) setAba('conferencia');
-  }, [aba, podeConferencia, podeProdutos]);
+    const abasOp: AbaOp[] = ['saldo', 'vendas', 'ficha', 'break'];
+    if (aba === 'conferencia' && !podeConferencia) {
+      setAba(podeProdutos ? 'produtos' : podeOperacional ? 'saldo' : 'conferencia');
+    }
+    if (aba === 'produtos' && !podeProdutos) {
+      setAba(podeConferencia ? 'conferencia' : podeOperacional ? 'saldo' : 'produtos');
+    }
+    if (abasOp.includes(aba as AbaOp) && !podeOperacional) {
+      setAba(podeConferencia ? 'conferencia' : 'produtos');
+    }
+  }, [aba, podeConferencia, podeProdutos, podeOperacional]);
 
   const iniciarSabado = async () => {
     if (!podeEditarConferencia || !idLoja) return;
@@ -500,11 +520,13 @@ export default function ControleEstoquePage() {
       >
         <Tabs
           value={idLoja ? aba : false}
-          onChange={(_e, v: 'conferencia' | 'produtos') => {
-            if (verDetalhe && v === 'produtos') return;
+          onChange={(_e, v: AbaEstoque) => {
+            if (verDetalhe && v !== 'conferencia') return;
             setAba(v);
           }}
-          sx={{ minHeight: 40, minWidth: 220 }}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ minHeight: 40, minWidth: 220, flex: 1 }}
         >
           {podeConferencia && (
             <Tab
@@ -522,6 +544,38 @@ export default function ControleEstoquePage() {
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
+          {podeOperacional && (
+            <Tab
+              value="saldo"
+              label="Saldo"
+              disabled={!idLoja || verDetalhe}
+              sx={{ minHeight: 40, textTransform: 'none' }}
+            />
+          )}
+          {podeOperacional && (
+            <Tab
+              value="vendas"
+              label="Vendas"
+              disabled={!idLoja || verDetalhe}
+              sx={{ minHeight: 40, textTransform: 'none' }}
+            />
+          )}
+          {podeOperacional && (
+            <Tab
+              value="ficha"
+              label="Ficha"
+              disabled={!idLoja || verDetalhe}
+              sx={{ minHeight: 40, textTransform: 'none' }}
+            />
+          )}
+          {podeOperacional && (
+            <Tab
+              value="break"
+              label="Break"
+              disabled={!idLoja || verDetalhe}
+              sx={{ minHeight: 40, textTransform: 'none' }}
+            />
+          )}
         </Tabs>
         {!verDetalhe && (
           <FormControl size="small" sx={{ minWidth: 260, maxWidth: 360, mb: 0.75 }}>
@@ -533,10 +587,12 @@ export default function ControleEstoquePage() {
               displayEmpty
               onChange={(e) => selecionarLoja(Number(e.target.value))}
               MenuProps={{
-                PaperProps: {
-                  sx: {
-                    maxHeight: 360,
-                    overflowY: 'auto',
+                slotProps: {
+                  paper: {
+                    sx: {
+                      maxHeight: 360,
+                      overflowY: 'auto',
+                    },
                   },
                 },
               }}
@@ -1124,6 +1180,12 @@ export default function ControleEstoquePage() {
                   </Paper>
                 </Box>
               )}
+
+              {podeOperacional &&
+                (aba === 'saldo' || aba === 'vendas' || aba === 'ficha' || aba === 'break') &&
+                typeof idLoja === 'number' && (
+                  <EstoqueOperacionalPanels aba={aba} idLoja={idLoja} produtos={produtos} />
+                )}
             </>
           )}
 

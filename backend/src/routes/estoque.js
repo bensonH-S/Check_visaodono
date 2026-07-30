@@ -3,12 +3,21 @@ import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
 import { usuarioPodeLoja } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
+import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
+import estoqueOperacional from './estoqueOperacional.js';
 
 const router = Router();
 
 const permProdutos = requirePermissao('estoque.produtos');
+const permProdutosOuOp = requirePermissao('estoque.produtos', 'estoque.operacional');
 const permConferencia = requirePermissao('estoque.conferencia');
-const verModulo = requirePermissao('estoque.produtos', 'estoque.conferencia');
+const verModulo = requirePermissao(
+  'estoque.produtos',
+  'estoque.conferencia',
+  'estoque.operacional',
+);
+
+router.use(estoqueOperacional);
 
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
@@ -65,8 +74,12 @@ async function criarContagemComItens(
   if (usarUltimo !== false) {
     await client.query(
       `INSERT INTO estoque_itens (id_contagem, id_produto, estoque_sistema, estoque_contado)
-       SELECT $1, p.id_produto, COALESCE(u.estoque, 0), NULL
+       SELECT $1, p.id_produto,
+              COALESCE(s.quantidade, u.estoque, 0),
+              NULL
        FROM produtos p
+       LEFT JOIN estoque_saldos s
+         ON s.id_produto = p.id_produto AND s.id_loja = p.id_loja
        LEFT JOIN (
          SELECT DISTINCT ON (i.id_produto)
            i.id_produto,
@@ -191,7 +204,7 @@ async function carregarContagem(id) {
 
 // ── Produtos (sempre por loja) ─────────────────────────────────────────────
 
-router.get('/produtos', permProdutos, async (req, res, next) => {
+router.get('/produtos', permProdutosOuOp, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
@@ -570,6 +583,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
 });
 
 router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) => {
+  const client = await pool.connect();
   try {
     const id = Number(req.params.id);
     const detalhe = await carregarContagem(id);
@@ -585,12 +599,17 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
       });
     }
 
-    await pool.query(
+    const idUsuario = req.user?.id_usuario || req.user?.sub || null;
+    await client.query('BEGIN');
+    await client.query(
       `UPDATE estoque_contagens
        SET status = 'finalizada', total_valor = $1, finalizado_em = NOW()
        WHERE id_contagem = $2`,
       [detalhe.total_valor, id],
     );
+    await ajustarSaldoPorContagem(client, id, idUsuario);
+    await client.query('COMMIT');
+
     await auditar(req, {
       modulo: 'estoque',
       acao: 'finalizar',
@@ -601,7 +620,10 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
 
     res.json(await carregarContagem(id));
   } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
     next(e);
+  } finally {
+    client.release();
   }
 });
 

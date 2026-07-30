@@ -74,6 +74,7 @@
     "migrate:freelancers-aprovar-regionais": "node scripts/run-sql.js migrations/083_freelancers_aprovar_regionais.sql",
     "migrate:estoque": "node scripts/run-sql.js migrations/084_controle_estoque.sql",
     "migrate:estoque-por-loja": "node scripts/run-sql.js migrations/085_estoque_produtos_por_loja.sql",
+    "migrate:estoque-motor": "node scripts/run-sql.js migrations/088_estoque_motor_operacional.sql",
     "seed:metas-junho": "node scripts/seed-metas-junho-2026.mjs",
     "migrate:push": "node scripts/run-sql.js migrations/032_push_subscriptions.sql",
     "generate:vapid": "node scripts/generate-vapid.js",

@@ -393,6 +393,14 @@ app.listen(PORT, async () => {
       './backend/src/services/timeCampoNotificacoes.js'
     );
     iniciarMonitorTimeCampoNotificacoes();
+    try {
+      const { iniciarSchedulerBkOffice } = await import(
+        './backend/src/services/bkoffice/syncVendas.js'
+      );
+      iniciarSchedulerBkOffice();
+    } catch (e) {
+      logger.warn('server', 'Scheduler BK Office não iniciado', { error: e.message });
+    }
     if (!isProd) {
       try {
         const { ensureAuthUsersSeNecessario } = await import('./backend/src/seedAuth.js');

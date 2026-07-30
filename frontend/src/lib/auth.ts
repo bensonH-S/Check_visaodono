@@ -451,8 +451,16 @@ export function podeConferenciaEstoque(usuario?: UsuarioSessao | null): boolean 
   return temPermissao('estoque.conferencia', usuario);
 }
 
+export function podeOperacionalEstoque(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('estoque.operacional', usuario);
+}
+
 export function podeVerEstoque(usuario?: UsuarioSessao | null): boolean {
-  return podeProdutosEstoque(usuario) || podeConferenciaEstoque(usuario);
+  return (
+    podeProdutosEstoque(usuario) ||
+    podeConferenciaEstoque(usuario) ||
+    podeOperacionalEstoque(usuario)
+  );
 }
 
 /** Excluir conferência — administrador, diretor ou CEO com permissão de conferência. */

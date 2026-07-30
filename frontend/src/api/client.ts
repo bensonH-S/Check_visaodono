@@ -716,6 +716,95 @@ export const api = {
     request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}/finalizar`, { method: 'POST' }),
   estoqueExcluirContagem: (id: number) =>
     request<void>(`/estoque/contagens/${id}`, { method: 'DELETE' }),
+
+  estoqueSaldos: (idLoja: number, q?: string) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (q) params.set('q', q);
+    return request<EstoqueSaldoItem[]>(`/estoque/saldos?${params}`);
+  },
+  estoqueMovimentos: (idLoja: number, opts?: { tipo?: string; limit?: number }) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.tipo) params.set('tipo', opts.tipo);
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    return request<EstoqueMovimento[]>(`/estoque/movimentos?${params}`);
+  },
+  estoqueProdutosVenda: (opts?: { q?: string; sem_ficha?: boolean }) => {
+    const params = new URLSearchParams();
+    if (opts?.q) params.set('q', opts.q);
+    if (opts?.sem_ficha) params.set('sem_ficha', '1');
+    const qs = params.toString();
+    return request<ProdutoVendaEstoque[]>(`/estoque/produtos-venda${qs ? `?${qs}` : ''}`);
+  },
+  estoqueFichas: () => request<FichaTecnicaResumo[]>('/estoque/fichas'),
+  estoqueFicha: (id: number) => request<FichaTecnicaDetalhe>(`/estoque/fichas/${id}`),
+  estoqueSalvarFicha: (body: {
+    codigo: string;
+    descricao?: string;
+    observacao?: string;
+    itens: Array<{ codigo_insumo: string; quantidade: number; observacao?: string }>;
+  }) =>
+    request<FichaTecnicaDetalhe>('/estoque/fichas', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueDesativarFicha: (id: number) =>
+    request<void>(`/estoque/fichas/${id}`, { method: 'DELETE' }),
+  estoqueVendas: (idLoja: number) =>
+    request<EstoqueVendaResumo[]>(`/estoque/vendas?id_loja=${idLoja}`),
+  estoqueVenda: (id: number) => request<EstoqueVendaDetalhe>(`/estoque/vendas/${id}`),
+  estoqueVendasSemFicha: (idLoja?: number) => {
+    const qs = idLoja ? `?id_loja=${idLoja}` : '';
+    return request<EstoqueVendaSemFicha[]>(`/estoque/vendas/sem-ficha${qs}`);
+  },
+  estoqueProcessarVenda: (id: number) =>
+    request<{ id_venda: number; status: string; processados: number; sem_ficha: number }>(
+      `/estoque/vendas/${id}/processar`,
+      { method: 'POST' },
+    ),
+  estoqueImportarVendasExcel: async (formData: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/estoque/vendas/import`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao importar Excel');
+    }
+    return res.json() as Promise<{ linhas: number; dias: number; resultados: unknown[] }>;
+  },
+  estoqueSyncStatus: () => request<EstoqueSyncStatus>('/estoque/sync/status'),
+  estoqueSyncVendas: (body: {
+    id_loja: number;
+    data_inicio: string;
+    data_fim: string;
+    termo_loja?: string;
+    processar?: boolean;
+  }) =>
+    request<EstoqueSyncResult>('/estoque/sync/vendas', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueBreaks: (idLoja: number) =>
+    request<EstoqueBreakResumo[]>(`/estoque/break?id_loja=${idLoja}`),
+  estoqueLancarBreak: (body: {
+    id_loja: number;
+    data_break?: string;
+    tipo?: string;
+    motivo?: string;
+    itens: Array<{
+      id_produto?: number;
+      codigo_insumo?: string;
+      codigo_venda?: string;
+      quantidade: number;
+      descricao?: string;
+    }>;
+  }) =>
+    request<{ break: EstoqueBreakResumo; baixas: unknown[]; erros: string[] }>('/estoque/break', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 export interface Loja {
@@ -1657,6 +1746,135 @@ export interface EstoqueContagemDetalhe extends EstoqueContagemResumo {
 export interface EstoqueResumo {
   produtos: { total: number; ativos: number };
   contagens: { total: number; abertas: number; finalizadas: number };
+}
+
+export interface EstoqueSaldoItem {
+  id_produto: number;
+  codigo: string;
+  descricao: string;
+  unidade_contagem: string;
+  valor_unidade: number;
+  quantidade: number;
+  valor_total: number;
+  atualizado_em?: string | null;
+}
+
+export interface EstoqueMovimento {
+  id_movimento: number;
+  id_loja: number;
+  id_produto: number;
+  codigo: string;
+  descricao: string;
+  tipo: string;
+  quantidade: number;
+  saldo_apos: number | null;
+  referencia_tipo?: string | null;
+  referencia_id?: number | null;
+  observacao?: string | null;
+  criado_por_nome?: string | null;
+  criado_em: string;
+}
+
+export interface ProdutoVendaEstoque {
+  id_produto_venda: number;
+  codigo: string;
+  descricao: string;
+  ativo: boolean;
+  id_ficha?: number | null;
+  ficha_ativa?: boolean | null;
+  itens_ficha?: number;
+}
+
+export interface FichaTecnicaResumo {
+  id_ficha: number;
+  id_produto_venda: number;
+  codigo: string;
+  descricao: string;
+  ativo: boolean;
+  observacao?: string | null;
+  itens: number;
+}
+
+export interface FichaTecnicaDetalhe {
+  id_ficha: number;
+  id_produto_venda: number;
+  codigo: string;
+  descricao: string;
+  observacao?: string | null;
+  itens: Array<{
+    id_item?: number;
+    codigo_insumo: string;
+    quantidade: number;
+    observacao?: string | null;
+  }>;
+}
+
+export interface EstoqueVendaResumo {
+  id_venda: number;
+  id_loja: number;
+  data_venda: string;
+  origem: string;
+  status: string;
+  itens?: number;
+  processados?: number;
+  sem_ficha?: number;
+  arquivo_nome?: string | null;
+  criado_em?: string;
+  processado_em?: string | null;
+}
+
+export interface EstoqueVendaDetalhe extends Omit<EstoqueVendaResumo, 'itens'> {
+  itens: Array<{
+    id_item: number;
+    codigo: string;
+    descricao: string;
+    qtde: number;
+    venda_liquida: number | null;
+    processado: boolean;
+    sem_ficha: boolean;
+    erro?: string | null;
+  }>;
+}
+
+export interface EstoqueVendaSemFicha {
+  codigo: string;
+  descricao: string;
+  id_produto_venda?: number | null;
+  ocorrencias?: number;
+}
+
+export interface EstoqueSyncStatus {
+  configurado: boolean;
+  job_rodando: boolean;
+  ultimo: { id_job: number; status: string; mensagem: string; em: string } | null;
+  jobs: Array<{
+    id_job: number;
+    id_loja: number | null;
+    data_inicio: string | null;
+    data_fim: string | null;
+    status: string;
+    mensagem?: string | null;
+    criado_em: string;
+  }>;
+}
+
+export interface EstoqueSyncResult {
+  id_job: number;
+  arquivo: string;
+  linhas: number;
+  importResult: { dias: number; resultados: unknown[] };
+}
+
+export interface EstoqueBreakResumo {
+  id_break: number;
+  id_loja: number;
+  data_break: string;
+  tipo: string;
+  motivo?: string | null;
+  status: string;
+  itens?: number;
+  criado_por_nome?: string | null;
+  criado_em?: string;
 }
 
 export interface FrotaRegiaoVeiculo {
