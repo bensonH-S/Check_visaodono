@@ -736,7 +736,7 @@ function PainelFicha({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
                     ...dialogFieldProps.slotProps,
                     select: {
                       MenuProps: {
-                        PaperProps: { sx: { maxWidth: 560 } },
+                        slotProps: { paper: { sx: { maxWidth: 560 } } },
                       },
                     },
                   }}
