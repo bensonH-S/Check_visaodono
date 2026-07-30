@@ -183,29 +183,31 @@ export default function FiltroIntervaloDatasFrota({
           onClose={fechar}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
           transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          marginThreshold={8}
           slotProps={{
             paper: {
               sx: {
                 mt: 0.5,
                 borderRadius: 2,
-                overflow: 'hidden',
+                overflow: 'visible',
                 width: 320,
                 maxWidth: 'calc(100vw - 24px)',
               },
             },
           }}
         >
-          <Box sx={{ pb: 1, pt: 0 }}>
+          <Box sx={{ pb: 1.25, pt: 0 }}>
             <DateCalendar
               value={fimDayjs ?? inicioDayjs}
               onChange={selecionarDia}
               maxDate={dayjs()}
+              reduceAnimations
               sx={{
                 width: '100%',
                 maxWidth: 320,
                 mx: 0,
                 my: 0,
-                height: 'auto',
+                height: 'auto !important',
                 maxHeight: 'none',
                 '& .MuiPickersCalendarHeader-root': {
                   pl: 1.5,
@@ -224,14 +226,35 @@ export default function FiltroIntervaloDatasFrota({
                   justifyContent: 'space-around',
                   margin: 0,
                 },
+                /* Altura estável: sem slide absoluto (evita flash da 6ª semana) */
                 '& .MuiDayCalendar-monthContainer': {
-                  paddingBottom: 0,
+                  minHeight: 'unset !important',
+                  height: 'auto !important',
+                  position: 'relative !important',
+                  overflow: 'visible !important',
                 },
                 '& .MuiPickersSlideTransition-root': {
-                  minHeight: 0,
+                  minHeight: 'unset !important',
+                  height: 'auto !important',
+                  overflow: 'visible !important',
+                  transition: 'none !important',
                 },
                 '& .MuiDateCalendar-viewTransitionContainer': {
-                  minHeight: 0,
+                  minHeight: 'unset !important',
+                  height: 'auto !important',
+                  overflow: 'visible !important',
+                  transition: 'none !important',
+                },
+                '& .MuiDayCalendar-slideTransition': {
+                  minHeight: 'unset !important',
+                  height: 'auto !important',
+                  overflow: 'visible !important',
+                  transition: 'none !important',
+                },
+                '& .MuiDayCalendar-slideTransition > *': {
+                  position: 'relative !important',
+                  transform: 'none !important',
+                  transition: 'none !important',
                 },
                 '& .MuiPickersDay-root': {
                   margin: 0,
@@ -241,11 +264,12 @@ export default function FiltroIntervaloDatasFrota({
             <Box
               sx={{
                 px: 2,
-                mt: -0.75,
-                mb: 0,
+                mt: 1,
+                mb: 0.25,
                 fontSize: '0.75rem',
                 color: 'text.secondary',
                 lineHeight: 1.35,
+                textAlign: 'center',
               }}
             >
               {dataInicio && !dataFim

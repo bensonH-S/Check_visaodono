@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -56,6 +57,18 @@ import { dialogFieldProps } from '../../utils/dialogForm';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
 
 type AbaEstoque = 'conferencia' | 'produtos' | AbaOp;
+
+const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'produtos', 'saldo', 'vendas', 'ficha', 'break'];
+
+function isAbaEstoque(v: string | undefined): v is AbaEstoque {
+  return !!v && (ABAS_ESTOQUE as string[]).includes(v);
+}
+
+function abaInicialPermitida(): AbaEstoque {
+  if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
+  if (podeProdutosEstoque(getUsuario())) return 'produtos';
+  return 'saldo';
+}
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
@@ -191,6 +204,8 @@ function aplicarContagem(
 }
 
 export default function ControleEstoquePage() {
+  const navigate = useNavigate();
+  const { aba: abaParam } = useParams<{ aba: string }>();
   const user = getUsuario();
   const podeProdutos = podeProdutosEstoque(user);
   const podeConferencia = podeConferenciaEstoque(user);
@@ -198,11 +213,17 @@ export default function ControleEstoquePage() {
   const podeEditarProdutos = podeProdutos;
   const podeEditarConferencia = podeConferencia;
   const podeExcluir = podeExcluirEstoque(user);
-  const [aba, setAba] = useState<AbaEstoque>(() => {
-    if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
-    if (podeProdutosEstoque(getUsuario())) return 'produtos';
-    return 'saldo';
-  });
+
+  const aba: AbaEstoque = isAbaEstoque(abaParam) ? abaParam : abaInicialPermitida();
+
+  const irParaAba = useCallback(
+    (proxima: AbaEstoque) => {
+      if (proxima === aba) return;
+      navigate(`/estoque/${proxima}`);
+    },
+    [aba, navigate],
+  );
+
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>(() => {
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
@@ -327,17 +348,23 @@ export default function ControleEstoquePage() {
   }, [carregarProdutos, idLoja, podeProdutos, podeOperacional]);
 
   useEffect(() => {
+    if (!isAbaEstoque(abaParam)) {
+      navigate(`/estoque/${abaInicialPermitida()}`, { replace: true });
+      return;
+    }
     const abasOp: AbaOp[] = ['saldo', 'vendas', 'ficha', 'break'];
+    let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
-      setAba(podeProdutos ? 'produtos' : podeOperacional ? 'saldo' : 'conferencia');
+      destino = podeProdutos ? 'produtos' : podeOperacional ? 'saldo' : 'conferencia';
+    } else if (aba === 'produtos' && !podeProdutos) {
+      destino = podeConferencia ? 'conferencia' : podeOperacional ? 'saldo' : 'produtos';
+    } else if (abasOp.includes(aba as AbaOp) && !podeOperacional) {
+      destino = podeConferencia ? 'conferencia' : 'produtos';
     }
-    if (aba === 'produtos' && !podeProdutos) {
-      setAba(podeConferencia ? 'conferencia' : podeOperacional ? 'saldo' : 'produtos');
+    if (destino && destino !== aba) {
+      navigate(`/estoque/${destino}`, { replace: true });
     }
-    if (abasOp.includes(aba as AbaOp) && !podeOperacional) {
-      setAba(podeConferencia ? 'conferencia' : 'produtos');
-    }
-  }, [aba, podeConferencia, podeProdutos, podeOperacional]);
+  }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional]);
 
   const iniciarSabado = async () => {
     if (!podeEditarConferencia || !idLoja) return;
@@ -348,7 +375,7 @@ export default function ControleEstoquePage() {
       aplicarContagem(det, setContagem, setRascunhoItens);
       setVerDetalhe(true);
       showToast(det.meta?.iniciada_agora ? 'Conferência iniciada' : 'Conferência aberta');
-      setAba('conferencia');
+      irParaAba('conferencia');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao iniciar conferência', 'error');
     } finally {
@@ -522,7 +549,7 @@ export default function ControleEstoquePage() {
           value={idLoja ? aba : false}
           onChange={(_e, v: AbaEstoque) => {
             if (verDetalhe && v !== 'conferencia') return;
-            setAba(v);
+            irParaAba(v);
           }}
           variant="scrollable"
           scrollButtons="auto"

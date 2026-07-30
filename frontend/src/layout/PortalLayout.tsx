@@ -125,7 +125,7 @@ export default function PortalLayout() {
     },
     { to: '/escalas/visitas', label: 'Escala visitas', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), end: true, mobileTab: true },
     { to: '/metas', label: 'Metas', icon: <TrackChangesIcon fontSize="small" />, show: podeVerMetas(user), end: true },
-    { to: '/estoque', label: 'Controle Estoque', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), end: true },
+    { to: '/estoque', label: 'Controle Estoque', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user) },
     { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, mobileTab: true },
     { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user) },
     {

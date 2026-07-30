@@ -341,8 +341,12 @@ export default function App() {
             />
             <Route
               path="estoque"
+              element={<Navigate to="/estoque/conferencia" replace />}
+            />
+            <Route
+              path="estoque/:aba"
               element={
-                <RotaPermissao permissoes={['estoque.produtos', 'estoque.conferencia']}>
+                <RotaPermissao permissoes={['estoque.produtos', 'estoque.conferencia', 'estoque.operacional']}>
                   <ControleEstoquePage />
                 </RotaPermissao>
               }
