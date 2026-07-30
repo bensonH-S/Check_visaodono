@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "sql": "node scripts/migrate-easy.js",
     "migrate": "node scripts/migrate.js",
     "migrate:full": "node scripts/migrate-full.js",
     "migrate:lojas": "node scripts/run-sql.js migrations/003_lojas_reais.sql",
