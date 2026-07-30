@@ -716,6 +716,8 @@ export const api = {
     }),
   estoqueFinalizarContagem: (id: number) =>
     request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}/finalizar`, { method: 'POST' }),
+  estoqueReabrirContagem: (id: number) =>
+    request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}/reabrir`, { method: 'PATCH' }),
   estoqueExcluirContagem: (id: number) =>
     request<void>(`/estoque/contagens/${id}`, { method: 'DELETE' }),
 

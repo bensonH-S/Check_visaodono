@@ -49,12 +49,16 @@ import {
   podeExcluirEstoque,
   podeOperacionalEstoque,
   podeProdutosEstoque,
+  podeReabrirContagemEstoque,
 } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { dialogFieldProps } from '../../utils/dialogForm';
+import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
+import Tooltip from '@mui/material/Tooltip';
 
 type AbaEstoque = 'conferencia' | 'produtos' | AbaOp;
 
@@ -213,6 +217,7 @@ export default function ControleEstoquePage() {
   const podeEditarProdutos = podeProdutos;
   const podeEditarConferencia = podeConferencia;
   const podeExcluir = podeExcluirEstoque(user);
+  const podeReabrir = podeReabrirContagemEstoque(user);
 
   const aba: AbaEstoque = isAbaEstoque(abaParam) ? abaParam : abaInicialPermitida();
 
@@ -248,6 +253,8 @@ export default function ControleEstoquePage() {
   const [salvandoItens, setSalvandoItens] = useState(false);
   const [dlgExcluir, setDlgExcluir] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [dlgReabrir, setDlgReabrir] = useState(false);
+  const [reabrindo, setReabrindo] = useState(false);
 
   const lojaAtual = useMemo(
     () => lojas.find((l) => l.id_loja === idLoja) || null,
@@ -466,6 +473,22 @@ export default function ControleEstoquePage() {
       setVerDetalhe(false);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao finalizar', 'error');
+    }
+  };
+
+  const confirmarReabrir = async () => {
+    if (!contagem?.id_contagem) return;
+    setReabrindo(true);
+    try {
+      const det = await api.estoqueReabrirContagem(contagem.id_contagem);
+      aplicarContagem(det, setContagem, setRascunhoItens);
+      await carregarListaContagens();
+      setDlgReabrir(false);
+      showToast('Conferência reaberta para edição', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível reabrir a conferência', 'error');
+    } finally {
+      setReabrindo(false);
     }
   };
 
@@ -890,6 +913,25 @@ export default function ControleEstoquePage() {
                               }
                             />
                           )}
+                          {podeReabrir && contagem?.status === 'finalizada' && (
+                            <Tooltip title="Reabrir">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  aria-label="Reabrir conferência"
+                                  disabled={reabrindo}
+                                  onClick={() => setDlgReabrir(true)}
+                                  sx={{ color: colors.navy }}
+                                >
+                                  {reabrindo ? (
+                                    <CircularProgress size={18} />
+                                  ) : (
+                                    <LockOpenIcon fontSize="small" />
+                                  )}
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          )}
                           <IconButton
                             onClick={() =>
                               contagem?.id_contagem
@@ -1086,16 +1128,31 @@ export default function ControleEstoquePage() {
                           </Button>
                         </Box>
                       )}
-                      {!editavel && podeExcluir && contagem?.id_contagem && (
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                          <Button
-                            color="error"
-                            startIcon={<DeleteOutlineIcon />}
-                            onClick={() => setDlgExcluir(true)}
-                            disabled={excluindo}
-                          >
-                            Excluir conferência
-                          </Button>
+                      {!editavel && contagem?.id_contagem && (
+                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          {podeReabrir && contagem.status === 'finalizada' && (
+                            <Button
+                              variant="outlined"
+                              startIcon={
+                                reabrindo ? <CircularProgress size={16} /> : <LockOpenIcon />
+                              }
+                              disabled={reabrindo}
+                              onClick={() => setDlgReabrir(true)}
+                              sx={{ fontWeight: 700 }}
+                            >
+                              Reabrir
+                            </Button>
+                          )}
+                          {podeExcluir && (
+                            <Button
+                              color="error"
+                              startIcon={<DeleteOutlineIcon />}
+                              onClick={() => setDlgExcluir(true)}
+                              disabled={excluindo}
+                            >
+                              Excluir conferência
+                            </Button>
+                          )}
                         </Box>
                       )}
                     </>
@@ -1326,6 +1383,33 @@ export default function ControleEstoquePage() {
             onClick={() => void excluirContagem()}
           >
             Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={dlgReabrir}
+        onClose={() => !reabrindo && setDlgReabrir(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitleWithIcon plainIcon icon={<LockOpenIcon />}>
+          Reabrir conferência
+        </DialogTitleWithIcon>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            A conferência{' '}
+            <strong>{contagem?.titulo || `#${contagem?.id_contagem}`}</strong> voltará para aberta e
+            poderá ser editada. Ao finalizar de novo, o saldo será recalculado. Esta ação será
+            registrada na auditoria.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDlgReabrir(false)} disabled={reabrindo}>
+            Cancelar
+          </Button>
+          <Button variant="contained" disabled={reabrindo} onClick={() => void confirmarReabrir()}>
+            {reabrindo ? 'Reabrindo…' : 'Reabrir'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -11,6 +11,7 @@ const router = Router();
 const permProdutos = requirePermissao('estoque.produtos');
 const permProdutosOuOp = requirePermissao('estoque.produtos', 'estoque.operacional');
 const permConferencia = requirePermissao('estoque.conferencia');
+const permReabrirContagem = requirePermissao('estoque.conferencia.reabrir');
 const verModulo = requirePermissao(
   'estoque.produtos',
   'estoque.conferencia',
@@ -624,6 +625,58 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
     next(e);
   } finally {
     client.release();
+  }
+});
+
+/**
+ * Reabre conferência finalizada para edição — permissão estoque.conferencia.reabrir.
+ * Não reverte saldos já ajustados; ao finalizar de novo o motor recalcula o delta.
+ */
+router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const { rows } = await pool.query(
+      'SELECT id_contagem, id_loja, status, titulo FROM estoque_contagens WHERE id_contagem = $1',
+      [id],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Contagem não encontrada' });
+    const cont = rows[0];
+    const bloqueio = acessoLoja(req, cont.id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    if (cont.status !== 'finalizada') {
+      return res.status(400).json({ error: 'Só é possível reabrir contagem finalizada' });
+    }
+
+    const { rows: outrasAbertas } = await pool.query(
+      `SELECT id_contagem FROM estoque_contagens
+       WHERE id_loja = $1 AND status = 'aberta' AND id_contagem <> $2
+       LIMIT 1`,
+      [cont.id_loja, id],
+    );
+    if (outrasAbertas.length) {
+      return res.status(400).json({
+        error: `Já existe conferência aberta (#${outrasAbertas[0].id_contagem}). Finalize ou exclua antes de reabrir esta.`,
+      });
+    }
+
+    await pool.query(
+      `UPDATE estoque_contagens
+       SET status = 'aberta', finalizado_em = NULL
+       WHERE id_contagem = $1`,
+      [id],
+    );
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'reabrir',
+      entidade: 'estoque_contagem',
+      idReferencia: id,
+      descricao: `Contagem #${id} reaberta (${cont.titulo || 'sem título'})`,
+    });
+
+    res.json(await carregarContagem(id));
+  } catch (e) {
+    next(e);
   }
 });
 

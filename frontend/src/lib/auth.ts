@@ -456,6 +456,11 @@ export function podeConferenciaEstoque(usuario?: UsuarioSessao | null): boolean 
   return temPermissao('estoque.conferencia', usuario);
 }
 
+/** Reabrir conferência finalizada — permissão estoque.conferencia.reabrir. */
+export function podeReabrirContagemEstoque(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('estoque.conferencia.reabrir', usuario);
+}
+
 export function podeOperacionalEstoque(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('estoque.operacional', usuario);
 }
