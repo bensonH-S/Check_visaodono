@@ -507,6 +507,22 @@
   min-height: 0;
   max-height: 100%;
   flex: 1 1 auto;
+  overflow: hidden;
+}
+
+/* Header (stage) fixo; rolagem só no sheet abaixo */
+.ck-start--fixed > .ck-start__stage {
+  flex-shrink: 0;
+}
+
+.ck-start--fixed > .ck-start__sheet--fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
 }
 
 .ck-start__scroll {
@@ -614,6 +630,12 @@
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 0.96;
+}
+
+.ck-start__title--oneline {
+  white-space: nowrap;
+  font-size: clamp(1.75rem, 7.5vw, 2.6rem);
+  line-height: 1.05;
 }
 
 .ck-start__sub {

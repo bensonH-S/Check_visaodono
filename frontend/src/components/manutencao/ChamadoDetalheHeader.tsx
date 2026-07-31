@@ -267,6 +267,8 @@ type Props = {
   detalhe: ManutChamadoDetalhe;
   variante?: 'desktop' | 'mobile';
   ocultarSla?: boolean;
+  /** Stage já mostra número/título — omite a faixa duplicada no mobile. */
+  ocultarCabecalhoTitulo?: boolean;
   chipsExtras?: ReactNode;
   onVoltar?: () => void;
   voltarLabel?: string;
@@ -280,6 +282,7 @@ export default function ChamadoDetalheHeader({
   detalhe,
   variante = 'desktop',
   ocultarSla,
+  ocultarCabecalhoTitulo = false,
   chipsExtras,
   onVoltar,
   voltarLabel = 'Voltar aos chamados',
@@ -471,6 +474,7 @@ export default function ChamadoDetalheHeader({
         <Box sx={{ p: isMobile ? 1.25 : { xs: 2, md: 2.5 } }}>
           {isMobile ? (
             <>
+              {!ocultarCabecalhoTitulo && (
               <Box
                 sx={{
                   display: 'flex',
@@ -532,6 +536,7 @@ export default function ChamadoDetalheHeader({
                   {detalhe.titulo}
                 </Typography>
               </Box>
+              )}
 
               {detalhe.descricao && (
                 <Typography

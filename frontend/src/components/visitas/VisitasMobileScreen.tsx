@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import { assetUrl } from '../../config/paths';
 import { fmtData, fmtNota } from '../../api/client';
 import type { VisitaResumo } from '../../api/client';
+import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import './visitas-mobile.css';
 
 type Filtro = '' | 'Rascunho' | 'Finalizada';
@@ -55,19 +55,9 @@ export default function VisitasMobileScreen({
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
             <div>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title">
-                Suas
-                <br />
-                visitas
-              </h1>
+              <h1 className="ck-visitas__title ck-visitas__title--oneline">Suas visitas</h1>
             </div>
-            <img
-              src={assetUrl('Logo_Icon-clear.png')}
-              alt=""
-              className="ck-visitas__mark-icon"
-              width={56}
-              height={56}
-            />
+            <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
           </div>
 
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">

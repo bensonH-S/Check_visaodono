@@ -102,6 +102,10 @@ const cargosRouter = (await import('./backend/src/routes/cargos.js')).default;
 const pushRouter = (await import('./backend/src/routes/push.js')).default;
 const { initPushNotifications, getVapidPublicKey, obterSaudeVapidPublica } = await import('./backend/src/pushNotifications.js');
 const { gpsTecnicosConfigPublica } = await import('./backend/src/gpsTecnicos.js');
+const {
+  integrationsConfiguradasPublico,
+  obterIntegrationsStatus,
+} = await import('./backend/src/integrationsStatus.js');
 const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
 const frotaRouter = (await import('./backend/src/routes/frota.js')).default;
 const escalaVisitasRouter = (await import('./backend/src/routes/escalaVisitas.js')).default;
@@ -162,6 +166,7 @@ api.get('/public/config', (_req, res) => {
     pushEnabled: Boolean(getVapidPublicKey()),
     push: obterSaudeVapidPublica(),
     ...gpsTecnicosConfigPublica(),
+    ...integrationsConfiguradasPublico(),
   });
 });
 
@@ -206,6 +211,18 @@ api.use(authMiddleware);
 api.use(attachPermissoesUsuario);
 api.use(middlewareAuditoriaHttp);
 api.use(attachLojasUsuario);
+
+api.get('/integrations/status', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  try {
+    const contexto = String(req.query.contexto || '').trim() || undefined;
+    const data = await obterIntegrationsStatus({ contexto });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'Falha ao consultar status das APIs' });
+  }
+});
+
 api.use('/dashboard', dashboardRouter);
 api.use('/lojas', lojasRouter);
 api.use('/usuarios', usuariosRouter);

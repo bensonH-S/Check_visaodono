@@ -162,8 +162,7 @@ export default function FrotaAbastecimentoPage() {
   }
 
   const shellProps = {
-    titleLine1: 'Abaste',
-    titleLine2: 'cimento',
+    titleLine1: 'Abastecimento',
     sub: veiculo
       ? `${veiculo.placa} · registre KM, valor e foto da nota`
       : 'Registre combustível com nota fiscal',
@@ -199,7 +198,7 @@ export default function FrotaAbastecimentoPage() {
 
   return (
     <FrotaMobileShell {...shellProps}>
-      <Box component="form" onSubmit={salvar}>
+      <Box component="form" onSubmit={salvar} className="ck-frota__tabs-layout">
         <div className="ck-visitas__seg" role="tablist">
           <button
             type="button"
@@ -221,6 +220,7 @@ export default function FrotaAbastecimentoPage() {
           </button>
         </div>
 
+        <div className="ck-frota__tabs-body">
         {aba === 'novo' && (
           <>
             {!veiculo ? (
@@ -354,6 +354,7 @@ export default function FrotaAbastecimentoPage() {
             {erro}
           </Alert>
         )}
+        </div>
       </Box>
     </FrotaMobileShell>
   );

@@ -12,6 +12,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { colors } from '../../theme/tokens';
 import { periodoTrajetoCompleto } from '../../utils/mapaTrajetoPeriodo';
+import { datePickerPtBR } from '../../utils/datePickerLocale';
 
 dayjs.locale('pt-br');
 
@@ -78,7 +79,11 @@ export default function MapaFiltroTrajetoCalendario({
     : 'Toque na data inicial';
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+    <LocalizationProvider
+      dateAdapter={AdapterDayjs}
+      adapterLocale="pt-br"
+      localeText={datePickerPtBR}
+    >
       <Tooltip title={`Trajeto: ${rotuloPeriodo(dataInicio, dataFim)}`} arrow>
         <IconButton
           size="small"

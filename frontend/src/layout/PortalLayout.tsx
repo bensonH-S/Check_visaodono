@@ -186,7 +186,6 @@ export default function PortalLayout() {
           >
             <PageHeaderTitle {...pageTitle} variant="desktop" />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <SobreSistemaButton variante="portal" />
               {!isMobileLayout ? notificacoes : null}
             </Box>
           </Box>

@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { assetUrl } from '../../config/paths';
 import { api, fmtData, fmtNota, scoreColor } from '../../api/client';
 import type { NcItem } from '../../api/client';
+import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { agruparNcsPorVisita, parseNcDescricao } from '../../components/nc/ncPageUtils';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/nc/nc-mobile.css';
@@ -65,13 +65,7 @@ export default function NcMobileListaPage() {
                   conformidades
                 </h1>
               </div>
-              <img
-                src={assetUrl('Logo_Icon-clear.png')}
-                alt=""
-                className="ck-visitas__mark-icon"
-                width={56}
-                height={56}
-              />
+              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
             </div>
 
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">

@@ -7,7 +7,7 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
-import LinearProgress from '@mui/material/LinearProgress';
+import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import List from '@mui/material/List';
@@ -27,6 +27,9 @@ import { urgenciaChip } from '../../utils/manutencaoUi';
 import { extensaoMidia } from '../../utils/mediaFile';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
+import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
+import '../../components/visitas/visitas-mobile.css';
+import '../../components/manutencao/chamados-mobile.css';
 
 const ROTA_LISTA = '/chamados/mobile';
 const CACHE_KEY = 'manut_formulario_mobile_v1';
@@ -395,197 +398,266 @@ export default function ChamadosMobileNovoPage() {
 
   if (loading && !form) {
     return (
-      <Box>
-        <LinearProgress />
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
-          Carregando...
-        </Typography>
-      </Box>
+      <div className="ck-visitas ck-chamados ck-chamados--page">
+        <div className="ck-visitas__loading" style={{ flex: 1 }}>
+          <CircularProgress size={28} sx={{ color: ORANGE }} />
+        </div>
+      </div>
     );
   }
 
   return (
-    <Box component="form" onSubmit={enviar} className="max-w-lg mx-auto w-full">
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Box
+    <div className="ck-visitas ck-chamados ck-chamados--page">
+      <div className="ck-visitas__stage">
+        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+        <div className="ck-visitas__mesh" aria-hidden />
+
+        <div className="ck-visitas__stage-inner">
+          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+            <div>
+              <p className="ck-visitas__mark-text">Grupo Alvim</p>
+              <h1 className="ck-visitas__title ck-chamados__title">Novo chamado</h1>
+            </div>
+            <div className="ck-chamados__hero-end">
+              <button
+                type="button"
+                className="ck-visitas__back"
+                aria-label="Voltar"
+                onClick={() => navigate(ROTA_LISTA)}
+              >
+                ←
+              </button>
+              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+            </div>
+          </div>
+
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+            Descreva o problema, anexe fotos e abra o chamado para a manutenção.
+          </p>
+        </div>
+      </div>
+
+      <Box
+        component="form"
+        onSubmit={enviar}
+        className="ck-visitas__sheet ck-chamados__sheet--fill ck-visitas__anim ck-visitas__anim--4"
+        sx={{ display: 'flex', flexDirection: 'column', gap: 0, pb: '8px !important' }}
+      >
+        <Paper
+          elevation={0}
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1,
-            minWidth: 0,
-            minHeight: 24,
+            p: 1.75,
+            mb: 1.5,
+            borderRadius: 3,
+            border: '1px solid rgba(27, 42, 107, 0.1)',
+            boxShadow: '0 1px 0 rgba(20, 32, 72, 0.04)',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
-            <PersonOutlineOutlinedIcon
-              sx={{
-                fontSize: 20,
-                color: NAVY,
-                opacity: 0.75,
-                flexShrink: 0,
-                display: 'block',
-              }}
-            />
-            <Typography
-              component="div"
-              variant="body2"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                minWidth: 0,
-                lineHeight: 1.25,
-              }}
-            >
-              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
-                Solicitante:
-              </Box>
-              <Box
-                component="span"
-                sx={{
-                  color: NAVY,
-                  fontWeight: 700,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {sessao?.nome}
-              </Box>
-            </Typography>
-          </Box>
-          {cat && <Box sx={{ flexShrink: 0 }}>{urgenciaChip(cat.urgencia_padrao)}</Box>}
-        </Box>
-
-        {lojasDisponiveis.length > 0 && (
-          <SeletorLojaNovoChamado
-            lojas={lojasDisponiveis}
-            idLoja={idLojaEfetivo ?? ''}
-            onSelecionar={selecionarLoja}
-          />
-        )}
-      </Paper>
-
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <IndicadorEtapasNovoChamado etapaAtiva={etapaAtiva} />
-
-        {form && form.categorias.length > 0 && (
-          <TextField
-            select
-            label="Categoria"
-            required
-            fullWidth
-            size="small"
-            value={idCategoria === '' ? '' : String(idCategoria)}
-            onChange={(e) => {
-              const v = e.target.value;
-              setIdCategoria(v === '' ? '' : Number(v));
-            }}
-            slotProps={{
-              inputLabel: { shrink: true },
-              select: {
-                ...selectMenuScrollProps,
-                displayEmpty: true,
-                renderValue: (selected: unknown) => {
-                  if (selected === '' || selected == null) {
-                    return (
-                      <Typography component="span" variant="body2" color="text.secondary">
-                        Selecione uma categoria
-                      </Typography>
-                    );
-                  }
-                  const categoria = form.categorias.find(
-                    (c) => String(c.id_categoria) === String(selected),
-                  );
-                  return categoria?.nome ?? '';
-                },
-              },
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              minWidth: 0,
+              minHeight: 24,
             }}
           >
-            <MenuItem value="">
-              <em>Selecione uma categoria</em>
-            </MenuItem>
-            {form.categorias.map((c) => (
-              <MenuItem key={c.id_categoria} value={String(c.id_categoria)}>
-                {c.nome}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
-
-        <TextField
-          label="Título"
-          required
-          {...campoFormularioProps}
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-        />
-
-        <TextField
-          label="Local do ocorrido"
-          {...campoFormularioProps}
-          value={local}
-          onChange={(e) => setLocal(e.target.value)}
-        />
-
-        <TextField
-          label="Descrição"
-          required
-          {...campoFormularioProps}
-          multiline
-          minRows={4}
-          value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          helperText={
-            descricao.trim().length > 0 && !descricaoValidaEnvio
-              ? `Mínimo 10 caracteres (${descricao.trim().length}/10)`
-              : 'Mínimo 10 caracteres'
-          }
-          error={descricao.trim().length > 0 && !descricaoValidaEnvio}
-          sx={{
-            ...campoFormularioProps.sx,
-            '& .MuiOutlinedInput-input': {
-              py: 1.25,
-            },
-          }}
-        />
-
-        {podeAnexarFotos && (
-          <Box ref={fotosRef} sx={{ pt: 0.5 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-              Fotos e vídeos do problema *
-            </Typography>
-            <PhotoCaptureMulti
-              fotos={fotos}
-              onChange={setFotos}
-              max={10}
-              disabled={salvando}
-              inlineActions
-              hideCaption
-              thumbColumns={4}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
+              <PersonOutlineOutlinedIcon
+                sx={{
+                  fontSize: 20,
+                  color: NAVY,
+                  opacity: 0.75,
+                  flexShrink: 0,
+                  display: 'block',
+                }}
+              />
+              <Typography
+                component="div"
+                variant="body2"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  minWidth: 0,
+                  lineHeight: 1.25,
+                }}
+              >
+                <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500, flexShrink: 0 }}>
+                  Solicitante:
+                </Box>
+                <Box
+                  component="span"
+                  sx={{
+                    color: NAVY,
+                    fontWeight: 700,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {sessao?.nome}
+                </Box>
+              </Typography>
+            </Box>
+            {cat && <Box sx={{ flexShrink: 0 }}>{urgenciaChip(cat.urgencia_padrao)}</Box>}
           </Box>
+
+          {lojasDisponiveis.length > 0 && (
+            <Box sx={{ mt: 1.5 }}>
+              <SeletorLojaNovoChamado
+                lojas={lojasDisponiveis}
+                idLoja={idLojaEfetivo ?? ''}
+                onSelecionar={selecionarLoja}
+              />
+            </Box>
+          )}
+        </Paper>
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: 1.75,
+            mb: 1.5,
+            borderRadius: 3,
+            border: '1px solid rgba(27, 42, 107, 0.1)',
+            boxShadow: '0 1px 0 rgba(20, 32, 72, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <IndicadorEtapasNovoChamado etapaAtiva={etapaAtiva} />
+
+          {form && form.categorias.length > 0 && (
+            <TextField
+              select
+              label="Categoria"
+              required
+              fullWidth
+              size="small"
+              value={idCategoria === '' ? '' : String(idCategoria)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setIdCategoria(v === '' ? '' : Number(v));
+              }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                select: {
+                  ...selectMenuScrollProps,
+                  displayEmpty: true,
+                  renderValue: (selected: unknown) => {
+                    if (selected === '' || selected == null) {
+                      return (
+                        <Typography component="span" variant="body2" color="text.secondary">
+                          Selecione uma categoria
+                        </Typography>
+                      );
+                    }
+                    const categoria = form.categorias.find(
+                      (c) => String(c.id_categoria) === String(selected),
+                    );
+                    return categoria?.nome ?? '';
+                  },
+                },
+              }}
+            >
+              <MenuItem value="">
+                <em>Selecione uma categoria</em>
+              </MenuItem>
+              {form.categorias.map((c) => (
+                <MenuItem key={c.id_categoria} value={String(c.id_categoria)}>
+                  {c.nome}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+
+          <TextField
+            label="Título"
+            required
+            {...campoFormularioProps}
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+          />
+
+          <TextField
+            label="Local do ocorrido"
+            {...campoFormularioProps}
+            value={local}
+            onChange={(e) => setLocal(e.target.value)}
+          />
+
+          <TextField
+            label="Descrição"
+            required
+            {...campoFormularioProps}
+            multiline
+            minRows={4}
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+            helperText={
+              descricao.trim().length > 0 && !descricaoValidaEnvio
+                ? `Mínimo 10 caracteres (${descricao.trim().length}/10)`
+                : 'Mínimo 10 caracteres'
+            }
+            error={descricao.trim().length > 0 && !descricaoValidaEnvio}
+            sx={{
+              ...campoFormularioProps.sx,
+              '& .MuiOutlinedInput-input': {
+                py: 1.25,
+              },
+            }}
+          />
+
+          {podeAnexarFotos && (
+            <Box ref={fotosRef} sx={{ pt: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+                Fotos e vídeos do problema *
+              </Typography>
+              <PhotoCaptureMulti
+                fotos={fotos}
+                onChange={setFotos}
+                max={10}
+                disabled={salvando}
+                inlineActions
+                hideCaption
+                thumbColumns={4}
+              />
+            </Box>
+          )}
+        </Paper>
+
+        {erro && (
+          <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2.5 }}>
+            {erro}
+          </Alert>
         )}
 
-      </Paper>
-
-      {erro && <Alert severity="error" sx={{ mb: 2 }}>{erro}</Alert>}
-
-      <Box className="flex gap-2 pt-2 pb-2">
-        <Button
-          type="button"
-          fullWidth
-          variant="outlined"
-          disabled={salvando}
-          onClick={() => navigate(ROTA_LISTA)}
-        >
-          Cancelar
-        </Button>
-        <Button fullWidth type="submit" variant="contained" disabled={salvando || !podeEnviar}>
-          {salvando ? 'Enviando...' : 'Abrir chamado'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, pt: 0.5, pb: 1 }}>
+          <Button
+            type="button"
+            fullWidth
+            variant="outlined"
+            disabled={salvando}
+            onClick={() => navigate(ROTA_LISTA)}
+            sx={{ fontWeight: 700, borderColor: 'rgba(27,42,107,0.28)', color: NAVY }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            fullWidth
+            type="submit"
+            variant="contained"
+            disabled={salvando || !podeEnviar}
+            sx={{ fontWeight: 800, bgcolor: ORANGE, '&:hover': { bgcolor: '#d04809' } }}
+          >
+            {salvando ? 'Enviando...' : 'Abrir chamado'}
+          </Button>
+        </Box>
       </Box>
-    </Box>
+    </div>
   );
 }

@@ -3,13 +3,13 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import { assetUrl } from '../../config/paths';
 import {
   api,
   type EstoqueContagemResumo,
   type Loja,
 } from '../../api/client';
 import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
+import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
@@ -203,13 +203,7 @@ export default function EstoqueMobileListaPage() {
                   de estoque
                 </h1>
               </div>
-              <img
-                src={assetUrl('Logo_Icon-clear.png')}
-                alt=""
-                className="ck-visitas__mark-icon"
-                width={56}
-                height={56}
-              />
+              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
             </div>
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
               Conte os insumos da loja, salve o rascunho e finalize a conferência.

@@ -83,6 +83,9 @@ type Props = {
   voltarLabel?: string;
   /** Mobile: sem orçamento, encerramento nem aprovação */
   variante?: 'desktop' | 'mobile';
+  /** Mobile immersive: stage externo; sheet só com conteúdo (sem scroll próprio / sem voltar no header). */
+  immersive?: boolean;
+  onFalhaCarregar?: () => void;
   /** Página de aprovações: só visualização + botão aprovar */
   modoAprovacao?: boolean;
   permitirEncerrar?: boolean;
@@ -91,14 +94,17 @@ type Props = {
 export default function ChamadoDetalheConteudo({
   idChamado,
   onDetalheCarregado,
+  onFalhaCarregar,
   onVoltar,
   voltarLabel,
   variante = 'desktop',
+  immersive = false,
   modoAprovacao = false,
   permitirEncerrar = true,
 }: Props) {
   const sessao = getUsuario();
   const isMobile = variante === 'mobile';
+  const isImmersive = isMobile && immersive;
   const [detalhe, setDetalhe] = useState<ManutChamadoDetalhe | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -146,9 +152,12 @@ export default function ChamadoDetalheConteudo({
         setDetalhe(d);
         onDetalheCarregado?.(d);
       })
-      .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar'))
+      .catch((e) => {
+        setErro(e instanceof Error ? e.message : 'Erro ao carregar');
+        onFalhaCarregar?.();
+      })
       .finally(() => setLoading(false));
-  }, [idChamado, onDetalheCarregado]);
+  }, [idChamado, onDetalheCarregado, onFalhaCarregar]);
 
   useEffect(() => {
     carregar();
@@ -382,6 +391,7 @@ export default function ChamadoDetalheConteudo({
   }
 
   if (loading && !detalhe) {
+    if (isImmersive) return null;
     return (
       <Box
         sx={{
@@ -435,8 +445,9 @@ export default function ChamadoDetalheConteudo({
     <ChamadoDetalheHeader
       detalhe={detalhe}
       variante={variante}
-      onVoltar={onVoltar}
+      onVoltar={isImmersive ? undefined : onVoltar}
       voltarLabel={voltarLabel}
+      ocultarCabecalhoTitulo={isImmersive}
       podeAssumir={podeAssumir}
       assumindo={assumindo}
       onAssumir={assumirChamado}
@@ -602,8 +613,19 @@ export default function ChamadoDetalheConteudo({
 
   return (
     <>
-    <Box sx={detalheChamadoSx(variante)}>
-      {isMobile ? (
+    <Box
+      sx={
+        isImmersive
+          ? { width: '100%', pb: 2 }
+          : detalheChamadoSx(variante)
+      }
+    >
+      {isImmersive ? (
+        <>
+          {headerChamado}
+          {corpoAposHeader}
+        </>
+      ) : isMobile ? (
         <>
           <Box sx={{ flexShrink: 0 }}>{headerChamado}</Box>
           <Box sx={{ ...MOBILE_SCROLL_AREA, pt: 0.5 }}>{corpoAposHeader}</Box>

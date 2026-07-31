@@ -108,8 +108,7 @@ export default function FrotaMobileHubPage() {
   if (loading) {
     return (
       <FrotaMobileShell
-        titleLine1="Sua"
-        titleLine2="frota"
+        titleLine1="Sua frota"
         sub="Carregando resumo do veículo…"
         variant="hub"
       >
@@ -120,8 +119,7 @@ export default function FrotaMobileHubPage() {
 
   return (
     <FrotaMobileShell
-      titleLine1="Sua"
-      titleLine2="frota"
+      titleLine1="Sua frota"
       sub={
         temVeiculo
           ? 'Abastecimento, manutenção e controle do veículo sob sua responsabilidade.'

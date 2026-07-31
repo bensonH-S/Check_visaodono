@@ -177,8 +177,7 @@ export default function FrotaManutencaoMobilePage() {
   }
 
   const shellProps = {
-    titleLine1: 'Manu',
-    titleLine2: 'tenção',
+    titleLine1: 'Manutenção',
     sub: veiculo
       ? `${veiculo.placa} · serviços, KM e fatura`
       : 'Registre serviços feitos no veículo',
@@ -214,7 +213,7 @@ export default function FrotaManutencaoMobilePage() {
 
   return (
     <FrotaMobileShell {...shellProps}>
-      <Box component="form" onSubmit={salvar}>
+      <Box component="form" onSubmit={salvar} className="ck-frota__tabs-layout">
         <div className="ck-visitas__seg" role="tablist">
           <button
             type="button"
@@ -236,6 +235,7 @@ export default function FrotaManutencaoMobilePage() {
           </button>
         </div>
 
+        <div className="ck-frota__tabs-body">
         {aba === 'novo' && (
           <>
             {!veiculo ? (
@@ -419,6 +419,7 @@ export default function FrotaManutencaoMobilePage() {
             {erro}
           </Alert>
         )}
+        </div>
       </Box>
     </FrotaMobileShell>
   );

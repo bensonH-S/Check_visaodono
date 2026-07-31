@@ -7,9 +7,9 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
-import { assetUrl } from '../../config/paths';
 import { api } from '../../api/client';
 import type { NcDetalhe } from '../../api/client';
+import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { parseNcDescricao } from '../../components/nc/ncPageUtils';
 import { podeResolverNc } from '../../lib/auth';
 import { extensaoMidia } from '../../utils/mediaFile';
@@ -163,13 +163,7 @@ export default function NcMobileResolverPage() {
                     encerrada
                   </h1>
                 </div>
-                <img
-                  src={assetUrl('Logo_Icon-clear.png')}
-                  alt=""
-                  className="ck-visitas__mark-icon"
-                  width={56}
-                  height={56}
-                />
+                <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
               </div>
               <p className="ck-visitas__sub">{nc.nome_loja || nc.name}</p>
             </div>
@@ -214,13 +208,7 @@ export default function NcMobileResolverPage() {
                   NC
                 </h1>
               </div>
-              <img
-                src={assetUrl('Logo_Icon-clear.png')}
-                alt=""
-                className="ck-visitas__mark-icon"
-                width={56}
-                height={56}
-              />
+              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
             </div>
 
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--3">

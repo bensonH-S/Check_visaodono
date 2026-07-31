@@ -30,6 +30,18 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* Esconde a barra de rolagem em todo o app (scroll continua funcionando) */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legado */
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome, Safari, Edge */
+}
+
 body {
   margin: 0;
   background: #f5f5f3;

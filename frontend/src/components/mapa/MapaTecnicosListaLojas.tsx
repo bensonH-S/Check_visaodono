@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -10,13 +9,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import { useMapaTecnicosMobile } from '../../pages/mapa/MapaTecnicosMobileContext';
 import MapaFiltroTrajetoCalendario from './MapaFiltroTrajetoCalendario';
 import MapaFiltroTrajetoVeiculo from './MapaFiltroTrajetoVeiculo';
-import MobileUsuarioMenu from '../MobileUsuarioMenu';
+import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import { rotuloRegiaoMapa } from '../../utils/mapaGeo';
-import { getUsuario, logout, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
+import { getUsuario, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
 import './mapa-mobile.css';
 
 export default function MapaTecnicosListaLojas() {
-  const navigate = useNavigate();
   const user = getUsuario();
   const {
     lojasComCoordenadas,
@@ -98,13 +96,7 @@ export default function MapaTecnicosListaLojas() {
           </p>
         </div>
         <div className="ck-mapa__menu">
-          <MobileUsuarioMenu
-            user={user}
-            onLogout={() => {
-              logout();
-              navigate('/login/mobile');
-            }}
-          />
+          <CkMarkLogoMenu size={52} className="ck-mapa__logo" />
         </div>
       </div>
 

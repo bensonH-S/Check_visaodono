@@ -84,12 +84,25 @@
 
 .ck-mapa__menu {
   flex-shrink: 0;
-  margin-top: 2px;
+  align-self: center;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
 }
 
 .ck-mapa__menu .MuiIconButton-root {
   color: #fff !important;
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.ck-mapa__logo {
+  width: 52px !important;
+  height: 52px !important;
+  object-fit: contain;
+  display: block;
+  margin: 0 !important;
 }
 
 .ck-mapa__chips {

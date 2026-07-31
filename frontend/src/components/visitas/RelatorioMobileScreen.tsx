@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import { assetUrl } from '../../config/paths';
 import { fmtData, fmtNota, fetchMediaAutenticada } from '../../api/client';
 import type { VisitaDetalhe } from '../../api/client';
 import { formatarHoraVisita } from '../../utils/visitaFormat';
+import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import './visitas-mobile.css';
 
 type Props = {
@@ -182,13 +182,7 @@ export default function RelatorioMobileScreen({
                   <PictureAsPdfIcon fontSize="small" />
                 )}
               </button>
-              <img
-                src={assetUrl('Logo_Icon-clear.png')}
-                alt=""
-                className="ck-visitas__toolbar-logo"
-                width={68}
-                height={68}
-              />
+              <CkMarkLogoMenu size={68} className="ck-visitas__toolbar-logo" />
             </div>
           </div>
 

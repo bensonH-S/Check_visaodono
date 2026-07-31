@@ -10,6 +10,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { labelFixo, campoAlturaFrotaSx } from '../../constants/frotaVeiculo';
+import { datePickerPtBR } from '../../utils/datePickerLocale';
 
 dayjs.locale('pt-br');
 
@@ -137,7 +138,11 @@ export default function FiltroIntervaloDatasFrota({
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+    <LocalizationProvider
+      dateAdapter={AdapterDayjs}
+      adapterLocale="pt-br"
+      localeText={datePickerPtBR}
+    >
       <Box sx={compacto ? filtroDataCompactoSx : filtroDataSx}>
         <TextField
           fullWidth

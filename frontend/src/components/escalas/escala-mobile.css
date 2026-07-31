@@ -1,4 +1,23 @@
 /* Escala mobile — estende o modelo ck-visitas */
+/* Hero + calendário fixos; rolagem só no sheet (abaixo do calendário) */
+.ck-escala--page {
+  padding-bottom: 0;
+}
+
+.ck-escala--page .ck-visitas__stage {
+  flex-shrink: 0;
+}
+
+.ck-escala__sheet--fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: calc(20px + var(--app-tabbar-offset, 0px));
+}
+
 .ck-escala .ck-escala__week {
   display: flex;
   align-items: center;

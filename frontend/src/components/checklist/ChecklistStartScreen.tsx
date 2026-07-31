@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { assetUrl } from '../../config/paths';
 import type { Loja, TipoChecklist, Usuario, MetaVisitaTimeCampo } from '../../api/client';
 import type { ChecklistSessaoLocal } from '../../utils/checklistSessao';
+import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import TimeCampoMetaForm from './TimeCampoMetaForm';
 import ChecklistIonicShell from './ChecklistIonicShell';
 import ChecklistPickSheet from './ChecklistPickSheet';
@@ -89,49 +89,38 @@ export default function ChecklistStartScreen(props: Props) {
   return (
     <ChecklistIonicShell scrollY={false}>
       <div className="ck-start ck-start--fixed">
-        <div className="ck-start__scroll">
-          <div className="ck-start__stage">
-            <div className="ck-start__glow ck-start__glow--a" aria-hidden />
-            <div className="ck-start__glow ck-start__glow--b" aria-hidden />
-            <div className="ck-start__mesh" aria-hidden />
+        <div className="ck-start__stage">
+          <div className="ck-start__glow ck-start__glow--a" aria-hidden />
+          <div className="ck-start__glow ck-start__glow--b" aria-hidden />
+          <div className="ck-start__mesh" aria-hidden />
 
-            <div className="ck-start__stage-inner">
-              <div className="ck-start__hero-row ck-start__anim ck-start__anim--1">
-                <div className="ck-start__hero-copy">
-                  <p className="ck-start__mark-text">Grupo Alvim</p>
-                  <h1 className="ck-start__title">
-                    Nova
-                    <br />
-                    visita
-                  </h1>
-                </div>
-                <img
-                  src={assetUrl('Logo_Icon-clear.png')}
-                  alt="Grupo Alvim"
-                  className="ck-start__mark-icon"
-                  width={56}
-                  height={56}
-                />
+          <div className="ck-start__stage-inner">
+            <div className="ck-start__hero-row ck-start__anim ck-start__anim--1">
+              <div className="ck-start__hero-copy">
+                <p className="ck-start__mark-text">Grupo Alvim</p>
+                <h1 className="ck-start__title ck-start__title--oneline">Nova visita</h1>
               </div>
+              <CkMarkLogoMenu size={56} className="ck-start__mark-icon" />
+            </div>
 
-              <p className="ck-start__sub ck-start__anim ck-start__anim--2">
-                Escolha a loja e o tipo de avaliação para começar.
-              </p>
+            <p className="ck-start__sub ck-start__anim ck-start__anim--2">
+              Escolha a loja e o tipo de avaliação para começar.
+            </p>
 
-              <div className="ck-start__metrics ck-start__anim ck-start__anim--3" aria-live="polite">
-                <div className="ck-start__metric">
-                  <strong>{carregandoTipo ? '—' : totalPerguntas}</strong>
-                  <span>perguntas</span>
-                </div>
-                <div className="ck-start__metric">
-                  <strong>{carregandoTipo ? '—' : totalSecoes}</strong>
-                  <span>seções</span>
-                </div>
+            <div className="ck-start__metrics ck-start__anim ck-start__anim--3" aria-live="polite">
+              <div className="ck-start__metric">
+                <strong>{carregandoTipo ? '—' : totalPerguntas}</strong>
+                <span>perguntas</span>
+              </div>
+              <div className="ck-start__metric">
+                <strong>{carregandoTipo ? '—' : totalSecoes}</strong>
+                <span>seções</span>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="ck-start__sheet ck-start__anim ck-start__anim--4">
+        <div className="ck-start__sheet ck-start__sheet--fill ck-start__anim ck-start__anim--4">
             {msg && (
               <div className="ck-start__banner ck-start__banner--err" role="alert">
                 <p>{msg}</p>
@@ -216,7 +205,6 @@ export default function ChecklistStartScreen(props: Props) {
                 <TimeCampoMetaForm value={metaVisita} onChange={onMetaChange} />
               </div>
             )}
-          </div>
         </div>
 
         <footer className="ck-start__dock">

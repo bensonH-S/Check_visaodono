@@ -252,7 +252,9 @@ function ChamadosMobileLayoutInner() {
   const user = getUsuario();
   const { idLoja } = useChamadosMobileLoja();
   const isNovo = Boolean(useMatch('/chamados/mobile/novo')) || path === '/chamados/mobile/novo';
-  const isDetalhe = Boolean(useMatch('/chamados/mobile/:idChamado'));
+  const isDetalhe =
+    (Boolean(useMatch('/chamados/mobile/:idChamado')) || /^\/chamados\/mobile\/\d+$/.test(path)) &&
+    !isNovo;
   const paginaCabecalhoFixo = mobilePaginaCabecalhoFixo(path);
   const isChamadosSubPage = isNovo || isDetalhe;
   const isChecklist = path === '/checklist/mobile' || path.startsWith('/checklist/mobile/');
@@ -281,6 +283,9 @@ function ChamadosMobileLayoutInner() {
   const isFreelancersAprovacao = path === '/freelancers/aprovacao/mobile';
   /** Freelas: chrome próprio (stage + sheet), sem header/título MUI. */
   const isFreelancersImmersive = isFreelancersAprovacao;
+  /** Lista, novo e detalhe: chrome immersive. */
+  const isChamadosLista = path === '/chamados/mobile';
+  const isChamadosImmersive = isChamadosLista || isNovo || isDetalhe;
   const isRelatorio = path.startsWith('/relatorio/visita/');
   const { fase: checklistFaseUi, dispararVoltar: dispararVoltarChecklist } = useChecklistMobileUi();
   const isChecklistEmAndamento =
@@ -557,7 +562,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isMapa && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -674,7 +679,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isMapa && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
         <Box
           sx={{
             position: 'relative',
@@ -708,6 +713,7 @@ function ChamadosMobileLayoutInner() {
             isNcImmersive ||
             isEstoqueImmersive ||
             isFreelancersImmersive ||
+            isChamadosImmersive ||
             isMapa
               ? MOBILE_PAGE_COLUMN
               : MOBILE_SCROLL_AREA),
@@ -718,6 +724,7 @@ function ChamadosMobileLayoutInner() {
             isNcImmersive ||
             isEstoqueImmersive ||
             isFreelancersImmersive ||
+            isChamadosImmersive ||
             isMapa
               ? { px: 0 }
               : safeAreaX(16)),
@@ -729,6 +736,7 @@ function ChamadosMobileLayoutInner() {
               isNcImmersive ||
               isEstoqueImmersive ||
               isFreelancersImmersive ||
+              isChamadosImmersive ||
               isMapa
                 ? 0
                 : safeAreaBottomCalc(rodapeTotalH + 16),

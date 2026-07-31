@@ -396,7 +396,7 @@ export default function ControleEstoquePage() {
       navigate(`/estoque/${abaInicialPermitida()}`, { replace: true });
       return;
     }
-    if (verDetalhe && aba !== 'conferencia') {
+    if (verDetalhe && contagem?.status === 'aberta' && aba !== 'conferencia') {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
@@ -414,7 +414,7 @@ export default function ControleEstoquePage() {
     if (destino && destino !== aba) {
       navigate(`/estoque/${destino}`, { replace: true });
     }
-  }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe]);
+  }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
 
   const iniciarSabado = async () => {
     if (!podeEditarConferencia || !idLoja) return;
@@ -584,6 +584,8 @@ export default function ControleEstoquePage() {
   }, [contagem, rascunhoItens]);
 
   const editavel = !!podeEditarConferencia && contagem?.status === 'aberta';
+  /** Só bloqueia outras abas ao editar conferência aberta (não ao só visualizar finalizada). */
+  const bloqueiaOutrasAbas = verDetalhe && contagem?.status === 'aberta';
   const abertasCount = listaContagens.filter((c) => c.status === 'aberta').length;
   const fechadasCount = listaContagens.filter((c) => c.status === 'finalizada').length;
   const listaFiltrada = useMemo(() => {
@@ -614,7 +616,7 @@ export default function ControleEstoquePage() {
         <Tabs
           value={idLoja ? aba : false}
           onChange={(_e, v: AbaEstoque) => {
-            if (verDetalhe && v !== 'conferencia') return;
+            if (bloqueiaOutrasAbas && v !== 'conferencia') return;
             irParaAba(v);
           }}
           variant="scrollable"
@@ -637,7 +639,7 @@ export default function ControleEstoquePage() {
             <Tab
               value="insumos"
               label={`Insumos (${produtos.length})`}
-              disabled={!idLoja || verDetalhe}
+              disabled={!idLoja || bloqueiaOutrasAbas}
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
@@ -645,7 +647,7 @@ export default function ControleEstoquePage() {
             <Tab
               value="produtos"
               label={`Produtos (${produtosVendaCount})`}
-              disabled={!idLoja || verDetalhe}
+              disabled={!idLoja || bloqueiaOutrasAbas}
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
@@ -653,7 +655,7 @@ export default function ControleEstoquePage() {
             <Tab
               value="saldo"
               label="Saldo"
-              disabled={!idLoja || verDetalhe}
+              disabled={!idLoja || bloqueiaOutrasAbas}
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
@@ -661,7 +663,7 @@ export default function ControleEstoquePage() {
             <Tab
               value="vendas"
               label="Vendas"
-              disabled={!idLoja || verDetalhe}
+              disabled={!idLoja || bloqueiaOutrasAbas}
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
@@ -669,12 +671,12 @@ export default function ControleEstoquePage() {
             <Tab
               value="break"
               label="Break"
-              disabled={!idLoja || verDetalhe}
+              disabled={!idLoja || bloqueiaOutrasAbas}
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
         </Tabs>
-        {!verDetalhe && (
+        {!bloqueiaOutrasAbas && (
           <FormControl size="small" sx={{ minWidth: 220, maxWidth: 320, mb: 0.75, flexShrink: 0 }}>
             <InputLabel shrink>Loja</InputLabel>
             <Select

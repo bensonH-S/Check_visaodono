@@ -154,8 +154,7 @@ export default function FrotaVeiculoPage() {
   if (loading) {
     return (
       <FrotaMobileShell
-        titleLine1="Con"
-        titleLine2="trole"
+        titleLine1="Controle"
         sub="Carregando veículos…"
         variant="page"
         onBack={() => navigate('/frota/mobile')}
@@ -167,8 +166,7 @@ export default function FrotaVeiculoPage() {
 
   return (
     <FrotaMobileShell
-      titleLine1="Con"
-      titleLine2="trole"
+      titleLine1="Controle"
       sub={
         meuVeiculo
           ? 'Veículo sob seu controle — devolva quando terminar o uso.'

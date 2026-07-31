@@ -1,6 +1,89 @@
 /* Frota mobile — estende o modelo ck-visitas */
 .ck-frota--page {
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ck-frota--page .ck-visitas__stage {
+  flex-shrink: 0;
+}
+
+.ck-frota__sheet--fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ck-frota__sheet--fill:has(.ck-frota__tabs-layout) {
+  overflow: hidden;
+}
+
+.ck-frota__hero-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Título em uma linha nas subpáginas */
+.ck-frota--page .ck-visitas__title {
+  white-space: nowrap;
+  font-size: clamp(1.7rem, 7.2vw, 2.75rem);
+}
+
+.ck-frota__hero-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Logo + voltar um pouco acima do baseline do título */
+.ck-frota--page .ck-frota__hero-end {
+  transform: translateY(2px);
+}
+
+.ck-frota--page .ck-visitas__mark-icon {
+  margin-top: 0;
+  transform: none;
+}
+
+.ck-frota__back-beside-logo {
+  flex-shrink: 0;
+}
+
+/* Hub: logo um pouco mais abaixo do alinhamento padrão */
+.ck-frota:not(.ck-frota--page) .ck-visitas__mark-icon {
+  margin-top: 10px;
+  transform: none;
+}
+
+/* Abas fixas + scroll só no conteúdo (Registrar / Histórico) */
+.ck-frota__tabs-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.ck-frota__tabs-layout > .ck-visitas__seg {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.ck-frota__tabs-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
 }
 
 .ck-frota .ck-frota__sheet-label {

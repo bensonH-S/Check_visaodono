@@ -16,6 +16,21 @@ export type AppPublicConfig = {
   pushEnabled?: boolean;
   gpsTecnicosEnabled?: boolean;
   gpsTecnicosIntervalMs?: number;
+  hasIntegrations?: boolean;
+  integrations?: Array<{ id: string; name: string }>;
+};
+
+export type IntegrationStatusItem = {
+  id: string;
+  name: string;
+  online: boolean;
+  detail: string;
+};
+
+export type IntegrationStatusGroup = {
+  id: string;
+  name: string;
+  apis: IntegrationStatusItem[];
 };
 
 function authHeaders(extra?: HeadersInit, omitAuth = false): HeadersInit {
@@ -79,6 +94,17 @@ async function request<T>(
 
 export const api = {
   publicConfig: () => request<AppPublicConfig>('/public/config'),
+  integrationsStatus: (params?: { contexto?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.contexto) q.set('contexto', params.contexto);
+    const suffix = q.toString() ? `?${q}` : '';
+    return request<{
+      items: IntegrationStatusItem[];
+      groups: IntegrationStatusGroup[];
+      hasIntegrations: boolean;
+      contexto: string | null;
+    }>(`/integrations/status${suffix}`);
+  },
   login: (email: string, senha: string) =>
     request<{ accessToken: string; usuario: UsuarioSessao }>('/auth/login', {
       method: 'POST',

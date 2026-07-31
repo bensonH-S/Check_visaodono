@@ -20,8 +20,9 @@ import PwaInstallDialog from '../components/PwaInstallDialog';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { formatMobileVersionNumber } from '../components/MobileVersionBadge';
 import { assetUrl } from '../config/paths';
-import { APP_NAME } from '../config/brand';
+import { APP_NAME, APP_LOGIN_SUBTITLE } from '../config/brand';
 import { MOBILE_VIEWPORT } from '../theme/safeArea';
+import SobreSistemaDialog from '../components/SobreSistemaDialog';
 import './login-mobile.css';
 
 const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
@@ -46,6 +47,7 @@ export default function LoginMobilePage() {
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
+  const [sobreAberto, setSobreAberto] = useState(false);
 
   usePageTitle('Login Mobile');
 
@@ -134,7 +136,7 @@ export default function LoginMobilePage() {
             <p className="ck-login__mark">Grupo Alvim</p>
             <h1 className="ck-login__title">{APP_NAME}</h1>
             <p className="ck-login__sub">
-              Manutenção, visitas e controle de frota.
+              {APP_LOGIN_SUBTITLE}
             </p>
           </div>
         </div>
@@ -236,6 +238,13 @@ export default function LoginMobilePage() {
               <div className="ck-login__support">
                 <SupportContact compact />
               </div>
+              <button
+                type="button"
+                className="ck-login__about"
+                onClick={() => setSobreAberto(true)}
+              >
+                Sobre o sistema
+              </button>
               <footer className="ck-login__footer">
                 {COPYRIGHT}
                 {versao ? ` · ${versao}` : ''}
@@ -246,6 +255,7 @@ export default function LoginMobilePage() {
       </div>
 
       <PwaInstallDialog />
+      <SobreSistemaDialog open={sobreAberto} onClose={() => setSobreAberto(false)} />
 
       <Snackbar
         open={!!toast}

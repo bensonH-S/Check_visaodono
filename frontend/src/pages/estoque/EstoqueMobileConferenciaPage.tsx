@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import { assetUrl } from '../../config/paths';
 import {
   api,
   type EstoqueContagemDetalhe,
   type EstoqueItem,
 } from '../../api/client';
 import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
+import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
@@ -216,13 +216,7 @@ export default function EstoqueMobileConferenciaPage() {
                   <LockOpenIcon fontSize="small" />
                 </button>
               )}
-              <img
-                src={assetUrl('Logo_Icon-clear.png')}
-                alt=""
-                className="ck-visitas__mark-icon"
-                width={56}
-                height={56}
-              />
+              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
             </div>
           </div>
           <p className="ck-visitas__sub">

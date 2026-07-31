@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
-import { assetUrl } from '../../config/paths';
 import {
   api,
   type EstoqueBreakResumo,
@@ -10,6 +9,7 @@ import {
 } from '../../api/client';
 import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFrota';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
+import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
@@ -269,13 +269,7 @@ export default function EstoqueMobileBreakPage() {
                   )}
                 </h1>
               </div>
-              <img
-                src={assetUrl('Logo_Icon-clear.png')}
-                alt=""
-                className="ck-visitas__mark-icon"
-                width={56}
-                height={56}
-              />
+              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
             </div>
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
               {formAberto

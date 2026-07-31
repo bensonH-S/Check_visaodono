@@ -1,21 +1,16 @@
-import type { MouseEvent, ReactNode } from 'react';
+import type { MouseEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
 import { showToast } from '../../utils/toast';
 import AddIcon from '@mui/icons-material/Add';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import PauseOutlinedIcon from '@mui/icons-material/PauseOutlined';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-import IconButton from '@mui/material/IconButton';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import List from '@mui/material/List';
@@ -35,89 +30,15 @@ import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
 import { parseDataApi } from '../../utils/dateBr';
 import ChamadoCardResumo from '../../components/manutencao/ChamadoCardResumo';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA } from '../../theme/safeArea';
+import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
+import '../../components/visitas/visitas-mobile.css';
+import '../../components/manutencao/chamados-mobile.css';
 
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
-const PAGE_BG = '#f5f5f3';
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
 
 type AbaLista = 'abertos' | 'fechados';
-
-function CardResumoChamados({
-  valor,
-  rotulo,
-  fundoIcone,
-  bordaIcone,
-  icone,
-}: {
-  valor: number;
-  rotulo: string;
-  fundoIcone: string;
-  bordaIcone: string;
-  icone: ReactNode;
-}) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        flex: 1,
-        minWidth: 0,
-        px: 1.5,
-        py: 2,
-        minHeight: 92,
-        borderRadius: 3.5,
-        bgcolor: '#fff',
-        border: 'none',
-        boxShadow: '0 4px 20px rgba(27, 42, 107, 0.07)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.15,
-      }}
-    >
-      <Box
-        sx={{
-          width: 46,
-          height: 46,
-          borderRadius: 1.75,
-          bgcolor: fundoIcone,
-          border: `2px solid ${bordaIcone}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        {icone}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography
-          sx={{
-            fontWeight: 800,
-            fontSize: '2.35rem',
-            lineHeight: 1,
-            color: NAVY,
-            letterSpacing: '-0.04em',
-          }}
-        >
-          {valor}
-        </Typography>
-        <Typography
-          sx={{
-            mt: 0.45,
-            fontSize: '0.78rem',
-            fontWeight: 500,
-            color: NAVY,
-            opacity: 0.72,
-            lineHeight: 1.2,
-          }}
-        >
-          {rotulo}
-        </Typography>
-      </Box>
-    </Paper>
-  );
-}
 
 export default function ChamadosMobileHistoricoPage() {
   const navigate = useNavigate();
@@ -239,265 +160,206 @@ export default function ChamadosMobileHistoricoPage() {
 
   if (loading) {
     return (
-      <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
-          <CircularProgress sx={{ color: NAVY }} />
-        </Box>
-      </Box>
+      <div className="ck-visitas ck-chamados ck-chamados--page">
+        <div className="ck-visitas__loading" style={{ flex: 1 }}>
+          <CircularProgress size={28} sx={{ color: ORANGE }} />
+        </div>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ ...MOBILE_PAGE_COLUMN, maxWidth: 480, mx: 'auto', width: '100%', bgcolor: PAGE_BG }}>
-      <Box sx={{ flexShrink: 0 }}>
-        {erro && (
-          <Alert severity="error" sx={{ mb: 2, borderRadius: 2.5 }}>
-            {erro}
-          </Alert>
-        )}
+    <div className="ck-visitas ck-chamados ck-chamados--page">
+      <div className="ck-visitas__stage">
+        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+        <div className="ck-visitas__mesh" aria-hidden />
 
-        {urgentes > 0 && (
-          <Typography sx={{ mb: 2.25, fontSize: '0.8rem', fontWeight: 600, color: ORANGE }}>
+        <div className="ck-visitas__stage-inner">
+          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+            <div>
+              <p className="ck-visitas__mark-text">Grupo Alvim</p>
+              <h1 className="ck-visitas__title ck-chamados__title">Chamados</h1>
+            </div>
+            <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+          </div>
+
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+            Acompanhe abertos e fechados, assuma tickets e abra novas solicitações.
+          </p>
+
+          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong>{qtdEmAberto}</strong>
+              <span>em aberto</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{qtdEmTratamento}</strong>
+              <span>andamento</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{fechados.length}</strong>
+              <span>fechados</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="ck-visitas__sheet ck-chamados__sheet--fill ck-visitas__anim ck-visitas__anim--4">
+        {erro ? <p className="ck-visitas__erro">{erro}</p> : null}
+
+        {urgentes > 0 ? (
+          <p className="ck-chamados__prio">
             {urgentes === 1
               ? '1 chamado precisa de atenção prioritária'
               : `${urgentes} chamados precisam de atenção prioritária`}
-          </Typography>
-        )}
+          </p>
+        ) : null}
 
-        {/* Cards resumo */}
-        <Box sx={{ display: 'flex', gap: 1.25, mb: 2.25 }}>
-          <CardResumoChamados
-            valor={qtdEmAberto}
-            rotulo="em aberto"
-            fundoIcone="rgba(232, 82, 10, 0.14)"
-            bordaIcone={ORANGE}
-            icone={<TrendingUpIcon sx={{ color: ORANGE, fontSize: 22 }} />}
-          />
-          <CardResumoChamados
-            valor={qtdEmTratamento}
-            rotulo="em andamento"
-            fundoIcone="rgba(27, 42, 107, 0.14)"
-            bordaIcone={NAVY}
-            icone={<PauseOutlinedIcon sx={{ color: NAVY, fontSize: 22 }} />}
-          />
-        </Box>
-
-        {/* Abas + filtro */}
-        <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, mb: 2 }}>
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            bgcolor: '#fff',
-            borderRadius: 999,
-            p: 0.4,
-            boxShadow: '0 2px 14px rgba(27, 42, 107, 0.07)',
-            minWidth: 0,
-          }}
-        >
-          {(
-            [
-              { id: 'abertos' as const, label: 'Em aberto' },
-              { id: 'fechados' as const, label: 'Fechados' },
-            ] as const
-          ).map(({ id, label }) => {
-            const ativa = aba === id;
-            return (
-              <Button
+        <div className="ck-chamados__filtro-row">
+          <div className="ck-visitas__seg" role="tablist" aria-label="Status">
+            {(
+              [
+                { id: 'abertos' as const, label: 'Em aberto' },
+                { id: 'fechados' as const, label: 'Fechados' },
+              ] as const
+            ).map(({ id, label }) => (
+              <button
                 key={id}
-                fullWidth
+                type="button"
+                role="tab"
+                aria-selected={aba === id}
+                className={`ck-visitas__seg-btn${aba === id ? ' is-on' : ''}`}
                 onClick={() => setAba(id)}
-                sx={{
-                  minHeight: 0,
-                  py: 0.9,
-                  px: 1.5,
-                  borderRadius: 999,
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: '0.84rem',
-                  color: ativa ? '#fff' : 'rgba(27, 42, 107, 0.55)',
-                  bgcolor: ativa ? ORANGE : 'transparent',
-                  boxShadow: ativa ? '0 2px 10px rgba(232, 82, 10, 0.32)' : 'none',
-                  '&:hover': { bgcolor: ativa ? ORANGE : 'rgba(27, 42, 107, 0.04)' },
-                }}
               >
                 {label}
-              </Button>
-            );
-          })}
-        </Box>
-
-        <Box
-          component="button"
-          type="button"
-          aria-label={modoLista ? 'Ver em cards' : 'Ver em lista'}
-          aria-pressed={modoLista}
-          onClick={() => setModoLista((v) => !v)}
-          sx={{
-            flexShrink: 0,
-            alignSelf: 'stretch',
-            aspectRatio: '1',
-            width: 'auto',
-            minWidth: 40,
-            borderRadius: 2.5,
-            bgcolor: '#fff',
-            boxShadow: '0 2px 14px rgba(27, 42, 107, 0.07)',
-            border: 'none',
-            outline: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            p: 0,
-            font: 'inherit',
-          }}
-        >
-          <IconeMenuTresTracos ativo={modoLista} />
-        </Box>
-
-        {multiplasLojas && filtrarPorLoja && (
-          <>
-            <IconButton
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="ck-chamados__lista-btn"
+            aria-label={modoLista ? 'Ver em cards' : 'Ver em lista'}
+            aria-pressed={modoLista}
+            onClick={() => setModoLista((v) => !v)}
+          >
+            <IconeMenuTresTracos ativo={modoLista} />
+          </button>
+          {multiplasLojas && filtrarPorLoja ? (
+            <button
+              type="button"
+              className={`ck-chamados__filtro-btn${idLoja ? ' is-on' : ''}`}
               aria-label="Filtrar loja"
               onClick={() => setFiltroLojaAberto(true)}
-              sx={{
-                flexShrink: 0,
-                alignSelf: 'stretch',
-                aspectRatio: '1',
-                width: 'auto',
-                minWidth: 40,
-                borderRadius: 2.5,
-                bgcolor: '#fff',
-                boxShadow: '0 2px 12px rgba(27, 42, 107, 0.08)',
-                border: idLoja ? '2px solid rgba(232, 82, 10, 0.35)' : '1px solid rgba(27, 42, 107, 0.08)',
-              }}
             >
-              <FilterListIcon sx={{ color: NAVY, fontSize: 22 }} />
-            </IconButton>
+              <FilterListIcon sx={{ fontSize: 20 }} />
+            </button>
+          ) : null}
+        </div>
 
-            <Dialog open={filtroLojaAberto} onClose={() => setFiltroLojaAberto(false)} fullWidth maxWidth="xs">
-              <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY }}>
-                Filtrar por loja
-              </DialogTitle>
-              <List sx={{ pt: 0, pb: 1 }}>
-                {lojasUsuario.map((loja) => {
-                  const ativa = loja.id_loja === idLoja;
-                  return (
-                    <ListItemButton
-                      key={loja.id_loja}
-                      selected={ativa}
-                      onClick={() => {
-                        setIdLoja(loja.id_loja);
-                        setFiltroLojaAberto(false);
-                      }}
-                    >
-                      <ListItemIcon sx={{ minWidth: 36 }}>
-                        <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE }} />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={loja.nome}
-                        slotProps={{
-                          primary: {
-                            sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' },
-                          },
-                        }}
-                      />
-                    </ListItemButton>
-                  );
-                })}
-              </List>
-            </Dialog>
-          </>
+        {!listaAba.length && !erro ? (
+          <div className="ck-chamados__empty">
+            {aba === 'abertos' ? (
+              <InboxOutlinedIcon sx={{ fontSize: 36, color: ORANGE, mb: 0.5, opacity: 0.85 }} />
+            ) : (
+              <ArchiveOutlinedIcon sx={{ fontSize: 36, color: NAVY, mb: 0.5, opacity: 0.5 }} />
+            )}
+            <strong>{aba === 'abertos' ? 'Nenhum chamado aberto' : 'Nenhum chamado fechado'}</strong>
+            <p style={{ margin: '0 0 12px' }}>
+              {semRegiaoVinculada
+                ? 'Você não está vinculado a nenhuma região. Peça ao administrador para associar sua região de atuação.'
+                : aba === 'abertos'
+                  ? 'Quando houver uma solicitação de manutenção, ela aparecerá aqui.'
+                  : 'Chamados concluídos ou cancelados aparecem na aba Fechados.'}
+            </p>
+            {aba === 'abertos' && sessao && temPermissao('chamados.abrir', sessao) && !semRegiaoVinculada ? (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/chamados/mobile/novo')}
+                sx={{ fontWeight: 800, bgcolor: ORANGE, '&:hover': { bgcolor: '#d04809' } }}
+              >
+                Abrir chamado
+              </Button>
+            ) : null}
+          </div>
+        ) : modoLista ? (
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: 3,
+              overflow: 'hidden',
+              bgcolor: '#fff',
+              border: '1px solid rgba(27, 42, 107, 0.08)',
+              boxShadow: '0 4px 18px rgba(27, 42, 107, 0.06)',
+            }}
+          >
+            {listaAba.map((c, i) => (
+              <ChamadoCardResumo
+                key={c.id_chamado}
+                chamado={c}
+                variant="mobile"
+                mobileLayout="lista"
+                isLast={i === listaAba.length - 1}
+                showLoja
+                showSla={aba === 'abertos'}
+                onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
+              />
+            ))}
+          </Paper>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, pb: 8 }}>
+            {listaAba.map((c) => (
+              <ChamadoCardResumo
+                key={c.id_chamado}
+                chamado={c}
+                variant="mobile"
+                compact={aba === 'fechados'}
+                showLoja
+                showSla={aba === 'abertos'}
+                showDataEncerramento={aba === 'fechados'}
+                mostrarAssumir={aba === 'abertos'}
+                onAssumir={(e) => void assumirTicket(e, c)}
+                assumindo={assumindoId === c.id_chamado}
+                onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
+              />
+            ))}
+          </Box>
         )}
-      </Box>
-      </Box>
+      </div>
 
-      {/* Lista — única área rolável (pb reserva espaço para o FAB flutuante) */}
-      <Box sx={{ ...MOBILE_SCROLL_AREA, pb: 9 }}>
-      {!listaAba.length && !erro && (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3.5,
-            textAlign: 'center',
-            borderRadius: 2.5,
-            border: `1.5px dashed ${aba === 'abertos' ? ORANGE : 'rgba(27,42,107,0.25)'}`,
-            bgcolor: aba === 'abertos' ? 'rgba(232, 82, 10, 0.04)' : 'rgba(27, 42, 107, 0.03)',
-          }}
-        >
-          {aba === 'abertos' ? (
-            <InboxOutlinedIcon sx={{ fontSize: 40, color: ORANGE, mb: 1, opacity: 0.85 }} />
-          ) : (
-            <ArchiveOutlinedIcon sx={{ fontSize: 40, color: NAVY, mb: 1, opacity: 0.5 }} />
-          )}
-          <Typography sx={{ fontWeight: 700, color: NAVY, mb: 0.5 }}>
-            {aba === 'abertos' ? 'Nenhum chamado aberto' : 'Nenhum chamado fechado'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: aba === 'abertos' ? 2 : 0 }}>
-            {semRegiaoVinculada
-              ? 'Você não está vinculado a nenhuma região. Peça ao administrador para associar sua região de atuação.'
-              : aba === 'abertos'
-                ? 'Quando houver uma solicitação de manutenção, ela aparecerá aqui.'
-                : 'Chamados concluídos ou cancelados aparecem na aba Fechados.'}
-          </Typography>
-          {aba === 'abertos' && sessao && temPermissao('chamados.abrir', sessao) && !semRegiaoVinculada && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/chamados/mobile/novo')}
-              sx={{ mt: 0.5 }}
-            >
-              Abrir chamado
-            </Button>
-          )}
-        </Paper>
-      )}
-
-      {modoLista ? (
-        <Paper
-          elevation={0}
-          sx={{
-            borderRadius: 3,
-            overflow: 'hidden',
-            bgcolor: '#fff',
-            border: '1px solid rgba(27, 42, 107, 0.08)',
-            boxShadow: '0 4px 18px rgba(27, 42, 107, 0.06)',
-          }}
-        >
-          {listaAba.map((c, i) => (
-            <ChamadoCardResumo
-              key={c.id_chamado}
-              chamado={c}
-              variant="mobile"
-              mobileLayout="lista"
-              isLast={i === listaAba.length - 1}
-              showLoja
-              showSla={aba === 'abertos'}
-              onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
-            />
-          ))}
-        </Paper>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          {listaAba.map((c) => (
-            <ChamadoCardResumo
-              key={c.id_chamado}
-              chamado={c}
-              variant="mobile"
-              compact={aba === 'fechados'}
-              showLoja
-              showSla={aba === 'abertos'}
-              showDataEncerramento={aba === 'fechados'}
-              mostrarAssumir={aba === 'abertos'}
-              onAssumir={(e) => void assumirTicket(e, c)}
-              assumindo={assumindoId === c.id_chamado}
-              onClick={() => navigate(`/chamados/mobile/${c.id_chamado}`)}
-            />
-          ))}
-        </Box>
-      )}
-      </Box>
-    </Box>
+      <Dialog open={filtroLojaAberto} onClose={() => setFiltroLojaAberto(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY }}>
+          Filtrar por loja
+        </DialogTitle>
+        <List sx={{ pt: 0, pb: 1 }}>
+          {lojasUsuario.map((loja) => {
+            const ativa = loja.id_loja === idLoja;
+            return (
+              <ListItemButton
+                key={loja.id_loja}
+                selected={ativa}
+                onClick={() => {
+                  setIdLoja(loja.id_loja);
+                  setFiltroLojaAberto(false);
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ORANGE }} />
+                </ListItemIcon>
+                <ListItemText
+                  primary={loja.nome}
+                  slotProps={{
+                    primary: {
+                      sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' },
+                    },
+                  }}
+                />
+              </ListItemButton>
+            );
+          })}
+        </List>
+      </Dialog>
+    </div>
   );
 }

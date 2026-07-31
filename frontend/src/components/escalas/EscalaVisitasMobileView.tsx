@@ -8,10 +8,10 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-import { assetUrl } from '../../config/paths';
 import { api, type EscalaVisitasDia, type EscalaVisitasGrade, type EscalaVisitasLinha } from '../../api/client';
 import { getUsuario, podeGerenciarEscalaVisitas, podeVerEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
+import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import {
   DIAS_ABREV,
   DIAS_LONGO,
@@ -287,85 +287,78 @@ export default function EscalaVisitasMobileView() {
   const regiaoAtiva = grade?.regioes.find((r) => r.id_regiao === idRegiao);
 
   return (
-    <div className="ck-visitas ck-escala">
-      <div className="ck-visitas__scroll">
-        <div className="ck-visitas__stage">
-          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-          <div className="ck-visitas__mesh" aria-hidden />
+    <div className="ck-visitas ck-escala ck-escala--page">
+      <div className="ck-visitas__stage">
+        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+        <div className="ck-visitas__mesh" aria-hidden />
 
-          <div className="ck-visitas__stage-inner">
-            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-              <div>
-                <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                <h1 className="ck-visitas__title">
-                  Escala
-                  <br />
-                  visitas
-                </h1>
-              </div>
-              <img
-                src={assetUrl('Logo_Icon-clear.png')}
-                alt=""
-                className="ck-visitas__mark-icon"
-                width={56}
-                height={56}
-              />
+        <div className="ck-visitas__stage-inner">
+          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+            <div>
+              <p className="ck-visitas__mark-text">Grupo Alvim</p>
+              <h1 className="ck-visitas__title">
+                Escala
+                <br />
+                visitas
+              </h1>
             </div>
+            <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+          </div>
 
-            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              Veja suas visitas da semana, por dia, por loja ou delivery.
-            </p>
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+            Veja suas visitas da semana, por dia, por loja ou delivery.
+          </p>
 
-            <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-              <div className="ck-visitas__metric ck-visitas__metric--accent">
-                <strong>{loading ? '—' : visitasHojeMinhas}</strong>
-                <span>suas hoje</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : totalVisitas}</strong>
-                <span>na semana</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0}</strong>
-                <span>lojas</span>
-              </div>
+          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong>{loading ? '—' : visitasHojeMinhas}</strong>
+              <span>suas hoje</span>
             </div>
-
-            <div className="ck-escala__week ck-visitas__anim ck-visitas__anim--3">
-              <button
-                type="button"
-                className="ck-escala__week-btn"
-                aria-label="Semana anterior"
-                onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
-              >
-                ‹
-              </button>
-              <span className="ck-escala__week-label">{labelSemanaCurta}</span>
-              {!semanaEhAtual ? (
-                <button
-                  type="button"
-                  className="ck-escala__hoje"
-                  onClick={() => setSemanaInicio(segundaFeiraAtual())}
-                >
-                  Hoje
-                </button>
-              ) : (
-                <span className="ck-escala__hoje-spacer" aria-hidden />
-              )}
-              <button
-                type="button"
-                className="ck-escala__week-btn"
-                aria-label="Próxima semana"
-                onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
-              >
-                ›
-              </button>
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : totalVisitas}</strong>
+              <span>na semana</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0}</strong>
+              <span>lojas</span>
             </div>
           </div>
-        </div>
 
-        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+          <div className="ck-escala__week ck-visitas__anim ck-visitas__anim--3">
+            <button
+              type="button"
+              className="ck-escala__week-btn"
+              aria-label="Semana anterior"
+              onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
+            >
+              ‹
+            </button>
+            <span className="ck-escala__week-label">{labelSemanaCurta}</span>
+            {!semanaEhAtual ? (
+              <button
+                type="button"
+                className="ck-escala__hoje"
+                onClick={() => setSemanaInicio(segundaFeiraAtual())}
+              >
+                Hoje
+              </button>
+            ) : (
+              <span className="ck-escala__hoje-spacer" aria-hidden />
+            )}
+            <button
+              type="button"
+              className="ck-escala__week-btn"
+              aria-label="Próxima semana"
+              onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="ck-visitas__sheet ck-escala__sheet--fill ck-visitas__anim ck-visitas__anim--4">
           <div className="ck-escala__filtro-row">
             <div className="ck-visitas__seg" role="tablist">
               {MODOS.map(({ id, label }) => (
@@ -518,7 +511,6 @@ export default function EscalaVisitasMobileView() {
               .filter((linha) => linha.tipo !== 'delivery')
               .map((linha) => <CardLojaSemana key={linha.id_loja} linha={linha} />)
           )}
-        </div>
       </div>
 
       <Dialog open={filtroRegiaoAberto} onClose={() => setFiltroRegiaoAberto(false)} fullWidth maxWidth="xs">

@@ -111,6 +111,12 @@
   line-height: 0.96;
 }
 
+.ck-visitas__title--oneline {
+  white-space: nowrap;
+  font-size: clamp(1.75rem, 7.5vw, 2.6rem);
+  line-height: 1.05;
+}
+
 .ck-visitas__mark-icon {
   width: clamp(48px, 14vw, 58px);
   height: clamp(48px, 14vw, 58px);

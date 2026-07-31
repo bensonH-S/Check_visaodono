@@ -7,10 +7,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import PersonIcon from '@mui/icons-material/Person';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import { assetUrl } from '../../config/paths';
 import { formatDataHoraVisita } from '../../utils/dateBr';
 import type { Loja, Usuario, MetaVisitaTimeCampo } from '../../api/client';
 import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
+import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import ChecklistIonicShell from './ChecklistIonicShell';
 
 interface Props {
@@ -93,13 +93,7 @@ export default function VisitaIniciadaScreen({
                 >
                   ←
                 </button>
-                <img
-                  src={assetUrl('Logo_Icon-clear.png')}
-                  alt=""
-                  className="ck-go__logo"
-                  width={44}
-                  height={44}
-                />
+                <CkMarkLogoMenu size={44} className="ck-go__logo" />
                 <p className="ck-go__eyebrow">Protocolo #{visitaId}</p>
                 <h1 className="ck-go__title">Visita aberta</h1>
                 <p className="ck-go__sub">Confira os dados e comece a avaliação.</p>

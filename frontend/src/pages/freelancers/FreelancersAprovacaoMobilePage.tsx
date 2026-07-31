@@ -16,7 +16,6 @@ import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { assetUrl } from '../../config/paths';
 import {
   api,
   fmtData,
@@ -24,8 +23,31 @@ import {
 } from '../../api/client';
 import { showToast } from '../../utils/toast';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import CampoDataFrota from '../../components/frota/CampoDataFrota';
+import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/freelancers/freelancers-mobile.css';
+
+const campoDataMobileSx = {
+  mb: 0,
+  width: '100%',
+  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+    borderRadius: '12px',
+    minHeight: 42,
+    height: 42,
+  },
+  '& .MuiInputBase-input, & .MuiPickersInputBase-input': {
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    py: 0,
+  },
+  '& .MuiInputLabel-root': {
+    fontSize: '0.75rem',
+  },
+  '& .MuiInputLabel-root.MuiInputLabel-shrink': {
+    transform: 'translate(14px, -9px) scale(0.75)',
+  },
+} as const;
 
 type StatusFiltro = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
 type DialogoHorario = {
@@ -146,7 +168,6 @@ export default function FreelancersAprovacaoMobilePage() {
   const [abertos, setAbertos] = useState<Record<string, boolean>>({});
   const [items, setItems] = useState<FreelancerTurnoAprovacao[]>([]);
   const [lojas, setLojas] = useState<Array<{ id_loja: number; nome: string; bk_number: string }>>([]);
-  const [aviso, setAviso] = useState('');
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [err, setErr] = useState('');
@@ -172,9 +193,8 @@ export default function FreelancersAprovacaoMobilePage() {
       });
       setItems(res.items || []);
       setLojas(res.lojas || []);
-      setAviso(res.aviso || '');
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erro ao carregar');
+    } catch {
+      setErr('');
       setItems([]);
     } finally {
       setLoading(false);
@@ -332,67 +352,61 @@ export default function FreelancersAprovacaoMobilePage() {
   }
 
   return (
-    <div className="ck-visitas ck-freela">
-      <div className="ck-visitas__scroll">
-        <div className="ck-visitas__stage">
-          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-          <div className="ck-visitas__mesh" aria-hidden />
+    <div className="ck-visitas ck-freela ck-freela--page">
+      <div className="ck-visitas__stage">
+        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+        <div className="ck-visitas__mesh" aria-hidden />
 
-          <div className="ck-visitas__stage-inner">
-            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-              <div>
-                <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                <h1 className="ck-visitas__title">
-                  Free
-                  <br />
-                  lancers
-                </h1>
-              </div>
-              <img
-                src={assetUrl('Logo_Icon-clear.png')}
-                alt=""
-                className="ck-visitas__mark-icon"
-                width={56}
-                height={56}
-              />
+        <div className="ck-visitas__stage-inner">
+          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+            <div>
+              <p className="ck-visitas__mark-text">Grupo Alvim</p>
+              <h1 className="ck-visitas__title ck-freela__title">Freelancers</h1>
             </div>
+            <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+          </div>
 
-            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              Conferência da semana atual — pendentes, aprovados e recusados. Ajuste o período se precisar.
-            </p>
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+            Conferência da semana atual — pendentes, aprovados e recusados. Ajuste o período se precisar.
+          </p>
 
-            <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-              <div className="ck-visitas__metric ck-visitas__metric--accent">
-                <strong>{loading ? '—' : filtrados.length}</strong>
-                <span>Turnos</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : porLoja.length}</strong>
-                <span>Lojas</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : totalHoras > 0 ? totalHoras.toFixed(1) : '—'}</strong>
-                <span>Horas</span>
-              </div>
+          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong>{loading ? '—' : filtrados.length}</strong>
+              <span>Turnos</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : porLoja.length}</strong>
+              <span>Lojas</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : totalHoras > 0 ? totalHoras.toFixed(1) : '—'}</strong>
+              <span>Horas</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="ck-visitas__body ck-visitas__anim ck-visitas__anim--4">
+      <div className="ck-visitas__sheet ck-freela__sheet--fill ck-visitas__anim ck-visitas__anim--4">
           <div className="ck-freela__dates">
-            <label className="ck-freela__date">
-              <span>De</span>
-              <input
-                type="date"
+            <div className="ck-freela__date-field">
+              <CampoDataFrota
+                label="De"
                 value={draftFrom}
-                onChange={(e) => setDraftFrom(e.target.value)}
+                onChange={setDraftFrom}
+                sx={campoDataMobileSx}
               />
-            </label>
-            <label className="ck-freela__date">
-              <span>Até</span>
-              <input type="date" value={draftTo} onChange={(e) => setDraftTo(e.target.value)} />
-            </label>
+            </div>
+            <div className="ck-freela__date-field">
+              <CampoDataFrota
+                label="Até"
+                value={draftTo}
+                onChange={setDraftTo}
+                min={draftFrom || undefined}
+                sx={campoDataMobileSx}
+              />
+            </div>
             <button
               type="button"
               className={`ck-freela__buscar${datasPendentes ? ' is-on' : ''}`}
@@ -439,7 +453,6 @@ export default function FreelancersAprovacaoMobilePage() {
           </p>
 
           {err ? <p className="ck-visitas__erro">{err}</p> : null}
-          {aviso && !err ? <p className="ck-visitas__aviso">{aviso}</p> : null}
 
           {loading ? (
             <div className="ck-visitas__loading">
@@ -500,7 +513,7 @@ export default function FreelancersAprovacaoMobilePage() {
                       return (
                         <div key={item.checkin_id} className="ck-freela__item">
                           <div className="ck-freela__item-top">
-                            <strong>{item.full_name}</strong>
+                            <strong title={item.full_name || undefined}>{item.full_name}</strong>
                             <span
                               className={`ck-freela__chip${tone ? ` ck-freela__chip--${tone}` : ''}`}
                             >
@@ -568,7 +581,6 @@ export default function FreelancersAprovacaoMobilePage() {
               );
             })
           )}
-        </div>
       </div>
 
       <Dialog open={filtroLojaAberto} onClose={() => setFiltroLojaAberto(false)} fullWidth maxWidth="xs">
@@ -643,16 +655,14 @@ export default function FreelancersAprovacaoMobilePage() {
                 <fieldset className="ck-freela__dh-block">
                   <legend>Entrada</legend>
                   <div className="ck-freela__dh-row">
-                    <label className="ck-freela__date">
-                      <span>Data</span>
-                      <input
-                        type="date"
+                    <div className="ck-freela__date-field">
+                      <CampoDataFrota
+                        label="Data"
                         value={draftEntrada.data}
-                        onChange={(e) =>
-                          setDraftEntrada((p) => ({ ...p, data: e.target.value }))
-                        }
+                        onChange={(data) => setDraftEntrada((p) => ({ ...p, data }))}
+                        sx={campoDataMobileSx}
                       />
-                    </label>
+                    </div>
                     <label className="ck-freela__date">
                       <span>Hora</span>
                       <input
@@ -675,14 +685,14 @@ export default function FreelancersAprovacaoMobilePage() {
                 <fieldset className="ck-freela__dh-block">
                   <legend>Saída</legend>
                   <div className="ck-freela__dh-row">
-                    <label className="ck-freela__date">
-                      <span>Data</span>
-                      <input
-                        type="date"
+                    <div className="ck-freela__date-field">
+                      <CampoDataFrota
+                        label="Data"
                         value={draftSaida.data}
-                        onChange={(e) => setDraftSaida((p) => ({ ...p, data: e.target.value }))}
+                        onChange={(data) => setDraftSaida((p) => ({ ...p, data }))}
+                        sx={campoDataMobileSx}
                       />
-                    </label>
+                    </div>
                     <label className="ck-freela__date">
                       <span>Hora</span>
                       <input

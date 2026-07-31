@@ -14,6 +14,8 @@ const DEFAULT_CONFIG: AppPublicConfig = {
   },
   gpsTecnicosEnabled: true,
   gpsTecnicosIntervalMs: 120_000,
+  hasIntegrations: true,
+  integrations: [],
 };
 
 export function useAppConfig() {

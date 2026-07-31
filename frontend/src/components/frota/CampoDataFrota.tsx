@@ -6,6 +6,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { labelFixo, campoAlturaFrotaSx } from '../../constants/frotaVeiculo';
+import { datePickerPtBR } from '../../utils/datePickerLocale';
 
 dayjs.locale('pt-br');
 
@@ -44,7 +45,11 @@ export default function CampoDataFrota({ label, value, onChange, disabled, max, 
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+    <LocalizationProvider
+      dateAdapter={AdapterDayjs}
+      adapterLocale="pt-br"
+      localeText={datePickerPtBR}
+    >
       <DatePicker
         label={label}
         value={isoParaDayjs(value)}
@@ -57,6 +62,7 @@ export default function CampoDataFrota({ label, value, onChange, disabled, max, 
         maxDate={maxDate}
         minDate={minDate}
         format="DD/MM/YYYY"
+        localeText={datePickerPtBR}
         slotProps={{
           textField: {
             fullWidth: true,
@@ -69,6 +75,7 @@ export default function CampoDataFrota({ label, value, onChange, disabled, max, 
             slotProps: {
               inputLabel: { ...labelFixo.inputLabel, shrink: true },
               input: { readOnly: true },
+              htmlInput: { placeholder: 'Selecionar data' },
             },
           },
         }}

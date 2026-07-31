@@ -114,6 +114,15 @@ async function callFreeControl(path, { method = 'GET', query, body } = {}) {
       'x-service-token': token,
     },
     body: body != null ? JSON.stringify(body) : undefined,
+  }).catch((netErr) => {
+    const detalhe = netErr?.cause?.message || netErr?.message || '';
+    const err = new Error(
+      detalhe && !/fetch failed/i.test(detalhe)
+        ? `Não foi possível conectar ao FreeControl (${detalhe}).`
+        : 'Não foi possível conectar ao FreeControl. Confira FREECONTROL_API_URL e se o serviço está online.',
+    );
+    err.status = 502;
+    throw err;
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -158,7 +167,24 @@ router.get('/', requireAprovarFreelancers, async (req, res, next) => {
       status: status === 'ALL' ? 'ALL' : status,
     };
 
-    const data = await callFreeControl('/api/regional-approvals', { query });
+    let data;
+    try {
+      data = await callFreeControl('/api/regional-approvals', { query });
+    } catch (e) {
+      logger.warn('freelancers-aprovacao', e.message || e);
+      return res.json({
+        items: [],
+        count: 0,
+        lojas: lojas.map((l) => ({
+          id_loja: l.id_loja,
+          nome: l.nome,
+          bk_number: l.bk_number,
+        })),
+        date_from: dateFrom,
+        date_to: dateTo,
+        status,
+      });
+    }
 
     return res.json({
       items: data.items || [],
@@ -173,18 +199,6 @@ router.get('/', requireAprovarFreelancers, async (req, res, next) => {
       status,
     });
   } catch (e) {
-    if (e.status) {
-      logger.warn('freelancers-aprovacao', e.message);
-      // Nunca devolver 401 do FreeControl ao app — o front faz logout em qualquer 401.
-      const status =
-        e.status === 401 || e.status === 403 ? 502 : e.status >= 400 && e.status < 600 ? e.status : 502;
-      return res.status(status).json({
-        error:
-          e.status === 401 || e.status === 403
-            ? 'Falha na integração FreeControl (token/URL). Confira FREECONTROL_* no .env do Meridian e REGIONAL_APPROVAL_API_TOKEN no FreeControl.'
-            : e.message,
-      });
-    }
     next(e);
   }
 });
