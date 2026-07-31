@@ -167,33 +167,53 @@
   accent-color: var(--ck-orange, #e8520a);
 }
 
+/* Wizard fullscreen — estilos no paper do Dialog (portal), sem depender de .ck-freela pai */
 .ck-freela__wizard.MuiPaper-root,
 .ck-freela__wizard {
   display: flex !important;
   flex-direction: column;
-  background: #f4f5f8 !important;
+  background: #eef0f5 !important;
+  color: #141f48;
 }
 
 .ck-freela__wizard-head {
   flex-shrink: 0;
-  padding: 12px 16px 14px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 12px;
   background: #fff;
   border-bottom: 1px solid rgba(27, 42, 107, 0.1);
 }
 
-.ck-freela__wizard-back {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  margin: 0 0 8px;
-  font-family: inherit;
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: var(--ck-orange, #e8520a);
-  cursor: pointer;
+.ck-freela__wizard-nav {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
-.ck-freela__wizard-kicker {
+.ck-freela__wizard-iconbtn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(27, 42, 107, 0.06);
+  color: #1b2a6b;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ck-freela__wizard-iconbtn:disabled {
+  opacity: 0.45;
+}
+
+.ck-freela__wizard-titles {
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.ck-freela__wizard-titles p {
   margin: 0 0 2px;
   font-size: 0.7rem;
   font-weight: 800;
@@ -203,11 +223,27 @@
 }
 
 .ck-freela__wizard-titles h2 {
-  margin: 0 0 12px;
-  font-size: 1.35rem;
+  margin: 0;
+  font-size: 1.28rem;
   font-weight: 800;
-  color: var(--ck-navy, #1b2a6b);
+  color: #1b2a6b;
   line-height: 1.2;
+}
+
+.ck-freela__wizard .ck-freela__passos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.ck-freela__wizard .ck-freela__passo {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(27, 42, 107, 0.12);
+}
+
+.ck-freela__wizard .ck-freela__passo.is-on {
+  background: #e8520a;
 }
 
 .ck-freela__wizard-body {
@@ -227,10 +263,10 @@
 
 .ck-freela__wizard-confirm {
   width: 100%;
-  min-height: 48px;
+  min-height: 50px;
   border: 0;
   border-radius: 14px;
-  background: var(--ck-orange, #e8520a);
+  background: #e8520a;
   color: #fff;
   font-family: inherit;
   font-size: 0.95rem;
@@ -245,14 +281,221 @@
   box-shadow: none;
 }
 
-.ck-freela .ck-freela__pessoa-lista--full {
-  max-height: none;
-  flex: 1;
-  margin-top: 12px;
+.ck-freela__busca-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  margin-bottom: 14px;
 }
 
-.ck-freela .ck-freela__lancar-h {
+.ck-freela__wiz-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ck-freela__wiz-field span {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.45);
+  padding-left: 2px;
+}
+
+.ck-freela__wiz-field input,
+.ck-freela__wiz-field select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.16);
+  background: #fff;
+  color: #141f48;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ck-freela__wiz-field input:focus {
+  outline: none;
+  border-color: rgba(232, 82, 10, 0.55);
+  box-shadow: 0 0 0 3px rgba(232, 82, 10, 0.12);
+}
+
+.ck-freela__busca-btn {
+  min-height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: #1b2a6b;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ck-freela__busca-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ck-freela__pessoa-lista {
+  border-radius: 16px;
+  border: 1px solid rgba(27, 42, 107, 0.1);
+  background: #fff;
+  overflow: hidden;
+}
+
+.ck-freela__pessoa-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid rgba(27, 42, 107, 0.08);
+  background: #fff;
+  padding: 16px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-freela__pessoa-item:last-child {
+  border-bottom: 0;
+}
+
+.ck-freela__pessoa-item:active {
+  background: rgba(232, 82, 10, 0.08);
+}
+
+.ck-freela__pessoa-item-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.ck-freela__pessoa-item strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #141f48;
+  line-height: 1.25;
+}
+
+.ck-freela__pessoa-item small,
+.ck-freela__pessoa-sel small {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-freela__pessoa-vazio,
+.ck-freela__pessoa-hint {
   margin: 0;
+  padding: 28px 18px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.5);
+  line-height: 1.4;
+}
+
+.ck-freela__pessoa-hint {
+  padding: 4px 2px 0;
+  text-align: left;
+}
+
+.ck-freela__passo2 {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ck-freela__pessoa-sel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(232, 82, 10, 0.35);
+  background: rgba(232, 82, 10, 0.07);
+}
+
+.ck-freela__pessoa-sel strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #141f48;
+  line-height: 1.25;
+}
+
+.ck-freela__pessoa-trocar {
+  flex-shrink: 0;
+  border: 0;
+  background: #fff;
+  color: #e8520a;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ck-freela__loja-pick {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(27, 42, 107, 0.12);
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+
+.ck-freela__loja-pick small {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.45);
+}
+
+.ck-freela__loja-pick strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #141f48;
+  line-height: 1.3;
+}
+
+.ck-freela__hora-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(27, 42, 107, 0.12);
+  background: #fff;
+}
+
+.ck-freela__hora-card-title {
+  margin: 0 0 10px;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -260,199 +503,37 @@
   color: rgba(20, 32, 72, 0.5);
 }
 
-.ck-freela .ck-freela__lancar {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.ck-freela .ck-freela__lancar-lead {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  line-height: 1.4;
-  color: rgba(20, 32, 72, 0.58);
-}
-
-.ck-freela .ck-freela__passos {
+.ck-freela__hora-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.ck-freela .ck-freela__passo {
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(27, 42, 107, 0.12);
-}
-
-.ck-freela .ck-freela__passo.is-on {
-  background: var(--ck-orange, #e8520a);
-}
-
-.ck-freela .ck-freela__passo.is-done {
-  background: rgba(232, 82, 10, 0.45);
-}
-
-.ck-freela .ck-freela__busca-row {
-  display: flex;
-  align-items: flex-end;
+  grid-template-columns: 1.2fr 1fr;
   gap: 8px;
 }
 
-.ck-freela .ck-freela__busca-row .ck-freela__date {
-  flex: 1;
-  min-width: 0;
-}
-
-.ck-freela .ck-freela__busca-btn {
-  flex-shrink: 0;
-  min-height: 42px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--ck-navy, #1b2a6b);
-  color: #fff;
-  font-family: inherit;
-  font-size: 0.82rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.ck-freela .ck-freela__busca-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.ck-freela .ck-freela__pessoa-sel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1.5px solid rgba(232, 82, 10, 0.35);
-  background: rgba(232, 82, 10, 0.06);
-}
-
-.ck-freela .ck-freela__pessoa-sel strong {
-  display: block;
-  font-size: 0.92rem;
-  font-weight: 800;
-  color: var(--ck-ink);
-  line-height: 1.25;
-}
-
-.ck-freela .ck-freela__pessoa-sel small,
-.ck-freela .ck-freela__pessoa-item small {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: rgba(20, 32, 72, 0.55);
-}
-
-.ck-freela .ck-freela__pessoa-trocar {
-  flex-shrink: 0;
-  border: 0;
-  background: #fff;
-  color: var(--ck-orange, #e8520a);
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 800;
-  padding: 8px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.06);
-}
-
-.ck-freela .ck-freela__pessoa-lista {
-  max-height: 220px;
-  overflow: auto;
-  border-radius: 14px;
-  border: 1px solid rgba(27, 42, 107, 0.12);
-  background: #fff;
-  -webkit-overflow-scrolling: touch;
-}
-
-.ck-freela .ck-freela__pessoa-item {
-  width: 100%;
-  text-align: left;
-  border: 0;
-  border-bottom: 1px solid rgba(27, 42, 107, 0.08);
-  background: transparent;
-  padding: 12px 14px;
-  cursor: pointer;
-  font-family: inherit;
-  color: inherit;
-}
-
-.ck-freela .ck-freela__pessoa-item:last-child {
-  border-bottom: 0;
-}
-
-.ck-freela .ck-freela__pessoa-item:active {
-  background: rgba(232, 82, 10, 0.08);
-}
-
-.ck-freela .ck-freela__pessoa-item.is-sel {
-  background: rgba(232, 82, 10, 0.1);
-  box-shadow: inset 3px 0 0 var(--ck-orange, #e8520a);
-}
-
-.ck-freela .ck-freela__pessoa-item strong {
-  display: block;
-  font-size: 0.88rem;
-  font-weight: 800;
-  color: var(--ck-ink);
-}
-
-.ck-freela .ck-freela__pessoa-vazio,
-.ck-freela .ck-freela__pessoa-hint {
-  margin: 0;
-  padding: 12px 4px 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: rgba(20, 32, 72, 0.5);
-  line-height: 1.35;
-}
-
-.ck-freela .ck-freela__pessoa-vazio {
-  padding: 18px 14px;
-  text-align: center;
-}
-
-.ck-freela .ck-freela__lancar-horas {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ck-freela .ck-freela__saida-toggle {
+.ck-freela__wizard .ck-freela__saida-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
   padding: 4px;
-  border-radius: 12px;
-  background: rgba(27, 42, 107, 0.06);
+  border-radius: 14px;
+  background: rgba(27, 42, 107, 0.08);
 }
 
-.ck-freela .ck-freela__saida-opt {
-  min-height: 38px;
+.ck-freela__wizard .ck-freela__saida-opt {
+  min-height: 42px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 11px;
   background: transparent;
   color: rgba(20, 32, 72, 0.55);
   font-family: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 800;
   cursor: pointer;
 }
 
-.ck-freela .ck-freela__saida-opt.is-on {
+.ck-freela__wizard .ck-freela__saida-opt.is-on {
   background: #fff;
-  color: var(--ck-navy);
-  box-shadow: 0 1px 3px rgba(20, 32, 72, 0.1);
+  color: #1b2a6b;
+  box-shadow: 0 1px 3px rgba(20, 32, 72, 0.12);
 }
 
 .ck-freela .ck-freela__filtro-row {
