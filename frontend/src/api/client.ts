@@ -293,6 +293,24 @@ export const api = {
       `/freelancers-aprovacao/${checkinId}`,
       { method: 'PATCH', body: JSON.stringify(body) },
     ),
+  freelancersListarColaboradores: () =>
+    request<FreelancersColaboradoresResponse>('/freelancers-aprovacao/employees'),
+  freelancersRegistrarTurno: (body: {
+    employee_id: number;
+    bk_number: string;
+    checkin_time: string;
+    checkout_time?: string;
+    note?: string;
+  }) =>
+    request<{ success?: boolean; message?: string; item?: FreelancerTurnoAprovacao }>(
+      '/freelancers-aprovacao',
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  freelancersExcluir: (checkinId: number) =>
+    request<{ success?: boolean; message?: string }>(`/freelancers-aprovacao/${checkinId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({}),
+    }),
   ncDetalhe: (id: number) => request<NcDetalhe>(`/nao-conformidades/${id}`),
   ncResolver: async (id: number, form: FormData) => {
     const token = getToken();
@@ -2215,6 +2233,21 @@ export interface FreelancersAprovacaoResponse {
   date_to?: string;
   status?: string;
   aviso?: string;
+}
+
+export interface FreelancerColaborador {
+  employee_id: number;
+  full_name: string;
+  store_id: string | number;
+  store_name: string;
+  bk_number: string;
+  contract_type?: string | null;
+}
+
+export interface FreelancersColaboradoresResponse {
+  items: FreelancerColaborador[];
+  count: number;
+  lojas?: Array<{ id_loja: number; nome: string; bk_number: string }>;
 }
 
 export function fmtNota(n: string | number | null | undefined) {

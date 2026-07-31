@@ -134,6 +134,46 @@ async function callFreeControl(path, { method = 'GET', query, body } = {}) {
   return data;
 }
 
+function mapFreeControlError(e, res, next) {
+  if (e.status) {
+    logger.warn('freelancers-aprovacao', e.message);
+    // Nunca devolver 401 do FreeControl ao app — o front faz logout em qualquer 401.
+    const isAuthFail = e.status === 401;
+    const status = isAuthFail ? 502 : e.status >= 400 && e.status < 600 ? e.status : 502;
+    return res.status(status).json({
+      error: isAuthFail
+        ? 'Falha na integração FreeControl (token/URL). Confira FREECONTROL_* no .env do Meridian e REGIONAL_APPROVAL_API_TOKEN no FreeControl.'
+        : e.message,
+      ...(e.data && !isAuthFail ? e.data : {}),
+    });
+  }
+  return next(e);
+}
+
+router.get('/employees', requireAprovarFreelancers, async (req, res, next) => {
+  try {
+    const lojas = await bkNumbersDoUsuario(req.user);
+    const bkNumbers = lojas.map((l) => l.bk_number);
+    if (!bkNumbers.length) {
+      return res.json({ items: [], count: 0, lojas: [] });
+    }
+    const data = await callFreeControl('/api/regional-approvals/employees', {
+      query: { bk_numbers: bkNumbers.join(',') },
+    });
+    return res.json({
+      items: data.items || [],
+      count: data.count ?? (data.items || []).length,
+      lojas: lojas.map((l) => ({
+        id_loja: l.id_loja,
+        nome: l.nome,
+        bk_number: l.bk_number,
+      })),
+    });
+  } catch (e) {
+    return mapFreeControlError(e, res, next);
+  }
+});
+
 router.get('/', requireAprovarFreelancers, async (req, res, next) => {
   try {
     const lojas = await bkNumbersDoUsuario(req.user);
@@ -200,6 +240,77 @@ router.get('/', requireAprovarFreelancers, async (req, res, next) => {
     });
   } catch (e) {
     next(e);
+  }
+});
+
+router.post('/', requireAprovarFreelancers, async (req, res, next) => {
+  try {
+    const lojas = await bkNumbersDoUsuario(req.user);
+    const bkNumbers = lojas.map((l) => l.bk_number);
+    if (!bkNumbers.length) {
+      return res.status(403).json({ error: 'Sem unidades no escopo' });
+    }
+
+    const employeeId = parseInt(String(req.body?.employee_id || ''), 10);
+    if (!Number.isFinite(employeeId) || employeeId < 1) {
+      return res.status(400).json({ error: 'employee_id inválido' });
+    }
+
+    const bkNumber = String(req.body?.bk_number || req.body?.store_bk_number || '').trim();
+    if (!bkNumber || !bkNumbers.includes(bkNumber)) {
+      return res.status(403).json({ error: 'Unidade fora do escopo' });
+    }
+
+    const checkinTime = String(req.body?.checkin_time || req.body?.check_in_time || '').trim();
+    if (!checkinTime) {
+      return res.status(400).json({ error: 'Informe checkin_time' });
+    }
+
+    const checkoutTime = String(req.body?.checkout_time || req.body?.check_out_time || '').trim();
+    const byName = String(req.user?.nome || req.body?.by_name || '').trim();
+    const note = String(req.body?.note || '').trim();
+
+    const body = {
+      bk_numbers: bkNumbers,
+      employee_id: employeeId,
+      bk_number: bkNumber,
+      checkin_time: checkinTime,
+      by_name: byName,
+      note,
+    };
+    if (checkoutTime) body.checkout_time = checkoutTime;
+
+    const data = await callFreeControl('/api/regional-approvals', {
+      method: 'POST',
+      body,
+    });
+
+    return res.status(201).json(data);
+  } catch (e) {
+    return mapFreeControlError(e, res, next);
+  }
+});
+
+router.delete('/:checkinId', requireAprovarFreelancers, async (req, res, next) => {
+  try {
+    const checkinId = parseInt(String(req.params.checkinId || ''), 10);
+    if (!Number.isFinite(checkinId) || checkinId < 1) {
+      return res.status(400).json({ error: 'checkinId inválido' });
+    }
+    const lojas = await bkNumbersDoUsuario(req.user);
+    const bkNumbers = lojas.map((l) => l.bk_number);
+    if (!bkNumbers.length) {
+      return res.status(403).json({ error: 'Sem unidades no escopo' });
+    }
+
+    const data = await callFreeControl(`/api/regional-approvals/${checkinId}`, {
+      method: 'DELETE',
+      body: { bk_numbers: bkNumbers },
+    });
+
+    return res.json(data);
+  } catch (e) {
+    return mapFreeControlError(e, res, next);
   }
 });
 

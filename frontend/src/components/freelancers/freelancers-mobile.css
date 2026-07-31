@@ -94,7 +94,8 @@
   padding-left: 2px;
 }
 
-.ck-freela .ck-freela__date input {
+.ck-freela .ck-freela__date input,
+.ck-freela .ck-freela__date select {
   width: 100%;
   min-height: 42px;
   padding: 0 12px;
@@ -108,10 +109,62 @@
   box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
 }
 
-.ck-freela .ck-freela__date input:focus {
+.ck-freela .ck-freela__date select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(20, 32, 72, 0.45) 50%),
+    linear-gradient(135deg, rgba(20, 32, 72, 0.45) 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+}
+
+.ck-freela .ck-freela__date input:focus,
+.ck-freela .ck-freela__date select:focus {
   outline: none;
   border-color: rgba(232, 82, 10, 0.55);
   box-shadow: 0 0 0 3px rgba(232, 82, 10, 0.12);
+}
+
+.ck-freela .ck-freela__registrar {
+  width: 100%;
+  min-height: 46px;
+  margin: 0 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--ck-orange, #e8520a);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 6px 16px rgba(232, 82, 10, 0.28);
+}
+
+.ck-freela .ck-freela__registrar:active {
+  transform: scale(0.98);
+}
+
+.ck-freela .ck-freela__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ck-ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ck-freela .ck-freela__check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ck-orange, #e8520a);
 }
 
 .ck-freela .ck-freela__filtro-row {
@@ -372,6 +425,13 @@
   background: #fff;
   color: var(--ck-navy);
   border: 1.5px solid rgba(27, 42, 107, 0.28);
+}
+
+.ck-freela .ck-freela__btn--excluir {
+  background: #fff;
+  color: #b91c1c;
+  border: 1.5px solid rgba(185, 28, 28, 0.28);
+  flex: 1 1 100%;
 }
 
 .ck-freela .ck-freela__horario-form {
