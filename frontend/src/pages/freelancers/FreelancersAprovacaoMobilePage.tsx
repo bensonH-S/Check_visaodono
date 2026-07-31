@@ -812,7 +812,7 @@ export default function FreelancersAprovacaoMobilePage() {
         onClose={fecharRegistrar}
         fullWidth
         maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: '18px', m: 1.5, maxHeight: '92vh' } }}
+        slotProps={{ paper: { sx: { borderRadius: '18px', m: 1.5, maxHeight: '92vh' } } }}
       >
         <DialogTitle sx={{ fontWeight: 800, fontSize: '1.05rem', color: NAVY, pb: 0.5 }}>
           Lançar ponto
