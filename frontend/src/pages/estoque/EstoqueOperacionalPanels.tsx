@@ -1209,7 +1209,7 @@ function PainelProdutos({
           </Box>
           {itens.some((i) => i.codigo_insumo) && (
             <Box sx={{ bgcolor: 'rgba(27,42,107,0.04)', borderRadius: 1, p: 1.5 }}>
-              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+              <Typography variant="caption" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
                 Resumo
               </Typography>
               {itens
