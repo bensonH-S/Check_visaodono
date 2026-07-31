@@ -487,14 +487,14 @@ export default function FreelancersAprovacaoMobilePage() {
       });
       showToast(
         saidaIso
-          ? 'Turno lançado — agora pode aprovar'
+          ? 'Registro lançado — agora pode aprovar'
           : 'Entrada lançada — use Lançar saída depois',
         'success',
       );
       setRegistrarAberto(false);
       await carregar(dateFrom, dateTo, status);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Falha ao lançar turno', 'error');
+      showToast(e instanceof Error ? e.message : 'Falha ao lançar registro', 'error');
     } finally {
       setSalvandoRegistro(false);
     }
@@ -624,7 +624,7 @@ export default function FreelancersAprovacaoMobilePage() {
             onClick={() => void abrirRegistrar()}
           >
             <PersonAddAlt1OutlinedIcon sx={{ fontSize: 20 }} />
-            Lançar ponto
+            Lançar registro
           </button>
 
           {err ? <p className="ck-visitas__erro">{err}</p> : null}
@@ -829,7 +829,8 @@ export default function FreelancersAprovacaoMobilePage() {
         fullScreen
         slotProps={{ paper: { className: 'ck-freela__wizard' } }}
       >
-        <header className="ck-freela__wizard-head">
+        <header className="ck-freela__wizard-stage">
+          <div className="ck-freela__wizard-stage-glow" aria-hidden />
           <div className="ck-freela__wizard-nav">
             <button
               type="button"
@@ -844,40 +845,55 @@ export default function FreelancersAprovacaoMobilePage() {
                 <ArrowBackIosNewIcon sx={{ fontSize: 18 }} />
               )}
             </button>
-            <div className="ck-freela__wizard-titles">
-              <p>Passo {regPasso} de 2</p>
-              <h2>{regPasso === 1 ? 'Buscar colaborador' : 'Loja e horário'}</h2>
-            </div>
+            <p className="ck-freela__wizard-mark">Lançar registro</p>
           </div>
+          <h2 className="ck-freela__wizard-title">
+            {regPasso === 1 ? (
+              <>
+                Quem
+                <br />
+                trabalhou?
+              </>
+            ) : (
+              <>
+                Loja e
+                <br />
+                horário
+              </>
+            )}
+          </h2>
+          <p className="ck-freela__wizard-sub">
+            {regPasso === 1
+              ? 'Busque pelo nome e toque na pessoa certa.'
+              : `${pessoaSel?.full_name || 'Colaborador'} · informe onde e quando.`}
+          </p>
           <div className="ck-freela__passos" aria-hidden>
             <span className={`ck-freela__passo${regPasso >= 1 ? ' is-on' : ''}`} />
             <span className={`ck-freela__passo${regPasso >= 2 ? ' is-on' : ''}`} />
           </div>
         </header>
 
-        <div className="ck-freela__wizard-body">
+        <div className="ck-freela__wizard-sheet">
           {regPasso === 1 ? (
             <>
               <form
-                className="ck-freela__busca-card"
+                className="ck-freela__busca-bar"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void buscarPessoas();
                 }}
               >
-                <label className="ck-freela__wiz-field">
-                  <span>Nome do colaborador</span>
-                  <input
-                    type="search"
-                    value={regBusca}
-                    onChange={(e) => setRegBusca(e.target.value)}
-                    placeholder="Digite o nome"
-                    autoComplete="off"
-                    autoFocus
-                  />
-                </label>
-                <button type="submit" className="ck-freela__busca-btn" disabled={loadingColabs}>
-                  {loadingColabs ? 'Buscando…' : 'Buscar'}
+                <input
+                  type="search"
+                  value={regBusca}
+                  onChange={(e) => setRegBusca(e.target.value)}
+                  placeholder="Nome do colaborador"
+                  autoComplete="off"
+                  autoFocus
+                  aria-label="Nome do colaborador"
+                />
+                <button type="submit" disabled={loadingColabs}>
+                  {loadingColabs ? '…' : 'Buscar'}
                 </button>
               </form>
 
@@ -887,11 +903,15 @@ export default function FreelancersAprovacaoMobilePage() {
                     <CircularProgress size={28} sx={{ color: ORANGE }} />
                   </div>
                 ) : !regBuscou ? (
-                  <p className="ck-freela__pessoa-vazio">
-                    Digite o nome e toque em Buscar para listar as pessoas.
-                  </p>
+                  <div className="ck-freela__pessoa-vazio">
+                    <strong>Comece pela busca</strong>
+                    Digite o nome e toque em Buscar.
+                  </div>
                 ) : colaboradores.length === 0 ? (
-                  <p className="ck-freela__pessoa-vazio">Nenhuma pessoa encontrada com esse nome.</p>
+                  <div className="ck-freela__pessoa-vazio">
+                    <strong>Ninguém encontrado</strong>
+                    Tente outro nome ou sobrenome.
+                  </div>
                 ) : (
                   colaboradores.map((c) => (
                     <button
@@ -900,6 +920,9 @@ export default function FreelancersAprovacaoMobilePage() {
                       className="ck-freela__pessoa-item"
                       onClick={() => escolherPessoa(c)}
                     >
+                      <span className="ck-freela__pessoa-avatar" aria-hidden>
+                        {(c.full_name || '?').trim().charAt(0).toUpperCase()}
+                      </span>
                       <span className="ck-freela__pessoa-item-text">
                         <strong>{c.full_name}</strong>
                         <small>
@@ -907,7 +930,7 @@ export default function FreelancersAprovacaoMobilePage() {
                           {c.store_name ? ` · ${c.store_name}` : ''}
                         </small>
                       </span>
-                      <ChevronRightIcon sx={{ fontSize: 22, color: 'rgba(20,32,72,0.35)' }} />
+                      <ChevronRightIcon sx={{ fontSize: 22, color: 'rgba(20,32,72,0.28)' }} />
                     </button>
                   ))
                 )}
@@ -916,40 +939,47 @@ export default function FreelancersAprovacaoMobilePage() {
           ) : (
             <div className="ck-freela__passo2">
               {pessoaSel ? (
-                <div className="ck-freela__pessoa-sel">
-                  <div>
+                <button
+                  type="button"
+                  className="ck-freela__pessoa-sel"
+                  onClick={voltarPasso1}
+                  disabled={salvandoRegistro}
+                >
+                  <span className="ck-freela__pessoa-avatar" aria-hidden>
+                    {(pessoaSel.full_name || '?').trim().charAt(0).toUpperCase()}
+                  </span>
+                  <span className="ck-freela__pessoa-item-text">
                     <strong>{pessoaSel.full_name}</strong>
-                    <small>{tipoColabLabel(pessoaSel)}</small>
-                  </div>
-                  <button
-                    type="button"
-                    className="ck-freela__pessoa-trocar"
-                    onClick={voltarPasso1}
-                    disabled={salvandoRegistro}
-                  >
-                    Trocar
-                  </button>
-                </div>
+                    <small>{tipoColabLabel(pessoaSel)} · trocar</small>
+                  </span>
+                  <ChevronRightIcon sx={{ fontSize: 22, color: 'rgba(20,32,72,0.28)' }} />
+                </button>
               ) : null}
 
               <button
                 type="button"
-                className="ck-freela__loja-pick"
+                className={`ck-freela__field-btn${!lojaSelecionada ? ' is-empty' : ''}`}
                 onClick={() => setLojaPickerAberto(true)}
               >
+                <StorefrontOutlinedIcon sx={{ fontSize: 22, color: ORANGE }} />
                 <span>
-                  <small>Loja do turno</small>
+                  <small>Loja</small>
                   <strong>
                     {lojaSelecionada
-                      ? `${lojaSelecionada.nome}${lojaSelecionada.bk_number ? ` · BK ${lojaSelecionada.bk_number}` : ''}`
-                      : 'Toque para escolher'}
+                      ? lojaSelecionada.nome
+                      : 'Escolher loja'}
                   </strong>
+                  {lojaSelecionada?.bk_number ? (
+                    <em>BK {lojaSelecionada.bk_number}</em>
+                  ) : null}
                 </span>
-                <ChevronRightIcon sx={{ fontSize: 22, color: 'rgba(20,32,72,0.35)' }} />
+                <ChevronRightIcon sx={{ fontSize: 22, color: 'rgba(20,32,72,0.28)' }} />
               </button>
 
-              <div className="ck-freela__hora-card">
-                <p className="ck-freela__hora-card-title">Entrada</p>
+              <section className="ck-freela__hora-card">
+                <header>
+                  <strong>Entrada</strong>
+                </header>
                 <div className="ck-freela__hora-grid">
                   <label className="ck-freela__wiz-field">
                     <span>Data</span>
@@ -974,15 +1004,15 @@ export default function FreelancersAprovacaoMobilePage() {
                     />
                   </label>
                 </div>
-              </div>
+              </section>
 
-              <div className="ck-freela__saida-toggle" role="group" aria-label="Tipo de lançamento">
+              <div className="ck-freela__saida-toggle" role="group" aria-label="Tipo de registro">
                 <button
                   type="button"
                   className={`ck-freela__saida-opt${regComSaida ? ' is-on' : ''}`}
                   onClick={() => setRegComSaida(true)}
                 >
-                  Entrada e saída
+                  Com saída
                 </button>
                 <button
                   type="button"
@@ -994,8 +1024,10 @@ export default function FreelancersAprovacaoMobilePage() {
               </div>
 
               {regComSaida ? (
-                <div className="ck-freela__hora-card">
-                  <p className="ck-freela__hora-card-title">Saída</p>
+                <section className="ck-freela__hora-card">
+                  <header>
+                    <strong>Saída</strong>
+                  </header>
                   <div className="ck-freela__hora-grid">
                     <label className="ck-freela__wiz-field">
                       <span>Data</span>
@@ -1015,12 +1047,8 @@ export default function FreelancersAprovacaoMobilePage() {
                       />
                     </label>
                   </div>
-                </div>
-              ) : (
-                <p className="ck-freela__pessoa-hint">
-                  Depois use «Lançar saída» no card do turno.
-                </p>
-              )}
+                </section>
+              ) : null}
             </div>
           )}
         </div>
@@ -1033,7 +1061,7 @@ export default function FreelancersAprovacaoMobilePage() {
               disabled={salvandoRegistro || !regBk || !pessoaSel}
               onClick={() => void salvarRegistro()}
             >
-              {salvandoRegistro ? 'Salvando…' : 'Confirmar lançamento'}
+              {salvandoRegistro ? 'Salvando…' : 'Lançar registro'}
             </button>
           </footer>
         ) : null}
@@ -1046,7 +1074,7 @@ export default function FreelancersAprovacaoMobilePage() {
         maxWidth="xs"
       >
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
-          Loja do turno
+          Escolher loja
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1, maxHeight: '60vh', overflow: 'auto' }}>
           {lojas.map((l) => {
@@ -1099,7 +1127,7 @@ export default function FreelancersAprovacaoMobilePage() {
                 {fmtHora(excluirItem.check_out_time)}
               </p>
               <p className="ck-freela__meta" style={{ marginTop: 10 }}>
-                Esta ação remove o ponto. Não dá para desfazer. Sessões já quitadas na folha não
+                Esta ação remove o registro. Não dá para desfazer. Sessões já quitadas na folha não
                 podem ser excluídas.
               </p>
             </div>
