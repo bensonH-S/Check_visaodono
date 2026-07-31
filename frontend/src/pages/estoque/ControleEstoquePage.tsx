@@ -34,6 +34,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import { usePageTitle } from '../../hooks/usePageTitle';
 import {
   api,
   type EstoqueContagemDetalhe,
@@ -210,6 +211,7 @@ function aplicarContagem(
 }
 
 export default function ControleEstoquePage() {
+  usePageTitle('Estoque');
   const navigate = useNavigate();
   const { aba: abaParam } = useParams<{ aba: string }>();
   const user = getUsuario();

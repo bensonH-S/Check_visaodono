@@ -1,0 +1,1610 @@
+[
+  {
+    "codigo": "21055",
+    "descricao": "BACON BK ASS CUBOS CX 2X1KG",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 180.65,
+    "valor_unidade": 90.325,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "21317",
+    "descricao": "BACON PRONTO ASSADO CONG TIRAS BK CX 4 KG",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 368.56,
+    "valor_unidade": 92.14,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "28582",
+    "descricao": "BATATA CONG PRE FRITA BK 9MM CX 12,5KG MCCAIN NV",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 174.27,
+    "valor_unidade": 13.941600000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38585",
+    "descricao": "BROWNIE BRIGADEIRO BK CX 24X50 G",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 62.49,
+    "valor_unidade": 2.6037500000000002,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0001",
+    "descricao": "BROWNIE PICADO SEM NOZES BK 1KG C/4",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 182.46,
+    "valor_unidade": 182.46,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34840",
+    "descricao": "CARNE CONG MOIDA WHOPPER BK CX 17,2KG",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 532.48,
+    "valor_unidade": 30.958139534883724,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36252",
+    "descricao": "CARNE ESPECIAL GOURMET CX18,408KG 156UND",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 358.87,
+    "valor_unidade": 19.49532811820947,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34754",
+    "descricao": "CARNE HB CONG BKC CX COM 18,7 KG",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 531.34,
+    "valor_unidade": 28.41390374331551,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35221",
+    "descricao": "CHICKEN JR CLEAN BK CX 9,88KG",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 157.29,
+    "valor_unidade": 15.920040485829958,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38178",
+    "descricao": "CHICKEN NUGGETS CLEAN BK CX 12 KG",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 220.74,
+    "valor_unidade": 18.395,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "21403",
+    "descricao": "HAMBURGUER REBEL SABOR PICANHA CX 12KG",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 449.65,
+    "valor_unidade": 37.47083333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36409",
+    "descricao": "MARMITA CONG CARNE DE PANELA CX 15X450G",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 293.99,
+    "valor_unidade": 19.599333333333334,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34580",
+    "descricao": "MARMITA CONG CARNE MOIDA CX 15X400G",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 220.63,
+    "valor_unidade": 14.708666666666666,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31777",
+    "descricao": "MARMITA CONG COXA DESOSSADA C/CREME DE MILHO CX 15X400G",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 265.0,
+    "valor_unidade": 17.666666666666668,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "28451",
+    "descricao": "MARMITA CONG ESTROGONOFF DE FRANGO CX 15X400G",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 208.63,
+    "valor_unidade": 13.908666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "13363",
+    "descricao": "MARMITA CONG FEIJOADA CX 15X450G",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 209.2,
+    "valor_unidade": 13.946666666666665,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "33919",
+    "descricao": "MARMITA CONG FRANGO DESFIADO CX 15X400G",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 213.49,
+    "valor_unidade": 14.232666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34298",
+    "descricao": "MARMITA CONG PORKS BARBECUE CX 15X400G",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 265.97,
+    "valor_unidade": 17.731333333333335,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38635",
+    "descricao": "ONION RINGS FNT BRASIL BK CX 11KG 10X1.1 K",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 208.74,
+    "valor_unidade": 18.976363636363637,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38636",
+    "descricao": "PAO BK 4 CONG CXG 14900G UNB",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 287.96,
+    "valor_unidade": 1.0665185185185184,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0002",
+    "descricao": "PAO BK 5 CL CXG CONG 10500G UNB",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 194.3,
+    "valor_unidade": 1.6191666666666669,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38638",
+    "descricao": "PAO BK SUPREMO CLEAN LABEL CX COM 180 UND",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 190.05,
+    "valor_unidade": 1.0558333333333334,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0003",
+    "descricao": "PAO BRIOCHE BK CX 192 UND",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 184.24,
+    "valor_unidade": 0.9595833333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0004",
+    "descricao": "PAO BRIOCHE BK CX 270 UND",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 250.95,
+    "valor_unidade": 0.9294444444444444,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38639",
+    "descricao": "TENDER CRISPY FILE NOVO BK CX 4X2,5 KG",
+    "categoria": "CONGELADOS",
+    "preco_caixa": 278.83,
+    "valor_unidade": 27.883,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "37466",
+    "descricao": "AGUA GASEIFICADA H2OH LIMAO BK FD 12 X 500ML",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 43.61,
+    "valor_unidade": 3.6341666666666668,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "19909",
+    "descricao": "AGUA MINERAL BURGER KING CX 48 UN",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 40.79,
+    "valor_unidade": 0.8497916666666666,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "25622",
+    "descricao": "ALFACE AMERICANA  NATURAL BK-REFRICON CX12KG",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 211.8,
+    "valor_unidade": 17.650000000000002,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35620",
+    "descricao": "BEBIDA LACTEA DOCE DE LEITE UHT BK CX10X2UN",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 194.77,
+    "valor_unidade": 9.7385,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "28459",
+    "descricao": "BEBIDA LACTEA UHT BAUNILHA BK 10 L X 2 UN",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 152.14,
+    "valor_unidade": 7.606999999999999,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35562",
+    "descricao": "CEBOLA BRANCA ESTADO NATURAL BK REFRICON CX 6KG",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 94.04,
+    "valor_unidade": 15.673333333333334,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35610",
+    "descricao": "MOLHO SABOR QUEIJO CHEDDAR BK CX 8X2KG",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 349.02,
+    "valor_unidade": 21.81375,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "3029",
+    "descricao": "QUEIJO CHEDDAR CLEAN BK DAN VIGOR CX 8X2,208 KG",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 598.56,
+    "valor_unidade": 33.885869565217384,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "10138",
+    "descricao": "SUCO DE MARACUJA COM MACA BK FD C/ 12X300ML",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 39.56,
+    "valor_unidade": 3.296666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38021",
+    "descricao": "SUCO LARANJA 12X300 ML BK",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 39.56,
+    "valor_unidade": 3.296666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35959",
+    "descricao": "SUCO UVA MACA 12X300ML PPY/BK",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 39.56,
+    "valor_unidade": 3.296666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35046",
+    "descricao": "SUCO UVA MACA 6X180 ML PPY/BK",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 13.17,
+    "valor_unidade": 2.195,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35046-2",
+    "descricao": "TOMATE CARMEM ESTADO NATURAL BK REFRICON 7K",
+    "categoria": "RESFRIADOS",
+    "preco_caixa": 80.23,
+    "valor_unidade": 11.461428571428572,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38537",
+    "descricao": "BACONESE BK CX 5X1,1KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 141.04,
+    "valor_unidade": 25.64363636363636,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38537-2",
+    "descricao": "CARNE FRANDINHA DESFIADA",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 304.6,
+    "valor_unidade": 76.15,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "30489",
+    "descricao": "CEBOLA FRITA CRISPY BENASSI 10X500 GR",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 202.91,
+    "valor_unidade": 20.291,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "32374",
+    "descricao": "COSTELA DESFIADA CX 24X300GR",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 321.09,
+    "valor_unidade": 44.59583333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35407",
+    "descricao": "KETCHUP A GRANEL BK HEINZ CX 8X2KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 113.51,
+    "valor_unidade": 7.094375,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "37967",
+    "descricao": "MAIONESE GRANEL BK CLEAN CX 6X3KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 264.95,
+    "valor_unidade": 14.719444444444443,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34638",
+    "descricao": "MAIONESE SACHET SABOR BACON CX C/304 UND",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 289.0,
+    "valor_unidade": 0.9506578947368421,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36083",
+    "descricao": "MAIONESE VERDE BK CX 5X1,1KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 141.11,
+    "valor_unidade": 25.65636363636364,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35205",
+    "descricao": "MAIONESE VERDE SACHET CX COM 304 UND",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 187.74,
+    "valor_unidade": 0.6175657894736842,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35205-2",
+    "descricao": "MOLHO BARBECUE BAG MP BK CX COM 5,5 KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 70.22,
+    "valor_unidade": 12.767272727272728,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "37987",
+    "descricao": "MOLHO BARBECUE BLISTER BK MP CX COM 144 UND 28G",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 91.66,
+    "valor_unidade": 0.6365277777777778,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35083",
+    "descricao": "MOLHO CEBOLA ROXA BK CX 12X500G",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 116.7,
+    "valor_unidade": 19.45,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35531",
+    "descricao": "MOLHO FURIOSO BK NCM CX 144 BLISTER 28G UND",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 95.27,
+    "valor_unidade": 0.6615972222222222,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38594",
+    "descricao": "MOLHO FURIOSO NCM BK 5.5KG CLEAN",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 80.54,
+    "valor_unidade": 14.643636363636364,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35408",
+    "descricao": "MOLHO STACKER BAG CL BK CX5X1,1KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 89.39,
+    "valor_unidade": 16.252727272727274,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35740",
+    "descricao": "MOSTARDA HEINZ BK BAG 8X2KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 138.62,
+    "valor_unidade": 8.66375,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "21671",
+    "descricao": "MOSTARDA HEINZ BK SACHE 2304 5G",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 127.3,
+    "valor_unidade": 0.05525173611111111,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "32997",
+    "descricao": "OLEO ESPECIAL SUPREMA BK CX 18KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 232.55,
+    "valor_unidade": 12.919444444444444,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35835",
+    "descricao": "PEPINO FATIADO DRENAD BK CX6X2,300KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 254.96,
+    "valor_unidade": 18.47536231884058,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36084",
+    "descricao": "PIMENTA JALAPENO CLEAN LABEL BK FATIADO",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 233.38,
+    "valor_unidade": 25.93111111111111,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34862",
+    "descricao": "SACHE KETCHUP BK HEINZ CX 1500X7GR",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 107.23,
+    "valor_unidade": 0.07148666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "10947",
+    "descricao": "SACHET MAIONESE CLEAN BK CX 600UND",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 280.76,
+    "valor_unidade": 0.4679333333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "33290",
+    "descricao": "SAL BK FD 10KG",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 65.62,
+    "valor_unidade": 6.562,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "20754",
+    "descricao": "SAL REFINADO SACHE BK CX0,8X2500UN NOVO",
+    "categoria": "MOLHOS E CONDIMENTOS",
+    "preco_caixa": 31.98,
+    "valor_unidade": 0.012792,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35912",
+    "descricao": "BIS XTRA AO LEITE CX 4X24 UNI",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 265.94,
+    "valor_unidade": 11.080833333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35912-2",
+    "descricao": "BISCOITO BIDCOFF CX300 UM",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 172.79,
+    "valor_unidade": 0.5759666666666666,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35642",
+    "descricao": "BOMBOM PRESTIGIO CX 30X114G",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 185.93,
+    "valor_unidade": 6.197666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31161",
+    "descricao": "CALDA DE PISTACHE BK CX2X4KG",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 496.07,
+    "valor_unidade": 62.00875,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "30153",
+    "descricao": "CALDA MORANGO 6X1,25 CX C/7,5 KG",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 83.72,
+    "valor_unidade": 11.162666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38454",
+    "descricao": "CASQUINHA SORVETE BK CX 300UN",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 45.18,
+    "valor_unidade": 0.1506,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36243",
+    "descricao": "COBERTURA CHOCO BK CX 9X1,05 KG CLEAN LABEL",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 135.79,
+    "valor_unidade": 15.087777777777777,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "21215",
+    "descricao": "CRUMBLE BISCOFF  CX6X1KG",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 378.76,
+    "valor_unidade": 63.126666666666665,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "21215-2",
+    "descricao": "CRUMBLE COOKIES GRANULADO BAU CX5X1KG",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 94.81,
+    "valor_unidade": 18.962,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38838",
+    "descricao": "DOCE DE LEITE BK BISNAGA 1.5KG ELEGE CX4BG",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 111.78,
+    "valor_unidade": 18.63,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "3841",
+    "descricao": "LEITE EM PO NINHO 6,9 KG - 12 X 0,575GR",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 350.29,
+    "valor_unidade": 50.766666666666666,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38008",
+    "descricao": "MISTURA MILK SHAKE BAU BK DOHLER CX 13,16",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 114.37,
+    "valor_unidade": 11.913541666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0005",
+    "descricao": "NUTELLA BK CX C/2X3KG",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 338.01,
+    "valor_unidade": 56.335,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0006",
+    "descricao": "OVOMALTINE BK AB CX 9KG - 12 X 750GR",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 347.93,
+    "valor_unidade": 38.65888888888889,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0007",
+    "descricao": "PROTEINA SORO DE LEITE  9,6",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 1021.83,
+    "valor_unidade": 106.44062500000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35708",
+    "descricao": "RECHEIO DE OVOMALTINE BK CX COM 6X4 KG",
+    "categoria": "SOBREMESA",
+    "preco_caixa": 566.58,
+    "valor_unidade": 23.6075,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35505",
+    "descricao": "BALDE PAPEL 900 ML BK CD CX COM 500 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 290.78,
+    "valor_unidade": 0.58156,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38595",
+    "descricao": "BOBINA DSS BIXOLON CX 20",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 1057.65,
+    "valor_unidade": 52.88250000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "19556",
+    "descricao": "BOBINA TERMICA 79X40 PALHA ATOCOTEPE BK C/ 30UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 99.56,
+    "valor_unidade": 3.3186666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "19555",
+    "descricao": "CANUDO PAPEL MILKSHAKE JUMBO BK CX 1000UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 116.46,
+    "valor_unidade": 0.11646,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "19557",
+    "descricao": "CANUDO PAPEL REFRIGERANTE BK CX 3000UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 148.44,
+    "valor_unidade": 0.049479999999999996,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "29004",
+    "descricao": "CARTONAGEM BATATA GRANDE BK CX 1600 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 256.11,
+    "valor_unidade": 0.16006875,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "29003",
+    "descricao": "CARTONAGEM BATATA MEDIA NOVA BK CX 1600 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 210.3,
+    "valor_unidade": 0.1314375,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "29017",
+    "descricao": "COLHER SORVETE PREMIUM BK CX 1000UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 80.0,
+    "valor_unidade": 0.08,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "29857",
+    "descricao": "COPO BK 550ML CX1200UN CB",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 365.57,
+    "valor_unidade": 0.30464166666666664,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "28999",
+    "descricao": "COPO CORTESIA BIO 200ML BK CX 2000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 155.74,
+    "valor_unidade": 0.07787000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "29000",
+    "descricao": "COPO MIX INSTITUCIONAL 290ML BK BO PACK CX 320UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 88.18,
+    "valor_unidade": 0.27556250000000004,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "29002",
+    "descricao": "COPO MIX INSTITUCIONAL 290ML STAR WARS  CX 320UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 89.24,
+    "valor_unidade": 0.278875,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "10337",
+    "descricao": "COPO REFRIG.PP BK 440ML  STAR WARS CX 900 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 231.34,
+    "valor_unidade": 0.25704444444444446,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35293",
+    "descricao": "COPO REFRIG.PP BK 440ML CX 900 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 222.16,
+    "valor_unidade": 0.24684444444444445,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "32575",
+    "descricao": "COPO SHAKE 440ML BIO BK CX 900UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 231.41,
+    "valor_unidade": 0.2571222222222222,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35144",
+    "descricao": "COPO SHAKE 440ML PLASTICO BK CX 900UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 191.7,
+    "valor_unidade": 0.213,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35144-2",
+    "descricao": "COPO SUNDAE BK BLISTER 200ML CX 1000UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 166.97,
+    "valor_unidade": 0.16697,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "23188",
+    "descricao": "COROA BK LGBT CX 500 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 142.5,
+    "valor_unidade": 0.285,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "33128",
+    "descricao": "COROA BURGUER KING CX 500 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 123.32,
+    "valor_unidade": 0.24664,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38582",
+    "descricao": "ETIQ LACRE DE SEGURANCA BKC 79,94X39,93MM",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 18.8,
+    "valor_unidade": 18.8,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38581",
+    "descricao": "ETIQUETA (DOMINGO) ROLO 1000 UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 5.03,
+    "valor_unidade": 0.005030000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "29750",
+    "descricao": "ETIQUETA (QUARTA) ROLO 1000 UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 5.03,
+    "valor_unidade": 0.005030000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31195",
+    "descricao": "ETIQUETA (QUINTA) ROLO 1000 UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 5.03,
+    "valor_unidade": 0.005030000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0008",
+    "descricao": "ETIQUETA (SABADO) ROLO 1000 UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 5.03,
+    "valor_unidade": 0.005030000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31196",
+    "descricao": "ETIQUETA (SEGUNDA) ROLO 1000 UM",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 5.03,
+    "valor_unidade": 0.005030000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34600",
+    "descricao": "ETIQUETA (SEXTA) ROLO 1000 UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 5.03,
+    "valor_unidade": 0.005030000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34741",
+    "descricao": "ETIQUETA (TERCA) ROLO 1000 UM",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 5.03,
+    "valor_unidade": 0.005030000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31439",
+    "descricao": "FILME PELICULA PVC 1000MT 40CM WIDE",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 184.43,
+    "valor_unidade": 184.43,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35572",
+    "descricao": "FILTRO P/ FRITADEIRA COM P CX 30UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 468.65,
+    "valor_unidade": 15.621666666666666,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36115",
+    "descricao": "FILTRO P/ FRITADEIRA PITCO 30UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 383.55,
+    "valor_unidade": 12.785,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "14321",
+    "descricao": "FUNDO BANDEJA INSTITUCIONAL BK CX 2000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 121.94,
+    "valor_unidade": 0.060969999999999996,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "14321-2",
+    "descricao": "FUNDO DE BANDEJA STAR WARS CX 2000",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 119.07,
+    "valor_unidade": 0.059535,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31897",
+    "descricao": "FUNDO DE BATATA SUP GD BK INNOVAPACK CX 350 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 89.67,
+    "valor_unidade": 0.2562,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "24016",
+    "descricao": "FUNDO DE BATATA SUP MD BK INNOVAPACK CX 600 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 96.28,
+    "valor_unidade": 0.16046666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "24016-2",
+    "descricao": "GARFO SOBREMESA CX 1000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 40.91,
+    "valor_unidade": 0.040909999999999995,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31896",
+    "descricao": "GUARDANAPO EMBALADO BK 20X30 CX 2400 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 122.77,
+    "valor_unidade": 0.05115416666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31896-2",
+    "descricao": "GUARDANAPO INTERFOLHADO BK CX 5400 UM",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 102.66,
+    "valor_unidade": 0.01901111111111111,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "32678",
+    "descricao": "GUARDANAPO SORVETE BK 20 X 20 CX 5000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 69.84,
+    "valor_unidade": 0.013968000000000001,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "37974",
+    "descricao": "KIT GARFO/FACA EMBALADOS",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 198.03,
+    "valor_unidade": 0.495075,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "30413",
+    "descricao": "LAMINA BIG KING BK RIACHO PCT 3000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 183.1,
+    "valor_unidade": 0.06103333333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "29842",
+    "descricao": "LAMINA CHICKEN WHOPPER BK RIACHO PCT 3000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 227.63,
+    "valor_unidade": 0.07587666666666666,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "9241",
+    "descricao": "LAMINA KING OFERTAS BK TRENIER PCT 3000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 180.48,
+    "valor_unidade": 0.06016,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "3043",
+    "descricao": "LAMINA REBEL WHOPPER MAR. BK RIACHO PCT 3000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 271.52,
+    "valor_unidade": 0.09050666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31886",
+    "descricao": "LAMINA STACKER BK RIACHO PCT 3000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 215.13,
+    "valor_unidade": 0.07171,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "25997",
+    "descricao": "LAMINA WHOPPER BK RIACHO PCT 3000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 230.7,
+    "valor_unidade": 0.0769,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31544",
+    "descricao": "LAMINA WHOPPER JR BK RIACHO PCT 3000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 209.92,
+    "valor_unidade": 0.06997333333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31543",
+    "descricao": "LAPIS CERA CX 12 UNIDADES",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 53.66,
+    "valor_unidade": 4.471666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "32605",
+    "descricao": "LUVA PLASTICA DESC TAM UNICO C/50",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 11.67,
+    "valor_unidade": 0.1167,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36086",
+    "descricao": "LUVA TRANSP. DE POLIETILENO BK TAM EG 100UN IMP",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 2.61,
+    "valor_unidade": 0.026099999999999998,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38580",
+    "descricao": "LUVA TRANSP. DE POLIETILENO BK TAM UNIC 100UN IMP",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 2.61,
+    "valor_unidade": 0.026099999999999998,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "24754",
+    "descricao": "NOVA CARTONAGEM FRITOS DELIVERY BK CX 500UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 126.87,
+    "valor_unidade": 0.25374,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0009",
+    "descricao": "PAZINHA SORVETE BK CX 3000UN BRANCA",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 67.47,
+    "valor_unidade": 0.02249,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "37842",
+    "descricao": "PETROGEL FILM PLUS 4 OZ",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 47.19,
+    "valor_unidade": 47.19,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38528",
+    "descricao": "PORTA COPOS P/ 2 COPOS BK 550 ML CX C/ 370 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 91.87,
+    "valor_unidade": 0.2482972972972973,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "15031",
+    "descricao": "REDINHA PARA CABELO BLACK BK PCT COM 5 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 57.35,
+    "valor_unidade": 11.47,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0010",
+    "descricao": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 39.44,
+    "valor_unidade": 0.3944,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "9266",
+    "descricao": "SACO BK CHICKEN C.C PCT 1000UNDS",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 63.49,
+    "valor_unidade": 0.06349,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35211",
+    "descricao": "SACO BK DELIVERY PCT 100 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 45.27,
+    "valor_unidade": 0.45270000000000005,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "25299",
+    "descricao": "SACO DE KING JR PCT 1000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 178.62,
+    "valor_unidade": 0.17862,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36063",
+    "descricao": "SACO KING JR BK PCT 1000 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 175.05,
+    "valor_unidade": 0.17505,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "4327",
+    "descricao": "SACO VIAGEM 12 LIBRAS BK-CC PCT 1000 UNDS",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 175.5,
+    "valor_unidade": 0.1755,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "4326",
+    "descricao": "SACO VIAGEM 6 LIBRAS BK-CC PCT 1000 UNDS",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 140.82,
+    "valor_unidade": 0.14082,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "4333",
+    "descricao": "SACOLA P/ VIAGEM BK-CC PCT 500 UNDS",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 144.17,
+    "valor_unidade": 0.28834,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "4329",
+    "descricao": "SAQUINHO DE BATATA BK 22X11FD 6000UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 208.86,
+    "valor_unidade": 0.03481,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "4331",
+    "descricao": "TAMPA BALDE BK 900ML CX 1000UN",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 240.24,
+    "valor_unidade": 0.24024,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "4328",
+    "descricao": "TAMPA BATATA SUPREMA GRANDE CX 350 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 95.86,
+    "valor_unidade": 0.2738857142857143,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "4330",
+    "descricao": "TAMPA BATATA SUPREMA MEDIA CX 350 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 68.32,
+    "valor_unidade": 0.19519999999999998,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "24452",
+    "descricao": "TAMPA REFRIGERANTE 440ML NAC BK CX 1800UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 191.81,
+    "valor_unidade": 0.1065611111111111,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "24453",
+    "descricao": "TAMPA SHAKE BK 440 ML CX COM 900 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 141.84,
+    "valor_unidade": 0.1576,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0011",
+    "descricao": "TAMPA SUNDAE BK CX C/1200 UND",
+    "categoria": "EMBALAGENS E ESTOCAVEIS",
+    "preco_caixa": 112.24,
+    "valor_unidade": 0.09353333333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31883",
+    "descricao": "PAPEL HIGIENICO BK CX 8X500M",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 161.86,
+    "valor_unidade": 20.2325,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "3623",
+    "descricao": "PAPEL HIGIENICO INTERFOLHADO CX 48X250 F",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 216.62,
+    "valor_unidade": 4.5129166666666665,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31887",
+    "descricao": "PAPEL TOALHA BK CX 6X200M",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 102.56,
+    "valor_unidade": 17.093333333333334,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "31888",
+    "descricao": "PAPEL TOALHA INTERFOLHADA 24X350",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 120.32,
+    "valor_unidade": 5.013333333333333,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38480",
+    "descricao": "SACO P/ LIXO 40LT REFORCADO PCT 100 UND",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 28.43,
+    "valor_unidade": 0.2843,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38481",
+    "descricao": "SACO P LIXO 100LT BL4 PCT 100 UND",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 75.24,
+    "valor_unidade": 0.7524,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38482",
+    "descricao": "SACO P LIXO 200LT BL4 PCT 100 UND",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 77.77,
+    "valor_unidade": 0.7777,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0012",
+    "descricao": "DETERGENTE BK CLEANX GL 5 KG",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 147.59,
+    "valor_unidade": 29.518,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "23119",
+    "descricao": "LUVA P/ LIXO CANO LONGO PCT 100 UND",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 36.09,
+    "valor_unidade": 0.36090000000000005,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "32906",
+    "descricao": "PANO MULTIUSO IMP VERMELHO C/120",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 30.76,
+    "valor_unidade": 0.25633333333333336,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "32909",
+    "descricao": "PANO MULTIUSO IMP AZUL C/120",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 30.75,
+    "valor_unidade": 0.640625,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34932",
+    "descricao": "PANO MULTIUSO IMP LARANJA C/120",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 30.75,
+    "valor_unidade": 0.25625,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "34933",
+    "descricao": "PANO MULTIUSO IMP VERDE C/120",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 30.75,
+    "valor_unidade": 0.25625,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0013",
+    "descricao": "PANO MULTIUSO BRANCO",
+    "categoria": "LIMPEZA",
+    "preco_caixa": 262.95,
+    "valor_unidade": 0.219125,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0014",
+    "descricao": "CHA LIPTON PESSEGO BAG ZERO ACUCAR BK CX 18,9L",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 312.47,
+    "valor_unidade": 17.359444444444446,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0015",
+    "descricao": "PEPSI COLA BAG 18 LT",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 257.75,
+    "valor_unidade": 14.319444444444445,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0016",
+    "descricao": "PEPSI ZERO BAG 18 LT",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 257.75,
+    "valor_unidade": 14.319444444444445,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0017",
+    "descricao": "PEPSI TWIST BAG 18 LT",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 257.75,
+    "valor_unidade": 14.319444444444445,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0018",
+    "descricao": "GUARANA ANTARTICA BAG 18 LT",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 257.75,
+    "valor_unidade": 14.319444444444445,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0019",
+    "descricao": "GUARANA ANTARTICA DIET BAG 18 LT",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 257.75,
+    "valor_unidade": 14.319444444444445,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0020",
+    "descricao": "SODA LIMONADA BAG 18 LT",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 257.75,
+    "valor_unidade": 14.319444444444445,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0021",
+    "descricao": "SUKITA BAG 18 LT",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 257.75,
+    "valor_unidade": 14.319444444444445,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0022",
+    "descricao": "GUARANA  LATA 350 ML 12 UND",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 33.65,
+    "valor_unidade": 2.8041666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0023",
+    "descricao": "GUARANA DIET LATA 350 ML 12 UND",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 35.15,
+    "valor_unidade": 2.9291666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0024",
+    "descricao": "PEPSI LATA 350 ML12 UND",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 33.65,
+    "valor_unidade": 2.8041666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0025",
+    "descricao": "PEPSI DIET LATA 350 ML 12 UND",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 22.3,
+    "valor_unidade": 1.8583333333333334,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0026",
+    "descricao": "DIOXIDO CARBONO CIL K 25KG",
+    "categoria": "REFRIGERANTES BEG - LATAS - CO2",
+    "preco_caixa": 195.41,
+    "valor_unidade": 7.8164,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36347",
+    "descricao": "BRINDE WARNER 100 ANOS CX MIX 8 MOD COM 104 UNID",
+    "categoria": "BRINDE MEIA DEADPOL",
+    "preco_caixa": 892.67,
+    "valor_unidade": 8.583365384615384,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "36347-2",
+    "descricao": "BRIND BOB ESPONJA NARU CX 200 UND",
+    "categoria": "BRIND NARUTO MIX CX 104 UND",
+    "preco_caixa": 2151.24,
+    "valor_unidade": 10.7562,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0027",
+    "descricao": "MOLHO TERYAKI CX 5X1 1KG",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 120.5,
+    "valor_unidade": 23.627450980392158,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0028",
+    "descricao": "CARNE FRANDINHA DEFUMADA 4/1",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 304.8,
+    "valor_unidade": 76.2,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0029",
+    "descricao": "BISCOITO AZUL GRANULADO",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 178.91,
+    "valor_unidade": 59.63666666666666,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0030",
+    "descricao": "CALDA DE PISTACHE BK Balde  1x4 kilos",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 285.84,
+    "valor_unidade": 71.46,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0031",
+    "descricao": "CAIXA COMBO ADULTO  CX 160 UM",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 143.29,
+    "valor_unidade": 0.8955624999999999,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0032",
+    "descricao": "CAIXA THE KINGS CX 375 UM",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 136.14,
+    "valor_unidade": 0.36304,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0033",
+    "descricao": "FUNDO DE BANDEIJA CX 600 UND",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 41.86,
+    "valor_unidade": 0.06976666666666667,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0034",
+    "descricao": "LAMINA WHOPPER NARUTO CX 500 UND",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 36.54,
+    "valor_unidade": 0.07307999999999999,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0035",
+    "descricao": "COROA BK STAR CX 500 UND",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 121.95,
+    "valor_unidade": 0.2439,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0036",
+    "descricao": "COROA BK NARUTO CX 500 UND",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 142.39,
+    "valor_unidade": 0.28478,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0037",
+    "descricao": "CARTONAGEM BATATA DLV NARUTO CX 500 UND",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 144.79,
+    "valor_unidade": 0.28958,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0038",
+    "descricao": "MOLHO SABOR DEFUMADO CX 5X1,1KG",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 149.53,
+    "valor_unidade": 27.187272727272727,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0039",
+    "descricao": "LEITE EM PO NINHO CX 12X0,575 KG",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 349.17,
+    "valor_unidade": 50.60434782608696,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0040",
+    "descricao": "FAROFA CRUMB CX10X500",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 239.44,
+    "valor_unidade": 47.888,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0041",
+    "descricao": "KIT DE MANUTENÇAO ORINGS 8754BK",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 638.37,
+    "valor_unidade": 638.37,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0042",
+    "descricao": "KIT MEDIDOR DE OLEO",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 78.62,
+    "valor_unidade": 78.62,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "28288",
+    "descricao": "KIT TEFLON TOASTER BK CX 5 UN",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 362.96,
+    "valor_unidade": 72.592,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0043",
+    "descricao": "KIT DE ESCOVA BKC",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 623.05,
+    "valor_unidade": 623.05,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "28288-2",
+    "descricao": "TEFLON TOASTER PRINCE CASTLE BK CX 5 UN",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 399.81,
+    "valor_unidade": 79.962,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "35078",
+    "descricao": "ZIPCLIPS FECHA SACO BK CX 40 UM",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 42.97,
+    "valor_unidade": 1.07425,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "10880",
+    "descricao": "BANDEJA PRETA BK C/ 50 UND",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 426.17,
+    "valor_unidade": 8.5234,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0044",
+    "descricao": "MANTA SUPERIOR DE TEFLON CX  1UND",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 103.28,
+    "valor_unidade": 103.28,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "BK-SEM-0045",
+    "descricao": "MANTA SUPERIOR DE TEFLON INFERIOR CX03",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 178.26,
+    "valor_unidade": 59.419999999999995,
+    "unidade_contagem": "UND"
+  },
+  {
+    "codigo": "38112",
+    "descricao": "CESTO PARA PAO PRETO UM",
+    "categoria": "LANÇAMENTO",
+    "preco_caixa": 60.94,
+    "valor_unidade": 60.94,
+    "unidade_contagem": "UND"
+  }
+]

@@ -1,0 +1,854 @@
+{
+  "categorias": [
+    "CONGELADOS",
+    "BROWNIE PICADO SEM NOZES BK 1KG C/4",
+    "PAO BK 5 CL CXG CONG 10500G UNB",
+    "PAO BRIOCHE BK CX 192 UND",
+    "PAO BRIOCHE BK CX 270 UND",
+    "RESFRIADOS",
+    "MOLHOS E CONDIMENTOS",
+    "SOBREMESA",
+    "NUTELLA BK CX C/2X3KG",
+    "OVOMALTINE BK AB CX 9KG - 12 X 750GR",
+    "PROTEINA SORO DE LEITE  9,6",
+    "EMBALAGENS E ESTOCAVEIS",
+    "ETIQUETA (SABADO) ROLO 1000 UN",
+    "PAZINHA SORVETE BK CX 3000UN BRANCA",
+    "REDINHA PARA CABELO PRETA BK PCT C/ 100UN",
+    "TAMPA SUNDAE BK CX C/1200 UND",
+    "LIMPEZA",
+    "DETERGENTE BK CLEANX GL 5 KG",
+    "PANO MULTIUSO BRANCO",
+    "REFRIGERANTES BEG - LATAS - CO2",
+    "CHA LIPTON PESSEGO BAG ZERO ACUCAR BK CX 18,9L",
+    "PEPSI COLA BAG 18 LT",
+    "PEPSI ZERO BAG 18 LT",
+    "PEPSI TWIST BAG 18 LT",
+    "GUARANA ANTARTICA BAG 18 LT",
+    "GUARANA ANTARTICA DIET BAG 18 LT",
+    "SODA LIMONADA BAG 18 LT",
+    "SUKITA BAG 18 LT",
+    "GUARANA  LATA 350 ML 12 UND",
+    "GUARANA DIET LATA 350 ML 12 UND",
+    "PEPSI LATA 350 ML12 UND",
+    "PEPSI DIET LATA 350 ML 12 UND",
+    "DIOXIDO CARBONO CIL K 25KG",
+    "BRINDES",
+    "BRINDE DIVERSOS",
+    "BRINDE SONIC",
+    "BRIND CARTON",
+    "BRINDE MEIA DEADPOL",
+    "BRINDE BK OVO DINO CX COM 40 UND",
+    "BRINDE SMORF",
+    "BRINDE MIX JOGO DE CARTAS UNO DESAFIO BK",
+    "BRIND NARUTO MIX CX 104 UND",
+    "BRIND TARTARUGA NINJA CX 100 UND",
+    "LANÇAMENTO",
+    "MOLHO TERYAKI CX 5X1 1KG",
+    "CARNE FRANDINHA DEFUMADA 4/1",
+    "BISCOITO AZUL GRANULADO",
+    "CALDA DE PISTACHE BK Balde  1x4 kilos",
+    "CAIXA COMBO ADULTO  CX 160 UM",
+    "CAIXA THE KINGS CX 375 UM",
+    "FUNDO DE BANDEIJA CX 600 UND",
+    "LAMINA WHOPPER NARUTO CX 500 UND",
+    "COROA BK STAR CX 500 UND",
+    "COROA BK NARUTO CX 500 UND",
+    "CARTONAGEM BATATA DLV NARUTO CX 500 UND",
+    "MOLHO SABOR DEFUMADO CX 5X1,1KG",
+    "LEITE EM PO NINHO CX 12X0,575 KG",
+    "FAROFA CRUMB CX10X500",
+    "KIT DE MANUTENÇAO ORINGS 8754BK",
+    "KIT MEDIDOR DE OLEO",
+    "KIT DE ESCOVA BKC",
+    "MANTA SUPERIOR DE TEFLON CX  1UND",
+    "MANTA SUPERIOR DE TEFLON INFERIOR CX03"
+  ],
+  "itens": [
+    {
+      "codigo": "21055",
+      "descricao": "BACON BK ASS CUBOS CX 2X1KG",
+      "categoria": "CONGELADOS"
+    },
+    {
+      "codigo": "21317",
+      "descricao": "BACON PRONTO ASSADO CONG TIRAS BK CX 4 KG",
+      "categoria": "CONGELADOS"
+    },
+    {
+      "codigo": "28582",
+      "descricao": "BATATA CONG PRE FRITA BK 9MM CX 12,5KG MCCAIN NV",
+      "categoria": "CONGELADOS"
+    },
+    {
+      "codigo": "38585",
+      "descricao": "BROWNIE BRIGADEIRO BK CX 24X50 G",
+      "categoria": "CONGELADOS"
+    },
+    {
+      "codigo": "34840",
+      "descricao": "CARNE CONG MOIDA WHOPPER BK CX 17,2KG",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "36252",
+      "descricao": "CARNE ESPECIAL GOURMET CX18,408KG 156UND",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "34754",
+      "descricao": "CARNE HB CONG BKC CX COM 18,7 KG",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "35221",
+      "descricao": "CHICKEN JR CLEAN BK CX 9,88KG",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "38178",
+      "descricao": "CHICKEN NUGGETS CLEAN BK CX 12 KG",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "21403",
+      "descricao": "HAMBURGUER REBEL SABOR PICANHA CX 12KG",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "36409",
+      "descricao": "MARMITA CONG CARNE DE PANELA CX 15X450G",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "34580",
+      "descricao": "MARMITA CONG CARNE MOIDA CX 15X400G",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "31777",
+      "descricao": "MARMITA CONG COXA DESOSSADA C/CREME DE MILHO CX 15X400G",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "28451",
+      "descricao": "MARMITA CONG ESTROGONOFF DE FRANGO CX 15X400G",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "13363",
+      "descricao": "MARMITA CONG FEIJOADA CX 15X450G",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "33919",
+      "descricao": "MARMITA CONG FRANGO DESFIADO CX 15X400G",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "34298",
+      "descricao": "MARMITA CONG PORKS BARBECUE CX 15X400G",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "38635",
+      "descricao": "ONION RINGS FNT BRASIL BK CX 11KG 10X1.1 K",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "38636",
+      "descricao": "PAO BK 4 CONG CXG 14900G UNB",
+      "categoria": "BROWNIE PICADO SEM NOZES BK 1KG C/4"
+    },
+    {
+      "codigo": "38638",
+      "descricao": "PAO BK SUPREMO CLEAN LABEL CX COM 180 UND",
+      "categoria": "PAO BK 5 CL CXG CONG 10500G UNB"
+    },
+    {
+      "codigo": "38639",
+      "descricao": "TENDER CRISPY FILE NOVO BK CX 4X2,5 KG",
+      "categoria": "PAO BRIOCHE BK CX 270 UND"
+    },
+    {
+      "codigo": "37466",
+      "descricao": "AGUA GASEIFICADA H2OH LIMAO BK FD 12 X 500ML",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "19909",
+      "descricao": "AGUA MINERAL BURGER KING CX 48 UN",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "25622",
+      "descricao": "ALFACE AMERICANA  NATURAL BK-REFRICON CX12KG",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "35620",
+      "descricao": "BEBIDA LACTEA DOCE DE LEITE UHT BK CX10X2UN",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "28459",
+      "descricao": "BEBIDA LACTEA UHT BAUNILHA BK 10 L X 2 UN",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "35562",
+      "descricao": "CEBOLA BRANCA ESTADO NATURAL BK REFRICON CX 6KG",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "35610",
+      "descricao": "MOLHO SABOR QUEIJO CHEDDAR BK CX 8X2KG",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "3029",
+      "descricao": "QUEIJO CHEDDAR CLEAN BK DAN VIGOR CX 8X2,208 KG",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "10138",
+      "descricao": "SUCO DE MARACUJA COM MACA BK FD C/ 12X300ML",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "38021",
+      "descricao": "SUCO LARANJA 12X300 ML BK",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "35959",
+      "descricao": "SUCO UVA MACA 12X300ML PPY/BK",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "35046",
+      "descricao": "SUCO UVA MACA 6X180 ML PPY/BK",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "35046",
+      "descricao": "TOMATE CARMEM ESTADO NATURAL BK REFRICON 7K",
+      "categoria": "RESFRIADOS"
+    },
+    {
+      "codigo": "38537",
+      "descricao": "BACONESE BK CX 5X1,1KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "38537",
+      "descricao": "CARNE FRANDINHA DESFIADA",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "30489",
+      "descricao": "CEBOLA FRITA CRISPY BENASSI 10X500 GR",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "32374",
+      "descricao": "COSTELA DESFIADA CX 24X300GR",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35407",
+      "descricao": "KETCHUP A GRANEL BK HEINZ CX 8X2KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "37967",
+      "descricao": "MAIONESE GRANEL BK CLEAN CX 6X3KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "34638",
+      "descricao": "MAIONESE SACHET SABOR BACON CX C/304 UND",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "36083",
+      "descricao": "MAIONESE VERDE BK CX 5X1,1KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35205",
+      "descricao": "MAIONESE VERDE SACHET CX COM 304 UND",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35205",
+      "descricao": "MOLHO BARBECUE BAG MP BK CX COM 5,5 KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "37987",
+      "descricao": "MOLHO BARBECUE BLISTER BK MP CX COM 144 UND 28G",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35083",
+      "descricao": "MOLHO CEBOLA ROXA BK CX 12X500G",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35531",
+      "descricao": "MOLHO FURIOSO BK NCM CX 144 BLISTER 28G UND",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "38594",
+      "descricao": "MOLHO FURIOSO NCM BK 5.5KG CLEAN",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35408",
+      "descricao": "MOLHO STACKER BAG CL BK CX5X1,1KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35740",
+      "descricao": "MOSTARDA HEINZ BK BAG 8X2KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "21671",
+      "descricao": "MOSTARDA HEINZ BK SACHE 2304 5G",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "32997",
+      "descricao": "OLEO ESPECIAL SUPREMA BK CX 18KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35835",
+      "descricao": "PEPINO FATIADO DRENAD BK CX6X2,300KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "36084",
+      "descricao": "PIMENTA JALAPENO CLEAN LABEL BK FATIADO",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "34862",
+      "descricao": "SACHE KETCHUP BK HEINZ CX 1500X7GR",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "10947",
+      "descricao": "SACHET MAIONESE CLEAN BK CX 600UND",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "33290",
+      "descricao": "SAL BK FD 10KG",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "20754",
+      "descricao": "SAL REFINADO SACHE BK CX0,8X2500UN NOVO",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "34607",
+      "descricao": "",
+      "categoria": "MOLHOS E CONDIMENTOS"
+    },
+    {
+      "codigo": "35912",
+      "descricao": "BIS XTRA AO LEITE CX 4X24 UNI",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "35912",
+      "descricao": "BISCOITO BIDCOFF CX300 UM",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "35642",
+      "descricao": "BOMBOM PRESTIGIO CX 30X114G",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "31161",
+      "descricao": "CALDA DE PISTACHE BK CX2X4KG",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "30153",
+      "descricao": "CALDA MORANGO 6X1,25 CX C/7,5 KG",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "38454",
+      "descricao": "CASQUINHA SORVETE BK CX 300UN",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "36243",
+      "descricao": "COBERTURA CHOCO BK CX 9X1,05 KG CLEAN LABEL",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "21215",
+      "descricao": "CRUMBLE BISCOFF  CX6X1KG",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "21215",
+      "descricao": "CRUMBLE COOKIES GRANULADO BAU CX5X1KG",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "38838",
+      "descricao": "DOCE DE LEITE BK BISNAGA 1.5KG ELEGE CX4BG",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "3841",
+      "descricao": "LEITE EM PO NINHO 6,9 KG - 12 X 0,575GR",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "38008",
+      "descricao": "MISTURA MILK SHAKE BAU BK DOHLER CX 13,16",
+      "categoria": "SOBREMESA"
+    },
+    {
+      "codigo": "35708",
+      "descricao": "RECHEIO DE OVOMALTINE BK CX COM 6X4 KG",
+      "categoria": "PROTEINA SORO DE LEITE  9,6"
+    },
+    {
+      "codigo": "35505",
+      "descricao": "BALDE PAPEL 900 ML BK CD CX COM 500 UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "38595",
+      "descricao": "BOBINA DSS BIXOLON CX 20",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "19556",
+      "descricao": "BOBINA TERMICA 79X40 PALHA ATOCOTEPE BK C/ 30UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "19555",
+      "descricao": "CANUDO PAPEL MILKSHAKE JUMBO BK CX 1000UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "19557",
+      "descricao": "CANUDO PAPEL REFRIGERANTE BK CX 3000UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "29004",
+      "descricao": "CARTONAGEM BATATA GRANDE BK CX 1600 UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "29003",
+      "descricao": "CARTONAGEM BATATA MEDIA NOVA BK CX 1600 UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "29017",
+      "descricao": "COLHER SORVETE PREMIUM BK CX 1000UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "29857",
+      "descricao": "COPO BK 550ML CX1200UN CB",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "28999",
+      "descricao": "COPO CORTESIA BIO 200ML BK CX 2000 UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "29000",
+      "descricao": "COPO MIX INSTITUCIONAL 290ML BK BO PACK CX 320UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "29002",
+      "descricao": "COPO MIX INSTITUCIONAL 290ML STAR WARS  CX 320UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "10337",
+      "descricao": "COPO REFRIG.PP BK 440ML  STAR WARS CX 900 UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "35293",
+      "descricao": "COPO REFRIG.PP BK 440ML CX 900 UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "32575",
+      "descricao": "COPO SHAKE 440ML BIO BK CX 900UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "35144",
+      "descricao": "COPO SHAKE 440ML PLASTICO BK CX 900UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "35144",
+      "descricao": "COPO SUNDAE BK BLISTER 200ML CX 1000UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "23188",
+      "descricao": "COROA BK LGBT CX 500 UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "33128",
+      "descricao": "COROA BURGUER KING CX 500 UND",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "38582",
+      "descricao": "ETIQ LACRE DE SEGURANCA BKC 79,94X39,93MM",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "38581",
+      "descricao": "ETIQUETA (DOMINGO) ROLO 1000 UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "29750",
+      "descricao": "ETIQUETA (QUARTA) ROLO 1000 UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "31195",
+      "descricao": "ETIQUETA (QUINTA) ROLO 1000 UN",
+      "categoria": "EMBALAGENS E ESTOCAVEIS"
+    },
+    {
+      "codigo": "31196",
+      "descricao": "ETIQUETA (SEGUNDA) ROLO 1000 UM",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "34600",
+      "descricao": "ETIQUETA (SEXTA) ROLO 1000 UN",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "34741",
+      "descricao": "ETIQUETA (TERCA) ROLO 1000 UM",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "31439",
+      "descricao": "FILME PELICULA PVC 1000MT 40CM WIDE",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "35572",
+      "descricao": "FILTRO P/ FRITADEIRA COM P CX 30UN",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "36115",
+      "descricao": "FILTRO P/ FRITADEIRA PITCO 30UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "14321",
+      "descricao": "FUNDO BANDEJA INSTITUCIONAL BK CX 2000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "14321",
+      "descricao": "FUNDO DE BANDEJA STAR WARS CX 2000",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "31897",
+      "descricao": "FUNDO DE BATATA SUP GD BK INNOVAPACK CX 350 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "24016",
+      "descricao": "FUNDO DE BATATA SUP MD BK INNOVAPACK CX 600 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "24016",
+      "descricao": "GARFO SOBREMESA CX 1000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "31896",
+      "descricao": "GUARDANAPO EMBALADO BK 20X30 CX 2400 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "31896",
+      "descricao": "GUARDANAPO INTERFOLHADO BK CX 5400 UM",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "32678",
+      "descricao": "GUARDANAPO SORVETE BK 20 X 20 CX 5000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "37974",
+      "descricao": "KIT GARFO/FACA EMBALADOS",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "30413",
+      "descricao": "LAMINA BIG KING BK RIACHO PCT 3000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "29842",
+      "descricao": "LAMINA CHICKEN WHOPPER BK RIACHO PCT 3000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "9241",
+      "descricao": "LAMINA KING OFERTAS BK TRENIER PCT 3000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "3043",
+      "descricao": "LAMINA REBEL WHOPPER MAR. BK RIACHO PCT 3000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "31886",
+      "descricao": "LAMINA STACKER BK RIACHO PCT 3000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "25997",
+      "descricao": "LAMINA WHOPPER BK RIACHO PCT 3000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "31544",
+      "descricao": "LAMINA WHOPPER JR BK RIACHO PCT 3000 UND",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "31543",
+      "descricao": "LAPIS CERA CX 12 UNIDADES",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "32605",
+      "descricao": "LUVA PLASTICA DESC TAM UNICO C/50",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "36086",
+      "descricao": "LUVA TRANSP. DE POLIETILENO BK TAM EG 100UN IMP",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "38580",
+      "descricao": "LUVA TRANSP. DE POLIETILENO BK TAM UNIC 100UN IMP",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "24754",
+      "descricao": "NOVA CARTONAGEM FRITOS DELIVERY BK CX 500UN",
+      "categoria": "ETIQUETA (SABADO) ROLO 1000 UN"
+    },
+    {
+      "codigo": "37842",
+      "descricao": "PETROGEL FILM PLUS 4 OZ",
+      "categoria": "PAZINHA SORVETE BK CX 3000UN BRANCA"
+    },
+    {
+      "codigo": "38528",
+      "descricao": "PORTA COPOS P/ 2 COPOS BK 550 ML CX C/ 370 UND",
+      "categoria": "PAZINHA SORVETE BK CX 3000UN BRANCA"
+    },
+    {
+      "codigo": "15031",
+      "descricao": "REDINHA PARA CABELO BLACK BK PCT COM 5 UND",
+      "categoria": "PAZINHA SORVETE BK CX 3000UN BRANCA"
+    },
+    {
+      "codigo": "9266",
+      "descricao": "SACO BK CHICKEN C.C PCT 1000UNDS",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "35211",
+      "descricao": "SACO BK DELIVERY PCT 100 UND",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "25299",
+      "descricao": "SACO DE KING JR PCT 1000 UND",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "36063",
+      "descricao": "SACO KING JR BK PCT 1000 UND",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "4327",
+      "descricao": "SACO VIAGEM 12 LIBRAS BK-CC PCT 1000 UNDS",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "4326",
+      "descricao": "SACO VIAGEM 6 LIBRAS BK-CC PCT 1000 UNDS",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "4333",
+      "descricao": "SACOLA P/ VIAGEM BK-CC PCT 500 UNDS",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "4329",
+      "descricao": "SAQUINHO DE BATATA BK 22X11FD 6000UND",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "4331",
+      "descricao": "TAMPA BALDE BK 900ML CX 1000UN",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "4328",
+      "descricao": "TAMPA BATATA SUPREMA GRANDE CX 350 UND",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "4330",
+      "descricao": "TAMPA BATATA SUPREMA MEDIA CX 350 UND",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "24452",
+      "descricao": "TAMPA REFRIGERANTE 440ML NAC BK CX 1800UND",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "24453",
+      "descricao": "TAMPA SHAKE BK 440 ML CX COM 900 UND",
+      "categoria": "REDINHA PARA CABELO PRETA BK PCT C/ 100UN"
+    },
+    {
+      "codigo": "31883",
+      "descricao": "PAPEL HIGIENICO BK CX 8X500M",
+      "categoria": "LIMPEZA"
+    },
+    {
+      "codigo": "3623",
+      "descricao": "PAPEL HIGIENICO INTERFOLHADO CX 48X250 F",
+      "categoria": "LIMPEZA"
+    },
+    {
+      "codigo": "31887",
+      "descricao": "PAPEL TOALHA BK CX 6X200M",
+      "categoria": "LIMPEZA"
+    },
+    {
+      "codigo": "31888",
+      "descricao": "PAPEL TOALHA INTERFOLHADA 24X350",
+      "categoria": "LIMPEZA"
+    },
+    {
+      "codigo": "38480",
+      "descricao": "SACO P/ LIXO 40LT REFORCADO PCT 100 UND",
+      "categoria": "LIMPEZA"
+    },
+    {
+      "codigo": "38481",
+      "descricao": "SACO P LIXO 100LT BL4 PCT 100 UND",
+      "categoria": "LIMPEZA"
+    },
+    {
+      "codigo": "38482",
+      "descricao": "SACO P LIXO 200LT BL4 PCT 100 UND",
+      "categoria": "LIMPEZA"
+    },
+    {
+      "codigo": "23119",
+      "descricao": "LUVA P/ LIXO CANO LONGO PCT 100 UND",
+      "categoria": "DETERGENTE BK CLEANX GL 5 KG"
+    },
+    {
+      "codigo": "32906",
+      "descricao": "PANO MULTIUSO IMP VERMELHO C/120",
+      "categoria": "DETERGENTE BK CLEANX GL 5 KG"
+    },
+    {
+      "codigo": "32909",
+      "descricao": "PANO MULTIUSO IMP AZUL C/120",
+      "categoria": "DETERGENTE BK CLEANX GL 5 KG"
+    },
+    {
+      "codigo": "34932",
+      "descricao": "PANO MULTIUSO IMP LARANJA C/120",
+      "categoria": "DETERGENTE BK CLEANX GL 5 KG"
+    },
+    {
+      "codigo": "34933",
+      "descricao": "PANO MULTIUSO IMP VERDE C/120",
+      "categoria": "DETERGENTE BK CLEANX GL 5 KG"
+    },
+    {
+      "codigo": "36347",
+      "descricao": "BRINDE WARNER 100 ANOS CX MIX 8 MOD COM 104 UNID",
+      "categoria": "BRINDE MEIA DEADPOL"
+    },
+    {
+      "codigo": "36347",
+      "descricao": "BRIND BOB ESPONJA NARU CX 200 UND",
+      "categoria": "BRIND NARUTO MIX CX 104 UND"
+    },
+    {
+      "codigo": "28288",
+      "descricao": "KIT TEFLON TOASTER BK CX 5 UN",
+      "categoria": "KIT MEDIDOR DE OLEO"
+    },
+    {
+      "codigo": "28288",
+      "descricao": "TEFLON TOASTER PRINCE CASTLE BK CX 5 UN",
+      "categoria": "KIT DE ESCOVA BKC"
+    },
+    {
+      "codigo": "35078",
+      "descricao": "ZIPCLIPS FECHA SACO BK CX 40 UM",
+      "categoria": "KIT DE ESCOVA BKC"
+    },
+    {
+      "codigo": "10880",
+      "descricao": "BANDEJA PRETA BK C/ 50 UND",
+      "categoria": "KIT DE ESCOVA BKC"
+    },
+    {
+      "codigo": "38112",
+      "descricao": "CESTO PARA PAO PRETO UM",
+      "categoria": "MANTA SUPERIOR DE TEFLON INFERIOR CX03"
+    }
+  ]
+}

@@ -1,0 +1,299 @@
+Tipo de Documento:
+Área Emissora:
+Revisão:
+Alerta
+Operacional
+Página 1
+Vigência:
+AO – Alerta Operacional
+Inteligência Operacional
+01
+29/07/2026
+Patty de Mussarela – Burger King
+Foto da Embalagem Foto do Ingrediente
+Embalagem
+Tipo de Embalagem Material Peso Líquido 
+/Peso Bruto Unidades
+Embalagem de Transporte Caixa 2,6 Kg 2 pacotes
+Embalagem Primária* Pacote plástico 1,3 Kg 13 peças
+*Embalagem primária: embalagem que fica em contato com o alimento
+Código SAP:
+Tipo de Ingrediente
+Mussarela empanada
+Local de Armazenagem
+Camâra de Congelados
+Utilização em Produtos
+King Cheese
+Local de Uso
+PHU especiais 
+Patty de Mussarela
+Nome Cadastro: 
+Código SAP:
+221000000859
+QUEIJO CRISPY BURGUER CX 2 DE 1,3KG
+
+Tipo de Documento:
+Área Emissora:
+Revisão:
+Alerta
+Operacional
+Página 2
+Vigência:
+AO – Alerta Operacional
+Inteligência Operacional
+01
+29/07/2026
+Patty de Mussarela – Burger King
+Armazenagem/ Retenção
+Tipo Embalagem/
+Recipiente Local Tempo Temperatura
+Validade 
+Primária
+Embalagem Original 
+Fechada
+Câmara de 
+Congelados 120 dias -23°C a -13ºC
+Validade Secundária Embalagem Original
+(Após Aberta)
+Câmara de 
+Congelados 120 dias -23°C a -13ºC
+Retenção Secundária Cuba Inox Freezer 
+Intermediário 2 horas -23°C a -13ºC
+Retenção PHU  - 4 peças/ 
+gaveta PHU especiais 30 minutos ≥ 60°C
+Fritura 4 peças por cesto Fritadeira 02 minutos ≥ 180ºC
+Retenção Automática
+Retenção Manual
+• RET. (Retenção) Data e hora da
+retirada do produt o;
+• AMB. (Ambientação)Data e hora de
+ambient ação do produto (se houver);
+• VENC. (Vencimento) Data e hora de
+vencimento do produto.
+DA TA
+DIA DA SEMANA 
+HR
+01/07RET.
+AMB.
+VENC.
+-
+01/07
+10:00
+-
+12:00
+DA TA
+SEGUNDA
+HR
+01/07RET.
+AMB .
+VENC. 01/07
+10: 00
+12: 00
+DA TA
+Q UINTA
+HR
+01/07RET.
+AMB .
+VENC. 01/07
+10: 00
+12: 00
+DA TA
+Q UARTA
+HR
+01/07RET.
+AMB .
+VENC. 01/07
+10: 00
+12: 00
+DA TA
+TER ÇA
+HR
+01/07RET.
+AMB .
+VENC.
+-
+01/07
+10: 00
+-
+12: 00
+DA TA
+SEXTA
+HR
+01/07RET.
+AMB .
+VENC.
+-
+01/07
+10: 00
+-
+12: 00
+DA TA
+SÁBADO
+HR
+01/07RET.
+AMB .
+VENC.
+-
+01/07
+10: 00
+-
+12: 00
+DA TA
+DOM INGO
+HR
+01/07RET.
+AMB .
+VENC. 01/07
+10: 00
+12: 00
+- - - - - -
+- -
+A etiqueta de retenção e os produtos estocados no freezer devem obrigatoriamente ser 
+trocados a cada 2 horas. 
+Se atente com a quantidade estocada para não afetar a capacidade de congelamento do 
+freezer.
+Mussarela empanada
+Tipo de Documento:
+Área Emissora:
+Revisão:
+Alerta
+Operacional
+Página 3
+Vigência:
+AO – Alerta Operacional
+Inteligência Operacional
+01
+29/07/2026
+Patty de Mussarela – Burger King
+Guia Visual de Defeitos
+DEFFEITOS ACEIT ÁVEIS
+Pequenos pedaços: pequenos pedaços grudados na patty que não danifiquem a peça e 
+ainda possa ser usada. 
+Pequenos pedaços:  alguns pedaços presos na peça após a fritura que não atrapalhem a 
+forma redonda da patty. 
+
+Tipo de Documento:
+Área Emissora:
+Revisão:
+Alerta
+Operacional
+Página 4
+Vigência:
+AO – Alerta Operacional
+Inteligência Operacional
+01
+29/07/2026
+Patty de Mussarela – Burger King
+Guia Visual de Defeitos
+DEFFEITOS EXTREMOS - INACEIT ÁVEIS 
+Bordas irregulares: condição caracterizada pelo perda da forma circular da peça, deixando 
+as bordas diferentes do produto original. 
+Deformação: condição caracterizada pelo perda da forma circular da peça, deixando as 
+bordas diferentes do produto original. 
+Tipo de Documento:
+Área Emissora:
+Revisão:
+Alerta
+Operacional
+Página 5
+Vigência:
+AO – Alerta Operacional
+Inteligência Operacional
+01
+29/07/2026
+Patty de Mussarela – Burger King
+Preparo
+Utilizando a pinça azul, posicione até no máximo 4 peças de 
+mussarela empanada no cesto de fritura com divisória.4
+5
+Frite as peças na cuba de especiais da fritadeira utilizando a tecla 
+adequada.
+O tempo de fritura é de 2 minutos, na mesma tecla de Chicken Jr.
+Abasteça o Freezer Intermediário com as pattys de mussarrela empanada 
+de acordo com a demanda do seu restaurante.
+ATENÇÃO: respeite o limite máximo de tempo (2 horas) em que o 
+produto pode ficar armazenado no freezer de especiais.
+Após este tempo, devolva o pacote para câmara de congelados.
+2
+1
+Retire o pacote de mussarela empanada da câmara de congelados.
+6
+Após a fritura, apoie o cesto na parte superior da fritadeira e 
+aguarde 5 segundos para que o óleo possa escorrer.
+Feche o pacote e cole uma etiqueta marcando a validade 
+secundária. Em seguida, guarde o pacote na câmara de congelados.
+Coloque também uma etiqueta marcando a validade de 2 horas na 
+cuba com os peças no freezer de especiais.
+3
+M US S AR E LA  E M P A NAD A
+7
+Com auxílio da pinça vermelha, transfira as peças de mussarela 
+empanada para o contenedor (respeitando o limite de 4 peças) e 
+leve para a PHU de especiais.
+
+Tipo de Documento:
+Área Emissora:
+Revisão:
+Alerta
+Operacional
+Página 6
+Vigência:
+AO – Alerta Operacional
+Inteligência Operacional
+01
+29/07/2026
+Patty de Mussarela – Burger King
+Teste de cocção
+06
+Atente-se à temperatura-alvo para o teste de cocção:
+Temperatura-alvo: 80 °C
+T emperatura mínima aceitável: 74 °C
+T emperatura máxima aceitável: 93 °C
+1 min
+80 °C
+05
+Anotar a temperatura registrada no termômetro pelo teste de 
+cocção no Checklist de carne.
+ #Outros
+Faça a ativação da peça de mussarela empanada conforme o processo de 
+fritura. 
+01
+Após o tempo de fritura, transfira a peça para o recipiente de PHU. 
+Imediatamente após posicionar a peça, acione o cronômetro para 
+marcar 1 minuto de espera.
+03
+04
+Meça a temperatura da mussarela inserindo a ponta do sensor do 
+termômetro em um ângulo de 45°, em direção ao centro da peça.
+NÃO permita que o sensor atravesse completamente a peça.
+02
+Lave e sanitize todos os itens que entrarão em contato com o 
+alimento.
+07
+Se a temperatura da patty estiver entre 74 e 93 °C:
+• T odos os produtos que estão na PHU no momento da verificação 
+podem ser usados para sanduíches
+• Coloque as peças imediatamente no recipiente de PHU
+• Registre no checklist
+Se a temperatura da patty estiver menor do que 74 °C ou maior do 
+que 93°C:
+• Descarte o produto
+• Registre no checklist
+• Higienize todos utensílios de contato com a carne
+• Ajuste o tempo de cozimento
+• Realize o teste de cocção novamente
+Tipo de Documento:
+Área Emissora:
+Revisão:
+Alerta
+Operacional
+Página 7
+Vigência:
+AO – Alerta Operacional
+Inteligência Operacional
+01
+29/07/2026
+Patty de Mussarela – Burger King
+f) Histórico de revisão
+N° Revisão Data Revisado por: Aprovado por: Descrição
+01 25/05/2026 Raphael Oliveira Lucas Iribarrem Criação do Alerta Operacional

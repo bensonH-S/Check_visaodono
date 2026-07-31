@@ -1,0 +1,370 @@
+[
+  {
+    "codigo": "1050",
+    "descricao": "WHOPPER/Q"
+  },
+  {
+    "codigo": "1600",
+    "descricao": "WHOPPER JR/Q"
+  },
+  {
+    "codigo": "1700",
+    "descricao": "WHOPPER FURIOSO"
+  },
+  {
+    "codigo": "20000",
+    "descricao": "CASQUINHA BAUNILHA"
+  },
+  {
+    "codigo": "20002",
+    "descricao": "CASQUINHA MISTA"
+  },
+  {
+    "codigo": "20008",
+    "descricao": "SUNDAE CHOCOLATE"
+  },
+  {
+    "codigo": "2064",
+    "descricao": "CHICKEN JUNIOR"
+  },
+  {
+    "codigo": "2100",
+    "descricao": "CHS BURGER"
+  },
+  {
+    "codigo": "2610",
+    "descricao": "MEGA STACKER DP"
+  },
+  {
+    "codigo": "27002",
+    "descricao": "EXTRA CARNE WHOPPER 1 UN"
+  },
+  {
+    "codigo": "6011",
+    "descricao": "BATATA PEQUENA"
+  },
+  {
+    "codigo": "6012",
+    "descricao": "BATATA MEDIA"
+  },
+  {
+    "codigo": "6013",
+    "descricao": "BATATA GRANDE"
+  },
+  {
+    "codigo": "6017",
+    "descricao": "ONION RINGS MEDIA"
+  },
+  {
+    "codigo": "6018",
+    "descricao": "ONION RINGS GRANDE"
+  },
+  {
+    "codigo": "6508",
+    "descricao": "BK CHICKEN 4 UN"
+  },
+  {
+    "codigo": "7100023",
+    "descricao": "BIG KING"
+  },
+  {
+    "codigo": "7100036",
+    "descricao": "RODEIO"
+  },
+  {
+    "codigo": "7100055",
+    "descricao": "CHEESEBURGER DUPLO"
+  },
+  {
+    "codigo": "7100088",
+    "descricao": "REBEL WHOPPER"
+  },
+  {
+    "codigo": "7100095",
+    "descricao": "CHICKEN DUPLO"
+  },
+  {
+    "codigo": "7100100",
+    "descricao": "WHOPPER BBQ BACON"
+  },
+  {
+    "codigo": "7100101",
+    "descricao": "WHOPPER RODEIO 2020"
+  },
+  {
+    "codigo": "7100102",
+    "descricao": "RODEIO DUPLO"
+  },
+  {
+    "codigo": "7100105",
+    "descricao": "STACKER DUPLO BACON"
+  },
+  {
+    "codigo": "7100123",
+    "descricao": "BK CHICKEN CRISPY"
+  },
+  {
+    "codigo": "7100161",
+    "descricao": "CHEDDAR DUPLO CRISPY"
+  },
+  {
+    "codigo": "7100193",
+    "descricao": "MEGA STACKER RODEIO"
+  },
+  {
+    "codigo": "7100198",
+    "descricao": "MEGA STACKER RODEIO 3.0"
+  },
+  {
+    "codigo": "7210100",
+    "descricao": "CHEDDAR JR"
+  },
+  {
+    "codigo": "7210279",
+    "descricao": "BK CHICKEN 10 PC DLV S/MOLHO"
+  },
+  {
+    "codigo": "7210378",
+    "descricao": "KING DOUBLE BACON"
+  },
+  {
+    "codigo": "7210379",
+    "descricao": "KING BACON"
+  },
+  {
+    "codigo": "7210445",
+    "descricao": "BK MIX BROWNIE COM NUTELLA"
+  },
+  {
+    "codigo": "7210461",
+    "descricao": "KING FRALDINHA"
+  },
+  {
+    "codigo": "7210467",
+    "descricao": "COCA COLA LATA DLV BK"
+  },
+  {
+    "codigo": "7210468",
+    "descricao": "GUARANA LATA DLV BK"
+  },
+  {
+    "codigo": "7210472",
+    "descricao": "COCA COLA ZERO LATA DLV BK"
+  },
+  {
+    "codigo": "7210473",
+    "descricao": "FANTA LARANJA LATA DLV BK"
+  },
+  {
+    "codigo": "7210474",
+    "descricao": "COCA COLA LATA BALCAO BK"
+  },
+  {
+    "codigo": "7210475",
+    "descricao": "GUARANA LATA BALCAO BK"
+  },
+  {
+    "codigo": "7210478",
+    "descricao": "SPRITE LATA BALCAO BK"
+  },
+  {
+    "codigo": "7210479",
+    "descricao": "COCA COLA ZERO LATA BALCAO BK"
+  },
+  {
+    "codigo": "7210480",
+    "descricao": "FANTA LARANJA LATA BALCAO BK"
+  },
+  {
+    "codigo": "7210545",
+    "descricao": "BK MIX COOKIES BANOFFEE DLV"
+  },
+  {
+    "codigo": "7210582",
+    "descricao": "MOLHAO FURIOSO"
+  },
+  {
+    "codigo": "7210587",
+    "descricao": "KING CHEESE"
+  },
+  {
+    "codigo": "7210588",
+    "descricao": "KING CHICKEN CHEESE"
+  },
+  {
+    "codigo": "7300005",
+    "descricao": "BK ONION RINGS PEQUENA"
+  },
+  {
+    "codigo": "7300014",
+    "descricao": "BK BALDE"
+  },
+  {
+    "codigo": "7300044",
+    "descricao": "ONION RINGS MD DLV"
+  },
+  {
+    "codigo": "7300047",
+    "descricao": "BATATA MD DLV"
+  },
+  {
+    "codigo": "7300052",
+    "descricao": "BK CHICKEN 10 UN SEM MOLHO"
+  },
+  {
+    "codigo": "7300053",
+    "descricao": "BALDE BATATA DLV"
+  },
+  {
+    "codigo": "7500029",
+    "descricao": "SUCO LARANJA NATURAL ONE"
+  },
+  {
+    "codigo": "7500030",
+    "descricao": "SUCO UVA NATURAL ONE"
+  },
+  {
+    "codigo": "7500031",
+    "descricao": "SUCO MARACUJA NATURAL ONE"
+  },
+  {
+    "codigo": "7700019",
+    "descricao": "SHAKE MORANGO 400ML"
+  },
+  {
+    "codigo": "7700057",
+    "descricao": "SHAKE MORANGO DLV"
+  },
+  {
+    "codigo": "7700058",
+    "descricao": "SHAKE DOCE DE LEITE DLV"
+  },
+  {
+    "codigo": "7700076",
+    "descricao": "SHAKE CROCANTE 2020"
+  },
+  {
+    "codigo": "7700077",
+    "descricao": "SHAKE CROCANTE DLV 2020"
+  },
+  {
+    "codigo": "7700082",
+    "descricao": "SHAKE BROWNIE DLV"
+  },
+  {
+    "codigo": "8000007",
+    "descricao": "CASQUINHA RECHEADA DOCE DE LEITE"
+  },
+  {
+    "codigo": "8000066",
+    "descricao": "BK MIX BROWNIE"
+  },
+  {
+    "codigo": "8000070",
+    "descricao": "BK MIX OVOMALTINE 2020"
+  },
+  {
+    "codigo": "8000071",
+    "descricao": "BALDE OVOMALTINE 2020"
+  },
+  {
+    "codigo": "8000092",
+    "descricao": "BK BROWNIE RECHEIO BRIGADEIRO"
+  },
+  {
+    "codigo": "8000115",
+    "descricao": "BK MIX OVOMALTINE DLV"
+  },
+  {
+    "codigo": "8000116",
+    "descricao": "BK MIX BROWNIE DLV"
+  },
+  {
+    "codigo": "8000176",
+    "descricao": "BK MIX NUTELLA"
+  },
+  {
+    "codigo": "8000177",
+    "descricao": "CASQUINHA NUTELLA"
+  },
+  {
+    "codigo": "8000204",
+    "descricao": "SHAKE NUTELLA"
+  },
+  {
+    "codigo": "8500036",
+    "descricao": "CHICKEN DUPLO FURIOSO"
+  },
+  {
+    "codigo": "8500037",
+    "descricao": "CHICKEN DUPLO BACON"
+  },
+  {
+    "codigo": "8500038",
+    "descricao": "CHICKEN DUPLO BBQ BACON"
+  },
+  {
+    "codigo": "8700001",
+    "descricao": "EXTRA MAIONESE 11G"
+  },
+  {
+    "codigo": "8700004",
+    "descricao": "EXTRA MOLHO CHEDDAR 11G"
+  },
+  {
+    "codigo": "8700007",
+    "descricao": "EXTRA JALAPENO"
+  },
+  {
+    "codigo": "8700011",
+    "descricao": "EXTRA TOMATE"
+  },
+  {
+    "codigo": "8700020",
+    "descricao": "EXTRA BACON 1"
+  },
+  {
+    "codigo": "8700022",
+    "descricao": "EXTRA MOLHO BARBECUE BLISTER 1 UN"
+  },
+  {
+    "codigo": "8700027",
+    "descricao": "EXTRA CARNE PEQUENA 1 UN"
+  },
+  {
+    "codigo": "8700054",
+    "descricao": "EXTRA BACON CUBOS"
+  },
+  {
+    "codigo": "8800001",
+    "descricao": "EXTRA MOLHO BBQ 21G"
+  },
+  {
+    "codigo": "8800002",
+    "descricao": "EXTRA MOLHO FURIOSOS 8G"
+  },
+  {
+    "codigo": "8800008",
+    "descricao": "SACHET MAIONESE 1 UN"
+  },
+  {
+    "codigo": "8800010",
+    "descricao": "SACHET BACONESE 1 UN"
+  },
+  {
+    "codigo": "8800017",
+    "descricao": "MOLHO DE MAIONESE TEMPERADA SACHET"
+  },
+  {
+    "codigo": "8800018",
+    "descricao": "EXTRA NUTELLA"
+  },
+  {
+    "codigo": "9008",
+    "descricao": "FREE REFIL"
+  },
+  {
+    "codigo": "9049",
+    "descricao": "AGUA MINERAL BURGER KING"
+  }
+]

@@ -1,0 +1,2290 @@
+[
+  {
+    "categoria": "Sanduíche",
+    "produto": "Whopper com Queijo",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola",
+        "qtd": "3 aros ou 14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Ketchup",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Picles",
+        "qtd": "4 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Whopper Churras",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese verde",
+        "qtd": "3,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Vinagrete",
+        "qtd": "1 concha",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Churras",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Whopper Duplo com Queijo",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola",
+        "qtd": "3 aros ou 14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Ketchup",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Picles",
+        "qtd": "4 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 2",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 1",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Whopper BBQ Bacon",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola",
+        "qtd": "3 aros ou 14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Molho BBQ",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Picles",
+        "qtd": "4 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "3 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Whopper Rodeio",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Onions Rings",
+        "qtd": "6 aros",
+        "obs": null
+      },
+      {
+        "insumo": "Molho BBQ",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Whopper Furioso",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Onions Rings",
+        "qtd": "4 aros",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Furioso",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Pimenta Jalapeño",
+        "qtd": "4 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "3 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Whopper Junior",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de HB",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola",
+        "qtd": "2 aros ou 7 g",
+        "obs": null
+      },
+      {
+        "insumo": "Ketchup",
+        "qtd": "9 g",
+        "obs": null
+      },
+      {
+        "insumo": "Picles",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de HB",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Stacker Duplo",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de HB",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "3 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Hambúrguer",
+        "qtd": "2",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Hambúrguer",
+        "qtd": "1",
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de HB",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Stacker Triplo",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de HB",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "5 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Hambúrguer",
+        "qtd": "3",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Hambúrguer",
+        "qtd": "2",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Hambúrguer",
+        "qtd": "1",
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de HB",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Mega Stacker 2.0",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "37 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "3 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 2",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 1",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Mega Stacker 3.0",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "37 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "5 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 3",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 2",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 1",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas / Versão 4.0 só c/ adicional de carne"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Mega Stacker Atômico 2.0 (Marcação A2)",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "37 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "4 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 2",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "3 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 1",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Mega Stacker Atômico 3.0 (Marcação A3)",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "37 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "4 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 3",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "4 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 2",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "3 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 1",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas / Versão 4.0 só c/ adicional de carne"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Mega Stacker Cheddar 2.0",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "37 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "3 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "3 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 2",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "3 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 1",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Mega Stacker Cheddar 3.0",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "37 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "5 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "3 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 3",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "3 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 2",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "3 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Whopper 1",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas / Versão 4.0 só c/ adicional de carne"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Big King",
+    "itens": [
+      {
+        "insumo": "Coroa Pão Supremo",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola",
+        "qtd": "2 aros",
+        "obs": null
+      },
+      {
+        "insumo": "Picles",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Stacker",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Pão Central",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão Supremo",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Cheeseburger e CB Bacon",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de HB",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Picles",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Mostarda",
+        "qtd": "3 g",
+        "obs": null
+      },
+      {
+        "insumo": "Ketchup",
+        "qtd": "9 g",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de HB",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas"
+      },
+      {
+        "insumo": "Bacon (só CB Bacon)",
+        "qtd": "2 fatias",
+        "obs": "Adicionar lado a lado"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Cheeseburger Duplo e CB DP Bacon",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de HB",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Mostarda",
+        "qtd": "3 g",
+        "obs": null
+      },
+      {
+        "insumo": "Ketchup",
+        "qtd": "9 g",
+        "obs": null
+      },
+      {
+        "insumo": "Picles",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de HB",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas"
+      },
+      {
+        "insumo": "Bacon (só CB DP Bacon)",
+        "qtd": "2 fatias",
+        "obs": "Adicionar lado a lado por cima do queijo"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Rodeio Jr / Rodeio Duplo",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de HB",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Onions Rings",
+        "qtd": "3 aros",
+        "obs": null
+      },
+      {
+        "insumo": "Molho BBQ",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": null,
+        "obs": "Duplo apenas"
+      },
+      {
+        "insumo": "Carne de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de HB",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Cheddar Jr",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de HB",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Carne de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de HB",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas / Não vai cebola"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Cheddar Duplo",
+    "itens": [
+      {
+        "insumo": "Coroa Pão Brioche",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Cebola Salteada",
+        "qtd": "3 aros",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "3,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Carne Especial Gourmet",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "3,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão Brioche",
+        "qtd": null,
+        "obs": "Fechado no micro-ondas / Carne original"
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Chicken Crispy",
+    "itens": [
+      {
+        "insumo": "Coroa Pão Brioche",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Chicken Crispy (1 peça)",
+        "qtd": null,
+        "obs": "Tender vai em cima do alface"
+      },
+      {
+        "insumo": "Base Pão Brioche",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Chicken Crispy CBK",
+    "itens": [
+      {
+        "insumo": "Coroa Pão Brioche",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola Crispy",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Chicken Crispy (1 peça)",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão Brioche",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Chicken Duplo",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Carne Chicken Jr",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Carne Chicken Jr",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Chicken Júnior",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Carne Chicken Jr",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Rebel de Plantas",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "21 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola",
+        "qtd": "3 aros ou 14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Ketchup",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Picles",
+        "qtd": "4 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Hambúrguer de Vegetais",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Whopper",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sanduíche",
+    "produto": "Vegie Burger",
+    "itens": [
+      {
+        "insumo": "Coroa Pão de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Maionese",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "11 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola",
+        "qtd": "2 aros",
+        "obs": null
+      },
+      {
+        "insumo": "Queijo",
+        "qtd": "1 fatia",
+        "obs": null
+      },
+      {
+        "insumo": "Peça Veggie",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Base Pão de Hambúrguer",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Acompanhamento/Frito",
+    "produto": "Salada Levíssima",
+    "itens": [
+      {
+        "insumo": "Bandeja de Suprema G",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Alface",
+        "qtd": "128 g",
+        "obs": null
+      },
+      {
+        "insumo": "Tomate",
+        "qtd": "2 fatias",
+        "obs": null
+      },
+      {
+        "insumo": "Cebola",
+        "qtd": "3 aros",
+        "obs": null
+      },
+      {
+        "insumo": "Azeite",
+        "qtd": "2 sachês",
+        "obs": null
+      },
+      {
+        "insumo": "Acompanhamento",
+        "qtd": null,
+        "obs": "Carne Whopper / Tender Crispy / Vegie"
+      }
+    ]
+  },
+  {
+    "categoria": "Acompanhamento/Frito",
+    "produto": "Batata Suprema Média",
+    "itens": [
+      {
+        "insumo": "Batata Grande",
+        "qtd": "1 cartonagem",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "28 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon picado",
+        "qtd": "14 g",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Acompanhamento/Frito",
+    "produto": "Batata Suprema Grande",
+    "itens": [
+      {
+        "insumo": "Batata Grande",
+        "qtd": "2 cartonagens",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Cheddar",
+        "qtd": "56 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon picado",
+        "qtd": "28 g",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Acompanhamento/Frito",
+    "produto": "Batata Suprema Furiosa Média",
+    "itens": [
+      {
+        "insumo": "Batata Grande",
+        "qtd": "1 cartonagem",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Furioso",
+        "qtd": "28 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon picado",
+        "qtd": "14 g",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Acompanhamento/Frito",
+    "produto": "Batata Suprema Furiosa Grande",
+    "itens": [
+      {
+        "insumo": "Batata Grande",
+        "qtd": "2 cartonagens",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Furioso",
+        "qtd": "56 g",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon picado",
+        "qtd": "28 g",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Acompanhamento/Frito",
+    "produto": "Trio Supremo",
+    "itens": [
+      {
+        "insumo": "Batata Grande",
+        "qtd": "1 cartonagem",
+        "obs": null
+      },
+      {
+        "insumo": "Onions Rings",
+        "qtd": "91 g ou 1 cartonagem média",
+        "obs": null
+      },
+      {
+        "insumo": "BK Chicken",
+        "qtd": "6 unid.",
+        "obs": null
+      },
+      {
+        "insumo": "Bacon picado",
+        "qtd": "14 g",
+        "obs": null
+      },
+      {
+        "insumo": "Molho Furioso ou Cheddar (escolha)",
+        "qtd": "28 g",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Casquinha",
+    "produto": "Casquinha Simples",
+    "itens": [
+      {
+        "insumo": "Cone de Casquinha",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete (sabor à escolha)",
+        "qtd": "3,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo",
+        "qtd": null,
+        "obs": "Servir sem enrolar no cone"
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Casquinha",
+    "produto": "Casquinha Recheada de Nutella",
+    "itens": [
+      {
+        "insumo": "Cone de Casquinha",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Nutella",
+        "qtd": "1 concha de ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Copo de Sundae (suporte)",
+        "qtd": "1",
+        "obs": "Não acompanha o produto"
+      },
+      {
+        "insumo": "Sorvete (sabor à escolha)",
+        "qtd": "3,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo",
+        "qtd": null,
+        "obs": "Servir sem enrolar no cone"
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Casquinha",
+    "produto": "Casquinha Recheada de Pistache",
+    "itens": [
+      {
+        "insumo": "Cone de Casquinha",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Calda de Pistache",
+        "qtd": "1 concha de ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete (sabor à escolha)",
+        "qtd": "3,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo",
+        "qtd": null,
+        "obs": "Servir sem enrolar no cone"
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Casquinha",
+    "produto": "Casquinha Recheada de Chocolate e Doce de Leite",
+    "itens": [
+      {
+        "insumo": "Cone de Casquinha",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Calda Chocolate ou Doce de Leite",
+        "qtd": "1 tiro de ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete (sabor à escolha)",
+        "qtd": "3,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo",
+        "qtd": null,
+        "obs": "Servir sem enrolar no cone"
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "Sundae (Morango, Chocolate ou Doce de Leite)",
+    "itens": [
+      {
+        "insumo": "Copo de Sundae",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Calda (chocolate/doce de leite) ou morango",
+        "qtd": "1 tiro ½ Oz (calda) ou 1 concha ½ (morango)",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete (sabor à escolha)",
+        "qtd": "3,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda (chocolate/doce de leite) ou morango",
+        "qtd": "1 tiro ½ Oz (calda) ou 1 concha ½ (morango)",
+        "obs": null
+      },
+      {
+        "insumo": "Crumble de Cookies",
+        "qtd": "1 concha ½ Oz",
+        "obs": "Perguntar se cliente deseja"
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "BK Mix de Nutella",
+    "itens": [
+      {
+        "insumo": "Copo de BK Mix",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete (sabor à escolha)",
+        "qtd": "4,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Nutella",
+        "qtd": "2 tiros de ½ Oz (pistola)",
+        "obs": null
+      },
+      {
+        "insumo": "Farofa de Cookies",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "BK Mix de Leite em Pó com Nutella",
+    "itens": [
+      {
+        "insumo": "Copo de BK Mix",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete (sabor à escolha)",
+        "qtd": "4,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Leite em Pó",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Nutella",
+        "qtd": "2 tiros de ½ Oz (pistola)",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "BK Mix de Ovomaltine",
+    "itens": [
+      {
+        "insumo": "Copo de BK Mix",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "4,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Ovomaltine",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Pó Ovomaltine extra crocante",
+        "qtd": "2 conchas ½",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "BK Mix Brownie",
+    "itens": [
+      {
+        "insumo": "Copo de BK Mix",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "4,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Doce de Leite",
+        "qtd": "1 tiro ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Brownie",
+        "qtd": "1 concha ½",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "BK Mix Pistache",
+    "itens": [
+      {
+        "insumo": "Copo de BK Mix",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "4,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda de Pistache",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "BK Mix Pistache com Brownie",
+    "itens": [
+      {
+        "insumo": "Copo de BK Mix",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "4,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda de Pistache",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Brownie picado",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "BK Mix Pistache com Crumble",
+    "itens": [
+      {
+        "insumo": "Copo de BK Mix",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "4,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda de Pistache",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Crumble de Cookies",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Sundae/BK Mix",
+    "produto": "BK Mix Bis Xtra",
+    "itens": [
+      {
+        "insumo": "Copo de BK Mix",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "4,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda de Chocolate",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Bis Xtra",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Guardanapo e colher",
+        "qtd": null,
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Milk Shake",
+    "produto": "Milk Shake Tradicional (Baunilha/Chocolate/Morango)",
+    "itens": [
+      {
+        "insumo": "Copo de Shake",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "7,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Xarope Baunilha",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Cobertura (Morango/Chocolate/Baunilha)",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Canudo",
+        "qtd": "1",
+        "obs": null
+      },
+      {
+        "insumo": "Proteína (opcional shake proteico)",
+        "qtd": "+3 conchas ½ Oz",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Milk Shake",
+    "produto": "Milk Shake de Doce de Leite",
+    "itens": [
+      {
+        "insumo": "Copo de Shake",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "7,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Xarope Baunilha",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Cobertura Doce de Leite",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Canudo",
+        "qtd": "1",
+        "obs": null
+      },
+      {
+        "insumo": "Proteína (opcional shake proteico)",
+        "qtd": "+3 conchas ½ Oz",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Milk Shake",
+    "produto": "Milk Shake de Ovomaltine",
+    "itens": [
+      {
+        "insumo": "Copo de Shake",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "7,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Xarope Baunilha",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Chocolate",
+        "qtd": "2 tiros ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Pó Ovomaltine extra crocante",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Canudo",
+        "qtd": "1",
+        "obs": null
+      },
+      {
+        "insumo": "Proteína (opcional shake proteico)",
+        "qtd": "+3 conchas ½ Oz",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Milk Shake",
+    "produto": "Milk Shake de Nutella",
+    "itens": [
+      {
+        "insumo": "Copo de Shake",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete de Baunilha",
+        "qtd": "7,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Xarope Baunilha",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Nutella",
+        "qtd": "2 tiros ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Canudo",
+        "qtd": "1",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Milk Shake",
+    "produto": "Milk Shake Brownie",
+    "itens": [
+      {
+        "insumo": "Copo de Shake",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "7,5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Xarope Baunilha",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Doce de Leite",
+        "qtd": "1 tiro ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Brownie",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Canudo",
+        "qtd": "1",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - BK Balde",
+    "produto": "BK Balde Ovomaltine",
+    "itens": [
+      {
+        "insumo": "Copo de BK Balde",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Ovomaltine",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Pó Ovomaltine extra crocante",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Ovomaltine",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Pó Ovomaltine extra crocante",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Colheres",
+        "qtd": "2",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - BK Balde",
+    "produto": "BK Balde Brownie",
+    "itens": [
+      {
+        "insumo": "Copo de BK Balde",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete de Baunilha",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Doce de Leite",
+        "qtd": "2 tiros ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete de Baunilha",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Doce de Leite",
+        "qtd": "2 tiros ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Brownie",
+        "qtd": "2 conchas ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Colheres",
+        "qtd": "2",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - BK Balde",
+    "produto": "BK Balde de Chocolate",
+    "itens": [
+      {
+        "insumo": "Copo de BK Balde",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Chocolate",
+        "qtd": "1 tiro ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Chocolate",
+        "qtd": "1 tiro ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Colheres",
+        "qtd": "2",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - BK Balde",
+    "produto": "BK Balde de Morango",
+    "itens": [
+      {
+        "insumo": "Copo de BK Balde",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Morango",
+        "qtd": "1 tiro ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Morango",
+        "qtd": "1 tiro ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Colheres",
+        "qtd": "2",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - BK Balde",
+    "produto": "BK Balde Doce de Leite",
+    "itens": [
+      {
+        "insumo": "Copo de BK Balde",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Doce de Leite",
+        "qtd": "1 tiro ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Doce de Leite",
+        "qtd": "1 tiro ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Colheres",
+        "qtd": "2",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - BK Balde",
+    "produto": "BK Balde Bis Xtra",
+    "itens": [
+      {
+        "insumo": "Copo de BK Balde",
+        "qtd": null,
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Chocolate",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Sorvete",
+        "qtd": "5 voltas",
+        "obs": null
+      },
+      {
+        "insumo": "Calda Chocolate",
+        "qtd": "1 concha ½ Oz",
+        "obs": null
+      },
+      {
+        "insumo": "Bis Xtra",
+        "qtd": "4 conchas ½ (60 g)",
+        "obs": null
+      },
+      {
+        "insumo": "Colheres",
+        "qtd": "2",
+        "obs": null
+      }
+    ]
+  },
+  {
+    "categoria": "Sobremesa - Insumo Base",
+    "produto": "BK Brownie (insumo)",
+    "itens": [
+      {
+        "insumo": "Brownie com recheio de brigadeiro",
+        "qtd": null,
+        "obs": "Congelado -12°C -> câmara refrigerados -> ambientar 1h antes de vender"
+      }
+    ]
+  }
+]
