@@ -179,11 +179,13 @@ export default function FreelancersAprovacaoMobilePage() {
   const [draftSaida, setDraftSaida] = useState<DataHoraPartes>({ data: '', hora: '' });
   const [salvandoHorario, setSalvandoHorario] = useState(false);
   const [registrarAberto, setRegistrarAberto] = useState(false);
+  const [regPasso, setRegPasso] = useState<1 | 2>(1);
   const [colaboradores, setColaboradores] = useState<FreelancerColaborador[]>([]);
   const [loadingColabs, setLoadingColabs] = useState(false);
   const [regBk, setRegBk] = useState('');
   const [regEmployeeId, setRegEmployeeId] = useState<number | ''>('');
   const [regBusca, setRegBusca] = useState('');
+  const [regBuscou, setRegBuscou] = useState(false);
   const [regEntrada, setRegEntrada] = useState<DataHoraPartes>(() => partesFromIso(new Date()));
   const [regSaida, setRegSaida] = useState<DataHoraPartes>(() => partesFromIso(new Date()));
   const [regComSaida, setRegComSaida] = useState(true);
@@ -366,29 +368,18 @@ export default function FreelancersAprovacaoMobilePage() {
     }
   }
 
-  async function abrirRegistrar() {
+  function abrirRegistrar() {
     setRegistrarAberto(true);
+    setRegPasso(1);
     setRegEmployeeId('');
     setRegBusca('');
+    setRegBuscou(false);
+    setColaboradores([]);
     setRegComSaida(true);
     const agora = partesFromIso(new Date());
     setRegEntrada(agora);
     setRegSaida(agora);
     setRegBk(bkFiltro || lojas[0]?.bk_number || '');
-    if (colaboradores.length) return;
-    setLoadingColabs(true);
-    try {
-      const res = await api.freelancersListarColaboradores();
-      setColaboradores(res.items || []);
-      if (!lojas.length && res.lojas?.length) setLojas(res.lojas);
-      if (!bkFiltro && !lojas[0]?.bk_number) {
-        setRegBk(res.lojas?.[0]?.bk_number || '');
-      }
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao carregar colaboradores', 'error');
-    } finally {
-      setLoadingColabs(false);
-    }
   }
 
   function fecharRegistrar() {
@@ -413,34 +404,59 @@ export default function FreelancersAprovacaoMobilePage() {
     [colaboradores, regEmployeeId],
   );
 
-  const colabsFiltrados = useMemo(() => {
-    const q = regBusca.trim().toLowerCase();
-    const base = !q
-      ? colaboradores
-      : colaboradores.filter((c) => {
-          const nome = String(c.full_name || '').toLowerCase();
-          const loja = String(c.store_name || '').toLowerCase();
-          return nome.includes(q) || loja.includes(q);
-        });
-    return base.slice(0, 80);
-  }, [colaboradores, regBusca]);
+  async function buscarPessoas() {
+    const q = regBusca.trim();
+    if (q.length < 2) {
+      showToast('Digite pelo menos 2 letras do nome', 'error');
+      return;
+    }
+    setLoadingColabs(true);
+    setRegBuscou(true);
+    setRegEmployeeId('');
+    try {
+      const res = await api.freelancersListarColaboradores({ q });
+      setColaboradores(res.items || []);
+      if (!lojas.length && res.lojas?.length) setLojas(res.lojas);
+      if (!res.items?.length) {
+        showToast('Nenhuma pessoa encontrada', 'error');
+      }
+    } catch (e) {
+      setColaboradores([]);
+      showToast(e instanceof Error ? e.message : 'Erro ao buscar pessoas', 'error');
+    } finally {
+      setLoadingColabs(false);
+    }
+  }
 
   function escolherPessoa(c: FreelancerColaborador) {
     setRegEmployeeId(c.employee_id);
-    setRegBusca('');
-    // Se a loja de cadastro estiver no escopo do regional, já sugere como unidade do lançamento
     if (c.bk_number && lojas.some((l) => l.bk_number === c.bk_number)) {
       setRegBk(c.bk_number);
+    } else if (!regBk) {
+      setRegBk(bkFiltro || lojas[0]?.bk_number || '');
     }
+  }
+
+  function irParaPasso2() {
+    if (!pessoaSelecionada) {
+      showToast('Escolha o colaborador na lista', 'error');
+      return;
+    }
+    setRegPasso(2);
+  }
+
+  function voltarPasso1() {
+    if (salvandoRegistro) return;
+    setRegPasso(1);
   }
 
   async function salvarRegistro() {
     if (!regBk) {
-      showToast('Selecione a unidade do lançamento', 'error');
+      showToast('Selecione a loja', 'error');
       return;
     }
     if (!regEmployeeId) {
-      showToast('Escolha a pessoa', 'error');
+      showToast('Escolha o colaborador', 'error');
       return;
     }
     const entradaIso = partesToIso(regEntrada);
@@ -811,69 +827,73 @@ export default function FreelancersAprovacaoMobilePage() {
         open={registrarAberto}
         onClose={fecharRegistrar}
         fullWidth
-        maxWidth="sm"
+        maxWidth="xs"
         slotProps={{ paper: { sx: { borderRadius: '18px', m: 1.5, maxHeight: '92vh' } } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.05rem', color: NAVY, pb: 0.5 }}>
-          Lançar ponto
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.05rem', color: NAVY, pb: 0.25 }}>
+          {regPasso === 1 ? '1/2 · Colaborador' : '2/2 · Loja e horário'}
         </DialogTitle>
         <DialogContent sx={{ pt: '8px !important' }}>
           <div className="ck-freela__lancar">
-            <p className="ck-freela__lancar-lead">
-              Escolha qualquer pessoa do sistema e a unidade onde o turno aconteceu.
-            </p>
+            <div className="ck-freela__passos" aria-hidden>
+              <span className={`ck-freela__passo${regPasso === 1 ? ' is-on' : ' is-done'}`} />
+              <span className={`ck-freela__passo${regPasso === 2 ? ' is-on' : ''}`} />
+            </div>
 
-            <section className="ck-freela__lancar-sec">
-              <h3 className="ck-freela__lancar-h">1. Pessoa</h3>
-              {pessoaSelecionada ? (
-                <div className="ck-freela__pessoa-sel">
-                  <div>
-                    <strong>{pessoaSelecionada.full_name}</strong>
-                    <small>
-                      {tipoColabLabel(pessoaSelecionada)}
-                      {pessoaSelecionada.store_name
-                        ? ` · cadastro: ${pessoaSelecionada.store_name}`
-                        : ''}
-                    </small>
-                  </div>
-                  <button
-                    type="button"
-                    className="ck-freela__pessoa-trocar"
-                    onClick={() => setRegEmployeeId('')}
-                  >
-                    Trocar
-                  </button>
-                </div>
-              ) : (
-                <>
+            {regPasso === 1 ? (
+              <>
+                <p className="ck-freela__lancar-lead">
+                  Digite o nome e toque em Buscar. Depois escolha a pessoa na lista.
+                </p>
+
+                <div className="ck-freela__busca-row">
                   <label className="ck-freela__date">
-                    <span>Buscar por nome</span>
+                    <span>Nome do colaborador</span>
                     <input
                       type="search"
                       value={regBusca}
-                      onChange={(e) => setRegBusca(e.target.value)}
-                      placeholder="Digite o nome…"
+                      onChange={(e) => {
+                        setRegBusca(e.target.value);
+                        setRegBuscou(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void buscarPessoas();
+                        }
+                      }}
+                      placeholder="Ex.: Maria Silva"
                       autoComplete="off"
                       autoFocus
                     />
                   </label>
-                  <div className="ck-freela__pessoa-lista" role="listbox" aria-label="Pessoas">
-                    {loadingColabs ? (
-                      <div className="ck-visitas__loading" style={{ minHeight: 72 }}>
-                        <CircularProgress size={24} sx={{ color: ORANGE }} />
-                      </div>
-                    ) : colabsFiltrados.length === 0 ? (
-                      <p className="ck-freela__pessoa-vazio">
-                        {regBusca.trim()
-                          ? 'Ninguém encontrado com esse nome.'
-                          : 'Carregue a lista ou digite um nome.'}
-                      </p>
-                    ) : (
-                      colabsFiltrados.map((c) => (
+                  <button
+                    type="button"
+                    className="ck-freela__busca-btn"
+                    disabled={loadingColabs}
+                    onClick={() => void buscarPessoas()}
+                  >
+                    {loadingColabs ? '…' : 'Buscar'}
+                  </button>
+                </div>
+
+                <div className="ck-freela__pessoa-lista" role="listbox" aria-label="Resultados">
+                  {loadingColabs ? (
+                    <div className="ck-visitas__loading" style={{ minHeight: 88 }}>
+                      <CircularProgress size={24} sx={{ color: ORANGE }} />
+                    </div>
+                  ) : !regBuscou ? (
+                    <p className="ck-freela__pessoa-vazio">Informe o nome e toque em Buscar.</p>
+                  ) : colaboradores.length === 0 ? (
+                    <p className="ck-freela__pessoa-vazio">Nenhuma pessoa encontrada.</p>
+                  ) : (
+                    colaboradores.map((c) => {
+                      const sel = regEmployeeId === c.employee_id;
+                      return (
                         <button
                           key={c.employee_id}
                           type="button"
-                          className="ck-freela__pessoa-item"
+                          className={`ck-freela__pessoa-item${sel ? ' is-sel' : ''}`}
                           onClick={() => escolherPessoa(c)}
                         >
                           <strong>{c.full_name}</strong>
@@ -882,81 +902,42 @@ export default function FreelancersAprovacaoMobilePage() {
                             {c.store_name ? ` · ${c.store_name}` : ''}
                           </small>
                         </button>
-                      ))
-                    )}
-                  </div>
-                  {!loadingColabs && colaboradores.length > 80 && !regBusca.trim() ? (
-                    <p className="ck-freela__pessoa-hint">
-                      Mostrando 80 de {colaboradores.length} — digite para filtrar.
-                    </p>
-                  ) : null}
-                </>
-              )}
-            </section>
-
-            <section className="ck-freela__lancar-sec">
-              <h3 className="ck-freela__lancar-h">2. Unidade do turno</h3>
-              <label className="ck-freela__date">
-                <span>Onde trabalhou</span>
-                <select value={regBk} onChange={(e) => setRegBk(e.target.value)}>
-                  <option value="">Selecione a loja…</option>
-                  {lojas.map((l) => (
-                    <option key={l.bk_number} value={l.bk_number}>
-                      {l.nome}
-                      {l.bk_number ? ` · BK ${l.bk_number}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </section>
-
-            <section className="ck-freela__lancar-sec">
-              <h3 className="ck-freela__lancar-h">3. Horário</h3>
-              <div className="ck-freela__lancar-horas">
-                <div className="ck-freela__dh-row">
-                  <div className="ck-freela__date-field">
-                    <CampoDataFrota
-                      label="Entrada"
-                      value={regEntrada.data}
-                      onChange={(v) => setRegEntrada((p) => ({ ...p, data: v }))}
-                      sx={campoDataMobileSx}
-                    />
-                  </div>
-                  <label className="ck-freela__date">
-                    <span>Hora</span>
-                    <input
-                      type="time"
-                      value={regEntrada.hora}
-                      onChange={(e) => setRegEntrada((p) => ({ ...p, hora: e.target.value }))}
-                    />
-                  </label>
+                      );
+                    })
+                  )}
                 </div>
+              </>
+            ) : (
+              <>
+                {pessoaSelecionada ? (
+                  <div className="ck-freela__pessoa-sel">
+                    <div>
+                      <strong>{pessoaSelecionada.full_name}</strong>
+                      <small>{tipoColabLabel(pessoaSelecionada)}</small>
+                    </div>
+                  </div>
+                ) : null}
 
-                <div className="ck-freela__saida-toggle" role="group" aria-label="Saída">
-                  <button
-                    type="button"
-                    className={`ck-freela__saida-opt${regComSaida ? ' is-on' : ''}`}
-                    onClick={() => setRegComSaida(true)}
-                  >
-                    Com saída
-                  </button>
-                  <button
-                    type="button"
-                    className={`ck-freela__saida-opt${!regComSaida ? ' is-on' : ''}`}
-                    onClick={() => setRegComSaida(false)}
-                  >
-                    Só entrada
-                  </button>
-                </div>
+                <label className="ck-freela__date">
+                  <span>Loja</span>
+                  <select value={regBk} onChange={(e) => setRegBk(e.target.value)}>
+                    <option value="">Selecione…</option>
+                    {lojas.map((l) => (
+                      <option key={l.bk_number} value={l.bk_number}>
+                        {l.nome}
+                        {l.bk_number ? ` · BK ${l.bk_number}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                {regComSaida ? (
+                <div className="ck-freela__lancar-horas">
                   <div className="ck-freela__dh-row">
                     <div className="ck-freela__date-field">
                       <CampoDataFrota
-                        label="Saída"
-                        value={regSaida.data}
-                        onChange={(v) => setRegSaida((p) => ({ ...p, data: v }))}
-                        min={regEntrada.data || undefined}
+                        label="Entrada"
+                        value={regEntrada.data}
+                        onChange={(v) => setRegEntrada((p) => ({ ...p, data: v }))}
                         sx={campoDataMobileSx}
                       />
                     </div>
@@ -964,32 +945,85 @@ export default function FreelancersAprovacaoMobilePage() {
                       <span>Hora</span>
                       <input
                         type="time"
-                        value={regSaida.hora}
-                        onChange={(e) => setRegSaida((p) => ({ ...p, hora: e.target.value }))}
+                        value={regEntrada.hora}
+                        onChange={(e) => setRegEntrada((p) => ({ ...p, hora: e.target.value }))}
                       />
                     </label>
                   </div>
-                ) : (
-                  <p className="ck-freela__pessoa-hint">
-                    Depois você pode usar «Lançar saída» no card do turno.
-                  </p>
-                )}
-              </div>
-            </section>
+
+                  <div className="ck-freela__saida-toggle" role="group" aria-label="Saída">
+                    <button
+                      type="button"
+                      className={`ck-freela__saida-opt${regComSaida ? ' is-on' : ''}`}
+                      onClick={() => setRegComSaida(true)}
+                    >
+                      Com saída
+                    </button>
+                    <button
+                      type="button"
+                      className={`ck-freela__saida-opt${!regComSaida ? ' is-on' : ''}`}
+                      onClick={() => setRegComSaida(false)}
+                    >
+                      Só entrada
+                    </button>
+                  </div>
+
+                  {regComSaida ? (
+                    <div className="ck-freela__dh-row">
+                      <div className="ck-freela__date-field">
+                        <CampoDataFrota
+                          label="Saída"
+                          value={regSaida.data}
+                          onChange={(v) => setRegSaida((p) => ({ ...p, data: v }))}
+                          min={regEntrada.data || undefined}
+                          sx={campoDataMobileSx}
+                        />
+                      </div>
+                      <label className="ck-freela__date">
+                        <span>Hora</span>
+                        <input
+                          type="time"
+                          value={regSaida.hora}
+                          onChange={(e) => setRegSaida((p) => ({ ...p, hora: e.target.value }))}
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
-        <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
-          <Button onClick={fecharRegistrar} disabled={salvandoRegistro} sx={{ fontWeight: 700 }}>
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => void salvarRegistro()}
-            disabled={salvandoRegistro || loadingColabs || !regEmployeeId || !regBk}
-            sx={{ fontWeight: 800, bgcolor: ORANGE, '&:hover': { bgcolor: '#d04809' } }}
-          >
-            {salvandoRegistro ? 'Salvando…' : 'Lançar ponto'}
-          </Button>
+        <DialogActions sx={{ px: 2, pb: 2, gap: 1, flexWrap: 'wrap' }}>
+          {regPasso === 1 ? (
+            <>
+              <Button onClick={fecharRegistrar} sx={{ fontWeight: 700 }}>
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={irParaPasso2}
+                disabled={!pessoaSelecionada || loadingColabs}
+                sx={{ fontWeight: 800, bgcolor: ORANGE, '&:hover': { bgcolor: '#d04809' } }}
+              >
+                Continuar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={voltarPasso1} disabled={salvandoRegistro} sx={{ fontWeight: 700 }}>
+                Voltar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => void salvarRegistro()}
+                disabled={salvandoRegistro || !regBk}
+                sx={{ fontWeight: 800, bgcolor: ORANGE, '&:hover': { bgcolor: '#d04809' } }}
+              >
+                {salvandoRegistro ? 'Salvando…' : 'Confirmar'}
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 

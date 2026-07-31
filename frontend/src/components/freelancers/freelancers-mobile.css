@@ -170,7 +170,7 @@
 .ck-freela .ck-freela__lancar {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .ck-freela .ck-freela__lancar-lead {
@@ -181,19 +181,54 @@
   color: rgba(20, 32, 72, 0.58);
 }
 
-.ck-freela .ck-freela__lancar-sec {
+.ck-freela .ck-freela__passos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.ck-freela .ck-freela__passo {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(27, 42, 107, 0.12);
+}
+
+.ck-freela .ck-freela__passo.is-on {
+  background: var(--ck-orange, #e8520a);
+}
+
+.ck-freela .ck-freela__passo.is-done {
+  background: rgba(232, 82, 10, 0.45);
+}
+
+.ck-freela .ck-freela__busca-row {
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
 }
 
-.ck-freela .ck-freela__lancar-h {
-  margin: 0;
-  font-size: 0.72rem;
+.ck-freela .ck-freela__busca-row .ck-freela__date {
+  flex: 1;
+  min-width: 0;
+}
+
+.ck-freela .ck-freela__busca-btn {
+  flex-shrink: 0;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--ck-navy, #1b2a6b);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(20, 32, 72, 0.5);
+  cursor: pointer;
+}
+
+.ck-freela .ck-freela__busca-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .ck-freela .ck-freela__pessoa-sel {
@@ -265,6 +300,11 @@
 
 .ck-freela .ck-freela__pessoa-item:active {
   background: rgba(232, 82, 10, 0.08);
+}
+
+.ck-freela .ck-freela__pessoa-item.is-sel {
+  background: rgba(232, 82, 10, 0.1);
+  box-shadow: inset 3px 0 0 var(--ck-orange, #e8520a);
 }
 
 .ck-freela .ck-freela__pessoa-item strong {
