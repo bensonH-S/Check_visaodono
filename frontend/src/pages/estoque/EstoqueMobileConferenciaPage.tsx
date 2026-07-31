@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { assetUrl } from '../../config/paths';
 import {
   api,
   type EstoqueContagemDetalhe,
   type EstoqueItem,
 } from '../../api/client';
+import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
@@ -48,6 +50,7 @@ export default function EstoqueMobileConferenciaPage() {
   const location = useLocation();
   const id = Number(idContagem);
   const preload = (location.state as LocationState | null)?.contagemPreload;
+  const podeReabrir = podeReabrirContagemEstoque(getUsuario());
 
   const [contagem, setContagem] = useState<EstoqueContagemDetalhe | null>(() =>
     preload?.id_contagem === id ? preload : null,
@@ -58,6 +61,8 @@ export default function EstoqueMobileConferenciaPage() {
   const [loading, setLoading] = useState(() => !(preload?.id_contagem === id));
   const [salvando, setSalvando] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
+  const [reabrindo, setReabrindo] = useState(false);
+  const [dlgReabrir, setDlgReabrir] = useState(false);
   const [busca, setBusca] = useState('');
   const [err, setErr] = useState('');
 
@@ -149,7 +154,7 @@ export default function EstoqueMobileConferenciaPage() {
   const finalizar = async () => {
     if (!contagem?.id_contagem || !editavel) return;
     if (resumo.pendentes > 0) {
-      showToast(`Ainda há ${resumo.pendentes} produto(s) sem contagem`, 'error');
+      showToast(`Ainda há ${resumo.pendentes} insumo(s) sem contagem`, 'error');
       return;
     }
     setFinalizando(true);
@@ -162,6 +167,22 @@ export default function EstoqueMobileConferenciaPage() {
       showToast(e instanceof Error ? e.message : 'Erro ao finalizar', 'error');
     } finally {
       setFinalizando(false);
+    }
+  };
+
+  const confirmarReabrir = async () => {
+    if (!contagem?.id_contagem || contagem.status !== 'finalizada') return;
+    setReabrindo(true);
+    try {
+      const det = await api.estoqueReabrirContagem(contagem.id_contagem);
+      setContagem(det);
+      setRascunho(aplicarDraft(det));
+      setDlgReabrir(false);
+      showToast('Conferência reaberta para edição', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível reabrir', 'error');
+    } finally {
+      setReabrindo(false);
     }
   };
 
@@ -182,13 +203,27 @@ export default function EstoqueMobileConferenciaPage() {
                 Conferência
               </h1>
             </div>
-            <img
-              src={assetUrl('Logo_Icon-clear.png')}
-              alt=""
-              className="ck-visitas__mark-icon"
-              width={56}
-              height={56}
-            />
+            <div className="ck-estoque__hero-actions">
+              {podeReabrir && contagem?.status === 'finalizada' && (
+                <button
+                  type="button"
+                  className="ck-estoque__reabrir ck-estoque__reabrir--hero"
+                  title="Reabrir"
+                  aria-label="Reabrir conferência"
+                  disabled={reabrindo}
+                  onClick={() => setDlgReabrir(true)}
+                >
+                  <LockOpenIcon fontSize="small" />
+                </button>
+              )}
+              <img
+                src={assetUrl('Logo_Icon-clear.png')}
+                alt=""
+                className="ck-visitas__mark-icon"
+                width={56}
+                height={56}
+              />
+            </div>
           </div>
           <p className="ck-visitas__sub">
             {contagem?.titulo ? `${contagem.titulo} · ` : ''}
@@ -236,7 +271,7 @@ export default function EstoqueMobileConferenciaPage() {
         </button>
         <input
           type="search"
-          placeholder="Buscar código ou produto…"
+          placeholder="Buscar código ou insumo…"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           disabled={loading || !contagem}
@@ -326,7 +361,7 @@ export default function EstoqueMobileConferenciaPage() {
               })}
 
               {!itensFiltrados.length && (
-                <div className="ck-estoque__empty">Nenhum produto encontrado.</div>
+                <div className="ck-estoque__empty">Nenhum insumo encontrado.</div>
               )}
 
               {editavel && (
@@ -355,6 +390,59 @@ export default function EstoqueMobileConferenciaPage() {
           )}
         </div>
       </div>
+
+      {dlgReabrir && (
+        <div
+          className="ck-estoque__loja-modal ck-estoque__modal--center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Reabrir conferência"
+        >
+          <button
+            type="button"
+            className="ck-estoque__loja-backdrop"
+            aria-label="Fechar"
+            disabled={reabrindo}
+            onClick={() => setDlgReabrir(false)}
+          />
+          <div className="ck-estoque__loja-panel ck-estoque__confirm">
+            <div className="ck-estoque__loja-panel-head">
+              <strong>Reabrir conferência</strong>
+              <button
+                type="button"
+                className="ck-estoque__loja-fechar"
+                disabled={reabrindo}
+                onClick={() => setDlgReabrir(false)}
+              >
+                Fechar
+              </button>
+            </div>
+            <p className="ck-estoque__confirm-text">
+              A conferência{' '}
+              <strong>{contagem?.titulo || `#${contagem?.id_contagem}`}</strong> voltará para
+              aberta e poderá ser editada.
+            </p>
+            <div className="ck-estoque__confirm-actions">
+              <button
+                type="button"
+                className="ck-estoque__btn ck-estoque__btn--ghost"
+                disabled={reabrindo}
+                onClick={() => setDlgReabrir(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="ck-estoque__btn ck-estoque__btn--primary"
+                disabled={reabrindo}
+                onClick={() => void confirmarReabrir()}
+              >
+                {reabrindo ? 'Reabrindo…' : 'Reabrir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

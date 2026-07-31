@@ -676,12 +676,12 @@ export const api = {
     if (params.q) q.set('q', params.q);
     if (params.ativos === true) q.set('ativos', '1');
     if (params.ativos === false) q.set('ativos', '0');
-    return request<ProdutoEstoque[]>(`/estoque/produtos?${q}`);
+    return request<ProdutoEstoque[]>(`/estoque/insumos?${q}`);
   },
   estoqueCriarProduto: (body: ProdutoEstoqueInput) =>
-    request<ProdutoEstoque>('/estoque/produtos', { method: 'POST', body: JSON.stringify(body) }),
+    request<ProdutoEstoque>('/estoque/insumos', { method: 'POST', body: JSON.stringify(body) }),
   estoqueAtualizarProduto: (id: number, body: Partial<ProdutoEstoqueInput> & { ativo?: boolean }) =>
-    request<ProdutoEstoque>(`/estoque/produtos/${id}`, {
+    request<ProdutoEstoque>(`/estoque/insumos/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
@@ -732,18 +732,21 @@ export const api = {
     if (opts?.limit) params.set('limit', String(opts.limit));
     return request<EstoqueMovimento[]>(`/estoque/movimentos?${params}`);
   },
-  estoqueProdutosVenda: (opts?: { q?: string; sem_ficha?: boolean }) => {
+  estoqueProdutosVenda: (opts?: { id_loja: number; q?: string; sem_ficha?: boolean }) => {
     const params = new URLSearchParams();
+    params.set('id_loja', String(opts!.id_loja));
     if (opts?.q) params.set('q', opts.q);
     if (opts?.sem_ficha) params.set('sem_ficha', '1');
-    const qs = params.toString();
-    return request<ProdutoVendaEstoque[]>(`/estoque/produtos-venda${qs ? `?${qs}` : ''}`);
+    return request<ProdutoVendaEstoque[]>(`/estoque/produtos-venda?${params.toString()}`);
   },
-  estoqueFichas: () => request<FichaTecnicaResumo[]>('/estoque/fichas'),
+  estoqueFichas: (idLoja: number) =>
+    request<FichaTecnicaResumo[]>(`/estoque/fichas?id_loja=${idLoja}`),
   estoqueFicha: (id: number) => request<FichaTecnicaDetalhe>(`/estoque/fichas/${id}`),
   estoqueSalvarFicha: (body: {
+    id_loja: number;
     codigo: string;
     descricao?: string;
+    ativo?: boolean;
     observacao?: string;
     itens: Array<{ codigo_insumo: string; quantidade: number; observacao?: string }>;
   }) =>
@@ -753,6 +756,8 @@ export const api = {
     }),
   estoqueDesativarFicha: (id: number) =>
     request<void>(`/estoque/fichas/${id}`, { method: 'DELETE' }),
+  estoqueExcluirProdutoVenda: (id: number) =>
+    request<void>(`/estoque/produtos-venda/${id}`, { method: 'DELETE' }),
   estoqueVendas: (idLoja: number) =>
     request<EstoqueVendaResumo[]>(`/estoque/vendas?id_loja=${idLoja}`),
   estoqueVenda: (id: number) => request<EstoqueVendaDetalhe>(`/estoque/vendas/${id}`),
@@ -1683,6 +1688,9 @@ export interface MetasPeriodoDetalhe {
 }
 
 export interface ProdutoEstoque {
+  /** PK na tabela insumos (preferir este campo). */
+  id_insumo?: number;
+  /** Alias de transição (= id_insumo). */
   id_produto: number;
   id_loja: number | null;
   codigo: string;
@@ -1784,17 +1792,31 @@ export interface EstoqueMovimento {
 }
 
 export interface ProdutoVendaEstoque {
+  /** PK na tabela produtos (venda / BK). */
+  id_produto?: number;
+  /** Alias de transição (= id_produto). */
   id_produto_venda: number;
+  id_loja?: number;
   codigo: string;
   descricao: string;
   ativo: boolean;
   id_ficha?: number | null;
   ficha_ativa?: boolean | null;
   itens_ficha?: number;
+  /** Preço unitário da última venda importada (venda_liquida / qtde). */
+  valor_venda?: number | null;
+  /** Soma quantidade × valor_unidade de cada insumo da ficha. */
+  valor_insumos?: number | null;
+  insumos_ficha?: Array<{
+    codigo_insumo: string;
+    quantidade: number | string;
+    valor_unidade?: number | string;
+  }>;
 }
 
 export interface FichaTecnicaResumo {
   id_ficha: number;
+  id_produto?: number;
   id_produto_venda: number;
   codigo: string;
   descricao: string;
@@ -1805,6 +1827,7 @@ export interface FichaTecnicaResumo {
 
 export interface FichaTecnicaDetalhe {
   id_ficha: number;
+  id_produto?: number;
   id_produto_venda: number;
   codigo: string;
   descricao: string;

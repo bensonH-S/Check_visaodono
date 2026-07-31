@@ -3,6 +3,78 @@
   margin: 0 0 14px;
 }
 
+.ck-estoque .ck-estoque__loja--com-voltar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.ck-estoque .ck-estoque__loja--com-voltar .ck-estoque__voltar {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.ck-estoque .ck-estoque__loja--com-voltar .ck-estoque__loja-fix {
+  flex: 0 1 auto;
+  max-width: calc(100% - 96px);
+  margin: 0 auto;
+}
+
+.ck-estoque .ck-estoque__loja-fix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 8px;
+  color: var(--ck-ink);
+  font: inherit;
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.ck-estoque .ck-estoque__loja-fix span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-estoque .ck-estoque__loja-fix-icon {
+  flex-shrink: 0;
+  color: var(--ck-navy);
+  opacity: 0.9;
+  font-size: 1.55rem !important;
+  width: 1.55rem !important;
+  height: 1.55rem !important;
+}
+
+.ck-estoque .ck-estoque__voltar {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  background: #fff;
+  color: var(--ck-navy);
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
 .ck-estoque .ck-estoque__loja-btn {
   width: 100%;
   height: 44px;
@@ -27,21 +99,41 @@
   flex-shrink: 0;
 }
 
+/* Acima da tab bar mobile (+ folga); portal no body. */
 .ck-estoque .ck-estoque__loja-modal {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 12000;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  box-sizing: border-box;
+  /* tab bar (~58) + folga 20px + safe-area */
+  padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 100vw;
+  overflow: hidden;
+  overscroll-behavior: none;
+  pointer-events: none;
+  touch-action: none;
 }
 
 .ck-estoque .ck-estoque__loja-backdrop {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
   border: none;
+  margin: 0;
+  padding: 0;
   background: rgba(15, 26, 69, 0.45);
   cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .ck-estoque .ck-estoque__loja-panel {
@@ -49,11 +141,31 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  max-height: min(72dvh, 520px);
-  border-radius: 18px 18px 0 0;
+  width: 100%;
+  max-height: min(62dvh, 460px);
+  border-radius: 18px 18px 14px 14px;
   background: #fff;
   box-shadow: 0 -8px 32px rgba(15, 26, 69, 0.2);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: 12px;
+  pointer-events: auto;
+  overflow: hidden;
+  touch-action: auto;
+  overscroll-behavior: contain;
+}
+
+/* Modal centralizado (ex.: reabrir) — cobre a tela toda, inclusive sobre as tabs. */
+.ck-estoque .ck-estoque__loja-modal.ck-estoque__modal--center {
+  justify-content: center;
+  align-items: center;
+  padding: 20px 16px;
+  padding-bottom: calc(20px + 78px + env(safe-area-inset-bottom, 0px));
+  pointer-events: auto;
+  touch-action: auto;
+}
+
+.ck-estoque .ck-estoque__loja-modal.ck-estoque__modal--center .ck-estoque__loja-backdrop {
+  inset: 0;
+  bottom: 0;
 }
 
 .ck-estoque .ck-estoque__loja-panel-head {
@@ -252,8 +364,191 @@
 .ck-estoque .ck-estoque__chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-top: 10px;
+}
+
+.ck-estoque .ck-estoque__reabrir {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(15, 26, 69, 0.18);
+  border-radius: 10px;
+  background: rgba(15, 26, 69, 0.08);
+  color: #0f1a45;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ck-estoque .ck-estoque__reabrir:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.ck-estoque .ck-estoque__reabrir:active {
+  transform: scale(0.96);
+}
+
+.ck-estoque .ck-estoque__hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ck-estoque .ck-estoque__reabrir--hero {
+  width: 40px;
+  height: 40px;
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.ck-estoque .ck-estoque__break-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+}
+
+.ck-estoque .ck-estoque__break-form .ck-estoque__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ck-estoque .ck-estoque__break-form .ck-estoque__field > span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-estoque .ck-estoque__break-form input,
+.ck-estoque .ck-estoque__break-form select {
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  background: #fff;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ck-ink);
+}
+
+.ck-estoque .ck-estoque__break-form .ck-estoque__field--date .MuiFormControl-root {
+  width: 100%;
+}
+
+.ck-estoque .ck-estoque__break-form .ck-estoque__field--date .MuiOutlinedInput-root {
+  border-radius: 12px;
+  background: #fff;
+  min-height: 48px;
+}
+
+.ck-estoque .ck-estoque__btn--break-cta {
+  flex: none;
+  width: 100%;
+  height: auto;
+  min-height: 56px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.ck-estoque .ck-estoque__qty {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  background: #fff;
+  overflow: hidden;
+}
+
+.ck-estoque .ck-estoque__qty-btn {
+  flex: 0 0 52px;
+  border: none;
+  background: rgba(27, 42, 107, 0.06);
+  color: var(--ck-navy);
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ck-estoque .ck-estoque__qty-btn:active {
+  background: rgba(27, 42, 107, 0.12);
+}
+
+.ck-estoque .ck-estoque__qty-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ck-estoque .ck-estoque__qty input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  border-left: 1px solid rgba(27, 42, 107, 0.12);
+  border-right: 1px solid rgba(27, 42, 107, 0.12);
+  border-radius: 0;
+  text-align: center;
+  font: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ck-ink);
+  background: #fff;
+  padding: 0 8px;
+}
+
+.ck-estoque .ck-estoque__break-form .ck-estoque__qty input {
+  height: 100%;
+}
+
+.ck-estoque .ck-estoque__modal--center .ck-estoque__loja-panel {
+  width: min(100%, 400px);
+  max-height: min(80dvh, 420px);
+  border-radius: 18px;
+  box-shadow: 0 16px 48px rgba(15, 26, 69, 0.28);
+  pointer-events: auto;
+}
+
+.ck-estoque .ck-estoque__confirm-text {
+  margin: 0;
+  padding: 14px 16px 6px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: rgba(20, 32, 72, 0.78);
+  font-weight: 500;
+}
+
+.ck-estoque .ck-estoque__confirm-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 16px;
+}
+
+.ck-estoque .ck-estoque__confirm-actions .ck-estoque__btn {
+  flex: 1;
 }
 
 .ck-estoque .ck-estoque__chip {

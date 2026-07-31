@@ -15,6 +15,7 @@ import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/sync
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
+const permBreak = requirePermissao('estoque.break', 'estoque.operacional');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
@@ -60,21 +61,26 @@ router.get('/saldos', permOp, async (req, res, next) => {
     }
 
     const { rows } = await pool.query(
-      `SELECT p.id_produto, p.codigo, p.descricao, p.unidade_contagem,
+      `SELECT p.id_insumo, p.codigo, p.descricao, p.unidade_contagem,
               p.valor_unidade, COALESCE(s.quantidade, 0) AS quantidade,
               s.atualizado_em
-       FROM produtos p
+       FROM insumos p
        LEFT JOIN estoque_saldos s
-         ON s.id_produto = p.id_produto AND s.id_loja = p.id_loja
+         ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
        WHERE p.id_loja = $1 AND p.ativo = TRUE ${filtro}
        ORDER BY p.descricao`,
       params,
     );
     res.json(
       rows.map((r) => ({
-        ...r,
-        quantidade: num(r.quantidade),
+        id_insumo: r.id_insumo,
+        id_produto: r.id_insumo, // alias de transição
+        codigo: r.codigo,
+        descricao: r.descricao,
+        unidade_contagem: r.unidade_contagem,
         valor_unidade: num(r.valor_unidade),
+        quantidade: num(r.quantidade),
+        atualizado_em: r.atualizado_em,
         valor_total: Math.round(num(r.quantidade) * num(r.valor_unidade) * 100) / 100,
       })),
     );
@@ -102,7 +108,7 @@ router.get('/movimentos', permOp, async (req, res, next) => {
     const { rows } = await pool.query(
       `SELECT m.*, p.codigo, p.descricao, u.nome AS criado_por_nome
        FROM estoque_movimentos m
-       JOIN produtos p ON p.id_produto = m.id_produto
+       JOIN insumos p ON p.id_insumo = m.id_insumo
        LEFT JOIN usuarios u ON u.id_usuario = m.criado_por
        WHERE m.id_loja = $1 ${filtro}
        ORDER BY m.criado_em DESC, m.id_movimento DESC
@@ -112,6 +118,8 @@ router.get('/movimentos', permOp, async (req, res, next) => {
     res.json(
       rows.map((r) => ({
         ...r,
+        id_insumo: r.id_insumo,
+        id_produto: r.id_insumo, // alias de transição
         quantidade: num(r.quantidade),
         saldo_apos: r.saldo_apos != null ? num(r.saldo_apos) : null,
       })),
@@ -121,14 +129,32 @@ router.get('/movimentos', permOp, async (req, res, next) => {
   }
 });
 
-// ── Ficha técnica ──────────────────────────────────────────────────────────
+// ── Ficha técnica / produtos de venda (BK) ─────────────────────────────────
+
+function mapProdutoVenda(row) {
+  const id_produto = row.id_produto ?? row.id_produto_venda;
+  return {
+    ...row,
+    id_produto,
+    id_produto_venda: id_produto, // alias de transição
+    valor_venda: row.valor_venda != null ? num(row.valor_venda) : null,
+    valor_insumos: num(row.valor_insumos),
+  };
+}
 
 router.get('/produtos-venda', permOp, async (req, res, next) => {
   try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
     const q = String(req.query.q || '').trim();
     const semFicha = req.query.sem_ficha === '1';
-    const params = [];
-    const where = ['pv.ativo = TRUE'];
+    const params = [idLoja];
+    const where = ['pv.id_loja = $1'];
+    const ativos = req.query.ativos;
+    if (ativos === '0') where.push('pv.ativo = FALSE');
+    else if (ativos !== 'all') where.push('pv.ativo = TRUE');
     if (q) {
       params.push(`%${q}%`);
       where.push(`(pv.codigo ILIKE $${params.length} OR pv.descricao ILIKE $${params.length})`);
@@ -138,15 +164,48 @@ router.get('/produtos-venda', permOp, async (req, res, next) => {
     }
     const { rows } = await pool.query(
       `SELECT pv.*, f.id_ficha, f.ativo AS ficha_ativa,
-              (SELECT COUNT(*)::int FROM ficha_tecnica_itens i WHERE i.id_ficha = f.id_ficha) AS itens_ficha
-       FROM produtos_venda pv
-       LEFT JOIN ficha_tecnica f ON f.id_produto_venda = pv.id_produto_venda AND f.ativo = TRUE
+              (SELECT COUNT(*)::int FROM ficha_tecnica_itens i WHERE i.id_ficha = f.id_ficha) AS itens_ficha,
+              COALESCE((
+                SELECT json_agg(
+                  json_build_object(
+                    'codigo_insumo', i.codigo_insumo,
+                    'quantidade', i.quantidade,
+                    'valor_unidade', COALESCE(ins.valor_unidade, 0)
+                  )
+                  ORDER BY i.codigo_insumo
+                )
+                FROM ficha_tecnica_itens i
+                LEFT JOIN insumos ins
+                  ON ins.id_loja = pv.id_loja
+                 AND UPPER(ins.codigo) = UPPER(i.codigo_insumo)
+                WHERE i.id_ficha = f.id_ficha
+              ), '[]'::json) AS insumos_ficha,
+              COALESCE((
+                SELECT SUM(i.quantidade * COALESCE(ins.valor_unidade, 0))
+                FROM ficha_tecnica_itens i
+                LEFT JOIN insumos ins
+                  ON ins.id_loja = pv.id_loja
+                 AND UPPER(ins.codigo) = UPPER(i.codigo_insumo)
+                WHERE i.id_ficha = f.id_ficha
+              ), 0) AS valor_insumos,
+              (
+                SELECT ROUND((vi.venda_liquida / NULLIF(vi.qtde, 0))::numeric, 2)
+                FROM estoque_venda_itens vi
+                INNER JOIN estoque_vendas v ON v.id_venda = vi.id_venda
+                WHERE vi.id_produto = pv.id_produto
+                  AND vi.venda_liquida IS NOT NULL
+                  AND vi.qtde > 0
+                ORDER BY v.data_venda DESC NULLS LAST, vi.id_item DESC
+                LIMIT 1
+              ) AS valor_venda
+       FROM produtos pv
+       LEFT JOIN ficha_tecnica f ON f.id_produto = pv.id_produto AND f.ativo = TRUE
        WHERE ${where.join(' AND ')}
-       ORDER BY pv.descricao
+       ORDER BY pv.ativo DESC, pv.descricao
        LIMIT 500`,
       params,
     );
-    res.json(rows);
+    res.json(rows.map(mapProdutoVenda));
   } catch (e) {
     next(e);
   }
@@ -154,15 +213,20 @@ router.get('/produtos-venda', permOp, async (req, res, next) => {
 
 router.get('/fichas', permOp, async (req, res, next) => {
   try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
     const { rows } = await pool.query(
       `SELECT f.*, pv.codigo, pv.descricao,
               (SELECT COUNT(*)::int FROM ficha_tecnica_itens i WHERE i.id_ficha = f.id_ficha) AS itens
        FROM ficha_tecnica f
-       JOIN produtos_venda pv ON pv.id_produto_venda = f.id_produto_venda
-       WHERE f.ativo = TRUE
+       JOIN produtos pv ON pv.id_produto = f.id_produto
+       WHERE f.ativo = TRUE AND pv.id_loja = $1
        ORDER BY pv.descricao`,
+      [idLoja],
     );
-    res.json(rows);
+    res.json(rows.map(mapProdutoVenda));
   } catch (e) {
     next(e);
   }
@@ -172,19 +236,22 @@ router.get('/fichas/:id', permOp, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const { rows } = await pool.query(
-      `SELECT f.*, pv.codigo, pv.descricao
+      `SELECT f.*, pv.codigo, pv.descricao, pv.id_loja
        FROM ficha_tecnica f
-       JOIN produtos_venda pv ON pv.id_produto_venda = f.id_produto_venda
+       JOIN produtos pv ON pv.id_produto = f.id_produto
        WHERE f.id_ficha = $1`,
       [id],
     );
     if (!rows.length) return res.status(404).json({ error: 'Ficha não encontrada' });
+    const bloqueio = acessoLoja(req, rows[0].id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
     const { rows: itens } = await pool.query(
       `SELECT * FROM ficha_tecnica_itens WHERE id_ficha = $1 ORDER BY codigo_insumo`,
       [id],
     );
     res.json({
-      ...rows[0],
+      ...mapProdutoVenda(rows[0]),
       itens: itens.map((i) => ({ ...i, quantidade: num(i.quantidade) })),
     });
   } catch (e) {
@@ -195,23 +262,31 @@ router.get('/fichas/:id', permOp, async (req, res, next) => {
 router.post('/fichas', permOp, async (req, res, next) => {
   const client = await pool.connect();
   try {
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
     const codigo = String(req.body?.codigo || req.body?.codigo_venda || '').trim();
     const descricao = String(req.body?.descricao || '').trim();
     const observacao =
       req.body?.observacao != null ? String(req.body.observacao).trim() || null : null;
+    const ativo =
+      req.body?.ativo === undefined || req.body?.ativo === null
+        ? true
+        : req.body.ativo === true || req.body.ativo === 'true' || req.body.ativo === 1 || req.body.ativo === '1';
     const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
     if (!codigo) return res.status(400).json({ error: 'Informe o código do produto de venda' });
     if (!itens.length) return res.status(400).json({ error: 'Informe ao menos um insumo na ficha' });
 
     await client.query('BEGIN');
-    const pv = await upsertProdutoVenda(client, codigo, descricao);
+    const pv = await upsertProdutoVenda(client, codigo, descricao, idLoja, { ativo });
     const { rows: fichaRows } = await client.query(
-      `INSERT INTO ficha_tecnica (id_produto_venda, ativo, observacao, atualizado_em)
-       VALUES ($1, TRUE, $2, NOW())
-       ON CONFLICT (id_produto_venda) DO UPDATE
-         SET ativo = TRUE, observacao = EXCLUDED.observacao, atualizado_em = NOW()
+      `INSERT INTO ficha_tecnica (id_produto, ativo, observacao, atualizado_em)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (id_produto) DO UPDATE
+         SET ativo = EXCLUDED.ativo, observacao = EXCLUDED.observacao, atualizado_em = NOW()
        RETURNING *`,
-      [pv.id_produto_venda, observacao],
+      [pv.id_produto, ativo, observacao],
     );
     const idFicha = fichaRows[0].id_ficha;
     await client.query('DELETE FROM ficha_tecnica_itens WHERE id_ficha = $1', [idFicha]);
@@ -238,7 +313,7 @@ router.post('/fichas', permOp, async (req, res, next) => {
       acao: 'salvar',
       entidade: 'ficha_tecnica',
       idReferencia: idFicha,
-      descricao: `Ficha técnica ${codigo}`,
+      descricao: `Ficha técnica ${codigo} (loja ${idLoja})`,
     });
 
     const { rows: itensSalvos } = await pool.query(
@@ -246,9 +321,11 @@ router.post('/fichas', permOp, async (req, res, next) => {
       [idFicha],
     );
     res.status(201).json({
-      ...fichaRows[0],
+      ...mapProdutoVenda(fichaRows[0]),
       codigo: pv.codigo,
       descricao: pv.descricao,
+      id_loja: pv.id_loja,
+      ativo: pv.ativo,
       itens: itensSalvos.map((i) => ({ ...i, quantidade: num(i.quantidade) })),
     });
   } catch (e) {
@@ -259,14 +336,63 @@ router.post('/fichas', permOp, async (req, res, next) => {
   }
 });
 
+router.delete('/produtos-venda/:id', permOp, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ error: 'Produto inválido' });
+    }
+    const { rows } = await pool.query(
+      `SELECT id_produto, id_loja, codigo, descricao FROM produtos WHERE id_produto = $1`,
+      [id],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Produto não encontrado' });
+    const bloqueio = acessoLoja(req, rows[0].id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    await pool.query(
+      `UPDATE ficha_tecnica SET ativo = FALSE, atualizado_em = NOW() WHERE id_produto = $1`,
+      [id],
+    );
+    await pool.query(
+      `UPDATE produtos SET ativo = FALSE, atualizado_em = NOW() WHERE id_produto = $1`,
+      [id],
+    );
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'excluir',
+      entidade: 'produto_venda',
+      idReferencia: id,
+      descricao: `Produto ${rows[0].codigo} excluído (loja ${rows[0].id_loja})`,
+    });
+    res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.delete('/fichas/:id', permOp, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { rowCount } = await pool.query(
+    const { rows } = await pool.query(
+      `SELECT f.id_ficha, pv.id_loja, pv.id_produto
+       FROM ficha_tecnica f
+       JOIN produtos pv ON pv.id_produto = f.id_produto
+       WHERE f.id_ficha = $1`,
+      [id],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Ficha não encontrada' });
+    const bloqueio = acessoLoja(req, rows[0].id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    await pool.query(
       `UPDATE ficha_tecnica SET ativo = FALSE, atualizado_em = NOW() WHERE id_ficha = $1`,
       [id],
     );
-    if (!rowCount) return res.status(404).json({ error: 'Ficha não encontrada' });
+    await pool.query(
+      `UPDATE produtos SET ativo = FALSE, atualizado_em = NOW() WHERE id_produto = $1`,
+      [rows[0].id_produto],
+    );
     await auditar(req, {
       modulo: 'estoque',
       acao: 'desativar',
@@ -322,7 +448,8 @@ router.get('/vendas/sem-ficha', permOp, async (req, res, next) => {
 
     const { rows } = await pool.query(
       `SELECT DISTINCT ON (i.codigo)
-         i.codigo, i.descricao, i.id_produto_venda,
+         i.codigo, i.descricao, i.id_produto,
+         i.id_produto AS id_produto_venda,
          COUNT(*) OVER (PARTITION BY i.codigo)::int AS ocorrencias
        FROM estoque_venda_itens i
        JOIN estoque_vendas v ON v.id_venda = i.id_venda
@@ -475,7 +602,7 @@ router.post('/sync/vendas', permOp, async (req, res, next) => {
 
 // ── Break ──────────────────────────────────────────────────────────────────
 
-router.get('/break', permOp, async (req, res, next) => {
+router.get('/break', permBreak, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
@@ -497,7 +624,7 @@ router.get('/break', permOp, async (req, res, next) => {
   }
 });
 
-router.post('/break', permOp, async (req, res, next) => {
+router.post('/break', permBreak, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.body?.id_loja);
     const bloqueio = acessoLoja(req, idLoja);

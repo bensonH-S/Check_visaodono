@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { assetUrl } from '../../config/paths';
 import {
   api,
   type EstoqueContagemResumo,
   type Loja,
 } from '../../api/client';
+import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
@@ -30,8 +33,22 @@ function rotuloLoja(l: Loja) {
   return `${l.bk_number ? `${l.bk_number} · ` : ''}${l.name}`;
 }
 
+function travarScrollPagina(ativo: boolean) {
+  const scrollEl = document.querySelector('.ck-visitas__scroll') as HTMLElement | null;
+  if (!ativo) {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
+    if (scrollEl) scrollEl.style.overflow = '';
+    return;
+  }
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = 'hidden';
+  if (scrollEl) scrollEl.style.overflow = 'hidden';
+}
+
 export default function EstoqueMobileListaPage() {
   const navigate = useNavigate();
+  const podeReabrir = podeReabrirContagemEstoque(getUsuario());
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>(() => {
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
@@ -41,9 +58,11 @@ export default function EstoqueMobileListaPage() {
   const [filtro, setFiltro] = useState<'todas' | 'aberta' | 'finalizada'>('todas');
   const [loading, setLoading] = useState(true);
   const [iniciando, setIniciando] = useState(false);
+  const [reabrindoId, setReabrindoId] = useState<number | null>(null);
   const [err, setErr] = useState('');
   const [dlgLoja, setDlgLoja] = useState(false);
   const [buscaLoja, setBuscaLoja] = useState('');
+  const [reabrirAlvo, setReabrirAlvo] = useState<EstoqueContagemResumo | null>(null);
 
   const carregarLista = useCallback(async (lojaId: number) => {
     const rows = await api.estoqueContagens(lojaId);
@@ -118,6 +137,20 @@ export default function EstoqueMobileListaPage() {
     setBuscaLoja('');
   };
 
+  const fecharDlgLoja = () => {
+    setDlgLoja(false);
+    setBuscaLoja('');
+  };
+
+  useEffect(() => {
+    if (!dlgLoja && !reabrirAlvo) {
+      travarScrollPagina(false);
+      return;
+    }
+    travarScrollPagina(true);
+    return () => travarScrollPagina(false);
+  }, [dlgLoja, reabrirAlvo]);
+
   const iniciar = async () => {
     if (!idLoja || temAberta) return;
     setIniciando(true);
@@ -133,6 +166,23 @@ export default function EstoqueMobileListaPage() {
       showToast(e instanceof Error ? e.message : 'Erro ao iniciar', 'error');
     } finally {
       setIniciando(false);
+    }
+  };
+
+  const confirmarReabrir = async () => {
+    if (!reabrirAlvo) return;
+    setReabrindoId(reabrirAlvo.id_contagem);
+    try {
+      const det = await api.estoqueReabrirContagem(reabrirAlvo.id_contagem);
+      setReabrirAlvo(null);
+      showToast('Conferência reaberta para edição', 'success');
+      navigate(`/estoque/mobile/${det.id_contagem}`, {
+        state: { contagemPreload: det },
+      });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível reabrir', 'error');
+    } finally {
+      setReabrindoId(null);
     }
   };
 
@@ -162,7 +212,7 @@ export default function EstoqueMobileListaPage() {
               />
             </div>
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              Conte os produtos da loja, salve o rascunho e finalize a conferência.
+              Conte os insumos da loja, salve o rascunho e finalize a conferência.
             </p>
             <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
               <div className="ck-visitas__metric">
@@ -198,69 +248,6 @@ export default function EstoqueMobileListaPage() {
               <span aria-hidden>▾</span>
             </button>
           </div>
-
-          {dlgLoja && (
-            <div
-              className="ck-estoque__loja-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Selecionar loja"
-            >
-              <button
-                type="button"
-                className="ck-estoque__loja-backdrop"
-                aria-label="Fechar"
-                onClick={() => {
-                  setDlgLoja(false);
-                  setBuscaLoja('');
-                }}
-              />
-              <div className="ck-estoque__loja-panel">
-                <div className="ck-estoque__loja-panel-head">
-                  <strong>Escolher loja</strong>
-                  <button
-                    type="button"
-                    className="ck-estoque__loja-fechar"
-                    onClick={() => {
-                      setDlgLoja(false);
-                      setBuscaLoja('');
-                    }}
-                  >
-                    Fechar
-                  </button>
-                </div>
-                {lojas.length > 8 && (
-                  <div className="ck-estoque__loja-busca">
-                    <input
-                      type="search"
-                      placeholder="Buscar loja…"
-                      value={buscaLoja}
-                      onChange={(e) => setBuscaLoja(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                )}
-                <div className="ck-estoque__loja-lista">
-                  {lojasFiltradas.map((l) => {
-                    const ativa = l.id_loja === idLoja;
-                    return (
-                      <button
-                        key={l.id_loja}
-                        type="button"
-                        className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
-                        onClick={() => selecionarLoja(l.id_loja)}
-                      >
-                        {rotuloLoja(l)}
-                      </button>
-                    );
-                  })}
-                  {!lojasFiltradas.length && (
-                    <div className="ck-estoque__empty">Nenhuma loja encontrada.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {idLoja && !temAberta && (
             <div className="ck-estoque__cta">
@@ -309,12 +296,20 @@ export default function EstoqueMobileListaPage() {
           {filtrada.map((c) => {
             const aberta = c.status === 'aberta';
             const divergencias = c.divergencias ?? 0;
+            const mostrarReabrir = podeReabrir && !aberta;
             return (
-              <button
+              <div
                 key={c.id_contagem}
-                type="button"
                 className="ck-estoque__card"
+                role="button"
+                tabIndex={0}
                 onClick={() => navigate(`/estoque/mobile/${c.id_contagem}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(`/estoque/mobile/${c.id_contagem}`);
+                  }
+                }}
               >
                 <div className="ck-estoque__card-top">
                   <strong>{c.titulo || `Conferência #${c.id_contagem}`}</strong>
@@ -343,12 +338,142 @@ export default function EstoqueMobileListaPage() {
                   >
                     Div. {divergencias}
                   </span>
+                  {mostrarReabrir && (
+                    <button
+                      type="button"
+                      className="ck-estoque__reabrir"
+                      title="Reabrir"
+                      aria-label="Reabrir conferência"
+                      disabled={reabrindoId === c.id_contagem}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setReabrirAlvo(c);
+                      }}
+                    >
+                      <LockOpenIcon fontSize="small" />
+                    </button>
+                  )}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
       </div>
+
+      {dlgLoja &&
+        createPortal(
+          <div className="ck-estoque">
+            <div
+              className="ck-estoque__loja-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Selecionar loja"
+            >
+              <button
+                type="button"
+                className="ck-estoque__loja-backdrop"
+                aria-label="Fechar"
+                onClick={fecharDlgLoja}
+              />
+              <div className="ck-estoque__loja-panel">
+                <div className="ck-estoque__loja-panel-head">
+                  <strong>Escolher loja</strong>
+                  <button type="button" className="ck-estoque__loja-fechar" onClick={fecharDlgLoja}>
+                    Fechar
+                  </button>
+                </div>
+                {lojas.length > 8 && (
+                  <div className="ck-estoque__loja-busca">
+                    <input
+                      type="search"
+                      placeholder="Buscar loja…"
+                      value={buscaLoja}
+                      onChange={(e) => setBuscaLoja(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                )}
+                <div className="ck-estoque__loja-lista">
+                  {lojasFiltradas.map((l) => {
+                    const ativa = l.id_loja === idLoja;
+                    return (
+                      <button
+                        key={l.id_loja}
+                        type="button"
+                        className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
+                        onClick={() => selecionarLoja(l.id_loja)}
+                      >
+                        {rotuloLoja(l)}
+                      </button>
+                    );
+                  })}
+                  {!lojasFiltradas.length && (
+                    <div className="ck-estoque__empty">Nenhuma loja encontrada.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {reabrirAlvo &&
+        createPortal(
+          <div className="ck-estoque">
+            <div
+              className="ck-estoque__loja-modal ck-estoque__modal--center"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Reabrir conferência"
+            >
+              <button
+                type="button"
+                className="ck-estoque__loja-backdrop"
+                aria-label="Fechar"
+                disabled={reabrindoId != null}
+                onClick={() => setReabrirAlvo(null)}
+              />
+              <div className="ck-estoque__loja-panel ck-estoque__confirm">
+                <div className="ck-estoque__loja-panel-head">
+                  <strong>Reabrir conferência</strong>
+                  <button
+                    type="button"
+                    className="ck-estoque__loja-fechar"
+                    disabled={reabrindoId != null}
+                    onClick={() => setReabrirAlvo(null)}
+                  >
+                    Fechar
+                  </button>
+                </div>
+                <p className="ck-estoque__confirm-text">
+                  A conferência{' '}
+                  <strong>{reabrirAlvo.titulo || `#${reabrirAlvo.id_contagem}`}</strong> voltará para
+                  aberta e poderá ser editada.
+                </p>
+                <div className="ck-estoque__confirm-actions">
+                  <button
+                    type="button"
+                    className="ck-estoque__btn ck-estoque__btn--ghost"
+                    disabled={reabrindoId != null}
+                    onClick={() => setReabrirAlvo(null)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="ck-estoque__btn ck-estoque__btn--primary"
+                    disabled={reabrindoId != null}
+                    onClick={() => void confirmarReabrir()}
+                  >
+                    {reabrindoId != null ? 'Reabrindo…' : 'Reabrir'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

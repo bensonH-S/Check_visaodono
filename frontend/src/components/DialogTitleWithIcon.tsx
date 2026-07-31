@@ -11,6 +11,8 @@ type Props = {
   compact?: boolean;
   /** Ícone na mesma cor do título, sem caixa cinza. */
   plainIcon?: boolean;
+  /** Linha divisória abaixo do título. */
+  divider?: boolean;
 };
 
 export default function DialogTitleWithIcon({
@@ -20,6 +22,7 @@ export default function DialogTitleWithIcon({
   fixed,
   compact,
   plainIcon,
+  divider,
 }: Props) {
   return (
     <DialogTitle
@@ -35,13 +38,15 @@ export default function DialogTitleWithIcon({
         fontWeight: 600,
         fontSize: compact ? { xs: '0.95rem', sm: '1rem' } : '1rem',
         color: colors.textPrimary,
+        ...((fixed || divider) && {
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }),
         ...(fixed && {
           position: 'sticky',
           top: 0,
           zIndex: 2,
-          bgcolor: 'background.paper',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
         }),
       }}
     >

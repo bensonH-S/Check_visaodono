@@ -145,6 +145,7 @@ export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
   if (podeVerNcMobile(usuario)) return '/nc/mobile';
   if (podeUsarFrota(usuario)) return '/frota/mobile';
   if (podeConferenciaEstoque(usuario)) return '/estoque/mobile';
+  if (podeBreakEstoque(usuario)) return '/estoque/mobile/break';
   return '/chamados/mobile';
 }
 
@@ -465,11 +466,17 @@ export function podeOperacionalEstoque(usuario?: UsuarioSessao | null): boolean 
   return temPermissao('estoque.operacional', usuario);
 }
 
+/** Lançar break (consumo) — mobile e portal. */
+export function podeBreakEstoque(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('estoque.break', usuario) || podeOperacionalEstoque(usuario);
+}
+
 export function podeVerEstoque(usuario?: UsuarioSessao | null): boolean {
   return (
     podeProdutosEstoque(usuario) ||
     podeConferenciaEstoque(usuario) ||
-    podeOperacionalEstoque(usuario)
+    podeOperacionalEstoque(usuario) ||
+    temPermissao('estoque.break', usuario)
   );
 }
 

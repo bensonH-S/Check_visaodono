@@ -30,7 +30,8 @@ import HistoryIcon from '@mui/icons-material/History';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeAprovarFreelancers, podeConferenciaEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
+import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
@@ -271,9 +272,11 @@ function ChamadosMobileLayoutInner() {
   const isNcResolver = Boolean(useMatch('/nc/mobile/:idNc'));
   /** NCs: chrome próprio (lista + resolver). */
   const isNcImmersive = isNc;
+  const isEstoqueBreak = path === '/estoque/mobile/break';
   const isEstoque = path === '/estoque/mobile' || path.startsWith('/estoque/mobile/');
-  const isEstoqueDetalhe = Boolean(useMatch('/estoque/mobile/:idContagem'));
-  /** Estoque: chrome próprio (lista + conferência). */
+  /** `:idContagem` também casa com "break" — excluir a rota de break. */
+  const isEstoqueDetalhe = Boolean(useMatch('/estoque/mobile/:idContagem')) && !isEstoqueBreak;
+  /** Estoque: chrome próprio (lista + conferência + break). */
   const isEstoqueImmersive = isEstoque;
   const isFreelancersAprovacao = path === '/freelancers/aprovacao/mobile';
   /** Freelas: chrome próprio (stage + sheet), sem header/título MUI. */
@@ -307,6 +310,7 @@ function ChamadosMobileLayoutInner() {
   const podeEscalaVisitas = user && !modoRestrito && podeVerEscalaVisitas(user);
   const podeNc = user && !modoRestrito && podeVerNcMobile(user);
   const podeEstoque = user && !modoRestrito && podeConferenciaEstoque(user);
+  const podeBreak = user && !modoRestrito && podeBreakEstoque(user);
   const podeFreelancers = user && !modoRestrito && podeAprovarFreelancers(user);
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
@@ -392,6 +396,12 @@ function ChamadosMobileLayoutInner() {
             show: !!podeEstoque,
           },
           {
+            to: '/estoque/mobile/break',
+            label: 'Break',
+            icon: <FreeBreakfastOutlinedIcon fontSize="small" />,
+            show: !!podeBreak,
+          },
+          {
             to: '/freelancers/aprovacao/mobile',
             label: 'Freelas',
             icon: <BadgeOutlinedIcon fontSize="small" />,
@@ -426,6 +436,8 @@ function ChamadosMobileLayoutInner() {
             ? 'Escala de visitas'
           : isNcResolver
             ? 'Resolver NC'
+          : isEstoqueBreak
+            ? 'Break'
           : isEstoqueDetalhe
             ? 'Conferência'
           : isEstoque
@@ -465,6 +477,8 @@ function ChamadosMobileLayoutInner() {
               ? 'Escala de visitas'
             : isNcResolver
               ? 'Resolver NC'
+            : isEstoqueBreak
+              ? 'Break'
             : isEstoqueDetalhe
               ? 'Conferência'
             : isEstoque
@@ -771,6 +785,7 @@ function ChamadosMobileLayoutInner() {
               const abaVisitas = item.to === '/visitas/mobile';
               const abaNc = item.to === '/nc/mobile';
               const abaEstoque = item.to === '/estoque/mobile';
+              const abaBreak = item.to === '/estoque/mobile/break';
               const abaFreelancers = item.to === '/freelancers/aprovacao/mobile';
               const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc || abaEstoque;
               return (
@@ -796,7 +811,9 @@ function ChamadosMobileLayoutInner() {
                               : abaNc
                                 ? isNc
                               : abaEstoque
-                                ? isEstoque
+                                ? isEstoque && !isEstoqueBreak
+                              : abaBreak
+                                ? isEstoqueBreak
                               : abaFreelancers
                                 ? isFreelancersAprovacao
                               : isActive;

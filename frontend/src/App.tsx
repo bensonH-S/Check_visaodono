@@ -41,7 +41,9 @@ import MetasPage from './pages/metas/MetasPage';
 import ControleEstoquePage from './pages/estoque/ControleEstoquePage';
 import EstoqueMobileListaPage from './pages/estoque/EstoqueMobileListaPage';
 import EstoqueMobileConferenciaPage from './pages/estoque/EstoqueMobileConferenciaPage';
+import EstoqueMobileBreakPage from './pages/estoque/EstoqueMobileBreakPage';
 import RotaEstoqueMobile from './components/RotaEstoqueMobile';
+import RotaEstoqueBreakMobile from './components/RotaEstoqueBreakMobile';
 import NcMobileListaPage from './pages/nc/NcMobileListaPage';
 import NcMobileResolverPage from './pages/nc/NcMobileResolverPage';
 import FreelancersAprovacaoMobilePage from './pages/freelancers/FreelancersAprovacaoMobilePage';
@@ -181,6 +183,14 @@ export default function App() {
                 <RotaNcMobile>
                   <NcMobileListaPage />
                 </RotaNcMobile>
+              }
+            />
+            <Route
+              path="estoque/mobile/break"
+              element={
+                <RotaEstoqueBreakMobile>
+                  <EstoqueMobileBreakPage />
+                </RotaEstoqueBreakMobile>
               }
             />
             <Route

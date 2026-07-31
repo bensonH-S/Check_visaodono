@@ -14,7 +14,9 @@ export async function aplicarMovimento(
   client,
   {
     id_loja,
-    id_produto,
+    id_insumo = null,
+    /** @deprecated use id_insumo */
+    id_produto = null,
     tipo,
     quantidade,
     referencia_tipo = null,
@@ -24,30 +26,31 @@ export async function aplicarMovimento(
   },
 ) {
   const delta = num(quantidade);
-  if (!id_loja || !id_produto || !tipo || delta === 0) {
+  const idInsumo = id_insumo || id_produto;
+  if (!id_loja || !idInsumo || !tipo || delta === 0) {
     throw Object.assign(new Error('Movimento inválido'), { status: 400 });
   }
 
   const { rows } = await client.query(
-    `INSERT INTO estoque_saldos (id_loja, id_produto, quantidade, atualizado_em)
+    `INSERT INTO estoque_saldos (id_loja, id_insumo, quantidade, atualizado_em)
      VALUES ($1, $2, $3, NOW())
-     ON CONFLICT (id_loja, id_produto) DO UPDATE
+     ON CONFLICT (id_loja, id_insumo) DO UPDATE
        SET quantidade = estoque_saldos.quantidade + EXCLUDED.quantidade,
            atualizado_em = NOW()
      RETURNING quantidade`,
-    [id_loja, id_produto, delta],
+    [id_loja, idInsumo, delta],
   );
   const saldo_apos = num(rows[0]?.quantidade);
 
   const { rows: mov } = await client.query(
     `INSERT INTO estoque_movimentos
-       (id_loja, id_produto, tipo, quantidade, saldo_apos,
+       (id_loja, id_insumo, tipo, quantidade, saldo_apos,
         referencia_tipo, referencia_id, observacao, criado_por)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING id_movimento`,
     [
       id_loja,
-      id_produto,
+      idInsumo,
       tipo,
       delta,
       saldo_apos,
@@ -61,22 +64,22 @@ export async function aplicarMovimento(
   return { id_movimento: mov[0].id_movimento, saldo_apos };
 }
 
-export async function obterSaldo(idLoja, idProduto, client = pool) {
+export async function obterSaldo(idLoja, idInsumo, client = pool) {
   const { rows } = await client.query(
     `SELECT quantidade FROM estoque_saldos
-     WHERE id_loja = $1 AND id_produto = $2`,
-    [idLoja, idProduto],
+     WHERE id_loja = $1 AND id_insumo = $2`,
+    [idLoja, idInsumo],
   );
   return rows.length ? num(rows[0].quantidade) : 0;
 }
 
-/** Resolve produto de estoque (insumo) por loja + código. */
+/** Resolve insumo de estoque por loja + código. */
 export async function resolverInsumoPorCodigo(client, idLoja, codigo) {
   const cod = String(codigo || '').trim().toUpperCase();
   if (!cod) return null;
   const { rows } = await client.query(
-    `SELECT id_produto, codigo, descricao
-     FROM produtos
+    `SELECT id_insumo, codigo, descricao
+     FROM insumos
      WHERE id_loja = $1 AND UPPER(codigo) = $2 AND ativo = TRUE
      LIMIT 1`,
     [idLoja, cod],
@@ -84,37 +87,53 @@ export async function resolverInsumoPorCodigo(client, idLoja, codigo) {
   return rows[0] || null;
 }
 
-/** Upsert produto_venda pelo código BK. */
-export async function upsertProdutoVenda(client, codigo, descricao = '') {
+/** Upsert produto de venda pelo código BK, por loja.
+ * @param {object} [opts]
+ * @param {boolean} [opts.ativo] — se informado, aplica no insert/update; senão insert=true e update preserva.
+ */
+export async function upsertProdutoVenda(client, codigo, descricao = '', idLoja = null, opts = {}) {
   const cod = String(codigo || '').trim();
   if (!cod) return null;
+  const id_loja = Number(idLoja);
+  if (!Number.isFinite(id_loja) || id_loja <= 0) {
+    throw Object.assign(new Error('Informe a loja do produto'), { status: 400 });
+  }
   const desc = String(descricao || '').trim() || cod;
+  const temAtivo = typeof opts.ativo === 'boolean';
+  const ativoInsert = temAtivo ? opts.ativo : true;
   const { rows } = await client.query(
-    `INSERT INTO produtos_venda (codigo, descricao, ativo, atualizado_em)
-     VALUES ($1, $2, TRUE, NOW())
-     ON CONFLICT (codigo) DO UPDATE
+    `INSERT INTO produtos (id_loja, codigo, descricao, ativo, atualizado_em)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (id_loja, codigo) DO UPDATE
        SET descricao = CASE
              WHEN EXCLUDED.descricao <> '' AND EXCLUDED.descricao <> EXCLUDED.codigo
              THEN EXCLUDED.descricao
-             ELSE produtos_venda.descricao
+             ELSE produtos.descricao
            END,
+           ativo = CASE WHEN $5::boolean IS NOT NULL THEN $5::boolean ELSE produtos.ativo END,
            atualizado_em = NOW()
      RETURNING *`,
-    [cod, desc],
+    [id_loja, cod, desc, ativoInsert, temAtivo ? opts.ativo : null],
   );
   return rows[0];
 }
 
-export async function carregarFichaPorCodigoVenda(client, codigoVenda) {
+export async function carregarFichaPorCodigoVenda(client, codigoVenda, idLoja = null) {
   const cod = String(codigoVenda || '').trim();
   if (!cod) return null;
+  const params = [cod];
+  let filtroLoja = '';
+  if (idLoja != null) {
+    params.push(Number(idLoja));
+    filtroLoja = ` AND pv.id_loja = $${params.length}`;
+  }
   const { rows: pv } = await client.query(
     `SELECT pv.*, f.id_ficha, f.ativo AS ficha_ativa
-     FROM produtos_venda pv
-     LEFT JOIN ficha_tecnica f ON f.id_produto_venda = pv.id_produto_venda AND f.ativo = TRUE
-     WHERE pv.codigo = $1
+     FROM produtos pv
+     LEFT JOIN ficha_tecnica f ON f.id_produto = pv.id_produto AND f.ativo = TRUE
+     WHERE pv.codigo = $1 AND pv.ativo = TRUE${filtroLoja}
      LIMIT 1`,
-    [cod],
+    params,
   );
   if (!pv.length || !pv[0].id_ficha) return null;
 
@@ -156,7 +175,7 @@ export async function baixarPorProdutoVenda(
     return { ok: false, sem_ficha: false, baixas: [], erros: ['Quantidade inválida'] };
   }
 
-  const ficha = await carregarFichaPorCodigoVenda(client, codigo_venda);
+  const ficha = await carregarFichaPorCodigoVenda(client, codigo_venda, id_loja);
   if (!ficha) {
     return { ok: false, sem_ficha: true, baixas: [], erros: ['Sem ficha técnica'] };
   }
@@ -173,7 +192,7 @@ export async function baixarPorProdutoVenda(
     const delta = -(qtde * num(item.quantidade));
     const mov = await aplicarMovimento(client, {
       id_loja,
-      id_produto: insumo.id_produto,
+      id_insumo: insumo.id_insumo,
       tipo,
       quantidade: delta,
       referencia_tipo,
@@ -184,7 +203,7 @@ export async function baixarPorProdutoVenda(
       criado_por,
     });
     baixas.push({
-      id_produto: insumo.id_produto,
+      id_insumo: insumo.id_insumo,
       codigo: insumo.codigo,
       quantidade: delta,
       saldo_apos: mov.saldo_apos,
@@ -227,7 +246,7 @@ export async function processarVenda(idVenda, { criado_por = null } = {}, extern
     let comErro = 0;
 
     for (const item of itens) {
-      const pv = await upsertProdutoVenda(client, item.codigo, item.descricao);
+      const pv = await upsertProdutoVenda(client, item.codigo, item.descricao, venda.id_loja);
       const result = await baixarPorProdutoVenda(client, {
         id_loja: venda.id_loja,
         codigo_venda: item.codigo,
@@ -243,9 +262,9 @@ export async function processarVenda(idVenda, { criado_por = null } = {}, extern
         semFicha += 1;
         await client.query(
           `UPDATE estoque_venda_itens
-           SET id_produto_venda = $1, sem_ficha = TRUE, processado = FALSE, erro = $2
+           SET id_produto = $1, sem_ficha = TRUE, processado = FALSE, erro = $2
            WHERE id_item = $3`,
-          [pv?.id_produto_venda || null, 'Sem ficha técnica', item.id_item],
+          [pv?.id_produto || null, 'Sem ficha técnica', item.id_item],
         );
         continue;
       }
@@ -254,11 +273,11 @@ export async function processarVenda(idVenda, { criado_por = null } = {}, extern
         processados += 1;
         await client.query(
           `UPDATE estoque_venda_itens
-           SET id_produto_venda = $1, sem_ficha = FALSE, processado = TRUE,
+           SET id_produto = $1, sem_ficha = FALSE, processado = TRUE,
                erro = $2
            WHERE id_item = $3`,
           [
-            pv?.id_produto_venda || null,
+            pv?.id_produto || null,
             result.erros.length ? result.erros.join('; ') : null,
             item.id_item,
           ],
@@ -267,9 +286,9 @@ export async function processarVenda(idVenda, { criado_por = null } = {}, extern
         comErro += 1;
         await client.query(
           `UPDATE estoque_venda_itens
-           SET id_produto_venda = $1, processado = FALSE, erro = $2
+           SET id_produto = $1, processado = FALSE, erro = $2
            WHERE id_item = $3`,
-          [pv?.id_produto_venda || null, result.erros.join('; ') || 'Falha na baixa', item.id_item],
+          [pv?.id_produto || null, result.erros.join('; ') || 'Falha na baixa', item.id_item],
         );
       }
     }
@@ -325,7 +344,7 @@ export async function ajustarSaldoPorContagem(client, idContagem, criado_por = n
   const { id_loja } = cont[0];
 
   const { rows: itens } = await client.query(
-    `SELECT id_item, id_produto, estoque_contado, estoque_sistema
+    `SELECT id_item, id_insumo, estoque_contado, estoque_sistema
      FROM estoque_itens WHERE id_contagem = $1`,
     [idContagem],
   );
@@ -334,21 +353,20 @@ export async function ajustarSaldoPorContagem(client, idContagem, criado_por = n
   for (const item of itens) {
     if (item.estoque_contado == null) continue;
     const contado = num(item.estoque_contado);
-    const atual = await obterSaldo(id_loja, item.id_produto, client);
+    const atual = await obterSaldo(id_loja, item.id_insumo, client);
     const delta = contado - atual;
     if (delta === 0) {
-      // ainda assim garante linha de saldo
       await client.query(
-        `INSERT INTO estoque_saldos (id_loja, id_produto, quantidade, atualizado_em)
+        `INSERT INTO estoque_saldos (id_loja, id_insumo, quantidade, atualizado_em)
          VALUES ($1, $2, $3, NOW())
-         ON CONFLICT (id_loja, id_produto) DO UPDATE SET atualizado_em = NOW()`,
-        [id_loja, item.id_produto, contado],
+         ON CONFLICT (id_loja, id_insumo) DO UPDATE SET atualizado_em = NOW()`,
+        [id_loja, item.id_insumo, contado],
       );
       continue;
     }
     await aplicarMovimento(client, {
       id_loja,
-      id_produto: item.id_produto,
+      id_insumo: item.id_insumo,
       tipo: 'contagem',
       quantidade: delta,
       referencia_tipo: 'estoque_contagem',
@@ -392,33 +410,33 @@ export async function lancarBreak(
       const qtde = num(raw.quantidade);
       if (qtde <= 0) continue;
 
-      if (raw.id_produto || raw.codigo_insumo) {
-        let idProduto = raw.id_produto ? Number(raw.id_produto) : null;
+      if (raw.id_insumo || raw.codigo_insumo) {
+        let idInsumo = raw.id_insumo ? Number(raw.id_insumo) : null;
         let codigo = raw.codigo_insumo || raw.codigo || null;
         let descricao = raw.descricao || null;
-        if (!idProduto && codigo) {
+        if (!idInsumo && codigo) {
           const insumo = await resolverInsumoPorCodigo(client, id_loja, codigo);
           if (!insumo) {
             erros.push(`Insumo ${codigo} não encontrado`);
             continue;
           }
-          idProduto = insumo.id_produto;
+          idInsumo = insumo.id_insumo;
           codigo = insumo.codigo;
           descricao = insumo.descricao;
         }
-        if (!idProduto) {
-          erros.push('Item sem produto');
+        if (!idInsumo) {
+          erros.push('Item sem insumo');
           continue;
         }
         await client.query(
           `INSERT INTO estoque_break_itens
-             (id_break, id_produto, codigo, descricao, quantidade)
+             (id_break, id_insumo, codigo, descricao, quantidade)
            VALUES ($1,$2,$3,$4,$5)`,
-          [idBreak, idProduto, codigo, descricao, qtde],
+          [idBreak, idInsumo, codigo, descricao, qtde],
         );
         const mov = await aplicarMovimento(client, {
           id_loja,
-          id_produto: idProduto,
+          id_insumo: idInsumo,
           tipo: 'break',
           quantidade: -qtde,
           referencia_tipo: 'estoque_break',
@@ -426,30 +444,33 @@ export async function lancarBreak(
           observacao: motivo || `Break #${idBreak}`,
           criado_por,
         });
-        baixas.push({ id_produto: idProduto, quantidade: -qtde, saldo_apos: mov.saldo_apos });
+        baixas.push({ id_insumo: idInsumo, quantidade: -qtde, saldo_apos: mov.saldo_apos });
         continue;
       }
 
-      if (raw.codigo_venda || raw.id_produto_venda) {
+      if (raw.codigo_venda || raw.id_produto_venda || raw.id_produto) {
         let codigoVenda = raw.codigo_venda;
-        let idPv = raw.id_produto_venda ? Number(raw.id_produto_venda) : null;
+        let idPv = raw.id_produto_venda
+          ? Number(raw.id_produto_venda)
+          : raw.id_produto
+            ? Number(raw.id_produto)
+            : null;
         if (idPv && !codigoVenda) {
-          const { rows } = await client.query(
-            'SELECT codigo FROM produtos_venda WHERE id_produto_venda = $1',
-            [idPv],
-          );
+          const { rows } = await client.query('SELECT codigo FROM produtos WHERE id_produto = $1', [
+            idPv,
+          ]);
           codigoVenda = rows[0]?.codigo;
         }
         if (!codigoVenda) {
           erros.push('Produto de venda inválido');
           continue;
         }
-        const pv = await upsertProdutoVenda(client, codigoVenda, raw.descricao || '');
+        const pv = await upsertProdutoVenda(client, codigoVenda, raw.descricao || '', id_loja);
         await client.query(
           `INSERT INTO estoque_break_itens
-             (id_break, id_produto_venda, codigo, descricao, quantidade)
+             (id_break, id_produto, codigo, descricao, quantidade)
            VALUES ($1,$2,$3,$4,$5)`,
-          [idBreak, pv.id_produto_venda, codigoVenda, pv.descricao, qtde],
+          [idBreak, pv.id_produto, codigoVenda, pv.descricao, qtde],
         );
         const result = await baixarPorProdutoVenda(client, {
           id_loja,
@@ -528,7 +549,6 @@ export async function importarVendasLoja(
       );
       const idVenda = vend[0].id_venda;
 
-      // Remove itens não processados para reimportar; mantém processados
       await client.query(
         `DELETE FROM estoque_venda_itens
          WHERE id_venda = $1 AND processado = FALSE`,
@@ -543,18 +563,18 @@ export async function importarVendasLoja(
           row.venda_liquida != null ? num(row.venda_liquida) : row.valor != null ? num(row.valor) : null;
         if (!codigo || qtde <= 0) continue;
 
-        const pv = await upsertProdutoVenda(client, codigo, descricao);
+        const pv = await upsertProdutoVenda(client, codigo, descricao, id_loja);
         await client.query(
           `INSERT INTO estoque_venda_itens
-             (id_venda, codigo, descricao, qtde, venda_liquida, id_produto_venda, processado, sem_ficha)
+             (id_venda, codigo, descricao, qtde, venda_liquida, id_produto, processado, sem_ficha)
            VALUES ($1,$2,$3,$4,$5,$6,FALSE,FALSE)
            ON CONFLICT (id_venda, codigo) DO UPDATE
              SET descricao = EXCLUDED.descricao,
                  qtde = EXCLUDED.qtde,
                  venda_liquida = EXCLUDED.venda_liquida,
-                 id_produto_venda = EXCLUDED.id_produto_venda
+                 id_produto = EXCLUDED.id_produto
            WHERE estoque_venda_itens.processado = FALSE`,
-          [idVenda, codigo, descricao, qtde, venda_liquida, pv?.id_produto_venda || null],
+          [idVenda, codigo, descricao, qtde, venda_liquida, pv?.id_produto || null],
         );
       }
 

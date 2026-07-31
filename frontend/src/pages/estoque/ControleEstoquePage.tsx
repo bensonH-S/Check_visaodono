@@ -7,7 +7,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -45,6 +44,7 @@ import {
 } from '../../api/client';
 import {
   getUsuario,
+  podeBreakEstoque,
   podeConferenciaEstoque,
   podeExcluirEstoque,
   podeOperacionalEstoque,
@@ -54,15 +54,15 @@ import {
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
-import { dialogFieldProps } from '../../utils/dialogForm';
+import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import Tooltip from '@mui/material/Tooltip';
 
-type AbaEstoque = 'conferencia' | 'produtos' | AbaOp;
+type AbaEstoque = 'conferencia' | 'insumos' | AbaOp;
 
-const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'produtos', 'saldo', 'vendas', 'ficha', 'break'];
+const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'insumos', 'produtos', 'saldo', 'vendas', 'break'];
 
 function isAbaEstoque(v: string | undefined): v is AbaEstoque {
   return !!v && (ABAS_ESTOQUE as string[]).includes(v);
@@ -70,7 +70,9 @@ function isAbaEstoque(v: string | undefined): v is AbaEstoque {
 
 function abaInicialPermitida(): AbaEstoque {
   if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
-  if (podeProdutosEstoque(getUsuario())) return 'produtos';
+  if (podeProdutosEstoque(getUsuario())) return 'insumos';
+  if (podeOperacionalEstoque(getUsuario())) return 'saldo';
+  if (podeBreakEstoque(getUsuario())) return 'break';
   return 'saldo';
 }
 
@@ -214,6 +216,7 @@ export default function ControleEstoquePage() {
   const podeProdutos = podeProdutosEstoque(user);
   const podeConferencia = podeConferenciaEstoque(user);
   const podeOperacional = podeOperacionalEstoque(user);
+  const podeBreak = podeBreakEstoque(user);
   const podeEditarProdutos = podeProdutos;
   const podeEditarConferencia = podeConferencia;
   const podeExcluir = podeExcluirEstoque(user);
@@ -237,6 +240,7 @@ export default function ControleEstoquePage() {
   const [loadingLojas, setLoadingLojas] = useState(true);
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
+  const [produtosVendaCount, setProdutosVendaCount] = useState(0);
   const [busca, setBusca] = useState('');
   const [listaContagens, setListaContagens] = useState<EstoqueContagemResumo[]>([]);
   const [filtroStatus, setFiltroStatus] = useState<'todas' | 'aberta' | 'finalizada'>('todas');
@@ -299,6 +303,7 @@ export default function ControleEstoquePage() {
     setContagem(null);
     setListaContagens([]);
     setProdutos([]);
+    setProdutosVendaCount(0);
     setRascunhoItens({});
     setVerDetalhe(false);
   };
@@ -328,12 +333,26 @@ export default function ControleEstoquePage() {
     void carregarListaContagens();
   };
 
+  const carregarProdutosVendaCount = useCallback(async () => {
+    if (!idLoja || !podeOperacional) {
+      setProdutosVendaCount(0);
+      return;
+    }
+    try {
+      const rows = await api.estoqueProdutosVenda({ id_loja: idLoja });
+      setProdutosVendaCount(rows.length);
+    } catch {
+      setProdutosVendaCount(0);
+    }
+  }, [idLoja, podeOperacional]);
+
   const carregarTudo = useCallback(async () => {
     if (!idLoja) return;
     setLoading(true);
     try {
       const jobs: Promise<unknown>[] = [];
-      if (podeProdutos || podeOperacional) jobs.push(carregarProdutos());
+      if (podeProdutos || podeOperacional || podeBreak) jobs.push(carregarProdutos());
+      if (podeOperacional) jobs.push(carregarProdutosVendaCount());
       if (podeConferencia) jobs.push(carregarListaContagens());
       await Promise.all(jobs);
     } catch (e) {
@@ -341,7 +360,16 @@ export default function ControleEstoquePage() {
     } finally {
       setLoading(false);
     }
-  }, [idLoja, podeProdutos, podeOperacional, podeConferencia, carregarProdutos, carregarListaContagens]);
+  }, [
+    idLoja,
+    podeProdutos,
+    podeOperacional,
+    podeBreak,
+    podeConferencia,
+    carregarProdutos,
+    carregarProdutosVendaCount,
+    carregarListaContagens,
+  ]);
 
   useEffect(() => {
     setVerDetalhe(false);
@@ -350,28 +378,43 @@ export default function ControleEstoquePage() {
   }, [idLoja]); // eslint-disable-line react-hooks/exhaustive-deps -- só ao trocar loja
 
   useEffect(() => {
-    if (!idLoja || !(podeProdutos || podeOperacional)) return;
+    if (!idLoja || !(podeProdutos || podeOperacional || podeBreak)) return;
     void carregarProdutos();
-  }, [carregarProdutos, idLoja, podeProdutos, podeOperacional]);
+  }, [carregarProdutos, idLoja, podeProdutos, podeOperacional, podeBreak]);
 
   useEffect(() => {
+    setProdutosVendaCount(0);
+  }, [idLoja]);
+
+  useEffect(() => {
+    // URL antiga /estoque/ficha → /estoque/produtos
+    if (abaParam === 'ficha') {
+      navigate('/estoque/produtos', { replace: true });
+      return;
+    }
     if (!isAbaEstoque(abaParam)) {
       navigate(`/estoque/${abaInicialPermitida()}`, { replace: true });
       return;
     }
-    const abasOp: AbaOp[] = ['saldo', 'vendas', 'ficha', 'break'];
+    if (verDetalhe && aba !== 'conferencia') {
+      navigate('/estoque/conferencia', { replace: true });
+      return;
+    }
+    const abasOp: AbaOp[] = ['saldo', 'vendas', 'produtos'];
     let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
-      destino = podeProdutos ? 'produtos' : podeOperacional ? 'saldo' : 'conferencia';
-    } else if (aba === 'produtos' && !podeProdutos) {
-      destino = podeConferencia ? 'conferencia' : podeOperacional ? 'saldo' : 'produtos';
+      destino = podeProdutos ? 'insumos' : podeOperacional ? 'saldo' : podeBreak ? 'break' : 'conferencia';
+    } else if (aba === 'insumos' && !podeProdutos) {
+      destino = podeConferencia ? 'conferencia' : podeOperacional ? 'saldo' : podeBreak ? 'break' : 'insumos';
     } else if (abasOp.includes(aba as AbaOp) && !podeOperacional) {
-      destino = podeConferencia ? 'conferencia' : 'produtos';
+      destino = podeConferencia ? 'conferencia' : podeProdutos ? 'insumos' : podeBreak ? 'break' : 'saldo';
+    } else if (aba === 'break' && !podeBreak) {
+      destino = podeConferencia ? 'conferencia' : podeProdutos ? 'insumos' : podeOperacional ? 'saldo' : 'break';
     }
     if (destino && destino !== aba) {
       navigate(`/estoque/${destino}`, { replace: true });
     }
-  }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional]);
+  }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe]);
 
   const iniciarSabado = async () => {
     if (!podeEditarConferencia || !idLoja) return;
@@ -422,10 +465,10 @@ export default function ControleEstoquePage() {
       };
       if (editando) {
         await api.estoqueAtualizarProduto(editando.id_produto, body);
-        showToast('Produto atualizado');
+        showToast('Insumo atualizado');
       } else {
         await api.estoqueCriarProduto(body);
-        showToast('Produto cadastrado nesta loja');
+        showToast('Insumo cadastrado nesta loja');
       }
       setDlgProduto(false);
       await carregarProdutos();
@@ -433,7 +476,7 @@ export default function ControleEstoquePage() {
         await abrirContagem(contagem.id_contagem);
       }
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao salvar produto', 'error');
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar insumo', 'error');
     } finally {
       setSalvandoProduto(false);
     }
@@ -576,7 +619,11 @@ export default function ControleEstoquePage() {
           }}
           variant="scrollable"
           scrollButtons="auto"
-          sx={{ minHeight: 40, minWidth: 220, flex: '0 1 auto' }}
+          sx={{
+            minHeight: 40,
+            minWidth: 220,
+            flex: '0 1 auto',
+          }}
         >
           {podeConferencia && (
             <Tab
@@ -588,8 +635,16 @@ export default function ControleEstoquePage() {
           )}
           {podeProdutos && (
             <Tab
+              value="insumos"
+              label={`Insumos (${produtos.length})`}
+              disabled={!idLoja || verDetalhe}
+              sx={{ minHeight: 40, textTransform: 'none' }}
+            />
+          )}
+          {podeOperacional && (
+            <Tab
               value="produtos"
-              label={`Produtos (${produtos.length})`}
+              label={`Produtos (${produtosVendaCount})`}
               disabled={!idLoja || verDetalhe}
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
@@ -610,15 +665,7 @@ export default function ControleEstoquePage() {
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
-          {podeOperacional && (
-            <Tab
-              value="ficha"
-              label="Ficha"
-              disabled={!idLoja || verDetalhe}
-              sx={{ minHeight: 40, textTransform: 'none' }}
-            />
-          )}
-          {podeOperacional && (
+          {podeBreak && (
             <Tab
               value="break"
               label="Break"
@@ -986,7 +1033,7 @@ export default function ControleEstoquePage() {
                             <TableHead>
                               <TableRow>
                                 <TableCell sx={thCenter}>Código</TableCell>
-                                <TableCell sx={thLeft}>Descrição produto</TableCell>
+                                <TableCell sx={thLeft}>Descrição insumo</TableCell>
                                 <TableCell sx={thCenter}>Unidade</TableCell>
                                 <TableCell sx={thCenter}>Valor unid.</TableCell>
                                 <TableCell sx={thCenter}>Estoque sistema</TableCell>
@@ -1087,7 +1134,7 @@ export default function ControleEstoquePage() {
                               {!contagem?.itens?.length && (
                                 <TableRow>
                                   <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                                    Esta loja ainda não tem produtos cadastrados
+                                    Esta loja ainda não tem insumos cadastrados
                                   </TableCell>
                                 </TableRow>
                               )}
@@ -1160,7 +1207,7 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {aba === 'produtos' && podeProdutos && (
+              {aba === 'insumos' && podeProdutos && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                     <TextField
@@ -1191,7 +1238,7 @@ export default function ControleEstoquePage() {
                     </Button>
                     {podeEditarProdutos && (
                       <Button variant="contained" startIcon={<AddIcon />} onClick={abrirNovoProduto}>
-                        Novo produto
+                        Novo insumo
                       </Button>
                     )}
                   </Box>
@@ -1202,7 +1249,7 @@ export default function ControleEstoquePage() {
                         <TableHead>
                           <TableRow>
                             <TableCell sx={thCenter}>Código</TableCell>
-                            <TableCell sx={thLeft}>Descrição produto</TableCell>
+                            <TableCell sx={thLeft}>Descrição insumo</TableCell>
                             <TableCell sx={thCenter}>Unidade</TableCell>
                             <TableCell sx={thCenter}>Preço caixa</TableCell>
                             <TableCell sx={thCenter}>UND convertida</TableCell>
@@ -1254,7 +1301,7 @@ export default function ControleEstoquePage() {
                                 align="center"
                                 sx={{ py: 4, color: colors.textSecondary }}
                               >
-                                Nenhum produto nesta loja — cadastre os itens dela
+                                Nenhum insumo nesta loja — cadastre os itens dela
                               </TableCell>
                             </TableRow>
                           )}
@@ -1265,20 +1312,28 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {podeOperacional &&
-                (aba === 'saldo' || aba === 'vendas' || aba === 'ficha' || aba === 'break') &&
+              {((podeOperacional && (aba === 'saldo' || aba === 'vendas' || aba === 'produtos')) ||
+                (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
-                  <EstoqueOperacionalPanels aba={aba} idLoja={idLoja} produtos={produtos} />
+                  <EstoqueOperacionalPanels
+                    aba={aba}
+                    idLoja={idLoja}
+                    produtos={produtos}
+                    onProdutosVendaCountChange={setProdutosVendaCount}
+                  />
                 )}
             </>
           )}
 
       <Dialog open={dlgProduto} onClose={() => setDlgProduto(false)} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {editando ? <EditIcon color="primary" /> : <Inventory2Icon color="primary" />}
-          {editando ? 'Editar produto' : 'Cadastrar produto'}
-        </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 2.5 }}>
+        <DialogTitleWithIcon
+          plainIcon
+          divider
+          icon={editando ? <EditIcon /> : <Inventory2Icon />}
+        >
+          {editando ? 'Editar insumo' : 'Cadastrar insumo'}
+        </DialogTitleWithIcon>
+        <DialogContent sx={{ ...dialogContentSx, gap: 2.5 }}>
           <Typography variant="body2" color="text.secondary">
             Loja: {lojaAtual ? rotuloLoja(lojaAtual) : '—'}
           </Typography>
@@ -1290,7 +1345,7 @@ export default function ControleEstoquePage() {
             onChange={(e) => setFormProduto((f) => ({ ...f, codigo: e.target.value.toUpperCase() }))}
           />
           <TextField
-            label="Descrição produto"
+            label="Descrição insumo"
             required
             {...dialogFieldProps}
             value={formProduto.descricao}
@@ -1347,7 +1402,7 @@ export default function ControleEstoquePage() {
             />
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <Button onClick={() => setDlgProduto(false)}>Cancelar</Button>
           <Button variant="contained" disabled={salvandoProduto} onClick={() => void salvarProduto()}>
             Salvar
@@ -1364,15 +1419,17 @@ export default function ControleEstoquePage() {
           '& .MuiDialog-container': { alignItems: 'center' },
         }}
       >
-        <DialogTitle>Excluir conferência?</DialogTitle>
-        <DialogContent>
+        <DialogTitleWithIcon plainIcon divider icon={<DeleteOutlineIcon color="error" />}>
+          Excluir conferência?
+        </DialogTitleWithIcon>
+        <DialogContent sx={dialogContentSx}>
           <Typography>
             Deseja excluir{' '}
             <strong>{contagem?.titulo || `a conferência #${contagem?.id_contagem}`}</strong>? Esta
             ação não pode ser desfeita.
           </Typography>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <Button onClick={() => setDlgExcluir(false)} disabled={excluindo}>
             Cancelar
           </Button>
@@ -1393,10 +1450,10 @@ export default function ControleEstoquePage() {
         fullWidth
         maxWidth="xs"
       >
-        <DialogTitleWithIcon plainIcon icon={<LockOpenIcon />}>
+        <DialogTitleWithIcon plainIcon divider icon={<LockOpenIcon />}>
           Reabrir conferência
         </DialogTitleWithIcon>
-        <DialogContent>
+        <DialogContent sx={dialogContentSx}>
           <Typography variant="body2" color="text.secondary">
             A conferência{' '}
             <strong>{contagem?.titulo || `#${contagem?.id_contagem}`}</strong> voltará para aberta e
@@ -1404,7 +1461,7 @@ export default function ControleEstoquePage() {
             registrada na auditoria.
           </Typography>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <Button onClick={() => setDlgReabrir(false)} disabled={reabrindo}>
             Cancelar
           </Button>

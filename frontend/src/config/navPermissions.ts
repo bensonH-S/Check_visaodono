@@ -10,7 +10,7 @@ export const ROTAS_NAV: RotaNav[] = [
   { path: '/dashboard', permissoes: ['portal.dashboard.ver'] },
   {
     path: '/estoque',
-    permissoes: ['estoque.produtos', 'estoque.conferencia', 'estoque.operacional'],
+    permissoes: ['estoque.produtos', 'estoque.conferencia', 'estoque.operacional', 'estoque.break'],
   },
   { path: '/frota', permissoes: ['frota.gerenciar', 'frota.regioes'] },
   { path: '/chamados', permissoes: ['chamados.ver'] },

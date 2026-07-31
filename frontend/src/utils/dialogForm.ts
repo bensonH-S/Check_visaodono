@@ -1,11 +1,16 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
 export const dialogContentSx: SxProps<Theme> = {
-  pt: 2.5,
+  px: 3,
+  pb: 2.5,
   display: 'flex',
   flexDirection: 'column',
   gap: 2,
   overflow: 'visible',
+  // MUI zera o pt quando DialogContent vem logo após DialogTitle — forçar espaço abaixo da linha.
+  '&&': {
+    paddingTop: 3,
+  },
 };
 
 export const dialogFieldProps = {
@@ -15,11 +20,15 @@ export const dialogFieldProps = {
 };
 
 export const dialogContentSxCompact: SxProps<Theme> = {
-  pt: 1.5,
+  px: 3,
+  pb: 2,
   display: 'flex',
   flexDirection: 'column',
   gap: 1.25,
   overflow: 'visible',
+  '&&': {
+    paddingTop: 2,
+  },
 };
 
 export const dialogFieldPropsCompact = {

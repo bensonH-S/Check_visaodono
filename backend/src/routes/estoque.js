@@ -9,13 +9,14 @@ import estoqueOperacional from './estoqueOperacional.js';
 const router = Router();
 
 const permProdutos = requirePermissao('estoque.produtos');
-const permProdutosOuOp = requirePermissao('estoque.produtos', 'estoque.operacional');
+const permProdutosOuOp = requirePermissao('estoque.produtos', 'estoque.operacional', 'estoque.break');
 const permConferencia = requirePermissao('estoque.conferencia');
 const permReabrirContagem = requirePermissao('estoque.conferencia.reabrir');
 const verModulo = requirePermissao(
   'estoque.produtos',
   'estoque.conferencia',
   'estoque.operacional',
+  'estoque.break',
 );
 
 router.use(estoqueOperacional);
@@ -74,31 +75,31 @@ async function criarContagemComItens(
 
   if (usarUltimo !== false) {
     await client.query(
-      `INSERT INTO estoque_itens (id_contagem, id_produto, estoque_sistema, estoque_contado)
-       SELECT $1, p.id_produto,
+      `INSERT INTO estoque_itens (id_contagem, id_insumo, estoque_sistema, estoque_contado)
+       SELECT $1, p.id_insumo,
               COALESCE(s.quantidade, u.estoque, 0),
               NULL
-       FROM produtos p
+       FROM insumos p
        LEFT JOIN estoque_saldos s
-         ON s.id_produto = p.id_produto AND s.id_loja = p.id_loja
+         ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
        LEFT JOIN (
-         SELECT DISTINCT ON (i.id_produto)
-           i.id_produto,
+         SELECT DISTINCT ON (i.id_insumo)
+           i.id_insumo,
            COALESCE(i.estoque_contado, i.estoque_sistema, 0) AS estoque
          FROM estoque_itens i
          JOIN estoque_contagens c ON c.id_contagem = i.id_contagem
          WHERE c.status = 'finalizada'
            AND c.id_loja = $2
-         ORDER BY i.id_produto, c.data_contagem DESC, c.id_contagem DESC
-       ) u ON u.id_produto = p.id_produto
+         ORDER BY i.id_insumo, c.data_contagem DESC, c.id_contagem DESC
+       ) u ON u.id_insumo = p.id_insumo
        WHERE p.ativo = TRUE AND p.id_loja = $2`,
       [idContagem, id_loja],
     );
   } else {
     await client.query(
-      `INSERT INTO estoque_itens (id_contagem, id_produto, estoque_sistema, estoque_contado)
-       SELECT $1, p.id_produto, 0, NULL
-       FROM produtos p
+      `INSERT INTO estoque_itens (id_contagem, id_insumo, estoque_sistema, estoque_contado)
+       SELECT $1, p.id_insumo, 0, NULL
+       FROM insumos p
        WHERE p.ativo = TRUE AND p.id_loja = $2`,
       [idContagem, id_loja],
     );
@@ -107,8 +108,10 @@ async function criarContagemComItens(
 }
 
 function mapProduto(row) {
+  const id_insumo = row.id_insumo ?? row.id_produto;
   return {
-    id_produto: row.id_produto,
+    id_insumo,
+    id_produto: id_insumo, // alias de transição (frontend antigo)
     id_loja: row.id_loja != null ? Number(row.id_loja) : null,
     codigo: row.codigo,
     descricao: row.descricao,
@@ -132,9 +135,11 @@ function mapItem(row) {
   const qtd = estoque_contado ?? 0;
   const valor_estoque = Math.round(qtd * valor_unidade * 100) / 100;
   const diferenca = estoque_contado == null ? null : estoque_contado - estoque_sistema;
+  const id_insumo = row.id_insumo ?? row.id_produto;
   return {
     id_item: row.id_item,
-    id_produto: row.id_produto,
+    id_insumo,
+    id_produto: id_insumo, // alias de transição
     codigo: row.codigo,
     descricao: row.descricao,
     unidade_contagem: unidadeMaiuscula(row.unidade_contagem),
@@ -161,11 +166,11 @@ async function carregarContagem(id) {
   if (!contagens.length) return null;
 
   const { rows: itens } = await pool.query(
-    `SELECT i.id_item, i.id_produto, i.estoque_sistema, i.estoque_contado,
+    `SELECT i.id_item, i.id_insumo, i.estoque_sistema, i.estoque_contado,
             p.codigo, p.descricao, p.unidade_contagem, p.preco_caixa,
             p.und_convertida, p.valor_unidade
      FROM estoque_itens i
-     JOIN produtos p ON p.id_produto = i.id_produto
+     JOIN insumos p ON p.id_insumo = i.id_insumo
      WHERE i.id_contagem = $1
      ORDER BY p.descricao`,
     [id],
@@ -203,9 +208,10 @@ async function carregarContagem(id) {
   };
 }
 
-// ── Produtos (sempre por loja) ─────────────────────────────────────────────
+// ── Insumos (cadastro por loja; tabela insumos) ─────────────────────────────
+// Paths primários: /insumos ; aliases /produtos para compatibilidade.
 
-router.get('/produtos', permProdutosOuOp, async (req, res, next) => {
+async function listarInsumos(req, res, next) {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
@@ -223,7 +229,7 @@ router.get('/produtos', permProdutosOuOp, async (req, res, next) => {
     if (ativos === '0') where.push('ativo = FALSE');
 
     const { rows } = await pool.query(
-      `SELECT * FROM produtos
+      `SELECT * FROM insumos
        WHERE ${where.join(' AND ')}
        ORDER BY descricao`,
       params,
@@ -232,9 +238,9 @@ router.get('/produtos', permProdutosOuOp, async (req, res, next) => {
   } catch (e) {
     next(e);
   }
-});
+}
 
-router.post('/produtos', permProdutos, async (req, res, next) => {
+async function criarInsumo(req, res, next) {
   try {
     const idLoja = parseIdLoja(req.body?.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
@@ -245,16 +251,16 @@ router.post('/produtos', permProdutos, async (req, res, next) => {
     const unidade_contagem = unidadeMaiuscula(req.body?.unidade_contagem);
     const preco_caixa = num(req.body?.preco_caixa);
     const und_convertida = num(req.body?.und_convertida, 1);
-    if (!codigo) return res.status(400).json({ error: 'Informe o código do produto' });
+    if (!codigo) return res.status(400).json({ error: 'Informe o código do insumo' });
     if (descricao.length < 2) {
-      return res.status(400).json({ error: 'Informe a descrição do produto (mín. 2 caracteres)' });
+      return res.status(400).json({ error: 'Informe a descrição do insumo (mín. 2 caracteres)' });
     }
     if (und_convertida <= 0) {
       return res.status(400).json({ error: 'UND convertida deve ser maior que zero' });
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO produtos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, ativo)
+      `INSERT INTO insumos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, ativo)
        VALUES ($1, $2, $3, $4, $5, $6, TRUE)
        RETURNING *`,
       [idLoja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida],
@@ -262,24 +268,24 @@ router.post('/produtos', permProdutos, async (req, res, next) => {
     await auditar(req, {
       modulo: 'estoque',
       acao: 'criar',
-      entidade: 'produto',
-      idReferencia: rows[0].id_produto,
-      descricao: `Produto criado (loja ${idLoja}): ${codigo} — ${descricao}`,
+      entidade: 'insumo',
+      idReferencia: rows[0].id_insumo,
+      descricao: `Insumo criado (loja ${idLoja}): ${codigo} — ${descricao}`,
     });
     res.status(201).json(mapProduto(rows[0]));
   } catch (e) {
     if (e.code === '23505') {
-      return res.status(409).json({ error: 'Já existe um produto com este código nesta loja' });
+      return res.status(409).json({ error: 'Já existe um insumo com este código nesta loja' });
     }
     next(e);
   }
-});
+}
 
-router.patch('/produtos/:id', permProdutos, async (req, res, next) => {
+async function atualizarInsumo(req, res, next) {
   try {
     const id = Number(req.params.id);
-    const atual = await pool.query('SELECT * FROM produtos WHERE id_produto = $1', [id]);
-    if (!atual.rows.length) return res.status(404).json({ error: 'Produto não encontrado' });
+    const atual = await pool.query('SELECT * FROM insumos WHERE id_insumo = $1', [id]);
+    if (!atual.rows.length) return res.status(404).json({ error: 'Insumo não encontrado' });
 
     const prev = atual.rows[0];
     const bloqueio = acessoLoja(req, prev.id_loja);
@@ -301,35 +307,42 @@ router.patch('/produtos/:id', permProdutos, async (req, res, next) => {
         : num(prev.und_convertida, 1);
     const ativo = req.body?.ativo != null ? !!req.body.ativo : prev.ativo !== false;
 
-    if (!codigo) return res.status(400).json({ error: 'Informe o código do produto' });
-    if (descricao.length < 2) return res.status(400).json({ error: 'Informe a descrição do produto' });
+    if (!codigo) return res.status(400).json({ error: 'Informe o código do insumo' });
+    if (descricao.length < 2) return res.status(400).json({ error: 'Informe a descrição do insumo' });
     if (und_convertida <= 0) {
       return res.status(400).json({ error: 'UND convertida deve ser maior que zero' });
     }
 
     const { rows } = await pool.query(
-      `UPDATE produtos
+      `UPDATE insumos
        SET codigo = $1, descricao = $2, unidade_contagem = $3,
            preco_caixa = $4, und_convertida = $5, ativo = $6, atualizado_em = NOW()
-       WHERE id_produto = $7 AND id_loja = $8
+       WHERE id_insumo = $7 AND id_loja = $8
        RETURNING *`,
       [codigo, descricao, unidade_contagem, preco_caixa, und_convertida, ativo, id, prev.id_loja],
     );
     await auditar(req, {
       modulo: 'estoque',
       acao: 'atualizar',
-      entidade: 'produto',
+      entidade: 'insumo',
       idReferencia: id,
-      descricao: `Produto atualizado (loja ${prev.id_loja}): ${codigo}`,
+      descricao: `Insumo atualizado (loja ${prev.id_loja}): ${codigo}`,
     });
     res.json(mapProduto(rows[0]));
   } catch (e) {
     if (e.code === '23505') {
-      return res.status(409).json({ error: 'Já existe um produto com este código nesta loja' });
+      return res.status(409).json({ error: 'Já existe um insumo com este código nesta loja' });
     }
     next(e);
   }
-});
+}
+
+router.get('/insumos', permProdutosOuOp, listarInsumos);
+router.get('/produtos', permProdutosOuOp, listarInsumos);
+router.post('/insumos', permProdutos, criarInsumo);
+router.post('/produtos', permProdutos, criarInsumo);
+router.patch('/insumos/:id', permProdutos, atualizarInsumo);
+router.patch('/produtos/:id', permProdutos, atualizarInsumo);
 
 // ── Contagens / conferência (por loja) ─────────────────────────────────────
 
@@ -596,7 +609,7 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
     }
     if (detalhe.pendentes > 0) {
       return res.status(400).json({
-        error: `Ainda há ${detalhe.pendentes} produto(s) sem contagem. Preencha todos ou informe 0.`,
+        error: `Ainda há ${detalhe.pendentes} insumo(s) sem contagem. Preencha todos ou informe 0.`,
       });
     }
 
@@ -714,7 +727,7 @@ router.get('/resumo', verModulo, async (req, res, next) => {
     const [{ rows: prod }, { rows: cont }] = await Promise.all([
       pool.query(
         `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE ativo)::int AS ativos
-         FROM produtos WHERE id_loja = $1`,
+         FROM insumos WHERE id_loja = $1`,
         [idLoja],
       ),
       pool.query(
@@ -727,7 +740,8 @@ router.get('/resumo', verModulo, async (req, res, next) => {
     ]);
     res.json({
       id_loja: idLoja,
-      produtos: prod[0],
+      insumos: prod[0],
+      produtos: prod[0], // alias de transição
       contagens: cont[0],
     });
   } catch (e) {
