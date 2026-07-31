@@ -153,13 +153,10 @@ function mapFreeControlError(e, res, next) {
 router.get('/employees', requireAprovarFreelancers, async (req, res, next) => {
   try {
     const lojas = await bkNumbersDoUsuario(req.user);
-    const bkNumbers = lojas.map((l) => l.bk_number);
-    if (!bkNumbers.length) {
-      return res.json({ items: [], count: 0, lojas: [] });
-    }
-    const data = await callFreeControl('/api/regional-approvals/employees', {
-      query: { bk_numbers: bkNumbers.join(',') },
-    });
+    const q = String(req.query.q || req.query.search || '').trim().slice(0, 120);
+    const query = {};
+    if (q) query.q = q;
+    const data = await callFreeControl('/api/regional-approvals/employees', { query });
     return res.json({
       items: data.items || [],
       count: data.count ?? (data.items || []).length,

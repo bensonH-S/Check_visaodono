@@ -293,8 +293,12 @@ export const api = {
       `/freelancers-aprovacao/${checkinId}`,
       { method: 'PATCH', body: JSON.stringify(body) },
     ),
-  freelancersListarColaboradores: () =>
-    request<FreelancersColaboradoresResponse>('/freelancers-aprovacao/employees'),
+  freelancersListarColaboradores: (params?: { q?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.q) q.set('q', params.q);
+    const suffix = q.toString() ? `?${q}` : '';
+    return request<FreelancersColaboradoresResponse>(`/freelancers-aprovacao/employees${suffix}`);
+  },
   freelancersRegistrarTurno: (body: {
     employee_id: number;
     bk_number: string;
@@ -2238,10 +2242,11 @@ export interface FreelancersAprovacaoResponse {
 export interface FreelancerColaborador {
   employee_id: number;
   full_name: string;
-  store_id: string | number;
-  store_name: string;
-  bk_number: string;
+  store_id: string | number | null;
+  store_name: string | null;
+  bk_number: string | null;
   contract_type?: string | null;
+  role_name?: string | null;
 }
 
 export interface FreelancersColaboradoresResponse {

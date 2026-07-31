@@ -167,6 +167,161 @@
   accent-color: var(--ck-orange, #e8520a);
 }
 
+.ck-freela .ck-freela__lancar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ck-freela .ck-freela__lancar-lead {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgba(20, 32, 72, 0.58);
+}
+
+.ck-freela .ck-freela__lancar-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ck-freela .ck-freela__lancar-h {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.5);
+}
+
+.ck-freela .ck-freela__pessoa-sel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(232, 82, 10, 0.35);
+  background: rgba(232, 82, 10, 0.06);
+}
+
+.ck-freela .ck-freela__pessoa-sel strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+  line-height: 1.25;
+}
+
+.ck-freela .ck-freela__pessoa-sel small,
+.ck-freela .ck-freela__pessoa-item small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-freela .ck-freela__pessoa-trocar {
+  flex-shrink: 0;
+  border: 0;
+  background: #fff;
+  color: var(--ck-orange, #e8520a);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(20, 32, 72, 0.06);
+}
+
+.ck-freela .ck-freela__pessoa-lista {
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(27, 42, 107, 0.12);
+  background: #fff;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ck-freela .ck-freela__pessoa-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid rgba(27, 42, 107, 0.08);
+  background: transparent;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+
+.ck-freela .ck-freela__pessoa-item:last-child {
+  border-bottom: 0;
+}
+
+.ck-freela .ck-freela__pessoa-item:active {
+  background: rgba(232, 82, 10, 0.08);
+}
+
+.ck-freela .ck-freela__pessoa-item strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+}
+
+.ck-freela .ck-freela__pessoa-vazio,
+.ck-freela .ck-freela__pessoa-hint {
+  margin: 0;
+  padding: 12px 4px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.5);
+  line-height: 1.35;
+}
+
+.ck-freela .ck-freela__pessoa-vazio {
+  padding: 18px 14px;
+  text-align: center;
+}
+
+.ck-freela .ck-freela__lancar-horas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ck-freela .ck-freela__saida-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(27, 42, 107, 0.06);
+}
+
+.ck-freela .ck-freela__saida-opt {
+  min-height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(20, 32, 72, 0.55);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ck-freela .ck-freela__saida-opt.is-on {
+  background: #fff;
+  color: var(--ck-navy);
+  box-shadow: 0 1px 3px rgba(20, 32, 72, 0.1);
+}
+
 .ck-freela .ck-freela__filtro-row {
   display: flex;
   align-items: stretch;
