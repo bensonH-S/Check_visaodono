@@ -59,7 +59,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/frota/regioes': { title: 'Frota · Regiões', icon: <MapIcon sx={iconSx} /> },
   '/escalas/visitas': { title: 'Escala de visitas', icon: <CalendarMonthIcon sx={iconSx} /> },
   '/metas': { title: 'Metas', icon: <TrackChangesIcon sx={iconSx} /> },
-  '/estoque': { title: 'Controle Estoque', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque': { title: 'Estoque', icon: <Inventory2Icon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
   '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },
@@ -88,6 +88,9 @@ export function resolvePageTitle(path: string): PageTitleConfig {
   if (path.startsWith('/chamados/')) return PAGE_TITLES['/chamados'];
   if (path.startsWith('/configuracoes/')) {
     return PAGE_TITLES[path] ?? PAGE_TITLES['/configuracoes'];
+  }
+  if (path === '/estoque' || path.startsWith('/estoque/')) {
+    return PAGE_TITLES['/estoque'];
   }
   return { title: 'Portal Grupo Alvim', icon: <DashboardIcon sx={iconSx} /> };
 }

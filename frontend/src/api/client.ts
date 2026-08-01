@@ -796,7 +796,12 @@ export const api = {
     descricao?: string;
     ativo?: boolean;
     observacao?: string;
-    itens: Array<{ codigo_insumo: string; quantidade: number; observacao?: string }>;
+    itens: Array<{
+      codigo_insumo: string;
+      quantidade: number;
+      unidade_receita?: string;
+      observacao?: string;
+    }>;
   }) =>
     request<FichaTecnicaDetalhe>('/estoque/fichas', {
       method: 'POST',
@@ -1858,7 +1863,10 @@ export interface ProdutoVendaEstoque {
   insumos_ficha?: Array<{
     codigo_insumo: string;
     quantidade: number | string;
+    unidade_receita?: string;
+    qtde_estoque?: number | string;
     valor_unidade?: number | string;
+    custo_linha?: number | string;
   }>;
 }
 
@@ -1884,6 +1892,8 @@ export interface FichaTecnicaDetalhe {
     id_item?: number;
     codigo_insumo: string;
     quantidade: number;
+    unidade_receita?: string;
+    qtde_estoque?: number;
     observacao?: string | null;
   }>;
 }

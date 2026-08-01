@@ -12,6 +12,7 @@ import {
 } from '../services/estoqueMotor.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/syncVendas.js';
+import { qtdeReceitaParaEstoque } from '../services/fichaReceitaEstoque.js';
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
@@ -133,11 +134,18 @@ router.get('/movimentos', permOp, async (req, res, next) => {
 
 function mapProdutoVenda(row) {
   const id_produto = row.id_produto ?? row.id_produto_venda;
+  const valorVenda =
+    row.valor_venda != null
+      ? num(row.valor_venda)
+      : row.preco_venda != null
+        ? num(row.preco_venda)
+        : null;
   return {
     ...row,
     id_produto,
     id_produto_venda: id_produto, // alias de transição
-    valor_venda: row.valor_venda != null ? num(row.valor_venda) : null,
+    preco_venda: row.preco_venda != null ? num(row.preco_venda) : null,
+    valor_venda: valorVenda,
     valor_insumos: num(row.valor_insumos),
   };
 }
@@ -170,7 +178,13 @@ router.get('/produtos-venda', permOp, async (req, res, next) => {
                   json_build_object(
                     'codigo_insumo', i.codigo_insumo,
                     'quantidade', i.quantidade,
-                    'valor_unidade', COALESCE(ins.valor_unidade, 0)
+                    'unidade_receita', COALESCE(i.unidade_receita, 'und'),
+                    'qtde_estoque', COALESCE(i.qtde_estoque, i.quantidade),
+                    'valor_unidade', COALESCE(ins.valor_unidade, 0),
+                    'custo_linha', ROUND(
+                      (COALESCE(i.qtde_estoque, i.quantidade) * COALESCE(ins.valor_unidade, 0))::numeric,
+                      4
+                    )
                   )
                   ORDER BY i.codigo_insumo
                 )
@@ -181,7 +195,7 @@ router.get('/produtos-venda', permOp, async (req, res, next) => {
                 WHERE i.id_ficha = f.id_ficha
               ), '[]'::json) AS insumos_ficha,
               COALESCE((
-                SELECT SUM(i.quantidade * COALESCE(ins.valor_unidade, 0))
+                SELECT SUM(COALESCE(i.qtde_estoque, i.quantidade) * COALESCE(ins.valor_unidade, 0))
                 FROM ficha_tecnica_itens i
                 LEFT JOIN insumos ins
                   ON ins.id_loja = pv.id_loja
@@ -252,7 +266,12 @@ router.get('/fichas/:id', permOp, async (req, res, next) => {
     );
     res.json({
       ...mapProdutoVenda(rows[0]),
-      itens: itens.map((i) => ({ ...i, quantidade: num(i.quantidade) })),
+      itens: itens.map((i) => ({
+        ...i,
+        quantidade: num(i.quantidade),
+        unidade_receita: i.unidade_receita || 'und',
+        qtde_estoque: num(i.qtde_estoque != null ? i.qtde_estoque : i.quantidade),
+      })),
     });
   } catch (e) {
     next(e);
@@ -295,13 +314,27 @@ router.post('/fichas', permOp, async (req, res, next) => {
       const codInsumo = String(it.codigo_insumo || it.codigo || '').trim().toUpperCase();
       const qtde = num(it.quantidade);
       if (!codInsumo || qtde <= 0) continue;
+      const unidade = String(it.unidade_receita || it.unidade || 'und').trim().toLowerCase() || 'und';
+      const { rows: insRows } = await client.query(
+        `SELECT codigo, descricao, und_convertida, valor_unidade
+         FROM insumos WHERE id_loja = $1 AND UPPER(codigo) = $2 LIMIT 1`,
+        [idLoja, codInsumo],
+      );
+      const insumo = insRows[0] || { descricao: '', und_convertida: 1 };
+      const qtdeEst =
+        it.qtde_estoque != null && Number(it.qtde_estoque) > 0
+          ? num(it.qtde_estoque)
+          : qtdeReceitaParaEstoque(qtde, unidade, insumo);
       await client.query(
-        `INSERT INTO ficha_tecnica_itens (id_ficha, codigo_insumo, quantidade, observacao)
-         VALUES ($1, $2, $3, $4)`,
+        `INSERT INTO ficha_tecnica_itens
+           (id_ficha, codigo_insumo, quantidade, unidade_receita, qtde_estoque, observacao)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           idFicha,
           codInsumo,
           qtde,
+          unidade,
+          qtdeEst,
           it.observacao != null ? String(it.observacao).trim() || null : null,
         ],
       );

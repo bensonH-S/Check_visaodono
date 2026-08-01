@@ -1,0 +1,1604 @@
+[
+  {
+    "codigo": "7100123",
+    "descricao": "INDIVIDUAL CHICKEN CRISPY",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "CORE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 37.9,
+    "preco_ga": 37.9
+  },
+  {
+    "codigo": "7100183",
+    "descricao": "INDIVIDUAL WHOPPER DP JR",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "CORE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 13.9,
+    "preco_ga": 12.9
+  },
+  {
+    "codigo": "7100088",
+    "descricao": "INDIVIDUAL WHOPPER PLANTAS",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "CORE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 37.9,
+    "preco_ga": 36.9
+  },
+  {
+    "codigo": "7100023",
+    "descricao": "INDIVIDUAL BIG KING",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "TODO DIA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 25.9,
+    "preco_ga": 24.9
+  },
+  {
+    "codigo": "7100161",
+    "descricao": "INDIVIDUAL CHEDDAR DP",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "TODO DIA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 25.9,
+    "preco_ga": 24.9
+  },
+  {
+    "codigo": "7100095",
+    "descricao": "INDIVIDUAL CHICKEN DP",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "TODO DIA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 20.9
+  },
+  {
+    "codigo": "7100055",
+    "descricao": "INDIVIDUAL CHS BURGER DP",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "TODO DIA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 24.9,
+    "preco_ga": 22.9
+  },
+  {
+    "codigo": "7100102",
+    "descricao": "INDIVIDUAL RODEIO DP",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "TODO DIA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 24.9,
+    "preco_ga": 23.9
+  },
+  {
+    "codigo": "7100105",
+    "descricao": "INDIVIDUAL STACKER DUPLO BACON",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "TODO DIA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 26.9,
+    "preco_ga": 25.9
+  },
+  {
+    "codigo": "1050",
+    "descricao": "INDIVIDUAL WHOPPER",
+    "closing": "CORE INDIVIDUAL",
+    "familia": "TODO DIA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 26.9,
+    "preco_ga": 24.9
+  },
+  {
+    "codigo": "6005279",
+    "descricao": "COMBO CHEDDA DP CRISPY",
+    "closing": "CORE COMBO",
+    "familia": "CORE",
+    "tipo": "COMBO",
+    "preco_novo": 41.9,
+    "preco_ga": 39.9
+  },
+  {
+    "codigo": "6008229",
+    "descricao": "COMBO CHICKEN DP + 4 BK FRANG",
+    "closing": "CORE COMBO",
+    "familia": "CORE",
+    "tipo": "COMBO",
+    "preco_novo": 36.9,
+    "preco_ga": 36.9
+  },
+  {
+    "codigo": "6006918",
+    "descricao": "COMBO WHOPPER DP JR",
+    "closing": "CORE COMBO",
+    "familia": "CORE",
+    "tipo": "COMBO",
+    "preco_novo": 35.9,
+    "preco_ga": 34.9
+  },
+  {
+    "codigo": "6001645",
+    "descricao": "COMBO WHOPPER PLANTAS",
+    "closing": "CORE COMBO",
+    "familia": "CORE",
+    "tipo": "COMBO",
+    "preco_novo": 43.9,
+    "preco_ga": 43.9
+  },
+  {
+    "codigo": "6008102",
+    "descricao": "COMBO SET BK TASTE REG",
+    "closing": "CORE COMBO",
+    "familia": "TASTY",
+    "tipo": "COMBO",
+    "preco_novo": 39.9,
+    "preco_ga": 39.9
+  },
+  {
+    "codigo": "7100018",
+    "descricao": "COMBO BIG KING",
+    "closing": "CORE COMBO",
+    "familia": "TODO DIA",
+    "tipo": "COMBO",
+    "preco_novo": 39.9,
+    "preco_ga": 39.9
+  },
+  {
+    "codigo": "6006751",
+    "descricao": "COMBO CHEDDAR DP",
+    "closing": "CORE COMBO",
+    "familia": "TODO DIA",
+    "tipo": "COMBO",
+    "preco_novo": 40.9,
+    "preco_ga": 39.9
+  },
+  {
+    "codigo": "6002384",
+    "descricao": "COMBO CHICKEN DP",
+    "closing": "CORE COMBO",
+    "familia": "TODO DIA",
+    "tipo": "COMBO",
+    "preco_novo": 36.9,
+    "preco_ga": 36.9
+  },
+  {
+    "codigo": "6005985",
+    "descricao": "COMBO CHS BURGER DP",
+    "closing": "CORE COMBO",
+    "familia": "TODO DIA",
+    "tipo": "COMBO",
+    "preco_novo": 39.9,
+    "preco_ga": 37.9
+  },
+  {
+    "codigo": "6002696",
+    "descricao": "COMBO RODEIO DP",
+    "closing": "CORE COMBO",
+    "familia": "TODO DIA",
+    "tipo": "COMBO",
+    "preco_novo": 39.9,
+    "preco_ga": 38.9
+  },
+  {
+    "codigo": "6004204",
+    "descricao": "COMBO STACKER DUPLO BACON",
+    "closing": "CORE COMBO",
+    "familia": "TODO DIA",
+    "tipo": "COMBO",
+    "preco_novo": 41.9,
+    "preco_ga": 39.9
+  },
+  {
+    "codigo": "1051",
+    "descricao": "COMBO WHOPPER",
+    "closing": "CORE COMBO",
+    "familia": "TODO DIA",
+    "tipo": "COMBO",
+    "preco_novo": 41.9,
+    "preco_ga": 41.9
+  },
+  {
+    "codigo": "6006915",
+    "descricao": "COMBO KING EM DOBRO +1 COMBO",
+    "closing": "KING EM DOBRO",
+    "familia": "KING EM DOBRO",
+    "tipo": "COMBO",
+    "preco_novo": 43.9,
+    "preco_ga": 42.8
+  },
+  {
+    "codigo": "6006917",
+    "descricao": "COMBO KING EM DOBRO +2 COMBO",
+    "closing": "KING EM DOBRO",
+    "familia": "KING EM DOBRO",
+    "tipo": "COMBO",
+    "preco_novo": 59.9,
+    "preco_ga": 59.7
+  },
+  {
+    "codigo": "6008164",
+    "descricao": "COMBO KING EM DOBRO INDIVIDUAL",
+    "closing": "KING EM DOBRO",
+    "familia": "KING EM DOBRO",
+    "tipo": "COMBO",
+    "preco_novo": 27.9,
+    "preco_ga": 25.9
+  },
+  {
+    "codigo": "2065",
+    "descricao": "COMBO CHICKEN JR",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "COMBO",
+    "preco_novo": 27.9,
+    "preco_ga": 25.9
+  },
+  {
+    "codigo": "2101",
+    "descricao": "COMBO CHS BURGER",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "COMBO",
+    "preco_novo": 26.9,
+    "preco_ga": 24.9
+  },
+  {
+    "codigo": "7000007",
+    "descricao": "COMBO RODEIO",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "COMBO",
+    "preco_novo": 30.9,
+    "preco_ga": 27.9
+  },
+  {
+    "codigo": "1601",
+    "descricao": "COMBO WHOPPER JR",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "COMBO",
+    "preco_novo": 31.9,
+    "preco_ga": 29.9
+  },
+  {
+    "codigo": "2064",
+    "descricao": "INDIVIDUAL CHICKEN JR",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 12.9,
+    "preco_ga": 10.9
+  },
+  {
+    "codigo": "2100",
+    "descricao": "INDIVIDUAL CHS BURGER",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 13.9,
+    "preco_ga": 12.9
+  },
+  {
+    "codigo": "7100036",
+    "descricao": "INDIVIDUAL RODEIO",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 13.9,
+    "preco_ga": 12.9
+  },
+  {
+    "codigo": "1600",
+    "descricao": "INDIVIDUAL WHOPPER JR",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 13.9,
+    "preco_ga": 12.9
+  },
+  {
+    "codigo": "2611",
+    "descricao": "COMBO MEGA STACKER FURISO 2,0",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 53.9,
+    "preco_ga": 52.9
+  },
+  {
+    "codigo": "2613",
+    "descricao": "COMBO MEGA STACKER FURISO 3.0",
+    "closing": "VALOR",
+    "familia": "KING OFERTAS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 64.99,
+    "preco_ga": 62.9
+  },
+  {
+    "codigo": "6000956",
+    "descricao": "COMBO MEGA STACKER CHEDDAR 2.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "COMBO",
+    "preco_novo": 55.9,
+    "preco_ga": 52.9
+  },
+  {
+    "codigo": "6000957",
+    "descricao": "COMBO MEGA STACKER CHEDDAR 3.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "COMBO",
+    "preco_novo": 65.9,
+    "preco_ga": 62.9
+  },
+  {
+    "codigo": "1",
+    "descricao": "COMBO MEGA STACKER RODEIO 1,0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "COMBO",
+    "preco_novo": 44.9,
+    "preco_ga": 41.9
+  },
+  {
+    "codigo": "6007462",
+    "descricao": "COMBO MEGA STACKER RODEIO 3.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "COMBO",
+    "preco_novo": 64.9,
+    "preco_ga": 62.9
+  },
+  {
+    "codigo": "2610",
+    "descricao": "INDIVIDUAL MEGA STACKER FURIOSO  2.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "COMBO",
+    "preco_novo": 55.9,
+    "preco_ga": 53.9
+  },
+  {
+    "codigo": "2612",
+    "descricao": "INDIVIDUAL MEGA STACKER FURIOSO 3.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "COMBO",
+    "preco_novo": 65.9,
+    "preco_ga": 59.9
+  },
+  {
+    "codigo": "7100063",
+    "descricao": "INDIVIDUAL MEGA STACKER CHEDDAR 2.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 52.9,
+    "preco_ga": 52.9
+  },
+  {
+    "codigo": "7100064",
+    "descricao": "INDIVIDUAL MEGA STACKER CHEDDAR 3.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 62.9,
+    "preco_ga": 59.9
+  },
+  {
+    "codigo": "7100060",
+    "descricao": "INDIVIDUAL MEGA STACKER RODEIO 2.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 52.9,
+    "preco_ga": 49.9
+  },
+  {
+    "codigo": "7100061",
+    "descricao": "INDIVIDUAL MEGA STACKER RODEIO 3.0",
+    "closing": "PREMIUM",
+    "familia": "STACKER",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 62.9,
+    "preco_ga": 59.9
+  },
+  {
+    "codigo": "6002686",
+    "descricao": "COMBO WHOPPER FAROFA",
+    "closing": "PREMIUM",
+    "familia": "TASTY",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 46.9,
+    "preco_ga": 46.9
+  },
+  {
+    "codigo": "6002687",
+    "descricao": "WHOPPER BBQ BACON",
+    "closing": "PREMIUM",
+    "familia": "WHOPPER",
+    "tipo": "COMBO",
+    "preco_novo": 46.9,
+    "preco_ga": 46.9
+  },
+  {
+    "codigo": "1053",
+    "descricao": "COMBO WHOPPER DP",
+    "closing": "PREMIUM",
+    "familia": "WHOPPER",
+    "tipo": "COMBO",
+    "preco_novo": 49.9,
+    "preco_ga": 49.9
+  },
+  {
+    "codigo": "1701",
+    "descricao": "COMBO WHOPPER FURIOSO",
+    "closing": "PREMIUM",
+    "familia": "WHOPPER",
+    "tipo": "COMBO",
+    "preco_novo": 49.9,
+    "preco_ga": 48.9
+  },
+  {
+    "codigo": "6002688",
+    "descricao": "COMBO WHOPPER RODEIO",
+    "closing": "PREMIUM",
+    "familia": "WHOPPER",
+    "tipo": "COMBO",
+    "preco_novo": 47.9,
+    "preco_ga": 47.9
+  },
+  {
+    "codigo": "7100100",
+    "descricao": "INDIVIDUAL WHOPPER BBQ BACON",
+    "closing": "PREMIUM",
+    "familia": "WHOPPER",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 41.9,
+    "preco_ga": 41.9
+  },
+  {
+    "codigo": "1052",
+    "descricao": "INDIVIDUAL WHOPPER DP",
+    "closing": "PREMIUM",
+    "familia": "WHOPPER",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 45.9,
+    "preco_ga": 45.9
+  },
+  {
+    "codigo": "1700",
+    "descricao": "INDIVIDUAL WHOPPER FURIOSO",
+    "closing": "PREMIUM",
+    "familia": "WHOPPER",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 45.9,
+    "preco_ga": 42.9
+  },
+  {
+    "codigo": "7100101",
+    "descricao": "INDIVIDUAL WHOPPER RODEIO",
+    "closing": "PREMIUM",
+    "familia": "WHOPPER",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 45.9,
+    "preco_ga": 42.9
+  },
+  {
+    "codigo": "6004361",
+    "descricao": "COMBO C KIDSBURGER C/AGUA 2021",
+    "closing": "KIDS",
+    "familia": "KIDS",
+    "tipo": "COMBO",
+    "preco_novo": 34.9,
+    "preco_ga": 32.9
+  },
+  {
+    "codigo": "5000891",
+    "descricao": "INDIVIDUAL BRINQUEDO AVULSO",
+    "closing": "KIDS",
+    "familia": "KIDS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 20.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "7900006",
+    "descricao": "INDIVIDUAL MAÇA INDIVIDUAL",
+    "closing": "KIDS",
+    "familia": "KIDS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 6.9,
+    "preco_ga": 6.9
+  },
+  {
+    "codigo": "7100107",
+    "descricao": "INDIVIDUAL PAO CARNE QUEIJO",
+    "closing": "KIDS",
+    "familia": "KIDS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 12.9,
+    "preco_ga": 11.9
+  },
+  {
+    "codigo": "8000046",
+    "descricao": "INDIVIDUAL BALDE CHOCOLATE",
+    "closing": "SOBREMESA",
+    "familia": "BALDE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 25.9,
+    "preco_ga": 25.9
+  },
+  {
+    "codigo": "8000061",
+    "descricao": "INDIVIDUAL BALDE DOCE DE LEITE MASSA DL",
+    "closing": "SOBREMESA",
+    "familia": "BALDE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 25.9,
+    "preco_ga": 25.9
+  },
+  {
+    "codigo": "8000048",
+    "descricao": "INDIVIDUAL BALDE MORANGO",
+    "closing": "SOBREMESA",
+    "familia": "BALDE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 25.9,
+    "preco_ga": 25.9
+  },
+  {
+    "codigo": "8000065",
+    "descricao": "INDIVIDUAL BALDE BROWNIE",
+    "closing": "SOBREMESA",
+    "familia": "BALDE ESPECIAL",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 28.9,
+    "preco_ga": 28.9
+  },
+  {
+    "codigo": "8000071",
+    "descricao": "INDIVIDUAL BALDE OVOMALTINE",
+    "closing": "SOBREMESA",
+    "familia": "BALDE ESPECIAL",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 27.9,
+    "preco_ga": 27.9
+  },
+  {
+    "codigo": "8000066",
+    "descricao": "INDIVIDUAL BK MIX BROWNIE",
+    "closing": "SOBREMESA",
+    "familia": "BK MIX",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 20.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "8000070",
+    "descricao": "INDIVIDUAL BK MIX OVOMALTINE 2020",
+    "closing": "SOBREMESA",
+    "familia": "BK MIX",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 17.9,
+    "preco_ga": 17.9
+  },
+  {
+    "codigo": "8000176",
+    "descricao": "INDIVIDUAL BK MIX NUTELLA",
+    "closing": "SOBREMESA",
+    "familia": "BK MIX LTO",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 20.9,
+    "preco_ga": 18.9
+  },
+  {
+    "codigo": "8000246",
+    "descricao": "CASQUINHA OVOMALTINE",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 6.9,
+    "preco_ga": 6.5
+  },
+  {
+    "codigo": "6005261",
+    "descricao": "INDIVIDUAL CASQUINHA + AGUA",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 6.9,
+    "preco_ga": 5.9
+  },
+  {
+    "codigo": "20000",
+    "descricao": "INDIVIDUAL CASQUINHA BAUNILHA",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 5.0,
+    "preco_ga": 5.0
+  },
+  {
+    "codigo": "8000043",
+    "descricao": "INDIVIDUAL CASQUINHA DOCE DE LEITE",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 5.0,
+    "preco_ga": 5.0
+  },
+  {
+    "codigo": "20002",
+    "descricao": "INDIVIDUAL CASQUINHA MISTA",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 5.0,
+    "preco_ga": 5.0
+  },
+  {
+    "codigo": "8000177",
+    "descricao": "INDIVIDUAL CASQUINHA NUTELLA",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 7.9,
+    "preco_ga": 7.9
+  },
+  {
+    "codigo": "8000001",
+    "descricao": "INDIVIDUAL CASQUINHA RECHEADA CHOCOLATE",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA R",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 6.9,
+    "preco_ga": 6.9
+  },
+  {
+    "codigo": "8000007",
+    "descricao": "INDIVIDUAL CASQUINHA RECHEADA DOCE DE LEITE",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA R",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 6.9,
+    "preco_ga": 6.9
+  },
+  {
+    "codigo": "8000012",
+    "descricao": "INDIVIDUAL CASQUINHA RECHEADA OVOMALTINE",
+    "closing": "SOBREMESA",
+    "familia": "CASQUINHA R",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 6.9,
+    "preco_ga": 6.9
+  },
+  {
+    "codigo": "7700021",
+    "descricao": "INDIVIDUAL SHAKE BAUNILHA 400ML",
+    "closing": "SOBREMESA",
+    "familia": "SHAKE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 18.9,
+    "preco_ga": 18.9
+  },
+  {
+    "codigo": "7700016",
+    "descricao": "INDIVIDUAL SHAKE CHOCOLATE 400ML",
+    "closing": "SOBREMESA",
+    "familia": "SHAKE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 18.9,
+    "preco_ga": 18.9
+  },
+  {
+    "codigo": "7700017",
+    "descricao": "INDIVIDUAL SHAKE DOCE DE LEITE 400ML",
+    "closing": "SOBREMESA",
+    "familia": "SHAKE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 19.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "7700019",
+    "descricao": "INDIVIDUAL SHAKE MORANGO 400ML",
+    "closing": "SOBREMESA",
+    "familia": "SHAKE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 19.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "7700072",
+    "descricao": "INDIVIDUAL SHAKE BROWNIE",
+    "closing": "SOBREMESA",
+    "familia": "SHAKE ESPECIAL",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 21.9
+  },
+  {
+    "codigo": "7700076",
+    "descricao": "INDIVIDUAL SHAKE CROCANTE 400ML",
+    "closing": "SOBREMESA",
+    "familia": "SHAKE ESPECIAL",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 21.9
+  },
+  {
+    "codigo": "21",
+    "descricao": "INDIVIDUAL SHAKE PROTEICO",
+    "closing": "SOBREMESA",
+    "familia": "SHAKE ESPECIAL",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 23.9
+  },
+  {
+    "codigo": "8000204",
+    "descricao": "INDIVIDUAL SHAKE NUTELLA",
+    "closing": "SOBREMESA",
+    "familia": "SHAKE LTO",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 21.9
+  },
+  {
+    "codigo": "20008",
+    "descricao": "INDIVIDUAL SUNDAE CHOCOLATE",
+    "closing": "SOBREMESA",
+    "familia": "SUNDAE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 9.9
+  },
+  {
+    "codigo": "8000045",
+    "descricao": "INDIVIDUAL SUNDAE DOCE DE LEITE",
+    "closing": "SOBREMESA",
+    "familia": "SUNDAE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 9.9
+  },
+  {
+    "codigo": "8000081",
+    "descricao": "INDIVIDUAL SUNDAE MORANGO",
+    "closing": "SOBREMESA",
+    "familia": "SUNDAE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 9.9
+  },
+  {
+    "codigo": "8000013",
+    "descricao": "INDIVIDUAL SUNDAE ESPECIAL OVOMALT",
+    "closing": "SOBREMESA",
+    "familia": "SUNDAE ESPECIAL",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 12.9,
+    "preco_ga": 11.9
+  },
+  {
+    "codigo": "9049",
+    "descricao": "INDIVIDUAL AGUA",
+    "closing": "BEBIDA",
+    "familia": "BEBIDA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 5.9,
+    "preco_ga": 5.9
+  },
+  {
+    "codigo": "9008",
+    "descricao": "INDIVIDUAL FREE REFILL",
+    "closing": "BEBIDA",
+    "familia": "BEBIDA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 16.9,
+    "preco_ga": 16.9
+  },
+  {
+    "codigo": "9052",
+    "descricao": "INDIVIDUAL H2OH LIMAO",
+    "closing": "BEBIDA",
+    "familia": "BEBIDA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 16.9,
+    "preco_ga": 16.9
+  },
+  {
+    "codigo": "7500029",
+    "descricao": "INDIVIDUAL SUCO LARANJA NATURAL ONE",
+    "closing": "BEBIDA",
+    "familia": "BEBIDA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 16.9,
+    "preco_ga": 16.9
+  },
+  {
+    "codigo": "7500031",
+    "descricao": "INDIVIDUAL SUCO MARACUJA NATURAL ONE",
+    "closing": "BEBIDA",
+    "familia": "BEBIDA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 16.9,
+    "preco_ga": 16.9
+  },
+  {
+    "codigo": "7500030",
+    "descricao": "INDIVIDUAL SUCO UVA NATURAL ONE",
+    "closing": "BEBIDA",
+    "familia": "BEBIDA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 16.9,
+    "preco_ga": 16.9
+  },
+  {
+    "codigo": "7300014",
+    "descricao": "INDIVIDUAL BALDE DE BATATA",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 22.9,
+    "preco_ga": 22.9
+  },
+  {
+    "codigo": "6027",
+    "descricao": "INDIVIDUAL BATATA FURIOSA GD",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 27.9,
+    "preco_ga": 27.9
+  },
+  {
+    "codigo": "6025",
+    "descricao": "INDIVIDUAL BATATA FURIOSA MD",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 20.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "6013",
+    "descricao": "INDIVIDUAL BATATA FURIOSA P",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 20.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "14",
+    "descricao": "INDIVIDUAL BATATA GRANDE",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 17.9,
+    "preco_ga": 17.9
+  },
+  {
+    "codigo": "6012",
+    "descricao": "INDIVIDUAL BATATA MÉDIA",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 14.9,
+    "preco_ga": 14.9
+  },
+  {
+    "codigo": "6011",
+    "descricao": "INDIVIDUAL BATATA PEQ",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 12.9,
+    "preco_ga": 12.9
+  },
+  {
+    "codigo": "6019",
+    "descricao": "INDIVIDUAL BATATA SUPREMA GD",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 27.9,
+    "preco_ga": 27.9
+  },
+  {
+    "codigo": "6020",
+    "descricao": "INDIVIDUAL BATATA SUPREMA MD",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 20.9,
+    "preco_ga": 20.9
+  },
+  {
+    "codigo": "6028",
+    "descricao": "INDIVIDUAL TRIO FURIOSO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 30.9,
+    "preco_ga": 30.9
+  },
+  {
+    "codigo": "6021",
+    "descricao": "INDIVIDUAL TRIO SUPREMO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BATATA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 30.9,
+    "preco_ga": 30.9
+  },
+  {
+    "codigo": "6522",
+    "descricao": "INDIVIDUAL BK CHICKEN  6 PCS C/MOLHO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BK CHICKEN",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 18.9,
+    "preco_ga": 17.9
+  },
+  {
+    "codigo": "7300024",
+    "descricao": "INDIVIDUAL BK CHICKEN  6 PCS SEM MOLHO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BK CHICKEN",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 16.9,
+    "preco_ga": 15.9
+  },
+  {
+    "codigo": "7300001",
+    "descricao": "INDIVIDUAL BK CHICKEN 10 UM C/MOLHO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BK CHICKEN",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 20.9
+  },
+  {
+    "codigo": "7300052",
+    "descricao": "INDIVIDUAL BK CHICKEN 10 UN SEM MOLHO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BK CHICKEN",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 19.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "6508",
+    "descricao": "INDIVIDUAL BK CHICKEN 4PC",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "BK CHICKEN",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 9.9,
+    "preco_ga": 11.9
+  },
+  {
+    "codigo": "8700012",
+    "descricao": "INDIVIDUAL ALFACE",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700020",
+    "descricao": "INDIVIDUAL BACON",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "27001",
+    "descricao": "INDIVIDUAL CARNE BURGER",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 10.9
+  },
+  {
+    "codigo": "27006",
+    "descricao": "INDIVIDUAL CARNE CRISP CH",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 10.9
+  },
+  {
+    "codigo": "8700027",
+    "descricao": "INDIVIDUAL CARNE PEQ",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 10.9
+  },
+  {
+    "codigo": "8700048",
+    "descricao": "INDIVIDUAL CARNE T CRISPY NOVO 2019",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 10.9
+  },
+  {
+    "codigo": "27002",
+    "descricao": "INDIVIDUAL CARNE WHOPPER",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 10.9
+  },
+  {
+    "codigo": "8700002",
+    "descricao": "INDIVIDUAL CATCHUP",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700013",
+    "descricao": "INDIVIDUAL CEBOLA",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700054",
+    "descricao": "INDIVIDUAL EXTRA BACON CUBOS",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 5.3,
+    "preco_ga": 5.9
+  },
+  {
+    "codigo": "8700057",
+    "descricao": "INDIVIDUAL EXTRA CARNE ESPECIAL",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 10.9
+  },
+  {
+    "codigo": "8550015",
+    "descricao": "INDIVIDUAL EXTRA CEBOLA CRISPY",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8800015",
+    "descricao": "INDIVIDUAL EXTRA MAIONESE VERDE",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8700052",
+    "descricao": "INDIVIDUAL HAMB VEGET",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 10.9,
+    "preco_ga": 10.9
+  },
+  {
+    "codigo": "8700007",
+    "descricao": "INDIVIDUAL JALAPENO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700005",
+    "descricao": "INDIVIDUAL M BBQ SAND",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700004",
+    "descricao": "INDIVIDUAL M CHEDDAR",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700006",
+    "descricao": "INDIVIDUAL M FURIOUS SAND",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700001",
+    "descricao": "INDIVIDUAL MAIONESE",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700009",
+    "descricao": "INDIVIDUAL MOLHO STACKER",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700003",
+    "descricao": "INDIVIDUAL MOSTARDA",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8700019",
+    "descricao": "INDIVIDUAL ONION RING",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8700010",
+    "descricao": "INDIVIDUAL PICLES",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8700017",
+    "descricao": "INDIVIDUAL QUEIJO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8700011",
+    "descricao": "INDIVIDUAL TOMATE",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "EXTRA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 2.5,
+    "preco_ga": 2.5
+  },
+  {
+    "codigo": "8700022",
+    "descricao": "INDIVIDUAL EXTRA BACONESE",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "MOLHOS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8800008",
+    "descricao": "INDIVIDUAL EXTRA SACHET MAIONESE 1 UN",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "MOLHOS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8700023",
+    "descricao": "INDIVIDUAL MOLHO BBQ",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "MOLHOS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8800002",
+    "descricao": "INDIVIDUAL MOLHO FURIOSO",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "MOLHOS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8800017",
+    "descricao": "INDIVIDUAL SACHET MAIONESE TEMPERADA",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "MOLHOS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "6018",
+    "descricao": "INDIVIDUAL GD O-RINGS",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "ONION RG",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 18.9,
+    "preco_ga": 18.9
+  },
+  {
+    "codigo": "6017",
+    "descricao": "INDIVIDUAL O-RINGS MD",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "ONION RG",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 15.9,
+    "preco_ga": 15.9
+  },
+  {
+    "codigo": "7300005",
+    "descricao": "INDIVIDUAL O-RINGS PQ",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "ONION RG",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 13.9,
+    "preco_ga": 13.9
+  },
+  {
+    "codigo": "8600012",
+    "descricao": "INDIVIDUAL Extra Amendoin",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8600016",
+    "descricao": "INDIVIDUAL Extra Calda Ovomaltine",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "8600011",
+    "descricao": "INDIVIDUAL Extra chocolate",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8600008",
+    "descricao": "INDIVIDUAL Extra Chocolate Picado",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8600010",
+    "descricao": "INDIVIDUAL Extra Cob Doce de Leite",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8600009",
+    "descricao": "INDIVIDUAL Extra Cob Morango",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8600031",
+    "descricao": "INDIVIDUAL Extra Extra Brownie",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 4.5,
+    "preco_ga": 4.5
+  },
+  {
+    "codigo": "8000128",
+    "descricao": "INDIVIDUAL Extra Extra Topping Gotas Oreo",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8800019",
+    "descricao": "INDIVIDUAL Extra Farofa Cookies (Nutella)",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.5,
+    "preco_ga": 3.5
+  },
+  {
+    "codigo": "8800018",
+    "descricao": "INDIVIDUAL Extra Nutella",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 4.9,
+    "preco_ga": 4.9
+  },
+  {
+    "codigo": "8600002",
+    "descricao": "INDIVIDUAL Extra Ovomaltine Extra",
+    "closing": "ACOMPANHAMENTOS + ADD ON",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "6004585",
+    "descricao": "INDIVIDUAL GUEST TRAC",
+    "closing": "GUEST TRAC",
+    "familia": "GUEST TRAC",
+    "tipo": "COMBO",
+    "preco_novo": 25.9,
+    "preco_ga": 25.9
+  },
+  {
+    "codigo": "6007337",
+    "descricao": "GIGANTES EM DOBRO 1C",
+    "closing": "LANÇAMENTOS",
+    "familia": "GIGANTES EM DOBRO",
+    "tipo": "COMBO",
+    "preco_novo": 46.9,
+    "preco_ga": 46.9
+  },
+  {
+    "codigo": "6007338",
+    "descricao": "GIGANTES EM DOBRO 2C",
+    "closing": "LANÇAMENTOS",
+    "familia": "GIGANTES EM DOBRO",
+    "tipo": "COMBO",
+    "preco_novo": 61.9,
+    "preco_ga": 61.9
+  },
+  {
+    "codigo": "6007336",
+    "descricao": "GIGANTES EM DOBRO",
+    "closing": "LANÇAMENTOS",
+    "familia": "GIGANTES EM DOBRO",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 32.9,
+    "preco_ga": 31.9
+  },
+  {
+    "codigo": "8000269",
+    "descricao": "BK MIX PISTACHE",
+    "closing": "LANÇAMENTOS",
+    "familia": "BK MIX",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 19.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "8000274",
+    "descricao": "BK MIX PISTACHE COM BROWNIE",
+    "closing": "LANÇAMENTOS",
+    "familia": "BK MIX",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "8000272",
+    "descricao": "BK MIX PISTACHE COM COOKIE",
+    "closing": "LANÇAMENTOS",
+    "familia": "BK MIX",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 20.9
+  },
+  {
+    "codigo": "8000288",
+    "descricao": "BK MIX PRESTIGIO",
+    "closing": "LANÇAMENTOS",
+    "familia": "BK MIX",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 19.9,
+    "preco_ga": 19.9
+  },
+  {
+    "codigo": "8000270",
+    "descricao": "CASQUINHA R PISTACHE",
+    "closing": "LANÇAMENTOS",
+    "familia": "CASQUINHA",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 8.9,
+    "preco_ga": 8.9
+  },
+  {
+    "codigo": "8800029",
+    "descricao": "BLISTER MOSTRADA E MEL",
+    "closing": "LANÇAMENTOS",
+    "familia": "CHICKEN FRIES",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 4.0,
+    "preco_ga": 4.0
+  },
+  {
+    "codigo": "6007176",
+    "descricao": "KING EM DOBRO + 1 C WHOP DRIVE",
+    "closing": "LANÇAMENTOS",
+    "familia": "KING EM DOBRO DRIVE",
+    "tipo": "COMBO",
+    "preco_novo": 42.9,
+    "preco_ga": 42.9
+  },
+  {
+    "codigo": "6007177",
+    "descricao": "KING EM DOBRO + 2 C WHOP DRIVE",
+    "closing": "LANÇAMENTOS",
+    "familia": "KING EM DOBRO DRIVE",
+    "tipo": "COMBO",
+    "preco_novo": 57.9,
+    "preco_ga": 57.9
+  },
+  {
+    "codigo": "6007175",
+    "descricao": "KING EM DOBRO WHOP DRIVE",
+    "closing": "LANÇAMENTOS",
+    "familia": "KING EM DOBRO DRIVE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 29.9,
+    "preco_ga": 29.9
+  },
+  {
+    "codigo": "8000289",
+    "descricao": "SHAKE PRESTIGIO",
+    "closing": "LANÇAMENTOS",
+    "familia": "SHAKE",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 21.9,
+    "preco_ga": 21.9
+  },
+  {
+    "codigo": "6007425",
+    "descricao": "COMBO THE KINGS",
+    "closing": "LANÇAMENTOS",
+    "familia": "THE KINGS",
+    "tipo": "COMBO",
+    "preco_novo": 44.9,
+    "preco_ga": 44.9
+  },
+  {
+    "codigo": "8000275",
+    "descricao": "BK SUPREMA INDIV COSTELA",
+    "closing": "LANÇAMENTOS",
+    "familia": "THE KINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 16.9,
+    "preco_ga": 16.9
+  },
+  {
+    "codigo": "8800028",
+    "descricao": "EXTRA CHUTNEY CEBOLA",
+    "closing": "LANÇAMENTOS",
+    "familia": "THE KINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 4.0,
+    "preco_ga": 4.0
+  },
+  {
+    "codigo": "7100197",
+    "descricao": "EXTRA COSTELA",
+    "closing": "LANÇAMENTOS",
+    "familia": "THE KINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 11.9,
+    "preco_ga": 11.9
+  },
+  {
+    "codigo": "8800026",
+    "descricao": "EXTRA MAIONESE DE ALHO",
+    "closing": "LANÇAMENTOS",
+    "familia": "THE KINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 4.0,
+    "preco_ga": 4.0
+  },
+  {
+    "codigo": "8800027",
+    "descricao": "EXTRA MAIONESE DE ALHO BATATA",
+    "closing": "LANÇAMENTOS",
+    "familia": "THE KINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 6.5,
+    "preco_ga": 6.5
+  },
+  {
+    "codigo": "7100196",
+    "descricao": "KING COSTELA",
+    "closing": "LANÇAMENTOS",
+    "familia": "THE KINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 45.9,
+    "preco_ga": 40.9
+  },
+  {
+    "codigo": "8700069",
+    "descricao": "EXTRA CALDA PRESTIGIO",
+    "closing": "LANÇAMENTOS",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 5.9,
+    "preco_ga": 5.9
+  },
+  {
+    "codigo": "8700068",
+    "descricao": "EXTRA BOMBOM PRESTIGIO",
+    "closing": "LANÇAMENTOS",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 3.9,
+    "preco_ga": 3.9
+  },
+  {
+    "codigo": "19",
+    "descricao": "INDIVIDUAL CHICKEN DP BACON",
+    "closing": "LANÇAMENTOS",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 24.9,
+    "preco_ga": 23.9
+  },
+  {
+    "codigo": "32",
+    "descricao": "COMBO CHICKEN DP BACON",
+    "closing": "LANÇAMENTOS",
+    "familia": "TOPPINGS",
+    "tipo": "INDIVIDUAL",
+    "preco_novo": 39.9,
+    "preco_ga": 37.9
+  }
+]

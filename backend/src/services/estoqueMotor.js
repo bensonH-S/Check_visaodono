@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { qtdeReceitaParaEstoque } from './fichaReceitaEstoque.js';
 
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
@@ -189,7 +190,17 @@ export async function baixarPorProdutoVenda(
       erros.push(`Insumo ${item.codigo_insumo} não cadastrado na loja`);
       continue;
     }
-    const delta = -(qtde * num(item.quantidade));
+    // qtde_estoque = equivalente na unidade de compra/contagem;
+    // quantidade = porção de produção (g/fatia/und) — só para exibição/receita
+    const porUnidadeVenda =
+      item.qtde_estoque != null && Number(item.qtde_estoque) > 0
+        ? num(item.qtde_estoque)
+        : qtdeReceitaParaEstoque(
+            item.quantidade,
+            item.unidade_receita || 'und',
+            insumo,
+          );
+    const delta = -(qtde * porUnidadeVenda);
     const mov = await aplicarMovimento(client, {
       id_loja,
       id_insumo: insumo.id_insumo,
@@ -199,7 +210,7 @@ export async function baixarPorProdutoVenda(
       referencia_id,
       observacao:
         observacao ||
-        `Baixa ${tipo}: ${codigo_venda} x${qtde} → ${item.codigo_insumo} (${item.quantidade})`,
+        `Baixa ${tipo}: ${codigo_venda} x${qtde} → ${item.codigo_insumo} (receita ${item.quantidade} ${item.unidade_receita || 'und'} = ${porUnidadeVenda} est.)`,
       criado_por,
     });
     baixas.push({

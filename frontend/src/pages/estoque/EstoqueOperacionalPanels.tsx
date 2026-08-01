@@ -9,6 +9,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Switch from '@mui/material/Switch';
@@ -48,6 +49,11 @@ import {
 import CampoDataFrota from '../../components/frota/CampoDataFrota';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
+import {
+  custoLinhaReceita,
+  UNIDADES_RECEITA,
+  unidadeReceitaPadrao,
+} from '../../utils/fichaReceitaEstoque';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
@@ -560,29 +566,42 @@ function PainelProdutos({
   const [ativo, setAtivo] = useState(true);
   const [idFicha, setIdFicha] = useState<number | null>(null);
   const [valorVenda, setValorVenda] = useState<number | null>(null);
-  const [itens, setItens] = useState<Array<{ codigo_insumo: string; quantidade: string }>>([
-    { codigo_insumo: '', quantidade: '1' },
-  ]);
+  type ItemFichaForm = {
+    codigo_insumo: string;
+    quantidade: string;
+    unidade_receita: string;
+  };
+  const itemVazio = (): ItemFichaForm => ({
+    codigo_insumo: '',
+    quantidade: '1',
+    unidade_receita: 'und',
+  });
+  const [itens, setItens] = useState<ItemFichaForm[]>([itemVazio()]);
 
   const nomeInsumo = (codigoInsumo: string) => {
     const p = insumos.find((i) => i.codigo.toUpperCase() === codigoInsumo.toUpperCase());
     return p?.descricao || codigoInsumo;
   };
 
-  const valorInsumosTotal = itens.reduce((acc, i) => {
-    if (!i.codigo_insumo.trim()) return acc;
-    const ins = insumos.find(
-      (x) => x.codigo.toUpperCase() === i.codigo_insumo.trim().toUpperCase(),
-    );
+  const insumoPorCodigo = (codigoInsumo: string) =>
+    insumos.find((x) => x.codigo.toUpperCase() === codigoInsumo.trim().toUpperCase());
+
+  const custoItemForm = (i: ItemFichaForm) => {
+    if (!i.codigo_insumo.trim()) return 0;
     const qtd = Number(String(i.quantidade).replace(',', '.')) || 0;
-    return acc + qtd * (ins?.valor_unidade ?? 0);
-  }, 0);
+    return custoLinhaReceita(qtd, i.unidade_receita || 'und', insumoPorCodigo(i.codigo_insumo));
+  };
+
+  const rotuloUnidade = (u: string) =>
+    UNIDADES_RECEITA.find((x) => x.value === (u || 'und').toLowerCase())?.label || u || 'Und';
+
+  const valorInsumosTotal = itens.reduce((acc, i) => acc + custoItemForm(i), 0);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
       const [pv, sf] = await Promise.all([
-        api.estoqueProdutosVenda({ id_loja: idLoja, q: busca || undefined }),
+        api.estoqueProdutosVenda({ id_loja: idLoja }),
         api.estoqueVendasSemFicha(idLoja),
       ]);
       setLista(pv);
@@ -593,7 +612,7 @@ function PainelProdutos({
     } finally {
       setLoading(false);
     }
-  }, [idLoja, busca, onCountChange]);
+  }, [idLoja, onCountChange]);
 
   useEffect(() => {
     void carregar();
@@ -605,7 +624,7 @@ function PainelProdutos({
     setDescricao(prefill?.descricao || '');
     setAtivo(true);
     setValorVenda(null);
-    setItens([{ codigo_insumo: '', quantidade: '1' }]);
+    setItens([itemVazio()]);
     setOpen(true);
   };
 
@@ -624,15 +643,16 @@ function PainelProdutos({
             ? det.itens.map((i) => ({
                 codigo_insumo: i.codigo_insumo,
                 quantidade: String(i.quantidade),
+                unidade_receita: i.unidade_receita || 'und',
               }))
-            : [{ codigo_insumo: '', quantidade: '1' }],
+            : [itemVazio()],
         );
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Erro ao abrir produto', 'error');
         return;
       }
     } else {
-      setItens([{ codigo_insumo: '', quantidade: '1' }]);
+      setItens([itemVazio()]);
     }
     setOpen(true);
   };
@@ -687,12 +707,21 @@ function PainelProdutos({
         .filter((i) => i.codigo_insumo.trim())
         .map((i) => [i.codigo_insumo.trim().toUpperCase(), i]),
     );
-    const next: Array<{ codigo_insumo: string; quantidade: string }> = [];
+    const next: ItemFichaForm[] = [];
     for (const cod of pickerSelecionados) {
       const prev = existentes.get(cod);
-      next.push(prev || { codigo_insumo: cod, quantidade: '1' });
+      if (prev) {
+        next.push(prev);
+      } else {
+        const ins = insumos.find((x) => x.codigo.toUpperCase() === cod.toUpperCase());
+        next.push({
+          codigo_insumo: cod,
+          quantidade: '1',
+          unidade_receita: unidadeReceitaPadrao(ins),
+        });
+      }
     }
-    setItens(next.length ? next : [{ codigo_insumo: '', quantidade: '1' }]);
+    setItens(next.length ? next : [itemVazio()]);
     setOpenPicker(false);
   };
 
@@ -713,6 +742,7 @@ function PainelProdutos({
       .map((i) => ({
         codigo_insumo: i.codigo_insumo.trim().toUpperCase(),
         quantidade: Number(String(i.quantidade).replace(',', '.')),
+        unidade_receita: (i.unidade_receita || 'und').trim().toLowerCase() || 'und',
       }))
       .filter((i) => i.codigo_insumo && i.quantidade > 0);
     if (!codigo.trim()) {
@@ -752,10 +782,15 @@ function PainelProdutos({
 
   const comInsumos = lista.filter((p) => !!p.id_ficha).length;
   const semInsumos = lista.length - comInsumos;
+  const qBusca = busca.trim().toLowerCase();
   const listaFiltrada = lista.filter((p) => {
-    if (filtroInsumo === 'com') return !!p.id_ficha;
-    if (filtroInsumo === 'sem') return !p.id_ficha;
-    return true;
+    if (filtroInsumo === 'com' && !p.id_ficha) return false;
+    if (filtroInsumo === 'sem' && p.id_ficha) return false;
+    if (!qBusca) return true;
+    return (
+      p.codigo.toLowerCase().includes(qBusca) ||
+      (p.descricao || '').toLowerCase().includes(qBusca)
+    );
   });
 
   return (
@@ -779,9 +814,6 @@ function PainelProdutos({
             label="Buscar produto"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void carregar();
-            }}
             sx={{ minWidth: 200 }}
           />
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
@@ -905,11 +937,24 @@ function PainelProdutos({
                                   >
                                     {Number(i.quantidade).toLocaleString('pt-BR', {
                                       maximumFractionDigits: 3,
-                                    })}{' '}
+                                    })}
+                                    {i.unidade_receita
+                                      ? ` ${
+                                          UNIDADES_RECEITA.find(
+                                            (u) =>
+                                              u.value ===
+                                              String(i.unidade_receita).toLowerCase(),
+                                          )?.label || i.unidade_receita
+                                        }`
+                                      : ''}{' '}
                                     × {nomeInsumo(i.codigo_insumo)}
-                                    {i.valor_unidade != null && Number(i.valor_unidade) > 0
-                                      ? ` (${fmtMoeda(Number(i.quantidade) * Number(i.valor_unidade))})`
-                                      : ''}
+                                    {i.custo_linha != null && Number(i.custo_linha) > 0
+                                      ? ` (${fmtMoeda(Number(i.custo_linha))})`
+                                      : i.valor_unidade != null &&
+                                          Number(i.valor_unidade) > 0 &&
+                                          i.qtde_estoque != null
+                                        ? ` (${fmtMoeda(Number(i.qtde_estoque) * Number(i.valor_unidade))})`
+                                        : ''}
                                   </Typography>
                                 ))
                               ) : (
@@ -1005,7 +1050,13 @@ function PainelProdutos({
         </TableContainer>
       </Paper>
 
-      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        fullWidth
+        maxWidth="md"
+        slotProps={{ paper: { sx: { maxWidth: 720 } } }}
+      >
         <DialogTitleWithIcon plainIcon divider icon={<MenuBookOutlinedIcon />}>
           {idFicha ? 'Editar produto' : 'Novo produto'}
         </DialogTitleWithIcon>
@@ -1094,19 +1145,24 @@ function PainelProdutos({
           <Box
             sx={{
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               justifyContent: 'space-between',
               gap: 1,
               flexWrap: 'wrap',
               mt: 0.5,
+              mb: 0.5,
             }}
           >
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            <Box sx={{ minWidth: 0, flex: '1 1 220px', pr: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
                 Insumos
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Quanto de cada item sai do estoque a cada venda.
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.25, lineHeight: 1.35, maxWidth: 420 }}
+              >
+                Quantidade na receita (g, fatia…). O custo usa a conversão para a unidade de compra.
               </Typography>
             </Box>
             <Button
@@ -1114,6 +1170,7 @@ function PainelProdutos({
               variant="outlined"
               startIcon={<ChecklistRtlIcon />}
               onClick={abrirPickerInsumos}
+              sx={{ flexShrink: 0, mt: 0.25 }}
             >
               Escolher da lista
             </Button>
@@ -1122,66 +1179,132 @@ function PainelProdutos({
             sx={{
               display: 'flex',
               flexDirection: 'column',
-              gap: 2,
+              gap: 0.75,
+              pt: 0.75,
               ...(itens.length > 5
                 ? {
-                    maxHeight: 280,
+                    maxHeight: 6 + 5 * 48 + 4 * 6, // pt + 5 linhas + gaps apertados
                     overflowY: 'auto',
-                    pr: 0.5,
-                    mr: -0.5,
+                    overflowX: 'hidden',
+                    pr: 0.75,
                   }
                 : {}),
             }}
           >
             {itens.map((it, idx) => (
-              <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Box
+                key={idx}
+                sx={{
+                  display: 'flex',
+                  gap: 1,
+                  alignItems: 'flex-end',
+                  flexWrap: 'nowrap',
+                  height: 48,
+                  minHeight: 48,
+                  flexShrink: 0,
+                  overflow: 'visible',
+                }}
+              >
                 <EstoqueInsumoAutocomplete
                   produtos={insumos}
                   value={it.codigo_insumo}
                   onChange={(cod) => {
                     const next = [...itens];
-                    next[idx] = { ...next[idx], codigo_insumo: cod };
+                    const prevCod = next[idx].codigo_insumo.trim().toUpperCase();
+                    const novoCod = String(cod || '').trim().toUpperCase();
+                    const ins = insumos.find((x) => x.codigo.toUpperCase() === novoCod);
+                    next[idx] = {
+                      ...next[idx],
+                      codigo_insumo: cod,
+                      unidade_receita:
+                        !prevCod || prevCod !== novoCod
+                          ? unidadeReceitaPadrao(ins)
+                          : next[idx].unidade_receita || unidadeReceitaPadrao(ins),
+                    };
                     setItens(next);
                   }}
-                  sx={{ flex: '1 1 auto', minWidth: 0 }}
+                  sx={{
+                    flex: '1 1 auto',
+                    minWidth: 0,
+                    '& .MuiOutlinedInput-root': { height: 40, minHeight: 40 },
+                  }}
                 />
-                <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                  <IconButton
-                    size="small"
-                    aria-label="Diminuir quantidade"
-                    disabled={Number(String(it.quantidade).replace(',', '.')) <= 0}
-                    onClick={() => ajustarQtdItem(idx, -1)}
-                  >
-                    <RemoveIcon fontSize="small" />
-                  </IconButton>
-                  <TextField
-                    {...dialogFieldProps}
-                    label="Qtd"
-                    value={it.quantidade}
-                    onChange={(e) => {
-                      const next = [...itens];
-                      next[idx] = { ...next[idx], quantidade: e.target.value };
-                      setItens(next);
-                    }}
-                    sx={{
-                      width: 72,
-                      '& .MuiOutlinedInput-input': {
-                        textAlign: 'center',
-                      },
-                    }}
-                    slotProps={{
-                      ...dialogFieldProps.slotProps,
-                      htmlInput: { style: { textAlign: 'center' } },
-                    }}
-                  />
-                  <IconButton
-                    size="small"
-                    aria-label="Aumentar quantidade"
-                    onClick={() => ajustarQtdItem(idx, 1)}
-                  >
-                    <AddIcon fontSize="small" />
-                  </IconButton>
-                </Box>
+                <TextField
+                  {...dialogFieldProps}
+                  size="small"
+                  label="Qtd"
+                  value={it.quantidade}
+                  onChange={(e) => {
+                    const next = [...itens];
+                    next[idx] = { ...next[idx], quantidade: e.target.value };
+                    setItens(next);
+                  }}
+                  sx={{
+                    width: 82,
+                    flexShrink: 0,
+                    '& .MuiOutlinedInput-root': { height: 40, minHeight: 40, px: 0.35 },
+                    '& .MuiOutlinedInput-input': {
+                      textAlign: 'center',
+                      px: 0,
+                      fontSize: '0.8rem',
+                    },
+                    '& .MuiInputAdornment-root': { mx: 0 },
+                  }}
+                  slotProps={{
+                    ...dialogFieldProps.slotProps,
+                    htmlInput: { style: { textAlign: 'center' } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton
+                            size="small"
+                            aria-label="Diminuir quantidade"
+                            disabled={Number(String(it.quantidade).replace(',', '.')) <= 0}
+                            onClick={() => ajustarQtdItem(idx, -1)}
+                            sx={{ p: 0.1 }}
+                          >
+                            <RemoveIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            aria-label="Aumentar quantidade"
+                            onClick={() => ajustarQtdItem(idx, 1)}
+                            sx={{ p: 0.1 }}
+                          >
+                            <AddIcon sx={{ fontSize: 13 }} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <TextField
+                  {...dialogFieldProps}
+                  size="small"
+                  select
+                  label="Unid."
+                  value={it.unidade_receita || 'und'}
+                  onChange={(e) => {
+                    const next = [...itens];
+                    next[idx] = { ...next[idx], unidade_receita: e.target.value };
+                    setItens(next);
+                  }}
+                  sx={{
+                    width: 100,
+                    flexShrink: 0,
+                    '& .MuiOutlinedInput-root': { height: 40, minHeight: 40 },
+                  }}
+                >
+                  {UNIDADES_RECEITA.map((u) => (
+                    <MenuItem key={u.value} value={u.value}>
+                      {u.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
                 <Tooltip
                   title={
                     it.codigo_insumo.trim()
@@ -1197,7 +1320,7 @@ function PainelProdutos({
                       disabled={!it.codigo_insumo.trim()}
                       onClick={() => {
                         const next = itens.filter((_, i) => i !== idx);
-                        setItens(next.length ? next : [{ codigo_insumo: '', quantidade: '1' }]);
+                        setItens(next.length ? next : [itemVazio()]);
                       }}
                     >
                       <DeleteOutlineIcon fontSize="small" />
@@ -1210,20 +1333,38 @@ function PainelProdutos({
           {itens.some((i) => i.codigo_insumo) && (
             <Box sx={{ bgcolor: 'rgba(27,42,107,0.04)', borderRadius: 1, p: 1.5 }}>
               <Typography variant="caption" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
-                Resumo
+                Resumo (custo da porção)
               </Typography>
               {itens
                 .filter((i) => i.codigo_insumo)
-                .map((i) => {
-                  const ins = insumos.find(
-                    (x) => x.codigo.toUpperCase() === i.codigo_insumo.trim().toUpperCase(),
-                  );
-                  const qtd = Number(String(i.quantidade).replace(',', '.')) || 0;
-                  const custo = qtd * (ins?.valor_unidade ?? 0);
+                .map((i, idx) => {
+                  const custo = custoItemForm(i);
                   return (
-                    <Typography key={i.codigo_insumo} variant="body2" sx={{ lineHeight: 1.6 }}>
-                      {i.quantidade} × {nomeInsumo(i.codigo_insumo)}
-                      {custo > 0 ? ` — ${fmtMoeda(custo)}` : ''}
+                    <Typography
+                      key={`${i.codigo_insumo}-${idx}`}
+                      variant="body2"
+                      sx={{ lineHeight: 1.65, display: 'block' }}
+                    >
+                      <Box component="span" sx={{ color: 'text.secondary', mr: 0.75 }}>
+                        •
+                      </Box>
+                      <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>
+                        {i.quantidade} {rotuloUnidade(i.unidade_receita)}
+                      </Box>
+                      {' × '}
+                      {nomeInsumo(i.codigo_insumo)}
+                      {custo > 0 ? (
+                        <>
+                          {' — '}
+                          <Box component="span" sx={{ color: 'success.dark', fontWeight: 700 }}>
+                            {fmtMoeda(custo)}
+                          </Box>
+                        </>
+                      ) : i.codigo_insumo.trim() ? (
+                        <Box component="span" sx={{ color: 'warning.main' }}>
+                          {' — sem preço no cadastro'}
+                        </Box>
+                      ) : null}
                     </Typography>
                   );
                 })}
@@ -1232,7 +1373,7 @@ function PainelProdutos({
           <Button
             size="small"
             startIcon={<AddIcon />}
-            onClick={() => setItens([...itens, { codigo_insumo: '', quantidade: '1' }])}
+            onClick={() => setItens([...itens, itemVazio()])}
           >
             Adicionar insumo
           </Button>
