@@ -50,14 +50,23 @@ function resolveVersion() {
   return gitVersion();
 }
 
+function gitBuildId() {
+  try {
+    return runGit('git rev-parse --short HEAD');
+  } catch {
+    return null;
+  }
+}
+
 const version = resolveVersion();
+const buildId = gitBuildId() || `local-${Date.now().toString(36)}`;
 fs.writeFileSync(path.join(root, 'VERSION'), `${version}\n`);
 
 const publicDir = path.join(root, 'frontend/public');
 fs.mkdirSync(publicDir, { recursive: true });
 fs.writeFileSync(
   path.join(publicDir, 'app-version.json'),
-  `${JSON.stringify({ version }, null, 2)}\n`
+  `${JSON.stringify({ version, buildId }, null, 2)}\n`
 );
 
-console.log(`[version] ${version}`);
+console.log(`[version] ${version} (${buildId})`);

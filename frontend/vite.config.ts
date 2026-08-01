@@ -18,7 +18,21 @@ function readBuildVersion() {
   return match ? match[1] : raw || 'dev'
 }
 
+function readBuildId() {
+  const appVersionFile = path.join(ROOT, 'frontend/public/app-version.json')
+  if (fs.existsSync(appVersionFile)) {
+    try {
+      const { buildId } = JSON.parse(fs.readFileSync(appVersionFile, 'utf8')) as { buildId?: string }
+      if (buildId) return buildId
+    } catch {
+      /* ignore */
+    }
+  }
+  return 'dev'
+}
+
 const BUILD_VERSION = readBuildVersion()
+const BUILD_ID = readBuildId()
 
 function auditoriaBaseRedirect() {
   return {
@@ -61,6 +75,7 @@ export default defineConfig({
   base: `${APP_BASE}/`,
   define: {
     __BUILD_VERSION__: JSON.stringify(BUILD_VERSION),
+    __BUILD_ID__: JSON.stringify(BUILD_ID),
   },
   plugins: [
     react(),

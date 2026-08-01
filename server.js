@@ -23,12 +23,15 @@ dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: true })
 
 function readVersionFromDist() {
   const distVersionFile = path.join(__dirname, 'frontend', 'dist', 'app-version.json');
-  if (!fs.existsSync(distVersionFile)) return 'dev';
+  if (!fs.existsSync(distVersionFile)) return { version: 'dev', buildId: 'dev' };
   try {
-    const { version } = JSON.parse(fs.readFileSync(distVersionFile, 'utf8'));
-    return normalizeAppVersion(version);
+    const parsed = JSON.parse(fs.readFileSync(distVersionFile, 'utf8'));
+    return {
+      version: normalizeAppVersion(parsed.version),
+      buildId: String(parsed.buildId || 'dev'),
+    };
   } catch {
-    return 'dev';
+    return { version: 'dev', buildId: 'dev' };
   }
 }
 
@@ -40,7 +43,7 @@ function resolveAppVersion() {
   }
 
   const fromDist = readVersionFromDist();
-  if (fromDist !== 'dev') return fromDist;
+  if (fromDist.version !== 'dev') return fromDist.version;
 
   try {
     return normalizeAppVersion(
@@ -55,7 +58,23 @@ function resolveAppVersion() {
   }
 }
 
+function resolveAppBuildId() {
+  const fromDist = readVersionFromDist();
+  if (fromDist.buildId !== 'dev') return fromDist.buildId;
+
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      encoding: 'utf8',
+      cwd: __dirname,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return 'dev';
+  }
+}
+
 const APP_VERSION_AT_BOOT = resolveAppVersion();
+const APP_BUILD_ID_AT_BOOT = resolveAppBuildId();
 
 const APP_BASE_PATH = '/auditoria';
 const PROD_PORT = 3007;
@@ -155,8 +174,10 @@ api.get('/public/config', (_req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   // Em dev a tag pode mudar sem reiniciar o processo; resolve a cada request.
   const version = isProd ? APP_VERSION_AT_BOOT : resolveAppVersion();
+  const buildId = isProd ? APP_BUILD_ID_AT_BOOT : resolveAppBuildId();
   res.json({
     version,
+    buildId,
     environment: isProd ? (process.env.APP_ENV || 'Production') : 'Development',
     support: {
       name: process.env.SUPPORT_NAME || 'Benson Henrique',

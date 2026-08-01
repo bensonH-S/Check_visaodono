@@ -7,6 +7,7 @@ const BASE = apiBasePath;
 
 export type AppPublicConfig = {
   version: string;
+  buildId?: string;
   environment: string;
   support: {
     name: string;

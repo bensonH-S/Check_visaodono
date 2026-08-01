@@ -1,3 +1,5 @@
+import { configurarAtualizacaoServiceWorker } from './pwaUpdate';
+
 const SW_RELOAD_KEY = 'vision-check:sw-reload-once';
 
 let registroIniciado = false;
@@ -167,6 +169,8 @@ async function registrarServiceWorkerExplicito(): Promise<ServiceWorkerRegistrat
       existentes.find((r) => r.scope.endsWith(scope) || r.scope.includes('/auditoria')) ??
       (await navigator.serviceWorker.getRegistration(scope));
     if (existente) {
+      configurarAtualizacaoServiceWorker(existente);
+      void existente.update().catch(() => {});
       ultimoErroRegistro = null;
       return existente;
     }
@@ -175,6 +179,8 @@ async function registrarServiceWorkerExplicito(): Promise<ServiceWorkerRegistrat
       scope,
       updateViaCache: 'none',
     });
+    configurarAtualizacaoServiceWorker(reg);
+    void reg.update().catch(() => {});
     ultimoErroRegistro = null;
     return reg;
   } catch (e) {

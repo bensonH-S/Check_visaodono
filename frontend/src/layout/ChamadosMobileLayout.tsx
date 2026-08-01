@@ -19,6 +19,7 @@ import NotificacoesSino from '../components/NotificacoesSino';
 import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
 import MobilePaginaTitulo from '../components/MobilePaginaTitulo';
 import PwaInstallBanner from '../components/PwaInstallBanner';
+import PwaUpdateBanner from '../components/PwaUpdateBanner';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { assetUrl, FAVICON_ICON, toAppPath } from '../config/paths';
@@ -562,6 +563,7 @@ function ChamadosMobileLayoutInner() {
       }}
     >
       <PwaInstallDialog />
+      <PwaUpdateBanner />
       {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
       <Box
         component="header"
