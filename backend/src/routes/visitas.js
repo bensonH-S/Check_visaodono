@@ -406,6 +406,9 @@ router.post('/:id/respostas', async (req, res, next) => {
           rowsOut.filter((x) => x.foto_acao === 'gravar'),
           'gravar',
         );
+      } else {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Nenhuma resposta válida para salvar' });
       }
 
       await client.query('COMMIT');

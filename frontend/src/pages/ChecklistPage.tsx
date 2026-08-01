@@ -660,47 +660,37 @@ export default function ChecklistPage() {
     patchResposta(p.id_pergunta, patch);
   };
 
-  /** Fila serial: não bloqueia a UI ao avançar seção (DB remoto ~2–3s). */
-  const saveQueueRef = useRef(Promise.resolve());
+  const reportarErroSalvar = (mensagem: string) => {
+    setMsg(mensagem);
+    showToast(mensagem, 'error');
+  };
 
-  const salvarItens = async (
-    itens: RespostaInput[],
-    silencioso = false,
-    opts?: { emSegundoPlano?: boolean },
-  ) => {
-    if (!visitaId || !itens.length) return true;
-    if (!opts?.emSegundoPlano) setSaving(true);
+  const salvarItens = async (itens: RespostaInput[], silencioso = false) => {
+    if (!visitaId) {
+      if (!silencioso) {
+        reportarErroSalvar('Visita não iniciada. Retome o checklist na tela inicial.');
+      }
+      return false;
+    }
+    if (!itens.length) {
+      if (!silencioso) {
+        setMsg('Nenhuma resposta para salvar nesta seção.');
+        showToast('Nenhuma resposta para salvar nesta seção.', 'warning');
+      }
+      return true;
+    }
+    setSaving(true);
     try {
       await api.salvarRespostas(visitaId, itens);
       if (!silencioso) showToast('Seção salva', 'success');
       return true;
     } catch (e) {
-      const mensagem = (e as Error).message;
-      if (!silencioso) setMsg(mensagem);
-      else showToast('Não foi possível salvar o progresso.', 'error');
+      reportarErroSalvar((e as Error).message || 'Não foi possível salvar o progresso.');
       return false;
     } finally {
-      if (!opts?.emSegundoPlano) setSaving(false);
+      setSaving(false);
     }
   };
-
-  const enfileirarSalvarSecao = (itens: RespostaInput[]) => {
-    if (!visitaId || !itens.length) return;
-    const id = visitaId;
-    saveQueueRef.current = saveQueueRef.current
-      .then(async () => {
-        try {
-          await api.salvarRespostas(id, itens);
-        } catch {
-          showToast('Não foi possível salvar o progresso.', 'error');
-        }
-      })
-      .catch(() => {
-        /* mantém a fila viva após erro */
-      });
-  };
-
-  const aguardarSalvosPendentes = () => saveQueueRef.current;
 
   const itensSecao = (cat: CategoriaChecklist): RespostaInput[] => {
     const itens: RespostaInput[] = [];
@@ -791,7 +781,13 @@ export default function ChecklistPage() {
     }
   };
 
-  const irProximaSecao = () => {
+  const salvarSecaoAntesDeNavegar = async (cat: CategoriaChecklist) => {
+    const itens = itensSecao(cat);
+    if (!itens.length) return true;
+    return salvarItens(itens, false);
+  };
+
+  const irProximaSecao = async () => {
     if (!secaoAtual) return;
     const erro = validarSecao(secaoAtual);
     if (erro) {
@@ -799,25 +795,25 @@ export default function ChecklistPage() {
       return;
     }
     limparMsg();
-    const itens = itensSecao(secaoAtual);
+    const ok = await salvarSecaoAntesDeNavegar(secaoAtual);
+    if (!ok) return;
     if (indiceSecao < totalSecoes - 1) setIndiceSecao((i) => i + 1);
-    enfileirarSalvarSecao(itens);
   };
 
-  const irSecaoAnterior = () => {
+  const irSecaoAnterior = async () => {
     if (indiceSecao === 0 || !secaoAtual) return;
     limparMsg();
-    const itens = itensSecao(secaoAtual);
+    const ok = await salvarSecaoAntesDeNavegar(secaoAtual);
+    if (!ok) return;
     setIndiceSecao((i) => Math.max(0, i - 1));
-    enfileirarSalvarSecao(itens);
   };
 
-  const irParaSecao = (idx: number) => {
+  const irParaSecao = async (idx: number) => {
     if (idx === indiceSecao || !secaoAtual) return;
     limparMsg();
-    const itens = itensSecao(secaoAtual);
+    const ok = await salvarSecaoAntesDeNavegar(secaoAtual);
+    if (!ok) return;
     setIndiceSecao(idx);
-    enfileirarSalvarSecao(itens);
   };
 
   const comecarAvaliacao = async () => {
@@ -855,9 +851,7 @@ export default function ChecklistPage() {
     setSaving(true);
     setMsg('');
     try {
-      await aguardarSalvosPendentes();
-      /* Seções anteriores já foram enfileiradas ao avançar — garante a atual. */
-      const ok = await salvarSecaoAtual(true);
+      const ok = await salvarSecaoAtual(false);
       if (!ok) return;
       const duracao = calcularDuracaoVisitaMinutos(dataVisita, horaInicio);
       await api.finalizarVisita(visitaId!, duracao != null ? { duracao_minutos: duracao } : {});
@@ -1281,7 +1275,7 @@ export default function ChecklistPage() {
                 key={cat.id_categoria}
                 label={`${idx + 1}. ${cat.nome.split(' ')[0]}`}
                 size="small"
-                onClick={() => irParaSecao(idx)}
+                onClick={() => void irParaSecao(idx)}
                 icon={completa ? <CheckCircleIcon /> : undefined}
                 color={ativa ? undefined : completa ? 'success' : 'default'}
                 variant={ativa ? 'filled' : 'outlined'}
@@ -1360,7 +1354,7 @@ export default function ChecklistPage() {
               variant="text"
               startIcon={<NavigateBeforeIcon />}
               disabled={saving}
-              onClick={irSecaoAnterior}
+              onClick={() => void irSecaoAnterior()}
               sx={{ alignSelf: 'flex-start', minHeight: 40, fontWeight: 600 }}
             >
               Seção anterior
@@ -1413,7 +1407,7 @@ export default function ChecklistPage() {
                 size="small"
                 endIcon={<NavigateNextIcon sx={{ fontSize: 18 }} />}
                 disabled={saving}
-                onClick={irProximaSecao}
+                onClick={() => void irProximaSecao()}
                 sx={{
                   flex: 1,
                   minWidth: 0,
@@ -1451,13 +1445,13 @@ export default function ChecklistPage() {
         msgTitulo={msgTitulo}
         saving={saving}
         onLimparMsg={limparMsg}
-        onIrParaSecao={irParaSecao}
+        onIrParaSecao={(idx) => void irParaSecao(idx)}
         onPatch={patchResposta}
         onSimNao={escolherSimNao}
         secaoCompleta={secaoCompleta}
-        onSecaoAnterior={irSecaoAnterior}
+        onSecaoAnterior={() => void irSecaoAnterior()}
         onSalvar={() => void salvarSecaoAtual(false)}
-        onProxima={irProximaSecao}
+        onProxima={() => void irProximaSecao()}
         onFinalizar={() => void finalizar()}
       />
     );
