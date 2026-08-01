@@ -102,19 +102,30 @@ export async function upsertProdutoVenda(client, codigo, descricao = '', idLoja 
   const desc = String(descricao || '').trim() || cod;
   const temAtivo = typeof opts.ativo === 'boolean';
   const ativoInsert = temAtivo ? opts.ativo : true;
+  const temRequer = typeof opts.requer_ficha === 'boolean';
+  const requerInsert = temRequer ? opts.requer_ficha : true;
   const { rows } = await client.query(
-    `INSERT INTO produtos (id_loja, codigo, descricao, ativo, atualizado_em)
-     VALUES ($1, $2, $3, $4, NOW())
+    `INSERT INTO produtos (id_loja, codigo, descricao, ativo, requer_ficha, atualizado_em)
+     VALUES ($1, $2, $3, $4, $5, NOW())
      ON CONFLICT (id_loja, codigo) DO UPDATE
        SET descricao = CASE
              WHEN EXCLUDED.descricao <> '' AND EXCLUDED.descricao <> EXCLUDED.codigo
              THEN EXCLUDED.descricao
              ELSE produtos.descricao
            END,
-           ativo = CASE WHEN $5::boolean IS NOT NULL THEN $5::boolean ELSE produtos.ativo END,
+           ativo = CASE WHEN $6::boolean IS NOT NULL THEN $6::boolean ELSE produtos.ativo END,
+           requer_ficha = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE produtos.requer_ficha END,
            atualizado_em = NOW()
      RETURNING *`,
-    [id_loja, cod, desc, ativoInsert, temAtivo ? opts.ativo : null],
+    [
+      id_loja,
+      cod,
+      desc,
+      ativoInsert,
+      requerInsert,
+      temAtivo ? opts.ativo : null,
+      temRequer ? opts.requer_ficha : null,
+    ],
   );
   return rows[0];
 }
@@ -174,6 +185,56 @@ export async function baixarPorProdutoVenda(
   const qtde = num(quantidade);
   if (qtde <= 0) {
     return { ok: false, sem_ficha: false, baixas: [], erros: ['Quantidade inválida'] };
+  }
+
+  const codVenda = String(codigo_venda || '').trim();
+  const { rows: prodRows } = await client.query(
+    `SELECT id_produto, codigo, requer_ficha
+     FROM produtos
+     WHERE id_loja = $1 AND codigo = $2 AND ativo = TRUE
+     LIMIT 1`,
+    [id_loja, codVenda],
+  );
+  // Produto unitário (Coca, brinquedo…): não exige ficha.
+  // Se existir insumo com o mesmo código, baixa 1:1; senão só processa a venda.
+  if (prodRows[0] && prodRows[0].requer_ficha === false) {
+    const insumo = await resolverInsumoPorCodigo(client, id_loja, codVenda);
+    if (!insumo) {
+      return {
+        ok: true,
+        sem_ficha: false,
+        unitario: true,
+        baixas: [],
+        erros: [],
+        id_produto: prodRows[0].id_produto,
+      };
+    }
+    const delta = -qtde;
+    const mov = await aplicarMovimento(client, {
+      id_loja,
+      id_insumo: insumo.id_insumo,
+      tipo,
+      quantidade: delta,
+      referencia_tipo,
+      referencia_id,
+      observacao: observacao || `Baixa unitária: ${codVenda} x${qtde}`,
+      criado_por,
+    });
+    return {
+      ok: true,
+      sem_ficha: false,
+      unitario: true,
+      baixas: [
+        {
+          id_insumo: insumo.id_insumo,
+          codigo: insumo.codigo,
+          quantidade: delta,
+          saldo_apos: mov.saldo_apos,
+        },
+      ],
+      erros: [],
+      id_produto: prodRows[0].id_produto,
+    };
   }
 
   const ficha = await carregarFichaPorCodigoVenda(client, codigo_venda, id_loja);

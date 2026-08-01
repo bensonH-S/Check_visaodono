@@ -524,7 +524,7 @@ function PainelProdutos({
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<ProdutoVendaEstoque[]>([]);
   const [busca, setBusca] = useState('');
-  const [filtroInsumo, setFiltroInsumo] = useState<'todos' | 'com' | 'sem'>('todos');
+  const [filtroInsumo, setFiltroInsumo] = useState<'todos' | 'com' | 'sem' | 'unitario'>('todos');
   const [open, setOpen] = useState(false);
   const [openPicker, setOpenPicker] = useState(false);
   const [excluirAlvo, setExcluirAlvo] = useState<ProdutoVendaEstoque | null>(null);
@@ -535,6 +535,8 @@ function PainelProdutos({
   const [codigo, setCodigo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [ativo, setAtivo] = useState(true);
+  /** true = precisa ficha; false = unitário (Coca, brinquedo…) */
+  const [requerFicha, setRequerFicha] = useState(true);
   const [idFicha, setIdFicha] = useState<number | null>(null);
   const [valorVenda, setValorVenda] = useState<number | null>(null);
   type ItemFichaForm = {
@@ -590,6 +592,7 @@ function PainelProdutos({
     setCodigo('');
     setDescricao('');
     setAtivo(true);
+    setRequerFicha(true);
     setValorVenda(null);
     setItens([itemVazio()]);
     setOpen(true);
@@ -599,9 +602,10 @@ function PainelProdutos({
     setCodigo(p.codigo);
     setDescricao(p.descricao || '');
     setAtivo(p.ativo !== false);
+    setRequerFicha(p.requer_ficha !== false);
     setIdFicha(p.id_ficha ?? null);
     setValorVenda(p.valor_venda != null ? Number(p.valor_venda) : null);
-    if (p.id_ficha) {
+    if (p.requer_ficha !== false && p.id_ficha) {
       try {
         const det: FichaTecnicaDetalhe = await api.estoqueFicha(p.id_ficha);
         setDescricao(det.descricao || p.descricao || '');
@@ -716,7 +720,7 @@ function PainelProdutos({
       showToast('Informe o código do produto', 'error');
       return;
     }
-    if (!mapped.length) {
+    if (requerFicha && !mapped.length) {
       showToast('Informe ao menos um insumo deste produto', 'error');
       return;
     }
@@ -727,9 +731,17 @@ function PainelProdutos({
         codigo: codigo.trim(),
         descricao: descricao.trim(),
         ativo,
-        itens: mapped,
+        requer_ficha: requerFicha,
+        itens: requerFicha ? mapped : [],
       });
-      showToast(idFicha ? 'Produto atualizado' : 'Produto cadastrado com insumos', 'success');
+      showToast(
+        requerFicha
+          ? idFicha
+            ? 'Produto atualizado'
+            : 'Produto cadastrado com insumos'
+          : 'Produto unitário salvo (sem ficha)',
+        'success',
+      );
       setOpen(false);
       await carregar();
     } catch (e) {
@@ -747,12 +759,17 @@ function PainelProdutos({
     );
   }
 
-  const comInsumos = lista.filter((p) => !!p.id_ficha).length;
-  const semInsumos = lista.length - comInsumos;
+  const isUnitario = (p: ProdutoVendaEstoque) => p.requer_ficha === false;
+  const temFicha = (p: ProdutoVendaEstoque) => !isUnitario(p) && !!p.id_ficha && (p.itens_ficha ?? 0) > 0;
+  const faltaFicha = (p: ProdutoVendaEstoque) => !isUnitario(p) && !temFicha(p);
+  const comInsumos = lista.filter(temFicha).length;
+  const unitarios = lista.filter(isUnitario).length;
+  const semInsumos = lista.filter(faltaFicha).length;
   const qBusca = busca.trim().toLowerCase();
   const listaFiltrada = lista.filter((p) => {
-    if (filtroInsumo === 'com' && !p.id_ficha) return false;
-    if (filtroInsumo === 'sem' && p.id_ficha) return false;
+    if (filtroInsumo === 'com' && !temFicha(p)) return false;
+    if (filtroInsumo === 'sem' && !faltaFicha(p)) return false;
+    if (filtroInsumo === 'unitario' && !isUnitario(p)) return false;
     if (!qBusca) return true;
     return (
       p.codigo.toLowerCase().includes(qBusca) ||
@@ -795,7 +812,7 @@ function PainelProdutos({
       <Paper sx={tablePaperSx}>
         <Tabs
           value={filtroInsumo}
-          onChange={(_, v: 'todos' | 'com' | 'sem') => setFiltroInsumo(v)}
+          onChange={(_, v: 'todos' | 'com' | 'sem' | 'unitario') => setFiltroInsumo(v)}
           sx={{
             minHeight: 40,
             borderBottom: '1px solid',
@@ -805,8 +822,9 @@ function PainelProdutos({
           }}
         >
           <Tab value="todos" label={`Todos (${lista.length})`} />
-          <Tab value="com" label={`Com insumos (${comInsumos})`} />
-          <Tab value="sem" label={`Sem insumos (${semInsumos})`} />
+          <Tab value="com" label={`Com ficha (${comInsumos})`} />
+          <Tab value="unitario" label={`Unitários (${unitarios})`} />
+          <Tab value="sem" label={`Falta ficha (${semInsumos})`} />
         </Tabs>
         <TableContainer sx={tableContainerSx}>
           <Table
@@ -839,7 +857,8 @@ function PainelProdutos({
             </TableHead>
             <TableBody>
               {listaFiltrada.map((p) => {
-                const comFicha = !!p.id_ficha;
+                const unitario = isUnitario(p);
+                const comFicha = temFicha(p);
                 const produtoAtivo = p.ativo !== false;
                 return (
                   <TableRow
@@ -862,7 +881,15 @@ function PainelProdutos({
                       {p.descricao || '—'}
                     </TableCell>
                     <TableCell align="center">
-                      {comFicha ? (
+                      {unitario ? (
+                        <Chip
+                          size="small"
+                          label="Unitário"
+                          color="info"
+                          variant="outlined"
+                          sx={{ fontWeight: 600 }}
+                        />
+                      ) : comFicha ? (
                         <Tooltip
                           arrow
                           placement="left"
@@ -928,7 +955,7 @@ function PainelProdutos({
                       ) : (
                         <Chip
                           size="small"
-                          label="Sem insumo"
+                          label="Falta ficha"
                           color="warning"
                           variant="outlined"
                           sx={{ fontWeight: 600 }}
@@ -1090,6 +1117,28 @@ function PainelProdutos({
               }}
             />
           </Box>
+          <FormControlLabel
+            sx={{ mt: 0.5, alignItems: 'flex-start', ml: 0 }}
+            control={
+              <Switch
+                checked={!requerFicha}
+                onChange={(_, checked) => setRequerFicha(!checked)}
+                color="primary"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Produto unitário (sem ficha técnica)
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Ex.: lata de refrigerante, brinquedo, sachet. Venda baixa 1:1 o insumo de mesmo
+                  código (se existir).
+                </Typography>
+              </Box>
+            }
+          />
+          {requerFicha ? (
           <Box
             sx={{
               display: 'flex',
@@ -1123,6 +1172,14 @@ function PainelProdutos({
               Escolher da lista
             </Button>
           </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Este produto não usa composição. Cadastre o insumo com o mesmo código se quiser
+              controlar o estoque físico (ex.: lata de Coca).
+            </Typography>
+          )}
+          {requerFicha && (
+          <>
           <Box
             sx={{
               display: 'flex',
@@ -1325,6 +1382,8 @@ function PainelProdutos({
           >
             Adicionar insumo
           </Button>
+          </>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <Box sx={{ flex: 1 }} />

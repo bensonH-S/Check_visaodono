@@ -147,6 +147,7 @@ function mapProdutoVenda(row) {
     preco_venda: row.preco_venda != null ? num(row.preco_venda) : null,
     valor_venda: valorVenda,
     valor_insumos: num(row.valor_insumos),
+    requer_ficha: row.requer_ficha !== false,
   };
 }
 
@@ -168,7 +169,11 @@ router.get('/produtos-venda', permOp, async (req, res, next) => {
       where.push(`(pv.codigo ILIKE $${params.length} OR pv.descricao ILIKE $${params.length})`);
     }
     if (semFicha) {
-      where.push(`f.id_ficha IS NULL`);
+      // Só produtos que PRECISAM de ficha e ainda não têm
+      where.push(`COALESCE(pv.requer_ficha, TRUE) = TRUE`);
+      where.push(`(f.id_ficha IS NULL OR NOT EXISTS (
+        SELECT 1 FROM ficha_tecnica_itens i WHERE i.id_ficha = f.id_ficha
+      ))`);
     }
     const { rows } = await pool.query(
       `SELECT pv.*, f.id_ficha, f.ativo AS ficha_ativa,
@@ -294,11 +299,48 @@ router.post('/fichas', permOp, async (req, res, next) => {
         ? true
         : req.body.ativo === true || req.body.ativo === 'true' || req.body.ativo === 1 || req.body.ativo === '1';
     const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
+    const requerFicha =
+      req.body?.requer_ficha === undefined || req.body?.requer_ficha === null
+        ? true
+        : !(
+            req.body.requer_ficha === false ||
+            req.body.requer_ficha === 'false' ||
+            req.body.requer_ficha === 0 ||
+            req.body.requer_ficha === '0'
+          );
     if (!codigo) return res.status(400).json({ error: 'Informe o código do produto de venda' });
-    if (!itens.length) return res.status(400).json({ error: 'Informe ao menos um insumo na ficha' });
+    if (requerFicha && !itens.length) {
+      return res.status(400).json({ error: 'Informe ao menos um insumo na ficha' });
+    }
 
     await client.query('BEGIN');
-    const pv = await upsertProdutoVenda(client, codigo, descricao, idLoja, { ativo });
+    const pv = await upsertProdutoVenda(client, codigo, descricao, idLoja, {
+      ativo,
+      requer_ficha: requerFicha,
+    });
+
+    // Unitário: sem composição — remove ficha se existir
+    if (!requerFicha) {
+      await client.query(
+        `UPDATE ficha_tecnica SET ativo = FALSE, atualizado_em = NOW() WHERE id_produto = $1`,
+        [pv.id_produto],
+      );
+      await client.query('COMMIT');
+      await auditar(req, {
+        modulo: 'estoque',
+        acao: 'salvar',
+        entidade: 'produto_venda',
+        idReferencia: pv.id_produto,
+        descricao: `Produto unitário ${codigo} (loja ${idLoja})`,
+      });
+      return res.status(201).json({
+        ...mapProdutoVenda(pv),
+        id_ficha: null,
+        itens_ficha: 0,
+        itens: [],
+      });
+    }
+
     const { rows: fichaRows } = await client.query(
       `INSERT INTO ficha_tecnica (id_produto, ativo, observacao, atualizado_em)
        VALUES ($1, $2, $3, NOW())
@@ -354,11 +396,12 @@ router.post('/fichas', permOp, async (req, res, next) => {
       [idFicha],
     );
     res.status(201).json({
-      ...mapProdutoVenda(fichaRows[0]),
+      ...mapProdutoVenda({ ...fichaRows[0], ...pv, requer_ficha: true }),
       codigo: pv.codigo,
       descricao: pv.descricao,
       id_loja: pv.id_loja,
       ativo: pv.ativo,
+      requer_ficha: true,
       itens: itensSalvos.map((i) => ({ ...i, quantidade: num(i.quantidade) })),
     });
   } catch (e) {

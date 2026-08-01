@@ -796,6 +796,8 @@ export const api = {
     codigo: string;
     descricao?: string;
     ativo?: boolean;
+    /** false = produto unitário (Coca, brinquedo…) — não exige composição */
+    requer_ficha?: boolean;
     observacao?: string;
     itens: Array<{
       codigo_insumo: string;
@@ -1854,6 +1856,8 @@ export interface ProdutoVendaEstoque {
   codigo: string;
   descricao: string;
   ativo: boolean;
+  /** false = unitário (não precisa de ficha técnica). */
+  requer_ficha?: boolean;
   id_ficha?: number | null;
   ficha_ativa?: boolean | null;
   itens_ficha?: number;

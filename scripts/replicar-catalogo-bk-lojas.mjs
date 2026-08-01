@@ -103,15 +103,16 @@ async function replicar(dbName) {
       const prod = await c.query(
         `
         INSERT INTO produtos (
-          codigo, descricao, id_loja, ativo, preco_venda, criado_em, atualizado_em
+          codigo, descricao, id_loja, ativo, requer_ficha, preco_venda, criado_em, atualizado_em
         )
         SELECT
-          p.codigo, p.descricao, $1, p.ativo, p.preco_venda, NOW(), NOW()
+          p.codigo, p.descricao, $1, p.ativo, COALESCE(p.requer_ficha, TRUE), p.preco_venda, NOW(), NOW()
         FROM produtos p
         WHERE p.id_loja = $2
         ON CONFLICT (id_loja, codigo) DO UPDATE SET
           descricao = EXCLUDED.descricao,
           ativo = EXCLUDED.ativo,
+          requer_ficha = EXCLUDED.requer_ficha,
           preco_venda = EXCLUDED.preco_venda,
           atualizado_em = NOW()
         `,
