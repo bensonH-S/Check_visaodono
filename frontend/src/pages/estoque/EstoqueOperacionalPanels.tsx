@@ -41,7 +41,6 @@ import {
   type EstoqueSaldoItem,
   type EstoqueSyncStatus,
   type EstoqueVendaResumo,
-  type EstoqueVendaSemFicha,
   type FichaTecnicaDetalhe,
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
@@ -332,7 +331,6 @@ function PainelSaldo({ idLoja }: { idLoja: number }) {
 function PainelVendas({ idLoja }: { idLoja: number }) {
   const [loading, setLoading] = useState(true);
   const [vendas, setVendas] = useState<EstoqueVendaResumo[]>([]);
-  const [semFicha, setSemFicha] = useState<EstoqueVendaSemFicha[]>([]);
   const [sync, setSync] = useState<EstoqueSyncStatus | null>(null);
   const [dataIni, setDataIni] = useState(hojeISO());
   const [dataFim, setDataFim] = useState(hojeISO());
@@ -342,13 +340,8 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [v, sf, st] = await Promise.all([
-        api.estoqueVendas(idLoja),
-        api.estoqueVendasSemFicha(idLoja),
-        api.estoqueSyncStatus(),
-      ]);
+      const [v, st] = await Promise.all([api.estoqueVendas(idLoja), api.estoqueSyncStatus()]);
       setVendas(v);
-      setSemFicha(sf);
       setSync(st);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar vendas', 'error');
@@ -458,27 +451,6 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
         )}
       </Paper>
 
-      {semFicha.length > 0 && (
-        <Paper sx={{ p: 2, bgcolor: '#FFFBEB', border: '1px solid #FCD34D' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }} gutterBottom>
-            Vendas sem ficha técnica ({semFicha.length})
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Cadastre a composição na aba Ficha para baixar o estoque automaticamente.
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-            {semFicha.slice(0, 40).map((s) => (
-              <Chip
-                key={s.codigo}
-                size="small"
-                label={`${s.codigo} ${s.descricao || ''}`.trim()}
-                variant="outlined"
-              />
-            ))}
-          </Box>
-        </Paper>
-      )}
-
       <Paper sx={tablePaperSx}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, pt: 1.5 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -551,7 +523,6 @@ function PainelProdutos({
 }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<ProdutoVendaEstoque[]>([]);
-  const [semFicha, setSemFicha] = useState<EstoqueVendaSemFicha[]>([]);
   const [busca, setBusca] = useState('');
   const [filtroInsumo, setFiltroInsumo] = useState<'todos' | 'com' | 'sem'>('todos');
   const [open, setOpen] = useState(false);
@@ -600,12 +571,8 @@ function PainelProdutos({
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [pv, sf] = await Promise.all([
-        api.estoqueProdutosVenda({ id_loja: idLoja }),
-        api.estoqueVendasSemFicha(idLoja),
-      ]);
+      const pv = await api.estoqueProdutosVenda({ id_loja: idLoja });
       setLista(pv);
-      setSemFicha(sf);
       onCountChange?.(pv.length);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar produtos', 'error');
@@ -618,10 +585,10 @@ function PainelProdutos({
     void carregar();
   }, [carregar]);
 
-  const abrirNovo = (prefill?: EstoqueVendaSemFicha) => {
+  const abrirNovo = () => {
     setIdFicha(null);
-    setCodigo(prefill?.codigo || '');
-    setDescricao(prefill?.descricao || '');
+    setCodigo('');
+    setDescricao('');
     setAtivo(true);
     setValorVenda(null);
     setItens([itemVazio()]);
@@ -824,25 +791,6 @@ function PainelProdutos({
           </Button>
         </Box>
       </Box>
-
-      {semFicha.length > 0 && (
-        <Paper sx={{ p: 2, bgcolor: '#FFFBEB', border: '1px solid #FCD34D' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }} gutterBottom>
-            Vendidos sem composição ({semFicha.length}) — clique para cadastrar os insumos
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-            {semFicha.slice(0, 40).map((s) => (
-              <Chip
-                key={s.codigo}
-                size="small"
-                label={`${s.codigo} ${s.descricao || ''}`.trim()}
-                onClick={() => abrirNovo(s)}
-                clickable
-              />
-            ))}
-          </Box>
-        </Paper>
-      )}
 
       <Paper sx={tablePaperSx}>
         <Tabs

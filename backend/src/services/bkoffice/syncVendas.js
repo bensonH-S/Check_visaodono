@@ -117,7 +117,31 @@ async function selecionarRestaurante(page, termoLoja) {
   await selecionarAutocomplete(page, '#comboRestauranteGroup-autocomplete', termoLoja);
 }
 
-async function baixarExcelVendas({ dataInicio, dataFim, termoLoja, downloadDir }) {
+async function marcarRelatorioRestauranteProduto(page) {
+  await page.evaluate(() => {
+    document.querySelectorAll('#main-divs [disabled], #radioRel[disabled]').forEach((el) => {
+      el.removeAttribute('disabled');
+    });
+    const el = document.querySelector('#relRestaurantSku');
+    if (el) {
+      el.disabled = false;
+      el.checked = true;
+      el.click();
+      el.dispatchEvent(new Event('click', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  await page.waitForTimeout(500);
+}
+
+async function baixarExcelVendas({
+  dataInicio,
+  dataFim,
+  termoLoja,
+  downloadDir,
+  /** true = quebra por dia (baixa diária); false = agrega produtos no período (descoberta de catálogo) */
+  agruparPorDia = true,
+}) {
   let playwright;
   try {
     playwright = await import('playwright');
@@ -141,6 +165,7 @@ async function baixarExcelVendas({ dataInicio, dataFim, termoLoja, downloadDir }
 
   fs.mkdirSync(downloadDir, { recursive: true });
 
+  // HEADLESS=0 → janela; qualquer outro valor (incl. 1) → invisível
   const headless = process.env.BKOFFICE_HEADLESS !== '0';
   const useChrome = process.env.BKOFFICE_USE_CHROME !== '0';
   const launchOpts = {
@@ -156,6 +181,8 @@ async function baixarExcelVendas({ dataInicio, dataFim, termoLoja, downloadDir }
   // Chrome instalado no Windows costuma passar melhor no WAF (Akamai) do que Chromium puro
   if (useChrome) {
     launchOpts.channel = 'chrome';
+    // Headless "new" do Chrome real costuma falhar menos no Akamai que Chromium headless antigo
+    if (headless) launchOpts.args.push('--headless=new');
   }
 
   let browser;
@@ -228,34 +255,23 @@ async function baixarExcelVendas({ dataInicio, dataFim, termoLoja, downloadDir }
     await page.waitForURL(/RelatorioVendas/i, { timeout: 30000 }).catch(() => {});
     await page.waitForSelector('#initialDate', { timeout: 30000 });
 
-    // Libera filtros e marca "Restaurante e Produto Venda"
-    // (só "Produto Venda" + Todos deixa BK Number / Restaurante vazios no Excel)
-    await page.evaluate(() => {
-      document.querySelectorAll('#main-divs [disabled], #radioRel[disabled]').forEach((el) => {
-        el.removeAttribute('disabled');
-      });
-      const el = document.querySelector('#relRestaurantSku') || document.querySelector('#relSku');
-      if (el) {
-        el.checked = true;
-        el.dispatchEvent(new Event('click', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-    await page.waitForTimeout(800);
+    // "Restaurante e Produto Venda" — se cair no relatório só de Restaurante,
+    // o Excel vem sem coluna Produto Venda (só totais da loja por dia).
+    await marcarRelatorioRestauranteProduto(page);
     await page.waitForSelector('#comboRestauranteGroup-autocomplete', { timeout: 20000 });
 
     await preencherDatas(page, dataInicio, dataFim);
 
-    // Agrupar por dia
-    await page.evaluate(() => {
+    // Agrupar por dia (necessário pra baixas diárias; desligar na descoberta de catálogo)
+    await page.evaluate((on) => {
       const el = document.querySelector('#groupDia');
       if (!el) return;
       el.disabled = false;
       el.removeAttribute('disabled');
-      el.checked = true;
+      el.checked = Boolean(on);
       el.dispatchEvent(new Event('click', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    }, agruparPorDia);
     await page.waitForTimeout(200);
 
     // Setor Grupo Alvim (precisa clicar na lista, não só digitar)
@@ -269,6 +285,9 @@ async function baixarExcelVendas({ dataInicio, dataFim, termoLoja, downloadDir }
 
     // Restaurante específico (obrigatório pra baixar certo da loja)
     await selecionarRestaurante(page, termoLoja);
+
+    // Reaplica o tipo de relatório — filtros de loja/data às vezes resetam o radio
+    await marcarRelatorioRestauranteProduto(page);
 
     // Buscar e aguardar montar a grade antes de exportar
     const buscar = page.getByRole('button', { name: /buscar/i });
@@ -312,6 +331,7 @@ export async function syncVendasBkOffice({
   termo_loja = null,
   criado_por = null,
   processar = true,
+  agruparPorDia = true,
 }) {
   if (jobRodando) {
     throw Object.assign(new Error('Já existe um sync BK Office em andamento'), { status: 409 });
@@ -347,6 +367,7 @@ export async function syncVendasBkOffice({
       dataFim: data_fim,
       termoLoja: termo,
       downloadDir,
+      agruparPorDia,
     });
 
     const buffer = fs.readFileSync(filePath);
@@ -359,16 +380,30 @@ export async function syncVendasBkOffice({
       parsed = parseVendasExcelBuffer(buffer, { dataPadrao: data_inicio });
     }
 
+    // Sem coluna Dia (relatório agregado no período), usa data_fim como balde
     const itens = parsed.map((r) => ({
       ...r,
-      data_venda: r.data_venda || (data_inicio === data_fim ? data_inicio : r.data_venda),
+      data_venda: r.data_venda || data_fim || data_inicio,
     }));
 
     const validos = itens.filter((r) => r.data_venda && r.codigo && r.qtde > 0);
     if (!validos.length) {
+      // Mantém o Excel para debug (parse vazio / período sem linhas)
+      try {
+        const debugDir = path.join(process.cwd(), 'Logs', 'bkoffice-debug');
+        fs.mkdirSync(debugDir, { recursive: true });
+        const dest = path.join(
+          debugDir,
+          `vazio-${id_loja}-${data_inicio}_${data_fim}-${Date.now()}${path.extname(filePath) || '.xlsx'}`,
+        );
+        fs.copyFileSync(filePath, dest);
+        console.warn('[bkoffice] Excel sem linhas parseáveis — cópia em', dest);
+      } catch {
+        /* ignore */
+      }
       throw Object.assign(
         new Error(
-          'Excel baixado sem linhas de produto. Confirme o relatório "Restaurante e Produto Venda".',
+          'Excel baixado sem linhas de produto. Confirme o relatório "Restaurante e Produto Venda". Se o período for longo, tente janelas menores (7 dias).',
         ),
         { status: 422 },
       );
