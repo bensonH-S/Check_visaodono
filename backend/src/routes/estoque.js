@@ -4,6 +4,7 @@ import { requirePermissao } from '../permissoes.js';
 import { usuarioPodeLoja } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
+import { calcularQtdContagem } from '../services/estoqueContagem.js';
 import estoqueOperacional from './estoqueOperacional.js';
 
 const router = Router();
@@ -118,6 +119,7 @@ function mapProduto(row) {
     unidade_contagem: unidadeMaiuscula(row.unidade_contagem),
     preco_caixa: row.preco_caixa != null ? Number(row.preco_caixa) : 0,
     und_convertida: row.und_convertida != null ? Number(row.und_convertida) : 1,
+    und_parcial: row.und_parcial != null ? Number(row.und_parcial) : 1,
     valor_unidade: row.valor_unidade != null ? Number(row.valor_unidade) : 0,
     ativo: row.ativo !== false,
     criado_em: row.criado_em,
@@ -127,10 +129,36 @@ function mapProduto(row) {
 
 function mapItem(row) {
   const estoque_sistema = num(row.estoque_sistema);
-  const estoque_contado =
+  const und_convertida = num(row.und_convertida, 1);
+  const und_parcial = num(row.und_parcial, 1);
+  const contagem_caixa =
+    row.contagem_caixa == null || row.contagem_caixa === ''
+      ? null
+      : num(row.contagem_caixa);
+  const contagem_pc_fd =
+    row.contagem_pc_fd == null || row.contagem_pc_fd === ''
+      ? null
+      : num(row.contagem_pc_fd);
+  const contagem_kg_und =
+    row.contagem_kg_und == null || row.contagem_kg_und === ''
+      ? null
+      : num(row.contagem_kg_und);
+
+  let estoque_contado =
     row.estoque_contado == null || row.estoque_contado === ''
       ? null
       : num(row.estoque_contado);
+
+  // Preferência: recalcular QTD pelos 3 campos Terraço quando houver entrada
+  const qtdCalc = calcularQtdContagem({
+    contagem_caixa,
+    contagem_pc_fd,
+    contagem_kg_und,
+    und_convertida,
+    und_parcial,
+  });
+  if (qtdCalc != null) estoque_contado = qtdCalc;
+
   const valor_unidade = num(row.valor_unidade);
   const qtd = estoque_contado ?? 0;
   const valor_estoque = Math.round(qtd * valor_unidade * 100) / 100;
@@ -144,9 +172,13 @@ function mapItem(row) {
     descricao: row.descricao,
     unidade_contagem: unidadeMaiuscula(row.unidade_contagem),
     preco_caixa: num(row.preco_caixa),
-    und_convertida: num(row.und_convertida, 1),
+    und_convertida,
+    und_parcial,
     valor_unidade,
     estoque_sistema,
+    contagem_caixa,
+    contagem_pc_fd,
+    contagem_kg_und,
     estoque_contado,
     diferenca,
     valor_estoque: estoque_contado == null ? null : valor_estoque,
@@ -167,8 +199,9 @@ async function carregarContagem(id) {
 
   const { rows: itens } = await pool.query(
     `SELECT i.id_item, i.id_insumo, i.estoque_sistema, i.estoque_contado,
+            i.contagem_caixa, i.contagem_pc_fd, i.contagem_kg_und,
             p.codigo, p.descricao, p.unidade_contagem, p.preco_caixa,
-            p.und_convertida, p.valor_unidade
+            p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial, p.valor_unidade
      FROM estoque_itens i
      JOIN insumos p ON p.id_insumo = i.id_insumo
      WHERE i.id_contagem = $1
@@ -251,6 +284,7 @@ async function criarInsumo(req, res, next) {
     const unidade_contagem = unidadeMaiuscula(req.body?.unidade_contagem);
     const preco_caixa = num(req.body?.preco_caixa);
     const und_convertida = num(req.body?.und_convertida, 1);
+    const und_parcial = num(req.body?.und_parcial, 1);
     if (!codigo) return res.status(400).json({ error: 'Informe o código do insumo' });
     if (descricao.length < 2) {
       return res.status(400).json({ error: 'Informe a descrição do insumo (mín. 2 caracteres)' });
@@ -258,12 +292,15 @@ async function criarInsumo(req, res, next) {
     if (und_convertida <= 0) {
       return res.status(400).json({ error: 'UND convertida deve ser maior que zero' });
     }
+    if (und_parcial <= 0) {
+      return res.status(400).json({ error: 'UND parcial (PC/FD) deve ser maior que zero' });
+    }
 
     const { rows } = await pool.query(
-      `INSERT INTO insumos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, ativo)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+      `INSERT INTO insumos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, und_parcial, ativo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
        RETURNING *`,
-      [idLoja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida],
+      [idLoja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, und_parcial],
     );
     await auditar(req, {
       modulo: 'estoque',
@@ -305,6 +342,10 @@ async function atualizarInsumo(req, res, next) {
       req.body?.und_convertida != null
         ? num(req.body.und_convertida, 1)
         : num(prev.und_convertida, 1);
+    const und_parcial =
+      req.body?.und_parcial != null
+        ? num(req.body.und_parcial, 1)
+        : num(prev.und_parcial, 1);
     const ativo = req.body?.ativo != null ? !!req.body.ativo : prev.ativo !== false;
 
     if (!codigo) return res.status(400).json({ error: 'Informe o código do insumo' });
@@ -312,14 +353,28 @@ async function atualizarInsumo(req, res, next) {
     if (und_convertida <= 0) {
       return res.status(400).json({ error: 'UND convertida deve ser maior que zero' });
     }
+    if (und_parcial <= 0) {
+      return res.status(400).json({ error: 'UND parcial (PC/FD) deve ser maior que zero' });
+    }
 
     const { rows } = await pool.query(
       `UPDATE insumos
        SET codigo = $1, descricao = $2, unidade_contagem = $3,
-           preco_caixa = $4, und_convertida = $5, ativo = $6, atualizado_em = NOW()
-       WHERE id_insumo = $7 AND id_loja = $8
+           preco_caixa = $4, und_convertida = $5, und_parcial = $6,
+           ativo = $7, atualizado_em = NOW()
+       WHERE id_insumo = $8 AND id_loja = $9
        RETURNING *`,
-      [codigo, descricao, unidade_contagem, preco_caixa, und_convertida, ativo, id, prev.id_loja],
+      [
+        codigo,
+        descricao,
+        unidade_contagem,
+        preco_caixa,
+        und_convertida,
+        und_parcial,
+        ativo,
+        id,
+        prev.id_loja,
+      ],
     );
     await auditar(req, {
       modulo: 'estoque',
@@ -548,19 +603,71 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
     if (!itens.length) return res.status(400).json({ error: 'Envie ao menos um item' });
 
+    const { rows: fatoresRows } = await pool.query(
+      `SELECT i.id_item, p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial
+       FROM estoque_itens i
+       JOIN insumos p ON p.id_insumo = i.id_insumo
+       WHERE i.id_contagem = $1`,
+      [id],
+    );
+    const fatores = new Map(fatoresRows.map((r) => [Number(r.id_item), r]));
+
     const ids = [];
     const contados = [];
+    const caixas = [];
+    const pcs = [];
+    const kgs = [];
     const sistemas = [];
     let temSistema = false;
     for (const item of itens) {
       const idItem = Number(item.id_item);
       if (!idItem) continue;
+      const fat = fatores.get(idItem) || { und_convertida: 1, und_parcial: 1 };
+
+      const temTerraco =
+        item.contagem_caixa !== undefined ||
+        item.contagem_pc_fd !== undefined ||
+        item.contagem_kg_und !== undefined;
+
+      let caixa = null;
+      let pc = null;
+      let kg = null;
+      let contado = null;
+
+      if (temTerraco) {
+        caixa =
+          item.contagem_caixa === null || item.contagem_caixa === ''
+            ? null
+            : num(item.contagem_caixa);
+        pc =
+          item.contagem_pc_fd === null || item.contagem_pc_fd === ''
+            ? null
+            : num(item.contagem_pc_fd);
+        kg =
+          item.contagem_kg_und === null || item.contagem_kg_und === ''
+            ? null
+            : num(item.contagem_kg_und);
+        contado = calcularQtdContagem({
+          contagem_caixa: caixa,
+          contagem_pc_fd: pc,
+          contagem_kg_und: kg,
+          und_convertida: fat.und_convertida,
+          und_parcial: fat.und_parcial,
+        });
+      } else if (item.estoque_contado !== undefined) {
+        // Compat: API antiga com um único campo QTD
+        contado =
+          item.estoque_contado === null || item.estoque_contado === ''
+            ? null
+            : num(item.estoque_contado);
+        if (contado != null) kg = contado;
+      }
+
       ids.push(idItem);
-      contados.push(
-        item.estoque_contado === null || item.estoque_contado === ''
-          ? null
-          : num(item.estoque_contado),
-      );
+      contados.push(contado);
+      caixas.push(caixa);
+      pcs.push(pc);
+      kgs.push(kg);
       if (item.estoque_sistema !== undefined) {
         temSistema = true;
         sistemas.push(num(item.estoque_sistema));
@@ -575,18 +682,28 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       await pool.query(
         `UPDATE estoque_itens AS ei
          SET estoque_contado = v.contado,
+             contagem_caixa = v.caixa,
+             contagem_pc_fd = v.pc,
+             contagem_kg_und = v.kg,
              estoque_sistema = COALESCE(v.sistema, ei.estoque_sistema)
-         FROM unnest($1::int[], $2::numeric[], $3::numeric[]) AS v(id_item, contado, sistema)
-         WHERE ei.id_item = v.id_item AND ei.id_contagem = $4`,
-        [ids, contados, sistemas, id],
+         FROM unnest(
+           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[]
+         ) AS v(id_item, contado, caixa, pc, kg, sistema)
+         WHERE ei.id_item = v.id_item AND ei.id_contagem = $7`,
+        [ids, contados, caixas, pcs, kgs, sistemas, id],
       );
     } else {
       await pool.query(
         `UPDATE estoque_itens AS ei
-         SET estoque_contado = v.contado
-         FROM unnest($1::int[], $2::numeric[]) AS v(id_item, contado)
-         WHERE ei.id_item = v.id_item AND ei.id_contagem = $3`,
-        [ids, contados, id],
+         SET estoque_contado = v.contado,
+             contagem_caixa = v.caixa,
+             contagem_pc_fd = v.pc,
+             contagem_kg_und = v.kg
+         FROM unnest(
+           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[]
+         ) AS v(id_item, contado, caixa, pc, kg)
+         WHERE ei.id_item = v.id_item AND ei.id_contagem = $6`,
+        [ids, contados, caixas, pcs, kgs, id],
       );
     }
 

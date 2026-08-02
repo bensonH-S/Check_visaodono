@@ -32,7 +32,9 @@ export default function EstoqueInsumoAutocomplete({
   hideLabel = false,
   placeholder = 'Digite o nome do insumo…',
 }: Props) {
-  const selecionado = produtos.find((p) => p.codigo === value) ?? null;
+  const codVal = String(value || '').trim().toUpperCase();
+  const selecionado =
+    produtos.find((p) => String(p.codigo || '').trim().toUpperCase() === codVal) ?? null;
 
   return (
     <Autocomplete
@@ -45,7 +47,10 @@ export default function EstoqueInsumoAutocomplete({
       autoHighlight
       clearOnEscape
       getOptionLabel={(p) => rotuloProduto(p)}
-      isOptionEqualToValue={(a, b) => a.id_produto === b.id_produto || a.codigo === b.codigo}
+      isOptionEqualToValue={(a, b) =>
+        a.id_produto === b.id_produto ||
+        String(a.codigo || '').toUpperCase() === String(b.codigo || '').toUpperCase()
+      }
       filterOptions={(lista, { inputValue }) => {
         const q = inputValue.trim().toLowerCase();
         if (!q) return lista;

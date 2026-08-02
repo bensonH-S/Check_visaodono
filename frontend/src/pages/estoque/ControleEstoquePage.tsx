@@ -61,20 +61,36 @@ import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import Tooltip from '@mui/material/Tooltip';
 
-type AbaEstoque = 'conferencia' | 'insumos' | AbaOp;
+type AbaEstoque = 'cmv' | 'conferencia' | 'estoque' | 'vendas' | 'break' | 'pedido' | 'fichas';
 
-const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'insumos', 'produtos', 'saldo', 'vendas', 'break'];
+const ABAS_ESTOQUE: AbaEstoque[] = [
+  'cmv',
+  'vendas',
+  'estoque',
+  'conferencia',
+  'break',
+  'pedido',
+  'fichas',
+];
+
+/** URLs antigas → novas */
+const REDIRECT_ABA: Record<string, AbaEstoque> = {
+  insumos: 'estoque',
+  saldo: 'estoque',
+  produtos: 'fichas',
+  ficha: 'fichas',
+};
 
 function isAbaEstoque(v: string | undefined): v is AbaEstoque {
   return !!v && (ABAS_ESTOQUE as string[]).includes(v);
 }
 
 function abaInicialPermitida(): AbaEstoque {
+  if (podeOperacionalEstoque(getUsuario())) return 'cmv';
   if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
-  if (podeProdutosEstoque(getUsuario())) return 'insumos';
-  if (podeOperacionalEstoque(getUsuario())) return 'saldo';
   if (podeBreakEstoque(getUsuario())) return 'break';
-  return 'saldo';
+  if (podeProdutosEstoque(getUsuario())) return 'estoque';
+  return 'cmv';
 }
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
@@ -192,10 +208,56 @@ const linhaDivergenciaSx = {
   '&:hover': { bgcolor: 'rgba(220, 38, 38, 0.16)' },
 } as const;
 
+type RascunhoLinha = { caixa: string; pc: string; kg: string };
+
+function parseNumCampo(raw: string): number | null {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
+  const n = Number(String(raw).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+/** QTD Terraço: CAIXA*base + PC*parcial + KG/UND */
+function calcQtdTerraco(
+  linha: RascunhoLinha | undefined,
+  undConvertida: number,
+  undParcial: number,
+): number | null {
+  if (!linha) return null;
+  const tem =
+    String(linha.caixa).trim() !== '' ||
+    String(linha.pc).trim() !== '' ||
+    String(linha.kg).trim() !== '';
+  if (!tem) return null;
+  const caixa = parseNumCampo(linha.caixa) ?? 0;
+  const pc = parseNumCampo(linha.pc) ?? 0;
+  const kg = parseNumCampo(linha.kg) ?? 0;
+  const base = undConvertida > 0 ? undConvertida : 1;
+  const parcial = undParcial > 0 ? undParcial : 1;
+  return Math.round((caixa * base + pc * parcial + kg) * 10000) / 10000;
+}
+
+function rascunhoDeItem(i: EstoqueItem): RascunhoLinha {
+  const temTerraco =
+    i.contagem_caixa != null || i.contagem_pc_fd != null || i.contagem_kg_und != null;
+  if (temTerraco) {
+    return {
+      caixa: i.contagem_caixa == null ? '' : String(i.contagem_caixa),
+      pc: i.contagem_pc_fd == null ? '' : String(i.contagem_pc_fd),
+      kg: i.contagem_kg_und == null ? '' : String(i.contagem_kg_und),
+    };
+  }
+  // legado: só QTD → joga em KG/UND
+  return {
+    caixa: '',
+    pc: '',
+    kg: i.estoque_contado == null ? '' : String(i.estoque_contado),
+  };
+}
+
 function aplicarContagem(
   det: EstoqueContagemDetalhe | null,
   setContagem: (c: EstoqueContagemDetalhe | null) => void,
-  setRascunho: (r: Record<number, string>) => void,
+  setRascunho: (r: Record<number, RascunhoLinha>) => void,
 ) {
   if (!det?.id_contagem) {
     setContagem(det?.meta ? det : null);
@@ -203,9 +265,9 @@ function aplicarContagem(
     return;
   }
   setContagem(det);
-  const draft: Record<number, string> = {};
+  const draft: Record<number, RascunhoLinha> = {};
   for (const i of det.itens || []) {
-    draft[i.id_item] = i.estoque_contado == null ? '' : String(i.estoque_contado);
+    draft[i.id_item] = rascunhoDeItem(i);
   }
   setRascunho(draft);
 }
@@ -255,7 +317,7 @@ export default function ControleEstoquePage() {
   const [formProduto, setFormProduto] = useState<ProdutoForm>(emptyProdutoForm);
   const [salvandoProduto, setSalvandoProduto] = useState(false);
 
-  const [rascunhoItens, setRascunhoItens] = useState<Record<number, string>>({});
+  const [rascunhoItens, setRascunhoItens] = useState<Record<number, RascunhoLinha>>({});
   const [salvandoItens, setSalvandoItens] = useState(false);
   const [dlgExcluir, setDlgExcluir] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
@@ -389,9 +451,8 @@ export default function ControleEstoquePage() {
   }, [idLoja]);
 
   useEffect(() => {
-    // URL antiga /estoque/ficha → /estoque/produtos
-    if (abaParam === 'ficha') {
-      navigate('/estoque/produtos', { replace: true });
+    if (abaParam && REDIRECT_ABA[abaParam]) {
+      navigate(`/estoque/${REDIRECT_ABA[abaParam]}`, { replace: true });
       return;
     }
     if (!isAbaEstoque(abaParam)) {
@@ -402,16 +463,14 @@ export default function ControleEstoquePage() {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
-    const abasOp: AbaOp[] = ['saldo', 'vendas', 'produtos'];
+    const abasOp: AbaEstoque[] = ['cmv', 'estoque', 'vendas', 'pedido', 'fichas'];
     let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
-      destino = podeProdutos ? 'insumos' : podeOperacional ? 'saldo' : podeBreak ? 'break' : 'conferencia';
-    } else if (aba === 'insumos' && !podeProdutos) {
-      destino = podeConferencia ? 'conferencia' : podeOperacional ? 'saldo' : podeBreak ? 'break' : 'insumos';
-    } else if (abasOp.includes(aba as AbaOp) && !podeOperacional) {
-      destino = podeConferencia ? 'conferencia' : podeProdutos ? 'insumos' : podeBreak ? 'break' : 'saldo';
+      destino = podeOperacional ? 'cmv' : podeBreak ? 'break' : 'conferencia';
+    } else if (abasOp.includes(aba) && !podeOperacional) {
+      destino = podeConferencia ? 'conferencia' : podeBreak ? 'break' : 'cmv';
     } else if (aba === 'break' && !podeBreak) {
-      destino = podeConferencia ? 'conferencia' : podeProdutos ? 'insumos' : podeOperacional ? 'saldo' : 'break';
+      destino = podeOperacional ? 'cmv' : podeConferencia ? 'conferencia' : 'break';
     }
     if (destino && destino !== aba) {
       navigate(`/estoque/${destino}`, { replace: true });
@@ -489,10 +548,13 @@ export default function ControleEstoquePage() {
     setSalvandoItens(true);
     try {
       const itens = contagem.itens.map((i) => {
-        const raw = rascunhoItens[i.id_item];
-        const estoque_contado =
-          raw === undefined || raw === '' ? null : Number(String(raw).replace(',', '.'));
-        return { id_item: i.id_item, estoque_contado };
+        const raw = rascunhoItens[i.id_item] || { caixa: '', pc: '', kg: '' };
+        return {
+          id_item: i.id_item,
+          contagem_caixa: parseNumCampo(raw.caixa),
+          contagem_pc_fd: parseNumCampo(raw.pc),
+          contagem_kg_und: parseNumCampo(raw.kg),
+        };
       });
       const det = await api.estoqueSalvarItens(contagem.id_contagem, itens);
       aplicarContagem(det, setContagem, setRascunhoItens);
@@ -562,13 +624,10 @@ export default function ControleEstoquePage() {
     let pendentes = 0;
     let preenchidos = 0;
     for (const i of contagem.itens) {
-      const raw = rascunhoItens[i.id_item];
-      if (raw === '' || raw == null) {
-        pendentes += 1;
-        continue;
-      }
-      const contado = Number(String(raw).replace(',', '.'));
-      if (!Number.isFinite(contado)) {
+      const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
+      const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
+      const contado = calcQtdTerraco(rascunhoItens[i.id_item], undCx, undPc);
+      if (contado == null || !Number.isFinite(contado)) {
         pendentes += 1;
         continue;
       }
@@ -629,36 +688,12 @@ export default function ControleEstoquePage() {
             flex: '0 1 auto',
           }}
         >
-          {podeConferencia && (
-            <Tab
-              value="conferencia"
-              label="Conferência"
-              disabled={!idLoja}
-              sx={{ minHeight: 40, textTransform: 'none', fontWeight: 600 }}
-            />
-          )}
-          {podeProdutos && (
-            <Tab
-              value="insumos"
-              label={`Insumos (${produtos.length})`}
-              disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none' }}
-            />
-          )}
           {podeOperacional && (
             <Tab
-              value="produtos"
-              label={`Produtos (${produtosVendaCount})`}
+              value="cmv"
+              label="CMV"
               disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none' }}
-            />
-          )}
-          {podeOperacional && (
-            <Tab
-              value="saldo"
-              label="Saldo"
-              disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none' }}
+              sx={{ minHeight: 40, textTransform: 'none', fontWeight: 700 }}
             />
           )}
           {podeOperacional && (
@@ -669,10 +704,46 @@ export default function ControleEstoquePage() {
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
+          {podeOperacional && (
+            <Tab
+              value="estoque"
+              label="Estoque"
+              disabled={!idLoja || bloqueiaOutrasAbas}
+              sx={{ minHeight: 40, textTransform: 'none' }}
+            />
+          )}
+          {podeConferencia && (
+            <Tab
+              value="conferencia"
+              label="Conferência"
+              disabled={!idLoja}
+              sx={{ minHeight: 40, textTransform: 'none', fontWeight: 600 }}
+            />
+          )}
           {podeBreak && (
             <Tab
               value="break"
               label="Break"
+              disabled={!idLoja || bloqueiaOutrasAbas}
+              sx={{ minHeight: 40, textTransform: 'none' }}
+            />
+          )}
+          {podeOperacional && (
+            <Tab
+              value="pedido"
+              label="Pedido"
+              disabled={!idLoja || bloqueiaOutrasAbas}
+              sx={{ minHeight: 40, textTransform: 'none' }}
+            />
+          )}
+          {podeOperacional && (
+            <Tab
+              value="fichas"
+              label={
+                produtosVendaCount
+                  ? `Cadastro (${produtosVendaCount})`
+                  : 'Cadastro'
+              }
               disabled={!idLoja || bloqueiaOutrasAbas}
               sx={{ minHeight: 40, textTransform: 'none' }}
             />
@@ -738,7 +809,10 @@ export default function ControleEstoquePage() {
                       >
                         <Box>
                           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                            Conferências da loja
+                            Conferência — contagem de insumos
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Conta carne, pão, batata… (itens físicos). Não se conta Whopper pronto.
                           </Typography>
                           {lojaAtual && (
                             <Typography
@@ -827,7 +901,6 @@ export default function ControleEstoquePage() {
                                 <TableCell sx={thCenter}>Itens</TableCell>
                                 <TableCell sx={thCenter}>Pendentes</TableCell>
                                 <TableCell sx={thCenter}>Divergências</TableCell>
-                                <TableCell sx={thCenter}>Total R$</TableCell>
                                 <TableCell sx={thCenter} width={48} />
                               </TableRow>
                             </TableHead>
@@ -881,7 +954,6 @@ export default function ControleEstoquePage() {
                                     >
                                       {divergencias}
                                     </TableCell>
-                                    <TableCell sx={tdCenter}>{fmtMoeda(c.total_valor)}</TableCell>
                                     <TableCell sx={tdCenter}>
                                       <ChevronRightIcon fontSize="small" color="action" />
                                     </TableCell>
@@ -891,7 +963,7 @@ export default function ControleEstoquePage() {
                               {!listaFiltrada.length && (
                                 <TableRow>
                                   <TableCell
-                                    colSpan={10}
+                                    colSpan={9}
                                     align="center"
                                     sx={{ py: 4, color: colors.textSecondary }}
                                   >
@@ -1023,11 +1095,6 @@ export default function ControleEstoquePage() {
                                   }
                             }
                           />
-                          <Chip
-                            label={`Total R$ estoque: ${fmtMoeda(resumoLive.total_valor)}`}
-                            color="primary"
-                            variant="outlined"
-                          />
                         </Box>
                       )}
 
@@ -1037,28 +1104,80 @@ export default function ControleEstoquePage() {
                             <TableHead>
                               <TableRow>
                                 <TableCell sx={thCenter}>Código</TableCell>
-                                <TableCell sx={thLeft}>Descrição insumo</TableCell>
-                                <TableCell sx={thCenter}>Unidade</TableCell>
-                                <TableCell sx={thCenter}>Valor unid.</TableCell>
-                                <TableCell sx={thCenter}>Estoque sistema</TableCell>
-                                <TableCell sx={{ ...thCenter, minWidth: 130 }}>
-                                  Estoque final
-                                </TableCell>
+                                <TableCell sx={thLeft}>Descrição</TableCell>
+                                <TableCell sx={thCenter}>Un.</TableCell>
+                                <TableCell sx={thCenter}>Sistema</TableCell>
+                                <TableCell sx={{ ...thCenter, minWidth: 88 }}>CAIXA</TableCell>
+                                <TableCell sx={{ ...thCenter, minWidth: 88 }}>PC/FD</TableCell>
+                                <TableCell sx={{ ...thCenter, minWidth: 96 }}>KG/UND</TableCell>
+                                <TableCell sx={thCenter}>QTD</TableCell>
                                 <TableCell sx={thDiferencaSx}>Diferença</TableCell>
-                                <TableCell sx={thCenter}>R$ Estoque</TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
                               {(contagem?.itens as EstoqueItem[] | undefined)?.map((i) => {
-                                const raw = rascunhoItens[i.id_item] ?? '';
-                                const contado =
-                                  raw === '' ? null : Number(String(raw).replace(',', '.'));
+                                const raw = rascunhoItens[i.id_item] ?? {
+                                  caixa: '',
+                                  pc: '',
+                                  kg: '',
+                                };
+                                const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
+                                const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
+                                const contado = editavel
+                                  ? calcQtdTerraco(raw, undCx, undPc)
+                                  : i.estoque_contado;
                                 const preenchido = contado != null && Number.isFinite(contado);
                                 const dif = !preenchido ? null : contado - i.estoque_sistema;
-                                const valor = !preenchido
-                                  ? null
-                                  : Math.round(contado * i.valor_unidade * 100) / 100;
                                 const comDivergencia = dif != null && dif !== 0;
+                                const setCampo = (campo: keyof RascunhoLinha, valor: string) => {
+                                  setRascunhoItens((prev) => ({
+                                    ...prev,
+                                    [i.id_item]: {
+                                      caixa: prev[i.id_item]?.caixa ?? '',
+                                      pc: prev[i.id_item]?.pc ?? '',
+                                      kg: prev[i.id_item]?.kg ?? '',
+                                      [campo]: valor,
+                                    },
+                                  }));
+                                };
+                                const campoInput = (
+                                  campo: keyof RascunhoLinha,
+                                  dataAttr: string,
+                                ) => (
+                                  <TextField
+                                    size="small"
+                                    value={raw[campo]}
+                                    onChange={(e) => setCampo(campo, e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key !== 'Enter') return;
+                                      e.preventDefault();
+                                      const inputs = Array.from(
+                                        document.querySelectorAll<HTMLInputElement>(
+                                          'input[data-estoque-campo]',
+                                        ),
+                                      );
+                                      const idx = inputs.indexOf(e.target as HTMLInputElement);
+                                      const proximo = idx >= 0 ? inputs[idx + 1] : null;
+                                      if (proximo) {
+                                        proximo.focus();
+                                        proximo.select();
+                                        proximo.scrollIntoView({
+                                          block: 'nearest',
+                                          behavior: 'smooth',
+                                        });
+                                      }
+                                    }}
+                                    placeholder="—"
+                                    slotProps={{
+                                      htmlInput: {
+                                        inputMode: 'decimal',
+                                        style: { textAlign: 'center' },
+                                        'data-estoque-campo': dataAttr,
+                                      },
+                                    }}
+                                    sx={{ width: 84, mx: 'auto' }}
+                                  />
+                                );
                                 return (
                                   <TableRow
                                     key={i.id_item}
@@ -1080,64 +1199,36 @@ export default function ControleEstoquePage() {
                                     <TableCell sx={{ ...tdCenter, fontWeight: 600 }}>
                                       {String(i.unidade_contagem || '').toUpperCase()}
                                     </TableCell>
-                                    <TableCell sx={tdCenter}>{fmtMoeda(i.valor_unidade)}</TableCell>
                                     <TableCell sx={tdCenter}>
                                       {fmtNum(i.estoque_sistema, 3)}
                                     </TableCell>
                                     <TableCell sx={tdCenter}>
-                                      {editavel ? (
-                                        <TextField
-                                          size="small"
-                                          value={raw}
-                                          onChange={(e) =>
-                                            setRascunhoItens((prev) => ({
-                                              ...prev,
-                                              [i.id_item]: e.target.value,
-                                            }))
-                                          }
-                                          onKeyDown={(e) => {
-                                            if (e.key !== 'Enter') return;
-                                            e.preventDefault();
-                                            const inputs = Array.from(
-                                              document.querySelectorAll<HTMLInputElement>(
-                                                'input[data-estoque-final="1"]',
-                                              ),
-                                            );
-                                            const idx = inputs.indexOf(e.target as HTMLInputElement);
-                                            const proximo = idx >= 0 ? inputs[idx + 1] : null;
-                                            if (proximo) {
-                                              proximo.focus();
-                                              proximo.select();
-                                              proximo.scrollIntoView({
-                                                block: 'nearest',
-                                                behavior: 'smooth',
-                                              });
-                                            }
-                                          }}
-                                          placeholder="0"
-                                          slotProps={{
-                                            htmlInput: {
-                                              inputMode: 'decimal',
-                                              style: { textAlign: 'center' },
-                                              'data-estoque-final': '1',
-                                            },
-                                          }}
-                                          sx={{ width: 110, mx: 'auto' }}
-                                        />
-                                      ) : (
-                                        fmtNum(i.estoque_contado, 3)
-                                      )}
+                                      {editavel
+                                        ? campoInput('caixa', 'caixa')
+                                        : fmtNum(i.contagem_caixa ?? null, 3)}
+                                    </TableCell>
+                                    <TableCell sx={tdCenter}>
+                                      {editavel
+                                        ? campoInput('pc', 'pc')
+                                        : fmtNum(i.contagem_pc_fd ?? null, 3)}
+                                    </TableCell>
+                                    <TableCell sx={tdCenter}>
+                                      {editavel
+                                        ? campoInput('kg', 'kg')
+                                        : fmtNum(i.contagem_kg_und ?? null, 3)}
+                                    </TableCell>
+                                    <TableCell sx={{ ...tdCenter, fontWeight: 700 }}>
+                                      {preenchido ? fmtNum(contado, 3) : '—'}
                                     </TableCell>
                                     <TableCell sx={diferencaSx(dif)}>
                                       {dif == null ? '—' : fmtNum(dif, 3)}
                                     </TableCell>
-                                    <TableCell sx={tdCenter}>{fmtMoeda(valor)}</TableCell>
                                   </TableRow>
                                 );
                               })}
                               {!contagem?.itens?.length && (
                                 <TableRow>
-                                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                                     Esta loja ainda não tem insumos cadastrados
                                   </TableCell>
                                 </TableRow>
@@ -1211,119 +1302,21 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {aba === 'insumos' && podeProdutos && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <TextField
-                      size="small"
-                      placeholder="Buscar código ou descrição"
-                      value={busca}
-                      onChange={(e) => setBusca(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void carregarProdutos();
-                      }}
-                      slotProps={{
-                        input: {
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <SearchIcon fontSize="small" />
-                            </InputAdornment>
-                          ),
-                        },
-                      }}
-                      sx={{ minWidth: 260, flex: 1 }}
-                    />
-                    <Button
-                      variant="outlined"
-                      startIcon={<RefreshIcon />}
-                      onClick={() => void carregarProdutos()}
-                    >
-                      Buscar
-                    </Button>
-                    {podeEditarProdutos && (
-                      <Button variant="contained" startIcon={<AddIcon />} onClick={abrirNovoProduto}>
-                        Novo insumo
-                      </Button>
-                    )}
-                  </Box>
-
-                  <Paper sx={tablePaperSx}>
-                    <TableContainer sx={tableContainerSx}>
-                      <Table stickyHeader size="small" sx={tableSx}>
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={thCenter}>Código</TableCell>
-                            <TableCell sx={thLeft}>Descrição insumo</TableCell>
-                            <TableCell sx={thCenter}>Unidade</TableCell>
-                            <TableCell sx={thCenter}>Preço caixa</TableCell>
-                            <TableCell sx={thCenter}>UND convertida</TableCell>
-                            <TableCell sx={thCenter}>Valor unid.</TableCell>
-                            <TableCell sx={thCenter}>Status</TableCell>
-                            {podeEditarProdutos && (
-                              <TableCell sx={thCenter} align="center" width={56} />
-                            )}
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {produtos.map((p) => (
-                            <TableRow key={p.id_produto} hover>
-                              <TableCell sx={{ ...tdCenter, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                {p.codigo}
-                              </TableCell>
-                              <TableCell>{p.descricao}</TableCell>
-                              <TableCell sx={{ ...tdCenter, fontWeight: 600 }}>
-                                {String(p.unidade_contagem || '').toUpperCase()}
-                              </TableCell>
-                              <TableCell sx={tdCenter}>{fmtMoeda(p.preco_caixa)}</TableCell>
-                              <TableCell sx={tdCenter}>{fmtNum(p.und_convertida, 4)}</TableCell>
-                              <TableCell sx={tdCenter}>{fmtMoeda(p.valor_unidade)}</TableCell>
-                              <TableCell sx={tdCenter}>
-                                <Chip
-                                  size="small"
-                                  label={p.ativo ? 'Ativo' : 'Inativo'}
-                                  color={p.ativo ? 'success' : 'default'}
-                                  variant="outlined"
-                                />
-                              </TableCell>
-                              {podeEditarProdutos && (
-                                <TableCell align="center">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => abrirEditarProduto(p)}
-                                    aria-label="Editar"
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                </TableCell>
-                              )}
-                            </TableRow>
-                          ))}
-                          {!produtos.length && (
-                            <TableRow>
-                              <TableCell
-                                colSpan={8}
-                                align="center"
-                                sx={{ py: 4, color: colors.textSecondary }}
-                              >
-                                Nenhum insumo nesta loja — cadastre os itens dela
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Paper>
-                </Box>
-              )}
-
-              {((podeOperacional && (aba === 'saldo' || aba === 'vendas' || aba === 'produtos')) ||
+              {((podeOperacional &&
+                (aba === 'cmv' ||
+                  aba === 'estoque' ||
+                  aba === 'vendas' ||
+                  aba === 'pedido' ||
+                  aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <EstoqueOperacionalPanels
-                    aba={aba}
+                    aba={aba as AbaOp}
                     idLoja={idLoja}
                     produtos={produtos}
                     onProdutosVendaCountChange={setProdutosVendaCount}
+                    onIrConferencia={() => irParaAba('conferencia')}
+                    onIrFichas={() => irParaAba('fichas')}
                   />
                 )}
             </>

@@ -757,7 +757,14 @@ export const api = {
     }),
   estoqueSalvarItens: (
     id: number,
-    itens: Array<{ id_item: number; estoque_contado?: number | null; estoque_sistema?: number }>,
+    itens: Array<{
+      id_item: number;
+      contagem_caixa?: number | null;
+      contagem_pc_fd?: number | null;
+      contagem_kg_und?: number | null;
+      estoque_contado?: number | null;
+      estoque_sistema?: number;
+    }>,
   ) =>
     request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}/itens`, {
       method: 'PUT',
@@ -867,6 +874,46 @@ export const api = {
     }>;
   }) =>
     request<{ break: EstoqueBreakResumo; baixas: unknown[]; erros: string[] }>('/estoque/break', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueEntradas: (body: {
+    id_loja: number;
+    observacao?: string;
+    itens: Array<{ id_insumo?: number; codigo?: string; quantidade: number; observacao?: string }>;
+  }) =>
+    request<{ ok: boolean; entradas: unknown[]; erros: string[] }>('/estoque/entradas', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueCmvTeorico: (idLoja: number, opts?: { de?: string; ate?: string; meta?: number }) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.de) params.set('de', opts.de);
+    if (opts?.ate) params.set('ate', opts.ate);
+    if (opts?.meta != null) params.set('meta', String(opts.meta));
+    return request<EstoqueCmvTeorico>(`/estoque/cmv/teorico?${params}`);
+  },
+  estoquePedidoSugerido: (
+    idLoja: number,
+    opts?: { crescimento?: number; dias?: number; estoque_seguranca_dias?: number },
+  ) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.crescimento != null) params.set('crescimento', String(opts.crescimento));
+    if (opts?.dias != null) params.set('dias', String(opts.dias));
+    if (opts?.estoque_seguranca_dias != null) {
+      params.set('estoque_seguranca_dias', String(opts.estoque_seguranca_dias));
+    }
+    return request<EstoquePedidoSugerido>(`/estoque/pedido-sugerido?${params}`);
+  },
+  estoqueAtualizarCustoInsumo: (body: {
+    id_loja: number;
+    id_insumo?: number;
+    codigo?: string;
+    preco_caixa: number;
+    und_convertida?: number;
+    fonte?: 'nf' | 'manual';
+  }) =>
+    request<ProdutoEstoque>('/estoque/insumos/custo', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -1754,6 +1801,8 @@ export interface ProdutoEstoque {
   unidade_contagem: string;
   preco_caixa: number;
   und_convertida: number;
+  /** Fator PC/FD na fórmula QTD (padrão 1). */
+  und_parcial?: number;
   valor_unidade: number;
   ativo: boolean;
   criado_em?: string;
@@ -1767,6 +1816,7 @@ export type ProdutoEstoqueInput = {
   unidade_contagem?: string;
   preco_caixa?: number;
   und_convertida?: number;
+  und_parcial?: number;
 };
 
 export interface EstoqueContagemResumo {
@@ -1796,8 +1846,14 @@ export interface EstoqueItem {
   unidade_contagem: string;
   preco_caixa: number;
   und_convertida: number;
+  und_parcial?: number;
   valor_unidade: number;
   estoque_sistema: number;
+  /** Entradas da planilha Terraço */
+  contagem_caixa?: number | null;
+  contagem_pc_fd?: number | null;
+  contagem_kg_und?: number | null;
+  /** QTD = CAIXA*und_convertida + PC*und_parcial + KG/UND */
   estoque_contado: number | null;
   diferenca: number | null;
   valor_estoque: number | null;
@@ -1822,6 +1878,7 @@ export interface EstoqueResumo {
 
 export interface EstoqueSaldoItem {
   id_produto: number;
+  id_insumo?: number;
   codigo: string;
   descricao: string;
   unidade_contagem: string;
@@ -1829,6 +1886,45 @@ export interface EstoqueSaldoItem {
   quantidade: number;
   valor_total: number;
   atualizado_em?: string | null;
+}
+
+export interface EstoqueCmvTeorico {
+  id_loja: number;
+  de: string | null;
+  ate: string | null;
+  venda_liquida: number;
+  custo_teorico: number;
+  cmv_teorico_pct: number | null;
+  meta_pct: number;
+  gap_pp: number | null;
+  gap_reais: number | null;
+  itens: number;
+  itens_sem_ficha: number;
+  itens_com_ficha?: number;
+  itens_com_custo_completo?: number;
+  cobertura_custo_pct?: number;
+  cmv_confiavel?: boolean;
+  dias_venda: number;
+  aviso?: string | null;
+}
+
+export interface EstoquePedidoItem {
+  codigo: string;
+  descricao: string;
+  consumo_projetado: number;
+  estoque_seguranca: number;
+  saldo_atual: number;
+  pedido_sugerido: number;
+  pedido_ajustado: number;
+}
+
+export interface EstoquePedidoSugerido {
+  id_loja: number;
+  periodo_dias: number;
+  crescimento_pct: number;
+  estoque_seguranca_dias: number;
+  produtos_base: number;
+  itens: EstoquePedidoItem[];
 }
 
 export interface EstoqueMovimento {

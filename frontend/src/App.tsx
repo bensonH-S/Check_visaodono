@@ -351,7 +351,7 @@ export default function App() {
             />
             <Route
               path="estoque"
-              element={<Navigate to="/estoque/conferencia" replace />}
+              element={<Navigate to="/estoque/cmv" replace />}
             />
             <Route
               path="estoque/:aba"

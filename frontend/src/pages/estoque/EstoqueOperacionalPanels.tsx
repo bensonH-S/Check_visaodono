@@ -13,8 +13,6 @@ import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Switch from '@mui/material/Switch';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -37,7 +35,10 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   api,
   type EstoqueBreakResumo,
+  type EstoqueCmvTeorico,
   type EstoqueMovimento,
+  type EstoquePedidoItem,
+  type EstoquePedidoSugerido,
   type EstoqueSaldoItem,
   type EstoqueSyncStatus,
   type EstoqueVendaResumo,
@@ -48,18 +49,14 @@ import {
 import CampoDataFrota from '../../components/frota/CampoDataFrota';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
-import {
-  custoLinhaReceita,
-  UNIDADES_RECEITA,
-  unidadeReceitaPadrao,
-} from '../../utils/fichaReceitaEstoque';
+import { UNIDADES_RECEITA, unidadeReceitaPadrao } from '../../utils/fichaReceitaEstoque';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 
-type AbaOp = 'saldo' | 'vendas' | 'produtos' | 'break';
+type AbaOp = 'cmv' | 'estoque' | 'vendas' | 'break' | 'pedido' | 'fichas';
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -161,6 +158,8 @@ type Props = {
   idLoja: number;
   produtos: ProdutoEstoque[];
   onProdutosVendaCountChange?: (n: number) => void;
+  onIrConferencia?: () => void;
+  onIrFichas?: () => void;
 };
 
 export type { AbaOp };
@@ -170,10 +169,18 @@ export default function EstoqueOperacionalPanels({
   idLoja,
   produtos,
   onProdutosVendaCountChange,
+  onIrConferencia,
+  onIrFichas,
 }: Props) {
-  if (aba === 'saldo') return <PainelSaldo idLoja={idLoja} />;
+  if (aba === 'cmv') {
+    return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} />;
+  }
+  if (aba === 'estoque') {
+    return <PainelSaldo idLoja={idLoja} onIrConferencia={onIrConferencia} />;
+  }
   if (aba === 'vendas') return <PainelVendas idLoja={idLoja} />;
-  if (aba === 'produtos') {
+  if (aba === 'pedido') return <PainelPedido idLoja={idLoja} />;
+  if (aba === 'fichas') {
     return (
       <PainelProdutos
         idLoja={idLoja}
@@ -185,21 +192,343 @@ export default function EstoqueOperacionalPanels({
   return <PainelBreak idLoja={idLoja} produtos={produtos} />;
 }
 
-function PainelSaldo({ idLoja }: { idLoja: number }) {
+function PainelCmv({
+  idLoja,
+  onIrFichas,
+}: {
+  idLoja: number;
+  onIrFichas?: () => void;
+}) {
   const [loading, setLoading] = useState(true);
-  const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
-  const [movs, setMovs] = useState<EstoqueMovimento[]>([]);
-  const [q, setQ] = useState('');
+  const [cmv, setCmv] = useState<EstoqueCmvTeorico | null>(null);
+  const [dataIni, setDataIni] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return d.toISOString().slice(0, 10);
+  });
+  const [dataFim, setDataFim] = useState(hojeISO());
+  const [faltaFicha, setFaltaFicha] = useState(0);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, m] = await Promise.all([
+      const [c, pv] = await Promise.all([
+        api.estoqueCmvTeorico(idLoja, { de: dataIni, ate: dataFim }),
+        api.estoqueProdutosVenda({ id_loja: idLoja }),
+      ]);
+      setCmv(c);
+      setFaltaFicha(
+        pv.filter((p) => p.requer_ficha !== false && !(p.id_ficha && (p.itens_ficha ?? 0) > 0))
+          .length,
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao carregar CMV', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [idLoja, dataIni, dataFim]);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  if (loading && !cmv) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress size={28} />
+      </Box>
+    );
+  }
+
+  const confiavel = !!cmv?.cmv_confiavel;
+  const cmvCor = !confiavel
+    ? colors.textSecondary
+    : (cmv?.cmv_teorico_pct ?? 0) <= (cmv?.meta_pct ?? 38)
+      ? '#15803d'
+      : '#b91c1c';
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
+      <Paper sx={{ p: 2.5, border: `1px solid ${colors.border}` }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 2,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            mb: 2,
+          }}
+        >
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              CMV da loja
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Meta da franquia: {cmv?.meta_pct ?? 38}%. Custo em R$ só com nota fiscal — preço de
+              planilha não conta.
+            </Typography>
+          </Box>
+          <FiltroIntervaloDatasFrota
+            dataInicio={dataIni}
+            dataFim={dataFim}
+            onChangeInicio={setDataIni}
+            onChangeFim={setDataFim}
+          />
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 2 }}>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              CMV teórico
+            </Typography>
+            <Typography variant="h3" sx={{ fontWeight: 800, color: cmvCor, lineHeight: 1.1 }}>
+              {confiavel && cmv?.cmv_teorico_pct != null
+                ? `${fmtNum(cmv.cmv_teorico_pct, 1)}%`
+                : '—'}
+            </Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Venda líquida
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {fmtMoeda(cmv?.venda_liquida)}
+            </Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Custo (só NF)
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {fmtMoeda(cmv?.custo_teorico)}
+            </Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Cobertura de custo NF
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {cmv?.cobertura_custo_pct != null ? `${fmtNum(cmv.cobertura_custo_pct, 0)}%` : '0%'}
+            </Typography>
+          </Box>
+        </Box>
+
+        {cmv?.aviso && (
+          <Typography
+            variant="body2"
+            sx={{
+              p: 1.5,
+              borderRadius: 1,
+              bgcolor: '#FFF7ED',
+              color: '#9A3412',
+              border: '1px solid #FDBA74',
+              mb: 1.5,
+            }}
+          >
+            {cmv.aviso}
+          </Typography>
+        )}
+
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {faltaFicha > 0 && (
+            <Chip
+              color="warning"
+              label={`Falta ficha (${faltaFicha})`}
+              onClick={() => onIrFichas?.()}
+              sx={{ fontWeight: 700, cursor: 'pointer' }}
+            />
+          )}
+          <Chip
+            variant="outlined"
+            label={`${cmv?.itens_sem_ficha ?? 0} itens de venda sem ficha no período`}
+          />
+          <Chip variant="outlined" label={`${cmv?.dias_venda ?? 0} dia(s) com venda`} />
+          <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
+            Atualizar
+          </Button>
+        </Box>
+      </Paper>
+    </Box>
+  );
+}
+
+function PainelPedido({ idLoja }: { idLoja: number }) {
+  const [loading, setLoading] = useState(true);
+  const [dados, setDados] = useState<EstoquePedidoSugerido | null>(null);
+  const [itens, setItens] = useState<EstoquePedidoItem[]>([]);
+  const [crescimento, setCrescimento] = useState('5');
+  const [dias, setDias] = useState('7');
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const cres = Number(String(crescimento).replace(',', '.')) / 100;
+      const r = await api.estoquePedidoSugerido(idLoja, {
+        crescimento: Number.isFinite(cres) ? cres : 0.05,
+        dias: Number(dias) || 7,
+        estoque_seguranca_dias: 1,
+      });
+      setDados(r);
+      setItens(r.itens.map((i) => ({ ...i })));
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao calcular pedido', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [idLoja, crescimento, dias]);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  const confirmar = () => {
+    const linhas = itens
+      .filter((i) => Number(i.pedido_ajustado) > 0)
+      .map(
+        (i) =>
+          `${i.codigo}\t${i.descricao}\t${Number(i.pedido_ajustado).toLocaleString('pt-BR')}`,
+      );
+    const texto = ['Código\tInsumo\tPedido', ...linhas].join('\n');
+    void navigator.clipboard?.writeText(texto);
+    showToast(
+      `${linhas.length} item(ns) copiados. Ajuste feito pelo gestor — envio automático ainda não.`,
+      'success',
+    );
+  };
+
+  if (loading && !dados) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress size={28} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
+      <Paper sx={{ p: 2, border: `1px solid ${colors.border}` }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 800 }} gutterBottom>
+          Pedido sugerido da semana
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Base: vendas dos últimos {dados?.periodo_dias ?? 7} dias × fichas − saldo atual. Você
+          ajusta e confirma (o app não pede sozinho).
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            size="small"
+            label="Crescimento %"
+            value={crescimento}
+            onChange={(e) => setCrescimento(e.target.value)}
+            sx={{ width: 120 }}
+          />
+          <TextField
+            size="small"
+            label="Dias base"
+            value={dias}
+            onChange={(e) => setDias(e.target.value)}
+            sx={{ width: 100 }}
+          />
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
+            Recalcular
+          </Button>
+          <Button variant="contained" onClick={confirmar} disabled={!itens.length}>
+            Copiar pedido ajustado
+          </Button>
+        </Box>
+      </Paper>
+
+      <Paper sx={tablePaperSx}>
+        <TableContainer sx={tableContainerSx}>
+          <Table size="small" stickyHeader sx={tableSx}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Código</TableCell>
+                <TableCell>Insumo</TableCell>
+                <TableCell align="right">Consumo proj.</TableCell>
+                <TableCell align="right">Saldo</TableCell>
+                <TableCell align="right">Sugerido</TableCell>
+                <TableCell align="right">Ajustado</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {itens.map((i, idx) => (
+                <TableRow key={i.codigo} hover>
+                  <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
+                  <TableCell>{i.descricao}</TableCell>
+                  <TableCell align="right">{fmtNum(i.consumo_projetado, 3)}</TableCell>
+                  <TableCell align="right">{fmtNum(i.saldo_atual, 3)}</TableCell>
+                  <TableCell align="right">{fmtNum(i.pedido_sugerido, 3)}</TableCell>
+                  <TableCell align="right" sx={{ minWidth: 110 }}>
+                    <TextField
+                      size="small"
+                      value={String(i.pedido_ajustado)}
+                      onChange={(e) => {
+                        const next = [...itens];
+                        next[idx] = {
+                          ...next[idx],
+                          pedido_ajustado: Number(String(e.target.value).replace(',', '.')) || 0,
+                        };
+                        setItens(next);
+                      }}
+                      inputProps={{ style: { textAlign: 'right' } }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!itens.length && (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                      Sem vendas recentes ou fichas para montar o pedido. Importe vendas e confira
+                      fichas.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Box>
+  );
+}
+
+function PainelSaldo({
+  idLoja,
+  onIrConferencia,
+}: {
+  idLoja: number;
+  onIrConferencia?: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
+  const [movs, setMovs] = useState<EstoqueMovimento[]>([]);
+  const [insumos, setInsumos] = useState<ProdutoEstoque[]>([]);
+  const [q, setQ] = useState('');
+  const [dlgCompra, setDlgCompra] = useState(false);
+  const [compraCodigo, setCompraCodigo] = useState('');
+  const [compraQtd, setCompraQtd] = useState('');
+  const [compraObs, setCompraObs] = useState('');
+  const [salvandoCompra, setSalvandoCompra] = useState(false);
+  const [dlgCusto, setDlgCusto] = useState(false);
+  const [custoCodigo, setCustoCodigo] = useState('');
+  const [custoPreco, setCustoPreco] = useState('');
+  const [custoUnd, setCustoUnd] = useState('1');
+  const [salvandoCusto, setSalvandoCusto] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [s, m, ins] = await Promise.all([
         api.estoqueSaldos(idLoja, q || undefined),
         api.estoqueMovimentos(idLoja, { limit: 80 }),
+        api.estoqueProdutos({ id_loja: idLoja, ativos: true }),
       ]);
       setSaldos(s);
       setMovs(m);
+      setInsumos(ins);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar saldos', 'error');
     } finally {
@@ -210,6 +539,63 @@ function PainelSaldo({ idLoja }: { idLoja: number }) {
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  const salvarCompra = async () => {
+    const qtde = Number(String(compraQtd).replace(',', '.'));
+    const cod = compraCodigo.trim();
+    if (!cod || !(qtde > 0)) {
+      showToast('Selecione o insumo e a quantidade', 'error');
+      return;
+    }
+    setSalvandoCompra(true);
+    try {
+      const r = await api.estoqueEntradas({
+        id_loja: idLoja,
+        observacao: compraObs.trim() || undefined,
+        itens: [{ codigo: cod, quantidade: qtde }],
+      });
+      showToast(`Compra registrada (${r.entradas.length} item)`, 'success');
+      setDlgCompra(false);
+      setCompraCodigo('');
+      setCompraQtd('');
+      setCompraObs('');
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao registrar compra', 'error');
+    } finally {
+      setSalvandoCompra(false);
+    }
+  };
+
+  const salvarCustoNf = async () => {
+    const cod = custoCodigo.trim();
+    const preco = Number(String(custoPreco).replace(',', '.'));
+    const und = Number(String(custoUnd).replace(',', '.'));
+    if (!cod || !(preco >= 0)) {
+      showToast('Informe insumo e preço da caixa na NF', 'error');
+      return;
+    }
+    setSalvandoCusto(true);
+    try {
+      await api.estoqueAtualizarCustoInsumo({
+        id_loja: idLoja,
+        codigo: cod,
+        preco_caixa: preco,
+        und_convertida: und > 0 ? und : undefined,
+        fonte: 'nf',
+      });
+      showToast('Custo da NF salvo — passa a contar no CMV', 'success');
+      setDlgCusto(false);
+      setCustoCodigo('');
+      setCustoPreco('');
+      setCustoUnd('1');
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar custo', 'error');
+    } finally {
+      setSalvandoCusto(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -232,11 +618,98 @@ function PainelSaldo({ idLoja }: { idLoja: number }) {
         <Button startIcon={<RefreshIcon />} onClick={() => void carregar()} size="small">
           Atualizar
         </Button>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => setDlgCompra(true)}
+        >
+          Registrar compra
+        </Button>
+        <Button size="small" variant="outlined" onClick={() => setDlgCusto(true)}>
+          Lançar custo NF
+        </Button>
+        {onIrConferencia && (
+          <Button size="small" variant="outlined" onClick={() => onIrConferencia()}>
+            Ir para conferência
+          </Button>
+        )}
       </Box>
+
+      <Dialog open={dlgCompra} onClose={() => !salvandoCompra && setDlgCompra(false)} fullWidth maxWidth="sm">
+        <DialogTitleWithIcon icon={<AddIcon />} title="Registrar compra / entrega" />
+        <DialogContent sx={dialogContentSx}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Quantidade que chegou. Preço de CMV só entra depois via nota fiscal (aba Estoque →
+            custo NF, em breve neste fluxo).
+          </Typography>
+          <EstoqueInsumoAutocomplete
+            produtos={insumos}
+            value={compraCodigo}
+            onChange={setCompraCodigo}
+            label="Insumo"
+          />
+          <TextField
+            label="Quantidade (unidade de contagem)"
+            value={compraQtd}
+            onChange={(e) => setCompraQtd(e.target.value)}
+            {...dialogFieldProps}
+          />
+          <TextField
+            label="Observação (opcional)"
+            value={compraObs}
+            onChange={(e) => setCompraObs(e.target.value)}
+            {...dialogFieldProps}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDlgCompra(false)} disabled={salvandoCompra}>
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={() => void salvarCompra()} disabled={salvandoCompra}>
+            {salvandoCompra ? 'Salvando…' : 'Confirmar entrada'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={dlgCusto} onClose={() => !salvandoCusto && setDlgCusto(false)} fullWidth maxWidth="sm">
+        <DialogTitleWithIcon icon={<AddIcon />} title="Custo da nota fiscal" />
+        <DialogContent sx={dialogContentSx}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Digite o preço da caixa conforme a NF. Só assim o CMV em R$ passa a contar este insumo.
+          </Typography>
+          <EstoqueInsumoAutocomplete
+            produtos={insumos}
+            value={custoCodigo}
+            onChange={setCustoCodigo}
+            label="Insumo"
+          />
+          <TextField
+            label="Preço da caixa (NF)"
+            value={custoPreco}
+            onChange={(e) => setCustoPreco(e.target.value)}
+            {...dialogFieldProps}
+          />
+          <TextField
+            label="Unidades / kg por caixa"
+            value={custoUnd}
+            onChange={(e) => setCustoUnd(e.target.value)}
+            {...dialogFieldProps}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDlgCusto(false)} disabled={salvandoCusto}>
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={() => void salvarCustoNf()} disabled={salvandoCusto}>
+            {salvandoCusto ? 'Salvando…' : 'Salvar custo NF'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Paper sx={tablePaperSx}>
         <Typography variant="subtitle2" sx={{ px: 2, pt: 1.5, fontWeight: 700 }}>
-          Saldo atual
+          Saldo atual (quantidade)
         </Typography>
         <TableContainer sx={{ ...tableContainerSx, maxHeight: 360 }}>
           <Table size="small" stickyHeader sx={tableSx}>
@@ -245,8 +718,6 @@ function PainelSaldo({ idLoja }: { idLoja: number }) {
                 <TableCell>Código</TableCell>
                 <TableCell>Descrição</TableCell>
                 <TableCell align="right">Qtd</TableCell>
-                <TableCell align="right">Valor und.</TableCell>
-                <TableCell align="right">Total</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -255,15 +726,13 @@ function PainelSaldo({ idLoja }: { idLoja: number }) {
                   <TableCell>{s.codigo}</TableCell>
                   <TableCell>{s.descricao}</TableCell>
                   <TableCell align="right">{fmtNum(s.quantidade, 3)}</TableCell>
-                  <TableCell align="right">{fmtMoeda(s.valor_unidade)}</TableCell>
-                  <TableCell align="right">{fmtMoeda(s.valor_total)}</TableCell>
                 </TableRow>
               ))}
               {!saldos.length && (
                 <TableRow>
-                  <TableCell colSpan={5}>
+                  <TableCell colSpan={3}>
                     <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
-                      Nenhum saldo. Finalize uma contagem ou importe vendas com ficha.
+                      Nenhum saldo. Finalize uma contagem ou registre compra.
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -414,6 +883,9 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }} gutterBottom>
           Sync BK Office / Importar Excel
         </Typography>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+          CMV fica na aba CMV (só com custo de nota fiscal). Aqui é só trazer a venda.
+        </Typography>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <FiltroIntervaloDatasFrota
             dataInicio={dataIni}
@@ -524,8 +996,11 @@ function PainelProdutos({
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<ProdutoVendaEstoque[]>([]);
   const [busca, setBusca] = useState('');
+  /** Produtos = venda+ficha | Insumos = o que se conta no estoque físico */
+  const [abaCadastro, setAbaCadastro] = useState<'produtos' | 'insumos'>('produtos');
   const [filtroInsumo, setFiltroInsumo] = useState<'todos' | 'com' | 'sem' | 'unitario'>('todos');
   const [open, setOpen] = useState(false);
+  const [carregandoFicha, setCarregandoFicha] = useState(false);
   const [openPicker, setOpenPicker] = useState(false);
   const [excluirAlvo, setExcluirAlvo] = useState<ProdutoVendaEstoque | null>(null);
   const [excluindo, setExcluindo] = useState(false);
@@ -559,16 +1034,8 @@ function PainelProdutos({
   const insumoPorCodigo = (codigoInsumo: string) =>
     insumos.find((x) => x.codigo.toUpperCase() === codigoInsumo.trim().toUpperCase());
 
-  const custoItemForm = (i: ItemFichaForm) => {
-    if (!i.codigo_insumo.trim()) return 0;
-    const qtd = Number(String(i.quantidade).replace(',', '.')) || 0;
-    return custoLinhaReceita(qtd, i.unidade_receita || 'und', insumoPorCodigo(i.codigo_insumo));
-  };
-
   const rotuloUnidade = (u: string) =>
     UNIDADES_RECEITA.find((x) => x.value === (u || 'und').toLowerCase())?.label || u || 'Und';
-
-  const valorInsumosTotal = itens.reduce((acc, i) => acc + custoItemForm(i), 0);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -599,33 +1066,51 @@ function PainelProdutos({
   };
 
   const abrirProduto = async (p: ProdutoVendaEstoque) => {
+    // Abre na hora (a API às vezes demora ~1s e parecia que “não abria”)
+    const fallbackItens =
+      (p.insumos_ficha || []).length > 0
+        ? (p.insumos_ficha || []).map((i) => ({
+            codigo_insumo: i.codigo_insumo,
+            quantidade: String(i.quantidade),
+            unidade_receita: i.unidade_receita || 'und',
+          }))
+        : [itemVazio()];
+
     setCodigo(p.codigo);
     setDescricao(p.descricao || '');
     setAtivo(p.ativo !== false);
     setRequerFicha(p.requer_ficha !== false);
-    setIdFicha(p.id_ficha ?? null);
+    setIdFicha(p.id_ficha != null ? Number(p.id_ficha) : null);
     setValorVenda(p.valor_venda != null ? Number(p.valor_venda) : null);
-    if (p.requer_ficha !== false && p.id_ficha) {
-      try {
-        const det: FichaTecnicaDetalhe = await api.estoqueFicha(p.id_ficha);
-        setDescricao(det.descricao || p.descricao || '');
-        setItens(
-          det.itens.length
-            ? det.itens.map((i) => ({
-                codigo_insumo: i.codigo_insumo,
-                quantidade: String(i.quantidade),
-                unidade_receita: i.unidade_receita || 'und',
-              }))
-            : [itemVazio()],
-        );
-      } catch (e) {
-        showToast(e instanceof Error ? e.message : 'Erro ao abrir produto', 'error');
-        return;
-      }
-    } else {
-      setItens([itemVazio()]);
-    }
+    setItens(fallbackItens);
     setOpen(true);
+
+    if (p.requer_ficha === false || !p.id_ficha) return;
+
+    setCarregandoFicha(true);
+    try {
+      const det: FichaTecnicaDetalhe = await api.estoqueFicha(Number(p.id_ficha));
+      setDescricao(det.descricao || p.descricao || '');
+      setIdFicha(det.id_ficha);
+      setItens(
+        det.itens?.length
+          ? det.itens.map((i) => ({
+              codigo_insumo: i.codigo_insumo,
+              quantidade: String(i.quantidade),
+              unidade_receita: i.unidade_receita || 'und',
+            }))
+          : fallbackItens,
+      );
+    } catch (e) {
+      showToast(
+        e instanceof Error
+          ? `${e.message} — mostrando composição da lista`
+          : 'Não deu pra recarregar a ficha; mostrando o que já estava na lista',
+        'warning',
+      );
+    } finally {
+      setCarregandoFicha(false);
+    }
   };
 
   const pedirExcluirProduto = (p: ProdutoVendaEstoque) => {
@@ -762,8 +1247,6 @@ function PainelProdutos({
   const isUnitario = (p: ProdutoVendaEstoque) => p.requer_ficha === false;
   const temFicha = (p: ProdutoVendaEstoque) => !isUnitario(p) && !!p.id_ficha && (p.itens_ficha ?? 0) > 0;
   const faltaFicha = (p: ProdutoVendaEstoque) => !isUnitario(p) && !temFicha(p);
-  const comInsumos = lista.filter(temFicha).length;
-  const unitarios = lista.filter(isUnitario).length;
   const semInsumos = lista.filter(faltaFicha).length;
   const qBusca = busca.trim().toLowerCase();
   const listaFiltrada = lista.filter((p) => {
@@ -776,9 +1259,33 @@ function PainelProdutos({
       (p.descricao || '').toLowerCase().includes(qBusca)
     );
   });
+  const insumosFiltrados = insumos
+    .filter((i) => i.ativo !== false)
+    .filter((i) => {
+      if (!qBusca) return true;
+      return (
+        i.codigo.toLowerCase().includes(qBusca) ||
+        (i.descricao || '').toLowerCase().includes(qBusca)
+      );
+    });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Chip
+          label={`Produtos (${lista.length})`}
+          color={abaCadastro === 'produtos' ? 'primary' : 'default'}
+          onClick={() => setAbaCadastro('produtos')}
+          sx={{ fontWeight: 700 }}
+        />
+        <Chip
+          label={`Insumos (${insumos.filter((i) => i.ativo !== false).length})`}
+          color={abaCadastro === 'insumos' ? 'primary' : 'default'}
+          onClick={() => setAbaCadastro('insumos')}
+          sx={{ fontWeight: 700 }}
+        />
+      </Box>
+
       <Box
         sx={{
           display: 'flex',
@@ -788,44 +1295,79 @@ function PainelProdutos({
           justifyContent: 'space-between',
         }}
       >
-        <Typography variant="body2" color="text.secondary" sx={{ flex: '1 1 260px' }}>
-          Produtos de venda desta loja (Whopper, menus…). Abra um item para ver e editar os insumos
-          que ele consome.
-        </Typography>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
             size="small"
-            label="Buscar produto"
+            label={abaCadastro === 'produtos' ? 'Buscar produto' : 'Buscar insumo'}
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             sx={{ minWidth: 200 }}
           />
+          {abaCadastro === 'produtos' && (
+            <>
+              <Chip
+                size="small"
+                label={`Todos (${lista.length})`}
+                color={filtroInsumo === 'todos' ? 'primary' : 'default'}
+                onClick={() => setFiltroInsumo('todos')}
+                sx={{ fontWeight: 600 }}
+              />
+              <Chip
+                size="small"
+                color={filtroInsumo === 'sem' ? 'warning' : 'default'}
+                label={`Falta ficha (${semInsumos})`}
+                onClick={() => setFiltroInsumo(filtroInsumo === 'sem' ? 'todos' : 'sem')}
+                sx={{ fontWeight: 700 }}
+              />
+            </>
+          )}
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
             Atualizar
           </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => abrirNovo()}>
-            Novo produto
-          </Button>
+          {abaCadastro === 'produtos' && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => abrirNovo()}>
+              Novo produto
+            </Button>
+          )}
         </Box>
       </Box>
 
+      {abaCadastro === 'insumos' ? (
+        <Paper sx={tablePaperSx}>
+          <TableContainer sx={tableContainerSx}>
+            <Table size="small" stickyHeader sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Código</TableCell>
+                  <TableCell>Descrição (insumo)</TableCell>
+                  <TableCell align="center">Unidade</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {insumosFiltrados.map((i) => (
+                  <TableRow key={i.id_insumo ?? i.id_produto} hover>
+                    <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
+                    <TableCell>{i.descricao}</TableCell>
+                    <TableCell align="center">
+                      {String(i.unidade_contagem || 'UND').toUpperCase()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!insumosFiltrados.length && (
+                  <TableRow>
+                    <TableCell colSpan={3}>
+                      <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+                        Nenhum insumo nesta loja. A conferência usa esta lista para contar.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      ) : (
       <Paper sx={tablePaperSx}>
-        <Tabs
-          value={filtroInsumo}
-          onChange={(_, v: 'todos' | 'com' | 'sem' | 'unitario') => setFiltroInsumo(v)}
-          sx={{
-            minHeight: 40,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            px: 1,
-            '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 600 },
-          }}
-        >
-          <Tab value="todos" label={`Todos (${lista.length})`} />
-          <Tab value="com" label={`Com ficha (${comInsumos})`} />
-          <Tab value="unitario" label={`Unitários (${unitarios})`} />
-          <Tab value="sem" label={`Falta ficha (${semInsumos})`} />
-        </Tabs>
         <TableContainer sx={tableContainerSx}>
           <Table
             size="small"
@@ -838,21 +1380,18 @@ function PainelProdutos({
           >
             <TableHead>
               <TableRow>
-                <TableCell sx={{ width: '10%' }}>Código</TableCell>
-                <TableCell sx={{ width: '28%' }}>Produto</TableCell>
-                <TableCell align="center" sx={{ width: '10%' }}>
-                  Insumos
+                <TableCell sx={{ width: '12%' }}>Código</TableCell>
+                <TableCell sx={{ width: '36%' }}>Produto</TableCell>
+                <TableCell align="center" sx={{ width: '14%' }}>
+                  Composição
                 </TableCell>
-                <TableCell align="right" sx={{ width: '12%' }}>
+                <TableCell align="right" sx={{ width: '14%' }}>
                   Valor venda
-                </TableCell>
-                <TableCell align="right" sx={{ width: '12%' }}>
-                  Valor insumos
                 </TableCell>
                 <TableCell align="center" sx={{ width: '12%' }}>
                   Status
                 </TableCell>
-                <TableCell align="right" sx={{ width: '10%' }} />
+                <TableCell align="right" sx={{ width: '12%' }} />
               </TableRow>
             </TableHead>
             <TableBody>
@@ -923,13 +1462,6 @@ function PainelProdutos({
                                         }`
                                       : ''}{' '}
                                     × {nomeInsumo(i.codigo_insumo)}
-                                    {i.custo_linha != null && Number(i.custo_linha) > 0
-                                      ? ` (${fmtMoeda(Number(i.custo_linha))})`
-                                      : i.valor_unidade != null &&
-                                          Number(i.valor_unidade) > 0 &&
-                                          i.qtde_estoque != null
-                                        ? ` (${fmtMoeda(Number(i.qtde_estoque) * Number(i.valor_unidade))})`
-                                        : ''}
                                   </Typography>
                                 ))
                               ) : (
@@ -970,16 +1502,6 @@ function PainelProdutos({
                         ? fmtMoeda(p.valor_venda)
                         : '—'}
                     </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
-                    >
-                      {comFicha && Number(p.valor_insumos) > 0
-                        ? fmtMoeda(p.valor_insumos)
-                        : comFicha
-                          ? fmtMoeda(0)
-                          : '—'}
-                    </TableCell>
                     <TableCell align="center">
                       <Chip
                         size="small"
@@ -1009,13 +1531,11 @@ function PainelProdutos({
               })}
               {!listaFiltrada.length && (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={6}>
                     <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
-                      {filtroInsumo === 'com'
-                        ? 'Nenhum produto com insumos nesta loja.'
-                        : filtroInsumo === 'sem'
-                          ? 'Nenhum produto sem insumos nesta loja.'
-                          : 'Nenhum produto listado. Cadastre um novo ou importe vendas para surgir o código BK.'}
+                      {filtroInsumo === 'sem'
+                        ? 'Nenhum produto sem ficha nesta loja.'
+                        : 'Nenhum produto listado. Cadastre um novo ou importe vendas para surgir o código BK.'}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -1024,18 +1544,31 @@ function PainelProdutos({
           </Table>
         </TableContainer>
       </Paper>
+      )}
 
       <Dialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => !carregandoFicha && setOpen(false)}
         fullWidth
         maxWidth="md"
-        slotProps={{ paper: { sx: { maxWidth: 720 } } }}
+        slotProps={{
+          root: { sx: { zIndex: 15000 } },
+          paper: { sx: { maxWidth: 720, zIndex: 15001 } },
+        }}
       >
         <DialogTitleWithIcon plainIcon divider icon={<MenuBookOutlinedIcon />}>
-          {idFicha ? 'Editar produto' : 'Novo produto'}
+          {idFicha ? 'Ficha do produto' : 'Novo produto'}
+          {carregandoFicha ? ' …' : ''}
         </DialogTitleWithIcon>
-        <DialogContent sx={dialogContentSx}>
+        <DialogContent sx={{ ...dialogContentSx, overflow: 'auto', maxHeight: '70vh' }}>
+          {carregandoFicha && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <CircularProgress size={18} />
+              <Typography variant="caption" color="text.secondary">
+                Carregando composição…
+              </Typography>
+            </Box>
+          )}
           <Box
             sx={{
               display: 'flex',
@@ -1080,42 +1613,10 @@ function PainelProdutos({
               }}
               sx={{ flex: 1, minWidth: { xs: '100%', sm: 0 } }}
             />
-            <TextField
-              {...dialogFieldProps}
-              label="Valor total insumos"
-              value={valorInsumosTotal > 0 ? fmtMoeda(valorInsumosTotal) : fmtMoeda(0)}
-              slotProps={{
-                ...dialogFieldProps.slotProps,
-                input: { readOnly: true },
-              }}
-              sx={{ flex: 1, minWidth: { xs: '100%', sm: 0 } }}
-            />
-            <TextField
-              {...dialogFieldProps}
-              label="Lucro"
-              value={
-                valorVenda != null && valorVenda > 0
-                  ? fmtMoeda(valorVenda - valorInsumosTotal)
-                  : '—'
-              }
-              slotProps={{
-                ...dialogFieldProps.slotProps,
-                input: { readOnly: true },
-              }}
-              sx={{
-                flex: 1,
-                minWidth: { xs: '100%', sm: 0 },
-                '& .MuiOutlinedInput-input': {
-                  color:
-                    valorVenda != null && valorVenda > 0
-                      ? valorVenda - valorInsumosTotal >= 0
-                        ? 'success.main'
-                        : 'error.main'
-                      : undefined,
-                  fontWeight: 600,
-                },
-              }}
-            />
+            <Typography variant="caption" color="text.secondary" sx={{ flex: 2, pt: 1 }}>
+              Custo dos insumos não aparece aqui — só após lançar nota fiscal (evita preço errado de
+              planilha).
+            </Typography>
           </Box>
           <FormControlLabel
             sx={{ mt: 0.5, alignItems: 'flex-start', ml: 0 }}

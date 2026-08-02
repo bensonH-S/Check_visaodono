@@ -680,6 +680,11 @@
   align-items: end;
 }
 
+.ck-estoque .ck-estoque__row--tres {
+  grid-template-columns: 1fr 1fr 1fr;
+  margin-top: 8px;
+}
+
 .ck-estoque .ck-estoque__field label {
   display: block;
   font-size: 0.65rem;

@@ -58,7 +58,7 @@ function auditoriaBaseRedirect() {
           return
         }
 
-        if (!raw.startsWith(APP_BASE) && !isAsset) {
+        if (!raw.startsWith(APP_BASE) && !raw.startsWith('/ciga') && !isAsset) {
           const qs = req.url?.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''
           res.writeHead(302, { Location: `${APP_BASE}${raw}${qs}` })
           res.end()
@@ -148,6 +148,10 @@ export default defineConfig({
     allowedHosts: true,
     open: `${APP_BASE}/`,
     proxy: {
+      '/ciga': {
+        target: `http://localhost:${DEV_API_PORT}`,
+        changeOrigin: true,
+      },
       [`${APP_BASE}/api`]: {
         target: `http://localhost:${DEV_API_PORT}`,
         changeOrigin: true,

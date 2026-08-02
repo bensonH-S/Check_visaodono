@@ -9,6 +9,10 @@ import {
   processarVenda,
   lancarBreak,
   upsertProdutoVenda,
+  registrarEntradas,
+  calcularCmvTeorico,
+  calcularPedidoSugerido,
+  atualizarCustoInsumo,
 } from '../services/estoqueMotor.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/syncVendas.js';
@@ -726,6 +730,108 @@ router.post('/break', permBreak, async (req, res, next) => {
       descricao: `Break #${result.break.id_break} loja ${idLoja}`,
     });
     res.status(201).json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+// ── Compras (entrada) + CMV teórico ────────────────────────────────────────
+
+router.post('/entradas', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
+    if (!itens.length) return res.status(400).json({ error: 'Informe os itens da compra' });
+
+    const result = await registrarEntradas({
+      id_loja: idLoja,
+      itens,
+      observacao: req.body?.observacao != null ? String(req.body.observacao).trim() || null : null,
+      criado_por: userId(req),
+      referencia: req.body?.referencia != null ? String(req.body.referencia).trim() || null : null,
+    });
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'criar',
+      entidade: 'estoque_entrada',
+      descricao: `Compra/entrada loja ${idLoja}: ${result.entradas.length} item(ns)`,
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.get('/cmv/teorico', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const de = req.query.de ? String(req.query.de).slice(0, 10) : null;
+    const ate = req.query.ate ? String(req.query.ate).slice(0, 10) : null;
+    const meta = req.query.meta != null ? Number(req.query.meta) : 0.38;
+
+    const result = await calcularCmvTeorico(idLoja, { de, ate, meta });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/pedido-sugerido', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const crescimento =
+      req.query.crescimento != null ? Number(req.query.crescimento) : 0.05;
+    const dias = req.query.dias != null ? Number(req.query.dias) : 7;
+    const estoque_seguranca_dias =
+      req.query.estoque_seguranca_dias != null
+        ? Number(req.query.estoque_seguranca_dias)
+        : 1;
+
+    const result = await calcularPedidoSugerido(idLoja, {
+      crescimento,
+      dias,
+      estoque_seguranca_dias,
+    });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/insumos/custo', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await atualizarCustoInsumo(idLoja, {
+      id_insumo: req.body?.id_insumo,
+      codigo: req.body?.codigo,
+      preco_caixa: req.body?.preco_caixa,
+      und_convertida: req.body?.und_convertida,
+      fonte: req.body?.fonte || 'nf',
+    });
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'atualizar',
+      entidade: 'insumo_custo',
+      idReferencia: result.id_insumo,
+      descricao: `Custo ${result.custo_fonte} ${result.codigo} = ${result.preco_caixa}`,
+    });
+    res.json(result);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);

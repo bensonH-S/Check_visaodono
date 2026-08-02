@@ -77,6 +77,7 @@ const APP_VERSION_AT_BOOT = resolveAppVersion();
 const APP_BUILD_ID_AT_BOOT = resolveAppBuildId();
 
 const APP_BASE_PATH = '/auditoria';
+const CIGA_BASE_PATH = '/ciga';
 const PROD_PORT = 3007;
 const DEV_PORT = 5000;
 const isProd = process.argv.includes('--production');
@@ -285,6 +286,27 @@ app.use((err, req, res, _next) => {
   }
   res.status(500).json({ error: err.message || 'Erro interno' });
 });
+
+const cigaDir = path.join(__dirname, 'static', 'ciga');
+const cigaIndex = path.join(cigaDir, 'index.html');
+if (fs.existsSync(cigaIndex)) {
+  app.get(CIGA_BASE_PATH, (_req, res) => {
+    res.redirect(302, `${CIGA_BASE_PATH}/`);
+  });
+  app.use(
+    `${CIGA_BASE_PATH}/`,
+    express.static(cigaDir, {
+      index: 'index.html',
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        }
+      },
+    })
+  );
+  console.log(`[server] CIGA ${CIGA_BASE_PATH}/ → ${cigaDir}`);
+  logger.info('server', 'CIGA estática configurada', { cigaDir, base: CIGA_BASE_PATH });
+}
 
 if (SERVE_WEB) {
   const dist = path.join(__dirname, 'frontend', 'dist');

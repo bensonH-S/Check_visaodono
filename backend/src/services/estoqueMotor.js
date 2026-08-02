@@ -74,6 +74,346 @@ export async function obterSaldo(idLoja, idInsumo, client = pool) {
   return rows.length ? num(rows[0].quantidade) : 0;
 }
 
+/**
+ * Registra compras/entregas (entrada de estoque).
+ * itens: [{ id_insumo? | codigo?, quantidade, observacao? }]
+ * quantidade > 0 (unidades de contagem do insumo).
+ */
+export async function registrarEntradas({
+  id_loja,
+  itens,
+  observacao = null,
+  criado_por = null,
+  referencia = null,
+} = {}) {
+  const idLoja = Number(id_loja);
+  const lista = Array.isArray(itens) ? itens : [];
+  if (!idLoja || !lista.length) {
+    throw Object.assign(new Error('Informe a loja e os itens da compra'), { status: 400 });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const baixas = [];
+    const erros = [];
+
+    for (const raw of lista) {
+      const qtde = num(raw.quantidade ?? raw.qtde);
+      if (qtde <= 0) {
+        erros.push(`Quantidade inválida: ${raw.codigo || raw.id_insumo}`);
+        continue;
+      }
+      let idInsumo = Number(raw.id_insumo) || null;
+      let codigo = raw.codigo != null ? String(raw.codigo).trim() : '';
+      if (!idInsumo && codigo) {
+        const ins = await resolverInsumoPorCodigo(client, idLoja, codigo);
+        if (!ins) {
+          erros.push(`Insumo ${codigo} não cadastrado`);
+          continue;
+        }
+        idInsumo = ins.id_insumo;
+        codigo = ins.codigo;
+      }
+      if (!idInsumo) {
+        erros.push('Item sem id_insumo/codigo');
+        continue;
+      }
+      const mov = await aplicarMovimento(client, {
+        id_loja: idLoja,
+        id_insumo: idInsumo,
+        tipo: 'entrada',
+        quantidade: qtde,
+        referencia_tipo: 'compra',
+        referencia_id: referencia || null,
+        observacao: raw.observacao || observacao || 'Entrada / compra',
+        criado_por,
+      });
+      baixas.push({
+        id_insumo: idInsumo,
+        codigo,
+        quantidade: qtde,
+        saldo_apos: mov.saldo_apos,
+        id_movimento: mov.id_movimento,
+      });
+    }
+
+    if (!baixas.length) {
+      await client.query('ROLLBACK');
+      throw Object.assign(new Error(erros[0] || 'Nenhum item válido'), { status: 400 });
+    }
+
+    await client.query('COMMIT');
+    return { ok: erros.length === 0, entradas: baixas, erros };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * CMV teórico no período.
+ * R$ só usa insumos com custo_fonte IN ('nf','manual') — nunca preço de planilha.
+ * Meta % só é “confiável” se cobertura_custo_pct >= 80.
+ */
+export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta = 0.38 } = {}) {
+  const params = [idLoja];
+  let filtro = '';
+  if (de) {
+    params.push(de);
+    filtro += ` AND v.data_venda >= $${params.length}::date`;
+  }
+  if (ate) {
+    params.push(ate);
+    filtro += ` AND v.data_venda <= $${params.length}::date`;
+  }
+
+  const { rows } = await pool.query(
+    `
+    WITH linhas AS (
+      SELECT
+        vi.id_item,
+        vi.qtde,
+        vi.venda_liquida,
+        vi.sem_ficha,
+        v.id_loja,
+        COALESCE(vi.id_produto, p.id_produto) AS id_produto,
+        COALESCE(p.requer_ficha, TRUE) AS requer_ficha,
+        EXISTS (
+          SELECT 1 FROM ficha_tecnica f
+          WHERE f.id_produto = COALESCE(vi.id_produto, p.id_produto) AND f.ativo
+        ) AS tem_ficha
+      FROM estoque_vendas v
+      JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
+      LEFT JOIN produtos p ON p.id_loja = v.id_loja AND p.codigo = vi.codigo
+      WHERE v.id_loja = $1 ${filtro}
+    ),
+    custos AS (
+      SELECT
+        l.id_item,
+        l.qtde,
+        l.venda_liquida,
+        l.sem_ficha,
+        l.requer_ficha,
+        l.tem_ficha,
+        COALESCE((
+          SELECT SUM(
+            COALESCE(fi.qtde_estoque, fi.quantidade) *
+            CASE WHEN ins.custo_fonte IN ('nf', 'manual') THEN COALESCE(ins.valor_unidade, 0) ELSE 0 END
+          )
+          FROM ficha_tecnica f
+          JOIN ficha_tecnica_itens fi ON fi.id_ficha = f.id_ficha
+          LEFT JOIN insumos ins
+            ON ins.id_loja = l.id_loja AND UPPER(ins.codigo) = UPPER(fi.codigo_insumo)
+          WHERE f.id_produto = l.id_produto AND f.ativo
+        ), 0) AS custo_unit_valido,
+        COALESCE((
+          SELECT COUNT(*)::int
+          FROM ficha_tecnica f
+          JOIN ficha_tecnica_itens fi ON fi.id_ficha = f.id_ficha
+          LEFT JOIN insumos ins
+            ON ins.id_loja = l.id_loja AND UPPER(ins.codigo) = UPPER(fi.codigo_insumo)
+          WHERE f.id_produto = l.id_produto AND f.ativo
+            AND (ins.id_insumo IS NULL OR ins.custo_fonte IS NULL OR ins.custo_fonte NOT IN ('nf', 'manual'))
+        ), 0) AS insumos_sem_custo_nf
+      FROM linhas l
+    )
+    SELECT
+      COALESCE(SUM(venda_liquida), 0)::numeric AS venda_liquida,
+      COALESCE(SUM(qtde * custo_unit_valido), 0)::numeric AS custo_teorico,
+      COUNT(*)::int AS itens,
+      COUNT(*) FILTER (WHERE sem_ficha IS TRUE OR (requer_ficha AND NOT tem_ficha))::int AS itens_sem_ficha,
+      COUNT(*) FILTER (WHERE tem_ficha AND insumos_sem_custo_nf = 0 AND custo_unit_valido > 0)::int AS itens_com_custo_completo,
+      COUNT(*) FILTER (WHERE tem_ficha)::int AS itens_com_ficha
+    FROM custos
+    `,
+    params,
+  );
+
+  const { rows: diasRows } = await pool.query(
+    `SELECT COUNT(DISTINCT data_venda)::int AS dias_venda
+     FROM estoque_vendas v WHERE v.id_loja = $1 ${filtro}`,
+    params,
+  );
+
+  const venda = num(rows[0]?.venda_liquida);
+  const custo = num(rows[0]?.custo_teorico);
+  const itens = rows[0]?.itens || 0;
+  const comCusto = rows[0]?.itens_com_custo_completo || 0;
+  const comFicha = rows[0]?.itens_com_ficha || 0;
+  const cobertura = comFicha > 0 ? (comCusto / comFicha) * 100 : 0;
+  const metaN = num(meta, 0.38);
+  const confiavel = cobertura >= 80 && venda > 0 && custo > 0;
+  const pct = confiavel ? custo / venda : null;
+
+  return {
+    id_loja: idLoja,
+    de: de || null,
+    ate: ate || null,
+    venda_liquida: Math.round(venda * 100) / 100,
+    custo_teorico: Math.round(custo * 100) / 100,
+    cmv_teorico_pct: pct != null ? Math.round(pct * 10000) / 100 : null,
+    meta_pct: Math.round(metaN * 10000) / 100,
+    gap_pp: pct != null ? Math.round((pct - metaN) * 10000) / 100 : null,
+    gap_reais:
+      pct != null ? Math.round((custo - venda * metaN) * 100) / 100 : null,
+    itens,
+    itens_sem_ficha: rows[0]?.itens_sem_ficha || 0,
+    itens_com_ficha: comFicha,
+    itens_com_custo_completo: comCusto,
+    cobertura_custo_pct: Math.round(cobertura * 10) / 10,
+    cmv_confiavel: confiavel,
+    dias_venda: diasRows[0]?.dias_venda || 0,
+    aviso: !confiavel
+      ? 'CMV em R$ só fica confiável com custo de nota fiscal nos insumos (cobertura ≥ 80%). Ficha (quantidade) já conta; preço da planilha não.'
+      : null,
+  };
+}
+
+/**
+ * Pedido sugerido: vendas da semana anterior (mesmo intervalo DOW) × crescimento,
+ * explode ficha → insumos, menos saldo atual.
+ */
+export async function calcularPedidoSugerido(
+  idLoja,
+  { crescimento = 0.05, dias = 7, estoque_seguranca_dias = 1 } = {},
+) {
+  const id = Number(idLoja);
+  const cres = Number(crescimento);
+  const nDias = Math.min(Math.max(Number(dias) || 7, 1), 31);
+  const segDias = Math.max(Number(estoque_seguranca_dias) || 0, 0);
+
+  const { rows: vendas } = await pool.query(
+    `
+    SELECT vi.codigo, MAX(vi.descricao) AS descricao, SUM(vi.qtde)::numeric AS qtde
+    FROM estoque_vendas v
+    JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
+    WHERE v.id_loja = $1
+      AND v.data_venda >= (CURRENT_DATE - ($2::int || ' days')::interval)::date
+      AND v.data_venda < CURRENT_DATE
+    GROUP BY vi.codigo
+    `,
+    [id, nDias],
+  );
+
+  const consumo = new Map(); // codigo_insumo -> { descricao, qtde }
+  for (const v of vendas) {
+    const qProj = num(v.qtde) * (1 + (Number.isFinite(cres) ? cres : 0));
+    const { rows: ficha } = await pool.query(
+      `
+      SELECT fi.codigo_insumo, COALESCE(fi.qtde_estoque, fi.quantidade) AS q_est,
+             COALESCE(ins.descricao, fi.codigo_insumo) AS descricao,
+             COALESCE(s.quantidade, 0) AS saldo
+      FROM produtos p
+      JOIN ficha_tecnica f ON f.id_produto = p.id_produto AND f.ativo
+      JOIN ficha_tecnica_itens fi ON fi.id_ficha = f.id_ficha
+      LEFT JOIN insumos ins ON ins.id_loja = p.id_loja AND UPPER(ins.codigo) = UPPER(fi.codigo_insumo)
+      LEFT JOIN estoque_saldos s ON s.id_loja = p.id_loja AND s.id_insumo = ins.id_insumo
+      WHERE p.id_loja = $1 AND p.codigo = $2 AND p.ativo
+      `,
+      [id, String(v.codigo)],
+    );
+    // unitário: baixa 1:1 no próprio código se existir insumo
+    if (!ficha.length) {
+      const { rows: unit } = await pool.query(
+        `
+        SELECT i.codigo AS codigo_insumo, i.descricao, COALESCE(s.quantidade, 0) AS saldo
+        FROM produtos p
+        JOIN insumos i ON i.id_loja = p.id_loja AND UPPER(i.codigo) = UPPER(p.codigo)
+        LEFT JOIN estoque_saldos s ON s.id_loja = i.id_loja AND s.id_insumo = i.id_insumo
+        WHERE p.id_loja = $1 AND p.codigo = $2 AND p.ativo AND p.requer_ficha = FALSE
+        `,
+        [id, String(v.codigo)],
+      );
+      for (const u of unit) {
+        const prev = consumo.get(u.codigo_insumo) || {
+          codigo: u.codigo_insumo,
+          descricao: u.descricao,
+          consumo_projetado: 0,
+          saldo: num(u.saldo),
+        };
+        prev.consumo_projetado += qProj;
+        prev.saldo = num(u.saldo);
+        consumo.set(u.codigo_insumo, prev);
+      }
+      continue;
+    }
+    for (const f of ficha) {
+      const prev = consumo.get(f.codigo_insumo) || {
+        codigo: f.codigo_insumo,
+        descricao: f.descricao,
+        consumo_projetado: 0,
+        saldo: num(f.saldo),
+      };
+      prev.consumo_projetado += qProj * num(f.q_est);
+      prev.saldo = num(f.saldo);
+      consumo.set(f.codigo_insumo, prev);
+    }
+  }
+
+  const itens = [...consumo.values()]
+    .map((c) => {
+      const consumoDia = nDias > 0 ? c.consumo_projetado / nDias : 0;
+      const seguranca = consumoDia * segDias;
+      const sugerido = Math.max(0, c.consumo_projetado + seguranca - c.saldo);
+      return {
+        codigo: c.codigo,
+        descricao: c.descricao,
+        consumo_projetado: Math.round(c.consumo_projetado * 1000) / 1000,
+        estoque_seguranca: Math.round(seguranca * 1000) / 1000,
+        saldo_atual: Math.round(c.saldo * 1000) / 1000,
+        pedido_sugerido: Math.round(sugerido * 1000) / 1000,
+        pedido_ajustado: Math.round(sugerido * 1000) / 1000,
+      };
+    })
+    .filter((c) => c.consumo_projetado > 0)
+    .sort((a, b) => b.pedido_sugerido - a.pedido_sugerido);
+
+  return {
+    id_loja: id,
+    periodo_dias: nDias,
+    crescimento_pct: Math.round((Number.isFinite(cres) ? cres : 0) * 10000) / 100,
+    estoque_seguranca_dias: segDias,
+    produtos_base: vendas.length,
+    itens,
+  };
+}
+
+/** Atualiza custo do insumo a partir de NF (ou manual). */
+export async function atualizarCustoInsumo(
+  idLoja,
+  { id_insumo = null, codigo = null, preco_caixa, und_convertida = null, fonte = 'nf' } = {},
+) {
+  const fonteOk = fonte === 'manual' ? 'manual' : 'nf';
+  const preco = num(preco_caixa);
+  if (preco < 0) throw Object.assign(new Error('Preço inválido'), { status: 400 });
+  let id = Number(id_insumo) || null;
+  if (!id && codigo) {
+    const ins = await resolverInsumoPorCodigo(pool, idLoja, codigo);
+    if (!ins) throw Object.assign(new Error('Insumo não encontrado'), { status: 404 });
+    id = ins.id_insumo;
+  }
+  if (!id) throw Object.assign(new Error('Informe id_insumo ou codigo'), { status: 400 });
+
+  const und = und_convertida != null ? num(und_convertida) : null;
+  const { rows } = await pool.query(
+    `
+    UPDATE insumos SET
+      preco_caixa = $3,
+      und_convertida = CASE WHEN $4::numeric > 0 THEN $4::numeric ELSE und_convertida END,
+      custo_fonte = $5,
+      atualizado_em = NOW()
+    WHERE id_loja = $1 AND id_insumo = $2
+    RETURNING id_insumo, codigo, descricao, preco_caixa, und_convertida, valor_unidade, custo_fonte
+    `,
+    [idLoja, id, preco, und, fonteOk],
+  );
+  if (!rows.length) throw Object.assign(new Error('Insumo não encontrado'), { status: 404 });
+  return rows[0];
+}
+
 /** Resolve insumo de estoque por loja + código. */
 export async function resolverInsumoPorCodigo(client, idLoja, codigo) {
   const cod = String(codigo || '').trim().toUpperCase();
@@ -150,7 +490,7 @@ export async function carregarFichaPorCodigoVenda(client, codigoVenda, idLoja = 
   if (!pv.length || !pv[0].id_ficha) return null;
 
   const { rows: itens } = await client.query(
-    `SELECT id_item, codigo_insumo, quantidade, observacao
+    `SELECT id_item, codigo_insumo, quantidade, unidade_receita, qtde_estoque, observacao
      FROM ficha_tecnica_itens
      WHERE id_ficha = $1
      ORDER BY codigo_insumo`,

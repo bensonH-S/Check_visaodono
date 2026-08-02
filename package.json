@@ -79,7 +79,10 @@
     "install:all": "node scripts/install-requirements.js",
     "install:requirements": "node scripts/install-requirements.js",
     "postinstall": "node scripts/install-requirements.js --workspaces-only",
-    "requirements:sync": "node scripts/sync-requirements.js"
+    "requirements:sync": "node scripts/sync-requirements.js",
+    "estoque:import-cmv": "node backend/scripts/importar-receitas-cmv-planilha.mjs",
+    "estoque:import-terraco": "node backend/scripts/importar-contagem-terraco.mjs",
+    "migrate:estoque-terraco": "node backend/scripts/run-sql.js migrations/103_estoque_contagem_terraco.sql --db=dev --yes"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
