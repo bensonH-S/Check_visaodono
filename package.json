@@ -82,6 +82,7 @@
     "requirements:sync": "node scripts/sync-requirements.js",
     "estoque:import-cmv": "node backend/scripts/importar-receitas-cmv-planilha.mjs",
     "estoque:import-terraco": "node backend/scripts/importar-contagem-terraco.mjs",
+    "estoque:modelo-terraco": "node backend/scripts/definir-modelo-terraco.mjs",
     "migrate:estoque-terraco": "node backend/scripts/run-sql.js migrations/103_estoque_contagem_terraco.sql --db=dev --yes"
   },
   "dependencies": {

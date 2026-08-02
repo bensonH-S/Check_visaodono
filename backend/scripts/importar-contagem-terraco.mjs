@@ -3,7 +3,8 @@
  * para uma loja — unidades kg/und/L + fatores und_convertida/und_parcial.
  *
  * Uso:
- *   node backend/scripts/importar-contagem-terraco.mjs [--loja=7] [--arquivo=...] [--com-precos] [--db=dev]
+ *   node backend/scripts/importar-contagem-terraco.mjs [--loja=21] [--arquivo=...] [--com-precos] [--db=dev]
+ *   (loja 21 = BURGER KING TERRAÇO SHOPPING — modelo de contagem)
  */
 import fs from 'fs';
 import path from 'path';
@@ -28,7 +29,7 @@ const getArg = (k, def) => {
   const hit = args.find((a) => a.startsWith(`${k}=`));
   return hit ? hit.slice(k.length + 1) : def;
 };
-const ID_LOJA = Number(getArg('--loja', '7'));
+const ID_LOJA = Number(getArg('--loja', '21'));
 const comPrecos = args.includes('--com-precos');
 const dryRun = args.includes('--dry-run');
 const arquivo =

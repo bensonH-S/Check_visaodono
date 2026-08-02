@@ -1,5 +1,5 @@
 /**
- * Replica produtos + fichas + insumos da loja modelo BK 706/7 (id=7)
+ * Replica produtos + fichas + insumos da loja modelo TERRAÇO (id=21)
  * para lojas Burger King (exclui Popeyes, Delivery e GA).
  *
  *   node scripts/replicar-catalogo-bk-lojas.mjs --db=both --yes
@@ -9,7 +9,7 @@ import pg from 'pg';
 
 dotenv.config({ path: 'backend/.env', override: true });
 
-const LOJA_MODELO = 7;
+const LOJA_MODELO = 21; // BURGER KING - TERRAÇO SHOPPING
 const yes = process.argv.includes('--yes');
 const dbArg = (process.argv.find((a) => a.startsWith('--db=')) || '--db=both').slice(5);
 const databases =
@@ -48,7 +48,7 @@ async function replicar(dbName) {
      `,
     [LOJA_MODELO],
   );
-  console.log('Modelo loja 7:', modelo.rows[0]);
+  console.log('Modelo loja Terraço (21):', modelo.rows[0]);
 
   const { rows: alvos } = await c.query(
     `
