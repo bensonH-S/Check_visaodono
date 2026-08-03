@@ -35,12 +35,31 @@ function readVersionFromDist() {
   }
 }
 
+function readVersionFromPublic() {
+  const publicVersionFile = path.join(__dirname, 'frontend', 'public', 'app-version.json');
+  if (!fs.existsSync(publicVersionFile)) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(publicVersionFile, 'utf8'));
+    const buildId = String(parsed.buildId || '').trim();
+    if (!buildId || buildId === 'dev') return null;
+    return {
+      version: normalizeAppVersion(parsed.version),
+      buildId,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function resolveAppVersion() {
   const versionFile = path.join(__dirname, 'VERSION');
   if (fs.existsSync(versionFile)) {
     const fromFile = normalizeAppVersion(fs.readFileSync(versionFile, 'utf8'));
     if (fromFile !== 'dev') return fromFile;
   }
+
+  const fromPublic = readVersionFromPublic();
+  if (fromPublic?.version && fromPublic.version !== 'dev') return fromPublic.version;
 
   const fromDist = readVersionFromDist();
   if (fromDist.version !== 'dev') return fromDist.version;
@@ -59,8 +78,18 @@ function resolveAppVersion() {
 }
 
 function resolveAppBuildId() {
+  // Em dev o Vite embute frontend/public/app-version.json — priorizar isso
+  // evita banner eterno quando dist/ está desatualizado.
+  if (!process.argv.includes('--production')) {
+    const fromPublic = readVersionFromPublic();
+    if (fromPublic?.buildId) return fromPublic.buildId;
+  }
+
   const fromDist = readVersionFromDist();
   if (fromDist.buildId !== 'dev') return fromDist.buildId;
+
+  const fromPublic = readVersionFromPublic();
+  if (fromPublic?.buildId) return fromPublic.buildId;
 
   try {
     return execSync('git rev-parse --short HEAD', {

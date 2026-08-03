@@ -555,78 +555,81 @@ export default function FreelancersAprovacaoMobilePage() {
       </div>
 
       <div className="ck-visitas__sheet ck-freela__sheet--fill ck-visitas__anim ck-visitas__anim--4">
-          <div className="ck-freela__dates">
-            <div className="ck-freela__date-field">
-              <CampoDataFrota
-                label="De"
-                value={draftFrom}
-                onChange={setDraftFrom}
-                sx={campoDataMobileSx}
-              />
+          <div className="ck-freela__sticky">
+            <div className="ck-freela__dates">
+              <div className="ck-freela__date-field">
+                <CampoDataFrota
+                  label="De"
+                  value={draftFrom}
+                  onChange={setDraftFrom}
+                  sx={campoDataMobileSx}
+                />
+              </div>
+              <div className="ck-freela__date-field">
+                <CampoDataFrota
+                  label="Até"
+                  value={draftTo}
+                  onChange={setDraftTo}
+                  min={draftFrom || undefined}
+                  sx={campoDataMobileSx}
+                />
+              </div>
+              <button
+                type="button"
+                className={`ck-freela__buscar${datasPendentes ? ' is-on' : ''}`}
+                onClick={aplicarPeriodo}
+              >
+                Buscar
+              </button>
             </div>
-            <div className="ck-freela__date-field">
-              <CampoDataFrota
-                label="Até"
-                value={draftTo}
-                onChange={setDraftTo}
-                min={draftFrom || undefined}
-                sx={campoDataMobileSx}
-              />
-            </div>
-            <button
-              type="button"
-              className={`ck-freela__buscar${datasPendentes ? ' is-on' : ''}`}
-              onClick={aplicarPeriodo}
-            >
-              Buscar
-            </button>
-          </div>
 
-          <div className="ck-freela__filtro-row">
-            <div className="ck-visitas__seg" role="tablist" aria-label="Status">
-              {STATUS_TABS.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={status === t.id}
-                  className={`ck-visitas__seg-btn${status === t.id ? ' is-on' : ''}`}
-                  onClick={() => setStatus(t.id)}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="ck-freela__filtro-row">
+              <div className="ck-visitas__seg" role="tablist" aria-label="Status">
+                {STATUS_TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={status === t.id}
+                    className={`ck-visitas__seg-btn${status === t.id ? ' is-on' : ''}`}
+                    onClick={() => setStatus(t.id)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className={`ck-freela__filtro-btn${bkFiltro ? ' is-on' : ''}`}
+                aria-label="Filtrar por unidade"
+                onClick={() => setFiltroLojaAberto(true)}
+              >
+                <FilterListIcon sx={{ fontSize: 20 }} />
+              </button>
             </div>
-            <button
-              type="button"
-              className={`ck-freela__filtro-btn${bkFiltro ? ' is-on' : ''}`}
-              aria-label="Filtrar por unidade"
-              onClick={() => setFiltroLojaAberto(true)}
-            >
-              <FilterListIcon sx={{ fontSize: 20 }} />
-            </button>
-          </div>
 
-          {lojaAtiva ? (
-            <p className="ck-freela__loja-tag">
-              Unidade: {lojaAtiva.nome}
-              {lojaAtiva.bk_number ? ` · BK ${lojaAtiva.bk_number}` : ''}
+            {lojaAtiva ? (
+              <p className="ck-freela__loja-tag">
+                Unidade: {lojaAtiva.nome}
+                {lojaAtiva.bk_number ? ` · BK ${lojaAtiva.bk_number}` : ''}
+              </p>
+            ) : null}
+
+            <p className="ck-freela__loja-tag" style={{ marginTop: lojaAtiva ? -8 : undefined }}>
+              Período: {fmtData(dateFrom)} → {fmtData(dateTo)}
             </p>
-          ) : null}
 
-          <p className="ck-freela__loja-tag" style={{ marginTop: lojaAtiva ? -8 : undefined }}>
-            Período: {fmtData(dateFrom)} → {fmtData(dateTo)}
-          </p>
+            <button
+              type="button"
+              className="ck-freela__registrar"
+              onClick={() => void abrirRegistrar()}
+            >
+              <PersonAddAlt1OutlinedIcon sx={{ fontSize: 20 }} />
+              Lançar registro
+            </button>
+          </div>
 
-          <button
-            type="button"
-            className="ck-freela__registrar"
-            onClick={() => void abrirRegistrar()}
-          >
-            <PersonAddAlt1OutlinedIcon sx={{ fontSize: 20 }} />
-            Lançar registro
-          </button>
-
+          <div className="ck-freela__sheet-body">
           {err ? <p className="ck-visitas__erro">{err}</p> : null}
 
           {loading ? (
@@ -765,6 +768,7 @@ export default function FreelancersAprovacaoMobilePage() {
               );
             })
           )}
+          </div>
       </div>
 
       <Dialog open={filtroLojaAberto} onClose={() => setFiltroLojaAberto(false)} fullWidth maxWidth="xs">

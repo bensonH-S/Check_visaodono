@@ -48,75 +48,75 @@ export default function NcMobileListaPage() {
   const visitas = useMemo(() => agruparNcsPorVisita(itens), [itens]);
 
   return (
-    <div className="ck-visitas ck-nc">
-      <div className="ck-visitas__scroll">
-        <div className="ck-visitas__stage">
-          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-          <div className="ck-visitas__mesh" aria-hidden />
+    <div className="ck-visitas ck-nc ck-visitas--lista">
+      <div className="ck-visitas__stage">
+        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+        <div className="ck-visitas__mesh" aria-hidden />
 
-          <div className="ck-visitas__stage-inner">
-            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-              <div>
-                <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                <h1 className="ck-visitas__title">
-                  Não
-                  <br />
-                  conformidades
-                </h1>
-              </div>
-              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+        <div className="ck-visitas__stage-inner">
+          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+            <div>
+              <p className="ck-visitas__mark-text">Grupo Alvim</p>
+              <h1 className="ck-visitas__title">
+                Não
+                <br />
+                conformidades
+              </h1>
             </div>
+            <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+          </div>
 
-            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              Pendências do checklist na sua região — abra para registrar a correção.
-            </p>
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+            Pendências do checklist na sua região — abra para registrar a correção.
+          </p>
 
-            <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-              <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : stats.visitas_pendentes}</strong>
-                <span>visitas</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : stats.total_aberto}</strong>
-                <span>em aberto</span>
-              </div>
-              <div className="ck-visitas__metric ck-visitas__metric--accent">
-                <strong>{loading ? '—' : stats.criticas}</strong>
-                <span>críticas</span>
-              </div>
+          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : stats.visitas_pendentes}</strong>
+              <span>visitas</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : stats.total_aberto}</strong>
+              <span>em aberto</span>
+            </div>
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong>{loading ? '—' : stats.criticas}</strong>
+              <span>críticas</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-          {err && (
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
-              {err}
-            </p>
-          )}
+      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+        {err && (
+          <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px', flexShrink: 0 }}>
+            {err}
+          </p>
+        )}
 
-          <div className="ck-visitas__seg" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={aba === 'abertas'}
-              className={`ck-visitas__seg-btn${aba === 'abertas' ? ' is-on' : ''}`}
-              onClick={() => setAba('abertas')}
-            >
-              Em aberto
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={aba === 'resolvidas'}
-              className={`ck-visitas__seg-btn${aba === 'resolvidas' ? ' is-on' : ''}`}
-              onClick={() => setAba('resolvidas')}
-            >
-              Resolvidas
-            </button>
-          </div>
+        <div className="ck-visitas__seg" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === 'abertas'}
+            className={`ck-visitas__seg-btn${aba === 'abertas' ? ' is-on' : ''}`}
+            onClick={() => setAba('abertas')}
+          >
+            Em aberto
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === 'resolvidas'}
+            className={`ck-visitas__seg-btn${aba === 'resolvidas' ? ' is-on' : ''}`}
+            onClick={() => setAba('resolvidas')}
+          >
+            Resolvidas
+          </button>
+        </div>
 
+        <div className="ck-visitas__sheet-body">
           {loading ? (
             <LinearProgress />
           ) : visitas.length === 0 ? (

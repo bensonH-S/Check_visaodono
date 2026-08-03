@@ -1,5 +1,5 @@
 /* Escala mobile — estende o modelo ck-visitas */
-/* Hero + calendário fixos; rolagem só no sheet (abaixo do calendário) */
+/* Hero + abas fixos; rolagem só no sheet-body (lista) */
 .ck-escala--page {
   padding-bottom: 0;
 }
@@ -9,6 +9,20 @@
 }
 
 .ck-escala__sheet--fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.ck-escala__sheet--fill > .ck-escala__filtro-row,
+.ck-escala__sheet--fill > .ck-escala__sticky {
+  flex-shrink: 0;
+}
+
+.ck-escala__sheet-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
@@ -109,10 +123,15 @@
 }
 
 .ck-escala .ck-escala__regiao {
-  margin: -4px 0 12px;
+  margin: 0 0 12px;
   font-size: 0.75rem;
   font-weight: 600;
   color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-escala .ck-escala__sticky .ck-escala__dias {
+  margin-bottom: 0;
+  padding-bottom: 12px;
 }
 
 .ck-escala .ck-escala__section {

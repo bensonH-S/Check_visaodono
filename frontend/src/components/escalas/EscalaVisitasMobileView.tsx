@@ -297,11 +297,7 @@ export default function EscalaVisitasMobileView() {
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
             <div>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title">
-                Escala
-                <br />
-                visitas
-              </h1>
+              <h1 className="ck-visitas__title ck-visitas__title--oneline">Escala visitas</h1>
             </div>
             <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
           </div>
@@ -386,8 +382,51 @@ export default function EscalaVisitasMobileView() {
             )}
           </div>
 
-          {regiaoAtiva && <p className="ck-escala__regiao">Exibindo: {regiaoAtiva.nome}</p>}
+          <div className="ck-escala__sticky">
+            {regiaoAtiva && <p className="ck-escala__regiao">Exibindo: {regiaoAtiva.nome}</p>}
+            {modo === 'delivery' && !loading && (
+              <div className="ck-escala__dias">
+                {deliveryPorDia.map((d) => {
+                  const selected = d.dia === diaSelecionado;
+                  const isToday = hojeIndex === d.dia;
+                  return (
+                    <button
+                      key={d.dia}
+                      type="button"
+                      className={`ck-escala__dia${selected ? ' is-on' : ''}${isToday ? ' is-today' : ''}`}
+                      onClick={() => setDiaSelecionado(d.dia)}
+                    >
+                      <strong>{DIAS_ABREV[d.dia]}</strong>
+                      <small>{d.data}</small>
+                      <span className="ck-escala__dia-n">{d.totalMarcadas}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {modo === 'dia' && !loading && (
+              <div className="ck-escala__dias">
+                {visitasPorDia.map((d) => {
+                  const selected = d.dia === diaSelecionado;
+                  const isToday = hojeIndex === d.dia;
+                  return (
+                    <button
+                      key={d.dia}
+                      type="button"
+                      className={`ck-escala__dia${selected ? ' is-on' : ''}${isToday ? ' is-today' : ''}`}
+                      onClick={() => setDiaSelecionado(d.dia)}
+                    >
+                      <strong>{DIAS_ABREV[d.dia]}</strong>
+                      <small>{d.data}</small>
+                      {d.itens.length > 0 && <span className="ck-escala__dia-n">{d.itens.length}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
+          <div className="ck-escala__sheet-body">
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
               <CircularProgress size={28} sx={{ color: NAVY }} />
@@ -422,86 +461,45 @@ export default function EscalaVisitasMobileView() {
               ))
             )
           ) : modo === 'delivery' ? (
-            <>
-              <div className="ck-escala__dias">
-                {deliveryPorDia.map((d) => {
-                  const selected = d.dia === diaSelecionado;
-                  const isToday = hojeIndex === d.dia;
-                  return (
-                    <button
-                      key={d.dia}
-                      type="button"
-                      className={`ck-escala__dia${selected ? ' is-on' : ''}${isToday ? ' is-today' : ''}`}
-                      onClick={() => setDiaSelecionado(d.dia)}
-                    >
-                      <strong>{DIAS_ABREV[d.dia]}</strong>
-                      <small>{d.data}</small>
-                      <span className="ck-escala__dia-n">{d.totalMarcadas}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {(deliveryPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
+            (deliveryPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
+              <div
+                key={loja.id_loja}
+                className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}`}
+              >
                 <div
-                  key={loja.id_loja}
-                  className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}`}
-                >
-                  <div
-                    className="ck-escala__card-stripe"
-                    style={{ background: loja.marcada ? ORANGE : 'rgba(27,42,107,0.2)' }}
-                    aria-hidden
-                  />
-                  <div className="ck-escala__card-body">
-                    <p className="ck-escala__card-title">
-                      {loja.bk_number ? `${loja.bk_number} · ` : ''}
-                      {loja.nome}
-                    </p>
-                    <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
-                      {loja.marcada ? 'Delivery agendado' : 'Sem delivery'}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </>
-          ) : modo === 'dia' ? (
-            <>
-              <div className="ck-escala__dias">
-                {visitasPorDia.map((d) => {
-                  const selected = d.dia === diaSelecionado;
-                  const isToday = hojeIndex === d.dia;
-                  return (
-                    <button
-                      key={d.dia}
-                      type="button"
-                      className={`ck-escala__dia${selected ? ' is-on' : ''}${isToday ? ' is-today' : ''}`}
-                      onClick={() => setDiaSelecionado(d.dia)}
-                    >
-                      <strong>{DIAS_ABREV[d.dia]}</strong>
-                      <small>{d.data}</small>
-                      {d.itens.length > 0 && <span className="ck-escala__dia-n">{d.itens.length}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {diaAtual && diaAtual.itens.length === 0 ? (
-                <div className="ck-escala__empty">
-                  <p>
-                    Nenhuma visita em {diaAtual.label.toLowerCase()}, {diaAtual.data}.
+                  className="ck-escala__card-stripe"
+                  style={{ background: loja.marcada ? ORANGE : 'rgba(27,42,107,0.2)' }}
+                  aria-hidden
+                />
+                <div className="ck-escala__card-body">
+                  <p className="ck-escala__card-title">
+                    {loja.bk_number ? `${loja.bk_number} · ` : ''}
+                    {loja.nome}
+                  </p>
+                  <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
+                    {loja.marcada ? 'Delivery agendado' : 'Sem delivery'}
                   </p>
                 </div>
-              ) : (
-                diaAtual?.itens.map((item) => (
-                  <LojaVisitaCard
-                    key={item.id_loja}
-                    nome={item.nome}
-                    bk={item.bk}
-                    regionais={item.regionais}
-                    cor={item.cor}
-                  />
-                ))
-              )}
-            </>
+              </div>
+            ))
+          ) : modo === 'dia' ? (
+            diaAtual && diaAtual.itens.length === 0 ? (
+              <div className="ck-escala__empty">
+                <p>
+                  Nenhuma visita em {diaAtual.label.toLowerCase()}, {diaAtual.data}.
+                </p>
+              </div>
+            ) : (
+              diaAtual?.itens.map((item) => (
+                <LojaVisitaCard
+                  key={item.id_loja}
+                  nome={item.nome}
+                  bk={item.bk}
+                  regionais={item.regionais}
+                  cor={item.cor}
+                />
+              ))
+            )
           ) : grade?.linhas.filter((linha) => linha.tipo !== 'delivery').length === 0 ? (
             <div className="ck-escala__empty">
               <p>Nenhuma loja neste filtro.</p>
@@ -511,6 +509,7 @@ export default function EscalaVisitasMobileView() {
               .filter((linha) => linha.tipo !== 'delivery')
               .map((linha) => <CardLojaSemana key={linha.id_loja} linha={linha} />)
           )}
+          </div>
       </div>
 
       <Dialog open={filtroRegiaoAberto} onClose={() => setFiltroRegiaoAberto(false)} fullWidth maxWidth="xs">

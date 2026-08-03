@@ -91,6 +91,8 @@ async function limparCachesPwa() {
 
 /** Compara build embutido no JS com o servidor (detecta deploy sem mudar tag). */
 export async function verificarBuildDesatualizado(): Promise<boolean> {
+  if (import.meta.env.DEV) return false;
+
   const local = buildId();
   if (!local || local === 'dev') return false;
 
@@ -98,7 +100,7 @@ export async function verificarBuildDesatualizado(): Promise<boolean> {
     const res = await fetch(`${apiBasePath}/public/config`, { cache: 'no-store' });
     if (!res.ok) return false;
     const cfg = (await res.json()) as { buildId?: string };
-    if (!cfg.buildId || cfg.buildId === local) {
+    if (!cfg.buildId || cfg.buildId === 'dev' || cfg.buildId === local) {
       try {
         localStorage.setItem(BUILD_ID_KEY, local);
       } catch {

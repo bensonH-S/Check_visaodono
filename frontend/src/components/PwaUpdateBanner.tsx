@@ -12,11 +12,16 @@ export default function PwaUpdateBanner() {
   const [aplicando, setAplicando] = useState(false);
 
   const checar = useCallback(async () => {
+    if (import.meta.env.DEV) {
+      setVisivel(false);
+      return;
+    }
     const stale = await verificarBuildDesatualizado();
-    if (stale) setVisivel(true);
+    setVisivel(stale);
   }, []);
 
   useEffect(() => {
+    if (import.meta.env.DEV) return;
     void checar();
     const onUpdate = () => setVisivel(true);
     window.addEventListener(PWA_UPDATE_DISPONIVEL, onUpdate);
