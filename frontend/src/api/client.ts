@@ -917,6 +917,25 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  estoqueSyncFornecedorListar: () =>
+    request<{ itens: EstoqueSyncFornecedor[]; agora_sp: string }>('/estoque/sync-fornecedor'),
+  estoqueSyncFornecedorSalvar: (body: {
+    fornecedor: 'platlog' | 'coca';
+    id_loja: number;
+    ativo: boolean;
+    horario: string;
+    limite: number;
+  }) =>
+    request<EstoqueSyncFornecedor>('/estoque/sync-fornecedor', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  estoqueSyncFornecedorRodar: (id: number, body?: { forcar?: boolean }) =>
+    request<{ ok: boolean; message: string; id_sync: number }>(
+      `/estoque/sync-fornecedor/${id}/rodar`,
+      { method: 'POST', body: JSON.stringify(body || {}) },
+    ),
 };
 
 export interface Loja {
@@ -1925,6 +1944,30 @@ export interface EstoquePedidoSugerido {
   estoque_seguranca_dias: number;
   produtos_base: number;
   itens: EstoquePedidoItem[];
+}
+
+export interface EstoqueSyncFornecedor {
+  id_sync: number;
+  fornecedor: 'platlog' | 'coca' | string;
+  id_loja: number;
+  loja_nome?: string;
+  loja_codigo?: string | null;
+  ativo: boolean;
+  horario: string;
+  limite: number;
+  ultimo_inicio?: string | null;
+  ultimo_fim?: string | null;
+  ultimo_status?: 'ok' | 'erro' | 'rodando' | 'parcial' | null;
+  ultimo_resumo?: {
+    baixadas?: number;
+    aplicadas?: number;
+    erros?: number;
+    processadas?: unknown[];
+  } | null;
+  ultimo_erro?: string | null;
+  ultima_execucao_dia?: string | null;
+  atualizado_em?: string;
+  credenciais_ok?: boolean;
 }
 
 export interface EstoqueMovimento {

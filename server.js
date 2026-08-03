@@ -461,6 +461,14 @@ app.listen(PORT, async () => {
     } catch (e) {
       logger.warn('server', 'Scheduler BK Office não iniciado', { error: e.message });
     }
+    try {
+      const { iniciarSchedulerPlatlog } = await import(
+        './backend/src/services/platlog/schedulerPlatlog.js'
+      );
+      iniciarSchedulerPlatlog();
+    } catch (e) {
+      logger.warn('server', 'Scheduler Platlog NF não iniciado', { error: e.message });
+    }
     if (!isProd) {
       try {
         const { ensureAuthUsersSeNecessario } = await import('./backend/src/seedAuth.js');

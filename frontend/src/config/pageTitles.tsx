@@ -24,6 +24,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 
 import { colors } from '../theme/tokens';
 
@@ -69,6 +70,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/configuracoes/sla': { title: 'SLA', icon: <ScheduleIcon sx={iconSx} /> },
   '/configuracoes/cargos': { title: 'Cargos', icon: <BadgeIcon sx={iconSx} /> },
   '/configuracoes/whatsapp': { title: 'WhatsApp', icon: <WhatsAppIcon sx={{ fontSize: 22, color: '#25D366' }} /> },
+  '/configuracoes/estoque-sync-nf': { title: 'Sync NF estoque', icon: <LocalShippingIcon sx={iconSx} /> },
   '/configuracoes/notificacoes': { title: 'Notificações', icon: <NotificationsIcon sx={iconSx} /> },
   '/configuracoes/auditoria': { title: 'Auditoria', icon: <HistoryIcon sx={iconSx} /> },
   '/relatorio': { title: 'Relatório da Visita', icon: <DescriptionIcon sx={iconSx} /> },

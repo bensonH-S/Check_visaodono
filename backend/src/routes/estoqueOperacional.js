@@ -17,10 +17,17 @@ import {
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/syncVendas.js';
 import { qtdeReceitaParaEstoque } from '../services/fichaReceitaEstoque.js';
+import {
+  executarSyncFornecedor,
+  listarSyncFornecedor,
+  obterSyncPorId,
+  upsertSyncFornecedor,
+} from '../services/platlog/schedulerPlatlog.js';
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
 const permBreak = requirePermissao('estoque.break', 'estoque.operacional');
+const permConfig = requirePermissao('configuracoes.ver', 'estoque.operacional');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
@@ -832,6 +839,80 @@ router.post('/insumos/custo', permOp, async (req, res, next) => {
       descricao: `Custo ${result.custo_fonte} ${result.codigo} = ${result.preco_caixa}`,
     });
     res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+// ── Sync NF fornecedores (Platlog / Coca) — config + status ─────────────────
+
+router.get('/sync-fornecedor', permConfig, async (_req, res, next) => {
+  try {
+    const itens = await listarSyncFornecedor();
+    res.json({
+      itens,
+      agora_sp: new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(new Date()),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.put('/sync-fornecedor', permConfig, async (req, res, next) => {
+  try {
+    const row = await upsertSyncFornecedor({
+      fornecedor: req.body?.fornecedor,
+      id_loja: req.body?.id_loja,
+      ativo: req.body?.ativo,
+      horario: req.body?.horario,
+      limite: req.body?.limite,
+    });
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'atualizar',
+      entidade: 'estoque_sync_fornecedor',
+      idReferencia: row.id_sync,
+      descricao: `Sync ${row.fornecedor} loja ${row.id_loja}: ativo=${row.ativo} ${row.horario}`,
+    });
+    res.json(row);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.post('/sync-fornecedor/:id/rodar', permConfig, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const cfg = await obterSyncPorId(id);
+    if (!cfg) return res.status(404).json({ error: 'Configuração não encontrada' });
+    if (cfg.ultimo_status === 'rodando') {
+      return res.status(409).json({ error: 'Sync já em andamento' });
+    }
+
+    // Responde e roda em background (Playwright demora)
+    res.status(202).json({ ok: true, message: 'Sync iniciado', id_sync: id });
+
+    void executarSyncFornecedor(
+      {
+        id_sync: cfg.id_sync,
+        fornecedor: cfg.fornecedor,
+        id_loja: cfg.id_loja,
+        limite: cfg.limite,
+      },
+      { forcar: !!req.body?.forcar },
+    )
+      .then(() => {
+        console.log(`[platlog] sync manual #${id} concluído`);
+      })
+      .catch((err) => {
+        console.error(`[platlog] sync manual #${id} falhou:`, err.message);
+      });
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
