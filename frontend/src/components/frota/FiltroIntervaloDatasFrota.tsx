@@ -11,6 +11,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { labelFixo, campoAlturaFrotaSx } from '../../constants/frotaVeiculo';
 import { datePickerPtBR } from '../../utils/datePickerLocale';
+import { dataHojeBrasilia, formatDataCampoData, parseIsoDateLocal } from '../../utils/dateBr';
 
 dayjs.locale('pt-br');
 
@@ -23,13 +24,12 @@ type Props = {
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
-  if (!iso) return null;
-  const d = dayjs(iso, 'YYYY-MM-DD', true);
-  return d.isValid() ? d : null;
+  const d = parseIsoDateLocal(iso);
+  return d ? dayjs(d) : null;
 }
 
 function formatarTexto(inicio: string, fim: string) {
-  const fmt = (iso: string) => dayjs(iso, 'YYYY-MM-DD').format('DD/MM/YYYY');
+  const fmt = (iso: string) => formatDataCampoData(iso);
   if (!inicio && !fim) return '';
   if (inicio && fim && inicio !== fim) return `${fmt(inicio)} a ${fmt(fim)}`;
   return fmt(inicio || fim);
@@ -86,7 +86,9 @@ export default function FiltroIntervaloDatasFrota({
   compacto = false,
 }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [escolhendoFim, setEscolhendoFim] = useState(false);
   const aberto = Boolean(anchorEl);
+  const hoje = dataHojeBrasilia();
 
   const inicioDayjs = useMemo(() => isoParaDayjs(dataInicio), [dataInicio]);
   const fimDayjs = useMemo(() => isoParaDayjs(dataFim), [dataFim]);
@@ -94,13 +96,12 @@ export default function FiltroIntervaloDatasFrota({
   const temValor = !!(dataInicio || dataFim);
 
   function abrir(e: React.MouseEvent<HTMLElement>) {
+    setEscolhendoFim(false);
     setAnchorEl(e.currentTarget);
   }
 
   function fechar() {
-    if (dataInicio && !dataFim) {
-      onChangeFim(dataInicio);
-    }
+    setEscolhendoFim(false);
     setAnchorEl(null);
   }
 
@@ -108,33 +109,40 @@ export default function FiltroIntervaloDatasFrota({
     e.stopPropagation();
     onChangeInicio('');
     onChangeFim('');
+    setEscolhendoFim(false);
   }
 
   function selecionarDia(day: Dayjs | null) {
     if (!day?.isValid()) return;
     const iso = day.format('YYYY-MM-DD');
 
-    // Ainda escolhendo o fim do intervalo
-    if (dataInicio && !dataFim) {
-      const inicio = dayjs(dataInicio, 'YYYY-MM-DD');
-      if (day.isSame(inicio, 'day')) {
+    // 2º clique: define o fim do intervalo (ou confirma o mesmo dia)
+    if (escolhendoFim && dataInicio) {
+      const inicio = isoParaDayjs(dataInicio);
+      if (!inicio) {
+        onChangeInicio(iso);
         onChangeFim(iso);
+        setEscolhendoFim(false);
         setAnchorEl(null);
         return;
       }
-      if (day.isBefore(inicio, 'day')) {
+      if (day.isSame(inicio, 'day')) {
+        onChangeFim(iso);
+      } else if (day.isBefore(inicio, 'day')) {
         onChangeFim(dataInicio);
         onChangeInicio(iso);
       } else {
         onChangeFim(iso);
       }
+      setEscolhendoFim(false);
       setAnchorEl(null);
       return;
     }
 
-    // Novo período: 1º clique = um dia só (início = fim)
+    // 1º clique: dia único já consultável; próximo clique estende o período
     onChangeInicio(iso);
-    onChangeFim('');
+    onChangeFim(iso);
+    setEscolhendoFim(true);
   }
 
   return (
@@ -205,7 +213,7 @@ export default function FiltroIntervaloDatasFrota({
             <DateCalendar
               value={fimDayjs ?? inicioDayjs}
               onChange={selecionarDia}
-              maxDate={dayjs()}
+              maxDate={isoParaDayjs(hoje) ?? dayjs()}
               reduceAnimations
               sx={{
                 width: '100%',
@@ -277,9 +285,9 @@ export default function FiltroIntervaloDatasFrota({
                 textAlign: 'center',
               }}
             >
-              {dataInicio && !dataFim
+              {escolhendoFim
                 ? 'Clique de novo no mesmo dia para confirmar, ou em outro para o intervalo.'
-                : 'Clique num dia (só hoje) ou em dois dias para um período.'}
+                : 'Clique num dia (só esse dia) ou em dois dias para um período.'}
             </Box>
           </Box>
         </Popover>

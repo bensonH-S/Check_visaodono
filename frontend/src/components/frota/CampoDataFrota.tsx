@@ -7,6 +7,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { labelFixo, campoAlturaFrotaSx } from '../../constants/frotaVeiculo';
 import { datePickerPtBR } from '../../utils/datePickerLocale';
+import { dataHojeBrasilia, parseIsoDateLocal } from '../../utils/dateBr';
 
 dayjs.locale('pt-br');
 
@@ -21,13 +22,12 @@ type Props = {
 };
 
 export function dataHojeIso(): string {
-  return dayjs().format('YYYY-MM-DD');
+  return dataHojeBrasilia();
 }
 
 function isoParaDayjs(iso: string): Dayjs | null {
-  if (!iso) return null;
-  const d = dayjs(iso, 'YYYY-MM-DD', true);
-  return d.isValid() ? d : null;
+  const d = parseIsoDateLocal(iso);
+  return d ? dayjs(d) : null;
 }
 
 function dayjsParaIso(d: Dayjs | null): string {
@@ -37,8 +37,8 @@ function dayjsParaIso(d: Dayjs | null): string {
 
 export default function CampoDataFrota({ label, value, onChange, disabled, max, min, sx }: Props) {
   const [aberto, setAberto] = useState(false);
-  const maxDate = dayjs(max ?? dataHojeIso());
-  const minDate = min ? dayjs(min) : undefined;
+  const maxDate = isoParaDayjs(max ?? dataHojeIso()) ?? dayjs();
+  const minDate = min ? isoParaDayjs(min) ?? undefined : undefined;
 
   function abrirCalendario() {
     if (!disabled) setAberto(true);

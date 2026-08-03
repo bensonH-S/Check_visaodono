@@ -852,14 +852,16 @@ router.get('/rastreamento/telemetria', requirePermissao('frota.gerenciar'), asyn
 router.get('/rastreamento/veiculos/:id/rota-dia', requirePermMapaTecnicos, async (req, res, next) => {
   try {
     const idVeiculo = Number(req.params.id);
-    const dataInicio = String(req.query.data_inicio || req.query.data || '').trim();
-    const dataFim = String(req.query.data_fim || req.query.data || dataInicio).trim();
+    const dataInicioRaw = String(req.query.data_inicio || req.query.data || '').trim();
+    const dataFimRaw = String(req.query.data_fim || req.query.data || dataInicioRaw).trim();
     if (!Number.isFinite(idVeiculo) || idVeiculo <= 0) {
       return res.status(400).json({ error: 'Veículo inválido' });
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(dataFim)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicioRaw) || !/^\d{4}-\d{2}-\d{2}$/.test(dataFimRaw)) {
       return res.status(400).json({ error: 'Informe as datas no formato AAAA-MM-DD' });
     }
+    const dataInicio = dataInicioRaw <= dataFimRaw ? dataInicioRaw : dataFimRaw;
+    const dataFim = dataInicioRaw <= dataFimRaw ? dataFimRaw : dataInicioRaw;
 
     const { rows } = await pool.query(
       `SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.id_regiao, r.nome AS nome_regiao
@@ -914,14 +916,16 @@ router.get('/rastreamento/veiculos/:id/rota-dia', requirePermMapaTecnicos, async
 router.get('/rastreamento/veiculos/:id/velocidade', requirePermissao('frota.gerenciar'), async (req, res, next) => {
   try {
     const idVeiculo = Number(req.params.id);
-    const dataInicio = String(req.query.data_inicio || '').trim();
-    const dataFim = String(req.query.data_fim || dataInicio).trim();
+    const dataInicioRaw = String(req.query.data_inicio || '').trim();
+    const dataFimRaw = String(req.query.data_fim || dataInicioRaw).trim();
     if (!Number.isFinite(idVeiculo) || idVeiculo <= 0) {
       return res.status(400).json({ error: 'Veículo inválido' });
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicio) || !/^\d{4}-\d{2}-\d{2}$/.test(dataFim)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataInicioRaw) || !/^\d{4}-\d{2}-\d{2}$/.test(dataFimRaw)) {
       return res.status(400).json({ error: 'Informe as datas no formato AAAA-MM-DD' });
     }
+    const dataInicio = dataInicioRaw <= dataFimRaw ? dataInicioRaw : dataFimRaw;
+    const dataFim = dataInicioRaw <= dataFimRaw ? dataFimRaw : dataInicioRaw;
 
     const { rows } = await pool.query(
       `SELECT id_veiculo, placa, marca, modelo

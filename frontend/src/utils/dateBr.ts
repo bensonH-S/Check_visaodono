@@ -11,6 +11,19 @@ export function dataHojeBrasilia(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ_BR });
 }
 
+/**
+ * Converte YYYY-MM-DD em Date local ao meio-dia.
+ * Evita o deslocamento de 1 dia que ocorre ao parsear ISO date-only como UTC
+ * (ex.: dayjs('2026-08-01') / new Date('2026-08-01') em America/Sao_Paulo).
+ */
+export function parseIsoDateLocal(iso: string | null | undefined): Date | null {
+  if (iso == null || iso === '') return null;
+  const m = RE_SO_DATA.exec(String(iso).trim());
+  if (!m) return null;
+  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 /** Normaliza data_visita da API para YYYY-MM-DD. */
 export function normalizarDataVisita(val: string | null | undefined): string | null {
   if (val == null || val === '') return null;

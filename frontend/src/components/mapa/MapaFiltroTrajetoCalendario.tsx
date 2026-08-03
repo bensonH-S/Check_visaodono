@@ -13,6 +13,7 @@ import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { colors } from '../../theme/tokens';
 import { periodoTrajetoCompleto } from '../../utils/mapaTrajetoPeriodo';
 import { datePickerPtBR } from '../../utils/datePickerLocale';
+import { dataHojeBrasilia, formatDataCampoData, parseIsoDateLocal } from '../../utils/dateBr';
 
 dayjs.locale('pt-br');
 
@@ -25,13 +26,12 @@ type Props = {
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
-  if (!iso) return null;
-  const d = dayjs(iso, 'YYYY-MM-DD', true);
-  return d.isValid() ? d : null;
+  const d = parseIsoDateLocal(iso);
+  return d ? dayjs(d) : null;
 }
 
 function rotuloPeriodo(inicio: string, fim: string) {
-  const fmt = (iso: string) => dayjs(iso, 'YYYY-MM-DD').format('DD/MM/YYYY');
+  const fmt = (iso: string) => formatDataCampoData(iso);
   if (periodoTrajetoCompleto(inicio, fim)) {
     if (inicio === fim) return fmt(inicio);
     return `${fmt(inicio)} a ${fmt(fim)}`;
@@ -48,7 +48,7 @@ export default function MapaFiltroTrajetoCalendario({
 }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const aberto = Boolean(anchorEl);
-  const hoje = dayjs().format('YYYY-MM-DD');
+  const hoje = dataHojeBrasilia();
   const inicioDayjs = useMemo(() => isoParaDayjs(dataInicio), [dataInicio]);
   const fimDayjs = useMemo(() => isoParaDayjs(dataFim), [dataFim]);
   const periodoCompleto = periodoTrajetoCompleto(dataInicio, dataFim);
@@ -65,8 +65,8 @@ export default function MapaFiltroTrajetoCalendario({
       return;
     }
 
-    const inicio = dayjs(dataInicio, 'YYYY-MM-DD');
-    if (day.isBefore(inicio, 'day')) {
+    const inicio = isoParaDayjs(dataInicio);
+    if (inicio && day.isBefore(inicio, 'day')) {
       onPeriodoChange(iso, dataInicio);
     } else {
       onPeriodoChange(dataInicio, iso);
@@ -136,7 +136,7 @@ export default function MapaFiltroTrajetoCalendario({
         <DateCalendar
           value={fimDayjs ?? inicioDayjs}
           onChange={selecionarDia}
-          maxDate={dayjs()}
+          maxDate={isoParaDayjs(hoje) ?? dayjs()}
         />
       </Popover>
     </LocalizationProvider>

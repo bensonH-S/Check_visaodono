@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import dayjs from 'dayjs';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -33,7 +32,7 @@ import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDat
 import FrotaVeiculosKmSemanaPanel from '../../components/frota/FrotaVeiculosKmSemanaPanel';
 import { tablePageLayoutSx } from '../../utils/tablePageLayout';
 import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
-import { formatDataHoraBrasilia, formatarDuracaoMs } from '../../utils/dateBr';
+import { dataHojeBrasilia, formatDataHoraBrasilia, formatarDuracaoMs } from '../../utils/dateBr';
 import { geocodificarReversa } from '../../utils/geocodificarReversa';
 import { colors, radius, shadows } from '../../theme/tokens';
 import { iconeMarcaLojaPorNome, iconeMarcaLojaUrl } from '../../utils/marcaLojaMapa';
@@ -185,7 +184,7 @@ function LinhaExcesso({
 
 /** Visão profissional de acompanhamento: mapa limpo + KPIs + eventos de excesso. */
 export default function FrotaAcompanhamentoPage() {
-  const hoje = dayjs().format('YYYY-MM-DD');
+  const hoje = dataHojeBrasilia();
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
   const [dataInicio, setDataInicio] = useState(hoje);
@@ -234,11 +233,16 @@ export default function FrotaAcompanhamentoPage() {
       setErro('Selecione um veículo');
       return;
     }
-    const inicio = dataInicio || dataFim;
-    const fim = dataFim || dataInicio;
+    let inicio = dataInicio || dataFim;
+    let fim = dataFim || dataInicio;
     if (!inicio || !fim) {
       setErro('Selecione o período');
       return;
+    }
+    if (inicio > fim) {
+      const tmp = inicio;
+      inicio = fim;
+      fim = tmp;
     }
     setLoading(true);
     setErro('');
