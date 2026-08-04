@@ -78,65 +78,92 @@ export async function baixarNfesFinanceiroEsupri({
     await page.locator('#menu_financeiro > a').click();
     await page.locator('#tbFinanceiro tbody tr').first().waitFor({ state: 'visible', timeout: 30000 });
 
-    const rows = page.locator('#tbFinanceiro tbody tr');
-    await rows.first().waitFor({ state: 'visible', timeout: 30000 });
-    const total = await rows.count();
-    const alvo = Math.max(1, Number(limit) || 10);
-    onLog(`linhas=${total} alvo=${alvo}`);
+    // Tenta mostrar mais linhas por página (DataTables)
+    const lengthSelect = page.locator('select[name="tbFinanceiro_length"], #tbFinanceiro_length select').first();
+    if (await lengthSelect.count()) {
+      await lengthSelect.selectOption({ label: /100|50|25/ }).catch(() =>
+        lengthSelect.selectOption('100').catch(() => {}),
+      );
+      await page.waitForTimeout(800);
+    }
 
-    for (let i = 0; i < total && resultados.length < alvo; i++) {
-      // re-localiza a cada iteração (DOM do eSupri pode recriar a tabela)
-      const row = page.locator('#tbFinanceiro tbody tr').nth(i);
-      if (!(await row.count())) {
-        onLog(`linha ${i + 1}: sumiu — parando`);
+    const alvo = Math.max(1, Number(limit) || 10);
+    const vistos = new Set();
+    let pagina = 1;
+
+    while (resultados.length < alvo) {
+      await page.locator('#tbFinanceiro tbody tr').first().waitFor({ state: 'visible', timeout: 30000 });
+      const total = await page.locator('#tbFinanceiro tbody tr').count();
+      onLog(`página ${pagina} linhas=${total} baixadas=${resultados.length}/${alvo}`);
+
+      for (let i = 0; i < total && resultados.length < alvo; i++) {
+        const row = page.locator('#tbFinanceiro tbody tr').nth(i);
+        if (!(await row.count())) break;
+        const cells = await row.locator('td').allTextContents().catch(() => []);
+        const notaLabel = (cells[0] || '').trim();
+        const lojaLabel = (cells[1] || '').trim();
+        const valorLabel = (cells[4] || '').trim();
+        const statusLabel = (cells[5] || '').trim();
+        if (!notaLabel || !/NF/i.test(notaLabel)) continue;
+        const chave = `${notaLabel}|${valorLabel}`;
+        if (vistos.has(chave)) continue;
+        vistos.add(chave);
+
+        onLog(`pedido ${resultados.length + 1}/${alvo}: ${notaLabel} ${valorLabel}`);
+        try {
+          await row.click({ timeout: 15000 });
+          await page.waitForTimeout(1200);
+
+          const nfeBtn = page.locator('aside button', { hasText: 'NF-e' }).first();
+          await nfeBtn.waitFor({ state: 'visible', timeout: 15000 });
+
+          const [download] = await Promise.all([
+            page.waitForEvent('download', { timeout: 45000 }),
+            nfeBtn.click(),
+          ]);
+
+          const fileName = download.suggestedFilename() || `nfe-${resultados.length + 1}.zip`;
+          const tmp = await download.path();
+          let zipBuffer;
+          if (tmp) {
+            const fs = await import('fs');
+            zipBuffer = fs.readFileSync(tmp);
+          } else {
+            zipBuffer = await streamToBuffer(download.createReadStream());
+          }
+
+          resultados.push({
+            notaLabel,
+            lojaLabel,
+            valorLabel,
+            statusLabel,
+            zipBuffer,
+            fileName,
+          });
+        } catch (e) {
+          onLog(`falha ${notaLabel}: ${String(e.message || e).slice(0, 120)}`);
+        }
+        await page.waitForTimeout(600);
+      }
+
+      if (resultados.length >= alvo) break;
+
+      const next = page.locator('#tbFinanceiro_next');
+      if (!(await next.count())) break;
+      const disabled =
+        (await next.getAttribute('class').catch(() => ''))?.includes('disabled') ||
+        (await next.getAttribute('aria-disabled').catch(() => '')) === 'true';
+      if (disabled) {
+        onLog('fim da paginação');
         break;
       }
-      const cells = await row.locator('td').allTextContents().catch(() => []);
-      const notaLabel = (cells[0] || '').trim();
-      const lojaLabel = (cells[1] || '').trim();
-      const valorLabel = (cells[4] || '').trim();
-      const statusLabel = (cells[5] || '').trim();
-      if (!notaLabel || !/NF/i.test(notaLabel)) {
-        onLog(`linha ${i + 1}: vazia/sem NF — pulando`);
-        continue;
+      await next.click();
+      await page.waitForTimeout(1200);
+      pagina += 1;
+      if (pagina > 30) {
+        onLog('limite de páginas atingido');
+        break;
       }
-      onLog(`pedido ${resultados.length + 1}/${alvo}: ${notaLabel} ${valorLabel}`);
-
-      try {
-        await row.click({ timeout: 15000 });
-        await page.waitForTimeout(1200);
-
-        const nfeBtn = page.locator('aside button', { hasText: 'NF-e' }).first();
-        await nfeBtn.waitFor({ state: 'visible', timeout: 15000 });
-
-        const [download] = await Promise.all([
-          page.waitForEvent('download', { timeout: 45000 }),
-          nfeBtn.click(),
-        ]);
-
-        const fileName = download.suggestedFilename() || `nfe-${resultados.length + 1}.zip`;
-        const tmp = await download.path();
-        let zipBuffer;
-        if (tmp) {
-          const fs = await import('fs');
-          zipBuffer = fs.readFileSync(tmp);
-        } else {
-          zipBuffer = await streamToBuffer(download.createReadStream());
-        }
-
-        resultados.push({
-          notaLabel,
-          lojaLabel,
-          valorLabel,
-          statusLabel,
-          zipBuffer,
-          fileName,
-        });
-      } catch (e) {
-        onLog(`falha ${notaLabel}: ${String(e.message || e).slice(0, 120)}`);
-      }
-
-      await page.waitForTimeout(600);
     }
 
     return resultados;
