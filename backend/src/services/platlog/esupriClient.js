@@ -79,48 +79,62 @@ export async function baixarNfesFinanceiroEsupri({
     await page.locator('#tbFinanceiro tbody tr').first().waitFor({ state: 'visible', timeout: 30000 });
 
     const rows = page.locator('#tbFinanceiro tbody tr');
+    await rows.first().waitFor({ state: 'visible', timeout: 30000 });
     const total = await rows.count();
-    const max = Math.min(total, Math.max(1, Number(limit) || 10));
-    onLog(`linhas=${total} processar=${max}`);
+    const alvo = Math.max(1, Number(limit) || 10);
+    onLog(`linhas=${total} alvo=${alvo}`);
 
-    for (let i = 0; i < max; i++) {
-      const row = rows.nth(i);
-      const cells = await row.locator('td').allTextContents();
+    for (let i = 0; i < total && resultados.length < alvo; i++) {
+      // re-localiza a cada iteração (DOM do eSupri pode recriar a tabela)
+      const row = page.locator('#tbFinanceiro tbody tr').nth(i);
+      if (!(await row.count())) {
+        onLog(`linha ${i + 1}: sumiu — parando`);
+        break;
+      }
+      const cells = await row.locator('td').allTextContents().catch(() => []);
       const notaLabel = (cells[0] || '').trim();
       const lojaLabel = (cells[1] || '').trim();
       const valorLabel = (cells[4] || '').trim();
       const statusLabel = (cells[5] || '').trim();
-      onLog(`pedido ${i + 1}/${max}: ${notaLabel} ${valorLabel}`);
-
-      await row.click();
-      await page.waitForTimeout(1200);
-
-      const nfeBtn = page.locator('aside button', { hasText: 'NF-e' }).first();
-      await nfeBtn.waitFor({ state: 'visible', timeout: 15000 });
-
-      const [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 45000 }),
-        nfeBtn.click(),
-      ]);
-
-      const fileName = download.suggestedFilename() || `nfe-${i + 1}.zip`;
-      const tmp = await download.path();
-      let zipBuffer;
-      if (tmp) {
-        const fs = await import('fs');
-        zipBuffer = fs.readFileSync(tmp);
-      } else {
-        zipBuffer = await streamToBuffer(download.createReadStream());
+      if (!notaLabel || !/NF/i.test(notaLabel)) {
+        onLog(`linha ${i + 1}: vazia/sem NF — pulando`);
+        continue;
       }
+      onLog(`pedido ${resultados.length + 1}/${alvo}: ${notaLabel} ${valorLabel}`);
 
-      resultados.push({
-        notaLabel,
-        lojaLabel,
-        valorLabel,
-        statusLabel,
-        zipBuffer,
-        fileName,
-      });
+      try {
+        await row.click({ timeout: 15000 });
+        await page.waitForTimeout(1200);
+
+        const nfeBtn = page.locator('aside button', { hasText: 'NF-e' }).first();
+        await nfeBtn.waitFor({ state: 'visible', timeout: 15000 });
+
+        const [download] = await Promise.all([
+          page.waitForEvent('download', { timeout: 45000 }),
+          nfeBtn.click(),
+        ]);
+
+        const fileName = download.suggestedFilename() || `nfe-${resultados.length + 1}.zip`;
+        const tmp = await download.path();
+        let zipBuffer;
+        if (tmp) {
+          const fs = await import('fs');
+          zipBuffer = fs.readFileSync(tmp);
+        } else {
+          zipBuffer = await streamToBuffer(download.createReadStream());
+        }
+
+        resultados.push({
+          notaLabel,
+          lojaLabel,
+          valorLabel,
+          statusLabel,
+          zipBuffer,
+          fileName,
+        });
+      } catch (e) {
+        onLog(`falha ${notaLabel}: ${String(e.message || e).slice(0, 120)}`);
+      }
 
       await page.waitForTimeout(600);
     }

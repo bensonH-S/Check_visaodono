@@ -35,7 +35,7 @@ export function normalizarTxt(s) {
 
 export function ehUnidadeCaixa(uCom) {
   const u = normalizarTxt(uCom);
-  return /^(CX|CXA|CAIXA|FD|FARDO|PC|PACOTE|DZ|DUZIA|SC|SACO)$/.test(u);
+  return /^(CX|CXA|CAIXA|FD|FARDO|PC|PCT|PACOTE|DZ|DUZIA|SC|SACO)$/.test(u);
 }
 
 /** Extrai o primeiro XML de um ZIP de NF-e (store/deflate). */
@@ -129,6 +129,8 @@ export function normalizarDescProduto(s) {
     [/\bSEM ACUCAR\b/g, ' ZERO '],
     [/\bLAR\b/g, ' LARANJA '],
     [/\bGUAR\b/g, ' GUARANA '],
+    [/\bGUARANALATA\b/g, ' GUARANA LATA '],
+    [/\bGUARANA\s*LATA\b/g, ' GUARANA LATA '],
     [/\bUND\b/g, ' UN '],
     [/\bUNID\b/g, ' UN '],
     [/\bCX COM\b/g, ' CX '],
