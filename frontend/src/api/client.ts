@@ -518,9 +518,17 @@ export const api = {
   frotaManutencoesMobile: () =>
     request<FrotaManutencaoMobile[]>('/frota/mobile/manutencoes'),
   frotaVeiculos: () => request<FrotaVeiculo[]>('/frota/veiculos'),
-  frotaAssuncoes: () => request<FrotaAssuncao[]>('/frota/assuncoes'),
+  frotaAssuncoes: (idVeiculo?: number) => {
+    const q = idVeiculo != null ? `?id_veiculo=${idVeiculo}` : '';
+    return request<FrotaAssuncao[]>(`/frota/assuncoes${q}`);
+  },
   frotaAbastecimentosPortal: () => request<FrotaAbastecimentoPortal[]>('/frota/abastecimentos'),
   frotaManutencoesPortal: () => request<FrotaManutencaoPortal[]>('/frota/manutencoes'),
+  frotaMultasPortal: () => request<FrotaMultaPortal[]>('/frota/multas'),
+  frotaMultasDetran: (idVeiculo?: number) => {
+    const q = idVeiculo != null ? `?id_veiculo=${idVeiculo}` : '';
+    return request<FrotaMultasDetranResposta>(`/frota/multas/detran${q}`);
+  },
   frotaTermosPortal: () => request<FrotaTermoPortalResumo[]>('/frota/termos'),
   frotaTermoPortal: (idTermo: number) => request<FrotaTermoPortalDetalhe>(`/frota/termos/${idTermo}`),
   frotaRegioes: () => request<FrotaRegiaoResumo[]>('/frota/regioes'),
@@ -1371,6 +1379,59 @@ export interface FrotaManutencaoMobile {
   data_manutencao: string;
   proxima_manutencao_km: number | null;
   comprovante_url: string | null;
+}
+
+export interface FrotaMultaPortal {
+  id_multa: number;
+  id_veiculo: number;
+  id_usuario: number;
+  placa: string;
+  nome_usuario: string;
+  descricao: string | null;
+  valor: number | null;
+  data_multa: string;
+  local_infracao: string | null;
+  foto_url: string | null;
+  created_at: string;
+}
+
+/** Multa retornada pela consulta DETRAN-DF (APIBrasil /multas/br). */
+export interface FrotaMultaDetran {
+  id_veiculo: number;
+  placa: string;
+  modelo?: string | null;
+  auto: string | null;
+  descricao: string | null;
+  local_infracao: string | null;
+  valor: number | null;
+  valor_desconto?: number | null;
+  data_multa: string | null;
+  data_vencimento?: string | null;
+  situacao?: string | null;
+  orgao?: string | null;
+  pontos?: number | null;
+  fonte?: string;
+}
+
+export interface FrotaMultasDetranResposta {
+  fonte: string;
+  consultado_em: string | null;
+  data_ref?: string | null;
+  status_sync?: string | null;
+  proxima_consulta?: string;
+  horario_sync?: string;
+  qtd_veiculos?: number;
+  veiculos?: Array<{
+    id_veiculo: number;
+    placa: string;
+    renavam?: string;
+    modelo?: string | null;
+    ok: boolean;
+    qtd_multas?: number;
+    erro?: string;
+  }>;
+  multas: FrotaMultaDetran[];
+  avisos: string[];
 }
 
 export interface FrotaAssuncao {

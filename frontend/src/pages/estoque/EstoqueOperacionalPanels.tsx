@@ -49,7 +49,7 @@ import {
 import CampoDataFrota from '../../components/frota/CampoDataFrota';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
-import { UNIDADES_RECEITA, unidadeReceitaPadrao } from '../../utils/fichaReceitaEstoque';
+import { custoLinhaReceita, UNIDADES_RECEITA, unidadeReceitaPadrao } from '../../utils/fichaReceitaEstoque';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
@@ -472,7 +472,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                         };
                         setItens(next);
                       }}
-                      inputProps={{ style: { textAlign: 'right' } }}
+                      slotProps={{ htmlInput: { style: { textAlign: 'right' } } }}
                     />
                   </TableCell>
                 </TableRow>
@@ -637,7 +637,7 @@ function PainelSaldo({
       </Box>
 
       <Dialog open={dlgCompra} onClose={() => !salvandoCompra && setDlgCompra(false)} fullWidth maxWidth="sm">
-        <DialogTitleWithIcon icon={<AddIcon />} title="Registrar compra / entrega" />
+        <DialogTitleWithIcon icon={<AddIcon />}>Registrar compra / entrega</DialogTitleWithIcon>
         <DialogContent sx={dialogContentSx}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             Quantidade que chegou. Preço de CMV só entra depois via nota fiscal (aba Estoque →
@@ -673,7 +673,7 @@ function PainelSaldo({
       </Dialog>
 
       <Dialog open={dlgCusto} onClose={() => !salvandoCusto && setDlgCusto(false)} fullWidth maxWidth="sm">
-        <DialogTitleWithIcon icon={<AddIcon />} title="Custo da nota fiscal" />
+        <DialogTitleWithIcon icon={<AddIcon />}>Custo da nota fiscal</DialogTitleWithIcon>
         <DialogContent sx={dialogContentSx}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             Digite o preço da caixa conforme a NF. Só assim o CMV em R$ passa a contar este insumo.
@@ -883,7 +883,7 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }} gutterBottom>
           Sync BK Office / Importar Excel
         </Typography>
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
           CMV fica na aba CMV (só com custo de nota fiscal). Aqui é só trazer a venda.
         </Typography>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1031,8 +1031,12 @@ function PainelProdutos({
     return p?.descricao || codigoInsumo;
   };
 
-  const insumoPorCodigo = (codigoInsumo: string) =>
-    insumos.find((x) => x.codigo.toUpperCase() === codigoInsumo.trim().toUpperCase());
+  const custoItemForm = (i: ItemFichaForm) => {
+    if (!i.codigo_insumo.trim()) return 0;
+    const qtd = Number(String(i.quantidade).replace(',', '.')) || 0;
+    const insumo = insumos.find((x) => x.codigo.toUpperCase() === i.codigo_insumo.trim().toUpperCase());
+    return custoLinhaReceita(qtd, i.unidade_receita || 'und', insumo);
+  };
 
   const rotuloUnidade = (u: string) =>
     UNIDADES_RECEITA.find((x) => x.value === (u || 'und').toLowerCase())?.label || u || 'Und';
@@ -1632,7 +1636,7 @@ function PainelProdutos({
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   Produto unitário (sem ficha técnica)
                 </Typography>
-                <Typography variant="caption" color="text.secondary" display="block">
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                   Ex.: lata de refrigerante, brinquedo, sachet. Venda baixa 1:1 o insumo de mesmo
                   código (se existir).
                 </Typography>

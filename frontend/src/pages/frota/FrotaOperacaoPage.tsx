@@ -33,18 +33,20 @@ import {
   fetchMediaAutenticada,
   type FrotaAbastecimentoPortal,
   type FrotaManutencaoPortal,
+  type FrotaMultaDetran,
   type FrotaVeiculo,
   type Usuario,
 } from '../../api/client';
 import FrotaVeiculoDialog from '../../components/frota/FrotaVeiculoDialog';
 import FrotaVeiculoAutocomplete from '../../components/frota/FrotaVeiculoAutocomplete';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
+import ImageLightbox from '../../components/ImageLightbox';
 import { colors, radius, shadows } from '../../theme/tokens';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { dataDentroIntervalo, matchVeiculo, matchVeiculoObj } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tableSx } from '../../utils/tablePageLayout';
 
-export type AbaOperacao = 'cadastro' | 'combustivel' | 'manutencoes';
+export type AbaOperacao = 'cadastro' | 'combustivel' | 'manutencoes' | 'multas';
 
 /** Intervalo padrão entre manutenções (usuário citou ~10 mil km). */
 export const INTERVALO_MANUTENCAO_KM = 10_000;
@@ -53,10 +55,11 @@ const ABAS: { id: AbaOperacao; label: string }[] = [
   { id: 'cadastro', label: 'Cadastro' },
   { id: 'combustivel', label: 'Combustível' },
   { id: 'manutencoes', label: 'Manutenções' },
+  { id: 'multas', label: 'Multas' },
 ];
 
 function parseAba(raw: string | null): AbaOperacao {
-  if (raw === 'combustivel' || raw === 'manutencoes' || raw === 'cadastro') return raw;
+  if (raw === 'combustivel' || raw === 'manutencoes' || raw === 'cadastro' || raw === 'multas') return raw;
   return 'cadastro';
 }
 
@@ -119,6 +122,10 @@ export default function FrotaOperacaoPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [abastecimentos, setAbastecimentos] = useState<FrotaAbastecimentoPortal[]>([]);
   const [manutencoes, setManutencoes] = useState<FrotaManutencaoPortal[]>([]);
+  const [multas, setMultas] = useState<FrotaMultaDetran[]>([]);
+  const [multasAvisos, setMultasAvisos] = useState<string[]>([]);
+  const [multasConsultadoEm, setMultasConsultadoEm] = useState<string | null>(null);
+  const [carregandoMultas, setCarregandoMultas] = useState(false);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
@@ -145,6 +152,9 @@ export default function FrotaOperacaoPage() {
   const [proxSalvando, setProxSalvando] = useState(false);
   const [proxErro, setProxErro] = useState('');
   const [liberarOpen, setLiberarOpen] = useState(false);
+  const [comprovanteSrc, setComprovanteSrc] = useState<string | null>(null);
+  const [comprovanteTitulo, setComprovanteTitulo] = useState('');
+  const [carregandoComprovante, setCarregandoComprovante] = useState(false);
   const [liberarVeiculo, setLiberarVeiculo] = useState<FrotaVeiculo | null>(null);
   const [liberarKm, setLiberarKm] = useState('');
   const [liberarSalvando, setLiberarSalvando] = useState(false);
@@ -168,9 +178,31 @@ export default function FrotaOperacaoPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const carregarMultasCache = useCallback(async (idVeiculo?: number | null) => {
+    setCarregandoMultas(true);
+    setMultasAvisos([]);
+    try {
+      const r = await api.frotaMultasDetran(idVeiculo ?? undefined);
+      setMultas(r.multas || []);
+      setMultasAvisos(r.avisos || []);
+      setMultasConsultadoEm(r.consultado_em || null);
+    } catch (e) {
+      setMultas([]);
+      setMultasAvisos([e instanceof Error ? e.message : 'Falha ao carregar multas do cache']);
+      setMultasConsultadoEm(null);
+    } finally {
+      setCarregandoMultas(false);
+    }
+  }, []);
+
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    if (aba !== 'multas') return;
+    void carregarMultasCache(veiculoSel?.id_veiculo ?? null);
+  }, [aba, veiculoSel?.id_veiculo, carregarMultasCache]);
 
   const idVeiculoFiltro = veiculoSel?.id_veiculo ?? null;
   const veiculosOrdenados = useMemo(
@@ -216,6 +248,18 @@ export default function FrotaOperacaoPage() {
     [abastecimentos, veiculoSel, dataInicio, dataFim],
   );
 
+  const multasFiltradas = useMemo(
+    () =>
+      multas.filter(
+        (m) =>
+          (!veiculoSel || m.id_veiculo === veiculoSel.id_veiculo) &&
+          (!m.data_multa || dataDentroIntervalo(m.data_multa, dataInicio, dataFim)),
+      ),
+    [multas, veiculoSel, dataInicio, dataFim],
+  );
+
+  const totalMultas = multasFiltradas.reduce((s, m) => s + (m.valor ?? 0), 0);
+
   /** Status atual por veículo (KM + última manutenção), mesmo sem lançamentos. */
   const statusManutencao = useMemo(() => {
     const ultimaPorVeiculo = new Map<number, FrotaManutencaoPortal>();
@@ -256,7 +300,7 @@ export default function FrotaOperacaoPage() {
 
   const totalCombustivel = abastecimentosFiltrados.reduce((s, a) => s + a.valor_abastecido, 0);
   const filtrosAtivos = veiculoSel != null || !!dataInicio || !!dataFim;
-  const mostrarPeriodo = aba === 'combustivel';
+  const mostrarPeriodo = aba === 'combustivel' || aba === 'multas';
 
   function setAba(next: AbaOperacao) {
     if (
@@ -282,9 +326,7 @@ export default function FrotaOperacaoPage() {
   }
 
   function abrirEditar(v: FrotaVeiculo) {
-    setEditando(v);
-    setErro('');
-    setDialogAberto(true);
+    navigate(`/frota/veiculos/${v.id_veiculo}?editar=1`);
   }
 
   function abrirAtribuir(v: FrotaVeiculo) {
@@ -433,14 +475,32 @@ export default function FrotaOperacaoPage() {
     abrirLiberar(atribuirVeiculo);
   }
 
-  async function abrirComprovante(url: string) {
+  async function abrirComprovante(a: FrotaAbastecimentoPortal) {
+    if (!a.comprovante_url || carregandoComprovante) return;
+    setCarregandoComprovante(true);
     try {
-      const path = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+      const path = a.comprovante_url.startsWith('http')
+        ? a.comprovante_url
+        : `${window.location.origin}${a.comprovante_url}`;
       const blob = await fetchMediaAutenticada(path);
-      window.open(blob, '_blank', 'noopener,noreferrer');
+      setComprovanteSrc((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return blob;
+      });
+      setComprovanteTitulo(`Comprovante · ${a.placa}${a.nome_usuario ? ` · ${a.nome_usuario}` : ''}`);
     } catch {
-      /* ignore */
+      setErro('Não foi possível abrir o comprovante');
+    } finally {
+      setCarregandoComprovante(false);
     }
+  }
+
+  function fecharComprovante() {
+    setComprovanteSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setComprovanteTitulo('');
   }
 
   const painelSx = {
@@ -530,8 +590,16 @@ export default function FrotaOperacaoPage() {
         <KpiItem label="Em uso" valor={String(qtdEmUso)} />
         <KpiItem label="Livres" valor={String(qtdLivres)} />
         <KpiItem
-          label={aba === 'manutencoes' ? 'Com registro' : 'Abastecimentos'}
-          valor={String(aba === 'manutencoes' ? qtdComRegistroManut : abastecimentosFiltrados.length)}
+          label={
+            aba === 'manutencoes' ? 'Com registro' : aba === 'multas' ? 'Multas' : 'Abastecimentos'
+          }
+          valor={String(
+            aba === 'manutencoes'
+              ? qtdComRegistroManut
+              : aba === 'multas'
+                ? multasFiltradas.length
+                : abastecimentosFiltrados.length,
+          )}
         />
       </Paper>
 
@@ -572,6 +640,11 @@ export default function FrotaOperacaoPage() {
           {aba === 'combustivel' && abastecimentosFiltrados.length > 0 && (
             <Typography variant="caption" color="text.secondary" sx={{ pr: 1, whiteSpace: 'nowrap' }}>
               R$ {totalCombustivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </Typography>
+          )}
+          {aba === 'multas' && multasFiltradas.length > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ pr: 1, whiteSpace: 'nowrap' }}>
+              R$ {totalMultas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Typography>
           )}
           {aba === 'manutencoes' && (
@@ -713,7 +786,11 @@ export default function FrotaOperacaoPage() {
                     <TableCell>{formatDataHoraBrasilia(a.data_abastecimento)}</TableCell>
                     <TableCell align="center">
                       {a.comprovante_url ? (
-                        <Button size="small" onClick={() => void abrirComprovante(a.comprovante_url!)}>
+                        <Button
+                          size="small"
+                          disabled={carregandoComprovante}
+                          onClick={() => void abrirComprovante(a)}
+                        >
                           Ver
                         </Button>
                       ) : (
@@ -814,6 +891,67 @@ export default function FrotaOperacaoPage() {
                   <TableRow>
                     <TableCell colSpan={10} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                       Nenhum veículo com GPS instalado encontrado.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
+        {aba === 'multas' && (
+          <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
+            {(carregandoMultas || loading) && <LinearProgress />}
+            {multasAvisos.length > 0 &&
+              !multasAvisos.every((a) => /não habilitada|nao habilitada|habilitar|infosimples/i.test(a)) && (
+              <Alert severity="warning" sx={{ m: 1.5, mb: 0 }}>
+                {multasAvisos.slice(0, 5).join(' · ')}
+                {multasAvisos.length > 5 ? ` (+${multasAvisos.length - 5})` : ''}
+              </Alert>
+            )}
+            {!carregandoMultas && (
+              <Typography variant="caption" sx={{ display: 'block', px: 2, pt: 1, color: 'text.secondary' }}>
+                {multasConsultadoEm
+                  ? `Última consulta: ${formatDataHoraBrasilia(multasConsultadoEm)}`
+                  : 'Última consulta: —'}
+              </Typography>
+            )}
+            <Table size="small" stickyHeader sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Placa</TableCell>
+                  <TableCell>Auto</TableCell>
+                  <TableCell>Descrição</TableCell>
+                  <TableCell>Local</TableCell>
+                  <TableCell>Situação</TableCell>
+                  <TableCell align="right">Valor</TableCell>
+                  <TableCell>Data</TableCell>
+                  <TableCell>Vencimento</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {multasFiltradas.map((m, i) => (
+                  <TableRow key={`${m.placa}-${m.auto}-${i}`} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{m.placa}</TableCell>
+                    <TableCell sx={tableCellWrapSx}>{m.auto || '—'}</TableCell>
+                    <TableCell sx={tableCellWrapSx}>{m.descricao || '—'}</TableCell>
+                    <TableCell sx={tableCellWrapSx}>{m.local_infracao || '—'}</TableCell>
+                    <TableCell sx={tableCellWrapSx}>{m.situacao || '—'}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: colors.navy }}>
+                      {m.valor != null
+                        ? `R$ ${m.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell>{m.data_multa ? fmtData(m.data_multa) : '—'}</TableCell>
+                    <TableCell>{m.data_vencimento ? fmtData(m.data_vencimento) : '—'}</TableCell>
+                  </TableRow>
+                ))}
+                {!loading && !carregandoMultas && multasFiltradas.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                      Nenhuma multa encontrada no DETRAN-DF
+                      {veiculoSel ? ` para ${veiculoSel.placa}` : ''}. Confira se o RENAVAM está
+                      cadastrado.
                     </TableCell>
                   </TableRow>
                 )}
@@ -997,6 +1135,14 @@ export default function FrotaOperacaoPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ImageLightbox
+        open={Boolean(comprovanteSrc)}
+        src={comprovanteSrc}
+        titulo={comprovanteTitulo}
+        alt="Comprovante de abastecimento"
+        onClose={fecharComprovante}
+      />
     </Box>
   );
 }

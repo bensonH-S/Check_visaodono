@@ -218,8 +218,10 @@ export default function EstoqueSyncNfPage() {
             type="time"
             value={horario}
             onChange={(e) => setHorario(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            inputProps={{ step: 300 }}
+            slotProps={{
+              inputLabel: { shrink: true },
+              htmlInput: { step: 300 },
+            }}
           />
           <TextField
             size="small"
@@ -227,7 +229,7 @@ export default function EstoqueSyncNfPage() {
             type="number"
             value={limite}
             onChange={(e) => setLimite(Number(e.target.value) || 20)}
-            inputProps={{ min: 1, max: 200 }}
+            slotProps={{ htmlInput: { min: 1, max: 200 } }}
           />
           <FormControlLabel
             control={<Switch checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />}

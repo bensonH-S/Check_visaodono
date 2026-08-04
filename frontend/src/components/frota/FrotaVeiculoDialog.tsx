@@ -50,8 +50,9 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
       return;
     }
     const semana = periodoSemanaAtualKm();
-    setKmDataInicio(semana.inicio);
-    setKmDataFim(semana.fim);
+    // Em edição: sem filtro para listar todo o histórico de atribuição/devolução
+    setKmDataInicio(editando ? '' : semana.inicio);
+    setKmDataFim(editando ? '' : semana.fim);
     setAba(0);
     if (veiculo) {
       void api

@@ -47,6 +47,10 @@ import {
   removerDocumentoDisco,
   salvarDocumentoDisco,
 } from '../frotaDocumentoArquivo.js';
+import {
+  listarMultasDetranCache,
+  executarSyncMultasDetran,
+} from '../services/schedulerMultasDetran.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -395,6 +399,81 @@ router.get('/mobile/manutencoes', requirePermissao('frota.usar', 'frota.gerencia
   }
 });
 
+/** Portal: histórico local legado (registros manuais antigos). */
+router.get('/multas', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT m.id_multa, m.id_veiculo, m.id_usuario, m.descricao, m.valor,
+              m.data_multa, m.local_infracao, m.id_anexo, m.created_at,
+              v.placa, u.nome AS nome_usuario
+       FROM frota_multas m
+       JOIN frota_veiculos v ON v.id_veiculo = m.id_veiculo
+       JOIN usuarios u ON u.id_usuario = m.id_usuario
+       ORDER BY m.data_multa DESC, m.created_at DESC
+       LIMIT 300`,
+    );
+    res.json(
+      rows.map((m) => ({
+        ...m,
+        valor: m.valor != null ? Number(m.valor) : null,
+        foto_url: m.id_anexo ? midiaUrlFrota(m.id_anexo) : null,
+      })),
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Multas DETRAN-DF em cache (consulta Infosimples 1x/dia às 17:00).
+ * Não gasta saldo ao abrir a tela — só lê o banco.
+ * Query: ?id_veiculo=
+ */
+router.get('/multas/detran', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = req.query.id_veiculo != null ? Number(req.query.id_veiculo) : null;
+    const cache = await listarMultasDetranCache({
+      idVeiculo: idVeiculo && Number.isFinite(idVeiculo) ? idVeiculo : null,
+    });
+    res.json(cache);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Força sync Infosimples (uso excepcional — gasta saldo).
+ * Body/query: forcar=1
+ */
+router.post('/multas/detran/sync', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const forcar =
+      req.query.forcar === '1' ||
+      req.body?.forcar === true ||
+      req.body?.forcar === '1';
+    const result = await executarSyncMultasDetran({ forcar });
+    const cache = await listarMultasDetranCache({});
+    res.json({ ...result, cache });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Detalhe de um veículo a partir do cache (sem Infosimples). */
+router.get('/veiculos/:id/multas/detran', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    if (!Number.isFinite(idVeiculo)) return res.status(400).json({ error: 'Veículo inválido' });
+    const cache = await listarMultasDetranCache({ idVeiculo });
+    res.json({
+      id_veiculo: idVeiculo,
+      ...cache,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
   try {
     const { rows: ids } = await pool.query(
@@ -453,14 +532,26 @@ router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async
 
 router.get('/assuncoes', requirePermissao('frota.gerenciar'), async (req, res, next) => {
   try {
+    const idVeiculo =
+      req.query.id_veiculo != null && String(req.query.id_veiculo).trim() !== ''
+        ? Number(req.query.id_veiculo)
+        : null;
+    const params = [];
+    let where = '';
+    if (idVeiculo && Number.isFinite(idVeiculo)) {
+      params.push(idVeiculo);
+      where = `WHERE a.id_veiculo = $${params.length}`;
+    }
     const { rows } = await pool.query(
       `SELECT a.id_assuncao, a.id_veiculo, a.id_usuario, a.km_inicio, a.km_fim, a.data_inicio, a.data_fim,
               v.placa, u.nome AS nome_usuario
        FROM frota_assuncoes a
        JOIN frota_veiculos v ON v.id_veiculo = a.id_veiculo
        JOIN usuarios u ON u.id_usuario = a.id_usuario
+       ${where}
        ORDER BY a.data_inicio DESC
-       LIMIT 200`,
+       LIMIT 500`,
+      params,
     );
     res.json(rows);
   } catch (e) {

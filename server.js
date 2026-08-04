@@ -498,6 +498,14 @@ app.listen(PORT, async () => {
     } catch (e) {
       logger.warn('server', 'Scheduler Platlog NF não iniciado', { error: e.message });
     }
+    try {
+      const { iniciarSchedulerMultasDetran } = await import(
+        './backend/src/services/schedulerMultasDetran.js'
+      );
+      iniciarSchedulerMultasDetran();
+    } catch (e) {
+      logger.warn('server', 'Scheduler multas DETRAN-DF não iniciado', { error: e.message });
+    }
     if (!isProd) {
       try {
         const { ensureAuthUsersSeNecessario } = await import('./backend/src/seedAuth.js');

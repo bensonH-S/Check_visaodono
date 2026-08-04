@@ -1,7 +1,11 @@
+import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
+import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
+import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined';
+import NotesOutlinedIcon from '@mui/icons-material/NotesOutlined';
 import {
   ANOS_VEICULO,
   COMBUSTIVEIS_VEICULO,
@@ -13,6 +17,7 @@ import {
   type FormVeiculoFrota,
 } from '../../constants/frotaVeiculo';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
+import { colors } from '../../theme/tokens';
 
 type Props = {
   form: FormVeiculoFrota;
@@ -57,10 +62,8 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.04em' }}>
-        IDENTIFICAÇÃO
-      </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+      <SecaoFormTitulo icon={<BadgeOutlinedIcon fontSize="small" />}>IDENTIFICAÇÃO</SecaoFormTitulo>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
         <TextField
           label="Placa"
           required
@@ -80,21 +83,21 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
           slotProps={{ inputLabel: labelFixo.inputLabel }}
           sx={inputSx}
         />
+        <TextField
+          label="Chassi"
+          size="small"
+          value={form.chassi}
+          onChange={(e) => onChange({ chassi: e.target.value.toUpperCase().slice(0, 17) })}
+          placeholder={ph.chassi}
+          slotProps={{ inputLabel: labelFixo.inputLabel }}
+          sx={inputSx}
+        />
       </Box>
-      <TextField
-        label="Chassi"
-        size="small"
-        value={form.chassi}
-        onChange={(e) => onChange({ chassi: e.target.value.toUpperCase().slice(0, 17) })}
-        placeholder={ph.chassi}
-        slotProps={{ inputLabel: labelFixo.inputLabel }}
-        sx={inputSx}
-      />
 
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.04em', mt: 0.5 }}>
+      <SecaoFormTitulo icon={<DirectionsCarOutlinedIcon fontSize="small" />}>
         DADOS DO VEÍCULO
-      </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+      </SecaoFormTitulo>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
         <TextField
           select
           label="Marca"
@@ -121,8 +124,6 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
           slotProps={{ inputLabel: labelFixo.inputLabel }}
           sx={inputSx}
         />
-      </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
         <TextField
           select
           label="Ano"
@@ -140,6 +141,8 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
             </MenuItem>
           ))}
         </TextField>
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
         <TextField
           select
           label="Cor"
@@ -157,8 +160,6 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
             </MenuItem>
           ))}
         </TextField>
-      </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
         <TextField
           select
           label="Combustível"
@@ -187,6 +188,7 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
           sx={inputSx}
         />
       </Box>
+      <SecaoFormTitulo icon={<NotesOutlinedIcon fontSize="small" />}>OBSERVAÇÕES</SecaoFormTitulo>
       <TextField
         label="Observações"
         size="small"
@@ -198,6 +200,21 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
         slotProps={{ inputLabel: labelFixo.inputLabel }}
         sx={inputSx}
       />
+    </Box>
+  );
+}
+
+function SecaoFormTitulo({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
+      <Box sx={{ display: 'inline-flex', color: colors.navy, opacity: 0.85 }}>{icon}</Box>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ fontWeight: 600, letterSpacing: '0.04em' }}
+      >
+        {children}
+      </Typography>
     </Box>
   );
 }

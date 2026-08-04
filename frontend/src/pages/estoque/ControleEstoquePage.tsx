@@ -9,7 +9,6 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
-import InputAdornment from '@mui/material/InputAdornment';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
@@ -25,12 +24,10 @@ import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import StorefrontIcon from '@mui/icons-material/Storefront';
-import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
@@ -134,11 +131,6 @@ const thDiferencaSx = {
   color: '#991b1b',
   bgcolor: '#FEE2E2 !important',
 } as const;
-
-function fmtMoeda(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
-  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -281,7 +273,6 @@ export default function ControleEstoquePage() {
   const podeConferencia = podeConferenciaEstoque(user);
   const podeOperacional = podeOperacionalEstoque(user);
   const podeBreak = podeBreakEstoque(user);
-  const podeEditarProdutos = podeProdutos;
   const podeEditarConferencia = podeConferencia;
   const podeExcluir = podeExcluirEstoque(user);
   const podeReabrir = podeReabrirContagemEstoque(user);
@@ -305,7 +296,7 @@ export default function ControleEstoquePage() {
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [produtosVendaCount, setProdutosVendaCount] = useState(0);
-  const [busca, setBusca] = useState('');
+  const [busca] = useState('');
   const [listaContagens, setListaContagens] = useState<EstoqueContagemResumo[]>([]);
   const [filtroStatus, setFiltroStatus] = useState<'todas' | 'aberta' | 'finalizada'>('todas');
   const [contagem, setContagem] = useState<EstoqueContagemDetalhe | null>(null);
@@ -494,24 +485,6 @@ export default function ControleEstoquePage() {
     }
   };
 
-  const abrirNovoProduto = () => {
-    setEditando(null);
-    setFormProduto(emptyProdutoForm);
-    setDlgProduto(true);
-  };
-
-  const abrirEditarProduto = (p: ProdutoEstoque) => {
-    setEditando(p);
-    setFormProduto({
-      codigo: p.codigo,
-      descricao: p.descricao,
-      unidade_contagem: String(p.unidade_contagem || 'UND').toUpperCase(),
-      preco_caixa: String(p.preco_caixa ?? ''),
-      und_convertida: String(p.und_convertida ?? 1),
-    });
-    setDlgProduto(true);
-  };
-
   const salvarProduto = async () => {
     if (!idLoja) return;
     setSalvandoProduto(true);
@@ -532,6 +505,7 @@ export default function ControleEstoquePage() {
         showToast('Insumo cadastrado nesta loja');
       }
       setDlgProduto(false);
+      setEditando(null);
       await carregarProdutos();
       if (contagem?.status === 'aberta' && contagem.id_contagem) {
         await abrirContagem(contagem.id_contagem);
@@ -811,7 +785,7 @@ export default function ControleEstoquePage() {
                           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                             Conferência — contagem de insumos
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" display="block">
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             Conta carne, pão, batata… (itens físicos). Não se conta Whopper pronto.
                           </Typography>
                           {lojaAtual && (
@@ -1322,7 +1296,15 @@ export default function ControleEstoquePage() {
             </>
           )}
 
-      <Dialog open={dlgProduto} onClose={() => setDlgProduto(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={dlgProduto}
+        onClose={() => {
+          setDlgProduto(false);
+          setEditando(null);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitleWithIcon
           plainIcon
           divider

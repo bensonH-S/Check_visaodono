@@ -52,29 +52,25 @@ const filtroDataSx = {
 
 const filtroDataCompactoSx = {
   mb: 0,
-  width: '100%',
-  minWidth: 220,
-  maxWidth: 280,
-  flex: '1 1 auto',
+  width: 300,
+  minWidth: 300,
+  maxWidth: 300,
+  flex: '0 0 auto',
   position: 'relative',
   '& .MuiOutlinedInput-root': {
     minHeight: 32,
     height: 32,
   },
   '& .MuiInputBase-input': {
-    fontSize: '0.73rem',
+    fontSize: '0.74rem',
     py: 0.25,
-    px: 0.5,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    px: 0.75,
   },
   '& .MuiInputLabel-root': {
-    fontSize: '0.72rem',
-    transform: 'translate(10px, 7px) scale(1)',
-    '&.MuiInputLabel-shrink': {
-      transform: 'translate(10px, -7px) scale(0.72)',
-    },
+    fontSize: '0.75rem',
+  },
+  '& .MuiInputLabel-root.MuiInputLabel-shrink': {
+    transform: 'translate(12px, -8px) scale(0.85)',
   },
 } as const;
 
@@ -153,7 +149,7 @@ export default function FiltroIntervaloDatasFrota({
     >
       <Box sx={compacto ? filtroDataCompactoSx : filtroDataSx}>
         <TextField
-          fullWidth
+          fullWidth={!compacto}
           size="small"
           label="Período"
           value={texto}
@@ -178,7 +174,7 @@ export default function FiltroIntervaloDatasFrota({
             },
           }}
           sx={{
-            ...(compacto ? {} : campoAlturaFrotaSx),
+            ...(compacto ? { width: 300 } : campoAlturaFrotaSx),
             mb: 0,
             '& .MuiInputBase-input': {
               letterSpacing: '0.01em',
@@ -186,7 +182,7 @@ export default function FiltroIntervaloDatasFrota({
             '& .MuiInputBase-input::placeholder': {
               color: 'text.disabled',
               opacity: 1,
-              fontSize: compacto ? '0.72rem' : '0.8rem',
+              fontSize: compacto ? '0.74rem' : '0.8rem',
             },
           }}
         />

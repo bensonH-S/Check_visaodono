@@ -7,6 +7,7 @@ import { fmtData, fmtNota, fetchMediaAutenticada } from '../../api/client';
 import type { VisitaDetalhe } from '../../api/client';
 import { formatarHoraVisita } from '../../utils/visitaFormat';
 import CkMarkLogoMenu from '../CkMarkLogoMenu';
+import ImageLightbox from '../ImageLightbox';
 import './visitas-mobile.css';
 
 type Props = {
@@ -53,7 +54,13 @@ function barColor(pct: number): string {
   return '#1b2a6b';
 }
 
-function RespostaCard({ r }: { r: VisitaDetalhe['respostas'][0] }) {
+function RespostaCard({
+  r,
+  onAbrirFoto,
+}: {
+  r: VisitaDetalhe['respostas'][0];
+  onAbrirFoto: (src: string, pergunta: string) => void;
+}) {
   const [urls, setUrls] = useState<string[]>([]);
 
   useEffect(() => {
@@ -94,7 +101,17 @@ function RespostaCard({ r }: { r: VisitaDetalhe['respostas'][0] }) {
         {urls.length > 0 && (
           <span className="ck-visitas__photos">
             {urls.map((src, i) => (
-              <img key={i} src={src} alt={`Evidência ${i + 1}`} />
+              <button
+                key={i}
+                type="button"
+                className="ck-visitas__photo-btn"
+                aria-label={`Ampliar evidência ${i + 1}`}
+                onClick={() =>
+                  onAbrirFoto(src, `${r.codigo ? `${r.codigo}. ` : ''}${r.texto || ''}`.trim())
+                }
+              >
+                <img src={src} alt={`Evidência ${i + 1}`} />
+              </button>
             ))}
           </span>
         )}
@@ -115,6 +132,7 @@ export default function RelatorioMobileScreen({
   onReabrir,
 }: Props) {
   const navigate = useNavigate();
+  const [fotoAberta, setFotoAberta] = useState<{ src: string; pergunta: string } | null>(null);
   const v = data.visita;
   const nota = Number(v.nota_final);
   const hora = formatarHoraVisita(v.hora_inicio);
@@ -143,15 +161,23 @@ export default function RelatorioMobileScreen({
 
         <div className="ck-visitas__stage-inner">
           <div className="ck-visitas__toolbar ck-visitas__anim ck-visitas__anim--1">
-            <button
-              type="button"
-              className="ck-visitas__back"
-              aria-label="Voltar para visitas"
-              onClick={() => navigate('/visitas/mobile', { replace: true })}
-            >
-              ←
-            </button>
-            <div className="ck-visitas__toolbar-actions">
+            <div className="ck-visitas__toolbar-heading">
+              <p className="ck-visitas__mark-text ck-visitas__mark-text--toolbar">Grupo Alvim</p>
+              <h1 className="ck-visitas__title ck-visitas__title--toolbar">
+                Relatório
+                <br />
+                da visita
+              </h1>
+            </div>
+            <div className="ck-visitas__toolbar-actions ck-visitas__toolbar-actions--with-logo">
+              <button
+                type="button"
+                className="ck-visitas__back"
+                aria-label="Voltar para visitas"
+                onClick={() => navigate('/visitas/mobile', { replace: true })}
+              >
+                ←
+              </button>
               {podeReabrir && (
                 <button
                   type="button"
@@ -182,22 +208,11 @@ export default function RelatorioMobileScreen({
                   <PictureAsPdfIcon fontSize="small" />
                 )}
               </button>
-              <CkMarkLogoMenu size={68} className="ck-visitas__toolbar-logo" />
+              <CkMarkLogoMenu size={48} className="ck-visitas__toolbar-logo" />
             </div>
           </div>
 
-          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--2">
-            <div>
-              <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title">
-                Relatório
-                <br />
-                da visita
-              </h1>
-            </div>
-          </div>
-
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--3">
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
             {titulo} · {v.name}
             {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
           </p>
@@ -272,7 +287,11 @@ export default function RelatorioMobileScreen({
             <h2 className="ck-visitas__cat">{categoria}</h2>
             <div className="ck-visitas__list">
               {items.map((r) => (
-                <RespostaCard key={r.id_pergunta} r={r} />
+                <RespostaCard
+                  key={r.id_pergunta}
+                  r={r}
+                  onAbrirFoto={(src, pergunta) => setFotoAberta({ src, pergunta })}
+                />
               ))}
             </div>
           </div>
@@ -295,6 +314,13 @@ export default function RelatorioMobileScreen({
           </>
         )}
       </div>
+
+      <ImageLightbox
+        open={Boolean(fotoAberta)}
+        src={fotoAberta?.src ?? null}
+        titulo={fotoAberta?.pergunta}
+        onClose={() => setFotoAberta(null)}
+      />
     </div>
   );
 }

@@ -285,6 +285,7 @@ export default function App() {
                 path="manutencoes"
                 element={<Navigate to="/frota/operacao?aba=manutencoes" replace />}
               />
+              <Route path="multas" element={<Navigate to="/frota/operacao?aba=multas" replace />} />
               <Route
                 path="termos"
                 element={

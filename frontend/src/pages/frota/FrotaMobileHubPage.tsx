@@ -98,7 +98,6 @@ export default function FrotaMobileHubPage() {
     : modoRestrito
       ? 'Aguarde a atribuição do veículo no portal'
       : 'Assuma um veículo para registrar manutenção';
-
   const placa = resumo?.veiculo?.placa ?? '—';
   const kmLabel =
     resumo?.veiculo?.km_atual != null

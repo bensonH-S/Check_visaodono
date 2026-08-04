@@ -12,6 +12,7 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import { api, fmtNota, fmtData, fetchMediaAutenticada } from '../api/client';
@@ -24,6 +25,7 @@ import { assetUrl, FAVICON_ICON } from '../config/paths';
 import { podeReabrirVisitas } from '../lib/auth';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
 import RelatorioMobileScreen from '../components/visitas/RelatorioMobileScreen';
+import ImageLightbox from '../components/ImageLightbox';
 import '../components/visitas/visitas-mobile.css';
 
 const NAVY = '#0F1A45';
@@ -197,6 +199,7 @@ export default function RelatorioPage() {
   const [exportandoPdf, setExportandoPdf] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
   const [dlgReabrir, setDlgReabrir] = useState(false);
+  const [fotoAberta, setFotoAberta] = useState<{ src: string; pergunta: string } | null>(null);
   const podeReabrir = podeReabrirVisitas();
 
   const exportarPdf = useCallback(async () => {
@@ -317,6 +320,67 @@ export default function RelatorioPage() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1 }}>
           <MarcaGrupoAlvim size={28} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+            <Tooltip title="Voltar">
+              <IconButton
+                size="small"
+                aria-label="Voltar"
+                onClick={() => navigate(-1)}
+                sx={{
+                  color: '#fff',
+                  bgcolor: 'rgba(255,255,255,0.12)',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' },
+                }}
+              >
+                <ArrowBackIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {podeReabrir && v.status === 'Finalizada' && (
+              <Tooltip title="Reabrir">
+                <span>
+                  <IconButton
+                    size="small"
+                    aria-label="Reabrir visita"
+                    disabled={reabrindo}
+                    onClick={() => setDlgReabrir(true)}
+                    sx={{
+                      color: '#fff',
+                      bgcolor: 'rgba(255,255,255,0.12)',
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' },
+                    }}
+                  >
+                    {reabrindo ? (
+                      <CircularProgress size={18} sx={{ color: '#fff' }} />
+                    ) : (
+                      <LockOpenIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
+            <Tooltip title={exportandoPdf ? 'Gerando…' : 'Baixar PDF'}>
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="Baixar PDF"
+                  disabled={exportandoPdf}
+                  onClick={() => void exportarPdf()}
+                  sx={{
+                    color: '#fff',
+                    bgcolor: FAIL,
+                    '&:hover': { bgcolor: '#991B1B' },
+                    '&.Mui-disabled': { color: 'rgba(255,255,255,0.5)', bgcolor: 'rgba(185,28,28,0.5)' },
+                  }}
+                >
+                  {exportandoPdf ? (
+                    <CircularProgress size={18} sx={{ color: '#fff' }} />
+                  ) : (
+                    <PictureAsPdfIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
           <Box sx={{ minWidth: 0 }}>
             <Typography
               variant="caption"
@@ -342,53 +406,6 @@ export default function RelatorioPage() {
               {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
             </Typography>
           </Box>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-          {podeReabrir && v.status === 'Finalizada' && (
-            <Tooltip title="Reabrir">
-              <span>
-                <IconButton
-                  size="small"
-                  aria-label="Reabrir visita"
-                  disabled={reabrindo}
-                  onClick={() => setDlgReabrir(true)}
-                  sx={{
-                    color: '#fff',
-                    bgcolor: 'rgba(255,255,255,0.12)',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' },
-                  }}
-                >
-                  {reabrindo ? (
-                    <CircularProgress size={18} sx={{ color: '#fff' }} />
-                  ) : (
-                    <LockOpenIcon fontSize="small" />
-                  )}
-                </IconButton>
-              </span>
-            </Tooltip>
-          )}
-          <Tooltip title={exportandoPdf ? 'Gerando…' : 'Baixar PDF'}>
-            <span>
-              <IconButton
-                size="small"
-                aria-label="Baixar PDF"
-                disabled={exportandoPdf}
-                onClick={() => void exportarPdf()}
-                sx={{
-                  color: '#fff',
-                  bgcolor: FAIL,
-                  '&:hover': { bgcolor: '#991B1B' },
-                  '&.Mui-disabled': { color: 'rgba(255,255,255,0.5)', bgcolor: 'rgba(185,28,28,0.5)' },
-                }}
-              >
-                {exportandoPdf ? (
-                  <CircularProgress size={18} sx={{ color: '#fff' }} />
-                ) : (
-                  <PictureAsPdfIcon fontSize="small" />
-                )}
-              </IconButton>
-            </span>
-          </Tooltip>
         </Box>
       </Box>
 
@@ -579,7 +596,13 @@ export default function RelatorioPage() {
               </Box>
             </Box>
             {items.map((r, idx) => (
-              <RespostaRelatorio key={r.id_pergunta} resposta={r} idx={idx} mobileApp={false} />
+              <RespostaRelatorio
+                key={r.id_pergunta}
+                resposta={r}
+                idx={idx}
+                mobileApp={false}
+                onAbrirFoto={(src, pergunta) => setFotoAberta({ src, pergunta })}
+              />
             ))}
           </Box>
         ))}
@@ -641,6 +664,12 @@ export default function RelatorioPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <ImageLightbox
+        open={Boolean(fotoAberta)}
+        src={fotoAberta?.src ?? null}
+        titulo={fotoAberta?.pergunta}
+        onClose={() => setFotoAberta(null)}
+      />
     </Box>
   );
 }
@@ -649,10 +678,12 @@ function RespostaRelatorio({
   resposta: r,
   idx,
   mobileApp,
+  onAbrirFoto,
 }: {
   resposta: VisitaDetalhe['respostas'][0];
   idx: number;
   mobileApp: boolean;
+  onAbrirFoto: (src: string, pergunta: string) => void;
 }) {
   const [urls, setUrls] = useState<string[]>([]);
   const st = corResposta(r.resposta, r);
@@ -766,12 +797,23 @@ function RespostaRelatorio({
             {urls.map((src, i) => (
               <Box
                 key={i}
+                component="button"
+                type="button"
+                onClick={() =>
+                  onAbrirFoto(src, `${r.codigo ? `${r.codigo}. ` : ''}${r.texto || ''}`.trim())
+                }
+                aria-label={`Ampliar evidência ${i + 1}`}
                 sx={{
                   position: 'relative',
                   borderRadius: 1.5,
                   overflow: 'hidden',
                   border: `1px solid ${LINE}`,
                   bgcolor: ROW_ALT,
+                  p: 0,
+                  cursor: 'zoom-in',
+                  textAlign: 'left',
+                  font: 'inherit',
+                  WebkitTapHighlightColor: 'transparent',
                 }}
               >
                 <Box

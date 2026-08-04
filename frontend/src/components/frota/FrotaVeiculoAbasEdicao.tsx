@@ -33,23 +33,23 @@ export default function FrotaVeiculoAbasEdicao({
         borderBottom: 1,
         borderColor: 'divider',
         display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        alignItems: { xs: 'stretch', md: 'flex-end' },
-        gap: { xs: 0.5, md: 0.75 },
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        gap: 1.5,
         flexWrap: 'wrap',
       }}
     >
       <Tabs
         value={aba}
         onChange={(_, v) => onChangeAba(v)}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
+        variant="standard"
+        scrollButtons={false}
         sx={{
           minHeight: 42,
           flex: '1 1 auto',
           minWidth: 0,
-          maxWidth: { md: 'calc(100% - 240px)' },
+          '& .MuiTab-root': { minHeight: 42, minWidth: 'auto', px: 1.5 },
         }}
       >
         <Tab label="Dados do veículo" value={0} />
@@ -61,10 +61,8 @@ export default function FrotaVeiculoAbasEdicao({
         <Box
           sx={{
             pb: 0.65,
-            flexShrink: 0,
-            width: { xs: '100%', md: 'auto' },
-            minWidth: { md: 220 },
-            maxWidth: { xs: '100%', md: 280 },
+            flex: '0 0 auto',
+            width: 300,
           }}
         >
           <FiltroIntervaloDatasFrota

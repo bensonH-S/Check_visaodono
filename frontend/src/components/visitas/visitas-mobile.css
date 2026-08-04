@@ -393,10 +393,33 @@
 
 .ck-visitas__toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+}
+
+.ck-visitas__toolbar-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ck-visitas__mark-text--toolbar {
+  margin: 0 0 6px;
+}
+
+.ck-visitas__title--toolbar {
+  /* mesmo tamanho de antes, com quebra de linha */
+  font-size: clamp(2.15rem, 9.5vw, 3rem);
+  line-height: 0.96;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.ck-visitas__toolbar-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .ck-visitas__toolbar-actions {
@@ -404,11 +427,17 @@
   align-items: center;
   gap: 8px;
   margin-left: auto;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ck-visitas__toolbar-actions--with-logo {
+  margin-left: auto;
 }
 
 .ck-visitas__toolbar-logo {
-  width: 68px;
-  height: 68px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   flex-shrink: 0;
   display: block;
@@ -558,12 +587,28 @@
   margin-top: 8px;
 }
 
-.ck-visitas__photos img {
+.ck-visitas__photo-btn {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-visitas__photos img,
+.ck-visitas__photo-btn img {
   width: 68px;
   height: 68px;
   object-fit: cover;
   border-radius: 10px;
   border: 1px solid rgba(27, 42, 107, 0.12);
+  display: block;
+}
+
+.ck-visitas__photo-btn:active img {
+  opacity: 0.85;
 }
 
 .ck-visitas__nc {

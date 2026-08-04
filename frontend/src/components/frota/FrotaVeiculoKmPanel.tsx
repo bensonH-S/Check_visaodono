@@ -97,7 +97,7 @@ export default function FrotaVeiculoKmPanel({
     setErro('');
     Promise.all([
       api.frotaVeiculo(idVeiculo),
-      api.frotaAssuncoes(),
+      api.frotaAssuncoes(idVeiculo),
       api.frotaAbastecimentosPortal(),
       api.frotaManutencoesPortal(),
     ])
