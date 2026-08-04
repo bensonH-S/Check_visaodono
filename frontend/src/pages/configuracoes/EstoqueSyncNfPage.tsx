@@ -48,7 +48,7 @@ function chipStatus(status: string | null | undefined) {
 
 const LABEL_FORN: Record<string, string> = {
   platlog: 'Platlog (eSupri)',
-  coca: 'Coca-Cola (em breve)',
+  coca: 'Coca-Cola (Conecta Brasal)',
 };
 
 export default function EstoqueSyncNfPage() {
@@ -194,9 +194,7 @@ export default function EstoqueSyncNfPage() {
               onChange={(e) => setFornecedor(e.target.value as 'platlog' | 'coca')}
             >
               <MenuItem value="platlog">Platlog (eSupri)</MenuItem>
-              <MenuItem value="coca" disabled>
-                Coca-Cola (em breve)
-              </MenuItem>
+              <MenuItem value="coca">Coca-Cola (Conecta Brasal)</MenuItem>
             </Select>
           </FormControl>
           <FormControl size="small" fullWidth>

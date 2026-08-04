@@ -1,8 +1,9 @@
 /**
- * Scheduler diário do sync Platlog (eSupri).
+ * Scheduler diário do sync de NF (Platlog / Coca).
  * Lê estoque_sync_fornecedor e dispara no horário (America/Sao_Paulo).
  */
 import { pool } from '../../db.js';
+import { syncNfeCoca } from '../brasal/syncNfeCoca.js';
 import { syncNfePlatlog } from './syncNfePlatlog.js';
 
 let timer = null;
@@ -56,16 +57,26 @@ async function marcarStatus(idSync, patch) {
 export async function executarSyncFornecedor(row, { forcar = false } = {}) {
   const idSync = row.id_sync;
   const fornecedor = row.fornecedor;
-  if (fornecedor !== 'platlog') {
+  if (!['platlog', 'coca'].includes(fornecedor)) {
     throw Object.assign(new Error(`Fornecedor ${fornecedor} ainda não implementado`), {
       status: 501,
     });
   }
 
-  const user = process.env.ESUPRI_USER || '';
-  const pass = process.env.ESUPRI_PASS || '';
-  if (!user || !pass) {
-    throw Object.assign(new Error('ESUPRI_USER / ESUPRI_PASS ausentes no .env'), { status: 400 });
+  let user = '';
+  let pass = '';
+  if (fornecedor === 'platlog') {
+    user = process.env.ESUPRI_USER || '';
+    pass = process.env.ESUPRI_PASS || '';
+    if (!user || !pass) {
+      throw Object.assign(new Error('ESUPRI_USER / ESUPRI_PASS ausentes no .env'), { status: 400 });
+    }
+  } else if (fornecedor === 'coca') {
+    user = process.env.BRASAL_USER || '';
+    pass = process.env.BRASAL_PASS || '';
+    if (!user || !pass) {
+      throw Object.assign(new Error('BRASAL_USER / BRASAL_PASS ausentes no .env'), { status: 400 });
+    }
   }
 
   await marcarStatus(idSync, {
@@ -75,16 +86,27 @@ export async function executarSyncFornecedor(row, { forcar = false } = {}) {
   });
 
   try {
-    const result = await syncNfePlatlog({
-      id_loja: row.id_loja,
-      user,
-      pass,
-      limit: row.limite || 20,
-      aplicar: true,
-      registrar_entrada: false,
-      headless: true,
-      pular_existentes: !forcar,
-    });
+    const result =
+      fornecedor === 'coca'
+        ? await syncNfeCoca({
+            id_loja: row.id_loja,
+            user,
+            pass,
+            limit: row.limite || 20,
+            aplicar: true,
+            registrar_entrada: false,
+            pular_existentes: !forcar,
+          })
+        : await syncNfePlatlog({
+            id_loja: row.id_loja,
+            user,
+            pass,
+            limit: row.limite || 20,
+            aplicar: true,
+            registrar_entrada: false,
+            headless: true,
+            pular_existentes: !forcar,
+          });
 
     const aplicadas = result.processadas.filter((p) => p.aplicado).length;
     const erros = result.processadas.filter((p) => !p.ok).length;
@@ -137,7 +159,7 @@ async function tick() {
   try {
     const r = await pool.query(
       `SELECT * FROM estoque_sync_fornecedor
-       WHERE ativo = TRUE AND fornecedor = 'platlog'`,
+       WHERE ativo = TRUE AND fornecedor IN ('platlog', 'coca')`,
     );
     rows = r.rows;
   } catch (e) {
@@ -265,6 +287,8 @@ function mapRow(r) {
     credenciais_ok:
       r.fornecedor === 'platlog'
         ? Boolean(process.env.ESUPRI_USER && process.env.ESUPRI_PASS)
-        : false,
+        : r.fornecedor === 'coca'
+          ? Boolean(process.env.BRASAL_USER && process.env.BRASAL_PASS)
+          : false,
   };
 }
