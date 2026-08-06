@@ -380,18 +380,20 @@ export default function FrotaOperacaoPage() {
     [statusManutencao],
   );
 
+  /** Versão filtrada por período para exibição na tabela de manutenções */
+  const statusManutencaoFiltrado = useMemo(
+    () =>
+      statusManutencao.filter(
+        (s) => !s.ultima || dataDentroIntervalo(s.ultima.data_manutencao, dataInicio, dataFim),
+      ),
+    [statusManutencao, dataInicio, dataFim],
+  );
+
   const totalCombustivel = abastecimentosFiltrados.reduce((s, a) => s + a.valor_abastecido, 0);
   const filtrosAtivos = veiculoSel != null || !!dataInicio || !!dataFim;
-  const mostrarPeriodo = aba === 'combustivel' || aba === 'multas';
+  const mostrarPeriodo = aba === 'combustivel' || aba === 'multas' || aba === 'manutencoes';
 
   function setAba(next: AbaOperacao) {
-    if (
-      next === 'manutencoes' &&
-      veiculoSel &&
-      !(veiculoSel.gps_instalado || veiculoSel.id_rastreamento != null)
-    ) {
-      setVeiculoSel(null);
-    }
     setSearchParams(next === 'cadastro' ? {} : { aba: next }, { replace: true });
   }
 
@@ -928,7 +930,7 @@ export default function FrotaOperacaoPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {statusManutencao.map(
+                {statusManutencaoFiltrado.map(
                   ({ veiculo: v, ultima, kmManut, kmAtual, proxKm, faltam, atrasada }) => (
                     <TableRow key={v.id_veiculo} hover>
                       <TableCell sx={{ fontWeight: 600 }}>{v.placa}</TableCell>
@@ -986,7 +988,7 @@ export default function FrotaOperacaoPage() {
                     </TableRow>
                   ),
                 )}
-                {!loading && statusManutencao.length === 0 && (
+                {!loading && statusManutencaoFiltrado.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={10} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                       Nenhum veículo com GPS instalado encontrado.
