@@ -29,7 +29,7 @@ import FrotaTermoPage from './pages/frota/FrotaTermoPage';
 import FrotaVeiculoPage from './pages/frota/FrotaVeiculoPage';
 import FrotaManutencaoMobilePage from './pages/frota/FrotaManutencaoMobilePage';
 import FrotaPortalIndexPage from './pages/frota/FrotaPortalIndexPage';
-import FrotaOperacaoPage from './pages/frota/FrotaOperacaoPage';
+import FrotaOperacaoPage, { FrotaOperacaoLegacyRedirect } from './pages/frota/FrotaOperacaoPage';
 import FrotaAcompanhamentoPage from './pages/frota/FrotaAcompanhamentoPage';
 import FrotaVeiculoDetalhePage from './pages/frota/FrotaVeiculoDetalhePage';
 import FrotaTermosPortalPage from './pages/frota/FrotaTermosPortalPage';
@@ -253,15 +253,16 @@ export default function App() {
                   </RotaPermissao>
                 }
               />
+              <Route path="operacao" element={<FrotaOperacaoLegacyRedirect />} />
               <Route
-                path="operacao"
+                path="operacao/:aba"
                 element={
                   <RotaPermissao permissoes={['frota.gerenciar']}>
                     <FrotaOperacaoPage />
                   </RotaPermissao>
                 }
               />
-              <Route path="veiculos" element={<Navigate to="/frota/operacao?aba=cadastro" replace />} />
+              <Route path="veiculos" element={<Navigate to="/frota/operacao/cadastro" replace />} />
               <Route
                 path="acompanhamento"
                 element={
@@ -276,16 +277,17 @@ export default function App() {
                 path="relatorio-velocidade"
                 element={<Navigate to="/frota/acompanhamento" replace />}
               />
-              <Route path="uso" element={<Navigate to="/frota/operacao?aba=cadastro" replace />} />
+              <Route path="uso" element={<Navigate to="/frota/operacao/cadastro" replace />} />
               <Route
                 path="combustivel"
-                element={<Navigate to="/frota/operacao?aba=combustivel" replace />}
+                element={<Navigate to="/frota/operacao/combustivel" replace />}
               />
               <Route
                 path="manutencoes"
-                element={<Navigate to="/frota/operacao?aba=manutencoes" replace />}
+                element={<Navigate to="/frota/operacao/manutencoes" replace />}
               />
-              <Route path="multas" element={<Navigate to="/frota/operacao?aba=multas" replace />} />
+              <Route path="multas" element={<Navigate to="/frota/operacao/multas" replace />} />
+              <Route path="debitos" element={<Navigate to="/frota/operacao/debitos" replace />} />
               <Route
                 path="termos"
                 element={

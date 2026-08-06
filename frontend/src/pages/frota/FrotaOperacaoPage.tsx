@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
+import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -19,6 +20,8 @@ import TableRow from '@mui/material/TableRow';
 import Dialog from '@mui/material/Dialog';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import FormControl from '@mui/material/FormControl';
+import Select from '@mui/material/Select';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -37,10 +40,14 @@ import PlaceIcon from '@mui/icons-material/Place';
 import SyncIcon from '@mui/icons-material/Sync';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import {
   api,
   fetchMediaAutenticada,
   type FrotaAbastecimentoPortal,
+  type FrotaDebitoDetran,
   type FrotaManutencaoPortal,
   type FrotaMultaDetran,
   type FrotaVeiculo,
@@ -51,12 +58,14 @@ import FrotaVeiculoDialog from '../../components/frota/FrotaVeiculoDialog';
 import FrotaVeiculoAutocomplete from '../../components/frota/FrotaVeiculoAutocomplete';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import ImageLightbox from '../../components/ImageLightbox';
+import PdfBoletoDialog from '../../components/frota/PdfBoletoDialog';
 import { colors, radius, shadows } from '../../theme/tokens';
 import { dataHojeBrasilia, formatDataHoraBrasilia } from '../../utils/dateBr';
 import { dataDentroIntervalo, matchVeiculo, matchVeiculoObj } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tableSx } from '../../utils/tablePageLayout';
+import { gerarPdfMultasFrota } from '../../utils/gerarPdfMultasFrota';
 
-export type AbaOperacao = 'cadastro' | 'combustivel' | 'manutencoes' | 'multas';
+export type AbaOperacao = 'cadastro' | 'combustivel' | 'manutencoes' | 'multas' | 'debitos';
 
 /** Intervalo padrão entre manutenções (usuário citou ~10 mil km). */
 export const INTERVALO_MANUTENCAO_KM = 10_000;
@@ -66,17 +75,96 @@ const ABAS: { id: AbaOperacao; label: string }[] = [
   { id: 'combustivel', label: 'Combustível' },
   { id: 'manutencoes', label: 'Manutenções' },
   { id: 'multas', label: 'Multas' },
+  { id: 'debitos', label: 'Débitos' },
 ];
 
-function parseAba(raw: string | null): AbaOperacao {
-  if (raw === 'combustivel' || raw === 'manutencoes' || raw === 'cadastro' || raw === 'multas') return raw;
+const ANO_IPVA_INICIO = 2020;
+
+function anosIpvaDisponiveis() {
+  const atual = new Date().getFullYear();
+  const lista: number[] = [];
+  for (let a = atual; a >= ANO_IPVA_INICIO; a -= 1) lista.push(a);
+  return lista;
+}
+
+function parseAba(raw: string | undefined | null): AbaOperacao {
+  if (
+    raw === 'combustivel' ||
+    raw === 'manutencoes' ||
+    raw === 'cadastro' ||
+    raw === 'multas' ||
+    raw === 'debitos'
+  ) {
+    return raw;
+  }
   return 'cadastro';
+}
+
+/** Redireciona URLs antigas `/frota/operacao?aba=multas` → `/frota/operacao/multas`. */
+export function FrotaOperacaoLegacyRedirect() {
+  const [searchParams] = useSearchParams();
+  const aba = parseAba(searchParams.get('aba'));
+  return <Navigate to={`/frota/operacao/${aba}`} replace />;
 }
 
 function fmtData(d: string | null) {
   if (!d) return '—';
   const [y, m, day] = d.slice(0, 10).split('-');
   return `${day}/${m}/${y}`;
+}
+
+function fmtDataHora(d: string | null | undefined, h?: string | null) {
+  if (!d) return '—';
+  const data = fmtData(d);
+  const hora = h?.trim().slice(0, 5) || '00:00';
+  return `${data} ${hora}`;
+}
+
+function fmtMoeda(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return '—';
+  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+}
+
+function placaComModelo(placa: string, modelo?: string | null) {
+  return modelo ? `${placa} - ${modelo}` : placa;
+}
+
+function normalizarGrupo(natureza?: string | null) {
+  return String(natureza || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function obterGrupoChipEstilo(natureza?: string | null) {
+  const n = normalizarGrupo(natureza);
+  if (/gravissima/.test(n)) {
+    return { bgcolor: 'rgba(183, 28, 28, 0.12)', color: '#b71c1c', border: '1px solid #b71c1c' };
+  }
+  if (/grave/.test(n)) {
+    return { bgcolor: 'rgba(230, 81, 0, 0.12)', color: '#e65100', border: '1px solid #e65100' };
+  }
+  if (/media|média/.test(n) || n === 'media') {
+    return { bgcolor: 'rgba(249, 168, 37, 0.16)', color: '#f57f17', border: '1px solid #f9a825' };
+  }
+  if (/leve/.test(n)) {
+    return { bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32', border: '1px solid #2e7d32' };
+  }
+  return { bgcolor: 'rgba(84, 110, 122, 0.1)', color: '#546e7a', border: '1px solid #78909c' };
+}
+
+function multaTemDescricao(m: FrotaMultaDetran) {
+  return Boolean(
+    m.descricao ||
+      m.local_infracao ||
+      m.orgao ||
+      m.pontos != null ||
+      m.velocidade_aferida != null ||
+      m.velocidade_permitida != null ||
+      m.responsavel_infracao ||
+      m.data_notificacao_autuacao,
+  );
 }
 
 function fmtKm(n: number | null | undefined) {
@@ -125,30 +213,85 @@ function KpiItem({ label, valor }: { label: string; valor: string }) {
 
 export default function FrotaOperacaoPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const aba = parseAba(searchParams.get('aba'));
+  const { aba: abaParam } = useParams<{ aba: string }>();
+  const aba = parseAba(abaParam);
 
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   
   const sessao = useMemo(() => getUsuario(), []);
   const podeSincronizar = useMemo(() => temPermissao('frota.multas.sync', sessao), [sessao]);
-  const [modalDetalheMulta, setModalDetalheMulta] = useState<{ open: boolean; titulo: string; conteudo: string; tipo: 'descricao' | 'local' | ''; orgao?: string }>({
+  const podeVerDebitos = useMemo(() => temPermissao('frota.debitos.ver', sessao), [sessao]);
+  const abasVisiveis = useMemo(
+    () => ABAS.filter((item) => item.id !== 'debitos' || podeVerDebitos),
+    [podeVerDebitos],
+  );
+  const [modalDetalheMulta, setModalDetalheMulta] = useState<{
+    open: boolean;
+    multa: FrotaMultaDetran | null;
+  }>({
     open: false,
-    titulo: '',
-    conteudo: '',
-    tipo: '',
-    orgao: '',
+    multa: null,
+  });
+  const [modalDebito, setModalDebito] = useState<{ open: boolean; debito: FrotaDebitoDetran | null }>({
+    open: false,
+    debito: null,
   });
   const [syncVeiculoIds, setSyncVeiculoIds] = useState<number[]>([]);
   const [confirmarSyncOpen, setConfirmarSyncOpen] = useState(false);
+  const [syncTipo, setSyncTipo] = useState<'multas' | 'debitos'>('multas');
+  const [syncDebitosTipos, setSyncDebitosTipos] = useState<{ ipva: boolean; licenciamento: boolean }>({
+    ipva: false,
+    licenciamento: false,
+  });
+  const [syncIpvaAnos, setSyncIpvaAnos] = useState<number[]>(() => [new Date().getFullYear()]);
+  const opcoesAnosIpva = useMemo(() => anosIpvaDisponiveis(), []);
+  const [modalBoletoPdf, setModalBoletoPdf] = useState<{
+    open: boolean;
+    url: string | null;
+    idDebito: number | null;
+    titulo: string;
+  }>({
+    open: false,
+    url: null,
+    idDebito: null,
+    titulo: '',
+  });
+  const [syncProgress, setSyncProgress] = useState<{
+    open: boolean;
+    fase: 'progresso' | 'resultado';
+    pct: number;
+    atual: string;
+    total: number;
+    feitos: number;
+    mensagem: string;
+    ok: boolean;
+    detalhes: string[];
+  }>({
+    open: false,
+    fase: 'progresso',
+    pct: 0,
+    atual: '',
+    total: 0,
+    feitos: 0,
+    mensagem: '',
+    ok: true,
+    detalhes: [],
+  });
   const [abastecimentos, setAbastecimentos] = useState<FrotaAbastecimentoPortal[]>([]);
   const [manutencoes, setManutencoes] = useState<FrotaManutencaoPortal[]>([]);
   const [multas, setMultas] = useState<FrotaMultaDetran[]>([]);
+  const [debitos, setDebitos] = useState<FrotaDebitoDetran[]>([]);
   const [multasAvisos, setMultasAvisos] = useState<string[]>([]);
   const [multasConsultadoEm, setMultasConsultadoEm] = useState<string | null>(null);
   const [carregandoMultas, setCarregandoMultas] = useState(false);
-  const [statusMenuAnchor, setStatusMenuAnchor] = useState<{ anchorEl: HTMLElement; multa: FrotaMultaDetran } | null>(null);
+  const [carregandoDebitos, setCarregandoDebitos] = useState(false);
+  const [gerandoPdfMultas, setGerandoPdfMultas] = useState(false);
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<{
+    anchorEl: HTMLElement;
+    multa?: FrotaMultaDetran;
+    debito?: FrotaDebitoDetran;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
@@ -218,28 +361,245 @@ export default function FrotaOperacaoPage() {
     }
   }, []);
 
-  const sincronizarMultas = async (ids?: number[]) => {
-    setCarregandoMultas(true);
-    setMultasAvisos([]);
+  const carregarDebitosCache = useCallback(async (idVeiculo?: number | null) => {
+    setCarregandoDebitos(true);
     try {
-      const r = await api.frotaMultasDetranSync(true, ids || null);
-      const cache = r.cache || {};
-      setMultas(cache.multas || []);
-      setMultasAvisos(cache.avisos || []);
-      setMultasConsultadoEm(cache.consultado_em || null);
-      if (r.erros && r.erros.length > 0) {
-        setMultasAvisos((prev) => [...prev, ...r.erros]);
-      }
+      const r = await api.frotaDebitosDetran(idVeiculo ?? undefined);
+      setDebitos(r.debitos || []);
+      if (r.consultado_em) setMultasConsultadoEm(r.consultado_em);
+      if (r.avisos?.length) setMultasAvisos((prev) => [...prev, ...r.avisos]);
     } catch (e) {
-      setMultasAvisos([e instanceof Error ? e.message : 'Falha ao sincronizar multas']);
+      setDebitos([]);
+      setMultasAvisos((prev) => [
+        ...prev,
+        e instanceof Error ? e.message : 'Falha ao carregar débitos do cache',
+      ]);
+    } finally {
+      setCarregandoDebitos(false);
+    }
+  }, []);
+
+  const sincronizarDetran = async (ids?: number[], tipo: 'multas' | 'debitos' = syncTipo) => {
+    const listaIds =
+      Array.isArray(ids) && ids.length > 0
+        ? ids
+        : veiculos.filter((v) => v.renavam && v.renavam.trim() !== '').map((v) => v.id_veiculo);
+
+    if (!listaIds.length) {
+      setSyncProgress({
+        open: true,
+        fase: 'resultado',
+        pct: 0,
+        atual: '',
+        total: 0,
+        feitos: 0,
+        ok: false,
+        mensagem: 'Nenhum veículo com RENAVAM selecionado para sincronizar.',
+        detalhes: [],
+      });
+      return;
+    }
+
+    const tiposDebitos: Array<'IPVA' | 'Licenciamento'> = [];
+    let anosIpvaSel: number[] = [];
+    if (tipo === 'debitos') {
+      if (syncDebitosTipos.ipva) tiposDebitos.push('IPVA');
+      if (syncDebitosTipos.licenciamento) tiposDebitos.push('Licenciamento');
+      if (!tiposDebitos.length) {
+        setSyncProgress({
+          open: true,
+          fase: 'resultado',
+          pct: 0,
+          atual: '',
+          total: 0,
+          feitos: 0,
+          ok: false,
+          mensagem: 'Selecione ao menos IPVA ou Licenciamento para sincronizar.',
+          detalhes: [],
+        });
+        return;
+      }
+      if (syncDebitosTipos.ipva) {
+        anosIpvaSel = syncIpvaAnos.length ? [...syncIpvaAnos] : [new Date().getFullYear()];
+      }
+    }
+
+    setConfirmarSyncOpen(false);
+    const incluiMultasComLic = tipo === 'debitos' && syncDebitosTipos.licenciamento;
+    if (tipo === 'multas' || incluiMultasComLic) setCarregandoMultas(true);
+    if (tipo === 'debitos') setCarregandoDebitos(true);
+    setMultasAvisos([]);
+    setSyncProgress({
+      open: true,
+      fase: 'progresso',
+      pct: 0,
+      atual: '',
+      total: listaIds.length,
+      feitos: 0,
+      mensagem: '',
+      ok: true,
+      detalhes: [],
+    });
+
+    let somaMultas = 0;
+    let somaIpva = 0;
+    let somaLic = 0;
+    let okVeiculos = 0;
+    const avisosAcum: string[] = [];
+
+    for (let i = 0; i < listaIds.length; i++) {
+      const id = listaIds[i];
+      const v = veiculos.find((x) => x.id_veiculo === id);
+      const rotulo = v ? `${v.placa}${v.modelo ? ` - ${v.modelo}` : ''}` : `Veículo #${id}`;
+      setSyncProgress((prev) => ({
+        ...prev,
+        fase: 'progresso',
+        atual: rotulo,
+        feitos: i,
+        pct: Math.round((i / listaIds.length) * 100),
+      }));
+
+      try {
+        if (tipo === 'multas') {
+          const r = await api.frotaMultasDetranSync(true, [id]);
+          if (r.ok === false) {
+            const motivo = r.motivo || r.error || r.status || 'falha';
+            const avisosVeic = [...(r.avisos || []), ...(r.erros || [])];
+            if (avisosVeic.length) {
+              for (const a of avisosVeic) {
+                if (a && !avisosAcum.includes(a)) avisosAcum.push(a);
+              }
+            } else {
+              avisosAcum.push(`${rotulo}: ${motivo}`);
+            }
+          } else {
+            okVeiculos += 1;
+            somaMultas += Number(r.qtd_multas ?? 0);
+            for (const a of [...(r.avisos || []), ...(r.erros || [])]) {
+              if (a && !avisosAcum.includes(a)) avisosAcum.push(a);
+            }
+          }
+        } else {
+          let okDeb = true;
+          const r = await api.frotaDebitosDetranSync(true, [id], tiposDebitos, anosIpvaSel);
+          if (r.ok === false) {
+            okDeb = false;
+            const motivo = r.motivo || r.error || r.status || 'falha';
+            const avisosVeic = [...(r.avisos || []), ...(r.erros || [])];
+            if (avisosVeic.length) {
+              for (const a of avisosVeic) {
+                if (a && !avisosAcum.includes(a)) avisosAcum.push(a);
+              }
+            } else {
+              avisosAcum.push(`${rotulo}: ${motivo}`);
+            }
+          } else {
+            somaIpva += Number(r.qtd_ipva ?? 0);
+            somaLic += Number(r.qtd_licenciamento ?? 0);
+            for (const a of [...(r.avisos || []), ...(r.erros || [])]) {
+              if (a && !avisosAcum.includes(a)) avisosAcum.push(a);
+            }
+          }
+
+          if (incluiMultasComLic) {
+            try {
+              const rm = await api.frotaMultasDetranSync(true, [id]);
+              if (rm.ok === false) {
+                okDeb = false;
+                const motivo = rm.motivo || rm.error || rm.status || 'falha multas';
+                const avisosVeic = [...(rm.avisos || []), ...(rm.erros || [])];
+                if (avisosVeic.length) {
+                  for (const a of avisosVeic) {
+                    if (a && !avisosAcum.includes(a)) avisosAcum.push(a);
+                  }
+                } else {
+                  avisosAcum.push(`${rotulo} (multas): ${motivo}`);
+                }
+              } else {
+                somaMultas += Number(rm.qtd_multas ?? 0);
+                for (const a of [...(rm.avisos || []), ...(rm.erros || [])]) {
+                  if (a && !avisosAcum.includes(a)) avisosAcum.push(a);
+                }
+              }
+            } catch (eM) {
+              okDeb = false;
+              avisosAcum.push(`${rotulo} (multas): ${eM instanceof Error ? eM.message : 'Falha'}`);
+            }
+          }
+
+          if (okDeb) okVeiculos += 1;
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Falha na consulta';
+        avisosAcum.push(`${rotulo}: ${msg}`);
+      }
+
+      setSyncProgress((prev) => ({
+        ...prev,
+        feitos: i + 1,
+        pct: Math.round(((i + 1) / listaIds.length) * 100),
+      }));
+    }
+
+    try {
+      if (tipo === 'multas' || incluiMultasComLic) {
+        const cacheMultas = await api.frotaMultasDetran(veiculoSel?.id_veiculo ?? undefined);
+        setMultas(cacheMultas.multas || []);
+        setMultasConsultadoEm(cacheMultas.consultado_em || null);
+      }
+      if (tipo === 'debitos') {
+        const cacheDebitos = await api.frotaDebitosDetran(veiculoSel?.id_veiculo ?? undefined);
+        setDebitos(cacheDebitos.debitos || []);
+        if (!incluiMultasComLic) {
+          setMultasConsultadoEm(cacheDebitos.consultado_em || null);
+        }
+      }
+      setMultasAvisos(avisosAcum.slice(0, 30));
+    } catch (e) {
+      avisosAcum.push(e instanceof Error ? e.message : 'Falha ao recarregar cache');
+      setMultasAvisos(avisosAcum.slice(0, 30));
     } finally {
       setCarregandoMultas(false);
+      setCarregandoDebitos(false);
     }
+
+    const sucesso = okVeiculos === listaIds.length;
+    const msgOk =
+      tipo === 'multas'
+        ? `Os dados de multas foram trazidos conforme solicitado. ${okVeiculos} veículo(s) · ${somaMultas} multa(s) nova(s).`
+        : incluiMultasComLic
+          ? `Consulta concluída. ${okVeiculos} veículo(s) · ${somaIpva} IPVA · ${somaLic} licenciamento(s) · ${somaMultas} multa(s) nova(s).`
+          : tiposDebitos.includes('IPVA') && !tiposDebitos.includes('Licenciamento')
+            ? `Consulta IPVA concluída. ${okVeiculos} veículo(s) · ${somaIpva} registro(s).`
+            : tiposDebitos.includes('Licenciamento') && !tiposDebitos.includes('IPVA')
+              ? `Consulta Licenciamento concluída. ${okVeiculos} veículo(s) · ${somaLic} registro(s).`
+              : `Os dados de débitos foram trazidos conforme solicitado. ${okVeiculos} veículo(s) · ${somaIpva} IPVA · ${somaLic} licenciamento(s).`;
+    const msgErro =
+      tipo === 'multas'
+        ? `A sincronização de multas terminou com falhas em ${listaIds.length - okVeiculos} de ${listaIds.length} veículo(s). Multas novas: ${somaMultas}.`
+        : `A sincronização terminou com falhas em ${listaIds.length - okVeiculos} de ${listaIds.length} veículo(s).` +
+          (tiposDebitos.includes('IPVA') ? ` IPVA: ${somaIpva}.` : '') +
+          (tiposDebitos.includes('Licenciamento') ? ` Licenciamento: ${somaLic}.` : '') +
+          (incluiMultasComLic ? ` Multas: ${somaMultas}.` : '');
+
+    setSyncProgress({
+      open: true,
+      fase: 'resultado',
+      pct: 100,
+      atual: '',
+      total: listaIds.length,
+      feitos: listaIds.length,
+      ok: sucesso,
+      mensagem: sucesso ? msgOk : msgErro,
+      detalhes: avisosAcum.slice(0, 12),
+    });
   };
 
   const obterStatusChipEstilo = (status?: string) => {
     switch (status) {
       case 'Paga':
+      case 'Quitado':
+      case 'Isento':
         return { bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32', border: '1px solid #2e7d32' };
       case 'Vencida':
         return { bgcolor: 'rgba(211, 47, 47, 0.12)', color: '#d32f2f', border: '1px solid #d32f2f' };
@@ -261,8 +621,21 @@ export default function FrotaOperacaoPage() {
     return m.status || 'Em Aberto';
   };
 
+  const obterStatusEfetivoDebito = (d: FrotaDebitoDetran) => {
+    if (d.status === 'Paga' || d.status === 'Quitado' || d.status === 'Isento') {
+      return d.status === 'Quitado' || d.status === 'Isento' ? d.status : 'Paga';
+    }
+    if (d.status === 'Vencida') return 'Vencida';
+    if (d.data_vencimento) {
+      const hoje = dataHojeBrasilia();
+      const vencFmt = String(d.data_vencimento).slice(0, 10);
+      if (vencFmt && vencFmt < hoje) return 'Vencida';
+    }
+    return d.status || 'Em Aberto';
+  };
+
   const alterarStatusMulta = async (novoStatus: 'Em Aberto' | 'Paga' | 'Vencida') => {
-    if (!statusMenuAnchor) return;
+    if (!statusMenuAnchor?.multa) return;
     const { multa } = statusMenuAnchor;
     setStatusMenuAnchor(null);
     try {
@@ -277,14 +650,35 @@ export default function FrotaOperacaoPage() {
     }
   };
 
+  const alterarStatusDebito = async (novoStatus: 'Em Aberto' | 'Paga' | 'Vencida') => {
+    if (!statusMenuAnchor?.debito) return;
+    const { debito } = statusMenuAnchor;
+    setStatusMenuAnchor(null);
+    try {
+      await api.frotaAtualizarStatusDebitoDetran(debito.id_debito_detran, novoStatus);
+      setDebitos((prev) =>
+        prev.map((item) =>
+          item.id_debito_detran === debito.id_debito_detran ? { ...item, status: novoStatus } : item
+        )
+      );
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erro ao atualizar status');
+    }
+  };
+
   useEffect(() => {
     carregar();
   }, [carregar]);
 
   useEffect(() => {
-    if (aba !== 'multas') return;
+    if (aba !== 'multas' && aba !== 'debitos') return;
     void carregarMultasCache(veiculoSel?.id_veiculo ?? null);
   }, [aba, veiculoSel?.id_veiculo, carregarMultasCache]);
+
+  useEffect(() => {
+    if (aba !== 'multas' && aba !== 'debitos') return;
+    void carregarDebitosCache(veiculoSel?.id_veiculo ?? null);
+  }, [aba, veiculoSel?.id_veiculo, carregarDebitosCache]);
 
   const idVeiculoFiltro = veiculoSel?.id_veiculo ?? null;
   const veiculosOrdenados = useMemo(
@@ -340,7 +734,35 @@ export default function FrotaOperacaoPage() {
     [multas, veiculoSel, dataInicio, dataFim],
   );
 
+  const debitosFiltrados = useMemo(
+    () =>
+      debitos.filter((d) => {
+        if (veiculoSel && d.id_veiculo !== veiculoSel.id_veiculo) return false;
+        if (!dataInicio && !dataFim) return true;
+        if (d.data_vencimento) return dataDentroIntervalo(d.data_vencimento, dataInicio, dataFim);
+        if (d.ano_referencia && /^\d{4}$/.test(d.ano_referencia)) {
+          const ano = Number(d.ano_referencia);
+          const iniY = dataInicio ? Number(String(dataInicio).slice(0, 4)) : null;
+          const fimY = dataFim ? Number(String(dataFim).slice(0, 4)) : null;
+          if (iniY != null && ano < iniY) return false;
+          if (fimY != null && ano > fimY) return false;
+          return true;
+        }
+        return !dataInicio && !dataFim;
+      }),
+    [debitos, veiculoSel, dataInicio, dataFim],
+  );
+  const debitosIpva = useMemo(
+    () => debitosFiltrados.filter((d) => d.tipo === 'IPVA'),
+    [debitosFiltrados],
+  );
+  const debitosLicenciamento = useMemo(
+    () => debitosFiltrados.filter((d) => d.tipo === 'Licenciamento'),
+    [debitosFiltrados],
+  );
+
   const totalMultas = multasFiltradas.reduce((s, m) => s + (m.valor ?? 0), 0);
+  const totalDebitos = debitosFiltrados.reduce((s, d) => s + (d.valor_total ?? 0), 0);
 
   /** Status atual por veículo (KM + última manutenção), mesmo sem lançamentos. */
   const statusManutencao = useMemo(() => {
@@ -391,10 +813,25 @@ export default function FrotaOperacaoPage() {
 
   const totalCombustivel = abastecimentosFiltrados.reduce((s, a) => s + a.valor_abastecido, 0);
   const filtrosAtivos = veiculoSel != null || !!dataInicio || !!dataFim;
-  const mostrarPeriodo = aba === 'combustivel' || aba === 'multas' || aba === 'manutencoes';
+  const mostrarPeriodo = aba === 'combustivel' || aba === 'multas' || aba === 'manutencoes' || aba === 'debitos';
 
   function setAba(next: AbaOperacao) {
-    setSearchParams(next === 'cadastro' ? {} : { aba: next }, { replace: true });
+    navigate(`/frota/operacao/${next}`, { replace: true });
+  }
+
+  async function gerarRelatorioMultas() {
+    setGerandoPdfMultas(true);
+    try {
+      await gerarPdfMultasFrota(multasFiltradas, {
+        veiculoLabel: veiculoSel ? placaComModelo(veiculoSel.placa, veiculoSel.modelo) : null,
+        dataInicio: dataInicio || null,
+        dataFim: dataFim || null,
+      });
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Falha ao gerar relatório de multas');
+    } finally {
+      setGerandoPdfMultas(false);
+    }
   }
 
   function limparFiltros() {
@@ -600,6 +1037,10 @@ export default function FrotaOperacaoPage() {
     boxShadow: shadows.sm,
   } as const;
 
+  if (aba === 'debitos' && !podeVerDebitos) {
+    return <Navigate to="/frota/operacao/cadastro" replace />;
+  }
+
   return (
     <Box sx={{ ...tablePageLayoutSx, gap: 1.25 }}>
       <Paper
@@ -675,14 +1116,22 @@ export default function FrotaOperacaoPage() {
         <KpiItem label="Livres" valor={String(qtdLivres)} />
         <KpiItem
           label={
-            aba === 'manutencoes' ? 'Com registro' : aba === 'multas' ? 'Multas' : 'Abastecimentos'
+            aba === 'manutencoes'
+              ? 'Com registro'
+              : aba === 'multas'
+                ? 'Multas'
+                : aba === 'debitos'
+                  ? 'Débitos'
+                  : 'Abastecimentos'
           }
           valor={String(
             aba === 'manutencoes'
               ? qtdComRegistroManut
               : aba === 'multas'
                 ? multasFiltradas.length
-                : abastecimentosFiltrados.length,
+                : aba === 'debitos'
+                  ? debitosFiltrados.length
+                  : abastecimentosFiltrados.length,
           )}
         />
       </Paper>
@@ -717,7 +1166,7 @@ export default function FrotaOperacaoPage() {
               '& .MuiTabs-indicator': { backgroundColor: colors.navy, height: 2.5 },
             }}
           >
-            {ABAS.map((item) => (
+            {abasVisiveis.map((item) => (
               <Tab key={item.id} value={item.id} label={item.label} />
             ))}
           </Tabs>
@@ -726,9 +1175,48 @@ export default function FrotaOperacaoPage() {
               R$ {totalCombustivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Typography>
           )}
-          {aba === 'multas' && podeSincronizar && (
+          {aba === 'multas' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pr: 1 }}>
-              <Tooltip title="Realiza a consulta de multas atualizadas diretamente no portal do DETRAN-DF (Infosimples)" arrow>
+              <Tooltip title="Gera PDF das multas filtradas" arrow>
+                <span>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<PictureAsPdfIcon />}
+                    onClick={() => void gerarRelatorioMultas()}
+                    disabled={gerandoPdfMultas || carregandoMultas || multasFiltradas.length === 0}
+                    sx={{ textTransform: 'none', fontWeight: 600, height: 30 }}
+                  >
+                    {gerandoPdfMultas ? 'Gerando...' : 'Relatório'}
+                  </Button>
+                </span>
+              </Tooltip>
+              {podeSincronizar && (
+                <Tooltip title="Consulta somente multas — independente de débitos" arrow>
+                  <span>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<SyncIcon />}
+                      onClick={() => {
+                        const veiculosComRenavam = veiculos.filter((v) => v.renavam && v.renavam.trim() !== '');
+                        setSyncTipo('multas');
+                        setSyncVeiculoIds(veiculosComRenavam.map((v) => v.id_veiculo));
+                        setConfirmarSyncOpen(true);
+                      }}
+                      disabled={carregandoMultas || loading}
+                      sx={{ textTransform: 'none', fontWeight: 600, height: 30 }}
+                    >
+                      {carregandoMultas ? 'Sincronizando...' : 'Sincronizar'}
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
+            </Box>
+          )}
+          {(aba === 'debitos') && podeSincronizar && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pr: 1 }}>
+              <Tooltip title="Consulta IPVA e/ou Licenciamento — independente de multas" arrow>
                 <span>
                   <Button
                     variant="outlined"
@@ -736,13 +1224,16 @@ export default function FrotaOperacaoPage() {
                     startIcon={<SyncIcon />}
                     onClick={() => {
                       const veiculosComRenavam = veiculos.filter((v) => v.renavam && v.renavam.trim() !== '');
+                      setSyncTipo('debitos');
+                      setSyncDebitosTipos({ ipva: false, licenciamento: false });
+                      setSyncIpvaAnos([new Date().getFullYear()]);
                       setSyncVeiculoIds(veiculosComRenavam.map((v) => v.id_veiculo));
                       setConfirmarSyncOpen(true);
                     }}
-                    disabled={carregandoMultas || loading}
+                    disabled={carregandoDebitos || loading}
                     sx={{ textTransform: 'none', fontWeight: 600, height: 30 }}
                   >
-                    {carregandoMultas ? 'Sincronizando...' : 'Sincronizar DETRAN'}
+                    {carregandoDebitos ? 'Sincronizando...' : 'Sincronizar'}
                   </Button>
                 </span>
               </Tooltip>
@@ -1005,8 +1496,8 @@ export default function FrotaOperacaoPage() {
             {!carregandoMultas && (
               <Typography variant="caption" sx={{ display: 'block', px: 2, pt: 1, color: 'text.secondary' }}>
                 {multasConsultadoEm
-                  ? `Última consulta: ${formatDataHoraBrasilia(multasConsultadoEm)}`
-                  : 'Última consulta: —'}
+                  ? `Última sincronização: ${formatDataHoraBrasilia(multasConsultadoEm)}`
+                  : 'Nenhuma sincronização ainda. A consulta de multas só ocorre quando você clicar em “Sincronizar”.'}
               </Typography>
             )}
             <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
@@ -1021,12 +1512,12 @@ export default function FrotaOperacaoPage() {
               <Table size="small" stickyHeader sx={tableSx}>
                 <TableHead>
                   <TableRow>
-                    <TableCell align="center">Placa</TableCell>
-                    <TableCell align="center">Número da Autuação</TableCell>
-                    <TableCell align="center">Data de Autuação</TableCell>
+                    <TableCell align="left">Placa</TableCell>
+                    <TableCell align="center">Nº do Auto</TableCell>
+                    <TableCell align="center">Data da Infração</TableCell>
+                    <TableCell align="center">Gravidade</TableCell>
                     <TableCell align="center">Valor</TableCell>
                     <TableCell align="center">Vencimento</TableCell>
-                    <TableCell align="center">Local</TableCell>
                     <TableCell align="center">Descrição</TableCell>
                     <TableCell align="center">Status</TableCell>
                   </TableRow>
@@ -1036,39 +1527,33 @@ export default function FrotaOperacaoPage() {
                     const statusEfetivo = obterStatusEfetivo(m);
                     return (
                       <TableRow key={`${m.placa}-${m.auto}-${i}`} hover>
-                        <TableCell align="center" sx={{ fontWeight: 600 }}>{m.placa}</TableCell>
-                        <TableCell align="center" sx={tableCellWrapSx}>{m.auto || '—'}</TableCell>
-                        <TableCell align="center">{m.data_multa ? fmtData(m.data_multa) : '—'}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.navy }}>
-                          {m.valor != null
-                            ? `R$ ${m.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                            : '—'}
+                        <TableCell align="left" sx={{ fontWeight: 600 }}>
+                          {placaComModelo(m.placa, m.modelo)}
                         </TableCell>
-                        <TableCell align="center">{m.data_vencimento ? fmtData(m.data_vencimento) : '—'}</TableCell>
+                        <TableCell align="center" sx={tableCellWrapSx}>{m.auto || '—'}</TableCell>
+                        <TableCell align="center">{fmtDataHora(m.data_multa, m.hora_multa)}</TableCell>
                         <TableCell align="center">
-                          {m.local_infracao ? (
-                            <Tooltip title={m.local_infracao} arrow>
-                              <span>
-                                <Button
-                                  size="small"
-                                  onClick={() => setModalDetalheMulta({ open: true, titulo: 'Local da Infração', conteudo: m.local_infracao || '', tipo: 'local' })}
-                                  sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
-                                >
-                                  Ver Local
-                                </Button>
-                              </span>
-                            </Tooltip>
+                          {m.natureza ? (
+                            <Chip
+                              label={m.natureza}
+                              size="small"
+                              sx={{ fontWeight: 700, height: 22, ...obterGrupoChipEstilo(m.natureza) }}
+                            />
                           ) : (
                             '—'
                           )}
                         </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.navy }}>
+                          {fmtMoeda(m.valor)}
+                        </TableCell>
+                        <TableCell align="center">{m.data_vencimento ? fmtData(m.data_vencimento) : '—'}</TableCell>
                         <TableCell align="center">
-                          {m.descricao ? (
-                            <Tooltip title={m.descricao} arrow>
+                          {multaTemDescricao(m) ? (
+                            <Tooltip title={m.descricao || 'Ver detalhes da infração'} arrow>
                               <span>
                                 <Button
                                   size="small"
-                                  onClick={() => setModalDetalheMulta({ open: true, titulo: 'Descrição da Infração', conteudo: m.descricao || '', tipo: 'descricao', orgao: m.orgao || '' })}
+                                  onClick={() => setModalDetalheMulta({ open: true, multa: m })}
                                   sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
                                 >
                                   Ver Descrição
@@ -1097,9 +1582,11 @@ export default function FrotaOperacaoPage() {
                   {!loading && !carregandoMultas && multasFiltradas.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                        Nenhuma multa encontrada no DETRAN-DF
-                        {veiculoSel ? ` para ${veiculoSel.placa}` : ''}. Confira se o RENAVAM está
-                        cadastrado.
+                        Nenhuma multa no cache
+                        {veiculoSel ? ` para ${veiculoSel.placa}` : ''}.
+                        {podeSincronizar
+                          ? ' Use “Sincronizar” quando quiser consultar (não há consulta automática).'
+                          : ' Aguarde uma sincronização autorizada.'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -1122,7 +1609,237 @@ export default function FrotaOperacaoPage() {
                   Total de Multas
                 </Typography>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy }}>
-                  R$ {totalMultas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  {fmtMoeda(totalMultas)}
+                </Typography>
+              </Box>
+            )}
+          </>
+        )}
+
+        {aba === 'debitos' && (
+          <>
+            {!carregandoDebitos && (
+              <Typography variant="caption" sx={{ display: 'block', px: 2, pt: 1, color: 'text.secondary' }}>
+                {multasConsultadoEm
+                  ? `Última sincronização de débitos: ${formatDataHoraBrasilia(multasConsultadoEm)}`
+                  : 'Nenhuma sincronização ainda. Use “Sincronizar” e escolha IPVA e/ou Licenciamento.'}
+              </Typography>
+            )}
+            {(carregandoDebitos || loading) && <LinearProgress />}
+
+            <Box
+              sx={{
+                px: 2,
+                pt: 1.5,
+                pb: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: '#1565c0' }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1565c0' }}>
+                IPVA (SEFAZ-DF)
+              </Typography>
+            </Box>
+            <TableContainer
+              sx={{
+                ...tableContainerSx,
+                flex: '0 0 auto',
+                maxHeight: 280,
+                borderLeft: '3px solid #1565c0',
+              }}
+            >
+              <Table size="small" stickyHeader sx={tableSx}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell align="left">Placa</TableCell>
+                    <TableCell align="center">Ano</TableCell>
+                    <TableCell align="center">Cota</TableCell>
+                    <TableCell align="center">Valor total</TableCell>
+                    <TableCell align="center">Boleto</TableCell>
+                    <TableCell align="center">Outros valores</TableCell>
+                    <TableCell align="center">Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {debitosIpva.map((d) => {
+                    const statusEfetivo = obterStatusEfetivoDebito(d);
+                    const bloqueado = statusEfetivo === 'Paga' || statusEfetivo === 'Quitado' || statusEfetivo === 'Isento';
+                    return (
+                      <TableRow key={d.id_debito_detran} hover>
+                        <TableCell align="left" sx={{ fontWeight: 600 }}>
+                          {placaComModelo(d.placa, d.modelo)}
+                        </TableCell>
+                        <TableCell align="center">{d.ano_referencia || '—'}</TableCell>
+                        <TableCell align="center">{d.cota || '—'}</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.navy }}>
+                          {fmtMoeda(d.valor_total)}
+                        </TableCell>
+                        <TableCell align="center">
+                          {d.boleto ? (
+                            <Button
+                              size="small"
+                              startIcon={<PictureAsPdfIcon sx={{ fontSize: 16 }} />}
+                              onClick={() =>
+                                setModalBoletoPdf({
+                                  open: true,
+                                  url: d.boleto,
+                                  idDebito: d.id_debito_detran,
+                                  titulo: `Boleto IPVA · ${d.placa} · ${d.ano_referencia || ''}`,
+                                })
+                              }
+                              sx={{ textTransform: 'none', minWidth: 0, color: colors.navy }}
+                            >
+                              Ver PDF
+                            </Button>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Button
+                            size="small"
+                            onClick={() => setModalDebito({ open: true, debito: d })}
+                            sx={{ textTransform: 'none', minWidth: 0, p: 0, color: colors.navy }}
+                          >
+                            Ver valores
+                          </Button>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={statusEfetivo}
+                            size="small"
+                            onClick={
+                              bloqueado
+                                ? undefined
+                                : (e) => setStatusMenuAnchor({ anchorEl: e.currentTarget, debito: d })
+                            }
+                            sx={{
+                              cursor: bloqueado ? 'default' : 'pointer',
+                              fontWeight: 600,
+                              ...obterStatusChipEstilo(statusEfetivo),
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {!loading && !carregandoDebitos && debitosIpva.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                        Nenhum IPVA no cache{veiculoSel ? ` para ${veiculoSel.placa}` : ''}.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <Box
+              sx={{
+                px: 2,
+                pt: 2,
+                pb: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: '#e65100' }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#e65100' }}>
+                Licenciamento (DETRAN-DF)
+              </Typography>
+            </Box>
+            <TableContainer
+              sx={{
+                ...tableContainerSx,
+                flex: 1,
+                borderLeft: '3px solid #e65100',
+              }}
+            >
+              <Table size="small" stickyHeader sx={tableSx}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell align="left">Placa</TableCell>
+                    <TableCell align="center">Ano</TableCell>
+                    <TableCell align="center">Data validade</TableCell>
+                    <TableCell align="center">Data vencimento</TableCell>
+                    <TableCell align="center">Valor total</TableCell>
+                    <TableCell align="center">Outros valores</TableCell>
+                    <TableCell align="center">Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {debitosLicenciamento.map((d) => {
+                    const statusEfetivo = obterStatusEfetivoDebito(d);
+                    const bloqueado = statusEfetivo === 'Paga' || statusEfetivo === 'Quitado' || statusEfetivo === 'Isento';
+                    return (
+                      <TableRow key={d.id_debito_detran} hover>
+                        <TableCell align="left" sx={{ fontWeight: 600 }}>
+                          {placaComModelo(d.placa, d.modelo)}
+                        </TableCell>
+                        <TableCell align="center">{d.ano_referencia || '—'}</TableCell>
+                        <TableCell align="center">{d.data_validade ? fmtData(d.data_validade) : '—'}</TableCell>
+                        <TableCell align="center">{d.data_vencimento ? fmtData(d.data_vencimento) : '—'}</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.navy }}>
+                          {fmtMoeda(d.valor_total)}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Button
+                            size="small"
+                            onClick={() => setModalDebito({ open: true, debito: d })}
+                            sx={{ textTransform: 'none', minWidth: 0, p: 0, color: colors.navy }}
+                          >
+                            Ver valores
+                          </Button>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={statusEfetivo}
+                            size="small"
+                            onClick={
+                              bloqueado
+                                ? undefined
+                                : (e) => setStatusMenuAnchor({ anchorEl: e.currentTarget, debito: d })
+                            }
+                            sx={{
+                              cursor: bloqueado ? 'default' : 'pointer',
+                              fontWeight: 600,
+                              ...obterStatusChipEstilo(statusEfetivo),
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {!loading && !carregandoDebitos && debitosLicenciamento.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                        Nenhum licenciamento no cache{veiculoSel ? ` para ${veiculoSel.placa}` : ''}.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            {debitosFiltrados.length > 0 && (
+              <Box
+                sx={{
+                  borderTop: `1px solid ${colors.border}`,
+                  p: 1.5,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  bgcolor: colors.surface,
+                  borderRadius: `0 0 ${radius.lg}px ${radius.lg}px`,
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Total de Débitos
+                </Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy }}>
+                  {fmtMoeda(totalDebitos)}
                 </Typography>
               </Box>
             )}
@@ -1315,47 +2032,326 @@ export default function FrotaOperacaoPage() {
 
       <Dialog
         open={modalDetalheMulta.open}
-        onClose={() => setModalDetalheMulta((prev) => ({ ...prev, open: false }))}
+        onClose={() => setModalDetalheMulta({ open: false, multa: null })}
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
-          {modalDetalheMulta.tipo === 'descricao' && <WarningAmberIcon color="warning" />}
-          {modalDetalheMulta.tipo === 'local' && <PlaceIcon color="primary" />}
-          {modalDetalheMulta.titulo}
+        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <WarningAmberIcon color="warning" />
+          Descrição da Infração
+          {modalDetalheMulta.multa?.auto ? (
+            <Typography component="span" variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+              · Nº {modalDetalheMulta.multa.auto}
+            </Typography>
+          ) : null}
+          {modalDetalheMulta.multa?.natureza ? (
+            <Chip
+              label={modalDetalheMulta.multa.natureza}
+              size="small"
+              sx={{ fontWeight: 700, ...obterGrupoChipEstilo(modalDetalheMulta.multa.natureza) }}
+            />
+          ) : null}
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mb: 2 }}>
-            {modalDetalheMulta.conteudo || '—'}
-          </Typography>
-          {modalDetalheMulta.tipo === 'descricao' && modalDetalheMulta.orgao && (
-            <Box sx={{ mt: 2, pt: 1.5, borderTop: `1px dashed ${colors.border}` }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
-                <AccountBalanceIcon sx={{ fontSize: 16, color: colors.orange }} />
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.05em' }}>
-                  ÓRGÃO AUTUADOR
-                </Typography>
-              </Box>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, pl: 2.85 }}>
-                {modalDetalheMulta.orgao}
-              </Typography>
-            </Box>
+          {modalDetalheMulta.multa && (
+            <>
+              {modalDetalheMulta.multa.descricao && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, mb: 2 }}>
+                  <Box
+                    sx={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      bgcolor: colors.orange,
+                      mt: 0.85,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: 500 }}>
+                    {modalDetalheMulta.multa.descricao}
+                  </Typography>
+                </Box>
+              )}
+
+              {modalDetalheMulta.multa.local_infracao && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
+                  <PlaceIcon sx={{ fontSize: 18, color: colors.orange, mt: 0.2 }} />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                      LOCAL DA INFRAÇÃO
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.navy, fontWeight: 600 }}>
+                      {modalDetalheMulta.multa.local_infracao}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {(() => {
+                const pontos = modalDetalheMulta.multa.pontos;
+                const velPerm = modalDetalheMulta.multa.velocidade_permitida;
+                const velAfer = modalDetalheMulta.multa.velocidade_aferida;
+                const showPontos = pontos != null;
+                const showVelPerm = velPerm != null && Number(velPerm) > 0;
+                const showVelAfer = velAfer != null && Number(velAfer) > 0;
+                if (!showPontos && !showVelPerm && !showVelAfer) return null;
+                return (
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: {
+                        xs: '1fr',
+                        sm: 'repeat(auto-fit, minmax(140px, 1fr))',
+                      },
+                      gap: 1.25,
+                      mb: 2,
+                      p: 1.5,
+                      borderRadius: 1,
+                      bgcolor: 'rgba(11, 26, 59, 0.03)',
+                      border: `1px solid ${colors.border}`,
+                    }}
+                  >
+                    {showPontos && (
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
+                          PONTOS
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, mt: 0.75 }}>
+                          {pontos}
+                        </Typography>
+                      </Box>
+                    )}
+                    {showVelPerm && (
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
+                          VEL. PERMITIDA
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, mt: 0.75 }}>
+                          {velPerm} km/h
+                        </Typography>
+                      </Box>
+                    )}
+                    {showVelAfer && (
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
+                          VEL. AFERIDA
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, mt: 0.75 }}>
+                          {velAfer} km/h
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })()}
+
+              {modalDetalheMulta.multa.responsavel_infracao && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.5 }}>
+                  <PersonOutlinedIcon sx={{ fontSize: 18, color: colors.navy, mt: 0.2 }} />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                      RESPONSÁVEL DA INFRAÇÃO
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                      {modalDetalheMulta.multa.responsavel_infracao}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {modalDetalheMulta.multa.data_notificacao_autuacao && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.5 }}>
+                  <NotificationsNoneIcon sx={{ fontSize: 18, color: colors.orange, mt: 0.2 }} />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                      DATA DE NOTIFICAÇÃO DA AUTUAÇÃO
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                      {fmtData(modalDetalheMulta.multa.data_notificacao_autuacao)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+
+              {modalDetalheMulta.multa.orgao && (
+                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px dashed ${colors.border}` }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+                    <AccountBalanceIcon sx={{ fontSize: 16, color: colors.orange }} />
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.05em' }}>
+                      ÓRGÃO AUTUADOR
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, pl: 2.85 }}>
+                    {modalDetalheMulta.multa.orgao}
+                  </Typography>
+                </Box>
+              )}
+            </>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setModalDetalheMulta((prev) => ({ ...prev, open: false }))}>
+          <Button onClick={() => setModalDetalheMulta({ open: false, multa: null })}>
             Fechar
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={confirmarSyncOpen} onClose={() => setConfirmarSyncOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SyncIcon /> Confirmar Consulta DETRAN
+      <Dialog
+        open={modalDebito.open}
+        onClose={() => setModalDebito({ open: false, debito: null })}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: colors.navy }}>
+          Outros valores · {modalDebito.debito?.tipo || 'Débito'}
+          {modalDebito.debito?.placa ? ` · ${modalDebito.debito.placa}` : ''}
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
+          {modalDebito.debito ? (
+            <Box>
+              {modalDebito.debito.razao_social ? (
+                <Box sx={{ mb: 2, p: 1.25, border: `1px solid ${colors.border}`, borderRadius: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                    RAZÃO SOCIAL
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                    {modalDebito.debito.razao_social}
+                  </Typography>
+                </Box>
+              ) : null}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+                {(modalDebito.debito.tipo === 'IPVA'
+                  ? [
+                      { label: 'Valor principal', valor: modalDebito.debito.valor_original },
+                      { label: 'Valor juros', valor: modalDebito.debito.valor_mora },
+                      { label: 'Valor multa', valor: modalDebito.debito.valor_multa },
+                      { label: 'Valor outros', valor: modalDebito.debito.valor_outros },
+                      { label: 'Valor total', valor: modalDebito.debito.valor_total },
+                    ]
+                  : [
+                      { label: 'Valor total', valor: modalDebito.debito.valor_total },
+                      { label: 'Valor principal', valor: modalDebito.debito.valor_original },
+                      { label: 'Valor pago', valor: modalDebito.debito.valor_pago },
+                      { label: 'Valor multa', valor: modalDebito.debito.valor_multa },
+                      { label: 'Valor juros', valor: modalDebito.debito.valor_mora },
+                      { label: 'Valor outros', valor: modalDebito.debito.valor_outros },
+                      { label: 'Valor diferença', valor: modalDebito.debito.valor_diferenca },
+                    ]
+                )
+                  .filter((c) => c.valor != null && Number(c.valor) !== 0)
+                  .map((c) => (
+                    <Box key={c.label} sx={{ p: 1.25, border: `1px solid ${colors.border}`, borderRadius: 1 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                        {c.label}
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                        {fmtMoeda(c.valor)}
+                      </Typography>
+                    </Box>
+                  ))}
+              </Box>
+              {modalDebito.debito.tipo === 'IPVA' &&
+              modalDebito.debito.boleto &&
+              /^https?:\/\//i.test(modalDebito.debito.boleto) ? (
+                <Box sx={{ mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PictureAsPdfIcon />}
+                    onClick={() =>
+                      setModalBoletoPdf({
+                        open: true,
+                        url: modalDebito.debito!.boleto,
+                        idDebito: modalDebito.debito!.id_debito_detran,
+                        titulo: `Boleto · IPVA · ${modalDebito.debito!.placa}`,
+                      })
+                    }
+                    sx={{ textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Abrir boleto PDF
+                  </Button>
+                </Box>
+              ) : null}
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setModalDebito({ open: false, debito: null })}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmarSyncOpen} onClose={() => setConfirmarSyncOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SyncIcon /> {syncTipo === 'debitos' ? 'Confirmar sincronização' : 'Confirmar sincronização de Multas'}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          {syncTipo === 'debitos' && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.75 }}>
+                O que deseja consultar?
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={syncDebitosTipos.ipva}
+                      onChange={(e) => setSyncDebitosTipos((prev) => ({ ...prev, ipva: e.target.checked }))}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>IPVA</Typography>}
+                  sx={{ m: 0 }}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={syncDebitosTipos.licenciamento}
+                      onChange={(e) =>
+                        setSyncDebitosTipos((prev) => ({ ...prev, licenciamento: e.target.checked }))
+                      }
+                      size="small"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                      Licenciamento
+                    </Typography>
+                  }
+                  sx={{ m: 0 }}
+                />
+                {syncDebitosTipos.ipva && (
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <Select
+                      multiple
+                      displayEmpty
+                      value={syncIpvaAnos}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const vals = (typeof raw === 'string' ? raw.split(',') : raw)
+                          .map(Number)
+                          .filter((n) => Number.isFinite(n));
+                        setSyncIpvaAnos(vals.length ? vals.sort((a, b) => b - a) : [new Date().getFullYear()]);
+                      }}
+                      renderValue={(selected) =>
+                        selected.length ? selected.slice().sort((a, b) => b - a).join(', ') : 'Anos'
+                      }
+                      sx={{ fontSize: '0.85rem', fontWeight: 600, height: 32 }}
+                    >
+                      {opcoesAnosIpva.map((ano) => (
+                        <MenuItem key={ano} value={ano} dense>
+                          <Checkbox size="small" checked={syncIpvaAnos.includes(ano)} sx={{ p: 0.5, mr: 1 }} />
+                          {ano}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              </Box>
+            </Box>
+          )}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Selecione quais veículos deseja sincronizar com o DETRAN-DF:
+            {syncTipo === 'debitos'
+              ? 'Selecione os veículos:'
+              : 'Selecione os veículos para consultar somente multas:'}
           </Typography>
           <Box
             sx={{
@@ -1437,10 +2433,13 @@ export default function FrotaOperacaoPage() {
           <Button
             variant="contained"
             startIcon={<SyncIcon />}
-            disabled={syncVeiculoIds.length === 0}
+            disabled={
+              syncVeiculoIds.length === 0 ||
+              (syncTipo === 'debitos' && !syncDebitosTipos.ipva && !syncDebitosTipos.licenciamento) ||
+              (syncTipo === 'debitos' && syncDebitosTipos.ipva && syncIpvaAnos.length === 0)
+            }
             onClick={() => {
-              setConfirmarSyncOpen(false);
-              void sincronizarMultas(syncVeiculoIds);
+              void sincronizarDetran(syncVeiculoIds, syncTipo);
             }}
           >
             Confirmar
@@ -1448,12 +2447,123 @@ export default function FrotaOperacaoPage() {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={syncProgress.open}
+        onClose={(_e, reason) => {
+          if (syncProgress.fase === 'progresso') return;
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown' || syncProgress.fase === 'resultado') {
+            setSyncProgress((prev) => ({ ...prev, open: false }));
+          }
+        }}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
+          {syncProgress.fase === 'progresso' ? (
+            <>
+              <SyncIcon /> Sincronizando
+            </>
+          ) : syncProgress.ok ? (
+            <>
+              <CheckCircleIcon sx={{ color: '#2e7d32' }} /> Consulta concluída
+            </>
+          ) : (
+            <>
+              <WarningAmberIcon sx={{ color: '#ed6c02' }} /> Consulta com pendências
+            </>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          {syncProgress.fase === 'progresso' ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 1 }}>
+              <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                <CircularProgress
+                  variant="determinate"
+                  value={syncProgress.pct}
+                  size={88}
+                  thickness={4}
+                  sx={{ color: colors.navy }}
+                />
+                <Box
+                  sx={{
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    right: 0,
+                    position: 'absolute',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Typography variant="subtitle1" component="div" sx={{ fontWeight: 700, color: colors.navy }}>
+                    {syncProgress.pct}%
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ width: '100%' }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={syncProgress.pct}
+                  sx={{ height: 10, borderRadius: 1, mb: 1.5 }}
+                />
+                <Typography variant="body2" color="text.secondary" align="center">
+                  Consultando {syncProgress.feitos} de {syncProgress.total} veículo(s)
+                </Typography>
+                {syncProgress.atual && (
+                  <Typography variant="body2" align="center" sx={{ mt: 0.5, fontWeight: 600 }}>
+                    {syncProgress.atual}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ py: 0.5 }}>
+              <Alert severity={syncProgress.ok ? 'success' : 'warning'} sx={{ mb: syncProgress.detalhes.length ? 1.5 : 0 }}>
+                {syncProgress.mensagem}
+              </Alert>
+              {syncProgress.detalhes.length > 0 && (
+                <Box sx={{ maxHeight: 160, overflowY: 'auto' }}>
+                  {syncProgress.detalhes.map((d) => (
+                    <Typography key={d} variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      • {d}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        {syncProgress.fase === 'resultado' && (
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+              variant="contained"
+              onClick={() => setSyncProgress((prev) => ({ ...prev, open: false }))}
+            >
+              OK
+            </Button>
+          </DialogActions>
+        )}
+      </Dialog>
+
+      <PdfBoletoDialog
+        open={modalBoletoPdf.open}
+        url={modalBoletoPdf.url}
+        idDebito={modalBoletoPdf.idDebito}
+        titulo={modalBoletoPdf.titulo}
+        onClose={() => setModalBoletoPdf({ open: false, url: null, idDebito: null, titulo: '' })}
+      />
+
       <Menu
         anchorEl={statusMenuAnchor?.anchorEl}
         open={Boolean(statusMenuAnchor)}
         onClose={() => setStatusMenuAnchor(null)}
       >
-        <MenuItem onClick={() => alterarStatusMulta('Paga')}>
+        <MenuItem
+          onClick={() =>
+            statusMenuAnchor?.debito ? void alterarStatusDebito('Paga') : void alterarStatusMulta('Paga')
+          }
+        >
           <CheckCircleIcon sx={{ color: '#2e7d32', mr: 1, fontSize: 18 }} />
           Paga
         </MenuItem>

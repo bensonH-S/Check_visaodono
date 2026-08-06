@@ -536,17 +536,69 @@ export const api = {
       body: JSON.stringify({ status }),
     });
   },
+  frotaAtualizarStatusDebitoDetran: (idDebito: number, status: 'Em Aberto' | 'Paga' | 'Vencida') => {
+    return request<{ ok: boolean }>(`/frota/debitos/detran/${idDebito}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+  },
+  frotaRemoverDebitoDetran: (idDebito: number) => {
+    return request<{ ok: boolean }>(`/frota/debitos/detran/${idDebito}`, {
+      method: 'DELETE',
+    });
+  },
+  frotaDebitoBoletoUrl: (idDebito: number) => `${BASE}/frota/debitos/detran/${idDebito}/boleto`,
   frotaMultasDetranSync: (forcar?: boolean, veiculoIds?: number[] | null) => {
     return request<{
-      status: string;
-      total: number;
-      erros: string[];
+      ok?: boolean;
+      status?: string;
+      motivo?: string;
+      error?: string;
+      total?: number;
+      qtd_multas?: number;
+      qtd_debitos?: number;
+      qtd_veiculos?: number;
+      avisos?: string[];
+      erros?: string[];
+      fonte?: string;
+      id_sync?: number | null;
       cache: FrotaMultasDetranResposta;
+      debitos?: FrotaDebitosDetranResposta;
     }>('/frota/multas/detran/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ forcar, veiculoIds }),
     });
+  },
+  frotaDebitosDetranSync: (
+    forcar?: boolean,
+    veiculoIds?: number[] | null,
+    tipos?: Array<'IPVA' | 'Licenciamento'>,
+    anosIpva?: number[],
+  ) => {
+    return request<{
+      ok?: boolean;
+      status?: string;
+      motivo?: string;
+      error?: string;
+      qtd_debitos?: number;
+      qtd_ipva?: number;
+      qtd_licenciamento?: number;
+      qtd_veiculos?: number;
+      avisos?: string[];
+      erros?: string[];
+      fonte?: string;
+      debitos: FrotaDebitosDetranResposta;
+    }>('/frota/debitos/detran/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ forcar, veiculoIds, tipos, anosIpva }),
+    });
+  },
+  frotaDebitosDetran: (idVeiculo?: number) => {
+    const q = idVeiculo != null ? `?id_veiculo=${idVeiculo}` : '';
+    return request<FrotaDebitosDetranResposta>(`/frota/debitos/detran${q}`);
   },
   frotaTermosPortal: () => request<FrotaTermoPortalResumo[]>('/frota/termos'),
   frotaTermoPortal: (idTermo: number) => request<FrotaTermoPortalDetalhe>(`/frota/termos/${idTermo}`),
@@ -1426,9 +1478,15 @@ export interface FrotaMultaDetran {
   valor: number | null;
   valor_desconto?: number | null;
   data_multa: string | null;
+  hora_multa?: string | null;
   data_vencimento?: string | null;
   orgao?: string | null;
   pontos?: number | null;
+  natureza?: string | null;
+  velocidade_aferida?: number | null;
+  velocidade_permitida?: number | null;
+  responsavel_infracao?: string | null;
+  data_notificacao_autuacao?: string | null;
   fonte?: string;
   status: 'Em Aberto' | 'Paga' | 'Vencida';
 }
@@ -1452,6 +1510,39 @@ export interface FrotaMultasDetranResposta {
   }>;
   multas: FrotaMultaDetran[];
   avisos: string[];
+}
+
+/** Débito IPVA / Licenciamento (Infosimples detran/df/debitos). */
+export interface FrotaDebitoDetran {
+  id_debito_detran: number;
+  id_veiculo: number;
+  placa: string;
+  modelo?: string | null;
+  tipo: 'IPVA' | 'Licenciamento';
+  ano_referencia: string | null;
+  data_validade: string | null;
+  data_vencimento: string | null;
+  valor_total: number | null;
+  valor_original: number | null;
+  valor_pago: number | null;
+  valor_multa: number | null;
+  valor_mora: number | null;
+  valor_outros: number | null;
+  valor_diferenca: number | null;
+  boleto: string | null;
+  status: string;
+  cota?: string | null;
+  razao_social?: string | null;
+  fonte?: string;
+}
+
+export interface FrotaDebitosDetranResposta {
+  fonte: string;
+  consultado_em: string | null;
+  data_ref?: string | null;
+  status_sync?: string | null;
+  avisos: string[];
+  debitos: FrotaDebitoDetran[];
 }
 
 export interface FrotaAssuncao {

@@ -112,7 +112,7 @@ export default function FrotaVeiculoDetalhePage() {
     return (
       <Alert severity="error">
         Veículo não encontrado.{' '}
-        <Button size="small" onClick={() => navigate('/frota/operacao?aba=cadastro')}>
+        <Button size="small" onClick={() => navigate('/frota/operacao/cadastro')}>
           Voltar
         </Button>
       </Alert>
@@ -126,7 +126,7 @@ export default function FrotaVeiculoDetalhePage() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
         <IconButton
           size="small"
-          onClick={() => navigate('/frota/operacao?aba=cadastro')}
+          onClick={() => navigate('/frota/operacao/cadastro')}
           aria-label="Voltar"
         >
           <ArrowBackIcon fontSize="small" />

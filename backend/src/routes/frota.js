@@ -49,7 +49,9 @@ import {
 } from '../frotaDocumentoArquivo.js';
 import {
   listarMultasDetranCache,
+  listarDebitosDetranCache,
   executarSyncMultasDetran,
+  executarSyncDebitosDetran,
 } from '../services/schedulerMultasDetran.js';
 
 const router = Router();
@@ -456,7 +458,166 @@ router.post('/multas/detran/sync', requirePermissao('frota.multas.sync'), async 
       : null;
     const result = await executarSyncMultasDetran({ forcar, veiculoIds });
     const cache = await listarMultasDetranCache({});
+
+    const qtdVeic = Array.isArray(veiculoIds) ? veiculoIds.length : result.qtd_veiculos ?? 0;
+    await auditar(req, {
+      modulo: 'frota',
+      acao: 'sincronizar',
+      entidade: 'detran_df_multas',
+      idReferencia: result.id_sync || null,
+      descricao: `Sincronizou multas DETRAN-DF (${qtdVeic} veículo(s)): ${result.qtd_multas ?? 0} multa(s) — status ${result.status || result.motivo || 'ok'}`,
+      detalhes: {
+        forcar: Boolean(forcar),
+        veiculo_ids: veiculoIds,
+        qtd_veiculos: qtdVeic,
+        qtd_multas: result.qtd_multas ?? 0,
+        status: result.status || result.motivo || null,
+        fonte: result.fonte || null,
+        avisos: Array.isArray(result.avisos) ? result.avisos.slice(0, 20) : [],
+      },
+    });
+
     res.json({ ...result, cache });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Força sync de débitos: IPVA (SEFAZ-DF) + Licenciamento (DETRAN-DF).
+ * Independente do sync de multas.
+ */
+router.post('/debitos/detran/sync', requirePermissao('frota.multas.sync'), async (req, res, next) => {
+  try {
+    const forcar =
+      req.query.forcar === '1' ||
+      req.body?.forcar === true ||
+      req.body?.forcar === '1';
+    const veiculoIds = Array.isArray(req.body?.veiculoIds)
+      ? req.body.veiculoIds.map(Number).filter(Number.isFinite)
+      : null;
+    const tipos = Array.isArray(req.body?.tipos)
+      ? req.body.tipos.filter((t) => t === 'IPVA' || t === 'Licenciamento')
+      : ['IPVA', 'Licenciamento'];
+    const anoAtual = new Date().getFullYear();
+    const anosIpva = Array.isArray(req.body?.anosIpva)
+      ? [
+          ...new Set(
+            req.body.anosIpva
+              .map(Number)
+              .filter((n) => Number.isFinite(n) && n >= 2020 && n <= anoAtual),
+          ),
+        ].sort((a, b) => b - a)
+      : [anoAtual];
+    const result = await executarSyncDebitosDetran({ forcar, veiculoIds, tipos, anosIpva });
+    const debitos = await listarDebitosDetranCache({});
+
+    const qtdVeic = Array.isArray(veiculoIds) ? veiculoIds.length : result.qtd_veiculos ?? 0;
+    await auditar(req, {
+      modulo: 'frota',
+      acao: 'sincronizar',
+      entidade: 'detran_df_debitos',
+      idReferencia: null,
+      descricao: `Sincronizou débitos (${tipos.join('+')}, ${qtdVeic} veículo(s)): ${result.qtd_ipva ?? 0} IPVA, ${result.qtd_licenciamento ?? 0} licenciamento(s) — status ${result.status || result.motivo || 'ok'}`,
+      detalhes: {
+        forcar: Boolean(forcar),
+        veiculo_ids: veiculoIds,
+        tipos,
+        anos_ipva: anosIpva,
+        qtd_veiculos: qtdVeic,
+        qtd_ipva: result.qtd_ipva ?? 0,
+        qtd_licenciamento: result.qtd_licenciamento ?? 0,
+        qtd_debitos: result.qtd_debitos ?? 0,
+        status: result.status || result.motivo || null,
+        fonte: result.fonte || null,
+        avisos: Array.isArray(result.avisos) ? result.avisos.slice(0, 20) : [],
+      },
+    });
+
+    res.json({ ...result, debitos });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Débitos IPVA/Licenciamento DETRAN-DF em cache.
+ * Query: ?id_veiculo=
+ */
+router.get('/debitos/detran', requirePermissao('frota.debitos.ver', 'frota.gerenciar'), async (req, res, next) => {
+  try {
+    const idVeiculo = req.query.id_veiculo != null ? Number(req.query.id_veiculo) : null;
+    const cache = await listarDebitosDetranCache({
+      idVeiculo: idVeiculo && Number.isFinite(idVeiculo) ? idVeiculo : null,
+    });
+    res.json(cache);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Atualiza o status de um débito IPVA/Licenciamento */
+router.patch('/debitos/detran/:id/status', requirePermissao('frota.gerenciar', 'frota.debitos.ver', 'frota.multas.sync'), async (req, res, next) => {
+  try {
+    const idDebito = Number(req.params.id);
+    if (!Number.isFinite(idDebito)) return res.status(400).json({ error: 'ID de débito inválido' });
+    const { status } = req.body;
+    if (!['Em Aberto', 'Paga', 'Vencida'].includes(status)) {
+      return res.status(400).json({ error: 'Status inválido' });
+    }
+    await pool.query(
+      'UPDATE frota_debitos_detran SET status = $1 WHERE id_debito_detran = $2',
+      [status, idDebito],
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Remove um débito IPVA/Licenciamento do cache */
+router.delete('/debitos/detran/:id', requirePermissao('frota.gerenciar', 'frota.multas.sync'), async (req, res, next) => {
+  try {
+    const idDebito = Number(req.params.id);
+    if (!Number.isFinite(idDebito)) return res.status(400).json({ error: 'ID de débito inválido' });
+    const { rowCount } = await pool.query(
+      'DELETE FROM frota_debitos_detran WHERE id_debito_detran = $1',
+      [idDebito],
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Débito não encontrado' });
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Proxy do boleto PDF (download/impressão sem nova aba / CORS). */
+router.get('/debitos/detran/:id/boleto', requirePermissao('frota.gerenciar', 'frota.debitos.ver', 'frota.multas.sync'), async (req, res, next) => {
+  try {
+    const idDebito = Number(req.params.id);
+    if (!Number.isFinite(idDebito)) return res.status(400).json({ error: 'ID de débito inválido' });
+    const { rows } = await pool.query(
+      `SELECT boleto, placa, ano_referencia
+       FROM frota_debitos_detran
+       WHERE id_debito_detran = $1`,
+      [idDebito],
+    );
+    const row = rows[0];
+    if (!row?.boleto || !/^https?:\/\//i.test(String(row.boleto))) {
+      return res.status(404).json({ error: 'Boleto indisponível' });
+    }
+    const remote = await fetch(String(row.boleto), {
+      headers: { Accept: 'application/pdf,*/*', 'User-Agent': 'Meridian-Frota/1.0' },
+    });
+    if (!remote.ok) {
+      return res.status(502).json({ error: `Falha ao obter boleto (${remote.status})` });
+    }
+    const buf = Buffer.from(await remote.arrayBuffer());
+    const nome = `boleto-${row.placa || idDebito}-${row.ano_referencia || 'ipva'}.pdf`.replace(/\s+/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${nome}"`);
+    res.setHeader('Cache-Control', 'private, max-age=120');
+    res.send(buf);
   } catch (e) {
     next(e);
   }

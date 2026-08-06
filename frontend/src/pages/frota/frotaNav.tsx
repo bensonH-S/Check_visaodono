@@ -29,7 +29,7 @@ const FROTA_NAV: FrotaNavSection[] = [
     title: 'Operação',
     items: [
       {
-        to: '/frota/operacao',
+        to: '/frota/operacao/cadastro',
         label: 'Operação',
         icon: <DirectionsCarIcon fontSize="small" />,
         permissoes: ['frota.gerenciar'],
@@ -81,7 +81,7 @@ export function getFrotaNavSections(user: UsuarioSessao | null = getUsuario()) {
 }
 
 export function primeiraRotaFrota(user: UsuarioSessao | null = getUsuario()) {
-  return getFrotaNavSections(user)[0]?.items[0]?.to ?? '/frota/operacao';
+  return getFrotaNavSections(user)[0]?.items[0]?.to ?? '/frota/operacao/cadastro';
 }
 
 export function podeAcessarModuloFrota(user: UsuarioSessao | null = getUsuario()) {
@@ -89,5 +89,8 @@ export function podeAcessarModuloFrota(user: UsuarioSessao | null = getUsuario()
 }
 
 export function isFrotaNavItemAtivo(path: string, itemTo: string) {
+  if (itemTo.startsWith('/frota/operacao')) {
+    return path === '/frota/operacao' || path.startsWith('/frota/operacao/');
+  }
   return path === itemTo || path.startsWith(`${itemTo}/`);
 }

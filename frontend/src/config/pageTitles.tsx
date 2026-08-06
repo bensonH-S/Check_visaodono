@@ -82,6 +82,9 @@ export function resolvePageTitle(path: string): PageTitleConfig {
     return { title: 'Visita concluída', icon: <CheckCircleIcon sx={iconSx} /> };
   }
   if (path.startsWith('/relatorio/')) return PAGE_TITLES['/relatorio'];
+  if (path.startsWith('/frota/operacao')) {
+    return PAGE_TITLES['/frota/operacao'];
+  }
   if (path.startsWith('/frota/veiculos/')) {
     return { title: 'Frota · Veículo', icon: <DirectionsCarIcon sx={iconSx} /> };
   }
