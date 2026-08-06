@@ -445,7 +445,7 @@ router.get('/multas/detran', requirePermissao('frota.gerenciar'), async (req, re
  * Força sync Infosimples (uso excepcional — gasta saldo).
  * Body/query: forcar=1
  */
-router.post('/multas/detran/sync', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+router.post('/multas/detran/sync', requirePermissao('frota.multas.sync'), async (req, res, next) => {
   try {
     const forcar =
       req.query.forcar === '1' ||
@@ -469,6 +469,25 @@ router.get('/veiculos/:id/multas/detran', requirePermissao('frota.gerenciar'), a
       id_veiculo: idVeiculo,
       ...cache,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Atualiza o status de uma multa */
+router.patch('/multas/detran/:id/status', requirePermissao('frota.gerenciar', 'frota.multas.sync'), async (req, res, next) => {
+  try {
+    const idMulta = Number(req.params.id);
+    if (!Number.isFinite(idMulta)) return res.status(400).json({ error: 'ID de multa inválido' });
+    const { status } = req.body;
+    if (!['Em Aberto', 'Paga', 'Vencida'].includes(status)) {
+      return res.status(400).json({ error: 'Status inválido' });
+    }
+    await pool.query(
+      'UPDATE frota_multas_detran SET status = $1 WHERE id_multa_detran = $2',
+      [status, idMulta],
+    );
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

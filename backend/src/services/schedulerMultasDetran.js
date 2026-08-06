@@ -100,8 +100,9 @@ export async function executarSyncMultasDetran(opts = {}) {
     );
     idSync = ins.rows[0].id_sync;
 
-    // Limpa cache anterior (mantém só o resultado desta execução)
-    await pool.query(`DELETE FROM frota_multas_detran`);
+    // Obtém todos os autos de infração já existentes para não duplicá-los
+    const { rows: existentes } = await pool.query(`SELECT auto FROM frota_multas_detran`);
+    const autosExistentes = new Set(existentes.map((r) => r.auto));
 
     const novas = [];
     for (let i = 0; i < veiculos.length; i++) {
@@ -110,6 +111,9 @@ export async function executarSyncMultasDetran(opts = {}) {
         const r = await consultarMultasDetranDf({ placa: v.placa, renavam: v.renavam });
         fonte = r.fonte || fonte;
         for (const m of r.multas) {
+          if (autosExistentes.has(m.auto)) {
+            continue; // Já cadastrada anteriormente, evita sobrescrever
+          }
           novas.push([
             idSync,
             v.id_veiculo,
@@ -122,7 +126,6 @@ export async function executarSyncMultasDetran(opts = {}) {
             m.valor_desconto,
             m.data_infracao,
             m.data_vencimento,
-            m.situacao,
             m.orgao,
             m.pontos,
             r.fonte || 'infosimples',
@@ -142,8 +145,8 @@ export async function executarSyncMultasDetran(opts = {}) {
         await pool.query(
           `INSERT INTO frota_multas_detran
              (id_sync, id_veiculo, placa, modelo, auto, descricao, local_infracao,
-              valor, valor_desconto, data_multa, data_vencimento, situacao, orgao, pontos, fonte)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::date,$11::date,$12,$13,$14,$15)`,
+              valor, valor_desconto, data_multa, data_vencimento, orgao, pontos, fonte)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::date,$11::date,$12,$13,$14)`,
           row,
         );
       }
@@ -201,11 +204,11 @@ export async function executarSyncMultasDetran(opts = {}) {
 async function tick() {
   try {
     const { hm, dia } = agoraSP();
-    // Dispara às 17:00; se o processo estava offline nesse minuto, alcança depois (ainda 1x/dia).
     if (hm < HORA_SYNC) return;
     const existente = await syncDoDiaExiste(dia);
     if (existente) return;
-    await executarSyncMultasDetran({ forcar: false });
+    // Consulta automática desativada conforme solicitação do usuário.
+    logger.info('detran-df', `Sync automático do dia ${dia} ignorado (Infosimples ativo apenas manualmente)`);
   } catch (e) {
     logger.error('detran-df', `tick sync: ${e instanceof Error ? e.message : e}`);
   }
@@ -242,11 +245,11 @@ export async function listarMultasDetranCache({ idVeiculo = null } = {}) {
   const { rows: multas } = await pool.query(
     `SELECT m.id_multa_detran, m.id_veiculo, m.placa, m.modelo, m.auto, m.descricao,
             m.local_infracao, m.valor, m.valor_desconto, m.data_multa, m.data_vencimento,
-            m.situacao, m.orgao, m.pontos, m.fonte, m.consultado_em
-     FROM frota_multas_detran m
-     ${where}
-     ORDER BY m.data_multa DESC NULLS LAST, m.id_multa_detran DESC
-     LIMIT 500`,
+            m.orgao, m.pontos, m.fonte, m.consultado_em, m.status` +
+    ` FROM frota_multas_detran m
+      ${where}
+      ORDER BY m.data_multa DESC NULLS LAST, m.id_multa_detran DESC
+      LIMIT 500`,
     params,
   );
 
@@ -263,6 +266,7 @@ export async function listarMultasDetranCache({ idVeiculo = null } = {}) {
     qtd_veiculos: sync?.qtd_veiculos ?? 0,
     avisos: Array.isArray(sync?.avisos) ? sync.avisos : [],
     multas: multas.map((m) => ({
+      id_multa_detran: m.id_multa_detran,
       id_veiculo: m.id_veiculo,
       placa: m.placa,
       modelo: m.modelo,
@@ -273,10 +277,10 @@ export async function listarMultasDetranCache({ idVeiculo = null } = {}) {
       valor_desconto: m.valor_desconto != null ? Number(m.valor_desconto) : null,
       data_multa: m.data_multa,
       data_vencimento: m.data_vencimento,
-      situacao: m.situacao,
       orgao: m.orgao,
       pontos: m.pontos,
       fonte: m.fonte || 'infosimples',
+      status: m.status || 'Em Aberto',
     })),
     veiculos: [],
   };

@@ -59,7 +59,25 @@ export default function FrotaVeiculoAutocomplete({
           return texto.includes(q);
         });
       }}
-      sx={{ minWidth: 280, flex: 1, ...sx }}
+      sx={{
+        minWidth: 280,
+        flex: 1,
+        '& .MuiOutlinedInput-root': {
+          borderRadius: '8px',
+          height: 40,
+          minHeight: 40,
+          alignItems: 'center',
+        },
+        '& .MuiOutlinedInput-input': {
+          py: '4px !important',
+          boxSizing: 'border-box' as const,
+          fontSize: '0.875rem',
+        },
+        '& .MuiInputLabel-root.MuiInputLabel-shrink': {
+          transform: 'translate(14px, -9px) scale(0.75)',
+        },
+        ...sx,
+      }}
       slotProps={{
         paper: {
           sx: { borderRadius: 2.5, mt: 0.5 },
@@ -144,6 +162,10 @@ export default function FrotaVeiculoAutocomplete({
           label={label}
           size={size}
           placeholder="Buscar por placa, modelo ou região"
+          slotProps={{
+            ...params.slotProps,
+            inputLabel: { ...params.slotProps?.inputLabel, shrink: true },
+          }}
         />
       )}
     />

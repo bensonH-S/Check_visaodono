@@ -23,11 +23,16 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import Tooltip from '@mui/material/Tooltip';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import AddIcon from '@mui/icons-material/Add';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
 import PersonRemoveAlt1OutlinedIcon from '@mui/icons-material/PersonRemoveAlt1Outlined';
 import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import PlaceIcon from '@mui/icons-material/Place';
+import SyncIcon from '@mui/icons-material/Sync';
 import {
   api,
   fetchMediaAutenticada,
@@ -37,12 +42,13 @@ import {
   type FrotaVeiculo,
   type Usuario,
 } from '../../api/client';
+import { getUsuario, temPermissao } from '../../lib/auth';
 import FrotaVeiculoDialog from '../../components/frota/FrotaVeiculoDialog';
 import FrotaVeiculoAutocomplete from '../../components/frota/FrotaVeiculoAutocomplete';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import ImageLightbox from '../../components/ImageLightbox';
 import { colors, radius, shadows } from '../../theme/tokens';
-import { formatDataHoraBrasilia } from '../../utils/dateBr';
+import { dataHojeBrasilia, formatDataHoraBrasilia } from '../../utils/dateBr';
 import { dataDentroIntervalo, matchVeiculo, matchVeiculoObj } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tableSx } from '../../utils/tablePageLayout';
 
@@ -120,12 +126,23 @@ export default function FrotaOperacaoPage() {
 
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  
+  const sessao = useMemo(() => getUsuario(), []);
+  const podeSincronizar = useMemo(() => temPermissao('frota.multas.sync', sessao), [sessao]);
+  const [modalDetalheMulta, setModalDetalheMulta] = useState<{ open: boolean; titulo: string; conteudo: string; tipo: 'descricao' | 'local' | '' }>({
+    open: false,
+    titulo: '',
+    conteudo: '',
+    tipo: '',
+  });
+  const [confirmarSyncOpen, setConfirmarSyncOpen] = useState(false);
   const [abastecimentos, setAbastecimentos] = useState<FrotaAbastecimentoPortal[]>([]);
   const [manutencoes, setManutencoes] = useState<FrotaManutencaoPortal[]>([]);
   const [multas, setMultas] = useState<FrotaMultaDetran[]>([]);
   const [multasAvisos, setMultasAvisos] = useState<string[]>([]);
   const [multasConsultadoEm, setMultasConsultadoEm] = useState<string | null>(null);
   const [carregandoMultas, setCarregandoMultas] = useState(false);
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<{ anchorEl: HTMLElement; multa: FrotaMultaDetran } | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
@@ -195,6 +212,65 @@ export default function FrotaOperacaoPage() {
     }
   }, []);
 
+  const sincronizarMultas = async () => {
+    setCarregandoMultas(true);
+    setMultasAvisos([]);
+    try {
+      const r = await api.frotaMultasDetranSync(true);
+      const cache = r.cache || {};
+      setMultas(cache.multas || []);
+      setMultasAvisos(cache.avisos || []);
+      setMultasConsultadoEm(cache.consultado_em || null);
+      if (r.erros && r.erros.length > 0) {
+        setMultasAvisos((prev) => [...prev, ...r.erros]);
+      }
+    } catch (e) {
+      setMultasAvisos([e instanceof Error ? e.message : 'Falha ao sincronizar multas']);
+    } finally {
+      setCarregandoMultas(false);
+    }
+  };
+
+  const obterStatusChipEstilo = (status?: string) => {
+    switch (status) {
+      case 'Paga':
+        return { bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32', border: '1px solid #2e7d32' };
+      case 'Vencida':
+        return { bgcolor: 'rgba(211, 47, 47, 0.12)', color: '#d32f2f', border: '1px solid #d32f2f' };
+      default:
+        return { bgcolor: 'rgba(2, 136, 209, 0.12)', color: '#0288d1', border: '1px solid #0288d1' };
+    }
+  };
+
+  const obterStatusEfetivo = (m: FrotaMultaDetran) => {
+    if (m.status === 'Paga') return 'Paga';
+    if (m.status === 'Vencida') return 'Vencida';
+    if (m.data_vencimento) {
+      const hoje = dataHojeBrasilia();
+      const vencFmt = String(m.data_vencimento).slice(0, 10);
+      if (vencFmt && vencFmt < hoje) {
+        return 'Vencida';
+      }
+    }
+    return m.status || 'Em Aberto';
+  };
+
+  const alterarStatusMulta = async (novoStatus: 'Em Aberto' | 'Paga' | 'Vencida') => {
+    if (!statusMenuAnchor) return;
+    const { multa } = statusMenuAnchor;
+    setStatusMenuAnchor(null);
+    try {
+      await api.frotaAtualizarStatusMultaDetran(multa.id_multa_detran, novoStatus);
+      setMultas((prev) =>
+        prev.map((item) =>
+          item.id_multa_detran === multa.id_multa_detran ? { ...item, status: novoStatus } : item
+        )
+      );
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erro ao atualizar status');
+    }
+  };
+
   useEffect(() => {
     carregar();
   }, [carregar]);
@@ -253,7 +329,7 @@ export default function FrotaOperacaoPage() {
       multas.filter(
         (m) =>
           (!veiculoSel || m.id_veiculo === veiculoSel.id_veiculo) &&
-          (!m.data_multa || dataDentroIntervalo(m.data_multa, dataInicio, dataFim)),
+          (m.data_multa ? dataDentroIntervalo(m.data_multa, dataInicio, dataFim) : (!dataInicio && !dataFim)),
       ),
     [multas, veiculoSel, dataInicio, dataFim],
   );
@@ -642,10 +718,22 @@ export default function FrotaOperacaoPage() {
               R$ {totalCombustivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Typography>
           )}
-          {aba === 'multas' && multasFiltradas.length > 0 && (
-            <Typography variant="caption" color="text.secondary" sx={{ pr: 1, whiteSpace: 'nowrap' }}>
-              R$ {totalMultas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </Typography>
+          {aba === 'multas' && podeSincronizar && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pr: 1 }}>
+              <Tooltip title="Realiza a consulta de multas atualizadas diretamente no portal do DETRAN-DF (Infosimples)" arrow>
+                <span>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setConfirmarSyncOpen(true)}
+                    disabled={carregandoMultas || loading}
+                    sx={{ textTransform: 'none', fontWeight: 600, height: 30 }}
+                  >
+                    {carregandoMultas ? 'Sincronizando...' : 'Sincronizar DETRAN'}
+                  </Button>
+                </span>
+              </Tooltip>
+            </Box>
           )}
           {aba === 'manutencoes' && (
             <Typography variant="caption" color="text.secondary" sx={{ pr: 1, whiteSpace: 'nowrap' }}>
@@ -900,15 +988,7 @@ export default function FrotaOperacaoPage() {
         )}
 
         {aba === 'multas' && (
-          <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
-            {(carregandoMultas || loading) && <LinearProgress />}
-            {multasAvisos.length > 0 &&
-              !multasAvisos.every((a) => /não habilitada|nao habilitada|habilitar|infosimples/i.test(a)) && (
-              <Alert severity="warning" sx={{ m: 1.5, mb: 0 }}>
-                {multasAvisos.slice(0, 5).join(' · ')}
-                {multasAvisos.length > 5 ? ` (+${multasAvisos.length - 5})` : ''}
-              </Alert>
-            )}
+          <>
             {!carregandoMultas && (
               <Typography variant="caption" sx={{ display: 'block', px: 2, pt: 1, color: 'text.secondary' }}>
                 {multasConsultadoEm
@@ -916,48 +996,116 @@ export default function FrotaOperacaoPage() {
                   : 'Última consulta: —'}
               </Typography>
             )}
-            <Table size="small" stickyHeader sx={tableSx}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Placa</TableCell>
-                  <TableCell>Auto</TableCell>
-                  <TableCell>Descrição</TableCell>
-                  <TableCell>Local</TableCell>
-                  <TableCell>Situação</TableCell>
-                  <TableCell align="right">Valor</TableCell>
-                  <TableCell>Data</TableCell>
-                  <TableCell>Vencimento</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {multasFiltradas.map((m, i) => (
-                  <TableRow key={`${m.placa}-${m.auto}-${i}`} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{m.placa}</TableCell>
-                    <TableCell sx={tableCellWrapSx}>{m.auto || '—'}</TableCell>
-                    <TableCell sx={tableCellWrapSx}>{m.descricao || '—'}</TableCell>
-                    <TableCell sx={tableCellWrapSx}>{m.local_infracao || '—'}</TableCell>
-                    <TableCell sx={tableCellWrapSx}>{m.situacao || '—'}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: colors.navy }}>
-                      {m.valor != null
-                        ? `R$ ${m.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell>{m.data_multa ? fmtData(m.data_multa) : '—'}</TableCell>
-                    <TableCell>{m.data_vencimento ? fmtData(m.data_vencimento) : '—'}</TableCell>
-                  </TableRow>
-                ))}
-                {!loading && !carregandoMultas && multasFiltradas.length === 0 && (
+            <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
+              {(carregandoMultas || loading) && <LinearProgress />}
+              {multasAvisos.length > 0 &&
+                !multasAvisos.every((a) => /não habilitada|nao habilitada|habilitar|infosimples/i.test(a)) && (
+                <Alert severity="warning" sx={{ m: 1.5, mb: 0 }}>
+                  {multasAvisos.slice(0, 5).join(' · ')}
+                  {multasAvisos.length > 5 ? ` (+${multasAvisos.length - 5})` : ''}
+                </Alert>
+              )}
+              <Table size="small" stickyHeader sx={tableSx}>
+                <TableHead>
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                      Nenhuma multa encontrada no DETRAN-DF
-                      {veiculoSel ? ` para ${veiculoSel.placa}` : ''}. Confira se o RENAVAM está
-                      cadastrado.
-                    </TableCell>
+                    <TableCell align="center">Placa</TableCell>
+                    <TableCell align="center">Número da Autuação</TableCell>
+                    <TableCell align="center">Data de Autuação</TableCell>
+                    <TableCell align="center">Valor</TableCell>
+                    <TableCell align="center">Vencimento</TableCell>
+                    <TableCell align="center">Local</TableCell>
+                    <TableCell align="center">Descrição</TableCell>
+                    <TableCell align="center">Status</TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {multasFiltradas.map((m, i) => {
+                    const statusEfetivo = obterStatusEfetivo(m);
+                    return (
+                      <TableRow key={`${m.placa}-${m.auto}-${i}`} hover>
+                        <TableCell align="center" sx={{ fontWeight: 600 }}>{m.placa}</TableCell>
+                        <TableCell align="center" sx={tableCellWrapSx}>{m.auto || '—'}</TableCell>
+                        <TableCell align="center">{m.data_multa ? fmtData(m.data_multa) : '—'}</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.navy }}>
+                          {m.valor != null
+                            ? `R$ ${m.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell align="center">{m.data_vencimento ? fmtData(m.data_vencimento) : '—'}</TableCell>
+                        <TableCell align="center">
+                          {m.local_infracao ? (
+                            <Button
+                              size="small"
+                              onClick={() => setModalDetalheMulta({ open: true, titulo: 'Local da Infração', conteudo: m.local_infracao || '', tipo: 'local' })}
+                              sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
+                            >
+                              Ver Local
+                            </Button>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          {m.descricao ? (
+                            <Button
+                              size="small"
+                              onClick={() => setModalDetalheMulta({ open: true, titulo: 'Descrição da Infração', conteudo: m.descricao || '', tipo: 'descricao' })}
+                              sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
+                            >
+                              Ver Descrição
+                            </Button>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={statusEfetivo}
+                            size="small"
+                            onClick={(e) => setStatusMenuAnchor({ anchorEl: e.currentTarget, multa: m })}
+                            sx={{
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              ...obterStatusChipEstilo(statusEfetivo),
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {!loading && !carregandoMultas && multasFiltradas.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                        Nenhuma multa encontrada no DETRAN-DF
+                        {veiculoSel ? ` para ${veiculoSel.placa}` : ''}. Confira se o RENAVAM está
+                        cadastrado.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            {multasFiltradas.length > 0 && (
+              <Box
+                sx={{
+                  borderTop: `1px solid ${colors.border}`,
+                  p: 1.5,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  bgcolor: colors.surface,
+                  borderRadius: `0 0 ${radius.lg}px ${radius.lg}px`,
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Total de Multas
+                </Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy }}>
+                  R$ {totalMultas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Typography>
+              </Box>
+            )}
+          </>
         )}
       </Paper>
 
@@ -1143,6 +1291,65 @@ export default function FrotaOperacaoPage() {
         alt="Comprovante de abastecimento"
         onClose={fecharComprovante}
       />
+
+      <Dialog
+        open={modalDetalheMulta.open}
+        onClose={() => setModalDetalheMulta((prev) => ({ ...prev, open: false }))}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
+          {modalDetalheMulta.tipo === 'descricao' && <WarningAmberIcon color="warning" />}
+          {modalDetalheMulta.tipo === 'local' && <PlaceIcon color="primary" />}
+          {modalDetalheMulta.titulo}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {modalDetalheMulta.conteudo || '—'}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setModalDetalheMulta((prev) => ({ ...prev, open: false }))}>
+            Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmarSyncOpen} onClose={() => setConfirmarSyncOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <SyncIcon /> Confirmar Consulta DETRAN
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Deseja realizar a consulta de multas atualizadas no DETRAN-DF?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmarSyncOpen(false)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<SyncIcon />}
+            onClick={() => {
+              setConfirmarSyncOpen(false);
+              void sincronizarMultas();
+            }}
+          >
+            Confirmar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Menu
+        anchorEl={statusMenuAnchor?.anchorEl}
+        open={Boolean(statusMenuAnchor)}
+        onClose={() => setStatusMenuAnchor(null)}
+      >
+        <MenuItem onClick={() => alterarStatusMulta('Em Aberto')}>Em Aberto</MenuItem>
+        <MenuItem onClick={() => alterarStatusMulta('Paga')}>Paga</MenuItem>
+        <MenuItem onClick={() => alterarStatusMulta('Vencida')}>Vencida</MenuItem>
+      </Menu>
     </Box>
   );
 }

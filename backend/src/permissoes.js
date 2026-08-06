@@ -23,6 +23,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'frota.usar', nome: 'Usar módulo de frota no app mobile', grupo: 'Frota', ordem: 140 },
   { codigo: 'frota.mapa.ver', nome: 'Ver mapa de técnicos em tempo real', grupo: 'Frota', ordem: 142 },
   { codigo: 'frota.gerenciar', nome: 'Cadastrar veículos e gerenciar frota', grupo: 'Frota', ordem: 145 },
+  { codigo: 'frota.multas.sync', nome: 'Sincronizar multas DETRAN', grupo: 'Frota', ordem: 146 },
   { codigo: 'escalas.visitas.gerenciar', nome: 'Gerenciar escala de visitas semanal', grupo: 'Escalas', ordem: 150 },
   { codigo: 'escalas.visitas.ver', nome: 'Ver escala de visitas semanal', grupo: 'Escalas', ordem: 151 },
   { codigo: 'metas.gerenciar', nome: 'Gerenciar metas e indicadores', grupo: 'Metas', ordem: 160 },

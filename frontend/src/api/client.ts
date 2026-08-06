@@ -529,6 +529,25 @@ export const api = {
     const q = idVeiculo != null ? `?id_veiculo=${idVeiculo}` : '';
     return request<FrotaMultasDetranResposta>(`/frota/multas/detran${q}`);
   },
+  frotaAtualizarStatusMultaDetran: (idMulta: number, status: 'Em Aberto' | 'Paga' | 'Vencida') => {
+    return request<{ ok: boolean }>(`/frota/multas/detran/${idMulta}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+  },
+  frotaMultasDetranSync: (forcar?: boolean) => {
+    return request<{
+      status: string;
+      total: number;
+      erros: string[];
+      cache: FrotaMultasDetranResposta;
+    }>('/frota/multas/detran/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ forcar }),
+    });
+  },
   frotaTermosPortal: () => request<FrotaTermoPortalResumo[]>('/frota/termos'),
   frotaTermoPortal: (idTermo: number) => request<FrotaTermoPortalDetalhe>(`/frota/termos/${idTermo}`),
   frotaRegioes: () => request<FrotaRegiaoResumo[]>('/frota/regioes'),
@@ -1397,6 +1416,7 @@ export interface FrotaMultaPortal {
 
 /** Multa retornada pela consulta DETRAN-DF (APIBrasil /multas/br). */
 export interface FrotaMultaDetran {
+  id_multa_detran: number;
   id_veiculo: number;
   placa: string;
   modelo?: string | null;
@@ -1407,10 +1427,10 @@ export interface FrotaMultaDetran {
   valor_desconto?: number | null;
   data_multa: string | null;
   data_vencimento?: string | null;
-  situacao?: string | null;
   orgao?: string | null;
   pontos?: number | null;
   fonte?: string;
+  status: 'Em Aberto' | 'Paga' | 'Vencida';
 }
 
 export interface FrotaMultasDetranResposta {

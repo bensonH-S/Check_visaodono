@@ -85,37 +85,42 @@ function mapInfracao(item, i) {
   return {
     auto:
       item.ait ||
+      item.numero_auto ||
       item.numeroAuto ||
       item.auto ||
       item.processo ||
       item.codigo_renainf ||
       String(i + 1),
     descricao:
+      item.desc_infracao ||
       item.descricao ||
       item.descricaoInfracao ||
       item.descricaoResumoInfracao ||
       item.enquadramento ||
       item.regulamento ||
       null,
-    local: item.local || item.localMulta || item.localInfracao || null,
+    local: item.local || item.local_multa || item.localMulta || item.localInfracao || null,
     valor: parseValor(item.valor ?? item.valorCorrigido ?? item.valor_com_correcao ?? item.valorOriginal),
     valor_desconto: parseValor(item.valorDesconto ?? item.valor_com_desconto),
     data_infracao: parseDataBr(
-      item.data ||
+      item.data_infracao ||
+        item.data ||
         item.dataCometimento ||
         item.dataGoraInfracao ||
         item.dataInfracao ||
         (item.data && item.hora ? `${item.data} ${item.hora}` : null),
     ),
-    data_vencimento: parseDataBr(item.vencimento || item.dataVencimento || item.data_penalidade),
+    data_vencimento: parseDataBr(item.data_vencimento || item.vencimento || item.dataVencimento || item.data_penalidade),
     situacao: item.status || item.situacao || item.situacaoBordero || null,
     orgao: item.orgao_autuador || item.orgaoAutuador || item.siglaOrgaoAutuador || item.orgao || null,
     pontos:
       item.pontos != null
         ? Number(item.pontos)
-        : item.pontosInfracao != null
-          ? Number(item.pontosInfracao)
-          : null,
+        : item.pontos_infracao != null
+          ? Number(item.pontos_infracao)
+          : item.pontosInfracao != null
+            ? Number(item.pontosInfracao)
+            : null,
   };
 }
 
@@ -198,8 +203,8 @@ async function consultarInfosimples(placa, renavam) {
   url.searchParams.set('renavam', renavam);
 
   // Credenciais opcionais do portal (consulta debitos autenticada)
-  const loginCpf = envStr('INFOSIMPLES_LOGIN_CPF', 'DETRAN_DF_LOGIN_CPF');
-  const loginSenha = envStr('INFOSIMPLES_LOGIN_SENHA', 'DETRAN_DF_LOGIN_SENHA');
+  const loginCpf = envStr('INFOSIMPLES_LOGIN_CPF', 'DETRAN_DF_LOGIN_CPF', 'DETRAN_PORTAL_CPF');
+  const loginSenha = envStr('INFOSIMPLES_LOGIN_SENHA', 'DETRAN_DF_LOGIN_SENHA', 'DETRAN_PORTAL_SENHA');
   if (loginCpf) url.searchParams.set('login_cpf', loginCpf);
   if (loginSenha) url.searchParams.set('login_senha', loginSenha);
 

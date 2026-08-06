@@ -39,9 +39,10 @@ const filtroDataSx = {
   mb: 0,
   minWidth: 260,
   flex: '0 0 auto',
-  pt: 0.75,
+  pt: 0,
   position: 'relative',
   '& .MuiOutlinedInput-root': {
+    borderRadius: '8px',
     minHeight: 40,
     height: 40,
   },
@@ -176,6 +177,14 @@ export default function FiltroIntervaloDatasFrota({
           sx={{
             ...(compacto ? { width: 300 } : campoAlturaFrotaSx),
             mb: 0,
+            '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+              borderRadius: '8px',
+              minHeight: 40,
+              height: 40,
+            },
+            '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
+              borderRadius: '8px',
+            },
             '& .MuiInputBase-input': {
               letterSpacing: '0.01em',
             },
