@@ -186,6 +186,27 @@ async function statusBkOffice() {
   };
 }
 
+async function statusInfoSimples() {
+  const token = (process.env.INFOSIMPLES_TOKEN || '').trim();
+  if (!token) {
+    return {
+      id: 'infosimples',
+      name: 'InfoSimples (Detran)',
+      online: false,
+      detail: 'Não configurada (Token ausente)',
+      configurada: false,
+    };
+  }
+  const probe = await probeUrl('https://api.infosimples.com/');
+  return {
+    id: 'infosimples',
+    name: 'InfoSimples (Detran)',
+    online: probe.online,
+    detail: probe.online ? 'Conectada (Pronta para consultas)' : 'Indisponível',
+    configurada: true,
+  };
+}
+
 /** Páginas e as APIs externas que cada uma usa. */
 const PAGINAS = [
   {
@@ -204,7 +225,7 @@ const PAGINAS = [
     id: 'frota',
     name: 'Frota',
     paths: ['/frota'],
-    apis: ['fulltrack', 'whatsapp'],
+    apis: ['fulltrack', 'whatsapp', 'infosimples'],
   },
   {
     id: 'checklist',
@@ -263,15 +284,16 @@ function resolverContexto(contexto) {
  * contexto = id da página (freela, mapa, …). Sem contexto → todas as páginas.
  */
 export async function obterIntegrationsStatus(opts = {}) {
-  const [freecontrol, whatsapp, fulltrack, smtp, bkoffice] = await Promise.all([
+  const [freecontrol, whatsapp, fulltrack, smtp, bkoffice, infosimples] = await Promise.all([
     statusFreeControl(),
     statusWhatsApp(),
     statusFullTrack(),
     statusSmtp(),
     statusBkOffice(),
+    statusInfoSimples(),
   ]);
 
-  const byId = { freecontrol, whatsapp, fulltrack, smtp, bkoffice };
+  const byId = { freecontrol, whatsapp, fulltrack, smtp, bkoffice, infosimples };
 
   const paginaFiltro = resolverContexto(opts.contexto);
   const paginas = paginaFiltro ? [paginaFiltro] : PAGINAS;
