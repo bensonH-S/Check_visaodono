@@ -25,34 +25,25 @@ export async function baixarNfesFinanceiroEsupri({
   }
 
   const base = String(baseUrl || DEFAULT_BASE).replace(/\/$/, '');
-  // Preferir Chrome no Windows; no Docker Alpine usa Chromium do sistema (PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH).
   const useChrome = process.env.ESUPRI_USE_CHROME !== '0';
-  const execPath =
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-    process.env.ESUPRI_CHROMIUM_PATH ||
-    '';
-  const launchOpts = {
+  const { buildChromiumLaunchOptions } = await import('../playwrightBrowser.js');
+  const launchOpts = buildChromiumLaunchOptions({
     headless,
-    args: ['--disable-dev-shm-usage', '--no-sandbox'],
-  };
-  if (execPath) {
-    const fs = await import('fs');
-    if (fs.existsSync(execPath)) launchOpts.executablePath = execPath;
-  }
-  if (!launchOpts.executablePath && useChrome) {
-    launchOpts.channel = 'chrome';
-    if (headless) launchOpts.args.push('--headless=new');
-  }
+    preferChromeChannel: useChrome,
+  });
+
+  onLog(
+    `browser exec=${launchOpts.executablePath || launchOpts.channel || 'playwright-chromium'}`,
+  );
 
   let browser;
   try {
     browser = await chromium.launch(launchOpts);
   } catch (e) {
-    if (launchOpts.channel || launchOpts.executablePath) {
-      onLog(`Launch preferencial falhou (${e.message}) — tentando Chromium Playwright`);
+    if (launchOpts.channel && process.platform === 'win32') {
+      onLog(`Chrome canal falhou (${e.message}) — tentando Chromium Playwright`);
       delete launchOpts.channel;
-      delete launchOpts.executablePath;
-      launchOpts.args = launchOpts.args.filter((a) => a !== '--headless=new');
+      launchOpts.args = (launchOpts.args || []).filter((a) => a !== '--headless=new');
       browser = await chromium.launch(launchOpts);
     } else {
       throw e;

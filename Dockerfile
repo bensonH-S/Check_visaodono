@@ -1,6 +1,8 @@
-FROM node:22-alpine AS build
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
-RUN apk add --no-cache git
+
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/
@@ -16,40 +18,22 @@ ARG GIT_TAG=
 ENV GIT_TAG=${GIT_TAG}
 RUN npm run build:web
 
-FROM node:22-alpine
+FROM node:22-bookworm-slim
 WORKDIR /app
 
-# Chromium do sistema para Playwright (BK Office / eSupri) — Alpine não traz browsers do npx playwright
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    font-noto-emoji \
-    dbus \
-    udev \
-  && rm -rf /var/cache/apk/*
-
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-# Alpine chromium package — path comum (chromium-browser ou chromium)
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
-ENV CHROMIUM_PATH=/usr/bin/chromium-browser
-# No container não há Chrome canal Windows nem display
+# Playwright Chromium + deps do SO (BK Office / eSupri / Detran)
+# Alpine NÃO serve — browsers oficiais do Playwright são glibc.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV BKOFFICE_USE_CHROME=0
 ENV BKOFFICE_HEADLESS=1
 ENV ESUPRI_USE_CHROME=0
 
-# Garante path válido (algumas versões Alpine só têm /usr/bin/chromium)
-RUN if [ ! -e /usr/bin/chromium-browser ] && [ -e /usr/bin/chromium ]; then \
-      ln -sf /usr/bin/chromium /usr/bin/chromium-browser; \
-    fi \
- && (test -x /usr/bin/chromium-browser || test -x /usr/bin/chromium)
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/
 RUN npm ci --omit=dev --ignore-scripts \
-  && npm ci --prefix backend --omit=dev
+  && npm ci --prefix backend --omit=dev \
+  && npx playwright install --with-deps chromium \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY server.js ./
 COPY backend/src ./backend/src

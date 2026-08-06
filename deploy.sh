@@ -96,7 +96,8 @@ compose_build_up() {
   # App precisa recriar para aplicar imagem nova após tag.
   # WPP mantém container se já estiver saudável (start sem rebuild).
   if [ "$servico" = "app" ]; then
-    compose_cmd build "$servico"
+    # Força rebuild da imagem (Playwright/Chromium muda entre tags)
+    compose_cmd build --pull --no-cache "$servico"
     compose_cmd up -d --force-recreate --remove-orphans "$servico"
   else
     compose_cmd build "$servico"

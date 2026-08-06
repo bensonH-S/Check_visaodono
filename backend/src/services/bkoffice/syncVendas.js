@@ -183,40 +183,39 @@ async function baixarExcelVendas({
   // HEADLESS=0 → janela; qualquer outro valor (incl. 1) → invisível
   const headless = process.env.BKOFFICE_HEADLESS !== '0';
   const useChrome = process.env.BKOFFICE_USE_CHROME !== '0';
-  const execPath =
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-    process.env.BKOFFICE_CHROMIUM_PATH ||
-    '';
-  const launchOpts = {
+  const { buildChromiumLaunchOptions } = await import('../playwrightBrowser.js');
+  const launchOpts = buildChromiumLaunchOptions({
     headless,
+    preferChromeChannel: useChrome,
     downloadsPath: downloadDir,
-    args: [
+    extraArgs: [
       '--disable-blink-features=AutomationControlled',
-      '--disable-dev-shm-usage',
-      '--no-sandbox',
     ],
-    ignoreDefaultArgs: ['--enable-automation'],
-  };
-  // No Linux/Docker: usar Chromium do sistema se o path existir
-  if (execPath && fs.existsSync(execPath)) {
-    launchOpts.executablePath = execPath;
-  } else if (useChrome) {
-    // Chrome instalado no Windows costuma passar melhor no WAF (Akamai)
-    launchOpts.channel = 'chrome';
-    if (headless) launchOpts.args.push('--headless=new');
-  }
+  });
+  launchOpts.ignoreDefaultArgs = ['--enable-automation'];
+
+  console.log(
+    `[bkoffice] launch headless=${headless} exec=${launchOpts.executablePath || launchOpts.channel || 'playwright-chromium'}`,
+  );
 
   let browser;
   try {
     browser = await playwright.chromium.launch(launchOpts);
   } catch (e) {
-    if (launchOpts.channel || launchOpts.executablePath) {
-      console.warn('[bkoffice] Launch preferencial falhou, tentando Chromium padrão:', e.message);
+    const msg = String(e.message || e);
+    // Só tenta canal Chrome → Chromium do Playwright se estivermos no Windows
+    if (launchOpts.channel && process.platform === 'win32') {
+      console.warn('[bkoffice] Chrome canal falhou, tentando Chromium Playwright:', msg);
       delete launchOpts.channel;
-      delete launchOpts.executablePath;
       browser = await playwright.chromium.launch(launchOpts);
     } else {
-      throw e;
+      throw Object.assign(
+        new Error(
+          `Falha ao abrir browser BK Office: ${msg}. ` +
+            'No servidor use imagem v1.7.7+ (Playwright Chromium) e BKOFFICE_USE_CHROME=0.',
+        ),
+        { status: 503 },
+      );
     }
   }
 
