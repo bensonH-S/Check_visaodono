@@ -47,20 +47,34 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados/novo': { title: 'Abrir chamado', icon: <AddIcon sx={iconSx} /> },
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/frota': { title: 'Frota', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/operacao': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/veiculos': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/acompanhamento': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
-  '/frota/relatorio-km': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
-  '/frota/relatorio-rotas': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
-  '/frota/relatorio-velocidade': { title: 'Frota · Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
-  '/frota/uso': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/combustivel': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/manutencoes': { title: 'Frota · Operação', icon: <DirectionsCarIcon sx={iconSx} /> },
-  '/frota/termos': { title: 'Frota · Termos', icon: <AssignmentTurnedInIcon sx={iconSx} /> },
-  '/frota/regioes': { title: 'Frota · Regiões', icon: <MapIcon sx={iconSx} /> },
+  '/frota/operacao': { title: 'Frota. Cadastro', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/operacao/cadastro': { title: 'Frota. Cadastro', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/operacao/combustivel': { title: 'Frota. Combustível', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/operacao/manutencoes': { title: 'Frota. Manutenções', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/operacao/multas': { title: 'Frota. Multas', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/operacao/debitos': { title: 'Frota. Débitos', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/veiculos': { title: 'Frota. Cadastro', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/acompanhamento': { title: 'Frota. Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
+  '/frota/relatorio-km': { title: 'Frota. Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
+  '/frota/relatorio-rotas': { title: 'Frota. Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
+  '/frota/relatorio-velocidade': { title: 'Frota. Acompanhamento', icon: <TimelineIcon sx={iconSx} /> },
+  '/frota/uso': { title: 'Frota. Cadastro', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/combustivel': { title: 'Frota. Combustível', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/manutencoes': { title: 'Frota. Manutenções', icon: <DirectionsCarIcon sx={iconSx} /> },
+  '/frota/termos': { title: 'Frota. Termos', icon: <AssignmentTurnedInIcon sx={iconSx} /> },
+  '/frota/regioes': { title: 'Frota. Regiões', icon: <MapIcon sx={iconSx} /> },
   '/escalas/visitas': { title: 'Escala de visitas', icon: <CalendarMonthIcon sx={iconSx} /> },
   '/metas': { title: 'Metas', icon: <TrackChangesIcon sx={iconSx} /> },
   '/estoque': { title: 'Estoque', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/cmv': { title: 'Estoque. CMV', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/vendas': { title: 'Estoque. Vendas', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/estoque': { title: 'Estoque. Estoque', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/conferencia': { title: 'Estoque. Conferência', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/break': { title: 'Estoque. Break', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/pedido': { title: 'Estoque. Pedido', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/fichas': { title: 'Estoque. Cadastro', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/mobile': { title: 'Estoque. Conferência', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/mobile/break': { title: 'Estoque. Break', icon: <Inventory2Icon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
   '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },
@@ -83,10 +97,10 @@ export function resolvePageTitle(path: string): PageTitleConfig {
   }
   if (path.startsWith('/relatorio/')) return PAGE_TITLES['/relatorio'];
   if (path.startsWith('/frota/operacao')) {
-    return PAGE_TITLES['/frota/operacao'];
+    return PAGE_TITLES[path] ?? PAGE_TITLES['/frota/operacao/cadastro'];
   }
   if (path.startsWith('/frota/veiculos/')) {
-    return { title: 'Frota · Veículo', icon: <DirectionsCarIcon sx={iconSx} /> };
+    return { title: 'Frota. Veículo', icon: <DirectionsCarIcon sx={iconSx} /> };
   }
   if (path.startsWith('/frota/')) return PAGE_TITLES[path] ?? PAGE_TITLES['/frota'];
   if (path.startsWith('/chamados/aprovacoes/')) return PAGE_TITLES['/chamados/aprovacoes'];
@@ -95,7 +109,10 @@ export function resolvePageTitle(path: string): PageTitleConfig {
     return PAGE_TITLES[path] ?? PAGE_TITLES['/configuracoes'];
   }
   if (path === '/estoque' || path.startsWith('/estoque/')) {
-    return PAGE_TITLES['/estoque'];
+    if (path.startsWith('/estoque/mobile/') && path !== '/estoque/mobile/break') {
+      return { title: 'Estoque. Conferência', icon: <Inventory2Icon sx={iconSx} /> };
+    }
+    return PAGE_TITLES[path] ?? PAGE_TITLES['/estoque'];
   }
   return { title: 'Portal Grupo Alvim', icon: <DashboardIcon sx={iconSx} /> };
 }
