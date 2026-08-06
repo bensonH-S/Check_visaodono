@@ -2073,7 +2073,7 @@ export default function FrotaOperacaoPage() {
             />
           ) : null}
         </DialogTitle>
-        <DialogContent sx={{ pt: 2.5 }}>
+        <DialogContent sx={{ pt: '28px !important' }}>
           {modalDetalheMulta.multa && (
             <>
               {modalDetalheMulta.multa.descricao && (
@@ -2192,7 +2192,7 @@ export default function FrotaOperacaoPage() {
                 >
                   {modalDetalheMulta.multa.responsavel_infracao && (
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                      <PersonOutlinedIcon sx={{ fontSize: 18, color: colors.navy, mt: 0.2 }} />
+                      <PersonOutlinedIcon sx={{ fontSize: 18, color: colors.orange, mt: 0.2 }} />
                       <Box>
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
                           RESPONSÁVEL DA INFRAÇÃO
