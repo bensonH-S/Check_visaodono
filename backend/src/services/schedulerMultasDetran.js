@@ -254,6 +254,21 @@ export async function listarMultasDetranCache({ idVeiculo = null } = {}) {
   );
 
   const { dia } = agoraSP();
+
+  // Auto-corrige status vencido no banco de dados
+  for (const m of multas) {
+    if ((m.status === 'Em Aberto' || !m.status) && m.data_vencimento) {
+      const venc = String(m.data_vencimento).slice(0, 10);
+      if (venc && venc < dia) {
+        m.status = 'Vencida';
+        pool.query(
+          `UPDATE frota_multas_detran SET status = 'Vencida' WHERE id_multa_detran = $1`,
+          [m.id_multa_detran],
+        ).catch((err) => logger.error('detran-df', `Erro ao auto-corrigir status para vencido: ${err.message}`));
+      }
+    }
+  }
+
   const jaHoje = sync && String(sync.data_ref).slice(0, 10) === dia;
 
   return {

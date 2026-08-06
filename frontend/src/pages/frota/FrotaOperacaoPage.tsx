@@ -33,6 +33,7 @@ import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PlaceIcon from '@mui/icons-material/Place';
 import SyncIcon from '@mui/icons-material/Sync';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import {
   api,
   fetchMediaAutenticada,
@@ -129,11 +130,12 @@ export default function FrotaOperacaoPage() {
   
   const sessao = useMemo(() => getUsuario(), []);
   const podeSincronizar = useMemo(() => temPermissao('frota.multas.sync', sessao), [sessao]);
-  const [modalDetalheMulta, setModalDetalheMulta] = useState<{ open: boolean; titulo: string; conteudo: string; tipo: 'descricao' | 'local' | '' }>({
+  const [modalDetalheMulta, setModalDetalheMulta] = useState<{ open: boolean; titulo: string; conteudo: string; tipo: 'descricao' | 'local' | ''; orgao?: string }>({
     open: false,
     titulo: '',
     conteudo: '',
     tipo: '',
+    orgao: '',
   });
   const [confirmarSyncOpen, setConfirmarSyncOpen] = useState(false);
   const [abastecimentos, setAbastecimentos] = useState<FrotaAbastecimentoPortal[]>([]);
@@ -1049,7 +1051,7 @@ export default function FrotaOperacaoPage() {
                           {m.descricao ? (
                             <Button
                               size="small"
-                              onClick={() => setModalDetalheMulta({ open: true, titulo: 'Descrição da Infração', conteudo: m.descricao || '', tipo: 'descricao' })}
+                              onClick={() => setModalDetalheMulta({ open: true, titulo: 'Descrição da Infração', conteudo: m.descricao || '', tipo: 'descricao', orgao: m.orgao || '' })}
                               sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
                             >
                               Ver Descrição
@@ -1304,9 +1306,22 @@ export default function FrotaOperacaoPage() {
           {modalDetalheMulta.titulo}
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mb: 2 }}>
             {modalDetalheMulta.conteudo || '—'}
           </Typography>
+          {modalDetalheMulta.tipo === 'descricao' && modalDetalheMulta.orgao && (
+            <Box sx={{ mt: 2, pt: 1.5, borderTop: `1px dashed ${colors.border}` }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+                <AccountBalanceIcon sx={{ fontSize: 16, color: colors.orange }} />
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.05em' }}>
+                  ÓRGÃO AUTUADOR
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, pl: 2.85 }}>
+                {modalDetalheMulta.orgao}
+              </Typography>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setModalDetalheMulta((prev) => ({ ...prev, open: false }))}>
