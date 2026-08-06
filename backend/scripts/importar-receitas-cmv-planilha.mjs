@@ -28,8 +28,20 @@ const dryRun = args.includes('--dry-run');
 const soSemFicha = args.includes('--so-sem-ficha');
 /** Por padrão NÃO grava preço da planilha (custo vem de NF). Use --com-precos só se souber o que está fazendo. */
 const comPrecos = args.includes('--com-precos');
+/** Marca custo_fonte=manual ao gravar preço (não sobrescreve nf). */
+const marcarManual = args.includes('--marcar-manual') || comPrecos;
+/** Importa todas as receitas da aba Receitas (não só Completo/vendidos). */
+const todasReceitas = args.includes('--todas');
 const lojaArg = args.find((a) => a.startsWith('--loja='));
 const regiaoArg = args.find((a) => a.startsWith('--regiao='));
+const dbArg = args.find((a) => a.startsWith('--db='));
+const dbFlag = dbArg?.split('=')[1] || '';
+if (dbFlag === 'dev') {
+  process.env.DB_NAME = process.env.DB_NAME_DEV || 'vision_check_dev';
+}
+if (dbFlag === 'prod') {
+  process.env.DB_NAME = process.env.DB_NAME_PROD || 'vision_check';
+}
 const ID_LOJA = Number(lojaArg?.split('=')[1] || 7);
 /** Coluna de preço em Custo_Insumos (0-based a partir do código SP SN = col 7) */
 const REGIAO = String(regiaoArg?.split('=')[1] || 'ne').toLowerCase();
@@ -46,9 +58,14 @@ const PRECO_COL = {
 }[REGIAO] ?? 10;
 
 const dbName = process.env.DB_NAME || '';
+const forceProd = args.includes('--yes') || args.includes('--force-prod');
 if (!/dev/i.test(dbName)) {
-  console.error('ABORT: só DB de desenvolvimento (DB_NAME com "dev"). Atual:', dbName);
-  process.exit(1);
+  if (!forceProd) {
+    console.error('ABORT: só DB de desenvolvimento (DB_NAME com "dev"). Atual:', dbName);
+    console.error('Para produção: acrescente --yes (ex.: --loja=21 --db=dev não; use DB_NAME_PROD + --yes)');
+    process.exit(1);
+  }
+  console.warn('ATENÇÃO: gravando em banco NÃO-dev:', dbName);
 }
 
 const PLANILHA = path.join(root, 'CMV_-_VERSAO_07_2026_visivel.xlsm');
@@ -190,30 +207,35 @@ const pool = new pg.Pool({
 });
 
 async function upsertInsumo(client, { codigo, descricao, precoCaixa, undConvertida }) {
-  // Receita/qtd e cadastro: sim. Preço da planilha: só com --com-precos (e nunca marca custo_fonte).
+  // Preço: só com --com-precos. Com --marcar-manual (ou --com-precos), marca manual sem sobrescrever nf.
   const preco = comPrecos ? Number(precoCaixa) || 0 : 0;
+  const und = Number(undConvertida) > 0 ? Number(undConvertida) : 1;
   const { rows } = await client.query(
-    `INSERT INTO insumos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, ativo, atualizado_em)
-     VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW())
+    `INSERT INTO insumos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, custo_fonte, ativo, atualizado_em)
+     VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric,
+             CASE WHEN $8::boolean AND $5::numeric > 0 THEN 'manual' ELSE NULL END,
+             TRUE, NOW())
      ON CONFLICT (id_loja, codigo) DO UPDATE SET
        descricao = CASE WHEN EXCLUDED.descricao <> '' THEN EXCLUDED.descricao ELSE insumos.descricao END,
        preco_caixa = CASE
-         WHEN $7::boolean AND EXCLUDED.preco_caixa > 0 THEN EXCLUDED.preco_caixa
+         WHEN $7::boolean AND EXCLUDED.preco_caixa > 0 AND (insumos.custo_fonte IS DISTINCT FROM 'nf')
+           THEN EXCLUDED.preco_caixa
          ELSE insumos.preco_caixa
        END,
-       und_convertida = CASE WHEN EXCLUDED.und_convertida > 0 THEN EXCLUDED.und_convertida ELSE insumos.und_convertida END,
+       und_convertida = CASE
+         WHEN insumos.und_convertida IS NOT NULL AND insumos.und_convertida > 0 THEN insumos.und_convertida
+         WHEN EXCLUDED.und_convertida > 0 THEN EXCLUDED.und_convertida
+         ELSE insumos.und_convertida
+       END,
+       custo_fonte = CASE
+         WHEN insumos.custo_fonte = 'nf' THEN insumos.custo_fonte
+         WHEN $8::boolean AND $7::boolean AND EXCLUDED.preco_caixa > 0 THEN 'manual'
+         ELSE insumos.custo_fonte
+       END,
        ativo = TRUE,
        atualizado_em = NOW()
      RETURNING id_insumo, codigo, valor_unidade`,
-    [
-      ID_LOJA,
-      codigo,
-      descricao || codigo,
-      'und',
-      preco,
-      Number(undConvertida) > 0 ? Number(undConvertida) : 1,
-      comPrecos,
-    ],
+    [ID_LOJA, codigo, descricao || codigo, 'und', preco, und, comPrecos, marcarManual],
   );
   return rows[0];
 }
@@ -282,8 +304,12 @@ async function main() {
     dryRun,
     '| só sem ficha:',
     soSemFicha,
+    '| todas receitas:',
+    todasReceitas,
     '| gravar preços planilha:',
     comPrecos,
+    '| marcar manual:',
+    marcarManual,
   );
 
   const { recipes, custos, incompleto, completo } = lerPlanilha();
@@ -312,6 +338,10 @@ async function main() {
 
     const alvos = new Set();
     for (const [cod] of recipes) {
+      if (todasReceitas) {
+        alvos.add(cod);
+        continue;
+      }
       if (soSemFicha) {
         const p = prodByCod.get(cod);
         if (semFichaCsv.has(cod) || (p && !p.tem_ficha)) alvos.add(cod);

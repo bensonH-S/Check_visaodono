@@ -85,6 +85,8 @@
     "estoque:modelo-terraco": "node backend/scripts/definir-modelo-terraco.mjs",
     "estoque:sync-platlog": "node backend/scripts/sync-platlog-nfe.mjs",
     "estoque:sync-coca": "node backend/scripts/sync-coca-nfe.mjs",
+    "estoque:simplificar-terraco": "node backend/scripts/simplificar-estoque-terraco.mjs",
+    "estoque:validar-terraco": "node backend/scripts/validar-estoque-terraco.mjs",
     "migrate:estoque-terraco": "node backend/scripts/run-sql.js migrations/103_estoque_contagem_terraco.sql --db=dev --yes",
     "migrate:estoque-nfe": "node backend/scripts/run-sql.js migrations/104_estoque_nfe_platlog.sql --db=dev --yes",
     "migrate:estoque-sync-nf": "node backend/scripts/run-sql.js migrations/105_estoque_sync_fornecedor.sql --db=dev --yes"
