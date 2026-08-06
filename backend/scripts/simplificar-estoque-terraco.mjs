@@ -216,10 +216,16 @@ async function main() {
       if (soPlanilha.length > 40) console.log(`  ... +${soPlanilha.length - 40}`);
     }
 
+const SKIP_CRIAR = /PEPSI|LIPTON|ANTARTICA|ANTARCTICA|SODA LIMONADA/i;
+
     // --- Aplicar: criar faltantes da Contagem ---
     let criados = 0;
     if (apply && criarFaltantes) {
       for (const it of soPlanilha) {
+        if (SKIP_CRIAR.test(it.descricao) || SKIP_CRIAR.test(it.codigo)) {
+          console.log(`  skip (não CMV/free refill antigo): ${it.codigo}`);
+          continue;
+        }
         const { rows } = await client.query(
           `INSERT INTO insumos (
              id_loja, codigo, descricao, unidade_contagem,
@@ -240,7 +246,7 @@ async function main() {
             it.unidade_contagem,
             it.und_convertida || 1,
             it.und_parcial || 1,
-            it.preco_caixa,
+            it.preco_caixa > 0 ? it.preco_caixa : 0,
             it.preco_caixa > 0 ? 'manual' : null,
           ],
         );
