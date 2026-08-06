@@ -163,7 +163,7 @@ export default function NcMobileResolverPage() {
                     encerrada
                   </h1>
                 </div>
-                <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+                <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
               </div>
               <p className="ck-visitas__sub">{nc.nome_loja || nc.name}</p>
             </div>
@@ -208,7 +208,7 @@ export default function NcMobileResolverPage() {
                   NC
                 </h1>
               </div>
-              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
             </div>
 
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--3">

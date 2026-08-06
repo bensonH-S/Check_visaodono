@@ -9,7 +9,7 @@ type Props = {
 };
 
 /** Logo do header immersive — abre menu (Sobre, Status API, terminar sessão). */
-export default function CkMarkLogoMenu({ size = 56, className }: Props) {
+export default function CkMarkLogoMenu({ size = 72, className }: Props) {
   const navigate = useNavigate();
   const user = getUsuario();
 

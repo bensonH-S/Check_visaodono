@@ -87,6 +87,7 @@ export default defineConfig({
       filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: [
+        'Logo_Alvim_Icone.png',
         'Logo_Icon.png',
         'Logo_Icon-favicon.png',
         'Logo_Icon-light.png',
@@ -110,19 +111,19 @@ export default defineConfig({
         categories: ['business', 'productivity'],
         icons: [
           {
-            src: 'Logo_Icon-192.png',
-            sizes: '192x192',
+            src: 'Logo_Alvim_Icone.png',
+            sizes: '1024x1024',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'Logo_Icon-512.png',
+            src: 'Logo_Alvim_Icone.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'Logo_Icon-maskable.png',
+            src: 'Logo_Alvim_Icone.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',

@@ -93,8 +93,8 @@
   z-index: 2;
   top: calc(16px + env(safe-area-inset-top, 0px));
   right: var(--ck-pad-x);
-  width: clamp(76px, 22vw, 96px);
-  height: clamp(76px, 22vw, 96px);
+  width: clamp(92px, 26vw, 112px);
+  height: clamp(92px, 26vw, 112px);
   object-fit: contain;
   filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.3));
 }
@@ -105,7 +105,7 @@
   width: 100%;
   max-width: 400px;
   margin: 0 auto;
-  padding-right: clamp(72px, 24vw, 100px);
+  padding-right: clamp(88px, 28vw, 120px);
 }
 
 .ck-login__mark {

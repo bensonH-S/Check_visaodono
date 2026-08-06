@@ -96,7 +96,7 @@ export default function MapaTecnicosListaLojas() {
           </p>
         </div>
         <div className="ck-mapa__menu">
-          <CkMarkLogoMenu size={52} className="ck-mapa__logo" />
+          <CkMarkLogoMenu size={72} className="ck-mapa__logo" />
         </div>
       </div>
 

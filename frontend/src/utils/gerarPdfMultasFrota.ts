@@ -270,7 +270,7 @@ function desenharCards(
 
 /**
  * Relatório de multas DETRAN-DF no padrão visual do PDF de metas,
- * com logos CIGA + Grupo Alvim (Logo_Icon.png).
+ * com logos CIGA + Grupo Alvim (Logo_Alvim_Icone.png).
  */
 export async function gerarPdfMultasFrota(
   multas: FrotaMultaDetran[],
@@ -279,7 +279,7 @@ export async function gerarPdfMultasFrota(
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const [logoCiga, logoAlvim] = await Promise.all([
     carregarLogoParaPdf('CIGA.png'),
-    carregarLogoParaPdf('Logo_Icon.png'),
+    carregarLogoParaPdf('Logo_Alvim_Icone.png'),
   ]);
 
   setFill(doc, NAVY);

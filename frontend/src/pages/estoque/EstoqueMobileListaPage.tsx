@@ -203,7 +203,7 @@ export default function EstoqueMobileListaPage() {
                   de estoque
                 </h1>
               </div>
-              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
             </div>
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
               Conte os insumos da loja, salve o rascunho e finalize a conferência.

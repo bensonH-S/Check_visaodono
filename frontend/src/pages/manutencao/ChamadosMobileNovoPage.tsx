@@ -428,7 +428,7 @@ export default function ChamadosMobileNovoPage() {
               >
                 ←
               </button>
-              <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
             </div>
           </div>
 

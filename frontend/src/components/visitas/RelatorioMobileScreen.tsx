@@ -208,7 +208,7 @@ export default function RelatorioMobileScreen({
                   <PictureAsPdfIcon fontSize="small" />
                 )}
               </button>
-              <CkMarkLogoMenu size={48} className="ck-visitas__toolbar-logo" />
+              <CkMarkLogoMenu size={64} className="ck-visitas__toolbar-logo" />
             </div>
           </div>
 

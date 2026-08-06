@@ -487,7 +487,7 @@ router.post('/multas/detran/sync', requirePermissao('frota.multas.sync'), async 
  * Força sync de débitos: IPVA (SEFAZ-DF) + Licenciamento (DETRAN-DF).
  * Independente do sync de multas.
  */
-router.post('/debitos/detran/sync', requirePermissao('frota.multas.sync'), async (req, res, next) => {
+router.post('/debitos/detran/sync', requirePermissao('frota.debitos.sync'), async (req, res, next) => {
   try {
     const forcar =
       req.query.forcar === '1' ||

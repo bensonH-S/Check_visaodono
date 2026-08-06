@@ -19,7 +19,7 @@ import { useAppConfig } from '../hooks/useAppConfig';
 import PwaInstallDialog from '../components/PwaInstallDialog';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { formatMobileVersionNumber } from '../components/MobileVersionBadge';
-import { assetUrl } from '../config/paths';
+import { assetUrl, LOGO_ALVIM_ICONE } from '../config/paths';
 import { APP_NAME, APP_LOGIN_SUBTITLE } from '../config/brand';
 import { MOBILE_VIEWPORT } from '../theme/safeArea';
 import SobreSistemaDialog from '../components/SobreSistemaDialog';
@@ -126,11 +126,11 @@ export default function LoginMobilePage() {
           <div className="ck-login__mesh" aria-hidden />
 
           <img
-            src={assetUrl('Logo_Icon-clear.png')}
+            src={assetUrl(LOGO_ALVIM_ICONE)}
             alt=""
             className="ck-login__logo"
-            width={88}
-            height={88}
+            width={104}
+            height={104}
           />
           <div className="ck-login__stage-inner">
             <p className="ck-login__mark">Grupo Alvim</p>

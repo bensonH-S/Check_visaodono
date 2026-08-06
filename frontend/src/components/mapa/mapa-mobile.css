@@ -68,7 +68,7 @@
 .ck-mapa__title {
   margin: 2px 0 0;
   font-family: Fraunces, Georgia, serif;
-  font-size: clamp(1.45rem, 5.5vw, 1.75rem);
+  font-size: clamp(2.45rem, 10.5vw, 3.25rem);
   font-weight: 700;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -98,8 +98,8 @@
 }
 
 .ck-mapa__logo {
-  width: 52px !important;
-  height: 52px !important;
+  width: clamp(64px, 18vw, 78px) !important;
+  height: clamp(64px, 18vw, 78px) !important;
   object-fit: contain;
   display: block;
   margin: 0 !important;

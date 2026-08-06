@@ -59,7 +59,7 @@ export default function ChecklistLayout() {
               <ArrowBackIcon fontSize="small" />
             </IconButton>
           )}
-          <BrandLogo maxWidth={68} sx={{ flexShrink: 0 }} />
+          <BrandLogo variante="icone" maxWidth={64} sx={{ flexShrink: 0 }} />
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography
               sx={{

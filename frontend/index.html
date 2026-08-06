@@ -3,8 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <base href="%BASE_URL%" />
-    <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%Logo_Icon-favicon.png" />
-    <link rel="preload" as="image" href="Logo_Icon-favicon.png" />
+    <!-- relativo ao <base> (evita /auditoria/auditoria/...). favicon.png = 32px; PNG grande falha na aba -->
+    <link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=3" />
+    <link rel="shortcut icon" type="image/png" href="favicon.png?v=3" />
+    <link rel="preload" as="image" href="Logo_Alvim_Icone.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#1B2A6B" />
     <meta name="description" content="Meridian — checklist, chamados e auditoria Grupo Alvim" />
@@ -12,7 +14,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Meridian" />
-    <link rel="apple-touch-icon" href="%BASE_URL%Logo_Icon-192.png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="Logo_Alvim_Icone.png" sizes="192x192" />
     <!-- manifest.webmanifest: injetado pelo Vite PWA só no build de produção -->
     <title>Meridian</title>
     <style>
@@ -41,7 +43,7 @@
   </head>
   <body>
     <div id="pwa-splash" aria-hidden="true">
-      <img src="Logo_Icon-light.png" alt="" decoding="sync" fetchpriority="high" />
+      <img src="Logo_Alvim_Icone.png" alt="" decoding="sync" fetchpriority="high" />
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import type { VisitaDetalhe } from '../api/client';
 import { fmtData, fmtNota } from '../api/client';
-import { assetUrl, FAVICON_ICON } from '../config/paths';
+import { assetUrl } from '../config/paths';
 import { getToken } from '../lib/auth';
 import { formatarHoraVisita, formatarLocalVisita } from './visitaFormat';
 
@@ -98,7 +98,7 @@ function estiloResposta(
 
 async function carregarIconeMarca(): Promise<LogoIcon | null> {
   try {
-    const res = await fetch(assetUrl(FAVICON_ICON));
+    const res = await fetch(assetUrl('Logo_Alvim_Icone.png'));
     if (!res.ok) return null;
     const blob = await res.blob();
     const dataUrl = await new Promise<string>((resolve, reject) => {

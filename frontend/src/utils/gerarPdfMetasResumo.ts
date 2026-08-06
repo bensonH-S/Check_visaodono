@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import type { MetasPainel, MetasPeriodoDetalhe, MetasPeriodoResumo } from '../api/client';
-import { assetUrl, FAVICON_ICON } from '../config/paths';
+import { assetUrl } from '../config/paths';
 import {
   agruparPaineisResumo,
   calcValorMetaPorLoja,
@@ -142,7 +142,7 @@ function rodape(doc: jsPDF, periodoLabel: string) {
 
 async function carregarIconeMarca(): Promise<LogoIcon | null> {
   try {
-    const res = await fetch(assetUrl(FAVICON_ICON));
+    const res = await fetch(assetUrl('Logo_Alvim_Icone.png'));
     if (!res.ok) return null;
     const blob = await res.blob();
     const dataUrl = await new Promise<string>((resolve, reject) => {

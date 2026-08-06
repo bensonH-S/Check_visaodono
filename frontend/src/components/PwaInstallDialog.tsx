@@ -107,7 +107,7 @@ export default function PwaInstallDialog() {
               mb: 1.5,
             }}
           >
-            <BrandLogo maxWidth={120} />
+            <BrandLogo variante="icone" maxWidth={72} />
           </Box>
           <Typography id="pwa-install-title" variant="h6" sx={{ fontWeight: 700, color: NAVY, textAlign: 'center' }}>
             {titulo}

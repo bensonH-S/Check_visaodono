@@ -12,7 +12,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { iniciaisUsuario, type UsuarioSessao } from '../lib/auth';
-import { assetUrl, toAppPath } from '../config/paths';
+import { assetUrl, LOGO_ALVIM_ICONE, toAppPath } from '../config/paths';
 import { getFotoPerfil } from '../utils/fotoPerfil';
 import { api, type IntegrationStatusGroup } from '../api/client';
 import SobreSistemaDialog from './SobreSistemaDialog';
@@ -46,7 +46,7 @@ export default function MobileUsuarioMenu({
   user,
   onLogout,
   triggerLogo = false,
-  logoSize = 48,
+  logoSize = 64,
   logoClassName,
 }: Props) {
   const location = useLocation();
@@ -102,7 +102,7 @@ export default function MobileUsuarioMenu({
         {triggerLogo ? (
           <Box
             component="img"
-            src={assetUrl('Logo_Icon-clear.png')}
+            src={assetUrl(LOGO_ALVIM_ICONE)}
             alt="Grupo Alvim"
             className={logoClassName || 'ck-visitas__mark-icon'}
             sx={{

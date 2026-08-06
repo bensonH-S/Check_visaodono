@@ -1,4 +1,4 @@
-import { assetUrl } from '../../config/paths';
+import { assetUrl, LOGO_ALVIM_ICONE } from '../../config/paths';
 import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import type { CategoriaChecklist, Loja, Pergunta } from '../../api/client';
 import ChecklistIonicPerguntaCard from './ChecklistIonicPerguntaCard';
@@ -88,11 +88,11 @@ export default function ChecklistIonicFluxo({
               </strong>
             </div>
             <img
-              src={assetUrl('Logo_Icon-clear.png')}
+              src={assetUrl(LOGO_ALVIM_ICONE)}
               alt="Grupo Alvim"
               className="ck-fluxo__logo"
-              width={36}
-              height={36}
+              width={44}
+              height={44}
             />
           </div>
           <div className="ck-fluxo__bar" aria-hidden>

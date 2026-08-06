@@ -100,7 +100,7 @@ export default function ChecklistStartScreen(props: Props) {
                 <p className="ck-start__mark-text">Grupo Alvim</p>
                 <h1 className="ck-start__title ck-start__title--oneline">Nova visita</h1>
               </div>
-              <CkMarkLogoMenu size={56} className="ck-start__mark-icon" />
+              <CkMarkLogoMenu size={72} className="ck-start__mark-icon" />
             </div>
 
             <p className="ck-start__sub ck-start__anim ck-start__anim--2">

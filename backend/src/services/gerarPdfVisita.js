@@ -92,7 +92,7 @@ function estiloResposta(resposta, pergunta) {
 
 function carregarIconeMarca() {
   try {
-    const logoPath = path.join(getProjectRoot(), 'frontend', 'public', 'Logo_Icon.png');
+    const logoPath = path.join(getProjectRoot(), 'frontend', 'public', 'Logo_Alvim_Icone.png');
     if (!fs.existsSync(logoPath)) return null;
     const buffer = fs.readFileSync(logoPath);
     const dim = sizeOf(buffer);

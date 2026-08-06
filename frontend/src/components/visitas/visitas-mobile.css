@@ -105,7 +105,7 @@
 .ck-visitas__title {
   margin: 0;
   font-family: Fraunces, Georgia, serif;
-  font-size: clamp(2.15rem, 9.5vw, 3rem);
+  font-size: clamp(2.45rem, 10.5vw, 3.25rem);
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 0.96;
@@ -113,13 +113,13 @@
 
 .ck-visitas__title--oneline {
   white-space: nowrap;
-  font-size: clamp(1.75rem, 7.5vw, 2.6rem);
+  font-size: clamp(2.45rem, 10.5vw, 3.25rem);
   line-height: 1.05;
 }
 
 .ck-visitas__mark-icon {
-  width: clamp(48px, 14vw, 58px);
-  height: clamp(48px, 14vw, 58px);
+  width: clamp(64px, 18vw, 78px);
+  height: clamp(64px, 18vw, 78px);
   object-fit: contain;
   flex-shrink: 0;
   margin-top: 2px;
@@ -409,8 +409,8 @@
 }
 
 .ck-visitas__title--toolbar {
-  /* mesmo tamanho de antes, com quebra de linha */
-  font-size: clamp(2.15rem, 9.5vw, 3rem);
+  /* mesmo tamanho do título immersive */
+  font-size: clamp(2.45rem, 10.5vw, 3.25rem);
   line-height: 0.96;
   white-space: normal;
   overflow: visible;
@@ -436,8 +436,8 @@
 }
 
 .ck-visitas__toolbar-logo {
-  width: 48px;
-  height: 48px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   flex-shrink: 0;
   display: block;

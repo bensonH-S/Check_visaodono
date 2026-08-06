@@ -77,8 +77,8 @@ self.addEventListener('push', (event) => {
     : 'vision-check';
   const options = {
     body: data.body || 'Nova atualização nos chamados',
-    icon: `${self.registration.scope}Logo_Icon.png`,
-    badge: `${self.registration.scope}Logo_Icon.png`,
+    icon: `${self.registration.scope}Logo_Alvim_Icone.png`,
+    badge: `${self.registration.scope}Logo_Alvim_Icone.png`,
     tag,
     renotify: false,
     data: {

@@ -530,7 +530,7 @@ export default function FreelancersAprovacaoMobilePage() {
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title ck-freela__title">Freelancers</h1>
             </div>
-            <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
           </div>
 
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">

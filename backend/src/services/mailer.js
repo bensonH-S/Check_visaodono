@@ -58,7 +58,7 @@ export function getLogoAttachment() {
     path.join(root, 'frontend', 'public', 'Logo_GA.png'),
     path.join(root, 'frontend', 'public', 'logo-grupo-alvim.png'),
     path.join(root, 'frontend', 'public', 'Grupo Alvim.png'),
-    path.join(root, 'frontend', 'public', 'Logo_Icon.png'),
+    path.join(root, 'frontend', 'public', 'Logo_Alvim_Icone.png'),
   ];
   for (const logoPath of candidates) {
     if (fs.existsSync(logoPath)) {

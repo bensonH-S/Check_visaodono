@@ -37,6 +37,7 @@ import PersonRemoveAlt1OutlinedIcon from '@mui/icons-material/PersonRemoveAlt1Ou
 import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PlaceIcon from '@mui/icons-material/Place';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import SyncIcon from '@mui/icons-material/Sync';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -220,7 +221,8 @@ export default function FrotaOperacaoPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   
   const sessao = useMemo(() => getUsuario(), []);
-  const podeSincronizar = useMemo(() => temPermissao('frota.multas.sync', sessao), [sessao]);
+  const podeSincronizarMultas = useMemo(() => temPermissao('frota.multas.sync', sessao), [sessao]);
+  const podeSincronizarDebitos = useMemo(() => temPermissao('frota.debitos.sync', sessao), [sessao]);
   const podeVerDebitos = useMemo(() => temPermissao('frota.debitos.ver', sessao), [sessao]);
   const abasVisiveis = useMemo(
     () => ABAS.filter((item) => item.id !== 'debitos' || podeVerDebitos),
@@ -1180,18 +1182,26 @@ export default function FrotaOperacaoPage() {
               <Tooltip title="Gera PDF das multas filtradas" arrow>
                 <span>
                   <Button
-                    variant="outlined"
+                    variant="contained"
                     size="small"
                     startIcon={<PictureAsPdfIcon />}
                     onClick={() => void gerarRelatorioMultas()}
                     disabled={gerandoPdfMultas || carregandoMultas || multasFiltradas.length === 0}
-                    sx={{ textTransform: 'none', fontWeight: 600, height: 30 }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      height: 30,
+                      bgcolor: colors.orange,
+                      color: '#fff',
+                      '&:hover': { bgcolor: colors.orangeHover },
+                      '&.Mui-disabled': { bgcolor: 'rgba(232, 82, 10, 0.35)', color: '#fff' },
+                    }}
                   >
                     {gerandoPdfMultas ? 'Gerando...' : 'Relatório'}
                   </Button>
                 </span>
               </Tooltip>
-              {podeSincronizar && (
+              {podeSincronizarMultas && (
                 <Tooltip title="Consulta somente multas — independente de débitos" arrow>
                   <span>
                     <Button
@@ -1214,7 +1224,7 @@ export default function FrotaOperacaoPage() {
               )}
             </Box>
           )}
-          {(aba === 'debitos') && podeSincronizar && (
+          {(aba === 'debitos') && podeSincronizarDebitos && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pr: 1 }}>
               <Tooltip title="Consulta IPVA e/ou Licenciamento — independente de multas" arrow>
                 <span>
@@ -1584,7 +1594,7 @@ export default function FrotaOperacaoPage() {
                       <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                         Nenhuma multa no cache
                         {veiculoSel ? ` para ${veiculoSel.placa}` : ''}.
-                        {podeSincronizar
+                        {podeSincronizarMultas
                           ? ' Use “Sincronizar” quando quiser consultar (não há consulta automática).'
                           : ' Aguarde uma sincronização autorizada.'}
                       </TableCell>
@@ -2036,11 +2046,22 @@ export default function FrotaOperacaoPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            color: colors.navy,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            flexWrap: 'wrap',
+            pb: 1.5,
+            borderBottom: `1px solid ${colors.border}`,
+          }}
+        >
           <WarningAmberIcon color="warning" />
-          Descrição da Infração
+          Dados da Infração
           {modalDetalheMulta.multa?.auto ? (
-            <Typography component="span" variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+            <Typography component="span" variant="body2" sx={{ color: 'text.secondary', fontWeight: 600, ml: 0.5 }}>
               · Nº {modalDetalheMulta.multa.auto}
             </Typography>
           ) : null}
@@ -2048,33 +2069,38 @@ export default function FrotaOperacaoPage() {
             <Chip
               label={modalDetalheMulta.multa.natureza}
               size="small"
-              sx={{ fontWeight: 700, ...obterGrupoChipEstilo(modalDetalheMulta.multa.natureza) }}
+              sx={{ fontWeight: 700, ml: 0.5, ...obterGrupoChipEstilo(modalDetalheMulta.multa.natureza) }}
             />
           ) : null}
         </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
+        <DialogContent sx={{ pt: 2.5 }}>
           {modalDetalheMulta.multa && (
             <>
               {modalDetalheMulta.multa.descricao && (
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25, mb: 2 }}>
-                  <Box
-                    sx={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: '50%',
-                      bgcolor: colors.orange,
-                      mt: 0.85,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: 500 }}>
-                    {modalDetalheMulta.multa.descricao}
-                  </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 1,
+                    mb: 2.5,
+                    pb: 2.5,
+                    borderBottom: `1px solid ${colors.border}`,
+                  }}
+                >
+                  <DescriptionOutlinedIcon sx={{ fontSize: 18, color: colors.orange, mt: 0.2 }} />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em', display: 'block', mb: 0.75 }}>
+                      DESCRIÇÃO
+                    </Typography>
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontWeight: 500 }}>
+                      {modalDetalheMulta.multa.descricao}
+                    </Typography>
+                  </Box>
                 </Box>
               )}
 
               {modalDetalheMulta.multa.local_infracao && (
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2.5, pb: 2.5, borderBottom: `1px solid ${colors.border}` }}>
                   <PlaceIcon sx={{ fontSize: 18, color: colors.orange, mt: 0.2 }} />
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
@@ -2104,7 +2130,7 @@ export default function FrotaOperacaoPage() {
                         sm: 'repeat(auto-fit, minmax(140px, 1fr))',
                       },
                       gap: 1.25,
-                      mb: 2,
+                      mb: 2.5,
                       p: 1.5,
                       borderRadius: 1,
                       bgcolor: 'rgba(11, 26, 59, 0.03)',
@@ -2145,22 +2171,56 @@ export default function FrotaOperacaoPage() {
                 );
               })()}
 
-              {modalDetalheMulta.multa.responsavel_infracao && (
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.5 }}>
-                  <PersonOutlinedIcon sx={{ fontSize: 18, color: colors.navy, mt: 0.2 }} />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
-                      RESPONSÁVEL DA INFRAÇÃO
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
-                      {modalDetalheMulta.multa.responsavel_infracao}
-                    </Typography>
-                  </Box>
+              {(modalDetalheMulta.multa.responsavel_infracao || modalDetalheMulta.multa.orgao) && (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      sm:
+                        modalDetalheMulta.multa.responsavel_infracao && modalDetalheMulta.multa.orgao
+                          ? '1fr 1fr'
+                          : '1fr',
+                    },
+                    gap: 2,
+                    mb: modalDetalheMulta.multa.data_notificacao_autuacao ? 2.5 : 0,
+                    pb: modalDetalheMulta.multa.data_notificacao_autuacao ? 2.5 : 0,
+                    borderBottom: modalDetalheMulta.multa.data_notificacao_autuacao
+                      ? `1px solid ${colors.border}`
+                      : 'none',
+                  }}
+                >
+                  {modalDetalheMulta.multa.responsavel_infracao && (
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <PersonOutlinedIcon sx={{ fontSize: 18, color: colors.navy, mt: 0.2 }} />
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                          RESPONSÁVEL DA INFRAÇÃO
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                          {modalDetalheMulta.multa.responsavel_infracao}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                  {modalDetalheMulta.multa.orgao && (
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <AccountBalanceIcon sx={{ fontSize: 18, color: colors.orange, mt: 0.2 }} />
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
+                          ÓRGÃO AUTUADOR
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                          {modalDetalheMulta.multa.orgao}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
                 </Box>
               )}
 
               {modalDetalheMulta.multa.data_notificacao_autuacao && (
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                   <NotificationsNoneIcon sx={{ fontSize: 18, color: colors.orange, mt: 0.2 }} />
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
@@ -2170,20 +2230,6 @@ export default function FrotaOperacaoPage() {
                       {fmtData(modalDetalheMulta.multa.data_notificacao_autuacao)}
                     </Typography>
                   </Box>
-                </Box>
-              )}
-
-              {modalDetalheMulta.multa.orgao && (
-                <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px dashed ${colors.border}` }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
-                    <AccountBalanceIcon sx={{ fontSize: 16, color: colors.orange }} />
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.05em' }}>
-                      ÓRGÃO AUTUADOR
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, pl: 2.85 }}>
-                    {modalDetalheMulta.multa.orgao}
-                  </Typography>
                 </Box>
               )}
             </>
@@ -2281,7 +2327,7 @@ export default function FrotaOperacaoPage() {
 
       <Dialog open={confirmarSyncOpen} onClose={() => setConfirmarSyncOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SyncIcon /> {syncTipo === 'debitos' ? 'Confirmar sincronização' : 'Confirmar sincronização de Multas'}
+          <SyncIcon /> {syncTipo === 'debitos' ? 'Confirmar sincronização de Débitos' : 'Confirmar sincronização de Multas'}
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           {syncTipo === 'debitos' && (

@@ -29,10 +29,10 @@
   flex: 1 1 auto;
 }
 
-/* Título em uma linha nas subpáginas */
+/* Título em uma linha nas subpáginas — mesmo tamanho do hub */
 .ck-frota--page .ck-visitas__title {
   white-space: nowrap;
-  font-size: clamp(1.7rem, 7.2vw, 2.75rem);
+  font-size: clamp(2.45rem, 10.5vw, 3.25rem);
 }
 
 .ck-frota__hero-end {
@@ -56,10 +56,20 @@
   flex-shrink: 0;
 }
 
-/* Hub: logo um pouco mais abaixo do alinhamento padrão */
+/* Hub: logo alinhada mais acima (sem empurrar para baixo) */
+.ck-frota:not(.ck-frota--page) .ck-frota__hero-end {
+  align-self: flex-start;
+  transform: translateY(-4px);
+}
+
 .ck-frota:not(.ck-frota--page) .ck-visitas__mark-icon {
-  margin-top: 10px;
+  margin-top: 0;
   transform: none;
+}
+
+/* Subtítulo colado ao título (ex.: abastecimento…) */
+.ck-frota .ck-visitas__sub {
+  margin-top: 4px;
 }
 
 /* Abas fixas + scroll só no conteúdo (Registrar / Histórico) */

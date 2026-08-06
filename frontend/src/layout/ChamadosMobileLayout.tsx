@@ -597,7 +597,8 @@ function ChamadosMobileLayoutInner() {
               </IconButton>
             )}
             <BrandLogo
-              maxWidth={temBotaoVoltar ? 84 : 98}
+              variante="icone"
+              maxWidth={temBotaoVoltar ? 64 : 72}
               sx={{ flexShrink: 0 }}
             />
           </Box>

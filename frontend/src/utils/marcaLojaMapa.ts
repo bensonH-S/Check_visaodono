@@ -30,7 +30,7 @@ export function iconeMarcaLojaUrl(marca: MarcaLojaMapa): string {
     case 'popeyes':
       return assetUrl('Popeyes.png');
     default:
-      return assetUrl('Logo_Icon.png');
+      return assetUrl('Logo_Alvim_Icone.png');
   }
 }
 
