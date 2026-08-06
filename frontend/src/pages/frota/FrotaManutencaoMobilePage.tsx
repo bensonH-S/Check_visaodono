@@ -12,6 +12,7 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFrota';
 import FrotaMobileShell from '../../components/frota/FrotaMobileShell';
+import ImageLightbox from '../../components/ImageLightbox';
 import {
   FrotaEmptyHistorico,
   FrotaEmptyVeiculo,
@@ -64,12 +65,13 @@ export default function FrotaManutencaoMobilePage() {
   const [historico, setHistorico] = useState<FrotaManutencaoMobile[]>([]);
   const [descricao, setDescricao] = useState('');
   const [km, setKm] = useState('');
-  const [proximaKm, setProximaKm] = useState('');
   const [valor, setValor] = useState('');
   const [dataManutencao, setDataManutencao] = useState(dataHojeIso());
   const [fotos, setFotos] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
+  const [comprovanteSrc, setComprovanteSrc] = useState<string | null>(null);
+  const [comprovanteTitulo, setComprovanteTitulo] = useState('');
   const [abrindoNota, setAbrindoNota] = useState<number | null>(null);
 
   const carregarHistorico = useCallback(async () => {
@@ -84,7 +86,6 @@ export default function FrotaManutencaoMobilePage() {
     if (resumo.veiculo?.km_atual != null) {
       const kmFmt = formatarKmInput(String(resumo.veiculo.km_atual));
       setKm(kmFmt);
-      setProximaKm(filtrarKmAoDigitar(String(resumo.veiculo.km_atual + 10000)));
     }
   }, [carregarHistorico]);
 
@@ -95,7 +96,6 @@ export default function FrotaManutencaoMobilePage() {
   }, [carregar]);
 
   const kmNum = kmInputParaNumero(km);
-  const proxNum = kmInputParaNumero(proximaKm);
   const temDescricao = descricao.trim().length > 0;
   const temFoto = fotos.length > 0;
   const podeSalvar = Boolean(veiculo) && temDescricao && !salvando;
@@ -122,12 +122,21 @@ export default function FrotaManutencaoMobilePage() {
         ? item.comprovante_url
         : `${window.location.origin}${item.comprovante_url}`;
       const blobUrl = await fetchMediaAutenticada(path);
-      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      setComprovanteSrc(blobUrl);
+      setComprovanteTitulo(`Comprovante - ${item.placa}`);
     } catch {
       showToast('Não foi possível abrir a nota', 'error');
     } finally {
       setAbrindoNota(null);
     }
+  }
+
+  function fecharComprovante() {
+    setComprovanteSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setComprovanteTitulo('');
   }
 
   async function salvar(e: React.FormEvent) {
@@ -145,9 +154,10 @@ export default function FrotaManutencaoMobilePage() {
     try {
       const fd = new FormData();
       fd.append('descricao', descricao.trim());
-      if (kmNum != null) fd.append('km', String(kmNum));
-      if (proxNum != null) fd.append('proxima_manutencao_km', String(proxNum));
-      else if (kmNum != null) fd.append('proxima_manutencao_km', String(kmNum + 10000));
+      if (kmNum != null) {
+        fd.append('km', String(kmNum));
+        fd.append('proxima_manutencao_km', String(kmNum + 10000));
+      }
       const valorNum = moedaInputParaNumero(valor);
       if (valorNum != null) fd.append('valor', String(valorNum));
       if (dataManutencao) fd.append('data_manutencao', dataManutencao);
@@ -158,7 +168,6 @@ export default function FrotaManutencaoMobilePage() {
       await api.frotaEnviarManutencaoVeiculo(veiculo.id_veiculo, fd);
       showToast('Manutenção registrada!', 'success');
       setDescricao('');
-      setProximaKm('');
       setValor('');
       setDataManutencao(dataHojeIso());
       setFotos([]);
@@ -167,7 +176,7 @@ export default function FrotaManutencaoMobilePage() {
       } else {
         setKm('');
       }
-      await carregarHistorico();
+      await carregar();
       setAba('historico');
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao salvar');
@@ -189,16 +198,13 @@ export default function FrotaManutencaoMobilePage() {
         value:
           totalHistorico > 0
             ? `R$ ${totalHistorico.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
-            : '—',
+            : '0',
         label: 'total',
         accent: true,
       },
       {
-        value:
-          veiculo?.proxima_manutencao_km != null
-            ? veiculo.proxima_manutencao_km.toLocaleString('pt-BR')
-            : '—',
-        label: 'próx. km',
+        value: (veiculo?.km_atual ?? veiculo?.km_inicial ?? 0).toLocaleString('pt-BR'),
+        label: 'KM Atual',
       },
     ],
   };
@@ -269,43 +275,18 @@ export default function FrotaManutencaoMobilePage() {
                     slotProps={{ inputLabel: labelFixo.inputLabel }}
                   />
 
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: 1,
-                      mb: 0.5,
-                    }}
-                  >
-                    <TextField
-                      fullWidth
-                      label="KM atual"
-                      value={km || '—'}
-                      helperText="Do sistema"
-                      sx={{
-                        ...campoAlturaFrotaSx,
-                        '& .MuiOutlinedInput-root': {
-                          bgcolor: 'rgba(27, 42, 107, 0.04)',
-                        },
-                      }}
-                      slotProps={{
-                        inputLabel: labelFixo.inputLabel,
-                        input: { readOnly: true },
-                        htmlInput: { tabIndex: -1 },
-                      }}
-                    />
-                    <TextField
-                      fullWidth
-                      label="Próxima (KM)"
-                      value={proximaKm}
-                      onChange={(e) => setProximaKm(filtrarKmAoDigitar(e.target.value))}
-                      inputMode="numeric"
-                      placeholder="+10.000"
-                      helperText="Sugestão +10 mil"
-                      sx={campoAlturaFrotaSx}
-                      slotProps={{ inputLabel: labelFixo.inputLabel }}
-                    />
-                  </Box>
+                  <TextField
+                    fullWidth
+                    label="KM Atual *"
+                    value={km}
+                    onChange={(e) => setKm(filtrarKmAoDigitar(e.target.value))}
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="Ex.: 50.000"
+                    required
+                    sx={{ ...campoAlturaFrotaSx, mb: 1.5 }}
+                    slotProps={{ inputLabel: labelFixo.inputLabel }}
+                  />
 
                   <Box
                     sx={{
@@ -320,6 +301,7 @@ export default function FrotaManutencaoMobilePage() {
                       label="Valor (R$)"
                       value={valor}
                       onChange={(e) => setValor(filtrarMoedaAoDigitar(e.target.value))}
+                      type="tel"
                       inputMode="numeric"
                       placeholder={ph.valor}
                       sx={campoAlturaFrotaSx}
@@ -421,6 +403,14 @@ export default function FrotaManutencaoMobilePage() {
         )}
         </div>
       </Box>
+
+      <ImageLightbox
+        open={Boolean(comprovanteSrc)}
+        src={comprovanteSrc}
+        titulo={comprovanteTitulo}
+        alt="Comprovante de manutenção"
+        onClose={fecharComprovante}
+      />
     </FrotaMobileShell>
   );
 }

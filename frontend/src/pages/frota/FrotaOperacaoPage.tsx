@@ -17,6 +17,8 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Dialog from '@mui/material/Dialog';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -34,6 +36,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import PlaceIcon from '@mui/icons-material/Place';
 import SyncIcon from '@mui/icons-material/Sync';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import {
   api,
   fetchMediaAutenticada,
@@ -137,6 +140,7 @@ export default function FrotaOperacaoPage() {
     tipo: '',
     orgao: '',
   });
+  const [syncVeiculoIds, setSyncVeiculoIds] = useState<number[]>([]);
   const [confirmarSyncOpen, setConfirmarSyncOpen] = useState(false);
   const [abastecimentos, setAbastecimentos] = useState<FrotaAbastecimentoPortal[]>([]);
   const [manutencoes, setManutencoes] = useState<FrotaManutencaoPortal[]>([]);
@@ -214,11 +218,11 @@ export default function FrotaOperacaoPage() {
     }
   }, []);
 
-  const sincronizarMultas = async () => {
+  const sincronizarMultas = async (ids?: number[]) => {
     setCarregandoMultas(true);
     setMultasAvisos([]);
     try {
-      const r = await api.frotaMultasDetranSync(true);
+      const r = await api.frotaMultasDetranSync(true, ids || null);
       const cache = r.cache || {};
       setMultas(cache.multas || []);
       setMultasAvisos(cache.avisos || []);
@@ -727,7 +731,12 @@ export default function FrotaOperacaoPage() {
                   <Button
                     variant="outlined"
                     size="small"
-                    onClick={() => setConfirmarSyncOpen(true)}
+                    startIcon={<SyncIcon />}
+                    onClick={() => {
+                      const veiculosComRenavam = veiculos.filter((v) => v.renavam && v.renavam.trim() !== '');
+                      setSyncVeiculoIds(veiculosComRenavam.map((v) => v.id_veiculo));
+                      setConfirmarSyncOpen(true);
+                    }}
                     disabled={carregandoMultas || loading}
                     sx={{ textTransform: 'none', fontWeight: 600, height: 30 }}
                   >
@@ -1036,26 +1045,34 @@ export default function FrotaOperacaoPage() {
                         <TableCell align="center">{m.data_vencimento ? fmtData(m.data_vencimento) : '—'}</TableCell>
                         <TableCell align="center">
                           {m.local_infracao ? (
-                            <Button
-                              size="small"
-                              onClick={() => setModalDetalheMulta({ open: true, titulo: 'Local da Infração', conteudo: m.local_infracao || '', tipo: 'local' })}
-                              sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
-                            >
-                              Ver Local
-                            </Button>
+                            <Tooltip title={m.local_infracao} arrow>
+                              <span>
+                                <Button
+                                  size="small"
+                                  onClick={() => setModalDetalheMulta({ open: true, titulo: 'Local da Infração', conteudo: m.local_infracao || '', tipo: 'local' })}
+                                  sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
+                                >
+                                  Ver Local
+                                </Button>
+                              </span>
+                            </Tooltip>
                           ) : (
                             '—'
                           )}
                         </TableCell>
                         <TableCell align="center">
                           {m.descricao ? (
-                            <Button
-                              size="small"
-                              onClick={() => setModalDetalheMulta({ open: true, titulo: 'Descrição da Infração', conteudo: m.descricao || '', tipo: 'descricao', orgao: m.orgao || '' })}
-                              sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
-                            >
-                              Ver Descrição
-                            </Button>
+                            <Tooltip title={m.descricao} arrow>
+                              <span>
+                                <Button
+                                  size="small"
+                                  onClick={() => setModalDetalheMulta({ open: true, titulo: 'Descrição da Infração', conteudo: m.descricao || '', tipo: 'descricao', orgao: m.orgao || '' })}
+                                  sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
+                                >
+                                  Ver Descrição
+                                </Button>
+                              </span>
+                            </Tooltip>
                           ) : (
                             '—'
                           )}
@@ -1064,9 +1081,9 @@ export default function FrotaOperacaoPage() {
                           <Chip
                             label={statusEfetivo}
                             size="small"
-                            onClick={(e) => setStatusMenuAnchor({ anchorEl: e.currentTarget, multa: m })}
+                            onClick={statusEfetivo === 'Paga' ? undefined : (e) => setStatusMenuAnchor({ anchorEl: e.currentTarget, multa: m })}
                             sx={{
-                              cursor: 'pointer',
+                              cursor: statusEfetivo === 'Paga' ? 'default' : 'pointer',
                               fontWeight: 600,
                               ...obterStatusChipEstilo(statusEfetivo),
                             }}
@@ -1335,9 +1352,81 @@ export default function FrotaOperacaoPage() {
           <SyncIcon /> Confirmar Consulta DETRAN
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            Deseja realizar a consulta de multas atualizadas no DETRAN-DF?
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Selecione quais veículos deseja sincronizar com o DETRAN-DF:
           </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 1.5,
+              maxHeight: 240,
+              overflowY: 'auto',
+              pr: 1,
+            }}
+          >
+            {veiculos
+              .filter(() => true)
+              .map((v) => {
+                const temRenavam = Boolean(v.renavam && v.renavam.trim() !== '');
+                const isSelected = syncVeiculoIds.includes(v.id_veiculo);
+                return (
+                  <FormControlLabel
+                    key={v.id_veiculo}
+                    control={
+                      <Checkbox
+                        checked={isSelected && temRenavam}
+                        disabled={!temRenavam}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSyncVeiculoIds((prev) => [...prev, v.id_veiculo]);
+                          } else {
+                            setSyncVeiculoIds((prev) => prev.filter((id) => id !== v.id_veiculo));
+                          }
+                        }}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', lineHeight: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 700, color: temRenavam ? 'text.primary' : 'text.disabled', lineHeight: 1 }}
+                        >
+                          {v.placa}{v.modelo ? ` - ${v.modelo}` : ''}
+                        </Typography>
+                        {!temRenavam && (
+                          <Box
+                            component="span"
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              px: 0.6,
+                              py: 0.1,
+                              borderRadius: 1,
+                              bgcolor: '#ffebee',
+                              color: '#c62828',
+                              fontSize: '0.65rem',
+                              fontWeight: 600,
+                              lineHeight: 1.4,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Sem RENAVAM
+                          </Box>
+                        )}
+                      </Box>
+                    }
+                    sx={{ display: 'flex', alignItems: 'center', m: 0 }}
+                  />
+                );
+              })}
+            {veiculos.length === 0 && (
+              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1, gridColumn: 'span 2' }}>
+                Nenhum veículo ativo cadastrado.
+              </Typography>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setConfirmarSyncOpen(false)}>
@@ -1346,9 +1435,10 @@ export default function FrotaOperacaoPage() {
           <Button
             variant="contained"
             startIcon={<SyncIcon />}
+            disabled={syncVeiculoIds.length === 0}
             onClick={() => {
               setConfirmarSyncOpen(false);
-              void sincronizarMultas();
+              void sincronizarMultas(syncVeiculoIds);
             }}
           >
             Confirmar
@@ -1361,9 +1451,10 @@ export default function FrotaOperacaoPage() {
         open={Boolean(statusMenuAnchor)}
         onClose={() => setStatusMenuAnchor(null)}
       >
-        <MenuItem onClick={() => alterarStatusMulta('Em Aberto')}>Em Aberto</MenuItem>
-        <MenuItem onClick={() => alterarStatusMulta('Paga')}>Paga</MenuItem>
-        <MenuItem onClick={() => alterarStatusMulta('Vencida')}>Vencida</MenuItem>
+        <MenuItem onClick={() => alterarStatusMulta('Paga')}>
+          <CheckCircleIcon sx={{ color: '#2e7d32', mr: 1, fontSize: 18 }} />
+          Paga
+        </MenuItem>
       </Menu>
     </Box>
   );

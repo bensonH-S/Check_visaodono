@@ -11,6 +11,7 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import FrotaMobileShell from '../../components/frota/FrotaMobileShell';
+import ImageLightbox from '../../components/ImageLightbox';
 import {
   FrotaEmptyHistorico,
   FrotaEmptyVeiculo,
@@ -33,6 +34,7 @@ import { showToast } from '../../utils/toast';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { getUsuario, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
 import {
+  filtrarKmAoDigitar,
   formatarKmInput,
   kmInputParaNumero,
   filtrarMoedaAoDigitar,
@@ -65,6 +67,8 @@ export default function FrotaAbastecimentoPage() {
   const [fotos, setFotos] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
+  const [comprovanteSrc, setComprovanteSrc] = useState<string | null>(null);
+  const [comprovanteTitulo, setComprovanteTitulo] = useState('');
   const [abrindoNota, setAbrindoNota] = useState<number | null>(null);
 
   const carregarHistorico = useCallback(async () => {
@@ -114,12 +118,21 @@ export default function FrotaAbastecimentoPage() {
         ? item.comprovante_url
         : `${window.location.origin}${item.comprovante_url}`;
       const blobUrl = await fetchMediaAutenticada(path);
-      window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      setComprovanteSrc(blobUrl);
+      setComprovanteTitulo(`Comprovante - ${item.placa}`);
     } catch {
       showToast('Não foi possível abrir a nota', 'error');
     } finally {
       setAbrindoNota(null);
     }
+  }
+
+  function fecharComprovante() {
+    setComprovanteSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setComprovanteTitulo('');
   }
 
   async function salvar(e: React.FormEvent) {
@@ -152,7 +165,7 @@ export default function FrotaAbastecimentoPage() {
       showToast('Abastecimento registrado!', 'success');
       setValor('');
       setFotos([]);
-      await carregarHistorico();
+      await carregar();
       setAba('historico');
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao salvar');
@@ -177,13 +190,13 @@ export default function FrotaAbastecimentoPage() {
         value:
           totalHistorico > 0
             ? `R$ ${totalHistorico.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
-            : '—',
+            : '0',
         label: 'total',
         accent: true,
       },
       {
-        value: veiculo?.km_atual != null ? veiculo.km_atual.toLocaleString('pt-BR') : '—',
-        label: 'km',
+        value: (veiculo?.km_atual ?? veiculo?.km_inicial ?? 0).toLocaleString('pt-BR'),
+        label: 'KM Atual',
       },
     ],
   };
@@ -250,21 +263,16 @@ export default function FrotaAbastecimentoPage() {
                   >
                     <TextField
                       fullWidth
-                      label="KM atual"
-                      value={km || '—'}
+                      label="KM Atual *"
+                      value={km}
+                      onChange={(e) => setKm(filtrarKmAoDigitar(e.target.value))}
+                      type="tel"
                       inputMode="numeric"
+                      placeholder="Ex.: 50.000"
                       required
-                      helperText="KM do sistema · não editável"
-                      sx={{
-                        ...campoAlturaFrotaSx,
-                        '& .MuiOutlinedInput-root': {
-                          bgcolor: 'rgba(27, 42, 107, 0.04)',
-                        },
-                      }}
+                      sx={campoAlturaFrotaSx}
                       slotProps={{
                         inputLabel: labelFixo.inputLabel,
-                        input: { readOnly: true },
-                        htmlInput: { tabIndex: -1 },
                       }}
                     />
                     <TextField
@@ -272,6 +280,7 @@ export default function FrotaAbastecimentoPage() {
                       label="Valor pago (R$)"
                       value={valor}
                       onChange={(e) => setValor(filtrarMoedaAoDigitar(e.target.value))}
+                      type="tel"
                       inputMode="numeric"
                       required
                       placeholder={ph.valor}
@@ -280,9 +289,9 @@ export default function FrotaAbastecimentoPage() {
                       slotProps={{
                         inputLabel: labelFixo.inputLabel,
                         input: {
-                          startAdornment: (
-                            <InputAdornment position="start">R$</InputAdornment>
-                          ),
+                           startAdornment: (
+                             <InputAdornment position="start">R$</InputAdornment>
+                           ),
                         },
                       }}
                     />
@@ -356,6 +365,14 @@ export default function FrotaAbastecimentoPage() {
         )}
         </div>
       </Box>
+
+      <ImageLightbox
+        open={Boolean(comprovanteSrc)}
+        src={comprovanteSrc}
+        titulo={comprovanteTitulo}
+        alt="Comprovante de abastecimento"
+        onClose={fecharComprovante}
+      />
     </FrotaMobileShell>
   );
 }

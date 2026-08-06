@@ -76,13 +76,17 @@ export async function executarSyncMultasDetran(opts = {}) {
   let qtdMultas = 0;
 
   try {
-    const { rows: veiculos } = await pool.query(
-      `SELECT id_veiculo, placa, renavam, modelo
+    let queryVeiculos = `SELECT id_veiculo, placa, renavam, modelo
        FROM frota_veiculos
-       WHERE ativo = TRUE AND renavam IS NOT NULL AND BTRIM(renavam) <> ''
-       ORDER BY placa
-       LIMIT 120`,
-    );
+       WHERE ativo = TRUE AND renavam IS NOT NULL AND BTRIM(renavam) <> ''`;
+    const params = [];
+    if (Array.isArray(opts.veiculoIds) && opts.veiculoIds.length > 0) {
+      queryVeiculos += ` AND id_veiculo = ANY($1::int[])`;
+      params.push(opts.veiculoIds);
+    }
+    queryVeiculos += ` ORDER BY placa LIMIT 120`;
+
+    const { rows: veiculos } = await pool.query(queryVeiculos, params);
 
     const ins = await pool.query(
       `INSERT INTO frota_multas_detran_sync (data_ref, status, fonte, qtd_veiculos)

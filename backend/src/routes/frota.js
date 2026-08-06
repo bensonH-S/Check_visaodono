@@ -451,7 +451,10 @@ router.post('/multas/detran/sync', requirePermissao('frota.multas.sync'), async 
       req.query.forcar === '1' ||
       req.body?.forcar === true ||
       req.body?.forcar === '1';
-    const result = await executarSyncMultasDetran({ forcar });
+    const veiculoIds = Array.isArray(req.body?.veiculoIds)
+      ? req.body.veiculoIds.map(Number).filter(Number.isFinite)
+      : null;
+    const result = await executarSyncMultasDetran({ forcar, veiculoIds });
     const cache = await listarMultasDetranCache({});
     res.json({ ...result, cache });
   } catch (e) {

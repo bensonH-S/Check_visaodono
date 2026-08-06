@@ -281,6 +281,6 @@ export const campoAlturaFrotaSx = {
   '& .MuiInputBase-input::placeholder': {
     color: 'text.disabled',
     opacity: 1,
-    fontSize: '0.75rem',
+    fontSize: '0.875rem',
   },
 } as const;

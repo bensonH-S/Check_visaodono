@@ -536,7 +536,7 @@ export const api = {
       body: JSON.stringify({ status }),
     });
   },
-  frotaMultasDetranSync: (forcar?: boolean) => {
+  frotaMultasDetranSync: (forcar?: boolean, veiculoIds?: number[] | null) => {
     return request<{
       status: string;
       total: number;
@@ -545,7 +545,7 @@ export const api = {
     }>('/frota/multas/detran/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ forcar }),
+      body: JSON.stringify({ forcar, veiculoIds }),
     });
   },
   frotaTermosPortal: () => request<FrotaTermoPortalResumo[]>('/frota/termos'),
