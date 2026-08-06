@@ -823,6 +823,20 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
     void carregar();
   }, [carregar]);
 
+  // Atualiza status do sync automático (ativo / rodando) a cada 20s
+  useEffect(() => {
+    const tick = async () => {
+      try {
+        const st = await api.estoqueSyncStatus();
+        setSync(st);
+      } catch {
+        /* ignore */
+      }
+    };
+    const id = window.setInterval(() => void tick(), 20000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const syncBk = async () => {
     setSyncing(true);
     try {
@@ -886,6 +900,28 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
           CMV fica na aba CMV (só com custo de nota fiscal). Aqui é só trazer a venda.
         </Typography>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1.5 }}>
+          {!sync?.configurado ? (
+            <Chip size="small" color="error" variant="outlined" label="BK Office: não configurado no servidor" />
+          ) : sync.scheduler?.ativo ? (
+            <Chip
+              size="small"
+              color={sync.job_rodando ? 'warning' : 'success'}
+              label={
+                sync.job_rodando
+                  ? `Automático ATIVO — sync em andamento (a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'})`
+                  : `Automático ATIVO — a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'}`
+              }
+            />
+          ) : (
+            <Chip
+              size="small"
+              color="default"
+              variant="outlined"
+              label="BK Office configurado — automático DESLIGADO (BKOFFICE_SYNC_CRON_MS)"
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <FiltroIntervaloDatasFrota
             dataInicio={dataIni}

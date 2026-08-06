@@ -177,13 +177,35 @@ async function statusBkOffice() {
       configurada: false,
     };
   }
-  return {
-    id: 'bkoffice',
-    name: 'BK Office',
-    online: true,
-    detail: 'Configurada',
-    configurada: true,
-  };
+  try {
+    const { getBkOfficeStatus } = await import('./services/bkoffice/syncVendas.js');
+    const st = getBkOfficeStatus();
+    const sch = st.scheduler;
+    let detail = 'Configurada';
+    if (sch?.ativo) {
+      const seg = Math.round((sch.intervalo_ms || 0) / 1000);
+      detail = st.job_rodando
+        ? `Ativa — sync em andamento (a cada ${seg}s, loja ${sch.id_loja})`
+        : `Ativa — automática a cada ${seg}s (loja ${sch.id_loja})`;
+    } else {
+      detail = 'Configurada — automático desligado (BKOFFICE_SYNC_CRON_MS)';
+    }
+    return {
+      id: 'bkoffice',
+      name: 'BK Office',
+      online: true,
+      detail,
+      configurada: true,
+    };
+  } catch {
+    return {
+      id: 'bkoffice',
+      name: 'BK Office',
+      online: true,
+      detail: 'Configurada',
+      configurada: true,
+    };
+  }
 }
 
 async function statusInfoSimples() {

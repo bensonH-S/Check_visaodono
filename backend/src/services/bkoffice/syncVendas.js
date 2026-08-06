@@ -13,12 +13,27 @@ const BASE_URL = process.env.BKOFFICE_URL || 'https://bkoffice-franquia.burgerki
 
 let jobRodando = false;
 let ultimoStatus = null;
+/** @type {{ ativo: boolean, intervalo_ms: number, id_loja: number, iniciado_em: string|null }} */
+let schedulerInfo = {
+  ativo: false,
+  intervalo_ms: 0,
+  id_loja: 0,
+  iniciado_em: null,
+};
 
 export function getBkOfficeStatus() {
+  const cronMs = Number(process.env.BKOFFICE_SYNC_CRON_MS || 0);
+  const idLojaEnv = Number(process.env.BKOFFICE_SYNC_ID_LOJA || 0);
   return {
     configurado: Boolean(process.env.BKOFFICE_USER && process.env.BKOFFICE_PASS),
     job_rodando: jobRodando,
     ultimo: ultimoStatus,
+    scheduler: {
+      ativo: schedulerInfo.ativo,
+      intervalo_ms: schedulerInfo.intervalo_ms || (cronMs >= 60000 ? cronMs : 0),
+      id_loja: schedulerInfo.id_loja || idLojaEnv || null,
+      iniciado_em: schedulerInfo.iniciado_em,
+    },
   };
 }
 
@@ -453,14 +468,22 @@ export async function syncVendasBkOffice({
  */
 export function iniciarSchedulerBkOffice() {
   const ms = Number(process.env.BKOFFICE_SYNC_CRON_MS || 0);
-  if (!ms || ms < 60000) return null;
+  if (!ms || ms < 60000) {
+    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
+    if (ms > 0 && ms < 60000) {
+      console.warn('[bkoffice] Scheduler ignorado: BKOFFICE_SYNC_CRON_MS mínimo é 60000 (1 min)');
+    }
+    return null;
+  }
   if (!process.env.BKOFFICE_USER || !process.env.BKOFFICE_PASS) {
     console.warn('[bkoffice] Scheduler ignorado: credenciais ausentes');
+    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
     return null;
   }
   const idLoja = Number(process.env.BKOFFICE_SYNC_ID_LOJA || 0);
   if (!idLoja) {
     console.warn('[bkoffice] Scheduler ignorado: defina BKOFFICE_SYNC_ID_LOJA');
+    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
     return null;
   }
 
@@ -472,6 +495,12 @@ export function iniciarSchedulerBkOffice() {
       day: '2-digit',
     }).format(new Date());
 
+  schedulerInfo = {
+    ativo: true,
+    intervalo_ms: ms,
+    id_loja: idLoja,
+    iniciado_em: new Date().toISOString(),
+  };
   console.log(`[bkoffice] Scheduler ativo a cada ${Math.round(ms / 1000)}s (loja ${idLoja})`);
   // Primeiro sync após 15s (dá tempo da API subir)
   setTimeout(() => {
