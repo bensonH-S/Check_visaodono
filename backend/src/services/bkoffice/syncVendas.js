@@ -183,6 +183,10 @@ async function baixarExcelVendas({
   // HEADLESS=0 → janela; qualquer outro valor (incl. 1) → invisível
   const headless = process.env.BKOFFICE_HEADLESS !== '0';
   const useChrome = process.env.BKOFFICE_USE_CHROME !== '0';
+  const execPath =
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+    process.env.BKOFFICE_CHROMIUM_PATH ||
+    '';
   const launchOpts = {
     headless,
     downloadsPath: downloadDir,
@@ -193,10 +197,12 @@ async function baixarExcelVendas({
     ],
     ignoreDefaultArgs: ['--enable-automation'],
   };
-  // Chrome instalado no Windows costuma passar melhor no WAF (Akamai) do que Chromium puro
-  if (useChrome) {
+  // No Linux/Docker: usar Chromium do sistema se o path existir
+  if (execPath && fs.existsSync(execPath)) {
+    launchOpts.executablePath = execPath;
+  } else if (useChrome) {
+    // Chrome instalado no Windows costuma passar melhor no WAF (Akamai)
     launchOpts.channel = 'chrome';
-    // Headless "new" do Chrome real costuma falhar menos no Akamai que Chromium headless antigo
     if (headless) launchOpts.args.push('--headless=new');
   }
 
@@ -204,9 +210,10 @@ async function baixarExcelVendas({
   try {
     browser = await playwright.chromium.launch(launchOpts);
   } catch (e) {
-    if (useChrome) {
-      console.warn('[bkoffice] Chrome canal falhou, tentando Chromium:', e.message);
+    if (launchOpts.channel || launchOpts.executablePath) {
+      console.warn('[bkoffice] Launch preferencial falhou, tentando Chromium padrão:', e.message);
       delete launchOpts.channel;
+      delete launchOpts.executablePath;
       browser = await playwright.chromium.launch(launchOpts);
     } else {
       throw e;
