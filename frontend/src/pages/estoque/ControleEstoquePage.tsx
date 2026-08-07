@@ -1269,7 +1269,6 @@ export default function ControleEstoquePage() {
                     idLoja={idLoja}
                     produtos={produtos}
                     onProdutosVendaCountChange={setProdutosVendaCount}
-                    onIrConferencia={() => irParaAba('conferencia')}
                     onIrFichas={() => irParaAba('fichas')}
                   />
                 )}
