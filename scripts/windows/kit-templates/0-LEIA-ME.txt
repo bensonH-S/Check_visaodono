@@ -1,0 +1,25 @@
+========================================
+  MERIDIAN BK OFFICE — KIT PORTATIL
+========================================
+
+1) Copie ESTA PASTA inteira para o PC da gerencia
+   (pendrive / rede / OneDrive)
+
+2) No PC da gerencia:
+   Botao DIREITO em INSTALAR.bat
+   -> Executar como administrador
+
+3) Pronto.
+   - Roda 24h
+   - Inicia sozinho apos reiniciar
+   - SEM janela de CMD
+   - Chrome/Chromium oculto
+
+Credenciais: config.env (ja veio preenchido)
+
+Logs: Logs\
+
+Desinstalar: DESINSTALAR.bat (como admin)
+
+NAO precisa instalar Python nem Node no PC —
+   ja vem em runtime\

@@ -24,10 +24,24 @@ let schedulerInfo = {
 export function getBkOfficeStatus() {
   const cronMs = Number(process.env.BKOFFICE_SYNC_CRON_MS || 0);
   const idLojaEnv = Number(process.env.BKOFFICE_SYNC_ID_LOJA || 0);
+  const serverSync =
+    process.env.BKOFFICE_SERVER_SYNC === '1' ||
+    process.env.BKOFFICE_SERVER_SYNC === 'true';
+  // Cron desligado = sync só no PC da gerência; não expor erro antigo de Akamai do servidor
+  const ultimo =
+    !schedulerInfo.ativo && !serverSync
+      ? null
+      : ultimoStatus;
   return {
     configurado: Boolean(process.env.BKOFFICE_USER && process.env.BKOFFICE_PASS),
     job_rodando: jobRodando,
-    ultimo: ultimoStatus,
+    ultimo,
+    server_sync: serverSync,
+    modo: schedulerInfo.ativo
+      ? 'servidor'
+      : serverSync
+        ? 'manual_servidor'
+        : 'pc_gerencia',
     scheduler: {
       ativo: schedulerInfo.ativo,
       intervalo_ms: schedulerInfo.intervalo_ms || (cronMs >= 60000 ? cronMs : 0),
@@ -220,7 +234,8 @@ async function baixarExcelVendas({
   }
 
   try {
-    const context = await browser.newContext({
+    const proxyUrl = (process.env.BKOFFICE_PROXY || process.env.HTTPS_PROXY || '').trim();
+    const contextOpts = {
       acceptDownloads: true,
       locale: 'pt-BR',
       timezoneId: 'America/Sao_Paulo',
@@ -228,7 +243,13 @@ async function baixarExcelVendas({
       userAgent:
         process.env.BKOFFICE_USER_AGENT ||
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    });
+    };
+    if (proxyUrl) {
+      contextOpts.proxy = { server: proxyUrl };
+      console.log('[bkoffice] usando proxy', proxyUrl.replace(/:[^:@/]+@/, ':****@'));
+    }
+
+    const context = await browser.newContext(contextOpts);
     await context.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     });
@@ -239,7 +260,9 @@ async function baixarExcelVendas({
     if (resp && resp.status() === 403) {
       throw Object.assign(
         new Error(
-          'BK Office bloqueou o acesso (403 Akamai). Tente BKOFFICE_HEADLESS=0 e BKOFFICE_USE_CHROME=1 no .env',
+          'BK Office bloqueou o acesso (403 Akamai). ' +
+            'O sync NÃO deve rodar no servidor Meridian fora do Brasil. ' +
+            'Use o kit do PC da gerência (serviço Windows) ou importe o Excel.',
         ),
         { status: 503 },
       );

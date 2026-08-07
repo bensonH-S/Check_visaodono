@@ -1,0 +1,19 @@
+========================================
+  PC GERENCIA — SÓ COPIAR E INSTALAR
+========================================
+
+NO SEU PC (ja foi gerado):
+  Desktop\Meridian-BKOffice-Gerencia\
+  Desktop\Meridian-BKOffice-Gerencia.zip
+
+NO PC DA GERENCIA:
+  1) Copie a PASTA (ou unzip o zip)
+  2) Botao DIREITO em INSTALAR.bat
+     -> Executar como administrador
+  3) Pronto — 24h, inicia apos reiniciar, SEM janela
+
+Nao precisa instalar Python nem Node la.
+Credenciais ja estao em config.env
+
+Para regenerar o kit depois:
+  GERAR-KIT-PC-GERENCIA.bat  (na raiz do projeto)

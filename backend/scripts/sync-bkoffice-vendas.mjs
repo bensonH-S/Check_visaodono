@@ -29,8 +29,13 @@ const dias = Number(getArg('--dias', '0')); // 0 = só hoje
 const dataArg = getArg('--data', '');
 const dbFlag = getArg('--db', 'dev');
 
-if (dbFlag === 'dev') process.env.DB_NAME = process.env.DB_NAME_DEV || 'vision_check_dev';
-if (dbFlag === 'prod') process.env.DB_NAME = process.env.DB_NAME_PROD || 'vision_check';
+if (dbFlag === 'dev') {
+  process.env.DB_NAME = process.env.DB_NAME_DEV || 'vision_check_dev';
+}
+if (dbFlag === 'prod') {
+  process.env.NODE_ENV = 'production';
+  process.env.DB_NAME = process.env.DB_NAME_PROD || process.env.DB_NAME || 'vision_check';
+}
 
 function hojeBR() {
   return new Intl.DateTimeFormat('en-CA', {

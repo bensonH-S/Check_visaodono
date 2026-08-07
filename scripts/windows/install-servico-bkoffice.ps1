@@ -1,26 +1,62 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-  Instala o sync BK Office Terraço como serviço Windows (boot + 24h).
+  Instala worker Python BK Office como serviço Windows (24h, auto-start, sem janela).
 
   powershell -ExecutionPolicy Bypass -File scripts\windows\install-servico-bkoffice.ps1
 #>
 $ErrorActionPreference = 'Stop'
 $ServiceName = 'MeridianBkOfficeTerraco'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$NodeCmd = (Get-Command node -ErrorAction SilentlyContinue)?.Source
-if (-not $NodeCmd) { throw 'Node.js nao encontrado no PATH. Instale Node 20+ LTS.' }
-
 $ToolsDir = Join-Path $RepoRoot 'scripts\windows\tools'
 $NssmExe = Join-Path $ToolsDir 'nssm.exe'
+$Worker = Join-Path $RepoRoot 'workers\bkoffice\py\worker.py'
 $EnvFile = Join-Path $RepoRoot 'workers\bkoffice\.env'
 $EnvExample = Join-Path $RepoRoot 'workers\bkoffice\.env.example'
 $BackendEnv = Join-Path $RepoRoot 'backend\.env'
 $LogDir = Join-Path $RepoRoot 'Logs'
 New-Item -ItemType Directory -Force -Path $ToolsDir, $LogDir | Out-Null
 
-Write-Host '== Meridian BK Office — instalar servico =='
+Write-Host '== Meridian BK Office — servico Python (sem janela) =='
 Write-Host "Repo: $RepoRoot"
+
+# Mata tarefa antiga que abria shell a cada 1 min
+Unregister-ScheduledTask -TaskName 'Meridian-BKOffice-Terraco' -Confirm:$false -ErrorAction SilentlyContinue
+Write-Host 'Tarefa agendada antiga removida (se existia).'
+
+function Find-PythonW {
+  $cmds = @('pythonw.exe', 'python.exe', 'py')
+  foreach ($c in $cmds) {
+    $g = Get-Command $c -ErrorAction SilentlyContinue
+    if (-not $g) { continue }
+    $src = $g.Source
+    if ($c -eq 'py') {
+      $out = & py -3 -c "import sys; print(sys.executable)" 2>$null
+      if ($out) {
+        $exe = $out.Trim()
+        $w = [IO.Path]::Combine([IO.Path]::GetDirectoryName($exe), 'pythonw.exe')
+        if (Test-Path $w) { return $w }
+        return $exe
+      }
+      continue
+    }
+    if ($src -match 'WindowsApps') { continue } # stub da Microsoft Store
+    if ($c -eq 'pythonw.exe') { return $src }
+    $dir = [IO.Path]::GetDirectoryName($src)
+    $w = Join-Path $dir 'pythonw.exe'
+    if (Test-Path $w) { return $w }
+    return $src
+  }
+  throw 'Python nao encontrado. Instale Python 3.10+ de https://www.python.org (marque Add to PATH).'
+}
+
+$PythonW = Find-PythonW
+Write-Host "Python: $PythonW"
+if (-not (Test-Path $Worker)) { throw "Worker ausente: $Worker" }
+
+$NodeCmd = (Get-Command node -ErrorAction SilentlyContinue)?.Source
+if (-not $NodeCmd) { throw 'Node.js nao encontrado no PATH (o sync ainda usa o script Node). Instale Node 20 LTS.' }
+Write-Host "Node: $NodeCmd"
 
 function Read-DotEnv([string]$path) {
   $map = @{}
@@ -64,9 +100,14 @@ if (-not (Test-Path $EnvFile)) {
   }
 }
 
-Write-Host 'Instalando Chromium Playwright...'
+# Chromium Playwright (browser oculto)
+Write-Host 'Garantindo Chromium Playwright...'
 Push-Location $RepoRoot
 try {
+  if (-not (Test-Path (Join-Path $RepoRoot 'node_modules'))) {
+    npm ci --ignore-scripts 2>$null
+    if ($LASTEXITCODE -ne 0) { npm install --ignore-scripts }
+  }
   & npm exec -- playwright install chromium
   if ($LASTEXITCODE -ne 0) { throw 'playwright install falhou' }
 } finally {
@@ -96,8 +137,8 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
   Start-Sleep -Seconds 1
 }
 
-$loop = 'workers/bkoffice/loop.mjs'
-& $NssmExe install $ServiceName $NodeCmd $loop | Out-Null
+# pythonw = SEM janela de console
+& $NssmExe install $ServiceName $PythonW $Worker | Out-Null
 & $NssmExe set $ServiceName AppDirectory $RepoRoot | Out-Null
 & $NssmExe set $ServiceName AppStdout (Join-Path $LogDir 'bkoffice-service.out.log') | Out-Null
 & $NssmExe set $ServiceName AppStderr (Join-Path $LogDir 'bkoffice-service.err.log') | Out-Null
@@ -106,8 +147,12 @@ $loop = 'workers/bkoffice/loop.mjs'
 & $NssmExe set $ServiceName AppRestartDelay 15000 | Out-Null
 & $NssmExe set $ServiceName AppExit Default Restart | Out-Null
 & $NssmExe set $ServiceName Start SERVICE_AUTO_START | Out-Null
-& $NssmExe set $ServiceName Description 'Meridian sync BK Office Terraco -> producao (1 min)' | Out-Null
+& $NssmExe set $ServiceName Description 'Meridian BK Office Terraco (Python) -> producao 1min, sem janela' | Out-Null
 & $NssmExe set $ServiceName ObjectName LocalSystem | Out-Null
+# PATH do usuario/sistema pra achar node
+$sysPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+& $NssmExe set $ServiceName AppEnvironmentExtra "Path=$sysPath;$userPath" | Out-Null
 
 Write-Host 'Iniciando servico...'
 & $NssmExe start $ServiceName | Out-Null
@@ -115,6 +160,6 @@ Start-Sleep -Seconds 3
 Get-Service $ServiceName | Format-List Name, Status, StartType
 
 Write-Host ''
-Write-Host "OK: servico $ServiceName (Automatico no boot)."
-Write-Host "Logs: $LogDir"
+Write-Host "OK: $ServiceName = Automatico no boot, Python sem janela."
+Write-Host "Log: $(Join-Path $LogDir 'bkoffice-python-service.log')"
 Write-Host 'Servidor Meridian fora do BR: BKOFFICE_SYNC_CRON_MS=0'

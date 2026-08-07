@@ -654,6 +654,17 @@ router.get('/sync/status', permOp, async (req, res) => {
 
 router.post('/sync/vendas', permOp, async (req, res, next) => {
   try {
+    const serverSync =
+      process.env.BKOFFICE_SERVER_SYNC === '1' ||
+      process.env.BKOFFICE_SERVER_SYNC === 'true';
+    if (!serverSync) {
+      return res.status(503).json({
+        error:
+          'Sync BK Office no servidor Meridian está desligado. ' +
+          'As vendas entram pelo PC da gerência (serviço Windows) ou por Importar Excel.',
+      });
+    }
+
     const idLoja = parseIdLoja(req.body?.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });

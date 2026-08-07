@@ -2256,6 +2256,9 @@ export interface EstoqueSyncStatus {
   configurado: boolean;
   job_rodando: boolean;
   ultimo: { id_job: number; status: string; mensagem: string; em: string } | null;
+  server_sync?: boolean;
+  /** servidor | manual_servidor | pc_gerencia */
+  modo?: string;
   scheduler?: {
     ativo: boolean;
     intervalo_ms: number;

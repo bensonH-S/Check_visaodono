@@ -899,26 +899,34 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
           CMV fica na aba CMV (só com custo de nota fiscal). Aqui é só trazer a venda.
+          O sync automático roda no PC da gerência — não no servidor Meridian (Akamai bloqueia).
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1.5 }}>
-          {!sync?.configurado ? (
-            <Chip size="small" color="error" variant="outlined" label="BK Office: não configurado no servidor" />
+          {sync?.modo === 'pc_gerencia' || (!sync?.scheduler?.ativo && sync?.server_sync === false) ? (
+            <Chip
+              size="small"
+              color="success"
+              variant="outlined"
+              label="Sync automático: PC da gerência (serviço Windows)"
+            />
+          ) : !sync?.configurado ? (
+            <Chip size="small" color="default" variant="outlined" label="BK Office: sync no PC da gerência" />
           ) : sync.scheduler?.ativo ? (
             <Chip
               size="small"
               color={sync.job_rodando ? 'warning' : 'success'}
               label={
                 sync.job_rodando
-                  ? `Automático ATIVO — sync em andamento (a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'})`
-                  : `Automático ATIVO — a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'}`
+                  ? `Automático no servidor — sync em andamento (a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'})`
+                  : `Automático no servidor — a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'}`
               }
             />
           ) : (
             <Chip
               size="small"
-              color="default"
+              color="success"
               variant="outlined"
-              label="BK Office configurado — automático DESLIGADO (BKOFFICE_SYNC_CRON_MS)"
+              label="Sync automático: PC da gerência (serviço Windows)"
             />
           )}
         </Box>
@@ -929,14 +937,16 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
             onChangeInicio={setDataIni}
             onChangeFim={setDataFim}
           />
-          <Button
-            variant="contained"
-            startIcon={syncing ? <CircularProgress size={16} color="inherit" /> : <CloudDownloadIcon />}
-            disabled={syncing || !sync?.configurado || !dataIni || !dataFim}
-            onClick={() => void syncBk()}
-          >
-            Buscar no BK Office
-          </Button>
+          {sync?.server_sync ? (
+            <Button
+              variant="contained"
+              startIcon={syncing ? <CircularProgress size={16} color="inherit" /> : <CloudDownloadIcon />}
+              disabled={syncing || !sync?.configurado || !dataIni || !dataFim}
+              onClick={() => void syncBk()}
+            >
+              Buscar no BK Office
+            </Button>
+          ) : null}
           <Button
             variant="outlined"
             component="label"
@@ -952,11 +962,11 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
             />
           </Button>
         </Box>
-        {sync?.ultimo && (
+        {sync?.ultimo && sync?.server_sync ? (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
             Último job: {sync.ultimo.status} — {sync.ultimo.mensagem}
           </Typography>
-        )}
+        ) : null}
       </Paper>
 
       <Paper sx={tablePaperSx}>
