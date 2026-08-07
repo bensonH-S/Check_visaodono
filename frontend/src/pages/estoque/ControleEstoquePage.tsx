@@ -132,6 +132,11 @@ const thDiferencaSx = {
   bgcolor: '#FEE2E2 !important',
 } as const;
 
+function fmtBrl(v: number | null | undefined) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
   return Number(v).toLocaleString('pt-BR', {
@@ -624,6 +629,18 @@ export default function ControleEstoquePage() {
   const bloqueiaOutrasAbas = verDetalhe && contagem?.status === 'aberta';
   const abertasCount = listaContagens.filter((c) => c.status === 'aberta').length;
   const fechadasCount = listaContagens.filter((c) => c.status === 'finalizada').length;
+  const valorInicialMesLista = listaContagens[0]?.valor_inicial_mes ?? null;
+  const dataInicialMesLista = listaContagens[0]?.data_inicial_mes ?? null;
+  const valorAtualLista = useMemo(() => {
+    const aberta =
+      listaContagens.find((c) => c.status === 'aberta' && c.tipo !== 'critica_semanal') ||
+      listaContagens.find((c) => c.status === 'aberta');
+    if (aberta?.valor_atual != null || aberta?.total_valor != null) {
+      return aberta.valor_atual ?? aberta.total_valor ?? null;
+    }
+    const ultima = listaContagens.find((c) => c.status === 'finalizada');
+    return ultima?.valor_atual ?? ultima?.total_valor ?? null;
+  }, [listaContagens]);
   const listaFiltrada = useMemo(() => {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
@@ -813,7 +830,19 @@ export default function ControleEstoquePage() {
                         </Box>
                       </Box>
 
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <Chip
+                          label={`Início do mês: ${fmtBrl(valorInicialMesLista)}${
+                            dataInicialMesLista ? ` (${fmtDataBR(dataInicialMesLista)})` : ''
+                          }`}
+                          variant="outlined"
+                          sx={{ fontWeight: 700 }}
+                        />
+                        <Chip
+                          label={`Valor atual: ${fmtBrl(valorAtualLista)}`}
+                          color="primary"
+                          sx={{ fontWeight: 800 }}
+                        />
                         {(
                           [
                             ['todas', `Todas (${listaContagens.length})`],
@@ -866,6 +895,7 @@ export default function ControleEstoquePage() {
                                 <TableCell sx={thLeft}>Realizado por</TableCell>
                                 <TableCell sx={thCenter}>Iniciada</TableCell>
                                 <TableCell sx={thCenter}>Finalizada</TableCell>
+                                <TableCell sx={thCenter}>Valor atual</TableCell>
                                 <TableCell sx={thCenter}>Itens</TableCell>
                                 <TableCell sx={thCenter}>Pendentes</TableCell>
                                 <TableCell sx={thCenter}>Divergências</TableCell>
@@ -911,6 +941,9 @@ export default function ControleEstoquePage() {
                                     <TableCell sx={{ ...tdCenter, whiteSpace: 'nowrap' }}>
                                       {aberta ? '—' : fmtDataHora(c.finalizado_em)}
                                     </TableCell>
+                                    <TableCell sx={{ ...tdCenter, whiteSpace: 'nowrap', fontWeight: 700 }}>
+                                      {fmtBrl(c.valor_atual ?? c.total_valor)}
+                                    </TableCell>
                                     <TableCell sx={tdCenter}>{c.itens_total ?? '—'}</TableCell>
                                     <TableCell sx={tdCenter}>{c.pendentes ?? 0}</TableCell>
                                     <TableCell
@@ -931,7 +964,7 @@ export default function ControleEstoquePage() {
                               {!listaFiltrada.length && (
                                 <TableRow>
                                   <TableCell
-                                    colSpan={9}
+                                    colSpan={10}
                                     align="center"
                                     sx={{ py: 4, color: colors.textSecondary }}
                                   >
@@ -1038,6 +1071,20 @@ export default function ControleEstoquePage() {
 
                       {resumoLive && contagem?.id_contagem && (
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          <Chip
+                            label={`Início do mês: ${fmtBrl(contagem.valor_inicial_mes)}${
+                              contagem.data_inicial_mes
+                                ? ` (${fmtDataBR(contagem.data_inicial_mes)})`
+                                : ''
+                            }`}
+                            variant="outlined"
+                            sx={{ fontWeight: 700 }}
+                          />
+                          <Chip
+                            label={`Valor atual: ${fmtBrl(resumoLive.total_valor)}`}
+                            color="primary"
+                            sx={{ fontWeight: 800 }}
+                          />
                           <Chip
                             label={`${resumoLive.preenchidos}/${resumoLive.totalItens} contados`}
                             variant="outlined"

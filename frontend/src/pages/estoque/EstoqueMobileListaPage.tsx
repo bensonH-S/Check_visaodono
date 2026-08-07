@@ -33,6 +33,11 @@ function fmtDataHora(iso: string | null | undefined) {
   });
 }
 
+function fmtBrl(v: number | null | undefined) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function nomeLoja(l: Loja) {
   return String(l.name || '').trim() || 'Loja';
 }
@@ -153,6 +158,17 @@ export default function EstoqueMobileListaPage() {
 
   const abertas = lista.filter((c) => c.status === 'aberta').length;
   const finalizadas = lista.filter((c) => c.status === 'finalizada').length;
+  const valorInicialMes = lista[0]?.valor_inicial_mes ?? null;
+  const dataInicialMes = lista[0]?.data_inicial_mes ?? null;
+  const valorAtualLoja = useMemo(() => {
+    const aberta = lista.find((c) => c.status === 'aberta' && c.tipo !== 'critica_semanal')
+      || lista.find((c) => c.status === 'aberta');
+    if (aberta?.valor_atual != null || aberta?.total_valor != null) {
+      return aberta.valor_atual ?? aberta.total_valor ?? null;
+    }
+    const ultima = lista.find((c) => c.status === 'finalizada');
+    return ultima?.valor_atual ?? ultima?.total_valor ?? null;
+  }, [lista]);
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
   const lojasFiltradas = useMemo(() => {
@@ -244,16 +260,25 @@ export default function EstoqueMobileListaPage() {
           </p>
           <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
             <div className="ck-visitas__metric">
-              <strong>{loading ? '—' : lista.length}</strong>
-              <span>total</span>
+              <strong style={{ fontSize: '0.95rem' }}>
+                {loading ? '—' : fmtBrl(valorInicialMes)}
+              </strong>
+              <span>
+                início do mês
+                {dataInicialMes
+                  ? ` · ${new Date(dataInicialMes + 'T12:00:00').toLocaleDateString('pt-BR')}`
+                  : ''}
+              </span>
+            </div>
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong style={{ fontSize: '0.95rem' }}>
+                {loading ? '—' : fmtBrl(valorAtualLoja)}
+              </strong>
+              <span>valor atual</span>
             </div>
             <div className="ck-visitas__metric">
               <strong>{loading ? '—' : abertas}</strong>
-              <span>abertas</span>
-            </div>
-            <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong>{loading ? '—' : finalizadas}</strong>
-              <span>finalizadas</span>
+              <span>abertas · {finalizadas} ok</span>
             </div>
           </div>
         </div>
@@ -361,6 +386,14 @@ export default function EstoqueMobileListaPage() {
                   <span className={`ck-estoque__chip ${semanal ? 'ck-estoque__chip--warn' : ''}`}>
                     {semanal ? 'Semanal · críticos' : 'Completa'}
                   </span>
+                  <span className="ck-estoque__chip ck-estoque__chip--ok">
+                    Atual {fmtBrl(c.valor_atual ?? c.total_valor)}
+                  </span>
+                  {c.valor_inicial_mes != null && (
+                    <span className="ck-estoque__chip">
+                      Início {fmtBrl(c.valor_inicial_mes)}
+                    </span>
+                  )}
                   <span className="ck-estoque__chip">{c.itens_total ?? 0} itens</span>
                   <span
                     className={`ck-estoque__chip ${

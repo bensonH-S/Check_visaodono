@@ -21,6 +21,11 @@ function fmtNum(v: number | null | undefined, digitos = 2) {
   });
 }
 
+function fmtBrl(v: number | null | undefined) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function fmtDataHora(iso: string | null | undefined) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -154,6 +159,7 @@ export default function EstoqueMobileConferenciaPage() {
     let pendentes = 0;
     let divergencias = 0;
     let preenchidos = 0;
+    let totalValor = 0;
     for (const i of itens) {
       const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
       const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
@@ -163,9 +169,16 @@ export default function EstoqueMobileConferenciaPage() {
         continue;
       }
       preenchidos += 1;
+      totalValor += contado * (Number(i.valor_unidade) || 0);
       if (contado !== i.estoque_sistema) divergencias += 1;
     }
-    return { pendentes, divergencias, preenchidos, total: itens.length };
+    return {
+      pendentes,
+      divergencias,
+      preenchidos,
+      total: itens.length,
+      totalValor: Math.round(totalValor * 100) / 100,
+    };
   }, [contagem, rascunho]);
 
   const setCampo = (idItem: number, campo: keyof RascunhoLinha, valor: string) => {
@@ -268,6 +281,19 @@ export default function EstoqueMobileConferenciaPage() {
           {contagem && (
             <div className="ck-estoque__chips">
               <div className="ck-estoque__chip">
+                <strong>{fmtBrl(contagem.valor_inicial_mes)}</strong>
+                <span>
+                  início do mês
+                  {contagem.data_inicial_mes
+                    ? ` · ${new Date(contagem.data_inicial_mes + 'T12:00:00').toLocaleDateString('pt-BR')}`
+                    : ''}
+                </span>
+              </div>
+              <div className="ck-estoque__chip">
+                <strong>{fmtBrl(resumo.totalValor)}</strong>
+                <span>valor atual</span>
+              </div>
+              <div className="ck-estoque__chip">
                 <strong>{resumo.preenchidos}</strong>
                 <span>preenchidos</span>
               </div>
@@ -337,6 +363,12 @@ export default function EstoqueMobileConferenciaPage() {
                       </span>
                     </div>
                     <div className="ck-estoque__desc">{i.descricao}</div>
+                    <div className="ck-estoque__meta" style={{ marginTop: 0, marginBottom: 8 }}>
+                      Valor:{' '}
+                      {preenchido
+                        ? fmtBrl(contado * (Number(i.valor_unidade) || 0))
+                        : '—'}
+                    </div>
                     <div className="ck-estoque__row">
                       <div className="ck-estoque__field">
                         <label>Sistema</label>

@@ -2088,6 +2088,11 @@ export interface EstoqueContagemResumo {
   status: 'aberta' | 'finalizada' | string;
   observacao?: string | null;
   total_valor: number | null;
+  /** Valor monetário desta contagem (itens já preenchidos). */
+  valor_atual?: number | null;
+  /** Valor da 1ª contagem completa finalizada do mês (início do estoque). */
+  valor_inicial_mes?: number | null;
+  data_inicial_mes?: string | null;
   itens_total?: number;
   pendentes?: number;
   divergencias?: number;

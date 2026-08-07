@@ -209,6 +209,42 @@ function mapItem(row) {
   };
 }
 
+/** Valor da 1ª contagem completa finalizada do mês (início do estoque do mês). */
+async function valorInicialMes(idLoja, dataRef) {
+  if (!idLoja) return { valor_inicial_mes: null, data_inicial_mes: null, id_contagem_inicial: null };
+  const { rows } = await pool.query(
+    `SELECT c.id_contagem, c.data_contagem,
+            COALESCE(
+              c.total_valor,
+              (
+                SELECT ROUND(SUM(
+                  COALESCE(i.estoque_contado, 0) * COALESCE(p.valor_unidade, 0)
+                )::numeric, 2)
+                FROM estoque_itens i
+                JOIN insumos p ON p.id_insumo = i.id_insumo
+                WHERE i.id_contagem = c.id_contagem
+                  AND i.estoque_contado IS NOT NULL
+              )
+            ) AS total_valor
+     FROM estoque_contagens c
+     WHERE c.id_loja = $1
+       AND c.status = 'finalizada'
+       AND COALESCE(c.tipo, 'completa') = 'completa'
+       AND date_trunc('month', c.data_contagem) = date_trunc('month', $2::date)
+     ORDER BY c.data_contagem ASC, c.id_contagem ASC
+     LIMIT 1`,
+    [idLoja, dataRef || hojeISOLisboa()],
+  );
+  if (!rows.length) {
+    return { valor_inicial_mes: null, data_inicial_mes: null, id_contagem_inicial: null };
+  }
+  return {
+    valor_inicial_mes: rows[0].total_valor != null ? Number(rows[0].total_valor) : null,
+    data_inicial_mes: rows[0].data_contagem,
+    id_contagem_inicial: rows[0].id_contagem,
+  };
+}
+
 async function carregarContagem(id) {
   const { rows: contagens } = await pool.query(
     `SELECT c.*, l.name AS loja_nome, l.bk_number AS loja_codigo,
@@ -243,6 +279,7 @@ async function carregarContagem(id) {
   const pendentes = mapped.filter((i) => i.estoque_contado == null).length;
 
   const c = contagens[0];
+  const inicioMes = await valorInicialMes(c.id_loja, c.data_contagem || hojeISOLisboa());
   return {
     id_contagem: c.id_contagem,
     id_loja: c.id_loja,
@@ -254,6 +291,8 @@ async function carregarContagem(id) {
     status: c.status,
     observacao: c.observacao,
     total_valor,
+    valor_atual: total_valor,
+    ...inicioMes,
     total_diferenca,
     divergencias,
     pendentes,
@@ -435,9 +474,21 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
     const { rows } = await pool.query(
       `SELECT c.id_contagem, c.id_loja, c.data_contagem, c.titulo, c.status,
               COALESCE(c.tipo, 'completa') AS tipo,
-              c.observacao, c.total_valor, c.criado_em, c.finalizado_em,
+              c.observacao, c.criado_em, c.finalizado_em,
               c.criado_por, u.nome AS criado_por_nome,
               l.name AS loja_nome, l.bk_number AS loja_codigo,
+              COALESCE(
+                c.total_valor,
+                (
+                  SELECT ROUND(SUM(
+                    COALESCE(i.estoque_contado, 0) * COALESCE(p.valor_unidade, 0)
+                  )::numeric, 2)
+                  FROM estoque_itens i
+                  JOIN insumos p ON p.id_insumo = i.id_insumo
+                  WHERE i.id_contagem = c.id_contagem
+                    AND i.estoque_contado IS NOT NULL
+                )
+              ) AS total_valor,
               (SELECT COUNT(*)::int FROM estoque_itens i WHERE i.id_contagem = c.id_contagem) AS itens_total,
               (SELECT COUNT(*)::int FROM estoque_itens i
                WHERE i.id_contagem = c.id_contagem AND i.estoque_contado IS NULL) AS pendentes,
@@ -449,14 +500,18 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
        LEFT JOIN lojas l ON l.id_loja = c.id_loja
        LEFT JOIN usuarios u ON u.id_usuario = c.criado_por
        WHERE c.id_loja = $1
-       ORDER BY c.criado_em DESC, c.id_contagem DESC
+       ORDER BY c.data_contagem DESC NULLS LAST, c.criado_em DESC, c.id_contagem DESC
        LIMIT 100`,
       [idLoja],
     );
+    const inicioMes = await valorInicialMes(idLoja, hojeISOLisboa());
     res.json(
       rows.map((r) => ({
         ...r,
         total_valor: r.total_valor != null ? Number(r.total_valor) : null,
+        valor_atual: r.total_valor != null ? Number(r.total_valor) : null,
+        valor_inicial_mes: inicioMes.valor_inicial_mes,
+        data_inicial_mes: inicioMes.data_inicial_mes,
       })),
     );
   } catch (e) {
