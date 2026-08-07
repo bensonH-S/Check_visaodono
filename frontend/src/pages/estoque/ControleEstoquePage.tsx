@@ -468,15 +468,16 @@ export default function ControleEstoquePage() {
     }
   }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
 
-  const iniciarSabado = async () => {
+  const iniciarSabado = async (tipo: 'critica_semanal' | 'completa' = 'critica_semanal') => {
     if (!podeEditarConferencia || !idLoja) return;
     setIniciando(true);
     try {
-      const det = await api.estoqueIniciarSabado({ id_loja: idLoja });
+      const det = await api.estoqueIniciarSabado({ id_loja: idLoja, tipo });
       await carregarListaContagens();
       aplicarContagem(det, setContagem, setRascunhoItens);
       setVerDetalhe(true);
-      showToast(det.meta?.iniciada_agora ? 'Conferência iniciada' : 'Conferência aberta');
+      const label = tipo === 'critica_semanal' ? 'Contagem semanal' : 'Contagem completa';
+      showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
       irParaAba('conferencia');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao iniciar conferência', 'error');
@@ -627,7 +628,6 @@ export default function ControleEstoquePage() {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
-  const temAberta = abertasCount > 0;
 
   if (loadingLojas) {
     return (
@@ -784,15 +784,25 @@ export default function ControleEstoquePage() {
                           )}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                          {podeEditarConferencia && !temAberta && (
-                            <Button
-                              variant="contained"
-                              startIcon={<PlayArrowIcon />}
-                              disabled={iniciando}
-                              onClick={() => void iniciarSabado()}
-                            >
-                              Iniciar conferência
-                            </Button>
+                          {podeEditarConferencia && (
+                            <>
+                              <Button
+                                variant="contained"
+                                startIcon={<PlayArrowIcon />}
+                                disabled={iniciando}
+                                onClick={() => void iniciarSabado('critica_semanal')}
+                              >
+                                Semanal (críticos)
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                startIcon={<PlayArrowIcon />}
+                                disabled={iniciando}
+                                onClick={() => void iniciarSabado('completa')}
+                              >
+                                Completa
+                              </Button>
+                            </>
                           )}
                           <IconButton
                             onClick={() => void carregarListaContagens()}

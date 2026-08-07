@@ -54,28 +54,40 @@ function hojeISOLisboa() {
   }).format(new Date());
 }
 
-function tituloConferencia(dataISO) {
+function tituloConferencia(dataISO, tipo = 'completa') {
   const [y, m, d] = String(dataISO || '').split('-');
-  if (!y || !m || !d) return 'Conferência de estoque';
-  return `Conferência ${d}/${m}/${y}`;
+  const dataLabel = y && m && d ? `${d}/${m}/${y}` : null;
+  if (tipo === 'critica_semanal') {
+    return dataLabel ? `Semanal críticos ${dataLabel}` : 'Contagem semanal (críticos)';
+  }
+  if (!dataLabel) return 'Conferência de estoque';
+  return `Conferência ${dataLabel}`;
+}
+
+function normalizarTipoContagem(raw) {
+  const t = String(raw || 'completa').trim().toLowerCase();
+  if (t === 'critica_semanal' || t === 'semanal' || t === 'critica') return 'critica_semanal';
+  return 'completa';
 }
 
 async function criarContagemComItens(
   client,
-  { id_loja, data_contagem, titulo, observacao, idUsuario, usarUltimo },
+  { id_loja, data_contagem, titulo, observacao, idUsuario, usarUltimo, tipo = 'completa' },
 ) {
   if (!id_loja) throw Object.assign(new Error('Loja obrigatória'), { status: 400 });
+  const tipoContagem = normalizarTipoContagem(tipo);
+  const filtroCriticos = tipoContagem === 'critica_semanal' ? ' AND p.contagem_critica = TRUE' : '';
 
   const { rows: cont } = await client.query(
-    `INSERT INTO estoque_contagens (id_loja, data_contagem, titulo, status, observacao, criado_por)
-     VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, 'aberta', $4, $5)
+    `INSERT INTO estoque_contagens (id_loja, data_contagem, titulo, status, observacao, criado_por, tipo)
+     VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, 'aberta', $4, $5, $6)
      RETURNING id_contagem`,
-    [id_loja, data_contagem, titulo, observacao, idUsuario || null],
+    [id_loja, data_contagem, titulo, observacao, idUsuario || null, tipoContagem],
   );
   const idContagem = cont[0].id_contagem;
 
   if (usarUltimo !== false) {
-    await client.query(
+    const { rowCount } = await client.query(
       `INSERT INTO estoque_itens (id_contagem, id_insumo, estoque_sistema, estoque_contado)
        SELECT $1, p.id_insumo,
               COALESCE(s.quantidade, u.estoque, 0),
@@ -93,17 +105,29 @@ async function criarContagemComItens(
            AND c.id_loja = $2
          ORDER BY i.id_insumo, c.data_contagem DESC, c.id_contagem DESC
        ) u ON u.id_insumo = p.id_insumo
-       WHERE p.ativo = TRUE AND p.id_loja = $2`,
+       WHERE p.ativo = TRUE AND p.id_loja = $2${filtroCriticos}`,
       [idContagem, id_loja],
     );
+    if (tipoContagem === 'critica_semanal' && !rowCount) {
+      throw Object.assign(
+        new Error('Nenhum item crítico cadastrado nesta loja (mix, carnes, pão, batata, latas)'),
+        { status: 400 },
+      );
+    }
   } else {
-    await client.query(
+    const { rowCount } = await client.query(
       `INSERT INTO estoque_itens (id_contagem, id_insumo, estoque_sistema, estoque_contado)
        SELECT $1, p.id_insumo, 0, NULL
        FROM insumos p
-       WHERE p.ativo = TRUE AND p.id_loja = $2`,
+       WHERE p.ativo = TRUE AND p.id_loja = $2${filtroCriticos}`,
       [idContagem, id_loja],
     );
+    if (tipoContagem === 'critica_semanal' && !rowCount) {
+      throw Object.assign(
+        new Error('Nenhum item crítico cadastrado nesta loja (mix, carnes, pão, batata, latas)'),
+        { status: 400 },
+      );
+    }
   }
   return idContagem;
 }
@@ -226,6 +250,7 @@ async function carregarContagem(id) {
     loja_codigo: c.loja_codigo,
     data_contagem: c.data_contagem,
     titulo: c.titulo,
+    tipo: c.tipo || 'completa',
     status: c.status,
     observacao: c.observacao,
     total_valor,
@@ -409,6 +434,7 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
 
     const { rows } = await pool.query(
       `SELECT c.id_contagem, c.id_loja, c.data_contagem, c.titulo, c.status,
+              COALESCE(c.tipo, 'completa') AS tipo,
               c.observacao, c.total_valor, c.criado_em, c.finalizado_em,
               c.criado_por, u.nome AS criado_por_nome,
               l.name AS loja_nome, l.bk_number AS loja_codigo,
@@ -503,10 +529,27 @@ router.post('/contagens', permConferencia, async (req, res, next) => {
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
     const data_contagem = String(req.body?.data_contagem || '').trim() || null;
-    const titulo = String(req.body?.titulo || '').trim() || null;
+    const tipo = normalizarTipoContagem(req.body?.tipo);
+    const titulo =
+      String(req.body?.titulo || '').trim() ||
+      tituloConferencia(data_contagem || hojeISOLisboa(), tipo);
     const observacao =
       req.body?.observacao != null ? String(req.body.observacao).trim() || null : null;
     const usarUltimo = req.body?.usar_ultimo_estoque !== false;
+    const reutilizarAberta = req.body?.reutilizar_aberta !== false;
+
+    if (reutilizarAberta) {
+      const { rows: abertas } = await pool.query(
+        `SELECT id_contagem FROM estoque_contagens
+         WHERE status = 'aberta' AND id_loja = $1 AND COALESCE(tipo, 'completa') = $2
+         ORDER BY criado_em DESC, id_contagem DESC
+         LIMIT 1`,
+        [id_loja, tipo],
+      );
+      if (abertas.length) {
+        return res.json(await carregarContagem(abertas[0].id_contagem));
+      }
+    }
 
     await client.query('BEGIN');
     const idContagem = await criarContagemComItens(client, {
@@ -516,6 +559,7 @@ router.post('/contagens', permConferencia, async (req, res, next) => {
       observacao,
       idUsuario: req.user?.id_usuario || req.user?.sub,
       usarUltimo,
+      tipo,
     });
     await client.query('COMMIT');
     await auditar(req, {
@@ -523,7 +567,7 @@ router.post('/contagens', permConferencia, async (req, res, next) => {
       acao: 'criar',
       entidade: 'estoque_contagem',
       idReferencia: idContagem,
-      descricao: `Contagem criada (#${idContagem}) loja ${id_loja}`,
+      descricao: `Contagem ${tipo} criada (#${idContagem}) loja ${id_loja}`,
     });
 
     res.status(201).json(await carregarContagem(idContagem));
@@ -545,13 +589,15 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
 
     const hoje = hojeISOLisboa();
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
-    const metaBase = { hoje, id_loja: idLoja };
+    const tipo = normalizarTipoContagem(req.body?.tipo || 'critica_semanal');
+    const metaBase = { hoje, id_loja: idLoja, tipo };
 
     const { rows: abertas } = await pool.query(
       `SELECT id_contagem FROM estoque_contagens
-       WHERE status = 'aberta' AND id_loja = $1
+       WHERE status = 'aberta' AND id_loja = $1 AND COALESCE(tipo, 'completa') = $2
+       ORDER BY criado_em DESC, id_contagem DESC
        LIMIT 1`,
-      [idLoja],
+      [idLoja, tipo],
     );
     if (abertas.length) {
       const detalhe = await carregarContagem(abertas[0].id_contagem);
@@ -562,10 +608,11 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
     const idContagem = await criarContagemComItens(client, {
       id_loja: idLoja,
       data_contagem: hoje,
-      titulo: tituloConferencia(hoje),
+      titulo: tituloConferencia(hoje, tipo),
       observacao: null,
       idUsuario,
       usarUltimo: true,
+      tipo,
     });
     await client.query('COMMIT');
     await auditar(req, {
@@ -573,7 +620,7 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
       acao: 'criar',
       entidade: 'estoque_contagem',
       idReferencia: idContagem,
-      descricao: `Conferência iniciada (#${idContagem}) loja ${idLoja} em ${hoje}`,
+      descricao: `Conferência ${tipo} iniciada (#${idContagem}) loja ${idLoja} em ${hoje}`,
     });
     const detalhe = await carregarContagem(idContagem);
     res.status(201).json({ ...detalhe, meta: { ...metaBase, iniciada_agora: true } });
@@ -766,7 +813,8 @@ router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, nex
   try {
     const id = Number(req.params.id);
     const { rows } = await pool.query(
-      'SELECT id_contagem, id_loja, status, titulo FROM estoque_contagens WHERE id_contagem = $1',
+      `SELECT id_contagem, id_loja, status, titulo, COALESCE(tipo, 'completa') AS tipo
+       FROM estoque_contagens WHERE id_contagem = $1`,
       [id],
     );
     if (!rows.length) return res.status(404).json({ error: 'Contagem não encontrada' });
@@ -780,8 +828,9 @@ router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, nex
     const { rows: outrasAbertas } = await pool.query(
       `SELECT id_contagem FROM estoque_contagens
        WHERE id_loja = $1 AND status = 'aberta' AND id_contagem <> $2
+         AND COALESCE(tipo, 'completa') = $3
        LIMIT 1`,
-      [cont.id_loja, id],
+      [cont.id_loja, id, cont.tipo || 'completa'],
     );
     if (outrasAbertas.length) {
       return res.status(400).json({

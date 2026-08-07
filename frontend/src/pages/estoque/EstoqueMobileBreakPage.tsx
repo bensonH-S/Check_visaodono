@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Fab from '@mui/material/Fab';
 import AddIcon from '@mui/icons-material/Add';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import {
@@ -12,6 +13,7 @@ import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFro
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { ehGestorLojaMobile, getUsuario } from '../../lib/auth';
+import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
@@ -26,8 +28,13 @@ function fmtDataBR(iso: string | null | undefined) {
   return `${d}/${m}/${y}`;
 }
 
+function nomeLoja(l: Loja) {
+  return String(l.name || '').trim() || 'Loja';
+}
+
 function rotuloLoja(l: Loja) {
-  return `${l.bk_number ? `${l.bk_number} · ` : ''}${l.name}`;
+  const nome = nomeLoja(l);
+  return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
 }
 
 function preferenciaLojaInicial(rows: Loja[]): number | null {
@@ -269,56 +276,43 @@ export default function EstoqueMobileBreakPage() {
     );
 
   return (
-    <div className="ck-visitas ck-estoque">
-      <div className="ck-visitas__scroll">
-        <div className="ck-visitas__stage">
-          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-          <div className="ck-visitas__mesh" aria-hidden />
-          <div className="ck-visitas__stage-inner">
-            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-              <div>
-                <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                <h1 className="ck-visitas__title">
-                  {formAberto ? (
-                    <>
-                      Novo
-                      <br />
-                      lançamento
-                    </>
-                  ) : (
-                    <>
-                      Break
-                      <br />
-                      de estoque
-                    </>
-                  )}
-                </h1>
-              </div>
-              <div className="ck-estoque__hero-actions">
-                <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-                {idLoja && !formAberto && (
-                  <button
-                    type="button"
-                    className="ck-estoque__add"
-                    aria-label="Adicionar break"
-                    disabled={loading}
-                    onClick={abrirForm}
-                  >
-                    <AddIcon />
-                  </button>
+    <div className="ck-visitas ck-visitas--lista ck-estoque">
+      <div className="ck-visitas__stage">
+        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+        <div className="ck-visitas__mesh" aria-hidden />
+        <div className="ck-visitas__stage-inner">
+          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+            <div>
+              <p className="ck-visitas__mark-text">Grupo Alvim</p>
+              <h1 className="ck-visitas__title">
+                {formAberto ? (
+                  <>
+                    Novo
+                    <br />
+                    lançamento
+                  </>
+                ) : (
+                  <>
+                    Break
+                    <br />
+                    de estoque
+                  </>
                 )}
-              </div>
+              </h1>
             </div>
-            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              {formAberto
-                ? 'Preencha os dados e confirme a baixa no estoque.'
-                : 'Consumo de colaboradores — baixa o estoque na hora.'}
-            </p>
+            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
           </div>
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+            {formAberto
+              ? 'Preencha os dados e confirme a baixa no estoque.'
+              : 'Consumo de colaboradores — baixa o estoque na hora.'}
+          </p>
         </div>
+      </div>
 
-        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+        <div className="ck-estoque__sheet-head">
           {err && (
             <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
               {err}
@@ -338,17 +332,24 @@ export default function EstoqueMobileBreakPage() {
             )}
             {podeTrocarLoja && !formAberto ? (
               <button type="button" className="ck-estoque__loja-btn" onClick={() => setDlgLoja(true)}>
-                {lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}
+                <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
                 <span aria-hidden>▾</span>
               </button>
             ) : (
               <div className="ck-estoque__loja-fix" aria-label="Loja">
                 <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
-                <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Loja não selecionada'}</span>
+                <div className="ck-estoque__loja-fix-text">
+                  {lojaAtual?.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
+                  <strong>{lojaAtual ? nomeLoja(lojaAtual) : 'Loja não selecionada'}</strong>
+                </div>
               </div>
             )}
           </div>
 
+          {!formAberto && idLoja ? <p className="ck-visitas__section">Últimos lançamentos</p> : null}
+        </div>
+
+        <div className="ck-visitas__sheet-body">
           {!idLoja ? (
             <div className="ck-estoque__empty">Selecione a loja para ver e lançar break.</div>
           ) : formAberto ? (
@@ -446,7 +447,6 @@ export default function EstoqueMobileBreakPage() {
             </div>
           ) : (
             <>
-              <p className="ck-visitas__section">Últimos lançamentos</p>
               {loading && <div className="ck-estoque__empty">Carregando…</div>}
               {!loading &&
                 lista.map((b) => (
@@ -470,6 +470,26 @@ export default function EstoqueMobileBreakPage() {
           )}
         </div>
       </div>
+
+      {idLoja && !formAberto ? (
+        <Fab
+          aria-label="Adicionar break"
+          onClick={abrirForm}
+          disabled={loading}
+          sx={{
+            position: 'fixed',
+            right: safeAreaRightCalc(20),
+            bottom: 'calc(16px + var(--app-tabbar-offset, 58px))',
+            zIndex: 40,
+            bgcolor: '#E8520A',
+            color: '#fff',
+            boxShadow: '0 6px 20px rgba(232, 82, 10, 0.42)',
+            '&:hover': { bgcolor: '#d14a09' },
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      ) : null}
 
       {modalLoja}
     </div>

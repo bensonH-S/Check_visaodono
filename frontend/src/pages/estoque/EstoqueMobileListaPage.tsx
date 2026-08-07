@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
+import Fab from '@mui/material/Fab';
 import LinearProgress from '@mui/material/LinearProgress';
 import AddIcon from '@mui/icons-material/Add';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -12,6 +13,7 @@ import {
 } from '../../api/client';
 import { ehGestorLojaMobile, getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
+import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
@@ -31,8 +33,13 @@ function fmtDataHora(iso: string | null | undefined) {
   });
 }
 
+function nomeLoja(l: Loja) {
+  return String(l.name || '').trim() || 'Loja';
+}
+
 function rotuloLoja(l: Loja) {
-  return `${l.bk_number ? `${l.bk_number} · ` : ''}${l.name}`;
+  const nome = nomeLoja(l);
+  return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
 }
 
 function preferenciaLojaInicial(rows: Loja[]): number | null {
@@ -87,6 +94,7 @@ export default function EstoqueMobileListaPage() {
   const [reabrindoId, setReabrindoId] = useState<number | null>(null);
   const [err, setErr] = useState('');
   const [dlgLoja, setDlgLoja] = useState(false);
+  const [dlgTipo, setDlgTipo] = useState(false);
   const [buscaLoja, setBuscaLoja] = useState('');
   const [reabrirAlvo, setReabrirAlvo] = useState<EstoqueContagemResumo | null>(null);
 
@@ -145,7 +153,6 @@ export default function EstoqueMobileListaPage() {
 
   const abertas = lista.filter((c) => c.status === 'aberta').length;
   const finalizadas = lista.filter((c) => c.status === 'finalizada').length;
-  const temAberta = abertas > 0;
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
   const lojasFiltradas = useMemo(() => {
@@ -168,25 +175,28 @@ export default function EstoqueMobileListaPage() {
   };
 
   useEffect(() => {
-    if (!dlgLoja && !reabrirAlvo) {
+    if (!dlgLoja && !reabrirAlvo && !dlgTipo) {
       travarScrollPagina(false);
       return;
     }
     travarScrollPagina(true);
     return () => travarScrollPagina(false);
-  }, [dlgLoja, reabrirAlvo]);
+  }, [dlgLoja, reabrirAlvo, dlgTipo]);
 
-  const iniciar = async () => {
-    if (!idLoja || temAberta) return;
+  const iniciar = async (tipo: 'critica_semanal' | 'completa') => {
+    if (!idLoja) return;
     setIniciando(true);
+    setDlgTipo(false);
     try {
-      const det = await api.estoqueIniciarSabado({ id_loja: idLoja });
+      const det = await api.estoqueIniciarSabado({ id_loja: idLoja, tipo });
       if (det.id_contagem) {
         navigate(`/estoque/mobile/${det.id_contagem}`, {
           state: { contagemPreload: det },
         });
       }
-      showToast(det.meta?.iniciada_agora ? 'Conferência iniciada' : 'Conferência aberta');
+      const label = tipo === 'critica_semanal' ? 'Contagem semanal' : 'Contagem completa';
+      showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
+      await carregarLista(idLoja);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao iniciar', 'error');
     } finally {
@@ -212,58 +222,45 @@ export default function EstoqueMobileListaPage() {
   };
 
   return (
-    <div className="ck-visitas ck-estoque">
-      <div className="ck-visitas__scroll">
-        <div className="ck-visitas__stage">
-          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-          <div className="ck-visitas__mesh" aria-hidden />
-          <div className="ck-visitas__stage-inner">
-            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-              <div>
-                <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                <h1 className="ck-visitas__title">
-                  Conferência
-                  <br />
-                  de estoque
-                </h1>
-              </div>
-              <div className="ck-estoque__hero-actions">
-                <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-                {idLoja && !temAberta && (
-                  <button
-                    type="button"
-                    className="ck-estoque__add"
-                    aria-label="Iniciar conferência"
-                    disabled={iniciando}
-                    onClick={() => void iniciar()}
-                  >
-                    <AddIcon />
-                  </button>
-                )}
-              </div>
+    <div className="ck-visitas ck-visitas--lista ck-estoque">
+      <div className="ck-visitas__stage">
+        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+        <div className="ck-visitas__mesh" aria-hidden />
+        <div className="ck-visitas__stage-inner">
+          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+            <div>
+              <p className="ck-visitas__mark-text">Grupo Alvim</p>
+              <h1 className="ck-visitas__title">
+                Conferência
+                <br />
+                de estoque
+              </h1>
             </div>
-            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-              Conte os insumos da loja, salve o rascunho e finalize a conferência.
-            </p>
-            <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-              <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : lista.length}</strong>
-                <span>total</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong>{loading ? '—' : abertas}</strong>
-                <span>abertas</span>
-              </div>
-              <div className="ck-visitas__metric ck-visitas__metric--accent">
-                <strong>{loading ? '—' : finalizadas}</strong>
-                <span>finalizadas</span>
-              </div>
+            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+          </div>
+          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+            Conte os insumos da loja, salve o rascunho e finalize a conferência.
+          </p>
+          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : lista.length}</strong>
+              <span>total</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : abertas}</strong>
+              <span>abertas</span>
+            </div>
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong>{loading ? '—' : finalizadas}</strong>
+              <span>finalizadas</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+        <div className="ck-estoque__sheet-head">
           {err && (
             <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
               {err}
@@ -277,7 +274,7 @@ export default function EstoqueMobileListaPage() {
                 className="ck-estoque__loja-btn"
                 onClick={() => setDlgLoja(true)}
               >
-                {lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}
+                <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
                 <span aria-hidden>▾</span>
               </button>
             </div>
@@ -285,7 +282,10 @@ export default function EstoqueMobileListaPage() {
             <div className="ck-estoque__loja">
               <div className="ck-estoque__loja-fix" aria-label="Loja">
                 <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
-                <span>{rotuloLoja(lojaAtual)}</span>
+                <div className="ck-estoque__loja-fix-text">
+                  {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
+                  <strong>{nomeLoja(lojaAtual)}</strong>
+                </div>
               </div>
             </div>
           ) : null}
@@ -310,7 +310,9 @@ export default function EstoqueMobileListaPage() {
               </button>
             ))}
           </div>
+        </div>
 
+        <div className="ck-visitas__sheet-body">
           {loading && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
 
           {!loading && !filtrada.length && (
@@ -325,6 +327,7 @@ export default function EstoqueMobileListaPage() {
 
           {filtrada.map((c) => {
             const aberta = c.status === 'aberta';
+            const semanal = c.tipo === 'critica_semanal';
             const divergencias = c.divergencias ?? 0;
             const mostrarReabrir = podeReabrir && !aberta;
             return (
@@ -355,6 +358,9 @@ export default function EstoqueMobileListaPage() {
                   {!aberta && c.finalizado_em ? ` · Finalizada ${fmtDataHora(c.finalizado_em)}` : ''}
                 </div>
                 <div className="ck-estoque__chips">
+                  <span className={`ck-estoque__chip ${semanal ? 'ck-estoque__chip--warn' : ''}`}>
+                    {semanal ? 'Semanal · críticos' : 'Completa'}
+                  </span>
                   <span className="ck-estoque__chip">{c.itens_total ?? 0} itens</span>
                   <span
                     className={`ck-estoque__chip ${
@@ -390,6 +396,81 @@ export default function EstoqueMobileListaPage() {
           })}
         </div>
       </div>
+
+      {idLoja ? (
+        <Fab
+          aria-label="Nova contagem"
+          onClick={() => setDlgTipo(true)}
+          disabled={iniciando}
+          sx={{
+            position: 'fixed',
+            right: safeAreaRightCalc(20),
+            bottom: 'calc(16px + var(--app-tabbar-offset, 58px))',
+            zIndex: 40,
+            bgcolor: '#E8520A',
+            color: '#fff',
+            boxShadow: '0 6px 20px rgba(232, 82, 10, 0.42)',
+            '&:hover': { bgcolor: '#d14a09' },
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      ) : null}
+
+      {dlgTipo &&
+        createPortal(
+          <div className="ck-estoque">
+            <div
+              className="ck-estoque__loja-modal ck-estoque__modal--center"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Nova contagem"
+            >
+              <button
+                type="button"
+                className="ck-estoque__loja-backdrop"
+                aria-label="Fechar"
+                disabled={iniciando}
+                onClick={() => setDlgTipo(false)}
+              />
+              <div className="ck-estoque__loja-panel ck-estoque__confirm">
+                <div className="ck-estoque__loja-panel-head">
+                  <strong>Nova contagem</strong>
+                  <button
+                    type="button"
+                    className="ck-estoque__loja-fechar"
+                    disabled={iniciando}
+                    onClick={() => setDlgTipo(false)}
+                  >
+                    Fechar
+                  </button>
+                </div>
+                <p className="ck-estoque__confirm-text">
+                  Semanal: só mix, carnes, pão, batata e latas. Completa: todos os insumos da loja.
+                </p>
+                <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column' }}>
+                  <button
+                    type="button"
+                    className="ck-estoque__btn ck-estoque__btn--primary"
+                    disabled={iniciando}
+                    onClick={() => void iniciar('critica_semanal')}
+                  >
+                    {iniciando ? 'Abrindo…' : 'Contagem semanal (críticos)'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ck-estoque__btn ck-estoque__btn--ghost"
+                    disabled={iniciando}
+                    onClick={() => void iniciar('completa')}
+                  >
+                    Contagem completa
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {dlgLoja &&
         podeTrocarLoja &&

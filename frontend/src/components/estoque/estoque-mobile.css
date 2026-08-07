@@ -20,40 +20,70 @@
 }
 
 .ck-estoque .ck-estoque__loja--com-voltar .ck-estoque__loja-fix {
-  flex: 0 1 auto;
-  max-width: calc(100% - 96px);
-  margin: 0 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  padding-left: 52px;
+  padding-right: 8px;
 }
 
 .ck-estoque .ck-estoque__loja-fix {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   min-height: 48px;
-  padding: 0 8px;
+  padding: 6px 4px;
   color: var(--ck-ink);
   font: inherit;
-  font-weight: 800;
-  font-size: 1.05rem;
-  line-height: 1.3;
-  text-align: center;
+  text-align: left;
 }
 
-.ck-estoque .ck-estoque__loja-fix span {
+.ck-estoque .ck-estoque__loja-fix-text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ck-estoque .ck-estoque__loja-fix-text small {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.55);
+  line-height: 1.2;
+}
+
+.ck-estoque .ck-estoque__loja-fix-text strong {
+  font-size: 0.98rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: var(--ck-ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ck-estoque .ck-estoque__loja-fix-icon {
   flex-shrink: 0;
+  margin-top: 2px;
   color: var(--ck-navy);
   opacity: 0.9;
   font-size: 1.55rem !important;
   width: 1.55rem !important;
   height: 1.55rem !important;
+}
+
+/* Hero azul fixo; só a lista/formulário rola (mesmo padrão visitas). */
+.ck-estoque.ck-visitas--lista .ck-estoque__sheet-head {
+  flex-shrink: 0;
+}
+
+.ck-estoque.ck-visitas--lista .ck-visitas__sheet-body {
+  padding-bottom: calc(88px + var(--app-tabbar-offset, 0px));
 }
 
 .ck-estoque .ck-estoque__voltar {
@@ -77,7 +107,8 @@
 
 .ck-estoque .ck-estoque__loja-btn {
   width: 100%;
-  height: 44px;
+  min-height: 44px;
+  height: auto;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.18);
   background: #fff;
@@ -85,7 +116,7 @@
   font: inherit;
   font-weight: 600;
   font-size: 0.9rem;
-  padding: 0 12px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -94,7 +125,16 @@
   cursor: pointer;
 }
 
-.ck-estoque .ck-estoque__loja-btn span {
+.ck-estoque .ck-estoque__loja-btn > span:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.ck-estoque .ck-estoque__loja-btn > span:last-child {
   color: rgba(20, 32, 72, 0.45);
   flex-shrink: 0;
 }
@@ -396,41 +436,9 @@
 
 .ck-estoque .ck-estoque__hero-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.ck-estoque .ck-estoque__add {
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 14px;
-  background: #e8520a;
-  color: #fff;
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  box-shadow: 0 6px 18px rgba(232, 82, 10, 0.38);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.ck-estoque .ck-estoque__add:active {
-  transform: scale(0.96);
-}
-
-.ck-estoque .ck-estoque__add:disabled {
-  opacity: 0.5;
-  cursor: default;
-  box-shadow: none;
-  transform: none;
-}
-
-.ck-estoque .ck-estoque__add .MuiSvgIcon-root {
-  font-size: 1.55rem;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .ck-estoque .ck-estoque__reabrir--hero {
