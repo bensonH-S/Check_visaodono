@@ -1,5 +1,5 @@
 /**
- * Saúde por loja — cruza nota, NCs, chamados e CMV teórico do mês.
+ * Saúde por loja — cruza nota, NCs, chamados, CMV, metas e região.
  */
 import { pool } from '../db.js';
 import { SQL_NC_CHECKLIST_FINALIZADO } from '../naoConformidadesChecklist.js';
@@ -23,6 +23,13 @@ function hojeIso(d = new Date()) {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+function diasEntre(isoDate, hoje = new Date()) {
+  if (!isoDate) return null;
+  const d = new Date(`${String(isoDate).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.max(0, Math.floor((hoje.getTime() - d.getTime()) / 86400000));
 }
 
 /** CMV teórico do mês corrente, agrupado por loja (mesma regra do motor). */
@@ -86,7 +93,6 @@ async function cmvMesPorLojas(idsLojas, { de, ate, meta = META_CMV } = {}) {
       id_loja,
       COALESCE(SUM(venda_liquida), 0)::numeric AS venda_liquida,
       COALESCE(SUM(qtde * custo_unit_valido), 0)::numeric AS custo_teorico,
-      COUNT(*)::int AS itens,
       COUNT(*) FILTER (WHERE tem_ficha)::int AS itens_com_ficha,
       COUNT(*) FILTER (
         WHERE tem_ficha AND insumos_sem_custo_nf = 0 AND custo_unit_valido > 0
@@ -112,25 +118,124 @@ async function cmvMesPorLojas(idsLojas, { de, ate, meta = META_CMV } = {}) {
       meta_pct: Math.round(metaN * 10000) / 100,
       cmv_confiavel: confiavel,
       cobertura_custo_pct: Math.round(cobertura * 10) / 10,
+      venda_liquida: Math.round(venda * 100) / 100,
     });
   }
   return out;
 }
 
+/** Resumo de metas do período mais recente, por loja. */
+async function metasPorLojas(idsLojas) {
+  const out = new Map();
+  if (!idsLojas.length) return { periodo: null, map: out };
+
+  let periodo;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id_periodo, ano, mes, titulo
+       FROM metas_periodos
+       ORDER BY ano DESC, mes DESC
+       LIMIT 1`,
+    );
+    periodo = rows[0] || null;
+  } catch {
+    return { periodo: null, map: out };
+  }
+  if (!periodo) return { periodo: null, map: out };
+
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        pl.id_loja,
+        COUNT(*)::int AS indicadores,
+        COUNT(*) FILTER (
+          WHERE r.valor_texto = 'OK'
+             OR (r.valor_texto IS DISTINCT FROM 'X' AND r.atingiu IS TRUE)
+        )::int AS ok,
+        COUNT(*) FILTER (
+          WHERE r.valor_texto = 'X'
+             OR (r.valor_texto IS DISTINCT FROM 'OK' AND r.atingiu IS FALSE)
+        )::int AS falhou,
+        COUNT(*) FILTER (
+          WHERE r.id_realizado IS NULL
+             OR (
+               (r.valor_texto IS NULL OR r.valor_texto = '')
+               AND r.atingiu IS NULL
+             )
+        )::int AS pendentes,
+        COALESCE(SUM(pi.peso), 0)::numeric AS meta_peso,
+        COALESCE(SUM(pi.peso) FILTER (
+          WHERE r.valor_texto = 'OK'
+             OR (r.valor_texto IS DISTINCT FROM 'X' AND r.atingiu IS TRUE)
+        ), 0)::numeric AS realizado_peso
+      FROM metas_paineis p
+      JOIN metas_painel_indicadores pi ON pi.id_painel = p.id_painel
+      JOIN metas_painel_lojas pl ON pl.id_painel = p.id_painel
+      LEFT JOIN metas_realizados r
+        ON r.id_painel = p.id_painel
+       AND r.id_indicador = pi.id_indicador
+       AND r.id_loja = pl.id_loja
+      WHERE p.id_periodo = $1
+        AND pl.id_loja = ANY($2::int[])
+      GROUP BY pl.id_loja
+      `,
+      [periodo.id_periodo, idsLojas],
+    );
+
+    for (const r of rows) {
+      const indicadores = Number(r.indicadores) || 0;
+      const ok = Number(r.ok) || 0;
+      const falhou = Number(r.falhou) || 0;
+      const pendentes = Number(r.pendentes) || 0;
+      const metaPeso = num(r.meta_peso);
+      const realizadoPeso = num(r.realizado_peso);
+      const pct =
+        metaPeso > 0 ? Math.round((realizadoPeso / metaPeso) * 1000) / 10 : null;
+      out.set(Number(r.id_loja), {
+        indicadores,
+        ok,
+        falhou,
+        pendentes,
+        meta_peso: Math.round(metaPeso),
+        realizado_peso: Math.round(realizadoPeso),
+        pct_atingido: pct,
+        tem_dados: indicadores > 0 && ok + falhou > 0,
+      });
+    }
+  } catch {
+    return { periodo: null, map: out };
+  }
+
+  return {
+    periodo: {
+      id_periodo: periodo.id_periodo,
+      ano: periodo.ano,
+      mes: periodo.mes,
+      titulo: periodo.titulo,
+    },
+    map: out,
+  };
+}
+
 function classificarLoja({
   nota,
+  diasSemVisita,
   ncsAbertas,
   ncsCriticas,
   chamadosAbertos,
+  chamadosUrgentes,
+  chamadosSla,
   cmvPct,
   cmvConfiavel,
   metaPct,
+  metas,
 }) {
   let score = 0;
   const motivos = [];
 
   if (nota == null || Number.isNaN(nota) || nota <= 0) {
-    score += 10;
+    score += 15;
     motivos.push('Sem visita finalizada');
   } else if (nota < 60) {
     score += 50;
@@ -139,25 +244,44 @@ function classificarLoja({
     score += 30;
     motivos.push(`Nota baixa ${nota.toFixed(1)}`);
   } else if (nota < 80) {
-    score += 10;
+    score += 12;
     motivos.push(`Nota ${nota.toFixed(1)} (abaixo de 80)`);
   }
 
+  if (diasSemVisita != null && diasSemVisita >= 45) {
+    score += 20;
+    motivos.push(`Sem visita há ${diasSemVisita} dias`);
+  } else if (diasSemVisita != null && diasSemVisita >= 30) {
+    score += 10;
+    motivos.push(`Última visita há ${diasSemVisita} dias`);
+  }
+
   if (ncsCriticas > 0) {
-    score += 40;
+    score += 40 + Math.min(ncsCriticas - 1, 5) * 4;
     motivos.push(
       ncsCriticas === 1 ? '1 NC crítica' : `${ncsCriticas} NCs críticas`,
     );
-  }
-  if (ncsAbertas > 0) {
-    score += Math.min(ncsAbertas, 3) * 8;
-    if (ncsCriticas === 0) {
-      motivos.push(ncsAbertas === 1 ? '1 NC aberta' : `${ncsAbertas} NCs abertas`);
-    }
+  } else if (ncsAbertas > 0) {
+    score += Math.min(ncsAbertas, 4) * 8;
+    motivos.push(ncsAbertas === 1 ? '1 NC aberta' : `${ncsAbertas} NCs abertas`);
   }
 
-  if (chamadosAbertos > 0) {
-    score += Math.min(chamadosAbertos, 3) * 10;
+  if (chamadosSla > 0) {
+    score += 35;
+    motivos.push(
+      chamadosSla === 1
+        ? '1 chamado com SLA estourado'
+        : `${chamadosSla} chamados com SLA estourado`,
+    );
+  } else if (chamadosUrgentes > 0) {
+    score += 18;
+    motivos.push(
+      chamadosUrgentes === 1
+        ? '1 chamado urgente'
+        : `${chamadosUrgentes} chamados urgentes`,
+    );
+  } else if (chamadosAbertos > 0) {
+    score += Math.min(chamadosAbertos, 3) * 8;
     motivos.push(
       chamadosAbertos === 1
         ? '1 chamado aberto'
@@ -167,8 +291,25 @@ function classificarLoja({
 
   if (cmvConfiavel && cmvPct != null && cmvPct > metaPct) {
     const gap = Math.round((cmvPct - metaPct) * 10) / 10;
-    score += 25 + Math.min(gap * 2, 20);
+    score += 25 + Math.min(gap * 2, 25);
     motivos.push(`CMV ${cmvPct.toFixed(1)}% (meta ${metaPct}%)`);
+  }
+
+  if (metas?.tem_dados) {
+    if (metas.falhou > 0) {
+      score += 15 + Math.min(metas.falhou, 4) * 5;
+      motivos.push(
+        metas.falhou === 1
+          ? '1 meta em X'
+          : `${metas.falhou} metas em X`,
+      );
+    }
+    if (metas.pct_atingido != null && metas.pct_atingido < 50 && metas.indicadores >= 2) {
+      score += 12;
+      if (!motivos.some((m) => m.includes('meta'))) {
+        motivos.push(`Metas ${metas.pct_atingido}% atingidas`);
+      }
+    }
   }
 
   let nivel = 'ok';
@@ -177,7 +318,7 @@ function classificarLoja({
 
   if (!motivos.length) motivos.push('Operação estável');
 
-  return { score, nivel, motivos: motivos.slice(0, 4) };
+  return { score, nivel, motivos: motivos.slice(0, 5) };
 }
 
 /**
@@ -201,7 +342,11 @@ export async function listarSaudeLojas(user) {
       l.ultima_visita,
       COALESCE(nc.ncs_abertas, 0)::int AS ncs_abertas,
       COALESCE(nc.ncs_criticas, 0)::int AS ncs_criticas,
-      COALESCE(ch.chamados_abertos, 0)::int AS chamados_abertos
+      COALESCE(ch.chamados_abertos, 0)::int AS chamados_abertos,
+      COALESCE(ch.chamados_urgentes, 0)::int AS chamados_urgentes,
+      COALESCE(ch.chamados_sla, 0)::int AS chamados_sla,
+      COALESCE(vm.visitas_mes, 0)::int AS visitas_mes,
+      reg.regiao_nome
     FROM lojas l
     LEFT JOIN (
       SELECT
@@ -216,11 +361,32 @@ export async function listarSaudeLojas(user) {
     LEFT JOIN (
       SELECT
         c.id_loja,
-        COUNT(*)::int AS chamados_abertos
+        COUNT(*)::int AS chamados_abertos,
+        COUNT(*) FILTER (
+          WHERE c.urgencia::text IN ('alta', 'critica')
+        )::int AS chamados_urgentes,
+        COUNT(*) FILTER (
+          WHERE c.prazo_sla IS NOT NULL AND c.prazo_sla < NOW()
+        )::int AS chamados_sla
       FROM manut_chamados c
       WHERE c.status::text NOT IN ('concluido', 'cancelado')
       GROUP BY c.id_loja
     ) ch ON ch.id_loja = l.id_loja
+    LEFT JOIN (
+      SELECT id_loja, COUNT(*)::int AS visitas_mes
+      FROM visitas
+      WHERE data_visita >= date_trunc('month', CURRENT_DATE)::date
+        AND status = 'Finalizada'
+      GROUP BY id_loja
+    ) vm ON vm.id_loja = l.id_loja
+    LEFT JOIN LATERAL (
+      SELECT r.nome AS regiao_nome
+      FROM frota_regiao_lojas rl
+      JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
+      WHERE rl.id_loja = l.id_loja
+      ORDER BY r.nome
+      LIMIT 1
+    ) reg ON TRUE
     WHERE l.is_active = TRUE
       AND l.bk_number IS NOT NULL
       ${filtro}
@@ -230,37 +396,45 @@ export async function listarSaudeLojas(user) {
   );
 
   const ids = rows.map((r) => Number(r.id_loja));
-  let cmvMap = new Map();
-  try {
-    cmvMap = await cmvMesPorLojas(ids, { de, ate, meta: META_CMV });
-  } catch {
-    // Estoque pode não estar disponível em algum ambiente — saúde segue sem CMV
-    cmvMap = new Map();
-  }
+
+  const [cmvMap, metasPack] = await Promise.all([
+    cmvMesPorLojas(ids, { de, ate, meta: META_CMV }).catch(() => new Map()),
+    metasPorLojas(ids),
+  ]);
 
   const lojas = rows.map((r) => {
     const id = Number(r.id_loja);
     const notaRaw = r.nota_atual != null ? num(r.nota_atual) : null;
     const nota =
       r.ultima_visita && notaRaw != null && notaRaw > 0 ? notaRaw : null;
+    const diasSemVisita = diasEntre(r.ultima_visita);
     const ncsAbertas = Number(r.ncs_abertas) || 0;
     const ncsCriticas = Number(r.ncs_criticas) || 0;
     const chamadosAbertos = Number(r.chamados_abertos) || 0;
+    const chamadosUrgentes = Number(r.chamados_urgentes) || 0;
+    const chamadosSla = Number(r.chamados_sla) || 0;
+    const visitasMes = Number(r.visitas_mes) || 0;
     const cmv = cmvMap.get(id) || {
       cmv_teorico_pct: null,
       meta_pct: META_CMV * 100,
       cmv_confiavel: false,
       cobertura_custo_pct: 0,
+      venda_liquida: null,
     };
+    const metas = metasPack.map.get(id) || null;
 
     const { score, nivel, motivos } = classificarLoja({
       nota,
+      diasSemVisita,
       ncsAbertas,
       ncsCriticas,
       chamadosAbertos,
+      chamadosUrgentes,
+      chamadosSla,
       cmvPct: cmv.cmv_teorico_pct,
       cmvConfiavel: cmv.cmv_confiavel,
       metaPct: cmv.meta_pct,
+      metas,
     });
 
     return {
@@ -269,14 +443,32 @@ export async function listarSaudeLojas(user) {
       bk_number: r.bk_number,
       city: r.city,
       neighborhood: r.neighborhood,
+      regiao: r.regiao_nome || null,
       nota_atual: nota,
       ultima_visita: r.ultima_visita,
+      dias_sem_visita: diasSemVisita,
+      visitas_mes: visitasMes,
       ncs_abertas: ncsAbertas,
       ncs_criticas: ncsCriticas,
       chamados_abertos: chamadosAbertos,
+      chamados_urgentes: chamadosUrgentes,
+      chamados_sla_estourado: chamadosSla,
       cmv_teorico_pct: cmv.cmv_teorico_pct,
       cmv_meta_pct: cmv.meta_pct,
       cmv_confiavel: cmv.cmv_confiavel,
+      cmv_cobertura_pct: cmv.cobertura_custo_pct ?? null,
+      metas: metas
+        ? {
+            ok: metas.ok,
+            falhou: metas.falhou,
+            pendentes: metas.pendentes,
+            indicadores: metas.indicadores,
+            meta_peso: metas.meta_peso,
+            realizado_peso: metas.realizado_peso,
+            pct_atingido: metas.pct_atingido,
+            tem_dados: metas.tem_dados,
+          }
+        : null,
       nivel,
       score,
       motivos,
@@ -296,10 +488,20 @@ export async function listarSaudeLojas(user) {
     criticas: lojas.filter((l) => l.nivel === 'critica').length,
     atencao: lojas.filter((l) => l.nivel === 'atencao').length,
     ok: lojas.filter((l) => l.nivel === 'ok').length,
+    com_nc: lojas.filter((l) => l.ncs_abertas > 0).length,
+    com_chamado: lojas.filter((l) => l.chamados_abertos > 0).length,
+    cmv_alto: lojas.filter(
+      (l) =>
+        l.cmv_confiavel &&
+        l.cmv_teorico_pct != null &&
+        l.cmv_teorico_pct > l.cmv_meta_pct,
+    ).length,
+    metas_atrasadas: lojas.filter((l) => (l.metas?.falhou || 0) > 0).length,
   };
 
   return {
     periodo: { de, ate },
+    metas_periodo: metasPack.periodo,
     resumo,
     lojas,
   };

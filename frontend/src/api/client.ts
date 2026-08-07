@@ -1284,20 +1284,38 @@ export interface DashboardData {
 
 export type SaudeLojaNivel = 'critica' | 'atencao' | 'ok';
 
+export interface SaudeLojaMetas {
+  ok: number;
+  falhou: number;
+  pendentes: number;
+  indicadores: number;
+  meta_peso: number;
+  realizado_peso: number;
+  pct_atingido: number | null;
+  tem_dados: boolean;
+}
+
 export interface SaudeLoja {
   id_loja: number;
   name: string;
   bk_number: string | null;
   city: string | null;
   neighborhood: string | null;
+  regiao: string | null;
   nota_atual: number | null;
   ultima_visita: string | null;
+  dias_sem_visita: number | null;
+  visitas_mes: number;
   ncs_abertas: number;
   ncs_criticas: number;
   chamados_abertos: number;
+  chamados_urgentes: number;
+  chamados_sla_estourado: number;
   cmv_teorico_pct: number | null;
   cmv_meta_pct: number;
   cmv_confiavel: boolean;
+  cmv_cobertura_pct: number | null;
+  metas: SaudeLojaMetas | null;
   nivel: SaudeLojaNivel;
   score: number;
   motivos: string[];
@@ -1305,11 +1323,21 @@ export interface SaudeLoja {
 
 export interface DashboardSaudeLojasData {
   periodo: { de: string; ate: string };
+  metas_periodo: {
+    id_periodo: number;
+    ano: number;
+    mes: number;
+    titulo: string | null;
+  } | null;
   resumo: {
     total: number;
     criticas: number;
     atencao: number;
     ok: number;
+    com_nc: number;
+    com_chamado: number;
+    cmv_alto: number;
+    metas_atrasadas: number;
   };
   lojas: SaudeLoja[];
 }

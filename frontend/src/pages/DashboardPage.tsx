@@ -26,19 +26,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     api.dashboard().then(setData).catch((e) => setErr(e.message));
-  }, []);
-
-  useEffect(() => {
-    if (modo !== 'loja') return;
-    if (saude) return;
+    // Pré-carrega ficha por loja em paralelo
     setLoadingSaude(true);
-    setErrSaude('');
     api
       .dashboardSaudeLojas()
       .then(setSaude)
       .catch((e) => setErrSaude(e.message || 'Não foi possível carregar a saúde das lojas.'))
       .finally(() => setLoadingSaude(false));
-  }, [modo, saude]);
+  }, []);
 
   if (err) return <Typography color="error">{err}</Typography>;
   if (!data) return <LinearProgress />;
@@ -102,9 +97,15 @@ export default function DashboardPage() {
           <ToggleButton value="loja">Por loja</ToggleButton>
         </ToggleButtonGroup>
 
-        {modo === 'loja' && saude && (
-          <Typography variant="caption" color="text.secondary">
+        {saude && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ cursor: modo === 'rede' ? 'pointer' : 'default' }}
+            onClick={() => modo === 'rede' && setModo('loja')}
+          >
             {saude.resumo.criticas} críticas · {saude.resumo.atencao} atenção · {saude.resumo.ok} ok
+            {modo === 'rede' ? ' → ver por loja' : ''}
           </Typography>
         )}
       </Box>
@@ -112,6 +113,40 @@ export default function DashboardPage() {
       {modo === 'rede' ? (
         <>
           <DashboardMetricCards metricas={m} />
+
+          {saude && saude.resumo.criticas + saude.resumo.atencao > 0 && (
+            <Box
+              onClick={() => setModo('loja')}
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 1,
+                px: 2,
+                py: 1.25,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'rgba(232, 82, 10, 0.35)',
+                bgcolor: 'rgba(232, 82, 10, 0.06)',
+                cursor: 'pointer',
+                '&:hover': { bgcolor: 'rgba(232, 82, 10, 0.1)' },
+              }}
+            >
+              <Typography sx={{ fontWeight: 700, color: colors.navy, fontSize: '0.9rem' }}>
+                {saude.resumo.criticas + saude.resumo.atencao} lojas precisam de ação
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                CMV alto: {saude.resumo.cmv_alto ?? 0} · metas em X: {saude.resumo.metas_atrasadas ?? 0} ·
+                com NC: {saude.resumo.com_nc ?? 0}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ ml: 'auto', fontWeight: 700, color: colors.orange }}
+              >
+                Abrir por loja →
+              </Typography>
+            </Box>
+          )}
 
           <Grid container spacing={{ xs: 1.5, sm: 2, lg: 2.5 }} sx={{ alignItems: 'stretch' }}>
             <Grid size={{ xs: 12, lg: 7 }}>
@@ -133,9 +168,9 @@ export default function DashboardPage() {
             </Grid>
           </Grid>
         </>
-      ) : loadingSaude ? (
+      ) : loadingSaude && !saude ? (
         <LinearProgress />
-      ) : errSaude ? (
+      ) : errSaude && !saude ? (
         <Typography color="error">{errSaude}</Typography>
       ) : saude ? (
         <DashboardSaudeLojas data={saude} idLojaFoco={idLojaFoco} />
