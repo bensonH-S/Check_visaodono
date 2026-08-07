@@ -14,18 +14,20 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import BrandLogo from '../components/BrandLogo';
-import AppFooter from '../components/AppFooter';
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
 import { setSessao, logout } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { normalizeAppRoute } from '../config/paths';
+import { useAppConfig } from '../hooks/useAppConfig';
+import { assetUrl, normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
 import { APP_NAME, APP_TAGLINE } from '../config/brand';
 
-const PAGE_BG = '#f5f5f3';
+const FUNDO_LOGIN = `${assetUrl('Fundo_Principal.png')}?v=fill-ok`;
+const PAGE_BG = '#e8e8e8';
 const NAVY = '#1B2A6B';
 const FEATURES = APP_TAGLINE.split(' · ');
+const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
 
 const loginFieldSx = {
   '& .MuiOutlinedInput-root': { minHeight: { xs: 40, sm: 42 } },
@@ -47,7 +49,10 @@ const ERROS_CONHECIDOS = [
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { version, environment } = useAppConfig();
   const from = normalizeAppRoute((location.state as { from?: string })?.from || '/dashboard');
+  const versionLabel =
+    version === 'dev' ? 'dev' : version.startsWith('v') ? version : `v${version}`;
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -109,24 +114,57 @@ export default function LoginPage() {
   return (
     <Box
       sx={{
+        position: 'relative',
+        width: '100%',
+        minHeight: '100svh',
         height: '100%',
-        minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         overflow: 'hidden',
         bgcolor: PAGE_BG,
+        px: { xs: 1, sm: 1.5 },
+        py: { xs: 1.5, sm: 2 },
       }}
     >
       <Box
+        component="img"
+        src={FUNDO_LOGIN}
+        alt=""
+        aria-hidden
         sx={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
+          position: 'absolute',
+          inset: 0,
+          zIndex: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'fill',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          display: 'block',
+        }}
+      />
+      <Box
+        aria-hidden
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 0,
+          bgcolor: 'rgba(27, 42, 107, 0.12)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          px: { xs: 1, sm: 1.25 },
-          py: { xs: 1.5, sm: 2 },
+          pb: { xs: 2.5, sm: 3 },
         }}
       >
         <Paper
@@ -135,10 +173,13 @@ export default function LoginPage() {
             width: '100%',
             maxWidth: { xs: 340, sm: 360, md: 380 },
             border: '1px solid',
-            borderColor: 'divider',
+            borderColor: 'rgba(27, 42, 107, 0.12)',
             borderRadius: { xs: 1.5, sm: 2 },
             textAlign: 'center',
             overflow: 'hidden',
+            bgcolor: 'rgba(255, 255, 255, 0.94)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 18px 48px rgba(27, 42, 107, 0.12)',
           }}
         >
           <Box
@@ -353,7 +394,39 @@ export default function LoginPage() {
         </Paper>
       </Box>
 
-      <AppFooter compact />
+      <Box
+        component="footer"
+        sx={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 2,
+          flexShrink: 0,
+          px: 1.5,
+          py: 0.45,
+          textAlign: 'center',
+          bgcolor: 'transparent',
+          pointerEvents: 'none',
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: '0.58rem',
+            fontWeight: 500,
+            color: 'rgba(27, 42, 107, 0.5)',
+            letterSpacing: '0.02em',
+            lineHeight: 1.3,
+            textShadow: '0 0 8px rgba(243, 241, 248, 0.9)',
+          }}
+        >
+          {COPYRIGHT}
+          <Box component="span" sx={{ mx: 0.6, opacity: 0.5 }}>
+            ·
+          </Box>
+          {versionLabel} · {environment}
+        </Typography>
+      </Box>
 
       <Snackbar
         open={!!toast}

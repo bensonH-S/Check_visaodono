@@ -9,8 +9,8 @@ import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import Box from '@mui/material/Box';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { Activity } from 'lucide-react';
 import { iniciaisUsuario, type UsuarioSessao } from '../lib/auth';
 import { assetUrl, LOGO_ALVIM_ICONE, toAppPath } from '../config/paths';
 import { getFotoPerfil } from '../utils/fotoPerfil';
@@ -149,15 +149,6 @@ export default function MobileUsuarioMenu({
           },
         }}
       >
-        <MenuItem onClick={abrirStatusApi}>
-          <ListItemIcon>
-            <DnsOutlinedIcon fontSize="small" sx={{ color: NAVY }} />
-          </ListItemIcon>
-          <ListItemText
-            primary="Status API"
-            slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600 } } }}
-          />
-        </MenuItem>
         <MenuItem
           onClick={() => {
             fecharMenu();
@@ -169,7 +160,16 @@ export default function MobileUsuarioMenu({
           </ListItemIcon>
           <ListItemText
             primary="Sobre"
-            slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600 } } }}
+            slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600, color: NAVY } } }}
+          />
+        </MenuItem>
+        <MenuItem onClick={abrirStatusApi}>
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <Activity size={18} strokeWidth={2} color={NAVY} aria-hidden />
+          </ListItemIcon>
+          <ListItemText
+            primary="Status API"
+            slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600, color: NAVY } } }}
           />
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />

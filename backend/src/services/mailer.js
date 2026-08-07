@@ -36,6 +36,29 @@ function createTransporter() {
   return { transporter: nodemailer.createTransport(transportConfig), host, service, user };
 }
 
+/** Probe SMTP (login/verify) para Status API. */
+export async function verifySmtp(timeoutMs = 5000) {
+  if (!smtpConfigurado()) {
+    return { ok: false, configured: false, detail: 'N/A' };
+  }
+  const { transporter, host, service } = createTransporter();
+  const verifyPromise = transporter.verify();
+  const timeout = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Timeout SMTP')), timeoutMs);
+  });
+  try {
+    await Promise.race([verifyPromise, timeout]);
+    return {
+      ok: true,
+      configured: true,
+      detail: host ? `SMTP OK (${host})` : `SMTP OK (${service})`,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: false, configured: true, detail: msg.slice(0, 120) };
+  }
+}
+
 async function sendWithTransport(mailOptions) {
   const { transporter, host, service } = createTransporter();
   try {

@@ -35,7 +35,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Hero compacto, com um pouco mais de respiro abaixo da logo */
+/* Hero com ilustração do sistema (Fundo_Principal) */
 .ck-login__stage {
   position: relative;
   overflow: hidden;
@@ -48,44 +48,24 @@
     calc(104px + env(safe-area-inset-top, 0px))
     var(--ck-pad-x)
     48px;
-  background: linear-gradient(155deg, var(--ck-navy-deep) 0%, var(--ck-navy) 52%, #243987 100%);
-  color: #fff;
+  background-color: #f3f1f8;
+  /* Cresce na horizontal; altura acompanha a proporção (não estica para cima/baixo) */
+  background-size: 100% auto;
+  background-position: center center;
+  background-repeat: no-repeat;
+  color: var(--ck-navy);
 }
 
-.ck-login__glow--a {
-  position: absolute;
-  width: 260px;
-  height: 260px;
-  top: -70px;
-  right: -50px;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(232, 82, 10, 0.5) 0%, transparent 68%);
-  filter: blur(8px);
-}
-
-.ck-login__glow--b {
-  position: absolute;
-  width: 200px;
-  height: 200px;
-  bottom: -60px;
-  left: -50px;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 70%);
-  filter: blur(8px);
-}
-
-.ck-login__mesh {
+.ck-login__stage-veil {
   position: absolute;
   inset: 0;
-  opacity: 0.14;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
-  background-size: 28px 28px;
-  mask-image: linear-gradient(180deg, #000 15%, transparent 92%);
+  background: linear-gradient(
+    180deg,
+    rgba(243, 241, 248, 0.25) 0%,
+    rgba(243, 241, 248, 0.55) 55%,
+    rgba(243, 241, 248, 0.82) 100%
+  );
 }
 
 .ck-login__logo {
@@ -96,7 +76,7 @@
   width: clamp(92px, 26vw, 112px);
   height: clamp(92px, 26vw, 112px);
   object-fit: contain;
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 6px 16px rgba(27, 42, 107, 0.18));
 }
 
 .ck-login__stage-inner {
@@ -114,7 +94,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  opacity: 0.78;
+  color: rgba(27, 42, 107, 0.65);
 }
 
 .ck-login__title {
@@ -124,6 +104,7 @@
   font-weight: 700;
   line-height: 1.02;
   letter-spacing: -0.03em;
+  color: var(--ck-navy);
 }
 
 .ck-login__sub {
@@ -131,7 +112,7 @@
   font-size: 0.88rem;
   font-weight: 500;
   line-height: 1.45;
-  opacity: 0.82;
+  color: rgba(27, 42, 107, 0.78);
   max-width: 22em;
 }
 
@@ -232,11 +213,16 @@
 .ck-login__footer {
   flex-shrink: 0;
   text-align: center;
-  padding: 10px 0 calc(8px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid rgba(27, 42, 107, 0.08);
-  font-size: 0.625rem;
-  line-height: 1.45;
-  color: rgba(20, 32, 72, 0.45);
+  margin-top: 8px;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: 0.58rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: rgba(27, 42, 107, 0.4);
 }
 
 @media (max-height: 700px) {

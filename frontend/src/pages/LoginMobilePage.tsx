@@ -120,10 +120,16 @@ export default function LoginMobilePage() {
   return (
     <Box className="ck-login" sx={{ ...MOBILE_VIEWPORT, height: '100%' }}>
       <div className="ck-login__scroll">
-        <div className="ck-login__stage">
-          <div className="ck-login__glow--a" aria-hidden />
-          <div className="ck-login__glow--b" aria-hidden />
-          <div className="ck-login__mesh" aria-hidden />
+        <div
+          className="ck-login__stage"
+          style={{
+            backgroundImage: `url(${assetUrl('Fundo_Principal.png')}?v=grow-x)`,
+            backgroundSize: '100% auto',
+            backgroundPosition: 'center center',
+            backgroundRepeat: 'no-repeat',
+          }}
+        >
+          <div className="ck-login__stage-veil" aria-hidden />
 
           <img
             src={assetUrl(LOGO_ALVIM_ICONE)}

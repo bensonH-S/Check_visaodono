@@ -26,6 +26,8 @@ export type IntegrationStatusItem = {
   name: string;
   online: boolean;
   detail: string;
+  /** false = não configurada no .env (mostra N/A) */
+  configured?: boolean;
 };
 
 export type IntegrationStatusGroup = {
@@ -100,6 +102,8 @@ export const api = {
     if (params?.contexto) q.set('contexto', params.contexto);
     const suffix = q.toString() ? `?${q}` : '';
     return request<{
+      success?: boolean;
+      checked_at?: string;
       items: IntegrationStatusItem[];
       groups: IntegrationStatusGroup[];
       hasIntegrations: boolean;

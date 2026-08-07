@@ -1,9 +1,21 @@
 /**
  * Status das APIs externas por página/módulo (sem expor segredos).
+ * Checks em paralelo (Promise.all) com o mesmo shape: { id, name, online, configured, detail }.
  */
+import { pool } from './db.js';
 import { fulltrackStatus } from './services/fulltrackFleet.js';
-import { smtpConfigurado } from './services/mailer.js';
+import { smtpConfigurado, verifySmtp } from './services/mailer.js';
 import { wppEnabled, gerarTokenWpp, verificarConexaoWpp } from './services/wppClient.js';
+import { obterSaudeVapidPublica } from './pushNotifications.js';
+
+function withTimeout(promise, ms, label = 'Timeout') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(label)), ms);
+    }),
+  ]);
+}
 
 function freecontrolBaseUrl() {
   return String(process.env.FREECONTROL_API_URL || '')
@@ -42,6 +54,27 @@ async function probeUrl(url, { headers, timeoutMs = 3500 } = {}) {
   }
 }
 
+async function statusPostgres() {
+  try {
+    await withTimeout(pool.query('SELECT 1'), 4000, 'Timeout PostgreSQL');
+    return {
+      id: 'postgres',
+      name: 'PostgreSQL',
+      online: true,
+      configured: true,
+      detail: 'Conectado',
+    };
+  } catch (e) {
+    return {
+      id: 'postgres',
+      name: 'PostgreSQL',
+      online: false,
+      configured: true,
+      detail: e instanceof Error ? e.message.slice(0, 120) : 'Indisponível',
+    };
+  }
+}
+
 async function statusFreeControl() {
   const base = freecontrolBaseUrl();
   const token = freecontrolToken();
@@ -50,8 +83,8 @@ async function statusFreeControl() {
       id: 'freecontrol',
       name: 'FreeControl',
       online: false,
-      detail: 'Não configurada',
-      configurada: false,
+      detail: 'N/A',
+      configured: false,
     };
   }
   const probe = await probeUrl(base, {
@@ -65,7 +98,7 @@ async function statusFreeControl() {
     name: 'FreeControl',
     online: probe.online,
     detail: probe.online ? 'Conectada' : 'Indisponível',
-    configurada: true,
+    configured: true,
   };
 }
 
@@ -75,8 +108,8 @@ async function statusWhatsApp() {
       id: 'whatsapp',
       name: 'WhatsApp',
       online: false,
-      detail: 'Desabilitado',
-      configurada: false,
+      detail: 'N/A',
+      configured: false,
     };
   }
   try {
@@ -87,7 +120,7 @@ async function statusWhatsApp() {
       name: 'WhatsApp',
       online: conectado,
       detail: conectado ? 'Sessão conectada' : 'Sessão desconectada',
-      configurada: true,
+      configured: true,
     };
   } catch {
     const host = (process.env.WPP_HOST || 'http://localhost').replace(/\/$/, '');
@@ -98,7 +131,7 @@ async function statusWhatsApp() {
       name: 'WhatsApp',
       online: false,
       detail: probe.online ? 'Serviço sem sessão' : 'Serviço indisponível',
-      configurada: true,
+      configured: true,
     };
   }
 }
@@ -110,8 +143,8 @@ async function statusFullTrack() {
       id: 'fulltrack',
       name: 'FullTrack',
       online: false,
-      detail: st.motivo === 'desabilitado_por_env' ? 'Desabilitada' : 'Não configurada',
-      configurada: false,
+      detail: 'N/A',
+      configured: false,
     };
   }
   const apiKey = String(
@@ -133,7 +166,7 @@ async function statusFullTrack() {
       name: 'FullTrack',
       online: res.ok,
       detail: res.ok ? 'Rastreamento online' : `HTTP ${res.status}`,
-      configurada: true,
+      configured: true,
     };
   } catch {
     return {
@@ -141,7 +174,7 @@ async function statusFullTrack() {
       name: 'FullTrack',
       online: false,
       detail: 'Indisponível',
-      configurada: true,
+      configured: true,
     };
   } finally {
     clearTimeout(t);
@@ -154,16 +187,38 @@ async function statusSmtp() {
       id: 'smtp',
       name: 'E-mail (SMTP)',
       online: false,
-      detail: 'Não configurado',
-      configurada: false,
+      detail: 'N/A',
+      configured: false,
     };
   }
+  const r = await verifySmtp(5000);
   return {
     id: 'smtp',
     name: 'E-mail (SMTP)',
-    online: true,
-    detail: 'Configurado',
-    configurada: true,
+    online: r.ok,
+    detail: r.detail,
+    configured: r.configured,
+  };
+}
+
+async function statusWebPush() {
+  const saude = obterSaudeVapidPublica();
+  const configured = Boolean(saude.pushEnabled);
+  if (!configured) {
+    return {
+      id: 'webpush',
+      name: 'Web Push',
+      online: false,
+      detail: 'N/A',
+      configured: false,
+    };
+  }
+  return {
+    id: 'webpush',
+    name: 'Web Push',
+    online: Boolean(saude.vapidAtivo),
+    detail: saude.vapidAtivo ? 'VAPID ativo' : 'VAPID inválida',
+    configured: true,
   };
 }
 
@@ -173,10 +228,11 @@ async function statusBkOffice() {
       id: 'bkoffice',
       name: 'BK Office',
       online: false,
-      detail: 'Não configurada',
-      configurada: false,
+      detail: 'N/A',
+      configured: false,
     };
   }
+<<<<<<< HEAD
   try {
     const { getBkOfficeStatus } = await import('./services/bkoffice/syncVendas.js');
     const st = getBkOfficeStatus();
@@ -206,6 +262,15 @@ async function statusBkOffice() {
       configurada: true,
     };
   }
+=======
+  return {
+    id: 'bkoffice',
+    name: 'BK Office',
+    online: true,
+    detail: 'Configurada',
+    configured: true,
+  };
+>>>>>>> 99b8bb8 (FIX: Melhoria no UI/UX e ajuste no status API)
 }
 
 async function statusInfoSimples() {
@@ -213,24 +278,30 @@ async function statusInfoSimples() {
   if (!token) {
     return {
       id: 'infosimples',
-      name: 'InfoSimples (Detran)',
+      name: 'InfoSimples (Detran/Sefaz)',
       online: false,
-      detail: 'Não configurada (Token ausente)',
-      configurada: false,
+      detail: 'N/A',
+      configured: false,
     };
   }
   const probe = await probeUrl('https://api.infosimples.com/');
   return {
     id: 'infosimples',
-    name: 'InfoSimples (Detran)',
+    name: 'InfoSimples (Detran/Sefaz)',
     online: probe.online,
-    detail: probe.online ? 'Conectada (Pronta para consultas)' : 'Indisponível',
-    configurada: true,
+    detail: probe.online ? 'Conectada (pronta para consultas)' : 'Indisponível',
+    configured: true,
   };
 }
 
 /** Páginas e as APIs externas que cada uma usa. */
 const PAGINAS = [
+  {
+    id: 'sistema',
+    name: 'Infraestrutura',
+    paths: [],
+    apis: ['postgres', 'smtp', 'webpush'],
+  },
   {
     id: 'freela',
     name: 'Freelancers',
@@ -291,7 +362,7 @@ const PAGINAS = [
 export function integrationsConfiguradasPublico() {
   return {
     hasIntegrations: true,
-    integrations: PAGINAS.map((p) => ({ id: p.id, name: p.name })),
+    integrations: PAGINAS.filter((p) => p.id !== 'sistema').map((p) => ({ id: p.id, name: p.name })),
   };
 }
 
@@ -301,24 +372,50 @@ function resolverContexto(contexto) {
   return PAGINAS.find((p) => p.id === c) || null;
 }
 
+function toPublicApi(svc) {
+  return {
+    id: svc.id,
+    name: svc.name,
+    online: Boolean(svc.online),
+    configured: svc.configured !== false,
+    detail: svc.configured === false ? 'N/A' : svc.detail,
+  };
+}
+
 /**
  * @param {{ contexto?: string }} opts
  * contexto = id da página (freela, mapa, …). Sem contexto → todas as páginas.
  */
 export async function obterIntegrationsStatus(opts = {}) {
-  const [freecontrol, whatsapp, fulltrack, smtp, bkoffice, infosimples] = await Promise.all([
-    statusFreeControl(),
-    statusWhatsApp(),
-    statusFullTrack(),
-    statusSmtp(),
-    statusBkOffice(),
-    statusInfoSimples(),
-  ]);
+  const checkedAt = new Date().toISOString();
 
-  const byId = { freecontrol, whatsapp, fulltrack, smtp, bkoffice, infosimples };
+  const [postgres, freecontrol, whatsapp, fulltrack, smtp, webpush, bkoffice, infosimples] =
+    await Promise.all([
+      statusPostgres(),
+      statusFreeControl(),
+      statusWhatsApp(),
+      statusFullTrack(),
+      statusSmtp(),
+      statusWebPush(),
+      statusBkOffice(),
+      statusInfoSimples(),
+    ]);
+
+  const byId = {
+    postgres,
+    freecontrol,
+    whatsapp,
+    fulltrack,
+    smtp,
+    webpush,
+    bkoffice,
+    infosimples,
+  };
 
   const paginaFiltro = resolverContexto(opts.contexto);
-  const paginas = paginaFiltro ? [paginaFiltro] : PAGINAS;
+  const paginas = paginaFiltro
+    ? [paginaFiltro]
+    : PAGINAS.filter((p) => p.id === 'sistema' || p.apis.length > 0);
 
   const groups = paginas
     .map((pagina) => {
@@ -326,13 +423,13 @@ export async function obterIntegrationsStatus(opts = {}) {
       return {
         id: pagina.id,
         name: pagina.name,
-        apis: lista.map(({ id, name, online, detail }) => ({ id, name, online, detail })),
+        apis: lista.map(toPublicApi),
       };
     })
-    // No hub: só páginas que têm API externa
     .filter((g) => (paginaFiltro ? true : g.apis.length > 0));
 
-  // Flat para compatibilidade (primeira API de cada grupo)
+  const services = Object.values(byId).map(toPublicApi);
+
   const items = groups.flatMap((g) =>
     g.apis.map((a) => ({
       ...a,
@@ -341,5 +438,22 @@ export async function obterIntegrationsStatus(opts = {}) {
     })),
   );
 
-  return { groups, items, hasIntegrations: true, contexto: paginaFiltro?.id || null };
+  const apiCore = toPublicApi({
+    id: 'api',
+    name: 'API Meridian',
+    online: postgres.online,
+    configured: true,
+    detail: postgres.online ? 'Online' : postgres.detail,
+  });
+
+  return {
+    success: true,
+    checked_at: checkedAt,
+    api: apiCore,
+    services,
+    groups,
+    items,
+    hasIntegrations: true,
+    contexto: paginaFiltro?.id || null,
+  };
 }

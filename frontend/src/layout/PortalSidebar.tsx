@@ -10,7 +10,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import LogoutIcon from '@mui/icons-material/Logout';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
+import { Activity } from 'lucide-react';
 import BrandLogo from '../components/BrandLogo';
 import SobreSistemaDialog from '../components/SobreSistemaDialog';
 import IntegrationsStatusDialog from '../components/IntegrationsStatusDialog';
@@ -246,15 +246,6 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
           },
         }}
       >
-        <MenuItem onClick={abrirStatusApi}>
-          <ListItemIcon>
-            <DnsOutlinedIcon fontSize="small" sx={{ color: colors.navy }} />
-          </ListItemIcon>
-          <ListItemText
-            primary="Status API"
-            slotProps={{ primary: { sx: { fontSize: '0.875rem', fontWeight: 600 } } }}
-          />
-        </MenuItem>
         <MenuItem
           onClick={() => {
             fecharMenu();
@@ -266,7 +257,16 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
           </ListItemIcon>
           <ListItemText
             primary="Sobre"
-            slotProps={{ primary: { sx: { fontSize: '0.875rem', fontWeight: 600 } } }}
+            slotProps={{ primary: { sx: { fontSize: '0.875rem', fontWeight: 600, color: colors.navy } } }}
+          />
+        </MenuItem>
+        <MenuItem onClick={abrirStatusApi}>
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <Activity size={18} strokeWidth={2} color={colors.navy} aria-hidden />
+          </ListItemIcon>
+          <ListItemText
+            primary="Status API"
+            slotProps={{ primary: { sx: { fontSize: '0.875rem', fontWeight: 600, color: colors.navy } } }}
           />
         </MenuItem>
       </Menu>
