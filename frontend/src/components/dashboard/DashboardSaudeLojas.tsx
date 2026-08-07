@@ -450,12 +450,14 @@ export default function DashboardSaudeLojas({
           placeholder="Buscar loja..."
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 18, color: colors.textMuted }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 18, color: colors.textMuted }} />
+                </InputAdornment>
+              ),
+            },
           }}
           sx={{
             minWidth: { xs: '100%', sm: 220 },
