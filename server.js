@@ -180,6 +180,16 @@ function garantirSchema() {
   pool
     .query('ALTER TABLE respostas ALTER COLUMN foto_url TYPE TEXT')
     .catch((e) => logger.warn('schema', e.message));
+  // Sequence atrás do MAX(id_resposta) → respostas_pkey ao salvar checklist
+  pool
+    .query(
+      `SELECT setval(
+         pg_get_serial_sequence('respostas', 'id_resposta'),
+         GREATEST(COALESCE((SELECT MAX(id_resposta) FROM respostas), 1), 1),
+         true
+       )`,
+    )
+    .catch((e) => logger.warn('schema', e.message));
 }
 
 const api = express.Router();
