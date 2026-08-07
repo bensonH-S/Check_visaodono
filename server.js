@@ -176,20 +176,26 @@ app.use(cors());
 app.use(express.json({ limit: '80mb' }));
 app.use(middlewareHttpLogger());
 
+function realinharSequence(tabela, coluna) {
+  return pool
+    .query(
+      `SELECT setval(
+         pg_get_serial_sequence($1, $2),
+         GREATEST(COALESCE((SELECT MAX(${coluna}) FROM ${tabela}), 1), 1),
+         true
+       )`,
+      [tabela, coluna],
+    )
+    .catch((e) => logger.warn('schema', e.message));
+}
+
 function garantirSchema() {
   pool
     .query('ALTER TABLE respostas ALTER COLUMN foto_url TYPE TEXT')
     .catch((e) => logger.warn('schema', e.message));
-  // Sequence atrás do MAX(id_resposta) → respostas_pkey ao salvar checklist
-  pool
-    .query(
-      `SELECT setval(
-         pg_get_serial_sequence('respostas', 'id_resposta'),
-         GREATEST(COALESCE((SELECT MAX(id_resposta) FROM respostas), 1), 1),
-         true
-       )`,
-    )
-    .catch((e) => logger.warn('schema', e.message));
+  // Sequences atrás do MAX → *_pkey ao salvar/finalizar checklist
+  realinharSequence('respostas', 'id_resposta');
+  realinharSequence('nao_conformidades', 'id_nc');
 }
 
 const api = express.Router();

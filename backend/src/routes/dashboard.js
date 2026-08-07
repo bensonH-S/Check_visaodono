@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { SQL_NC_CHECKLIST_FINALIZADO } from '../naoConformidadesChecklist.js';
+import { listarSaudeLojas } from '../services/dashboardSaudeLojas.js';
 
 const router = Router();
 
@@ -71,6 +72,16 @@ router.get('/ranking', async (_req, res, next) => {
       ORDER BY r.posicao_ranking
     `);
     res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Ficha por loja: nota + NCs + chamados + CMV do mês (priorizado). */
+router.get('/saude-lojas', async (req, res, next) => {
+  try {
+    const data = await listarSaudeLojas(req.user);
+    res.json(data);
   } catch (e) {
     next(e);
   }

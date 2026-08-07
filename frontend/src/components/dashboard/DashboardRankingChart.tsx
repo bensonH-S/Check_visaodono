@@ -10,7 +10,13 @@ import type { RankingLoja } from '../../api/client';
 import { fmtNota, notaChipSx } from '../../api/client';
 import { dashboardPanelSx, dashboardPanelTitleSx, colors, notaBarColor, rankBadgeSx } from './dashboardCharts';
 
-export default function DashboardRankingChart({ ranking }: { ranking: RankingLoja[] }) {
+export default function DashboardRankingChart({
+  ranking,
+  onLojaClick,
+}: {
+  ranking: RankingLoja[];
+  onLojaClick?: (idLoja: number) => void;
+}) {
   const ordenado = [...ranking].sort((a, b) => a.posicao_ranking - b.posicao_ranking);
 
   return (
@@ -32,6 +38,7 @@ export default function DashboardRankingChart({ ranking }: { ranking: RankingLoj
             return (
               <Box
                 key={r.id_loja}
+                onClick={onLojaClick ? () => onLojaClick(r.id_loja) : undefined}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
@@ -40,6 +47,11 @@ export default function DashboardRankingChart({ ranking }: { ranking: RankingLoj
                   px: 0.5,
                   borderBottom: '1px solid',
                   borderColor: 'divider',
+                  cursor: onLojaClick ? 'pointer' : 'default',
+                  borderRadius: 1,
+                  '&:hover': onLojaClick
+                    ? { bgcolor: 'rgba(27, 42, 107, 0.04)' }
+                    : undefined,
                   '&:last-of-type': { borderBottom: 'none' },
                 }}
               >

@@ -122,6 +122,7 @@ export const api = {
 
   dashboard: () => request<DashboardData>('/dashboard'),
   ranking: () => request<RankingLoja[]>('/dashboard/ranking'),
+  dashboardSaudeLojas: () => request<DashboardSaudeLojasData>('/dashboard/saude-lojas'),
   lojas: (params?: { ativas?: boolean; operacionais?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.ativas) q.set('ativas', '1');
@@ -1279,6 +1280,38 @@ export interface DashboardData {
     gravidade: string;
     total: number;
   }>;
+}
+
+export type SaudeLojaNivel = 'critica' | 'atencao' | 'ok';
+
+export interface SaudeLoja {
+  id_loja: number;
+  name: string;
+  bk_number: string | null;
+  city: string | null;
+  neighborhood: string | null;
+  nota_atual: number | null;
+  ultima_visita: string | null;
+  ncs_abertas: number;
+  ncs_criticas: number;
+  chamados_abertos: number;
+  cmv_teorico_pct: number | null;
+  cmv_meta_pct: number;
+  cmv_confiavel: boolean;
+  nivel: SaudeLojaNivel;
+  score: number;
+  motivos: string[];
+}
+
+export interface DashboardSaudeLojasData {
+  periodo: { de: string; ate: string };
+  resumo: {
+    total: number;
+    criticas: number;
+    atencao: number;
+    ok: number;
+  };
+  lojas: SaudeLoja[];
 }
 
 export interface RankingLoja {
