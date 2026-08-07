@@ -261,8 +261,9 @@ async function baixarExcelVendas({
       throw Object.assign(
         new Error(
           'BK Office bloqueou o acesso (403 Akamai). ' +
-            'O sync NÃO deve rodar no servidor Meridian fora do Brasil. ' +
-            'Use o kit do PC da gerência (serviço Windows) ou importe o Excel.',
+            'No Windows use BKOFFICE_USE_CHROME=1 (Chrome real). ' +
+            'No servidor Linux use Chromium Playwright com IP que o Akamai aceite ' +
+            '(ou BKOFFICE_SERVER_SYNC=0 e rode no PC/kit).',
         ),
         { status: 503 },
       );
@@ -496,7 +497,18 @@ export async function syncVendasBkOffice({
  * o próximo ciclo é pulado (jobRodando).
  */
 export function iniciarSchedulerBkOffice() {
+  const serverSync =
+    process.env.BKOFFICE_SERVER_SYNC === '1' ||
+    process.env.BKOFFICE_SERVER_SYNC === 'true';
   const ms = Number(process.env.BKOFFICE_SYNC_CRON_MS || 0);
+  if (!serverSync) {
+    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
+    console.log(
+      '[bkoffice] Scheduler no servidor DESLIGADO (BKOFFICE_SERVER_SYNC≠1). ' +
+        'Use o kit do PC gerência ou ative o servidor quando estiver pronto.',
+    );
+    return null;
+  }
   if (!ms || ms < 60000) {
     schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
     if (ms > 0 && ms < 60000) {

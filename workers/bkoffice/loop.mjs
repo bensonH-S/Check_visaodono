@@ -23,8 +23,8 @@ dotenv.config({ path: path.join(root, 'backend', '.env'), override: false });
 dotenv.config({ path: path.join(root, 'workers/bkoffice/.env'), override: true });
 
 process.env.DB_NAME = process.env.DB_NAME_PROD || process.env.DB_NAME || 'vision_check';
-// Serviço Windows: Chromium Playwright (sem UI). No PC com Chrome, pode forçar USE_CHROME=1 no .env
-if (process.env.BKOFFICE_USE_CHROME == null) process.env.BKOFFICE_USE_CHROME = '0';
+// Serviço Windows: Chrome real no PC (Akamai bloqueia Chromium Playwright).
+if (process.env.BKOFFICE_USE_CHROME == null) process.env.BKOFFICE_USE_CHROME = '1';
 if (process.env.BKOFFICE_HEADLESS == null) process.env.BKOFFICE_HEADLESS = '1';
 process.env.BKOFFICE_SYNC_CRON_MS = '0';
 

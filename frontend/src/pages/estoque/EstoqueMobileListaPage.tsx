@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
+import AddIcon from '@mui/icons-material/Add';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import {
   api,
   type EstoqueContagemResumo,
   type Loja,
 } from '../../api/client';
-import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
+import { ehGestorLojaMobile, getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
@@ -33,6 +35,25 @@ function rotuloLoja(l: Loja) {
   return `${l.bk_number ? `${l.bk_number} · ` : ''}${l.name}`;
 }
 
+function preferenciaLojaInicial(rows: Loja[]): number | null {
+  if (!rows.length) return null;
+  const user = getUsuario();
+  const lojasUser = user?.lojas ?? [];
+  if (ehGestorLojaMobile(user) && lojasUser.length) {
+    const match = rows.find((l) => lojasUser.some((u) => u.id_loja === l.id_loja));
+    if (match) return match.id_loja;
+  }
+  if (lojasUser.length === 1) {
+    const match = rows.find((l) => l.id_loja === lojasUser[0].id_loja);
+    if (match) return match.id_loja;
+  }
+  const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
+  if (Number.isFinite(saved) && saved > 0 && rows.some((l) => l.id_loja === saved)) {
+    return saved;
+  }
+  return rows[0].id_loja;
+}
+
 function travarScrollPagina(ativo: boolean) {
   const scrollEl = document.querySelector('.ck-visitas__scroll') as HTMLElement | null;
   if (!ativo) {
@@ -48,9 +69,14 @@ function travarScrollPagina(ativo: boolean) {
 
 export default function EstoqueMobileListaPage() {
   const navigate = useNavigate();
-  const podeReabrir = podeReabrirContagemEstoque(getUsuario());
+  const user = getUsuario();
+  const podeReabrir = podeReabrirContagemEstoque(user);
+  const lojaTravada = ehGestorLojaMobile(user) || (user?.lojas?.length ?? 0) === 1;
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>(() => {
+    const u = getUsuario();
+    if (ehGestorLojaMobile(u) && u?.lojas?.[0]?.id_loja) return u.lojas[0].id_loja;
+    if (u?.lojas?.length === 1) return u.lojas[0].id_loja;
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
     return Number.isFinite(saved) && saved > 0 ? saved : '';
   });
@@ -77,17 +103,14 @@ export default function EstoqueMobileListaPage() {
         const rows = await api.lojas({ ativas: true, operacionais: true });
         if (cancel) return;
         setLojas(rows);
-        if (!idLoja && rows.length) {
-          const plk = rows.find((l) => l.bk_number === '15022');
-          const escolhida = plk?.id_loja ?? rows[0].id_loja;
-          setIdLoja(escolhida);
-          localStorage.setItem(LOJA_STORAGE_KEY, String(escolhida));
-        } else if (idLoja && !rows.some((l) => l.id_loja === idLoja)) {
-          const fallback = rows[0]?.id_loja;
-          if (fallback) {
-            setIdLoja(fallback);
-            localStorage.setItem(LOJA_STORAGE_KEY, String(fallback));
-          }
+        const preferida = preferenciaLojaInicial(rows);
+        if (!preferida) return;
+        if (!idLoja || !rows.some((l) => l.id_loja === idLoja)) {
+          setIdLoja(preferida);
+          localStorage.setItem(LOJA_STORAGE_KEY, String(preferida));
+        } else if (lojaTravada && preferida !== idLoja) {
+          setIdLoja(preferida);
+          localStorage.setItem(LOJA_STORAGE_KEY, String(preferida));
         }
       } catch (e) {
         if (!cancel) setErr(e instanceof Error ? e.message : 'Erro ao carregar lojas');
@@ -123,6 +146,7 @@ export default function EstoqueMobileListaPage() {
   const abertas = lista.filter((c) => c.status === 'aberta').length;
   const finalizadas = lista.filter((c) => c.status === 'finalizada').length;
   const temAberta = abertas > 0;
+  const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
   const lojasFiltradas = useMemo(() => {
     const q = buscaLoja.trim().toLowerCase();
@@ -131,6 +155,7 @@ export default function EstoqueMobileListaPage() {
   }, [lojas, buscaLoja]);
 
   const selecionarLoja = (id: number) => {
+    if (!podeTrocarLoja) return;
     setIdLoja(id);
     localStorage.setItem(LOJA_STORAGE_KEY, String(id));
     setDlgLoja(false);
@@ -203,7 +228,20 @@ export default function EstoqueMobileListaPage() {
                   de estoque
                 </h1>
               </div>
-              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+              <div className="ck-estoque__hero-actions">
+                <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+                {idLoja && !temAberta && (
+                  <button
+                    type="button"
+                    className="ck-estoque__add"
+                    aria-label="Iniciar conferência"
+                    disabled={iniciando}
+                    onClick={() => void iniciar()}
+                  >
+                    <AddIcon />
+                  </button>
+                )}
+              </div>
             </div>
             <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
               Conte os insumos da loja, salve o rascunho e finalize a conferência.
@@ -232,29 +270,25 @@ export default function EstoqueMobileListaPage() {
             </p>
           )}
 
-          <div className="ck-estoque__loja">
-            <button
-              type="button"
-              className="ck-estoque__loja-btn"
-              onClick={() => setDlgLoja(true)}
-            >
-              {lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}
-              <span aria-hidden>▾</span>
-            </button>
-          </div>
-
-          {idLoja && !temAberta && (
-            <div className="ck-estoque__cta">
+          {podeTrocarLoja ? (
+            <div className="ck-estoque__loja">
               <button
                 type="button"
-                className="ck-estoque__btn ck-estoque__btn--primary"
-                disabled={iniciando}
-                onClick={() => void iniciar()}
+                className="ck-estoque__loja-btn"
+                onClick={() => setDlgLoja(true)}
               >
-                {iniciando ? 'Iniciando…' : 'Iniciar conferência'}
+                {lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}
+                <span aria-hidden>▾</span>
               </button>
             </div>
-          )}
+          ) : lojaAtual ? (
+            <div className="ck-estoque__loja">
+              <div className="ck-estoque__loja-fix" aria-label="Loja">
+                <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
+                <span>{rotuloLoja(lojaAtual)}</span>
+              </div>
+            </div>
+          ) : null}
 
           <div className="ck-visitas__seg" role="tablist">
             {(
@@ -282,7 +316,9 @@ export default function EstoqueMobileListaPage() {
           {!loading && !filtrada.length && (
             <div className="ck-estoque__empty">
               {lojaAtual
-                ? 'Nenhuma conferência nesta loja.'
+                ? filtro !== 'todas' && lista.length > 0
+                  ? 'Nenhuma conferência neste filtro.'
+                  : 'Nenhuma conferência nesta loja. Toque no + para iniciar.'
                 : 'Selecione a loja para começar.'}
             </div>
           )}
@@ -356,6 +392,7 @@ export default function EstoqueMobileListaPage() {
       </div>
 
       {dlgLoja &&
+        podeTrocarLoja &&
         createPortal(
           <div className="ck-estoque">
             <div

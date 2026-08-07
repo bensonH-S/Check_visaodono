@@ -27,6 +27,8 @@ const getArg = (k, def) => {
 const idLoja = Number(getArg('--loja', '21'));
 const dias = Number(getArg('--dias', '0')); // 0 = só hoje
 const dataArg = getArg('--data', '');
+const iniArg = getArg('--inicio', '');
+const fimArg = getArg('--fim', '');
 const dbFlag = getArg('--db', 'dev');
 
 if (dbFlag === 'dev') {
@@ -53,8 +55,13 @@ function addDaysISO(iso, delta) {
   return dt.toISOString().slice(0, 10);
 }
 
-const fim = dataArg || hojeBR();
-const ini = dataArg || (dias > 0 ? addDaysISO(fim, -dias) : fim);
+let fim = fimArg || dataArg || hojeBR();
+let ini = iniArg || dataArg || (dias > 0 ? addDaysISO(fim, -dias) : fim);
+if (iniArg && !fimArg && !dataArg) fim = hojeBR();
+if (ini > fim) {
+  console.error(`data_inicio (${ini}) > data_fim (${fim})`);
+  process.exit(1);
+}
 
 console.log({
   loja: idLoja,

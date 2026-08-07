@@ -90,7 +90,7 @@ if (-not (Test-Path $EnvFile)) {
       "BKOFFICE_USER=$($b['BKOFFICE_USER'])",
       "BKOFFICE_PASS=$($b['BKOFFICE_PASS'])",
       "BKOFFICE_URL=$url",
-      'BKOFFICE_USE_CHROME=0',
+      'BKOFFICE_USE_CHROME=1',
       'BKOFFICE_HEADLESS=1',
       'BKOFFICE_TIMEOUT_MS=120000',
       'BKOFFICE_SYNC_ID_LOJA=21',

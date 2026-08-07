@@ -57,6 +57,8 @@ Copy-Item (Join-Path $Tpl 'worker.py') (Join-Path $OutDir 'worker.py') -Force
 Copy-Item (Join-Path $Tpl 'INSTALAR.bat') (Join-Path $OutDir 'INSTALAR.bat') -Force
 Copy-Item (Join-Path $Tpl 'DESINSTALAR.bat') (Join-Path $OutDir 'DESINSTALAR.bat') -Force
 Copy-Item (Join-Path $Tpl '0-LEIA-ME.txt') (Join-Path $OutDir '0-LEIA-ME.txt') -Force
+Copy-Item (Join-Path $Tpl 'VERIFICAR.bat') (Join-Path $OutDir 'VERIFICAR.bat') -Force
+Copy-Item (Join-Path $Tpl 'TESTAR-UMA-VEZ.bat') (Join-Path $OutDir 'TESTAR-UMA-VEZ.bat') -Force
 
 Write-Host 'Copiando codigo do sync...'
 New-Item -ItemType Directory -Force -Path (Join-Path $App 'backend\scripts') | Out-Null
@@ -145,7 +147,7 @@ $configLines = @(
   "BKOFFICE_USER=$($b['BKOFFICE_USER'])"
   "BKOFFICE_PASS=$($b['BKOFFICE_PASS'])"
   "BKOFFICE_URL=$url"
-  'BKOFFICE_USE_CHROME=0'
+  'BKOFFICE_USE_CHROME=1'
   'BKOFFICE_HEADLESS=1'
   'BKOFFICE_TIMEOUT_MS=120000'
   'BKOFFICE_SYNC_ID_LOJA=21'

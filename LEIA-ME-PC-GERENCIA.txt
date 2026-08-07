@@ -1,19 +1,13 @@
 ========================================
-  PC GERENCIA — SÓ COPIAR E INSTALAR
+  PC — SYNC BK OFFICE (validar agora)
 ========================================
 
-NO SEU PC (ja foi gerado):
-  Desktop\Meridian-BKOffice-Gerencia\
-  Desktop\Meridian-BKOffice-Gerencia.zip
+1) Pasta no Desktop: Meridian-BKOffice-Gerencia
+2) Abra TESTAR-UMA-VEZ.bat  → tem que sair chrome: true e sync OK
+3) Depois: INSTALAR.bat (admin) → serviço 24h
 
-NO PC DA GERENCIA:
-  1) Copie a PASTA (ou unzip o zip)
-  2) Botao DIREITO em INSTALAR.bat
-     -> Executar como administrador
-  3) Pronto — 24h, inicia apos reiniciar, SEM janela
+Servidor Meridian fica DESLIGADO ate voce configurar
+(BKOFFICE_SERVER_SYNC=0). As duas formas existem;
+hoje so o PC roda.
 
-Nao precisa instalar Python nem Node la.
-Credenciais ja estao em config.env
-
-Para regenerar o kit depois:
-  GERAR-KIT-PC-GERENCIA.bat  (na raiz do projeto)
+Detalhes: scripts\windows\LEIA-ME-BKOFFICE.txt

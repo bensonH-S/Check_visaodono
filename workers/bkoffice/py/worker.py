@@ -55,7 +55,7 @@ def merge_env() -> dict[str, str]:
     db = env.get("DB_NAME_PROD") or env.get("DB_NAME") or "vision_check"
     env["DB_NAME"] = db
     env["DB_NAME_PROD"] = db
-    env.setdefault("BKOFFICE_USE_CHROME", "0")
+    env.setdefault("BKOFFICE_USE_CHROME", "1")
     env.setdefault("BKOFFICE_HEADLESS", "1")
     env["BKOFFICE_SYNC_CRON_MS"] = "0"
     return env

@@ -15,9 +15,17 @@
    - SEM janela de CMD
    - Chrome/Chromium oculto
 
-Credenciais: config.env (ja veio preenchido)
+LOGS (sempre grava, nao so em erro):
+  Logs\bkoffice-python-service.log
+  Logs\service.out.log / service.err.log
+  C:\ProgramData\MeridianBkOffice\Logs\bkoffice-python-service.log
 
-Logs: Logs\
+Se nao aparecer nada:
+  1) Rode VERIFICAR.bat
+  2) Ou TESTAR-UMA-VEZ.bat (abre janela e mostra o erro)
+  3) Reinstale com INSTALAR.bat (como admin)
+
+Credenciais: config.env (ja veio preenchido)
 
 Desinstalar: DESINSTALAR.bat (como admin)
 

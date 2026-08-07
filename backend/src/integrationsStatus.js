@@ -243,7 +243,7 @@ async function statusBkOffice() {
         ? `Ativa — sync em andamento (a cada ${seg}s, loja ${sch.id_loja})`
         : `Ativa — automática a cada ${seg}s (loja ${sch.id_loja})`;
     } else {
-      detail = 'Sync no PC da gerência (servidor Meridian não acessa BK Office)';
+      detail = 'PC gerência ativo · servidor desligado (BKOFFICE_SERVER_SYNC=0)';
     }
     return {
       id: 'bkoffice',

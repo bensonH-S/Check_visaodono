@@ -56,7 +56,7 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 
-type AbaOp = 'cmv' | 'estoque' | 'vendas' | 'break' | 'pedido' | 'fichas';
+type AbaOp = 'cmv' | 'break' | 'pedido' | 'fichas';
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -175,10 +175,6 @@ export default function EstoqueOperacionalPanels({
   if (aba === 'cmv') {
     return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} />;
   }
-  if (aba === 'estoque') {
-    return <PainelSaldo idLoja={idLoja} onIrConferencia={onIrConferencia} />;
-  }
-  if (aba === 'vendas') return <PainelVendas idLoja={idLoja} />;
   if (aba === 'pedido') return <PainelPedido idLoja={idLoja} />;
   if (aba === 'fichas') {
     return (
@@ -899,34 +895,33 @@ function PainelVendas({ idLoja }: { idLoja: number }) {
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
           CMV fica na aba CMV (só com custo de nota fiscal). Aqui é só trazer a venda.
-          O sync automático roda no PC da gerência — não no servidor Meridian (Akamai bloqueia).
+          Sync automático: PC da gerência (kit Windows) e/ou servidor (quando{' '}
+          <code>BKOFFICE_SERVER_SYNC=1</code>). Hoje o servidor está desligado até configurar.
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1.5 }}>
-          {sync?.modo === 'pc_gerencia' || (!sync?.scheduler?.ativo && sync?.server_sync === false) ? (
-            <Chip
-              size="small"
-              color="success"
-              variant="outlined"
-              label="Sync automático: PC da gerência (serviço Windows)"
-            />
-          ) : !sync?.configurado ? (
-            <Chip size="small" color="default" variant="outlined" label="BK Office: sync no PC da gerência" />
-          ) : sync.scheduler?.ativo ? (
+          {sync?.scheduler?.ativo ? (
             <Chip
               size="small"
               color={sync.job_rodando ? 'warning' : 'success'}
               label={
                 sync.job_rodando
-                  ? `Automático no servidor — sync em andamento (a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'})`
-                  : `Automático no servidor — a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'}`
+                  ? `Servidor ATIVO — sync em andamento (a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'})`
+                  : `Servidor ATIVO — a cada ${Math.round((sync.scheduler.intervalo_ms || 0) / 1000)}s · loja ${sync.scheduler.id_loja ?? '—'}`
               }
+            />
+          ) : sync?.server_sync ? (
+            <Chip
+              size="small"
+              color="warning"
+              variant="outlined"
+              label="Servidor liberado (botão manual) — cron ainda desligado"
             />
           ) : (
             <Chip
               size="small"
               color="success"
               variant="outlined"
-              label="Sync automático: PC da gerência (serviço Windows)"
+              label="PC gerência (kit) · servidor desligado até configurar"
             />
           )}
         </Box>

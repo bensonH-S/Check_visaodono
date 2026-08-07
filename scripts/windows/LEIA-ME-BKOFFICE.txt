@@ -1,49 +1,42 @@
 ========================================
-  MERIDIAN — SYNC BK OFFICE (PC GERENCIA)
-  Servico Python 24h — SEM janela
+  MERIDIAN — SYNC BK OFFICE
+  Duas formas (PC + servidor)
 ========================================
 
-TAREFA AGENDADA / .BAT ANTIGO = DESATIVADO
-(eles abriam shell — nao use mais)
+MODO 1 — PC (kit / seu Windows) — USE AGORA
+--------------------------------------------
+Pasta: Desktop\Meridian-BKOffice-Gerencia
+1) TESTAR-UMA-VEZ.bat  (valida com janela)
+2) INSTALAR.bat como admin  (serviço 24h)
 
-O QUE COPIAR
-------------
-Pasta INTEIRA Check_visaodono + Python 3.10+ + Node 20 LTS
-
-
-INSTALAR (UMA VEZ)
-------------------
-Botao DIREITO em:
-
-  INSTALAR-SERVICO-BKOFFICE.bat
-
--> Executar como administrador
-
-Cria servico: MeridianBkOfficeTerraco
-- Inicio Automatico (sobrevive reinicio)
-- pythonw (zero janela)
-- a cada 1 min puxa vendas BK Office -> banco PRODUCAO
-- Chromium headless (oculto)
+Precisa: Chrome instalado
+config.env: BKOFFICE_USE_CHROME=1
 
 
-LOGS
-----
-  Logs\bkoffice-python-service.log
-  Logs\bkoffice-service.out.log
-  Logs\bkoffice-service.err.log
+MODO 2 — Servidor (ex.: EUA) — DESLIGADO POR PADRAO
+----------------------------------------------------
+No .env do servidor Meridian deixe assim ATE configurar:
 
-
-DESINSTALAR
------------
-  DESINSTALAR-SERVICO-BKOFFICE.bat (como admin)
-
-
-SERVIDOR MERIDIAN (fora do BR)
-------------------------------
+  BKOFFICE_SERVER_SYNC=0
   BKOFFICE_SYNC_CRON_MS=0
 
+Quando o servidor EUA estiver ok, ative:
 
-CONFERIR
---------
-  services.msc -> MeridianBkOfficeTerraco -> Em execucao
-  Get-Service MeridianBkOfficeTerraco
+  BKOFFICE_SERVER_SYNC=1
+  BKOFFICE_SYNC_CRON_MS=60000
+  BKOFFICE_USE_CHROME=0
+  BKOFFICE_HEADLESS=1
+  BKOFFICE_SYNC_ID_LOJA=21
+
+(Reinicia o container/app depois.)
+
+
+LOGS (kit PC)
+-------------
+  Logs\bkoffice-python-service.log
+  C:\ProgramData\MeridianBkOffice\Logs\
+
+
+DESINSTALAR KIT
+---------------
+  DESINSTALAR.bat (como admin)

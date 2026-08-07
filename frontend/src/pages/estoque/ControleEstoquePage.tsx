@@ -58,12 +58,10 @@ import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import Tooltip from '@mui/material/Tooltip';
 
-type AbaEstoque = 'cmv' | 'conferencia' | 'estoque' | 'vendas' | 'break' | 'pedido' | 'fichas';
+type AbaEstoque = 'cmv' | 'conferencia' | 'break' | 'pedido' | 'fichas';
 
 const ABAS_ESTOQUE: AbaEstoque[] = [
   'cmv',
-  'vendas',
-  'estoque',
   'conferencia',
   'break',
   'pedido',
@@ -72,8 +70,10 @@ const ABAS_ESTOQUE: AbaEstoque[] = [
 
 /** URLs antigas → novas */
 const REDIRECT_ABA: Record<string, AbaEstoque> = {
-  insumos: 'estoque',
-  saldo: 'estoque',
+  insumos: 'cmv',
+  saldo: 'cmv',
+  estoque: 'cmv',
+  vendas: 'cmv',
   produtos: 'fichas',
   ficha: 'fichas',
 };
@@ -86,7 +86,7 @@ function abaInicialPermitida(): AbaEstoque {
   if (podeOperacionalEstoque(getUsuario())) return 'cmv';
   if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
   if (podeBreakEstoque(getUsuario())) return 'break';
-  if (podeProdutosEstoque(getUsuario())) return 'estoque';
+  if (podeProdutosEstoque(getUsuario())) return 'fichas';
   return 'cmv';
 }
 
@@ -454,7 +454,7 @@ export default function ControleEstoquePage() {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
-    const abasOp: AbaEstoque[] = ['cmv', 'estoque', 'vendas', 'pedido', 'fichas'];
+    const abasOp: AbaEstoque[] = ['cmv', 'pedido', 'fichas'];
     let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
       destino = podeOperacional ? 'cmv' : podeBreak ? 'break' : 'conferencia';
@@ -668,22 +668,6 @@ export default function ControleEstoquePage() {
               label="CMV"
               disabled={!idLoja || bloqueiaOutrasAbas}
               sx={{ minHeight: 40, textTransform: 'none', fontWeight: 700 }}
-            />
-          )}
-          {podeOperacional && (
-            <Tab
-              value="vendas"
-              label="Vendas"
-              disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none' }}
-            />
-          )}
-          {podeOperacional && (
-            <Tab
-              value="estoque"
-              label="Estoque"
-              disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none' }}
             />
           )}
           {podeConferencia && (
@@ -1277,11 +1261,7 @@ export default function ControleEstoquePage() {
               )}
 
               {((podeOperacional &&
-                (aba === 'cmv' ||
-                  aba === 'estoque' ||
-                  aba === 'vendas' ||
-                  aba === 'pedido' ||
-                  aba === 'fichas')) ||
+                (aba === 'cmv' || aba === 'pedido' || aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <EstoqueOperacionalPanels

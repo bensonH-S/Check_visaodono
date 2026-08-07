@@ -396,9 +396,41 @@
 
 .ck-estoque .ck-estoque__hero-actions {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.ck-estoque .ck-estoque__add {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 14px;
+  background: #e8520a;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 6px 18px rgba(232, 82, 10, 0.38);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-estoque .ck-estoque__add:active {
+  transform: scale(0.96);
+}
+
+.ck-estoque .ck-estoque__add:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+.ck-estoque .ck-estoque__add .MuiSvgIcon-root {
+  font-size: 1.55rem;
 }
 
 .ck-estoque .ck-estoque__reabrir--hero {
