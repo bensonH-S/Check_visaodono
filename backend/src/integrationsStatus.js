@@ -232,7 +232,6 @@ async function statusBkOffice() {
       configured: false,
     };
   }
-<<<<<<< HEAD
   try {
     const { getBkOfficeStatus } = await import('./services/bkoffice/syncVendas.js');
     const st = getBkOfficeStatus();
@@ -251,7 +250,7 @@ async function statusBkOffice() {
       name: 'BK Office',
       online: true,
       detail,
-      configurada: true,
+      configured: true,
     };
   } catch {
     return {
@@ -259,18 +258,9 @@ async function statusBkOffice() {
       name: 'BK Office',
       online: true,
       detail: 'Configurada',
-      configurada: true,
+      configured: true,
     };
   }
-=======
-  return {
-    id: 'bkoffice',
-    name: 'BK Office',
-    online: true,
-    detail: 'Configurada',
-    configured: true,
-  };
->>>>>>> 99b8bb8 (FIX: Melhoria no UI/UX e ajuste no status API)
 }
 
 async function statusInfoSimples() {
