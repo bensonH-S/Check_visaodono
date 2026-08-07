@@ -16,6 +16,8 @@ visao/events_log/
 *.log
 Logs/*
 !Logs/.gitkeep
+scripts/windows/tools/
+workers/bkoffice/.env
 uploads/*
 !uploads/.gitkeep
 backups/

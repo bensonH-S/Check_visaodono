@@ -1,0 +1,31 @@
+COPIE ESTA PASTA DO PROJETO PARA O PC DA GERENCIA (ou clone o repo).
+
+INSTALAR O SERVICO (PowerShell como Administrador, na pasta do projeto):
+
+  powershell -ExecutionPolicy Bypass -File scripts\windows\install-servico-bkoffice.ps1
+
+O que o instalador faz:
+  - cria workers\bkoffice\.env (a partir do backend\.env se existir)
+  - instala Chromium do Playwright
+  - registra o servico Windows "MeridianBkOfficeTerraco" (inicia no boot)
+  - sync a cada 1 minuto para o banco de PRODUCAO (loja Terraço 21)
+
+DESINSTALAR:
+
+  powershell -ExecutionPolicy Bypass -File scripts\windows\uninstall-servico-bkoffice.ps1
+
+LOGS:
+
+  Logs\bkoffice-service.log
+  Logs\bkoffice-service.out.log
+  Logs\bkoffice-service.err.log
+
+NO SERVIDOR MERIDIAN (fora do Brasil) deixe:
+
+  BKOFFICE_SYNC_CRON_MS=0
+
+REQUISITOS NO PC GERENCIA:
+  - Windows 10/11
+  - Node.js 20+ LTS instalado
+  - Internet
+  - Pasta do projeto completa (com node_modules: rode "npm ci" na raiz se precisar)
