@@ -2112,6 +2112,15 @@ export interface EstoqueItem {
   und_convertida: number;
   und_parcial?: number;
   valor_unidade: number;
+  /** Célula preta na planilha = false (campo bloqueado). */
+  permite_contagem_caixa?: boolean;
+  permite_contagem_pc_fd?: boolean;
+  permite_contagem_kg_und?: boolean;
+  /** Itens da faixa I7:I231 — entram no TOTAL CMV. */
+  entra_cmv?: boolean;
+  /** Seção da planilha (CONGELADOS, BRINDES, …). */
+  secao_contagem?: string | null;
+  ordem_contagem?: number | null;
   estoque_sistema: number;
   /** Entradas da planilha Terraço */
   contagem_caixa?: number | null;

@@ -82,9 +82,21 @@ export function classificarUnidadeContagem(descricao, undConvertida = null) {
   return 'UND';
 }
 
+/** Última linha da planilha Terraço que entra no CMV: SUM(I7:I231). */
+export const CMV_LINHA_FIM = 231;
+
+/**
+ * Célula preta (preenchimento sólido) na planilha = campo bloqueado.
+ * Células editáveis vêm sem fill / patternType "none".
+ */
+export function celulaBloqueadaContagem(cell) {
+  if (!cell || !cell.s) return false;
+  return cell.s.patternType === 'solid';
+}
+
 /**
  * Calcula QTD a partir dos três campos da planilha.
- * Retorna null se nenhum campo foi informado (item pendente).
+ * Retorna null se nenhum campo habilitado foi informado (item pendente).
  */
 export function calcularQtdContagem({
   contagem_caixa,
@@ -92,10 +104,20 @@ export function calcularQtdContagem({
   contagem_kg_und,
   und_convertida = 1,
   und_parcial = 1,
+  permite_contagem_caixa = true,
+  permite_contagem_pc_fd = true,
+  permite_contagem_kg_und = true,
 }) {
-  const temCaixa = contagem_caixa !== null && contagem_caixa !== undefined && contagem_caixa !== '';
-  const temPc = contagem_pc_fd !== null && contagem_pc_fd !== undefined && contagem_pc_fd !== '';
-  const temKg = contagem_kg_und !== null && contagem_kg_und !== undefined && contagem_kg_und !== '';
+  const usaCaixa = permite_contagem_caixa !== false;
+  const usaPc = permite_contagem_pc_fd !== false;
+  const usaKg = permite_contagem_kg_und !== false;
+
+  const temCaixa =
+    usaCaixa && contagem_caixa !== null && contagem_caixa !== undefined && contagem_caixa !== '';
+  const temPc =
+    usaPc && contagem_pc_fd !== null && contagem_pc_fd !== undefined && contagem_pc_fd !== '';
+  const temKg =
+    usaKg && contagem_kg_und !== null && contagem_kg_und !== undefined && contagem_kg_und !== '';
   if (!temCaixa && !temPc && !temKg) return null;
 
   const caixa = temCaixa ? num(contagem_caixa) : 0;

@@ -132,6 +132,11 @@ async function criarContagemComItens(
   return idContagem;
 }
 
+function flagBool(v, fallback = true) {
+  if (v === null || v === undefined) return fallback;
+  return v !== false && v !== 'f' && v !== 0 && v !== '0';
+}
+
 function mapProduto(row) {
   const id_insumo = row.id_insumo ?? row.id_produto;
   return {
@@ -145,6 +150,12 @@ function mapProduto(row) {
     und_convertida: row.und_convertida != null ? Number(row.und_convertida) : 1,
     und_parcial: row.und_parcial != null ? Number(row.und_parcial) : 1,
     valor_unidade: row.valor_unidade != null ? Number(row.valor_unidade) : 0,
+    permite_contagem_caixa: flagBool(row.permite_contagem_caixa, true),
+    permite_contagem_pc_fd: flagBool(row.permite_contagem_pc_fd, true),
+    permite_contagem_kg_und: flagBool(row.permite_contagem_kg_und, true),
+    entra_cmv: flagBool(row.entra_cmv, true),
+    secao_contagem: row.secao_contagem != null ? String(row.secao_contagem) : null,
+    ordem_contagem: row.ordem_contagem != null ? Number(row.ordem_contagem) : null,
     ativo: row.ativo !== false,
     criado_em: row.criado_em,
     atualizado_em: row.atualizado_em,
@@ -155,18 +166,29 @@ function mapItem(row) {
   const estoque_sistema = num(row.estoque_sistema);
   const und_convertida = num(row.und_convertida, 1);
   const und_parcial = num(row.und_parcial, 1);
-  const contagem_caixa =
+  const permite_contagem_caixa = flagBool(row.permite_contagem_caixa, true);
+  const permite_contagem_pc_fd = flagBool(row.permite_contagem_pc_fd, true);
+  const permite_contagem_kg_und = flagBool(row.permite_contagem_kg_und, true);
+  const entra_cmv = flagBool(row.entra_cmv, true);
+  const secao_contagem = row.secao_contagem != null ? String(row.secao_contagem) : null;
+  const ordem_contagem = row.ordem_contagem != null ? Number(row.ordem_contagem) : null;
+
+  let contagem_caixa =
     row.contagem_caixa == null || row.contagem_caixa === ''
       ? null
       : num(row.contagem_caixa);
-  const contagem_pc_fd =
+  let contagem_pc_fd =
     row.contagem_pc_fd == null || row.contagem_pc_fd === ''
       ? null
       : num(row.contagem_pc_fd);
-  const contagem_kg_und =
+  let contagem_kg_und =
     row.contagem_kg_und == null || row.contagem_kg_und === ''
       ? null
       : num(row.contagem_kg_und);
+
+  if (!permite_contagem_caixa) contagem_caixa = null;
+  if (!permite_contagem_pc_fd) contagem_pc_fd = null;
+  if (!permite_contagem_kg_und) contagem_kg_und = null;
 
   let estoque_contado =
     row.estoque_contado == null || row.estoque_contado === ''
@@ -180,6 +202,9 @@ function mapItem(row) {
     contagem_kg_und,
     und_convertida,
     und_parcial,
+    permite_contagem_caixa,
+    permite_contagem_pc_fd,
+    permite_contagem_kg_und,
   });
   if (qtdCalc != null) estoque_contado = qtdCalc;
 
@@ -199,6 +224,12 @@ function mapItem(row) {
     und_convertida,
     und_parcial,
     valor_unidade,
+    permite_contagem_caixa,
+    permite_contagem_pc_fd,
+    permite_contagem_kg_und,
+    entra_cmv,
+    secao_contagem,
+    ordem_contagem,
     estoque_sistema,
     contagem_caixa,
     contagem_pc_fd,
@@ -224,6 +255,7 @@ async function valorInicialMes(idLoja, dataRef) {
                 JOIN insumos p ON p.id_insumo = i.id_insumo
                 WHERE i.id_contagem = c.id_contagem
                   AND i.estoque_contado IS NOT NULL
+                  AND COALESCE(p.entra_cmv, TRUE)
               )
             ) AS total_valor
      FROM estoque_contagens c
@@ -261,18 +293,29 @@ async function carregarContagem(id) {
     `SELECT i.id_item, i.id_insumo, i.estoque_sistema, i.estoque_contado,
             i.contagem_caixa, i.contagem_pc_fd, i.contagem_kg_und,
             p.codigo, p.descricao, p.unidade_contagem, p.preco_caixa,
-            p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial, p.valor_unidade
+            p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial, p.valor_unidade,
+            COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
+            COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
+            COALESCE(p.permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und,
+            COALESCE(p.entra_cmv, TRUE) AS entra_cmv,
+            p.secao_contagem,
+            p.ordem_contagem
      FROM estoque_itens i
      JOIN insumos p ON p.id_insumo = i.id_insumo
      WHERE i.id_contagem = $1
-     ORDER BY p.descricao`,
+     ORDER BY p.ordem_contagem NULLS LAST, p.descricao, i.id_item`,
     [id],
   );
 
   const mapped = itens.map(mapItem);
   const comContagem = mapped.filter((i) => i.estoque_contado != null);
+  /** TOTAL do topo = soma CMV (planilha SUM I7:I231). */
   const total_valor =
-    Math.round(comContagem.reduce((s, i) => s + (i.valor_estoque || 0), 0) * 100) / 100;
+    Math.round(
+      comContagem
+        .filter((i) => i.entra_cmv)
+        .reduce((s, i) => s + (i.valor_estoque || 0), 0) * 100,
+    ) / 100;
   const total_diferenca =
     Math.round(comContagem.reduce((s, i) => s + (i.diferenca || 0), 0) * 1000) / 1000;
   const divergencias = comContagem.filter((i) => i.diferenca !== 0).length;
@@ -487,6 +530,7 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
                   JOIN insumos p ON p.id_insumo = i.id_insumo
                   WHERE i.id_contagem = c.id_contagem
                     AND i.estoque_contado IS NOT NULL
+                    AND COALESCE(p.entra_cmv, TRUE)
                 )
               ) AS total_valor,
               (SELECT COUNT(*)::int FROM estoque_itens i WHERE i.id_contagem = c.id_contagem) AS itens_total,
@@ -706,7 +750,10 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     if (!itens.length) return res.status(400).json({ error: 'Envie ao menos um item' });
 
     const { rows: fatoresRows } = await pool.query(
-      `SELECT i.id_item, p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial
+      `SELECT i.id_item, p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial,
+              COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
+              COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
+              COALESCE(p.permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und
        FROM estoque_itens i
        JOIN insumos p ON p.id_insumo = i.id_insumo
        WHERE i.id_contagem = $1`,
@@ -724,7 +771,16 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     for (const item of itens) {
       const idItem = Number(item.id_item);
       if (!idItem) continue;
-      const fat = fatores.get(idItem) || { und_convertida: 1, und_parcial: 1 };
+      const fat = fatores.get(idItem) || {
+        und_convertida: 1,
+        und_parcial: 1,
+        permite_contagem_caixa: true,
+        permite_contagem_pc_fd: true,
+        permite_contagem_kg_und: true,
+      };
+      const permiteCaixa = flagBool(fat.permite_contagem_caixa, true);
+      const permitePc = flagBool(fat.permite_contagem_pc_fd, true);
+      const permiteKg = flagBool(fat.permite_contagem_kg_und, true);
 
       const temTerraco =
         item.contagem_caixa !== undefined ||
@@ -737,16 +793,19 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       let contado = null;
 
       if (temTerraco) {
-        caixa =
-          item.contagem_caixa === null || item.contagem_caixa === ''
+        caixa = !permiteCaixa
+          ? null
+          : item.contagem_caixa === null || item.contagem_caixa === ''
             ? null
             : num(item.contagem_caixa);
-        pc =
-          item.contagem_pc_fd === null || item.contagem_pc_fd === ''
+        pc = !permitePc
+          ? null
+          : item.contagem_pc_fd === null || item.contagem_pc_fd === ''
             ? null
             : num(item.contagem_pc_fd);
-        kg =
-          item.contagem_kg_und === null || item.contagem_kg_und === ''
+        kg = !permiteKg
+          ? null
+          : item.contagem_kg_und === null || item.contagem_kg_und === ''
             ? null
             : num(item.contagem_kg_und);
         contado = calcularQtdContagem({
@@ -755,6 +814,9 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
           contagem_kg_und: kg,
           und_convertida: fat.und_convertida,
           und_parcial: fat.und_parcial,
+          permite_contagem_caixa: permiteCaixa,
+          permite_contagem_pc_fd: permitePc,
+          permite_contagem_kg_und: permiteKg,
         });
       } else if (item.estoque_contado !== undefined) {
         // Compat: API antiga com um único campo QTD
@@ -762,7 +824,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
           item.estoque_contado === null || item.estoque_contado === ''
             ? null
             : num(item.estoque_contado);
-        if (contado != null) kg = contado;
+        if (contado != null && permiteKg) kg = contado;
       }
 
       ids.push(idItem);

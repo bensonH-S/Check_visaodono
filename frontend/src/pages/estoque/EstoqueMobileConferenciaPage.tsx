@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -8,10 +8,25 @@ import {
   type EstoqueItem,
 } from '../../api/client';
 import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
-import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
+
+const AUTOSAVE_MS = 700;
+const SECAO_OUTROS = 'OUTROS';
+
+function fmtVl(v: number | null | undefined) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}
+
+function fmtBrl(v: number | null | undefined) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -19,11 +34,6 @@ function fmtNum(v: number | null | undefined, digitos = 2) {
     minimumFractionDigits: 0,
     maximumFractionDigits: digitos,
   });
-}
-
-function fmtBrl(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
-  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function fmtDataHora(iso: string | null | undefined) {
@@ -41,6 +51,20 @@ function fmtDataHora(iso: string | null | undefined) {
 
 type RascunhoLinha = { caixa: string; pc: string; kg: string };
 
+type CamposPermitidos = {
+  caixa: boolean;
+  pc: boolean;
+  kg: boolean;
+};
+
+function permiteCampos(i: EstoqueItem): CamposPermitidos {
+  return {
+    caixa: i.permite_contagem_caixa !== false,
+    pc: i.permite_contagem_pc_fd !== false,
+    kg: i.permite_contagem_kg_und !== false,
+  };
+}
+
 function parseNumCampo(raw: string): number | null {
   if (raw === undefined || raw === null || String(raw).trim() === '') return null;
   const n = Number(String(raw).replace(',', '.'));
@@ -51,35 +75,42 @@ function calcQtdTerraco(
   linha: RascunhoLinha | undefined,
   undConvertida: number,
   undParcial: number,
+  permite: CamposPermitidos,
 ): number | null {
   if (!linha) return null;
   const tem =
-    String(linha.caixa).trim() !== '' ||
-    String(linha.pc).trim() !== '' ||
-    String(linha.kg).trim() !== '';
+    (permite.caixa && String(linha.caixa).trim() !== '') ||
+    (permite.pc && String(linha.pc).trim() !== '') ||
+    (permite.kg && String(linha.kg).trim() !== '');
   if (!tem) return null;
-  const caixa = parseNumCampo(linha.caixa) ?? 0;
-  const pc = parseNumCampo(linha.pc) ?? 0;
-  const kg = parseNumCampo(linha.kg) ?? 0;
+  const caixa = permite.caixa ? parseNumCampo(linha.caixa) ?? 0 : 0;
+  const pc = permite.pc ? parseNumCampo(linha.pc) ?? 0 : 0;
+  const kg = permite.kg ? parseNumCampo(linha.kg) ?? 0 : 0;
   const base = undConvertida > 0 ? undConvertida : 1;
   const parcial = undParcial > 0 ? undParcial : 1;
   return Math.round((caixa * base + pc * parcial + kg) * 10000) / 10000;
 }
 
+function calcTotalLinha(qtd: number | null | undefined, valorUnidade: number): number | null {
+  if (qtd == null || !Number.isFinite(qtd)) return null;
+  return Math.round(qtd * (Number(valorUnidade) || 0) * 100) / 100;
+}
+
 function rascunhoDeItem(i: EstoqueItem): RascunhoLinha {
+  const p = permiteCampos(i);
   const temTerraco =
     i.contagem_caixa != null || i.contagem_pc_fd != null || i.contagem_kg_und != null;
   if (temTerraco) {
     return {
-      caixa: i.contagem_caixa == null ? '' : String(i.contagem_caixa),
-      pc: i.contagem_pc_fd == null ? '' : String(i.contagem_pc_fd),
-      kg: i.contagem_kg_und == null ? '' : String(i.contagem_kg_und),
+      caixa: !p.caixa || i.contagem_caixa == null ? '' : String(i.contagem_caixa),
+      pc: !p.pc || i.contagem_pc_fd == null ? '' : String(i.contagem_pc_fd),
+      kg: !p.kg || i.contagem_kg_und == null ? '' : String(i.contagem_kg_und),
     };
   }
   return {
     caixa: '',
     pc: '',
-    kg: i.estoque_contado == null ? '' : String(i.estoque_contado),
+    kg: p.kg && i.estoque_contado != null ? String(i.estoque_contado) : '',
   };
 }
 
@@ -91,6 +122,11 @@ function aplicarDraft(det: EstoqueContagemDetalhe) {
   return draft;
 }
 
+function nomeSecao(i: EstoqueItem) {
+  const s = String(i.secao_contagem || '').trim();
+  return s || SECAO_OUTROS;
+}
+
 type LocationState = { contagemPreload?: EstoqueContagemDetalhe };
 
 export default function EstoqueMobileConferenciaPage() {
@@ -100,6 +136,7 @@ export default function EstoqueMobileConferenciaPage() {
   const id = Number(idContagem);
   const preload = (location.state as LocationState | null)?.contagemPreload;
   const podeReabrir = podeReabrirContagemEstoque(getUsuario());
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const [contagem, setContagem] = useState<EstoqueContagemDetalhe | null>(() =>
     preload?.id_contagem === id ? preload : null,
@@ -109,11 +146,26 @@ export default function EstoqueMobileConferenciaPage() {
   );
   const [loading, setLoading] = useState(() => !(preload?.id_contagem === id));
   const [salvando, setSalvando] = useState(false);
+  const [autoSalvando, setAutoSalvando] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
   const [dlgReabrir, setDlgReabrir] = useState(false);
   const [busca, setBusca] = useState('');
+  const [indiceSecao, setIndiceSecao] = useState(0);
   const [err, setErr] = useState('');
+
+  const rascunhoRef = useRef(rascunho);
+  const contagemRef = useRef(contagem);
+  const dirtyRef = useRef(false);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const salvandoRef = useRef(false);
+
+  useEffect(() => {
+    rascunhoRef.current = rascunho;
+  }, [rascunho]);
+  useEffect(() => {
+    contagemRef.current = contagem;
+  }, [contagem]);
 
   const carregar = useCallback(async () => {
     if (!Number.isFinite(id) || id <= 0) return;
@@ -123,6 +175,8 @@ export default function EstoqueMobileConferenciaPage() {
       const det = await api.estoqueContagem(id);
       setContagem(det);
       setRascunho(aplicarDraft(det));
+      setIndiceSecao(0);
+      dirtyRef.current = false;
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erro ao abrir conferência');
     } finally {
@@ -134,6 +188,7 @@ export default function EstoqueMobileConferenciaPage() {
     if (preload?.id_contagem === id) {
       setContagem(preload);
       setRascunho(aplicarDraft(preload));
+      setIndiceSecao(0);
       setLoading(false);
       navigate(location.pathname, { replace: true, state: {} });
       return;
@@ -143,45 +198,188 @@ export default function EstoqueMobileConferenciaPage() {
 
   const editavel = contagem?.status === 'aberta';
 
-  const itensFiltrados = useMemo(() => {
+  const secoes = useMemo(() => {
     const itens = contagem?.itens || [];
+    const ordem: string[] = [];
+    const mapa = new Map<string, EstoqueItem[]>();
+    for (const i of itens) {
+      const nome = nomeSecao(i);
+      if (!mapa.has(nome)) {
+        mapa.set(nome, []);
+        ordem.push(nome);
+      }
+      mapa.get(nome)!.push(i);
+    }
+    return ordem.map((nome) => ({ nome, itens: mapa.get(nome)! }));
+  }, [contagem]);
+
+  useEffect(() => {
+    if (indiceSecao >= secoes.length && secoes.length > 0) {
+      setIndiceSecao(secoes.length - 1);
+    }
+  }, [secoes.length, indiceSecao]);
+
+  const buscando = busca.trim().length > 0;
+  const secaoAtual = secoes[indiceSecao] || null;
+
+  const itensVisiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    if (!q) return itens;
-    return itens.filter(
-      (i) =>
-        i.codigo.toLowerCase().includes(q) ||
-        i.descricao.toLowerCase().includes(q),
-    );
-  }, [contagem, busca]);
+    if (q) {
+      return (contagem?.itens || []).filter(
+        (i) =>
+          i.codigo.toLowerCase().includes(q) ||
+          i.descricao.toLowerCase().includes(q) ||
+          nomeSecao(i).toLowerCase().includes(q),
+      );
+    }
+    return secaoAtual?.itens || [];
+  }, [contagem, busca, secaoAtual]);
 
   const resumo = useMemo(() => {
     const itens = contagem?.itens || [];
     let pendentes = 0;
-    let divergencias = 0;
     let preenchidos = 0;
     let totalValor = 0;
+    const porSecao = new Map<string, { pendentes: number; total: number }>();
     for (const i of itens) {
       const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
       const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
-      const contado = calcQtdTerraco(rascunho[i.id_item], undCx, undPc);
+      const permite = permiteCampos(i);
+      const contado = calcQtdTerraco(rascunho[i.id_item], undCx, undPc, permite);
+      const nome = nomeSecao(i);
+      const st = porSecao.get(nome) || { pendentes: 0, total: 0 };
+      st.total += 1;
       if (contado == null || !Number.isFinite(contado)) {
         pendentes += 1;
-        continue;
+        st.pendentes += 1;
+      } else {
+        preenchidos += 1;
+        if (i.entra_cmv !== false) {
+          totalValor += contado * (Number(i.valor_unidade) || 0);
+        }
       }
-      preenchidos += 1;
-      totalValor += contado * (Number(i.valor_unidade) || 0);
-      if (contado !== i.estoque_sistema) divergencias += 1;
+      porSecao.set(nome, st);
     }
     return {
       pendentes,
-      divergencias,
       preenchidos,
       total: itens.length,
       totalValor: Math.round(totalValor * 100) / 100,
+      porSecao,
     };
   }, [contagem, rascunho]);
 
+  const pendentesSecaoAtual = secaoAtual
+    ? resumo.porSecao.get(secaoAtual.nome)?.pendentes ?? 0
+    : 0;
+  const totalSecaoAtual = secaoAtual?.itens.length ?? 0;
+  const preenchidosSecaoAtual = totalSecaoAtual - pendentesSecaoAtual;
+  const ultimaSecao = secoes.length > 0 && indiceSecao >= secoes.length - 1;
+
+  const montarPayload = useCallback((det: EstoqueContagemDetalhe, draft: Record<number, RascunhoLinha>) => {
+    return det.itens.map((i) => {
+      const raw = draft[i.id_item] || { caixa: '', pc: '', kg: '' };
+      const p = permiteCampos(i);
+      return {
+        id_item: i.id_item,
+        contagem_caixa: p.caixa ? parseNumCampo(raw.caixa) : null,
+        contagem_pc_fd: p.pc ? parseNumCampo(raw.pc) : null,
+        contagem_kg_und: p.kg ? parseNumCampo(raw.kg) : null,
+      };
+    });
+  }, []);
+
+  const persistir = useCallback(
+    async (opts?: { silencioso?: boolean; forcar?: boolean }) => {
+      const silencioso = opts?.silencioso === true;
+      const det = contagemRef.current;
+      if (!det?.id_contagem || det.status !== 'aberta') return null;
+      if (!opts?.forcar && !dirtyRef.current) return det;
+      if (salvandoRef.current) return null;
+
+      salvandoRef.current = true;
+      if (silencioso) setAutoSalvando(true);
+      else setSalvando(true);
+
+      const draftSnap = rascunhoRef.current;
+      try {
+        const itens = montarPayload(det, draftSnap);
+        const saved = await api.estoqueSalvarItens(det.id_contagem, itens);
+        if (!dirtyRef.current || opts?.forcar) {
+          setContagem(saved);
+          if (!silencioso || opts?.forcar) {
+            setRascunho(aplicarDraft(saved));
+          } else {
+            setContagem((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    total_valor: saved.total_valor,
+                    valor_atual: saved.valor_atual,
+                  }
+                : saved,
+            );
+          }
+          dirtyRef.current = false;
+        } else {
+          setContagem((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  total_valor: saved.total_valor,
+                  valor_atual: saved.valor_atual,
+                }
+              : saved,
+          );
+        }
+        if (!silencioso) showToast('Rascunho salvo');
+        return saved;
+      } catch (e) {
+        if (!silencioso) {
+          showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
+        }
+        throw e;
+      } finally {
+        salvandoRef.current = false;
+        setSalvando(false);
+        setAutoSalvando(false);
+      }
+    },
+    [montarPayload],
+  );
+
+  const agendarAutosave = useCallback(() => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(() => {
+      void persistir({ silencioso: true }).catch(() => {});
+    }, AUTOSAVE_MS);
+  }, [persistir]);
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      if (dirtyRef.current && contagemRef.current?.status === 'aberta') {
+        const det = contagemRef.current;
+        const draft = rascunhoRef.current;
+        if (det?.id_contagem) {
+          void api.estoqueSalvarItens(det.id_contagem, montarPayload(det, draft)).catch(() => {});
+        }
+      }
+    };
+  }, [montarPayload]);
+
+  const scrollTopo = () => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const setCampo = (idItem: number, campo: keyof RascunhoLinha, valor: string) => {
+    dirtyRef.current = true;
     setRascunho((prev) => ({
       ...prev,
       [idItem]: {
@@ -191,43 +389,42 @@ export default function EstoqueMobileConferenciaPage() {
         [campo]: valor,
       },
     }));
+    agendarAutosave();
   };
 
-  const salvar = async (silencioso = false) => {
-    if (!contagem?.id_contagem || !editavel) return null;
-    setSalvando(true);
-    try {
-      const itens = contagem.itens.map((i) => {
-        const raw = rascunho[i.id_item] || { caixa: '', pc: '', kg: '' };
-        return {
-          id_item: i.id_item,
-          contagem_caixa: parseNumCampo(raw.caixa),
-          contagem_pc_fd: parseNumCampo(raw.pc),
-          contagem_kg_und: parseNumCampo(raw.kg),
-        };
-      });
-      const det = await api.estoqueSalvarItens(contagem.id_contagem, itens);
-      setContagem(det);
-      setRascunho(aplicarDraft(det));
-      if (!silencioso) showToast('Rascunho salvo');
-      return det;
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
-      throw e;
-    } finally {
-      setSalvando(false);
+  const irSecao = async (novoIndice: number) => {
+    if (novoIndice < 0 || novoIndice >= secoes.length || novoIndice === indiceSecao) return;
+    if (editavel && dirtyRef.current) {
+      try {
+        if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+        await persistir({ silencioso: true, forcar: true });
+      } catch {
+        showToast('Não foi possível salvar antes de trocar de seção', 'error');
+        return;
+      }
     }
+    setBusca('');
+    setIndiceSecao(novoIndice);
+    scrollTopo();
   };
 
   const finalizar = async () => {
     if (!contagem?.id_contagem || !editavel) return;
     if (resumo.pendentes > 0) {
+      const primeiraPendente = secoes.findIndex((s) => (resumo.porSecao.get(s.nome)?.pendentes || 0) > 0);
+      if (primeiraPendente >= 0) {
+        setIndiceSecao(primeiraPendente);
+        setBusca('');
+        scrollTopo();
+      }
       showToast(`Ainda há ${resumo.pendentes} insumo(s) sem contagem`, 'error');
       return;
     }
     setFinalizando(true);
     try {
-      await salvar(true);
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      await persistir({ silencioso: true, forcar: true });
+      dirtyRef.current = false;
       await api.estoqueFinalizarContagem(contagem.id_contagem);
       showToast('Conferência finalizada');
       navigate('/estoque/mobile', { replace: true });
@@ -245,6 +442,8 @@ export default function EstoqueMobileConferenciaPage() {
       const det = await api.estoqueReabrirContagem(contagem.id_contagem);
       setContagem(det);
       setRascunho(aplicarDraft(det));
+      setIndiceSecao(0);
+      dirtyRef.current = false;
       setDlgReabrir(false);
       showToast('Conferência reaberta para edição', 'success');
     } catch (e) {
@@ -254,81 +453,70 @@ export default function EstoqueMobileConferenciaPage() {
     }
   };
 
-  return (
-    <div className="ck-visitas ck-estoque">
-      <header className="ck-visitas__topbar">
-        <CkMarkLogoMenu />
-        <div className="ck-estoque__top-info">
-          <div className="ck-estoque__titulo-row">
-            <button
-              type="button"
-              className="ck-estoque__back"
-              aria-label="Voltar"
-              onClick={() => navigate('/estoque/mobile')}
-            >
-              ←
-            </button>
-            <div>
-              <h1>Conferência</h1>
-              <p className="ck-estoque__sub">
-                {contagem?.titulo || 'Contagem de insumos'}
-                {contagem?.data_contagem
-                  ? ` · ${new Date(contagem.data_contagem + 'T12:00:00').toLocaleDateString('pt-BR')}`
-                  : ''}
-              </p>
-            </div>
-          </div>
-          {contagem && (
-            <div className="ck-estoque__chips">
-              <div className="ck-estoque__chip">
-                <strong>{fmtBrl(contagem.valor_inicial_mes)}</strong>
-                <span>
-                  início do mês
-                  {contagem.data_inicial_mes
-                    ? ` · ${new Date(contagem.data_inicial_mes + 'T12:00:00').toLocaleDateString('pt-BR')}`
-                    : ''}
-                </span>
-              </div>
-              <div className="ck-estoque__chip">
-                <strong>{fmtBrl(resumo.totalValor)}</strong>
-                <span>valor atual</span>
-              </div>
-              <div className="ck-estoque__chip">
-                <strong>{resumo.preenchidos}</strong>
-                <span>preenchidos</span>
-              </div>
-              <div className="ck-estoque__chip">
-                <strong>{resumo.pendentes}</strong>
-                <span>pendentes</span>
-              </div>
-              <div className="ck-estoque__chip">
-                <strong>{resumo.divergencias}</strong>
-                <span>divergências</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
+  const voltar = async () => {
+    if (editavel && dirtyRef.current) {
+      try {
+        if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+        await persistir({ silencioso: true, forcar: true });
+      } catch {
+        /* ainda assim volta */
+      }
+    }
+    navigate('/estoque/mobile');
+  };
 
-      <div className="ck-estoque__busca-fix">
-        <button
-          type="button"
-          className="ck-estoque__back ck-estoque__back--busca"
-          aria-label="Voltar"
-          onClick={() => navigate('/estoque/mobile')}
-        >
-          ←
-        </button>
-        <input
-          type="search"
-          placeholder="Buscar código ou insumo…"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          disabled={loading || !contagem}
-        />
+  return (
+    <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque--contagem">
+      <div className="ck-estoque__contagem-sticky">
+        <div className="ck-estoque__contagem-banner" aria-live="polite">
+          <button
+            type="button"
+            className="ck-estoque__contagem-back"
+            aria-label="Voltar"
+            onClick={() => void voltar()}
+          >
+            ←
+          </button>
+          <h1 className="ck-estoque__contagem-title">CONTAGEM</h1>
+          <div className="ck-estoque__contagem-total">
+            <span>TOTAL</span>
+            <strong>{loading ? '—' : fmtBrl(resumo.totalValor)}</strong>
+          </div>
+        </div>
+        <p className="ck-estoque__contagem-sub">
+          {contagem?.titulo || 'Contagem de insumos'}
+          {contagem?.data_contagem
+            ? ` · ${new Date(contagem.data_contagem + 'T12:00:00').toLocaleDateString('pt-BR')}`
+            : ''}
+          {contagem ? ` · ${resumo.preenchidos}/${resumo.total}` : ''}
+          {editavel && (autoSalvando || salvando) ? ' · salvando…' : ''}
+        </p>
+        {!buscando && secaoAtual && (
+          <div className="ck-estoque__secao-banner">
+            <strong>{secaoAtual.nome}</strong>
+            <span>
+              {indiceSecao + 1}/{secoes.length} · {preenchidosSecaoAtual}/{totalSecaoAtual}
+            </span>
+          </div>
+        )}
+        {buscando && (
+          <div className="ck-estoque__secao-banner ck-estoque__secao-banner--busca">
+            <strong>BUSCA</strong>
+            <span>{itensVisiveis.length} resultado(s)</span>
+          </div>
+        )}
+        <div className="ck-estoque__busca-wrap">
+          <input
+            type="search"
+            placeholder="Buscar em todas as seções…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            disabled={loading || !contagem}
+          />
+        </div>
       </div>
 
-      <div className="ck-visitas__scroll">
+      <div className="ck-visitas__scroll" ref={scrollRef}>
         <div className="ck-visitas__sheet ck-estoque__sheet-scroll">
           {err && (
             <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
@@ -339,59 +527,59 @@ export default function EstoqueMobileConferenciaPage() {
 
           {!loading && contagem && (
             <>
-              {itensFiltrados.map((i) => {
+              {itensVisiveis.map((i) => {
                 const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '' };
                 const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
                 const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
-                const contado = editavel
-                  ? calcQtdTerraco(raw, undCx, undPc)
-                  : i.estoque_contado;
+                const permite = permiteCampos(i);
+                const contado = calcQtdTerraco(raw, undCx, undPc, permite);
+                const totalLinha = calcTotalLinha(contado, Number(i.valor_unidade) || 0);
                 const preenchido = contado != null && Number.isFinite(contado);
-                const dif = !preenchido ? null : contado - i.estoque_sistema;
-                const comDiv = dif != null && dif !== 0;
+                const foraCmv = i.entra_cmv === false;
                 return (
                   <div
                     key={i.id_item}
-                    className={`ck-estoque__item${
-                      comDiv ? ' is-div' : preenchido ? ' is-ok' : ' is-pend'
-                    }`}
+                    className={`ck-estoque__item ck-estoque__item--planilha${
+                      preenchido ? ' is-ok' : ' is-pend'
+                    }${foraCmv ? ' is-fora-cmv' : ''}`}
                   >
                     <div className="ck-estoque__item-head">
-                      <span className="ck-estoque__cod">{i.codigo}</span>
-                      <span className="ck-estoque__und">
-                        {String(i.unidade_contagem || '').toUpperCase()}
+                      <span className="ck-estoque__cod">
+                        {i.codigo || '—'}
+                        {buscando ? ` · ${nomeSecao(i)}` : ''}
+                        {foraCmv ? ' · fora CMV' : ''}
                       </span>
+                      <span className="ck-estoque__linha-total">{fmtBrl(totalLinha)}</span>
                     </div>
                     <div className="ck-estoque__desc">{i.descricao}</div>
-                    <div className="ck-estoque__meta" style={{ marginTop: 0, marginBottom: 8 }}>
-                      Valor:{' '}
-                      {preenchido
-                        ? fmtBrl(contado * (Number(i.valor_unidade) || 0))
-                        : '—'}
-                    </div>
-                    <div className="ck-estoque__row">
-                      <div className="ck-estoque__field">
-                        <label>Sistema</label>
-                        <div className="ck-estoque__sistema">{fmtNum(i.estoque_sistema, 3)}</div>
+
+                    <div className="ck-estoque__vl-row" aria-label="Valores do sistema">
+                      <div className="ck-estoque__vl">
+                        <span>VL. CAIXA</span>
+                        <strong>{fmtVl(i.preco_caixa)}</strong>
                       </div>
-                      <div className="ck-estoque__field">
-                        <label>QTD</label>
-                        <div className="ck-estoque__sistema">
-                          {preenchido ? fmtNum(contado, 3) : '—'}
-                        </div>
+                      <div className="ck-estoque__vl">
+                        <span>VL. UNIT.</span>
+                        <strong>{fmtVl(i.valor_unidade)}</strong>
                       </div>
                     </div>
+
                     <div className="ck-estoque__row ck-estoque__row--tres">
                       {(
                         [
-                          ['caixa', 'CAIXA'],
-                          ['pc', 'PC/FD'],
-                          ['kg', 'KG/UND'],
+                          ['caixa', 'CAIXA', permite.caixa],
+                          ['pc', 'PC / FD', permite.pc],
+                          ['kg', 'KG / UND', permite.kg],
                         ] as const
-                      ).map(([campo, label]) => (
-                        <div key={campo} className="ck-estoque__field">
+                      ).map(([campo, label, liberado]) => (
+                        <div
+                          key={campo}
+                          className={`ck-estoque__field${liberado ? '' : ' is-blocked'}`}
+                        >
                           <label>{label}</label>
-                          {editavel ? (
+                          {!liberado ? (
+                            <div className="ck-estoque__blocked" aria-hidden title="Não se aplica" />
+                          ) : editavel ? (
                             <input
                               type="number"
                               inputMode="decimal"
@@ -404,6 +592,12 @@ export default function EstoqueMobileConferenciaPage() {
                               data-estoque-campo={campo}
                               onChange={(e) => setCampo(i.id_item, campo, e.target.value)}
                               onFocus={(e) => e.target.select()}
+                              onBlur={() => {
+                                if (dirtyRef.current) {
+                                  if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+                                  void persistir({ silencioso: true }).catch(() => {});
+                                }
+                              }}
                               onKeyDown={(e) => {
                                 if (e.key !== 'Enter') return;
                                 e.preventDefault();
@@ -435,44 +629,18 @@ export default function EstoqueMobileConferenciaPage() {
                         </div>
                       ))}
                     </div>
-                    {dif != null && (
-                      <div className={`ck-estoque__dif ${comDiv ? 'is-div' : 'is-zero'}`}>
-                        Diferença: {fmtNum(dif, 3)}
-                      </div>
-                    )}
                   </div>
                 );
               })}
 
-              {!itensFiltrados.length && (
-                <div className="ck-estoque__empty">Nenhum insumo encontrado.</div>
-              )}
-
-              {editavel && (
-                <div className="ck-estoque__actions">
-                  <div className="ck-estoque__actions-row">
-                    <button
-                      type="button"
-                      className="ck-estoque__btn ck-estoque__btn--save"
-                      disabled={salvando || finalizando}
-                      onClick={() => void salvar()}
-                    >
-                      {salvando ? 'Salvando…' : 'Salvar rascunho'}
-                    </button>
-                    <button
-                      type="button"
-                      className="ck-estoque__btn ck-estoque__btn--ok"
-                      disabled={salvando || finalizando || resumo.pendentes > 0}
-                      onClick={() => void finalizar()}
-                    >
-                      {finalizando ? 'Finalizando…' : 'Finalizar'}
-                    </button>
-                  </div>
+              {!itensVisiveis.length && (
+                <div className="ck-estoque__empty">
+                  {buscando ? 'Nenhum insumo encontrado na busca.' : 'Nenhum insumo nesta seção.'}
                 </div>
               )}
 
               {!editavel && podeReabrir && contagem.status === 'finalizada' && (
-                <div className="ck-estoque__actions">
+                <div className="ck-estoque__actions ck-estoque__actions--inline">
                   <button
                     type="button"
                     className="ck-estoque__btn ck-estoque__btn--save"
@@ -494,6 +662,50 @@ export default function EstoqueMobileConferenciaPage() {
           )}
         </div>
       </div>
+
+      {!loading && contagem && !buscando && secoes.length > 0 && (
+        <nav className="ck-estoque__secao-dock" aria-label="Navegação das seções">
+          <button
+            type="button"
+            className="ck-estoque__dock-side"
+            disabled={indiceSecao <= 0 || salvando || finalizando}
+            onClick={() => void irSecao(indiceSecao - 1)}
+            aria-label="Seção anterior"
+          >
+            ←
+          </button>
+          {editavel && ultimaSecao ? (
+            <button
+              type="button"
+              className="ck-estoque__dock-cta ck-estoque__dock-cta--ok"
+              disabled={salvando || finalizando || autoSalvando || resumo.pendentes > 0}
+              onClick={() => void finalizar()}
+            >
+              {finalizando ? 'Finalizando…' : 'Finalizar contagem'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="ck-estoque__dock-cta"
+              disabled={ultimaSecao || salvando || finalizando}
+              onClick={() => void irSecao(indiceSecao + 1)}
+            >
+              {secoes[indiceSecao + 1]?.nome
+                ? `Próxima · ${secoes[indiceSecao + 1].nome}`
+                : 'Próxima'}
+            </button>
+          )}
+          <button
+            type="button"
+            className="ck-estoque__dock-side"
+            disabled={ultimaSecao || salvando || finalizando}
+            onClick={() => void irSecao(indiceSecao + 1)}
+            aria-label="Próxima seção"
+          >
+            →
+          </button>
+        </nav>
+      )}
 
       {dlgReabrir && (
         <div className="ck-estoque__dlg-backdrop" role="presentation">
