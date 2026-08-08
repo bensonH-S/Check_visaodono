@@ -258,16 +258,22 @@ export default function EstoqueMobileListaPage() {
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
             Conte os insumos da loja, salve o rascunho e finalize a conferência.
           </p>
-          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+          <div
+            className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3"
+            aria-live="polite"
+          >
             <div className="ck-visitas__metric">
               <strong style={{ fontSize: '0.95rem' }}>
                 {loading ? '—' : fmtBrl(valorInicialMes)}
               </strong>
               <span>
-                início do mês
+                início
                 {dataInicialMes
-                  ? ` · ${new Date(dataInicialMes + 'T12:00:00').toLocaleDateString('pt-BR')}`
-                  : ''}
+                  ? ` ${new Date(dataInicialMes + 'T12:00:00').toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                    })}`
+                  : ' mês'}
               </span>
             </div>
             <div className="ck-visitas__metric ck-visitas__metric--accent">
@@ -278,7 +284,9 @@ export default function EstoqueMobileListaPage() {
             </div>
             <div className="ck-visitas__metric">
               <strong>{loading ? '—' : abertas}</strong>
-              <span>abertas · {finalizadas} ok</span>
+              <span>
+                abertas · {finalizadas} ok
+              </span>
             </div>
           </div>
         </div>

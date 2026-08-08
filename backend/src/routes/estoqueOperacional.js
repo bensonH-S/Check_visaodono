@@ -708,12 +708,34 @@ router.get('/break', permBreak, async (req, res, next) => {
 
     const { rows } = await pool.query(
       `SELECT b.*, u.nome AS criado_por_nome,
+              COALESCE(b.colaborador_nome, uc.nome) AS colaborador_nome,
               (SELECT COUNT(*)::int FROM estoque_break_itens i WHERE i.id_break = b.id_break) AS itens
        FROM estoque_break b
        LEFT JOIN usuarios u ON u.id_usuario = b.criado_por
+       LEFT JOIN usuarios uc ON uc.id_usuario = b.id_colaborador
        WHERE b.id_loja = $1
        ORDER BY b.data_break DESC, b.id_break DESC
        LIMIT 100`,
+      [idLoja],
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/break/colaboradores', permBreak, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const { rows } = await pool.query(
+      `SELECT DISTINCT u.id_usuario, u.nome
+       FROM usuarios u
+       JOIN usuario_lojas ul ON ul.id_usuario = u.id_usuario AND ul.id_loja = $1
+       WHERE u.ativo = TRUE
+       ORDER BY u.nome`,
       [idLoja],
     );
     res.json(rows);
@@ -731,11 +753,24 @@ router.post('/break', permBreak, async (req, res, next) => {
     const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
     if (!itens.length) return res.status(400).json({ error: 'Informe os itens do break' });
 
+    const idColab =
+      req.body?.id_colaborador != null && req.body.id_colaborador !== ''
+        ? Number(req.body.id_colaborador)
+        : null;
+    const nomeColab =
+      req.body?.colaborador_nome != null ? String(req.body.colaborador_nome).trim() : '';
+
+    if (!(Number.isFinite(idColab) && idColab > 0) && !nomeColab) {
+      return res.status(400).json({ error: 'Informe o colaborador que pegará o break' });
+    }
+
     const result = await lancarBreak({
       id_loja: idLoja,
       data_break: req.body?.data_break || null,
       tipo: req.body?.tipo || 'refeicao',
       motivo: req.body?.motivo != null ? String(req.body.motivo).trim() || null : null,
+      id_colaborador: Number.isFinite(idColab) && idColab > 0 ? idColab : null,
+      colaborador_nome: nomeColab || null,
       itens,
       criado_por: userId(req),
     });

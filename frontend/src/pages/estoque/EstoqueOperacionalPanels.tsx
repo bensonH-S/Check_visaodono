@@ -43,6 +43,7 @@ import {
 import CampoDataFrota from '../../components/frota/CampoDataFrota';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
+import EstoqueProdutoVendaAutocomplete from '../../components/estoque/EstoqueProdutoVendaAutocomplete';
 import { custoLinhaReceita, UNIDADES_RECEITA, unidadeReceitaPadrao } from '../../utils/fichaReceitaEstoque';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import { showToast } from '../../utils/toast';
@@ -99,13 +100,7 @@ const campoBreakBaseSx = {
 
 const campoBreakDataSx = {
   ...campoBreakBaseSx,
-  flex: '0 0 36%',
-  maxWidth: '36%',
-} as const;
-
-const campoBreakModoSx = {
-  ...campoBreakBaseSx,
-  flex: '1 1 64%',
+  flex: '1 1 100%',
 } as const;
 
 const campoBreakFieldSx = {
@@ -150,7 +145,7 @@ export default function EstoqueOperacionalPanels({
       />
     );
   }
-  return <PainelBreak idLoja={idLoja} produtos={produtos} />;
+  return <PainelBreak idLoja={idLoja} />;
 }
 
 function PainelCmv({
@@ -1505,21 +1500,35 @@ function PainelProdutos({
   );
 }
 
-function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEstoque[] }) {
+function PainelBreak({ idLoja }: { idLoja: number }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<EstoqueBreakResumo[]>([]);
+  const [produtosVenda, setProdutosVenda] = useState<ProdutoVendaEstoque[]>([]);
+  const [colaboradores, setColaboradores] = useState<Array<{ id_usuario: number; nome: string }>>(
+    [],
+  );
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [dataBreak, setDataBreak] = useState(hojeISO());
   const [motivo, setMotivo] = useState('');
-  const [modo, setModo] = useState<'insumo' | 'venda'>('insumo');
+  const [colabSelect, setColabSelect] = useState('');
+  const [idColaborador, setIdColaborador] = useState<number | ''>('');
+  const [nomeColaborador, setNomeColaborador] = useState('');
   const [codigo, setCodigo] = useState('');
   const [qtde, setQtde] = useState('1');
+  const colabDigitado = colaboradores.length === 0 || colabSelect === '__outro__';
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      setLista(await api.estoqueBreaks(idLoja));
+      const [breaks, prods, cols] = await Promise.all([
+        api.estoqueBreaks(idLoja),
+        api.estoqueProdutosVenda({ id_loja: idLoja }),
+        api.estoqueBreakColaboradores(idLoja),
+      ]);
+      setLista(breaks);
+      setProdutosVenda(prods.filter((p) => p.ativo !== false));
+      setColaboradores(cols);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar breaks', 'error');
     } finally {
@@ -1531,6 +1540,16 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
     void carregar();
   }, [carregar]);
 
+  const resetForm = () => {
+    setMotivo('');
+    setColabSelect('');
+    setIdColaborador('');
+    setNomeColaborador('');
+    setCodigo('');
+    setQtde('1');
+    setDataBreak(hojeISO());
+  };
+
   const ajustarQtde = (delta: number) => {
     const atual = Number(String(qtde).replace(',', '.'));
     const base = Number.isFinite(atual) ? atual : 0;
@@ -1540,27 +1559,31 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
 
   const lancar = async () => {
     const quantidade = Number(String(qtde).replace(',', '.'));
+    const nome =
+      (idColaborador
+        ? colaboradores.find((c) => c.id_usuario === idColaborador)?.nome
+        : null) || nomeColaborador.trim();
+    if (!nome) {
+      showToast('Informe o colaborador que pegará o break', 'error');
+      return;
+    }
     if (!codigo.trim() || !(quantidade > 0)) {
-      showToast('Informe item e quantidade', 'error');
+      showToast('Informe produto e quantidade', 'error');
       return;
     }
     setSalvando(true);
     try {
-      const item =
-        modo === 'insumo'
-          ? { codigo_insumo: codigo.trim().toUpperCase(), quantidade }
-          : { codigo_venda: codigo.trim(), quantidade };
       await api.estoqueLancarBreak({
         id_loja: idLoja,
         data_break: dataBreak,
         motivo: motivo.trim() || undefined,
-        itens: [item],
+        id_colaborador: idColaborador || undefined,
+        colaborador_nome: nome,
+        itens: [{ codigo_venda: codigo.trim(), quantidade }],
       });
       showToast('Break lançado — estoque baixado', 'success');
       setOpen(false);
-      setMotivo('');
-      setCodigo('');
-      setQtde('1');
+      resetForm();
       await carregar();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao lançar break', 'error');
@@ -1581,9 +1604,16 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          Consumo de colaboradores (refeição / break) — baixa o estoque na hora.
+          Consumo de colaboradores (refeição / break) — baixa o estoque na hora via ficha.
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            resetForm();
+            setOpen(true);
+          }}
+        >
           Lançar Break
         </Button>
       </Box>
@@ -1594,17 +1624,17 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
             <TableHead>
               <TableRow>
                 <TableCell>Data</TableCell>
-                <TableCell>Tipo</TableCell>
+                <TableCell>Colaborador</TableCell>
                 <TableCell>Motivo</TableCell>
                 <TableCell align="right">Itens</TableCell>
-                <TableCell>Por</TableCell>
+                <TableCell>Lançado por</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {lista.map((b) => (
                 <TableRow key={b.id_break} hover>
                   <TableCell>{fmtDataBR(b.data_break)}</TableCell>
-                  <TableCell>{b.tipo}</TableCell>
+                  <TableCell>{b.colaborador_nome || '—'}</TableCell>
                   <TableCell>{b.motivo || '—'}</TableCell>
                   <TableCell align="right">{b.itens ?? 0}</TableCell>
                   <TableCell>{b.criado_por_nome || '—'}</TableCell>
@@ -1635,65 +1665,84 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
           Lançar Break
         </DialogTitleWithIcon>
         <DialogContent sx={dialogContentSx}>
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-            <Box sx={campoBreakDataSx}>
-              <CampoDataFrota
-                label="Data"
-                value={dataBreak}
-                onChange={setDataBreak}
-                sx={{
-                  mb: 0,
-                  width: '100%',
-                  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
-                    borderRadius: 1,
-                    minHeight: 40,
-                    height: 40,
-                    alignItems: 'center',
-                  },
-                  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
-                    borderRadius: 1,
-                  },
-                  '& .MuiOutlinedInput-input, & .MuiPickersInputBase-input': {
-                    py: '8.5px',
-                    boxSizing: 'border-box',
-                    fontSize: '0.875rem',
-                  },
-                }}
-              />
-            </Box>
+          <Box sx={campoBreakDataSx}>
+            <CampoDataFrota
+              label="Data"
+              value={dataBreak}
+              onChange={setDataBreak}
+              sx={{
+                mb: 0,
+                width: '100%',
+                '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+                  borderRadius: 1,
+                  minHeight: 40,
+                  height: 40,
+                  alignItems: 'center',
+                },
+                '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
+                  borderRadius: 1,
+                },
+                '& .MuiOutlinedInput-input, & .MuiPickersInputBase-input': {
+                  py: '8.5px',
+                  boxSizing: 'border-box',
+                  fontSize: '0.875rem',
+                },
+              }}
+            />
+          </Box>
+          {colaboradores.length > 0 ? (
             <TextField
               {...dialogFieldProps}
               size="small"
               select
-              label="Modo"
-              value={modo}
+              label="Colaborador"
+              value={colabSelect}
               onChange={(e) => {
-                setModo(e.target.value as 'insumo' | 'venda');
-                setCodigo('');
+                const v = e.target.value;
+                setColabSelect(v);
+                if (!v || v === '__outro__') {
+                  setIdColaborador('');
+                  setNomeColaborador('');
+                  return;
+                }
+                const id = Number(v);
+                const col = colaboradores.find((c) => c.id_usuario === id);
+                setIdColaborador(id);
+                setNomeColaborador(col?.nome || '');
               }}
-              sx={campoBreakModoSx}
-            >
-              <MenuItem value="insumo">Insumo direto</MenuItem>
-              <MenuItem value="venda">Produto de venda (via ficha)</MenuItem>
-            </TextField>
-          </Box>
-          {modo === 'insumo' ? (
-            <EstoqueInsumoAutocomplete
-              produtos={produtos}
-              value={codigo}
-              onChange={setCodigo}
               sx={campoBreakFieldSx}
-            />
-          ) : (
+            >
+              <MenuItem value="">Selecione…</MenuItem>
+              {colaboradores.map((c) => (
+                <MenuItem key={c.id_usuario} value={String(c.id_usuario)}>
+                  {c.nome}
+                </MenuItem>
+              ))}
+              <MenuItem value="__outro__">Outro (digitar nome)</MenuItem>
+            </TextField>
+          ) : null}
+          {colabDigitado && (
             <TextField
               {...dialogFieldProps}
               size="small"
-              label="Produto de venda (código BK)"
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value)}
+              label="Nome do colaborador"
+              value={nomeColaborador}
+              onChange={(e) => {
+                setIdColaborador('');
+                setColabSelect(colaboradores.length ? '__outro__' : '');
+                setNomeColaborador(e.target.value);
+              }}
+              placeholder="Quem pegará o break"
               sx={campoBreakFieldSx}
+              required
             />
           )}
+          <EstoqueProdutoVendaAutocomplete
+            produtos={produtosVenda}
+            value={codigo}
+            onChange={setCodigo}
+            sx={campoBreakFieldSx}
+          />
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <IconButton
               size="small"
@@ -1734,7 +1783,7 @@ function PainelBreak({ idLoja, produtos }: { idLoja: number; produtos: ProdutoEs
             label="Motivo"
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
-            placeholder="Almoço colaborador..."
+            placeholder="Opcional"
             sx={campoBreakFieldSx}
           />
         </DialogContent>

@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Fab from '@mui/material/Fab';
+import LinearProgress from '@mui/material/LinearProgress';
 import AddIcon from '@mui/icons-material/Add';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import {
   api,
   type EstoqueBreakResumo,
   type Loja,
-  type ProdutoEstoque,
+  type ProdutoVendaEstoque,
 } from '../../api/client';
 import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFrota';
-import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
+import EstoqueProdutoVendaAutocomplete from '../../components/estoque/EstoqueProdutoVendaAutocomplete';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { ehGestorLojaMobile, getUsuario } from '../../lib/auth';
 import { safeAreaRightCalc } from '../../theme/safeArea';
@@ -20,12 +21,32 @@ import '../../components/estoque/estoque-mobile.css';
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
+type BreakItemRascunho = {
+  key: string;
+  codigo: string;
+  descricao: string;
+  quantidade: number;
+};
+
 function fmtDataBR(iso: string | null | undefined) {
   if (!iso) return '—';
   const s = String(iso).slice(0, 10);
   const [y, m, d] = s.split('-');
   if (!y || !m || !d) return s;
   return `${d}/${m}/${y}`;
+}
+
+function fmtDataHora(iso: string | null | undefined) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function nomeLoja(l: Loja) {
@@ -67,20 +88,30 @@ export default function EstoqueMobileBreakPage() {
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
     return Number.isFinite(saved) && saved > 0 ? saved : '';
   });
-  const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
+  const [produtosVenda, setProdutosVenda] = useState<ProdutoVendaEstoque[]>([]);
+  const [colaboradores, setColaboradores] = useState<Array<{ id_usuario: number; nome: string }>>(
+    [],
+  );
   const [lista, setLista] = useState<EstoqueBreakResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [err, setErr] = useState('');
   const [dlgLoja, setDlgLoja] = useState(false);
   const [buscaLoja, setBuscaLoja] = useState('');
+  const [busca, setBusca] = useState('');
   const [formAberto, setFormAberto] = useState(false);
 
   const [dataBreak, setDataBreak] = useState(dataHojeIso());
-  const [motivo, setMotivo] = useState('');
-  const [modo, setModo] = useState<'insumo' | 'venda'>('insumo');
+  const [colabSelect, setColabSelect] = useState('');
+  const [idColaborador, setIdColaborador] = useState<number | ''>('');
+  const [nomeColaborador, setNomeColaborador] = useState('');
   const [codigo, setCodigo] = useState('');
-  const [qtde, setQtde] = useState('1');
+  const [itens, setItens] = useState<BreakItemRascunho[]>([]);
+  const colabDigitado = colaboradores.length === 0 || colabSelect === '__outro__';
+  const nomeColabAtual =
+    (idColaborador
+      ? colaboradores.find((c) => c.id_usuario === idColaborador)?.nome
+      : null) || nomeColaborador.trim();
 
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
@@ -89,6 +120,23 @@ export default function EstoqueMobileBreakPage() {
     if (!q) return lojas;
     return lojas.filter((l) => rotuloLoja(l).toLowerCase().includes(q));
   }, [lojas, buscaLoja]);
+
+  const listaFiltrada = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return lista;
+    return lista.filter(
+      (b) =>
+        String(b.motivo || '').toLowerCase().includes(q) ||
+        String(b.colaborador_nome || '').toLowerCase().includes(q) ||
+        String(b.criado_por_nome || '').toLowerCase().includes(q) ||
+        fmtDataBR(b.data_break).includes(q),
+    );
+  }, [lista, busca]);
+
+  const totalItens = useMemo(
+    () => lista.reduce((s, b) => s + (Number(b.itens) || 0), 0),
+    [lista],
+  );
 
   useEffect(() => {
     let cancel = false;
@@ -119,12 +167,14 @@ export default function EstoqueMobileBreakPage() {
     setLoading(true);
     setErr('');
     try {
-      const [breaks, prods] = await Promise.all([
+      const [breaks, prods, cols] = await Promise.all([
         api.estoqueBreaks(lojaId),
-        api.estoqueProdutos({ id_loja: lojaId }),
+        api.estoqueProdutosVenda({ id_loja: lojaId }),
+        api.estoqueBreakColaboradores(lojaId),
       ]);
       setLista(breaks);
-      setProdutos(prods);
+      setProdutosVenda(prods.filter((p) => p.ativo !== false));
+      setColaboradores(cols);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erro ao carregar break');
     } finally {
@@ -167,46 +217,95 @@ export default function EstoqueMobileBreakPage() {
     setBuscaLoja('');
   };
 
+  const limparForm = () => {
+    setColabSelect('');
+    setIdColaborador('');
+    setNomeColaborador('');
+    setCodigo('');
+    setItens([]);
+  };
+
   const abrirForm = () => {
     setDataBreak(dataHojeIso());
+    limparForm();
     setFormAberto(true);
   };
 
   const fecharForm = () => {
     setFormAberto(false);
-    setMotivo('');
-    setCodigo('');
-    setQtde('1');
-    setModo('insumo');
+    limparForm();
   };
 
-  const ajustarQtde = (delta: number) => {
-    const atual = Number(String(qtde).replace(',', '.'));
-    const base = Number.isFinite(atual) ? atual : 0;
-    const prox = Math.max(0, Math.round((base + delta) * 1000) / 1000);
-    setQtde(String(prox));
+  const adicionarProduto = (cod: string, prod?: ProdutoVendaEstoque | null) => {
+    const codigoSel = String(cod || '').trim();
+    if (!codigoSel) {
+      setCodigo('');
+      return;
+    }
+    const descricao = String(prod?.descricao || '').trim() || codigoSel;
+    setItens((prev) => {
+      const existe = prev.find((i) => i.codigo === codigoSel);
+      if (existe) {
+        return prev.map((i) =>
+          i.codigo === codigoSel
+            ? { ...i, quantidade: Math.round((i.quantidade + 1) * 1000) / 1000 }
+            : i,
+        );
+      }
+      return [
+        ...prev,
+        {
+          key: `${codigoSel}-${Date.now()}`,
+          codigo: codigoSel,
+          descricao,
+          quantidade: 1,
+        },
+      ];
+    });
+    // Limpa o campo pra já escolher o próximo.
+    setCodigo('');
+  };
+
+  const ajustarQtdeItem = (key: string, delta: number) => {
+    setItens((prev) =>
+      prev
+        .map((i) => {
+          if (i.key !== key) return i;
+          const prox = Math.round((i.quantidade + delta) * 1000) / 1000;
+          return { ...i, quantidade: prox };
+        })
+        .filter((i) => i.quantidade > 0),
+    );
+  };
+
+  const removerItem = (key: string) => {
+    setItens((prev) => prev.filter((i) => i.key !== key));
   };
 
   const lancar = async () => {
     if (!idLoja) return;
-    const quantidade = Number(String(qtde).replace(',', '.'));
-    if (!codigo.trim() || !(quantidade > 0)) {
-      showToast('Informe item e quantidade', 'error');
+    if (!nomeColabAtual) {
+      showToast('Informe o colaborador que pegará o break', 'error');
+      return;
+    }
+    if (!itens.length) {
+      showToast('Adicione pelo menos um produto', 'error');
       return;
     }
     setSalvando(true);
     try {
-      const item =
-        modo === 'insumo'
-          ? { codigo_insumo: codigo.trim().toUpperCase(), quantidade }
-          : { codigo_venda: codigo.trim(), quantidade };
       await api.estoqueLancarBreak({
         id_loja: idLoja,
         data_break: dataBreak,
-        motivo: motivo.trim() || undefined,
-        itens: [item],
+        id_colaborador: idColaborador || undefined,
+        colaborador_nome: nomeColabAtual,
+        itens: itens.map((i) => ({
+          codigo_venda: i.codigo,
+          quantidade: i.quantidade,
+          descricao: i.descricao,
+        })),
       });
-      showToast('Break lançado — estoque baixado', 'success');
+      showToast(`Break lançado — ${itens.length} item(ns) baixados`, 'success');
       fecharForm();
       await carregar(idLoja);
     } catch (e) {
@@ -275,6 +374,178 @@ export default function EstoqueMobileBreakPage() {
       document.body,
     );
 
+  if (formAberto) {
+    return (
+      <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque--contagem ck-estoque--break">
+        <div className="ck-estoque__contagem-sticky">
+          <div className="ck-estoque__contagem-banner" aria-live="polite">
+            <button
+              type="button"
+              className="ck-estoque__contagem-back"
+              aria-label="Voltar"
+              onClick={fecharForm}
+            >
+              ←
+            </button>
+            <h1 className="ck-estoque__contagem-title">NOVO BREAK</h1>
+            <div className="ck-estoque__contagem-total">
+              <span>ITENS</span>
+              <strong>{itens.length}</strong>
+            </div>
+          </div>
+          <p className="ck-estoque__contagem-sub">
+            {lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}
+            {nomeColabAtual ? ` · ${nomeColabAtual}` : ''}
+          </p>
+        </div>
+
+        <div className="ck-visitas__scroll">
+          <div className="ck-visitas__sheet ck-estoque__sheet-scroll ck-estoque__break-form-sheet">
+            <div className="ck-estoque__break-form ck-estoque__break-form--planilha">
+              <div className="ck-estoque__field ck-estoque__field--date">
+                <CampoDataFrota label="Data" value={dataBreak} onChange={setDataBreak} />
+              </div>
+
+              {colaboradores.length > 0 && (
+                <label className="ck-estoque__field">
+                  <span>Colaborador</span>
+                  <select
+                    value={colabSelect}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setColabSelect(v);
+                      if (!v || v === '__outro__') {
+                        setIdColaborador('');
+                        setNomeColaborador('');
+                        return;
+                      }
+                      const id = Number(v);
+                      const col = colaboradores.find((c) => c.id_usuario === id);
+                      setIdColaborador(id);
+                      setNomeColaborador(col?.nome || '');
+                    }}
+                    disabled={salvando}
+                  >
+                    <option value="">Selecione…</option>
+                    {colaboradores.map((c) => (
+                      <option key={c.id_usuario} value={String(c.id_usuario)}>
+                        {c.nome}
+                      </option>
+                    ))}
+                    <option value="__outro__">Outro (digitar nome)</option>
+                  </select>
+                </label>
+              )}
+
+              {colabDigitado && (
+                <label className="ck-estoque__field">
+                  <span>Nome do colaborador</span>
+                  <input
+                    type="text"
+                    value={nomeColaborador}
+                    onChange={(e) => {
+                      setIdColaborador('');
+                      setColabSelect(colaboradores.length ? '__outro__' : '');
+                      setNomeColaborador(e.target.value);
+                    }}
+                    placeholder="Quem pegará o break"
+                    autoComplete="off"
+                    disabled={salvando}
+                  />
+                </label>
+              )}
+
+              <div className="ck-estoque__field">
+                <span>Produto</span>
+                <EstoqueProdutoVendaAutocomplete
+                  produtos={produtosVenda}
+                  value={codigo}
+                  onChange={adicionarProduto}
+                  hideLabel
+                  disabled={salvando}
+                  placeholder="Digite ou escolha — já entra na lista"
+                />
+              </div>
+            </div>
+
+            {itens.length > 0 && (
+              <div className="ck-estoque__break-itens">
+                {itens.map((item) => (
+                  <div
+                    key={item.key}
+                    className="ck-estoque__item ck-estoque__item--planilha is-ok"
+                  >
+                    <div className="ck-estoque__item-head">
+                      <span className="ck-estoque__cod">{item.codigo}</span>
+                      <button
+                        type="button"
+                        className="ck-estoque__break-remove"
+                        aria-label="Remover item"
+                        disabled={salvando}
+                        onClick={() => removerItem(item.key)}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                    <div className="ck-estoque__desc">{item.descricao}</div>
+                    <div className="ck-estoque__qty ck-estoque__qty--item">
+                      <button
+                        type="button"
+                        className="ck-estoque__qty-btn"
+                        aria-label="Diminuir"
+                        disabled={salvando}
+                        onClick={() => ajustarQtdeItem(item.key, -1)}
+                      >
+                        −
+                      </button>
+                      <span className="ck-estoque__qty-val" aria-label="Quantidade">
+                        {item.quantidade}
+                      </span>
+                      <button
+                        type="button"
+                        className="ck-estoque__qty-btn"
+                        aria-label="Aumentar"
+                        disabled={salvando}
+                        onClick={() => ajustarQtdeItem(item.key, 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <nav className="ck-estoque__secao-dock" aria-label="Ações do break">
+          <button
+            type="button"
+            className="ck-estoque__dock-side"
+            disabled={salvando}
+            onClick={fecharForm}
+            aria-label="Cancelar"
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            className="ck-estoque__dock-cta ck-estoque__dock-cta--ok"
+            disabled={salvando || loading || !itens.length}
+            onClick={() => void lancar()}
+          >
+            {salvando
+              ? 'Lançando…'
+              : itens.length
+                ? `Confirmar baixa · ${itens.length}`
+                : 'Confirmar baixa'}
+          </button>
+          <span className="ck-estoque__dock-side" aria-hidden style={{ visibility: 'hidden' }} />
+        </nav>
+      </div>
+    );
+  }
+
   return (
     <div className="ck-visitas ck-visitas--lista ck-estoque">
       <div className="ck-visitas__stage">
@@ -286,28 +557,30 @@ export default function EstoqueMobileBreakPage() {
             <div>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title">
-                {formAberto ? (
-                  <>
-                    Novo
-                    <br />
-                    lançamento
-                  </>
-                ) : (
-                  <>
-                    Break
-                    <br />
-                    de estoque
-                  </>
-                )}
+                Break
+                <br />
+                da loja
               </h1>
             </div>
             <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
           </div>
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            {formAberto
-              ? 'Preencha os dados e confirme a baixa no estoque.'
-              : 'Consumo de colaboradores — baixa o estoque na hora.'}
+            Informe o colaborador e o produto de venda. O estoque baixa na hora via ficha.
           </p>
+          <div className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+            <div className="ck-visitas__metric">
+              <strong>{loading ? '—' : lista.length}</strong>
+              <span>lançamentos</span>
+            </div>
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong>{loading ? '—' : totalItens}</strong>
+              <span>itens baixados</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong>{lojaAtual?.bk_number || '—'}</strong>
+              <span>loja</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -319,161 +592,88 @@ export default function EstoqueMobileBreakPage() {
             </p>
           )}
 
-          <div className={`ck-estoque__loja${formAberto ? ' ck-estoque__loja--com-voltar' : ''}`}>
-            {formAberto && (
+          {podeTrocarLoja ? (
+            <div className="ck-estoque__loja">
               <button
                 type="button"
-                className="ck-estoque__voltar"
-                aria-label="Voltar aos lançamentos"
-                onClick={fecharForm}
+                className="ck-estoque__loja-btn"
+                onClick={() => setDlgLoja(true)}
               >
-                ←
-              </button>
-            )}
-            {podeTrocarLoja && !formAberto ? (
-              <button type="button" className="ck-estoque__loja-btn" onClick={() => setDlgLoja(true)}>
                 <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
                 <span aria-hidden>▾</span>
               </button>
-            ) : (
+            </div>
+          ) : lojaAtual ? (
+            <div className="ck-estoque__loja">
               <div className="ck-estoque__loja-fix" aria-label="Loja">
                 <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
                 <div className="ck-estoque__loja-fix-text">
-                  {lojaAtual?.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
-                  <strong>{lojaAtual ? nomeLoja(lojaAtual) : 'Loja não selecionada'}</strong>
+                  {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
+                  <strong>{nomeLoja(lojaAtual)}</strong>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : null}
 
-          {!formAberto && idLoja ? <p className="ck-visitas__section">Últimos lançamentos</p> : null}
+          {idLoja ? (
+            <div className="ck-estoque__busca-wrap" style={{ marginTop: 10 }}>
+              <input
+                type="search"
+                placeholder="Buscar colaborador ou responsável…"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          ) : null}
         </div>
 
         <div className="ck-visitas__sheet-body">
+          {loading && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
+
           {!idLoja ? (
-            <div className="ck-estoque__empty">Selecione a loja para ver e lançar break.</div>
-          ) : formAberto ? (
-            <div className="ck-estoque__break-form">
-              <div className="ck-estoque__field ck-estoque__field--date">
-                <CampoDataFrota label="Data" value={dataBreak} onChange={setDataBreak} />
-              </div>
-              <label className="ck-estoque__field">
-                <span>Modo</span>
-                <select
-                  value={modo}
-                  onChange={(e) => {
-                    setModo(e.target.value as 'insumo' | 'venda');
-                    setCodigo('');
-                  }}
-                >
-                  <option value="insumo">Insumo direto</option>
-                  <option value="venda">Produto de venda (via ficha)</option>
-                </select>
-              </label>
-              {modo === 'insumo' ? (
-                <div className="ck-estoque__field">
-                  <span>Insumo</span>
-                  <EstoqueInsumoAutocomplete
-                    produtos={produtos}
-                    value={codigo}
-                    onChange={setCodigo}
-                    hideLabel
-                    disabled={salvando}
-                  />
-                </div>
-              ) : (
-                <label className="ck-estoque__field">
-                  <span>Produto de venda (código BK)</span>
-                  <input
-                    type="text"
-                    inputMode="text"
-                    value={codigo}
-                    onChange={(e) => setCodigo(e.target.value)}
-                    placeholder="Ex.: 1050"
-                    autoComplete="off"
-                  />
-                </label>
-              )}
-              <div className="ck-estoque__field">
-                <span>Quantidade</span>
-                <div className="ck-estoque__qty">
-                  <button
-                    type="button"
-                    className="ck-estoque__qty-btn"
-                    aria-label="Diminuir quantidade"
-                    disabled={salvando || Number(String(qtde).replace(',', '.')) <= 0}
-                    onClick={() => ajustarQtde(-1)}
-                  >
-                    −
-                  </button>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="any"
-                    min="0"
-                    value={qtde}
-                    onChange={(e) => setQtde(e.target.value)}
-                    aria-label="Quantidade"
-                  />
-                  <button
-                    type="button"
-                    className="ck-estoque__qty-btn"
-                    aria-label="Aumentar quantidade"
-                    disabled={salvando}
-                    onClick={() => ajustarQtde(1)}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-              <label className="ck-estoque__field">
-                <span>Motivo</span>
-                <input
-                  type="text"
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                  placeholder="Almoço colaborador…"
-                  autoComplete="off"
-                />
-              </label>
-              <button
-                type="button"
-                className="ck-estoque__btn ck-estoque__btn--primary ck-estoque__btn--break-cta"
-                disabled={salvando || loading}
-                onClick={() => void lancar()}
-              >
-                {salvando ? 'Lançando…' : 'Confirmar baixa'}
-              </button>
-            </div>
+            <div className="ck-estoque__empty">Selecione a loja para começar.</div>
           ) : (
             <>
-              {loading && <div className="ck-estoque__empty">Carregando…</div>}
+              {!loading && !listaFiltrada.length && (
+                <div className="ck-estoque__empty">
+                  {busca.trim()
+                    ? 'Nenhum lançamento encontrado na busca.'
+                    : 'Nenhum break nesta loja. Toque no + para lançar.'}
+                </div>
+              )}
+
               {!loading &&
-                lista.map((b) => (
-                  <div key={b.id_break} className="ck-estoque__card" style={{ cursor: 'default' }}>
+                listaFiltrada.map((b) => (
+                  <div key={b.id_break} className="ck-estoque__card">
                     <div className="ck-estoque__card-top">
-                      <strong>
-                        {fmtDataBR(b.data_break)} · {b.tipo}
-                      </strong>
-                      <span className="ck-estoque__chip ck-estoque__chip--ok">{b.itens ?? 0} itens</span>
+                      <strong>{b.colaborador_nome || 'Colaborador não informado'}</strong>
+                      <span className="ck-estoque__chip ck-estoque__chip--ok">
+                        {b.itens ?? 0} itens
+                      </span>
                     </div>
                     <div className="ck-estoque__meta">
-                      {b.motivo || 'Sem motivo'}
-                      {b.criado_por_nome ? ` · ${b.criado_por_nome}` : ''}
+                      {fmtDataBR(b.data_break)}
+                      {b.motivo ? ` · ${b.motivo}` : ''}
+                    </div>
+                    <div className="ck-estoque__chips">
+                      <span className="ck-estoque__chip">
+                        {b.criado_por_nome ? `Por ${b.criado_por_nome}` : 'Lançado'}
+                      </span>
+                      {b.criado_em ? (
+                        <span className="ck-estoque__chip">{fmtDataHora(b.criado_em)}</span>
+                      ) : null}
                     </div>
                   </div>
                 ))}
-              {!loading && !lista.length && (
-                <div className="ck-estoque__empty">Nenhum break lançado nesta loja.</div>
-              )}
             </>
           )}
         </div>
       </div>
 
-      {idLoja && !formAberto ? (
+      {idLoja ? (
         <Fab
-          aria-label="Adicionar break"
+          aria-label="Novo break"
           onClick={abrirForm}
           disabled={loading}
           sx={{

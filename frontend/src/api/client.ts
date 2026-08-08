@@ -946,11 +946,17 @@ export const api = {
     }),
   estoqueBreaks: (idLoja: number) =>
     request<EstoqueBreakResumo[]>(`/estoque/break?id_loja=${idLoja}`),
+  estoqueBreakColaboradores: (idLoja: number) =>
+    request<Array<{ id_usuario: number; nome: string }>>(
+      `/estoque/break/colaboradores?id_loja=${idLoja}`,
+    ),
   estoqueLancarBreak: (body: {
     id_loja: number;
     data_break?: string;
     tipo?: string;
     motivo?: string;
+    id_colaborador?: number;
+    colaborador_nome?: string;
     itens: Array<{
       id_produto?: number;
       codigo_insumo?: string;
@@ -2369,6 +2375,8 @@ export interface EstoqueBreakResumo {
   motivo?: string | null;
   status: string;
   itens?: number;
+  id_colaborador?: number | null;
+  colaborador_nome?: string | null;
   criado_por_nome?: string | null;
   criado_em?: string;
 }

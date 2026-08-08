@@ -798,6 +798,8 @@ export async function lancarBreak(
     data_break,
     tipo = 'refeicao',
     motivo = null,
+    id_colaborador = null,
+    colaborador_nome = null,
     itens = [],
     criado_por = null,
   },
@@ -808,11 +810,30 @@ export async function lancarBreak(
   try {
     if (ownClient) await client.query('BEGIN');
 
+    let idColab = id_colaborador != null ? Number(id_colaborador) : null;
+    if (idColab != null && !Number.isFinite(idColab)) idColab = null;
+    let nomeColab =
+      colaborador_nome != null ? String(colaborador_nome).trim() || null : null;
+
+    if (idColab && !nomeColab) {
+      const { rows: ur } = await client.query(
+        `SELECT nome FROM usuarios WHERE id_usuario = $1 AND ativo = TRUE`,
+        [idColab],
+      );
+      nomeColab = ur[0]?.nome ? String(ur[0].nome).trim() : null;
+    }
+    if (!nomeColab) {
+      throw Object.assign(new Error('Informe o colaborador que pegará o break'), {
+        status: 400,
+      });
+    }
+
     const { rows: br } = await client.query(
-      `INSERT INTO estoque_break (id_loja, data_break, tipo, motivo, criado_por)
-       VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5)
+      `INSERT INTO estoque_break
+         (id_loja, data_break, tipo, motivo, id_colaborador, colaborador_nome, criado_por)
+       VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5, $6, $7)
        RETURNING *`,
-      [id_loja, data_break || null, tipo, motivo, criado_por],
+      [id_loja, data_break || null, tipo, motivo, idColab, nomeColab, criado_por],
     );
     const idBreak = br[0].id_break;
     const baixas = [];
