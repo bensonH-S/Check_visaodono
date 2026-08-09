@@ -9,6 +9,22 @@ export function podeVerMetas(user) {
   return podeGerenciarMetas(user) || temPermissao(user, 'metas.ver');
 }
 
+const NOMES_MES = [
+  '',
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+];
+
 export async function listarPeriodosMetas() {
   const { rows } = await pool.query(
     `SELECT id_periodo, ano, mes, titulo, observacao, criado_em
@@ -16,6 +32,141 @@ export async function listarPeriodosMetas() {
      ORDER BY ano DESC, mes DESC`,
   );
   return rows;
+}
+
+/**
+ * Cria um novo mês de metas copiando a estrutura (painéis/lojas/indicadores/rankings)
+ * do período base, com realizados e valores zerados.
+ */
+export async function criarPeriodoMetas(user, { ano, mes, titulo, id_periodo_base } = {}) {
+  if (!podeGerenciarMetas(user)) throw Object.assign(new Error('Sem permissão para criar período'), { status: 403 });
+
+  const anoN = Number(ano);
+  const mesN = Number(mes);
+  if (!Number.isInteger(anoN) || anoN < 2020 || anoN > 2100) {
+    throw Object.assign(new Error('Ano inválido'), { status: 400 });
+  }
+  if (!Number.isInteger(mesN) || mesN < 1 || mesN > 12) {
+    throw Object.assign(new Error('Mês inválido'), { status: 400 });
+  }
+
+  const tituloFinal =
+    (titulo && String(titulo).trim()) || `Metas ${NOMES_MES[mesN]} ${anoN}`;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: existe } = await client.query(
+      `SELECT id_periodo FROM metas_periodos WHERE ano = $1 AND mes = $2`,
+      [anoN, mesN],
+    );
+    if (existe[0]) {
+      throw Object.assign(new Error(`Já existe período para ${NOMES_MES[mesN]}/${anoN}`), {
+        status: 409,
+      });
+    }
+
+    let idBase = id_periodo_base != null ? Number(id_periodo_base) : null;
+    if (!idBase) {
+      const { rows: recentes } = await client.query(
+        `SELECT id_periodo FROM metas_periodos ORDER BY ano DESC, mes DESC LIMIT 1`,
+      );
+      idBase = recentes[0]?.id_periodo ?? null;
+    }
+    if (!idBase) {
+      throw Object.assign(
+        new Error('Não há período modelo para copiar a estrutura. Importe um período primeiro.'),
+        { status: 400 },
+      );
+    }
+
+    const { rows: baseRows } = await client.query(
+      `SELECT id_periodo FROM metas_periodos WHERE id_periodo = $1`,
+      [idBase],
+    );
+    if (!baseRows[0]) {
+      throw Object.assign(new Error('Período modelo não encontrado'), { status: 404 });
+    }
+
+    const { rows: novoRows } = await client.query(
+      `INSERT INTO metas_periodos (ano, mes, titulo)
+       VALUES ($1, $2, $3)
+       RETURNING id_periodo, ano, mes, titulo, observacao, criado_em`,
+      [anoN, mesN, tituloFinal],
+    );
+    const novo = novoRows[0];
+    const idNovo = novo.id_periodo;
+
+    const { rows: paineisBase } = await client.query(
+      `SELECT id_painel, codigo, titulo, tipo, ordem
+       FROM metas_paineis
+       WHERE id_periodo = $1
+       ORDER BY ordem, id_painel`,
+      [idBase],
+    );
+
+    for (const painel of paineisBase) {
+      const { rows: painelNovo } = await client.query(
+        `INSERT INTO metas_paineis (id_periodo, codigo, titulo, tipo, ordem)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id_painel`,
+        [idNovo, painel.codigo, painel.titulo, painel.tipo, painel.ordem],
+      );
+      const idPainelNovo = painelNovo[0].id_painel;
+
+      await client.query(
+        `INSERT INTO metas_painel_indicadores (id_painel, id_indicador, peso, ordem)
+         SELECT $1, id_indicador, peso, ordem
+         FROM metas_painel_indicadores
+         WHERE id_painel = $2`,
+        [idPainelNovo, painel.id_painel],
+      );
+
+      await client.query(
+        `INSERT INTO metas_painel_lojas (id_painel, id_loja, rotulo_curto, ordem)
+         SELECT $1, id_loja, rotulo_curto, ordem
+         FROM metas_painel_lojas
+         WHERE id_painel = $2`,
+        [idPainelNovo, painel.id_painel],
+      );
+    }
+
+    // Estrutura de rankings (lojas/gestores), valores zerados
+    await client.query(
+      `INSERT INTO metas_rankings (
+         id_periodo, id_indicador, id_loja, posicao,
+         valor_numero, valor_texto, pontos,
+         id_gestor, nome_gestor, classe, destaque, critico,
+         nome_loja_planilha, ordem_linha
+       )
+       SELECT
+         $1, id_indicador, id_loja, posicao,
+         NULL, NULL, NULL,
+         id_gestor, nome_gestor, NULL, NULL, NULL,
+         nome_loja_planilha, ordem_linha
+       FROM metas_rankings
+       WHERE id_periodo = $2`,
+      [idNovo, idBase],
+    );
+
+    // Prêmios padronizados zerados
+    for (const padrao of PREMIOS_COLABORADORES_PADRAO) {
+      await client.query(
+        `INSERT INTO metas_premios (id_periodo, nome, premio_saude, premio_rev, valor_unitario, subtotal, total)
+         VALUES ($1, $2, 0, 0, $3, 0, 0)`,
+        [idNovo, padrao.nome, padrao.valor_unitario],
+      );
+    }
+
+    await client.query('COMMIT');
+    return novo;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 async function carregarPaineis(idPeriodo) {

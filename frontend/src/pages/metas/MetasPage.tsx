@@ -3,7 +3,12 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import AddIcon from '@mui/icons-material/Add';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -18,6 +23,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import {
   api,
@@ -25,6 +31,7 @@ import {
   type MetasPeriodoDetalhe,
   type MetasPeriodoResumo,
 } from '../../api/client';
+import { getUsuario, podeGerenciarMetas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
@@ -35,6 +42,31 @@ import { lojasRevDemanda } from '../../components/metas/metasRankingUtils';
 import { gerarPdfMetasResumo } from '../../utils/gerarPdfMetasResumo';
 
 const MESES = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const MESES_COMPLETOS = [
+  '',
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+];
+
+function proximoMesDisponivel(periodos: MetasPeriodoResumo[]) {
+  if (!periodos.length) {
+    const agora = new Date();
+    return { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
+  }
+  const ultimo = [...periodos].sort((a, b) => a.ano - b.ano || a.mes - b.mes).at(-1)!;
+  if (ultimo.mes >= 12) return { ano: ultimo.ano + 1, mes: 1 };
+  return { ano: ultimo.ano, mes: ultimo.mes + 1 };
+}
 
 const OPCOES_STATUS_RESUMO = [
   { value: '', label: '—' },
@@ -242,6 +274,8 @@ function PainelResumoTable({
 }
 
 export default function MetasPage() {
+  const sessao = getUsuario();
+  const podeCriar = podeGerenciarMetas(sessao);
   const [periodos, setPeriodos] = useState<MetasPeriodoResumo[]>([]);
   const [idPeriodo, setIdPeriodo] = useState<number | ''>('');
   const [dados, setDados] = useState<MetasPeriodoDetalhe | null>(null);
@@ -249,6 +283,40 @@ export default function MetasPage() {
   const [aba, setAba] = useState(0);
   const [rankingIdx, setRankingIdx] = useState(0);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [dialogNovo, setDialogNovo] = useState(false);
+  const [criando, setCriando] = useState(false);
+  const [novoAno, setNovoAno] = useState(new Date().getFullYear());
+  const [novoMes, setNovoMes] = useState(new Date().getMonth() + 1);
+
+  const abrirDialogNovo = () => {
+    const sugestao = proximoMesDisponivel(periodos);
+    setNovoAno(sugestao.ano);
+    setNovoMes(sugestao.mes);
+    setDialogNovo(true);
+  };
+
+  const criarPeriodo = async () => {
+    if (!novoAno || !novoMes) {
+      showToast('Informe ano e mês', 'warning');
+      return;
+    }
+    setCriando(true);
+    try {
+      const criado = await api.metasCriarPeriodo({
+        ano: Number(novoAno),
+        mes: Number(novoMes),
+      });
+      showToast(`${rotuloPeriodo(criado)} criado com valores zerados`, 'success');
+      setDialogNovo(false);
+      const lista = await api.metasPeriodos();
+      setPeriodos(lista);
+      setIdPeriodo(criado.id_periodo);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao criar período', 'error');
+    } finally {
+      setCriando(false);
+    }
+  };
 
   const carregarPeriodos = useCallback(async () => {
     setLoading(true);
@@ -424,22 +492,42 @@ export default function MetasPage() {
               Indicadores da empresa, gestores e rankings — espelho da planilha de metas
             </Typography>
           </Box>
-          {periodos.length > 0 && (
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Período</InputLabel>
-              <Select
-                label="Período"
-                value={idPeriodo === '' ? '' : idPeriodo}
-                onChange={(e) => setIdPeriodo(Number(e.target.value))}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+            {periodos.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Período</InputLabel>
+                <Select
+                  label="Período"
+                  value={idPeriodo === '' ? '' : idPeriodo}
+                  onChange={(e) => setIdPeriodo(Number(e.target.value))}
+                >
+                  {periodos.map((p) => (
+                    <MenuItem key={p.id_periodo} value={p.id_periodo}>
+                      {rotuloPeriodo(p)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+            {podeCriar && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={abrirDialogNovo}
+                disabled={!periodos.length}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  borderColor: colors.navy,
+                  color: colors.navy,
+                  '&:hover': { borderColor: colors.navyDark, bgcolor: colors.navyMuted },
+                }}
               >
-                {periodos.map((p) => (
-                  <MenuItem key={p.id_periodo} value={p.id_periodo}>
-                    {rotuloPeriodo(p)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
+                Novo mês
+              </Button>
+            )}
+          </Box>
         </Box>
         <Tabs
           value={aba}
@@ -464,6 +552,59 @@ export default function MetasPage() {
           </Typography>
         </Paper>
       ) : null}
+
+      <Dialog open={dialogNovo} onClose={() => !criando && setDialogNovo(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700 }}>Criar novo mês</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Cria o mês com a mesma estrutura e tudo zerado para lançar.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <FormControl size="small" fullWidth>
+              <InputLabel>Mês</InputLabel>
+              <Select
+                label="Mês"
+                value={novoMes}
+                onChange={(e) => setNovoMes(Number(e.target.value))}
+              >
+                {MESES_COMPLETOS.slice(1).map((nome, idx) => (
+                  <MenuItem key={nome} value={idx + 1}>
+                    {nome}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              size="small"
+              label="Ano"
+              type="number"
+              value={novoAno}
+              onChange={(e) => setNovoAno(Number(e.target.value))}
+              inputProps={{ min: 2020, max: 2100 }}
+              sx={{ width: 120 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDialogNovo(false)} disabled={criando} sx={{ textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void criarPeriodo()}
+            disabled={criando}
+            startIcon={criando ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 700,
+              bgcolor: colors.orange,
+              '&:hover': { bgcolor: colors.orangeHover },
+            }}
+          >
+            {criando ? 'Criando…' : 'Criar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {!loading && dados && aba === 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

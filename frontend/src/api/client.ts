@@ -778,6 +778,16 @@ export const api = {
 
   metasPeriodos: () => request<MetasPeriodoResumo[]>('/metas/periodos'),
   metasPeriodo: (id: number) => request<MetasPeriodoDetalhe>(`/metas/periodos/${id}`),
+  metasCriarPeriodo: (body: {
+    ano: number;
+    mes: number;
+    titulo?: string | null;
+    id_periodo_base?: number | null;
+  }) =>
+    request<MetasPeriodoResumo>('/metas/periodos', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   metasSalvarRealizado: (body: {
     id_painel: number;
     id_indicador: number;

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import {
   carregarMetasPeriodo,
+  criarPeriodoMetas,
   listarPeriodosMetas,
+  podeGerenciarMetas,
   podeVerMetas,
   salvarPremioMetas,
   salvarRankingMetas,
@@ -82,6 +84,39 @@ router.get('/periodos', async (req, res, next) => {
     const periodos = await listarPeriodosMetas();
     res.json(periodos);
   } catch (e) {
+    next(e);
+  }
+});
+
+/** Cria mês novo (estrutura do período modelo, valores zerados). */
+router.post('/periodos', async (req, res, next) => {
+  try {
+    if (!podeGerenciarMetas(req.user)) {
+      return res.status(403).json({ error: 'Sem permissão para criar período de metas' });
+    }
+    const criado = await criarPeriodoMetas(req.user, {
+      ano: req.body?.ano,
+      mes: req.body?.mes,
+      titulo: req.body?.titulo,
+      id_periodo_base: req.body?.id_periodo_base,
+    });
+    await auditar(req, {
+      modulo: 'metas',
+      acao: 'criar_periodo',
+      entidade: 'meta_periodo',
+      idReferencia: criado.id_periodo,
+      descricao: `Criou período de metas — ${criado.titulo || `${criado.mes}/${criado.ano}`}`,
+      detalhes: {
+        id_periodo: criado.id_periodo,
+        ano: criado.ano,
+        mes: criado.mes,
+        titulo: criado.titulo,
+        id_periodo_base: req.body?.id_periodo_base ?? null,
+      },
+    });
+    res.status(201).json(criado);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
   }
 });
