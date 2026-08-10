@@ -175,10 +175,22 @@ export default function EscalaVisitasPage() {
     });
   }
 
-  function toggleCelulaRegionalEu(idLoja: number, dia: number, idsAtuais: number[]) {
-    if (!idEu) return;
-    const jaMarcado = idsAtuais.includes(idEu);
-    alterarCelulaRegional(idLoja, dia, jaMarcado ? [] : [idEu]);
+  function idsEquipeDaLoja(idRegiao: number | null | undefined): number[] {
+    if (idRegiao == null) return idEu ? [idEu] : [];
+    const eq = grade?.equipes_por_regiao?.find((e) => e.id_regiao === idRegiao);
+    if (eq?.ids_usuario?.length) return eq.ids_usuario;
+    return idEu ? [idEu] : [];
+  }
+
+  function celulaTemEquipe(idsAtuais: number[], idsEquipe: number[]) {
+    if (!idsEquipe.length) return idsAtuais.length > 0;
+    return idsEquipe.some((id) => idsAtuais.includes(id));
+  }
+
+  function toggleCelulaRegionalEquipe(idLoja: number, dia: number, idRegiao: number | null | undefined, idsAtuais: number[]) {
+    const equipe = idsEquipeDaLoja(idRegiao);
+    const jaMarcado = celulaTemEquipe(idsAtuais, equipe);
+    alterarCelulaRegional(idLoja, dia, jaMarcado ? [] : equipe);
   }
 
   function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {
@@ -533,112 +545,111 @@ export default function EscalaVisitasPage() {
           </Box>
         </Box>
 
-        {grade?.status_delivery && (ehDeliveryOnly || ehDiretor || aba === 'delivery') && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'stretch', mt: 1 }}>
-            {(() => {
-              const st = grade.status_delivery;
-              const pendente = st.status === 'pendente_aprovacao';
-              const montadaPor = st.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
-              const revisadaPor = st.nome_revisado_por ? primeiroNome(st.nome_revisado_por) : null;
-              return (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 0.35,
-                    px: 1,
-                    py: 0.65,
-                    minWidth: 160,
-                    borderRadius: 1.5,
-                    bgcolor: pendente
-                      ? 'rgba(232, 82, 10, 0.08)'
-                      : st.status === 'aprovado'
-                        ? 'rgba(22, 163, 74, 0.08)'
-                        : colors.canvasAlt,
-                    border: pendente
-                      ? '1px solid rgba(232, 82, 10, 0.28)'
-                      : st.status === 'aprovado'
-                        ? '1px solid rgba(22, 163, 74, 0.28)'
-                        : `1px solid ${colors.border}`,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                    <Chip
-                      size="small"
-                      clickable={!ehDeliveryOnly}
-                      onClick={() => setAba('delivery')}
-                      label={`Delivery: ${STATUS_LABEL[st.status] || st.status}`}
-                      sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
-                      title="Ver escala de delivery"
-                    />
-                    {grade.pode_aprovar && pendente && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        startIcon={<CheckIcon />}
-                        disabled={salvando}
-                        onClick={() => void aprovarDelivery()}
-                        sx={{
-                          textTransform: 'none',
-                          minWidth: 0,
-                          py: 0.2,
-                          bgcolor: '#15803D',
-                          '&:hover': { bgcolor: '#166534' },
-                        }}
-                      >
-                        Aprovar
-                      </Button>
-                    )}
-                    {grade.pode_devolver && (pendente || st.status === 'aprovado') && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="warning"
-                        startIcon={<UndoIcon />}
-                        disabled={salvando}
-                        onClick={() => void devolverDelivery()}
-                        sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
-                      >
-                        Recusar
-                      </Button>
-                    )}
-                  </Box>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
-                    {montadaPor
-                      ? `Montada por ${montadaPor}${
-                          st.status === 'aprovado' && revisadaPor ? ` · Aprovada por ${revisadaPor}` : ''
-                        }${pendente ? ' · aguardando aprovação' : ''}`
-                      : st.status === 'rascunho'
-                        ? 'Ainda não enviada'
-                        : '—'}
-                  </Typography>
-                </Box>
-              );
-            })()}
-          </Box>
-        )}
-
-        {!ehDeliveryOnly && grade?.status_por_regiao && grade.status_por_regiao.length > 0 && (
+        {(ehDeliveryOnly
+          ? Boolean(grade?.status_delivery)
+          : Boolean(grade?.status_por_regiao?.length) || Boolean(grade?.status_delivery && (ehDiretor || aba === 'delivery'))) && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 1 }}>
             {ehDiretor &&
-              (grade.status_por_regiao.some((s) => s.status === 'pendente_aprovacao') ||
-                grade.status_delivery?.status === 'pendente_aprovacao') && (
+              ((grade?.status_por_regiao ?? []).some((s) => s.status === 'pendente_aprovacao') ||
+                grade?.status_delivery?.status === 'pendente_aprovacao') && (
                 <Typography variant="caption" sx={{ fontWeight: 800, color: colors.orange, letterSpacing: 0.04 }}>
                   Escalas aguardando aprovação
                 </Typography>
               )}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'stretch' }}>
-              {grade.status_por_regiao.map((st) => {
+              {!ehDeliveryOnly &&
+                (grade?.status_por_regiao ?? []).map((st) => {
+                  const pendente = st.status === 'pendente_aprovacao';
+                  const montadaPor = st.nome_submetido_por
+                    ? primeiroNome(st.nome_submetido_por)
+                    : null;
+                  const revisadaPor = st.nome_revisado_por
+                    ? primeiroNome(st.nome_revisado_por)
+                    : null;
+                  return (
+                    <Box
+                      key={st.id_regiao}
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 0.35,
+                        px: 1,
+                        py: 0.65,
+                        minWidth: 160,
+                        borderRadius: 1.5,
+                        bgcolor: pendente
+                          ? 'rgba(232, 82, 10, 0.08)'
+                          : st.status === 'aprovado'
+                            ? 'rgba(22, 163, 74, 0.08)'
+                            : colors.canvasAlt,
+                        border: pendente
+                          ? '1px solid rgba(232, 82, 10, 0.28)'
+                          : st.status === 'aprovado'
+                            ? '1px solid rgba(22, 163, 74, 0.28)'
+                            : `1px solid ${colors.border}`,
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Chip
+                          size="small"
+                          clickable
+                          onClick={() => setIdRegiao(st.id_regiao)}
+                          label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
+                          sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
+                          title="Clique para ver só esta região"
+                        />
+                        {grade?.pode_aprovar && pendente && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<CheckIcon />}
+                            disabled={salvando}
+                            onClick={() => void aprovarRegiao(st.id_regiao)}
+                            sx={{
+                              textTransform: 'none',
+                              minWidth: 0,
+                              py: 0.2,
+                              bgcolor: '#15803D',
+                              '&:hover': { bgcolor: '#166534' },
+                            }}
+                          >
+                            Aprovar
+                          </Button>
+                        )}
+                        {grade?.pode_devolver && (pendente || st.status === 'aprovado') && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            startIcon={<UndoIcon />}
+                            disabled={salvando}
+                            onClick={() => void devolverRegiao(st.id_regiao)}
+                            sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                          >
+                            Recusar
+                          </Button>
+                        )}
+                      </Box>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
+                        {montadaPor
+                          ? `Montada por ${montadaPor}${
+                              st.status === 'aprovado' && revisadaPor ? ` · Aprovada por ${revisadaPor}` : ''
+                            }${pendente ? ' · aguardando aprovação' : ''}`
+                          : st.status === 'rascunho'
+                            ? 'Ainda não enviada'
+                            : '—'}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              {grade?.status_delivery && (ehDeliveryOnly || ehDiretor || aba === 'delivery') && (() => {
+                const st = grade.status_delivery;
                 const pendente = st.status === 'pendente_aprovacao';
-                const montadaPor = st.nome_submetido_por
-                  ? primeiroNome(st.nome_submetido_por)
-                  : null;
-                const revisadaPor = st.nome_revisado_por
-                  ? primeiroNome(st.nome_revisado_por)
-                  : null;
+                const montadaPor = st.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
+                const revisadaPor = st.nome_revisado_por ? primeiroNome(st.nome_revisado_por) : null;
                 return (
                   <Box
-                    key={st.id_regiao}
+                    key="delivery"
                     sx={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -662,11 +673,11 @@ export default function EscalaVisitasPage() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                       <Chip
                         size="small"
-                        clickable
-                        onClick={() => setIdRegiao(st.id_regiao)}
-                        label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
+                        clickable={!ehDeliveryOnly}
+                        onClick={() => setAba('delivery')}
+                        label={`Delivery: ${STATUS_LABEL[st.status] || st.status}`}
                         sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
-                        title="Clique para ver só esta região"
+                        title="Ver escala de delivery"
                       />
                       {grade.pode_aprovar && pendente && (
                         <Button
@@ -674,7 +685,7 @@ export default function EscalaVisitasPage() {
                           variant="contained"
                           startIcon={<CheckIcon />}
                           disabled={salvando}
-                          onClick={() => void aprovarRegiao(st.id_regiao)}
+                          onClick={() => void aprovarDelivery()}
                           sx={{
                             textTransform: 'none',
                             minWidth: 0,
@@ -686,20 +697,19 @@ export default function EscalaVisitasPage() {
                           Aprovar
                         </Button>
                       )}
-                      {grade.pode_devolver &&
-                        (pendente || st.status === 'aprovado') && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="warning"
-                            startIcon={<UndoIcon />}
-                            disabled={salvando}
-                            onClick={() => void devolverRegiao(st.id_regiao)}
-                            sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
-                          >
-                            Recusar
-                          </Button>
-                        )}
+                      {grade.pode_devolver && (pendente || st.status === 'aprovado') && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="warning"
+                          startIcon={<UndoIcon />}
+                          disabled={salvando}
+                          onClick={() => void devolverDelivery()}
+                          sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                        >
+                          Recusar
+                        </Button>
+                      )}
                     </Box>
                     <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
                       {montadaPor
@@ -712,7 +722,7 @@ export default function EscalaVisitasPage() {
                     </Typography>
                   </Box>
                 );
-              })}
+              })()}
             </Box>
           </Box>
         )}
@@ -934,7 +944,9 @@ export default function EscalaVisitasPage() {
                           {podeEditarGrade && ehRegional ? (
                             <Button
                               size="small"
-                              onClick={() => toggleCelulaRegionalEu(linha.id_loja, d.dia, idsReg)}
+                              onClick={() =>
+                                toggleCelulaRegionalEquipe(linha.id_loja, d.dia, linha.id_regiao, idsReg)
+                              }
                               sx={{
                                 ...SELECT_CELULA_SX,
                                 minHeight: 36,
@@ -955,7 +967,7 @@ export default function EscalaVisitasPage() {
                                 ? idsReg
                                     .map((id) => primeiroNome(mapNomeRegional.get(id) ?? ''))
                                     .filter(Boolean)
-                                    .join(', ') || 'Eu'
+                                    .join(', ') || 'Equipe'
                                 : '+'}
                             </Button>
                           ) : podeEditarGrade ? (
@@ -1069,6 +1081,11 @@ export default function EscalaVisitasPage() {
       {ehDeliveryOnly && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           Você preenche apenas a escala de delivery.
+        </Typography>
+      )}
+      {ehRegional && podeEditarGrade && (
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
+          Cada célula marca a equipe inteira da região (os dois técnicos andam juntos).
         </Typography>
       )}
     </Box>

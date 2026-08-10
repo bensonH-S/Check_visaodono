@@ -134,6 +134,8 @@ export function destinoPosLoginMobile(usuario: UsuarioSessao): string {
 /** Primeira aba do app mobile conforme permissões do usuário. */
 export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
   if (modoAppTecnicoFrotaRestrito(usuario)) return '/mapa/mobile';
+  // Delivery: abre direto na escala (não em chamados).
+  if (ehEscalaDeliveryOnly(usuario)) return '/escalas/visitas/mobile';
   if (podeUsarChecklist(usuario) && !temPermissao('chamados.ver', usuario) && !temPermissao('chamados.abrir', usuario)) {
     return '/checklist/mobile';
   }
@@ -142,6 +144,7 @@ export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
   }
   if (podeUsarChecklist(usuario)) return '/checklist/mobile';
   if (podeVerVisitasMobile(usuario)) return '/visitas/mobile';
+  if (podeVerEscalaVisitas(usuario)) return '/escalas/visitas/mobile';
   if (podeVerNcMobile(usuario)) return '/nc/mobile';
   if (podeUsarFrota(usuario)) return '/frota/mobile';
   if (podeConferenciaEstoque(usuario)) return '/estoque/mobile';

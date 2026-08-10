@@ -2051,6 +2051,12 @@ export interface EscalaVisitasGrade {
   id_regiao_filtro: number | null;
   regionais: EscalaVisitasRegional[];
   regioes: Array<{ id_regiao: number; nome: string }>;
+  /** Técnicos da região que visitam juntos (par). */
+  equipes_por_regiao?: Array<{
+    id_regiao: number;
+    ids_usuario: number[];
+    nomes: string[];
+  }>;
   lojas_destino?: EscalaVisitasLojaDestino[];
   linhas: EscalaVisitasLinha[];
 }

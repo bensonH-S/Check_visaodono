@@ -258,13 +258,14 @@ export default function EscalaVisitasMobileView() {
   }, [grade?.status_por_regiao, grade?.status_delivery]);
   const modos = useMemo(() => {
     if (ehDeliveryOnly) return [{ id: 'delivery' as const, label: 'Delivery' }];
+    if (ehRegional) return [{ id: 'montar' as const, label: 'Montar' }];
     const base: Array<{ id: ModoVisualizacao; label: string }> = [
       { id: 'minhas', label: 'Minhas' },
       { id: 'dia', label: 'Por dia' },
       { id: 'lojas', label: 'Por loja' },
       { id: 'delivery', label: 'Delivery' },
     ];
-    if (ehRegional || ehDiretor || grade?.pode_editar_regiao || grade?.pode_editar) {
+    if (ehDiretor || grade?.pode_editar_regiao || grade?.pode_editar) {
       base.unshift({ id: 'montar', label: 'Montar' });
     }
     return base;
@@ -350,6 +351,25 @@ export default function EscalaVisitasMobileView() {
     return idsLojasDestinoDoDia(original);
   }
 
+  function idsEquipeDaLoja(idRegiao: number | null | undefined): number[] {
+    if (idRegiao == null) return idEu ? [idEu] : [];
+    const eq = grade?.equipes_por_regiao?.find((e) => e.id_regiao === idRegiao);
+    if (eq?.ids_usuario?.length) return eq.ids_usuario;
+    return idEu ? [idEu] : [];
+  }
+
+  function nomesEquipeDaLoja(idRegiao: number | null | undefined): string {
+    if (idRegiao == null) return '';
+    const eq = grade?.equipes_por_regiao?.find((e) => e.id_regiao === idRegiao);
+    if (!eq?.nomes?.length) return '';
+    return eq.nomes.map((n) => primeiroNome(n)).join(' e ');
+  }
+
+  function celulaTemEquipe(idsAtuais: number[], idsEquipe: number[]) {
+    if (!idsEquipe.length) return idsAtuais.length > 0;
+    return idsEquipe.some((id) => idsAtuais.includes(id));
+  }
+
   function toggleDeliveryLoja(dia: number, idLojaDestino: number) {
     if (!podeEditarDelivery || !linhaDelivery) return;
     const atual = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
@@ -373,16 +393,16 @@ export default function EscalaVisitasMobileView() {
     if (!linha || linha.tipo === 'delivery') return;
     const atual = valorCelulaRegional(idLoja, dia, linha.dias[dia]);
 
-    // Regional monta a própria escala: toque marca/desmarca ele mesmo.
-    // Lista de usuários fica para quando montar escala dos técnicos.
-    if (ehRegional && idEu) {
-      const jaMarcado = atual.includes(idEu);
+    // Regional: marca/desmarca a equipe inteira (técnicos andam juntos).
+    if (ehRegional) {
+      const equipe = idsEquipeDaLoja(linha.id_regiao);
+      const jaMarcado = celulaTemEquipe(atual, equipe);
       setPending((prev) => {
         const next = new Map(prev);
         next.set(chaveCelula(idLoja, dia), {
           id_loja: idLoja,
           dia,
-          id_regionais: jaMarcado ? [] : [idEu],
+          id_regionais: jaMarcado ? [] : equipe,
         });
         return next;
       });
@@ -394,6 +414,10 @@ export default function EscalaVisitasMobileView() {
       dia,
       ids: [...atual],
     });
+  }
+
+  function toggleMontarLoja(dia: number, idLoja: number) {
+    marcarCelula(idLoja, dia);
   }
 
   function confirmarEditor() {
@@ -571,6 +595,33 @@ export default function EscalaVisitasMobileView() {
     });
   }, [grade, linhaDelivery, pending]);
 
+  /** Montar regional no padrão delivery: dia → lista de lojas. */
+  const montarPorDia = useMemo(() => {
+    if (!grade) return [];
+    const linhas = grade.linhas.filter((l) => l.tipo !== 'delivery');
+    return DIAS_LONGO.map((label, dia) => {
+      const lojas = linhas.map((linha) => {
+        const ids = valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]);
+        const equipe = idsEquipeDaLoja(linha.id_regiao);
+        return {
+          id_loja: linha.id_loja,
+          nome: linha.nome,
+          bk_number: linha.bk_number,
+          id_regiao: linha.id_regiao,
+          marcada: celulaTemEquipe(ids, equipe),
+          equipeLabel: nomesEquipeDaLoja(linha.id_regiao),
+        };
+      });
+      return {
+        dia,
+        label,
+        data: fmtDataCurta(addDaysIso(grade.semana_inicio, dia)),
+        lojas,
+        totalMarcadas: lojas.filter((l) => l.marcada).length,
+      };
+    });
+  }, [grade, pending, idEu]);
+
   const visitasPorDia = useMemo(() => {
     if (!grade) return [];
     return DIAS_LONGO.map((label, dia) => {
@@ -668,7 +719,9 @@ export default function EscalaVisitasMobileView() {
                   <p className="ck-escala__compact-sub">
                     {ehDeliveryOnly
                       ? 'Toque nas lojas do dia, salve e envie para o diretor aprovar'
-                      : 'Toque nos dias e envie para aprovação'}
+                      : ehRegional
+                        ? 'Escolha o dia, toque nas lojas da equipe e envie para aprovação'
+                        : 'Toque nos dias e envie para aprovação'}
                   </p>
                 </div>
                 <CkMarkLogoMenu size={44} className="ck-visitas__mark-icon" />
@@ -981,7 +1034,7 @@ export default function EscalaVisitasMobileView() {
             </div>
           )}
 
-          {!(ehDeliveryOnly && modos.length === 1) && (
+          {modos.length > 1 && (
           <div className="ck-escala__filtro-row">
             <div className="ck-visitas__seg" role="tablist">
               {modos.map(({ id, label }) => (
@@ -1014,9 +1067,9 @@ export default function EscalaVisitasMobileView() {
             {regiaoAtiva && !ehDeliveryOnly && (
               <p className="ck-escala__regiao">Exibindo: {regiaoAtiva.nome}</p>
             )}
-            {modo === 'delivery' && !loading && (
+            {(modo === 'delivery' || (modo === 'montar' && ehRegional)) && !loading && (
               <div className="ck-escala__dias">
-                {deliveryPorDia.map((d) => {
+                {(modo === 'delivery' ? deliveryPorDia : montarPorDia).map((d) => {
                   const selected = d.dia === diaSelecionado;
                   const isToday = hojeIndex === d.dia;
                   return (
@@ -1073,6 +1126,42 @@ export default function EscalaVisitasMobileView() {
                       : 'Sem permissão para montar nesta região.'}
                 </p>
               </div>
+            ) : ehRegional ? (
+              (montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).length === 0 ? (
+                <div className="ck-escala__empty">
+                  <p>Nenhuma loja nesta região.</p>
+                </div>
+              ) : (
+                (montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
+                  <button
+                    key={loja.id_loja}
+                    type="button"
+                    className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}${
+                      podeEditarGrade ? ' is-edit' : ''
+                    }`}
+                    disabled={!podeEditarGrade || salvando}
+                    onClick={() => toggleMontarLoja(diaSelecionado, loja.id_loja)}
+                    style={{ width: '100%', textAlign: 'left', cursor: podeEditarGrade ? 'pointer' : 'default' }}
+                  >
+                    <div
+                      className="ck-escala__card-stripe"
+                      style={{ background: loja.marcada ? ORANGE : 'rgba(27,42,107,0.2)' }}
+                      aria-hidden
+                    />
+                    <div className="ck-escala__card-body">
+                      <p className="ck-escala__card-title">
+                        {loja.bk_number ? `${loja.bk_number} · ` : ''}
+                        {loja.nome}
+                      </p>
+                      <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
+                        {loja.marcada
+                          ? `Visita da equipe${loja.equipeLabel ? ` (${loja.equipeLabel})` : ''} · toque para remover`
+                          : 'Toque para agendar visita da equipe'}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              )
             ) : (grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0) === 0 ? (
               <div className="ck-escala__empty">
                 <p>Nenhuma loja nesta região.</p>

@@ -598,6 +598,9 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     : regioes.map((r) => Number(r.id_regiao));
   const statusPorRegiao = await carregarStatusPorRegiao(semana.id_semana, idsRegiaoStatus);
   const statusDelivery = await obterStatusDelivery(semana.id_semana);
+  const equipesPorRegiao = await listarEquipesVisitaPorRegiao(
+    [...new Set(regioes.map((r) => Number(r.id_regiao)).filter(Boolean))],
+  );
 
   const gerenciar = podeGerenciarEscalaVisitas(user);
   const editarRegiaoPerm = podeEditarEscalaRegiao(user) && !gerenciar;
@@ -664,6 +667,7 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     },
     regionais,
     regioes,
+    equipes_por_regiao: equipesPorRegiao,
     lojas_destino: lojasDestino,
     linhas,
   };
@@ -1071,6 +1075,33 @@ async function idsDiretoresEscala() {
      WHERE up.codigo = 'escalas.visitas.gerenciar'`,
   );
   return rows.map((r) => Number(r.id_usuario));
+}
+
+async function listarEquipesVisitaPorRegiao(idsRegiao = []) {
+  if (!idsRegiao.length) return [];
+  const { rows } = await pool.query(
+    `SELECT rt.id_regiao, u.id_usuario, u.nome
+     FROM frota_regiao_tecnicos rt
+     JOIN usuarios u ON u.id_usuario = rt.id_usuario AND u.ativo = TRUE
+     WHERE rt.id_regiao = ANY($1::int[])
+     ORDER BY rt.id_regiao, u.nome`,
+    [idsRegiao],
+  );
+  const porRegiao = new Map();
+  for (const row of rows) {
+    const idRegiao = Number(row.id_regiao);
+    if (!porRegiao.has(idRegiao)) {
+      porRegiao.set(idRegiao, {
+        id_regiao: idRegiao,
+        ids_usuario: [],
+        nomes: [],
+      });
+    }
+    const eq = porRegiao.get(idRegiao);
+    eq.ids_usuario.push(Number(row.id_usuario));
+    eq.nomes.push(row.nome);
+  }
+  return [...porRegiao.values()];
 }
 
 async function idsDestinatariosRegionalEscala(submetidoPor, idRegiao) {

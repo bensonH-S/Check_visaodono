@@ -32,7 +32,7 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
@@ -263,6 +263,7 @@ function ChamadosMobileLayoutInner() {
   const isFrota = path === '/frota/mobile' || path.startsWith('/frota/mobile/');
   const isMapa = path === '/mapa/mobile';
   const modoRestrito = !!(user && modoAppTecnicoFrotaRestrito(user));
+  const deliveryOnly = !!(user && ehEscalaDeliveryOnly(user));
   const frotaAbaPrincipalRestrito =
     modoRestrito &&
     (path.startsWith('/frota/mobile/abastecimento') || path.startsWith('/frota/mobile/manutencao'));
@@ -360,6 +361,12 @@ function ChamadosMobileLayoutInner() {
         ]
       : [
           {
+            to: '/escalas/visitas/mobile',
+            label: 'Escala',
+            icon: <CalendarMonthIcon fontSize="small" />,
+            show: !!podeEscalaVisitas && deliveryOnly,
+          },
+          {
             to: '/checklist/mobile',
             label: 'Checklist',
             icon: <AssignmentIcon fontSize="small" />,
@@ -375,7 +382,7 @@ function ChamadosMobileLayoutInner() {
             to: '/chamados/mobile',
             label: 'Chamados',
             icon: <HeadsetMicOutlinedIcon fontSize="small" />,
-            show: !!podeChamados,
+            show: !!podeChamados && !deliveryOnly,
           },
           {
             to: '/frota/mobile',
@@ -387,7 +394,7 @@ function ChamadosMobileLayoutInner() {
             to: '/escalas/visitas/mobile',
             label: 'Escala',
             icon: <CalendarMonthIcon fontSize="small" />,
-            show: !!podeEscalaVisitas,
+            show: !!podeEscalaVisitas && !deliveryOnly,
           },
           {
             to: '/nc/mobile',
@@ -526,6 +533,13 @@ function ChamadosMobileLayoutInner() {
       navigate('/mapa/mobile', { replace: true });
     }
   }, [modoRestrito, path, navigate]);
+
+  useEffect(() => {
+    if (!deliveryOnly) return;
+    if (path === '/chamados/mobile' || path.startsWith('/chamados/mobile/')) {
+      navigate('/escalas/visitas/mobile', { replace: true });
+    }
+  }, [deliveryOnly, path, navigate]);
 
   const welcomeShown = useRef(false);
 
