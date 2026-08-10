@@ -649,17 +649,26 @@ export default function EscalaVisitasPage() {
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                        <Chip
-                          size="small"
-                          clickable
+                        <Typography
+                          component="button"
+                          type="button"
+                          variant="caption"
                           onClick={() => {
                             setAba('visitas');
                             setIdRegiao(st.id_regiao);
                           }}
-                          label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
-                          sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
                           title="Clique para ver só esta região"
-                        />
+                          sx={{
+                            all: 'unset',
+                            cursor: 'pointer',
+                            fontWeight: 800,
+                            color: colors.navy,
+                            fontSize: '0.8rem',
+                            mr: 0.25,
+                          }}
+                        >
+                          {st.nome_regiao}
+                        </Typography>
                         {grade?.pode_aprovar && pendente && (
                           <Button
                             size="small"
