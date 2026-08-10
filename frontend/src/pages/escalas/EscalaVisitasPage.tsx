@@ -56,8 +56,8 @@ const STATUS_CHIP_SX: Record<EscalaVisitasRegiaoStatusCodigo, object> = {
   aprovado: { bgcolor: 'rgba(22, 163, 74, 0.12)', color: '#15803D', fontWeight: 700 },
 };
 
-const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÃÂB', 'DOM'];
-/** Roxo da planilha Time de Campo para cÃÂ©lula multi (ex.: I/R). */
+const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÃB', 'DOM'];
+/** Roxo da planilha Time de Campo para cÃ©lula multi (ex.: I/R). */
 const COR_ESCALA_MULTI = '#7030A0';
 const COL_DIA_MIN_WIDTH = 108;
 const COL_LOJA_MIN_WIDTH = 200;
@@ -148,7 +148,7 @@ export default function EscalaVisitasPage() {
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
-      // Regional: forÃÂ§a filtro de regiÃÂ£o (necessÃÂ¡rio para editar/enviar)
+      // Regional: forÃ§a filtro de regiÃ£o (necessÃ¡rio para editar/enviar)
       if (ehRegional && idRegiao === '' && data.regioes.length >= 1) {
         setIdRegiao(data.regioes[0].id_regiao);
       }
@@ -286,18 +286,18 @@ export default function EscalaVisitasPage() {
   async function enviarAprovacao() {
     const id = idRegiaoAcao();
     if (!id) {
-      showToast('Selecione a regiÃÂ£o para enviar', 'warning');
+      showToast('Selecione a regiÃ£o para enviar', 'warning');
       return;
     }
     if (pending.size) {
-      showToast('Salve as alteraÃÂ§ÃÂµes antes de enviar', 'warning');
+      showToast('Salve as alteraÃ§Ãµes antes de enviar', 'warning');
       return;
     }
     setSalvando(true);
     try {
       const data = await api.escalaVisitasSubmeter({ semana_inicio: semanaInicio, id_regiao: id });
       setGrade(data);
-      showToast('Escala enviada para aprovaÃÂ§ÃÂ£o', 'success');
+      showToast('Escala enviada para aprovaÃ§Ã£o', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
     } finally {
@@ -310,7 +310,7 @@ export default function EscalaVisitasPage() {
     try {
       const data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
       setGrade(data);
-      showToast('RegiÃÂ£o aprovada', 'success');
+      showToast('RegiÃ£o aprovada', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
     } finally {
@@ -333,14 +333,14 @@ export default function EscalaVisitasPage() {
 
   async function enviarDeliveryAprovacao() {
     if (pending.size) {
-      showToast('Salve as alteraÃÂ§ÃÂµes antes de enviar', 'warning');
+      showToast('Salve as alteraÃ§Ãµes antes de enviar', 'warning');
       return;
     }
     setSalvando(true);
     try {
       const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
       setGrade(data);
-      showToast('Delivery enviado para aprovaÃÂ§ÃÂ£o', 'success');
+      showToast('Delivery enviado para aprovaÃ§Ã£o', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
     } finally {
@@ -416,6 +416,7 @@ export default function EscalaVisitasPage() {
     }
   }
 
+
   const linhasComTotais = useMemo(() => {
     if (!grade) return [];
     return grade.linhas.map((linha: EscalaVisitasLinha) => {
@@ -484,7 +485,7 @@ export default function EscalaVisitasPage() {
                 Semana {grade?.semana_label ?? fmtDataCurta(semanaInicio)}
               </Typography>
             </Box>
-            <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))} aria-label="PrÃÂ³xima semana">
+            <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))} aria-label="PrÃ³xima semana">
               <ChevronRightIcon />
             </IconButton>
             <ToggleButtonGroup
@@ -520,9 +521,9 @@ export default function EscalaVisitasPage() {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
             {grade && grade.regioes.length > 0 && !ehDeliveryOnly && (
               <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>RegiÃÂ£o</InputLabel>
+                <InputLabel>RegiÃ£o</InputLabel>
                 <Select
-                  label="RegiÃÂ£o"
+                  label="RegiÃ£o"
                   value={idRegiao === '' ? '' : idRegiao}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -570,7 +571,7 @@ export default function EscalaVisitasPage() {
                 onClick={() => void enviarAprovacao()}
                 sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
               >
-                Enviar para aprovaÃÂ§ÃÂ£o
+                Enviar para aprovaÃ§Ã£o
               </Button>
             )}
             {grade?.pode_submeter_delivery && (
@@ -582,7 +583,7 @@ export default function EscalaVisitasPage() {
                 onClick={() => void enviarDeliveryAprovacao()}
                 sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
               >
-                Enviar para aprovaÃÂ§ÃÂ£o
+                Enviar para aprovaÃ§Ã£o
               </Button>
             )}
           </Box>
@@ -596,7 +597,7 @@ export default function EscalaVisitasPage() {
               ((grade?.status_por_regiao ?? []).some((s) => s.status === 'pendente_aprovacao') ||
                 grade?.status_delivery?.status === 'pendente_aprovacao') && (
                 <Typography variant="caption" sx={{ fontWeight: 800, color: colors.orange, letterSpacing: 0.04 }}>
-                  Escalas aguardando aprovaÃÂ§ÃÂ£o
+                  Escalas aguardando aprovaÃ§Ã£o
                 </Typography>
               )}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'stretch' }}>
@@ -642,7 +643,7 @@ export default function EscalaVisitasPage() {
                           }}
                           label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
                           sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
-                          title="Clique para ver sÃÂ³ esta regiÃÂ£o"
+                          title="Clique para ver sÃ³ esta regiÃ£o"
                         />
                         {grade?.pode_aprovar && pendente && (
                           <Button
@@ -675,7 +676,7 @@ export default function EscalaVisitasPage() {
                             Recusar
                           </Button>
                         )}
-                        {grade?.pode_excluir && st.status !== 'rascunho' && (
+                        {grade?.pode_excluir && (
                           <Button
                             size="small"
                             variant="outlined"
@@ -688,28 +689,15 @@ export default function EscalaVisitasPage() {
                             Excluir
                           </Button>
                         )}
-                        {grade?.pode_excluir && st.status === 'rascunho' && (
-                          <Button
-                            size="small"
-                            variant="text"
-                            color="error"
-                            startIcon={<DeleteIcon />}
-                            disabled={salvando}
-                            onClick={() => void excluirEscalaRegiao(st.id_regiao, st.nome_regiao)}
-                            sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
-                          >
-                            Limpar
-                          </Button>
-                        )}
                       </Box>
                       <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
                         {montadaPor
                           ? `Montada por ${montadaPor}${
-                              st.status === 'aprovado' && revisadaPor ? ` ÃÂ· Aprovada por ${revisadaPor}` : ''
-                            }${pendente ? ' ÃÂ· aguardando aprovaÃÂ§ÃÂ£o' : ''}`
+                              st.status === 'aprovado' && revisadaPor ? ` Â· Aprovada por ${revisadaPor}` : ''
+                            }${pendente ? ' Â· aguardando aprovaÃ§Ã£o' : ''}`
                           : st.status === 'rascunho'
-                            ? 'Ainda nÃÂ£o enviada'
-                            : 'Ã¢ÂÂ'}
+                            ? 'Ainda nÃ£o enviada'
+                            : 'â'}
                       </Typography>
                       <Typography
                         component="button"
@@ -819,11 +807,11 @@ export default function EscalaVisitasPage() {
                     <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
                       {montadaPor
                         ? `Montada por ${montadaPor}${
-                            st.status === 'aprovado' && revisadaPor ? ` ÃÂ· Aprovada por ${revisadaPor}` : ''
-                          }${pendente ? ' ÃÂ· aguardando aprovaÃÂ§ÃÂ£o' : ''}`
+                            st.status === 'aprovado' && revisadaPor ? ` Â· Aprovada por ${revisadaPor}` : ''
+                          }${pendente ? ' Â· aguardando aprovaÃ§Ã£o' : ''}`
                         : st.status === 'rascunho'
-                          ? 'Ainda nÃÂ£o enviada'
-                          : 'Ã¢ÂÂ'}
+                          ? 'Ainda nÃ£o enviada'
+                          : 'â'}
                     </Typography>
                   </Box>
                 );
@@ -892,7 +880,7 @@ export default function EscalaVisitasPage() {
         >
           {!linhaDelivery ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">Linha de delivery nÃÂ£o configurada.</Typography>
+              <Typography color="text.secondary">Linha de delivery nÃ£o configurada.</Typography>
             </Box>
           ) : (
             <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
@@ -946,7 +934,7 @@ export default function EscalaVisitasPage() {
                   {deliveryLinhas.map((linha) => (
                     <TableRow key={linha.id_loja} hover>
                       <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
-                        {linha.bk_number || 'Ã¢ÂÂ'}
+                        {linha.bk_number || 'â'}
                       </TableCell>
                       <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: '#fff', zIndex: 1 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
@@ -1024,7 +1012,7 @@ export default function EscalaVisitasPage() {
                 {linhasVisitasComTotais.map((linha) => (
                   <TableRow key={linha.id_loja} hover>
                     <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
-                      {linha.bk_number || 'Ã¢ÂÂ'}
+                      {linha.bk_number || 'â'}
                     </TableCell>
                     <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: '#fff', zIndex: 1 }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
@@ -1089,7 +1077,7 @@ export default function EscalaVisitasPage() {
                               }}
                               renderValue={(selected) => {
                                 const ids = selected as number[];
-                                if (!ids.length) return 'Ã¢ÂÂ';
+                                if (!ids.length) return 'â';
                                 return ids
                                   .map((id) => primeiroNome(mapNomeRegional.get(id) ?? ''))
                                   .filter(Boolean)
@@ -1150,7 +1138,7 @@ export default function EscalaVisitasPage() {
                                     </Box>
                                   ))
                                 ) : (
-                                  'Ã¢ÂÂ'
+                                  'â'
                                 )}
                               </Box>
                             </Tooltip>
@@ -1179,18 +1167,18 @@ export default function EscalaVisitasPage() {
       {!podeEditarGrade && !podeEditarDelivery && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           {ehRegional
-            ? 'Modo leitura Ã¢ÂÂ escala pendente ou jÃÂ¡ aprovada. Aguarde devoluÃÂ§ÃÂ£o do diretor para editar.'
-            : 'Modo leitura Ã¢ÂÂ supervisores montam a regiÃÂ£o; o diretor aprova.'}
+            ? 'Modo leitura â escala pendente ou jÃ¡ aprovada. Aguarde devoluÃ§Ã£o do diretor para editar.'
+            : 'Modo leitura â supervisores montam a regiÃ£o; o diretor aprova.'}
         </Typography>
       )}
       {ehDeliveryOnly && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
-          VocÃÂª preenche apenas a escala de delivery.
+          VocÃª preenche apenas a escala de delivery.
         </Typography>
       )}
       {ehRegional && podeEditarGrade && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
-          Cada cÃÂ©lula marca a equipe inteira da regiÃÂ£o (os dois tÃÂ©cnicos andam juntos).
+          Cada cÃ©lula marca a equipe inteira da regiÃ£o (os dois tÃ©cnicos andam juntos).
         </Typography>
       )}
     </Box>
