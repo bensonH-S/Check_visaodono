@@ -195,8 +195,79 @@ export function podeGerenciarEscalaVisitas(user) {
   return temPermissao(user, 'escalas.visitas.gerenciar');
 }
 
+export function podeEditarEscalaRegiao(user) {
+  return temPermissao(user, 'escalas.visitas.editar_regiao');
+}
+
 export function podeVerEscalaVisitas(user) {
-  return podeGerenciarEscalaVisitas(user) || temPermissao(user, 'escalas.visitas.ver');
+  return (
+    podeGerenciarEscalaVisitas(user) ||
+    podeEditarEscalaRegiao(user) ||
+    temPermissao(user, 'escalas.visitas.ver')
+  );
+}
+
+const STATUS_RASCUNHO = 'rascunho';
+const STATUS_PENDENTE = 'pendente_aprovacao';
+const STATUS_APROVADO = 'aprovado';
+
+async function garantirStatusRegiao(clientOrPool, idSemana, idRegiao) {
+  const db = clientOrPool || pool;
+  await db.query(
+    `INSERT INTO escala_visitas_regiao_status (id_semana, id_regiao, status)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id_semana, id_regiao) DO NOTHING`,
+    [idSemana, idRegiao, STATUS_RASCUNHO],
+  );
+}
+
+async function obterStatusRegiao(idSemana, idRegiao) {
+  await garantirStatusRegiao(pool, idSemana, idRegiao);
+  const { rows } = await pool.query(
+    `SELECT s.status, s.submetido_por, s.submetido_em, s.revisado_por, s.revisado_em, s.comentario,
+            us.nome AS nome_submetido_por, ur.nome AS nome_revisado_por
+     FROM escala_visitas_regiao_status s
+     LEFT JOIN usuarios us ON us.id_usuario = s.submetido_por
+     LEFT JOIN usuarios ur ON ur.id_usuario = s.revisado_por
+     WHERE s.id_semana = $1 AND s.id_regiao = $2`,
+    [idSemana, idRegiao],
+  );
+  return rows[0] || { status: STATUS_RASCUNHO };
+}
+
+async function carregarStatusPorRegiao(idSemana, idsRegiao) {
+  if (!idsRegiao.length) return [];
+  for (const id of idsRegiao) {
+    await garantirStatusRegiao(pool, idSemana, id);
+  }
+  const { rows } = await pool.query(
+    `SELECT s.id_regiao, r.nome AS nome_regiao, s.status,
+            s.submetido_por, s.submetido_em, s.revisado_por, s.revisado_em, s.comentario,
+            us.nome AS nome_submetido_por, ur.nome AS nome_revisado_por
+     FROM escala_visitas_regiao_status s
+     JOIN frota_regioes r ON r.id_regiao = s.id_regiao
+     LEFT JOIN usuarios us ON us.id_usuario = s.submetido_por
+     LEFT JOIN usuarios ur ON ur.id_usuario = s.revisado_por
+     WHERE s.id_semana = $1 AND s.id_regiao = ANY($2::int[])
+     ORDER BY r.nome`,
+    [idSemana, idsRegiao],
+  );
+  return rows;
+}
+
+async function mapLojaParaRegiao(idsLoja) {
+  const out = new Map();
+  if (!idsLoja.length) return out;
+  const { rows } = await pool.query(
+    `SELECT DISTINCT ON (rl.id_loja) rl.id_loja, rl.id_regiao
+     FROM frota_regiao_lojas rl
+     JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
+     WHERE rl.id_loja = ANY($1::int[])
+     ORDER BY rl.id_loja, r.nome`,
+    [idsLoja],
+  );
+  for (const row of rows) out.set(Number(row.id_loja), Number(row.id_regiao));
+  return out;
 }
 
 /** Segunda-feira (ISO) da semana que contém a data. */
@@ -489,13 +560,49 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     bk_number: loja.bk_number,
   }));
 
+  const idsRegiaoStatus = id_regiao
+    ? [Number(id_regiao)]
+    : regioes.map((r) => Number(r.id_regiao));
+  const statusPorRegiao = await carregarStatusPorRegiao(semana.id_semana, idsRegiaoStatus);
+
+  const gerenciar = podeGerenciarEscalaVisitas(user);
+  const editarRegiaoPerm = podeEditarEscalaRegiao(user) && !gerenciar;
+  const idsRegiaoUsuario = await idsRegioesVisiveis(user);
+
+  let podeEditarRegiao = false;
+  let podeSubmeter = false;
+  let statusRegiaoFiltro = null;
+  if (editarRegiaoPerm) {
+    const alvo =
+      id_regiao && idsRegiaoUsuario.includes(Number(id_regiao))
+        ? Number(id_regiao)
+        : idsRegiaoUsuario.length === 1
+          ? idsRegiaoUsuario[0]
+          : null;
+    if (alvo != null) {
+      const st = await obterStatusRegiao(semana.id_semana, alvo);
+      statusRegiaoFiltro = st.status || STATUS_RASCUNHO;
+      podeEditarRegiao = statusRegiaoFiltro === STATUS_RASCUNHO;
+      podeSubmeter = statusRegiaoFiltro === STATUS_RASCUNHO;
+    }
+  }
+
+  const temPendente = statusPorRegiao.some((s) => s.status === STATUS_PENDENTE);
+  const temAprovado = statusPorRegiao.some((s) => s.status === STATUS_APROVADO);
+
   return {
     id_semana: semana.id_semana,
     semana_inicio: semanaInicio,
     semana_fim: domingoDaSemana(semanaInicio),
     semana_label: `${formatarDataBr(semanaInicio)} até ${formatarDataBr(domingoDaSemana(semanaInicio))}`,
-    pode_editar: podeGerenciarEscalaVisitas(user),
+    pode_editar: gerenciar,
+    pode_editar_regiao: podeEditarRegiao,
+    pode_submeter: podeSubmeter,
+    pode_aprovar: gerenciar && temPendente,
+    pode_devolver: gerenciar && (temPendente || temAprovado),
     id_regiao_filtro: id_regiao ? Number(id_regiao) : null,
+    status_regiao: statusRegiaoFiltro,
+    status_por_regiao: statusPorRegiao,
     regionais,
     regioes,
     lojas_destino: lojasDestino,
@@ -504,12 +611,37 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
 }
 
 export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regiao = null }) {
-  if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para editar');
+  const gerenciar = podeGerenciarEscalaVisitas(user);
+  const editarRegiao = podeEditarEscalaRegiao(user);
+  if (!gerenciar && !editarRegiao) throw new Error('Sem permissão para editar');
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio);
   const semana = await obterOuCriarSemana(semanaInicio, user.sub);
   const lista = Array.isArray(celulas) ? celulas : [];
   const lojaDelivery = await obterLojaDeliveryAnchor();
+
+  const idsRegiaoUsuario = await idsRegioesVisiveis(user);
+  const idsLojaPayload = [
+    ...new Set(lista.map((item) => Number(item.id_loja)).filter(Boolean)),
+  ];
+  const lojaRegiaoMap = await mapLojaParaRegiao(idsLojaPayload);
+
+  if (!gerenciar) {
+    for (const item of lista) {
+      const idLoja = Number(item.id_loja);
+      if (lojaDelivery && idLoja === lojaDelivery.id_loja) {
+        throw new Error('Delivery só pode ser editado pela diretoria');
+      }
+      const idRegiaoLoja = lojaRegiaoMap.get(idLoja);
+      if (!idRegiaoLoja || !idsRegiaoUsuario.includes(idRegiaoLoja)) {
+        throw new Error('Só é possível editar lojas da sua região');
+      }
+      const st = await obterStatusRegiao(semana.id_semana, idRegiaoLoja);
+      if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) {
+        throw new Error('Região bloqueada — aguarde aprovação ou devolução do diretor');
+      }
+    }
+  }
 
   const client = await pool.connect();
   try {
@@ -569,6 +701,102 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
   }
 
   return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao });
+}
+
+export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
+  if (!podeEditarEscalaRegiao(user) && !podeGerenciarEscalaVisitas(user)) {
+    throw new Error('Sem permissão para submeter');
+  }
+  const idRegiao = Number(id_regiao);
+  if (!idRegiao) throw new Error('Informe a região');
+
+  const idsRegiaoUsuario = await idsRegioesVisiveis(user);
+  if (!podeGerenciarEscalaVisitas(user) && !idsRegiaoUsuario.includes(idRegiao)) {
+    throw new Error('Sem acesso a esta região');
+  }
+
+  const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
+  const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const st = await obterStatusRegiao(semana.id_semana, idRegiao);
+  if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) {
+    throw new Error('Só é possível enviar escala em rascunho');
+  }
+
+  await pool.query(
+    `UPDATE escala_visitas_regiao_status
+     SET status = $3,
+         submetido_por = $4,
+         submetido_em = NOW(),
+         revisado_por = NULL,
+         revisado_em = NULL,
+         comentario = NULL
+     WHERE id_semana = $1 AND id_regiao = $2`,
+    [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
+  );
+
+  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: idRegiao });
+}
+
+export async function aprovarEscalaRegiao(user, { semana_inicio, id_regiao, comentario = null }) {
+  if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para aprovar');
+  const idRegiao = Number(id_regiao);
+  if (!idRegiao) throw new Error('Informe a região');
+
+  const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
+  const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const st = await obterStatusRegiao(semana.id_semana, idRegiao);
+  if ((st.status || STATUS_RASCUNHO) !== STATUS_PENDENTE) {
+    throw new Error('Só é possível aprovar escala pendente');
+  }
+
+  await pool.query(
+    `UPDATE escala_visitas_regiao_status
+     SET status = $3,
+         revisado_por = $4,
+         revisado_em = NOW(),
+         comentario = $5
+     WHERE id_semana = $1 AND id_regiao = $2`,
+    [
+      semana.id_semana,
+      idRegiao,
+      STATUS_APROVADO,
+      user.sub,
+      comentario != null ? String(comentario).trim() || null : null,
+    ],
+  );
+
+  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
+}
+
+export async function devolverEscalaRegiao(user, { semana_inicio, id_regiao, comentario = null }) {
+  if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para devolver');
+  const idRegiao = Number(id_regiao);
+  if (!idRegiao) throw new Error('Informe a região');
+
+  const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
+  const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const st = await obterStatusRegiao(semana.id_semana, idRegiao);
+  if (![STATUS_PENDENTE, STATUS_APROVADO].includes(st.status || STATUS_RASCUNHO)) {
+    throw new Error('Só é possível devolver escala pendente ou aprovada');
+  }
+
+  await pool.query(
+    `UPDATE escala_visitas_regiao_status
+     SET status = $3,
+         revisado_por = $4,
+         revisado_em = NOW(),
+         comentario = $5
+     WHERE id_semana = $1 AND id_regiao = $2`,
+    [
+      semana.id_semana,
+      idRegiao,
+      STATUS_RASCUNHO,
+      user.sub,
+      comentario != null ? String(comentario).trim() || null : null,
+    ],
+  );
+
+  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
 }
 
 export async function copiarSemanaVisitas(user, { de, para }) {

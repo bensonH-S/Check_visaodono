@@ -27,13 +27,33 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SaveIcon from '@mui/icons-material/Save';
-import { api, type EscalaVisitasGrade, type EscalaVisitasLinha } from '../../api/client';
-import { podeGerenciarEscalaVisitas } from '../../lib/auth';
+import SendIcon from '@mui/icons-material/Send';
+import CheckIcon from '@mui/icons-material/Check';
+import UndoIcon from '@mui/icons-material/Undo';
+import {
+  api,
+  type EscalaVisitasGrade,
+  type EscalaVisitasLinha,
+  type EscalaVisitasRegiaoStatusCodigo,
+} from '../../api/client';
+import { podeEditarEscalaRegiao, podeGerenciarEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
 import { agruparRegionaisEscala, primeiroNome } from '../../components/escalas/escalaVisitasUtils';
+
+const STATUS_LABEL: Record<EscalaVisitasRegiaoStatusCodigo, string> = {
+  rascunho: 'Rascunho',
+  pendente_aprovacao: 'Pendente',
+  aprovado: 'Aprovado',
+};
+
+const STATUS_CHIP_SX: Record<EscalaVisitasRegiaoStatusCodigo, object> = {
+  rascunho: { bgcolor: colors.canvasAlt, color: colors.textSecondary },
+  pendente_aprovacao: { bgcolor: 'rgba(232, 82, 10, 0.12)', color: '#C2410C', fontWeight: 700 },
+  aprovado: { bgcolor: 'rgba(22, 163, 74, 0.12)', color: '#15803D', fontWeight: 700 },
+};
 
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 /** Roxo da planilha Time de Campo para célula multi (ex.: I/R). */
@@ -78,6 +98,8 @@ function chaveCelula(idLoja: number, dia: number) {
 }
 
 export default function EscalaVisitasPage() {
+  const ehDiretor = podeGerenciarEscalaVisitas();
+  const ehRegional = !ehDiretor && podeEditarEscalaRegiao();
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
@@ -85,7 +107,8 @@ export default function EscalaVisitasPage() {
   const [salvando, setSalvando] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
   const [aba, setAba] = useState<'visitas' | 'delivery'>('visitas');
-  const podeEditar = podeGerenciarEscalaVisitas();
+  const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
+  const podeEditarDelivery = Boolean(grade?.pode_editar);
 
   const mapCorRegional = useMemo(() => {
     const m = new Map<number, string>();
@@ -121,19 +144,23 @@ export default function EscalaVisitasPage() {
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
+      // Regional: força filtro de região (necessário para editar/enviar)
+      if (ehRegional && idRegiao === '' && data.regioes.length >= 1) {
+        setIdRegiao(data.regioes[0].id_regiao);
+      }
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar escala', 'error');
     } finally {
       setLoading(false);
     }
-  }, [semanaInicio, idRegiao]);
+  }, [semanaInicio, idRegiao, ehRegional]);
 
   useEffect(() => {
     void carregar();
   }, [carregar]);
 
   function alterarCelulaRegional(idLoja: number, dia: number, idRegionais: number[]) {
-    if (!podeEditar) return;
+    if (!podeEditarGrade) return;
     setPending((prev) => {
       const next = new Map(prev);
       next.set(chaveCelula(idLoja, dia), { id_loja: idLoja, dia, id_regionais: idRegionais });
@@ -142,7 +169,7 @@ export default function EscalaVisitasPage() {
   }
 
   function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {
-    if (!podeEditar) return;
+    if (!grade?.pode_editar) return;
     setPending((prev) => {
       const next = new Map(prev);
       next.set(chaveCelula(idLoja, dia), { id_loja: idLoja, dia, id_lojas_destino: idLojasDestino });
@@ -219,6 +246,60 @@ export default function EscalaVisitasPage() {
       showToast(`Copiado de ${fmtDataCurta(origem)}`, 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao copiar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  function idRegiaoAcao(): number | null {
+    if (idRegiao !== '') return Number(idRegiao);
+    if (grade?.regioes?.length === 1) return grade.regioes[0].id_regiao;
+    return null;
+  }
+
+  async function enviarAprovacao() {
+    const id = idRegiaoAcao();
+    if (!id) {
+      showToast('Selecione a região para enviar', 'warning');
+      return;
+    }
+    if (pending.size) {
+      showToast('Salve as alterações antes de enviar', 'warning');
+      return;
+    }
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasSubmeter({ semana_inicio: semanaInicio, id_regiao: id });
+      setGrade(data);
+      showToast('Escala enviada para aprovação', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function aprovarRegiao(id: number) {
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
+      setGrade(data);
+      showToast('Região aprovada', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function devolverRegiao(id: number) {
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasDevolver({ semana_inicio: semanaInicio, id_regiao: id });
+      setGrade(data);
+      showToast('Escala devolvida ao regional', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao devolver', 'error');
     } finally {
       setSalvando(false);
     }
@@ -336,10 +417,9 @@ export default function EscalaVisitasPage() {
                     const v = e.target.value;
                     setIdRegiao(String(v) === '' ? '' : Number(v));
                   }}
+                  disabled={ehRegional && grade.regioes.length === 1}
                 >
-                  <MenuItem value="">
-                    Todas as lojas
-                  </MenuItem>
+                  {!ehRegional && <MenuItem value="">Todas as lojas</MenuItem>}
                   {grade.regioes.map((r: { id_regiao: number; nome: string }) => (
                     <MenuItem key={r.id_regiao} value={r.id_regiao}>
                       {r.nome}
@@ -348,30 +428,81 @@ export default function EscalaVisitasPage() {
                 </Select>
               </FormControl>
             )}
-            {podeEditar && (
-              <>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<ContentCopyIcon />}
-                  disabled={salvando}
-                  onClick={() => void copiarSemanaAnterior()}
-                >
-                  Copiar semana anterior
-                </Button>
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<SaveIcon />}
-                  disabled={salvando || pending.size === 0}
-                  onClick={() => void salvar()}
-                >
-                  Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
-                </Button>
-              </>
+            {grade?.pode_editar && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopyIcon />}
+                disabled={salvando}
+                onClick={() => void copiarSemanaAnterior()}
+              >
+                Copiar semana anterior
+              </Button>
+            )}
+            {podeEditarGrade && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<SaveIcon />}
+                disabled={salvando || pending.size === 0}
+                onClick={() => void salvar()}
+              >
+                Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
+              </Button>
+            )}
+            {grade?.pode_submeter && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<SendIcon />}
+                disabled={salvando || pending.size > 0}
+                onClick={() => void enviarAprovacao()}
+                sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
+              >
+                Enviar para aprovação
+              </Button>
             )}
           </Box>
         </Box>
+
+        {grade?.status_por_regiao && grade.status_por_regiao.length > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1, alignItems: 'center' }}>
+            {grade.status_por_regiao.map((st) => (
+              <Box key={st.id_regiao} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Chip
+                  size="small"
+                  label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
+                  sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
+                />
+                {grade.pode_aprovar && st.status === 'pendente_aprovacao' && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<CheckIcon />}
+                    disabled={salvando}
+                    onClick={() => void aprovarRegiao(st.id_regiao)}
+                    sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                  >
+                    Aprovar
+                  </Button>
+                )}
+                {grade.pode_devolver &&
+                  (st.status === 'pendente_aprovacao' || st.status === 'aprovado') && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      startIcon={<UndoIcon />}
+                      disabled={salvando}
+                      onClick={() => void devolverRegiao(st.id_regiao)}
+                      sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                    >
+                      Devolver
+                    </Button>
+                  )}
+              </Box>
+            ))}
+          </Box>
+        )}
 
         {grade && grade.regionais.length > 0 && aba === 'visitas' && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
@@ -457,7 +588,7 @@ export default function EscalaVisitasPage() {
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                           </Typography>
-                          {podeEditar && lojasDelivery.length > 0 && (
+                          {podeEditarDelivery && lojasDelivery.length > 0 && (
                             <Button
                               size="small"
                               onClick={() => toggleDiaDeliveryInteiro(dia)}
@@ -499,7 +630,7 @@ export default function EscalaVisitasPage() {
                           <Checkbox
                             size="medium"
                             checked={d.marcada}
-                            disabled={!podeEditar}
+                            disabled={!podeEditarDelivery}
                             onChange={() => toggleLojaDelivery(d.dia, linha.id_loja)}
                             sx={{
                               p: 0.5,
@@ -587,7 +718,7 @@ export default function EscalaVisitasPage() {
                       const cor = idsReg.length === 1 ? mapCorRegional.get(idsReg[0]) || '#64748B' : undefined;
                       return (
                         <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
-                          {podeEditar ? (
+                          {podeEditarGrade ? (
                             <Select
                               multiple
                               size="small"
@@ -688,9 +819,11 @@ export default function EscalaVisitasPage() {
         </Paper>
       )}
 
-      {!podeEditar && (
+      {!podeEditarGrade && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
-          Modo leitura — somente o diretor pode editar a escala.
+          {ehRegional
+            ? 'Modo leitura — escala pendente ou já aprovada. Aguarde devolução do diretor para editar.'
+            : 'Modo leitura — supervisores montam a região; o diretor aprova.'}
         </Typography>
       )}
     </Box>

@@ -437,8 +437,16 @@ export function podeGerenciarEscalaVisitas(usuario?: UsuarioSessao | null): bool
   return temPermissao('escalas.visitas.gerenciar', usuario);
 }
 
+export function podeEditarEscalaRegiao(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('escalas.visitas.editar_regiao', usuario);
+}
+
 export function podeVerEscalaVisitas(usuario?: UsuarioSessao | null): boolean {
-  return podeGerenciarEscalaVisitas(usuario) || temPermissao('escalas.visitas.ver', usuario);
+  return (
+    podeGerenciarEscalaVisitas(usuario) ||
+    podeEditarEscalaRegiao(usuario) ||
+    temPermissao('escalas.visitas.ver', usuario)
+  );
 }
 
 export function podeGerenciarMetas(usuario?: UsuarioSessao | null): boolean {

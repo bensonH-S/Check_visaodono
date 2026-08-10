@@ -165,7 +165,7 @@ export default function App() {
             <Route
               path="escalas/visitas/mobile"
               element={
-                <RotaPermissao permissoes={['escalas.visitas.ver', 'escalas.visitas.gerenciar']}>
+                <RotaPermissao permissoes={['escalas.visitas.ver', 'escalas.visitas.gerenciar', 'escalas.visitas.editar_regiao']}>
                   <EscalaVisitasMobilePage />
                 </RotaPermissao>
               }
@@ -340,7 +340,7 @@ export default function App() {
             <Route
               path="escalas/visitas"
               element={
-                <RotaPermissao permissoes={['escalas.visitas.ver', 'escalas.visitas.gerenciar']}>
+                <RotaPermissao permissoes={['escalas.visitas.ver', 'escalas.visitas.gerenciar', 'escalas.visitas.editar_regiao']}>
                   <EscalaVisitasPage />
                 </RotaPermissao>
               }

@@ -1,15 +1,40 @@
 import { Router } from 'express';
 import {
+  aprovarEscalaRegiao,
   carregarGradeVisitas,
   copiarSemanaVisitas,
+  devolverEscalaRegiao,
   listarSemanasVisitas,
   podeVerEscalaVisitas,
   salvarGradeVisitas,
   segundaFeiraDaSemana,
+  submeterEscalaRegiao,
 } from '../escalaVisitas.js';
 import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
+
+function erroHttp(e, res, next) {
+  const msg = e.message || 'Erro';
+  if (
+    msg.includes('Sem permissão') ||
+    msg.includes('Sem acesso') ||
+    msg.includes('bloqueada') ||
+    msg.includes('só pode ser editado')
+  ) {
+    return res.status(403).json({ error: msg });
+  }
+  if (
+    msg.includes('Data inválida') ||
+    msg.includes('Informe') ||
+    msg.includes('Só é possível') ||
+    msg.includes('Semanas iguais') ||
+    msg.includes('Delivery')
+  ) {
+    return res.status(400).json({ error: msg });
+  }
+  return next(e);
+}
 
 router.get('/semana', async (req, res, next) => {
   try {
@@ -23,13 +48,7 @@ router.get('/semana', async (req, res, next) => {
     const grade = await carregarGradeVisitas(req.user, { semana_inicio, id_regiao });
     res.json(grade);
   } catch (e) {
-    if (e.message.includes('Sem permissão') || e.message.includes('Sem acesso')) {
-      return res.status(403).json({ error: e.message });
-    }
-    if (e.message.includes('Data inválida')) {
-      return res.status(400).json({ error: e.message });
-    }
-    next(e);
+    return erroHttp(e, res, next);
   }
 });
 
@@ -52,10 +71,72 @@ router.put('/semana', async (req, res, next) => {
     });
     res.json(grade);
   } catch (e) {
-    if (e.message.includes('Sem permissão')) {
-      return res.status(403).json({ error: e.message });
-    }
-    next(e);
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/semana/submeter', async (req, res, next) => {
+  try {
+    const grade = await submeterEscalaRegiao(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    const idRegiao = req.body?.id_regiao ?? null;
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'submeter_escala',
+      entidade: 'escala_visitas_regiao',
+      idReferencia: semana,
+      descricao: `Enviou escala de visitas para aprovação${semana ? ` (semana ${semana})` : ''}${idRegiao ? ` — região #${idRegiao}` : ''}`,
+      detalhes: { semana_inicio: semana || null, id_regiao: idRegiao },
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/semana/aprovar', async (req, res, next) => {
+  try {
+    const grade = await aprovarEscalaRegiao(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    const idRegiao = req.body?.id_regiao ?? null;
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'aprovar_escala',
+      entidade: 'escala_visitas_regiao',
+      idReferencia: semana,
+      descricao: `Aprovou escala de visitas${semana ? ` (semana ${semana})` : ''}${idRegiao ? ` — região #${idRegiao}` : ''}`,
+      detalhes: {
+        semana_inicio: semana || null,
+        id_regiao: idRegiao,
+        comentario: req.body?.comentario ?? null,
+      },
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/semana/devolver', async (req, res, next) => {
+  try {
+    const grade = await devolverEscalaRegiao(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    const idRegiao = req.body?.id_regiao ?? null;
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'devolver_escala',
+      entidade: 'escala_visitas_regiao',
+      idReferencia: semana,
+      descricao: `Devolveu escala de visitas${semana ? ` (semana ${semana})` : ''}${idRegiao ? ` — região #${idRegiao}` : ''}`,
+      detalhes: {
+        semana_inicio: semana || null,
+        id_regiao: idRegiao,
+        comentario: req.body?.comentario ?? null,
+      },
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
   }
 });
 
@@ -76,13 +157,7 @@ router.post('/semana/copiar', async (req, res, next) => {
     });
     res.json(grade);
   } catch (e) {
-    if (e.message.includes('Sem permissão')) {
-      return res.status(403).json({ error: e.message });
-    }
-    if (e.message.includes('Semanas iguais')) {
-      return res.status(400).json({ error: e.message });
-    }
-    next(e);
+    return erroHttp(e, res, next);
   }
 });
 
@@ -91,10 +166,7 @@ router.get('/semanas', async (req, res, next) => {
     const semanas = await listarSemanasVisitas(req.user);
     res.json(semanas);
   } catch (e) {
-    if (e.message.includes('Sem permissão')) {
-      return res.status(403).json({ error: e.message });
-    }
-    next(e);
+    return erroHttp(e, res, next);
   }
 });
 

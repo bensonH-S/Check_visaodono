@@ -28,6 +28,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'frota.debitos.sync', nome: 'Sincronizar Débitos', grupo: 'Frota', ordem: 148 },
   { codigo: 'escalas.visitas.gerenciar', nome: 'Gerenciar escala de visitas semanal', grupo: 'Escalas', ordem: 150 },
   { codigo: 'escalas.visitas.ver', nome: 'Ver escala de visitas semanal', grupo: 'Escalas', ordem: 151 },
+  { codigo: 'escalas.visitas.editar_regiao', nome: 'Montar escala de visitas da própria região', grupo: 'Escalas', ordem: 152 },
   { codigo: 'metas.gerenciar', nome: 'Gerenciar metas e indicadores', grupo: 'Metas', ordem: 160 },
   { codigo: 'metas.ver', nome: 'Ver metas da empresa e gestores', grupo: 'Metas', ordem: 161 },
   { codigo: 'estoque.produtos', nome: 'Insumos — cadastrar e editar', grupo: 'Estoque', ordem: 200 },
