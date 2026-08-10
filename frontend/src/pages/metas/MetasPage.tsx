@@ -63,7 +63,8 @@ function proximoMesDisponivel(periodos: MetasPeriodoResumo[]) {
     const agora = new Date();
     return { ano: agora.getFullYear(), mes: agora.getMonth() + 1 };
   }
-  const ultimo = [...periodos].sort((a, b) => a.ano - b.ano || a.mes - b.mes).at(-1)!;
+  const ordenados = [...periodos].sort((a, b) => a.ano - b.ano || a.mes - b.mes);
+  const ultimo = ordenados[ordenados.length - 1];
   if (ultimo.mes >= 12) return { ano: ultimo.ano + 1, mes: 1 };
   return { ano: ultimo.ano, mes: ultimo.mes + 1 };
 }
@@ -580,7 +581,7 @@ export default function MetasPage() {
               type="number"
               value={novoAno}
               onChange={(e) => setNovoAno(Number(e.target.value))}
-              inputProps={{ min: 2020, max: 2100 }}
+              slotProps={{ htmlInput: { min: 2020, max: 2100 } }}
               sx={{ width: 120 }}
             />
           </Box>
