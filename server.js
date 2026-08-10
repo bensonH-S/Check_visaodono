@@ -193,9 +193,14 @@ function garantirSchema() {
   pool
     .query('ALTER TABLE respostas ALTER COLUMN foto_url TYPE TEXT')
     .catch((e) => logger.warn('schema', e.message));
-  // Sequences atrás do MAX → *_pkey ao salvar/finalizar checklist
+  // Sequences atrás do MAX → *_pkey ao salvar/finalizar checklist ou criar metas
   realinharSequence('respostas', 'id_resposta');
   realinharSequence('nao_conformidades', 'id_nc');
+  realinharSequence('metas_premios', 'id_premio');
+  realinharSequence('metas_periodos', 'id_periodo');
+  realinharSequence('metas_paineis', 'id_painel');
+  realinharSequence('metas_rankings', 'id_ranking');
+  realinharSequence('metas_realizados', 'id_realizado');
 }
 
 const api = express.Router();
