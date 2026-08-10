@@ -368,3 +368,58 @@
 .ck-escala .ck-escala__card-meta.is-off {
   color: rgba(20, 32, 72, 0.45);
 }
+
+.ck-escala .ck-escala__status {
+  margin: 10px 0 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.ck-escala .ck-escala__status--pendente_aprovacao {
+  background: rgba(232, 82, 10, 0.9);
+}
+
+.ck-escala .ck-escala__status--aprovado {
+  background: rgba(22, 163, 74, 0.9);
+}
+
+.ck-escala .ck-escala__faixa-pill.is-edit {
+  width: 100%;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-escala .ck-escala__faixa-pill.is-edit:active {
+  transform: scale(0.96);
+}
+
+.ck-escala .ck-escala__loja-semana.is-edit {
+  border-color: rgba(27, 42, 107, 0.16);
+}
+
+.ck-escala .ck-escala__acoes {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 0 calc(10px + var(--app-tabbar-offset, 0px));
+  border-top: 1px solid rgba(27, 42, 107, 0.08);
+  background: #fff;
+}
+
+.ck-escala .ck-escala__editor-meta {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-escala__sheet--fill:has(.ck-escala__acoes) .ck-escala__sheet-body {
+  padding-bottom: 12px;
+}

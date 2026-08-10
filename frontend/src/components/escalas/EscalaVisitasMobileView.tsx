@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
@@ -8,8 +12,21 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-import { api, type EscalaVisitasDia, type EscalaVisitasGrade, type EscalaVisitasLinha } from '../../api/client';
-import { getUsuario, podeGerenciarEscalaVisitas, podeVerEscalaVisitas } from '../../lib/auth';
+import SaveIcon from '@mui/icons-material/Save';
+import SendIcon from '@mui/icons-material/Send';
+import {
+  api,
+  type EscalaVisitasDia,
+  type EscalaVisitasGrade,
+  type EscalaVisitasLinha,
+  type EscalaVisitasRegiaoStatusCodigo,
+} from '../../api/client';
+import {
+  getUsuario,
+  podeEditarEscalaRegiao,
+  podeGerenciarEscalaVisitas,
+  podeVerEscalaVisitas,
+} from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import {
@@ -21,21 +38,31 @@ import {
   primeiroNome,
   segundaFeiraAtual,
 } from './escalaVisitasUtils';
-import { atribuicoesDoDia, diaTemRegional, idsLojasDestinoDoDia, linhaDeliveryDaGrade } from './escalaVisitasModel';
+import {
+  atribuicoesDoDia,
+  diaTemRegional,
+  idsLojasDestinoDoDia,
+  idsRegionaisDoDia,
+  linhaDeliveryDaGrade,
+} from './escalaVisitasModel';
 import '../visitas/visitas-mobile.css';
 import './escala-mobile.css';
 
 const ORANGE = '#E8520A';
 const NAVY = '#1B2A6B';
 
-type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery';
+const STATUS_LABEL: Record<EscalaVisitasRegiaoStatusCodigo, string> = {
+  rascunho: 'Rascunho',
+  pendente_aprovacao: 'Pendente',
+  aprovado: 'Aprovado',
+};
 
-const MODOS: Array<{ id: ModoVisualizacao; label: string }> = [
-  { id: 'minhas', label: 'Minhas' },
-  { id: 'dia', label: 'Por dia' },
-  { id: 'lojas', label: 'Por loja' },
-  { id: 'delivery', label: 'Delivery' },
-];
+type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery' | 'montar';
+type PendingMap = Map<string, { id_loja: number; dia: number; id_regionais: number[] }>;
+
+function chaveCelula(idLoja: number, dia: number) {
+  return `${idLoja}-${dia}`;
+}
 
 function LojaVisitaCard({
   nome,
@@ -87,11 +114,35 @@ function LojaVisitaCard({
   );
 }
 
-function FaixaSemanaLoja({ dias, ehDelivery = false }: { dias: EscalaVisitasDia[]; ehDelivery?: boolean }) {
+function FaixaSemanaLoja({
+  dias,
+  ehDelivery = false,
+  idsPorDia,
+  mapNome,
+  mapCor,
+  editavel = false,
+  onCelula,
+}: {
+  dias: EscalaVisitasDia[];
+  ehDelivery?: boolean;
+  idsPorDia?: number[][];
+  mapNome?: Map<number, string>;
+  mapCor?: Map<number, string>;
+  editavel?: boolean;
+  onCelula?: (dia: number) => void;
+}) {
   return (
     <div className="ck-escala__faixa">
       {dias.map((d, i) => {
-        const attrs = atribuicoesDoDia(d);
+        const idsOverride = idsPorDia?.[i];
+        const attrs =
+          idsOverride != null
+            ? idsOverride.map((id) => ({
+                id_regional: id,
+                nome_regional: mapNome?.get(id) ?? String(id),
+                cor: mapCor?.get(id) ?? null,
+              }))
+            : atribuicoesDoDia(d);
         const temVisita = attrs.length > 0;
         const cor = ehDelivery ? ORANGE : attrs[0]?.cor || 'rgba(27,42,107,0.2)';
         const rotulo = ehDelivery
@@ -107,20 +158,27 @@ function FaixaSemanaLoja({ dias, ehDelivery = false }: { dias: EscalaVisitasDia[
         const titulo = ehDelivery
           ? attrs.map((a) => a.nome_loja_destino).filter(Boolean).join(', ') || 'Sem loja'
           : attrs.map((a) => a.nome_regional).filter(Boolean).join(', ') || 'Sem visita';
+        const pillClass = `ck-escala__faixa-pill${temVisita ? ' is-on' : ''}${editavel ? ' is-edit' : ''}`;
+        const pillStyle = temVisita ? { background: `${cor}20`, borderColor: cor } : undefined;
+        const pillText = temVisita ? rotulo : editavel ? '+' : '—';
         return (
           <div key={d.dia} className="ck-escala__faixa-cell">
             <span>{DIAS_ABREV[i]}</span>
-            <div
-              title={titulo}
-              className={`ck-escala__faixa-pill${temVisita ? ' is-on' : ''}`}
-              style={
-                temVisita
-                  ? { background: `${cor}20`, borderColor: cor }
-                  : undefined
-              }
-            >
-              {temVisita ? rotulo : '—'}
-            </div>
+            {editavel ? (
+              <button
+                type="button"
+                title={titulo}
+                className={pillClass}
+                style={pillStyle}
+                onClick={() => onCelula?.(d.dia)}
+              >
+                {pillText}
+              </button>
+            ) : (
+              <div title={titulo} className={pillClass} style={pillStyle}>
+                {pillText}
+              </div>
+            )}
           </div>
         );
       })}
@@ -128,14 +186,36 @@ function FaixaSemanaLoja({ dias, ehDelivery = false }: { dias: EscalaVisitasDia[
   );
 }
 
-function CardLojaSemana({ linha }: { linha: EscalaVisitasLinha }) {
+function CardLojaSemana({
+  linha,
+  idsPorDia,
+  mapNome,
+  mapCor,
+  editavel = false,
+  onCelula,
+}: {
+  linha: EscalaVisitasLinha;
+  idsPorDia?: number[][];
+  mapNome?: Map<number, string>;
+  mapCor?: Map<number, string>;
+  editavel?: boolean;
+  onCelula?: (idLoja: number, dia: number) => void;
+}) {
   const ehDelivery = linha.tipo === 'delivery';
   return (
-    <div className={`ck-escala__loja-semana${ehDelivery ? ' is-delivery' : ''}`}>
+    <div className={`ck-escala__loja-semana${ehDelivery ? ' is-delivery' : ''}${editavel ? ' is-edit' : ''}`}>
       <strong>
         {ehDelivery ? linha.nome : `${linha.bk_number ? `${linha.bk_number} · ` : ''}${linha.nome}`}
       </strong>
-      <FaixaSemanaLoja dias={linha.dias} ehDelivery={ehDelivery} />
+      <FaixaSemanaLoja
+        dias={linha.dias}
+        ehDelivery={ehDelivery}
+        idsPorDia={idsPorDia}
+        mapNome={mapNome}
+        mapCor={mapCor}
+        editavel={editavel && !ehDelivery}
+        onCelula={onCelula ? (dia) => onCelula(linha.id_loja, dia) : undefined}
+      />
     </div>
   );
 }
@@ -145,14 +225,32 @@ export default function EscalaVisitasMobileView() {
   const idEu = user?.id_usuario;
   const podeVer = podeVerEscalaVisitas(user);
   const ehDiretor = podeGerenciarEscalaVisitas(user);
+  const ehRegional = !ehDiretor && podeEditarEscalaRegiao(user);
 
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
-  const [modo, setModo] = useState<ModoVisualizacao>(ehDiretor ? 'dia' : 'minhas');
+  const [modo, setModo] = useState<ModoVisualizacao>(ehRegional ? 'montar' : ehDiretor ? 'dia' : 'minhas');
   const [diaSelecionado, setDiaSelecionado] = useState(() => diaIndexNaSemana(segundaFeiraAtual()) ?? 0);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [pending, setPending] = useState<PendingMap>(new Map());
   const [filtroRegiaoAberto, setFiltroRegiaoAberto] = useState(false);
+  const [editor, setEditor] = useState<{ id_loja: number; dia: number; ids: number[] } | null>(null);
+
+  const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
+  const modos = useMemo(() => {
+    const base: Array<{ id: ModoVisualizacao; label: string }> = [
+      { id: 'minhas', label: 'Minhas' },
+      { id: 'dia', label: 'Por dia' },
+      { id: 'lojas', label: 'Por loja' },
+      { id: 'delivery', label: 'Delivery' },
+    ];
+    if (ehRegional || ehDiretor || grade?.pode_editar_regiao || grade?.pode_editar) {
+      base.unshift({ id: 'montar', label: 'Montar' });
+    }
+    return base;
+  }, [ehRegional, ehDiretor, grade?.pode_editar_regiao, grade?.pode_editar]);
 
   const carregar = useCallback(async () => {
     if (!podeVer) return;
@@ -162,12 +260,16 @@ export default function EscalaVisitasMobileView() {
       if (idRegiao !== '') q.set('id_regiao', String(idRegiao));
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
+      setPending(new Map());
+      if (ehRegional && idRegiao === '' && data.regioes.length >= 1) {
+        setIdRegiao(data.regioes[0].id_regiao);
+      }
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar escala', 'error');
     } finally {
       setLoading(false);
     }
-  }, [podeVer, semanaInicio, idRegiao]);
+  }, [podeVer, semanaInicio, idRegiao, ehRegional]);
 
   useEffect(() => {
     void carregar();
@@ -177,6 +279,119 @@ export default function EscalaVisitasMobileView() {
     const hoje = diaIndexNaSemana(semanaInicio);
     setDiaSelecionado(hoje ?? 0);
   }, [semanaInicio]);
+
+  const mapNomeRegional = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const r of grade?.regionais ?? []) m.set(r.id_usuario, r.nome);
+    for (const linha of grade?.linhas ?? []) {
+      for (const d of linha.dias) {
+        for (const a of atribuicoesDoDia(d)) {
+          if (a.id_regional != null && a.nome_regional) m.set(a.id_regional, a.nome_regional);
+        }
+      }
+    }
+    return m;
+  }, [grade]);
+
+  const mapCorRegional = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const r of grade?.regionais ?? []) m.set(r.id_usuario, r.cor);
+    for (const linha of grade?.linhas ?? []) {
+      for (const d of linha.dias) {
+        for (const a of atribuicoesDoDia(d)) {
+          if (a.id_regional != null && a.cor) m.set(a.id_regional, a.cor);
+        }
+      }
+    }
+    return m;
+  }, [grade]);
+
+  function valorCelulaRegional(idLoja: number, dia: number, original: EscalaVisitasDia) {
+    const p = pending.get(chaveCelula(idLoja, dia));
+    if (p) return p.id_regionais;
+    return idsRegionaisDoDia(original);
+  }
+
+  function abrirEditor(idLoja: number, dia: number) {
+    if (!podeEditarGrade) return;
+    const linha = grade?.linhas.find((l) => l.id_loja === idLoja);
+    if (!linha || linha.tipo === 'delivery') return;
+    setEditor({
+      id_loja: idLoja,
+      dia,
+      ids: [...valorCelulaRegional(idLoja, dia, linha.dias[dia])],
+    });
+  }
+
+  function confirmarEditor() {
+    if (!editor) return;
+    setPending((prev) => {
+      const next = new Map(prev);
+      next.set(chaveCelula(editor.id_loja, editor.dia), {
+        id_loja: editor.id_loja,
+        dia: editor.dia,
+        id_regionais: editor.ids,
+      });
+      return next;
+    });
+    setEditor(null);
+  }
+
+  async function salvar() {
+    if (!pending.size) {
+      showToast('Nada para salvar', 'info');
+      return;
+    }
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasSalvar({
+        semana_inicio: semanaInicio,
+        id_regiao: idRegiao === '' ? null : idRegiao,
+        celulas: [...pending.values()],
+      });
+      setGrade(data);
+      setPending(new Map());
+      showToast('Escala salva', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function enviarAprovacao() {
+    const id =
+      idRegiao !== ''
+        ? Number(idRegiao)
+        : grade?.regioes.length === 1
+          ? grade.regioes[0].id_regiao
+          : null;
+    if (!id) {
+      showToast('Selecione a região para enviar', 'warning');
+      return;
+    }
+    if (pending.size) {
+      showToast('Salve as alterações antes de enviar', 'warning');
+      return;
+    }
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasSubmeter({ semana_inicio: semanaInicio, id_regiao: id });
+      setGrade(data);
+      showToast('Escala enviada para aprovação', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const statusAtivo =
+    grade?.status_regiao ||
+    (idRegiao !== ''
+      ? grade?.status_por_regiao?.find((s) => s.id_regiao === idRegiao)?.status
+      : grade?.status_por_regiao?.[0]?.status) ||
+    null;
 
   const linhaDelivery = useMemo(() => linhaDeliveryDaGrade(grade?.linhas), [grade?.linhas]);
 
@@ -198,19 +413,6 @@ export default function EscalaVisitasMobileView() {
     });
   }, [grade, linhaDelivery]);
 
-  const mapNome = useMemo(() => {
-    const m = new Map<number, string>();
-    for (const r of grade?.regionais ?? []) m.set(r.id_usuario, r.nome);
-    for (const linha of grade?.linhas ?? []) {
-      for (const d of linha.dias) {
-        for (const a of atribuicoesDoDia(d)) {
-          if (a.id_regional != null && a.nome_regional) m.set(a.id_regional, a.nome_regional);
-        }
-      }
-    }
-    return m;
-  }, [grade]);
-
   const visitasPorDia = useMemo(() => {
     if (!grade) return [];
     return DIAS_LONGO.map((label, dia) => {
@@ -231,7 +433,7 @@ export default function EscalaVisitasMobileView() {
           nome: linha.nome,
           bk: linha.bk_number,
           regionais: attrs.map((a) => ({
-            nome: a.nome_regional ?? mapNome.get(a.id_regional!) ?? '—',
+            nome: a.nome_regional ?? mapNomeRegional.get(a.id_regional!) ?? '—',
             cor: a.cor ?? undefined,
           })),
           cor: attrs[0]?.cor ?? undefined,
@@ -244,7 +446,7 @@ export default function EscalaVisitasMobileView() {
         itens,
       };
     });
-  }, [grade, mapNome]);
+  }, [grade, mapNomeRegional]);
 
   const minhasVisitas = useMemo(() => {
     if (!idEu) return [];
@@ -303,8 +505,15 @@ export default function EscalaVisitasMobileView() {
           </div>
 
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Veja suas visitas da semana, por dia, por loja ou delivery.
+            {ehRegional || podeEditarGrade
+              ? 'Monte a escala da sua região e envie para o diretor aprovar.'
+              : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
           </p>
+          {statusAtivo && (
+            <p className={`ck-escala__status ck-escala__status--${statusAtivo}`}>
+              Status: {STATUS_LABEL[statusAtivo] || statusAtivo}
+            </p>
+          )}
 
           <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
             <div className="ck-visitas__metric ck-visitas__metric--accent">
@@ -357,7 +566,7 @@ export default function EscalaVisitasMobileView() {
       <div className="ck-visitas__sheet ck-escala__sheet--fill ck-visitas__anim ck-visitas__anim--4">
           <div className="ck-escala__filtro-row">
             <div className="ck-visitas__seg" role="tablist">
-              {MODOS.map(({ id, label }) => (
+              {modos.map(({ id, label }) => (
                 <button
                   key={id}
                   type="button"
@@ -431,6 +640,37 @@ export default function EscalaVisitasMobileView() {
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
               <CircularProgress size={28} sx={{ color: NAVY }} />
             </div>
+          ) : modo === 'montar' ? (
+            !podeEditarGrade ? (
+              <div className="ck-escala__empty">
+                <strong>Escala bloqueada</strong>
+                <p>
+                  {statusAtivo === 'pendente_aprovacao'
+                    ? 'Aguardando aprovação do diretor.'
+                    : statusAtivo === 'aprovado'
+                      ? 'Já aprovada. Peça devolução ao diretor para editar.'
+                      : 'Sem permissão para montar nesta região.'}
+                </p>
+              </div>
+            ) : (grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0) === 0 ? (
+              <div className="ck-escala__empty">
+                <p>Nenhuma loja nesta região.</p>
+              </div>
+            ) : (
+              grade?.linhas
+                .filter((linha) => linha.tipo !== 'delivery')
+                .map((linha) => (
+                  <CardLojaSemana
+                    key={linha.id_loja}
+                    linha={linha}
+                    editavel
+                    mapNome={mapNomeRegional}
+                    mapCor={mapCorRegional}
+                    idsPorDia={linha.dias.map((d) => valorCelulaRegional(linha.id_loja, d.dia, d))}
+                    onCelula={abrirEditor}
+                  />
+                ))
+            )
           ) : modo === 'minhas' ? (
             minhasVisitas.length === 0 ? (
               <div className="ck-escala__empty">
@@ -510,28 +750,117 @@ export default function EscalaVisitasMobileView() {
               .map((linha) => <CardLojaSemana key={linha.id_loja} linha={linha} />)
           )}
           </div>
+
+          {(podeEditarGrade || grade?.pode_submeter) && modo === 'montar' && (
+            <div className="ck-escala__acoes">
+              {podeEditarGrade && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SaveIcon />}
+                  disabled={salvando || pending.size === 0}
+                  onClick={() => void salvar()}
+                  sx={{ flex: 1, bgcolor: NAVY, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
+                </Button>
+              )}
+              {grade?.pode_submeter && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SendIcon />}
+                  disabled={salvando || pending.size > 0}
+                  onClick={() => void enviarAprovacao()}
+                  sx={{ flex: 1, bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Enviar
+                </Button>
+              )}
+            </div>
+          )}
       </div>
+
+      <Dialog open={Boolean(editor)} onClose={() => setEditor(null)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 0.5 }}>
+          Quem visita?
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <p className="ck-escala__editor-meta">
+            {editor
+              ? `${DIAS_LONGO[editor.dia]} · ${
+                  grade?.linhas.find((l) => l.id_loja === editor.id_loja)?.nome ?? 'Loja'
+                }`
+              : ''}
+          </p>
+          <List dense sx={{ pt: 0 }}>
+            {(grade?.regionais ?? []).map((r) => {
+              const marcado = editor?.ids.includes(r.id_usuario) ?? false;
+              return (
+                <ListItemButton
+                  key={r.id_usuario}
+                  onClick={() => {
+                    setEditor((cur) => {
+                      if (!cur) return cur;
+                      const ids = marcado
+                        ? cur.ids.filter((id) => id !== r.id_usuario)
+                        : [...cur.ids, r.id_usuario];
+                      return { ...cur, ids };
+                    });
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <Checkbox edge="start" checked={marcado} tabIndex={-1} disableRipple sx={{ color: r.cor, '&.Mui-checked': { color: r.cor } }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={primeiroNome(r.nome)}
+                    secondary={r.nome}
+                    slotProps={{
+                      primary: { sx: { fontWeight: 700, fontSize: '0.9rem' } },
+                      secondary: { sx: { fontSize: '0.72rem' } },
+                    }}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </List>
+        </DialogContent>
+        <DialogActions sx={{ px: 2, pb: 2 }}>
+          <Button onClick={() => setEditor(null)} sx={{ textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={confirmarEditor}
+            sx={{ bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
+          >
+            Aplicar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={filtroRegiaoAberto} onClose={() => setFiltroRegiaoAberto(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
           Filtrar por região
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1 }}>
-          <ListItemButton
-            selected={idRegiao === ''}
-            onClick={() => {
-              setIdRegiao('');
-              setFiltroRegiaoAberto(false);
-            }}
-          >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <LocationOnOutlinedIcon sx={{ fontSize: 20, color: idRegiao === '' ? ORANGE : 'text.disabled' }} />
-            </ListItemIcon>
-            <ListItemText
-              primary="Todas as regiões"
-              slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem' } } }}
-            />
-          </ListItemButton>
+          {!ehRegional && (
+            <ListItemButton
+              selected={idRegiao === ''}
+              onClick={() => {
+                setIdRegiao('');
+                setFiltroRegiaoAberto(false);
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <LocationOnOutlinedIcon sx={{ fontSize: 20, color: idRegiao === '' ? ORANGE : 'text.disabled' }} />
+              </ListItemIcon>
+              <ListItemText
+                primary="Todas as regiões"
+                slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem' } } }}
+              />
+            </ListItemButton>
+          )}
           {grade?.regioes.map((r) => {
             const ativa = idRegiao === r.id_regiao;
             return (
