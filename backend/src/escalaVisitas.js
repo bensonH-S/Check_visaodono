@@ -587,7 +587,12 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     });
   }
 
-  const lojasDestino = lojas.map((loja) => ({
+  const lojasDestinoRows =
+    id_regiao &&
+    (podeGerenciarEscalaVisitas(user) || temPermissao(user, 'escalas.visitas.editar_delivery'))
+      ? await lojasGrade(user, null)
+      : lojas;
+  const lojasDestino = lojasDestinoRows.map((loja) => ({
     id_loja: loja.id_loja,
     nome: loja.name,
     bk_number: loja.bk_number,
