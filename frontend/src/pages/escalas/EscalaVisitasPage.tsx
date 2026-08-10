@@ -591,17 +591,31 @@ export default function EscalaVisitasPage() {
 
         {(ehDeliveryOnly
           ? Boolean(grade?.status_delivery)
-          : Boolean(grade?.status_por_regiao?.length) || Boolean(grade?.status_delivery && (ehDiretor || aba === 'delivery'))) && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 1 }}>
+          : aba === 'delivery'
+            ? Boolean(grade?.status_delivery)
+            : Boolean(grade?.status_por_regiao?.length)) && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 1, minWidth: 0 }}>
             {ehDiretor &&
-              ((grade?.status_por_regiao ?? []).some((s) => s.status === 'pendente_aprovacao') ||
-                grade?.status_delivery?.status === 'pendente_aprovacao') && (
+              ((aba === 'visitas' &&
+                (grade?.status_por_regiao ?? []).some((s) => s.status === 'pendente_aprovacao')) ||
+                (aba === 'delivery' && grade?.status_delivery?.status === 'pendente_aprovacao')) && (
                 <Typography variant="caption" sx={{ fontWeight: 800, color: colors.orange, letterSpacing: 0.04 }}>
                   Escalas aguardando aprovação
                 </Typography>
               )}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'stretch' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'nowrap',
+                gap: 1,
+                alignItems: 'stretch',
+                overflowX: 'auto',
+                pb: 0.5,
+                minWidth: 0,
+              }}
+            >
               {!ehDeliveryOnly &&
+                aba === 'visitas' &&
                 (grade?.status_por_regiao ?? []).map((st) => {
                   const pendente = st.status === 'pendente_aprovacao';
                   const montadaPor = st.nome_submetido_por
@@ -619,7 +633,8 @@ export default function EscalaVisitasPage() {
                         gap: 0.35,
                         px: 1,
                         py: 0.65,
-                        minWidth: 160,
+                        minWidth: 200,
+                        flex: '0 0 auto',
                         borderRadius: 1.5,
                         bgcolor: pendente
                           ? 'rgba(232, 82, 10, 0.08)'
@@ -722,7 +737,7 @@ export default function EscalaVisitasPage() {
                     </Box>
                   );
                 })}
-              {grade?.status_delivery && (ehDeliveryOnly || ehDiretor || aba === 'delivery') && (() => {
+              {grade?.status_delivery && (ehDeliveryOnly || aba === 'delivery') && (() => {
                 const st = grade.status_delivery;
                 const pendente = st.status === 'pendente_aprovacao';
                 const montadaPor = st.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
@@ -736,7 +751,8 @@ export default function EscalaVisitasPage() {
                       gap: 0.35,
                       px: 1,
                       py: 0.65,
-                      minWidth: 160,
+                      minWidth: 200,
+                        flex: '0 0 auto',
                       borderRadius: 1.5,
                       bgcolor: pendente
                         ? 'rgba(232, 82, 10, 0.08)'
