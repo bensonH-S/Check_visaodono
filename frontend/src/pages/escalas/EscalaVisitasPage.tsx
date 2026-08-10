@@ -159,28 +159,17 @@ export default function EscalaVisitasPage() {
     return idEu ? [idEu] : [];
   }
 
-  function celulaTemEquipe(idsAtuais: number[], idsEquipe: number[]) {
-    if (!idsEquipe.length) return idsAtuais.length > 0;
-    return idsEquipe.some((id) => idsAtuais.includes(id));
-  }
-
-  function toggleCelulaRegionalEquipe(
-    idLoja: number,
-    dia: number,
-    idRegiaoLoja: number | null | undefined,
-    idsAtuais: number[],
-  ) {
-    const equipe = idsEquipeDaLoja(idRegiaoLoja);
-    const jaMarcado = celulaTemEquipe(idsAtuais, equipe);
-    alterarCelulaRegional(idLoja, dia, jaMarcado ? [] : equipe);
-  }
-
   function toggleLojaTecnico(dia: number, idLoja: number, idRegiaoLoja: number | null | undefined) {
     if (!podeEditarGrade) return;
     const linha = grade?.linhas.find((l) => l.id_loja === idLoja);
     if (!linha || linha.tipo === 'delivery') return;
     const atual = valorCelulaRegional(idLoja, dia, linha.dias[dia]);
-    toggleCelulaRegionalEquipe(idLoja, dia, idRegiaoLoja ?? linha.id_regiao, atual);
+    // Desmarca qualquer visita; marca a equipe completa da região.
+    if (atual.length > 0) {
+      alterarCelulaRegional(idLoja, dia, []);
+      return;
+    }
+    alterarCelulaRegional(idLoja, dia, idsEquipeDaLoja(idRegiaoLoja ?? linha.id_regiao));
   }
 
   function toggleDiaTecnicoInteiro(dia: number) {
@@ -189,7 +178,7 @@ export default function EscalaVisitasPage() {
     if (!linhas.length) return;
     const todasMarcadas = linhas.every((linha) => {
       const atual = valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]);
-      return celulaTemEquipe(atual, idsEquipeDaLoja(linha.id_regiao));
+      return atual.length > 0;
     });
     setPending((prev) => {
       const next = new Map(prev);
@@ -432,7 +421,8 @@ export default function EscalaVisitasPage() {
         const ids = 'ids_regional_efetivo' in linha.dias[dia]
           ? (linha.dias[dia] as { ids_regional_efetivo: number[] }).ids_regional_efetivo
           : valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]);
-        const marcada = celulaTemEquipe(ids, idsEquipeDaLoja(linha.id_regiao));
+        // Qualquer visita marcada conta (escalas antigas ou equipe completa).
+        const marcada = ids.length > 0;
         if (marcada) total += 1;
         return { dia, marcada, ids };
       });
@@ -447,6 +437,15 @@ export default function EscalaVisitasPage() {
       };
     });
   }, [linhasVisitasComTotais, grade, pending]);
+
+  function visualizarEscalaRegiao(id: number) {
+    setAba('tecnicos');
+    setIdRegiao(id);
+  }
+
+  function visualizarEscalaDelivery() {
+    setAba('delivery');
+  }
 
   const regionaisAgrupados = useMemo(
     () => agruparRegionaisEscala(grade?.regionais ?? []),
@@ -601,37 +600,42 @@ export default function EscalaVisitasPage() {
                   const revisadaPor = st.nome_revisado_por
                     ? primeiroNome(st.nome_revisado_por)
                     : null;
+                  const visualizando = idRegiao === st.id_regiao && aba === 'tecnicos';
                   return (
                     <Box
                       key={st.id_regiao}
+                      onClick={() => visualizarEscalaRegiao(st.id_regiao)}
                       sx={{
                         display: 'flex',
                         flexDirection: 'column',
                         gap: 0.35,
                         px: 1,
                         py: 0.65,
-                        minWidth: 160,
+                        minWidth: 180,
                         borderRadius: 1.5,
-                        bgcolor: pendente
-                          ? 'rgba(232, 82, 10, 0.08)'
-                          : st.status === 'aprovado'
-                            ? 'rgba(22, 163, 74, 0.08)'
-                            : colors.canvasAlt,
-                        border: pendente
-                          ? '1px solid rgba(232, 82, 10, 0.28)'
-                          : st.status === 'aprovado'
-                            ? '1px solid rgba(22, 163, 74, 0.28)'
-                            : `1px solid ${colors.border}`,
+                        cursor: 'pointer',
+                        bgcolor: visualizando
+                          ? 'rgba(27, 42, 107, 0.08)'
+                          : pendente
+                            ? 'rgba(232, 82, 10, 0.08)'
+                            : st.status === 'aprovado'
+                              ? 'rgba(22, 163, 74, 0.08)'
+                              : colors.canvasAlt,
+                        border: visualizando
+                          ? `2px solid ${colors.navy}`
+                          : pendente
+                            ? '1px solid rgba(232, 82, 10, 0.28)'
+                            : st.status === 'aprovado'
+                              ? '1px solid rgba(22, 163, 74, 0.28)'
+                              : `1px solid ${colors.border}`,
+                        '&:hover': { boxShadow: '0 1px 6px rgba(27, 42, 107, 0.12)' },
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                         <Chip
                           size="small"
-                          clickable
-                          onClick={() => setIdRegiao(st.id_regiao)}
                           label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
                           sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
-                          title="Clique para ver só esta região"
                         />
                         {grade?.pode_aprovar && pendente && (
                           <Button
@@ -639,7 +643,10 @@ export default function EscalaVisitasPage() {
                             variant="contained"
                             startIcon={<CheckIcon />}
                             disabled={salvando}
-                            onClick={() => void aprovarRegiao(st.id_regiao)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void aprovarRegiao(st.id_regiao);
+                            }}
                             sx={{
                               textTransform: 'none',
                               minWidth: 0,
@@ -658,7 +665,10 @@ export default function EscalaVisitasPage() {
                             color="warning"
                             startIcon={<UndoIcon />}
                             disabled={salvando}
-                            onClick={() => void devolverRegiao(st.id_regiao)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void devolverRegiao(st.id_regiao);
+                            }}
                             sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
                           >
                             Recusar
@@ -674,6 +684,17 @@ export default function EscalaVisitasPage() {
                             ? 'Ainda não enviada'
                             : '—'}
                       </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: colors.navy,
+                          fontWeight: 700,
+                          px: 0.25,
+                          textDecoration: visualizando ? 'none' : 'underline',
+                        }}
+                      >
+                        {visualizando ? 'Visualizando esta escala' : 'Visualizar escala'}
+                      </Typography>
                     </Box>
                   );
                 })}
@@ -682,37 +703,42 @@ export default function EscalaVisitasPage() {
                 const pendente = st.status === 'pendente_aprovacao';
                 const montadaPor = st.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
                 const revisadaPor = st.nome_revisado_por ? primeiroNome(st.nome_revisado_por) : null;
+                const visualizando = aba === 'delivery';
                 return (
                   <Box
                     key="delivery"
+                    onClick={() => visualizarEscalaDelivery()}
                     sx={{
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 0.35,
                       px: 1,
                       py: 0.65,
-                      minWidth: 160,
+                      minWidth: 180,
                       borderRadius: 1.5,
-                      bgcolor: pendente
-                        ? 'rgba(232, 82, 10, 0.08)'
-                        : st.status === 'aprovado'
-                          ? 'rgba(22, 163, 74, 0.08)'
-                          : colors.canvasAlt,
-                      border: pendente
-                        ? '1px solid rgba(232, 82, 10, 0.28)'
-                        : st.status === 'aprovado'
-                          ? '1px solid rgba(22, 163, 74, 0.28)'
-                          : `1px solid ${colors.border}`,
+                      cursor: 'pointer',
+                      bgcolor: visualizando
+                        ? 'rgba(232, 82, 10, 0.12)'
+                        : pendente
+                          ? 'rgba(232, 82, 10, 0.08)'
+                          : st.status === 'aprovado'
+                            ? 'rgba(22, 163, 74, 0.08)'
+                            : colors.canvasAlt,
+                      border: visualizando
+                        ? `2px solid ${colors.orange}`
+                        : pendente
+                          ? '1px solid rgba(232, 82, 10, 0.28)'
+                          : st.status === 'aprovado'
+                            ? '1px solid rgba(22, 163, 74, 0.28)'
+                            : `1px solid ${colors.border}`,
+                      '&:hover': { boxShadow: '0 1px 6px rgba(232, 82, 10, 0.14)' },
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                       <Chip
                         size="small"
-                        clickable={!ehDeliveryOnly}
-                        onClick={() => setAba('delivery')}
                         label={`Delivery: ${STATUS_LABEL[st.status] || st.status}`}
                         sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
-                        title="Ver escala de delivery"
                       />
                       {grade.pode_aprovar && pendente && (
                         <Button
@@ -720,7 +746,10 @@ export default function EscalaVisitasPage() {
                           variant="contained"
                           startIcon={<CheckIcon />}
                           disabled={salvando}
-                          onClick={() => void aprovarDelivery()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void aprovarDelivery();
+                          }}
                           sx={{
                             textTransform: 'none',
                             minWidth: 0,
@@ -739,7 +768,10 @@ export default function EscalaVisitasPage() {
                           color="warning"
                           startIcon={<UndoIcon />}
                           disabled={salvando}
-                          onClick={() => void devolverDelivery()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void devolverDelivery();
+                          }}
                           sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
                         >
                           Recusar
@@ -755,6 +787,19 @@ export default function EscalaVisitasPage() {
                           ? 'Ainda não enviada'
                           : '—'}
                     </Typography>
+                    {!ehDeliveryOnly && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: colors.orange,
+                          fontWeight: 700,
+                          px: 0.25,
+                          textDecoration: visualizando ? 'none' : 'underline',
+                        }}
+                      >
+                        {visualizando ? 'Visualizando delivery' : 'Visualizar escala'}
+                      </Typography>
+                    )}
                   </Box>
                 );
               })()}
