@@ -8,7 +8,9 @@ import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import Checkbox from '@mui/material/Checkbox';
+import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
+import OutlinedInput from '@mui/material/OutlinedInput';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -54,9 +56,17 @@ const STATUS_CHIP_SX: Record<EscalaVisitasRegiaoStatusCodigo, object> = {
 };
 
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
+/** Roxo da planilha Time de Campo para célula multi (ex.: I/R). */
+const COR_ESCALA_MULTI = '#7030A0';
 const COL_DIA_MIN_WIDTH = 108;
 const COL_LOJA_MIN_WIDTH = 200;
 const COL_BKN_WIDTH = 72;
+const SELECT_CELULA_SX = {
+  width: '100%',
+  maxWidth: 132,
+  fontSize: '0.72rem',
+  '& .MuiSelect-select': { py: 0.75, whiteSpace: 'normal', lineHeight: 1.25 },
+} as const;
 
 function addDaysIso(iso: string, days: number) {
   const d = new Date(`${iso}T12:00:00`);
@@ -99,9 +109,22 @@ export default function EscalaVisitasPage() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
-  const [aba, setAba] = useState<'tecnicos' | 'delivery'>(ehDeliveryOnly ? 'delivery' : 'tecnicos');
+  const [aba, setAba] = useState<'visitas' | 'delivery'>(ehDeliveryOnly ? 'delivery' : 'visitas');
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
+
+  const mapCorRegional = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const r of grade?.regionais ?? []) m.set(r.id_usuario, r.cor);
+    for (const linha of grade?.linhas ?? []) {
+      for (const d of linha.dias) {
+        for (const a of atribuicoesDoDia(d)) {
+          if (a.id_regional != null && a.cor) m.set(a.id_regional, a.cor);
+        }
+      }
+    }
+    return m;
+  }, [grade?.regionais, grade?.linhas]);
 
   const mapNomeRegional = useMemo(() => {
     const m = new Map<number, string>();
@@ -152,46 +175,22 @@ export default function EscalaVisitasPage() {
     });
   }
 
-  function idsEquipeDaLoja(idRegiaoLoja: number | null | undefined): number[] {
-    if (idRegiaoLoja == null) return idEu ? [idEu] : [];
-    const eq = grade?.equipes_por_regiao?.find((e) => e.id_regiao === idRegiaoLoja);
+  function idsEquipeDaLoja(idRegiao: number | null | undefined): number[] {
+    if (idRegiao == null) return idEu ? [idEu] : [];
+    const eq = grade?.equipes_por_regiao?.find((e) => e.id_regiao === idRegiao);
     if (eq?.ids_usuario?.length) return eq.ids_usuario;
     return idEu ? [idEu] : [];
   }
 
-  function toggleLojaTecnico(dia: number, idLoja: number, idRegiaoLoja: number | null | undefined) {
-    if (!podeEditarGrade) return;
-    const linha = grade?.linhas.find((l) => l.id_loja === idLoja);
-    if (!linha || linha.tipo === 'delivery') return;
-    const atual = valorCelulaRegional(idLoja, dia, linha.dias[dia]);
-    // Desmarca qualquer visita; marca a equipe completa da região.
-    if (atual.length > 0) {
-      alterarCelulaRegional(idLoja, dia, []);
-      return;
-    }
-    alterarCelulaRegional(idLoja, dia, idsEquipeDaLoja(idRegiaoLoja ?? linha.id_regiao));
+  function celulaTemEquipe(idsAtuais: number[], idsEquipe: number[]) {
+    if (!idsEquipe.length) return idsAtuais.length > 0;
+    return idsEquipe.some((id) => idsAtuais.includes(id));
   }
 
-  function toggleDiaTecnicoInteiro(dia: number) {
-    if (!podeEditarGrade || !grade) return;
-    const linhas = grade.linhas.filter((l) => l.tipo !== 'delivery');
-    if (!linhas.length) return;
-    const todasMarcadas = linhas.every((linha) => {
-      const atual = valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]);
-      return atual.length > 0;
-    });
-    setPending((prev) => {
-      const next = new Map(prev);
-      for (const linha of linhas) {
-        const equipe = idsEquipeDaLoja(linha.id_regiao);
-        next.set(chaveCelula(linha.id_loja, dia), {
-          id_loja: linha.id_loja,
-          dia,
-          id_regionais: todasMarcadas ? [] : equipe,
-        });
-      }
-      return next;
-    });
+  function toggleCelulaRegionalEquipe(idLoja: number, dia: number, idRegiao: number | null | undefined, idsAtuais: number[]) {
+    const equipe = idsEquipeDaLoja(idRegiao);
+    const jaMarcado = celulaTemEquipe(idsAtuais, equipe);
+    alterarCelulaRegional(idLoja, dia, jaMarcado ? [] : equipe);
   }
 
   function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {
@@ -414,39 +413,6 @@ export default function EscalaVisitasPage() {
     });
   }, [linhaDelivery, lojasDelivery, grade, pending]);
 
-  const tecnicosLinhas = useMemo(() => {
-    return linhasVisitasComTotais.map((linha) => {
-      let total = 0;
-      const dias = DIAS.map((_, dia) => {
-        const ids = 'ids_regional_efetivo' in linha.dias[dia]
-          ? (linha.dias[dia] as { ids_regional_efetivo: number[] }).ids_regional_efetivo
-          : valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]);
-        // Qualquer visita marcada conta (escalas antigas ou equipe completa).
-        const marcada = ids.length > 0;
-        if (marcada) total += 1;
-        return { dia, marcada, ids };
-      });
-      return {
-        id_loja: linha.id_loja,
-        nome: linha.nome,
-        bk_number: linha.bk_number,
-        id_regiao: linha.id_regiao,
-        nome_regiao: linha.nome_regiao,
-        dias,
-        total,
-      };
-    });
-  }, [linhasVisitasComTotais, grade, pending]);
-
-  function visualizarEscalaRegiao(id: number) {
-    setAba('tecnicos');
-    setIdRegiao(id);
-  }
-
-  function visualizarEscalaDelivery() {
-    setAba('delivery');
-  }
-
   const regionaisAgrupados = useMemo(
     () => agruparRegionaisEscala(grade?.regionais ?? []),
     [grade?.regionais],
@@ -482,7 +448,7 @@ export default function EscalaVisitasPage() {
               exclusive
               size="small"
               value={aba}
-              onChange={(_, v: 'tecnicos' | 'delivery' | null) => {
+              onChange={(_, v: 'visitas' | 'delivery' | null) => {
                 if (v) setAba(v);
               }}
               sx={{
@@ -503,7 +469,7 @@ export default function EscalaVisitasPage() {
                 },
               }}
             >
-              {!ehDeliveryOnly && <ToggleButton value="tecnicos">Técnicos</ToggleButton>}
+              {!ehDeliveryOnly && <ToggleButton value="visitas">Visitas</ToggleButton>}
               <ToggleButton value="delivery">Delivery</ToggleButton>
             </ToggleButtonGroup>
           </Box>
@@ -600,42 +566,40 @@ export default function EscalaVisitasPage() {
                   const revisadaPor = st.nome_revisado_por
                     ? primeiroNome(st.nome_revisado_por)
                     : null;
-                  const visualizando = idRegiao === st.id_regiao && aba === 'tecnicos';
                   return (
                     <Box
                       key={st.id_regiao}
-                      onClick={() => visualizarEscalaRegiao(st.id_regiao)}
                       sx={{
                         display: 'flex',
                         flexDirection: 'column',
                         gap: 0.35,
                         px: 1,
                         py: 0.65,
-                        minWidth: 180,
+                        minWidth: 160,
                         borderRadius: 1.5,
-                        cursor: 'pointer',
-                        bgcolor: visualizando
-                          ? 'rgba(27, 42, 107, 0.08)'
-                          : pendente
-                            ? 'rgba(232, 82, 10, 0.08)'
-                            : st.status === 'aprovado'
-                              ? 'rgba(22, 163, 74, 0.08)'
-                              : colors.canvasAlt,
-                        border: visualizando
-                          ? `2px solid ${colors.navy}`
-                          : pendente
-                            ? '1px solid rgba(232, 82, 10, 0.28)'
-                            : st.status === 'aprovado'
-                              ? '1px solid rgba(22, 163, 74, 0.28)'
-                              : `1px solid ${colors.border}`,
-                        '&:hover': { boxShadow: '0 1px 6px rgba(27, 42, 107, 0.12)' },
+                        bgcolor: pendente
+                          ? 'rgba(232, 82, 10, 0.08)'
+                          : st.status === 'aprovado'
+                            ? 'rgba(22, 163, 74, 0.08)'
+                            : colors.canvasAlt,
+                        border: pendente
+                          ? '1px solid rgba(232, 82, 10, 0.28)'
+                          : st.status === 'aprovado'
+                            ? '1px solid rgba(22, 163, 74, 0.28)'
+                            : `1px solid ${colors.border}`,
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                         <Chip
                           size="small"
+                          clickable
+                          onClick={() => {
+                            setAba('visitas');
+                            setIdRegiao(st.id_regiao);
+                          }}
                           label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
                           sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
+                          title="Clique para ver só esta região"
                         />
                         {grade?.pode_aprovar && pendente && (
                           <Button
@@ -643,10 +607,7 @@ export default function EscalaVisitasPage() {
                             variant="contained"
                             startIcon={<CheckIcon />}
                             disabled={salvando}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void aprovarRegiao(st.id_regiao);
-                            }}
+                            onClick={() => void aprovarRegiao(st.id_regiao)}
                             sx={{
                               textTransform: 'none',
                               minWidth: 0,
@@ -665,10 +626,7 @@ export default function EscalaVisitasPage() {
                             color="warning"
                             startIcon={<UndoIcon />}
                             disabled={salvando}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void devolverRegiao(st.id_regiao);
-                            }}
+                            onClick={() => void devolverRegiao(st.id_regiao)}
                             sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
                           >
                             Recusar
@@ -685,15 +643,24 @@ export default function EscalaVisitasPage() {
                             : '—'}
                       </Typography>
                       <Typography
+                        component="button"
+                        type="button"
                         variant="caption"
+                        onClick={() => {
+                          setAba('visitas');
+                          setIdRegiao(st.id_regiao);
+                        }}
                         sx={{
+                          all: 'unset',
+                          cursor: 'pointer',
                           color: colors.navy,
                           fontWeight: 700,
                           px: 0.25,
-                          textDecoration: visualizando ? 'none' : 'underline',
+                          textDecoration: 'underline',
+                          fontSize: '0.7rem',
                         }}
                       >
-                        {visualizando ? 'Visualizando esta escala' : 'Visualizar escala'}
+                        Visualizar escala
                       </Typography>
                     </Box>
                   );
@@ -703,42 +670,37 @@ export default function EscalaVisitasPage() {
                 const pendente = st.status === 'pendente_aprovacao';
                 const montadaPor = st.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
                 const revisadaPor = st.nome_revisado_por ? primeiroNome(st.nome_revisado_por) : null;
-                const visualizando = aba === 'delivery';
                 return (
                   <Box
                     key="delivery"
-                    onClick={() => visualizarEscalaDelivery()}
                     sx={{
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 0.35,
                       px: 1,
                       py: 0.65,
-                      minWidth: 180,
+                      minWidth: 160,
                       borderRadius: 1.5,
-                      cursor: 'pointer',
-                      bgcolor: visualizando
-                        ? 'rgba(232, 82, 10, 0.12)'
-                        : pendente
-                          ? 'rgba(232, 82, 10, 0.08)'
-                          : st.status === 'aprovado'
-                            ? 'rgba(22, 163, 74, 0.08)'
-                            : colors.canvasAlt,
-                      border: visualizando
-                        ? `2px solid ${colors.orange}`
-                        : pendente
-                          ? '1px solid rgba(232, 82, 10, 0.28)'
-                          : st.status === 'aprovado'
-                            ? '1px solid rgba(22, 163, 74, 0.28)'
-                            : `1px solid ${colors.border}`,
-                      '&:hover': { boxShadow: '0 1px 6px rgba(232, 82, 10, 0.14)' },
+                      bgcolor: pendente
+                        ? 'rgba(232, 82, 10, 0.08)'
+                        : st.status === 'aprovado'
+                          ? 'rgba(22, 163, 74, 0.08)'
+                          : colors.canvasAlt,
+                      border: pendente
+                        ? '1px solid rgba(232, 82, 10, 0.28)'
+                        : st.status === 'aprovado'
+                          ? '1px solid rgba(22, 163, 74, 0.28)'
+                          : `1px solid ${colors.border}`,
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                       <Chip
                         size="small"
+                        clickable={!ehDeliveryOnly}
+                        onClick={() => setAba('delivery')}
                         label={`Delivery: ${STATUS_LABEL[st.status] || st.status}`}
                         sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
+                        title="Ver escala de delivery"
                       />
                       {grade.pode_aprovar && pendente && (
                         <Button
@@ -746,10 +708,7 @@ export default function EscalaVisitasPage() {
                           variant="contained"
                           startIcon={<CheckIcon />}
                           disabled={salvando}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void aprovarDelivery();
-                          }}
+                          onClick={() => void aprovarDelivery()}
                           sx={{
                             textTransform: 'none',
                             minWidth: 0,
@@ -768,10 +727,7 @@ export default function EscalaVisitasPage() {
                           color="warning"
                           startIcon={<UndoIcon />}
                           disabled={salvando}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void devolverDelivery();
-                          }}
+                          onClick={() => void devolverDelivery()}
                           sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
                         >
                           Recusar
@@ -787,19 +743,6 @@ export default function EscalaVisitasPage() {
                           ? 'Ainda não enviada'
                           : '—'}
                     </Typography>
-                    {!ehDeliveryOnly && (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: colors.orange,
-                          fontWeight: 700,
-                          px: 0.25,
-                          textDecoration: visualizando ? 'none' : 'underline',
-                        }}
-                      >
-                        {visualizando ? 'Visualizando delivery' : 'Visualizar escala'}
-                      </Typography>
-                    )}
                   </Box>
                 );
               })()}
@@ -807,7 +750,7 @@ export default function EscalaVisitasPage() {
           </Box>
         )}
 
-        {grade && grade.regionais.length > 0 && aba === 'tecnicos' && (
+        {grade && grade.regionais.length > 0 && aba === 'visitas' && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
             {regionaisAgrupados.flatMap((grupo, indexGrupo) => {
               const bloco: ReactNode[] = [];
@@ -980,46 +923,23 @@ export default function EscalaVisitasPage() {
                   <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
                     Loja
                   </TableCell>
-                  {DIAS.map((label, dia) => {
-                    const todas =
-                      tecnicosLinhas.length > 0 &&
-                      tecnicosLinhas.every((linha) => linha.dias[dia]?.marcada);
-                    return (
-                      <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: colors.navy }}>
-                          {label}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {fmtDataCurta(addDaysIso(semanaInicio, dia))}
-                        </Typography>
-                        {podeEditarGrade && tecnicosLinhas.length > 0 && (
-                          <Button
-                            size="small"
-                            onClick={() => toggleDiaTecnicoInteiro(dia)}
-                            sx={{
-                              mt: 0.35,
-                              minWidth: 0,
-                              px: 0.75,
-                              py: 0.15,
-                              fontSize: '0.65rem',
-                              fontWeight: 700,
-                              textTransform: 'none',
-                              color: todas ? colors.navy : 'text.secondary',
-                            }}
-                          >
-                            {todas ? 'Limpar' : 'Todas'}
-                          </Button>
-                        )}
-                      </TableCell>
-                    );
-                  })}
+                  {DIAS.map((label, i) => (
+                    <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 700 }}>
+                        {label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {fmtDataCurta(addDaysIso(semanaInicio, i))}
+                      </Typography>
+                    </TableCell>
+                  ))}
                   <TableCell align="center" sx={{ fontWeight: 700, minWidth: 48 }}>
-                    DIAS
+                    VIS
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {tecnicosLinhas.map((linha) => (
+                {linhasVisitasComTotais.map((linha) => (
                   <TableRow key={linha.id_loja} hover>
                     <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
                       {linha.bk_number || '—'}
@@ -1034,40 +954,134 @@ export default function EscalaVisitasPage() {
                         </Typography>
                       )}
                     </TableCell>
-                    {linha.dias.map((d) => (
-                      <TableCell key={d.dia} align="center" sx={{ p: 0.5 }}>
-                        <Tooltip
-                          title={
-                            d.marcada
-                              ? d.ids
+                    {linha.dias.map((d) => {
+                      const idsReg = 'ids_regional_efetivo' in d ? d.ids_regional_efetivo : [];
+                      const nomes = idsReg
+                        .map((id) => mapNomeRegional.get(id))
+                        .filter(Boolean)
+                        .map((n) => primeiroNome(n!));
+                      const tooltip = nomes.length ? nomes.join(', ') : 'Sem visita';
+                      const cor = idsReg.length === 1 ? mapCorRegional.get(idsReg[0]) || '#64748B' : undefined;
+                      return (
+                        <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
+                          {podeEditarGrade && ehRegional ? (
+                            <Button
+                              size="small"
+                              onClick={() =>
+                                toggleCelulaRegionalEquipe(linha.id_loja, d.dia, linha.id_regiao, idsReg)
+                              }
+                              sx={{
+                                ...SELECT_CELULA_SX,
+                                minHeight: 36,
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                color: colors.textPrimary,
+                                border: idsReg.length
+                                  ? `1px solid ${cor ?? colors.navy}`
+                                  : '1px dashed #e5e7eb',
+                                bgcolor: cor
+                                  ? `${cor}33`
+                                  : idsReg.length
+                                    ? `${COR_ESCALA_MULTI}33`
+                                    : 'transparent',
+                              }}
+                            >
+                              {idsReg.length
+                                ? idsReg
+                                    .map((id) => primeiroNome(mapNomeRegional.get(id) ?? ''))
+                                    .filter(Boolean)
+                                    .join(', ') || 'Equipe'
+                                : '+'}
+                            </Button>
+                          ) : podeEditarGrade ? (
+                            <Select
+                              multiple
+                              size="small"
+                              displayEmpty
+                              value={idsReg}
+                              input={<OutlinedInput />}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                const lista = typeof v === 'string' ? v.split(',').map(Number) : (v as number[]);
+                                alterarCelulaRegional(linha.id_loja, d.dia, lista);
+                              }}
+                              renderValue={(selected) => {
+                                const ids = selected as number[];
+                                if (!ids.length) return '—';
+                                return ids
                                   .map((id) => primeiroNome(mapNomeRegional.get(id) ?? ''))
                                   .filter(Boolean)
-                                  .join(', ') || 'Equipe'
-                              : 'Sem visita'
-                          }
-                        >
-                          <span>
-                            <Checkbox
-                              size="medium"
-                              checked={d.marcada}
-                              disabled={!podeEditarGrade}
-                              onChange={() => toggleLojaTecnico(d.dia, linha.id_loja, linha.id_regiao)}
-                              sx={{
-                                p: 0.5,
-                                color: colors.navy,
-                                '&.Mui-checked': { color: colors.navy },
+                                  .join(', ');
                               }}
-                            />
-                          </span>
-                        </Tooltip>
-                      </TableCell>
-                    ))}
+                              sx={{
+                                ...SELECT_CELULA_SX,
+                                bgcolor: cor
+                                  ? `${cor}33`
+                                  : idsReg.length > 1
+                                    ? `${COR_ESCALA_MULTI}33`
+                                    : undefined,
+                              }}
+                            >
+                              {(grade?.regionais ?? []).map((r) => (
+                                <MenuItem key={r.id_usuario} value={r.id_usuario} sx={{ py: 0.35 }}>
+                                  <Checkbox
+                                    size="small"
+                                    checked={idsReg.includes(r.id_usuario)}
+                                    sx={{ py: 0, mr: 0.5 }}
+                                  />
+                                  <ListItemText
+                                    primary={r.nome}
+                                    slotProps={{ primary: { sx: { fontSize: '0.82rem' } } }}
+                                  />
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          ) : (
+                            <Tooltip title={tooltip}>
+                              <Box
+                                sx={{
+                                  py: 0.65,
+                                  px: 0.5,
+                                  borderRadius: 1,
+                                  bgcolor: cor
+                                    ? `${cor}44`
+                                    : idsReg.length
+                                      ? `${COR_ESCALA_MULTI}33`
+                                      : 'transparent',
+                                  border: idsReg.length
+                                    ? `1px solid ${cor ?? COR_ESCALA_MULTI}`
+                                    : '1px dashed #e5e7eb',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 600,
+                                  minHeight: 32,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: 0.25,
+                                }}
+                              >
+                                {nomes.length ? (
+                                  nomes.map((n) => (
+                                    <Box key={n} component="span" sx={{ lineHeight: 1.2 }}>
+                                      {n}
+                                    </Box>
+                                  ))
+                                ) : (
+                                  '—'
+                                )}
+                              </Box>
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                      );
+                    })}
                     <TableCell align="center" sx={{ fontWeight: 700 }}>
-                      {linha.total}
+                      {linha.total_visitas_efetivo}
                     </TableCell>
                   </TableRow>
                 ))}
-                {!tecnicosLinhas.length && (
+                {!linhasVisitasComTotais.length && (
                   <TableRow>
                     <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">Nenhuma loja neste filtro.</Typography>
@@ -1094,7 +1108,7 @@ export default function EscalaVisitasPage() {
       )}
       {ehRegional && podeEditarGrade && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
-          Aba Técnicos: cada marca agenda a equipe inteira (os dois técnicos andam juntos).
+          Cada célula marca a equipe inteira da região (os dois técnicos andam juntos).
         </Typography>
       )}
     </Box>
