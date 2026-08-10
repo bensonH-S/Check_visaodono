@@ -16,6 +16,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import SendIcon from '@mui/icons-material/Send';
 import {
   api,
+  type EscalaVisitasAtribuicao,
   type EscalaVisitasDia,
   type EscalaVisitasGrade,
   type EscalaVisitasLinha,
@@ -135,7 +136,7 @@ function FaixaSemanaLoja({
     <div className="ck-escala__faixa">
       {dias.map((d, i) => {
         const idsOverride = idsPorDia?.[i];
-        const attrs =
+        const attrs: EscalaVisitasAtribuicao[] =
           idsOverride != null
             ? idsOverride.map((id) => ({
                 id_regional: id,
