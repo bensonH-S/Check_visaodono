@@ -6,6 +6,8 @@ import {
   copiarSemanaVisitas,
   devolverEscalaDelivery,
   devolverEscalaRegiao,
+  limparEscalaDelivery,
+  limparEscalaRegiao,
   listarNotificacoesEscala,
   listarSemanasVisitas,
   marcarNotificacoesEscalaLidas,
@@ -193,6 +195,43 @@ router.post('/semana/delivery/devolver', async (req, res, next) => {
       idReferencia: semana,
       descricao: `Devolveu escala de delivery${semana ? ` (semana ${semana})` : ''}`,
       detalhes: { semana_inicio: semana || null, comentario: req.body?.comentario ?? null },
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/semana/limpar', async (req, res, next) => {
+  try {
+    const grade = await limparEscalaRegiao(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    const idRegiao = req.body?.id_regiao ?? null;
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'limpar_escala_regiao',
+      entidade: 'escala_visitas_regiao',
+      idReferencia: semana,
+      descricao: `Excluiu escala de visitas${semana ? ` (semana ${semana})` : ''}${idRegiao ? ` — região #${idRegiao}` : ''}`,
+      detalhes: { semana_inicio: semana || null, id_regiao: idRegiao },
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/semana/delivery/limpar', async (req, res, next) => {
+  try {
+    const grade = await limparEscalaDelivery(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'limpar_escala_delivery',
+      entidade: 'escala_visitas_delivery',
+      idReferencia: semana,
+      descricao: `Excluiu escala de delivery${semana ? ` (semana ${semana})` : ''}`,
+      detalhes: { semana_inicio: semana || null },
     });
     res.json(grade);
   } catch (e) {

@@ -657,6 +657,7 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     pode_submeter_delivery: podeSubmeterDelivery,
     pode_aprovar: gerenciar && temPendente,
     pode_devolver: gerenciar && (temPendente || temAprovado),
+    pode_excluir: gerenciar,
     id_regiao_filtro: id_regiao ? Number(id_regiao) : null,
     status_regiao: statusRegiaoFiltro,
     status_por_regiao: statusPorRegiao,
@@ -1004,6 +1005,106 @@ export async function devolverEscalaDelivery(user, { semana_inicio, comentario =
     excluirId: user.sub,
     tipo: 'recusado',
     mensagem: `Sua escala de delivery (${formatarDataBr(semanaInicio)}) foi recusada. Monte novamente e envie para aprovação.`,
+    idSemana: semana.id_semana,
+    idRegiao: null,
+    semanaInicio,
+  });
+
+  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
+}
+
+/** Diretor: apaga visitas da região na semana e volta status para rascunho. */
+export async function limparEscalaRegiao(user, { semana_inicio, id_regiao }) {
+  if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para excluir escala');
+
+  const idRegiao = Number(id_regiao);
+  if (!idRegiao) throw new Error('Informe a região');
+
+  const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
+  const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const st = await obterStatusRegiao(semana.id_semana, idRegiao);
+  const lojaDelivery = await obterLojaDeliveryAnchor();
+
+  await pool.query(
+    `DELETE FROM escala_visitas_celula c
+     WHERE c.id_semana = $1
+       AND ($3::int IS NULL OR c.id_loja <> $3)
+       AND EXISTS (
+         SELECT 1 FROM frota_regiao_lojas rl
+         WHERE rl.id_loja = c.id_loja AND rl.id_regiao = $2
+       )`,
+    [semana.id_semana, idRegiao, lojaDelivery?.id_loja ?? null],
+  );
+
+  await pool.query(
+    `UPDATE escala_visitas_regiao_status
+     SET status = $3,
+         submetido_por = NULL,
+         submetido_em = NULL,
+         revisado_por = $4,
+         revisado_em = NOW(),
+         comentario = 'Escala excluída pelo diretor'
+     WHERE id_semana = $1 AND id_regiao = $2`,
+    [semana.id_semana, idRegiao, STATUS_RASCUNHO, user.sub],
+  );
+
+  await pool.query(
+    `UPDATE escala_visitas_semana SET atualizado_em = NOW(), atualizado_por = $2 WHERE id_semana = $1`,
+    [semana.id_semana, user.sub],
+  );
+
+  const nomeRegiao = await nomeRegiaoPorId(idRegiao);
+  await notificarEscalaUsuarios({
+    idsUsuario: await idsDestinatariosRegionalEscala(st.submetido_por, idRegiao),
+    excluirId: user.sub,
+    tipo: 'recusado',
+    mensagem: `A escala de ${nomeRegiao} (${formatarDataBr(semanaInicio)}) foi excluída pelo diretor. Monte novamente se necessário.`,
+    idSemana: semana.id_semana,
+    idRegiao,
+    semanaInicio,
+  });
+
+  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
+}
+
+/** Diretor: apaga escala de delivery da semana e volta status para rascunho. */
+export async function limparEscalaDelivery(user, { semana_inicio }) {
+  if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para excluir escala');
+
+  const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
+  const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const st = await obterStatusDelivery(semana.id_semana);
+  const lojaDelivery = await obterLojaDeliveryAnchor();
+  if (!lojaDelivery) throw new Error('Linha de delivery não configurada');
+
+  await pool.query(
+    `DELETE FROM escala_visitas_celula
+     WHERE id_semana = $1 AND id_loja = $2`,
+    [semana.id_semana, lojaDelivery.id_loja],
+  );
+
+  await pool.query(
+    `UPDATE escala_visitas_delivery_status
+     SET status = $2,
+         submetido_por = NULL,
+         submetido_em = NULL,
+         revisado_por = $3,
+         revisado_em = NOW(),
+         comentario = 'Escala excluída pelo diretor'
+     WHERE id_semana = $1`,
+    [semana.id_semana, STATUS_RASCUNHO, user.sub],
+  );
+
+  await pool.query(
+    `UPDATE escala_visitas_semana SET atualizado_em = NOW(), atualizado_por = $2 WHERE id_semana = $1`,
+    [semana.id_semana, user.sub],
+  );
+
+  await notificarEscalaUsuarios({
+    idsUsuario: await idsDestinatariosDelivery(st.submetido_por),
+    excluirId: user.sub,
+    tipo: 'recusado',
+    mensagem: `A escala de delivery (${formatarDataBr(semanaInicio)}) foi excluída pelo diretor. Monte novamente se necessário.`,
     idSemana: semana.id_semana,
     idRegiao: null,
     semanaInicio,

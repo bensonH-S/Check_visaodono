@@ -805,6 +805,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  escalaVisitasLimpar: (body: { semana_inicio: string; id_regiao: number }) =>
+    request<EscalaVisitasGrade>('/escalas/visitas/semana/limpar', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  escalaVisitasDeliveryLimpar: (body: { semana_inicio: string }) =>
+    request<EscalaVisitasGrade>('/escalas/visitas/semana/delivery/limpar', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   escalaVisitasNotificacoes: (naoLidas = false) =>
     request<EscalaVisitasNotificacao[]>(
       `/escalas/visitas/notificacoes${naoLidas ? '?nao_lidas=1' : ''}`,
@@ -2045,6 +2055,7 @@ export interface EscalaVisitasGrade {
   pode_submeter_delivery?: boolean;
   pode_aprovar?: boolean;
   pode_devolver?: boolean;
+  pode_excluir?: boolean;
   status_regiao?: EscalaVisitasRegiaoStatusCodigo | null;
   status_por_regiao?: EscalaVisitasRegiaoStatus[];
   status_delivery?: EscalaVisitasDeliveryStatus | null;
