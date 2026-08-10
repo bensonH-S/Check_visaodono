@@ -416,10 +416,22 @@ export function podeFiltrarDataTrajetoMapaMobile(usuario?: UsuarioSessao | null)
   return ehSupervisorRegiaoMobile(u);
 }
 
+/** Usuário restrito à escala de delivery (sem poder de diretor/regional). */
+export function ehEscalaDeliveryOnly(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  return (
+    temPermissao('escalas.visitas.editar_delivery', u) &&
+    !podeGerenciarEscalaVisitas(u) &&
+    !podeEditarEscalaRegiao(u)
+  );
+}
+
 /** Mapa de técnicos em tempo real no app (diretor/CEO = todos; regional = sua região). */
 export function podeVerMapaTecnicosMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;
+  if (ehEscalaDeliveryOnly(u)) return false;
   if (temPermissao('lojas.todas', u)) return true;
   // Técnico de frota: mapa liberado no app restrito
   if (modoAppTecnicoFrotaRestrito(u)) return true;
@@ -517,6 +529,7 @@ export function podeVerNcMobile(usuario?: UsuarioSessao | null): boolean {
 export function podeAprovarFreelancers(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;
+  if (ehEscalaDeliveryOnly(u)) return false;
   if (temPermissao('freelancers.aprovar', u)) return true;
   if (temPermissao('lojas.todas', u)) return true;
   if (u.perfil === 'administrador') return true;

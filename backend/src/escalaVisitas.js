@@ -367,7 +367,11 @@ async function lojasGrade(user, idRegiaoFiltro) {
       SELECT 1 FROM frota_regiao_lojas rl
       WHERE rl.id_loja = l.id_loja AND rl.id_regiao = $${params.length}
     )`;
-  } else if (!acessoTodasLojas(user) && !podeGerenciarEscalaVisitas(user)) {
+  } else if (
+    !acessoTodasLojas(user) &&
+    !podeGerenciarEscalaVisitas(user) &&
+    !temPermissao(user, 'escalas.visitas.editar_delivery')
+  ) {
     if (!idsRegiao.length) return [];
     params.push(idsRegiao);
     where += ` AND EXISTS (
