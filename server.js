@@ -201,6 +201,7 @@ function garantirSchema() {
   realinharSequence('metas_paineis', 'id_painel');
   realinharSequence('metas_rankings', 'id_ranking');
   realinharSequence('metas_realizados', 'id_realizado');
+  realinharSequence('escala_visitas_celula', 'id_celula');
 }
 
 const api = express.Router();
