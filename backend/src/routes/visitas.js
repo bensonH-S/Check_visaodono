@@ -81,7 +81,7 @@ router.get('/:idVisita/respostas/:idPergunta/media/:indice', async (req, res, ne
 
 router.get('/', async (req, res, next) => {
   try {
-    const { loja, status } = req.query;
+    const { loja, status, usuario, order, tipo } = req.query;
     let q = `
       SELECT v.*, l.name, l.bk_number, u.nome AS nome_usuario,
         tc.codigo AS tipo_checklist_codigo,
@@ -103,8 +103,25 @@ router.get('/', async (req, res, next) => {
       params.push(status);
       q += ` AND v.status = $${params.length}::status_visita`;
     }
+    if (usuario) {
+      params.push(Number(usuario));
+      q += ` AND v.id_usuario = $${params.length}`;
+    }
+    if (tipo) {
+      params.push(String(tipo));
+      // Visitas antigas sem tipo caem em auditoria_operacional
+      if (String(tipo) === 'auditoria_operacional') {
+        q += ` AND (tc.codigo = $${params.length} OR v.id_tipo_checklist IS NULL)`;
+      } else {
+        q += ` AND tc.codigo = $${params.length}`;
+      }
+    }
     q += filtroSqlLojas(req.user, 'v', 'id_loja', params);
-    q += ' ORDER BY v.data_visita DESC, v.id_visita DESC';
+    if (String(order || '').toLowerCase() === 'nota_desc') {
+      q += ' ORDER BY v.nota_final DESC NULLS LAST, v.data_visita DESC, v.id_visita DESC';
+    } else {
+      q += ' ORDER BY v.data_visita DESC, v.id_visita DESC';
+    }
     const { rows } = await pool.query(q, params);
     res.json(rows.map(serializarVisita));
   } catch (e) {

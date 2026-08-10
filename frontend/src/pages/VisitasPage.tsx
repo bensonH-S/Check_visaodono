@@ -18,6 +18,11 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Tooltip from '@mui/material/Tooltip';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import CircularProgress from '@mui/material/CircularProgress';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
@@ -28,14 +33,33 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import VisitasMobileScreen from '../components/visitas/VisitasMobileScreen';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
 import { getUsuario, podeApagarVisitas, podeReabrirVisitas } from '../lib/auth';
 import { showToast } from '../utils/toast';
+import { gerarPdfVisitasPorPessoa } from '../utils/gerarPdfVisitasPorPessoa';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
 import { colors } from '../theme/tokens';
+
+type OrdenacaoVisitas = 'data_desc' | 'nota_desc';
+
+const TIPOS_CHECKLIST = [
+  { codigo: 'auditoria_operacional', nome: 'Auditoria Operacional' },
+  { codigo: 'time_de_campo', nome: 'Time de Campo' },
+] as const;
+
+function codigoTipoVisita(v: VisitaResumo): string {
+  return v.tipo_checklist_codigo || 'auditoria_operacional';
+}
+
+function nomeTipoVisita(codigo: string, visitas: VisitaResumo[]): string {
+  const daLista = visitas.find((v) => codigoTipoVisita(v) === codigo)?.tipo_checklist_nome;
+  if (daLista) return daLista;
+  return TIPOS_CHECKLIST.find((t) => t.codigo === codigo)?.nome ?? codigo;
+}
 
 const STATUS_VISITA = [
   { value: 'Rascunho', label: 'Rascunho', color: '#92400E', bg: '#FEF3C7', accent: '#F59E0B' },
@@ -344,6 +368,10 @@ export default function VisitasPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<'' | 'Rascunho' | 'Finalizada'>('');
+  const [filtroUsuario, setFiltroUsuario] = useState<number | ''>('');
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [ordenacao, setOrdenacao] = useState<OrdenacaoVisitas>('data_desc');
+  const [gerandoPdf, setGerandoPdf] = useState(false);
   const [apagarAlvo, setApagarAlvo] = useState<VisitaResumo | null>(null);
   const [apagando, setApagando] = useState(false);
   const [reabrirAlvo, setReabrirAlvo] = useState<VisitaResumo | null>(null);
@@ -362,10 +390,89 @@ export default function VisitasPage() {
     carregar();
   }, [carregar]);
 
-  const visitasFiltradas = useMemo(
-    () => (filtroStatus ? visitas.filter((v) => v.status === filtroStatus) : visitas),
-    [visitas, filtroStatus],
-  );
+  const pessoas = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const v of visitas) {
+      if (v.id_usuario != null && v.nome_usuario) {
+        map.set(v.id_usuario, v.nome_usuario);
+      }
+    }
+    return [...map.entries()]
+      .map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [visitas]);
+
+  const tiposDisponiveis = useMemo(() => {
+    const codigos = new Set(visitas.map(codigoTipoVisita));
+    return TIPOS_CHECKLIST.filter((t) => codigos.has(t.codigo)).map((t) => ({
+      codigo: t.codigo,
+      nome: nomeTipoVisita(t.codigo, visitas),
+    }));
+  }, [visitas]);
+
+  const visitasFiltradas = useMemo(() => {
+    let base = visitas;
+    if (filtroUsuario !== '') {
+      base = base.filter((v) => v.id_usuario === filtroUsuario);
+    }
+    if (filtroTipo) {
+      base = base.filter((v) => codigoTipoVisita(v) === filtroTipo);
+    }
+    if (filtroStatus) {
+      base = base.filter((v) => v.status === filtroStatus);
+    }
+    if (ordenacao === 'nota_desc') {
+      return [...base].sort((a, b) => {
+        const na = a.nota_final == null ? -1 : Number(a.nota_final);
+        const nb = b.nota_final == null ? -1 : Number(b.nota_final);
+        if (nb !== na) return nb - na;
+        return String(b.data_visita).localeCompare(String(a.data_visita));
+      });
+    }
+    return base;
+  }, [visitas, filtroStatus, filtroUsuario, filtroTipo, ordenacao]);
+
+  const nomePessoaSelecionada = useMemo(() => {
+    if (filtroUsuario === '') return '';
+    return pessoas.find((p) => p.id === filtroUsuario)?.nome
+      ?? visitas.find((v) => v.id_usuario === filtroUsuario)?.nome_usuario
+      ?? '';
+  }, [filtroUsuario, pessoas, visitas]);
+
+  async function gerarRelatorioPorPessoa() {
+    if (filtroUsuario === '' || !nomePessoaSelecionada) {
+      showToast('Selecione uma pessoa para gerar o relatório', 'warning');
+      return;
+    }
+    if (!filtroTipo) {
+      showToast('Selecione o tipo de checklist (Auditoria ou Time de Campo)', 'warning');
+      return;
+    }
+    setGerandoPdf(true);
+    try {
+      const lista = await api.visitas({
+        usuario: filtroUsuario,
+        status: 'Finalizada',
+        order: 'nota_desc',
+        tipo: filtroTipo,
+      });
+      if (!lista.length) {
+        showToast('Nenhuma visita finalizada para esta pessoa neste checklist', 'warning');
+        return;
+      }
+      await gerarPdfVisitasPorPessoa({
+        nomePessoa: nomePessoaSelecionada,
+        tipoChecklistCodigo: filtroTipo,
+        tipoChecklistNome: nomeTipoVisita(filtroTipo, lista),
+        visitas: lista,
+      });
+      showToast('PDF gerado', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar PDF', 'error');
+    } finally {
+      setGerandoPdf(false);
+    }
+  }
 
   async function confirmarApagar() {
     if (!apagarAlvo) return;
@@ -437,6 +544,16 @@ export default function VisitasPage() {
           visitasFiltradas={visitasFiltradas}
           filtroStatus={filtroStatus}
           onFiltro={setFiltroStatus}
+          pessoas={pessoas}
+          filtroUsuario={filtroUsuario}
+          onFiltroUsuario={setFiltroUsuario}
+          tiposChecklist={tiposDisponiveis.length ? tiposDisponiveis : [...TIPOS_CHECKLIST]}
+          filtroTipo={filtroTipo}
+          onFiltroTipo={setFiltroTipo}
+          ordenacao={ordenacao}
+          onOrdenacao={setOrdenacao}
+          onGerarRelatorio={() => void gerarRelatorioPorPessoa()}
+          gerandoPdf={gerandoPdf}
           checklistBase={checklistBase}
           podeApagar={podeApagar}
           onApagar={setApagarAlvo}
@@ -503,12 +620,95 @@ export default function VisitasPage() {
     >
       <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0, fontSize: { xs: '0.8rem', md: '0.875rem' } }}>
         {visitasFiltradas.length} de {visitas.length} visita(s)
+        {filtroUsuario !== '' && nomePessoaSelecionada ? ` · ${nomePessoaSelecionada}` : ''}
+        {filtroTipo ? ` · ${nomeTipoVisita(filtroTipo, visitas)}` : ''}
       </Typography>
+
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          flexShrink: 0,
+          flexWrap: 'wrap',
+        }}
+      >
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 200 }, flex: { sm: '0 1 220px' } }}>
+          <InputLabel id="filtro-pessoa-label">Pessoa</InputLabel>
+          <Select
+            labelId="filtro-pessoa-label"
+            label="Pessoa"
+            value={filtroUsuario === '' ? '' : String(filtroUsuario)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFiltroUsuario(v === '' ? '' : Number(v));
+              if (v !== '') setOrdenacao('nota_desc');
+            }}
+          >
+            <MenuItem value="">Todas as pessoas</MenuItem>
+            {pessoas.map((p) => (
+              <MenuItem key={p.id} value={String(p.id)}>
+                {p.nome}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 200 }, flex: { sm: '0 1 220px' } }}>
+          <InputLabel id="filtro-tipo-label">Checklist</InputLabel>
+          <Select
+            labelId="filtro-tipo-label"
+            label="Checklist"
+            value={filtroTipo}
+            onChange={(e) => setFiltroTipo(e.target.value)}
+          >
+            <MenuItem value="">Todos os checklists</MenuItem>
+            {(tiposDisponiveis.length ? tiposDisponiveis : TIPOS_CHECKLIST).map((t) => (
+              <MenuItem key={t.codigo} value={t.codigo}>
+                {t.nome}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 160 }, flex: { sm: '0 1 180px' } }}>
+          <InputLabel id="ordenacao-visitas-label">Ordenar</InputLabel>
+          <Select
+            labelId="ordenacao-visitas-label"
+            label="Ordenar"
+            value={ordenacao}
+            onChange={(e) => setOrdenacao(e.target.value as OrdenacaoVisitas)}
+          >
+            <MenuItem value="data_desc">Data (mais recente)</MenuItem>
+            <MenuItem value="nota_desc">Nota (maior → menor)</MenuItem>
+          </Select>
+        </FormControl>
+
+        <Button
+          variant="contained"
+          size="small"
+          disabled={filtroUsuario === '' || !filtroTipo || gerandoPdf}
+          onClick={() => void gerarRelatorioPorPessoa()}
+          startIcon={gerandoPdf ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfIcon />}
+          sx={{
+            flexShrink: 0,
+            minHeight: 40,
+            bgcolor: colors.navy,
+            '&:hover': { bgcolor: '#152456' },
+          }}
+        >
+          {gerandoPdf ? 'Gerando…' : 'Relatório PDF'}
+        </Button>
+      </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, flexShrink: 0, mb: 0 }}>
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
           <FiltrosStatus
-            visitas={visitas}
+            visitas={visitas.filter((v) => {
+              if (filtroUsuario !== '' && v.id_usuario !== filtroUsuario) return false;
+              if (filtroTipo && codigoTipoVisita(v) !== filtroTipo) return false;
+              return true;
+            })}
             filtroStatus={filtroStatus}
             onFiltro={setFiltroStatus}
             mobile={isMobile}

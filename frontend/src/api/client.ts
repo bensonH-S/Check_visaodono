@@ -225,10 +225,19 @@ export const api = {
     request<Pergunta>(`/checklist/perguntas/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   checklistPerguntaExcluir: (id: number) =>
     request<void>(`/checklist/perguntas/${id}`, { method: 'DELETE' }),
-  visitas: (params?: { loja?: number; status?: string }) => {
+  visitas: (params?: {
+    loja?: number;
+    status?: string;
+    usuario?: number;
+    tipo?: string;
+    order?: 'data_desc' | 'nota_desc';
+  }) => {
     const q = new URLSearchParams();
     if (params?.loja) q.set('loja', String(params.loja));
     if (params?.status) q.set('status', params.status);
+    if (params?.usuario) q.set('usuario', String(params.usuario));
+    if (params?.tipo) q.set('tipo', params.tipo);
+    if (params?.order && params.order !== 'data_desc') q.set('order', params.order);
     const s = q.toString();
     return request<VisitaResumo[]>(`/visitas${s ? `?${s}` : ''}`);
   },
