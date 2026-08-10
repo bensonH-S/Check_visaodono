@@ -25,6 +25,7 @@ import {
 } from '../../api/client';
 import {
   getUsuario,
+  podeEditarEscalaDelivery,
   podeEditarEscalaRegiao,
   podeGerenciarEscalaVisitas,
   podeVerEscalaVisitas,
@@ -60,7 +61,11 @@ const STATUS_LABEL: Record<EscalaVisitasRegiaoStatusCodigo, string> = {
 };
 
 type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery' | 'montar';
-type PendingMap = Map<string, { id_loja: number; dia: number; id_regionais: number[] }>;
+type PendingMap = Map<
+  string,
+  | { id_loja: number; dia: number; id_regionais: number[] }
+  | { id_loja: number; dia: number; id_lojas_destino: number[] }
+>;
 
 function chaveCelula(idLoja: number, dia: number) {
   return `${idLoja}-${dia}`;
@@ -228,10 +233,13 @@ export default function EscalaVisitasMobileView() {
   const podeVer = podeVerEscalaVisitas(user);
   const ehDiretor = podeGerenciarEscalaVisitas(user);
   const ehRegional = !ehDiretor && podeEditarEscalaRegiao(user);
+  const ehDeliveryOnly = !ehDiretor && !ehRegional && podeEditarEscalaDelivery(user);
 
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
-  const [modo, setModo] = useState<ModoVisualizacao>(ehRegional ? 'montar' : ehDiretor ? 'dia' : 'minhas');
+  const [modo, setModo] = useState<ModoVisualizacao>(
+    ehDeliveryOnly ? 'delivery' : ehRegional ? 'montar' : ehDiretor ? 'dia' : 'minhas',
+  );
   const [diaSelecionado, setDiaSelecionado] = useState(() => diaIndexNaSemana(segundaFeiraAtual()) ?? 0);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [loading, setLoading] = useState(true);
@@ -242,11 +250,13 @@ export default function EscalaVisitasMobileView() {
   const [notifs, setNotifs] = useState<EscalaVisitasNotificacao[]>([]);
 
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
+  const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
   const pendentesAprovacao = useMemo(
     () => (grade?.status_por_regiao ?? []).filter((s) => s.status === 'pendente_aprovacao'),
     [grade?.status_por_regiao],
   );
   const modos = useMemo(() => {
+    if (ehDeliveryOnly) return [{ id: 'delivery' as const, label: 'Delivery' }];
     const base: Array<{ id: ModoVisualizacao; label: string }> = [
       { id: 'minhas', label: 'Minhas' },
       { id: 'dia', label: 'Por dia' },
@@ -257,7 +267,7 @@ export default function EscalaVisitasMobileView() {
       base.unshift({ id: 'montar', label: 'Montar' });
     }
     return base;
-  }, [ehRegional, ehDiretor, grade?.pode_editar_regiao, grade?.pode_editar]);
+  }, [ehRegional, ehDiretor, ehDeliveryOnly, grade?.pode_editar_regiao, grade?.pode_editar]);
 
   const carregar = useCallback(async () => {
     if (!podeVer) return;
@@ -329,8 +339,31 @@ export default function EscalaVisitasMobileView() {
 
   function valorCelulaRegional(idLoja: number, dia: number, original: EscalaVisitasDia) {
     const p = pending.get(chaveCelula(idLoja, dia));
-    if (p) return p.id_regionais;
+    if (p && 'id_regionais' in p) return p.id_regionais;
     return idsRegionaisDoDia(original);
+  }
+
+  function valorCelulaDelivery(idLoja: number, dia: number, original: EscalaVisitasDia) {
+    const p = pending.get(chaveCelula(idLoja, dia));
+    if (p && 'id_lojas_destino' in p) return p.id_lojas_destino;
+    return idsLojasDestinoDoDia(original);
+  }
+
+  function toggleDeliveryLoja(dia: number, idLojaDestino: number) {
+    if (!podeEditarDelivery || !linhaDelivery) return;
+    const atual = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
+    const next = atual.includes(idLojaDestino)
+      ? atual.filter((id) => id !== idLojaDestino)
+      : [...atual, idLojaDestino];
+    setPending((prev) => {
+      const m = new Map(prev);
+      m.set(chaveCelula(linhaDelivery.id_loja, dia), {
+        id_loja: linhaDelivery.id_loja,
+        dia,
+        id_lojas_destino: next,
+      });
+      return m;
+    });
   }
 
   function marcarCelula(idLoja: number, dia: number) {
@@ -475,7 +508,7 @@ export default function EscalaVisitasMobileView() {
   const deliveryPorDia = useMemo(() => {
     if (!grade || !linhaDelivery) return [];
     return DIAS_LONGO.map((label, dia) => {
-      const idsMarcados = idsLojasDestinoDoDia(linhaDelivery.dias[dia]);
+      const idsMarcados = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
       const lojas = grade.lojas_destino ?? [];
       return {
         dia,
@@ -488,7 +521,7 @@ export default function EscalaVisitasMobileView() {
         totalMarcadas: idsMarcados.length,
       };
     });
-  }, [grade, linhaDelivery]);
+  }, [grade, linhaDelivery, pending]);
 
   const visitasPorDia = useMemo(() => {
     if (!grade) return [];
@@ -586,6 +619,8 @@ export default function EscalaVisitasMobileView() {
               ? pendentesAprovacao.length
                 ? 'Há escalas aguardando sua aprovação.'
                 : 'Veja a escala consolidada e aprove as regiões pendentes.'
+              : ehDeliveryOnly
+                ? 'Marque as lojas de delivery por dia e salve.'
               : ehRegional || podeEditarGrade
                 ? 'Toque nos dias para marcar suas visitas e envie para o diretor aprovar.'
                 : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
@@ -668,7 +703,7 @@ export default function EscalaVisitasMobileView() {
             </div>
           )}
 
-          {ehDiretor && !loading && (grade?.status_por_regiao?.length ?? 0) > 0 && (
+          {ehDiretor && !ehDeliveryOnly && !loading && (grade?.status_por_regiao?.length ?? 0) > 0 && (
             <div className="ck-escala__aprovacoes">
               <p className="ck-escala__section">Status por região</p>
               {(grade?.status_por_regiao ?? []).map((st) => {
@@ -902,9 +937,15 @@ export default function EscalaVisitasMobileView() {
             )
           ) : modo === 'delivery' ? (
             (deliveryPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
-              <div
+              <button
                 key={loja.id_loja}
-                className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}`}
+                type="button"
+                className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}${
+                  podeEditarDelivery ? ' is-edit' : ''
+                }`}
+                disabled={!podeEditarDelivery || salvando}
+                onClick={() => toggleDeliveryLoja(diaSelecionado, loja.id_loja)}
+                style={{ width: '100%', textAlign: 'left', cursor: podeEditarDelivery ? 'pointer' : 'default' }}
               >
                 <div
                   className="ck-escala__card-stripe"
@@ -917,10 +958,16 @@ export default function EscalaVisitasMobileView() {
                     {loja.nome}
                   </p>
                   <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
-                    {loja.marcada ? 'Delivery agendado' : 'Sem delivery'}
+                    {loja.marcada
+                      ? podeEditarDelivery
+                        ? 'Delivery agendado · toque para remover'
+                        : 'Delivery agendado'
+                      : podeEditarDelivery
+                        ? 'Toque para agendar'
+                        : 'Sem delivery'}
                   </p>
                 </div>
-              </div>
+              </button>
             ))
           ) : modo === 'dia' ? (
             diaAtual && diaAtual.itens.length === 0 ? (
@@ -951,9 +998,10 @@ export default function EscalaVisitasMobileView() {
           )}
           </div>
 
-          {(podeEditarGrade || grade?.pode_submeter) && modo === 'montar' && (
+          {((podeEditarGrade || grade?.pode_submeter) && modo === 'montar') ||
+          (podeEditarDelivery && modo === 'delivery') ? (
             <div className="ck-escala__acoes">
-              {podeEditarGrade && (
+              {(podeEditarGrade || (podeEditarDelivery && modo === 'delivery')) && (
                 <Button
                   variant="contained"
                   size="small"
@@ -965,7 +1013,7 @@ export default function EscalaVisitasMobileView() {
                   Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
                 </Button>
               )}
-              {grade?.pode_submeter && (
+              {grade?.pode_submeter && modo === 'montar' && (
                 <Button
                   variant="contained"
                   size="small"
@@ -978,7 +1026,7 @@ export default function EscalaVisitasMobileView() {
                 </Button>
               )}
             </div>
-          )}
+          ) : null}
       </div>
 
       <Dialog open={Boolean(editor)} onClose={() => setEditor(null)} fullWidth maxWidth="xs">

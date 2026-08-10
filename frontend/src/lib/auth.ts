@@ -441,10 +441,18 @@ export function podeEditarEscalaRegiao(usuario?: UsuarioSessao | null): boolean 
   return temPermissao('escalas.visitas.editar_regiao', usuario);
 }
 
+export function podeEditarEscalaDelivery(usuario?: UsuarioSessao | null): boolean {
+  return (
+    temPermissao('escalas.visitas.editar_delivery', usuario) ||
+    podeGerenciarEscalaVisitas(usuario)
+  );
+}
+
 export function podeVerEscalaVisitas(usuario?: UsuarioSessao | null): boolean {
   return (
     podeGerenciarEscalaVisitas(usuario) ||
     podeEditarEscalaRegiao(usuario) ||
+    podeEditarEscalaDelivery(usuario) ||
     temPermissao('escalas.visitas.ver', usuario)
   );
 }

@@ -199,10 +199,15 @@ export function podeEditarEscalaRegiao(user) {
   return temPermissao(user, 'escalas.visitas.editar_regiao');
 }
 
+export function podeEditarEscalaDelivery(user) {
+  return temPermissao(user, 'escalas.visitas.editar_delivery') || podeGerenciarEscalaVisitas(user);
+}
+
 export function podeVerEscalaVisitas(user) {
   return (
     podeGerenciarEscalaVisitas(user) ||
     podeEditarEscalaRegiao(user) ||
+    podeEditarEscalaDelivery(user) ||
     temPermissao(user, 'escalas.visitas.ver')
   );
 }
@@ -567,6 +572,7 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
 
   const gerenciar = podeGerenciarEscalaVisitas(user);
   const editarRegiaoPerm = podeEditarEscalaRegiao(user) && !gerenciar;
+  const editarDelivery = podeEditarEscalaDelivery(user);
   const idsRegiaoUsuario = await idsRegioesVisiveis(user);
 
   let podeEditarRegiao = false;
@@ -597,6 +603,7 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     semana_label: `${formatarDataBr(semanaInicio)} até ${formatarDataBr(domingoDaSemana(semanaInicio))}`,
     pode_editar: gerenciar,
     pode_editar_regiao: podeEditarRegiao,
+    pode_editar_delivery: editarDelivery,
     pode_submeter: podeSubmeter,
     pode_aprovar: gerenciar && temPendente,
     pode_devolver: gerenciar && (temPendente || temAprovado),
@@ -613,7 +620,10 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
 export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regiao = null }) {
   const gerenciar = podeGerenciarEscalaVisitas(user);
   const editarRegiao = podeEditarEscalaRegiao(user);
-  if (!gerenciar && !editarRegiao) throw new Error('Sem permissão para editar');
+  const editarDelivery = temPermissao(user, 'escalas.visitas.editar_delivery') || gerenciar;
+  if (!gerenciar && !editarRegiao && !editarDelivery) throw new Error('Sem permissão para editar');
+
+  const soDelivery = editarDelivery && !gerenciar && !editarRegiao;
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio);
   const semana = await obterOuCriarSemana(semanaInicio, user.sub);
@@ -626,11 +636,19 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
   ];
   const lojaRegiaoMap = await mapLojaParaRegiao(idsLojaPayload);
 
-  if (!gerenciar) {
+  if (soDelivery) {
+    if (!lojaDelivery) throw new Error('Linha de delivery não configurada');
+    for (const item of lista) {
+      const idLoja = Number(item.id_loja);
+      if (idLoja !== lojaDelivery.id_loja) {
+        throw new Error('Este usuário só pode editar a escala de delivery');
+      }
+    }
+  } else if (!gerenciar) {
     for (const item of lista) {
       const idLoja = Number(item.id_loja);
       if (lojaDelivery && idLoja === lojaDelivery.id_loja) {
-        throw new Error('Delivery só pode ser editado pela diretoria');
+        throw new Error('Delivery só pode ser editado pela diretoria ou pelo responsável de delivery');
       }
       const idRegiaoLoja = lojaRegiaoMap.get(idLoja);
       if (!idRegiaoLoja || !idsRegiaoUsuario.includes(idRegiaoLoja)) {

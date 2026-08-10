@@ -2014,6 +2014,7 @@ export interface EscalaVisitasGrade {
   semana_label: string;
   pode_editar: boolean;
   pode_editar_regiao?: boolean;
+  pode_editar_delivery?: boolean;
   pode_submeter?: boolean;
   pode_aprovar?: boolean;
   pode_devolver?: boolean;

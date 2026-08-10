@@ -355,6 +355,16 @@
   background: rgba(232, 82, 10, 0.05);
 }
 
+.ck-escala .ck-escala__card.is-edit {
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-escala .ck-escala__card.is-edit:disabled {
+  opacity: 1;
+}
+
 .ck-escala .ck-escala__card-meta {
   margin: 2px 0 0;
   font-size: 0.72rem;

@@ -36,7 +36,7 @@ import {
   type EscalaVisitasLinha,
   type EscalaVisitasRegiaoStatusCodigo,
 } from '../../api/client';
-import { getUsuario, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas } from '../../lib/auth';
+import { getUsuario, podeEditarEscalaDelivery, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
@@ -102,15 +102,16 @@ export default function EscalaVisitasPage() {
   const idEu = user?.id_usuario;
   const ehDiretor = podeGerenciarEscalaVisitas();
   const ehRegional = !ehDiretor && podeEditarEscalaRegiao();
+  const ehDeliveryOnly = !ehDiretor && !ehRegional && podeEditarEscalaDelivery();
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
-  const [aba, setAba] = useState<'visitas' | 'delivery'>('visitas');
+  const [aba, setAba] = useState<'visitas' | 'delivery'>(ehDeliveryOnly ? 'delivery' : 'visitas');
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
-  const podeEditarDelivery = Boolean(grade?.pode_editar);
+  const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
 
   const mapCorRegional = useMemo(() => {
     const m = new Map<number, string>();
@@ -161,6 +162,10 @@ export default function EscalaVisitasPage() {
     void carregar();
   }, [carregar]);
 
+  useEffect(() => {
+    if (ehDeliveryOnly) setAba('delivery');
+  }, [ehDeliveryOnly]);
+
   function alterarCelulaRegional(idLoja: number, dia: number, idRegionais: number[]) {
     if (!podeEditarGrade) return;
     setPending((prev) => {
@@ -177,7 +182,7 @@ export default function EscalaVisitasPage() {
   }
 
   function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {
-    if (!grade?.pode_editar) return;
+    if (!podeEditarDelivery) return;
     setPending((prev) => {
       const next = new Map(prev);
       next.set(chaveCelula(idLoja, dia), { id_loja: idLoja, dia, id_lojas_destino: idLojasDestino });
@@ -409,13 +414,13 @@ export default function EscalaVisitasPage() {
                 },
               }}
             >
-              <ToggleButton value="visitas">Visitas</ToggleButton>
+              {!ehDeliveryOnly && <ToggleButton value="visitas">Visitas</ToggleButton>}
               <ToggleButton value="delivery">Delivery</ToggleButton>
             </ToggleButtonGroup>
           </Box>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-            {grade && grade.regioes.length > 0 && (
+            {grade && grade.regioes.length > 0 && !ehDeliveryOnly && (
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Região</InputLabel>
                 <Select
@@ -447,7 +452,7 @@ export default function EscalaVisitasPage() {
                 Copiar semana anterior
               </Button>
             )}
-            {podeEditarGrade && (
+            {(podeEditarGrade || podeEditarDelivery) && (
               <Button
                 variant="contained"
                 size="small"
@@ -473,7 +478,7 @@ export default function EscalaVisitasPage() {
           </Box>
         </Box>
 
-        {grade?.status_por_regiao && grade.status_por_regiao.length > 0 && (
+        {!ehDeliveryOnly && grade?.status_por_regiao && grade.status_por_regiao.length > 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 1 }}>
             {ehDiretor &&
               grade.status_por_regiao.some((s) => s.status === 'pendente_aprovacao') && (
@@ -913,11 +918,16 @@ export default function EscalaVisitasPage() {
         </Paper>
       )}
 
-      {!podeEditarGrade && (
+      {!podeEditarGrade && !podeEditarDelivery && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           {ehRegional
             ? 'Modo leitura — escala pendente ou já aprovada. Aguarde devolução do diretor para editar.'
             : 'Modo leitura — supervisores montam a região; o diretor aprova.'}
+        </Typography>
+      )}
+      {ehDeliveryOnly && (
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
+          Você preenche apenas a escala de delivery.
         </Typography>
       )}
     </Box>
