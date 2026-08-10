@@ -251,10 +251,11 @@ export default function EscalaVisitasMobileView() {
 
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
-  const pendentesAprovacao = useMemo(
-    () => (grade?.status_por_regiao ?? []).filter((s) => s.status === 'pendente_aprovacao'),
-    [grade?.status_por_regiao],
-  );
+  const pendentesAprovacao = useMemo(() => {
+    const regioes = (grade?.status_por_regiao ?? []).filter((s) => s.status === 'pendente_aprovacao');
+    const deliveryPendente = grade?.status_delivery?.status === 'pendente_aprovacao';
+    return { regioes, deliveryPendente, length: regioes.length + (deliveryPendente ? 1 : 0) };
+  }, [grade?.status_por_regiao, grade?.status_delivery]);
   const modos = useMemo(() => {
     if (ehDeliveryOnly) return [{ id: 'delivery' as const, label: 'Delivery' }];
     const base: Array<{ id: ModoVisualizacao; label: string }> = [
@@ -487,6 +488,52 @@ export default function EscalaVisitasMobileView() {
     }
   }
 
+  async function enviarDeliveryAprovacao() {
+    if (pending.size) {
+      showToast('Salve as alterações antes de enviar', 'warning');
+      return;
+    }
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
+      setGrade(data);
+      showToast('Delivery enviado para aprovação', 'success');
+      void carregarNotifs();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function aprovarDelivery() {
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasDeliveryAprovar({ semana_inicio: semanaInicio });
+      setGrade(data);
+      showToast('Delivery aprovado', 'success');
+      void carregarNotifs();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function recusarDelivery() {
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasDeliveryDevolver({ semana_inicio: semanaInicio });
+      setGrade(data);
+      showToast('Delivery recusado — pode montar de novo', 'success');
+      void carregarNotifs();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao recusar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   async function dispensarNotifs() {
     try {
       await api.escalaVisitasNotificacoesLidas();
@@ -496,12 +543,13 @@ export default function EscalaVisitasMobileView() {
     }
   }
 
-  const statusAtivo =
-    grade?.status_regiao ||
-    (idRegiao !== ''
-      ? grade?.status_por_regiao?.find((s) => s.id_regiao === idRegiao)?.status
-      : grade?.status_por_regiao?.[0]?.status) ||
-    null;
+  const statusAtivo = ehDeliveryOnly
+    ? grade?.status_delivery?.status || null
+    : grade?.status_regiao ||
+      (idRegiao !== ''
+        ? grade?.status_por_regiao?.find((s) => s.id_regiao === idRegiao)?.status
+        : grade?.status_por_regiao?.[0]?.status) ||
+      null;
 
   const linhaDelivery = useMemo(() => linhaDeliveryDaGrade(grade?.linhas), [grade?.linhas]);
 
@@ -619,7 +667,7 @@ export default function EscalaVisitasMobileView() {
                   </h1>
                   <p className="ck-escala__compact-sub">
                     {ehDeliveryOnly
-                      ? 'Toque nas lojas do dia e salve'
+                      ? 'Toque nas lojas do dia, salve e envie para o diretor aprovar'
                       : 'Toque nos dias e envie para aprovação'}
                   </p>
                 </div>
@@ -759,7 +807,7 @@ export default function EscalaVisitasMobileView() {
             </div>
           )}
 
-          {ehDiretor && !ehDeliveryOnly && !loading && (grade?.status_por_regiao?.length ?? 0) > 0 && (
+          {ehDiretor && !loading && ((grade?.status_por_regiao?.length ?? 0) > 0 || grade?.status_delivery) && (
             <div className="ck-escala__aprovacoes">
               <p className="ck-escala__section">Status por região</p>
               {(grade?.status_por_regiao ?? []).map((st) => {
@@ -821,6 +869,55 @@ export default function EscalaVisitasMobileView() {
                   </div>
                 );
               })}
+              {grade?.status_delivery && (
+                <div
+                  className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${grade.status_delivery.status}`}
+                >
+                  <button
+                    type="button"
+                    className="ck-escala__aprovacao-info"
+                    onClick={() => setModo('delivery')}
+                  >
+                    <strong>
+                      Delivery
+                      <em>
+                        {STATUS_LABEL[grade.status_delivery.status] || grade.status_delivery.status}
+                      </em>
+                    </strong>
+                    <span>
+                      {grade.status_delivery.nome_submetido_por
+                        ? `Montada por ${primeiroNome(grade.status_delivery.nome_submetido_por)}${
+                            grade.status_delivery.status === 'aprovado' &&
+                            grade.status_delivery.nome_revisado_por
+                              ? ` · Aprovada por ${primeiroNome(grade.status_delivery.nome_revisado_por)}`
+                              : ''
+                          }`
+                        : 'Ainda não enviada'}
+                    </span>
+                    <span className="ck-escala__aprovacao-ver">Toque para ver o delivery →</span>
+                  </button>
+                  {grade.status_delivery.status === 'pendente_aprovacao' && (
+                    <div className="ck-escala__aprovacao-acoes">
+                      <button
+                        type="button"
+                        className="ck-escala__btn-aprovar"
+                        disabled={salvando}
+                        onClick={() => void aprovarDelivery()}
+                      >
+                        Aprovar
+                      </button>
+                      <button
+                        type="button"
+                        className="ck-escala__btn-recusar"
+                        disabled={salvando}
+                        onClick={() => void recusarDelivery()}
+                      >
+                        Recusar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -849,6 +946,35 @@ export default function EscalaVisitasMobileView() {
                         ? 'Monte e envie para o diretor aprovar'
                         : '—';
                     })()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {ehDeliveryOnly && grade?.status_delivery && (
+            <div className="ck-escala__aprovacoes">
+              <div
+                className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${grade.status_delivery.status}`}
+              >
+                <div className="ck-escala__aprovacao-info">
+                  <strong>
+                    Delivery
+                    <em>
+                      {STATUS_LABEL[grade.status_delivery.status] || grade.status_delivery.status}
+                    </em>
+                  </strong>
+                  <span>
+                    {grade.status_delivery.nome_submetido_por
+                      ? `Enviada por ${primeiroNome(grade.status_delivery.nome_submetido_por)}${
+                          grade.status_delivery.status === 'aprovado' &&
+                          grade.status_delivery.nome_revisado_por
+                            ? ` · Aprovada por ${primeiroNome(grade.status_delivery.nome_revisado_por)}`
+                            : ''
+                        }`
+                      : grade.status_delivery.status === 'rascunho'
+                        ? 'Monte e envie para o diretor aprovar'
+                        : '—'}
                   </span>
                 </div>
               </div>
@@ -1059,7 +1185,7 @@ export default function EscalaVisitasMobileView() {
           </div>
 
           {((podeEditarGrade || grade?.pode_submeter) && modo === 'montar') ||
-          (podeEditarDelivery && modo === 'delivery') ? (
+          ((podeEditarDelivery || grade?.pode_submeter_delivery) && modo === 'delivery') ? (
             <div className="ck-escala__acoes">
               {(podeEditarGrade || (podeEditarDelivery && modo === 'delivery')) && (
                 <Button
@@ -1080,6 +1206,18 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SendIcon />}
                   disabled={salvando || pending.size > 0}
                   onClick={() => void enviarAprovacao()}
+                  sx={{ flex: 1, bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Enviar
+                </Button>
+              )}
+              {grade?.pode_submeter_delivery && modo === 'delivery' && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SendIcon />}
+                  disabled={salvando || pending.size > 0}
+                  onClick={() => void enviarDeliveryAprovacao()}
                   sx={{ flex: 1, bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
                 >
                   Enviar

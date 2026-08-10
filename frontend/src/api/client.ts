@@ -790,6 +790,21 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  escalaVisitasDeliverySubmeter: (body: { semana_inicio: string }) =>
+    request<EscalaVisitasGrade>('/escalas/visitas/semana/delivery/submeter', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  escalaVisitasDeliveryAprovar: (body: { semana_inicio: string; comentario?: string | null }) =>
+    request<EscalaVisitasGrade>('/escalas/visitas/semana/delivery/aprovar', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  escalaVisitasDeliveryDevolver: (body: { semana_inicio: string; comentario?: string | null }) =>
+    request<EscalaVisitasGrade>('/escalas/visitas/semana/delivery/devolver', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   escalaVisitasNotificacoes: (naoLidas = false) =>
     request<EscalaVisitasNotificacao[]>(
       `/escalas/visitas/notificacoes${naoLidas ? '?nao_lidas=1' : ''}`,
@@ -2007,6 +2022,17 @@ export interface EscalaVisitasRegiaoStatus {
   nome_revisado_por?: string | null;
 }
 
+export interface EscalaVisitasDeliveryStatus {
+  status: EscalaVisitasRegiaoStatusCodigo;
+  submetido_por?: number | null;
+  submetido_em?: string | null;
+  revisado_por?: number | null;
+  revisado_em?: string | null;
+  comentario?: string | null;
+  nome_submetido_por?: string | null;
+  nome_revisado_por?: string | null;
+}
+
 export interface EscalaVisitasGrade {
   id_semana: number;
   semana_inicio: string;
@@ -2016,10 +2042,12 @@ export interface EscalaVisitasGrade {
   pode_editar_regiao?: boolean;
   pode_editar_delivery?: boolean;
   pode_submeter?: boolean;
+  pode_submeter_delivery?: boolean;
   pode_aprovar?: boolean;
   pode_devolver?: boolean;
   status_regiao?: EscalaVisitasRegiaoStatusCodigo | null;
   status_por_regiao?: EscalaVisitasRegiaoStatus[];
+  status_delivery?: EscalaVisitasDeliveryStatus | null;
   id_regiao_filtro: number | null;
   regionais: EscalaVisitasRegional[];
   regioes: Array<{ id_regiao: number; nome: string }>;

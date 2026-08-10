@@ -318,6 +318,49 @@ export default function EscalaVisitasPage() {
     }
   }
 
+  async function enviarDeliveryAprovacao() {
+    if (pending.size) {
+      showToast('Salve as alterações antes de enviar', 'warning');
+      return;
+    }
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
+      setGrade(data);
+      showToast('Delivery enviado para aprovação', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function aprovarDelivery() {
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasDeliveryAprovar({ semana_inicio: semanaInicio });
+      setGrade(data);
+      showToast('Delivery aprovado', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function devolverDelivery() {
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasDeliveryDevolver({ semana_inicio: semanaInicio });
+      setGrade(data);
+      showToast('Delivery devolvido', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao devolver', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   const linhasComTotais = useMemo(() => {
     if (!grade) return [];
     return grade.linhas.map((linha: EscalaVisitasLinha) => {
@@ -475,13 +518,111 @@ export default function EscalaVisitasPage() {
                 Enviar para aprovação
               </Button>
             )}
+            {grade?.pode_submeter_delivery && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<SendIcon />}
+                disabled={salvando || pending.size > 0}
+                onClick={() => void enviarDeliveryAprovacao()}
+                sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
+              >
+                Enviar para aprovação
+              </Button>
+            )}
           </Box>
         </Box>
+
+        {grade?.status_delivery && (ehDeliveryOnly || ehDiretor || aba === 'delivery') && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'stretch', mt: 1 }}>
+            {(() => {
+              const st = grade.status_delivery;
+              const pendente = st.status === 'pendente_aprovacao';
+              const montadaPor = st.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
+              const revisadaPor = st.nome_revisado_por ? primeiroNome(st.nome_revisado_por) : null;
+              return (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.35,
+                    px: 1,
+                    py: 0.65,
+                    minWidth: 160,
+                    borderRadius: 1.5,
+                    bgcolor: pendente
+                      ? 'rgba(232, 82, 10, 0.08)'
+                      : st.status === 'aprovado'
+                        ? 'rgba(22, 163, 74, 0.08)'
+                        : colors.canvasAlt,
+                    border: pendente
+                      ? '1px solid rgba(232, 82, 10, 0.28)'
+                      : st.status === 'aprovado'
+                        ? '1px solid rgba(22, 163, 74, 0.28)'
+                        : `1px solid ${colors.border}`,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                    <Chip
+                      size="small"
+                      clickable={!ehDeliveryOnly}
+                      onClick={() => setAba('delivery')}
+                      label={`Delivery: ${STATUS_LABEL[st.status] || st.status}`}
+                      sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
+                      title="Ver escala de delivery"
+                    />
+                    {grade.pode_aprovar && pendente && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<CheckIcon />}
+                        disabled={salvando}
+                        onClick={() => void aprovarDelivery()}
+                        sx={{
+                          textTransform: 'none',
+                          minWidth: 0,
+                          py: 0.2,
+                          bgcolor: '#15803D',
+                          '&:hover': { bgcolor: '#166534' },
+                        }}
+                      >
+                        Aprovar
+                      </Button>
+                    )}
+                    {grade.pode_devolver && (pendente || st.status === 'aprovado') && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="warning"
+                        startIcon={<UndoIcon />}
+                        disabled={salvando}
+                        onClick={() => void devolverDelivery()}
+                        sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                      >
+                        Recusar
+                      </Button>
+                    )}
+                  </Box>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
+                    {montadaPor
+                      ? `Montada por ${montadaPor}${
+                          st.status === 'aprovado' && revisadaPor ? ` · Aprovada por ${revisadaPor}` : ''
+                        }${pendente ? ' · aguardando aprovação' : ''}`
+                      : st.status === 'rascunho'
+                        ? 'Ainda não enviada'
+                        : '—'}
+                  </Typography>
+                </Box>
+              );
+            })()}
+          </Box>
+        )}
 
         {!ehDeliveryOnly && grade?.status_por_regiao && grade.status_por_regiao.length > 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 1 }}>
             {ehDiretor &&
-              grade.status_por_regiao.some((s) => s.status === 'pendente_aprovacao') && (
+              (grade.status_por_regiao.some((s) => s.status === 'pendente_aprovacao') ||
+                grade.status_delivery?.status === 'pendente_aprovacao') && (
                 <Typography variant="caption" sx={{ fontWeight: 800, color: colors.orange, letterSpacing: 0.04 }}>
                   Escalas aguardando aprovação
                 </Typography>

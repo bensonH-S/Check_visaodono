@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import {
+  aprovarEscalaDelivery,
   aprovarEscalaRegiao,
   carregarGradeVisitas,
   copiarSemanaVisitas,
+  devolverEscalaDelivery,
   devolverEscalaRegiao,
   listarNotificacoesEscala,
   listarSemanasVisitas,
@@ -10,6 +12,7 @@ import {
   podeVerEscalaVisitas,
   salvarGradeVisitas,
   segundaFeiraDaSemana,
+  submeterEscalaDelivery,
   submeterEscalaRegiao,
 } from '../escalaVisitas.js';
 import { auditar } from '../auditoriaHelpers.js';
@@ -22,6 +25,7 @@ function erroHttp(e, res, next) {
     msg.includes('Sem permissão') ||
     msg.includes('Sem acesso') ||
     msg.includes('bloqueada') ||
+    msg.includes('bloqueado') ||
     msg.includes('só pode ser editado')
   ) {
     return res.status(403).json({ error: msg });
@@ -135,6 +139,60 @@ router.post('/semana/devolver', async (req, res, next) => {
         id_regiao: idRegiao,
         comentario: req.body?.comentario ?? null,
       },
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/semana/delivery/submeter', async (req, res, next) => {
+  try {
+    const grade = await submeterEscalaDelivery(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'submeter_delivery',
+      entidade: 'escala_visitas_delivery',
+      idReferencia: semana,
+      descricao: `Enviou escala de delivery para aprovação${semana ? ` (semana ${semana})` : ''}`,
+      detalhes: { semana_inicio: semana || null },
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/semana/delivery/aprovar', async (req, res, next) => {
+  try {
+    const grade = await aprovarEscalaDelivery(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'aprovar_delivery',
+      entidade: 'escala_visitas_delivery',
+      idReferencia: semana,
+      descricao: `Aprovou escala de delivery${semana ? ` (semana ${semana})` : ''}`,
+      detalhes: { semana_inicio: semana || null, comentario: req.body?.comentario ?? null },
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/semana/delivery/devolver', async (req, res, next) => {
+  try {
+    const grade = await devolverEscalaDelivery(req.user, req.body || {});
+    const semana = grade?.semana_inicio || req.body?.semana_inicio || '';
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'devolver_delivery',
+      entidade: 'escala_visitas_delivery',
+      idReferencia: semana,
+      descricao: `Devolveu escala de delivery${semana ? ` (semana ${semana})` : ''}`,
+      detalhes: { semana_inicio: semana || null, comentario: req.body?.comentario ?? null },
     });
     res.json(grade);
   } catch (e) {

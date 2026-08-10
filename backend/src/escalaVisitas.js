@@ -260,6 +260,30 @@ async function carregarStatusPorRegiao(idSemana, idsRegiao) {
   return rows;
 }
 
+async function garantirStatusDelivery(clientOrPool, idSemana) {
+  const db = clientOrPool || pool;
+  await db.query(
+    `INSERT INTO escala_visitas_delivery_status (id_semana, status)
+     VALUES ($1, $2)
+     ON CONFLICT (id_semana) DO NOTHING`,
+    [idSemana, STATUS_RASCUNHO],
+  );
+}
+
+async function obterStatusDelivery(idSemana) {
+  await garantirStatusDelivery(pool, idSemana);
+  const { rows } = await pool.query(
+    `SELECT s.status, s.submetido_por, s.submetido_em, s.revisado_por, s.revisado_em, s.comentario,
+            us.nome AS nome_submetido_por, ur.nome AS nome_revisado_por
+     FROM escala_visitas_delivery_status s
+     LEFT JOIN usuarios us ON us.id_usuario = s.submetido_por
+     LEFT JOIN usuarios ur ON ur.id_usuario = s.revisado_por
+     WHERE s.id_semana = $1`,
+    [idSemana],
+  );
+  return rows[0] || { status: STATUS_RASCUNHO };
+}
+
 async function mapLojaParaRegiao(idsLoja) {
   const out = new Map();
   if (!idsLoja.length) return out;
@@ -573,10 +597,11 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     ? [Number(id_regiao)]
     : regioes.map((r) => Number(r.id_regiao));
   const statusPorRegiao = await carregarStatusPorRegiao(semana.id_semana, idsRegiaoStatus);
+  const statusDelivery = await obterStatusDelivery(semana.id_semana);
 
   const gerenciar = podeGerenciarEscalaVisitas(user);
   const editarRegiaoPerm = podeEditarEscalaRegiao(user) && !gerenciar;
-  const editarDelivery = podeEditarEscalaDelivery(user);
+  const editarDeliveryPerm = temPermissao(user, 'escalas.visitas.editar_delivery') || gerenciar;
   const idsRegiaoUsuario = await idsRegioesVisiveis(user);
 
   let podeEditarRegiao = false;
@@ -597,8 +622,20 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     }
   }
 
-  const temPendente = statusPorRegiao.some((s) => s.status === STATUS_PENDENTE);
-  const temAprovado = statusPorRegiao.some((s) => s.status === STATUS_APROVADO);
+  const statusDeliveryCodigo = statusDelivery.status || STATUS_RASCUNHO;
+  const podeEditarDelivery =
+    gerenciar || (editarDeliveryPerm && statusDeliveryCodigo === STATUS_RASCUNHO);
+  const podeSubmeterDelivery =
+    !gerenciar &&
+    temPermissao(user, 'escalas.visitas.editar_delivery') &&
+    statusDeliveryCodigo === STATUS_RASCUNHO;
+
+  const temPendente =
+    statusPorRegiao.some((s) => s.status === STATUS_PENDENTE) ||
+    statusDeliveryCodigo === STATUS_PENDENTE;
+  const temAprovado =
+    statusPorRegiao.some((s) => s.status === STATUS_APROVADO) ||
+    statusDeliveryCodigo === STATUS_APROVADO;
 
   return {
     id_semana: semana.id_semana,
@@ -607,13 +644,24 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     semana_label: `${formatarDataBr(semanaInicio)} até ${formatarDataBr(domingoDaSemana(semanaInicio))}`,
     pode_editar: gerenciar,
     pode_editar_regiao: podeEditarRegiao,
-    pode_editar_delivery: editarDelivery,
+    pode_editar_delivery: podeEditarDelivery,
     pode_submeter: podeSubmeter,
+    pode_submeter_delivery: podeSubmeterDelivery,
     pode_aprovar: gerenciar && temPendente,
     pode_devolver: gerenciar && (temPendente || temAprovado),
     id_regiao_filtro: id_regiao ? Number(id_regiao) : null,
     status_regiao: statusRegiaoFiltro,
     status_por_regiao: statusPorRegiao,
+    status_delivery: {
+      status: statusDeliveryCodigo,
+      submetido_por: statusDelivery.submetido_por ?? null,
+      submetido_em: statusDelivery.submetido_em ?? null,
+      revisado_por: statusDelivery.revisado_por ?? null,
+      revisado_em: statusDelivery.revisado_em ?? null,
+      comentario: statusDelivery.comentario ?? null,
+      nome_submetido_por: statusDelivery.nome_submetido_por ?? null,
+      nome_revisado_por: statusDelivery.nome_revisado_por ?? null,
+    },
     regionais,
     regioes,
     lojas_destino: lojasDestino,
@@ -642,6 +690,10 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
 
   if (soDelivery) {
     if (!lojaDelivery) throw new Error('Linha de delivery não configurada');
+    const stDelivery = await obterStatusDelivery(semana.id_semana);
+    if ((stDelivery.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) {
+      throw new Error('Delivery bloqueado — aguarde aprovação ou devolução do diretor');
+    }
     for (const item of lista) {
       const idLoja = Number(item.id_loja);
       if (idLoja !== lojaDelivery.id_loja) {
@@ -845,6 +897,112 @@ export async function devolverEscalaRegiao(user, { semana_inicio, id_regiao, com
   return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
 }
 
+export async function submeterEscalaDelivery(user, { semana_inicio }) {
+  const gerenciar = podeGerenciarEscalaVisitas(user);
+  const editarDelivery = temPermissao(user, 'escalas.visitas.editar_delivery');
+  if (!editarDelivery && !gerenciar) throw new Error('Sem permissão para submeter delivery');
+
+  const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
+  const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const st = await obterStatusDelivery(semana.id_semana);
+  if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) {
+    throw new Error('Só é possível enviar delivery em rascunho');
+  }
+
+  await pool.query(
+    `UPDATE escala_visitas_delivery_status
+     SET status = $2,
+         submetido_por = $3,
+         submetido_em = NOW(),
+         revisado_por = NULL,
+         revisado_em = NULL,
+         comentario = NULL
+     WHERE id_semana = $1`,
+    [semana.id_semana, STATUS_PENDENTE, user.sub],
+  );
+
+  const nomeAutor = (await nomeUsuarioPorId(user.sub)) || 'Delivery';
+  await notificarEscalaUsuarios({
+    idsUsuario: await idsDiretoresEscala(),
+    excluirId: user.sub,
+    tipo: 'pendente_aprovacao',
+    mensagem: `${nomeAutor} enviou a escala de delivery (${formatarDataBr(semanaInicio)}) para aprovação.`,
+    idSemana: semana.id_semana,
+    idRegiao: null,
+    semanaInicio,
+  });
+
+  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
+}
+
+export async function aprovarEscalaDelivery(user, { semana_inicio, comentario = null }) {
+  if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para aprovar');
+
+  const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
+  const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const st = await obterStatusDelivery(semana.id_semana);
+  if ((st.status || STATUS_RASCUNHO) !== STATUS_PENDENTE) {
+    throw new Error('Só é possível aprovar delivery pendente');
+  }
+
+  const comentarioTxt = comentario != null ? String(comentario).trim() || null : null;
+  await pool.query(
+    `UPDATE escala_visitas_delivery_status
+     SET status = $2,
+         revisado_por = $3,
+         revisado_em = NOW(),
+         comentario = $4
+     WHERE id_semana = $1`,
+    [semana.id_semana, STATUS_APROVADO, user.sub, comentarioTxt],
+  );
+
+  await notificarEscalaUsuarios({
+    idsUsuario: await idsDestinatariosDelivery(st.submetido_por),
+    excluirId: user.sub,
+    tipo: 'aprovado',
+    mensagem: `Sua escala de delivery (${formatarDataBr(semanaInicio)}) foi aprovada.`,
+    idSemana: semana.id_semana,
+    idRegiao: null,
+    semanaInicio,
+  });
+
+  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
+}
+
+export async function devolverEscalaDelivery(user, { semana_inicio, comentario = null }) {
+  if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para devolver');
+
+  const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
+  const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const st = await obterStatusDelivery(semana.id_semana);
+  if (![STATUS_PENDENTE, STATUS_APROVADO].includes(st.status || STATUS_RASCUNHO)) {
+    throw new Error('Só é possível devolver delivery pendente ou aprovado');
+  }
+
+  const comentarioTxt = comentario != null ? String(comentario).trim() || null : null;
+  await pool.query(
+    `UPDATE escala_visitas_delivery_status
+     SET status = $2,
+         revisado_por = $3,
+         revisado_em = NOW(),
+         comentario = $4
+     WHERE id_semana = $1`,
+    [semana.id_semana, STATUS_RASCUNHO, user.sub, comentarioTxt],
+  );
+
+  await notificarEscalaUsuarios({
+    idsUsuario: await idsDestinatariosDelivery(st.submetido_por),
+    excluirId: user.sub,
+    tipo: 'recusado',
+    mensagem: `Sua escala de delivery (${formatarDataBr(semanaInicio)}) foi recusada. Monte novamente e envie para aprovação.`,
+    idSemana: semana.id_semana,
+    idRegiao: null,
+    semanaInicio,
+  });
+
+  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
+}
+
 export async function copiarSemanaVisitas(user, { de, para }) {
   if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão');
 
@@ -927,6 +1085,21 @@ async function idsDestinatariosRegionalEscala(submetidoPor, idRegiao) {
      FROM frota_regiao_regionais rr
      WHERE rr.id_regiao = $1`,
     [idRegiao],
+  );
+  for (const r of rows) {
+    if (r.id_usuario) ids.add(Number(r.id_usuario));
+  }
+  return [...ids];
+}
+
+async function idsDestinatariosDelivery(submetidoPor) {
+  const ids = new Set();
+  if (submetidoPor) ids.add(Number(submetidoPor));
+  const { rows } = await pool.query(
+    `SELECT DISTINCT up.id_usuario
+     FROM usuario_permissoes up
+     JOIN usuarios u ON u.id_usuario = up.id_usuario AND u.ativo = TRUE
+     WHERE up.codigo = 'escalas.visitas.editar_delivery'`,
   );
   for (const r of rows) {
     if (r.id_usuario) ids.add(Number(r.id_usuario));
