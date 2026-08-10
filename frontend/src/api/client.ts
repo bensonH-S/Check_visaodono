@@ -790,6 +790,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  escalaVisitasNotificacoes: (naoLidas = false) =>
+    request<EscalaVisitasNotificacao[]>(
+      `/escalas/visitas/notificacoes${naoLidas ? '?nao_lidas=1' : ''}`,
+    ),
+  escalaVisitasNotificacoesLidas: (body?: { id_notificacao?: number | null }) =>
+    request<{ ok: boolean }>('/escalas/visitas/notificacoes/lidas', {
+      method: 'PATCH',
+      body: JSON.stringify(body || {}),
+    }),
 
   metasPeriodos: () => request<MetasPeriodoResumo[]>('/metas/periodos'),
   metasPeriodo: (id: number) => request<MetasPeriodoDetalhe>(`/metas/periodos/${id}`),
@@ -1970,6 +1979,20 @@ export interface EscalaVisitasLojaDestino {
 }
 
 export type EscalaVisitasRegiaoStatusCodigo = 'rascunho' | 'pendente_aprovacao' | 'aprovado';
+
+export type EscalaVisitasNotificacaoTipo = 'pendente_aprovacao' | 'aprovado' | 'recusado';
+
+export interface EscalaVisitasNotificacao {
+  id_notificacao: number;
+  tipo: EscalaVisitasNotificacaoTipo;
+  mensagem: string;
+  id_semana?: number | null;
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
+  semana_inicio?: string | null;
+  lida: boolean;
+  created_at: string;
+}
 
 export interface EscalaVisitasRegiaoStatus {
   id_regiao: number;

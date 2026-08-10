@@ -734,6 +734,18 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
     [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
   );
 
+  const nomeRegiao = await nomeRegiaoPorId(idRegiao);
+  const nomeAutor = (await nomeUsuarioPorId(user.sub)) || 'Regional';
+  await notificarEscalaUsuarios({
+    idsUsuario: await idsDiretoresEscala(),
+    excluirId: user.sub,
+    tipo: 'pendente_aprovacao',
+    mensagem: `${nomeAutor} enviou a escala de ${nomeRegiao} (${formatarDataBr(semanaInicio)}) para aprovação.`,
+    idSemana: semana.id_semana,
+    idRegiao,
+    semanaInicio,
+  });
+
   return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: idRegiao });
 }
 
@@ -749,6 +761,7 @@ export async function aprovarEscalaRegiao(user, { semana_inicio, id_regiao, come
     throw new Error('Só é possível aprovar escala pendente');
   }
 
+  const comentarioTxt = comentario != null ? String(comentario).trim() || null : null;
   await pool.query(
     `UPDATE escala_visitas_regiao_status
      SET status = $3,
@@ -756,14 +769,19 @@ export async function aprovarEscalaRegiao(user, { semana_inicio, id_regiao, come
          revisado_em = NOW(),
          comentario = $5
      WHERE id_semana = $1 AND id_regiao = $2`,
-    [
-      semana.id_semana,
-      idRegiao,
-      STATUS_APROVADO,
-      user.sub,
-      comentario != null ? String(comentario).trim() || null : null,
-    ],
+    [semana.id_semana, idRegiao, STATUS_APROVADO, user.sub, comentarioTxt],
   );
+
+  const nomeRegiao = await nomeRegiaoPorId(idRegiao);
+  await notificarEscalaUsuarios({
+    idsUsuario: await idsDestinatariosRegionalEscala(st.submetido_por, idRegiao),
+    excluirId: user.sub,
+    tipo: 'aprovado',
+    mensagem: `Sua escala de ${nomeRegiao} (${formatarDataBr(semanaInicio)}) foi aprovada.`,
+    idSemana: semana.id_semana,
+    idRegiao,
+    semanaInicio,
+  });
 
   return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
 }
@@ -780,6 +798,7 @@ export async function devolverEscalaRegiao(user, { semana_inicio, id_regiao, com
     throw new Error('Só é possível devolver escala pendente ou aprovada');
   }
 
+  const comentarioTxt = comentario != null ? String(comentario).trim() || null : null;
   await pool.query(
     `UPDATE escala_visitas_regiao_status
      SET status = $3,
@@ -787,14 +806,19 @@ export async function devolverEscalaRegiao(user, { semana_inicio, id_regiao, com
          revisado_em = NOW(),
          comentario = $5
      WHERE id_semana = $1 AND id_regiao = $2`,
-    [
-      semana.id_semana,
-      idRegiao,
-      STATUS_RASCUNHO,
-      user.sub,
-      comentario != null ? String(comentario).trim() || null : null,
-    ],
+    [semana.id_semana, idRegiao, STATUS_RASCUNHO, user.sub, comentarioTxt],
   );
+
+  const nomeRegiao = await nomeRegiaoPorId(idRegiao);
+  await notificarEscalaUsuarios({
+    idsUsuario: await idsDestinatariosRegionalEscala(st.submetido_por, idRegiao),
+    excluirId: user.sub,
+    tipo: 'recusado',
+    mensagem: `Sua escala de ${nomeRegiao} (${formatarDataBr(semanaInicio)}) foi recusada. Monte novamente e envie para aprovação.`,
+    idSemana: semana.id_semana,
+    idRegiao,
+    semanaInicio,
+  });
 
   return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
 }
@@ -840,4 +864,135 @@ export async function listarSemanasVisitas(user) {
      LIMIT 52`,
   );
   return rows;
+}
+
+async function nomeRegiaoPorId(idRegiao) {
+  const { rows } = await pool.query(
+    `SELECT nome FROM frota_regioes WHERE id_regiao = $1`,
+    [idRegiao],
+  );
+  return rows[0]?.nome || `Região #${idRegiao}`;
+}
+
+async function nomeUsuarioPorId(idUsuario) {
+  if (!idUsuario) return null;
+  const { rows } = await pool.query(
+    `SELECT nome FROM usuarios WHERE id_usuario = $1`,
+    [idUsuario],
+  );
+  return rows[0]?.nome || null;
+}
+
+async function idsDiretoresEscala() {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT up.id_usuario
+     FROM usuario_permissoes up
+     JOIN usuarios u ON u.id_usuario = up.id_usuario AND u.ativo = TRUE
+     WHERE up.codigo = 'escalas.visitas.gerenciar'`,
+  );
+  return rows.map((r) => Number(r.id_usuario));
+}
+
+async function idsDestinatariosRegionalEscala(submetidoPor, idRegiao) {
+  const ids = new Set();
+  if (submetidoPor) ids.add(Number(submetidoPor));
+  const { rows } = await pool.query(
+    `SELECT r.id_regional AS id_usuario
+     FROM frota_regioes r
+     WHERE r.id_regiao = $1 AND r.id_regional IS NOT NULL
+     UNION
+     SELECT rr.id_usuario
+     FROM frota_regiao_regionais rr
+     WHERE rr.id_regiao = $1`,
+    [idRegiao],
+  );
+  for (const r of rows) {
+    if (r.id_usuario) ids.add(Number(r.id_usuario));
+  }
+  return [...ids];
+}
+
+async function notificarEscalaUsuarios({
+  idsUsuario,
+  excluirId = null,
+  tipo,
+  mensagem,
+  idSemana,
+  idRegiao,
+  semanaInicio,
+}) {
+  const destinarios = [...new Set((idsUsuario || []).map(Number).filter(Boolean))].filter(
+    (id) => !excluirId || id !== Number(excluirId),
+  );
+  if (!destinarios.length) return;
+
+  for (const idUsuario of destinarios) {
+    try {
+      await pool.query(
+        `INSERT INTO escala_visitas_notificacoes
+           (id_usuario, tipo, mensagem, id_semana, id_regiao, semana_inicio)
+         VALUES ($1, $2, $3, $4, $5, $6::date)`,
+        [idUsuario, tipo, mensagem, idSemana, idRegiao, semanaInicio],
+      );
+    } catch (e) {
+      console.error('[escala] Falha ao gravar notificação:', e.message);
+    }
+  }
+
+  try {
+    const { enviarPushApp } = await import('./pushNotifications.js');
+    const title =
+      tipo === 'aprovado'
+        ? 'Escala aprovada'
+        : tipo === 'recusado'
+          ? 'Escala recusada'
+          : 'Escala para aprovar';
+    for (const idUsuario of destinarios) {
+      enviarPushApp(idUsuario, {
+        title,
+        body: mensagem,
+        url: '/escalas/visitas/mobile',
+      }).catch(() => {});
+    }
+  } catch {
+    /* push opcional */
+  }
+}
+
+export async function listarNotificacoesEscala(user, { apenas_nao_lidas = false } = {}) {
+  if (!podeVerEscalaVisitas(user)) throw new Error('Sem permissão');
+  const params = [user.sub];
+  let where = 'n.id_usuario = $1';
+  if (apenas_nao_lidas) where += ' AND n.lida = FALSE';
+  const { rows } = await pool.query(
+    `SELECT n.id_notificacao, n.tipo, n.mensagem, n.id_semana, n.id_regiao, n.semana_inicio,
+            n.lida, n.created_at, r.nome AS nome_regiao
+     FROM escala_visitas_notificacoes n
+     LEFT JOIN frota_regioes r ON r.id_regiao = n.id_regiao
+     WHERE ${where}
+     ORDER BY n.created_at DESC
+     LIMIT 40`,
+    params,
+  );
+  return rows;
+}
+
+export async function marcarNotificacoesEscalaLidas(user, { id_notificacao = null } = {}) {
+  if (!podeVerEscalaVisitas(user)) throw new Error('Sem permissão');
+  if (id_notificacao) {
+    await pool.query(
+      `UPDATE escala_visitas_notificacoes
+       SET lida = TRUE
+       WHERE id_usuario = $1 AND id_notificacao = $2`,
+      [user.sub, Number(id_notificacao)],
+    );
+  } else {
+    await pool.query(
+      `UPDATE escala_visitas_notificacoes
+       SET lida = TRUE
+       WHERE id_usuario = $1 AND lida = FALSE`,
+      [user.sub],
+    );
+  }
+  return { ok: true };
 }

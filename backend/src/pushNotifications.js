@@ -337,6 +337,61 @@ export async function enviarPushNotificacaoChamado(idUsuario, idChamado, tipo, m
   }
 }
 
+/** Push genérico (escala, etc.) — não passa pelos filtros de chamado. */
+export async function enviarPushApp(idUsuario, { title, body, url = '/' }) {
+  const uid = Number(idUsuario);
+  if (!Number.isFinite(uid)) return;
+  if (!pushAtivo) {
+    logger.warn('push', 'Envio app ignorado — VAPID inativo', { idUsuario: uid });
+    return;
+  }
+  await ensurePushSubscriptionsTable();
+  try {
+    const { rows: subs } = await pool.query(
+      `SELECT endpoint, p256dh, auth FROM push_subscriptions
+       WHERE id_usuario = $1
+       ORDER BY created_at DESC
+       LIMIT 3`,
+      [uid],
+    );
+    if (!subs.length) {
+      logger.warn('push', 'Usuário sem inscrição push (app)', { idUsuario: uid });
+      return;
+    }
+    const payload = JSON.stringify({
+      title: title || 'Vision Check',
+      body: body || '',
+      url: url || '/',
+      tipo: 'escala_visitas',
+    });
+    const webpush = await obterWebpush();
+    if (!webpush) return;
+    const invalidEndpoints = [];
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          payload,
+        );
+      } catch (e) {
+        if (e.statusCode === 404 || e.statusCode === 410) invalidEndpoints.push(sub.endpoint);
+        else logger.error('push', 'Falha push app', { idUsuario: uid, error: e.message });
+      }
+    }
+    if (invalidEndpoints.length) {
+      await pool.query(
+        `DELETE FROM push_subscriptions WHERE id_usuario = $1 AND endpoint = ANY($2::text[])`,
+        [uid, invalidEndpoints],
+      );
+    }
+  } catch (e) {
+    logger.error('push', 'Erro push app', { error: e.message, idUsuario: uid });
+  }
+}
+
 export async function contarPushUsuario(idUsuario) {
   await ensurePushSubscriptionsTable();
   const { rows } = await pool.query(

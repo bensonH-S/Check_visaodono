@@ -20,6 +20,7 @@ import {
   type EscalaVisitasDia,
   type EscalaVisitasGrade,
   type EscalaVisitasLinha,
+  type EscalaVisitasNotificacao,
   type EscalaVisitasRegiaoStatusCodigo,
 } from '../../api/client';
 import {
@@ -238,8 +239,13 @@ export default function EscalaVisitasMobileView() {
   const [pending, setPending] = useState<PendingMap>(new Map());
   const [filtroRegiaoAberto, setFiltroRegiaoAberto] = useState(false);
   const [editor, setEditor] = useState<{ id_loja: number; dia: number; ids: number[] } | null>(null);
+  const [notifs, setNotifs] = useState<EscalaVisitasNotificacao[]>([]);
 
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
+  const pendentesAprovacao = useMemo(
+    () => (grade?.status_por_regiao ?? []).filter((s) => s.status === 'pendente_aprovacao'),
+    [grade?.status_por_regiao],
+  );
   const modos = useMemo(() => {
     const base: Array<{ id: ModoVisualizacao; label: string }> = [
       { id: 'minhas', label: 'Minhas' },
@@ -272,9 +278,23 @@ export default function EscalaVisitasMobileView() {
     }
   }, [podeVer, semanaInicio, idRegiao, ehRegional]);
 
+  const carregarNotifs = useCallback(async () => {
+    if (!podeVer) return;
+    try {
+      const lista = await api.escalaVisitasNotificacoes(true);
+      setNotifs(lista);
+    } catch {
+      /* silencioso */
+    }
+  }, [podeVer]);
+
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    void carregarNotifs();
+  }, [carregarNotifs, grade?.id_semana, grade?.status_por_regiao]);
 
   useEffect(() => {
     const hoje = diaIndexNaSemana(semanaInicio);
@@ -398,10 +418,48 @@ export default function EscalaVisitasMobileView() {
       const data = await api.escalaVisitasSubmeter({ semana_inicio: semanaInicio, id_regiao: id });
       setGrade(data);
       showToast('Escala enviada para aprovação', 'success');
+      void carregarNotifs();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function aprovarRegiao(id: number) {
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
+      setGrade(data);
+      showToast('Escala aprovada', 'success');
+      void carregarNotifs();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function recusarRegiao(id: number) {
+    setSalvando(true);
+    try {
+      const data = await api.escalaVisitasDevolver({ semana_inicio: semanaInicio, id_regiao: id });
+      setGrade(data);
+      showToast('Escala recusada — regional pode montar de novo', 'success');
+      void carregarNotifs();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao recusar', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function dispensarNotifs() {
+    try {
+      await api.escalaVisitasNotificacoesLidas();
+      setNotifs([]);
+    } catch {
+      /* ignore */
     }
   }
 
@@ -524,11 +582,15 @@ export default function EscalaVisitasMobileView() {
           </div>
 
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            {ehRegional || podeEditarGrade
-              ? 'Toque nos dias para marcar suas visitas e envie para o diretor aprovar.'
-              : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
+            {ehDiretor
+              ? pendentesAprovacao.length
+                ? 'Há escalas aguardando sua aprovação.'
+                : 'Veja a escala consolidada e aprove as regiões pendentes.'
+              : ehRegional || podeEditarGrade
+                ? 'Toque nos dias para marcar suas visitas e envie para o diretor aprovar.'
+                : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
           </p>
-          {statusAtivo && (
+          {statusAtivo && !ehDiretor && (
             <p className={`ck-escala__status ck-escala__status--${statusAtivo}`}>
               Status: {STATUS_LABEL[statusAtivo] || statusAtivo}
             </p>
@@ -583,6 +645,65 @@ export default function EscalaVisitasMobileView() {
       </div>
 
       <div className="ck-visitas__sheet ck-escala__sheet--fill ck-visitas__anim ck-visitas__anim--4">
+          {notifs.length > 0 && (
+            <div className="ck-escala__alertas">
+              {notifs.slice(0, 3).map((n) => (
+                <div
+                  key={n.id_notificacao}
+                  className={`ck-escala__alerta ck-escala__alerta--${n.tipo}`}
+                >
+                  <strong>
+                    {n.tipo === 'aprovado'
+                      ? 'Aprovada'
+                      : n.tipo === 'recusado'
+                        ? 'Recusada'
+                        : 'Para aprovar'}
+                  </strong>
+                  <p>{n.mensagem}</p>
+                </div>
+              ))}
+              <button type="button" className="ck-escala__alerta-ok" onClick={() => void dispensarNotifs()}>
+                Ok, entendi
+              </button>
+            </div>
+          )}
+
+          {ehDiretor && !loading && pendentesAprovacao.length > 0 && (
+            <div className="ck-escala__aprovacoes">
+              <p className="ck-escala__section">Aguardando aprovação</p>
+              {pendentesAprovacao.map((st) => (
+                <div key={st.id_regiao} className="ck-escala__aprovacao-card">
+                  <div>
+                    <strong>{st.nome_regiao}</strong>
+                    <span>
+                      {st.nome_submetido_por
+                        ? `Enviada por ${primeiroNome(st.nome_submetido_por)}`
+                        : 'Pendente de aprovação'}
+                    </span>
+                  </div>
+                  <div className="ck-escala__aprovacao-acoes">
+                    <button
+                      type="button"
+                      className="ck-escala__btn-aprovar"
+                      disabled={salvando}
+                      onClick={() => void aprovarRegiao(st.id_regiao)}
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      type="button"
+                      className="ck-escala__btn-recusar"
+                      disabled={salvando}
+                      onClick={() => void recusarRegiao(st.id_regiao)}
+                    >
+                      Recusar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="ck-escala__filtro-row">
             <div className="ck-visitas__seg" role="tablist">
               {modos.map(({ id, label }) => (

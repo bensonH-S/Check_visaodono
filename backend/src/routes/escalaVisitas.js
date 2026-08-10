@@ -4,7 +4,9 @@ import {
   carregarGradeVisitas,
   copiarSemanaVisitas,
   devolverEscalaRegiao,
+  listarNotificacoesEscala,
   listarSemanasVisitas,
+  marcarNotificacoesEscalaLidas,
   podeVerEscalaVisitas,
   salvarGradeVisitas,
   segundaFeiraDaSemana,
@@ -165,6 +167,28 @@ router.get('/semanas', async (req, res, next) => {
   try {
     const semanas = await listarSemanasVisitas(req.user);
     res.json(semanas);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.get('/notificacoes', async (req, res, next) => {
+  try {
+    const lista = await listarNotificacoesEscala(req.user, {
+      apenas_nao_lidas: req.query.nao_lidas === '1' || req.query.nao_lidas === 'true',
+    });
+    res.json(lista);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.patch('/notificacoes/lidas', async (req, res, next) => {
+  try {
+    const out = await marcarNotificacoesEscalaLidas(req.user, {
+      id_notificacao: req.body?.id_notificacao ?? null,
+    });
+    res.json(out);
   } catch (e) {
     return erroHttp(e, res, next);
   }

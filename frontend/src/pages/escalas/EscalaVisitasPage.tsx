@@ -474,41 +474,72 @@ export default function EscalaVisitasPage() {
         </Box>
 
         {grade?.status_por_regiao && grade.status_por_regiao.length > 0 && (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1, alignItems: 'center' }}>
-            {grade.status_por_regiao.map((st) => (
-              <Box key={st.id_regiao} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Chip
-                  size="small"
-                  label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
-                  sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
-                />
-                {grade.pode_aprovar && st.status === 'pendente_aprovacao' && (
-                  <Button
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 1 }}>
+            {ehDiretor &&
+              grade.status_por_regiao.some((s) => s.status === 'pendente_aprovacao') && (
+                <Typography variant="caption" sx={{ fontWeight: 800, color: colors.orange, letterSpacing: 0.04 }}>
+                  Escalas aguardando aprovação
+                </Typography>
+              )}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
+              {grade.status_por_regiao.map((st) => (
+                <Box
+                  key={st.id_regiao}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: st.status === 'pendente_aprovacao' ? 0.75 : 0,
+                    py: st.status === 'pendente_aprovacao' ? 0.35 : 0,
+                    borderRadius: 1.5,
+                    bgcolor:
+                      st.status === 'pendente_aprovacao' ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
+                    border:
+                      st.status === 'pendente_aprovacao'
+                        ? '1px solid rgba(232, 82, 10, 0.28)'
+                        : '1px solid transparent',
+                  }}
+                >
+                  <Chip
                     size="small"
-                    variant="outlined"
-                    startIcon={<CheckIcon />}
-                    disabled={salvando}
-                    onClick={() => void aprovarRegiao(st.id_regiao)}
-                    sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
-                  >
-                    Aprovar
-                  </Button>
-                )}
-                {grade.pode_devolver &&
-                  (st.status === 'pendente_aprovacao' || st.status === 'aprovado') && (
+                    label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
+                    sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
+                  />
+                  {grade.pode_aprovar && st.status === 'pendente_aprovacao' && (
                     <Button
                       size="small"
-                      variant="text"
-                      startIcon={<UndoIcon />}
+                      variant="contained"
+                      startIcon={<CheckIcon />}
                       disabled={salvando}
-                      onClick={() => void devolverRegiao(st.id_regiao)}
-                      sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                      onClick={() => void aprovarRegiao(st.id_regiao)}
+                      sx={{
+                        textTransform: 'none',
+                        minWidth: 0,
+                        py: 0.2,
+                        bgcolor: '#15803D',
+                        '&:hover': { bgcolor: '#166534' },
+                      }}
                     >
-                      Devolver
+                      Aprovar
                     </Button>
                   )}
-              </Box>
-            ))}
+                  {grade.pode_devolver &&
+                    (st.status === 'pendente_aprovacao' || st.status === 'aprovado') && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="warning"
+                        startIcon={<UndoIcon />}
+                        disabled={salvando}
+                        onClick={() => void devolverRegiao(st.id_regiao)}
+                        sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                      >
+                        Recusar
+                      </Button>
+                    )}
+                </Box>
+              ))}
+            </Box>
           </Box>
         )}
 
