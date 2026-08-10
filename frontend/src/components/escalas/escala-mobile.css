@@ -8,6 +8,110 @@
   flex-shrink: 0;
 }
 
+/* Modo trabalho: header enxuto pra maximizar lista */
+.ck-escala--compact .ck-visitas__stage {
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  padding-bottom: 12px;
+}
+
+.ck-escala--compact .ck-visitas__glow,
+.ck-escala--compact .ck-visitas__mesh {
+  opacity: 0.35;
+}
+
+.ck-escala__compact-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ck-escala__compact-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #fff;
+}
+
+.ck-escala__compact-sub {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.25;
+}
+
+.ck-escala__week--compact {
+  margin-top: 8px !important;
+}
+
+.ck-escala--compact .ck-escala__week-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.ck-escala--compact .ck-escala__week-label {
+  font-size: 0.78rem;
+}
+
+.ck-escala--compact .ck-visitas__sheet {
+  margin-top: -10px;
+  padding-top: 12px;
+}
+
+.ck-escala--compact .ck-escala__dias {
+  gap: 6px;
+  padding-bottom: 8px;
+  margin-bottom: 0;
+}
+
+.ck-escala--compact .ck-escala__dia {
+  min-width: 52px;
+  padding: 7px 6px;
+  border-radius: 12px;
+}
+
+.ck-escala--compact .ck-escala__dia strong {
+  font-size: 0.72rem;
+}
+
+.ck-escala--compact .ck-escala__dia small {
+  font-size: 0.62rem;
+}
+
+.ck-escala--compact .ck-escala__dia-n {
+  margin-top: 4px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 0.6rem;
+}
+
+.ck-escala--compact .ck-escala__card {
+  margin-bottom: 6px;
+  border-radius: 10px;
+}
+
+.ck-escala--compact .ck-escala__card-body {
+  padding: 9px 11px;
+}
+
+.ck-escala--compact .ck-escala__card-title {
+  font-size: 0.84rem;
+}
+
+.ck-escala--compact .ck-escala__acoes {
+  padding: 8px 0 calc(8px + var(--app-tabbar-offset, 0px));
+}
+
+.ck-escala--compact .ck-escala__sheet-body {
+  padding-bottom: 8px;
+}
+
+.ck-escala--compact .ck-escala__sticky {
+  margin-bottom: 0;
+}
+
 .ck-escala__sheet--fill {
   flex: 1 1 auto;
   min-height: 0;

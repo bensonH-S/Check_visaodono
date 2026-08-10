@@ -595,87 +595,143 @@ export default function EscalaVisitasMobileView() {
     ? `${fmtDataCurta(grade.semana_inicio)} – ${fmtDataCurta(grade.semana_fim)}`
     : '…';
 
-  const temFiltroRegiao = grade != null && grade.regioes.length > 1;
+  const temFiltroRegiao = !ehDeliveryOnly && grade != null && grade.regioes.length > 1;
   const regiaoAtiva = grade?.regioes.find((r) => r.id_regiao === idRegiao);
+  const modoTrabalho =
+    ehDeliveryOnly || modo === 'montar' || (modo === 'delivery' && podeEditarDelivery);
 
   return (
-    <div className="ck-visitas ck-escala ck-escala--page">
+    <div
+      className={`ck-visitas ck-escala ck-escala--page${modoTrabalho ? ' ck-escala--compact' : ''}`}
+    >
       <div className="ck-visitas__stage">
         <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
         <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
         <div className="ck-visitas__mesh" aria-hidden />
 
         <div className="ck-visitas__stage-inner">
-          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div>
-              <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title ck-visitas__title--oneline">Escala visitas</h1>
-            </div>
-            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-          </div>
+          {modoTrabalho ? (
+            <>
+              <div className="ck-escala__compact-top">
+                <div>
+                  <h1 className="ck-escala__compact-title">
+                    {ehDeliveryOnly ? 'Escala delivery' : 'Montar escala'}
+                  </h1>
+                  <p className="ck-escala__compact-sub">
+                    {ehDeliveryOnly
+                      ? 'Toque nas lojas do dia e salve'
+                      : 'Toque nos dias e envie para aprovação'}
+                  </p>
+                </div>
+                <CkMarkLogoMenu size={44} className="ck-visitas__mark-icon" />
+              </div>
+              <div className="ck-escala__week ck-escala__week--compact">
+                <button
+                  type="button"
+                  className="ck-escala__week-btn"
+                  aria-label="Semana anterior"
+                  onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
+                >
+                  ‹
+                </button>
+                <span className="ck-escala__week-label">{labelSemanaCurta}</span>
+                {!semanaEhAtual ? (
+                  <button
+                    type="button"
+                    className="ck-escala__hoje"
+                    onClick={() => setSemanaInicio(segundaFeiraAtual())}
+                  >
+                    Hoje
+                  </button>
+                ) : (
+                  <span className="ck-escala__hoje-spacer" aria-hidden />
+                )}
+                <button
+                  type="button"
+                  className="ck-escala__week-btn"
+                  aria-label="Próxima semana"
+                  onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
+                >
+                  ›
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+                <div>
+                  <p className="ck-visitas__mark-text">Grupo Alvim</p>
+                  <h1 className="ck-visitas__title ck-visitas__title--oneline">Escala visitas</h1>
+                </div>
+                <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+              </div>
 
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            {ehDiretor
-              ? pendentesAprovacao.length
-                ? 'Há escalas aguardando sua aprovação.'
-                : 'Veja a escala consolidada e aprove as regiões pendentes.'
-              : ehDeliveryOnly
-                ? 'Marque as lojas de delivery por dia e salve.'
-              : ehRegional || podeEditarGrade
-                ? 'Toque nos dias para marcar suas visitas e envie para o diretor aprovar.'
-                : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
-          </p>
-          {statusAtivo && !ehDiretor && (
-            <p className={`ck-escala__status ck-escala__status--${statusAtivo}`}>
-              Status: {STATUS_LABEL[statusAtivo] || statusAtivo}
-            </p>
+              <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+                {ehDiretor
+                  ? pendentesAprovacao.length
+                    ? 'Há escalas aguardando sua aprovação.'
+                    : 'Veja a escala consolidada e aprove as regiões pendentes.'
+                  : ehRegional || podeEditarGrade
+                    ? 'Toque nos dias para marcar suas visitas e envie para o diretor aprovar.'
+                    : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
+              </p>
+              {statusAtivo && !ehDiretor && (
+                <p className={`ck-escala__status ck-escala__status--${statusAtivo}`}>
+                  Status: {STATUS_LABEL[statusAtivo] || statusAtivo}
+                </p>
+              )}
+
+              <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+                <div className="ck-visitas__metric ck-visitas__metric--accent">
+                  <strong>{loading ? '—' : visitasHojeMinhas}</strong>
+                  <span>suas hoje</span>
+                </div>
+                <div className="ck-visitas__metric">
+                  <strong>{loading ? '—' : totalVisitas}</strong>
+                  <span>na semana</span>
+                </div>
+                <div className="ck-visitas__metric">
+                  <strong>
+                    {loading
+                      ? '—'
+                      : grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0}
+                  </strong>
+                  <span>lojas</span>
+                </div>
+              </div>
+
+              <div className="ck-escala__week ck-visitas__anim ck-visitas__anim--3">
+                <button
+                  type="button"
+                  className="ck-escala__week-btn"
+                  aria-label="Semana anterior"
+                  onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
+                >
+                  ‹
+                </button>
+                <span className="ck-escala__week-label">{labelSemanaCurta}</span>
+                {!semanaEhAtual ? (
+                  <button
+                    type="button"
+                    className="ck-escala__hoje"
+                    onClick={() => setSemanaInicio(segundaFeiraAtual())}
+                  >
+                    Hoje
+                  </button>
+                ) : (
+                  <span className="ck-escala__hoje-spacer" aria-hidden />
+                )}
+                <button
+                  type="button"
+                  className="ck-escala__week-btn"
+                  aria-label="Próxima semana"
+                  onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
+                >
+                  ›
+                </button>
+              </div>
+            </>
           )}
-
-          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-            <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong>{loading ? '—' : visitasHojeMinhas}</strong>
-              <span>suas hoje</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{loading ? '—' : totalVisitas}</strong>
-              <span>na semana</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{loading ? '—' : grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0}</strong>
-              <span>lojas</span>
-            </div>
-          </div>
-
-          <div className="ck-escala__week ck-visitas__anim ck-visitas__anim--3">
-            <button
-              type="button"
-              className="ck-escala__week-btn"
-              aria-label="Semana anterior"
-              onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
-            >
-              ‹
-            </button>
-            <span className="ck-escala__week-label">{labelSemanaCurta}</span>
-            {!semanaEhAtual ? (
-              <button
-                type="button"
-                className="ck-escala__hoje"
-                onClick={() => setSemanaInicio(segundaFeiraAtual())}
-              >
-                Hoje
-              </button>
-            ) : (
-              <span className="ck-escala__hoje-spacer" aria-hidden />
-            )}
-            <button
-              type="button"
-              className="ck-escala__week-btn"
-              aria-label="Próxima semana"
-              onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
-            >
-              ›
-            </button>
-          </div>
         </div>
       </div>
 
@@ -768,7 +824,7 @@ export default function EscalaVisitasMobileView() {
             </div>
           )}
 
-          {!ehDiretor && statusAtivo && (
+          {!ehDiretor && !ehDeliveryOnly && statusAtivo && (
             <div className="ck-escala__aprovacoes">
               <div className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${statusAtivo}`}>
                 <div className="ck-escala__aprovacao-info">
@@ -799,6 +855,7 @@ export default function EscalaVisitasMobileView() {
             </div>
           )}
 
+          {!(ehDeliveryOnly && modos.length === 1) && (
           <div className="ck-escala__filtro-row">
             <div className="ck-visitas__seg" role="tablist">
               {modos.map(({ id, label }) => (
@@ -825,9 +882,12 @@ export default function EscalaVisitasMobileView() {
               </button>
             )}
           </div>
+          )}
 
           <div className="ck-escala__sticky">
-            {regiaoAtiva && <p className="ck-escala__regiao">Exibindo: {regiaoAtiva.nome}</p>}
+            {regiaoAtiva && !ehDeliveryOnly && (
+              <p className="ck-escala__regiao">Exibindo: {regiaoAtiva.nome}</p>
+            )}
             {modo === 'delivery' && !loading && (
               <div className="ck-escala__dias">
                 {deliveryPorDia.map((d) => {
