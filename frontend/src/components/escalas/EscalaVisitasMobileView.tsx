@@ -313,14 +313,32 @@ export default function EscalaVisitasMobileView() {
     return idsRegionaisDoDia(original);
   }
 
-  function abrirEditor(idLoja: number, dia: number) {
+  function marcarCelula(idLoja: number, dia: number) {
     if (!podeEditarGrade) return;
     const linha = grade?.linhas.find((l) => l.id_loja === idLoja);
     if (!linha || linha.tipo === 'delivery') return;
+    const atual = valorCelulaRegional(idLoja, dia, linha.dias[dia]);
+
+    // Regional monta a própria escala: toque marca/desmarca ele mesmo.
+    // Lista de usuários fica para quando montar escala dos técnicos.
+    if (ehRegional && idEu) {
+      const jaMarcado = atual.includes(idEu);
+      setPending((prev) => {
+        const next = new Map(prev);
+        next.set(chaveCelula(idLoja, dia), {
+          id_loja: idLoja,
+          dia,
+          id_regionais: jaMarcado ? [] : [idEu],
+        });
+        return next;
+      });
+      return;
+    }
+
     setEditor({
       id_loja: idLoja,
       dia,
-      ids: [...valorCelulaRegional(idLoja, dia, linha.dias[dia])],
+      ids: [...atual],
     });
   }
 
@@ -507,7 +525,7 @@ export default function EscalaVisitasMobileView() {
 
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
             {ehRegional || podeEditarGrade
-              ? 'Monte a escala da sua região e envie para o diretor aprovar.'
+              ? 'Toque nos dias para marcar suas visitas e envie para o diretor aprovar.'
               : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
           </p>
           {statusAtivo && (
@@ -668,7 +686,7 @@ export default function EscalaVisitasMobileView() {
                     mapNome={mapNomeRegional}
                     mapCor={mapCorRegional}
                     idsPorDia={linha.dias.map((d) => valorCelulaRegional(linha.id_loja, d.dia, d))}
-                    onCelula={abrirEditor}
+                    onCelula={marcarCelula}
                   />
                 ))
             )

@@ -36,7 +36,7 @@ import {
   type EscalaVisitasLinha,
   type EscalaVisitasRegiaoStatusCodigo,
 } from '../../api/client';
-import { podeEditarEscalaRegiao, podeGerenciarEscalaVisitas } from '../../lib/auth';
+import { getUsuario, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
@@ -98,6 +98,8 @@ function chaveCelula(idLoja: number, dia: number) {
 }
 
 export default function EscalaVisitasPage() {
+  const user = getUsuario();
+  const idEu = user?.id_usuario;
   const ehDiretor = podeGerenciarEscalaVisitas();
   const ehRegional = !ehDiretor && podeEditarEscalaRegiao();
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
@@ -166,6 +168,12 @@ export default function EscalaVisitasPage() {
       next.set(chaveCelula(idLoja, dia), { id_loja: idLoja, dia, id_regionais: idRegionais });
       return next;
     });
+  }
+
+  function toggleCelulaRegionalEu(idLoja: number, dia: number, idsAtuais: number[]) {
+    if (!idEu) return;
+    const jaMarcado = idsAtuais.includes(idEu);
+    alterarCelulaRegional(idLoja, dia, jaMarcado ? [] : [idEu]);
   }
 
   function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {
@@ -718,7 +726,34 @@ export default function EscalaVisitasPage() {
                       const cor = idsReg.length === 1 ? mapCorRegional.get(idsReg[0]) || '#64748B' : undefined;
                       return (
                         <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
-                          {podeEditarGrade ? (
+                          {podeEditarGrade && ehRegional ? (
+                            <Button
+                              size="small"
+                              onClick={() => toggleCelulaRegionalEu(linha.id_loja, d.dia, idsReg)}
+                              sx={{
+                                ...SELECT_CELULA_SX,
+                                minHeight: 36,
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                color: colors.textPrimary,
+                                border: idsReg.length
+                                  ? `1px solid ${cor ?? colors.navy}`
+                                  : '1px dashed #e5e7eb',
+                                bgcolor: cor
+                                  ? `${cor}33`
+                                  : idsReg.length
+                                    ? `${COR_ESCALA_MULTI}33`
+                                    : 'transparent',
+                              }}
+                            >
+                              {idsReg.length
+                                ? idsReg
+                                    .map((id) => primeiroNome(mapNomeRegional.get(id) ?? ''))
+                                    .filter(Boolean)
+                                    .join(', ') || 'Eu'
+                                : '+'}
+                            </Button>
+                          ) : podeEditarGrade ? (
                             <Select
                               multiple
                               size="small"
