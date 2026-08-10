@@ -668,39 +668,99 @@ export default function EscalaVisitasMobileView() {
             </div>
           )}
 
-          {ehDiretor && !loading && pendentesAprovacao.length > 0 && (
+          {ehDiretor && !loading && (grade?.status_por_regiao?.length ?? 0) > 0 && (
             <div className="ck-escala__aprovacoes">
-              <p className="ck-escala__section">Aguardando aprovação</p>
-              {pendentesAprovacao.map((st) => (
-                <div key={st.id_regiao} className="ck-escala__aprovacao-card">
-                  <div>
-                    <strong>{st.nome_regiao}</strong>
-                    <span>
-                      {st.nome_submetido_por
-                        ? `Enviada por ${primeiroNome(st.nome_submetido_por)}`
-                        : 'Pendente de aprovação'}
-                    </span>
-                  </div>
-                  <div className="ck-escala__aprovacao-acoes">
+              <p className="ck-escala__section">Status por região</p>
+              {(grade?.status_por_regiao ?? []).map((st) => {
+                const montadaPor = st.nome_submetido_por
+                  ? primeiroNome(st.nome_submetido_por)
+                  : null;
+                const revisadaPor = st.nome_revisado_por
+                  ? primeiroNome(st.nome_revisado_por)
+                  : null;
+                const pendente = st.status === 'pendente_aprovacao';
+                return (
+                  <div
+                    key={st.id_regiao}
+                    className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${st.status}`}
+                  >
                     <button
                       type="button"
-                      className="ck-escala__btn-aprovar"
-                      disabled={salvando}
-                      onClick={() => void aprovarRegiao(st.id_regiao)}
+                      className="ck-escala__aprovacao-info"
+                      onClick={() => {
+                        setIdRegiao(st.id_regiao);
+                        setModo('lojas');
+                      }}
                     >
-                      Aprovar
+                      <strong>
+                        {st.nome_regiao}
+                        <em>{STATUS_LABEL[st.status] || st.status}</em>
+                      </strong>
+                      <span>
+                        {montadaPor
+                          ? `Montada por ${montadaPor}${
+                              st.status === 'aprovado' && revisadaPor
+                                ? ` · Aprovada por ${revisadaPor}`
+                                : ''
+                            }`
+                          : 'Ainda não enviada'}
+                      </span>
+                      <span className="ck-escala__aprovacao-ver">Toque para ver a escala →</span>
                     </button>
-                    <button
-                      type="button"
-                      className="ck-escala__btn-recusar"
-                      disabled={salvando}
-                      onClick={() => void recusarRegiao(st.id_regiao)}
-                    >
-                      Recusar
-                    </button>
+                    {pendente && (
+                      <div className="ck-escala__aprovacao-acoes">
+                        <button
+                          type="button"
+                          className="ck-escala__btn-aprovar"
+                          disabled={salvando}
+                          onClick={() => void aprovarRegiao(st.id_regiao)}
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          type="button"
+                          className="ck-escala__btn-recusar"
+                          disabled={salvando}
+                          onClick={() => void recusarRegiao(st.id_regiao)}
+                        >
+                          Recusar
+                        </button>
+                      </div>
+                    )}
                   </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!ehDiretor && statusAtivo && (
+            <div className="ck-escala__aprovacoes">
+              <div className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${statusAtivo}`}>
+                <div className="ck-escala__aprovacao-info">
+                  <strong>
+                    {regiaoAtiva?.nome || 'Sua região'}
+                    <em>{STATUS_LABEL[statusAtivo] || statusAtivo}</em>
+                  </strong>
+                  <span>
+                    {(() => {
+                      const st =
+                        idRegiao !== ''
+                          ? grade?.status_por_regiao?.find((s) => s.id_regiao === idRegiao)
+                          : grade?.status_por_regiao?.[0];
+                      if (st?.nome_submetido_por) {
+                        return `Montada por ${primeiroNome(st.nome_submetido_por)}${
+                          statusAtivo === 'aprovado' && st.nome_revisado_por
+                            ? ` · Aprovada por ${primeiroNome(st.nome_revisado_por)}`
+                            : ''
+                        }`;
+                      }
+                      return statusAtivo === 'rascunho'
+                        ? 'Monte e envie para o diretor aprovar'
+                        : '—';
+                    })()}
+                  </span>
                 </div>
-              ))}
+              </div>
             </div>
           )}
 

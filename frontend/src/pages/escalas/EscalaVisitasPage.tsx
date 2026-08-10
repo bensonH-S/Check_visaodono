@@ -481,64 +481,92 @@ export default function EscalaVisitasPage() {
                   Escalas aguardando aprovação
                 </Typography>
               )}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
-              {grade.status_por_regiao.map((st) => (
-                <Box
-                  key={st.id_regiao}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    px: st.status === 'pendente_aprovacao' ? 0.75 : 0,
-                    py: st.status === 'pendente_aprovacao' ? 0.35 : 0,
-                    borderRadius: 1.5,
-                    bgcolor:
-                      st.status === 'pendente_aprovacao' ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
-                    border:
-                      st.status === 'pendente_aprovacao'
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'stretch' }}>
+              {grade.status_por_regiao.map((st) => {
+                const pendente = st.status === 'pendente_aprovacao';
+                const montadaPor = st.nome_submetido_por
+                  ? primeiroNome(st.nome_submetido_por)
+                  : null;
+                const revisadaPor = st.nome_revisado_por
+                  ? primeiroNome(st.nome_revisado_por)
+                  : null;
+                return (
+                  <Box
+                    key={st.id_regiao}
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 0.35,
+                      px: 1,
+                      py: 0.65,
+                      minWidth: 160,
+                      borderRadius: 1.5,
+                      bgcolor: pendente
+                        ? 'rgba(232, 82, 10, 0.08)'
+                        : st.status === 'aprovado'
+                          ? 'rgba(22, 163, 74, 0.08)'
+                          : colors.canvasAlt,
+                      border: pendente
                         ? '1px solid rgba(232, 82, 10, 0.28)'
-                        : '1px solid transparent',
-                  }}
-                >
-                  <Chip
-                    size="small"
-                    label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
-                    sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
-                  />
-                  {grade.pode_aprovar && st.status === 'pendente_aprovacao' && (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      startIcon={<CheckIcon />}
-                      disabled={salvando}
-                      onClick={() => void aprovarRegiao(st.id_regiao)}
-                      sx={{
-                        textTransform: 'none',
-                        minWidth: 0,
-                        py: 0.2,
-                        bgcolor: '#15803D',
-                        '&:hover': { bgcolor: '#166534' },
-                      }}
-                    >
-                      Aprovar
-                    </Button>
-                  )}
-                  {grade.pode_devolver &&
-                    (st.status === 'pendente_aprovacao' || st.status === 'aprovado') && (
-                      <Button
+                        : st.status === 'aprovado'
+                          ? '1px solid rgba(22, 163, 74, 0.28)'
+                          : `1px solid ${colors.border}`,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      <Chip
                         size="small"
-                        variant="outlined"
-                        color="warning"
-                        startIcon={<UndoIcon />}
-                        disabled={salvando}
-                        onClick={() => void devolverRegiao(st.id_regiao)}
-                        sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
-                      >
-                        Recusar
-                      </Button>
-                    )}
-                </Box>
-              ))}
+                        clickable
+                        onClick={() => setIdRegiao(st.id_regiao)}
+                        label={`${st.nome_regiao}: ${STATUS_LABEL[st.status] || st.status}`}
+                        sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
+                        title="Clique para ver só esta região"
+                      />
+                      {grade.pode_aprovar && pendente && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<CheckIcon />}
+                          disabled={salvando}
+                          onClick={() => void aprovarRegiao(st.id_regiao)}
+                          sx={{
+                            textTransform: 'none',
+                            minWidth: 0,
+                            py: 0.2,
+                            bgcolor: '#15803D',
+                            '&:hover': { bgcolor: '#166534' },
+                          }}
+                        >
+                          Aprovar
+                        </Button>
+                      )}
+                      {grade.pode_devolver &&
+                        (pendente || st.status === 'aprovado') && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            startIcon={<UndoIcon />}
+                            disabled={salvando}
+                            onClick={() => void devolverRegiao(st.id_regiao)}
+                            sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                          >
+                            Recusar
+                          </Button>
+                        )}
+                    </Box>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
+                      {montadaPor
+                        ? `Montada por ${montadaPor}${
+                            st.status === 'aprovado' && revisadaPor ? ` · Aprovada por ${revisadaPor}` : ''
+                          }${pendente ? ' · aguardando aprovação' : ''}`
+                        : st.status === 'rascunho'
+                          ? 'Ainda não enviada'
+                          : '—'}
+                    </Typography>
+                  </Box>
+                );
+              })}
             </Box>
           </Box>
         )}
