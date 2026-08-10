@@ -331,6 +331,21 @@ async function idsRegioesVisiveis(user) {
   return regioes.map((r) => r.id_regiao);
 }
 
+async function idsUsuariosDeliveryOnly() {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT pd.id_usuario
+     FROM usuario_permissoes pd
+     JOIN usuarios u ON u.id_usuario = pd.id_usuario AND u.ativo = TRUE
+     WHERE pd.codigo = 'escalas.visitas.editar_delivery'
+       AND NOT EXISTS (
+         SELECT 1 FROM usuario_permissoes pr
+         WHERE pr.id_usuario = pd.id_usuario
+           AND pr.codigo IN ('escalas.visitas.editar_regiao', 'escalas.visitas.gerenciar')
+       )`,
+  );
+  return new Set(rows.map((r) => Number(r.id_usuario)));
+}
+
 export async function listarRegionaisEscala() {
   const [queryRegionais, membrosMap] = await Promise.all([
     pool.query(`
@@ -345,6 +360,18 @@ export async function listarRegionaisEscala() {
           OR COALESCE(u.cargo_aprovacao, u.perfil::text) = 'diretor'
           OR u.id_usuario IN (
             SELECT DISTINCT c.id_regional FROM escala_visitas_celula c WHERE c.id_regional IS NOT NULL
+          )
+        )
+        -- Delivery-only não entra na paleta de visitas (só na aba Delivery).
+        AND NOT (
+          EXISTS (
+            SELECT 1 FROM usuario_permissoes pd
+            WHERE pd.id_usuario = u.id_usuario AND pd.codigo = 'escalas.visitas.editar_delivery'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM usuario_permissoes pr
+            WHERE pr.id_usuario = u.id_usuario
+              AND pr.codigo IN ('escalas.visitas.editar_regiao', 'escalas.visitas.gerenciar')
           )
         )
     `),
@@ -496,6 +523,18 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
   const idsConsulta = lojaDelivery ? [...idsLojas, lojaDelivery.id_loja] : idsLojas;
   let celulas = [];
   if (idsConsulta.length) {
+    // Remove atribuições indevidas de usuários só-delivery na grade de visitas.
+    const idsDeliveryOnly = [...(await idsUsuariosDeliveryOnly())];
+    if (idsDeliveryOnly.length) {
+      await pool.query(
+        `DELETE FROM escala_visitas_celula
+         WHERE id_semana = $1
+           AND id_regional = ANY($2::int[])
+           AND id_loja_destino IS NULL`,
+        [semana.id_semana, idsDeliveryOnly],
+      );
+    }
+
     const { rows } = await pool.query(
       `SELECT c.id_celula, c.id_loja, c.dia, c.id_regional, c.id_loja_destino, c.observacao,
               u.nome AS nome_regional,
@@ -730,13 +769,17 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const idsDeliveryOnly = await idsUsuariosDeliveryOnly();
     for (const item of lista) {
       const idLoja = Number(item.id_loja);
       const dia = Number(item.dia);
       if (!idLoja || dia < 0 || dia > 6) continue;
 
       const ehDelivery = lojaDelivery && idLoja === lojaDelivery.id_loja;
-      const idsRegional = ehDelivery ? [] : regionaisParaSalvar(item);
+      let idsRegional = ehDelivery ? [] : regionaisParaSalvar(item);
+      if (!ehDelivery && idsDeliveryOnly.size) {
+        idsRegional = idsRegional.filter((id) => !idsDeliveryOnly.has(id));
+      }
       const idsLojaDestino = ehDelivery ? lojasDestinoParaSalvar(item) : [];
       const obs = item.observacao != null ? String(item.observacao).trim() || null : null;
 
