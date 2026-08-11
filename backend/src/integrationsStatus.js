@@ -247,9 +247,9 @@ async function statusBkOffice() {
         : `Servidor ativo — a cada ${seg}s (loja ${sch.id_loja} Terraço)`;
       detail = proxyOk ? `${base} · proxy OK` : `${base} · SEM proxy (risco 403 Akamai)`;
     } else if (st.server_sync) {
-      detail = 'Servidor liberado — defina BKOFFICE_SYNC_CRON_MS>=60000';
+      detail = 'Servidor liberado — defina BKOFFICE_SYNC_CRON_MS>=60000 (+ proxy BR se fora do Brasil)';
     } else {
-      detail = 'PC gerência / servidor desligado (BKOFFICE_SERVER_SYNC=0)';
+      detail = 'PC gerência — sync no Windows BR (BKOFFICE_SERVER_SYNC=0 no VPS)';
     }
     return {
       id: 'bkoffice',

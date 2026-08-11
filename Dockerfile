@@ -26,13 +26,16 @@ WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV BKOFFICE_USE_CHROME=0
 ENV BKOFFICE_HEADLESS=1
-ENV BKOFFICE_SERVER_SYNC=1
-# 15 min — cada sync abre browser; 60s só gera fila/403
-ENV BKOFFICE_SYNC_CRON_MS=900000
+# Sync no VPS desligado por padrão (Akamai 403 fora do BR).
+# Vendas entram pelo kit do PC gerência (Brasil).
+ENV BKOFFICE_SERVER_SYNC=0
+ENV BKOFFICE_SYNC_CRON_MS=0
 ENV BKOFFICE_SYNC_ID_LOJA=21
 ENV ESUPRI_USE_CHROME=0
-# Obrigatório se o IP do host for datacenter/fora do BR:
-# ENV BKOFFICE_PROXY=http://user:pass@proxy-br:port
+# Se um dia tiver proxy BR no VPS:
+# ENV BKOFFICE_SERVER_SYNC=1
+# ENV BKOFFICE_SYNC_CRON_MS=900000
+# ENV BKOFFICE_PROXY=http://user:pass@host:port
 
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/

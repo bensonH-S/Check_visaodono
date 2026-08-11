@@ -151,7 +151,9 @@ $configLines = @(
   'BKOFFICE_HEADLESS=1'
   'BKOFFICE_TIMEOUT_MS=120000'
   'BKOFFICE_SYNC_ID_LOJA=21'
-  'SYNC_INTERVAL_MS=60000'
+  'BKOFFICE_SERVER_SYNC=0'
+  'BKOFFICE_SYNC_CRON_MS=0'
+  'SYNC_INTERVAL_MS=900000'
 )
 $configPath = Join-Path $OutDir 'config.env'
 [System.IO.File]::WriteAllLines($configPath, $configLines)

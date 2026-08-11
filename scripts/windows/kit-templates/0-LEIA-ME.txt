@@ -1,33 +1,37 @@
 ========================================
-  MERIDIAN BK OFFICE — KIT PORTATIL
+  MERIDIAN BK OFFICE — KIT PC GERÊNCIA
 ========================================
 
-1) Copie ESTA PASTA inteira para o PC da gerencia
-   (pendrive / rede / OneDrive)
+O QUE FAZ
+  - Abre o BK Office no Chrome deste PC (IP Brasil)
+  - Baixa relatório "Restaurante e Produto Venda"
+    (cada produto vendido + quantidade + VALOR BRUTO)
+  - Grava no banco Meridian (produção)
+  - Boot: preenche do dia 01 do mês até hoje
+  - Depois: atualiza só o dia de hoje (a cada 15 min)
 
-2) No PC da gerencia:
-   Botao DIREITO em INSTALAR.bat
-   -> Executar como administrador
+INSTALAR
+  1) Copie ESTA PASTA inteira para o PC da gerência
+  2) Botão DIREITO em INSTALAR.bat → Executar como administrador
+  3) Pronto (24h, inicia após reiniciar, sem janela)
 
-3) Pronto.
-   - Roda 24h
-   - Inicia sozinho apos reiniciar
-   - SEM janela de CMD
-   - Chrome/Chromium oculto
+TESTAR ANTES
+  TESTAR-UMA-VEZ.bat  → deve mostrar sync OK / chrome: true
 
-LOGS (sempre grava, nao so em erro):
+LOGS
   Logs\bkoffice-python-service.log
-  Logs\service.out.log / service.err.log
   C:\ProgramData\MeridianBkOffice\Logs\bkoffice-python-service.log
 
-Se nao aparecer nada:
-  1) Rode VERIFICAR.bat
-  2) Ou TESTAR-UMA-VEZ.bat (abre janela e mostra o erro)
-  3) Reinstale com INSTALAR.bat (como admin)
+CONFIG (config.env)
+  BKOFFICE_SYNC_ID_LOJA=21          ← Terraço
+  SYNC_INTERVAL_MS=900000           ← 15 min
+  BKOFFICE_USE_CHROME=1
+  DB_*                              ← banco Meridian prod
 
-Credenciais: config.env (ja veio preenchido)
+No SERVIDOR Meridian (VPS): deixe
+  BKOFFICE_SERVER_SYNC=0
+(para NÃO tentar sync de lá e tomar 403)
 
 Desinstalar: DESINSTALAR.bat (como admin)
 
-NAO precisa instalar Python nem Node no PC —
-   ja vem em runtime\
+NAO precisa instalar Python/Node — já vem em runtime\

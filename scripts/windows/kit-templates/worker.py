@@ -1,4 +1,12 @@
-"""Worker BK Office — kit portatil (PC gerencia). Log sempre (inicio + cada ciclo)."""
+"""Worker BK Office — kit portatil (PC gerencia).
+
+Puxa relatório "Restaurante e Produto Venda" (itens + valor).
+Valor preferido: venda BRUTA. Grava no PostgreSQL Meridian (prod).
+
+Estratégia:
+  - Boot / troca de mês: backfill dia a dia (01 → hoje)
+  - Depois: só o dia de hoje (rápido)
+"""
 from __future__ import annotations
 
 import os
@@ -15,7 +23,6 @@ APP = ROOT / "app"
 CONFIG = ROOT / "config.env"
 SYNC_SCRIPT = APP / "backend" / "scripts" / "sync-bkoffice-vendas.mjs"
 
-# Logs em 2 lugares: pasta do kit + ProgramData (LocalSystem sempre consegue escrever)
 LOG_DIRS = [
     ROOT / "Logs",
     Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "MeridianBkOffice" / "Logs",
@@ -43,7 +50,6 @@ def log(msg: str) -> None:
         pass
 
 
-# Heartbeat imediato (antes de qualquer import pesado / env)
 log(f"boot pid={os.getpid()} root={ROOT} py={sys.executable}")
 
 
@@ -69,9 +75,10 @@ def merge_env() -> dict[str, str]:
     env["DB_NAME_PROD"] = db
     env.setdefault("BKOFFICE_USE_CHROME", "1")
     env.setdefault("BKOFFICE_HEADLESS", "1")
+    # Scheduler do app Node fica off — este worker é quem agenda
     env["BKOFFICE_SYNC_CRON_MS"] = "0"
+    env["BKOFFICE_SERVER_SYNC"] = "0"
     env["NODE_ENV"] = "production"
-    # No Windows do kit: Chrome real (Akamai bloqueia Chromium Playwright)
     if os.name == "nt":
         env["BKOFFICE_USE_CHROME"] = env.get("BKOFFICE_USE_CHROME") or "1"
     node_dir = str(ROOT / "runtime" / "node")
@@ -92,17 +99,23 @@ def hoje_br() -> str:
     return datetime.now(timezone(timedelta(hours=-3))).strftime("%Y-%m-%d")
 
 
-def run_sync(env: dict[str, str], id_loja: int) -> int:
+def add_days(iso: str, delta: int) -> str:
+    y, m, d = map(int, iso.split("-"))
+    dt = datetime(y, m, d, tzinfo=timezone.utc) + timedelta(days=delta)
+    return dt.strftime("%Y-%m-%d")
+
+
+def data_inicio(env: dict[str, str]) -> str:
+    fixo = (env.get("BKOFFICE_SYNC_DATA_INICIO") or "").strip()[:10]
+    if len(fixo) == 10 and fixo[4] == "-" and fixo[7] == "-":
+        return fixo
+    return hoje_br()[:8] + "01"
+
+
+def sync_periodo(env: dict[str, str], id_loja: int, ini: str, fim: str) -> int:
     node = find_node()
     if not SYNC_SCRIPT.is_file():
         raise FileNotFoundError(f"Script ausente: {SYNC_SCRIPT}")
-    # Prefer env do config carregado (merge_env), não só os.environ
-    fixo = (env.get("BKOFFICE_SYNC_DATA_INICIO") or "").strip()[:10]
-    if len(fixo) == 10 and fixo[4] == "-" and fixo[7] == "-":
-        ini = fixo
-    else:
-        ini = hoje_br()[:8] + "01"
-    fim = hoje_br()
     cmd = [
         node,
         str(SYNC_SCRIPT),
@@ -111,7 +124,7 @@ def run_sync(env: dict[str, str], id_loja: int) -> int:
         f"--inicio={ini}",
         f"--fim={fim}",
     ]
-    log(f"sync start loja={id_loja} periodo={ini}→{fim} node={node}")
+    log(f"sync start loja={id_loja} periodo={ini}→{fim}")
     t0 = time.time()
     proc = subprocess.run(
         cmd,
@@ -126,34 +139,62 @@ def run_sync(env: dict[str, str], id_loja: int) -> int:
     elapsed = int(time.time() - t0)
     for stream, label in ((proc.stdout, "out"), (proc.stderr, "err")):
         if stream:
-            for ln in stream.strip().splitlines()[-60:]:
+            for ln in stream.strip().splitlines()[-40:]:
                 log(f"{label} {ln}")
     if proc.returncode == 0:
-        log(f"sync OK em {elapsed}s")
+        log(f"sync OK em {elapsed}s ({ini}→{fim})")
     else:
-        log(f"sync FALHOU exit={proc.returncode} em {elapsed}s")
+        log(f"sync FALHOU exit={proc.returncode} em {elapsed}s ({ini}→{fim})")
     return proc.returncode
+
+
+def backfill_mes(env: dict[str, str], id_loja: int) -> bool:
+    """Dia a dia do dia 01 (ou DATA_INICIO) até hoje. Retorna True se todos OK."""
+    ini = data_inicio(env)
+    fim = hoje_br()
+    log(f"backfill {ini} → {fim}")
+    ok_all = True
+    d = ini
+    while d <= fim:
+        rc = sync_periodo(env, id_loja, d, d)
+        if rc != 0:
+            ok_all = False
+            # Continua os outros dias
+        d = add_days(d, 1)
+    return ok_all
 
 
 def main() -> int:
     log(f"config existe={CONFIG.is_file()} app={APP.is_dir()} sync={SYNC_SCRIPT.is_file()}")
     env = merge_env()
     id_loja = int(env.get("BKOFFICE_SYNC_ID_LOJA") or "21")
-    interval = max(60, int(env.get("SYNC_INTERVAL_MS") or "60000") // 1000)
+    # Padrão 15 min — full mês a cada 60s trava o PC
+    interval = max(60, int(env.get("SYNC_INTERVAL_MS") or "900000") // 1000)
     log(
         f"iniciado intervalo={interval}s loja={id_loja} "
-        f"db={env.get('DB_NAME')} user={'(ok)' if env.get('BKOFFICE_USER') else '(vazio)'}"
+        f"db={env.get('DB_NAME')} modo=PC-gerencia "
+        f"user={'(ok)' if env.get('BKOFFICE_USER') else '(vazio)'}"
     )
     if not env.get("BKOFFICE_USER") or not env.get("BKOFFICE_PASS"):
         log("ERRO: faltam BKOFFICE_USER/PASS em config.env")
         return 1
 
+    backfill_feito_mes: str | None = None
     ciclo = 0
     while True:
         ciclo += 1
         log(f"ciclo #{ciclo} — acordando")
         try:
-            run_sync(env, id_loja)
+            hoje = hoje_br()
+            mes = hoje[:7]
+            if backfill_feito_mes != mes:
+                if backfill_mes(env, id_loja):
+                    backfill_feito_mes = mes
+                    log(f"backfill do mês {mes} concluído")
+                else:
+                    log("backfill parcial — tenta de novo no próximo ciclo")
+            else:
+                sync_periodo(env, id_loja, hoje, hoje)
         except Exception as e:
             log(f"ERRO {e}")
             log(traceback.format_exc())

@@ -234,7 +234,7 @@ async function baixarExcelVendas({
   }
 
   try {
-    const proxyUrl = (process.env.BKOFFICE_PROXY || process.env.HTTPS_PROXY || '').trim();
+    const proxyRaw = (process.env.BKOFFICE_PROXY || process.env.HTTPS_PROXY || '').trim();
     const contextOpts = {
       acceptDownloads: true,
       locale: 'pt-BR',
@@ -244,9 +244,27 @@ async function baixarExcelVendas({
         process.env.BKOFFICE_USER_AGENT ||
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     };
-    if (proxyUrl) {
-      contextOpts.proxy = { server: proxyUrl };
-      console.log('[bkoffice] usando proxy', proxyUrl.replace(/:[^:@/]+@/, ':****@'));
+    if (proxyRaw) {
+      // Aceita: http://user:pass@host:port | http://host:port + BKOFFICE_PROXY_USER/PASS
+      let server = proxyRaw;
+      let username = (process.env.BKOFFICE_PROXY_USER || '').trim() || undefined;
+      let password = (process.env.BKOFFICE_PROXY_PASS || '').trim() || undefined;
+      try {
+        const u = new URL(proxyRaw.includes('://') ? proxyRaw : `http://${proxyRaw}`);
+        server = `${u.protocol}//${u.host}`;
+        if (u.username) username = decodeURIComponent(u.username);
+        if (u.password) password = decodeURIComponent(u.password);
+      } catch {
+        /* mantém server cru */
+      }
+      contextOpts.proxy = {
+        server,
+        ...(username ? { username } : {}),
+        ...(password ? { password } : {}),
+      };
+      console.log(
+        `[bkoffice] usando proxy ${server}${username ? ` (user=${username.slice(0, 3)}***)` : ''}`,
+      );
     }
 
     const context = await browser.newContext(contextOpts);

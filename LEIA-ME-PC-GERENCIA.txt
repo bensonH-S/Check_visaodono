@@ -1,13 +1,26 @@
 ========================================
-  PC — SYNC BK OFFICE (validar agora)
+  PC GERÊNCIA — SYNC BK OFFICE (principal)
 ========================================
 
-1) Pasta no Desktop: Meridian-BKOffice-Gerencia
-2) Abra TESTAR-UMA-VEZ.bat  → tem que sair chrome: true e sync OK
-3) Depois: INSTALAR.bat (admin) → serviço 24h
+Modo oficial sem proxy: o PC da gerência puxa vendas
+(bruta + itens) e grava no Meridian.
 
-Servidor Meridian fica DESLIGADO ate voce configurar
-(BKOFFICE_SERVER_SYNC=0). As duas formas existem;
-hoje so o PC roda.
+1) Gere o kit nesta máquina de desenvolvimento:
+     GERAR-KIT-PC-GERENCIA.bat
+   (cria Desktop\Meridian-BKOffice-Gerencia + .zip)
 
-Detalhes: scripts\windows\LEIA-ME-BKOFFICE.txt
+2) No PC da gerência:
+   - Abra TESTAR-UMA-VEZ.bat  → sync OK / chrome: true
+   - Depois: INSTALAR.bat (admin) → serviço/tarefa 24h
+
+3) No VPS Meridian (.env):
+     BKOFFICE_SERVER_SYNC=0
+   Depois: docker compose up -d --force-recreate app
+
+O worker:
+  - Relatório por PRODUTO (pedidos/itens vendidos)
+  - Valor BRUTO (não líquido)
+  - Backfill 01→hoje no boot; depois só hoje a cada 15 min
+
+Detalhes do kit: pasta 0-LEIA-ME.txt dentro do kit.
+Servidor (opcional/proxy): scripts\windows\LEIA-ME-BKOFFICE.txt

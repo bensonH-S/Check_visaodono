@@ -1,8 +1,11 @@
 ========================================
-  BK OFFICE — MODO SERVIDOR (Terraço)
+  BK OFFICE — SERVIDOR (opcional)
 ========================================
 
-No .env do SERVIDOR Meridian (produção):
+MODO PRINCIPAL = PC da gerência (sem proxy).
+Ver: LEIA-ME-PC-GERENCIA.txt na raiz do repo.
+
+Se um dia quiser sync no VPS (precisa proxy BR):
 
   BKOFFICE_USER=...
   BKOFFICE_PASS=...
@@ -13,19 +16,8 @@ No .env do SERVIDOR Meridian (produção):
   BKOFFICE_SYNC_ID_LOJA=21
   BKOFFICE_SERVER_SYNC=1
   BKOFFICE_SYNC_CRON_MS=900000
-  # OBRIGATÓRIO se o servidor NÃO tiver IP Brasil limpo (datacenter/USA = 403 Akamai):
   BKOFFICE_PROXY=http://usuario:senha@host-proxy-br:porta
-  # Opcional: forçar início fixo (padrão = dia 01 do mês corrente)
-  # BKOFFICE_SYNC_DATA_INICIO=2026-08-01
 
-Depois: deploy da tag + restart do container.
-
-Comportamento:
-  - Boot: backfill dia a dia (01 do mês → hoje)
-  - Depois: só o dia de hoje a cada BKOFFICE_SYNC_CRON_MS (padrão 15 min)
-  - 403 Akamai: backoff 15 min → 2 h (não martela)
-
-Sem proxy BR no host fora do Brasil, o sync NÃO funciona
-(o Burger King/Akamai bloqueia IP de datacenter).
-
-Dockerfile: Chromium Playwright, USE_CHROME=0, cron 15 min.
+Hoje no VPS deixe:
+  BKOFFICE_SERVER_SYNC=0
+  BKOFFICE_SYNC_CRON_MS=0
