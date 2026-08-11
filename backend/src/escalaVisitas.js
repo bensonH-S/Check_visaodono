@@ -437,12 +437,25 @@ async function lojasGrade(user, idRegiaoFiltro) {
     !podeGerenciarEscalaVisitas(user) &&
     !temPermissao(user, 'escalas.visitas.editar_delivery')
   ) {
-    if (!idsRegiao.length) return [];
-    params.push(idsRegiao);
-    where += ` AND EXISTS (
-      SELECT 1 FROM frota_regiao_lojas rl
-      WHERE rl.id_loja = l.id_loja AND rl.id_regiao = ANY($${params.length}::int[])
-    )`;
+    if (idsRegiao.length) {
+      params.push(idsRegiao);
+      where += ` AND EXISTS (
+        SELECT 1 FROM frota_regiao_lojas rl
+        WHERE rl.id_loja = l.id_loja AND rl.id_regiao = ANY($${params.length}::int[])
+      )`;
+    } else if (
+      temPermissao(user, 'escalas.visitas.editar_regiao') ||
+      temPermissao(user, 'escalas.visitas.ver')
+    ) {
+      // Regional sem vínculo de frota (ex.: Igor): ainda precisa ver lojas onde está escalado.
+      params.push(Number(user.sub));
+      where += ` AND EXISTS (
+        SELECT 1 FROM escala_visitas_celula c
+        WHERE c.id_loja = l.id_loja AND c.id_regional = $${params.length}
+      )`;
+    } else {
+      return [];
+    }
   }
 
   const { rows } = await pool.query(

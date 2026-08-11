@@ -238,7 +238,7 @@ export default function EscalaVisitasMobileView() {
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   const [modo, setModo] = useState<ModoVisualizacao>(
-    ehDeliveryOnly ? 'delivery' : ehRegional ? 'montar' : ehDiretor ? 'dia' : 'minhas',
+    ehDeliveryOnly ? 'delivery' : ehRegional ? 'minhas' : ehDiretor ? 'dia' : 'minhas',
   );
   const [diaSelecionado, setDiaSelecionado] = useState(() => diaIndexNaSemana(segundaFeiraAtual()) ?? 0);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
@@ -258,14 +258,15 @@ export default function EscalaVisitasMobileView() {
   }, [grade?.status_por_regiao, grade?.status_delivery]);
   const modos = useMemo(() => {
     if (ehDeliveryOnly) return [{ id: 'delivery' as const, label: 'Delivery' }];
-    // Regional também precisa VER a escala (mesmo quem não montou / já aprovada).
+    // Regional: só a própria escala (não vê a dos outros da mesma região).
     if (ehRegional) {
-      return [
-        { id: 'minhas' as const, label: 'Minhas' },
-        { id: 'dia' as const, label: 'Por dia' },
-        { id: 'lojas' as const, label: 'Por loja' },
-        { id: 'montar' as const, label: 'Montar' },
+      const tabs: Array<{ id: ModoVisualizacao; label: string }> = [
+        { id: 'minhas', label: 'Minhas' },
       ];
+      if (podeEditarGrade || grade?.pode_editar_regiao) {
+        tabs.push({ id: 'montar', label: 'Montar' });
+      }
+      return tabs;
     }
     const base: Array<{ id: ModoVisualizacao; label: string }> = [
       { id: 'minhas', label: 'Minhas' },
@@ -277,20 +278,25 @@ export default function EscalaVisitasMobileView() {
       base.unshift({ id: 'montar', label: 'Montar' });
     }
     return base;
-  }, [ehRegional, ehDiretor, ehDeliveryOnly, grade?.pode_editar_regiao, grade?.pode_editar]);
+  }, [
+    ehRegional,
+    ehDiretor,
+    ehDeliveryOnly,
+    grade?.pode_editar_regiao,
+    grade?.pode_editar,
+    podeEditarGrade,
+  ]);
 
   const carregar = useCallback(async () => {
     if (!podeVer) return;
     setLoading(true);
     try {
       const q = new URLSearchParams({ semana_inicio: semanaInicio });
-      if (idRegiao !== '') q.set('id_regiao', String(idRegiao));
+      // Regional não filtra por região — senão some a escala pessoal (ex.: Igor sem frota).
+      if (!ehRegional && idRegiao !== '') q.set('id_regiao', String(idRegiao));
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
-      if (ehRegional && idRegiao === '' && data.regioes.length >= 1) {
-        setIdRegiao(data.regioes[0].id_regiao);
-      }
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar escala', 'error');
     } finally {
@@ -788,16 +794,11 @@ export default function EscalaVisitasMobileView() {
                 {ehDiretor
                   ? pendentesAprovacao.length
                     ? 'Há escalas aguardando sua aprovação.'
-                    : 'Veja a escala consolidada e aprove as regiões pendentes.'
-                  : ehRegional || podeEditarGrade
-                    ? 'Toque nos dias para marcar suas visitas e envie para o diretor aprovar.'
+                    : 'Veja a escala consolidada da semana.'
+                  : ehRegional
+                    ? 'Suas visitas da semana — só o que está marcado no seu nome.'
                     : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
               </p>
-              {statusAtivo && !ehDiretor && (
-                <p className={`ck-escala__status ck-escala__status--${statusAtivo}`}>
-                  Status: {STATUS_LABEL[statusAtivo] || statusAtivo}
-                </p>
-              )}
 
               <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
                 <div className="ck-visitas__metric ck-visitas__metric--accent">
@@ -877,66 +878,6 @@ export default function EscalaVisitasMobileView() {
             </div>
           )}
 
-          {!ehDiretor && !ehDeliveryOnly && statusAtivo && (
-            <div className="ck-escala__aprovacoes ck-escala__aprovacoes--compact">
-              <div className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${statusAtivo}`}>
-                <div className="ck-escala__aprovacao-info">
-                  <strong>
-                    {regiaoAtiva?.nome || 'Sua região'}
-                    <em>{STATUS_LABEL[statusAtivo] || statusAtivo}</em>
-                  </strong>
-                  <span>
-                    {(() => {
-                      const st =
-                        idRegiao !== ''
-                          ? grade?.status_por_regiao?.find((s) => s.id_regiao === idRegiao)
-                          : grade?.status_por_regiao?.[0];
-                      if (st?.nome_submetido_por) {
-                        return `Montada por ${primeiroNome(st.nome_submetido_por)}${
-                          statusAtivo === 'aprovado' && st.nome_revisado_por
-                            ? ` · Aprovada por ${primeiroNome(st.nome_revisado_por)}`
-                            : ''
-                        }`;
-                      }
-                      return statusAtivo === 'rascunho'
-                        ? 'Monte e envie para o diretor aprovar'
-                        : '—';
-                    })()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {ehDeliveryOnly && grade?.status_delivery && (
-            <div className="ck-escala__aprovacoes ck-escala__aprovacoes--compact">
-              <div
-                className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${grade.status_delivery.status}`}
-              >
-                <div className="ck-escala__aprovacao-info">
-                  <strong>
-                    Delivery
-                    <em>
-                      {STATUS_LABEL[grade.status_delivery.status] || grade.status_delivery.status}
-                    </em>
-                  </strong>
-                  <span>
-                    {grade.status_delivery.nome_submetido_por
-                      ? `Enviada por ${primeiroNome(grade.status_delivery.nome_submetido_por)}${
-                          grade.status_delivery.status === 'aprovado' &&
-                          grade.status_delivery.nome_revisado_por
-                            ? ` · Aprovada por ${primeiroNome(grade.status_delivery.nome_revisado_por)}`
-                            : ''
-                        }`
-                      : grade.status_delivery.status === 'rascunho'
-                        ? 'Monte e envie para o diretor aprovar'
-                        : '—'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {modos.length > 1 && (
           <div className="ck-escala__filtro-row">
             <div className="ck-visitas__seg" role="tablist">
@@ -953,7 +894,7 @@ export default function EscalaVisitasMobileView() {
                 </button>
               ))}
             </div>
-            {temFiltroRegiao && (
+            {temFiltroRegiao && !ehRegional && (
               <button
                 type="button"
                 className={`ck-escala__filtro-btn${idRegiao !== '' ? ' is-on' : ''}`}
@@ -967,7 +908,7 @@ export default function EscalaVisitasMobileView() {
           )}
 
           <div className="ck-escala__sticky">
-            {regiaoAtiva && !ehDeliveryOnly && (
+            {regiaoAtiva && ehDiretor && (
               <p className="ck-escala__regiao">Exibindo: {regiaoAtiva.nome}</p>
             )}
             {(modo === 'delivery' || (modo === 'montar' && ehRegional)) && !loading && (
@@ -1013,14 +954,10 @@ export default function EscalaVisitasMobileView() {
           </div>
 
           <div className="ck-escala__sheet-body">
-          {ehDiretor && !loading && ((grade?.status_por_regiao?.length ?? 0) > 0 || grade?.status_delivery) && (
+          {/* Diretor: só cards de pendência (aprovar/recusar). Sem chip "aprovado". */}
+          {ehDiretor && !loading && pendentesAprovacao.length > 0 && (
             <div className="ck-escala__aprovacoes">
-              {pendentesAprovacao.length > 0 ? (
-                <p className="ck-escala__section">Para aprovar</p>
-              ) : (
-                <p className="ck-escala__section">Regiões · toque para filtrar</p>
-              )}
-              {/* Pendentes: card completo com ações */}
+              <p className="ck-escala__section">Para aprovar</p>
               {(grade?.status_por_regiao ?? [])
                 .filter((st) => st.status === 'pendente_aprovacao')
                 .map((st) => (
@@ -1105,51 +1042,6 @@ export default function EscalaVisitasMobileView() {
                   </div>
                 </div>
               )}
-              {/* Aprovadas / demais: chips compactos — não engolem a tela */}
-              <div className="ck-escala__status-chips" role="list">
-                {(grade?.status_por_regiao ?? [])
-                  .filter((st) => st.status !== 'pendente_aprovacao')
-                  .map((st) => (
-                    <button
-                      key={st.id_regiao}
-                      type="button"
-                      role="listitem"
-                      className={`ck-escala__status-chip ck-escala__status-chip--${st.status}${
-                        idRegiao === st.id_regiao ? ' is-on' : ''
-                      }`}
-                      onClick={() => {
-                        setIdRegiao(st.id_regiao);
-                        setModo('dia');
-                      }}
-                    >
-                      <strong>{st.nome_regiao}</strong>
-                      <span>{STATUS_LABEL[st.status] || st.status}</span>
-                    </button>
-                  ))}
-                {grade?.status_delivery && grade.status_delivery.status !== 'pendente_aprovacao' && (
-                  <button
-                    type="button"
-                    role="listitem"
-                    className={`ck-escala__status-chip ck-escala__status-chip--${grade.status_delivery.status}${
-                      modo === 'delivery' ? ' is-on' : ''
-                    }`}
-                    onClick={() => setModo('delivery')}
-                  >
-                    <strong>Delivery</strong>
-                    <span>{STATUS_LABEL[grade.status_delivery.status] || grade.status_delivery.status}</span>
-                  </button>
-                )}
-                {idRegiao !== '' && (
-                  <button
-                    type="button"
-                    className="ck-escala__status-chip ck-escala__status-chip--clear"
-                    onClick={() => setIdRegiao('')}
-                  >
-                    <strong>Todas</strong>
-                    <span>limpar filtro</span>
-                  </button>
-                )}
-              </div>
             </div>
           )}
           {loading ? (
@@ -1263,7 +1155,9 @@ export default function EscalaVisitasMobileView() {
                 <p>
                   {ehDiretor
                     ? 'Use “Por dia” ou “Por loja” para ver o planejamento do time.'
-                    : 'Nenhuma visita planejada para você nesta semana.'}
+                    : ehRegional
+                      ? 'Não há lojas marcadas no seu nome nesta semana.'
+                      : 'Nenhuma visita planejada para você nesta semana.'}
                 </p>
               </div>
             ) : (
