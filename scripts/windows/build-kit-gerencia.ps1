@@ -53,12 +53,15 @@ function Read-DotEnv([string]$path) {
 }
 
 Write-Host 'Copiando templates...'
-Copy-Item (Join-Path $Tpl 'worker.py') (Join-Path $OutDir 'worker.py') -Force
+Copy-Item (Join-Path $Tpl 'worker.mjs') (Join-Path $OutDir 'worker.mjs') -Force
+Copy-Item (Join-Path $Tpl 'vault_tools.mjs') (Join-Path $OutDir 'vault_tools.mjs') -Force
 Copy-Item (Join-Path $Tpl 'INSTALAR.bat') (Join-Path $OutDir 'INSTALAR.bat') -Force
+Copy-Item (Join-Path $Tpl 'INSTALAR.ps1') (Join-Path $OutDir 'INSTALAR.ps1') -Force
 Copy-Item (Join-Path $Tpl 'DESINSTALAR.bat') (Join-Path $OutDir 'DESINSTALAR.bat') -Force
 Copy-Item (Join-Path $Tpl '0-LEIA-ME.txt') (Join-Path $OutDir '0-LEIA-ME.txt') -Force
 Copy-Item (Join-Path $Tpl 'VERIFICAR.bat') (Join-Path $OutDir 'VERIFICAR.bat') -Force
 Copy-Item (Join-Path $Tpl 'TESTAR-UMA-VEZ.bat') (Join-Path $OutDir 'TESTAR-UMA-VEZ.bat') -Force
+Copy-Item (Join-Path $Tpl 'MeridianBkSync.cs') (Join-Path $OutDir 'MeridianBkSync.cs') -Force
 
 Write-Host 'Copiando codigo do sync...'
 New-Item -ItemType Directory -Force -Path (Join-Path $App 'backend\scripts') | Out-Null
@@ -131,37 +134,34 @@ try {
   Pop-Location
 }
 
-Write-Host 'Gerando config.env a partir do backend\.env...'
-$b = Read-DotEnv (Join-Path $RepoRoot 'backend\.env')
-$dbName = if ($b['DB_NAME_PROD']) { $b['DB_NAME_PROD'] } else { 'vision_check' }
-$port = if ($b['DB_PORT']) { $b['DB_PORT'] } else { '5432' }
-$url = if ($b['BKOFFICE_URL']) { $b['BKOFFICE_URL'] } else { 'https://bkoffice-franquia.burgerking.com.br' }
-$configLines = @(
-  '# Credenciais - gerado automaticamente. Pode editar se precisar.'
-  "DB_HOST=$($b['DB_HOST'])"
-  "DB_PORT=$port"
-  "DB_USER=$($b['DB_USER'])"
-  "DB_PASS=$($b['DB_PASS'])"
-  "DB_NAME_PROD=$dbName"
-  "DB_NAME=$dbName"
-  "BKOFFICE_USER=$($b['BKOFFICE_USER'])"
-  "BKOFFICE_PASS=$($b['BKOFFICE_PASS'])"
-  "BKOFFICE_URL=$url"
-  'BKOFFICE_USE_CHROME=1'
-  'BKOFFICE_HEADLESS=1'
-  'BKOFFICE_TIMEOUT_MS=120000'
-  'BKOFFICE_SYNC_ID_LOJA=21'
-  'BKOFFICE_SERVER_SYNC=0'
-  'BKOFFICE_SYNC_CRON_MS=0'
-  'SYNC_INTERVAL_MS=900000'
-)
-$configPath = Join-Path $OutDir 'config.env'
-[System.IO.File]::WriteAllLines($configPath, $configLines)
-Copy-Item $configPath (Join-Path $App 'backend\.env') -Force
-Copy-Item $configPath (Join-Path $App '.env') -Force
+Write-Host 'Gerando cofre criptografado (AES-256-GCM) — sem config.env...'
+$nodeSeal = Join-Path $Runtime 'node\node.exe'
+$envSrc = Join-Path $RepoRoot 'backend\.env'
+& $nodeSeal (Join-Path $OutDir 'vault_tools.mjs') seal "--out=$OutDir" "--from-env=$envSrc"
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao selar cofre de credenciais' }
 
-# db.js resolve vision_check_dev se nao for production - forcar via env no worker (DB_NAME ja setado)
-# Ajuste no sync: --db=prod seta DB_NAME. OK.
+# Garante que NAO existe plaintext no kit
+@(
+  (Join-Path $OutDir 'config.env'),
+  (Join-Path $App '.env'),
+  (Join-Path $App 'backend\.env'),
+  (Join-Path $OutDir 'key_parts.generated.json')
+) | ForEach-Object { if (Test-Path $_) { Remove-Item $_ -Force } }
+
+Write-Host 'Compilando MeridianBkSync.exe...'
+$cscCandidates = @(
+  "${env:WINDIR}\Microsoft.NET\Framework64\v4.0.30319\csc.exe",
+  "${env:WINDIR}\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+)
+$csc = $cscCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $csc) { throw 'csc.exe nao encontrado (precisa .NET Framework 4.x)' }
+$exeOut = Join-Path $OutDir 'MeridianBkSync.exe'
+& $csc /nologo /optimize+ /target:exe /out:"$exeOut" (Join-Path $OutDir 'MeridianBkSync.cs')
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exeOut)) { throw 'Falha ao compilar MeridianBkSync.exe' }
+# codigo-fonte do launcher nao precisa ir pro PC da gerencia
+Remove-Item (Join-Path $OutDir 'MeridianBkSync.cs') -Force -ErrorAction SilentlyContinue
+
+# db.js: sync CLI usa --db=prod e env injetado pelo worker (sem .env em disco)
 
 $zipPath = Join-Path $Desktop 'Meridian-BKOffice-Gerencia.zip'
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
@@ -169,7 +169,9 @@ Write-Host "Compactando $zipPath ..."
 Compress-Archive -Path $OutDir -DestinationPath $zipPath -CompressionLevel Optimal
 
 Write-Host ''
-Write-Host 'OK - kit pronto:'
+Write-Host 'OK - kit pronto (cofre criptografado + .exe):'
 Write-Host "  Pasta: $OutDir"
 Write-Host "  Zip:   $zipPath"
+Write-Host '  Exe:   MeridianBkSync.exe'
+Write-Host '  Vault: data\vault.dat (AES) — SEM config.env'
 Write-Host 'Leve a pasta (ou o zip) ao PC da gerencia e rode INSTALAR.bat como admin.'

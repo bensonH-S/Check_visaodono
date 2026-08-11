@@ -2,36 +2,34 @@
   MERIDIAN BK OFFICE — KIT PC GERÊNCIA
 ========================================
 
+SEGURANÇA
+  - NÃO existe config.env com senha do banco
+  - Credenciais ficam em data\vault.dat (AES-256-GCM)
+  - Launcher: MeridianBkSync.exe (tarefa oculta)
+  - Nunca grava .env em disco no PC da gerência
+
 O QUE FAZ
-  - Abre o BK Office no Chrome deste PC (IP Brasil)
-  - Baixa relatório "Restaurante e Produto Venda"
-    (cada produto vendido + quantidade + VALOR BRUTO)
-  - Grava no banco Meridian (produção)
-  - Boot: preenche do dia 01 do mês até hoje
-  - Depois: atualiza só o dia de hoje (a cada 15 min)
+  - BK Office → relatório por produto + VALOR BRUTO
+  - Grava no Meridian (produção)
+  - Boot: dia 01 do mês → hoje; depois só hoje (15 min)
 
 INSTALAR
-  1) Copie ESTA PASTA inteira para o PC da gerência
+  1) Copie ESTA PASTA para o PC da gerência
   2) Botão DIREITO em INSTALAR.bat → Executar como administrador
-  3) Pronto (24h, inicia após reiniciar, sem janela)
+  3) Pronto (24h, inicia após login)
 
-TESTAR ANTES
-  TESTAR-UMA-VEZ.bat  → deve mostrar sync OK / chrome: true
+TESTAR
+  TESTAR-UMA-VEZ.bat
 
 LOGS
   Logs\bkoffice-python-service.log
-  C:\ProgramData\MeridianBkOffice\Logs\bkoffice-python-service.log
+  C:\ProgramData\MeridianBkOffice\Logs\...
 
-CONFIG (config.env)
-  BKOFFICE_SYNC_ID_LOJA=21          ← Terraço
-  SYNC_INTERVAL_MS=900000           ← 15 min
-  BKOFFICE_USE_CHROME=1
-  DB_*                              ← banco Meridian prod
-
-No SERVIDOR Meridian (VPS): deixe
+No VPS Meridian:
   BKOFFICE_SERVER_SYNC=0
-(para NÃO tentar sync de lá e tomar 403)
 
-Desinstalar: DESINSTALAR.bat (como admin)
+Desinstalar: DESINSTALAR.bat (admin)
 
-NAO precisa instalar Python/Node — já vem em runtime\
+Obs: cofre é ofuscado/criptografado para não abrir em Bloco de Notas.
+Admin determinado ainda pode inspecionar o processo — isso é limite
+de qualquer app na máquina.
