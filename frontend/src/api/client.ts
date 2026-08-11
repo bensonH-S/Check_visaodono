@@ -1071,9 +1071,20 @@ export const api = {
     codigo?: string;
     preco_caixa: number;
     und_convertida?: number;
-    fonte?: 'nf' | 'manual';
+    fonte?: 'nf' | 'manual' | 'catalogo';
   }) =>
     request<ProdutoEstoque>('/estoque/insumos/custo', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  /** Marca preços da planilha (já no cadastro) como manual — CMV passa a aceitar, sem custo extra. */
+  estoquePromoverPlanilha: (body: { id_loja: number }) =>
+    request<{
+      id_loja: number;
+      promovidos: number;
+      itens: ProdutoEstoque[];
+      ainda_sem_preco: Array<{ id_insumo: number; codigo: string; descricao: string }>;
+    }>('/estoque/insumos/promover-planilha', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -2192,6 +2203,8 @@ export interface ProdutoEstoque {
   /** Fator PC/FD na fórmula QTD (padrão 1). */
   und_parcial?: number;
   valor_unidade: number;
+  /** nf | catalogo | manual — fontes aceitas no CMV. Null/planilha = sem custo automático. */
+  custo_fonte?: string | null;
   ativo: boolean;
   criado_em?: string;
   atualizado_em?: string;

@@ -891,6 +891,61 @@ router.post('/insumos/custo', permOp, async (req, res, next) => {
   }
 });
 
+/**
+ * Usa o preço já cadastrado (planilha) como custo válido no CMV:
+ * grava custo_fonte='manual' sem alterar o valor.
+ * Não sobrescreve nf/catalogo/manual existentes.
+ */
+router.post('/insumos/promover-planilha', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const { rows } = await pool.query(
+      `UPDATE insumos
+       SET custo_fonte = 'manual', atualizado_em = NOW()
+       WHERE id_loja = $1
+         AND ativo = TRUE
+         AND COALESCE(valor_unidade, 0) > 0
+         AND (
+           custo_fonte IS NULL
+           OR custo_fonte NOT IN ('nf', 'manual', 'catalogo')
+         )
+       RETURNING id_insumo, codigo, descricao, preco_caixa, valor_unidade, custo_fonte`,
+      [idLoja],
+    );
+
+    const { rows: zerados } = await pool.query(
+      `SELECT id_insumo, codigo, descricao
+       FROM insumos
+       WHERE id_loja = $1
+         AND ativo = TRUE
+         AND COALESCE(valor_unidade, 0) <= 0
+         AND (custo_fonte IS NULL OR custo_fonte NOT IN ('nf', 'manual', 'catalogo'))
+       ORDER BY descricao`,
+      [idLoja],
+    );
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'atualizar',
+      entidade: 'insumo_custo',
+      idReferencia: idLoja,
+      descricao: `Promoveu ${rows.length} preço(s) da planilha → manual (loja ${idLoja})`,
+    });
+
+    res.json({
+      id_loja: idLoja,
+      promovidos: rows.length,
+      itens: rows,
+      ainda_sem_preco: zerados,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── Sync NF fornecedores (Platlog / Coca) — config + status ─────────────────
 
 router.get('/sync-fornecedor', permConfig, async (_req, res, next) => {

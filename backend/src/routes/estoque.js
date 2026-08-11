@@ -150,6 +150,8 @@ function mapProduto(row) {
     und_convertida: row.und_convertida != null ? Number(row.und_convertida) : 1,
     und_parcial: row.und_parcial != null ? Number(row.und_parcial) : 1,
     valor_unidade: row.valor_unidade != null ? Number(row.valor_unidade) : 0,
+    /** nf | catalogo | manual — fontes que o CMV aceita (planilha/null não). */
+    custo_fonte: row.custo_fonte != null ? String(row.custo_fonte) : null,
     permite_contagem_caixa: flagBool(row.permite_contagem_caixa, true),
     permite_contagem_pc_fd: flagBool(row.permite_contagem_pc_fd, true),
     permite_contagem_kg_und: flagBool(row.permite_contagem_kg_und, true),

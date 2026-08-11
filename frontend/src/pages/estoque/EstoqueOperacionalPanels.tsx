@@ -131,6 +131,7 @@ type Props = {
   idLoja: number;
   produtos: ProdutoEstoque[];
   onProdutosVendaCountChange?: (n: number) => void;
+  onInsumosReload?: () => void;
   onIrFichas?: () => void;
 };
 
@@ -141,6 +142,7 @@ export default function EstoqueOperacionalPanels({
   idLoja,
   produtos,
   onProdutosVendaCountChange,
+  onInsumosReload,
   onIrFichas,
 }: Props) {
   if (aba === 'cmv') {
@@ -153,6 +155,7 @@ export default function EstoqueOperacionalPanels({
         idLoja={idLoja}
         insumos={produtos}
         onCountChange={onProdutosVendaCountChange}
+        onInsumosReload={onInsumosReload}
       />
     );
   }
@@ -462,10 +465,12 @@ function PainelProdutos({
   idLoja,
   insumos,
   onCountChange,
+  onInsumosReload,
 }: {
   idLoja: number;
   insumos: ProdutoEstoque[];
   onCountChange?: (n: number) => void;
+  onInsumosReload?: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<ProdutoVendaEstoque[]>([]);
@@ -473,6 +478,9 @@ function PainelProdutos({
   /** Produtos = venda+ficha | Insumos = o que se conta no estoque físico */
   const [abaCadastro, setAbaCadastro] = useState<'produtos' | 'insumos'>('produtos');
   const [filtroInsumo, setFiltroInsumo] = useState<'todos' | 'com' | 'sem' | 'unitario'>('todos');
+  /** Filtro da aba Insumos: custo automático (nf/catalogo/manual com valor). */
+  const [filtroCusto, setFiltroCusto] = useState<'todos' | 'sem' | 'com'>('todos');
+  const [promovendo, setPromovendo] = useState(false);
   const [open, setOpen] = useState(false);
   const [carregandoFicha, setCarregandoFicha] = useState(false);
   const [openPicker, setOpenPicker] = useState(false);
@@ -737,6 +745,23 @@ function PainelProdutos({
       (p.descricao || '').toLowerCase().includes(qBusca)
     );
   });
+  const temCustoAutomatico = (i: ProdutoEstoque) => {
+    const fonte = String(i.custo_fonte || '').toLowerCase();
+    return (
+      (fonte === 'nf' || fonte === 'catalogo' || fonte === 'manual') &&
+      Number(i.valor_unidade) > 0
+    );
+  };
+  const rotuloFonte = (fonte?: string | null) => {
+    const f = String(fonte || '').toLowerCase();
+    if (f === 'nf') return 'NF';
+    if (f === 'catalogo') return 'Catálogo';
+    if (f === 'manual') return 'Manual';
+    return '—';
+  };
+  const semCustoCount = insumos.filter((i) => i.ativo !== false && !temCustoAutomatico(i)).length;
+  const comCustoCount = insumos.filter((i) => i.ativo !== false && temCustoAutomatico(i)).length;
+
   const insumosFiltrados = insumos
     .filter((i) => i.ativo !== false)
     .filter((i) => {
@@ -745,6 +770,11 @@ function PainelProdutos({
         i.codigo.toLowerCase().includes(qBusca) ||
         (i.descricao || '').toLowerCase().includes(qBusca)
       );
+    })
+    .filter((i) => {
+      if (filtroCusto === 'sem') return !temCustoAutomatico(i);
+      if (filtroCusto === 'com') return temCustoAutomatico(i);
+      return true;
     });
 
   return (
@@ -799,6 +829,71 @@ function PainelProdutos({
               />
             </>
           )}
+          {abaCadastro === 'insumos' && (
+            <>
+              <Chip
+                size="small"
+                label={`Todos (${insumos.filter((i) => i.ativo !== false).length})`}
+                color={filtroCusto === 'todos' ? 'primary' : 'default'}
+                onClick={() => setFiltroCusto('todos')}
+                sx={{ fontWeight: 600 }}
+              />
+              <Chip
+                size="small"
+                color={filtroCusto === 'sem' ? 'warning' : 'default'}
+                label={`Sem custo automático (${semCustoCount})`}
+                onClick={() => setFiltroCusto(filtroCusto === 'sem' ? 'todos' : 'sem')}
+                sx={{ fontWeight: 700 }}
+              />
+              <Chip
+                size="small"
+                color={filtroCusto === 'com' ? 'success' : 'default'}
+                label={`Com custo (${comCustoCount})`}
+                onClick={() => setFiltroCusto(filtroCusto === 'com' ? 'todos' : 'com')}
+                sx={{ fontWeight: 600 }}
+              />
+              {semCustoCount > 0 && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="warning"
+                  disabled={promovendo}
+                  onClick={() => {
+                    void (async () => {
+                      if (
+                        !window.confirm(
+                          `Usar o preço da planilha como custo válido no CMV para ${semCustoCount} insumo(s)?\n\nNão altera o valor — só marca como Manual. Itens com preço zero ficam de fora.`,
+                        )
+                      ) {
+                        return;
+                      }
+                      setPromovendo(true);
+                      try {
+                        const r = await api.estoquePromoverPlanilha({ id_loja: idLoja });
+                        showToast(
+                          r.ainda_sem_preco.length
+                            ? `${r.promovidos} promovido(s). ${r.ainda_sem_preco.length} ainda sem preço (zerados).`
+                            : `${r.promovidos} preço(s) da planilha liberados no CMV.`,
+                          r.ainda_sem_preco.length ? 'warning' : 'success',
+                        );
+                        setFiltroCusto('todos');
+                        onInsumosReload?.();
+                      } catch (e) {
+                        showToast(
+                          e instanceof Error ? e.message : 'Erro ao promover preços',
+                          'error',
+                        );
+                      } finally {
+                        setPromovendo(false);
+                      }
+                    })();
+                  }}
+                >
+                  {promovendo ? 'Aplicando…' : 'Usar preço da planilha no CMV'}
+                </Button>
+              )}
+            </>
+          )}
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
             Atualizar
           </Button>
@@ -819,23 +914,48 @@ function PainelProdutos({
                   <TableCell>Código</TableCell>
                   <TableCell>Descrição (insumo)</TableCell>
                   <TableCell align="center">Unidade</TableCell>
+                  <TableCell align="center">Fonte</TableCell>
+                  <TableCell align="right">R$/und</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {insumosFiltrados.map((i) => (
-                  <TableRow key={i.id_insumo ?? i.id_produto} hover>
-                    <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
-                    <TableCell>{i.descricao}</TableCell>
-                    <TableCell align="center">
-                      {String(i.unidade_contagem || 'UND').toUpperCase()}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {insumosFiltrados.map((i) => {
+                  const okCusto = temCustoAutomatico(i);
+                  return (
+                    <TableRow key={i.id_insumo ?? i.id_produto} hover>
+                      <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
+                      <TableCell>{i.descricao}</TableCell>
+                      <TableCell align="center">
+                        {String(i.unidade_contagem || 'UND').toUpperCase()}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          size="small"
+                          label={rotuloFonte(i.custo_fonte)}
+                          color={okCusto ? (i.custo_fonte === 'manual' ? 'default' : 'success') : 'warning'}
+                          variant={okCusto ? 'outlined' : 'filled'}
+                          sx={{ fontWeight: 700, minWidth: 72 }}
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {okCusto
+                          ? fmtMoeda(i.valor_unidade)
+                          : Number(i.valor_unidade) > 0
+                            ? `${fmtMoeda(i.valor_unidade)}*`
+                            : '—'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {!insumosFiltrados.length && (
                   <TableRow>
-                    <TableCell colSpan={3}>
+                    <TableCell colSpan={5}>
                       <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
-                        Nenhum insumo nesta loja. A conferência usa esta lista para contar.
+                        {filtroCusto === 'sem'
+                          ? 'Nenhum insumo sem custo automático nesta loja.'
+                          : filtroCusto === 'com'
+                            ? 'Nenhum insumo com custo automático nesta loja.'
+                            : 'Nenhum insumo nesta loja. A conferência usa esta lista para contar.'}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -843,6 +963,12 @@ function PainelProdutos({
               </TableBody>
             </Table>
           </TableContainer>
+          {filtroCusto !== 'com' && semCustoCount > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, py: 1 }}>
+              * Preço da planilha sem fonte automática (NF/catálogo/manual) — o CMV em R$ ignora esses
+              valores.
+            </Typography>
+          )}
         </Paper>
       ) : (
       <Paper sx={tablePaperSx}>

@@ -1326,6 +1326,7 @@ export default function ControleEstoquePage() {
                     idLoja={idLoja}
                     produtos={produtos}
                     onProdutosVendaCountChange={setProdutosVendaCount}
+                    onInsumosReload={() => void carregarProdutos()}
                     onIrFichas={() => irParaAba('fichas')}
                   />
                 )}
