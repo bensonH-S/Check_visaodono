@@ -21,7 +21,6 @@ import {
   type EscalaVisitasGrade,
   type EscalaVisitasLinha,
   type EscalaVisitasNotificacao,
-  type EscalaVisitasRegiaoStatusCodigo,
 } from '../../api/client';
 import {
   getUsuario,
@@ -53,12 +52,6 @@ import './escala-mobile.css';
 
 const ORANGE = '#E8520A';
 const NAVY = '#1B2A6B';
-
-const STATUS_LABEL: Record<EscalaVisitasRegiaoStatusCodigo, string> = {
-  rascunho: 'Rascunho',
-  pendente_aprovacao: 'Pendente',
-  aprovado: 'Aprovado',
-};
 
 type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery' | 'montar';
 type PendingMap = Map<
