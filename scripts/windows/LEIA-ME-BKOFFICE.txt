@@ -13,6 +13,8 @@ No .env do SERVIDOR Meridian (produção):
   BKOFFICE_SYNC_ID_LOJA=21
   BKOFFICE_SERVER_SYNC=1
   BKOFFICE_SYNC_CRON_MS=60000
+  # Opcional: forçar início fixo (padrão = dia 01 do mês corrente)
+  # BKOFFICE_SYNC_DATA_INICIO=2026-08-01
 
 Depois: deploy da tag + restart do container.
 

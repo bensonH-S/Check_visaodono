@@ -1,10 +1,11 @@
 /**
- * Scheduler diário do sync de NF (Platlog / Coca).
+ * Scheduler diário do sync de fornecedor (Platlog catálogo / Coca NF).
+ * Platlog: preços pelo catálogo Pedido eSupri (não NF-e).
  * Lê estoque_sync_fornecedor e dispara no horário (America/Sao_Paulo).
  */
 import { pool } from '../../db.js';
 import { syncNfeCoca } from '../brasal/syncNfeCoca.js';
-import { syncNfePlatlog } from './syncNfePlatlog.js';
+import { syncPrecosCatalogoPlatlog } from './syncPrecosCatalogoPlatlog.js';
 
 let timer = null;
 let rodando = false;
@@ -86,56 +87,82 @@ export async function executarSyncFornecedor(row, { forcar = false } = {}) {
   });
 
   try {
-    const result =
-      fornecedor === 'coca'
-        ? await syncNfeCoca({
-            id_loja: row.id_loja,
-            user,
-            pass,
-            limit: row.limite || 20,
-            aplicar: true,
-            registrar_entrada: false,
-            pular_existentes: !forcar,
-          })
-        : await syncNfePlatlog({
-            id_loja: row.id_loja,
-            user,
-            pass,
-            limit: row.limite || 20,
-            aplicar: true,
-            registrar_entrada: false,
-            headless: true,
-            pular_existentes: !forcar,
-          });
-
-    const aplicadas = result.processadas.filter((p) => p.aplicado).length;
-    const erros = result.processadas.filter((p) => !p.ok).length;
-    const status = erros && aplicadas ? 'parcial' : erros ? 'erro' : 'ok';
     const { dia } = agoraSP();
+
+    if (fornecedor === 'coca') {
+      const result = await syncNfeCoca({
+        id_loja: row.id_loja,
+        user,
+        pass,
+        limit: row.limite || 20,
+        aplicar: true,
+        registrar_entrada: false,
+        pular_existentes: !forcar,
+      });
+
+      const aplicadas = result.processadas.filter((p) => p.aplicado).length;
+      const erros = result.processadas.filter((p) => !p.ok).length;
+      const status = erros && aplicadas ? 'parcial' : erros ? 'erro' : 'ok';
+
+      await marcarStatus(idSync, {
+        ultimo_fim: new Date(),
+        ultimo_status: status,
+        ultimo_erro: erros
+          ? result.processadas
+              .filter((p) => !p.ok)
+              .map((p) => p.erro)
+              .join('; ')
+              .slice(0, 500)
+          : null,
+        ultimo_resumo: {
+          baixadas: result.baixadas,
+          aplicadas,
+          erros,
+          processadas: result.processadas.map((p) => ({
+            nota: p.notaLabel,
+            numero: p.numero,
+            casados: p.casados,
+            itens: p.itens,
+            aplicado: p.aplicado,
+            pulada: p.pulada,
+            ok: p.ok,
+          })),
+        },
+        ultima_execucao_dia: dia,
+      });
+
+      return { id_sync: idSync, status, result };
+    }
+
+    // Platlog: catálogo Pedido → preços (NF-e documentada em README; fora do scheduler)
+    const result = await syncPrecosCatalogoPlatlog({
+      id_loja: row.id_loja,
+      user,
+      pass,
+      aplicar: true,
+      headless: true,
+    });
+
+    const aplicadas = result.atualizados.length;
+    const erros = result.erros.length;
+    const status = erros && aplicadas ? 'parcial' : erros ? 'erro' : 'ok';
 
     await marcarStatus(idSync, {
       ultimo_fim: new Date(),
       ultimo_status: status,
       ultimo_erro: erros
-        ? result.processadas
-            .filter((p) => !p.ok)
-            .map((p) => p.erro)
+        ? result.erros
+            .map((e) => `${e.codigo}: ${e.erro}`)
             .join('; ')
             .slice(0, 500)
         : null,
       ultimo_resumo: {
-        baixadas: result.baixadas,
-        aplicadas,
+        modo: 'catalogo_pedido',
+        catalogo: result.catalogo_total,
+        casados: result.casados.length,
+        atualizados: aplicadas,
+        faltando: result.faltando.length,
         erros,
-        processadas: result.processadas.map((p) => ({
-          nota: p.notaLabel,
-          numero: p.numero,
-          casados: p.casados,
-          itens: p.itens,
-          aplicado: p.aplicado,
-          pulada: p.pulada,
-          ok: p.ok,
-        })),
       },
       ultima_execucao_dia: dia,
     });

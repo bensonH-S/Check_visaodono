@@ -2295,7 +2295,10 @@ export interface EstoqueCmvTeorico {
   id_loja: number;
   de: string | null;
   ate: string | null;
+  /** Persistido historicamente; após sync BK Office passa a ser venda bruta. */
   venda_liquida: number;
+  /** Alias explícito da venda usada no CMV (= bruta do BK Office). */
+  venda_bruta?: number;
   custo_teorico: number;
   cmv_teorico_pct: number | null;
   meta_pct: number;

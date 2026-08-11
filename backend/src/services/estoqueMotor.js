@@ -155,7 +155,7 @@ export async function registrarEntradas({
 
 /**
  * CMV teórico no período.
- * R$ só usa insumos com custo_fonte IN ('nf','manual') — nunca preço de planilha.
+ * R$ só usa insumos com custo_fonte IN ('nf','manual','catalogo') — nunca preço de planilha.
  * Meta % só é “confiável” se cobertura_custo_pct >= 80.
  */
 export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta = 0.38 } = {}) {
@@ -201,7 +201,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
         COALESCE((
           SELECT SUM(
             COALESCE(fi.qtde_estoque, fi.quantidade) *
-            CASE WHEN ins.custo_fonte IN ('nf', 'manual') THEN COALESCE(ins.valor_unidade, 0) ELSE 0 END
+            CASE WHEN ins.custo_fonte IN ('nf', 'manual', 'catalogo') THEN COALESCE(ins.valor_unidade, 0) ELSE 0 END
           )
           FROM ficha_tecnica f
           JOIN ficha_tecnica_itens fi ON fi.id_ficha = f.id_ficha
@@ -216,7 +216,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
           LEFT JOIN insumos ins
             ON ins.id_loja = l.id_loja AND UPPER(ins.codigo) = UPPER(fi.codigo_insumo)
           WHERE f.id_produto = l.id_produto AND f.ativo
-            AND (ins.id_insumo IS NULL OR ins.custo_fonte IS NULL OR ins.custo_fonte NOT IN ('nf', 'manual'))
+            AND (ins.id_insumo IS NULL OR ins.custo_fonte IS NULL OR ins.custo_fonte NOT IN ('nf', 'manual', 'catalogo'))
         ), 0) AS insumos_sem_custo_nf
       FROM linhas l
     )
@@ -252,7 +252,9 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     id_loja: idLoja,
     de: de || null,
     ate: ate || null,
+    /** Valor usado no CMV = venda bruta do BK Office (coluna persistida como venda_liquida). */
     venda_liquida: Math.round(venda * 100) / 100,
+    venda_bruta: Math.round(venda * 100) / 100,
     custo_teorico: Math.round(custo * 100) / 100,
     cmv_teorico_pct: pct != null ? Math.round(pct * 10000) / 100 : null,
     meta_pct: Math.round(metaN * 10000) / 100,
@@ -386,7 +388,8 @@ export async function atualizarCustoInsumo(
   idLoja,
   { id_insumo = null, codigo = null, preco_caixa, und_convertida = null, fonte = 'nf' } = {},
 ) {
-  const fonteOk = fonte === 'manual' ? 'manual' : 'nf';
+  const fonteOk =
+    fonte === 'manual' ? 'manual' : fonte === 'catalogo' ? 'catalogo' : 'nf';
   const preco = num(preco_caixa);
   if (preco < 0) throw Object.assign(new Error('Preço inválido'), { status: 400 });
   let id = Number(id_insumo) || null;

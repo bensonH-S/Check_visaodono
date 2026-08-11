@@ -75,7 +75,18 @@ function fmtDataBR(iso: string | null | undefined) {
 }
 
 function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+/** Dia 01 do mês corrente (America/Sao_Paulo). */
+function inicioMesISO() {
+  const hoje = hojeISO();
+  return `${hoje.slice(0, 8)}01`;
 }
 
 const campoBreakBaseSx = {
@@ -157,11 +168,7 @@ function PainelCmv({
 }) {
   const [loading, setLoading] = useState(true);
   const [cmv, setCmv] = useState<EstoqueCmvTeorico | null>(null);
-  const [dataIni, setDataIni] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 6);
-    return d.toISOString().slice(0, 10);
-  });
+  const [dataIni, setDataIni] = useState(() => inicioMesISO());
   const [dataFim, setDataFim] = useState(hojeISO());
   const [faltaFicha, setFaltaFicha] = useState(0);
 
@@ -246,10 +253,10 @@ function PainelCmv({
           </Box>
           <Box>
             <Typography variant="caption" color="text.secondary">
-              Venda líquida
+              Venda bruta
             </Typography>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {fmtMoeda(cmv?.venda_liquida)}
+              {fmtMoeda(cmv?.venda_bruta ?? cmv?.venda_liquida)}
             </Typography>
           </Box>
           <Box>

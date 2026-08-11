@@ -536,35 +536,39 @@ export function iniciarSchedulerBkOffice() {
       day: '2-digit',
     }).format(new Date());
 
+  /** Início do mês civil em SP, ou BKOFFICE_SYNC_DATA_INICIO fixo (YYYY-MM-DD). */
+  const dataInicioSync = () => {
+    const fixo = String(process.env.BKOFFICE_SYNC_DATA_INICIO || '').trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fixo)) return fixo;
+    const hoje = hojeBR();
+    return `${hoje.slice(0, 8)}01`;
+  };
+
+  const rodarCiclo = (motivo) => {
+    const ini = dataInicioSync();
+    const fim = hojeBR();
+    console.log(`[bkoffice] Sync ${motivo}: ${ini} → ${fim} (loja ${idLoja})`);
+    void syncVendasBkOffice({
+      id_loja: idLoja,
+      data_inicio: ini,
+      data_fim: fim,
+      processar: true,
+    }).catch((err) => {
+      console.error(`[bkoffice] Sync ${motivo} falhou:`, err.message);
+    });
+  };
+
   schedulerInfo = {
     ativo: true,
     intervalo_ms: ms,
     id_loja: idLoja,
     iniciado_em: new Date().toISOString(),
   };
-  console.log(`[bkoffice] Scheduler ativo a cada ${Math.round(ms / 1000)}s (loja ${idLoja})`);
+  console.log(
+    `[bkoffice] Scheduler ativo a cada ${Math.round(ms / 1000)}s (loja ${idLoja}) — período: dia 01 → hoje`,
+  );
   // Primeiro sync após 15s (dá tempo da API subir)
-  setTimeout(() => {
-    const iso = hojeBR();
-    void syncVendasBkOffice({
-      id_loja: idLoja,
-      data_inicio: iso,
-      data_fim: iso,
-      processar: true,
-    }).catch((err) => {
-      console.error('[bkoffice] Sync inicial falhou:', err.message);
-    });
-  }, 15000);
+  setTimeout(() => rodarCiclo('inicial'), 15000);
 
-  return setInterval(() => {
-    const iso = hojeBR();
-    void syncVendasBkOffice({
-      id_loja: idLoja,
-      data_inicio: iso,
-      data_fim: iso,
-      processar: true,
-    }).catch((err) => {
-      console.error('[bkoffice] Sync agendado falhou:', err.message);
-    });
-  }, ms);
+  return setInterval(() => rodarCiclo('agendado'), ms);
 }

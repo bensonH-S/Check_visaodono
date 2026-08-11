@@ -96,9 +96,22 @@ def run_sync(env: dict[str, str], id_loja: int) -> int:
     node = find_node()
     if not SYNC_SCRIPT.is_file():
         raise FileNotFoundError(f"Script ausente: {SYNC_SCRIPT}")
-    dia = hoje_br()
-    cmd = [node, str(SYNC_SCRIPT), f"--loja={id_loja}", "--db=prod", f"--data={dia}"]
-    log(f"sync start loja={id_loja} dia={dia} node={node}")
+    # Prefer env do config carregado (merge_env), não só os.environ
+    fixo = (env.get("BKOFFICE_SYNC_DATA_INICIO") or "").strip()[:10]
+    if len(fixo) == 10 and fixo[4] == "-" and fixo[7] == "-":
+        ini = fixo
+    else:
+        ini = hoje_br()[:8] + "01"
+    fim = hoje_br()
+    cmd = [
+        node,
+        str(SYNC_SCRIPT),
+        f"--loja={id_loja}",
+        "--db=prod",
+        f"--inicio={ini}",
+        f"--fim={fim}",
+    ]
+    log(f"sync start loja={id_loja} periodo={ini}→{fim} node={node}")
     t0 = time.time()
     proc = subprocess.run(
         cmd,

@@ -1,10 +1,237 @@
 /**
  * Cliente Playwright do portal eSupri (Platlog).
- * Fluxo: login → financeiro → linha → botão NF-e → ZIP com XML.
+ * - Catálogo Pedido: códigos + PREÇO R$ (fonte preferida de custo)
+ * - Financeiro NF-e: ZIP/XML (módulo legado — ver README.md)
  */
 import { chromium } from 'playwright';
 
 const DEFAULT_BASE = 'https://www.esupri.com.br';
+
+async function launchBrowser({ headless = true, onLog = () => {} } = {}) {
+  const useChrome = process.env.ESUPRI_USE_CHROME !== '0';
+  const { buildChromiumLaunchOptions } = await import('../playwrightBrowser.js');
+  const launchOpts = buildChromiumLaunchOptions({
+    headless,
+    preferChromeChannel: useChrome,
+  });
+
+  onLog(
+    `browser exec=${launchOpts.executablePath || launchOpts.channel || 'playwright-chromium'}`,
+  );
+
+  try {
+    return await chromium.launch(launchOpts);
+  } catch (e) {
+    if (launchOpts.channel && process.platform === 'win32') {
+      onLog(`Chrome canal falhou (${e.message}) — tentando Chromium Playwright`);
+      delete launchOpts.channel;
+      launchOpts.args = (launchOpts.args || []).filter((a) => a !== '--headless=new');
+      return chromium.launch(launchOpts);
+    }
+    throw e;
+  }
+}
+
+async function loginEsupri(page, { user, pass, base, onLog = () => {} }) {
+  onLog('login');
+  await page.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.fill('input[name="login"]', user);
+  await page.fill('input[name="senha"]', pass);
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}),
+    page.locator('button[type="submit"], input[type="submit"]').first().click(),
+  ]);
+
+  onLog('home');
+  await page.goto(`${base}/esupri.php?Do=home`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000,
+  });
+}
+
+function parsePrecoBr(raw) {
+  const s = String(raw || '')
+    .replace(/[R$\s]/gi, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .trim();
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Lista o catálogo da tela Pedido (código, descrição, unidade, preço caixa).
+ * @returns {Promise<Array<{ codigo: string, descricao: string, unidade: string, categoria: string, preco_caixa: number }>>}
+ */
+export async function listarCatalogoPedidoEsupri({
+  user,
+  pass,
+  baseUrl = DEFAULT_BASE,
+  headless = true,
+  onLog = () => {},
+} = {}) {
+  if (!user || !pass) {
+    throw Object.assign(new Error('Informe usuário e senha eSupri (ESUPRI_USER / ESUPRI_PASS)'), {
+      status: 400,
+    });
+  }
+
+  const base = String(baseUrl || DEFAULT_BASE).replace(/\/$/, '');
+  const browser = await launchBrowser({ headless, onLog });
+  const context = await browser.newContext({
+    acceptDownloads: true,
+    locale: 'pt-BR',
+    viewport: { width: 1400, height: 900 },
+  });
+  const page = await context.newPage();
+  const itens = [];
+  const vistos = new Set();
+
+  try {
+    await loginEsupri(page, { user, pass, base, onLog });
+
+    onLog('pedido');
+    const menuPedido = page.locator('#menu_pedido > a, a:has-text("Pedido")').first();
+    await menuPedido.click({ timeout: 20000 });
+    await page.waitForTimeout(1500);
+
+    // Aguarda tabela de produtos (vários IDs possíveis)
+    const tabelaSel = await page.evaluate(() => {
+      const cands = [
+        '#tbProdutos',
+        '#tbPedido',
+        'table.dataTable',
+        'table.table',
+        'table',
+      ];
+      for (const sel of cands) {
+        const t = document.querySelector(sel);
+        if (!t) continue;
+        const th = (t.querySelector('thead')?.innerText || '').toUpperCase();
+        if (th.includes('CÓDIGO') || th.includes('CODIGO') || th.includes('PREÇO') || th.includes('PRECO')) {
+          return sel === 'table' ? null : sel;
+        }
+        const rows = t.querySelectorAll('tbody tr');
+        if (rows.length >= 3) return sel === 'table' ? null : sel;
+      }
+      return null;
+    });
+
+    // Prefer DataTables length = máximo
+    const lengthSelect = page
+      .locator(
+        'select[name$="_length"], select[name*="length"], .dataTables_length select',
+      )
+      .first();
+    if (await lengthSelect.count()) {
+      await lengthSelect
+        .selectOption({ label: /100|50|25|Todos|All/i })
+        .catch(() => lengthSelect.selectOption('100').catch(() => {}));
+      await page.waitForTimeout(900);
+    }
+
+    let pagina = 1;
+    while (pagina <= 80) {
+      const pageItems = await page.evaluate((preferSel) => {
+        const pickTable = () => {
+          if (preferSel) {
+            const t = document.querySelector(preferSel);
+            if (t) return t;
+          }
+          const tables = [...document.querySelectorAll('table')];
+          for (const t of tables) {
+            const head = (t.tHead?.innerText || t.querySelector('thead')?.innerText || '').toUpperCase();
+            if (
+              (head.includes('CODIGO') || head.includes('CÓDIGO')) &&
+              (head.includes('PRECO') || head.includes('PREÇO') || head.includes('DESCR'))
+            ) {
+              return t;
+            }
+          }
+          return tables.find((t) => (t.querySelectorAll('tbody tr') || []).length >= 3) || null;
+        };
+
+        const table = pickTable();
+        if (!table) return { rows: [], nextDisabled: true };
+
+        const headers = [...(table.tHead?.rows?.[0]?.cells || table.querySelectorAll('thead th'))].map(
+          (c) => (c.innerText || '').trim().toUpperCase(),
+        );
+        const idx = (re) => headers.findIndex((h) => re.test(h));
+        const iCod = idx(/C[ÓO]DIGO/);
+        const iCat = idx(/CATEGORIA/);
+        const iDesc = idx(/DESCRI/);
+        const iUn = idx(/^UN\.?$|UNIDADE/);
+        const iPreco = idx(/PRE[ÇC]O/);
+
+        const out = [];
+        for (const tr of table.querySelectorAll('tbody tr')) {
+          const tds = [...tr.querySelectorAll('td')];
+          if (!tds.length) continue;
+          const get = (i) => (i >= 0 && tds[i] ? (tds[i].innerText || '').trim() : '');
+          const codigo = get(iCod >= 0 ? iCod : 1);
+          const descricao = get(iDesc >= 0 ? iDesc : 3);
+          const precoRaw = get(iPreco >= 0 ? iPreco : 6);
+          if (!codigo || !/^\d+$/.test(codigo.replace(/\s/g, ''))) continue;
+          out.push({
+            codigo: codigo.replace(/\s/g, ''),
+            descricao,
+            categoria: get(iCat),
+            unidade: get(iUn),
+            precoRaw,
+          });
+        }
+
+        const next =
+          document.querySelector('.dataTables_paginate .next, .paginate_button.next, a.next, li.next a') ||
+          [...document.querySelectorAll('a, button')].find((a) =>
+            /pr[oó]xim|next|»/i.test((a.innerText || a.getAttribute('aria-label') || '').trim()),
+          );
+        const nextDisabled =
+          !next ||
+          next.classList.contains('disabled') ||
+          next.getAttribute('aria-disabled') === 'true' ||
+          next.closest('.disabled');
+
+        return { rows: out, nextDisabled: !!nextDisabled };
+      }, tabelaSel);
+
+      onLog(`pedido pág ${pagina}: ${pageItems.rows.length} linhas (acum ${itens.length})`);
+
+      for (const r of pageItems.rows) {
+        const codigo = String(r.codigo || '').trim();
+        if (!codigo || vistos.has(codigo)) continue;
+        const preco_caixa = parsePrecoBr(r.precoRaw);
+        if (preco_caixa == null || preco_caixa < 0) continue;
+        vistos.add(codigo);
+        itens.push({
+          codigo,
+          descricao: String(r.descricao || '').trim(),
+          categoria: String(r.categoria || '').trim(),
+          unidade: String(r.unidade || '').trim(),
+          preco_caixa,
+        });
+      }
+
+      if (pageItems.nextDisabled) break;
+
+      const nextBtn = page
+        .locator(
+          '.dataTables_paginate .next:not(.disabled), .paginate_button.next:not(.disabled), a.next:not(.disabled)',
+        )
+        .first();
+      if (!(await nextBtn.count())) break;
+      await nextBtn.click();
+      await page.waitForTimeout(1100);
+      pagina += 1;
+    }
+
+    onLog(`catálogo: ${itens.length} produtos`);
+    return itens;
+  } finally {
+    await browser.close();
+  }
+}
 
 /**
  * @param {{ user: string, pass: string, baseUrl?: string, headless?: boolean, limit?: number, onLog?: Function }} opts
@@ -25,31 +252,7 @@ export async function baixarNfesFinanceiroEsupri({
   }
 
   const base = String(baseUrl || DEFAULT_BASE).replace(/\/$/, '');
-  const useChrome = process.env.ESUPRI_USE_CHROME !== '0';
-  const { buildChromiumLaunchOptions } = await import('../playwrightBrowser.js');
-  const launchOpts = buildChromiumLaunchOptions({
-    headless,
-    preferChromeChannel: useChrome,
-  });
-
-  onLog(
-    `browser exec=${launchOpts.executablePath || launchOpts.channel || 'playwright-chromium'}`,
-  );
-
-  let browser;
-  try {
-    browser = await chromium.launch(launchOpts);
-  } catch (e) {
-    if (launchOpts.channel && process.platform === 'win32') {
-      onLog(`Chrome canal falhou (${e.message}) — tentando Chromium Playwright`);
-      delete launchOpts.channel;
-      launchOpts.args = (launchOpts.args || []).filter((a) => a !== '--headless=new');
-      browser = await chromium.launch(launchOpts);
-    } else {
-      throw e;
-    }
-  }
-
+  const browser = await launchBrowser({ headless, onLog });
   const context = await browser.newContext({
     acceptDownloads: true,
     locale: 'pt-BR',
@@ -59,26 +262,12 @@ export async function baixarNfesFinanceiroEsupri({
   const resultados = [];
 
   try {
-    onLog('login');
-    await page.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.fill('input[name="login"]', user);
-    await page.fill('input[name="senha"]', pass);
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}),
-      page.locator('button[type="submit"], input[type="submit"]').first().click(),
-    ]);
-
-    onLog('home');
-    await page.goto(`${base}/esupri.php?Do=home`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000,
-    });
+    await loginEsupri(page, { user, pass, base, onLog });
 
     onLog('financeiro');
     await page.locator('#menu_financeiro > a').click();
     await page.locator('#tbFinanceiro tbody tr').first().waitFor({ state: 'visible', timeout: 30000 });
 
-    // Tenta mostrar mais linhas por página (DataTables)
     const lengthSelect = page.locator('select[name="tbFinanceiro_length"], #tbFinanceiro_length select').first();
     if (await lengthSelect.count()) {
       await lengthSelect.selectOption({ label: /100|50|25/ }).catch(() =>
