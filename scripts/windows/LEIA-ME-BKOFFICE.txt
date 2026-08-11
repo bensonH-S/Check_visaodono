@@ -1,42 +1,23 @@
 ========================================
-  MERIDIAN — SYNC BK OFFICE
-  Duas formas (PC + servidor)
+  BK OFFICE — MODO SERVIDOR (Terraço)
 ========================================
 
-MODO 1 — PC (kit / seu Windows) — USE AGORA
---------------------------------------------
-Pasta: Desktop\Meridian-BKOffice-Gerencia
-1) TESTAR-UMA-VEZ.bat  (valida com janela)
-2) INSTALAR.bat como admin  (serviço 24h)
+No .env do SERVIDOR Meridian (produção):
 
-Precisa: Chrome instalado
-config.env: BKOFFICE_USE_CHROME=1
-
-
-MODO 2 — Servidor (ex.: EUA) — DESLIGADO POR PADRAO
-----------------------------------------------------
-No .env do servidor Meridian deixe assim ATE configurar:
-
-  BKOFFICE_SERVER_SYNC=0
-  BKOFFICE_SYNC_CRON_MS=0
-
-Quando o servidor EUA estiver ok, ative:
-
+  BKOFFICE_USER=...
+  BKOFFICE_PASS=...
+  BKOFFICE_URL=https://bkoffice-franquia.burgerking.com.br
+  BKOFFICE_HEADLESS=1
+  BKOFFICE_USE_CHROME=0
+  BKOFFICE_TIMEOUT_MS=120000
+  BKOFFICE_SYNC_ID_LOJA=21
   BKOFFICE_SERVER_SYNC=1
   BKOFFICE_SYNC_CRON_MS=60000
-  BKOFFICE_USE_CHROME=0
-  BKOFFICE_HEADLESS=1
-  BKOFFICE_SYNC_ID_LOJA=21
 
-(Reinicia o container/app depois.)
+Depois: deploy da tag + restart do container.
 
+O app puxa vendas do Terraço (loja 21) a cada 1 min.
+Dockerfile já força Chromium Playwright (sem Chrome Windows).
 
-LOGS (kit PC)
--------------
-  Logs\bkoffice-python-service.log
-  C:\ProgramData\MeridianBkOffice\Logs\
-
-
-DESINSTALAR KIT
----------------
-  DESINSTALAR.bat (como admin)
+PC gerência (kit) pode continuar como backup, mas o
+principal passa a ser o servidor.

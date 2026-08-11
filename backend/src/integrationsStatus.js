@@ -240,10 +240,12 @@ async function statusBkOffice() {
     if (sch?.ativo) {
       const seg = Math.round((sch.intervalo_ms || 0) / 1000);
       detail = st.job_rodando
-        ? `Ativa — sync em andamento (a cada ${seg}s, loja ${sch.id_loja})`
-        : `Ativa — automática a cada ${seg}s (loja ${sch.id_loja})`;
+        ? `Servidor ativo — sync em andamento (a cada ${seg}s, loja ${sch.id_loja})`
+        : `Servidor ativo — automática a cada ${seg}s (loja ${sch.id_loja} Terraço)`;
+    } else if (st.server_sync) {
+      detail = 'Servidor liberado — defina BKOFFICE_SYNC_CRON_MS>=60000';
     } else {
-      detail = 'PC gerência ativo · servidor desligado (BKOFFICE_SERVER_SYNC=0)';
+      detail = 'PC gerência / servidor desligado (BKOFFICE_SERVER_SYNC=0)';
     }
     return {
       id: 'bkoffice',
