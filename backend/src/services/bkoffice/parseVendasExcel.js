@@ -2,7 +2,8 @@
  * Parse do Excel de Vendas exportado do BK Office (relatório CMV).
  * Formato esperado: Relatório "Restaurante e Produto Venda" / "Produto Venda".
  */
-import * as XLSX from 'xlsx';
+import fs from 'fs';
+import XLSX from 'xlsx';
 
 function normHeader(v) {
   return String(v || '')
@@ -73,7 +74,9 @@ function mapColunas(headers) {
       n === 'venda bruta' ||
       n === 'bruta' ||
       n === 'bruto' ||
-      n === 'gross sales'
+      n === 'gross sales' ||
+      // Relatório Produto Venda: coluna "Valor" ≈ bruto (antes da líquida)
+      n === 'valor'
     ) {
       idx.venda_bruta = i;
       return;
@@ -178,9 +181,6 @@ export function parseVendasExcelBuffer(buffer, opts = {}) {
 }
 
 export function parseVendasExcelFile(filePath, opts = {}) {
-  const workbook = XLSX.readFile(filePath, { cellDates: true });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) return [];
-  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  const buffer = fs.readFileSync(filePath);
   return parseVendasExcelBuffer(buffer, opts);
 }
