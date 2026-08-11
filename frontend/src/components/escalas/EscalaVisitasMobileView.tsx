@@ -251,15 +251,12 @@ export default function EscalaVisitasMobileView() {
   }, [grade?.status_por_regiao, grade?.status_delivery]);
   const modos = useMemo(() => {
     if (ehDeliveryOnly) return [{ id: 'delivery' as const, label: 'Delivery' }];
-    // Regional: só a própria escala (não vê a dos outros da mesma região).
+    // Regional: Minhas (só o próprio nome) + Montar (quando tem permissão de região).
     if (ehRegional) {
-      const tabs: Array<{ id: ModoVisualizacao; label: string }> = [
-        { id: 'minhas', label: 'Minhas' },
+      return [
+        { id: 'minhas' as const, label: 'Minhas' },
+        { id: 'montar' as const, label: 'Montar' },
       ];
-      if (podeEditarGrade || grade?.pode_editar_regiao) {
-        tabs.push({ id: 'montar', label: 'Montar' });
-      }
-      return tabs;
     }
     const base: Array<{ id: ModoVisualizacao; label: string }> = [
       { id: 'minhas', label: 'Minhas' },
@@ -271,14 +268,7 @@ export default function EscalaVisitasMobileView() {
       base.unshift({ id: 'montar', label: 'Montar' });
     }
     return base;
-  }, [
-    ehRegional,
-    ehDiretor,
-    ehDeliveryOnly,
-    grade?.pode_editar_regiao,
-    grade?.pode_editar,
-    podeEditarGrade,
-  ]);
+  }, [ehRegional, ehDiretor, ehDeliveryOnly, grade?.pode_editar_regiao, grade?.pode_editar]);
 
   const carregar = useCallback(async () => {
     if (!podeVer) return;
@@ -710,8 +700,7 @@ export default function EscalaVisitasMobileView() {
 
   const temFiltroRegiao = !ehDeliveryOnly && grade != null && grade.regioes.length > 1;
   const regiaoAtiva = grade?.regioes.find((r) => r.id_regiao === idRegiao);
-  const modoTrabalho =
-    ehDeliveryOnly || modo === 'montar' || (modo === 'delivery' && podeEditarDelivery);
+  const modoTrabalho = ehDeliveryOnly || modo === 'montar' || modo === 'delivery';
 
   return (
     <div
@@ -731,12 +720,14 @@ export default function EscalaVisitasMobileView() {
                     {ehDeliveryOnly ? 'Escala delivery' : 'Montar escala'}
                   </h1>
                   <p className="ck-escala__compact-sub">
-                    {ehDeliveryOnly
-                      ? 'Toque nas lojas do dia, salve e envie para o diretor aprovar'
+                    {ehDeliveryOnly || modo === 'delivery'
+                      ? podeEditarDelivery
+                        ? 'Toque nas lojas do dia, salve e envie para o diretor aprovar'
+                        : 'Rota de delivery da semana (só leitura)'
                       : ehRegional
                         ? podeEditarGrade
                           ? 'Escolha o dia, toque nas lojas da equipe e envie para aprovação'
-                          : 'Escala em só leitura — veja também Minhas e Por dia'
+                          : 'Escala em só leitura — use Minhas para ver sua rota'
                         : 'Toque nos dias e envie para aprovação'}
                   </p>
                 </div>
@@ -1173,39 +1164,61 @@ export default function EscalaVisitasMobileView() {
               ))
             )
           ) : modo === 'delivery' ? (
-            (deliveryPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
-              <button
-                key={loja.id_loja}
-                type="button"
-                className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}${
-                  podeEditarDelivery ? ' is-edit' : ''
-                }`}
-                disabled={!podeEditarDelivery || salvando}
-                onClick={() => toggleDeliveryLoja(diaSelecionado, loja.id_loja)}
-                style={{ width: '100%', textAlign: 'left', cursor: podeEditarDelivery ? 'pointer' : 'default' }}
-              >
-                <div
-                  className="ck-escala__card-stripe"
-                  style={{ background: loja.marcada ? ORANGE : 'rgba(27,42,107,0.2)' }}
-                  aria-hidden
-                />
-                <div className="ck-escala__card-body">
-                  <p className="ck-escala__card-title">
-                    {loja.bk_number ? `${loja.bk_number} · ` : ''}
-                    {loja.nome}
-                  </p>
-                  <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
-                    {loja.marcada
-                      ? podeEditarDelivery
-                        ? 'Delivery agendado · toque para remover'
-                        : 'Delivery agendado'
-                      : podeEditarDelivery
-                        ? 'Toque para agendar'
-                        : 'Sem delivery'}
-                  </p>
-                </div>
-              </button>
-            ))
+            (() => {
+              const diaDelivery = deliveryPorDia.find((d) => d.dia === diaSelecionado);
+              const lojasDia = podeEditarDelivery
+                ? (diaDelivery?.lojas ?? [])
+                : (diaDelivery?.lojas ?? []).filter((l) => l.marcada);
+              if (!lojasDia.length) {
+                return (
+                  <div className="ck-escala__empty">
+                    <strong>{podeEditarDelivery ? 'Nenhuma loja' : 'Sem delivery neste dia'}</strong>
+                    <p>
+                      {podeEditarDelivery
+                        ? 'Não há lojas para agendar.'
+                        : diaDelivery
+                          ? `${diaDelivery.label} · ${diaDelivery.data} — folga ou sem rota.`
+                          : 'Nenhuma rota nesta semana.'}
+                    </p>
+                  </div>
+                );
+              }
+              return lojasDia.map((loja) => (
+                <button
+                  key={loja.id_loja}
+                  type="button"
+                  className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}${
+                    podeEditarDelivery ? ' is-edit' : ''
+                  }`}
+                  disabled={!podeEditarDelivery || salvando}
+                  onClick={() => toggleDeliveryLoja(diaSelecionado, loja.id_loja)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    cursor: podeEditarDelivery ? 'pointer' : 'default',
+                  }}
+                >
+                  <div
+                    className="ck-escala__card-stripe"
+                    style={{ background: loja.marcada ? ORANGE : 'rgba(27,42,107,0.2)' }}
+                    aria-hidden
+                  />
+                  <div className="ck-escala__card-body">
+                    <p className="ck-escala__card-title">
+                      {loja.bk_number ? `${loja.bk_number} · ` : ''}
+                      {loja.nome}
+                    </p>
+                    <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
+                      {loja.marcada
+                        ? podeEditarDelivery
+                          ? 'Delivery agendado · toque para remover'
+                          : 'Delivery agendado'
+                        : 'Toque para agendar'}
+                    </p>
+                  </div>
+                </button>
+              ));
+            })()
           ) : modo === 'dia' ? (
             diaAtual && diaAtual.itens.length === 0 ? (
               <div className="ck-escala__empty">
