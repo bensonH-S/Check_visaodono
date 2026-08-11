@@ -37,8 +37,11 @@ const GRADE_EXCEL = [
   { bkn: '15022', dias: ['', 'Barbara', '', 'Renato', '', 'Barbara', ''] },
 ];
 
-/** Rota Kadu (mini-grid inferior) — só preenche célula vazia */
-const ROTA_KADU = [
+/**
+ * Rota Kadu (mini-grid inferior) = Delivery.
+ * Grava em id_loja_destino na loja âncora DELIVERY (não pinta Kadu nas linhas de loja).
+ */
+const ROTA_DELIVERY_KADU = [
   { bkn: '31614', dia: 0 },
   { bkn: '30769', dia: 1 },
   { bkn: '23240', dia: 2 },
@@ -53,7 +56,6 @@ const ALIASES = {
   fagno: 'Fagno',
   plinio: 'Plinio',
   igor: 'Igor',
-  kadu: 'Kadu DLV',
 };
 
 function normNome(s) {
@@ -111,9 +113,15 @@ try {
     }
 
     const { rows: lojas } = await client.query(
-      `SELECT id_loja, bk_number FROM lojas WHERE is_active = TRUE`,
+      `SELECT id_loja, name, bk_number FROM lojas WHERE is_active = TRUE`,
     );
-    const lojaPorBk = new Map(lojas.map((l) => [String(l.bk_number).trim(), l.id_loja]));
+    const lojaPorBk = new Map(
+      lojas
+        .filter((l) => l.bk_number != null)
+        .map((l) => [String(l.bk_number).trim(), l.id_loja]),
+    );
+    const lojaDelivery = lojas.find((l) => normNome(l.name) === 'delivery');
+    if (!lojaDelivery) throw new Error('Loja âncora DELIVERY não encontrada');
 
     const { rows: semRows } = await client.query(
       `INSERT INTO escala_visitas_semana (semana_inicio, observacao)
@@ -135,17 +143,10 @@ try {
       }
       row.dias.forEach((nome, dia) => {
         if (!nome) return;
-        grid.set(`${idLoja}-${dia}`, { id_loja: idLoja, dia, chave: normNome(nome) });
+        const chave = normNome(nome);
+        if (chave === 'kadu' || chave === 'cadu') return;
+        grid.set(`${idLoja}-${dia}`, { id_loja: idLoja, dia, chave });
       });
-    }
-
-    for (const r of ROTA_KADU) {
-      const idLoja = lojaPorBk.get(r.bkn);
-      if (!idLoja) continue;
-      const key = `${idLoja}-${r.dia}`;
-      if (!grid.has(key)) {
-        grid.set(key, { id_loja: idLoja, dia: r.dia, chave: 'kadu' });
-      }
     }
 
     let inseridos = 0;
@@ -169,9 +170,25 @@ try {
       inseridos++;
     }
 
+    let deliveryInseridos = 0;
+    for (const r of ROTA_DELIVERY_KADU) {
+      const idDestino = lojaPorBk.get(r.bkn);
+      if (!idDestino) {
+        console.warn(`Destino delivery BKN ${r.bkn} não encontrado`);
+        continue;
+      }
+      await client.query(
+        `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_loja_destino)
+         VALUES ($1, $2, $3, $4)`,
+        [idSemana, lojaDelivery.id_loja, r.dia, idDestino],
+      );
+      deliveryInseridos++;
+    }
+
     await client.query('COMMIT');
     console.log(`\nOK — semana ${SEMANA_INICIO}`);
-    console.log(`  Células inseridas: ${inseridos}`);
+    console.log(`  Células visitas: ${inseridos}`);
+    console.log(`  Células delivery (Kadu): ${deliveryInseridos}`);
     if (ignorados) console.log(`  Ignoradas: ${ignorados}`);
     console.log('\nRegionais:', mapRegional);
   } catch (e) {

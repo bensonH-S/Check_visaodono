@@ -258,7 +258,15 @@ export default function EscalaVisitasMobileView() {
   }, [grade?.status_por_regiao, grade?.status_delivery]);
   const modos = useMemo(() => {
     if (ehDeliveryOnly) return [{ id: 'delivery' as const, label: 'Delivery' }];
-    if (ehRegional) return [{ id: 'montar' as const, label: 'Montar' }];
+    // Regional também precisa VER a escala (mesmo quem não montou / já aprovada).
+    if (ehRegional) {
+      return [
+        { id: 'minhas' as const, label: 'Minhas' },
+        { id: 'dia' as const, label: 'Por dia' },
+        { id: 'lojas' as const, label: 'Por loja' },
+        { id: 'montar' as const, label: 'Montar' },
+      ];
+    }
     const base: Array<{ id: ModoVisualizacao; label: string }> = [
       { id: 'minhas', label: 'Minhas' },
       { id: 'dia', label: 'Por dia' },
@@ -603,13 +611,19 @@ export default function EscalaVisitasMobileView() {
       const lojas = linhas.map((linha) => {
         const ids = valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]);
         const equipe = idsEquipeDaLoja(linha.id_regiao);
+        const marcadaEquipe = celulaTemEquipe(ids, equipe);
         return {
           id_loja: linha.id_loja,
           nome: linha.nome,
           bk_number: linha.bk_number,
           id_regiao: linha.id_regiao,
-          marcada: celulaTemEquipe(ids, equipe),
+          marcada: marcadaEquipe,
+          temVisita: ids.length > 0,
           equipeLabel: nomesEquipeDaLoja(linha.id_regiao),
+          regionais: atribuicoesDoDia(linha.dias[dia]).map((a) => ({
+            nome: a.nome_regional ?? mapNomeRegional.get(a.id_regional!) ?? '—',
+            cor: a.cor ?? undefined,
+          })),
         };
       });
       return {
@@ -617,10 +631,11 @@ export default function EscalaVisitasMobileView() {
         label,
         data: fmtDataCurta(addDaysIso(grade.semana_inicio, dia)),
         lojas,
-        totalMarcadas: lojas.filter((l) => l.marcada).length,
+        // Conta qualquer visita na loja (não só “minha equipe”), para o badge não zerar.
+        totalMarcadas: lojas.filter((l) => l.temVisita).length,
       };
     });
-  }, [grade, pending, idEu]);
+  }, [grade, pending, idEu, mapNomeRegional]);
 
   const visitasPorDia = useMemo(() => {
     if (!grade) return [];
@@ -720,7 +735,9 @@ export default function EscalaVisitasMobileView() {
                     {ehDeliveryOnly
                       ? 'Toque nas lojas do dia, salve e envie para o diretor aprovar'
                       : ehRegional
-                        ? 'Escolha o dia, toque nas lojas da equipe e envie para aprovação'
+                        ? podeEditarGrade
+                          ? 'Escolha o dia, toque nas lojas da equipe e envie para aprovação'
+                          : 'Escala em só leitura — veja também Minhas e Por dia'
                         : 'Toque nos dias e envie para aprovação'}
                   </p>
                 </div>
@@ -1115,53 +1132,86 @@ export default function EscalaVisitasMobileView() {
               <CircularProgress size={28} sx={{ color: NAVY }} />
             </div>
           ) : modo === 'montar' ? (
-            !podeEditarGrade ? (
-              <div className="ck-escala__empty">
-                <strong>Escala bloqueada</strong>
-                <p>
-                  {statusAtivo === 'pendente_aprovacao'
-                    ? 'Aguardando aprovação do diretor.'
-                    : statusAtivo === 'aprovado'
-                      ? 'Já aprovada. Peça devolução ao diretor para editar.'
-                      : 'Sem permissão para montar nesta região.'}
-                </p>
-              </div>
-            ) : ehRegional ? (
-              (montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).length === 0 ? (
-                <div className="ck-escala__empty">
-                  <p>Nenhuma loja nesta região.</p>
-                </div>
-              ) : (
-                (montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).map((loja) => (
-                  <button
-                    key={loja.id_loja}
-                    type="button"
-                    className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}${
-                      podeEditarGrade ? ' is-edit' : ''
-                    }`}
-                    disabled={!podeEditarGrade || salvando}
-                    onClick={() => toggleMontarLoja(diaSelecionado, loja.id_loja)}
-                    style={{ width: '100%', textAlign: 'left', cursor: podeEditarGrade ? 'pointer' : 'default' }}
-                  >
-                    <div
-                      className="ck-escala__card-stripe"
-                      style={{ background: loja.marcada ? ORANGE : 'rgba(27,42,107,0.2)' }}
-                      aria-hidden
-                    />
-                    <div className="ck-escala__card-body">
-                      <p className="ck-escala__card-title">
-                        {loja.bk_number ? `${loja.bk_number} · ` : ''}
-                        {loja.nome}
-                      </p>
-                      <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
-                        {loja.marcada
-                          ? `Visita da equipe${loja.equipeLabel ? ` (${loja.equipeLabel})` : ''} · toque para remover`
-                          : 'Toque para agendar visita da equipe'}
-                      </p>
+            ehRegional ? (
+              <>
+                {!podeEditarGrade && (
+                  <div className="ck-escala__empty" style={{ marginBottom: 12 }}>
+                    <strong>
+                      {statusAtivo === 'pendente_aprovacao'
+                        ? 'Escala em aprovação'
+                        : statusAtivo === 'aprovado'
+                          ? 'Escala aprovada'
+                          : 'Escala bloqueada'}
+                    </strong>
+                    <p>
+                      {statusAtivo === 'pendente_aprovacao'
+                        ? 'Só leitura enquanto o diretor analisa. Use Minhas / Por dia para ver o cronograma.'
+                        : statusAtivo === 'aprovado'
+                          ? 'Só leitura. Use Minhas / Por dia para ver o cronograma. Peça devolução ao diretor para editar.'
+                          : 'Sem permissão para montar nesta região.'}
+                    </p>
+                  </div>
+                )}
+                {(montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).length === 0 ? (
+                  <div className="ck-escala__empty">
+                    <p>Nenhuma loja nesta região.</p>
+                  </div>
+                ) : (
+                  (montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? [])
+                    .filter((loja) => podeEditarGrade || loja.temVisita)
+                    .map((loja) => (
+                      <button
+                        key={loja.id_loja}
+                        type="button"
+                        className={`ck-escala__card${loja.temVisita ? ' is-delivery-on' : ''}${
+                          podeEditarGrade ? ' is-edit' : ''
+                        }`}
+                        disabled={!podeEditarGrade || salvando}
+                        onClick={() => toggleMontarLoja(diaSelecionado, loja.id_loja)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          cursor: podeEditarGrade ? 'pointer' : 'default',
+                        }}
+                      >
+                        <div
+                          className="ck-escala__card-stripe"
+                          style={{
+                            background: loja.temVisita ? ORANGE : 'rgba(27,42,107,0.2)',
+                          }}
+                          aria-hidden
+                        />
+                        <div className="ck-escala__card-body">
+                          <p className="ck-escala__card-title">
+                            {loja.bk_number ? `${loja.bk_number} · ` : ''}
+                            {loja.nome}
+                          </p>
+                          <p className={`ck-escala__card-meta${loja.temVisita ? ' is-on' : ' is-off'}`}>
+                            {loja.temVisita
+                              ? podeEditarGrade
+                                ? `Visita${loja.equipeLabel ? ` (${loja.equipeLabel})` : ''}${
+                                    loja.regionais.length
+                                      ? ` · ${loja.regionais.map((r) => r.nome).join(', ')}`
+                                      : ''
+                                  } · toque para remover`
+                                : `Visita · ${
+                                    loja.regionais.map((r) => r.nome).join(', ') || 'agendada'
+                                  }`
+                              : 'Toque para agendar visita da equipe'}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                )}
+                {!podeEditarGrade &&
+                  (montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).every(
+                    (l) => !l.temVisita,
+                  ) && (
+                    <div className="ck-escala__empty">
+                      <p>Nenhuma visita neste dia nesta região.</p>
                     </div>
-                  </button>
-                ))
-              )
+                  )}
+              </>
             ) : (grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0) === 0 ? (
               <div className="ck-escala__empty">
                 <p>Nenhuma loja nesta região.</p>

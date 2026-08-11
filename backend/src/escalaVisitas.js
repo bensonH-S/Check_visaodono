@@ -4,16 +4,18 @@ import { carregarRegioesAtuacaoTecnico } from './lojasUsuario.js';
 
 /**
  * Cores da legenda da planilha "Time de Campo" (Escala Grupo Alvim).
- * Renato=verde, Bárbara=amarelo, Igor=cinza, Kadu=laranja, Plinio=azul, Fagno=ciano.
+ * Renato=verde, Bárbara=amarelo, Igor=cinza, Plinio=azul, Fagno=ciano.
+ * Kadu (laranja) é Delivery — não entra na paleta da grade de visitas; rota vai na aba Delivery.
  */
 export const CORES_ESCALA_POR_NOME = [
   { chave: 'renato', cor: '#00B050' },
   { chave: 'barbara', cor: '#FFFF00' },
   { chave: 'igor', cor: '#CCCCCC' },
-  { chave: 'kadu', cor: '#FF9900' },
-  { chave: 'cadu', cor: '#FF9900' },
   { chave: 'plinio', cor: '#4A86E8' },
   { chave: 'fagno', cor: '#00FFFF' },
+  // Mantido só para histórico/legado se algum nome ainda aparecer; Kadu é delivery-only.
+  { chave: 'kadu', cor: '#FF9900' },
+  { chave: 'cadu', cor: '#FF9900' },
 ];
 
 /** Fallback quando o nome não está na legenda da planilha. */
@@ -40,6 +42,12 @@ export const ESCALA_VISITAS_PRIORIDADE_TOPO = ['renato frota', 'renato', 'igor']
 
 /** Supervisores de região — cada um agrupa os regionais e técnicos vinculados na frota. */
 export const ESCALA_VISITAS_LIDERES_GRUPO = ['plinio', 'fagno', 'barbara'];
+
+/**
+ * Paleta fixa da planilha Time de Campo (grade de visitas).
+ * Kadu é Delivery e não entra aqui.
+ */
+export const ESCALA_VISITAS_PALETA_NOMES = ['renato', 'barbara', 'igor', 'plinio', 'fagno'];
 
 /** Loja âncora da linha DELIVERY e lojas que não entram como linha normal na grade. */
 export const ESCALA_VISITAS_NOME_LOJA_DELIVERY = 'DELIVERY';
@@ -353,14 +361,15 @@ export async function listarRegionaisEscala() {
       FROM usuarios u
       WHERE u.ativo = TRUE
         AND (
-          u.id_usuario IN (SELECT id_regional FROM frota_regioes WHERE id_regional IS NOT NULL AND ativo = TRUE)
+          EXISTS (
+            SELECT 1 FROM usuario_permissoes p
+            WHERE p.id_usuario = u.id_usuario
+              AND p.codigo IN ('escalas.visitas.editar_regiao', 'escalas.visitas.gerenciar')
+          )
+          OR u.id_usuario IN (SELECT id_regional FROM frota_regioes WHERE id_regional IS NOT NULL AND ativo = TRUE)
           OR u.id_usuario IN (SELECT id_usuario FROM frota_regiao_regionais)
-          OR u.id_usuario IN (SELECT id_usuario FROM frota_regiao_tecnicos)
           OR COALESCE(u.cargo_aprovacao, u.perfil::text) = 'supervisor_regional'
           OR COALESCE(u.cargo_aprovacao, u.perfil::text) = 'diretor'
-          OR u.id_usuario IN (
-            SELECT DISTINCT c.id_regional FROM escala_visitas_celula c WHERE c.id_regional IS NOT NULL
-          )
         )
         -- Delivery-only não entra na paleta de visitas (só na aba Delivery).
         AND NOT (
@@ -378,7 +387,12 @@ export async function listarRegionaisEscala() {
     carregarMembrosRegioesFrotaEscala(),
   ]);
 
-  const ordenados = ordenarRegionaisEscala(queryRegionais.rows, membrosMap);
+  // Só a legenda da planilha (Renato, Bárbara, Igor, Plinio, Fagno).
+  const daPlanilha = queryRegionais.rows.filter((u) =>
+    ESCALA_VISITAS_PALETA_NOMES.some((chave) => nomeCorrespondeChave(u.nome, chave)),
+  );
+
+  const ordenados = ordenarRegionaisEscala(daPlanilha, membrosMap);
   return ordenados.map((r, i) => ({
     id_usuario: r.id_usuario,
     nome: r.nome,
