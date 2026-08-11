@@ -173,6 +173,13 @@ async function main() {
     try {
       const hoje = hojeBR();
       const mes = hoje.slice(0, 7);
+      if (once) {
+        // Teste rápido: só hoje (não faz backfill do mês inteiro)
+        log('modo --once: sync só do dia de hoje');
+        const ok = await runSync(secrets, idLoja, hoje, hoje);
+        log(ok ? 'TESTE OK' : 'TESTE FALHOU');
+        process.exit(ok ? 0 : 1);
+      }
       if (backfillMes !== mes) {
         if (await backfill(secrets, idLoja)) {
           backfillMes = mes;
@@ -185,10 +192,7 @@ async function main() {
       }
     } catch (e) {
       log(`ERRO ${e.message || e}`);
-    }
-    if (once) {
-      log('modo --once: encerrando após 1 ciclo');
-      process.exit(0);
+      if (once) process.exit(1);
     }
     log(`ciclo #${ciclo} — dormindo ${intervalSec}s`);
     await new Promise((r) => setTimeout(r, intervalMs));
