@@ -985,6 +985,8 @@ export async function importarVendasLoja(
       );
       const idVenda = vend[0].id_venda;
 
+      // Reimport: limpa pendentes; linhas já processadas atualizam valor (CMV)
+      // sem apagar a baixa de estoque já feita.
       await client.query(
         `DELETE FROM estoque_venda_itens
          WHERE id_venda = $1 AND processado = FALSE`,
@@ -1006,10 +1008,12 @@ export async function importarVendasLoja(
            VALUES ($1,$2,$3,$4,$5,$6,FALSE,FALSE)
            ON CONFLICT (id_venda, codigo) DO UPDATE
              SET descricao = EXCLUDED.descricao,
-                 qtde = EXCLUDED.qtde,
+                 qtde = CASE
+                   WHEN estoque_venda_itens.processado THEN estoque_venda_itens.qtde
+                   ELSE EXCLUDED.qtde
+                 END,
                  venda_liquida = EXCLUDED.venda_liquida,
-                 id_produto = EXCLUDED.id_produto
-           WHERE estoque_venda_itens.processado = FALSE`,
+                 id_produto = COALESCE(EXCLUDED.id_produto, estoque_venda_itens.id_produto)`,
           [idVenda, codigo, descricao, qtde, venda_liquida, pv?.id_produto || null],
         );
       }

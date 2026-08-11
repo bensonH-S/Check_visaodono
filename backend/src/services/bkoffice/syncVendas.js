@@ -261,11 +261,10 @@ async function baixarExcelVendas({
       throw Object.assign(
         new Error(
           'BK Office bloqueou o acesso (403 Akamai). ' +
-            'No Windows use BKOFFICE_USE_CHROME=1 (Chrome real). ' +
-            'No servidor Linux use Chromium Playwright com IP que o Akamai aceite ' +
-            '(ou BKOFFICE_SERVER_SYNC=0 e rode no PC/kit).',
+            'No servidor fora do Brasil defina BKOFFICE_PROXY com proxy residencial/BR ' +
+            '(http://user:pass@host:port). No Windows local: BKOFFICE_USE_CHROME=1.',
         ),
-        { status: 503 },
+        { status: 503, code: 'AKAMAI_403' },
       );
     }
 
@@ -491,10 +490,14 @@ export async function syncVendasBkOffice({
 }
 
 /**
- * Agenda sync periódico (se BKOFFICE_SYNC_CRON_MS > 0).
- * Mínimo 60s. Ex.: 60000 = 1 min.
- * Obs.: cada sync abre o BK Office via Playwright; se demorar > intervalo,
- * o próximo ciclo é pulado (jobRodando).
+ * Agenda sync periódico no SERVIDOR (BKOFFICE_SERVER_SYNC=1).
+ *
+ * Estratégia (rápida):
+ * - Boot: backfill dia a dia (01 do mês → hoje) uma vez
+ * - Depois: só o dia de hoje (rápido)
+ * - 403 Akamai: backoff exponencial (15 min → 2 h) em vez de martelar a cada 60s
+ *
+ * Fora do BR: obrigatório BKOFFICE_PROXY (residencial/BR), senão o Akamai bloqueia.
  */
 export function iniciarSchedulerBkOffice() {
   const serverSync =
@@ -504,8 +507,7 @@ export function iniciarSchedulerBkOffice() {
   if (!serverSync) {
     schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
     console.log(
-      '[bkoffice] Scheduler no servidor DESLIGADO (BKOFFICE_SERVER_SYNC≠1). ' +
-        'Use o kit do PC gerência ou ative o servidor quando estiver pronto.',
+      '[bkoffice] Scheduler no servidor DESLIGADO (BKOFFICE_SERVER_SYNC≠1).',
     );
     return null;
   }
@@ -528,6 +530,14 @@ export function iniciarSchedulerBkOffice() {
     return null;
   }
 
+  const proxyUrl = (process.env.BKOFFICE_PROXY || process.env.HTTPS_PROXY || '').trim();
+  if (!proxyUrl) {
+    console.warn(
+      '[bkoffice] AVISO: sem BKOFFICE_PROXY — se o IP do servidor for datacenter/fora do BR, ' +
+        'o Akamai responde 403. Configure proxy residencial brasileiro.',
+    );
+  }
+
   const hojeBR = () =>
     new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Sao_Paulo',
@@ -536,26 +546,86 @@ export function iniciarSchedulerBkOffice() {
       day: '2-digit',
     }).format(new Date());
 
-  /** Início do mês civil em SP, ou BKOFFICE_SYNC_DATA_INICIO fixo (YYYY-MM-DD). */
-  const dataInicioSync = () => {
+  const dataInicioMes = () => {
     const fixo = String(process.env.BKOFFICE_SYNC_DATA_INICIO || '').trim().slice(0, 10);
     if (/^\d{4}-\d{2}-\d{2}$/.test(fixo)) return fixo;
     const hoje = hojeBR();
     return `${hoje.slice(0, 8)}01`;
   };
 
-  const rodarCiclo = (motivo) => {
-    const ini = dataInicioSync();
-    const fim = hojeBR();
-    console.log(`[bkoffice] Sync ${motivo}: ${ini} → ${fim} (loja ${idLoja})`);
-    void syncVendasBkOffice({
+  const addDaysISO = (iso, delta) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + delta);
+    return dt.toISOString().slice(0, 10);
+  };
+
+  let backoffUntil = 0;
+  let backoffMs = 0;
+  let backfillFeitoPara = null; // YYYY-MM (mês SP) já backfillado neste processo
+
+  const registrarFalha = (err) => {
+    const msg = err?.message || String(err);
+    const akamai = err?.code === 'AKAMAI_403' || /403|Akamai/i.test(msg);
+    if (akamai) {
+      backoffMs = Math.min(Math.max(backoffMs * 2 || 15 * 60 * 1000, 15 * 60 * 1000), 2 * 60 * 60 * 1000);
+      backoffUntil = Date.now() + backoffMs;
+      console.error(
+        `[bkoffice] 403 Akamai — pausa ${Math.round(backoffMs / 60000)} min. ` +
+          'No .env do servidor: BKOFFICE_PROXY=http://user:pass@host:port (IP residencial BR).',
+      );
+      return;
+    }
+    console.error('[bkoffice] Sync falhou:', msg);
+  };
+
+  const syncDia = async (dia, motivo) => {
+    console.log(`[bkoffice] Sync ${motivo}: ${dia} (loja ${idLoja})`);
+    await syncVendasBkOffice({
       id_loja: idLoja,
-      data_inicio: ini,
-      data_fim: fim,
+      data_inicio: dia,
+      data_fim: dia,
       processar: true,
-    }).catch((err) => {
-      console.error(`[bkoffice] Sync ${motivo} falhou:`, err.message);
     });
+  };
+
+  const rodarCiclo = async (motivo, { backfill = false } = {}) => {
+    if (jobRodando) {
+      console.log(`[bkoffice] Sync ${motivo} pulado — já tem job em andamento`);
+      return;
+    }
+    if (Date.now() < backoffUntil) {
+      const min = Math.ceil((backoffUntil - Date.now()) / 60000);
+      console.log(`[bkoffice] Sync ${motivo} pulado — backoff Akamai (~${min} min)`);
+      return;
+    }
+
+    const hoje = hojeBR();
+    try {
+      if (backfill) {
+        const ini = dataInicioMes();
+        console.log(`[bkoffice] Backfill ${ini} → ${hoje} (dia a dia, loja ${idLoja})`);
+        for (let d = ini; d <= hoje; d = addDaysISO(d, 1)) {
+          if (Date.now() < backoffUntil) break;
+          await syncDia(d, `backfill`);
+        }
+        backfillFeitoPara = hoje.slice(0, 7);
+        backoffMs = 0;
+        console.log(`[bkoffice] Backfill concluído até ${hoje}`);
+        return;
+      }
+
+      // Ciclo normal: só hoje (rápido). Se virou o mês e ainda não backfillou, faz.
+      const mes = hoje.slice(0, 7);
+      if (backfillFeitoPara !== mes) {
+        await rodarCiclo('backfill-mes', { backfill: true });
+        return;
+      }
+      await syncDia(hoje, motivo);
+      backoffMs = 0;
+    } catch (err) {
+      registrarFalha(err);
+    }
   };
 
   schedulerInfo = {
@@ -565,10 +635,16 @@ export function iniciarSchedulerBkOffice() {
     iniciado_em: new Date().toISOString(),
   };
   console.log(
-    `[bkoffice] Scheduler ativo a cada ${Math.round(ms / 1000)}s (loja ${idLoja}) — período: dia 01 → hoje`,
+    `[bkoffice] Scheduler ativo a cada ${Math.round(ms / 1000)}s (loja ${idLoja})` +
+      ` — boot=backfill 01→hoje, depois só hoje` +
+      (proxyUrl ? ' — com proxy' : ' — SEM proxy'),
   );
-  // Primeiro sync após 15s (dá tempo da API subir)
-  setTimeout(() => rodarCiclo('inicial'), 15000);
 
-  return setInterval(() => rodarCiclo('agendado'), ms);
+  setTimeout(() => {
+    void rodarCiclo('inicial', { backfill: true });
+  }, 15000);
+
+  return setInterval(() => {
+    void rodarCiclo('agendado', { backfill: false });
+  }, ms);
 }

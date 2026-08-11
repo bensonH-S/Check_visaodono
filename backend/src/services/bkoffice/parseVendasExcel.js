@@ -68,7 +68,13 @@ function mapColunas(headers) {
       idx.qtde = i;
       return;
     }
-    if (n.includes('venda b') || n === 'venda bruta' || n === 'bruta' || n === 'gross sales') {
+    if (
+      n.includes('venda b') ||
+      n === 'venda bruta' ||
+      n === 'bruta' ||
+      n === 'bruto' ||
+      n === 'gross sales'
+    ) {
       idx.venda_bruta = i;
       return;
     }

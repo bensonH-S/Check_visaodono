@@ -27,9 +27,12 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV BKOFFICE_USE_CHROME=0
 ENV BKOFFICE_HEADLESS=1
 ENV BKOFFICE_SERVER_SYNC=1
-ENV BKOFFICE_SYNC_CRON_MS=60000
+# 15 min — cada sync abre browser; 60s só gera fila/403
+ENV BKOFFICE_SYNC_CRON_MS=900000
 ENV BKOFFICE_SYNC_ID_LOJA=21
 ENV ESUPRI_USE_CHROME=0
+# Obrigatório se o IP do host for datacenter/fora do BR:
+# ENV BKOFFICE_PROXY=http://user:pass@proxy-br:port
 
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/

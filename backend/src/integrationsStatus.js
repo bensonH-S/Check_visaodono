@@ -239,9 +239,13 @@ async function statusBkOffice() {
     let detail = 'Configurada';
     if (sch?.ativo) {
       const seg = Math.round((sch.intervalo_ms || 0) / 1000);
-      detail = st.job_rodando
+      const proxyOk = Boolean(
+        (process.env.BKOFFICE_PROXY || process.env.HTTPS_PROXY || '').trim(),
+      );
+      const base = st.job_rodando
         ? `Servidor ativo — sync em andamento (a cada ${seg}s, loja ${sch.id_loja})`
-        : `Servidor ativo — automática a cada ${seg}s (loja ${sch.id_loja} Terraço)`;
+        : `Servidor ativo — a cada ${seg}s (loja ${sch.id_loja} Terraço)`;
+      detail = proxyOk ? `${base} · proxy OK` : `${base} · SEM proxy (risco 403 Akamai)`;
     } else if (st.server_sync) {
       detail = 'Servidor liberado — defina BKOFFICE_SYNC_CRON_MS>=60000';
     } else {

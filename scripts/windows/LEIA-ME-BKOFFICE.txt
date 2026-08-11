@@ -12,14 +12,20 @@ No .env do SERVIDOR Meridian (produção):
   BKOFFICE_TIMEOUT_MS=120000
   BKOFFICE_SYNC_ID_LOJA=21
   BKOFFICE_SERVER_SYNC=1
-  BKOFFICE_SYNC_CRON_MS=60000
+  BKOFFICE_SYNC_CRON_MS=900000
+  # OBRIGATÓRIO se o servidor NÃO tiver IP Brasil limpo (datacenter/USA = 403 Akamai):
+  BKOFFICE_PROXY=http://usuario:senha@host-proxy-br:porta
   # Opcional: forçar início fixo (padrão = dia 01 do mês corrente)
   # BKOFFICE_SYNC_DATA_INICIO=2026-08-01
 
 Depois: deploy da tag + restart do container.
 
-O app puxa vendas do Terraço (loja 21) a cada 1 min.
-Dockerfile já força Chromium Playwright (sem Chrome Windows).
+Comportamento:
+  - Boot: backfill dia a dia (01 do mês → hoje)
+  - Depois: só o dia de hoje a cada BKOFFICE_SYNC_CRON_MS (padrão 15 min)
+  - 403 Akamai: backoff 15 min → 2 h (não martela)
 
-PC gerência (kit) pode continuar como backup, mas o
-principal passa a ser o servidor.
+Sem proxy BR no host fora do Brasil, o sync NÃO funciona
+(o Burger King/Akamai bloqueia IP de datacenter).
+
+Dockerfile: Chromium Playwright, USE_CHROME=0, cron 15 min.
