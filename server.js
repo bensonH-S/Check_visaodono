@@ -272,6 +272,9 @@ api.post('/public/push/sw-event', (req, res) => {
 
 api.use('/auth', authRouter);
 
+const { default: kitBkOfficeRouter } = await import('./backend/src/routes/kitBkOffice.js');
+api.use('/public/kit', kitBkOfficeRouter);
+
 /** Rotas /public/* nunca exigem login (mesmo se registradas depois por engano). */
 api.use((req, res, next) => {
   if (req.path === '/public' || req.path.startsWith('/public/')) {

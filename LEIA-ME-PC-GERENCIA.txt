@@ -1,18 +1,16 @@
 ========================================
-  PC GERÊNCIA — SYNC BK OFFICE (principal)
+  PC GERÊNCIA — SYNC BK OFFICE (HTTPS)
 ========================================
 
-1) Nesta máquina: GERAR-KIT-PC-GERENCIA.bat
-   Gera Desktop\Meridian-BKOffice-Gerencia com:
-     - MeridianBkSync.exe
-     - data\vault.dat (AES — sem senha em texto)
-     - SEM config.env
+1) No VPS: coloque no .env
+     BKOFFICE_KIT_TOKEN=<token longo>
+     BKOFFICE_SERVER_SYNC=0
+   Deploy da tag + recreate app
 
-2) No PC da gerência:
-   TESTAR-UMA-VEZ.bat → depois INSTALAR.bat (admin)
+2) Aqui: GERAR-KIT-PC-GERENCIA.bat
+   (lê o token do backend\.env e sela no cofre)
 
-3) No VPS:
-   BKOFFICE_SERVER_SYNC=0
-   docker compose up -d --force-recreate app
+3) PC gerência: TESTAR-UMA-VEZ.bat → INSTALAR.bat
 
-Vendas: itens + valor BRUTO → banco Meridian.
+Fluxo: Chrome local → Excel → POST HTTPS → Meridian grava no Postgres.
+Não usa porta 5432 na rede da loja.

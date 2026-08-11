@@ -69,7 +69,7 @@ function findNode(root) {
 function runSync(env, idLoja, ini, fim) {
   const root = kitRoot();
   const node = findNode(root);
-  const script = path.join(root, 'app', 'backend', 'scripts', 'sync-bkoffice-vendas.mjs');
+  const script = path.join(root, 'app', 'backend', 'scripts', 'sync-bkoffice-via-api.mjs');
   if (!fs.existsSync(script)) {
     throw new Error(`Script ausente: ${script}`);
   }
@@ -83,14 +83,16 @@ function runSync(env, idLoja, ini, fim) {
     BKOFFICE_SERVER_SYNC: '0',
     BKOFFICE_SYNC_CRON_MS: '0',
     NODE_ENV: 'production',
+    // Sem DB na loja — evita tentativa de Postgres
+    DB_HOST: '',
+    DB_PASS: '',
   };
-  // Nunca grava .env em disco — só env do processo filho
-  log(`sync start loja=${idLoja} periodo=${ini}→${fim}`);
+  log(`sync start loja=${idLoja} periodo=${ini}→${fim} via=${env.API_BASE || 'api'}`);
   const t0 = Date.now();
   return new Promise((resolve) => {
     const proc = spawn(
       node,
-      [script, `--loja=${idLoja}`, '--db=prod', `--inicio=${ini}`, `--fim=${fim}`],
+      [script, `--loja=${idLoja}`, `--inicio=${ini}`, `--fim=${fim}`],
       {
         cwd: path.join(root, 'app'),
         env: childEnv,
@@ -157,10 +159,10 @@ async function main() {
   const intervalMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 900000));
   const intervalSec = Math.round(intervalMs / 1000);
   log(
-    `iniciado intervalo=${intervalSec}s loja=${idLoja} db=${secrets.DB_NAME || '(ok)'} modo=cofre-criptografado user=${secrets.BKOFFICE_USER ? '(ok)' : '(vazio)'}`,
+    `iniciado intervalo=${intervalSec}s loja=${idLoja} api=${secrets.API_BASE || '?'} modo=kit-https user=${secrets.BKOFFICE_USER ? '(ok)' : '(vazio)'}`,
   );
-  if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.DB_HOST) {
-    log('ERRO: cofre incompleto');
+  if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.API_BASE || !secrets.BKOFFICE_KIT_TOKEN) {
+    log('ERRO: cofre incompleto (precisa API_BASE + KIT_TOKEN + BKOFFICE_*)');
     process.exit(1);
   }
 

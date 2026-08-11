@@ -2,34 +2,25 @@
   MERIDIAN BK OFFICE — KIT PC GERÊNCIA
 ========================================
 
-SEGURANÇA
-  - NÃO existe config.env com senha do banco
-  - Credenciais ficam em data\vault.dat (AES-256-GCM)
-  - Launcher: MeridianBkSync.exe (tarefa oculta)
-  - Nunca grava .env em disco no PC da gerência
+COMO FUNCIONA (firewall-friendly)
+  1) Neste PC: Chrome baixa o Excel do BK Office (IP Brasil)
+  2) Envia o arquivo por HTTPS (porta 443) para o Meridian
+  3) O SERVIDOR grava no banco — a loja NÃO precisa abrir 5432
 
-O QUE FAZ
-  - BK Office → relatório por produto + VALOR BRUTO
-  - Grava no Meridian (produção)
-  - Boot: dia 01 do mês → hoje; depois só hoje (15 min)
+SEGURANÇA
+  - Sem config.env / sem senha de banco no PC
+  - Cofre AES: data\vault.dat
+  - Token do kit no header X-Meridian-Kit-Token
+  - Launcher: MeridianBkSync.exe
 
 INSTALAR
-  1) Copie ESTA PASTA para o PC da gerência
-  2) Botão DIREITO em INSTALAR.bat → Executar como administrador
-  3) Pronto (24h, inicia após login)
+  1) Copie a pasta para o PC (melhor C:\Meridian-BKOffice-Gerencia)
+  2) TESTAR-UMA-VEZ.bat  → deve sair TESTE OK
+  3) INSTALAR.bat
 
-TESTAR
-  TESTAR-UMA-VEZ.bat
-
-LOGS
-  Logs\bkoffice-python-service.log
-  C:\ProgramData\MeridianBkOffice\Logs\...
-
-No VPS Meridian:
+No VPS (.env) obrigatório:
+  BKOFFICE_KIT_TOKEN=<mesmo do build>
   BKOFFICE_SERVER_SYNC=0
+  + deploy da tag com rota /public/kit/...
 
-Desinstalar: DESINSTALAR.bat (admin)
-
-Obs: cofre é ofuscado/criptografado para não abrir em Bloco de Notas.
-Admin determinado ainda pode inspecionar o processo — isso é limite
-de qualquer app na máquina.
+LOGS: Logs\bkoffice-python-service.log

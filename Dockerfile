@@ -26,16 +26,14 @@ WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV BKOFFICE_USE_CHROME=0
 ENV BKOFFICE_HEADLESS=1
-# Sync no VPS desligado por padrão (Akamai 403 fora do BR).
-# Vendas entram pelo kit do PC gerência (Brasil).
+# Sync Playwright no VPS desligado — kit PC envia por HTTPS
 ENV BKOFFICE_SERVER_SYNC=0
 ENV BKOFFICE_SYNC_CRON_MS=0
 ENV BKOFFICE_SYNC_ID_LOJA=21
 ENV ESUPRI_USE_CHROME=0
-# Se um dia tiver proxy BR no VPS:
-# ENV BKOFFICE_SERVER_SYNC=1
-# ENV BKOFFICE_SYNC_CRON_MS=900000
-# ENV BKOFFICE_PROXY=http://user:pass@host:port
+# Defina no .env do host (não commitar):
+# BKOFFICE_KIT_TOKEN=...
+# API_BASE=https://grupoalvim.com.br/auditoria/api
 
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/

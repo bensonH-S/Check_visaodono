@@ -65,6 +65,7 @@ Copy-Item (Join-Path $Tpl 'MeridianBkSync.cs') (Join-Path $OutDir 'MeridianBkSyn
 
 Write-Host 'Copiando codigo do sync...'
 New-Item -ItemType Directory -Force -Path (Join-Path $App 'backend\scripts') | Out-Null
+Copy-Item (Join-Path $RepoRoot 'backend\scripts\sync-bkoffice-via-api.mjs') (Join-Path $App 'backend\scripts\') -Force
 Copy-Item (Join-Path $RepoRoot 'backend\scripts\sync-bkoffice-vendas.mjs') (Join-Path $App 'backend\scripts\') -Force
 Copy-Tree (Join-Path $RepoRoot 'backend\src') (Join-Path $App 'backend\src') @('__tests__')
 
@@ -169,9 +170,10 @@ Write-Host "Compactando $zipPath ..."
 Compress-Archive -Path $OutDir -DestinationPath $zipPath -CompressionLevel Optimal
 
 Write-Host ''
-Write-Host 'OK - kit pronto (cofre criptografado + .exe):'
+Write-Host 'OK - kit HTTPS (Chrome local + POST Meridian, sem Postgres na loja):'
 Write-Host "  Pasta: $OutDir"
 Write-Host "  Zip:   $zipPath"
 Write-Host '  Exe:   MeridianBkSync.exe'
-Write-Host '  Vault: data\vault.dat (AES) — SEM config.env'
-Write-Host 'Leve a pasta (ou o zip) ao PC da gerencia e rode INSTALAR.bat como admin.'
+Write-Host '  Vault: data\vault.dat (AES) — SEM DB_HOST'
+Write-Host 'No VPS: BKOFFICE_KIT_TOKEN=... + deploy + recreate'
+Write-Host 'Leve a pasta ao PC da gerencia: TESTAR-UMA-VEZ.bat → INSTALAR.bat'

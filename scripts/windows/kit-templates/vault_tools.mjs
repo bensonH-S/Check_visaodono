@@ -83,14 +83,20 @@ export function joinKey(parts) {
 }
 
 function buildSecretsFromEnv(envMap) {
-  const dbName = envMap.DB_NAME_PROD || envMap.DB_NAME || 'vision_check';
+  const apiBase =
+    envMap.API_BASE ||
+    envMap.MERIDIAN_API_BASE ||
+    'https://grupoalvim.com.br/auditoria/api';
+  const kitToken = envMap.BKOFFICE_KIT_TOKEN || '';
+  if (!kitToken || kitToken.length < 16) {
+    throw new Error(
+      'BKOFFICE_KIT_TOKEN ausente ou curto no backend/.env (gere um hex de 32+ bytes)',
+    );
+  }
   return {
-    DB_HOST: envMap.DB_HOST || '',
-    DB_PORT: envMap.DB_PORT || '5432',
-    DB_USER: envMap.DB_USER || '',
-    DB_PASS: envMap.DB_PASS || '',
-    DB_NAME: dbName,
-    DB_NAME_PROD: dbName,
+    // Modo HTTPS — sem DB na loja
+    API_BASE: apiBase.replace(/\/$/, ''),
+    BKOFFICE_KIT_TOKEN: kitToken,
     BKOFFICE_USER: envMap.BKOFFICE_USER || '',
     BKOFFICE_PASS: envMap.BKOFFICE_PASS || '',
     BKOFFICE_URL: envMap.BKOFFICE_URL || 'https://bkoffice-franquia.burgerking.com.br',
@@ -98,6 +104,7 @@ function buildSecretsFromEnv(envMap) {
     BKOFFICE_HEADLESS: '1',
     BKOFFICE_TIMEOUT_MS: envMap.BKOFFICE_TIMEOUT_MS || '120000',
     BKOFFICE_SYNC_ID_LOJA: envMap.BKOFFICE_SYNC_ID_LOJA || '21',
+    BKOFFICE_BK_NUMBER: envMap.BKOFFICE_BK_NUMBER || '30797',
     BKOFFICE_SERVER_SYNC: '0',
     BKOFFICE_SYNC_CRON_MS: '0',
     SYNC_INTERVAL_MS: envMap.SYNC_INTERVAL_MS || '900000',
@@ -129,11 +136,17 @@ if (isMain) {
     fs.mkdirSync(dataDir, { recursive: true });
 
     const envMap = readDotEnv(envFile);
-    if (!envMap.DB_HOST || !envMap.BKOFFICE_USER) {
-      console.error('ERRO: backend/.env sem DB_HOST ou BKOFFICE_USER');
+    if (!envMap.BKOFFICE_USER || !envMap.BKOFFICE_PASS) {
+      console.error('ERRO: backend/.env sem BKOFFICE_USER/PASS');
       process.exit(1);
     }
-    const secrets = buildSecretsFromEnv(envMap);
+    let secrets;
+    try {
+      secrets = buildSecretsFromEnv(envMap);
+    } catch (e) {
+      console.error('ERRO:', e.message);
+      process.exit(1);
+    }
     const key = crypto.randomBytes(32);
     const blob = sealPayload(secrets, key);
     fs.writeFileSync(path.join(dataDir, VAULT_NAME), blob);

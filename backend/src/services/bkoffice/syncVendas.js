@@ -163,7 +163,7 @@ async function marcarRelatorioRestauranteProduto(page) {
   await page.waitForTimeout(500);
 }
 
-async function baixarExcelVendas({
+export async function baixarExcelVendas({
   dataInicio,
   dataFim,
   termoLoja,
