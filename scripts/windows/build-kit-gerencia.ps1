@@ -135,7 +135,7 @@ try {
   Pop-Location
 }
 
-Write-Host 'Gerando cofre criptografado (AES-256-GCM) — sem config.env...'
+Write-Host 'Gerando cofre criptografado (AES-256-GCM) - sem config.env...'
 $nodeSeal = Join-Path $Runtime 'node\node.exe'
 $envSrc = Join-Path $RepoRoot 'backend\.env'
 & $nodeSeal (Join-Path $OutDir 'vault_tools.mjs') seal "--out=$OutDir" "--from-env=$envSrc"
@@ -174,6 +174,6 @@ Write-Host 'OK - kit HTTPS (Chrome local + POST Meridian, sem Postgres na loja):
 Write-Host "  Pasta: $OutDir"
 Write-Host "  Zip:   $zipPath"
 Write-Host '  Exe:   MeridianBkSync.exe'
-Write-Host '  Vault: data\vault.dat (AES) — SEM DB_HOST'
+Write-Host '  Vault: data\vault.dat (AES) - SEM DB_HOST'
 Write-Host 'No VPS: BKOFFICE_KIT_TOKEN=... + deploy + recreate'
-Write-Host 'Leve a pasta ao PC da gerencia: TESTAR-UMA-VEZ.bat → INSTALAR.bat'
+Write-Host 'Leve a pasta ao PC da gerencia: TESTAR-UMA-VEZ.bat e depois INSTALAR.bat'
