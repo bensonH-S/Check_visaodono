@@ -877,122 +877,8 @@ export default function EscalaVisitasMobileView() {
             </div>
           )}
 
-          {ehDiretor && !loading && ((grade?.status_por_regiao?.length ?? 0) > 0 || grade?.status_delivery) && (
-            <div className="ck-escala__aprovacoes">
-              <p className="ck-escala__section">Status por região</p>
-              {(grade?.status_por_regiao ?? []).map((st) => {
-                const montadaPor = st.nome_submetido_por
-                  ? primeiroNome(st.nome_submetido_por)
-                  : null;
-                const revisadaPor = st.nome_revisado_por
-                  ? primeiroNome(st.nome_revisado_por)
-                  : null;
-                const pendente = st.status === 'pendente_aprovacao';
-                return (
-                  <div
-                    key={st.id_regiao}
-                    className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${st.status}`}
-                  >
-                    <button
-                      type="button"
-                      className="ck-escala__aprovacao-info"
-                      onClick={() => {
-                        setIdRegiao(st.id_regiao);
-                        setModo('lojas');
-                      }}
-                    >
-                      <strong>
-                        {st.nome_regiao}
-                        <em>{STATUS_LABEL[st.status] || st.status}</em>
-                      </strong>
-                      <span>
-                        {montadaPor
-                          ? `Montada por ${montadaPor}${
-                              st.status === 'aprovado' && revisadaPor
-                                ? ` · Aprovada por ${revisadaPor}`
-                                : ''
-                            }`
-                          : 'Ainda não enviada'}
-                      </span>
-                      <span className="ck-escala__aprovacao-ver">Toque para ver a escala →</span>
-                    </button>
-                    {pendente && (
-                      <div className="ck-escala__aprovacao-acoes">
-                        <button
-                          type="button"
-                          className="ck-escala__btn-aprovar"
-                          disabled={salvando}
-                          onClick={() => void aprovarRegiao(st.id_regiao)}
-                        >
-                          Aprovar
-                        </button>
-                        <button
-                          type="button"
-                          className="ck-escala__btn-recusar"
-                          disabled={salvando}
-                          onClick={() => void recusarRegiao(st.id_regiao)}
-                        >
-                          Recusar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {grade?.status_delivery && (
-                <div
-                  className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${grade.status_delivery.status}`}
-                >
-                  <button
-                    type="button"
-                    className="ck-escala__aprovacao-info"
-                    onClick={() => setModo('delivery')}
-                  >
-                    <strong>
-                      Delivery
-                      <em>
-                        {STATUS_LABEL[grade.status_delivery.status] || grade.status_delivery.status}
-                      </em>
-                    </strong>
-                    <span>
-                      {grade.status_delivery.nome_submetido_por
-                        ? `Montada por ${primeiroNome(grade.status_delivery.nome_submetido_por)}${
-                            grade.status_delivery.status === 'aprovado' &&
-                            grade.status_delivery.nome_revisado_por
-                              ? ` · Aprovada por ${primeiroNome(grade.status_delivery.nome_revisado_por)}`
-                              : ''
-                          }`
-                        : 'Ainda não enviada'}
-                    </span>
-                    <span className="ck-escala__aprovacao-ver">Toque para ver o delivery →</span>
-                  </button>
-                  {grade.status_delivery.status === 'pendente_aprovacao' && (
-                    <div className="ck-escala__aprovacao-acoes">
-                      <button
-                        type="button"
-                        className="ck-escala__btn-aprovar"
-                        disabled={salvando}
-                        onClick={() => void aprovarDelivery()}
-                      >
-                        Aprovar
-                      </button>
-                      <button
-                        type="button"
-                        className="ck-escala__btn-recusar"
-                        disabled={salvando}
-                        onClick={() => void recusarDelivery()}
-                      >
-                        Recusar
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
           {!ehDiretor && !ehDeliveryOnly && statusAtivo && (
-            <div className="ck-escala__aprovacoes">
+            <div className="ck-escala__aprovacoes ck-escala__aprovacoes--compact">
               <div className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${statusAtivo}`}>
                 <div className="ck-escala__aprovacao-info">
                   <strong>
@@ -1023,7 +909,7 @@ export default function EscalaVisitasMobileView() {
           )}
 
           {ehDeliveryOnly && grade?.status_delivery && (
-            <div className="ck-escala__aprovacoes">
+            <div className="ck-escala__aprovacoes ck-escala__aprovacoes--compact">
               <div
                 className={`ck-escala__aprovacao-card ck-escala__aprovacao-card--${grade.status_delivery.status}`}
               >
@@ -1127,6 +1013,145 @@ export default function EscalaVisitasMobileView() {
           </div>
 
           <div className="ck-escala__sheet-body">
+          {ehDiretor && !loading && ((grade?.status_por_regiao?.length ?? 0) > 0 || grade?.status_delivery) && (
+            <div className="ck-escala__aprovacoes">
+              {pendentesAprovacao.length > 0 ? (
+                <p className="ck-escala__section">Para aprovar</p>
+              ) : (
+                <p className="ck-escala__section">Regiões · toque para filtrar</p>
+              )}
+              {/* Pendentes: card completo com ações */}
+              {(grade?.status_por_regiao ?? [])
+                .filter((st) => st.status === 'pendente_aprovacao')
+                .map((st) => (
+                  <div
+                    key={st.id_regiao}
+                    className="ck-escala__aprovacao-card ck-escala__aprovacao-card--pendente_aprovacao"
+                  >
+                    <button
+                      type="button"
+                      className="ck-escala__aprovacao-info"
+                      onClick={() => {
+                        setIdRegiao(st.id_regiao);
+                        setModo('dia');
+                      }}
+                    >
+                      <strong>
+                        {st.nome_regiao}
+                        <em>Pendente</em>
+                      </strong>
+                      <span>
+                        {st.nome_submetido_por
+                          ? `Montada por ${primeiroNome(st.nome_submetido_por)}`
+                          : 'Aguardando envio'}
+                      </span>
+                      <span className="ck-escala__aprovacao-ver">Toque para ver a escala →</span>
+                    </button>
+                    <div className="ck-escala__aprovacao-acoes">
+                      <button
+                        type="button"
+                        className="ck-escala__btn-aprovar"
+                        disabled={salvando}
+                        onClick={() => void aprovarRegiao(st.id_regiao)}
+                      >
+                        Aprovar
+                      </button>
+                      <button
+                        type="button"
+                        className="ck-escala__btn-recusar"
+                        disabled={salvando}
+                        onClick={() => void recusarRegiao(st.id_regiao)}
+                      >
+                        Recusar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              {grade?.status_delivery?.status === 'pendente_aprovacao' && (
+                <div className="ck-escala__aprovacao-card ck-escala__aprovacao-card--pendente_aprovacao">
+                  <button
+                    type="button"
+                    className="ck-escala__aprovacao-info"
+                    onClick={() => setModo('delivery')}
+                  >
+                    <strong>
+                      Delivery
+                      <em>Pendente</em>
+                    </strong>
+                    <span>
+                      {grade.status_delivery.nome_submetido_por
+                        ? `Montada por ${primeiroNome(grade.status_delivery.nome_submetido_por)}`
+                        : 'Aguardando envio'}
+                    </span>
+                    <span className="ck-escala__aprovacao-ver">Toque para ver o delivery →</span>
+                  </button>
+                  <div className="ck-escala__aprovacao-acoes">
+                    <button
+                      type="button"
+                      className="ck-escala__btn-aprovar"
+                      disabled={salvando}
+                      onClick={() => void aprovarDelivery()}
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      type="button"
+                      className="ck-escala__btn-recusar"
+                      disabled={salvando}
+                      onClick={() => void recusarDelivery()}
+                    >
+                      Recusar
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Aprovadas / demais: chips compactos — não engolem a tela */}
+              <div className="ck-escala__status-chips" role="list">
+                {(grade?.status_por_regiao ?? [])
+                  .filter((st) => st.status !== 'pendente_aprovacao')
+                  .map((st) => (
+                    <button
+                      key={st.id_regiao}
+                      type="button"
+                      role="listitem"
+                      className={`ck-escala__status-chip ck-escala__status-chip--${st.status}${
+                        idRegiao === st.id_regiao ? ' is-on' : ''
+                      }`}
+                      onClick={() => {
+                        setIdRegiao(st.id_regiao);
+                        setModo('dia');
+                      }}
+                    >
+                      <strong>{st.nome_regiao}</strong>
+                      <span>{STATUS_LABEL[st.status] || st.status}</span>
+                    </button>
+                  ))}
+                {grade?.status_delivery && grade.status_delivery.status !== 'pendente_aprovacao' && (
+                  <button
+                    type="button"
+                    role="listitem"
+                    className={`ck-escala__status-chip ck-escala__status-chip--${grade.status_delivery.status}${
+                      modo === 'delivery' ? ' is-on' : ''
+                    }`}
+                    onClick={() => setModo('delivery')}
+                  >
+                    <strong>Delivery</strong>
+                    <span>{STATUS_LABEL[grade.status_delivery.status] || grade.status_delivery.status}</span>
+                  </button>
+                )}
+                {idRegiao !== '' && (
+                  <button
+                    type="button"
+                    className="ck-escala__status-chip ck-escala__status-chip--clear"
+                    onClick={() => setIdRegiao('')}
+                  >
+                    <strong>Todas</strong>
+                    <span>limpar filtro</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
               <CircularProgress size={28} sx={{ color: NAVY }} />

@@ -600,6 +600,76 @@
   margin-bottom: 12px;
 }
 
+.ck-escala__sheet-body > .ck-escala__aprovacoes {
+  flex-shrink: 0;
+}
+
+.ck-escala .ck-escala__aprovacoes--compact {
+  margin-bottom: 8px;
+}
+
+.ck-escala .ck-escala__status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ck-escala .ck-escala__status-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(27, 42, 107, 0.14);
+  background: rgba(27, 42, 107, 0.04);
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ck-escala .ck-escala__status-chip strong {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--ck-navy);
+  line-height: 1.2;
+}
+
+.ck-escala .ck-escala__status-chip span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(20, 32, 72, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ck-escala .ck-escala__status-chip--aprovado {
+  border-color: rgba(22, 163, 74, 0.35);
+  background: rgba(22, 163, 74, 0.08);
+}
+
+.ck-escala .ck-escala__status-chip--aprovado span {
+  color: #15803d;
+}
+
+.ck-escala .ck-escala__status-chip--rascunho {
+  border-color: rgba(100, 116, 139, 0.3);
+  background: rgba(100, 116, 139, 0.08);
+}
+
+.ck-escala .ck-escala__status-chip.is-on {
+  border-color: rgba(232, 82, 10, 0.55);
+  background: rgba(232, 82, 10, 0.1);
+  box-shadow: 0 0 0 1px rgba(232, 82, 10, 0.2);
+}
+
+.ck-escala .ck-escala__status-chip--clear {
+  border-style: dashed;
+}
+
 .ck-escala .ck-escala__aprovacao-card {
   display: flex;
   flex-direction: column;
