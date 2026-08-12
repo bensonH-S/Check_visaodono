@@ -140,6 +140,7 @@ try {
     loja: json.loja ?? idLoja,
     dia: dataInicio,
     linhas: json.linhas ?? 0,
+    venda_total: json.venda_total ?? null,
     dias: json.dias ?? 1,
     de: json.de ?? dataInicio,
     ate: json.ate ?? dataFim,

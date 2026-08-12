@@ -81,7 +81,7 @@ function writeStatus(patch) {
     '',
     '--- Ultimo envio ---',
     ult.ok
-      ? `OK ${ult.dia} — ${ult.linhas ?? '?'} produtos gravados no Meridian (${ult.duracao_s ?? '?'}s)`
+      ? `OK ${ult.dia} — ${ult.linhas ?? '?'} produtos, R$ ${ult.venda_total ?? '?'} no Meridian (${ult.duracao_s ?? '?'}s)`
       : ult.dia
         ? `FALHOU ${ult.dia} — ${ult.erro || 'erro desconhecido'}`
         : '(nenhum envio ainda)',
@@ -114,27 +114,6 @@ function addDays(iso, delta) {
 
 function syncedPath() {
   return path.join(kitRoot(), 'data', 'synced-days.json');
-}
-
-function ensureHistoricoMarcado() {
-  const hoje = hojeBR();
-  const iniMes = `${hoje.slice(0, 8)}01`;
-  const ontem = addDays(hoje, -1);
-  const state = loadSynced();
-  let changed = false;
-  if (ontem >= iniMes) {
-    for (let d = iniMes; d <= ontem; d = addDays(d, 1)) {
-      if (!state.dias.includes(d)) {
-        state.dias.push(d);
-        changed = true;
-      }
-    }
-  }
-  if (changed) {
-    state.dias.sort();
-    saveSynced(state);
-    log(`historico marcado OK: ${iniMes} ate ${ontem} (nao reimporta)`);
-  }
 }
 
 function loadSynced() {
@@ -205,6 +184,9 @@ function runSync(env, idLoja, ini, fim) {
     DB_HOST: '',
     DB_PASS: '',
   };
+  const timeoutMs = Math.max(180000, Number(env.BKOFFICE_TIMEOUT_MS || 120000) + 120000);
+  log(`sync ${ini} — baixando Excel BK Office (timeout ${Math.round(timeoutMs / 1000)}s)...`);
+  writeStatus({ estado: 'sincronizando', ultimo_sync: { dia: ini, ok: null } });
   const t0 = Date.now();
   return new Promise((resolve) => {
     const proc = spawn(
@@ -217,6 +199,15 @@ function runSync(env, idLoja, ini, fim) {
       },
     );
     let out = '';
+    let killed = false;
+    const timer = setTimeout(() => {
+      killed = true;
+      try {
+        proc.kill('SIGTERM');
+      } catch {
+        /* ignore */
+      }
+    }, timeoutMs);
     proc.stdout.on('data', (b) => {
       out += b.toString();
     });
@@ -224,13 +215,19 @@ function runSync(env, idLoja, ini, fim) {
       out += b.toString();
     });
     proc.on('close', (code) => {
+      clearTimeout(timer);
       const elapsed = Math.round((Date.now() - t0) / 1000);
       const parsed = parseSyncOutput(out);
       parsed.duracao_s = elapsed;
       parsed.dia = parsed.dia || ini;
-      if (code === 0 && parsed.ok !== false) {
+      if (killed) {
+        parsed.ok = false;
+        parsed.erro = `timeout apos ${Math.round(timeoutMs / 1000)}s`;
+        log(`FALHOU ${ini} — ${parsed.erro}`);
+      } else if (code === 0 && parsed.ok !== false) {
         parsed.ok = true;
-        log(`OK ${ini} — ${parsed.linhas ?? '?'} produtos gravados no Meridian (${elapsed}s)`);
+        const venda = parsed.venda_total != null ? ` R$ ${parsed.venda_total}` : '';
+        log(`OK ${ini} — ${parsed.linhas ?? '?'} produtos${venda} gravados no Meridian (${elapsed}s)`);
       } else {
         parsed.ok = false;
         parsed.erro = parsed.erro || `exit ${code}`;
@@ -299,17 +296,16 @@ async function main() {
   }
 
   const idLoja = Number(secrets.BKOFFICE_SYNC_ID_LOJA || 21);
-  const intervalMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 900000));
+  let intervalMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 60000));
+  if (intervalMs > 120000) intervalMs = 60000;
   const intervalSec = Math.round(intervalMs / 1000);
-  log(`ativo loja=${idLoja} intervalo=${intervalSec}s modo=incremental (so hoje + faltantes)`);
+  log(`ativo loja=${idLoja} intervalo=${intervalSec}s modo=incremental (hoje a cada ${intervalSec}s)`);
 
   if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.API_BASE || !secrets.BKOFFICE_KIT_TOKEN) {
     log('ERRO: cofre incompleto');
     writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: 'cofre incompleto' } });
     process.exit(1);
   }
-
-  ensureHistoricoMarcado();
 
   const once = process.argv.includes('--once') || process.argv.includes('--uma-vez');
   const forceBackfill = process.argv.includes('--backfill') || secrets.BKOFFICE_FORCE_BACKFILL === '1';

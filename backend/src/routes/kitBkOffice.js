@@ -107,6 +107,9 @@ router.post('/estoque/vendas-import', requireKitToken, upload.single('arquivo'),
       dias: dias.length,
       de: dias[0] || null,
       ate: dias[dias.length - 1] || null,
+      venda_total: Math.round(
+        itens.reduce((a, i) => a + (Number(i.venda_liquida ?? i.valor) || 0), 0) * 100,
+      ) / 100,
       import: result,
     });
   } catch (e) {
