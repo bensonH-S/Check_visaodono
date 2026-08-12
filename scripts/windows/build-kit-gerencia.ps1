@@ -60,6 +60,7 @@ Copy-Item (Join-Path $Tpl 'INSTALAR.ps1') (Join-Path $OutDir 'INSTALAR.ps1') -Fo
 Copy-Item (Join-Path $Tpl 'DESINSTALAR.bat') (Join-Path $OutDir 'DESINSTALAR.bat') -Force
 Copy-Item (Join-Path $Tpl '0-LEIA-ME.txt') (Join-Path $OutDir '0-LEIA-ME.txt') -Force
 Copy-Item (Join-Path $Tpl 'VERIFICAR.bat') (Join-Path $OutDir 'VERIFICAR.bat') -Force
+Copy-Item (Join-Path $Tpl 'ATUALIZAR-WORKER.bat') (Join-Path $OutDir 'ATUALIZAR-WORKER.bat') -Force
 Copy-Item (Join-Path $Tpl 'TESTAR-UMA-VEZ.bat') (Join-Path $OutDir 'TESTAR-UMA-VEZ.bat') -Force
 Copy-Item (Join-Path $Tpl 'MeridianBkSync.cs') (Join-Path $OutDir 'MeridianBkSync.cs') -Force
 
