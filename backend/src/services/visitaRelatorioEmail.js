@@ -1,30 +1,18 @@
 import { pool } from '../db.js';
 import { carregarVisitaDetalhe } from './visitaDetalhe.js';
 import { gerarPdfVisitaBuffer } from './gerarPdfVisita.js';
-import { sendMail, getLogoAttachment, smtpConfigurado } from './mailer.js';
+import { sendMail, getBrandEmailAttachments, smtpConfigurado } from './mailer.js';
 import { fmtData, fmtNota, formatarHoraVisita } from '../utils/visitaFormat.js';
 import {
   resolverRegionaisLoja,
+  resolverGerentesLoja,
   REGIONAIS_SUPERVISORES_EMAIL,
   RELATORIO_EMAIL_SEMPRE,
   RELATORIO_EMAIL_CC,
 } from './timeCampoRegional.js';
 
-const APP_BASE = '/auditoria';
 const TIPO_NOTIF = 'relatorio_email';
 const REGIONAIS_SET = new Set(REGIONAIS_SUPERVISORES_EMAIL.map((e) => e.toLowerCase()));
-
-function publicBaseUrl() {
-  const raw = String(process.env.PUBLIC_APP_URL || '').replace(/\/$/, '');
-  if (!raw) return '';
-  if (raw.endsWith(APP_BASE)) return raw;
-  return `${raw}${APP_BASE}`;
-}
-
-function linkRelatorio(idVisita) {
-  const base = publicBaseUrl();
-  return base ? `${base}/relatorio/visita/${idVisita}` : `${APP_BASE}/relatorio/visita/${idVisita}`;
-}
 
 export function emailRelatorioHabilitado() {
   if (String(process.env.VISITA_RELATORIO_EMAIL_ENABLED || 'true').toLowerCase() === 'false') {
@@ -47,12 +35,36 @@ function escHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
+function normalizeEmail(email) {
+  return String(email || '')
+    .trim()
+    .toLowerCase();
+}
+
+function bodyToHtml(text) {
+  return String(text || '')
+    .split(/\n{2,}/)
+    .map(
+      (p) =>
+        `<p style="margin:0 0 12px;line-height:1.5">${escHtml(p).replace(/\n/g, '<br/>')}</p>`,
+    )
+    .join('');
+}
+
 async function jaEnviouRelatorio(idVisita) {
   const { rows } = await pool.query(
     `SELECT 1 FROM time_campo_notificacoes WHERE id_visita = $1 AND tipo = $2 LIMIT 1`,
     [idVisita, TIPO_NOTIF],
   );
   return rows.length > 0;
+}
+
+/** Limpa marca de envio (ex.: ao reabrir visita) para permitir reenvio na próxima finalização. */
+export async function limparEnvioRelatorioVisita(idVisita, client = pool) {
+  await client.query(
+    `DELETE FROM time_campo_notificacoes WHERE id_visita = $1 AND tipo = $2`,
+    [idVisita, TIPO_NOTIF],
+  );
 }
 
 async function registrarEnvio({ idVisita, idLoja, idUsuario, email, metadata = {} }) {
@@ -65,19 +77,38 @@ async function registrarEnvio({ idVisita, idLoja, idUsuario, email, metadata = {
 }
 
 /**
- * Destinatários do relatório:
- * - Regional da loja (só Bárbara / Fagno / Plínio, conforme região)
- * - Sempre: Igor (supervisor geral), diretor, dono (CEO)
- * - CC: Benson (TI)
+ * Destinatários do relatório de Auditoria Operacional:
+ * - To: gestor/gerente da unidade (só da loja)
+ * - Cc: regional da loja (só da região) + liderança fixa (Felipe, Renato, Igor, Benson — todas as lojas)
+ * - Sem gerente: liderança fixa no To
  */
 export async function resolverDestinatariosRelatorio(idLoja) {
-  const mapa = new Map();
+  const toMap = new Map();
+  const ccMap = new Map();
+
+  const add = (mapa, entry) => {
+    const email = normalizeEmail(entry.email);
+    if (!email) return;
+    if (toMap.has(email) || ccMap.has(email) || mapa.has(email)) return;
+    mapa.set(email, { ...entry, email });
+  };
+
+  const gerentes = await resolverGerentesLoja(idLoja);
+  for (const g of gerentes) {
+    add(toMap, {
+      email: g.email,
+      id_usuario: g.id_usuario,
+      nome: g.nome,
+      papel: 'gerente',
+      regiao: null,
+    });
+  }
 
   const regionais = await resolverRegionaisLoja(idLoja);
   for (const r of regionais) {
-    const email = String(r.email || '').trim().toLowerCase();
+    const email = normalizeEmail(r.email);
     if (!email || !REGIONAIS_SET.has(email)) continue;
-    mapa.set(email, {
+    add(ccMap, {
       email,
       id_usuario: r.id_usuario,
       nome: r.nome,
@@ -86,11 +117,10 @@ export async function resolverDestinatariosRelatorio(idLoja) {
     });
   }
 
+  const liderancaMap = toMap.size === 0 ? toMap : ccMap;
   for (const fixo of RELATORIO_EMAIL_SEMPRE) {
-    const email = String(fixo.email || '').trim().toLowerCase();
-    if (!email || mapa.has(email)) continue;
-    mapa.set(email, {
-      email,
+    add(liderancaMap, {
+      email: fixo.email,
       id_usuario: null,
       nome: fixo.nome,
       papel: fixo.papel,
@@ -98,7 +128,26 @@ export async function resolverDestinatariosRelatorio(idLoja) {
     });
   }
 
-  return [...mapa.values()];
+  for (const emailTi of RELATORIO_EMAIL_CC) {
+    add(ccMap, {
+      email: emailTi,
+      id_usuario: null,
+      nome: 'TI',
+      papel: 'ti',
+      regiao: null,
+    });
+  }
+
+  return {
+    to: [...toMap.values()],
+    cc: [...ccMap.values()],
+  };
+}
+
+function ehAuditoriaOperacional(visita) {
+  const codigo = String(visita?.tipo_checklist_codigo || '').trim();
+  // Visitas antigas sem tipo = operacional
+  return !codigo || codigo === 'auditoria_operacional';
 }
 
 function corNotaHex(nota) {
@@ -109,7 +158,38 @@ function corNotaHex(nota) {
   return '#B91C1C';
 }
 
-function renderHtmlEmail({ visita, dados, link, teste = false }) {
+function montarAssunto({ titulo, loja, dataTxt, teste = false }) {
+  const base = `${titulo} — ${loja} — ${dataTxt}`;
+  return teste ? `[TESTE] ${base}` : base;
+}
+
+function montarCorpoTexto({ visita, dados, teste = false }) {
+  const titulo = tituloChecklist(visita);
+  const hora = formatarHoraVisita(visita.hora_inicio);
+  const dataTxt = hora ? `${fmtData(visita.data_visita)} às ${hora}` : fmtData(visita.data_visita);
+  const nota = fmtNota(visita.nota_final);
+  const ncs = dados.nao_conformidades.length;
+  const loja = visita.name;
+
+  return [
+    teste ? 'ENVIO DE TESTE — ignore se não solicitou.' : null,
+    'Olá,',
+    '',
+    `Segue o relatório de ${titulo} da loja ${loja} referente à visita de ${dataTxt}.`,
+    '',
+    `Auditor: ${visita.nome_usuario}`,
+    `Nota final: ${nota}`,
+    `Não conformidades: ${ncs}`,
+    '',
+    'Obrigado,',
+    'MERIDIAN — Grupo Alvim',
+  ]
+    .filter((l) => l != null)
+    .join('\n');
+}
+
+/** HTML no padrão FreeControl (navy + laranja, wordmark, KPIs, corpo). */
+function renderHtmlEmail({ visita, dados, bodyText, teste = false }) {
   const hora = formatarHoraVisita(visita.hora_inicio);
   const dataTxt = hora ? `${fmtData(visita.data_visita)} às ${hora}` : fmtData(visita.data_visita);
   const titulo = tituloChecklist(visita);
@@ -118,8 +198,6 @@ function renderHtmlEmail({ visita, dados, link, teste = false }) {
   const ncs = dados.nao_conformidades.length;
   const catsOk = dados.desempenho_categorias.filter((c) => Number(c.percentual) >= 80).length;
   const loja = escHtml(visita.name);
-  const bkn = visita.bk_number ? ` · BKN ${escHtml(visita.bk_number)}` : '';
-  const auditor = escHtml(visita.nome_usuario);
 
   const catsRows = dados.desempenho_categorias
     .slice(0, 8)
@@ -140,149 +218,74 @@ function renderHtmlEmail({ visita, dados, link, teste = false }) {
     .join('');
 
   return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MERIDIAN — Relatório de Visita</title>
-</head>
-<body style="margin:0;padding:0;background:#F1F5F9;font-family:Arial,Helvetica,sans-serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F1F5F9;padding:24px 12px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #E2E8F0;">
-          <!-- Header marca: logo em fundo claro (navy da marca some no navy) -->
-          <tr>
-            <td style="background:#ffffff;padding:22px 28px 16px;text-align:center;border-bottom:1px solid #E2E8F0;">
-              <img src="cid:grupo-alvim-logo" alt="Grupo Alvim" width="200" style="display:block;margin:0 auto;max-width:200px;height:auto;" />
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#0B1A3B;padding:16px 28px;text-align:center;">
-              <div style="color:#A0B0C8;font-size:11px;letter-spacing:2px;text-transform:uppercase;">MERIDIAN</div>
-              <div style="color:#ffffff;font-size:18px;font-weight:700;margin-top:4px;">Relatório de Visita</div>
-              ${
-                teste
-                  ? '<div style="margin-top:10px;display:inline-block;background:#E8520A;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;">ENVIO DE TESTE</div>'
-                  : ''
-              }
-            </td>
-          </tr>
-          <tr><td style="height:4px;background:#E8520A;font-size:0;line-height:0;">&nbsp;</td></tr>
+<html lang="pt-BR"><body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0b1a3b">
+  <div style="max-width:640px;margin:0 auto;padding:24px 16px">
+    <div style="background:#0b1a3b;border-bottom:3px solid #e8520a;padding:18px 20px;border-radius:8px 8px 0 0">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:12px">
+        <tr>
+          <td style="vertical-align:middle;width:52%">
+            <table role="presentation" cellspacing="0" cellpadding="0">
+              <tr>
+                <td style="vertical-align:middle;padding-right:10px">
+                  <img src="cid:grupo-alvim-logo" alt="Grupo Alvim" width="44" height="44" style="display:block;width:44px;height:44px;object-fit:contain;border:0;outline:none" />
+                </td>
+                <td style="vertical-align:middle">
+                  <div style="font-size:20px;font-weight:800;letter-spacing:0.01em;line-height:1">
+                    <span style="color:#c5d0e0">grupo</span><span style="color:#e8520a">alvim</span>
+                  </div>
+                  <div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:0.08em;margin-top:4px;text-transform:uppercase">MERIDIAN</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+          <td style="vertical-align:middle;text-align:right;width:48%">
+            <img src="cid:ciga-logo" alt="CIGA — Centro de Inteligência Grupo Alvim" width="210" height="52" style="display:inline-block;max-width:210px;width:210px;height:auto;object-fit:contain;border:0;outline:none" />
+          </td>
+        </tr>
+      </table>
+      ${
+        teste
+          ? '<div style="display:inline-block;background:#e8520a;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;margin-bottom:8px">ENVIO DE TESTE</div>'
+          : ''
+      }
+      <div style="color:#fff;font-size:18px;font-weight:800;margin-top:4px">${escHtml(titulo)}</div>
+      <div style="color:#e8520a;font-size:12px;font-weight:700;margin-top:2px">${loja} · ${escHtml(dataTxt)}</div>
+    </div>
+    <div style="background:#fff;padding:20px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 8px 8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="flex:1;min-width:100px;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px;background:#0b1a3b;color:#fff">
+          <div style="font-size:10px;color:#a0b0c8;font-weight:700;text-transform:uppercase">Nota final</div>
+          <div style="font-size:20px;font-weight:800;color:${corNotaHex(notaNum)}">${escHtml(nota)}</div>
+        </div>
+        <div style="flex:1;min-width:100px;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase">Categorias</div>
+          <div style="font-size:16px;font-weight:800">${dados.desempenho_categorias.length}</div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:2px">${catsOk} ≥ 80%</div>
+        </div>
+        <div style="flex:1;min-width:100px;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase">NCs</div>
+          <div style="font-size:16px;font-weight:800;color:${ncs ? '#c2410c' : '#0b1a3b'}">${ncs}</div>
+          <div style="font-size:10px;color:#94a3b8;margin-top:2px">${ncs ? 'pendências' : 'nenhuma'}</div>
+        </div>
+        <div style="flex:1;min-width:100px;border:1px solid #e2e8f0;border-radius:6px;padding:8px 10px">
+          <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase">Auditor</div>
+          <div style="font-size:13px;font-weight:800">${escHtml(visita.nome_usuario)}</div>
+        </div>
+      </div>
 
-          <!-- Corpo -->
-          <tr>
-            <td style="padding:24px 28px;">
-              <!-- Aviso anexo -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:20px;">
-                <tr>
-                  <td style="background:#FFF7ED;border:1px solid #FDBA74;border-left:4px solid #E8520A;border-radius:8px;padding:14px 16px;">
-                    <div style="font-size:13px;font-weight:800;color:#9A3412;margin-bottom:4px;">📎 Relatório em anexo</div>
-                    <div style="font-size:13px;color:#9A3412;line-height:1.45;">
-                      O <strong>relatório completo em PDF</strong> desta visita está anexado a este e-mail
-                      (respostas, evidências fotográficas e não conformidades).
-                    </div>
-                  </td>
-                </tr>
-              </table>
+      ${
+        catsRows
+          ? `<div style="margin:0 0 16px">
+              <div style="font-size:11px;font-weight:800;color:#0b1a3b;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em">Desempenho por categoria</div>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${catsRows}</table>
+            </div>`
+          : ''
+      }
 
-              <p style="margin:0 0 4px;font-size:11px;color:#94A3B8;letter-spacing:1px;font-weight:700;">${escHtml(titulo.toUpperCase())}</p>
-              <h1 style="margin:0 0 6px;font-size:22px;color:#0B1A3B;line-height:1.25;">${loja}${bkn}</h1>
-              <p style="margin:0 0 20px;font-size:13px;color:#64748B;">Auditor: <strong style="color:#334155;">${auditor}</strong> · ${escHtml(dataTxt)} · Visita #${visita.id_visita}</p>
-
-              <!-- Cards -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom:22px;">
-                <tr>
-                  <td width="32%" style="background:#0B1A3B;border-radius:8px;padding:14px 12px;text-align:center;vertical-align:top;">
-                    <div style="font-size:10px;color:#A0B0C8;letter-spacing:0.5px;font-weight:700;">NOTA FINAL</div>
-                    <div style="font-size:28px;font-weight:800;color:${corNotaHex(notaNum)};margin-top:4px;">${escHtml(nota)}</div>
-                  </td>
-                  <td width="2%"></td>
-                  <td width="32%" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:14px 12px;text-align:center;vertical-align:top;">
-                    <div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;font-weight:700;">CATEGORIAS</div>
-                    <div style="font-size:22px;font-weight:800;color:#0B1A3B;margin-top:4px;">${dados.desempenho_categorias.length}</div>
-                    <div style="font-size:11px;color:#64748B;margin-top:2px;">${catsOk} ≥ 80%</div>
-                  </td>
-                  <td width="2%"></td>
-                  <td width="32%" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:14px 12px;text-align:center;vertical-align:top;">
-                    <div style="font-size:10px;color:#94A3B8;letter-spacing:0.5px;font-weight:700;">NCs</div>
-                    <div style="font-size:22px;font-weight:800;color:${ncs ? '#B91C1C' : '#15803D'};margin-top:4px;">${ncs}</div>
-                    <div style="font-size:11px;color:#64748B;margin-top:2px;">${ncs ? 'pendências' : 'nenhuma'}</div>
-                  </td>
-                </tr>
-              </table>
-
-              ${
-                catsRows
-                  ? `<div style="margin-bottom:22px;">
-                      <div style="font-size:12px;font-weight:800;color:#0B1A3B;margin-bottom:8px;letter-spacing:0.3px;">DESEMPENHO POR CATEGORIA</div>
-                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${catsRows}</table>
-                    </div>`
-                  : ''
-              }
-
-              <p style="margin:0 0 16px;font-size:14px;color:#475569;line-height:1.5;">
-                Baixe o arquivo PDF anexado para ver o relatório completo, ou abra a versão online no MERIDIAN:
-              </p>
-
-              <table role="presentation" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td style="background:#E8520A;border-radius:8px;">
-                    <a href="${escHtml(link)}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;">
-                      Abrir relatório no MERIDIAN
-                    </a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:16px 28px;text-align:center;">
-              <p style="margin:0;font-size:11px;color:#94A3B8;line-height:1.5;">
-                <span style="color:#1B2A6B;font-weight:700;">grupo</span><span style="color:#E8520A;font-weight:700;">alvim</span>
-                · MERIDIAN — e-mail automático. Não responda a esta mensagem.
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
-
-function renderTextEmail({ visita, dados, link, teste = false }) {
-  const hora = formatarHoraVisita(visita.hora_inicio);
-  const dataTxt = hora ? `${fmtData(visita.data_visita)} às ${hora}` : fmtData(visita.data_visita);
-  const titulo = tituloChecklist(visita);
-  const nota = fmtNota(visita.nota_final);
-  const ncs = dados.nao_conformidades.length;
-  return [
-    teste ? 'ENVIO DE TESTE' : null,
-    'MERIDIAN - Grupo Alvim',
-    'Relatorio de visita',
-    '',
-    '>>> O RELATORIO COMPLETO EM PDF ESTA EM ANEXO NESTE E-MAIL <<<',
-    '',
-    titulo,
-    `Loja: ${visita.name}${visita.bk_number ? ` (BKN ${visita.bk_number})` : ''}`,
-    `Auditor: ${visita.nome_usuario}`,
-    `Data: ${dataTxt}`,
-    `Visita: #${visita.id_visita}`,
-    `Nota final: ${nota}`,
-    `Respostas: ${dados.respostas.length}`,
-    `Nao conformidades: ${ncs}`,
-    '',
-    'Baixe o PDF anexo para ver respostas, evidencias e NCs.',
-    `Abrir no MERIDIAN: ${link}`,
-    '',
-    'Este e um e-mail automatico. Nao responda esta mensagem.',
-  ]
-    .filter((l) => l != null)
-    .join('\n');
+      ${bodyToHtml(bodyText)}
+    </div>
+  </div>
+</body></html>`;
 }
 
 function nomeArquivoPdf(visita) {
@@ -291,14 +294,24 @@ function nomeArquivoPdf(visita) {
   return `relatorio-visita-${visita.id_visita}-${bkn}-${dataArq}.pdf`;
 }
 
-async function montarEnvio(dados, { to, cc = RELATORIO_EMAIL_CC, teste = false, registrar = true } = {}) {
+function emailsDeLista(list) {
+  const raw = Array.isArray(list) ? list : list ? [list] : [];
+  return raw
+    .map((d) => (typeof d === 'string' ? d : d?.email))
+    .map((e) => String(e || '').trim())
+    .filter(Boolean);
+}
+
+async function montarEnvio(dados, { to, cc = [], teste = false, registrar = true } = {}) {
   const v = dados.visita;
   const pdfBuffer = await gerarPdfVisitaBuffer(dados);
-  const link = linkRelatorio(v.id_visita);
   const titulo = tituloChecklist(v);
-  const subject = `MERIDIAN - ${titulo} - ${v.name} (${fmtNota(v.nota_final)})`;
+  const hora = formatarHoraVisita(v.hora_inicio);
+  const dataTxt = hora ? `${fmtData(v.data_visita)} às ${hora}` : fmtData(v.data_visita);
+  const subject = montarAssunto({ titulo, loja: v.name, dataTxt, teste });
+  const bodyText = montarCorpoTexto({ visita: v, dados, teste });
 
-  const logo = getLogoAttachment();
+  const brands = getBrandEmailAttachments();
   const attachments = [
     {
       filename: nomeArquivoPdf(v),
@@ -306,52 +319,55 @@ async function montarEnvio(dados, { to, cc = RELATORIO_EMAIL_CC, teste = false, 
       contentType: 'application/pdf',
       contentDisposition: 'attachment',
     },
+    ...brands,
   ];
-  if (logo) {
-    attachments.push({
-      ...logo,
-      contentDisposition: 'inline',
-      contentType: 'image/png',
-    });
+
+  const toList = Array.isArray(to) ? to.filter(Boolean) : to ? [to] : [];
+  const ccList = Array.isArray(cc) ? cc.filter(Boolean) : cc ? [cc] : [];
+  if (!toList.length) {
+    throw new Error('Sem destinatários To para o relatório de visita');
   }
 
-  const ccList = Array.isArray(cc) ? cc.filter(Boolean) : cc ? [cc] : [];
-
   await sendMail({
-    to,
+    to: toList,
     cc: ccList,
     subject,
-    text: renderTextEmail({ visita: v, dados, link, teste }),
-    html: renderHtmlEmail({ visita: v, dados, link, teste }),
+    text: bodyText,
+    html: renderHtmlEmail({ visita: v, dados, bodyText, teste }),
     attachments,
   });
 
   if (registrar) {
-    for (const d of to) {
+    const ccEmails = emailsDeLista(ccList);
+    for (const d of [...toList, ...ccList]) {
       const email = typeof d === 'string' ? d : d.email;
       const idUsuario = typeof d === 'string' ? null : d.id_usuario;
-      const metadata = typeof d === 'string' ? {} : { papel: d.papel, regiao: d.regiao };
+      const metadata =
+        typeof d === 'string'
+          ? { destino: 'cc_or_to' }
+          : { papel: d.papel, regiao: d.regiao, destino: toList.includes(d) ? 'to' : 'cc' };
       await registrarEnvio({
         idVisita: v.id_visita,
         idLoja: v.id_loja,
         idUsuario,
         email,
-        metadata: { ...metadata, cc: ccList },
+        metadata: { ...metadata, cc: ccEmails },
       });
     }
   }
 
   return {
     enviado: true,
-    destinatarios: (Array.isArray(to) ? to : [to]).map((d) =>
+    subject,
+    destinatarios: toList.map((d) =>
       typeof d === 'string' ? d : { email: d.email, papel: d.papel },
     ),
-    cc: ccList,
+    cc: ccList.map((d) => (typeof d === 'string' ? d : { email: d.email, papel: d.papel })),
   };
 }
 
-/** Envia relatório PDF por e-mail ao finalizar visita. */
-export async function processarEnvioRelatorioVisita(idVisita) {
+/** Envia relatório PDF por e-mail ao finalizar visita (somente Auditoria Operacional). */
+export async function processarEnvioRelatorioVisita(idVisita, { force = false } = {}) {
   if (!emailRelatorioHabilitado()) {
     return { ignorado: true, motivo: 'smtp_desabilitado' };
   }
@@ -359,20 +375,26 @@ export async function processarEnvioRelatorioVisita(idVisita) {
   const dados = await carregarVisitaDetalhe(idVisita);
   if (!dados?.visita) return { ignorado: true, motivo: 'visita_nao_encontrada' };
   if (dados.visita.status !== 'Finalizada') return { ignorado: true, motivo: 'nao_finalizada' };
-
-  if (await jaEnviouRelatorio(idVisita)) {
-    return { ignorado: true, motivo: 'ja_enviado' };
+  if (!ehAuditoriaOperacional(dados.visita)) {
+    return { ignorado: true, motivo: 'somente_auditoria_operacional' };
   }
 
-  const destinatarios = await resolverDestinatariosRelatorio(dados.visita.id_loja);
-  if (!destinatarios.length) {
+  if (!force && (await jaEnviouRelatorio(idVisita))) {
+    return { ignorado: true, motivo: 'ja_enviado' };
+  }
+  if (force) {
+    await limparEnvioRelatorioVisita(idVisita);
+  }
+
+  const { to, cc } = await resolverDestinatariosRelatorio(dados.visita.id_loja);
+  if (!to.length) {
     console.warn('[visita-email] Sem destinatários para loja', dados.visita.id_loja);
     return { ignorado: true, motivo: 'sem_destinatarios' };
   }
 
-  const result = await montarEnvio(dados, { to: destinatarios, registrar: true });
+  const result = await montarEnvio(dados, { to, cc, registrar: true });
   console.info(
-    `[visita-email] Relatório visita #${dados.visita.id_visita} enviado para ${destinatarios.length} destinatário(s)`,
+    `[visita-email] Relatório visita #${dados.visita.id_visita} enviado To=${to.length} Cc=${cc.length} assunto="${result.subject}"`,
   );
   return result;
 }
@@ -390,5 +412,5 @@ export async function enviarRelatorioVisitaTeste(idVisita, destinos) {
   if (!dados?.visita) throw new Error(`Visita #${idVisita} não encontrada`);
 
   const to = Array.isArray(destinos) ? destinos : [destinos];
-  return montarEnvio(dados, { to, teste: true, registrar: false });
+  return montarEnvio(dados, { to, cc: [], teste: true, registrar: false });
 }

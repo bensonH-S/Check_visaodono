@@ -15,15 +15,19 @@ export const LIDERANCA_EMAIL = {
   ti: 'benson@grupoalvim.com.br',
 };
 
-/** Destinatários fixos de todo relatório de visita (além do regional da loja). */
+/**
+ * Destinatários fixos de todo relatório de visita (sempre recebem, qualquer loja).
+ * Felipe (CEO), Renato (diretor), Igor (supervisor geral), Benson (TI).
+ */
 export const RELATORIO_EMAIL_SEMPRE = [
-  { email: LIDERANCA_EMAIL.supervisor_geral, papel: 'supervisor_geral', nome: 'Igor' },
-  { email: LIDERANCA_EMAIL.diretor, papel: 'diretor', nome: 'Diretor' },
   { email: LIDERANCA_EMAIL.ceo, papel: 'dono', nome: 'Felipe' },
+  { email: LIDERANCA_EMAIL.diretor, papel: 'diretor', nome: 'Renato' },
+  { email: LIDERANCA_EMAIL.supervisor_geral, papel: 'supervisor_geral', nome: 'Igor' },
+  { email: LIDERANCA_EMAIL.ti, papel: 'ti', nome: 'Benson' },
 ];
 
-/** Sempre em cópia (CC) em todo relatório de visita. */
-export const RELATORIO_EMAIL_CC = [LIDERANCA_EMAIL.ti];
+/** @deprecated — Benson passou para RELATORIO_EMAIL_SEMPRE; mantido vazio por compat. */
+export const RELATORIO_EMAIL_CC = [];
 
 /** Regionais vinculados à região da loja (frota_regiao_regionais + id_regional legado). */
 export async function resolverRegionaisLoja(idLoja) {
@@ -35,6 +39,22 @@ export async function resolverRegionaisLoja(idLoja) {
      JOIN usuarios u ON u.id_usuario = COALESCE(rr.id_usuario, r.id_regional)
      WHERE rl.id_loja = $1
        AND u.ativo = TRUE
+       AND u.email IS NOT NULL
+       AND TRIM(u.email) <> ''
+     ORDER BY u.nome`,
+    [idLoja],
+  );
+  return rows;
+}
+
+/** Gerentes de unidade vinculados à loja (usuario_lojas + cargo/perfil gerente). */
+export async function resolverGerentesLoja(idLoja) {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT u.id_usuario, u.nome, u.email
+     FROM usuarios u
+     JOIN usuario_lojas ul ON ul.id_usuario = u.id_usuario AND ul.id_loja = $1
+     WHERE u.ativo = TRUE
+       AND COALESCE(u.cargo_aprovacao, u.perfil::text) = 'gerente'
        AND u.email IS NOT NULL
        AND TRIM(u.email) <> ''
      ORDER BY u.nome`,

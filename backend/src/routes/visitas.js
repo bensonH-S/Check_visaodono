@@ -18,7 +18,10 @@ import { auditar } from '../auditoriaHelpers.js';
 import { gerarNcsFromVisita } from '../naoConformidadesChecklist.js';
 import { SQL_PONTUACAO_RESPOSTA } from '../checklistPontuacao.js';
 import { processarVisitaTimeCampoReprovada } from '../services/timeCampoNotificacoes.js';
-import { processarEnvioRelatorioVisita } from '../services/visitaRelatorioEmail.js';
+import {
+  processarEnvioRelatorioVisita,
+  limparEnvioRelatorioVisita,
+} from '../services/visitaRelatorioEmail.js';
 import { requirePermissao } from '../permissoes.js';
 
 const router = Router();
@@ -577,6 +580,7 @@ router.patch('/:id/reabrir', requireReabrirVisita, async (req, res, next) => {
       [idVisita],
     );
     await client.query(`DELETE FROM historico_notas WHERE id_visita = $1`, [idVisita]);
+    await limparEnvioRelatorioVisita(idVisita, client);
     await sincronizarNotaLoja(client, visita.id_loja);
 
     await client.query('COMMIT');

@@ -90,20 +90,31 @@ function estiloResposta(resposta, pergunta) {
   return { cor: SLATE, bg: null };
 }
 
-function carregarIconeMarca() {
-  try {
-    const logoPath = path.join(getProjectRoot(), 'frontend', 'public', 'Logo_Alvim_Icone.png');
-    if (!fs.existsSync(logoPath)) return null;
-    const buffer = fs.readFileSync(logoPath);
-    const dim = sizeOf(buffer);
-    return {
-      dataUrl: `data:image/png;base64,${buffer.toString('base64')}`,
-      w: dim.width || 1,
-      h: dim.height || 1,
-    };
-  } catch {
-    return null;
+function carregarPngPublico(...relPaths) {
+  for (const rel of relPaths) {
+    try {
+      const logoPath = path.join(getProjectRoot(), 'frontend', 'public', rel);
+      if (!fs.existsSync(logoPath)) continue;
+      const buffer = fs.readFileSync(logoPath);
+      const dim = sizeOf(buffer);
+      return {
+        dataUrl: `data:image/png;base64,${buffer.toString('base64')}`,
+        w: dim.width || 1,
+        h: dim.height || 1,
+      };
+    } catch {
+      /* tenta próximo */
+    }
   }
+  return null;
+}
+
+function carregarIconeMarca() {
+  return carregarPngPublico('Logo_Alvim_Icone.png', 'Logo_Icon-clear.png', 'Logo_GA.png');
+}
+
+function carregarLogoCiga() {
+  return carregarPngPublico('CIGA.png', 'CIGA_email.png');
 }
 
 function desenharMarca(doc, logo, x, y, iconSize = 14) {
@@ -119,6 +130,7 @@ function desenharMarca(doc, logo, x, y, iconSize = 14) {
   const w = doc.getTextWidth('grupo');
   setText(doc, ACCENT);
   doc.text('alvim', tx + w, ty);
+  return tx + w + doc.getTextWidth('alvim');
 }
 
 function rodape(doc, rotulo) {
@@ -147,44 +159,52 @@ function rodape(doc, rotulo) {
     doc.text('alvim', MARGIN + wGrupo, FOOTER_Y);
     doc.setFont('helvetica', 'normal');
     setText(doc, SLATE_LIGHT);
-    doc.text('  ·  Vision Check', MARGIN + wGrupo + doc.getTextWidth('alvim'), FOOTER_Y);
+    doc.text('  ·  MERIDIAN · CIGA', MARGIN + wGrupo + doc.getTextWidth('alvim'), FOOTER_Y);
 
     doc.text(rotulo, PAGE_W / 2, FOOTER_Y, { align: 'center' });
     doc.text(`${i} / ${total}  ·  ${gerado}`, PAGE_W - MARGIN, FOOTER_Y, { align: 'right' });
   }
 }
 
-function cabecalhoExecutivo(
-  doc,
-  dados,
-  logo,
-) {
+function cabecalhoExecutivo(doc, dados, logo, ciga = null) {
   const v = dados.visita;
   const nota = Number(v.nota_final ?? 0);
   const titulo = tituloRelatorio(v);
   const rotulo = rotuloVisita(v);
+  const headerH = ciga ? 34 : 26;
 
   setFill(doc, NAVY);
-  doc.rect(0, 0, PAGE_W, 26, 'F');
+  doc.rect(0, 0, PAGE_W, headerH, 'F');
   setFill(doc, ACCENT);
-  doc.rect(0, 26, PAGE_W, 0.9, 'F');
+  doc.rect(0, headerH, PAGE_W, 0.9, 'F');
 
-  desenharMarca(doc, logo, MARGIN, 6, 14);
+  const marcaEndX = desenharMarca(doc, logo, MARGIN, ciga ? 5 : 6, ciga ? 12 : 14);
+
+  if (ciga) {
+    const cigaH = 11;
+    const cigaW = Math.min(52, (ciga.w / ciga.h) * cigaH);
+    const cigaX = Math.max(marcaEndX + 6, MARGIN + 48);
+    doc.addImage(ciga.dataUrl, 'PNG', cigaX, 5.5, cigaW, cigaH);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    setText(doc, [160, 176, 200]);
+    doc.text('CIGA · Centro de Inteligência', cigaX, 5.5 + cigaH + 3.2);
+  }
 
   setText(doc, [255, 255, 255]);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.text('RELATÓRIO DE VISITA', PAGE_W - MARGIN, 9, { align: 'right' });
+  doc.text('RELATÓRIO DE VISITA', PAGE_W - MARGIN, ciga ? 10 : 9, { align: 'right' });
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
-  doc.text(titulo, PAGE_W - MARGIN, 16, { align: 'right' });
+  doc.text(titulo, PAGE_W - MARGIN, ciga ? 17.5 : 16, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(180, 195, 220);
-  const lojaLinha = doc.splitTextToSize(rotulo, 110);
-  doc.text(lojaLinha.slice(0, 2), PAGE_W - MARGIN, 21.5, { align: 'right' });
+  const lojaLinha = doc.splitTextToSize(rotulo, ciga ? 88 : 110);
+  doc.text(lojaLinha.slice(0, 2), PAGE_W - MARGIN, ciga ? 24 : 21.5, { align: 'right' });
 
-  let y = 32;
+  let y = headerH + 6;
 
   setFill(doc, ROW_ALT);
   setStroke(doc, LINE);
@@ -740,9 +760,10 @@ export async function gerarPdfVisitaBuffer(dados) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const v = dados.visita;
   const logo = carregarIconeMarca();
+  const ciga = carregarLogoCiga();
   const rotulo = rotuloVisita(v);
 
-  let y = cabecalhoExecutivo(doc, dados, logo);
+  let y = cabecalhoExecutivo(doc, dados, logo, ciga);
   y = desempenhoCategorias(doc, y, dados.desempenho_categorias);
 
   const porCategoria = new Map();

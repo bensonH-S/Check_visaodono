@@ -75,24 +75,49 @@ async function sendWithTransport(mailOptions) {
   }
 }
 
-export function getLogoAttachment() {
-  const root = getProjectRoot();
-  const candidates = [
-    path.join(root, 'frontend', 'public', 'Logo_GA.png'),
-    path.join(root, 'frontend', 'public', 'logo-grupo-alvim.png'),
-    path.join(root, 'frontend', 'public', 'Grupo Alvim.png'),
-    path.join(root, 'frontend', 'public', 'Logo_Alvim_Icone.png'),
-  ];
+function firstExistingAttachment(candidates, cid) {
   for (const logoPath of candidates) {
     if (fs.existsSync(logoPath)) {
       return {
         filename: path.basename(logoPath),
         path: logoPath,
-        cid: 'grupo-alvim-logo',
+        cid,
+        contentDisposition: 'inline',
+        contentType: 'image/png',
       };
     }
   }
   return null;
+}
+
+/** Ícone GA nítido (sem wordmark embutido) — legível em header navy; texto no HTML. */
+export function getLogoAttachment() {
+  const root = getProjectRoot();
+  const publicDir = path.join(root, 'frontend', 'public');
+  return firstExistingAttachment(
+    [
+      path.join(publicDir, 'Logo_Alvim_Icone.png'),
+      path.join(publicDir, 'Logo_Icon-clear.png'),
+      path.join(publicDir, 'Logo_GA.png'),
+      path.join(publicDir, 'logo-grupo-alvim.png'),
+    ],
+    'grupo-alvim-logo',
+  );
+}
+
+/** Logo CIGA (Centro de Inteligência Grupo Alvim) para e-mails/relatórios. */
+export function getCigaAttachment() {
+  const root = getProjectRoot();
+  const publicDir = path.join(root, 'frontend', 'public');
+  return firstExistingAttachment(
+    [path.join(publicDir, 'CIGA.png'), path.join(publicDir, 'CIGA_email.png')],
+    'ciga-logo',
+  );
+}
+
+/** Anexos de marca para e-mail (GA + CIGA). */
+export function getBrandEmailAttachments() {
+  return [getLogoAttachment(), getCigaAttachment()].filter(Boolean);
 }
 
 function normalizeEmails(list) {
@@ -156,15 +181,8 @@ export async function sendMail({ to, cc, subject, html, text, attachments, reply
     },
   };
 
-  if (recipients.length === 1) {
-    mailOptions.to = recipients[0];
-  } else {
-    // Para Gmail: TO com o remetente + BCC destinatários reais
-    // ajuda a não parecer "lista oculta" freestyle.
-    mailOptions.to = user;
-    mailOptions.bcc = recipients.join(', ');
-  }
-
+  // Mesmo padrão FreeControl: To / Cc explícitos (sem BCC oculto).
+  mailOptions.to = recipients.join(', ');
   if (ccList.length) {
     mailOptions.cc = ccList.join(', ');
   }
