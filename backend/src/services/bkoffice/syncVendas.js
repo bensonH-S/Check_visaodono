@@ -163,6 +163,73 @@ async function marcarRelatorioRestauranteProduto(page) {
   await page.waitForTimeout(500);
 }
 
+async function aguardarGradeVendas(page) {
+  const buscar = page.getByRole('button', { name: /buscar/i });
+  if (await buscar.count()) {
+    await buscar.click({ force: true }).catch(() => {});
+  }
+  await page.locator('text=Por favor aguarde').waitFor({ state: 'hidden', timeout: 180000 }).catch(() => {});
+  await page.waitForTimeout(2000);
+  await page.waitForFunction(() => {
+    const body = document.body?.innerText || '';
+    if (/nenhum registro|sem dados/i.test(body)) return false;
+    return body.includes('Exportar Excel') || body.includes('Produto Venda') || body.includes('WHOPPER');
+  }, { timeout: 45000 }).catch(() => {});
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.locator('#ui-datepicker-div').waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+}
+
+/** Export Excel com retentativas — BK Office às vezes não dispara download na 1ª vez. */
+async function exportarExcelComRetry(page, downloadDir) {
+  const dlTimeout = Number(process.env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || 180000);
+  const exportBtn = page.locator('#salvar').or(page.getByRole('button', { name: /exportar excel/i }));
+  await exportBtn.first().waitFor({ state: 'visible', timeout: 30000 });
+  await exportBtn.first().scrollIntoViewIfNeeded().catch(() => {});
+
+  const bodyText = ((await page.locator('body').innerText().catch(() => '')) || '').slice(0, 2000);
+  if (/nenhum registro|sem dados/i.test(bodyText)) {
+    throw Object.assign(new Error('BK Office: busca sem dados para o periodo'), { status: 422 });
+  }
+
+  let lastErr;
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    console.log(`[bkoffice] export Excel tentativa ${tentativa}/3`);
+    try {
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.locator('#ui-datepicker-div').waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+      await page.waitForTimeout(500);
+
+      const downloadPromise = page.waitForEvent('download', { timeout: dlTimeout });
+      await exportBtn.first().click({ force: true });
+      const download = await downloadPromise;
+
+      const suggested = download.suggestedFilename() || `vendas-bk-${Date.now()}.xlsx`;
+      const filePath = path.join(downloadDir, suggested);
+      await download.saveAs(filePath);
+      if (!fs.existsSync(filePath) || fs.statSync(filePath).size < 100) {
+        throw new Error('Arquivo Excel vazio ou ausente apos download');
+      }
+      console.log(`[bkoffice] Excel OK ${path.basename(filePath)} (${fs.statSync(filePath).size} bytes)`);
+      return filePath;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[bkoffice] export falhou tentativa ${tentativa}:`, e.message || e);
+      try {
+        const shot = path.join(downloadDir, `erro-export-${Date.now()}.png`);
+        await page.screenshot({ path: shot, fullPage: true });
+        console.warn(`[bkoffice] screenshot: ${shot}`);
+      } catch {
+        /* ignore */
+      }
+      if (tentativa < 3) {
+        await aguardarGradeVendas(page);
+        await marcarRelatorioRestauranteProduto(page);
+      }
+    }
+  }
+  throw lastErr || new Error('Falha ao exportar Excel apos 3 tentativas');
+}
+
 export async function baixarExcelVendas({
   dataInicio,
   dataFim,
@@ -352,30 +419,9 @@ export async function baixarExcelVendas({
     await marcarRelatorioRestauranteProduto(page);
 
     // Buscar e aguardar montar a grade antes de exportar
-    const buscar = page.getByRole('button', { name: /buscar/i });
-    if (await buscar.count()) {
-      await buscar.click({ force: true }).catch(() => {});
-    }
-    await page.locator('text=Por favor aguarde').waitFor({ state: 'hidden', timeout: 120000 }).catch(() => {});
-    await page.waitForTimeout(2500);
-    // Confirma que há linhas (ou pelo menos sumiu "nenhum registro" após busca)
-    await page.waitForFunction(() => {
-      const body = document.body?.innerText || '';
-      return body.includes('Exportar Excel') || body.includes('Produto Venda') || body.includes('WHOPPER');
-    }, { timeout: 30000 }).catch(() => {});
+    await aguardarGradeVendas(page);
 
-    await page.keyboard.press('Escape').catch(() => {});
-    await page.locator('#ui-datepicker-div').waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
-
-    const exportBtn = page.locator('#salvar').or(page.getByRole('button', { name: /exportar excel/i }));
-    const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 120000 }),
-      exportBtn.first().click({ force: true }),
-    ]);
-
-    const suggested = download.suggestedFilename() || `vendas-bk-${Date.now()}.xlsx`;
-    const filePath = path.join(downloadDir, suggested);
-    await download.saveAs(filePath);
+    const filePath = await exportarExcelComRetry(page, downloadDir);
     await context.close();
     return filePath;
   } finally {

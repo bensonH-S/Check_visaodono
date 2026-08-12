@@ -1,0 +1,17 @@
+PATCH RAPIDO — PC da gerencia (C:\Meridian-BKOffice-Gerencia)
+============================================================
+
+Copie estes 3 arquivos do kit novo (substituir):
+
+  worker.mjs
+  app\backend\scripts\sync-bkoffice-via-api.mjs
+  app\backend\src\services\bkoffice\syncVendas.js
+
+Depois:
+  1. Task Manager — mate MeridianBkSync.exe e node worker.mjs
+  2. TESTAR-UMA-VEZ.bat  (aguarde ate 6 min — export Excel com retentativas)
+  3. Log deve mostrar: intervalo=60s e OK 2026-08-12 — R$ ...
+  4. INSTALAR.bat (admin)
+
+Se ainda falhar download: rode MeridianBkSync.exe --debug na pasta do kit
+e veja se o Chrome abre o BK Office (screenshot em Logs ou temp).
