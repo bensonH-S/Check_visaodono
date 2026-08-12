@@ -17,8 +17,21 @@ function kitRoot() {
   return path.resolve(__dirname);
 }
 
+function agoraBR() {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(new Date());
+}
+
 function log(msg) {
-  const line = `[bk-kit] ${new Date().toISOString()} ${msg}`;
+  const line = `[bk-kit] ${agoraBR()} ${msg}`;
   const roots = [
     path.join(kitRoot(), 'Logs'),
     path.join(process.env.PROGRAMDATA || 'C:\\ProgramData', 'MeridianBkOffice', 'Logs'),
@@ -36,6 +49,51 @@ function log(msg) {
   } catch {
     /* ignore */
   }
+}
+
+const statusPath = () => path.join(kitRoot(), 'data', 'status.json');
+const statusTxtPath = () => path.join(kitRoot(), 'data', 'STATUS.txt');
+
+function writeStatus(patch) {
+  const root = kitRoot();
+  const dataDir = path.join(root, 'data');
+  fs.mkdirSync(dataDir, { recursive: true });
+  let prev = {};
+  try {
+    prev = JSON.parse(fs.readFileSync(statusPath(), 'utf8'));
+  } catch {
+    /* ignore */
+  }
+  const next = {
+    ...prev,
+    ...patch,
+    atualizado_em: new Date().toISOString(),
+  };
+  fs.writeFileSync(statusPath(), JSON.stringify(next, null, 2), 'utf8');
+
+  const ult = next.ultimo_sync || {};
+  const linhas = [
+    '=== MERIDIAN BK OFFICE — STATUS ===',
+    `Atualizado: ${agoraBR()}`,
+    `Estado: ${next.estado || '?'}`,
+    `Loja: ${next.loja ?? '?'}`,
+    `Ciclo: #${next.ciclo ?? '?'}`,
+    '',
+    '--- Ultimo envio ---',
+    ult.ok
+      ? `OK ${ult.dia} — ${ult.linhas ?? '?'} produtos gravados no Meridian (${ult.duracao_s ?? '?'}s)`
+      : ult.dia
+        ? `FALHOU ${ult.dia} — ${ult.erro || 'erro desconhecido'}`
+        : '(nenhum envio ainda)',
+    '',
+    '--- Mes atual ---',
+    `Dias OK: ${(next.dias_ok || []).length}`,
+    next.pendentes?.length ? `Pendentes: ${next.pendentes.join(', ')}` : 'Pendentes: nenhum',
+    next.proximo_ciclo ? `Proximo ciclo: ${next.proximo_ciclo}` : '',
+    '',
+    'Abra VERIFICAR.bat para mais detalhes.',
+  ].filter(Boolean);
+  fs.writeFileSync(statusTxtPath(), linhas.join('\n'), 'utf8');
 }
 
 function hojeBR() {
@@ -58,7 +116,6 @@ function syncedPath() {
   return path.join(kitRoot(), 'data', 'synced-days.json');
 }
 
-/** Marca 01 → ontem do mês corrente como já feitos (histórico já no Meridian). */
 function ensureHistoricoMarcado() {
   const hoje = hojeBR();
   const iniMes = `${hoje.slice(0, 8)}01`;
@@ -76,7 +133,7 @@ function ensureHistoricoMarcado() {
   if (changed) {
     state.dias.sort();
     saveSynced(state);
-    log(`histórico marcado como OK: ${iniMes} → ${ontem} (não reimporta)`);
+    log(`historico marcado OK: ${iniMes} ate ${ontem} (nao reimporta)`);
   }
 }
 
@@ -110,6 +167,23 @@ function findNode(root) {
   return 'node';
 }
 
+function parseSyncOutput(text) {
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  for (const ln of lines) {
+    if (ln.startsWith('KIT_RESULT:')) {
+      try {
+        return JSON.parse(ln.slice('KIT_RESULT:'.length));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  const errLine = lines.find((l) => /=== ERRO|ETIMEDOUT|ECONNREFUSED|FATAL/i.test(l));
+  if (errLine) return { ok: false, erro: errLine.replace(/^\[bkoffice\]\s*/, '').trim() };
+  if (text.includes('=== OK ===')) return { ok: true, linhas: '?', gravado_no_banco: true };
+  return { ok: false, erro: lines.slice(-3).join(' | ') || 'falha sem detalhe' };
+}
+
 function runSync(env, idLoja, ini, fim) {
   const root = kitRoot();
   const node = findNode(root);
@@ -124,18 +198,18 @@ function runSync(env, idLoja, ini, fim) {
     PLAYWRIGHT_BROWSERS_PATH: path.join(root, 'runtime', 'ms-playwright'),
     BKOFFICE_USE_CHROME: env.BKOFFICE_USE_CHROME || '1',
     BKOFFICE_HEADLESS: env.BKOFFICE_HEADLESS || '1',
+    BKOFFICE_KIT_QUIET: '1',
     BKOFFICE_SERVER_SYNC: '0',
     BKOFFICE_SYNC_CRON_MS: '0',
     NODE_ENV: 'production',
     DB_HOST: '',
     DB_PASS: '',
   };
-  log(`sync start loja=${idLoja} periodo=${ini}→${fim} via=${env.API_BASE || 'api'}`);
   const t0 = Date.now();
   return new Promise((resolve) => {
     const proc = spawn(
       node,
-      [script, `--loja=${idLoja}`, `--inicio=${ini}`, `--fim=${fim}`],
+      [script, `--loja=${idLoja}`, `--inicio=${ini}`, `--fim=${fim}`, '--quiet'],
       {
         cwd: path.join(root, 'app'),
         env: childEnv,
@@ -143,28 +217,30 @@ function runSync(env, idLoja, ini, fim) {
       },
     );
     let out = '';
-    let err = '';
     proc.stdout.on('data', (b) => {
       out += b.toString();
     });
     proc.stderr.on('data', (b) => {
-      err += b.toString();
+      out += b.toString();
     });
     proc.on('close', (code) => {
       const elapsed = Math.round((Date.now() - t0) / 1000);
-      const tail = (out + '\n' + err)
-        .split(/\r?\n/)
-        .filter(Boolean)
-        .slice(-40);
-      for (const ln of tail) log(`out ${ln}`);
-      if (code === 0) log(`sync OK em ${elapsed}s (${ini}→${fim})`);
-      else log(`sync FALHOU exit=${code} em ${elapsed}s (${ini}→${fim})`);
-      resolve(code === 0);
+      const parsed = parseSyncOutput(out);
+      parsed.duracao_s = elapsed;
+      parsed.dia = parsed.dia || ini;
+      if (code === 0 && parsed.ok !== false) {
+        parsed.ok = true;
+        log(`OK ${ini} — ${parsed.linhas ?? '?'} produtos gravados no Meridian (${elapsed}s)`);
+      } else {
+        parsed.ok = false;
+        parsed.erro = parsed.erro || `exit ${code}`;
+        log(`FALHOU ${ini} — ${parsed.erro} (${elapsed}s)`);
+      }
+      resolve(parsed);
     });
   });
 }
 
-/** Só dias ainda não marcados + sempre re-sincroniza hoje. */
 async function syncIncremental(env, idLoja) {
   const hoje = hojeBR();
   const iniMes = `${hoje.slice(0, 8)}01`;
@@ -173,30 +249,43 @@ async function syncIncremental(env, idLoja) {
   for (let d = iniMes; d < hoje; d = addDays(d, 1)) {
     if (!state.dias.includes(d)) pendentes.push(d);
   }
+
+  writeStatus({
+    estado: 'sincronizando',
+    loja: idLoja,
+    dias_ok: state.dias.filter((d) => d >= iniMes && d <= hoje),
+    pendentes,
+  });
+
   if (pendentes.length) {
-    log(`faltam ${pendentes.length} dia(s) no marcador: ${pendentes[0]}…${pendentes[pendentes.length - 1]}`);
+    log(`faltam ${pendentes.length} dia(s): ${pendentes.join(', ')}`);
     for (const d of pendentes) {
-      const ok = await runSync(env, idLoja, d, d);
-      if (ok) markSynced(d);
+      const r = await runSync(env, idLoja, d, d);
+      writeStatus({ ultimo_sync: r });
+      if (r.ok) markSynced(d);
+      else return false;
     }
   } else {
-    log('nenhum dia atrasado — só atualiza hoje');
+    log(`mes OK ate ontem — so atualiza hoje (${hoje})`);
   }
-  const okHoje = await runSync(env, idLoja, hoje, hoje);
-  if (okHoje) markSynced(hoje);
-  return okHoje;
+
+  const rHoje = await runSync(env, idLoja, hoje, hoje);
+  writeStatus({ ultimo_sync: rHoje });
+  if (rHoje.ok) markSynced(hoje);
+  return rHoje.ok;
 }
 
 async function main() {
   const root = kitRoot();
-  log(`boot pid=${process.pid} root=${root} exe=${process.execPath}`);
+  log(`iniciando pid=${process.pid} pasta=${root}`);
 
   let keyParts;
   try {
     const mod = await import('./key_parts.generated.mjs');
     keyParts = mod.KEY_PARTS;
   } catch (e) {
-    log(`ERRO: chave do cofre ausente (${e.message}). Regenere o kit com GERAR-KIT.`);
+    log(`ERRO: chave do cofre ausente (${e.message})`);
+    writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: e.message } });
     process.exit(1);
   }
 
@@ -205,21 +294,21 @@ async function main() {
     secrets = loadVault(root, keyParts);
   } catch (e) {
     log(`ERRO ao abrir cofre: ${e.message}`);
+    writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: e.message } });
     process.exit(1);
   }
 
   const idLoja = Number(secrets.BKOFFICE_SYNC_ID_LOJA || 21);
   const intervalMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 900000));
   const intervalSec = Math.round(intervalMs / 1000);
-  log(
-    `iniciado intervalo=${intervalSec}s loja=${idLoja} api=${secrets.API_BASE || '?'} modo=kit-https-incremental`,
-  );
+  log(`ativo loja=${idLoja} intervalo=${intervalSec}s modo=incremental (so hoje + faltantes)`);
+
   if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.API_BASE || !secrets.BKOFFICE_KIT_TOKEN) {
-    log('ERRO: cofre incompleto (precisa API_BASE + KIT_TOKEN + BKOFFICE_*)');
+    log('ERRO: cofre incompleto');
+    writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: 'cofre incompleto' } });
     process.exit(1);
   }
 
-  // Já temos 01→11 no Meridian: não reprocessa o mês no próximo boot
   ensureHistoricoMarcado();
 
   const once = process.argv.includes('--once') || process.argv.includes('--uma-vez');
@@ -228,37 +317,72 @@ async function main() {
   let ciclo = 0;
   for (;;) {
     ciclo += 1;
-    log(`ciclo #${ciclo} — acordando`);
+    writeStatus({ estado: 'rodando', ciclo, loja: idLoja });
+    log(`ciclo #${ciclo} iniciado`);
+
+    let ok = false;
     try {
       const hoje = hojeBR();
       if (once) {
-        log('modo --once: só hoje');
-        const ok = await runSync(secrets, idLoja, hoje, hoje);
-        if (ok) markSynced(hoje);
-        log(ok ? 'TESTE OK' : 'TESTE FALHOU');
-        process.exit(ok ? 0 : 1);
+        log('modo teste — so hoje');
+        const r = await runSync(secrets, idLoja, hoje, hoje);
+        writeStatus({ ultimo_sync: r, estado: r.ok ? 'parado' : 'erro' });
+        if (r.ok) markSynced(hoje);
+        log(r.ok ? 'TESTE OK' : 'TESTE FALHOU');
+        process.exit(r.ok ? 0 : 1);
       }
       if (forceBackfill && ciclo === 1) {
-        log('FORCE backfill 01→hoje (flag explícita)');
+        log('AVISO: backfill forcado 01→hoje');
         const ini = `${hoje.slice(0, 8)}01`;
         for (let d = ini; d <= hoje; d = addDays(d, 1)) {
-          const ok = await runSync(secrets, idLoja, d, d);
-          if (ok) markSynced(d);
+          const r = await runSync(secrets, idLoja, d, d);
+          writeStatus({ ultimo_sync: r });
+          if (r.ok) markSynced(d);
+          else {
+            ok = false;
+            break;
+          }
+          ok = true;
         }
       } else {
-        await syncIncremental(secrets, idLoja);
+        ok = await syncIncremental(secrets, idLoja);
       }
     } catch (e) {
       log(`ERRO ${e.message || e}`);
+      writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: e.message || String(e) } });
       if (once) process.exit(1);
     }
+
     if (once) break;
-    log(`ciclo #${ciclo} — dormindo ${intervalSec}s`);
+
+    const proximo = new Date(Date.now() + intervalMs);
+    const proximoFmt = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(proximo);
+
+    const st = loadSynced();
+    writeStatus({
+      estado: ok ? 'dormindo' : 'erro',
+      ciclo,
+      loja: idLoja,
+      dias_ok: st.dias,
+      pendentes: [],
+      proximo_ciclo: proximoFmt,
+    });
+    log(ok ? `ciclo #${ciclo} OK — proximo em ${intervalSec}s (${proximoFmt})` : `ciclo #${ciclo} com falha — tenta de novo em ${intervalSec}s`);
     await new Promise((r) => setTimeout(r, intervalMs));
   }
 }
 
 main().catch((e) => {
   log(`FATAL ${e.message || e}`);
+  writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: e.message || String(e) } });
   process.exit(1);
 });

@@ -24,6 +24,12 @@ const getArg = (k, def) => {
   return hit ? hit.slice(k.length + 1) : def;
 };
 
+const quiet = process.argv.includes('--quiet') || process.env.BKOFFICE_KIT_QUIET === '1';
+const log = (...a) => {
+  if (!quiet) console.log(...a);
+};
+const logErr = (...a) => console.error(...a);
+
 const idLoja = Number(getArg('--loja', process.env.BKOFFICE_SYNC_ID_LOJA || '21'));
 const ini = getArg('--inicio', '');
 const fim = getArg('--fim', ini);
@@ -58,7 +64,7 @@ if (!process.env.BKOFFICE_USER || !process.env.BKOFFICE_PASS) {
   process.exit(1);
 }
 
-console.log({
+log({
   modo: 'kit-https',
   loja: idLoja,
   api: apiBase,
@@ -88,8 +94,9 @@ try {
     agruparPorDia: true,
   });
 } catch (e) {
-  console.error('\n=== ERRO DOWNLOAD ===');
-  console.error(e.message || e);
+  logErr('KIT_RESULT:' + JSON.stringify({ ok: false, dia: dataInicio, erro: e.message || String(e) }));
+  logErr('\n=== ERRO DOWNLOAD ===');
+  logErr(e.message || e);
   process.exit(1);
 }
 
@@ -105,7 +112,7 @@ form.append('data_fim', dataFim);
 form.append('processar', '1');
 
 const url = `${apiBase}/public/kit/estoque/vendas-import`;
-console.log('upload', url, 'bytes', buf.length);
+log('upload', url, 'bytes', buf.length);
 
 try {
   const resp = await fetch(url, {
@@ -123,15 +130,29 @@ try {
     json = { raw: text.slice(0, 500) };
   }
   if (!resp.ok) {
-    console.error('\n=== ERRO API ===', resp.status, json);
+    const msg = json?.error || json?.message || `HTTP ${resp.status}`;
+    logErr('KIT_RESULT:' + JSON.stringify({ ok: false, dia: dataInicio, erro: msg }));
+    logErr('\n=== ERRO API ===', resp.status, json);
     process.exit(1);
   }
-  console.log('\n=== OK ===');
-  console.log(json);
+  const summary = {
+    ok: true,
+    loja: json.loja ?? idLoja,
+    dia: dataInicio,
+    linhas: json.linhas ?? 0,
+    dias: json.dias ?? 1,
+    de: json.de ?? dataInicio,
+    ate: json.ate ?? dataFim,
+    gravado_no_banco: true,
+  };
+  console.log('KIT_RESULT:' + JSON.stringify(summary));
+  log('\n=== OK ===');
+  log(json);
   process.exit(0);
 } catch (e) {
-  console.error('\n=== ERRO REDE API ===');
-  console.error(e.message || e);
+  logErr('KIT_RESULT:' + JSON.stringify({ ok: false, dia: dataInicio, erro: e.message || String(e) }));
+  logErr('\n=== ERRO REDE API ===');
+  logErr(e.message || e);
   process.exit(1);
 } finally {
   try {
