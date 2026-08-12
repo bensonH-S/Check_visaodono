@@ -1,6 +1,7 @@
 /**
- * Worker BK Office — lê cofre criptografado (sem config.env).
- * Embarcado no MeridianBkSync.exe via pkg, ou rodado com node do kit.
+ * Worker BK Office — cofre criptografado + sync via HTTPS.
+ * NÃO reimporta o mês inteiro a cada boot: só o dia de hoje
+ * (e dias que faltarem no marcador local data/synced-days.json).
  */
 import fs from 'fs';
 import path from 'path';
@@ -12,7 +13,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function kitRoot() {
-  // pkg: process.pkg / snapshot; senão pasta do kit
   if (process.pkg) return path.dirname(process.execPath);
   return path.resolve(__dirname);
 }
@@ -54,10 +54,54 @@ function addDays(iso, delta) {
   return dt.toISOString().slice(0, 10);
 }
 
-function dataInicio(env) {
-  const fixo = String(env.BKOFFICE_SYNC_DATA_INICIO || '').trim().slice(0, 10);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(fixo)) return fixo;
-  return `${hojeBR().slice(0, 8)}01`;
+function syncedPath() {
+  return path.join(kitRoot(), 'data', 'synced-days.json');
+}
+
+/** Marca 01 → ontem do mês corrente como já feitos (histórico já no Meridian). */
+function ensureHistoricoMarcado() {
+  const hoje = hojeBR();
+  const iniMes = `${hoje.slice(0, 8)}01`;
+  const ontem = addDays(hoje, -1);
+  const state = loadSynced();
+  let changed = false;
+  if (ontem >= iniMes) {
+    for (let d = iniMes; d <= ontem; d = addDays(d, 1)) {
+      if (!state.dias.includes(d)) {
+        state.dias.push(d);
+        changed = true;
+      }
+    }
+  }
+  if (changed) {
+    state.dias.sort();
+    saveSynced(state);
+    log(`histórico marcado como OK: ${iniMes} → ${ontem} (não reimporta)`);
+  }
+}
+
+function loadSynced() {
+  try {
+    const p = syncedPath();
+    if (!fs.existsSync(p)) return { dias: [] };
+    const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+    return { dias: Array.isArray(j.dias) ? j.dias.map(String) : [] };
+  } catch {
+    return { dias: [] };
+  }
+}
+
+function saveSynced(state) {
+  const dir = path.join(kitRoot(), 'data');
+  fs.mkdirSync(dir, { recursive: true });
+  const uniq = [...new Set(state.dias)].sort();
+  fs.writeFileSync(syncedPath(), JSON.stringify({ dias: uniq, atualizado_em: new Date().toISOString() }, null, 2));
+}
+
+function markSynced(dia) {
+  const state = loadSynced();
+  if (!state.dias.includes(dia)) state.dias.push(dia);
+  saveSynced(state);
 }
 
 function findNode(root) {
@@ -83,7 +127,6 @@ function runSync(env, idLoja, ini, fim) {
     BKOFFICE_SERVER_SYNC: '0',
     BKOFFICE_SYNC_CRON_MS: '0',
     NODE_ENV: 'production',
-    // Sem DB na loja — evita tentativa de Postgres
     DB_HOST: '',
     DB_PASS: '',
   };
@@ -121,16 +164,27 @@ function runSync(env, idLoja, ini, fim) {
   });
 }
 
-async function backfill(env, idLoja) {
-  const ini = dataInicio(env);
-  const fim = hojeBR();
-  log(`backfill ${ini} → ${fim}`);
-  let ok = true;
-  for (let d = ini; d <= fim; d = addDays(d, 1)) {
-    const r = await runSync(env, idLoja, d, d);
-    if (!r) ok = false;
+/** Só dias ainda não marcados + sempre re-sincroniza hoje. */
+async function syncIncremental(env, idLoja) {
+  const hoje = hojeBR();
+  const iniMes = `${hoje.slice(0, 8)}01`;
+  const state = loadSynced();
+  const pendentes = [];
+  for (let d = iniMes; d < hoje; d = addDays(d, 1)) {
+    if (!state.dias.includes(d)) pendentes.push(d);
   }
-  return ok;
+  if (pendentes.length) {
+    log(`faltam ${pendentes.length} dia(s) no marcador: ${pendentes[0]}…${pendentes[pendentes.length - 1]}`);
+    for (const d of pendentes) {
+      const ok = await runSync(env, idLoja, d, d);
+      if (ok) markSynced(d);
+    }
+  } else {
+    log('nenhum dia atrasado — só atualiza hoje');
+  }
+  const okHoje = await runSync(env, idLoja, hoje, hoje);
+  if (okHoje) markSynced(hoje);
+  return okHoje;
 }
 
 async function main() {
@@ -154,48 +208,51 @@ async function main() {
     process.exit(1);
   }
 
-  // Sanidade: não logar host/senha
   const idLoja = Number(secrets.BKOFFICE_SYNC_ID_LOJA || 21);
   const intervalMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 900000));
   const intervalSec = Math.round(intervalMs / 1000);
   log(
-    `iniciado intervalo=${intervalSec}s loja=${idLoja} api=${secrets.API_BASE || '?'} modo=kit-https user=${secrets.BKOFFICE_USER ? '(ok)' : '(vazio)'}`,
+    `iniciado intervalo=${intervalSec}s loja=${idLoja} api=${secrets.API_BASE || '?'} modo=kit-https-incremental`,
   );
   if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.API_BASE || !secrets.BKOFFICE_KIT_TOKEN) {
     log('ERRO: cofre incompleto (precisa API_BASE + KIT_TOKEN + BKOFFICE_*)');
     process.exit(1);
   }
 
-  let backfillMes = null;
-  let ciclo = 0;
+  // Já temos 01→11 no Meridian: não reprocessa o mês no próximo boot
+  ensureHistoricoMarcado();
+
   const once = process.argv.includes('--once') || process.argv.includes('--uma-vez');
+  const forceBackfill = process.argv.includes('--backfill') || secrets.BKOFFICE_FORCE_BACKFILL === '1';
+
+  let ciclo = 0;
   for (;;) {
     ciclo += 1;
     log(`ciclo #${ciclo} — acordando`);
     try {
       const hoje = hojeBR();
-      const mes = hoje.slice(0, 7);
       if (once) {
-        // Teste rápido: só hoje (não faz backfill do mês inteiro)
-        log('modo --once: sync só do dia de hoje');
+        log('modo --once: só hoje');
         const ok = await runSync(secrets, idLoja, hoje, hoje);
+        if (ok) markSynced(hoje);
         log(ok ? 'TESTE OK' : 'TESTE FALHOU');
         process.exit(ok ? 0 : 1);
       }
-      if (backfillMes !== mes) {
-        if (await backfill(secrets, idLoja)) {
-          backfillMes = mes;
-          log(`backfill do mês ${mes} concluído`);
-        } else {
-          log('backfill parcial — tenta de novo no próximo ciclo');
+      if (forceBackfill && ciclo === 1) {
+        log('FORCE backfill 01→hoje (flag explícita)');
+        const ini = `${hoje.slice(0, 8)}01`;
+        for (let d = ini; d <= hoje; d = addDays(d, 1)) {
+          const ok = await runSync(secrets, idLoja, d, d);
+          if (ok) markSynced(d);
         }
       } else {
-        await runSync(secrets, idLoja, hoje, hoje);
+        await syncIncremental(secrets, idLoja);
       }
     } catch (e) {
       log(`ERRO ${e.message || e}`);
       if (once) process.exit(1);
     }
+    if (once) break;
     log(`ciclo #${ciclo} — dormindo ${intervalSec}s`);
     await new Promise((r) => setTimeout(r, intervalMs));
   }
