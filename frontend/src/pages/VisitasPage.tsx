@@ -33,6 +33,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import VisitasMobileScreen from '../components/visitas/VisitasMobileScreen';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
@@ -53,6 +54,10 @@ const TIPOS_CHECKLIST = [
 
 function codigoTipoVisita(v: VisitaResumo): string {
   return v.tipo_checklist_codigo || 'auditoria_operacional';
+}
+
+function podeEnviarEmailRelatorio(v: VisitaResumo): boolean {
+  return v.status === 'Finalizada' && codigoTipoVisita(v) === 'auditoria_operacional';
 }
 
 function nomeTipoVisita(codigo: string, visitas: VisitaResumo[]): string {
@@ -131,6 +136,8 @@ function VisitaCardMobile({
   onApagar,
   podeReabrir,
   onReabrir,
+  enviandoEmail,
+  onEnviarEmail,
 }: {
   visita: VisitaResumo;
   checklistBase: string;
@@ -138,9 +145,12 @@ function VisitaCardMobile({
   onApagar?: (v: VisitaResumo) => void;
   podeReabrir?: boolean;
   onReabrir?: (v: VisitaResumo) => void;
+  enviandoEmail?: boolean;
+  onEnviarEmail?: (v: VisitaResumo) => void;
 }) {
   const accent = statusAccent(v.status);
   const emRascunho = v.status === 'Rascunho';
+  const podeEmail = podeEnviarEmailRelatorio(v) && !!onEnviarEmail;
   const destino = emRascunho
     ? `${checklistBase}?visita=${v.id_visita}`
     : `/relatorio/visita/${v.id_visita}`;
@@ -242,8 +252,27 @@ function VisitaCardMobile({
           <ChevronRightIcon sx={{ fontSize: 20, color: colors.textMuted }} />
         </Box>
       </Box>
-      {(podeReabrir && !emRascunho && onReabrir) || (podeApagar && onApagar) ? (
+      {(podeEmail && onEnviarEmail) || (podeReabrir && !emRascunho && onReabrir) || (podeApagar && onApagar) ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pr: 0.75, gap: 0.25 }}>
+          {podeEmail && onEnviarEmail && (
+            <Tooltip title="Enviar relatório por e-mail">
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="Enviar relatório por e-mail"
+                  disabled={enviandoEmail}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEnviarEmail(v);
+                  }}
+                  sx={{ color: colors.orange }}
+                >
+                  {enviandoEmail ? <CircularProgress size={16} /> : <MailOutlineIcon fontSize="small" />}
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
           {podeReabrir && !emRascunho && onReabrir && (
             <Tooltip title="Reabrir">
               <IconButton
@@ -376,6 +405,7 @@ export default function VisitasPage() {
   const [apagando, setApagando] = useState(false);
   const [reabrirAlvo, setReabrirAlvo] = useState<VisitaResumo | null>(null);
   const [reabrindo, setReabrindo] = useState(false);
+  const [enviandoEmailId, setEnviandoEmailId] = useState<number | null>(null);
 
   const carregar = useCallback(() => {
     setLoading(true);
@@ -504,6 +534,22 @@ export default function VisitasPage() {
     }
   }
 
+  async function enviarRelatorioEmail(v: VisitaResumo) {
+    if (!podeEnviarEmailRelatorio(v)) {
+      showToast('Só é possível enviar e-mail de Auditoria Operacional finalizada', 'warning');
+      return;
+    }
+    setEnviandoEmailId(v.id_visita);
+    try {
+      const r = await api.enviarRelatorioVisitaEmail(v.id_visita);
+      showToast(r.subject ? `E-mail enviado: ${r.subject}` : 'Relatório enviado por e-mail', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Falha ao enviar e-mail', 'error');
+    } finally {
+      setEnviandoEmailId(null);
+    }
+  }
+
   const dialogReabrir = (
     <Dialog open={!!reabrirAlvo} onClose={() => !reabrindo && setReabrirAlvo(null)} maxWidth="xs" fullWidth>
       <DialogTitleWithIcon plainIcon icon={<LockOpenIcon />}>
@@ -559,6 +605,8 @@ export default function VisitasPage() {
           onApagar={setApagarAlvo}
           podeReabrir={podeReabrir}
           onReabrir={setReabrirAlvo}
+          enviandoEmailId={enviandoEmailId}
+          onEnviarEmail={(v) => void enviarRelatorioEmail(v)}
         />
         <Dialog open={!!apagarAlvo} onClose={() => !apagando && setApagarAlvo(null)}>
           <DialogTitle>Apagar relatório?</DialogTitle>
@@ -738,6 +786,8 @@ export default function VisitasPage() {
               onApagar={setApagarAlvo}
               podeReabrir={podeReabrir}
               onReabrir={setReabrirAlvo}
+              enviandoEmail={enviandoEmailId === v.id_visita}
+              onEnviarEmail={(vv) => void enviarRelatorioEmail(vv)}
             />
           ))}
           {!visitasFiltradas.length && (
@@ -768,7 +818,7 @@ export default function VisitasPage() {
                   <TableCell>Usuário</TableCell>
                   <TableCell align="center">Nota</TableCell>
                   <TableCell align="center">Status</TableCell>
-                  <TableCell align="center" width={podeApagar || podeReabrir ? 168 : 88} />
+                  <TableCell align="center" width={220} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -799,6 +849,25 @@ export default function VisitasPage() {
                           <Button component={Link} to={`/relatorio/visita/${v.id_visita}`} size="small">
                             Ver
                           </Button>
+                        )}
+                        {podeEnviarEmailRelatorio(v) && (
+                          <Tooltip title="Enviar relatório por e-mail">
+                            <span>
+                              <IconButton
+                                size="small"
+                                aria-label="Enviar relatório por e-mail"
+                                disabled={enviandoEmailId === v.id_visita}
+                                onClick={() => void enviarRelatorioEmail(v)}
+                                sx={{ color: colors.orange }}
+                              >
+                                {enviandoEmailId === v.id_visita ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  <MailOutlineIcon fontSize="small" />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                         )}
                         {podeReabrir && v.status === 'Finalizada' && (
                           <Tooltip title="Reabrir">

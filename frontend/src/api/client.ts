@@ -266,6 +266,14 @@ export const api = {
     }),
   reabrirVisita: (id: number) =>
     request<VisitaResumo>(`/visitas/${id}/reabrir`, { method: 'PATCH' }),
+  enviarRelatorioVisitaEmail: (id: number) =>
+    request<{
+      ok: boolean;
+      subject?: string;
+      destinatarios?: unknown;
+      cc?: unknown;
+      error?: string;
+    }>(`/visitas/${id}/enviar-relatorio-email`, { method: 'POST' }),
   naoConformidades: (params?: { status?: string; loja?: number }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);

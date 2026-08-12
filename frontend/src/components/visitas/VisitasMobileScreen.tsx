@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { fmtData, fmtNota } from '../../api/client';
 import type { VisitaResumo } from '../../api/client';
@@ -30,6 +31,8 @@ type Props = {
   onApagar: (v: VisitaResumo) => void;
   podeReabrir?: boolean;
   onReabrir?: (v: VisitaResumo) => void;
+  enviandoEmailId?: number | null;
+  onEnviarEmail?: (v: VisitaResumo) => void;
   loading?: boolean;
 };
 
@@ -66,6 +69,8 @@ export default function VisitasMobileScreen({
   onApagar,
   podeReabrir,
   onReabrir,
+  enviandoEmailId,
+  onEnviarEmail,
 }: Props) {
   const baseContagem = visitas.filter((v) => {
     if (filtroUsuario !== '' && v.id_usuario !== filtroUsuario) return false;
@@ -281,6 +286,21 @@ export default function VisitasMobileScreen({
                         )}
                       </span>
                     </Link>
+                    {onEnviarEmail &&
+                      !emRascunho &&
+                      codigoTipo(v) === 'auditoria_operacional' && (
+                        <button
+                          type="button"
+                          className="ck-visitas__del"
+                          aria-label="Enviar relatório por e-mail"
+                          title="Enviar e-mail"
+                          disabled={enviandoEmailId === v.id_visita}
+                          onClick={() => onEnviarEmail(v)}
+                          style={{ color: '#E8520A' }}
+                        >
+                          <MailOutlineIcon fontSize="small" />
+                        </button>
+                      )}
                     {podeReabrir && !emRascunho && onReabrir && (
                       <button
                         type="button"

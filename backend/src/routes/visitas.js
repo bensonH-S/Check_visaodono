@@ -529,6 +529,83 @@ router.patch('/:id/finalizar', async (req, res, next) => {
 });
 
 /**
+ * Reenvio manual do relatório de Auditoria Operacional por e-mail.
+ * Sempre force=true (mesmo se já tiver sido enviado).
+ */
+router.post('/:id/enviar-relatorio-email', requirePermissao('portal.visitas.ver'), async (req, res, next) => {
+  try {
+    const idVisita = Number(req.params.id);
+    if (!Number.isFinite(idVisita) || idVisita <= 0) {
+      return res.status(400).json({ error: 'Visita inválida' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT v.id_visita, v.id_loja, v.status, v.data_visita,
+              l.name AS nome_loja,
+              tc.codigo AS tipo_checklist_codigo
+       FROM visitas v
+       JOIN lojas l ON l.id_loja = v.id_loja
+       LEFT JOIN tipos_checklist tc ON tc.id_tipo_checklist = v.id_tipo_checklist
+       WHERE v.id_visita = $1`,
+      [idVisita],
+    );
+    const visita = rows[0];
+    if (!visita) return res.status(404).json({ error: 'Visita não encontrada' });
+    if (!usuarioPodeLoja(req.user, visita.id_loja)) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    if (visita.status !== 'Finalizada') {
+      return res.status(409).json({ error: 'Somente visitas finalizadas podem enviar relatório' });
+    }
+    const codigo = String(visita.tipo_checklist_codigo || '').trim();
+    if (codigo && codigo !== 'auditoria_operacional') {
+      return res.status(409).json({
+        error: 'Por enquanto só é possível enviar e-mail de Auditoria Operacional',
+      });
+    }
+
+    const result = await processarEnvioRelatorioVisita(idVisita, { force: true });
+    if (result?.ignorado) {
+      const msgs = {
+        smtp_desabilitado: 'SMTP não configurado ou e-mail de relatório desabilitado',
+        visita_nao_encontrada: 'Visita não encontrada',
+        nao_finalizada: 'Visita não está finalizada',
+        somente_auditoria_operacional: 'Somente Auditoria Operacional',
+        sem_destinatarios: 'Nenhum destinatário encontrado para a loja',
+        ja_enviado: 'Relatório já enviado',
+      };
+      const motivo = String(result.motivo || '');
+      return res.status(409).json({
+        error: msgs[motivo] || `Não foi possível enviar (${motivo || 'erro'})`,
+        motivo,
+      });
+    }
+
+    await auditar(req, {
+      modulo: 'visitas',
+      acao: 'enviar_email',
+      entidade: 'visita',
+      idReferencia: idVisita,
+      descricao: `Enviou relatório por e-mail da visita #${idVisita} (${visita.nome_loja})`,
+      detalhes: {
+        subject: result?.subject,
+        to: result?.destinatarios,
+        cc: result?.cc,
+      },
+    });
+
+    res.json({
+      ok: true,
+      subject: result?.subject,
+      destinatarios: result?.destinatarios,
+      cc: result?.cc,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
  * Reabre visita finalizada para edição — permissão portal.visitas.reabrir.
  * Remove NCs e histórico gerados na finalização; registra auditoria.
  */
