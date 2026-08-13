@@ -9,6 +9,7 @@ import { pool } from '../../db.js';
 import { atualizarCustoInsumo, registrarEntradas } from '../estoqueMotor.js';
 import { casarItensNfe } from '../nfeXml.js';
 import { baixarNfesBrasal } from './brasalClient.js';
+import { classificarStatusPortal } from '../estoqueCmvReal.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..', '..', '..', '..');
@@ -118,11 +119,20 @@ export async function syncNfeCoca({
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const statusPortal = nfe.status_pedido || null;
+      let statusEntrega = classificarStatusPortal(statusPortal, {
+        temRemessa: true, // só chega aqui se itens têm remessa/NF
+      });
+      // Coca: NF com remessa = mercadoria a caminho/pronta → gestor confere na loja
+      if (statusEntrega === 'em_transito' || statusEntrega === 'aguardando_portal') {
+        statusEntrega = 'aguardando_conferencia';
+      }
       const { rows: nfeRows } = await client.query(
         `INSERT INTO estoque_nfe (
            id_loja, fornecedor, chave, numero, serie, emissao,
-           emitente_cnpj, emitente_nome, valor_total, xml_path, status
-         ) VALUES ($1,'coca',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada')
+           emitente_cnpj, emitente_nome, valor_total, xml_path, status,
+           status_portal, status_entrega
+         ) VALUES ($1,'coca',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada',$10,$11)
          RETURNING id_nfe`,
         [
           idLoja,
@@ -134,6 +144,8 @@ export async function syncNfeCoca({
           nfe.emitente.nome || null,
           nfe.valor_total || null,
           jsonPath,
+          statusPortal,
+          statusEntrega,
         ],
       );
       const idNfe = nfeRows[0].id_nfe;

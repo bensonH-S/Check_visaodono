@@ -9,6 +9,7 @@ import { pool } from '../../db.js';
 import { atualizarCustoInsumo, registrarEntradas } from '../estoqueMotor.js';
 import { casarItensNfe, parseNfeXml, unzipFirstXml } from '../nfeXml.js';
 import { baixarNfesFinanceiroEsupri } from './esupriClient.js';
+import { classificarStatusPortal } from '../estoqueCmvReal.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // platlog → services → src → backend → repo root
@@ -136,11 +137,17 @@ export async function syncNfePlatlog({
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const statusPortal = dl.statusLabel || null;
+      const dataSaida = nfe.data_saida || null;
+      const statusEntrega = classificarStatusPortal(statusPortal, {
+        temDataSaida: !!dataSaida,
+      });
       const { rows: nfeRows } = await client.query(
         `INSERT INTO estoque_nfe (
            id_loja, fornecedor, chave, numero, serie, emissao,
-           emitente_cnpj, emitente_nome, valor_total, xml_path, status
-         ) VALUES ($1,'platlog',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada')
+           emitente_cnpj, emitente_nome, valor_total, xml_path, status,
+           data_saida, status_portal, status_entrega
+         ) VALUES ($1,'platlog',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada',$10::date,$11,$12)
          RETURNING id_nfe`,
         [
           idLoja,
@@ -152,6 +159,9 @@ export async function syncNfePlatlog({
           nfe.emitente.nome || null,
           nfe.valor_total || null,
           xmlPath,
+          dataSaida,
+          statusPortal,
+          statusEntrega,
         ],
       );
       const idNfe = nfeRows[0].id_nfe;

@@ -466,6 +466,34 @@ export async function calcularVarianciaInsumos(
 }
 
 /**
+ * Classifica status bruto do portal → ciclo de recebimento na loja.
+ * Portal detecta saída/entrega; gestor só confere itens.
+ */
+export function classificarStatusPortal(statusPortal, { temDataSaida = false, temRemessa = false } = {}) {
+  const s = String(statusPortal || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  if (/cancel|anulad|recus|rejei/.test(s)) return 'aguardando_portal';
+  if (
+    /entregue|entrega realizada|delivered|conclu|finaliz|recebid|baixad/.test(s) ||
+    temDataSaida
+  ) {
+    return 'aguardando_conferencia';
+  }
+  if (
+    /transito|transporte|despach|remessa|faturad|enviad|em rota|shipped|invoice/.test(s) ||
+    temRemessa
+  ) {
+    return 'em_transito';
+  }
+  if (temDataSaida) return 'aguardando_conferencia';
+  return 'aguardando_portal';
+}
+
+/**
  * Confirma entrada de NF no saldo com data_entrega obrigatória.
  */
 export async function confirmarEntradaNfe({
@@ -473,16 +501,10 @@ export async function confirmarEntradaNfe({
   data_entrega,
   criado_por = null,
   forcar = false,
+  itensOverride = null,
 } = {}) {
   const idNfe = Number(id_nfe);
-  const dataEntrega = isoDate(data_entrega);
   if (!idNfe) throw Object.assign(new Error('id_nfe obrigatório'), { status: 400 });
-  if (!dataEntrega) {
-    throw Object.assign(
-      new Error('Informe a data de entrega (quando a mercadoria chegou na loja)'),
-      { status: 400 },
-    );
-  }
 
   const { rows: nfs } = await pool.query(`SELECT * FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
   if (!nfs.length) throw Object.assign(new Error('NF não encontrada'), { status: 404 });
@@ -491,12 +513,28 @@ export async function confirmarEntradaNfe({
     throw Object.assign(new Error('Entrada desta NF já foi registrada'), { status: 409 });
   }
 
-  const { rows: itens } = await pool.query(
-    `SELECT id_insumo, qtd_estoque, descricao, n_item
-     FROM estoque_nfe_itens
-     WHERE id_nfe = $1 AND id_insumo IS NOT NULL AND COALESCE(qtd_estoque, 0) > 0`,
-    [idNfe],
-  );
+  // Data: preferência explícita → data_saida do portal → hoje (só na conferência)
+  const dataEntrega =
+    isoDate(data_entrega) || isoDate(nfe.data_saida) || isoDate(nfe.data_entrega) || hojeSpISO();
+
+  let itens;
+  if (Array.isArray(itensOverride) && itensOverride.length) {
+    itens = itensOverride;
+  } else {
+    const { rows } = await pool.query(
+      `SELECT id_item, id_insumo, qtd_estoque, qtd_conferida, descricao, n_item
+       FROM estoque_nfe_itens
+       WHERE id_nfe = $1 AND id_insumo IS NOT NULL
+         AND COALESCE(qtd_conferida, qtd_estoque, 0) > 0`,
+      [idNfe],
+    );
+    itens = rows.map((i) => ({
+      id_insumo: i.id_insumo,
+      quantidade: num(i.qtd_conferida != null ? i.qtd_conferida : i.qtd_estoque),
+      observacao: `NF item ${i.n_item || ''} ${i.descricao || ''}`.trim(),
+    }));
+  }
+
   if (!itens.length) {
     throw Object.assign(new Error('NF sem itens casados com quantidade de estoque'), {
       status: 400,
@@ -509,11 +547,7 @@ export async function confirmarEntradaNfe({
     data_entrega: dataEntrega,
     observacao: `NF ${nfe.numero || nfe.chave} entrega ${dataEntrega}`,
     criado_por,
-    itens: itens.map((i) => ({
-      id_insumo: i.id_insumo,
-      quantidade: num(i.qtd_estoque),
-      observacao: `NF item ${i.n_item || ''} ${i.descricao || ''}`.trim(),
-    })),
+    itens,
   });
 
   await pool.query(
@@ -522,6 +556,7 @@ export async function confirmarEntradaNfe({
          entrada_registrada = TRUE,
          entrada_em = NOW(),
          entrada_por = $2,
+         status_entrega = 'conferida',
          atualizado_em = NOW()
      WHERE id_nfe = $3`,
     [dataEntrega, criado_por, idNfe],
@@ -531,16 +566,166 @@ export async function confirmarEntradaNfe({
     ok: true,
     id_nfe: idNfe,
     data_entrega: dataEntrega,
+    data_saida: nfe.data_saida,
     emissao: nfe.emissao,
     entradas: result.entradas,
     erros: result.erros,
   };
 }
 
-export async function listarNfesEstoque(idLoja, { pendentes = false, limit = 50 } = {}) {
+/**
+ * Gestor confere itens da NF (portal já sinalizou saída/entrega).
+ * Não pede data — usa data_saida do fornecedor (ou hoje se ausente).
+ */
+export async function conferirRecebimentoNfe({
+  id_nfe,
+  itens = null,
+  confirmar_todos = false,
+  criado_por = null,
+} = {}) {
+  const idNfe = Number(id_nfe);
+  if (!idNfe) throw Object.assign(new Error('id_nfe obrigatório'), { status: 400 });
+
+  const { rows: nfs } = await pool.query(`SELECT * FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
+  if (!nfs.length) throw Object.assign(new Error('NF não encontrada'), { status: 404 });
+  const nfe = nfs[0];
+  if (nfe.entrada_registrada) {
+    throw Object.assign(new Error('NF já conferida e lançada no estoque'), { status: 409 });
+  }
+
+  const { rows: dbItens } = await pool.query(
+    `SELECT * FROM estoque_nfe_itens WHERE id_nfe = $1 ORDER BY n_item NULLS LAST, id_item`,
+    [idNfe],
+  );
+  if (!dbItens.length) {
+    throw Object.assign(new Error('NF sem itens'), { status: 400 });
+  }
+
+  const mapa = new Map();
+  if (Array.isArray(itens)) {
+    for (const raw of itens) {
+      const idItem = Number(raw.id_item);
+      if (!idItem) continue;
+      mapa.set(idItem, {
+        qtd_conferida: raw.qtd_conferida != null ? num(raw.qtd_conferida) : null,
+        conferido: raw.conferido !== false,
+        divergencia_obs: raw.divergencia_obs != null ? String(raw.divergencia_obs).trim() : null,
+      });
+    }
+  }
+
+  let temDivergencia = false;
+  const entradasItens = [];
+
+  for (const row of dbItens) {
+    const patch = mapa.get(row.id_item);
+    let qtdConf;
+    let conferido;
+    let obs = null;
+
+    if (confirmar_todos && !patch) {
+      qtdConf = num(row.qtd_estoque ?? row.q_com);
+      conferido = true;
+    } else if (patch) {
+      qtdConf = patch.qtd_conferida != null ? patch.qtd_conferida : num(row.qtd_estoque ?? row.q_com);
+      conferido = patch.conferido;
+      obs = patch.divergencia_obs;
+    } else {
+      continue;
+    }
+
+    const esperado = num(row.qtd_estoque ?? row.q_com);
+    if (Math.abs(qtdConf - esperado) > 0.0001) temDivergencia = true;
+
+    await pool.query(
+      `UPDATE estoque_nfe_itens
+       SET qtd_conferida = $1, conferido = $2, divergencia_obs = $3
+       WHERE id_item = $4`,
+      [qtdConf, conferido, obs, row.id_item],
+    );
+
+    if (conferido && row.id_insumo && qtdConf > 0) {
+      entradasItens.push({
+        id_insumo: row.id_insumo,
+        quantidade: qtdConf,
+        observacao: `NF item ${row.n_item || ''} ${row.descricao || ''}`.trim(),
+      });
+    }
+  }
+
+  if (!entradasItens.length) {
+    await pool.query(
+      `UPDATE estoque_nfe
+       SET status_entrega = 'divergente', atualizado_em = NOW()
+       WHERE id_nfe = $1`,
+      [idNfe],
+    );
+    throw Object.assign(
+      new Error('Nenhum item conferido com quantidade — nada a lançar no estoque'),
+      { status: 400 },
+    );
+  }
+
+  const entrada = await confirmarEntradaNfe({
+    id_nfe: idNfe,
+    data_entrega: nfe.data_saida || nfe.data_entrega || hojeSpISO(),
+    criado_por,
+    forcar: false,
+    itensOverride: entradasItens,
+  });
+
+  if (temDivergencia) {
+    await pool.query(
+      `UPDATE estoque_nfe SET status_entrega = 'divergente', atualizado_em = NOW() WHERE id_nfe = $1`,
+      [idNfe],
+    );
+  }
+
+  return {
+    ...entrada,
+    divergente: temDivergencia,
+    status_entrega: temDivergencia ? 'divergente' : 'conferida',
+  };
+}
+
+export async function obterNfeDetalhe(idNfe) {
+  const id = Number(idNfe);
+  const { rows } = await pool.query(`SELECT * FROM estoque_nfe WHERE id_nfe = $1`, [id]);
+  if (!rows.length) return null;
+  const nfe = rows[0];
+  const { rows: itens } = await pool.query(
+    `SELECT i.*, ins.codigo AS codigo_insumo, ins.descricao AS descricao_insumo,
+            ins.unidade_contagem
+     FROM estoque_nfe_itens i
+     LEFT JOIN insumos ins ON ins.id_insumo = i.id_insumo
+     WHERE i.id_nfe = $1
+     ORDER BY i.n_item NULLS LAST, i.id_item`,
+    [id],
+  );
+  return {
+    ...nfe,
+    valor_total: nfe.valor_total != null ? num(nfe.valor_total) : null,
+    entrada_registrada: !!nfe.entrada_registrada,
+    itens: itens.map((i) => ({
+      ...i,
+      q_com: i.q_com != null ? num(i.q_com) : null,
+      qtd_estoque: i.qtd_estoque != null ? num(i.qtd_estoque) : null,
+      qtd_conferida: i.qtd_conferida != null ? num(i.qtd_conferida) : null,
+      conferido: !!i.conferido,
+    })),
+  };
+}
+
+export async function listarNfesEstoque(
+  idLoja,
+  { pendentes = false, conferir = false, limit = 50 } = {},
+) {
   const params = [idLoja];
   let filtro = '';
-  if (pendentes) filtro = ' AND n.entrada_registrada = FALSE';
+  if (conferir || pendentes) {
+    filtro = ` AND n.entrada_registrada = FALSE
+               AND n.status_entrega IN ('aguardando_conferencia', 'em_transito', 'aguardando_portal', 'divergente')`;
+  }
   params.push(Math.min(Math.max(Number(limit) || 50, 1), 200));
 
   const { rows } = await pool.query(
@@ -550,7 +735,15 @@ export async function listarNfesEstoque(idLoja, { pendentes = false, limit = 50 
               WHERE i.id_nfe = n.id_nfe AND i.id_insumo IS NOT NULL) AS itens_casados
      FROM estoque_nfe n
      WHERE n.id_loja = $1 ${filtro}
-     ORDER BY COALESCE(n.data_entrega, n.emissao) DESC NULLS LAST, n.id_nfe DESC
+     ORDER BY
+       CASE n.status_entrega
+         WHEN 'aguardando_conferencia' THEN 0
+         WHEN 'em_transito' THEN 1
+         WHEN 'divergente' THEN 2
+         ELSE 3
+       END,
+       COALESCE(n.data_saida, n.emissao) DESC NULLS LAST,
+       n.id_nfe DESC
      LIMIT $${params.length}`,
     params,
   );

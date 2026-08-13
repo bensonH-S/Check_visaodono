@@ -38,6 +38,7 @@ import {
   type EstoqueCmvVariancia,
   type EstoqueDisciplina,
   type EstoqueMovimento,
+  type EstoqueNfeDetalhe,
   type EstoqueNfeResumo,
   type EstoquePedidoItem,
   type EstoquePedidoSugerido,
@@ -187,8 +188,8 @@ function PainelCmv({
   const [dataIni, setDataIni] = useState(() => inicioMesISO());
   const [dataFim, setDataFim] = useState(hojeISO());
   const [faltaFicha, setFaltaFicha] = useState(0);
-  const [entregaDraft, setEntregaDraft] = useState<Record<number, string>>({});
-  const [entrandoId, setEntrandoId] = useState<number | null>(null);
+  const [nfeDet, setNfeDet] = useState<EstoqueNfeDetalhe | null>(null);
+  const [conferindo, setConferindo] = useState(false);
   const [fechando, setFechando] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -199,7 +200,7 @@ function PainelCmv({
         api.estoqueCmvReal(idLoja, { de: dataIni, ate: dataFim }),
         api.estoqueCmvVariancia(idLoja, { de: dataIni, ate: dataFim, limit: 30 }),
         api.estoqueDisciplina(idLoja),
-        api.estoqueNfes(idLoja, { pendentes: true, limit: 30 }),
+        api.estoqueNfes(idLoja, { conferir: true, limit: 30 }),
         api.estoqueProdutosVenda({ id_loja: idLoja }),
       ]);
       setCmv(c);
@@ -222,17 +223,32 @@ function PainelCmv({
     void carregar();
   }, [carregar]);
 
-  const confirmarEntrega = async (idNfe: number) => {
-    const data = entregaDraft[idNfe] || hojeISO();
-    setEntrandoId(idNfe);
+  const abrirConferir = async (idNfe: number) => {
     try {
-      await api.estoqueNfeEntrar(idNfe, { data_entrega: data });
-      showToast(`NF entrada com entrega ${fmtDataBR(data)}`, 'success');
+      const det = await api.estoqueNfeDetalhe(idNfe);
+      setNfeDet(det);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao abrir NF', 'error');
+    }
+  };
+
+  const confirmarRecebimento = async (confirmarTodos: boolean) => {
+    if (!nfeDet) return;
+    setConferindo(true);
+    try {
+      const r = await api.estoqueNfeConferir(nfeDet.id_nfe, { confirmar_todos: confirmarTodos });
+      showToast(
+        r.divergente
+          ? `NF conferida com divergência · estoque em ${fmtDataBR(r.data_entrega)}`
+          : `Recebimento OK · estoque em ${fmtDataBR(r.data_entrega)}`,
+        r.divergente ? 'warning' : 'success',
+      );
+      setNfeDet(null);
       await carregar();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao registrar entrada', 'error');
+      showToast(e instanceof Error ? e.message : 'Erro ao conferir NF', 'error');
     } finally {
-      setEntrandoId(null);
+      setConferindo(false);
     }
   };
 
@@ -450,48 +466,58 @@ function PainelCmv({
 
       {nfes.length > 0 && (
         <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>
-            NFs aguardando data de entrega
+          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
+            Conferir recebimento de NF
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            Emitida no dia 20 e entregue dia 03 do mês seguinte → entra no CMV do mês da entrega.
+            O portal do fornecedor sinaliza a saída. Sua tarefa: conferir se todos os itens
+            chegaram. A data no CMV vem da saída do fornecedor — não da emissão.
           </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell>NF</TableCell>
+                  <TableCell>Portal</TableCell>
                   <TableCell>Emissão</TableCell>
-                  <TableCell>Fornecedor</TableCell>
+                  <TableCell>Saída</TableCell>
                   <TableCell align="right">Valor</TableCell>
-                  <TableCell>Data entrega</TableCell>
                   <TableCell />
                 </TableRow>
               </TableHead>
               <TableBody>
                 {nfes.map((n) => (
                   <TableRow key={n.id_nfe}>
-                    <TableCell>{n.numero || n.id_nfe}</TableCell>
-                    <TableCell>{fmtDataBR(n.emissao)}</TableCell>
-                    <TableCell>{n.emitente_nome || n.fornecedor}</TableCell>
-                    <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
-                    <TableCell sx={{ minWidth: 150 }}>
-                      <CampoDataFrota
-                        label="Entrega"
-                        value={entregaDraft[n.id_nfe] || hojeISO()}
-                        onChange={(v) =>
-                          setEntregaDraft((prev) => ({ ...prev, [n.id_nfe]: v }))
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {n.numero || n.id_nfe}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {n.emitente_nome || n.fornecedor}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={
+                          n.status_entrega === 'aguardando_conferencia'
+                            ? 'Pronto p/ conferir'
+                            : n.status_entrega === 'em_transito'
+                              ? 'Em trânsito'
+                              : n.status_portal || n.status_entrega || '—'
                         }
+                        color={
+                          n.status_entrega === 'aguardando_conferencia' ? 'warning' : 'default'
+                        }
+                        sx={{ fontWeight: 700 }}
                       />
                     </TableCell>
+                    <TableCell>{fmtDataBR(n.emissao)}</TableCell>
+                    <TableCell>{fmtDataBR(n.data_saida)}</TableCell>
+                    <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
                     <TableCell align="right">
-                      <Button
-                        size="small"
-                        variant="contained"
-                        disabled={entrandoId === n.id_nfe}
-                        onClick={() => void confirmarEntrega(n.id_nfe)}
-                      >
-                        Entrar no estoque
+                      <Button size="small" variant="contained" onClick={() => void abrirConferir(n.id_nfe)}>
+                        Conferir itens
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -501,6 +527,62 @@ function PainelCmv({
           </TableContainer>
         </Paper>
       )}
+
+      <Dialog open={!!nfeDet} onClose={() => setNfeDet(null)} maxWidth="md" fullWidth>
+        <DialogTitleWithIcon icon={<ChecklistRtlIcon />} plainIcon divider>
+          Conferir NF {nfeDet?.numero || nfeDet?.id_nfe}
+        </DialogTitleWithIcon>
+        <DialogContent sx={dialogContentSx}>
+          {nfeDet && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Portal: {nfeDet.status_portal || '—'} · Saída {fmtDataBR(nfeDet.data_saida)} ·
+                Emissão {fmtDataBR(nfeDet.emissao)} (não entra no CMV)
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Item NF</TableCell>
+                      <TableCell>Insumo</TableCell>
+                      <TableCell align="right">Qtd NF</TableCell>
+                      <TableCell align="right">Qtd estoque</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {nfeDet.itens.map((it) => (
+                      <TableRow key={it.id_item}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {it.codigo_nf || '—'} · {it.descricao}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {it.id_insumo
+                            ? `${it.codigo_insumo} · ${it.descricao_insumo}`
+                            : 'Sem match'}
+                        </TableCell>
+                        <TableCell align="right">{fmtNum(it.q_com, 2)}</TableCell>
+                        <TableCell align="right">{fmtNum(it.qtd_estoque, 2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNfeDet(null)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            disabled={conferindo || !nfeDet}
+            onClick={() => void confirmarRecebimento(true)}
+          >
+            {conferindo ? 'Lançando…' : 'Confirmar: todos os itens chegaram'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Paper variant="outlined" sx={{ p: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>

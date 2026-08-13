@@ -18,7 +18,9 @@ import {
   calcularCmvReal,
   calcularVarianciaInsumos,
   confirmarEntradaNfe,
+  conferirRecebimentoNfe,
   listarNfesEstoque,
+  obterNfeDetalhe,
   statusDisciplinaEstoque,
   fecharMesEstoque,
   reabrirMesEstoque,
@@ -915,10 +917,52 @@ router.get('/nfes', permOp, async (req, res, next) => {
 
     const rows = await listarNfesEstoque(idLoja, {
       pendentes: req.query.pendentes === '1' || req.query.pendentes === 'true',
+      conferir: req.query.conferir === '1' || req.query.conferir === 'true',
       limit: req.query.limit ? Number(req.query.limit) : 50,
     });
     res.json(rows);
   } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/nfes/:id', permOp, async (req, res, next) => {
+  try {
+    const det = await obterNfeDetalhe(Number(req.params.id));
+    if (!det) return res.status(404).json({ error: 'NF não encontrada' });
+    const bloqueio = acessoLoja(req, det.id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    res.json(det);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/nfes/:id/conferir', permOp, async (req, res, next) => {
+  try {
+    const idNfe = Number(req.params.id);
+    const { rows } = await pool.query(`SELECT id_loja FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
+    if (!rows.length) return res.status(404).json({ error: 'NF não encontrada' });
+    const bloqueio = acessoLoja(req, rows[0].id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await conferirRecebimentoNfe({
+      id_nfe: idNfe,
+      itens: Array.isArray(req.body?.itens) ? req.body.itens : null,
+      confirmar_todos: !!req.body?.confirmar_todos,
+      criado_por: userId(req),
+    });
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'criar',
+      entidade: 'estoque_nfe_conferencia',
+      entidade_id: idNfe,
+      descricao: `Conferiu NF #${idNfe} · entrega ${result.data_entrega} · ${result.status_entrega}`,
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
   }
 });

@@ -81,6 +81,8 @@ export function parseNfeXml(xmlRaw) {
   const chave = chaveMatch ? chaveMatch[1] : '';
   const dhEmi = tag(ide, 'dhEmi') || tag(ide, 'dEmi');
   const emissao = dhEmi ? String(dhEmi).slice(0, 10) : null;
+  const dhSaiEnt = tag(ide, 'dhSaiEnt') || tag(ide, 'dSaiEnt');
+  const data_saida = dhSaiEnt ? String(dhSaiEnt).slice(0, 10) : null;
 
   const itens = tagsAll(inf, 'det').map((det, idx) => {
     const prod = tag(det, 'prod');
@@ -105,6 +107,8 @@ export function parseNfeXml(xmlRaw) {
     numero: String(tag(ide, 'nNF') || '').trim(),
     serie: String(tag(ide, 'serie') || '').trim(),
     emissao,
+    /** Saída/expedição do fornecedor (não é chegada na loja; usado como sugestão). */
+    data_saida,
     valor_total: numBr(tag(icmsTot, 'vNF')),
     emitente: {
       cnpj: String(tag(emit, 'CNPJ') || tag(emit, 'CPF') || '').trim(),

@@ -1108,13 +1108,41 @@ export const api = {
     if (opts?.limit) params.set('limit', String(opts.limit));
     return request<EstoqueCmvVariancia>(`/estoque/cmv/variancia?${params}`);
   },
-  estoqueNfes: (idLoja: number, opts?: { pendentes?: boolean; limit?: number }) => {
+  estoqueNfes: (idLoja: number, opts?: { pendentes?: boolean; conferir?: boolean; limit?: number }) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (opts?.pendentes) params.set('pendentes', '1');
+    if (opts?.conferir) params.set('conferir', '1');
     if (opts?.limit) params.set('limit', String(opts.limit));
     return request<EstoqueNfeResumo[]>(`/estoque/nfes?${params}`);
   },
-  estoqueNfeEntrar: (idNfe: number, body: { data_entrega: string; forcar?: boolean }) =>
+  estoqueNfeDetalhe: (idNfe: number) => request<EstoqueNfeDetalhe>(`/estoque/nfes/${idNfe}`),
+  estoqueNfeConferir: (
+    idNfe: number,
+    body: {
+      confirmar_todos?: boolean;
+      itens?: Array<{
+        id_item: number;
+        qtd_conferida?: number;
+        conferido?: boolean;
+        divergencia_obs?: string;
+      }>;
+    },
+  ) =>
+    request<{
+      ok: boolean;
+      id_nfe: number;
+      data_entrega: string;
+      data_saida?: string | null;
+      emissao: string | null;
+      status_entrega: string;
+      divergente?: boolean;
+      entradas: unknown[];
+      erros: string[];
+    }>(`/estoque/nfes/${idNfe}/conferir`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueNfeEntrar: (idNfe: number, body: { data_entrega?: string; forcar?: boolean }) =>
     request<{
       ok: boolean;
       id_nfe: number;
@@ -2486,12 +2514,34 @@ export interface EstoqueNfeResumo {
   numero?: string | null;
   chave?: string | null;
   emissao?: string | null;
+  data_saida?: string | null;
   data_entrega?: string | null;
+  status_portal?: string | null;
+  status_entrega?: string | null;
   emitente_nome?: string | null;
   valor_total?: number | null;
   entrada_registrada: boolean;
   itens?: number;
   itens_casados?: number;
+}
+
+export interface EstoqueNfeItem {
+  id_item: number;
+  n_item?: number | null;
+  codigo_nf?: string | null;
+  descricao?: string | null;
+  codigo_insumo?: string | null;
+  descricao_insumo?: string | null;
+  q_com?: number | null;
+  qtd_estoque?: number | null;
+  qtd_conferida?: number | null;
+  conferido?: boolean;
+  id_insumo?: number | null;
+  unidade_contagem?: string | null;
+}
+
+export interface EstoqueNfeDetalhe extends EstoqueNfeResumo {
+  itens: EstoqueNfeItem[];
 }
 
 export interface EstoqueDisciplinaAlerta {
