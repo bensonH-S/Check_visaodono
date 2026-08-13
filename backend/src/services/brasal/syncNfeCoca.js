@@ -45,6 +45,8 @@ export async function syncNfeCoca({
   dias = 45,
   aplicar = false,
   registrar_entrada = false,
+  /** Só entra no saldo se houver data_entrega — nunca usa emissão. */
+  data_entrega = null,
   pular_existentes = true,
   apiBase,
 } = {}) {
@@ -188,14 +190,31 @@ export async function syncNfeCoca({
       }
 
       let entradas = [];
-      if (entradasItens.length) {
+      // Entrada no saldo SÓ com data_entrega explícita.
+      // Emissão da NF não serve — mercadoria pode chegar no mês seguinte.
+      const dataEntrega = data_entrega ? String(data_entrega).slice(0, 10) : null;
+      if (entradasItens.length && dataEntrega) {
         const r = await registrarEntradas({
           id_loja: idLoja,
           itens: entradasItens,
           observacao: `NF Coca/Brasal ${nfe.numero}`,
-          referencia: nfe.chave || nfe.numero,
+          id_nfe: idNfe,
+          data_entrega: dataEntrega,
         });
         entradas = r.entradas;
+        await pool.query(
+          `UPDATE estoque_nfe
+           SET data_entrega = $1::date,
+               entrada_registrada = TRUE,
+               entrada_em = NOW(),
+               atualizado_em = NOW()
+           WHERE id_nfe = $2`,
+          [dataEntrega, idNfe],
+        );
+      } else if (registrar_entrada && !dataEntrega) {
+        log(
+          `NF ${nfe.numero}: registrar_entrada pediu mas sem data_entrega — fica pendente (não usa emissão).`,
+        );
       }
 
       if (semMatch > 0) {

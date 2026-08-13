@@ -11,6 +11,21 @@ function num(v, fallback = 0) {
  * Aplica delta no saldo e registra movimento.
  * quantidade > 0 = entrada; quantidade < 0 = saída.
  */
+function hojeSpISO() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function isoDate(v) {
+  if (!v) return null;
+  const s = String(v).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
 export async function aplicarMovimento(
   client,
   {
@@ -24,6 +39,8 @@ export async function aplicarMovimento(
     referencia_id = null,
     observacao = null,
     criado_por = null,
+    /** Data de negócio (entrega/contagem). CMV real usa esta, não criado_em. */
+    data_movimento = null,
   },
 ) {
   const delta = num(quantidade);
@@ -31,6 +48,7 @@ export async function aplicarMovimento(
   if (!id_loja || !idInsumo || !tipo || delta === 0) {
     throw Object.assign(new Error('Movimento inválido'), { status: 400 });
   }
+  const dataMov = isoDate(data_movimento) || hojeSpISO();
 
   const { rows } = await client.query(
     `INSERT INTO estoque_saldos (id_loja, id_insumo, quantidade, atualizado_em)
@@ -46,8 +64,8 @@ export async function aplicarMovimento(
   const { rows: mov } = await client.query(
     `INSERT INTO estoque_movimentos
        (id_loja, id_insumo, tipo, quantidade, saldo_apos,
-        referencia_tipo, referencia_id, observacao, criado_por)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        referencia_tipo, referencia_id, observacao, criado_por, data_movimento)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::date)
      RETURNING id_movimento`,
     [
       id_loja,
@@ -59,10 +77,11 @@ export async function aplicarMovimento(
       referencia_id,
       observacao,
       criado_por,
+      dataMov,
     ],
   );
 
-  return { id_movimento: mov[0].id_movimento, saldo_apos };
+  return { id_movimento: mov[0].id_movimento, saldo_apos, data_movimento: dataMov };
 }
 
 export async function obterSaldo(idLoja, idInsumo, client = pool) {
@@ -85,12 +104,21 @@ export async function registrarEntradas({
   observacao = null,
   criado_por = null,
   referencia = null,
+  /** id_nfe (INTEGER) — preferir em vez de chave string */
+  id_nfe = null,
+  /**
+   * Data em que a mercadoria ENTROU na loja (não a emissão da NF).
+   * CMV real agrupa compras por esta data.
+   */
+  data_entrega = null,
 } = {}) {
   const idLoja = Number(id_loja);
   const lista = Array.isArray(itens) ? itens : [];
   if (!idLoja || !lista.length) {
     throw Object.assign(new Error('Informe a loja e os itens da compra'), { status: 400 });
   }
+  const dataEntrega = isoDate(data_entrega) || hojeSpISO();
+  const refId = Number(id_nfe) || (Number.isFinite(Number(referencia)) ? Number(referencia) : null);
 
   const client = await pool.connect();
   try {
@@ -124,10 +152,11 @@ export async function registrarEntradas({
         id_insumo: idInsumo,
         tipo: 'entrada',
         quantidade: qtde,
-        referencia_tipo: 'compra',
-        referencia_id: referencia || null,
+        referencia_tipo: refId ? 'estoque_nfe' : 'compra',
+        referencia_id: refId,
         observacao: raw.observacao || observacao || 'Entrada / compra',
         criado_por,
+        data_movimento: isoDate(raw.data_entrega) || dataEntrega,
       });
       baixas.push({
         id_insumo: idInsumo,
@@ -135,6 +164,7 @@ export async function registrarEntradas({
         quantidade: qtde,
         saldo_apos: mov.saldo_apos,
         id_movimento: mov.id_movimento,
+        data_movimento: mov.data_movimento,
       });
     }
 
@@ -144,7 +174,12 @@ export async function registrarEntradas({
     }
 
     await client.query('COMMIT');
-    return { ok: erros.length === 0, entradas: baixas, erros };
+    return {
+      ok: erros.length === 0,
+      entradas: baixas,
+      erros,
+      data_entrega: dataEntrega,
+    };
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     throw e;
@@ -814,11 +849,13 @@ export async function processarVenda(idVenda, { criado_por = null } = {}, extern
  */
 export async function ajustarSaldoPorContagem(client, idContagem, criado_por = null) {
   const { rows: cont } = await client.query(
-    `SELECT id_contagem, id_loja, status FROM estoque_contagens WHERE id_contagem = $1`,
+    `SELECT id_contagem, id_loja, status, data_contagem
+     FROM estoque_contagens WHERE id_contagem = $1`,
     [idContagem],
   );
   if (!cont.length) throw Object.assign(new Error('Contagem não encontrada'), { status: 404 });
-  const { id_loja } = cont[0];
+  const { id_loja, data_contagem } = cont[0];
+  const dataMov = isoDate(data_contagem) || hojeSpISO();
 
   const { rows: itens } = await client.query(
     `SELECT id_item, id_insumo, estoque_contado, estoque_sistema
@@ -850,6 +887,7 @@ export async function ajustarSaldoPorContagem(client, idContagem, criado_por = n
       referencia_id: idContagem,
       observacao: `Ajuste por contagem #${idContagem}`,
       criado_por,
+      data_movimento: dataMov,
     });
     ajustes += 1;
   }

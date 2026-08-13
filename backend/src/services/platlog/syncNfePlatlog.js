@@ -45,6 +45,7 @@ export async function syncNfePlatlog({
   limit = 5,
   aplicar = false,
   registrar_entrada = false,
+  data_entrega = null,
   headless = true,
   pular_existentes = true,
   baseUrl,
@@ -207,14 +208,29 @@ export async function syncNfePlatlog({
       }
 
       let entradas = [];
-      if (entradasItens.length) {
+      const dataEntrega = data_entrega ? String(data_entrega).slice(0, 10) : null;
+      if (entradasItens.length && dataEntrega) {
         const r = await registrarEntradas({
           id_loja: idLoja,
           itens: entradasItens,
           observacao: `NF-e Platlog ${nfe.numero}`,
-          referencia: nfe.chave || nfe.numero,
+          id_nfe: idNfe,
+          data_entrega: dataEntrega,
         });
         entradas = r.entradas;
+        await pool.query(
+          `UPDATE estoque_nfe
+           SET data_entrega = $1::date,
+               entrada_registrada = TRUE,
+               entrada_em = NOW(),
+               atualizado_em = NOW()
+           WHERE id_nfe = $2`,
+          [dataEntrega, idNfe],
+        );
+      } else if (registrar_entrada && !dataEntrega) {
+        log(
+          `NF ${nfe.numero}: sem data_entrega — fica pendente (não usa emissão no CMV).`,
+        );
       }
 
       if (semMatch > 0) {

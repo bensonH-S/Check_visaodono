@@ -944,10 +944,16 @@ export const api = {
     if (q) params.set('q', q);
     return request<EstoqueSaldoItem[]>(`/estoque/saldos?${params}`);
   },
-  estoqueMovimentos: (idLoja: number, opts?: { tipo?: string; limit?: number }) => {
+  estoqueMovimentos: (
+    idLoja: number,
+    opts?: { tipo?: string; limit?: number; de?: string; ate?: string; id_insumo?: number },
+  ) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (opts?.tipo) params.set('tipo', opts.tipo);
     if (opts?.limit) params.set('limit', String(opts.limit));
+    if (opts?.de) params.set('de', opts.de);
+    if (opts?.ate) params.set('ate', opts.ate);
+    if (opts?.id_insumo) params.set('id_insumo', String(opts.id_insumo));
     return request<EstoqueMovimento[]>(`/estoque/movimentos?${params}`);
   },
   estoqueProdutosVenda: (opts?: { id_loja: number; q?: string; sem_ficha?: boolean }) => {
@@ -1048,12 +1054,17 @@ export const api = {
   estoqueEntradas: (body: {
     id_loja: number;
     observacao?: string;
+    data_entrega?: string;
+    id_nfe?: number;
     itens: Array<{ id_insumo?: number; codigo?: string; quantidade: number; observacao?: string }>;
   }) =>
-    request<{ ok: boolean; entradas: unknown[]; erros: string[] }>('/estoque/entradas', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+    request<{ ok: boolean; entradas: unknown[]; erros: string[]; data_entrega?: string }>(
+      '/estoque/entradas',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    ),
   estoqueCmvTeorico: (idLoja: number, opts?: { de?: string; ate?: string; meta?: number }) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (opts?.de) params.set('de', opts.de);
@@ -1061,6 +1072,77 @@ export const api = {
     if (opts?.meta != null) params.set('meta', String(opts.meta));
     return request<EstoqueCmvTeorico>(`/estoque/cmv/teorico?${params}`);
   },
+  estoqueCmvReal: (
+    idLoja: number,
+    opts?: {
+      de?: string;
+      ate?: string;
+      meta?: number;
+      id_contagem_ei?: number;
+      id_contagem_ef?: number;
+    },
+  ) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.de) params.set('de', opts.de);
+    if (opts?.ate) params.set('ate', opts.ate);
+    if (opts?.meta != null) params.set('meta', String(opts.meta));
+    if (opts?.id_contagem_ei) params.set('id_contagem_ei', String(opts.id_contagem_ei));
+    if (opts?.id_contagem_ef) params.set('id_contagem_ef', String(opts.id_contagem_ef));
+    return request<EstoqueCmvReal>(`/estoque/cmv/real?${params}`);
+  },
+  estoqueCmvVariancia: (
+    idLoja: number,
+    opts?: {
+      de?: string;
+      ate?: string;
+      id_contagem_ei?: number;
+      id_contagem_ef?: number;
+      limit?: number;
+    },
+  ) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.de) params.set('de', opts.de);
+    if (opts?.ate) params.set('ate', opts.ate);
+    if (opts?.id_contagem_ei) params.set('id_contagem_ei', String(opts.id_contagem_ei));
+    if (opts?.id_contagem_ef) params.set('id_contagem_ef', String(opts.id_contagem_ef));
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    return request<EstoqueCmvVariancia>(`/estoque/cmv/variancia?${params}`);
+  },
+  estoqueNfes: (idLoja: number, opts?: { pendentes?: boolean; limit?: number }) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.pendentes) params.set('pendentes', '1');
+    if (opts?.limit) params.set('limit', String(opts.limit));
+    return request<EstoqueNfeResumo[]>(`/estoque/nfes?${params}`);
+  },
+  estoqueNfeEntrar: (idNfe: number, body: { data_entrega: string; forcar?: boolean }) =>
+    request<{
+      ok: boolean;
+      id_nfe: number;
+      data_entrega: string;
+      emissao: string | null;
+      entradas: unknown[];
+      erros: string[];
+    }>(`/estoque/nfes/${idNfe}/entrar`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueDisciplina: (idLoja: number) =>
+    request<EstoqueDisciplina>(`/estoque/disciplina?id_loja=${idLoja}`),
+  estoqueFecharMes: (body: {
+    id_loja: number;
+    ano_mes: string;
+    observacao?: string;
+    forcar?: boolean;
+  }) =>
+    request<EstoqueFechamento>('/estoque/fechamento', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  estoqueReabrirMes: (body: { id_loja: number; ano_mes: string }) =>
+    request<EstoqueFechamento>('/estoque/fechamento/reabrir', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   estoquePedidoSugerido: (
     idLoja: number,
     opts?: { crescimento?: number; dias?: number; estoque_seguranca_dias?: number },
@@ -2342,6 +2424,110 @@ export interface EstoqueCmvTeorico {
   aviso?: string | null;
 }
 
+export interface EstoqueCmvReal {
+  id_loja: number;
+  de: string | null;
+  ate: string | null;
+  regra_compras: 'data_entrega';
+  estoque_inicial: number | null;
+  compras: number;
+  estoque_final: number | null;
+  consumo_real: number | null;
+  venda: number;
+  cmv_real_pct: number | null;
+  cmv_teorico_pct: number | null;
+  cmv_com_break_pct?: number | null;
+  custo_teorico?: number;
+  custo_break?: number;
+  meta_pct: number;
+  gap_vs_meta_pp: number | null;
+  gap_vs_teorico_pp: number | null;
+  gap_vs_teorico_reais: number | null;
+  contagem_ei?: { id_contagem: number; data_contagem: string; total_valor: number | null; titulo?: string } | null;
+  contagem_ef?: { id_contagem: number; data_contagem: string; total_valor: number | null; titulo?: string } | null;
+  compras_detalhe?: {
+    nfs_pendentes_loja?: number;
+    movimentos?: number;
+  };
+  cobertura_custo_pct?: number;
+  cmv_confiavel?: boolean;
+  avisos?: string[];
+  aviso?: string | null;
+}
+
+export interface EstoqueCmvVarianciaItem {
+  id_insumo: number;
+  codigo: string;
+  descricao: string;
+  unidade_contagem?: string;
+  qtd_ei: number;
+  qtd_compras: number;
+  qtd_ef: number;
+  qtd_real: number;
+  qtd_teorico: number;
+  gap_qtd: number;
+  gap_reais: number;
+  gap_pct_teorico: number | null;
+}
+
+export interface EstoqueCmvVariancia {
+  id_loja: number;
+  de?: string | null;
+  ate?: string | null;
+  itens: EstoqueCmvVarianciaItem[];
+  gap_total_reais?: number;
+  aviso?: string | null;
+}
+
+export interface EstoqueNfeResumo {
+  id_nfe: number;
+  id_loja: number;
+  fornecedor: string;
+  numero?: string | null;
+  chave?: string | null;
+  emissao?: string | null;
+  data_entrega?: string | null;
+  emitente_nome?: string | null;
+  valor_total?: number | null;
+  entrada_registrada: boolean;
+  itens?: number;
+  itens_casados?: number;
+}
+
+export interface EstoqueDisciplinaAlerta {
+  tipo: string;
+  severidade: 'alta' | 'media' | 'baixa' | string;
+  mensagem: string;
+}
+
+export interface EstoqueDisciplina {
+  id_loja: number;
+  hoje: string;
+  ultima_completa?: { id_contagem: number; data_contagem: string; titulo?: string } | null;
+  ultima_critica?: { id_contagem: number; data_contagem: string; titulo?: string } | null;
+  dias_desde_completa?: number | null;
+  dias_desde_critica?: number | null;
+  contagens_abertas: number;
+  nfs_pendentes_entrada: number;
+  cmv_mes?: {
+    cmv_teorico_pct: number | null;
+    cobertura_custo_pct?: number;
+    meta_pct: number;
+  } | null;
+  fechamento_mes: { ano_mes: string; status: string; cmv_real_pct?: number | null; fechado_em?: string | null };
+  alertas: EstoqueDisciplinaAlerta[];
+}
+
+export interface EstoqueFechamento {
+  id_fechamento: number;
+  id_loja: number;
+  ano_mes: string;
+  status: string;
+  cmv_real_pct?: number | null;
+  cmv_teorico_pct?: number | null;
+  fechado_em?: string | null;
+}
+
 export interface EstoquePedidoItem {
   codigo: string;
   descricao: string;
@@ -2389,6 +2575,7 @@ export interface EstoqueMovimento {
   id_movimento: number;
   id_loja: number;
   id_produto: number;
+  id_insumo?: number;
   codigo: string;
   descricao: string;
   tipo: string;
@@ -2399,6 +2586,7 @@ export interface EstoqueMovimento {
   observacao?: string | null;
   criado_por_nome?: string | null;
   criado_em: string;
+  data_movimento?: string | null;
 }
 
 export interface ProdutoVendaEstoque {

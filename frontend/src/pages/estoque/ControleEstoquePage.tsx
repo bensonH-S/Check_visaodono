@@ -58,10 +58,11 @@ import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import Tooltip from '@mui/material/Tooltip';
 
-type AbaEstoque = 'cmv' | 'conferencia' | 'break' | 'pedido' | 'fichas';
+type AbaEstoque = 'cmv' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
 const ABAS_ESTOQUE: AbaEstoque[] = [
   'cmv',
+  'saldo',
   'conferencia',
   'break',
   'pedido',
@@ -71,11 +72,13 @@ const ABAS_ESTOQUE: AbaEstoque[] = [
 /** URLs antigas → novas */
 const REDIRECT_ABA: Record<string, AbaEstoque> = {
   insumos: 'cmv',
-  saldo: 'cmv',
-  estoque: 'cmv',
+  saldo: 'saldo',
+  estoque: 'saldo',
   vendas: 'cmv',
   produtos: 'fichas',
   ficha: 'fichas',
+  kardex: 'saldo',
+  nfe: 'cmv',
 };
 
 function isAbaEstoque(v: string | undefined): v is AbaEstoque {
@@ -459,7 +462,7 @@ export default function ControleEstoquePage() {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
-    const abasOp: AbaEstoque[] = ['cmv', 'pedido', 'fichas'];
+    const abasOp: AbaEstoque[] = ['cmv', 'saldo', 'pedido', 'fichas'];
     let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
       destino = podeOperacional ? 'cmv' : podeBreak ? 'break' : 'conferencia';
@@ -733,6 +736,9 @@ export default function ControleEstoquePage() {
       >
           {podeOperacional && (
             <Tab value="cmv" label="CMV" disabled={!idLoja || bloqueiaOutrasAbas} />
+          )}
+          {podeOperacional && (
+            <Tab value="saldo" label="Saldo · kardex" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeConferencia && (
             <Tab value="conferencia" label="Conferência" disabled={!idLoja} />
@@ -1311,7 +1317,7 @@ export default function ControleEstoquePage() {
               )}
 
               {((podeOperacional &&
-                (aba === 'cmv' || aba === 'pedido' || aba === 'fichas')) ||
+                (aba === 'cmv' || aba === 'saldo' || aba === 'pedido' || aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <EstoqueOperacionalPanels

@@ -33,9 +33,15 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   api,
   type EstoqueBreakResumo,
+  type EstoqueCmvReal,
   type EstoqueCmvTeorico,
+  type EstoqueCmvVariancia,
+  type EstoqueDisciplina,
+  type EstoqueMovimento,
+  type EstoqueNfeResumo,
   type EstoquePedidoItem,
   type EstoquePedidoSugerido,
+  type EstoqueSaldoItem,
   type FichaTecnicaDetalhe,
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
@@ -51,7 +57,7 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 
-type AbaOp = 'cmv' | 'break' | 'pedido' | 'fichas';
+type AbaOp = 'cmv' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -148,6 +154,9 @@ export default function EstoqueOperacionalPanels({
   if (aba === 'cmv') {
     return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} />;
   }
+  if (aba === 'saldo') {
+    return <PainelSaldoKardex idLoja={idLoja} />;
+  }
   if (aba === 'pedido') return <PainelPedido idLoja={idLoja} />;
   if (aba === 'fichas') {
     return (
@@ -171,18 +180,33 @@ function PainelCmv({
 }) {
   const [loading, setLoading] = useState(true);
   const [cmv, setCmv] = useState<EstoqueCmvTeorico | null>(null);
+  const [real, setReal] = useState<EstoqueCmvReal | null>(null);
+  const [variancia, setVariancia] = useState<EstoqueCmvVariancia | null>(null);
+  const [disciplina, setDisciplina] = useState<EstoqueDisciplina | null>(null);
+  const [nfes, setNfes] = useState<EstoqueNfeResumo[]>([]);
   const [dataIni, setDataIni] = useState(() => inicioMesISO());
   const [dataFim, setDataFim] = useState(hojeISO());
   const [faltaFicha, setFaltaFicha] = useState(0);
+  const [entregaDraft, setEntregaDraft] = useState<Record<number, string>>({});
+  const [entrandoId, setEntrandoId] = useState<number | null>(null);
+  const [fechando, setFechando] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [c, pv] = await Promise.all([
+      const [c, r, v, d, nf, pv] = await Promise.all([
         api.estoqueCmvTeorico(idLoja, { de: dataIni, ate: dataFim }),
+        api.estoqueCmvReal(idLoja, { de: dataIni, ate: dataFim }),
+        api.estoqueCmvVariancia(idLoja, { de: dataIni, ate: dataFim, limit: 30 }),
+        api.estoqueDisciplina(idLoja),
+        api.estoqueNfes(idLoja, { pendentes: true, limit: 30 }),
         api.estoqueProdutosVenda({ id_loja: idLoja }),
       ]);
       setCmv(c);
+      setReal(r);
+      setVariancia(v);
+      setDisciplina(d);
+      setNfes(nf);
       setFaltaFicha(
         pv.filter((p) => p.requer_ficha !== false && !(p.id_ficha && (p.itens_ficha ?? 0) > 0))
           .length,
@@ -198,6 +222,34 @@ function PainelCmv({
     void carregar();
   }, [carregar]);
 
+  const confirmarEntrega = async (idNfe: number) => {
+    const data = entregaDraft[idNfe] || hojeISO();
+    setEntrandoId(idNfe);
+    try {
+      await api.estoqueNfeEntrar(idNfe, { data_entrega: data });
+      showToast(`NF entrada com entrega ${fmtDataBR(data)}`, 'success');
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao registrar entrada', 'error');
+    } finally {
+      setEntrandoId(null);
+    }
+  };
+
+  const fecharMes = async () => {
+    const anoMes = dataIni.slice(0, 7);
+    setFechando(true);
+    try {
+      await api.estoqueFecharMes({ id_loja: idLoja, ano_mes: anoMes });
+      showToast(`Mês ${anoMes} fechado`, 'success');
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não fechou o mês', 'error');
+    } finally {
+      setFechando(false);
+    }
+  };
+
   if (loading && !cmv) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -212,6 +264,13 @@ function PainelCmv({
     : (cmv?.cmv_teorico_pct ?? 0) <= (cmv?.meta_pct ?? 38)
       ? '#15803d'
       : '#b91c1c';
+  const realPct = real?.cmv_real_pct;
+  const realCor =
+    realPct == null
+      ? colors.textSecondary
+      : realPct <= (real?.meta_pct ?? 38)
+        ? '#15803d'
+        : '#b91c1c';
   const custoBreak = cmv?.custo_break ?? 0;
   const pctComBreak = cmv?.cmv_com_break_pct;
   const cardSx = {
@@ -238,9 +297,9 @@ function PainelCmv({
           <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
             Controle de CMV
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 520 }}>
-            Teórico = venda × ficha × custo. Break = consumo da galera (baixa real). Meta franquia{' '}
-            {cmv?.meta_pct ?? 38}%.
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 640 }}>
+            Real = EI + compras − EF ÷ venda. Compras entram pela data de entrega na
+            loja — emissão da NF não conta. Meta {cmv?.meta_pct ?? 38}%.
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -253,43 +312,79 @@ function PainelCmv({
           <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
             Atualizar
           </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={fechando || disciplina?.fechamento_mes?.status === 'fechado'}
+            onClick={() => void fecharMes()}
+          >
+            {disciplina?.fechamento_mes?.status === 'fechado'
+              ? `Fechado ${disciplina.fechamento_mes.ano_mes}`
+              : `Fechar ${dataIni.slice(0, 7)}`}
+          </Button>
         </Box>
       </Box>
 
+      {(disciplina?.alertas?.length ?? 0) > 0 && (
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {disciplina!.alertas.map((a) => (
+            <Chip
+              key={`${a.tipo}-${a.mensagem}`}
+              color={a.severidade === 'alta' ? 'error' : a.severidade === 'media' ? 'warning' : 'default'}
+              label={a.mensagem}
+              sx={{ fontWeight: 600 }}
+            />
+          ))}
+        </Box>
+      )}
+
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
         <Box sx={{ ...cardSx, bgcolor: colors.navy, borderColor: colors.navy, color: '#fff', flex: '1.2 1 180px' }}>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: 0.4 }}>
-            CMV TEÓRICO
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>
+            CMV REAL
           </Typography>
-          <Typography variant="h3" sx={{ fontWeight: 800, color: confiavel ? cmvCor : '#fff', lineHeight: 1.15, mt: 0.5 }}>
-            {confiavel && cmv?.cmv_teorico_pct != null ? `${fmtNum(cmv.cmv_teorico_pct, 1)}%` : '—'}
+          <Typography variant="h3" sx={{ fontWeight: 800, color: realCor === colors.textSecondary ? '#fff' : realCor, lineHeight: 1.15, mt: 0.5 }}>
+            {realPct != null ? `${fmtNum(realPct, 1)}%` : '—'}
           </Typography>
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.65)' }}>
-            Só vendas · meta {cmv?.meta_pct ?? 38}%
+            EI + compras(entrega) − EF
+          </Typography>
+        </Box>
+
+        <Box sx={{ ...cardSx, flex: '1.1 1 160px' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+            CMV TEÓRICO
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: cmvCor, mt: 0.5 }}>
+            {confiavel && cmv?.cmv_teorico_pct != null ? `${fmtNum(cmv.cmv_teorico_pct, 1)}%` : '—'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Gap vs real{' '}
+            {real?.gap_vs_teorico_pp != null ? `${fmtNum(real.gap_vs_teorico_pp, 1)} pp` : '—'}
           </Typography>
         </Box>
 
         <Box sx={cardSx}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-            VENDA BRUTA
+            VENDA
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5 }}>
-            {fmtMoeda(cmv?.venda_bruta ?? cmv?.venda_liquida)}
+            {fmtMoeda(real?.venda ?? cmv?.venda_bruta ?? cmv?.venda_liquida)}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {cmv?.dias_venda ?? 0} dia(s) com venda
+            {cmv?.dias_venda ?? 0} dia(s)
           </Typography>
         </Box>
 
         <Box sx={cardSx}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-            CUSTO TEÓRICO
+            EI → COMPRAS → EF
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5 }}>
-            {fmtMoeda(cmv?.custo_teorico)}
+          <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5, color: colors.navy }}>
+            {fmtMoeda(real?.estoque_inicial)} + {fmtMoeda(real?.compras)} − {fmtMoeda(real?.estoque_final)}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Cobertura NF {cmv?.cobertura_custo_pct != null ? `${fmtNum(cmv.cobertura_custo_pct, 0)}%` : '0%'}
+            Consumo {fmtMoeda(real?.consumo_real)}
           </Typography>
         </Box>
 
@@ -301,43 +396,18 @@ function PainelCmv({
           }}
         >
           <Typography variant="caption" sx={{ fontWeight: 700, color: '#9A3412' }}>
-            BREAK · CONSUMO
+            BREAK
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 800, color: '#9A3412', mt: 0.5 }}>
             {fmtMoeda(custoBreak)}
           </Typography>
           <Typography variant="caption" sx={{ color: '#C2410C' }}>
-            {cmv?.qtd_breaks ?? 0} lançamento(s)
-            {cmv?.break_pct_venda != null ? ` · ${fmtNum(cmv.break_pct_venda, 2)}% da venda` : ''}
-          </Typography>
-        </Box>
-
-        <Box sx={{ ...cardSx, flex: '1.1 1 160px' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-            CMV + BREAK
-          </Typography>
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 800,
-              mt: 0.5,
-              color:
-                pctComBreak == null
-                  ? colors.textSecondary
-                  : pctComBreak <= (cmv?.meta_pct ?? 38)
-                    ? '#15803d'
-                    : '#b91c1c',
-            }}
-          >
-            {pctComBreak != null ? `${fmtNum(pctComBreak, 1)}%` : '—'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Total {fmtMoeda(cmv?.custo_total)}
+            CMV+break {pctComBreak != null ? `${fmtNum(pctComBreak, 1)}%` : '—'}
           </Typography>
         </Box>
       </Box>
 
-      {cmv?.aviso && (
+      {(real?.aviso || cmv?.aviso) && (
         <Typography
           variant="body2"
           sx={{
@@ -348,7 +418,10 @@ function PainelCmv({
             border: '1px solid #FDBA74',
           }}
         >
-          {cmv.aviso}
+          {real?.aviso || cmv?.aviso}
+          {real?.avisos && real.avisos.length > 1
+            ? ` · ${real.avisos.slice(1).join(' · ')}`
+            : ''}
         </Typography>
       )}
 
@@ -365,14 +438,301 @@ function PainelCmv({
           variant="outlined"
           label={`${cmv?.itens_sem_ficha ?? 0} itens de venda sem ficha no período`}
         />
-        {(cmv?.qtd_breaks ?? 0) === 0 && (
-          <Chip
-            variant="outlined"
-            icon={<FreeBreakfastOutlinedIcon />}
-            label="Nenhum break no período — lance na aba Break"
-          />
-        )}
+        <Chip
+          variant="outlined"
+          label={`Última completa: ${fmtDataBR(disciplina?.ultima_completa?.data_contagem)}`}
+        />
+        <Chip
+          variant="outlined"
+          label={`Última crítica: ${fmtDataBR(disciplina?.ultima_critica?.data_contagem)}`}
+        />
       </Box>
+
+      {nfes.length > 0 && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>
+            NFs aguardando data de entrega
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Emitida no dia 20 e entregue dia 03 do mês seguinte → entra no CMV do mês da entrega.
+          </Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>NF</TableCell>
+                  <TableCell>Emissão</TableCell>
+                  <TableCell>Fornecedor</TableCell>
+                  <TableCell align="right">Valor</TableCell>
+                  <TableCell>Data entrega</TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {nfes.map((n) => (
+                  <TableRow key={n.id_nfe}>
+                    <TableCell>{n.numero || n.id_nfe}</TableCell>
+                    <TableCell>{fmtDataBR(n.emissao)}</TableCell>
+                    <TableCell>{n.emitente_nome || n.fornecedor}</TableCell>
+                    <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
+                    <TableCell sx={{ minWidth: 150 }}>
+                      <CampoDataFrota
+                        label="Entrega"
+                        value={entregaDraft[n.id_nfe] || hojeISO()}
+                        onChange={(v) =>
+                          setEntregaDraft((prev) => ({ ...prev, [n.id_nfe]: v }))
+                        }
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={entrandoId === n.id_nfe}
+                        onClick={() => void confirmarEntrega(n.id_nfe)}
+                      >
+                        Entrar no estoque
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      <Paper variant="outlined" sx={{ p: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>
+          Top ofensores (variância teórico × real)
+        </Typography>
+        {variancia?.aviso && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {variancia.aviso}
+          </Typography>
+        )}
+        <TableContainer sx={{ flex: 1 }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>Insumo</TableCell>
+                <TableCell align="right">Real</TableCell>
+                <TableCell align="right">Teórico</TableCell>
+                <TableCell align="right">Gap UN</TableCell>
+                <TableCell align="right">Gap R$</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(variancia?.itens || []).map((it) => (
+                <TableRow key={it.id_insumo}>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {it.codigo} · {it.descricao}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">{fmtNum(it.qtd_real, 2)}</TableCell>
+                  <TableCell align="right">{fmtNum(it.qtd_teorico, 2)}</TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ color: it.gap_qtd > 0 ? '#b91c1c' : it.gap_qtd < 0 ? '#15803d' : undefined }}
+                  >
+                    {fmtNum(it.gap_qtd, 2)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      fontWeight: 700,
+                      color: it.gap_reais > 0 ? '#b91c1c' : it.gap_reais < 0 ? '#15803d' : undefined,
+                    }}
+                  >
+                    {fmtMoeda(it.gap_reais)}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!variancia?.itens?.length && (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <Typography variant="body2" color="text.secondary">
+                      Sem variância no período (precisa de 2 contagens completas).
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+    </Box>
+  );
+}
+
+function PainelSaldoKardex({ idLoja }: { idLoja: number }) {
+  const [loading, setLoading] = useState(true);
+  const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
+  const [movs, setMovs] = useState<EstoqueMovimento[]>([]);
+  const [q, setQ] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [selInsumo, setSelInsumo] = useState<number | null>(null);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [s, m] = await Promise.all([
+        api.estoqueSaldos(idLoja, q || undefined),
+        api.estoqueMovimentos(idLoja, {
+          tipo: tipo || undefined,
+          id_insumo: selInsumo || undefined,
+          limit: 150,
+        }),
+      ]);
+      setSaldos(s);
+      setMovs(m);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao carregar saldo', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [idLoja, q, tipo, selInsumo]);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  const totalValor = saldos.reduce((acc, s) => acc + (s.valor_total || 0), 0);
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy }}>
+            Saldo & kardex
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Saldo teórico atual · movimentos por data de negócio (entrega/contagem).
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <TextField
+            size="small"
+            placeholder="Buscar insumo"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            sx={{ minWidth: 180 }}
+          />
+          <TextField
+            select
+            size="small"
+            label="Tipo"
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">Todos</MenuItem>
+            <MenuItem value="entrada">Entrada</MenuItem>
+            <MenuItem value="contagem">Contagem</MenuItem>
+            <MenuItem value="venda">Venda</MenuItem>
+            <MenuItem value="break">Break</MenuItem>
+            <MenuItem value="ajuste">Ajuste</MenuItem>
+          </TextField>
+          <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
+            Atualizar
+          </Button>
+        </Box>
+      </Box>
+
+      <Chip label={`Valor em estoque ${fmtMoeda(totalValor)}`} sx={{ alignSelf: 'flex-start', fontWeight: 700 }} />
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={28} />
+        </Box>
+      ) : (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, flex: 1, minHeight: 0 }}>
+          <Paper variant="outlined" sx={{ overflow: 'auto', maxHeight: 520 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Insumo</TableCell>
+                  <TableCell align="right">Qtd</TableCell>
+                  <TableCell align="right">R$</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {saldos.map((s) => (
+                  <TableRow
+                    key={s.id_insumo}
+                    hover
+                    selected={selInsumo === s.id_insumo}
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() =>
+                      setSelInsumo((prev) => (prev === s.id_insumo ? null : s.id_insumo))
+                    }
+                  >
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {s.codigo}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {s.descricao}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">{fmtNum(s.quantidade, 2)}</TableCell>
+                    <TableCell align="right">{fmtMoeda(s.valor_total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+
+          <Paper variant="outlined" sx={{ overflow: 'auto', maxHeight: 520 }}>
+            <Box sx={{ px: 1.5, py: 1, borderBottom: `1px solid ${colors.border}` }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Kardex {selInsumo ? '(filtrado)' : ''}
+              </Typography>
+            </Box>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Data</TableCell>
+                  <TableCell>Tipo</TableCell>
+                  <TableCell>Item</TableCell>
+                  <TableCell align="right">Δ</TableCell>
+                  <TableCell align="right">Saldo</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {movs.map((m) => (
+                  <TableRow key={m.id_movimento}>
+                    <TableCell>{fmtDataBR(m.data_movimento || m.criado_em)}</TableCell>
+                    <TableCell>{m.tipo}</TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        {m.codigo}
+                      </Typography>
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ color: m.quantidade >= 0 ? '#15803d' : '#b91c1c', fontWeight: 700 }}
+                    >
+                      {fmtNum(m.quantidade, 2)}
+                    </TableCell>
+                    <TableCell align="right">{fmtNum(m.saldo_apos, 2)}</TableCell>
+                  </TableRow>
+                ))}
+                {!movs.length && (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Typography variant="body2" color="text.secondary">
+                        Sem movimentos.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Box>
+      )}
     </Box>
   );
 }
