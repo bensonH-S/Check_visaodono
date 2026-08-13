@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import Collapse from '@mui/material/Collapse';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Switch from '@mui/material/Switch';
@@ -26,6 +30,10 @@ import AddIcon from '@mui/icons-material/Add';
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import RemoveIcon from '@mui/icons-material/Remove';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
@@ -172,6 +180,12 @@ export default function EstoqueOperacionalPanels({
   return <PainelBreak idLoja={idLoja} />;
 }
 
+function severidadePeso(s: string | undefined) {
+  if (s === 'alta') return 0;
+  if (s === 'media') return 1;
+  return 2;
+}
+
 function PainelCmv({
   idLoja,
   onIrFichas,
@@ -191,6 +205,8 @@ function PainelCmv({
   const [nfeDet, setNfeDet] = useState<EstoqueNfeDetalhe | null>(null);
   const [conferindo, setConferindo] = useState(false);
   const [fechando, setFechando] = useState(false);
+  const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);
+  const [nfesAberto, setNfesAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -255,6 +271,7 @@ function PainelCmv({
   const fecharMes = async () => {
     const anoMes = dataIni.slice(0, 7);
     setFechando(true);
+    setMenuEl(null);
     try {
       await api.estoqueFecharMes({ id_loja: idLoja, ano_mes: anoMes });
       showToast(`Mês ${anoMes} fechado`, 'success');
@@ -266,6 +283,67 @@ function PainelCmv({
     }
   };
 
+  const realPctPreview = real?.cmv_real_pct;
+  const motivoRealCard =
+    realPctPreview != null
+      ? null
+      : real?.estoque_final == null
+        ? 'Falta estoque final (contagem completa no fim do período).'
+        : real?.estoque_inicial == null
+          ? 'Falta estoque inicial (contagem completa no início do período).'
+          : real?.aviso || 'Ainda não dá para calcular o CMV real.';
+
+  const alertasPriorizados = useMemo(() => {
+    const msgs: { texto: string; peso: number; key: string }[] = [];
+    const seen = new Set<string>();
+    const push = (texto: string | null | undefined, peso: number, key: string) => {
+      const t = (texto || '').trim();
+      if (!t || seen.has(t)) return;
+      if (motivoRealCard && t === motivoRealCard) return;
+      seen.add(t);
+      msgs.push({ texto: t, peso, key });
+    };
+
+    if (cmv?.cmv_teorico_pct != null && cmv.cmv_teorico_pct > 70) {
+      push(
+        `CMV teórico ${fmtNum(cmv.cmv_teorico_pct, 0)}% está absurdo (meta ${cmv.meta_pct ?? 38}%). Provável erro: preço de caixa sem converter para unidade na ficha.`,
+        0,
+        'custo-suspeito',
+      );
+    }
+
+    for (const a of disciplina?.alertas || []) {
+      // NF pendente não é alerta vermelho de CMV — fica na seção Recebimentos
+      if (a.tipo === 'nf_sem_entrega') continue;
+      push(a.mensagem, severidadePeso(a.severidade), `d-${a.tipo}-${a.mensagem}`);
+    }
+    if (realPctPreview != null) {
+      push(real?.aviso, 0, 'real-aviso');
+    }
+    for (const av of real?.avisos || []) {
+      if (/NF\(s\) sem entrada/i.test(av)) continue;
+      push(av, 1, `real-${av}`);
+    }
+    if (faltaFicha > 0) {
+      push(
+        `${faltaFicha} produto(s) sem ficha — CMV teórico fica incompleto.`,
+        1,
+        'falta-ficha',
+      );
+    }
+
+    return msgs.sort((a, b) => a.peso - b.peso).slice(0, 3);
+  }, [
+    cmv?.cmv_teorico_pct,
+    cmv?.meta_pct,
+    disciplina?.alertas,
+    real?.aviso,
+    real?.avisos,
+    faltaFicha,
+    motivoRealCard,
+    realPctPreview,
+  ]);
+
   if (loading && !cmv) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -274,29 +352,66 @@ function PainelCmv({
     );
   }
 
-  const confiavel = !!cmv?.cmv_confiavel;
-  const cmvCor = !confiavel
-    ? colors.textSecondary
-    : (cmv?.cmv_teorico_pct ?? 0) <= (cmv?.meta_pct ?? 38)
-      ? '#15803d'
-      : '#b91c1c';
-  const realPct = real?.cmv_real_pct;
-  const realCor =
-    realPct == null
-      ? colors.textSecondary
-      : realPct <= (real?.meta_pct ?? 38)
-        ? '#15803d'
-        : '#b91c1c';
-  const custoBreak = cmv?.custo_break ?? 0;
-  const pctComBreak = cmv?.cmv_com_break_pct;
+  const metaPct = cmv?.meta_pct ?? real?.meta_pct ?? 38;
+  // Sempre a venda do filtro de datas (BK Office) — não a janela do CMV real (que começa no dia após a EI).
+  const venda = cmv?.venda_bruta ?? cmv?.venda_liquida ?? null;
+  const teoricoPct = cmv?.cmv_teorico_pct;
+  const custoTeorico = cmv?.custo_teorico;
+  const realPct = realPctPreview;
+  const motivoReal = motivoRealCard;
+
+  const corPct = (pct: number | null | undefined) => {
+    if (pct == null) return colors.textSecondary;
+    return pct <= metaPct ? '#15803d' : '#b91c1c';
+  };
+
   const cardSx = {
-    flex: '1 1 140px',
-    minWidth: 140,
-    p: 2,
+    flex: '1 1 160px',
+    minWidth: 160,
+    p: 2.25,
     borderRadius: 2,
     border: `1px solid ${colors.border}`,
     bgcolor: colors.surface,
   } as const;
+
+  const linhaBreakdown = (
+    label: string,
+    valor: number | null | undefined,
+    detalhe?: string,
+  ) => (
+    <Box
+      key={label}
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        gap: 2,
+        py: 0.75,
+        borderBottom: `1px solid ${colors.border}`,
+        '&:last-of-type': { borderBottom: 0 },
+      }}
+    >
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: colors.textPrimary }}>
+          {label}
+        </Typography>
+        {detalhe ? (
+          <Typography variant="caption" color="text.secondary">
+            {detalhe}
+          </Typography>
+        ) : null}
+      </Box>
+      <Typography
+        variant="body1"
+        sx={{ fontWeight: 800, color: colors.navy, fontVariantNumeric: 'tabular-nums' }}
+      >
+        {fmtMoeda(valor)}
+      </Typography>
+    </Box>
+  );
+
+  const mesFechado = disciplina?.fechamento_mes?.status === 'fechado';
+  const ofensores = variancia?.itens || [];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
@@ -313,12 +428,11 @@ function PainelCmv({
           <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
             Controle de CMV
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 640 }}>
-            Real = EI + compras − EF ÷ venda. Compras entram pela data de entrega na
-            loja — emissão da NF não conta. Meta {cmv?.meta_pct ?? 38}%.
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
+            A venda vem da sincronização do BK Office no período selecionado. Meta {metaPct}%.
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
           <FiltroIntervaloDatasFrota
             dataInicio={dataIni}
             dataFim={dataFim}
@@ -328,197 +442,300 @@ function PainelCmv({
           <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
             Atualizar
           </Button>
-          <Button
+          <IconButton
             size="small"
-            variant="outlined"
-            disabled={fechando || disciplina?.fechamento_mes?.status === 'fechado'}
-            onClick={() => void fecharMes()}
+            aria-label="Mais opções"
+            onClick={(e) => setMenuEl(e.currentTarget)}
           >
-            {disciplina?.fechamento_mes?.status === 'fechado'
-              ? `Fechado ${disciplina.fechamento_mes.ano_mes}`
-              : `Fechar ${dataIni.slice(0, 7)}`}
-          </Button>
+            <MoreVertIcon fontSize="small" />
+          </IconButton>
+          <Menu
+            anchorEl={menuEl}
+            open={!!menuEl}
+            onClose={() => setMenuEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem
+              disabled={fechando || mesFechado}
+              onClick={() => void fecharMes()}
+            >
+              <ListItemIcon>
+                <LockOutlinedIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  mesFechado
+                    ? `Mês ${disciplina?.fechamento_mes?.ano_mes} já fechado`
+                    : `Fechar mês ${dataIni.slice(0, 7)}`
+                }
+              />
+            </MenuItem>
+          </Menu>
         </Box>
       </Box>
 
-      {(disciplina?.alertas?.length ?? 0) > 0 && (
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {disciplina!.alertas.map((a) => (
-            <Chip
-              key={`${a.tipo}-${a.mensagem}`}
-              color={a.severidade === 'alta' ? 'error' : a.severidade === 'media' ? 'warning' : 'default'}
-              label={a.mensagem}
-              sx={{ fontWeight: 600 }}
-            />
-          ))}
-        </Box>
-      )}
-
+      {/* 3 números principais */}
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-        <Box sx={{ ...cardSx, bgcolor: colors.navy, borderColor: colors.navy, color: '#fff', flex: '1.2 1 180px' }}>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700 }}>
-            CMV REAL
-          </Typography>
-          <Typography variant="h3" sx={{ fontWeight: 800, color: realCor === colors.textSecondary ? '#fff' : realCor, lineHeight: 1.15, mt: 0.5 }}>
-            {realPct != null ? `${fmtNum(realPct, 1)}%` : '—'}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.65)' }}>
-            EI + compras(entrega) − EF
-          </Typography>
-        </Box>
-
-        <Box sx={{ ...cardSx, flex: '1.1 1 160px' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-            CMV TEÓRICO
-          </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: cmvCor, mt: 0.5 }}>
-            {confiavel && cmv?.cmv_teorico_pct != null ? `${fmtNum(cmv.cmv_teorico_pct, 1)}%` : '—'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Gap vs real{' '}
-            {real?.gap_vs_teorico_pp != null ? `${fmtNum(real.gap_vs_teorico_pp, 1)} pp` : '—'}
-          </Typography>
-        </Box>
-
-        <Box sx={cardSx}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+        <Box sx={{ ...cardSx, flex: '1.1 1 180px' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
             VENDA
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5 }}>
-            {fmtMoeda(real?.venda ?? cmv?.venda_bruta ?? cmv?.venda_liquida)}
+          <Typography variant="h4" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5, lineHeight: 1.2 }}>
+            {fmtMoeda(venda)}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {cmv?.dias_venda ?? 0} dia(s)
+            {cmv?.dias_venda ?? 0} dia(s) · BK Office
           </Typography>
         </Box>
 
         <Box sx={cardSx}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-            EI → COMPRAS → EF
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
+            CMV TEÓRICO
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5, color: colors.navy }}>
-            {fmtMoeda(real?.estoque_inicial)} + {fmtMoeda(real?.compras)} − {fmtMoeda(real?.estoque_final)}
+          <Typography
+            variant="h4"
+            sx={{ fontWeight: 800, color: corPct(teoricoPct), mt: 0.5, lineHeight: 1.2 }}
+          >
+            {teoricoPct != null ? `${fmtNum(teoricoPct, 1)}%` : '—'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Consumo {fmtMoeda(real?.consumo_real)}
+            Custo {fmtMoeda(custoTeorico)}
+            {venda != null && custoTeorico != null ? ` sobre ${fmtMoeda(venda)}` : ''}
           </Typography>
         </Box>
 
+        <Box sx={cardSx}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
+            CMV REAL
+          </Typography>
+          <Typography
+            variant="h4"
+            sx={{ fontWeight: 800, color: corPct(realPct), mt: 0.5, lineHeight: 1.2 }}
+          >
+            {realPct != null ? `${fmtNum(realPct, 1)}%` : '—'}
+          </Typography>
+          {motivoReal ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+              {motivoReal}
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              Consumo {fmtMoeda(real?.consumo_real)}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+
+      {/* Breakdown simples */}
+      <Paper variant="outlined" sx={{ px: 2, py: 1 }}>
+        {linhaBreakdown(
+          'Estoque inicial',
+          real?.estoque_inicial,
+          real?.contagem_ei?.data_contagem
+            ? `Contagem de ${fmtDataBR(real.contagem_ei.data_contagem)}`
+            : 'Precisa de contagem completa no início',
+        )}
+        {linhaBreakdown(
+          'Compras no período',
+          real?.compras,
+          'Entradas pela data de entrega na loja',
+        )}
+        {linhaBreakdown(
+          'Estoque final',
+          real?.estoque_final,
+          real?.contagem_ef?.data_contagem
+            ? `Contagem de ${fmtDataBR(real.contagem_ef.data_contagem)}`
+            : 'Precisa de contagem completa no fim',
+        )}
+        {linhaBreakdown(
+          'Consumo real',
+          real?.consumo_real,
+          'Inicial + compras − final',
+        )}
+      </Paper>
+
+      {alertasPriorizados.length > 0 && (
         <Box
           sx={{
-            ...cardSx,
-            borderColor: custoBreak > 0 ? '#FDBA74' : colors.border,
-            bgcolor: custoBreak > 0 ? '#FFF7ED' : colors.surface,
+            p: 1.75,
+            borderRadius: 2,
+            bgcolor: colors.orangeLight,
+            border: `1px solid ${colors.border}`,
           }}
         >
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#9A3412' }}>
-            BREAK
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.orange, mb: 0.75 }}>
+            Atenção
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: '#9A3412', mt: 0.5 }}>
-            {fmtMoeda(custoBreak)}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#C2410C' }}>
-            CMV+break {pctComBreak != null ? `${fmtNum(pctComBreak, 1)}%` : '—'}
-          </Typography>
+          <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+            {alertasPriorizados.map((a) => (
+              <Typography
+                key={a.key}
+                component="li"
+                variant="body2"
+                sx={{ color: colors.textPrimary, mb: 0.35 }}
+              >
+                {a.texto}
+                {a.key === 'falta-ficha' && onIrFichas ? (
+                  <>
+                    {' '}
+                    <Button
+                      size="small"
+                      onClick={() => onIrFichas()}
+                      sx={{ textTransform: 'none', minWidth: 0, p: 0, fontWeight: 700 }}
+                    >
+                      Ir para fichas
+                    </Button>
+                  </>
+                ) : null}
+              </Typography>
+            ))}
+          </Box>
         </Box>
-      </Box>
-
-      {(real?.aviso || cmv?.aviso) && (
-        <Typography
-          variant="body2"
-          sx={{
-            p: 1.5,
-            borderRadius: 1.5,
-            bgcolor: '#FFF7ED',
-            color: '#9A3412',
-            border: '1px solid #FDBA74',
-          }}
-        >
-          {real?.aviso || cmv?.aviso}
-          {real?.avisos && real.avisos.length > 1
-            ? ` · ${real.avisos.slice(1).join(' · ')}`
-            : ''}
-        </Typography>
       )}
 
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-        {faltaFicha > 0 && (
-          <Chip
-            color="warning"
-            label={`Falta ficha (${faltaFicha})`}
-            onClick={() => onIrFichas?.()}
-            sx={{ fontWeight: 700, cursor: 'pointer' }}
-          />
-        )}
-        <Chip
-          variant="outlined"
-          label={`${cmv?.itens_sem_ficha ?? 0} itens de venda sem ficha no período`}
-        />
-        <Chip
-          variant="outlined"
-          label={`Última completa: ${fmtDataBR(disciplina?.ultima_completa?.data_contagem)}`}
-        />
-        <Chip
-          variant="outlined"
-          label={`Última crítica: ${fmtDataBR(disciplina?.ultima_critica?.data_contagem)}`}
-        />
-      </Box>
-
       {nfes.length > 0 && (
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>
-            Conferir recebimento de NF
+        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+          <Box
+            role="button"
+            tabIndex={0}
+            onClick={() => setNfesAberto((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setNfesAberto((v) => !v);
+              }
+            }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              px: 2,
+              py: 1.25,
+              cursor: 'pointer',
+              '&:hover': { bgcolor: colors.canvas },
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.navy }}>
+              Recebimentos pendentes ({nfes.length})
+            </Typography>
+            {nfesAberto ? (
+              <ExpandLessIcon fontSize="small" sx={{ color: colors.textSecondary }} />
+            ) : (
+              <ExpandMoreIcon fontSize="small" sx={{ color: colors.textSecondary }} />
+            )}
+          </Box>
+          <Collapse in={nfesAberto}>
+            <Box sx={{ px: 2, pb: 2 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Confira se os itens chegaram. A data no CMV usa a entrega — não a emissão da NF.
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>NF</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Saída</TableCell>
+                      <TableCell align="right">Valor</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {nfes.map((n) => (
+                      <TableRow key={n.id_nfe}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {n.numero || n.id_nfe}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {n.emitente_nome || n.fornecedor}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={
+                              n.status_entrega === 'aguardando_conferencia'
+                                ? 'Pronto p/ conferir'
+                                : n.status_entrega === 'em_transito'
+                                  ? 'Em trânsito'
+                                  : n.status_portal || n.status_entrega || '—'
+                            }
+                            color={
+                              n.status_entrega === 'aguardando_conferencia' ? 'warning' : 'default'
+                            }
+                            sx={{ fontWeight: 700 }}
+                          />
+                        </TableCell>
+                        <TableCell>{fmtDataBR(n.data_saida)}</TableCell>
+                        <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => void abrirConferir(n.id_nfe)}
+                          >
+                            Conferir
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          </Collapse>
+        </Paper>
+      )}
+
+      {ofensores.length > 0 && (
+        <Paper
+          variant="outlined"
+          sx={{ p: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: colors.navy }}>
+            Onde o CMV está estourando
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            O portal do fornecedor sinaliza a saída. Sua tarefa: conferir se todos os itens
-            chegaram. A data no CMV vem da saída do fornecedor — não da emissão.
-          </Typography>
-          <TableContainer>
-            <Table size="small">
+          <TableContainer sx={{ flex: 1 }}>
+            <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>NF</TableCell>
-                  <TableCell>Portal</TableCell>
-                  <TableCell>Emissão</TableCell>
-                  <TableCell>Saída</TableCell>
-                  <TableCell align="right">Valor</TableCell>
-                  <TableCell />
+                  <TableCell>Insumo</TableCell>
+                  <TableCell align="right">Real</TableCell>
+                  <TableCell align="right">Teórico</TableCell>
+                  <TableCell align="right">Gap UN</TableCell>
+                  <TableCell align="right">Gap R$</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {nfes.map((n) => (
-                  <TableRow key={n.id_nfe}>
+                {ofensores.map((it) => (
+                  <TableRow key={it.id_insumo}>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {n.numero || n.id_nfe}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {n.emitente_nome || n.fornecedor}
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {it.codigo} · {it.descricao}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={
-                          n.status_entrega === 'aguardando_conferencia'
-                            ? 'Pronto p/ conferir'
-                            : n.status_entrega === 'em_transito'
-                              ? 'Em trânsito'
-                              : n.status_portal || n.status_entrega || '—'
-                        }
-                        color={
-                          n.status_entrega === 'aguardando_conferencia' ? 'warning' : 'default'
-                        }
-                        sx={{ fontWeight: 700 }}
-                      />
+                    <TableCell align="right">{fmtNum(it.qtd_real, 2)}</TableCell>
+                    <TableCell align="right">{fmtNum(it.qtd_teorico, 2)}</TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        color: it.gap_qtd > 0 ? '#b91c1c' : it.gap_qtd < 0 ? '#15803d' : undefined,
+                      }}
+                    >
+                      {fmtNum(it.gap_qtd, 2)}
                     </TableCell>
-                    <TableCell>{fmtDataBR(n.emissao)}</TableCell>
-                    <TableCell>{fmtDataBR(n.data_saida)}</TableCell>
-                    <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
-                    <TableCell align="right">
-                      <Button size="small" variant="contained" onClick={() => void abrirConferir(n.id_nfe)}>
-                        Conferir itens
-                      </Button>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        fontWeight: 700,
+                        color:
+                          it.gap_reais > 0 ? '#b91c1c' : it.gap_reais < 0 ? '#15803d' : undefined,
+                      }}
+                    >
+                      {fmtMoeda(it.gap_reais)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -583,67 +800,6 @@ function PainelCmv({
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Paper variant="outlined" sx={{ p: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>
-          Top ofensores (variância teórico × real)
-        </Typography>
-        {variancia?.aviso && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {variancia.aviso}
-          </Typography>
-        )}
-        <TableContainer sx={{ flex: 1 }}>
-          <Table size="small" stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell>Insumo</TableCell>
-                <TableCell align="right">Real</TableCell>
-                <TableCell align="right">Teórico</TableCell>
-                <TableCell align="right">Gap UN</TableCell>
-                <TableCell align="right">Gap R$</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(variancia?.itens || []).map((it) => (
-                <TableRow key={it.id_insumo}>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {it.codigo} · {it.descricao}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">{fmtNum(it.qtd_real, 2)}</TableCell>
-                  <TableCell align="right">{fmtNum(it.qtd_teorico, 2)}</TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{ color: it.gap_qtd > 0 ? '#b91c1c' : it.gap_qtd < 0 ? '#15803d' : undefined }}
-                  >
-                    {fmtNum(it.gap_qtd, 2)}
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{
-                      fontWeight: 700,
-                      color: it.gap_reais > 0 ? '#b91c1c' : it.gap_reais < 0 ? '#15803d' : undefined,
-                    }}
-                  >
-                    {fmtMoeda(it.gap_reais)}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!variancia?.itens?.length && (
-                <TableRow>
-                  <TableCell colSpan={5}>
-                    <Typography variant="body2" color="text.secondary">
-                      Sem variância no período (precisa de 2 contagens completas).
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
     </Box>
   );
 }
