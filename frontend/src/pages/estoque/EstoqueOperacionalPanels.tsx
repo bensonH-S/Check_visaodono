@@ -429,7 +429,8 @@ function PainelCmv({
             Controle de CMV
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
-            A venda vem da sincronização do BK Office no período selecionado. Meta {metaPct}%.
+            A venda vem do BK Office no período. Custo teórico = vendas × ficha × preço
+            unitário (não é saída manual). Meta {metaPct}%.
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>

@@ -285,9 +285,12 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
   const comFicha = rows[0]?.itens_com_ficha || 0;
   const cobertura = comFicha > 0 ? (comCusto / comFicha) * 100 : 0;
   const metaN = num(meta, 0.38);
-  const confiavel = cobertura >= 80 && venda > 0 && custo > 0;
-  const pct = confiavel ? custo / venda : null;
-  const pctComBreak = venda > 0 && (confiavel || custoBreak > 0) ? custoComBreak / venda : null;
+  const confiavelBase = cobertura >= 80 && venda > 0 && custo > 0;
+  const pct = confiavelBase ? custo / venda : null;
+  const pctComBreak = venda > 0 && (confiavelBase || custoBreak > 0) ? custoComBreak / venda : null;
+  /** CMV > 70% quase sempre = und_convertida/preço unitário errado — não marcar como confiável. */
+  const custoSuspeito = pct != null && pct > 0.7;
+  const confiavel = confiavelBase && !custoSuspeito;
 
   return {
     id_loja: idLoja,
@@ -305,7 +308,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
       venda > 0 && custoBreak > 0 ? Math.round((custoBreak / venda) * 10000) / 100 : null,
     custo_total: Math.round(custoComBreak * 100) / 100,
     cmv_com_break_pct:
-      pctComBreak != null && (confiavel || custoBreak > 0)
+      pctComBreak != null && (confiavelBase || custoBreak > 0)
         ? Math.round(pctComBreak * 10000) / 100
         : null,
     meta_pct: Math.round(metaN * 10000) / 100,
@@ -318,10 +321,13 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     itens_com_custo_completo: comCusto,
     cobertura_custo_pct: Math.round(cobertura * 10) / 10,
     cmv_confiavel: confiavel,
+    custo_suspeito: custoSuspeito,
     dias_venda: diasRows[0]?.dias_venda || 0,
-    aviso: !confiavel
+    aviso: !confiavelBase
       ? 'CMV em R$ só fica confiável com custo de nota fiscal nos insumos (cobertura ≥ 80%). Ficha (quantidade) já conta; preço da planilha não. Break (consumo) entra à parte quando há custo válido.'
-      : null,
+      : custoSuspeito
+        ? `CMV teórico ${Math.round(pct * 1000) / 10}% está absurdo (custo > venda). Quase sempre und_convertida errada (preço de caixa tratado como unidade). Corrija und_convertida dos insumos — o modelo certo é: consumo teórico = vendas × ficha; CMV% = custo desse consumo ÷ venda.`
+        : null,
   };
 }
 

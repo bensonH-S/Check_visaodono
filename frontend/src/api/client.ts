@@ -2448,6 +2448,8 @@ export interface EstoqueCmvTeorico {
   itens_com_custo_completo?: number;
   cobertura_custo_pct?: number;
   cmv_confiavel?: boolean;
+  /** true quando CMV% > 70 — quase sempre und_convertida/preço unitário errado */
+  custo_suspeito?: boolean;
   dias_venda: number;
   aviso?: string | null;
 }
