@@ -206,11 +206,25 @@ export function rotuloLojaMobile(usuario?: UsuarioSessao | null, idLoja?: number
 export function ehGestorLojaMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;
+  // Quem tem acesso global (ou liderança) troca de loja no estoque/app — não trava em uma unidade.
+  if (temPermissao('lojas.todas', u) || u.acesso_todas_lojas) return false;
   if (ehSupervisorRegiaoMobile(u)) return false;
+  const cargosLideranca = new Set(['diretor', 'ceo', 'administrador', 'dono', 'ti']);
   const cargosGestor = new Set(['gerente', 'coordenador']);
   const cargo = (u.cargo_aprovacao || '').toLowerCase();
+  if (cargo && cargosLideranca.has(cargo)) return false;
   if (cargo && cargosGestor.has(cargo)) return true;
+  // Perfil legado só conta se não for cargo de liderança já tratado acima.
   return cargosGestor.has(u.perfil);
+}
+
+/** Estoque mobile: loja fica travada só para gestor de 1 unidade (sem lojas.todas). */
+export function lojaEstoqueTravadaMobile(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return true;
+  if (temPermissao('lojas.todas', u) || u.acesso_todas_lojas) return false;
+  if (ehGestorLojaMobile(u)) return true;
+  return (u.lojas?.length ?? 0) === 1;
 }
 
 /** Supervisor regional — cabeçalho e lojas por região (como técnico). */

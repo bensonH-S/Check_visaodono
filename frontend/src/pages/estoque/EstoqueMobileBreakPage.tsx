@@ -13,7 +13,7 @@ import {
 import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFrota';
 import EstoqueProdutoVendaAutocomplete from '../../components/estoque/EstoqueProdutoVendaAutocomplete';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
-import { ehGestorLojaMobile, getUsuario } from '../../lib/auth';
+import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
 import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
@@ -62,7 +62,7 @@ function preferenciaLojaInicial(rows: Loja[]): number | null {
   if (!rows.length) return null;
   const user = getUsuario();
   const lojasUser = user?.lojas ?? [];
-  if (ehGestorLojaMobile(user) && lojasUser.length) {
+  if (lojaEstoqueTravadaMobile(user) && lojasUser.length) {
     const match = rows.find((l) => lojasUser.some((u) => u.id_loja === l.id_loja));
     if (match) return match.id_loja;
   }
@@ -79,11 +79,11 @@ function preferenciaLojaInicial(rows: Loja[]): number | null {
 
 export default function EstoqueMobileBreakPage() {
   const user = getUsuario();
-  const lojaTravada = ehGestorLojaMobile(user) || (user?.lojas?.length ?? 0) === 1;
+  const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>(() => {
     const u = getUsuario();
-    if (ehGestorLojaMobile(u) && u?.lojas?.[0]?.id_loja) return u.lojas[0].id_loja;
+    if (lojaEstoqueTravadaMobile(u) && u?.lojas?.[0]?.id_loja) return u.lojas[0].id_loja;
     if (u?.lojas?.length === 1) return u.lojas[0].id_loja;
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
     return Number.isFinite(saved) && saved > 0 ? saved : '';

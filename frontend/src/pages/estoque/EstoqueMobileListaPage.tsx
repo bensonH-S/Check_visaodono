@@ -11,7 +11,7 @@ import {
   type EstoqueContagemResumo,
   type Loja,
 } from '../../api/client';
-import { ehGestorLojaMobile, getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
+import { getUsuario, lojaEstoqueTravadaMobile, podeReabrirContagemEstoque } from '../../lib/auth';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
@@ -51,7 +51,7 @@ function preferenciaLojaInicial(rows: Loja[]): number | null {
   if (!rows.length) return null;
   const user = getUsuario();
   const lojasUser = user?.lojas ?? [];
-  if (ehGestorLojaMobile(user) && lojasUser.length) {
+  if (lojaEstoqueTravadaMobile(user) && lojasUser.length) {
     const match = rows.find((l) => lojasUser.some((u) => u.id_loja === l.id_loja));
     if (match) return match.id_loja;
   }
@@ -83,11 +83,11 @@ export default function EstoqueMobileListaPage() {
   const navigate = useNavigate();
   const user = getUsuario();
   const podeReabrir = podeReabrirContagemEstoque(user);
-  const lojaTravada = ehGestorLojaMobile(user) || (user?.lojas?.length ?? 0) === 1;
+  const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>(() => {
     const u = getUsuario();
-    if (ehGestorLojaMobile(u) && u?.lojas?.[0]?.id_loja) return u.lojas[0].id_loja;
+    if (lojaEstoqueTravadaMobile(u) && u?.lojas?.[0]?.id_loja) return u.lojas[0].id_loja;
     if (u?.lojas?.length === 1) return u.lojas[0].id_loja;
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
     return Number.isFinite(saved) && saved > 0 ? saved : '';

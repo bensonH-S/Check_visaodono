@@ -800,7 +800,7 @@ export default function UsuariosPage() {
                 label="Lojas vinculadas"
                 value="Todas as lojas"
                 disabled
-                helperText="Acesso global ativo"
+                helperText="Permissão «Todas as lojas» — vale para estoque/contagem, visitas e demais módulos"
               />
             ) : (
               <TextField

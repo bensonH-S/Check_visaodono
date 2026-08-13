@@ -48,9 +48,12 @@ function ehSupervisorRegiao(user) {
 }
 
 function ehGestorLoja(user) {
+  if (acessoTodasLojas(user)) return false;
   if (ehSupervisorRegiao(user)) return false;
+  const cargosLideranca = new Set(['diretor', 'ceo', 'administrador', 'dono', 'ti']);
   const cargos = new Set(['gerente', 'coordenador']);
   const cargo = String(user?.cargo_aprovacao || '').toLowerCase();
+  if (cargo && cargosLideranca.has(cargo)) return false;
   if (cargo && cargos.has(cargo)) return true;
   return cargos.has(user?.perfil);
 }
