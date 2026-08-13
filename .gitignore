@@ -16,7 +16,12 @@ visao/events_log/
 *.log
 Logs/*
 !Logs/.gitkeep
+backend/Logs/
+_tmp-*
+**/_tmp-*
+*.xlsm
 scripts/windows/tools/
+scripts/windows/build-kit-gerencia.ps1
 workers/bkoffice/.env
 uploads/*
 !uploads/.gitkeep

@@ -22,6 +22,19 @@ export function getProjectRoot() {
   return path.resolve(candidates[0]);
 }
 
+/** Logos de e-mail/PDF: public no dev; dist no Docker (a imagem não copia frontend/public). */
+export function findBrandAsset(...names) {
+  const root = getProjectRoot();
+  const dirs = [path.join(root, 'frontend', 'public'), path.join(root, 'frontend', 'dist')];
+  for (const name of names) {
+    for (const dir of dirs) {
+      const full = path.join(dir, name);
+      if (fs.existsSync(full)) return full;
+    }
+  }
+  return null;
+}
+
 /**
  * Pasta de logs — sempre dentro do projeto: Check_visaodono/Logs/
  * LOG_DIR no .env é relativo ao projeto (ex.: Logs). Caminhos absolutos do SO são ignorados.

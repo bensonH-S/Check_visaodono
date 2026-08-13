@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import nodemailer from 'nodemailer';
 import { cleanEnvValue, cleanSmtpHost, sanitizeMailEnvInProcess } from '../config/envSanitize.js';
-import { getProjectRoot } from '../projectPaths.js';
+import { findBrandAsset } from '../projectPaths.js';
 
 function mailCreds() {
   sanitizeMailEnvInProcess();
@@ -90,34 +90,33 @@ function firstExistingAttachment(candidates, cid) {
   return null;
 }
 
+function attachmentFromNames(names, cid) {
+  const logoPath = findBrandAsset(...names);
+  return logoPath ? firstExistingAttachment([logoPath], cid) : null;
+}
+
 /** Ícone GA nítido (sem wordmark embutido) — legível em header navy; texto no HTML. */
 export function getLogoAttachment() {
-  const root = getProjectRoot();
-  const publicDir = path.join(root, 'frontend', 'public');
-  return firstExistingAttachment(
-    [
-      path.join(publicDir, 'Logo_Alvim_Icone.png'),
-      path.join(publicDir, 'Logo_Icon-clear.png'),
-      path.join(publicDir, 'Logo_GA.png'),
-      path.join(publicDir, 'logo-grupo-alvim.png'),
-    ],
+  return attachmentFromNames(
+    ['Logo_Alvim_Icone.png', 'Logo_Icon-clear.png', 'Logo_GA.png', 'logo-grupo-alvim.png'],
     'grupo-alvim-logo',
   );
 }
 
 /** Logo CIGA (Centro de Inteligência Grupo Alvim) para e-mails/relatórios. */
 export function getCigaAttachment() {
-  const root = getProjectRoot();
-  const publicDir = path.join(root, 'frontend', 'public');
-  return firstExistingAttachment(
-    [path.join(publicDir, 'CIGA.png'), path.join(publicDir, 'CIGA_email.png')],
-    'ciga-logo',
-  );
+  return attachmentFromNames(['CIGA.png', 'CIGA_email.png'], 'ciga-logo');
 }
 
 /** Anexos de marca para e-mail (GA + CIGA). */
 export function getBrandEmailAttachments() {
-  return [getLogoAttachment(), getCigaAttachment()].filter(Boolean);
+  const brands = [getLogoAttachment(), getCigaAttachment()].filter(Boolean);
+  if (brands.length < 2) {
+    console.warn(
+      `[mailer] Logo de e-mail ausente (${brands.length}/2). No Docker os PNG precisam estar em frontend/dist ou frontend/public.`,
+    );
+  }
+  return brands;
 }
 
 function normalizeEmails(list) {

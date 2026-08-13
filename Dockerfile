@@ -47,6 +47,7 @@ COPY backend/src ./backend/src
 COPY backend/migrations ./backend/migrations
 COPY backend/scripts ./backend/scripts
 COPY --from=build /app/frontend/dist ./frontend/dist
+COPY frontend/public/Logo_Alvim_Icone.png frontend/public/CIGA.png ./frontend/public/
 COPY static/ciga ./static/ciga
 COPY --from=build /app/VERSION ./VERSION
 

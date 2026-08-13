@@ -1,9 +1,8 @@
 import fs from 'fs';
-import path from 'path';
 import { jsPDF } from 'jspdf';
 import sizeOf from 'image-size';
 import { countMidiaResposta, decryptMidiaResposta } from '../fotos.js';
-import { getProjectRoot } from '../projectPaths.js';
+import { findBrandAsset } from '../projectPaths.js';
 import { fmtData, fmtNota, formatarHoraVisita, formatarLocalVisita } from '../utils/visitaFormat.js';
 
 const MARGIN = 11;
@@ -91,22 +90,19 @@ function estiloResposta(resposta, pergunta) {
 }
 
 function carregarPngPublico(...relPaths) {
-  for (const rel of relPaths) {
-    try {
-      const logoPath = path.join(getProjectRoot(), 'frontend', 'public', rel);
-      if (!fs.existsSync(logoPath)) continue;
-      const buffer = fs.readFileSync(logoPath);
-      const dim = sizeOf(buffer);
-      return {
-        dataUrl: `data:image/png;base64,${buffer.toString('base64')}`,
-        w: dim.width || 1,
-        h: dim.height || 1,
-      };
-    } catch {
-      /* tenta próximo */
-    }
+  const logoPath = findBrandAsset(...relPaths);
+  if (!logoPath) return null;
+  try {
+    const buffer = fs.readFileSync(logoPath);
+    const dim = sizeOf(buffer);
+    return {
+      dataUrl: `data:image/png;base64,${buffer.toString('base64')}`,
+      w: dim.width || 1,
+      h: dim.height || 1,
+    };
+  } catch {
+    return null;
   }
-  return null;
 }
 
 function carregarIconeMarca() {
