@@ -292,7 +292,9 @@ export default function MetasRankingTable({
               <TableCell sx={{ fontWeight: 700 }}>Loja</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>BKN</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700 }}>
-                {valorPercentual ? `Valor (${isRev ? '4 dec.' : '3 dec.'} %)` : 'Valor'}
+                {valorPercentual
+                  ? `Valor (${rankingDecimaisValor(grupo.codigo)} dec. %)`
+                  : 'Valor'}
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>Pts</TableCell>
               {isRev ? (

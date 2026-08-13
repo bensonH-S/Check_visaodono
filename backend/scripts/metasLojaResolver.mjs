@@ -36,6 +36,7 @@ export const ALIAS_LOJAS = {
   'subway unai': 'UNAI',
   popeyes: 'POPYES',
   'popeyes val': 'POPYES',
+  popval: 'POPYES',
 };
 
 export function norm(s) {

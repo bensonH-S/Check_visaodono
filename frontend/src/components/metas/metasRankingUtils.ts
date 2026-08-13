@@ -19,7 +19,9 @@ export function rankingColunaRevRec(codigo: string): boolean {
 }
 
 export function rankingDecimaisValor(codigo: string): number {
-  return codigo === 'rank_rev' ? 4 : 3;
+  if (codigo === 'rank_rev') return 4;
+  if (codigo === 'rank_delivery') return 2;
+  return 3;
 }
 
 export const OPCOES_REV_CLASSE = [
