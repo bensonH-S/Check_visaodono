@@ -212,109 +212,167 @@ function PainelCmv({
     : (cmv?.cmv_teorico_pct ?? 0) <= (cmv?.meta_pct ?? 38)
       ? '#15803d'
       : '#b91c1c';
+  const custoBreak = cmv?.custo_break ?? 0;
+  const pctComBreak = cmv?.cmv_com_break_pct;
+  const cardSx = {
+    flex: '1 1 140px',
+    minWidth: 140,
+    p: 2,
+    borderRadius: 2,
+    border: `1px solid ${colors.border}`,
+    bgcolor: colors.surface,
+  } as const;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      <Paper sx={{ p: 2.5, border: `1px solid ${colors.border}` }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 2,
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            mb: 2,
-          }}
-        >
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              CMV da loja
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Meta da franquia: {cmv?.meta_pct ?? 38}%. Custo em R$ só com nota fiscal — preço de
-              planilha não conta.
-            </Typography>
-          </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 2,
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
+            Controle de CMV
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 520 }}>
+            Teórico = venda × ficha × custo. Break = consumo da galera (baixa real). Meta franquia{' '}
+            {cmv?.meta_pct ?? 38}%.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <FiltroIntervaloDatasFrota
             dataInicio={dataIni}
             dataFim={dataFim}
             onChangeInicio={setDataIni}
             onChangeFim={setDataFim}
           />
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 2 }}>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              CMV teórico
-            </Typography>
-            <Typography variant="h3" sx={{ fontWeight: 800, color: cmvCor, lineHeight: 1.1 }}>
-              {confiavel && cmv?.cmv_teorico_pct != null
-                ? `${fmtNum(cmv.cmv_teorico_pct, 1)}%`
-                : '—'}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Venda bruta
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {fmtMoeda(cmv?.venda_bruta ?? cmv?.venda_liquida)}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Custo (só NF)
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {fmtMoeda(cmv?.custo_teorico)}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Cobertura de custo NF
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {cmv?.cobertura_custo_pct != null ? `${fmtNum(cmv.cobertura_custo_pct, 0)}%` : '0%'}
-            </Typography>
-          </Box>
-        </Box>
-
-        {cmv?.aviso && (
-          <Typography
-            variant="body2"
-            sx={{
-              p: 1.5,
-              borderRadius: 1,
-              bgcolor: '#FFF7ED',
-              color: '#9A3412',
-              border: '1px solid #FDBA74',
-              mb: 1.5,
-            }}
-          >
-            {cmv.aviso}
-          </Typography>
-        )}
-
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {faltaFicha > 0 && (
-            <Chip
-              color="warning"
-              label={`Falta ficha (${faltaFicha})`}
-              onClick={() => onIrFichas?.()}
-              sx={{ fontWeight: 700, cursor: 'pointer' }}
-            />
-          )}
-          <Chip
-            variant="outlined"
-            label={`${cmv?.itens_sem_ficha ?? 0} itens de venda sem ficha no período`}
-          />
-          <Chip variant="outlined" label={`${cmv?.dias_venda ?? 0} dia(s) com venda`} />
           <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
             Atualizar
           </Button>
         </Box>
-      </Paper>
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ ...cardSx, bgcolor: colors.navy, borderColor: colors.navy, color: '#fff', flex: '1.2 1 180px' }}>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: 0.4 }}>
+            CMV TEÓRICO
+          </Typography>
+          <Typography variant="h3" sx={{ fontWeight: 800, color: confiavel ? cmvCor : '#fff', lineHeight: 1.15, mt: 0.5 }}>
+            {confiavel && cmv?.cmv_teorico_pct != null ? `${fmtNum(cmv.cmv_teorico_pct, 1)}%` : '—'}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.65)' }}>
+            Só vendas · meta {cmv?.meta_pct ?? 38}%
+          </Typography>
+        </Box>
+
+        <Box sx={cardSx}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+            VENDA BRUTA
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5 }}>
+            {fmtMoeda(cmv?.venda_bruta ?? cmv?.venda_liquida)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {cmv?.dias_venda ?? 0} dia(s) com venda
+          </Typography>
+        </Box>
+
+        <Box sx={cardSx}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+            CUSTO TEÓRICO
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5 }}>
+            {fmtMoeda(cmv?.custo_teorico)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Cobertura NF {cmv?.cobertura_custo_pct != null ? `${fmtNum(cmv.cobertura_custo_pct, 0)}%` : '0%'}
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            ...cardSx,
+            borderColor: custoBreak > 0 ? '#FDBA74' : colors.border,
+            bgcolor: custoBreak > 0 ? '#FFF7ED' : colors.surface,
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 700, color: '#9A3412' }}>
+            BREAK · CONSUMO
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: '#9A3412', mt: 0.5 }}>
+            {fmtMoeda(custoBreak)}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#C2410C' }}>
+            {cmv?.qtd_breaks ?? 0} lançamento(s)
+            {cmv?.break_pct_venda != null ? ` · ${fmtNum(cmv.break_pct_venda, 2)}% da venda` : ''}
+          </Typography>
+        </Box>
+
+        <Box sx={{ ...cardSx, flex: '1.1 1 160px' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+            CMV + BREAK
+          </Typography>
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 800,
+              mt: 0.5,
+              color:
+                pctComBreak == null
+                  ? colors.textSecondary
+                  : pctComBreak <= (cmv?.meta_pct ?? 38)
+                    ? '#15803d'
+                    : '#b91c1c',
+            }}
+          >
+            {pctComBreak != null ? `${fmtNum(pctComBreak, 1)}%` : '—'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Total {fmtMoeda(cmv?.custo_total)}
+          </Typography>
+        </Box>
+      </Box>
+
+      {cmv?.aviso && (
+        <Typography
+          variant="body2"
+          sx={{
+            p: 1.5,
+            borderRadius: 1.5,
+            bgcolor: '#FFF7ED',
+            color: '#9A3412',
+            border: '1px solid #FDBA74',
+          }}
+        >
+          {cmv.aviso}
+        </Typography>
+      )}
+
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+        {faltaFicha > 0 && (
+          <Chip
+            color="warning"
+            label={`Falta ficha (${faltaFicha})`}
+            onClick={() => onIrFichas?.()}
+            sx={{ fontWeight: 700, cursor: 'pointer' }}
+          />
+        )}
+        <Chip
+          variant="outlined"
+          label={`${cmv?.itens_sem_ficha ?? 0} itens de venda sem ficha no período`}
+        />
+        {(cmv?.qtd_breaks ?? 0) === 0 && (
+          <Chip
+            variant="outlined"
+            icon={<FreeBreakfastOutlinedIcon />}
+            label="Nenhum break no período — lance na aba Break"
+          />
+        )}
+      </Box>
     </Box>
   );
 }
@@ -1735,10 +1793,16 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          Consumo de colaboradores (refeição / break) — baixa o estoque na hora via ficha.
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
+            Break · consumo da galera
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
+            Cada lançamento baixa o estoque na hora (via ficha) e entra no CMV do período como custo de
+            break.
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -1746,8 +1810,9 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             resetForm();
             setOpen(true);
           }}
+          sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
         >
-          Lançar Break
+          Lançar break
         </Button>
       </Box>
 

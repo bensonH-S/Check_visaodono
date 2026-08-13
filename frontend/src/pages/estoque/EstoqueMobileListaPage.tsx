@@ -161,13 +161,18 @@ export default function EstoqueMobileListaPage() {
   const valorInicialMes = lista[0]?.valor_inicial_mes ?? null;
   const dataInicialMes = lista[0]?.data_inicial_mes ?? null;
   const valorAtualLoja = useMemo(() => {
-    const aberta = lista.find((c) => c.status === 'aberta' && c.tipo !== 'critica_semanal')
-      || lista.find((c) => c.status === 'aberta');
-    if (aberta?.valor_atual != null || aberta?.total_valor != null) {
-      return aberta.valor_atual ?? aberta.total_valor ?? null;
+    // Valor atual da loja = última contagem COMPLETA (aberta ou finalizada).
+    // Semanal crítica só conta itens críticos — não pode virar o R$ do estoque.
+    const abertaCompleta = lista.find(
+      (c) => c.status === 'aberta' && c.tipo !== 'critica_semanal',
+    );
+    if (abertaCompleta?.valor_atual != null || abertaCompleta?.total_valor != null) {
+      return abertaCompleta.valor_atual ?? abertaCompleta.total_valor ?? null;
     }
-    const ultima = lista.find((c) => c.status === 'finalizada');
-    return ultima?.valor_atual ?? ultima?.total_valor ?? null;
+    const ultimaCompleta = lista.find(
+      (c) => c.status === 'finalizada' && c.tipo !== 'critica_semanal',
+    );
+    return ultimaCompleta?.valor_atual ?? ultimaCompleta?.total_valor ?? null;
   }, [lista]);
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
@@ -395,7 +400,7 @@ export default function EstoqueMobileListaPage() {
                     {semanal ? 'Semanal · críticos' : 'Completa'}
                   </span>
                   <span className="ck-estoque__chip ck-estoque__chip--ok">
-                    Atual {fmtBrl(c.valor_atual ?? c.total_valor)}
+                    {semanal ? 'Parcial' : 'Atual'} {fmtBrl(c.valor_atual ?? c.total_valor)}
                   </span>
                   {c.valor_inicial_mes != null && (
                     <span className="ck-estoque__chip">

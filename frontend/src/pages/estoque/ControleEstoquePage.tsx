@@ -632,14 +632,17 @@ export default function ControleEstoquePage() {
   const valorInicialMesLista = listaContagens[0]?.valor_inicial_mes ?? null;
   const dataInicialMesLista = listaContagens[0]?.data_inicial_mes ?? null;
   const valorAtualLista = useMemo(() => {
-    const aberta =
-      listaContagens.find((c) => c.status === 'aberta' && c.tipo !== 'critica_semanal') ||
-      listaContagens.find((c) => c.status === 'aberta');
-    if (aberta?.valor_atual != null || aberta?.total_valor != null) {
-      return aberta.valor_atual ?? aberta.total_valor ?? null;
+    // Valor atual da loja = última contagem COMPLETA. Semanal crítica não entra.
+    const abertaCompleta = listaContagens.find(
+      (c) => c.status === 'aberta' && c.tipo !== 'critica_semanal',
+    );
+    if (abertaCompleta?.valor_atual != null || abertaCompleta?.total_valor != null) {
+      return abertaCompleta.valor_atual ?? abertaCompleta.total_valor ?? null;
     }
-    const ultima = listaContagens.find((c) => c.status === 'finalizada');
-    return ultima?.valor_atual ?? ultima?.total_valor ?? null;
+    const ultimaCompleta = listaContagens.find(
+      (c) => c.status === 'finalizada' && c.tipo !== 'critica_semanal',
+    );
+    return ultimaCompleta?.valor_atual ?? ultimaCompleta?.total_valor ?? null;
   }, [listaContagens]);
   const listaFiltrada = useMemo(() => {
     if (filtroStatus === 'todas') return listaContagens;
@@ -655,77 +658,27 @@ export default function ControleEstoquePage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%', minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', minHeight: 0 }}>
       <Box
         sx={{
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           gap: 2,
           flexWrap: 'wrap',
-          borderBottom: `1px solid ${colors.border}`,
+          pb: 0.5,
         }}
       >
-        <Tabs
-          value={idLoja ? aba : false}
-          onChange={(_e, v: AbaEstoque) => {
-            if (bloqueiaOutrasAbas && v !== 'conferencia') return;
-            irParaAba(v);
-          }}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            minHeight: 40,
-            minWidth: 220,
-            flex: '0 1 auto',
-          }}
-        >
-          {podeOperacional && (
-            <Tab
-              value="cmv"
-              label="CMV"
-              disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none', fontWeight: 700 }}
-            />
-          )}
-          {podeConferencia && (
-            <Tab
-              value="conferencia"
-              label="Conferência"
-              disabled={!idLoja}
-              sx={{ minHeight: 40, textTransform: 'none', fontWeight: 600 }}
-            />
-          )}
-          {podeBreak && (
-            <Tab
-              value="break"
-              label="Break"
-              disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none' }}
-            />
-          )}
-          {podeOperacional && (
-            <Tab
-              value="pedido"
-              label="Pedido"
-              disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none' }}
-            />
-          )}
-          {podeOperacional && (
-            <Tab
-              value="fichas"
-              label={
-                produtosVendaCount
-                  ? `Cadastro (${produtosVendaCount})`
-                  : 'Cadastro'
-              }
-              disabled={!idLoja || bloqueiaOutrasAbas}
-              sx={{ minHeight: 40, textTransform: 'none' }}
-            />
-          )}
-        </Tabs>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
+            Estoque
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            CMV, contagem, break e cadastro por loja
+          </Typography>
+        </Box>
         {!bloqueiaOutrasAbas && (
-          <FormControl size="small" sx={{ minWidth: 220, maxWidth: 320, mb: 0.75, flexShrink: 0 }}>
+          <FormControl size="small" sx={{ minWidth: 240, maxWidth: 360 }}>
             <InputLabel shrink>Loja</InputLabel>
             <Select
               label="Loja"
@@ -736,10 +689,7 @@ export default function ControleEstoquePage() {
               MenuProps={{
                 slotProps: {
                   paper: {
-                    sx: {
-                      maxHeight: 360,
-                      overflowY: 'auto',
-                    },
+                    sx: { maxHeight: 360, overflowY: 'auto' },
                   },
                 },
               }}
@@ -758,6 +708,49 @@ export default function ControleEstoquePage() {
           </FormControl>
         )}
       </Box>
+
+      <Tabs
+        value={idLoja ? aba : false}
+        onChange={(_e, v: AbaEstoque) => {
+          if (bloqueiaOutrasAbas && v !== 'conferencia') return;
+          irParaAba(v);
+        }}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{
+          minHeight: 44,
+          borderBottom: `1px solid ${colors.border}`,
+          '& .MuiTab-root': {
+            minHeight: 44,
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '0.9rem',
+            px: 2,
+          },
+          '& .Mui-selected': { fontWeight: 800, color: `${colors.navy} !important` },
+          '& .MuiTabs-indicator': { height: 3, borderRadius: 2, bgcolor: colors.orange },
+        }}
+      >
+          {podeOperacional && (
+            <Tab value="cmv" label="CMV" disabled={!idLoja || bloqueiaOutrasAbas} />
+          )}
+          {podeConferencia && (
+            <Tab value="conferencia" label="Conferência" disabled={!idLoja} />
+          )}
+          {podeBreak && (
+            <Tab value="break" label="Break · consumo" disabled={!idLoja || bloqueiaOutrasAbas} />
+          )}
+          {podeOperacional && (
+            <Tab value="pedido" label="Pedido" disabled={!idLoja || bloqueiaOutrasAbas} />
+          )}
+          {podeOperacional && (
+            <Tab
+              value="fichas"
+              label={produtosVendaCount ? `Cadastro (${produtosVendaCount})` : 'Cadastro'}
+              disabled={!idLoja || bloqueiaOutrasAbas}
+            />
+          )}
+      </Tabs>
 
       {!idLoja ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>

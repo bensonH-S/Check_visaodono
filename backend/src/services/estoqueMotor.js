@@ -157,6 +157,7 @@ export async function registrarEntradas({
  * CMV teórico no período.
  * R$ só usa insumos com custo_fonte IN ('nf','manual','catalogo') — nunca preço de planilha.
  * Meta % só é “confiável” se cobertura_custo_pct >= 80.
+ * Inclui break (consumo da galera) no mesmo período — baixa real de estoque fora da venda.
  */
 export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta = 0.38 } = {}) {
   const params = [idLoja];
@@ -238,8 +239,12 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     params,
   );
 
+  const breakInfo = await calcularConsumoBreak(idLoja, { de, ate });
+
   const venda = num(rows[0]?.venda_liquida);
   const custo = num(rows[0]?.custo_teorico);
+  const custoBreak = num(breakInfo.custo_break);
+  const custoComBreak = custo + custoBreak;
   const itens = rows[0]?.itens || 0;
   const comCusto = rows[0]?.itens_com_custo_completo || 0;
   const comFicha = rows[0]?.itens_com_ficha || 0;
@@ -247,6 +252,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
   const metaN = num(meta, 0.38);
   const confiavel = cobertura >= 80 && venda > 0 && custo > 0;
   const pct = confiavel ? custo / venda : null;
+  const pctComBreak = venda > 0 && (confiavel || custoBreak > 0) ? custoComBreak / venda : null;
 
   return {
     id_loja: idLoja,
@@ -257,6 +263,16 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     venda_bruta: Math.round(venda * 100) / 100,
     custo_teorico: Math.round(custo * 100) / 100,
     cmv_teorico_pct: pct != null ? Math.round(pct * 10000) / 100 : null,
+    /** Break = consumo da galera (baixa real de estoque no período). */
+    custo_break: Math.round(custoBreak * 100) / 100,
+    qtd_breaks: breakInfo.qtd_breaks,
+    break_pct_venda:
+      venda > 0 && custoBreak > 0 ? Math.round((custoBreak / venda) * 10000) / 100 : null,
+    custo_total: Math.round(custoComBreak * 100) / 100,
+    cmv_com_break_pct:
+      pctComBreak != null && (confiavel || custoBreak > 0)
+        ? Math.round(pctComBreak * 10000) / 100
+        : null,
     meta_pct: Math.round(metaN * 10000) / 100,
     gap_pp: pct != null ? Math.round((pct - metaN) * 10000) / 100 : null,
     gap_reais:
@@ -269,8 +285,54 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     cmv_confiavel: confiavel,
     dias_venda: diasRows[0]?.dias_venda || 0,
     aviso: !confiavel
-      ? 'CMV em R$ só fica confiável com custo de nota fiscal nos insumos (cobertura ≥ 80%). Ficha (quantidade) já conta; preço da planilha não.'
+      ? 'CMV em R$ só fica confiável com custo de nota fiscal nos insumos (cobertura ≥ 80%). Ficha (quantidade) já conta; preço da planilha não. Break (consumo) entra à parte quando há custo válido.'
       : null,
+  };
+}
+
+/**
+ * Custo do break (consumo colaboradores) no período, via movimentos reais de estoque.
+ */
+export async function calcularConsumoBreak(idLoja, { de = null, ate = null } = {}) {
+  const params = [idLoja];
+  let filtro = '';
+  if (de) {
+    params.push(de);
+    filtro += ` AND b.data_break >= $${params.length}::date`;
+  }
+  if (ate) {
+    params.push(ate);
+    filtro += ` AND b.data_break <= $${params.length}::date`;
+  }
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      COUNT(DISTINCT b.id_break)::int AS qtd_breaks,
+      COALESCE(SUM(
+        ABS(m.quantidade) * CASE
+          WHEN i.custo_fonte IN ('nf', 'manual', 'catalogo') THEN COALESCE(i.valor_unidade, 0)
+          ELSE 0
+        END
+      ), 0)::numeric AS custo_break,
+      COALESCE(SUM(ABS(m.quantidade)), 0)::numeric AS qtde_insumos
+    FROM estoque_break b
+    JOIN estoque_movimentos m
+      ON m.referencia_tipo = 'estoque_break'
+     AND m.referencia_id = b.id_break
+     AND m.tipo = 'break'
+     AND m.id_loja = b.id_loja
+    JOIN insumos i ON i.id_insumo = m.id_insumo
+    WHERE b.id_loja = $1
+      ${filtro}
+    `,
+    params,
+  );
+
+  return {
+    qtd_breaks: rows[0]?.qtd_breaks || 0,
+    custo_break: num(rows[0]?.custo_break),
+    qtde_insumos: num(rows[0]?.qtde_insumos),
   };
 }
 

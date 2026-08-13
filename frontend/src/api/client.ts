@@ -2322,6 +2322,13 @@ export interface EstoqueCmvTeorico {
   venda_bruta?: number;
   custo_teorico: number;
   cmv_teorico_pct: number | null;
+  /** Consumo break (galera) no período — baixa real de estoque. */
+  custo_break?: number;
+  qtd_breaks?: number;
+  break_pct_venda?: number | null;
+  /** Teórico + break. */
+  custo_total?: number;
+  cmv_com_break_pct?: number | null;
   meta_pct: number;
   gap_pp: number | null;
   gap_reais: number | null;
