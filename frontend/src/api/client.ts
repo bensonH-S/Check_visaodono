@@ -2540,7 +2540,7 @@ export interface EstoqueNfeItem {
   unidade_contagem?: string | null;
 }
 
-export interface EstoqueNfeDetalhe extends EstoqueNfeResumo {
+export interface EstoqueNfeDetalhe extends Omit<EstoqueNfeResumo, 'itens'> {
   itens: EstoqueNfeItem[];
 }
 

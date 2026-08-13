@@ -747,7 +747,9 @@ function PainelSaldoKardex({ idLoja }: { idLoja: number }) {
                     selected={selInsumo === s.id_insumo}
                     sx={{ cursor: 'pointer' }}
                     onClick={() =>
-                      setSelInsumo((prev) => (prev === s.id_insumo ? null : s.id_insumo))
+                      setSelInsumo((prev) =>
+                        prev === s.id_insumo ? null : (s.id_insumo ?? null),
+                      )
                     }
                   >
                     <TableCell>
