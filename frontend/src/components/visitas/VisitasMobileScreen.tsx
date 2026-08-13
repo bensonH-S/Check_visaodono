@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { fmtData, fmtNota } from '../../api/client';
 import type { VisitaResumo } from '../../api/client';
@@ -298,7 +298,7 @@ export default function VisitasMobileScreen({
                           onClick={() => onEnviarEmail(v)}
                           style={{ color: '#E8520A' }}
                         >
-                          <MailOutlineIcon fontSize="small" />
+                          <EmailOutlinedIcon fontSize="small" />
                         </button>
                       )}
                     {podeReabrir && !emRascunho && onReabrir && (

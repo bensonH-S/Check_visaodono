@@ -33,7 +33,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import MailOutlineIcon from '@mui/icons-material/MailOutline';
+import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import VisitasMobileScreen from '../components/visitas/VisitasMobileScreen';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
@@ -268,7 +268,7 @@ function VisitaCardMobile({
                   }}
                   sx={{ color: colors.orange }}
                 >
-                  {enviandoEmail ? <CircularProgress size={16} /> : <MailOutlineIcon fontSize="small" />}
+                  {enviandoEmail ? <CircularProgress size={16} /> : <EmailOutlinedIcon fontSize="small" />}
                 </IconButton>
               </span>
             </Tooltip>
@@ -863,7 +863,7 @@ export default function VisitasPage() {
                                 {enviandoEmailId === v.id_visita ? (
                                   <CircularProgress size={16} />
                                 ) : (
-                                  <MailOutlineIcon fontSize="small" />
+                                  <EmailOutlinedIcon fontSize="small" />
                                 )}
                               </IconButton>
                             </span>
