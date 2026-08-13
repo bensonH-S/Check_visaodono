@@ -8,6 +8,7 @@ const RANKINGS_PERCENTUAL = new Set([
   'rank_ano_anterior',
   'rank_nps',
   'rank_google',
+  'rank_checklist_360',
 ]);
 
 export function rankingValorPercentual(codigo: string): boolean {
@@ -21,6 +22,7 @@ export function rankingColunaRevRec(codigo: string): boolean {
 export function rankingDecimaisValor(codigo: string): number {
   if (codigo === 'rank_rev') return 4;
   if (codigo === 'rank_delivery') return 2;
+  if (codigo === 'rank_nps' || codigo === 'rank_ano_anterior' || codigo === 'rank_google') return 3;
   return 3;
 }
 

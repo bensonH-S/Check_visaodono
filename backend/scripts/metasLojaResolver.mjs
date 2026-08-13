@@ -33,7 +33,6 @@ export const ALIAS_LOJAS = {
   'bk sao sebastiao': 'SEBASTI',
   'bk caldas novas': 'CALDAS',
   'bk df plaza': 'PLAZA',
-  'subway unai': 'UNAI',
   popeyes: 'POPYES',
   'popeyes val': 'POPYES',
   popval: 'POPYES',
@@ -70,7 +69,6 @@ const ABREVS_POR_SUFIXO = [
   ['SAMBAIA', ['sama', 'samambaia', 'sambaia']],
   ['PONTE ALTA', ['ponte', 'ponte alta', 'gama']],
   ['POPYES', ['popeyes', 'popeyes val', 'valparaiso']],
-  ['SUBWAY', ['subway unai', 'subway']],
 ];
 
 export function buildLojaIndex(lojas) {
@@ -143,6 +141,11 @@ function resolverLojaUma(lojasDb, rotulo) {
   if (!n) return null;
 
   const { index, lista, rows } = lojasDb;
+
+  // Subway Unaí não é BK Unaí — não entra no ranking das lojas Burger King.
+  if (n.includes('subway')) {
+    return rows.find((l) => norm(l.name).includes('subway')) || null;
+  }
 
   if (index.has(n)) return index.get(n);
 

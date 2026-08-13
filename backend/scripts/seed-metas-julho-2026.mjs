@@ -157,6 +157,19 @@ async function importarResumoPainel(client, idPeriodo, painelCfg, sheet, lojasDb
   }
 }
 
+function ignorarLinhaRanking(nomeLoja) {
+  const n = String(nomeLoja || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toUpperCase();
+  if (!n) return false;
+  if (n.includes('SUBWAY')) return true;
+  if (n.includes('PARABENS')) return true;
+  if (n.includes('RANKING')) return true;
+  if (n.includes('MEDIA DO GRUPO')) return true;
+  return false;
+}
+
 async function importarRanking(client, idPeriodo, cfg, sheet, lojasDb) {
   const idInd = await upsertIndicador(client, {
     codigo: cfg.codigo,
@@ -185,6 +198,7 @@ async function importarRanking(client, idPeriodo, cfg, sheet, lojasDb) {
 
     if (!nomeLoja && posicaoRaw == null && valorRaw == null && pontos == null) continue;
     if (String(nomeLoja || '').toUpperCase().includes('SUBTOTAL')) break;
+    if (ignorarLinhaRanking(nomeLoja)) continue;
 
     ordemLinha += 1;
     const loja = nomeLoja ? resolverLoja(lojasDb, nomeLoja) : null;
@@ -373,6 +387,7 @@ const RANKINGS = [
   { codigo: 'rank_ano_anterior', nome: 'Ano - 1', ordem: 60, row_start: 38, row_end: 58, col_pos: 9, col_loja: 10, col_valor: 11, col_pts: 12, col_classe: null, meta_minima: 0.1 },
   { codigo: 'rank_nps', nome: 'NPS', ordem: 70, row_start: 71, row_end: 91, col_pos: 0, col_loja: 1, col_valor: 2, col_pts: 3, col_classe: null, meta_minima: 0.5 },
   { codigo: 'rank_google', nome: 'Google', ordem: 80, row_start: 71, row_end: 91, col_pos: 5, col_loja: 6, col_valor: 7, col_pts: 8, col_classe: null, meta_minima: 0.045 },
+  { codigo: 'rank_checklist_360', nome: 'Check list 360', ordem: 90, row_start: 71, row_end: 91, col_pos: 9, col_loja: 10, col_valor: 11, col_pts: 12, col_classe: null },
 ];
 
 try {
