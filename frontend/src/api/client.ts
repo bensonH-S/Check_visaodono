@@ -887,6 +887,24 @@ export const api = {
     if (params.ativos === false) q.set('ativos', '0');
     return request<ProdutoEstoque[]>(`/estoque/insumos?${q}`);
   },
+  /** Igual a `estoqueProdutos`, mas paginado (offset): use para listas grandes. */
+  estoqueProdutosPaginado: (params: {
+    id_loja: number;
+    q?: string;
+    ativos?: boolean;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const q = new URLSearchParams();
+    q.set('id_loja', String(params.id_loja));
+    if (params.q) q.set('q', params.q);
+    if (params.ativos === true) q.set('ativos', '1');
+    if (params.ativos === false) q.set('ativos', '0');
+    q.set('paginate', '1');
+    if (params.page) q.set('page', String(params.page));
+    if (params.pageSize) q.set('pageSize', String(params.pageSize));
+    return request<PaginaOffset<ProdutoEstoque>>(`/estoque/insumos?${q}`);
+  },
   estoqueCriarProduto: (body: ProdutoEstoqueInput) =>
     request<ProdutoEstoque>('/estoque/insumos', { method: 'POST', body: JSON.stringify(body) }),
   estoqueAtualizarProduto: (id: number, body: Partial<ProdutoEstoqueInput> & { ativo?: boolean }) =>
@@ -896,6 +914,13 @@ export const api = {
     }),
   estoqueContagens: (idLoja: number) =>
     request<EstoqueContagemResumo[]>(`/estoque/contagens?id_loja=${idLoja}`),
+  /** Igual a `estoqueContagens`, mas paginado (offset). */
+  estoqueContagensPaginado: (idLoja: number, opts?: { page?: number; pageSize?: number }) => {
+    const q = new URLSearchParams({ id_loja: String(idLoja), paginate: '1' });
+    if (opts?.page) q.set('page', String(opts.page));
+    if (opts?.pageSize) q.set('pageSize', String(opts.pageSize));
+    return request<PaginaOffset<EstoqueContagemResumo>>(`/estoque/contagens?${q}`);
+  },
   estoqueContagemAtual: (idLoja: number) =>
     request<EstoqueContagemDetalhe>(`/estoque/contagens/atual?id_loja=${idLoja}`),
   estoqueIniciarSabado: (body: { id_loja: number; tipo?: 'completa' | 'critica_semanal' }) =>
@@ -956,6 +981,17 @@ export const api = {
     if (opts?.id_insumo) params.set('id_insumo', String(opts.id_insumo));
     return request<EstoqueMovimento[]>(`/estoque/movimentos?${params}`);
   },
+  /** Igual a `estoqueMovimentos`, mas paginado (offset: page/pageSize). */
+  estoqueMovimentosPaginado: (
+    idLoja: number,
+    opts?: { tipo?: string; page?: number; pageSize?: number },
+  ) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja), paginate: '1' });
+    if (opts?.tipo) params.set('tipo', opts.tipo);
+    if (opts?.page) params.set('page', String(opts.page));
+    if (opts?.pageSize) params.set('pageSize', String(opts.pageSize));
+    return request<PaginaOffset<EstoqueMovimento>>(`/estoque/movimentos?${params}`);
+  },
   estoqueProdutosVenda: (opts?: { id_loja: number; q?: string; sem_ficha?: boolean }) => {
     const params = new URLSearchParams();
     params.set('id_loja', String(opts!.id_loja));
@@ -991,6 +1027,13 @@ export const api = {
     request<void>(`/estoque/produtos-venda/${id}`, { method: 'DELETE' }),
   estoqueVendas: (idLoja: number) =>
     request<EstoqueVendaResumo[]>(`/estoque/vendas?id_loja=${idLoja}`),
+  /** Igual a `estoqueVendas`, mas paginado (offset). */
+  estoqueVendasPaginado: (idLoja: number, opts?: { page?: number; pageSize?: number }) => {
+    const q = new URLSearchParams({ id_loja: String(idLoja), paginate: '1' });
+    if (opts?.page) q.set('page', String(opts.page));
+    if (opts?.pageSize) q.set('pageSize', String(opts.pageSize));
+    return request<PaginaOffset<EstoqueVendaResumo>>(`/estoque/vendas?${q}`);
+  },
   estoqueVenda: (id: number) => request<EstoqueVendaDetalhe>(`/estoque/vendas/${id}`),
   estoqueVendasSemFicha: (idLoja?: number) => {
     const qs = idLoja ? `?id_loja=${idLoja}` : '';
@@ -2305,6 +2348,17 @@ export interface MetasPeriodoDetalhe {
   paineis: MetasPainel[];
   rankings: MetasRankingGrupo[];
   premios: MetasPremio[];
+}
+
+/** Envelope de paginação por offset (page/pageSize). Só é retornado quando `paginate=1` é enviado. */
+export interface PaginaOffset<T> {
+  data: T[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasMore: boolean;
+  };
 }
 
 export interface ProdutoEstoque {

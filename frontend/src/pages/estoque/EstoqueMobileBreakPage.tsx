@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
 import Fab from '@mui/material/Fab';
 import LinearProgress from '@mui/material/LinearProgress';
 import AddIcon from '@mui/icons-material/Add';
@@ -108,6 +110,14 @@ export default function EstoqueMobileBreakPage() {
   const [codigo, setCodigo] = useState('');
   const [itens, setItens] = useState<BreakItemRascunho[]>([]);
   const colabDigitado = colaboradores.length === 0 || colabSelect === '__outro__';
+
+  const colabOptions = useMemo(() => {
+    return [...colaboradores, { id_usuario: -1, nome: 'Outro (digitar nome)' }];
+  }, [colaboradores]);
+
+  const colabFilterOptions = useMemo(() => createFilterOptions<{ id_usuario: number; nome: string }>({
+    stringify: (option) => option.nome || '',
+  }), []);
   const nomeColabAtual =
     (idColaborador
       ? colaboradores.find((c) => c.id_usuario === idColaborador)?.nome
@@ -409,31 +419,54 @@ export default function EstoqueMobileBreakPage() {
               {colaboradores.length > 0 && (
                 <label className="ck-estoque__field">
                   <span>Colaborador</span>
-                  <select
-                    value={colabSelect}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setColabSelect(v);
-                      if (!v || v === '__outro__') {
+                  <Autocomplete
+                    size="small"
+                    options={colabOptions}
+                    filterOptions={colabFilterOptions}
+                    getOptionLabel={(option) => option.nome || ''}
+                    isOptionEqualToValue={(option, value) => option.id_usuario === value.id_usuario}
+                    renderOption={(props, option) => (
+                      <li {...props} key={option.id_usuario}>
+                        {option.nome}
+                      </li>
+                    )}
+                    value={
+                      colabSelect === '__outro__'
+                        ? { id_usuario: -1, nome: 'Outro (digitar nome)' }
+                        : colaboradores.find((c) => String(c.id_usuario) === String(colabSelect)) || null
+                    }
+                    onChange={(e, val) => {
+                      if (!val) {
+                        setColabSelect('');
                         setIdColaborador('');
                         setNomeColaborador('');
                         return;
                       }
-                      const id = Number(v);
-                      const col = colaboradores.find((c) => c.id_usuario === id);
-                      setIdColaborador(id);
-                      setNomeColaborador(col?.nome || '');
+                      if (val.id_usuario === -1) {
+                        setColabSelect('__outro__');
+                        setIdColaborador('');
+                        setNomeColaborador('');
+                        return;
+                      }
+                      setColabSelect(String(val.id_usuario));
+                      setIdColaborador(val.id_usuario);
+                      setNomeColaborador(val.nome);
                     }}
                     disabled={salvando}
-                  >
-                    <option value="">Selecione…</option>
-                    {colaboradores.map((c) => (
-                      <option key={c.id_usuario} value={String(c.id_usuario)}>
-                        {c.nome}
-                      </option>
-                    ))}
-                    <option value="__outro__">Outro (digitar nome)</option>
-                  </select>
+                    sx={{ width: '100%', mt: 0.5 }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Selecione ou digite..."
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            backgroundColor: '#fff',
+                            borderRadius: '8px',
+                          }
+                        }}
+                      />
+                    )}
+                  />
                 </label>
               )}
 

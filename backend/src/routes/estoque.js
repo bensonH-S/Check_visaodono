@@ -6,6 +6,7 @@ import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
 import { calcularQtdContagem } from '../services/estoqueContagem.js';
 import estoqueOperacional from './estoqueOperacional.js';
+import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 
 const router = Router();
 
@@ -370,13 +371,37 @@ async function listarInsumos(req, res, next) {
     if (ativos === '1') where.push('ativo = TRUE');
     if (ativos === '0') where.push('ativo = FALSE');
 
+    const paginacao = parsePaginacaoOffset(req, { defaultPageSize: 50, maxPageSize: 200 });
+
+    if (!paginacao.ativo) {
+      const { rows } = await pool.query(
+        `SELECT * FROM insumos
+         WHERE ${where.join(' AND ')}
+         ORDER BY descricao`,
+        params,
+      );
+      return res.json(rows.map(mapProduto));
+    }
+
+    const { rows: totalRows } = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM insumos WHERE ${where.join(' AND ')}`,
+      params,
+    );
+    const paramsPagina = [...params, paginacao.pageSize, paginacao.offset];
     const { rows } = await pool.query(
       `SELECT * FROM insumos
        WHERE ${where.join(' AND ')}
-       ORDER BY descricao`,
-      params,
+       ORDER BY descricao
+       LIMIT $${paramsPagina.length - 1} OFFSET $${paramsPagina.length}`,
+      paramsPagina,
     );
-    res.json(rows.map(mapProduto));
+    res.json(
+      montarEnvelopeOffset(rows.map(mapProduto), {
+        page: paginacao.page,
+        pageSize: paginacao.pageSize,
+        total: totalRows[0].total,
+      }),
+    );
   } catch (e) {
     next(e);
   }
@@ -516,6 +541,11 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
+    const paginacao = parsePaginacaoOffset(req, { defaultPageSize: 100, maxPageSize: 200 });
+    const limite = paginacao.ativo ? paginacao.pageSize : 100;
+    const paramsQuery = paginacao.ativo ? [idLoja, limite, paginacao.offset] : [idLoja];
+    const clausulaLimit = paginacao.ativo ? 'LIMIT $2 OFFSET $3' : 'LIMIT 100';
+
     const { rows } = await pool.query(
       `SELECT c.id_contagem, c.id_loja, c.data_contagem, c.titulo, c.status,
               COALESCE(c.tipo, 'completa') AS tipo,
@@ -547,18 +577,30 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
        LEFT JOIN usuarios u ON u.id_usuario = c.criado_por
        WHERE c.id_loja = $1
        ORDER BY c.data_contagem DESC NULLS LAST, c.criado_em DESC, c.id_contagem DESC
-       LIMIT 100`,
-      [idLoja],
+       ${clausulaLimit}`,
+      paramsQuery,
     );
     const inicioMes = await valorInicialMes(idLoja, hojeISOLisboa());
+    const mapeadas = rows.map((r) => ({
+      ...r,
+      total_valor: r.total_valor != null ? Number(r.total_valor) : null,
+      valor_atual: r.total_valor != null ? Number(r.total_valor) : null,
+      valor_inicial_mes: inicioMes.valor_inicial_mes,
+      data_inicial_mes: inicioMes.data_inicial_mes,
+    }));
+
+    if (!paginacao.ativo) return res.json(mapeadas);
+
+    const { rows: totalRows } = await pool.query(
+      'SELECT COUNT(*)::int AS total FROM estoque_contagens WHERE id_loja = $1',
+      [idLoja],
+    );
     res.json(
-      rows.map((r) => ({
-        ...r,
-        total_valor: r.total_valor != null ? Number(r.total_valor) : null,
-        valor_atual: r.total_valor != null ? Number(r.total_valor) : null,
-        valor_inicial_mes: inicioMes.valor_inicial_mes,
-        data_inicial_mes: inicioMes.data_inicial_mes,
-      })),
+      montarEnvelopeOffset(mapeadas, {
+        page: paginacao.page,
+        pageSize: paginacao.pageSize,
+        total: totalRows[0].total,
+      }),
     );
   } catch (e) {
     next(e);
