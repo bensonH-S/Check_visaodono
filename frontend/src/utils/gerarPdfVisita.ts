@@ -751,7 +751,7 @@ async function carregarImagem(path: string): Promise<ImagemPdf | null> {
   return { dataUrl, mime, w: img.naturalWidth, h: img.naturalHeight };
 }
 
-export async function gerarPdfVisita(dados: VisitaDetalhe): Promise<void> {
+export async function gerarPdfVisita(dados: VisitaDetalhe, opts?: { asShare?: boolean }): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const v = dados.visita;
   const logo = await carregarIconeMarca();
@@ -806,5 +806,25 @@ export async function gerarPdfVisita(dados: VisitaDetalhe): Promise<void> {
 
   const dataArq = fmtData(v.data_visita).replace(/\//g, '-');
   const bkn = v.bk_number || 'loja';
-  doc.save(`relatorio-visita-${v.id_visita}-${bkn}-${dataArq}.pdf`);
+  const filename = `relatorio-visita-${v.id_visita}-${bkn}-${dataArq}.pdf`;
+
+  if (opts?.asShare && typeof navigator !== 'undefined' && navigator.canShare) {
+    try {
+      const blob = doc.output('blob');
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Relatório da Visita',
+          text: `Relatório da visita - ${v.name || bkn}`,
+        });
+        return;
+      }
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return;
+      console.error('Web Share API error:', e);
+    }
+  }
+
+  doc.save(filename);
 }

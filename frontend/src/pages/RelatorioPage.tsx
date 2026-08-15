@@ -206,14 +206,17 @@ export default function RelatorioPage() {
     if (!data) return;
     setExportandoPdf(true);
     try {
-      await gerarPdfVisita(data);
-      showToast('PDF baixado com sucesso', 'success');
+      await gerarPdfVisita(data, { asShare: mobileApp });
+      if (!mobileApp) {
+        showToast('PDF baixado com sucesso', 'success');
+      }
     } catch (e) {
+      if ((e as Error).name === 'AbortError') return; // Compartilhamento cancelado
       showToast((e as Error).message || 'Não foi possível gerar o PDF', 'error');
     } finally {
       setExportandoPdf(false);
     }
-  }, [data]);
+  }, [data, mobileApp]);
 
   const confirmarReabrir = useCallback(async () => {
     if (!id) return;

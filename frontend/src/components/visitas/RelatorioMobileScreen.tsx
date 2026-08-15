@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import ShareIcon from '@mui/icons-material/Share';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { fmtData, fmtNota, fetchMediaAutenticada } from '../../api/client';
 import type { VisitaDetalhe } from '../../api/client';
@@ -196,14 +196,14 @@ export default function RelatorioMobileScreen({
               <button
                 type="button"
                 className="ck-visitas__pdf"
-                aria-label="Baixar PDF"
+                aria-label="Partilhar"
                 disabled={exportandoPdf}
                 onClick={onExportarPdf}
               >
                 {exportandoPdf ? (
                   <CircularProgress size={18} sx={{ color: '#fff' }} />
                 ) : (
-                  <PictureAsPdfIcon fontSize="small" />
+                  <ShareIcon fontSize="small" />
                 )}
               </button>
               <CkMarkLogoMenu size={64} className="ck-visitas__toolbar-logo" />
