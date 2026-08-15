@@ -413,10 +413,11 @@ export default function ControleEstoquePage() {
     if (!idLoja) return;
     setLoading(true);
     try {
-      // Sequencial de propósito: evita rajada paralela (Akamai / rate limit).
-      if (podeProdutos || podeOperacional || podeBreak) await carregarProdutos();
-      if (podeOperacional) await carregarProdutosVendaCount();
-      if (podeConferencia) await carregarListaContagens();
+      const jobs: Promise<unknown>[] = [];
+      if (podeProdutos || podeOperacional || podeBreak) jobs.push(carregarProdutos());
+      if (podeOperacional) jobs.push(carregarProdutosVendaCount());
+      if (podeConferencia) jobs.push(carregarListaContagens());
+      await Promise.all(jobs);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar estoque', 'error');
     } finally {
@@ -436,19 +437,17 @@ export default function ControleEstoquePage() {
   useEffect(() => {
     setVerDetalhe(false);
     setContagem(null);
-    setProdutosVendaCount(0);
     void carregarTudo();
   }, [idLoja]); // eslint-disable-line react-hooks/exhaustive-deps -- só ao trocar loja
 
-  // Busca de insumos: só quando o usuário digita (não no mount — carregarTudo já busca).
   useEffect(() => {
     if (!idLoja || !(podeProdutos || podeOperacional || podeBreak)) return;
-    if (!busca) return;
-    const t = window.setTimeout(() => {
-      void carregarProdutos();
-    }, 300);
-    return () => window.clearTimeout(t);
-  }, [busca, idLoja, podeProdutos, podeOperacional, podeBreak, carregarProdutos]);
+    void carregarProdutos();
+  }, [carregarProdutos, idLoja, podeProdutos, podeOperacional, podeBreak]);
+
+  useEffect(() => {
+    setProdutosVendaCount(0);
+  }, [idLoja]);
 
   useEffect(() => {
     if (abaParam && REDIRECT_ABA[abaParam]) {

@@ -31,6 +31,8 @@ import SendIcon from '@mui/icons-material/Send';
 import CheckIcon from '@mui/icons-material/Check';
 import UndoIcon from '@mui/icons-material/Undo';
 import DeleteIcon from '@mui/icons-material/Delete';
+import PlaceIcon from '@mui/icons-material/Place';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import {
   api,
   type EscalaVisitasGrade,
@@ -667,6 +669,7 @@ export default function EscalaVisitasPage() {
                             mr: 0.25,
                           }}
                         >
+                          <PlaceIcon fontSize="small" sx={{ mr: 0.5, color: colors.textSecondary }} />
                           {st.nome_regiao}
                         </Typography>
                         {grade?.pode_aprovar && pendente && (
@@ -701,17 +704,15 @@ export default function EscalaVisitasPage() {
                           </Button>
                         )}
                         {grade?.pode_excluir && (
-                          <Button
+                          <IconButton
                             size="small"
-                            variant="outlined"
                             color="error"
-                            startIcon={<DeleteIcon />}
                             disabled={salvando}
                             onClick={() => void excluirEscalaRegiao(st.id_regiao, st.nome_regiao)}
-                            sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                            sx={{ p: 0.5 }}
                           >
-                            Excluir
-                          </Button>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
                         )}
                       </Box>
                       <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
@@ -776,6 +777,7 @@ export default function EscalaVisitasPage() {
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      <TwoWheelerIcon fontSize="small" sx={{ color: colors.textSecondary }} />
                       <Chip
                         size="small"
                         clickable={!ehDeliveryOnly}
@@ -816,17 +818,15 @@ export default function EscalaVisitasPage() {
                         </Button>
                       )}
                       {grade.pode_excluir && (
-                        <Button
+                        <IconButton
                           size="small"
-                          variant="outlined"
                           color="error"
-                          startIcon={<DeleteIcon />}
                           disabled={salvando}
                           onClick={() => void excluirEscalaDelivery()}
-                          sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
+                          sx={{ p: 0.5 }}
                         >
-                          Excluir
-                        </Button>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
                       )}
                     </Box>
                     <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>

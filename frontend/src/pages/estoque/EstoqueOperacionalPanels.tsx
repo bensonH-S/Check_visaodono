@@ -1,16 +1,19 @@
-import { useCallback, useEffect, useState, useMemo } from 'react';
-import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import Collapse from '@mui/material/Collapse';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Switch from '@mui/material/Switch';
@@ -27,6 +30,10 @@ import AddIcon from '@mui/icons-material/Add';
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import RemoveIcon from '@mui/icons-material/Remove';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
@@ -34,9 +41,16 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   api,
   type EstoqueBreakResumo,
+  type EstoqueCmvReal,
   type EstoqueCmvTeorico,
+  type EstoqueCmvVariancia,
+  type EstoqueDisciplina,
+  type EstoqueMovimento,
+  type EstoqueNfeDetalhe,
+  type EstoqueNfeResumo,
   type EstoquePedidoItem,
   type EstoquePedidoSugerido,
+  type EstoqueSaldoItem,
   type FichaTecnicaDetalhe,
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
@@ -52,7 +66,7 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 
-type AbaOp = 'cmv' | 'break' | 'pedido' | 'fichas';
+type AbaOp = 'cmv' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -132,8 +146,8 @@ type Props = {
   idLoja: number;
   produtos: ProdutoEstoque[];
   onProdutosVendaCountChange?: (n: number) => void;
-  onIrFichas?: () => void;
   onInsumosReload?: () => void;
+  onIrFichas?: () => void;
 };
 
 export type { AbaOp };
@@ -143,10 +157,14 @@ export default function EstoqueOperacionalPanels({
   idLoja,
   produtos,
   onProdutosVendaCountChange,
+  onInsumosReload,
   onIrFichas,
 }: Props) {
   if (aba === 'cmv') {
     return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} />;
+  }
+  if (aba === 'saldo') {
+    return <PainelSaldoKardex idLoja={idLoja} />;
   }
   if (aba === 'pedido') return <PainelPedido idLoja={idLoja} />;
   if (aba === 'fichas') {
@@ -155,10 +173,17 @@ export default function EstoqueOperacionalPanels({
         idLoja={idLoja}
         insumos={produtos}
         onCountChange={onProdutosVendaCountChange}
+        onInsumosReload={onInsumosReload}
       />
     );
   }
   return <PainelBreak idLoja={idLoja} />;
+}
+
+function severidadePeso(s: string | undefined) {
+  if (s === 'alta') return 0;
+  if (s === 'media') return 1;
+  return 2;
 }
 
 function PainelCmv({
@@ -170,17 +195,35 @@ function PainelCmv({
 }) {
   const [loading, setLoading] = useState(true);
   const [cmv, setCmv] = useState<EstoqueCmvTeorico | null>(null);
+  const [real, setReal] = useState<EstoqueCmvReal | null>(null);
+  const [variancia, setVariancia] = useState<EstoqueCmvVariancia | null>(null);
+  const [disciplina, setDisciplina] = useState<EstoqueDisciplina | null>(null);
+  const [nfes, setNfes] = useState<EstoqueNfeResumo[]>([]);
   const [dataIni, setDataIni] = useState(() => inicioMesISO());
   const [dataFim, setDataFim] = useState(hojeISO());
   const [faltaFicha, setFaltaFicha] = useState(0);
+  const [nfeDet, setNfeDet] = useState<EstoqueNfeDetalhe | null>(null);
+  const [conferindo, setConferindo] = useState(false);
+  const [fechando, setFechando] = useState(false);
+  const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);
+  const [nfesAberto, setNfesAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      // Sequencial: evita rajada paralela com o restante da página de estoque.
-      const c = await api.estoqueCmvTeorico(idLoja, { de: dataIni, ate: dataFim });
-      const pv = await api.estoqueProdutosVenda({ id_loja: idLoja });
+      const [c, r, v, d, nf, pv] = await Promise.all([
+        api.estoqueCmvTeorico(idLoja, { de: dataIni, ate: dataFim }),
+        api.estoqueCmvReal(idLoja, { de: dataIni, ate: dataFim }),
+        api.estoqueCmvVariancia(idLoja, { de: dataIni, ate: dataFim, limit: 30 }),
+        api.estoqueDisciplina(idLoja),
+        api.estoqueNfes(idLoja, { conferir: true, limit: 30 }),
+        api.estoqueProdutosVenda({ id_loja: idLoja }),
+      ]);
       setCmv(c);
+      setReal(r);
+      setVariancia(v);
+      setDisciplina(d);
+      setNfes(nf);
       setFaltaFicha(
         pv.filter((p) => p.requer_ficha !== false && !(p.id_ficha && (p.itens_ficha ?? 0) > 0))
           .length,
@@ -196,6 +239,111 @@ function PainelCmv({
     void carregar();
   }, [carregar]);
 
+  const abrirConferir = async (idNfe: number) => {
+    try {
+      const det = await api.estoqueNfeDetalhe(idNfe);
+      setNfeDet(det);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao abrir NF', 'error');
+    }
+  };
+
+  const confirmarRecebimento = async (confirmarTodos: boolean) => {
+    if (!nfeDet) return;
+    setConferindo(true);
+    try {
+      const r = await api.estoqueNfeConferir(nfeDet.id_nfe, { confirmar_todos: confirmarTodos });
+      showToast(
+        r.divergente
+          ? `NF conferida com divergência · estoque em ${fmtDataBR(r.data_entrega)}`
+          : `Recebimento OK · estoque em ${fmtDataBR(r.data_entrega)}`,
+        r.divergente ? 'warning' : 'success',
+      );
+      setNfeDet(null);
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao conferir NF', 'error');
+    } finally {
+      setConferindo(false);
+    }
+  };
+
+  const fecharMes = async () => {
+    const anoMes = dataIni.slice(0, 7);
+    setFechando(true);
+    setMenuEl(null);
+    try {
+      await api.estoqueFecharMes({ id_loja: idLoja, ano_mes: anoMes });
+      showToast(`Mês ${anoMes} fechado`, 'success');
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não fechou o mês', 'error');
+    } finally {
+      setFechando(false);
+    }
+  };
+
+  const realPctPreview = real?.cmv_real_pct;
+  const motivoRealCard =
+    realPctPreview != null
+      ? null
+      : real?.estoque_final == null
+        ? 'Falta estoque final (contagem completa no fim do período).'
+        : real?.estoque_inicial == null
+          ? 'Falta estoque inicial (contagem completa no início do período).'
+          : real?.aviso || 'Ainda não dá para calcular o CMV real.';
+
+  const alertasPriorizados = useMemo(() => {
+    const msgs: { texto: string; peso: number; key: string }[] = [];
+    const seen = new Set<string>();
+    const push = (texto: string | null | undefined, peso: number, key: string) => {
+      const t = (texto || '').trim();
+      if (!t || seen.has(t)) return;
+      if (motivoRealCard && t === motivoRealCard) return;
+      seen.add(t);
+      msgs.push({ texto: t, peso, key });
+    };
+
+    if (cmv?.cmv_teorico_pct != null && cmv.cmv_teorico_pct > 70) {
+      push(
+        `CMV teórico ${fmtNum(cmv.cmv_teorico_pct, 0)}% está absurdo (meta ${cmv.meta_pct ?? 38}%). Provável erro: preço de caixa sem converter para unidade na ficha.`,
+        0,
+        'custo-suspeito',
+      );
+    }
+
+    for (const a of disciplina?.alertas || []) {
+      // NF pendente não é alerta vermelho de CMV — fica na seção Recebimentos
+      if (a.tipo === 'nf_sem_entrega') continue;
+      push(a.mensagem, severidadePeso(a.severidade), `d-${a.tipo}-${a.mensagem}`);
+    }
+    if (realPctPreview != null) {
+      push(real?.aviso, 0, 'real-aviso');
+    }
+    for (const av of real?.avisos || []) {
+      if (/NF\(s\) sem entrada/i.test(av)) continue;
+      push(av, 1, `real-${av}`);
+    }
+    if (faltaFicha > 0) {
+      push(
+        `${faltaFicha} produto(s) sem ficha — CMV teórico fica incompleto.`,
+        1,
+        'falta-ficha',
+      );
+    }
+
+    return msgs.sort((a, b) => a.peso - b.peso).slice(0, 3);
+  }, [
+    cmv?.cmv_teorico_pct,
+    cmv?.meta_pct,
+    disciplina?.alertas,
+    real?.aviso,
+    real?.avisos,
+    faltaFicha,
+    motivoRealCard,
+    realPctPreview,
+  ]);
+
   if (loading && !cmv) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -204,115 +352,628 @@ function PainelCmv({
     );
   }
 
-  const confiavel = !!cmv?.cmv_confiavel;
-  const cmvCor = !confiavel
-    ? colors.textSecondary
-    : (cmv?.cmv_teorico_pct ?? 0) <= (cmv?.meta_pct ?? 38)
-      ? '#15803d'
-      : '#b91c1c';
+  const metaPct = cmv?.meta_pct ?? real?.meta_pct ?? 38;
+  // Sempre a venda do filtro de datas (BK Office) — não a janela do CMV real (que começa no dia após a EI).
+  const venda = cmv?.venda_bruta ?? cmv?.venda_liquida ?? null;
+  const teoricoPct = cmv?.cmv_teorico_pct;
+  const custoTeorico = cmv?.custo_teorico;
+  const realPct = realPctPreview;
+  const motivoReal = motivoRealCard;
+
+  const corPct = (pct: number | null | undefined) => {
+    if (pct == null) return colors.textSecondary;
+    return pct <= metaPct ? '#15803d' : '#b91c1c';
+  };
+
+  const cardSx = {
+    flex: '1 1 160px',
+    minWidth: 160,
+    p: 2.25,
+    borderRadius: 2,
+    border: `1px solid ${colors.border}`,
+    bgcolor: colors.surface,
+  } as const;
+
+  const linhaBreakdown = (
+    label: string,
+    valor: number | null | undefined,
+    detalhe?: string,
+  ) => (
+    <Box
+      key={label}
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        gap: 2,
+        py: 0.75,
+        borderBottom: `1px solid ${colors.border}`,
+        '&:last-of-type': { borderBottom: 0 },
+      }}
+    >
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 600, color: colors.textPrimary }}>
+          {label}
+        </Typography>
+        {detalhe ? (
+          <Typography variant="caption" color="text.secondary">
+            {detalhe}
+          </Typography>
+        ) : null}
+      </Box>
+      <Typography
+        variant="body1"
+        sx={{ fontWeight: 800, color: colors.navy, fontVariantNumeric: 'tabular-nums' }}
+      >
+        {fmtMoeda(valor)}
+      </Typography>
+    </Box>
+  );
+
+  const mesFechado = disciplina?.fechamento_mes?.status === 'fechado';
+  const ofensores = variancia?.itens || [];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      <Paper sx={{ p: 2.5, border: `1px solid ${colors.border}` }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 2,
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            mb: 2,
-          }}
-        >
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              CMV da loja
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Meta da franquia: {cmv?.meta_pct ?? 38}%. Custo em R$ só com nota fiscal — preço de
-              planilha não conta.
-            </Typography>
-          </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 2,
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
+            Controle de CMV
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
+            A venda vem do BK Office no período. Custo teórico = vendas × ficha × preço
+            unitário (não é saída manual). Meta {metaPct}%.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
           <FiltroIntervaloDatasFrota
             dataInicio={dataIni}
             dataFim={dataFim}
             onChangeInicio={setDataIni}
             onChangeFim={setDataFim}
           />
+          <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
+            Atualizar
+          </Button>
+          <IconButton
+            size="small"
+            aria-label="Mais opções"
+            onClick={(e) => setMenuEl(e.currentTarget)}
+          >
+            <MoreVertIcon fontSize="small" />
+          </IconButton>
+          <Menu
+            anchorEl={menuEl}
+            open={!!menuEl}
+            onClose={() => setMenuEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem
+              disabled={fechando || mesFechado}
+              onClick={() => void fecharMes()}
+            >
+              <ListItemIcon>
+                <LockOutlinedIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  mesFechado
+                    ? `Mês ${disciplina?.fechamento_mes?.ano_mes} já fechado`
+                    : `Fechar mês ${dataIni.slice(0, 7)}`
+                }
+              />
+            </MenuItem>
+          </Menu>
+        </Box>
+      </Box>
+
+      {/* 3 números principais */}
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ ...cardSx, flex: '1.1 1 180px' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
+            VENDA
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5, lineHeight: 1.2 }}>
+            {fmtMoeda(venda)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {cmv?.dias_venda ?? 0} dia(s) · BK Office
+          </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 2 }}>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              CMV teórico
-            </Typography>
-            <Typography variant="h3" sx={{ fontWeight: 800, color: cmvCor, lineHeight: 1.1 }}>
-              {confiavel && cmv?.cmv_teorico_pct != null
-                ? `${fmtNum(cmv.cmv_teorico_pct, 1)}%`
-                : '—'}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Venda bruta
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {fmtMoeda(cmv?.venda_bruta ?? cmv?.venda_liquida)}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Custo (só NF)
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {fmtMoeda(cmv?.custo_teorico)}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Cobertura de custo NF
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {cmv?.cobertura_custo_pct != null ? `${fmtNum(cmv.cobertura_custo_pct, 0)}%` : '0%'}
-            </Typography>
-          </Box>
-        </Box>
-
-        {cmv?.aviso && (
+        <Box sx={cardSx}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
+            CMV TEÓRICO
+          </Typography>
           <Typography
-            variant="body2"
+            variant="h4"
+            sx={{ fontWeight: 800, color: corPct(teoricoPct), mt: 0.5, lineHeight: 1.2 }}
+          >
+            {teoricoPct != null ? `${fmtNum(teoricoPct, 1)}%` : '—'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Custo {fmtMoeda(custoTeorico)}
+            {venda != null && custoTeorico != null ? ` sobre ${fmtMoeda(venda)}` : ''}
+          </Typography>
+        </Box>
+
+        <Box sx={cardSx}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
+            CMV REAL
+          </Typography>
+          <Typography
+            variant="h4"
+            sx={{ fontWeight: 800, color: corPct(realPct), mt: 0.5, lineHeight: 1.2 }}
+          >
+            {realPct != null ? `${fmtNum(realPct, 1)}%` : '—'}
+          </Typography>
+          {motivoReal ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+              {motivoReal}
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              Consumo {fmtMoeda(real?.consumo_real)}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+
+      {/* Breakdown simples */}
+      <Paper variant="outlined" sx={{ px: 2, py: 1 }}>
+        {linhaBreakdown(
+          'Estoque inicial',
+          real?.estoque_inicial,
+          real?.contagem_ei?.data_contagem
+            ? `Contagem de ${fmtDataBR(real.contagem_ei.data_contagem)}`
+            : 'Precisa de contagem completa no início',
+        )}
+        {linhaBreakdown(
+          'Compras no período',
+          real?.compras,
+          'Entradas pela data de entrega na loja',
+        )}
+        {linhaBreakdown(
+          'Estoque final',
+          real?.estoque_final,
+          real?.contagem_ef?.data_contagem
+            ? `Contagem de ${fmtDataBR(real.contagem_ef.data_contagem)}`
+            : 'Precisa de contagem completa no fim',
+        )}
+        {linhaBreakdown(
+          'Consumo real',
+          real?.consumo_real,
+          'Inicial + compras − final',
+        )}
+      </Paper>
+
+      {alertasPriorizados.length > 0 && (
+        <Box
+          sx={{
+            p: 1.75,
+            borderRadius: 2,
+            bgcolor: colors.orangeLight,
+            border: `1px solid ${colors.border}`,
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.orange, mb: 0.75 }}>
+            Atenção
+          </Typography>
+          <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
+            {alertasPriorizados.map((a) => (
+              <Typography
+                key={a.key}
+                component="li"
+                variant="body2"
+                sx={{ color: colors.textPrimary, mb: 0.35 }}
+              >
+                {a.texto}
+                {a.key === 'falta-ficha' && onIrFichas ? (
+                  <>
+                    {' '}
+                    <Button
+                      size="small"
+                      onClick={() => onIrFichas()}
+                      sx={{ textTransform: 'none', minWidth: 0, p: 0, fontWeight: 700 }}
+                    >
+                      Ir para fichas
+                    </Button>
+                  </>
+                ) : null}
+              </Typography>
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {nfes.length > 0 && (
+        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+          <Box
+            role="button"
+            tabIndex={0}
+            onClick={() => setNfesAberto((v) => !v)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setNfesAberto((v) => !v);
+              }
+            }}
             sx={{
-              p: 1.5,
-              borderRadius: 1,
-              bgcolor: '#FFF7ED',
-              color: '#9A3412',
-              border: '1px solid #FDBA74',
-              mb: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              px: 2,
+              py: 1.25,
+              cursor: 'pointer',
+              '&:hover': { bgcolor: colors.canvas },
             }}
           >
-            {cmv.aviso}
-          </Typography>
-        )}
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.navy }}>
+              Recebimentos pendentes ({nfes.length})
+            </Typography>
+            {nfesAberto ? (
+              <ExpandLessIcon fontSize="small" sx={{ color: colors.textSecondary }} />
+            ) : (
+              <ExpandMoreIcon fontSize="small" sx={{ color: colors.textSecondary }} />
+            )}
+          </Box>
+          <Collapse in={nfesAberto}>
+            <Box sx={{ px: 2, pb: 2 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Confira se os itens chegaram. A data no CMV usa a entrega — não a emissão da NF.
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>NF</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Saída</TableCell>
+                      <TableCell align="right">Valor</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {nfes.map((n) => (
+                      <TableRow key={n.id_nfe}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                            {n.numero || n.id_nfe}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {n.emitente_nome || n.fornecedor}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={
+                              n.status_entrega === 'aguardando_conferencia'
+                                ? 'Pronto p/ conferir'
+                                : n.status_entrega === 'em_transito'
+                                  ? 'Em trânsito'
+                                  : n.status_portal || n.status_entrega || '—'
+                            }
+                            color={
+                              n.status_entrega === 'aguardando_conferencia' ? 'warning' : 'default'
+                            }
+                            sx={{ fontWeight: 700 }}
+                          />
+                        </TableCell>
+                        <TableCell>{fmtDataBR(n.data_saida)}</TableCell>
+                        <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => void abrirConferir(n.id_nfe)}
+                          >
+                            Conferir
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          </Collapse>
+        </Paper>
+      )}
 
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {faltaFicha > 0 && (
-            <Chip
-              color="warning"
-              label={`Falta ficha (${faltaFicha})`}
-              onClick={() => onIrFichas?.()}
-              sx={{ fontWeight: 700, cursor: 'pointer' }}
-            />
+      {ofensores.length > 0 && (
+        <Paper
+          variant="outlined"
+          sx={{ p: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: colors.navy }}>
+            Onde o CMV está estourando
+          </Typography>
+          <TableContainer sx={{ flex: 1 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Insumo</TableCell>
+                  <TableCell align="right">Real</TableCell>
+                  <TableCell align="right">Teórico</TableCell>
+                  <TableCell align="right">Gap UN</TableCell>
+                  <TableCell align="right">Gap R$</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {ofensores.map((it) => (
+                  <TableRow key={it.id_insumo}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {it.codigo} · {it.descricao}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">{fmtNum(it.qtd_real, 2)}</TableCell>
+                    <TableCell align="right">{fmtNum(it.qtd_teorico, 2)}</TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        color: it.gap_qtd > 0 ? '#b91c1c' : it.gap_qtd < 0 ? '#15803d' : undefined,
+                      }}
+                    >
+                      {fmtNum(it.gap_qtd, 2)}
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        fontWeight: 700,
+                        color:
+                          it.gap_reais > 0 ? '#b91c1c' : it.gap_reais < 0 ? '#15803d' : undefined,
+                      }}
+                    >
+                      {fmtMoeda(it.gap_reais)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+
+      <Dialog open={!!nfeDet} onClose={() => setNfeDet(null)} maxWidth="md" fullWidth>
+        <DialogTitleWithIcon icon={<ChecklistRtlIcon />} plainIcon divider>
+          Conferir NF {nfeDet?.numero || nfeDet?.id_nfe}
+        </DialogTitleWithIcon>
+        <DialogContent sx={dialogContentSx}>
+          {nfeDet && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Portal: {nfeDet.status_portal || '—'} · Saída {fmtDataBR(nfeDet.data_saida)} ·
+                Emissão {fmtDataBR(nfeDet.emissao)} (não entra no CMV)
+              </Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Item NF</TableCell>
+                      <TableCell>Insumo</TableCell>
+                      <TableCell align="right">Qtd NF</TableCell>
+                      <TableCell align="right">Qtd estoque</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {nfeDet.itens.map((it) => (
+                      <TableRow key={it.id_item}>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {it.codigo_nf || '—'} · {it.descricao}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {it.id_insumo
+                            ? `${it.codigo_insumo} · ${it.descricao_insumo}`
+                            : 'Sem match'}
+                        </TableCell>
+                        <TableCell align="right">{fmtNum(it.q_com, 2)}</TableCell>
+                        <TableCell align="right">{fmtNum(it.qtd_estoque, 2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
           )}
-          <Chip
-            variant="outlined"
-            label={`${cmv?.itens_sem_ficha ?? 0} itens de venda sem ficha no período`}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNfeDet(null)}>Cancelar</Button>
+          <Button
+            variant="contained"
+            disabled={conferindo || !nfeDet}
+            onClick={() => void confirmarRecebimento(true)}
+          >
+            {conferindo ? 'Lançando…' : 'Confirmar: todos os itens chegaram'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}
+
+function PainelSaldoKardex({ idLoja }: { idLoja: number }) {
+  const [loading, setLoading] = useState(true);
+  const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
+  const [movs, setMovs] = useState<EstoqueMovimento[]>([]);
+  const [q, setQ] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [selInsumo, setSelInsumo] = useState<number | null>(null);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [s, m] = await Promise.all([
+        api.estoqueSaldos(idLoja, q || undefined),
+        api.estoqueMovimentos(idLoja, {
+          tipo: tipo || undefined,
+          id_insumo: selInsumo || undefined,
+          limit: 150,
+        }),
+      ]);
+      setSaldos(s);
+      setMovs(m);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao carregar saldo', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [idLoja, q, tipo, selInsumo]);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  const totalValor = saldos.reduce((acc, s) => acc + (s.valor_total || 0), 0);
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy }}>
+            Saldo & kardex
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Saldo teórico atual · movimentos por data de negócio (entrega/contagem).
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <TextField
+            size="small"
+            placeholder="Buscar insumo"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            sx={{ minWidth: 180 }}
           />
-          <Chip variant="outlined" label={`${cmv?.dias_venda ?? 0} dia(s) com venda`} />
+          <TextField
+            select
+            size="small"
+            label="Tipo"
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">Todos</MenuItem>
+            <MenuItem value="entrada">Entrada</MenuItem>
+            <MenuItem value="contagem">Contagem</MenuItem>
+            <MenuItem value="venda">Venda</MenuItem>
+            <MenuItem value="break">Break</MenuItem>
+            <MenuItem value="ajuste">Ajuste</MenuItem>
+          </TextField>
           <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
             Atualizar
           </Button>
         </Box>
-      </Paper>
+      </Box>
+
+      <Chip label={`Valor em estoque ${fmtMoeda(totalValor)}`} sx={{ alignSelf: 'flex-start', fontWeight: 700 }} />
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={28} />
+        </Box>
+      ) : (
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, flex: 1, minHeight: 0 }}>
+          <Paper variant="outlined" sx={{ overflow: 'auto', maxHeight: 520 }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Insumo</TableCell>
+                  <TableCell align="right">Qtd</TableCell>
+                  <TableCell align="right">R$</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {saldos.map((s) => (
+                  <TableRow
+                    key={s.id_insumo}
+                    hover
+                    selected={selInsumo === s.id_insumo}
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() =>
+                      setSelInsumo((prev) =>
+                        prev === s.id_insumo ? null : (s.id_insumo ?? null),
+                      )
+                    }
+                  >
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {s.codigo}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {s.descricao}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">{fmtNum(s.quantidade, 2)}</TableCell>
+                    <TableCell align="right">{fmtMoeda(s.valor_total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+
+          <Paper variant="outlined" sx={{ overflow: 'auto', maxHeight: 520 }}>
+            <Box sx={{ px: 1.5, py: 1, borderBottom: `1px solid ${colors.border}` }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Kardex {selInsumo ? '(filtrado)' : ''}
+              </Typography>
+            </Box>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Data</TableCell>
+                  <TableCell>Tipo</TableCell>
+                  <TableCell>Item</TableCell>
+                  <TableCell align="right">Δ</TableCell>
+                  <TableCell align="right">Saldo</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {movs.map((m) => (
+                  <TableRow key={m.id_movimento}>
+                    <TableCell>{fmtDataBR(m.data_movimento || m.criado_em)}</TableCell>
+                    <TableCell>{m.tipo}</TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        {m.codigo}
+                      </Typography>
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{ color: m.quantidade >= 0 ? '#15803d' : '#b91c1c', fontWeight: 700 }}
+                    >
+                      {fmtNum(m.quantidade, 2)}
+                    </TableCell>
+                    <TableCell align="right">{fmtNum(m.saldo_apos, 2)}</TableCell>
+                  </TableRow>
+                ))}
+                {!movs.length && (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Typography variant="body2" color="text.secondary">
+                        Sem movimentos.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Box>
+      )}
     </Box>
   );
 }
@@ -463,10 +1124,12 @@ function PainelProdutos({
   idLoja,
   insumos,
   onCountChange,
+  onInsumosReload,
 }: {
   idLoja: number;
   insumos: ProdutoEstoque[];
   onCountChange?: (n: number) => void;
+  onInsumosReload?: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<ProdutoVendaEstoque[]>([]);
@@ -474,6 +1137,9 @@ function PainelProdutos({
   /** Produtos = venda+ficha | Insumos = o que se conta no estoque físico */
   const [abaCadastro, setAbaCadastro] = useState<'produtos' | 'insumos'>('produtos');
   const [filtroInsumo, setFiltroInsumo] = useState<'todos' | 'com' | 'sem' | 'unitario'>('todos');
+  /** Filtro da aba Insumos: custo automático (nf/catalogo/manual com valor). */
+  const [filtroCusto, setFiltroCusto] = useState<'todos' | 'sem' | 'com'>('todos');
+  const [promovendo, setPromovendo] = useState(false);
   const [open, setOpen] = useState(false);
   const [carregandoFicha, setCarregandoFicha] = useState(false);
   const [openPicker, setOpenPicker] = useState(false);
@@ -738,6 +1404,23 @@ function PainelProdutos({
       (p.descricao || '').toLowerCase().includes(qBusca)
     );
   });
+  const temCustoAutomatico = (i: ProdutoEstoque) => {
+    const fonte = String(i.custo_fonte || '').toLowerCase();
+    return (
+      (fonte === 'nf' || fonte === 'catalogo' || fonte === 'manual') &&
+      Number(i.valor_unidade) > 0
+    );
+  };
+  const rotuloFonte = (fonte?: string | null) => {
+    const f = String(fonte || '').toLowerCase();
+    if (f === 'nf') return 'NF';
+    if (f === 'catalogo') return 'Catálogo';
+    if (f === 'manual') return 'Manual';
+    return '—';
+  };
+  const semCustoCount = insumos.filter((i) => i.ativo !== false && !temCustoAutomatico(i)).length;
+  const comCustoCount = insumos.filter((i) => i.ativo !== false && temCustoAutomatico(i)).length;
+
   const insumosFiltrados = insumos
     .filter((i) => i.ativo !== false)
     .filter((i) => {
@@ -746,6 +1429,11 @@ function PainelProdutos({
         i.codigo.toLowerCase().includes(qBusca) ||
         (i.descricao || '').toLowerCase().includes(qBusca)
       );
+    })
+    .filter((i) => {
+      if (filtroCusto === 'sem') return !temCustoAutomatico(i);
+      if (filtroCusto === 'com') return temCustoAutomatico(i);
+      return true;
     });
 
   return (
@@ -800,6 +1488,71 @@ function PainelProdutos({
               />
             </>
           )}
+          {abaCadastro === 'insumos' && (
+            <>
+              <Chip
+                size="small"
+                label={`Todos (${insumos.filter((i) => i.ativo !== false).length})`}
+                color={filtroCusto === 'todos' ? 'primary' : 'default'}
+                onClick={() => setFiltroCusto('todos')}
+                sx={{ fontWeight: 600 }}
+              />
+              <Chip
+                size="small"
+                color={filtroCusto === 'sem' ? 'warning' : 'default'}
+                label={`Sem custo automático (${semCustoCount})`}
+                onClick={() => setFiltroCusto(filtroCusto === 'sem' ? 'todos' : 'sem')}
+                sx={{ fontWeight: 700 }}
+              />
+              <Chip
+                size="small"
+                color={filtroCusto === 'com' ? 'success' : 'default'}
+                label={`Com custo (${comCustoCount})`}
+                onClick={() => setFiltroCusto(filtroCusto === 'com' ? 'todos' : 'com')}
+                sx={{ fontWeight: 600 }}
+              />
+              {semCustoCount > 0 && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="warning"
+                  disabled={promovendo}
+                  onClick={() => {
+                    void (async () => {
+                      if (
+                        !window.confirm(
+                          `Usar o preço da planilha como custo válido no CMV para ${semCustoCount} insumo(s)?\n\nNão altera o valor — só marca como Manual. Itens com preço zero ficam de fora.`,
+                        )
+                      ) {
+                        return;
+                      }
+                      setPromovendo(true);
+                      try {
+                        const r = await api.estoquePromoverPlanilha({ id_loja: idLoja });
+                        showToast(
+                          r.ainda_sem_preco.length
+                            ? `${r.promovidos} promovido(s). ${r.ainda_sem_preco.length} ainda sem preço (zerados).`
+                            : `${r.promovidos} preço(s) da planilha liberados no CMV.`,
+                          r.ainda_sem_preco.length ? 'warning' : 'success',
+                        );
+                        setFiltroCusto('todos');
+                        onInsumosReload?.();
+                      } catch (e) {
+                        showToast(
+                          e instanceof Error ? e.message : 'Erro ao promover preços',
+                          'error',
+                        );
+                      } finally {
+                        setPromovendo(false);
+                      }
+                    })();
+                  }}
+                >
+                  {promovendo ? 'Aplicando…' : 'Usar preço da planilha no CMV'}
+                </Button>
+              )}
+            </>
+          )}
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
             Atualizar
           </Button>
@@ -820,23 +1573,48 @@ function PainelProdutos({
                   <TableCell>Código</TableCell>
                   <TableCell>Descrição (insumo)</TableCell>
                   <TableCell align="center">Unidade</TableCell>
+                  <TableCell align="center">Fonte</TableCell>
+                  <TableCell align="right">R$/und</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {insumosFiltrados.map((i) => (
-                  <TableRow key={i.id_insumo ?? i.id_produto} hover>
-                    <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
-                    <TableCell>{i.descricao}</TableCell>
-                    <TableCell align="center">
-                      {String(i.unidade_contagem || 'UND').toUpperCase()}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {insumosFiltrados.map((i) => {
+                  const okCusto = temCustoAutomatico(i);
+                  return (
+                    <TableRow key={i.id_insumo ?? i.id_produto} hover>
+                      <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
+                      <TableCell>{i.descricao}</TableCell>
+                      <TableCell align="center">
+                        {String(i.unidade_contagem || 'UND').toUpperCase()}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          size="small"
+                          label={rotuloFonte(i.custo_fonte)}
+                          color={okCusto ? (i.custo_fonte === 'manual' ? 'default' : 'success') : 'warning'}
+                          variant={okCusto ? 'outlined' : 'filled'}
+                          sx={{ fontWeight: 700, minWidth: 72 }}
+                        />
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {okCusto
+                          ? fmtMoeda(i.valor_unidade)
+                          : Number(i.valor_unidade) > 0
+                            ? `${fmtMoeda(i.valor_unidade)}*`
+                            : '—'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {!insumosFiltrados.length && (
                   <TableRow>
-                    <TableCell colSpan={3}>
+                    <TableCell colSpan={5}>
                       <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
-                        Nenhum insumo nesta loja. A conferência usa esta lista para contar.
+                        {filtroCusto === 'sem'
+                          ? 'Nenhum insumo sem custo automático nesta loja.'
+                          : filtroCusto === 'com'
+                            ? 'Nenhum insumo com custo automático nesta loja.'
+                            : 'Nenhum insumo nesta loja. A conferência usa esta lista para contar.'}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -844,6 +1622,12 @@ function PainelProdutos({
               </TableBody>
             </Table>
           </TableContainer>
+          {filtroCusto !== 'com' && semCustoCount > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, py: 1 }}>
+              * Preço da planilha sem fonte automática (NF/catálogo/manual) — o CMV em R$ ignora esses
+              valores.
+            </Typography>
+          )}
         </Paper>
       ) : (
       <Paper sx={tablePaperSx}>
@@ -1526,20 +2310,14 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const [qtde, setQtde] = useState('1');
   const colabDigitado = colaboradores.length === 0 || colabSelect === '__outro__';
 
-  const colabOptions = useMemo(() => {
-    return [...colaboradores, { id_usuario: -1, nome: 'Outro (digitar nome)' }];
-  }, [colaboradores]);
-
-  const colabFilterOptions = useMemo(() => createFilterOptions<{ id_usuario: number; nome: string }>({
-    stringify: (option) => option.nome || '',
-  }), []);
-
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const breaks = await api.estoqueBreaks(idLoja);
-      const prods = await api.estoqueProdutosVenda({ id_loja: idLoja });
-      const cols = await api.estoqueBreakColaboradores(idLoja);
+      const [breaks, prods, cols] = await Promise.all([
+        api.estoqueBreaks(idLoja),
+        api.estoqueProdutosVenda({ id_loja: idLoja }),
+        api.estoqueBreakColaboradores(idLoja),
+      ]);
       setLista(breaks);
       setProdutosVenda(prods.filter((p) => p.ativo !== false));
       setColaboradores(cols);
@@ -1616,10 +2394,16 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          Consumo de colaboradores (refeição / break) — baixa o estoque na hora via ficha.
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
+            Break · consumo da galera
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
+            Cada lançamento baixa o estoque na hora (via ficha) e entra no CMV do período como custo de
+            break.
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -1627,8 +2411,9 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             resetForm();
             setOpen(true);
           }}
+          sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
         >
-          Lançar Break
+          Lançar break
         </Button>
       </Box>
 
@@ -1705,43 +2490,35 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             />
           </Box>
           {colaboradores.length > 0 ? (
-            <Autocomplete
+            <TextField
+              {...dialogFieldProps}
               size="small"
-              options={colabOptions}
-              filterOptions={colabFilterOptions}
-              getOptionLabel={(option) => option.nome || ''}
-              isOptionEqualToValue={(option, value) => option.id_usuario === value.id_usuario}
-              renderOption={(props, option) => (
-                <li {...props} key={option.id_usuario}>
-                  {option.nome}
-                </li>
-              )}
-              value={
-                colabSelect === '__outro__'
-                  ? { id_usuario: -1, nome: 'Outro (digitar nome)' }
-                  : colaboradores.find((c) => String(c.id_usuario) === String(colabSelect)) || null
-              }
-              onChange={(_e, val) => {
-                if (!val) {
-                  setColabSelect('');
+              select
+              label="Colaborador"
+              value={colabSelect}
+              onChange={(e) => {
+                const v = e.target.value;
+                setColabSelect(v);
+                if (!v || v === '__outro__') {
                   setIdColaborador('');
                   setNomeColaborador('');
                   return;
                 }
-                if (val.id_usuario === -1) {
-                  setColabSelect('__outro__');
-                  setIdColaborador('');
-                  setNomeColaborador('');
-                  return;
-                }
-                setColabSelect(String(val.id_usuario));
-                setIdColaborador(val.id_usuario);
-                setNomeColaborador(val.nome);
+                const id = Number(v);
+                const col = colaboradores.find((c) => c.id_usuario === id);
+                setIdColaborador(id);
+                setNomeColaborador(col?.nome || '');
               }}
-              renderInput={(params) => (
-                <TextField {...dialogFieldProps} {...params} label="Colaborador" sx={campoBreakFieldSx} />
-              )}
-            />
+              sx={campoBreakFieldSx}
+            >
+              <MenuItem value="">Selecione…</MenuItem>
+              {colaboradores.map((c) => (
+                <MenuItem key={c.id_usuario} value={String(c.id_usuario)}>
+                  {c.nome}
+                </MenuItem>
+              ))}
+              <MenuItem value="__outro__">Outro (digitar nome)</MenuItem>
+            </TextField>
           ) : null}
           {colabDigitado && (
             <TextField
