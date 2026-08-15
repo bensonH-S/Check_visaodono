@@ -163,10 +163,8 @@ export default function RelatorioMobileScreen({
           <div className="ck-visitas__toolbar ck-visitas__anim ck-visitas__anim--1">
             <div className="ck-visitas__toolbar-heading">
               <p className="ck-visitas__mark-text ck-visitas__mark-text--toolbar">Grupo Alvim</p>
-              <h1 className="ck-visitas__title ck-visitas__title--toolbar">
-                Relatório
-                <br />
-                da visita
+              <h1 className="ck-visitas__title ck-visitas__title--toolbar" style={{ wordBreak: 'keep-all', hyphens: 'none' }}>
+                Relatório da visita
               </h1>
             </div>
             <div className="ck-visitas__toolbar-actions ck-visitas__toolbar-actions--with-logo">
@@ -313,6 +311,7 @@ export default function RelatorioMobileScreen({
             </div>
           </>
         )}
+        <div style={{ paddingBottom: 'env(safe-area-inset-bottom)', height: 80 }} />
       </div>
 
       <ImageLightbox
