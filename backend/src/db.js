@@ -37,10 +37,10 @@ export const pool = new pg.Pool({
 pool.on('error', (err) => logger.error('db', 'Erro no pool PostgreSQL', { error: err.message }));
 
 export const hrPool = new pg.Pool({
-  host: process.env.HR_DB_HOST || '15.204.244.132',
-  user: process.env.HR_DB_USER || 'alvim',
-  password: process.env.HR_DB_PASS || '1=scvBM=2tR1&N',
-  database: process.env.HR_DB_NAME || 'hr_payroll',
+  host: process.env.HR_DB_HOST,
+  user: process.env.HR_DB_USER,
+  password: process.env.HR_DB_PASS,
+  database: process.env.HR_DB_NAME,
   port: Number(process.env.HR_DB_PORT || 5432),
   connectionTimeoutMillis: 5000,
 });

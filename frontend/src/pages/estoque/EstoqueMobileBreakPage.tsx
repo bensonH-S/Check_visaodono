@@ -435,7 +435,7 @@ export default function EstoqueMobileBreakPage() {
                         ? { id_usuario: -1, nome: 'Outro (digitar nome)' }
                         : colaboradores.find((c) => String(c.id_usuario) === String(colabSelect)) || null
                     }
-                    onChange={(e, val) => {
+                    onChange={(_e, val) => {
                       if (!val) {
                         setColabSelect('');
                         setIdColaborador('');

@@ -133,6 +133,7 @@ type Props = {
   produtos: ProdutoEstoque[];
   onProdutosVendaCountChange?: (n: number) => void;
   onIrFichas?: () => void;
+  onInsumosReload?: () => void;
 };
 
 export type { AbaOp };
@@ -1720,7 +1721,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                   ? { id_usuario: -1, nome: 'Outro (digitar nome)' }
                   : colaboradores.find((c) => String(c.id_usuario) === String(colabSelect)) || null
               }
-              onChange={(e, val) => {
+              onChange={(_e, val) => {
                 if (!val) {
                   setColabSelect('');
                   setIdColaborador('');
