@@ -590,16 +590,6 @@ export default function VisitasMobilePage() {
           visitasFiltradas={visitasFiltradas}
           filtroStatus={filtroStatus}
           onFiltro={setFiltroStatus}
-          pessoas={pessoas}
-          filtroUsuario={filtroUsuario}
-          onFiltroUsuario={setFiltroUsuario}
-          tiposChecklist={tiposDisponiveis.length ? tiposDisponiveis : [...TIPOS_CHECKLIST]}
-          filtroTipo={filtroTipo}
-          onFiltroTipo={setFiltroTipo}
-          ordenacao={ordenacao}
-          onOrdenacao={setOrdenacao}
-          onGerarRelatorio={() => void gerarRelatorioPorPessoa()}
-          gerandoPdf={gerandoPdf}
           checklistBase={checklistBase}
           podeApagar={podeApagar}
           onApagar={setApagarAlvo}
