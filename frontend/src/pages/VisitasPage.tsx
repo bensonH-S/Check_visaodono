@@ -471,7 +471,7 @@ export default function VisitasPage() {
 
   async function gerarRelatorioPorPessoa() {
     if (filtroUsuario === '' || !nomePessoaSelecionada) {
-      showToast('Selecione uma pessoa para gerar o relatório', 'warning');
+      showToast('Selecione um auditor para gerar o relatório', 'warning');
       return;
     }
     if (!filtroTipo) {
@@ -487,7 +487,7 @@ export default function VisitasPage() {
         tipo: filtroTipo,
       });
       if (!lista.length) {
-        showToast('Nenhuma visita finalizada para esta pessoa neste checklist', 'warning');
+        showToast('Nenhuma visita finalizada para este auditor neste checklist', 'warning');
         return;
       }
       await gerarPdfVisitasPorPessoa({
@@ -672,10 +672,10 @@ export default function VisitasPage() {
         }}
       >
         <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 200 }, flex: { sm: '0 1 220px' } }}>
-          <InputLabel id="filtro-pessoa-label">Pessoa</InputLabel>
+          <InputLabel id="filtro-pessoa-label">Auditor</InputLabel>
           <Select
             labelId="filtro-pessoa-label"
-            label="Pessoa"
+            label="Auditor"
             value={filtroUsuario === '' ? '' : String(filtroUsuario)}
             onChange={(e) => {
               const v = e.target.value;
@@ -683,7 +683,7 @@ export default function VisitasPage() {
               if (v !== '') setOrdenacao('nota_desc');
             }}
           >
-            <MenuItem value="">Todas as pessoas</MenuItem>
+            <MenuItem value="">Todos os auditores</MenuItem>
             {pessoas.map((p) => (
               <MenuItem key={p.id} value={String(p.id)}>
                 {p.nome}
@@ -735,7 +735,7 @@ export default function VisitasPage() {
             '&:hover': { bgcolor: '#152456' },
           }}
         >
-          {gerandoPdf ? 'Gerando…' : 'Relatório PDF'}
+          {gerandoPdf ? 'Gerando…' : 'Gerar relatório do auditor'}
         </Button>
       </Box>
 
