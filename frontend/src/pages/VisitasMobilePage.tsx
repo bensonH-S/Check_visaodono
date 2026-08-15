@@ -383,12 +383,12 @@ function FiltrosStatus({
   );
 }
 
-export default function VisitasPage() {
+export default function VisitasMobilePage() {
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const checklistBase = checklistBasePath(location.pathname);
-  const isMobileApp = false;
+  const isMobileApp = true;
   const isMobile = useMediaQuery(theme.breakpoints.down('md')) || isMobileApp;
   const usuario = getUsuario();
   const podeApagar = podeApagarVisitas(usuario);

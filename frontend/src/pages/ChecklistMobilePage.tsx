@@ -242,11 +242,11 @@ function mapRespostasApi(
 
 type Fase = 'setup' | 'iniciada' | 'perguntas';
 
-export default function ChecklistPage() {
+export default function ChecklistMobilePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const paths = { ...checklistPaths(location.pathname), mobile: false };
+  const paths = { ...checklistPaths(location.pathname), mobile: true };
   const retomadaIniciada = useRef(false);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);

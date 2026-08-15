@@ -10,8 +10,10 @@ import LoginMobilePage from './pages/LoginMobilePage';
 import DashboardPage from './pages/DashboardPage';
 import RankingPage from './pages/RankingPage';
 import ChecklistPage from './pages/ChecklistPage';
+import ChecklistMobilePage from './pages/ChecklistMobilePage';
 import ChecklistConcluidoPage from './pages/ChecklistConcluidoPage';
 import VisitasPage from './pages/VisitasPage';
+import VisitasMobilePage from './pages/VisitasMobilePage';
 import LojasPage from './pages/LojasPage';
 import NcPage from './pages/NcPage';
 import RelatorioPage from './pages/RelatorioPage';
@@ -102,7 +104,7 @@ export default function App() {
               path="checklist/mobile"
               element={
                 <RotaChecklist mobile>
-                  <ChecklistPage />
+                  <ChecklistMobilePage />
                 </RotaChecklist>
               }
             />
@@ -158,7 +160,7 @@ export default function App() {
               path="visitas/mobile"
               element={
                 <RotaVisitasMobile>
-                  <VisitasPage />
+                  <VisitasMobilePage />
                 </RotaVisitasMobile>
               }
             />
