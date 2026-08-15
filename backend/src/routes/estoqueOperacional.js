@@ -14,6 +14,17 @@ import {
   calcularPedidoSugerido,
   atualizarCustoInsumo,
 } from '../services/estoqueMotor.js';
+import {
+  calcularCmvReal,
+  calcularVarianciaInsumos,
+  confirmarEntradaNfe,
+  conferirRecebimentoNfe,
+  listarNfesEstoque,
+  obterNfeDetalhe,
+  statusDisciplinaEstoque,
+  fecharMesEstoque,
+  reabrirMesEstoque,
+} from '../services/estoqueCmvReal.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/syncVendas.js';
 import { qtdeReceitaParaEstoque } from '../services/fichaReceitaEstoque.js';
@@ -1028,6 +1039,198 @@ router.post('/sync-fornecedor/:id/rodar', permConfig, async (req, res, next) => 
       .catch((err) => {
         console.error(`[platlog] sync manual #${id} falhou:`, err.message);
       });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+
+router.get('/cmv/real', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await calcularCmvReal(idLoja, {
+      de: req.query.de ? String(req.query.de).slice(0, 10) : null,
+      ate: req.query.ate ? String(req.query.ate).slice(0, 10) : null,
+      meta: req.query.meta != null ? Number(req.query.meta) : 0.38,
+      id_contagem_ei: req.query.id_contagem_ei ? Number(req.query.id_contagem_ei) : null,
+      id_contagem_ef: req.query.id_contagem_ef ? Number(req.query.id_contagem_ef) : null,
+    });
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.get('/cmv/variancia', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await calcularVarianciaInsumos(idLoja, {
+      de: req.query.de ? String(req.query.de).slice(0, 10) : null,
+      ate: req.query.ate ? String(req.query.ate).slice(0, 10) : null,
+      id_contagem_ei: req.query.id_contagem_ei ? Number(req.query.id_contagem_ei) : null,
+      id_contagem_ef: req.query.id_contagem_ef ? Number(req.query.id_contagem_ef) : null,
+      limite: req.query.limit ? Number(req.query.limit) : 50,
+    });
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.get('/nfes', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const rows = await listarNfesEstoque(idLoja, {
+      pendentes: req.query.pendentes === '1' || req.query.pendentes === 'true',
+      conferir: req.query.conferir === '1' || req.query.conferir === 'true',
+      limit: req.query.limit ? Number(req.query.limit) : 50,
+    });
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/nfes/:id', permOp, async (req, res, next) => {
+  try {
+    const det = await obterNfeDetalhe(Number(req.params.id));
+    if (!det) return res.status(404).json({ error: 'NF n├úo encontrada' });
+    const bloqueio = acessoLoja(req, det.id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    res.json(det);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/nfes/:id/conferir', permOp, async (req, res, next) => {
+  try {
+    const idNfe = Number(req.params.id);
+    const { rows } = await pool.query(`SELECT id_loja FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
+    if (!rows.length) return res.status(404).json({ error: 'NF n├úo encontrada' });
+    const bloqueio = acessoLoja(req, rows[0].id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await conferirRecebimentoNfe({
+      id_nfe: idNfe,
+      itens: Array.isArray(req.body?.itens) ? req.body.itens : null,
+      confirmar_todos: !!req.body?.confirmar_todos,
+      criado_por: userId(req),
+    });
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'criar',
+      entidade: 'estoque_nfe_conferencia',
+      entidade_id: idNfe,
+      descricao: `Conferiu NF #${idNfe} ┬À entrega ${result.data_entrega} ┬À ${result.status_entrega}`,
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.post('/nfes/:id/entrar', permOp, async (req, res, next) => {
+  try {
+    const idNfe = Number(req.params.id);
+    const { rows } = await pool.query(`SELECT id_loja FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
+    if (!rows.length) return res.status(404).json({ error: 'NF n├úo encontrada' });
+    const bloqueio = acessoLoja(req, rows[0].id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await confirmarEntradaNfe({
+      id_nfe: idNfe,
+      data_entrega: req.body?.data_entrega,
+      criado_por: userId(req),
+      forcar: !!req.body?.forcar,
+    });
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'criar',
+      entidade: 'estoque_nfe_entrada',
+      entidade_id: idNfe,
+      descricao: `Entrada NF #${idNfe} com data_entrega ${result.data_entrega} (emissao ${result.emissao || 'ÔÇö'})`,
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.get('/disciplina', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    const result = await statusDisciplinaEstoque(idLoja);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/fechamento', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const row = await fecharMesEstoque({
+      id_loja: idLoja,
+      ano_mes: req.body?.ano_mes,
+      criado_por: userId(req),
+      observacao: req.body?.observacao || null,
+      forcar: !!req.body?.forcar,
+    });
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'atualizar',
+      entidade: 'estoque_fechamento',
+      entidade_id: row.id_fechamento,
+      descricao: `Fechou CMV ${row.ano_mes} loja ${idLoja}`,
+    });
+    res.json(row);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.post('/fechamento/reabrir', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const row = await reabrirMesEstoque({
+      id_loja: idLoja,
+      ano_mes: req.body?.ano_mes,
+      criado_por: userId(req),
+    });
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'atualizar',
+      entidade: 'estoque_fechamento',
+      entidade_id: row.id_fechamento,
+      descricao: `Reabriu CMV ${row.ano_mes} loja ${idLoja}`,
+    });
+    res.json(row);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);

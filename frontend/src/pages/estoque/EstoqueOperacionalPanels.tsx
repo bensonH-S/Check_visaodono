@@ -148,6 +148,7 @@ type Props = {
   onProdutosVendaCountChange?: (n: number) => void;
   onInsumosReload?: () => void;
   onIrFichas?: () => void;
+  onSetHeaderActions?: (node: React.ReactNode) => void;
 };
 
 export type { AbaOp };
@@ -159,9 +160,10 @@ export default function EstoqueOperacionalPanels({
   onProdutosVendaCountChange,
   onInsumosReload,
   onIrFichas,
+  onSetHeaderActions,
 }: Props) {
   if (aba === 'cmv') {
-    return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} />;
+    return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} onSetHeaderActions={onSetHeaderActions} />;
   }
   if (aba === 'saldo') {
     return <PainelSaldoKardex idLoja={idLoja} />;
@@ -189,9 +191,11 @@ function severidadePeso(s: string | undefined) {
 function PainelCmv({
   idLoja,
   onIrFichas,
+  onSetHeaderActions,
 }: {
   idLoja: number;
   onIrFichas?: () => void;
+  onSetHeaderActions?: (node: React.ReactNode) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [cmv, setCmv] = useState<EstoqueCmvTeorico | null>(null);
@@ -238,6 +242,32 @@ function PainelCmv({
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    onSetHeaderActions?.(
+      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+        <FiltroIntervaloDatasFrota
+          dataInicio={dataIni}
+          dataFim={dataFim}
+          onChangeInicio={setDataIni}
+          onChangeFim={setDataFim}
+        />
+        <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
+          Atualizar
+        </Button>
+        <IconButton
+          size="small"
+          aria-label="Mais opções"
+          onClick={(e) => setMenuEl(e.currentTarget)}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      </Box>,
+    );
+    return () => {
+      onSetHeaderActions?.(null);
+    };
+  }, [dataIni, dataFim, carregar, onSetHeaderActions]);
 
   const abrirConferir = async (idNfe: number) => {
     try {
@@ -361,8 +391,11 @@ function PainelCmv({
   const motivoReal = motivoRealCard;
 
   const corPct = (pct: number | null | undefined) => {
-    if (pct == null) return colors.textSecondary;
-    return pct <= metaPct ? '#15803d' : '#b91c1c';
+    const v = pct ?? 0;
+    if (v === 0) return colors.textSecondary;
+    if (v <= metaPct) return '#15803d'; // Verde
+    if (v <= metaPct + 2.5) return '#ea580c'; // Laranja até +2.5% acima da meta
+    return '#b91c1c'; // Vermelho
   };
 
   const cardSx = {
@@ -374,107 +407,99 @@ function PainelCmv({
     bgcolor: colors.surface,
   } as const;
 
-  const linhaBreakdown = (
-    label: string,
-    valor: number | null | undefined,
-    detalhe?: string,
-  ) => (
-    <Box
-      key={label}
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'baseline',
-        gap: 2,
-        py: 0.75,
-        borderBottom: `1px solid ${colors.border}`,
-        '&:last-of-type': { borderBottom: 0 },
-      }}
-    >
-      <Box>
-        <Typography variant="body2" sx={{ fontWeight: 600, color: colors.textPrimary }}>
-          {label}
-        </Typography>
-        {detalhe ? (
-          <Typography variant="caption" color="text.secondary">
-            {detalhe}
-          </Typography>
-        ) : null}
-      </Box>
-      <Typography
-        variant="body1"
-        sx={{ fontWeight: 800, color: colors.navy, fontVariantNumeric: 'tabular-nums' }}
-      >
-        {fmtMoeda(valor)}
-      </Typography>
-    </Box>
-  );
-
   const mesFechado = disciplina?.fechamento_mes?.status === 'fechado';
   const ofensores = variancia?.itens || [];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
+      {/* Título + alertas na mesma linha */}
       <Box
         sx={{
           display: 'flex',
           flexWrap: 'wrap',
           gap: 2,
-          alignItems: 'flex-start',
+          alignItems: 'center',
           justifyContent: 'space-between',
         }}
       >
-        <Box>
+        {/* Título + descrição à esquerda */}
+        <Box sx={{ flex: '1 1 auto', minWidth: 200 }}>
           <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
             Controle de CMV
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
-            A venda vem do BK Office no período. Custo teórico = vendas × ficha × preço
-            unitário (não é saída manual). Meta {metaPct}%.
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Custo teórico = vendas × ficha × preço unitário. Meta {metaPct}%.
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
-          <FiltroIntervaloDatasFrota
-            dataInicio={dataIni}
-            dataFim={dataFim}
-            onChangeInicio={setDataIni}
-            onChangeFim={setDataFim}
-          />
-          <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
-            Atualizar
-          </Button>
-          <IconButton
-            size="small"
-            aria-label="Mais opções"
-            onClick={(e) => setMenuEl(e.currentTarget)}
+
+        {/* Alertas na mesma linha ao lado do título */}
+        {alertasPriorizados.length > 0 && (
+          <Box
+            sx={{
+              flex: '1 1 340px',
+              maxWidth: { xs: '100%', md: 540 },
+              p: 1.25,
+              px: 2,
+              borderRadius: 2,
+              bgcolor: colors.orangeLight,
+              border: `1px solid ${colors.border}`,
+            }}
           >
-            <MoreVertIcon fontSize="small" />
-          </IconButton>
-          <Menu
-            anchorEl={menuEl}
-            open={!!menuEl}
-            onClose={() => setMenuEl(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          >
-            <MenuItem
-              disabled={fechando || mesFechado}
-              onClick={() => void fecharMes()}
-            >
-              <ListItemIcon>
-                <LockOutlinedIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary={
-                  mesFechado
-                    ? `Mês ${disciplina?.fechamento_mes?.ano_mes} já fechado`
-                    : `Fechar mês ${dataIni.slice(0, 7)}`
-                }
-              />
-            </MenuItem>
-          </Menu>
-        </Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.orange, mb: 0.25 }}>
+              Atenção
+            </Typography>
+            <Box component="ul" sx={{ m: 0, pl: 2 }}>
+              {alertasPriorizados.map((a) => (
+                <Typography
+                  key={a.key}
+                  component="li"
+                  variant="caption"
+                  sx={{ color: colors.textPrimary, display: 'list-item', mb: 0.25 }}
+                >
+                  {a.texto}
+                  {a.key === 'falta-ficha' && onIrFichas ? (
+                    <>
+                      {' '}
+                      <Button
+                        size="small"
+                        onClick={() => onIrFichas()}
+                        sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: '0.75rem', fontWeight: 700 }}
+                      >
+                        Ir para fichas
+                      </Button>
+                    </>
+                  ) : null}
+                </Typography>
+              ))}
+            </Box>
+          </Box>
+        )}
       </Box>
+
+      {/* Menu ancorado nas opções do header */}
+      <Menu
+        anchorEl={menuEl}
+        open={!!menuEl}
+        onClose={() => setMenuEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          disabled={fechando || mesFechado}
+          onClick={() => void fecharMes()}
+        >
+          <ListItemIcon>
+            <LockOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText
+            primary={
+              mesFechado
+                ? `Mês ${disciplina?.fechamento_mes?.ano_mes} já fechado`
+                : `Fechar mês ${dataIni.slice(0, 7)}`
+            }
+          />
+        </MenuItem>
+      </Menu>
 
       {/* 3 números principais */}
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
@@ -483,7 +508,7 @@ function PainelCmv({
             VENDA
           </Typography>
           <Typography variant="h4" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5, lineHeight: 1.2 }}>
-            {fmtMoeda(venda)}
+            {fmtMoeda(venda ?? 0)}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {cmv?.dias_venda ?? 0} dia(s) · BK Office
@@ -498,7 +523,7 @@ function PainelCmv({
             variant="h4"
             sx={{ fontWeight: 800, color: corPct(teoricoPct), mt: 0.5, lineHeight: 1.2 }}
           >
-            {teoricoPct != null ? `${fmtNum(teoricoPct, 1)}%` : '—'}
+            {teoricoPct != null ? `${fmtNum(teoricoPct, 1)}%` : '0%'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Custo {fmtMoeda(custoTeorico)}
@@ -514,7 +539,7 @@ function PainelCmv({
             variant="h4"
             sx={{ fontWeight: 800, color: corPct(realPct), mt: 0.5, lineHeight: 1.2 }}
           >
-            {realPct != null ? `${fmtNum(realPct, 1)}%` : '—'}
+            {realPct != null ? `${fmtNum(realPct, 1)}%` : '0%'}
           </Typography>
           {motivoReal ? (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
@@ -528,72 +553,37 @@ function PainelCmv({
         </Box>
       </Box>
 
-      {/* Breakdown simples */}
-      <Paper variant="outlined" sx={{ px: 2, py: 1 }}>
-        {linhaBreakdown(
-          'Estoque inicial',
-          real?.estoque_inicial,
-          real?.contagem_ei?.data_contagem
-            ? `Contagem de ${fmtDataBR(real.contagem_ei.data_contagem)}`
-            : 'Precisa de contagem completa no início',
-        )}
-        {linhaBreakdown(
-          'Compras no período',
-          real?.compras,
-          'Entradas pela data de entrega na loja',
-        )}
-        {linhaBreakdown(
-          'Estoque final',
-          real?.estoque_final,
-          real?.contagem_ef?.data_contagem
-            ? `Contagem de ${fmtDataBR(real.contagem_ef.data_contagem)}`
-            : 'Precisa de contagem completa no fim',
-        )}
-        {linhaBreakdown(
-          'Consumo real',
-          real?.consumo_real,
-          'Inicial + compras − final',
-        )}
-      </Paper>
-
-      {alertasPriorizados.length > 0 && (
-        <Box
-          sx={{
-            p: 1.75,
-            borderRadius: 2,
-            bgcolor: colors.orangeLight,
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.orange, mb: 0.75 }}>
-            Atenção
+      {/* Breakdown simples em cards */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 1.5 }}>
+        <Box sx={{ ...cardSx, p: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>ESTOQUE INICIAL</Typography>
+          <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.estoque_inicial ?? 0)}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+            {real?.contagem_ei?.data_contagem ? `Contagem de ${fmtDataBR(real.contagem_ei.data_contagem)}` : 'Sem contagem inicial'}
           </Typography>
-          <Box component="ul" sx={{ m: 0, pl: 2.25 }}>
-            {alertasPriorizados.map((a) => (
-              <Typography
-                key={a.key}
-                component="li"
-                variant="body2"
-                sx={{ color: colors.textPrimary, mb: 0.35 }}
-              >
-                {a.texto}
-                {a.key === 'falta-ficha' && onIrFichas ? (
-                  <>
-                    {' '}
-                    <Button
-                      size="small"
-                      onClick={() => onIrFichas()}
-                      sx={{ textTransform: 'none', minWidth: 0, p: 0, fontWeight: 700 }}
-                    >
-                      Ir para fichas
-                    </Button>
-                  </>
-                ) : null}
-              </Typography>
-            ))}
-          </Box>
         </Box>
-      )}
+        <Box sx={{ ...cardSx, p: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>COMPRAS</Typography>
+          <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.compras ?? 0)}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+            Entradas por data de entrega
+          </Typography>
+        </Box>
+        <Box sx={{ ...cardSx, p: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>ESTOQUE FINAL</Typography>
+          <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.estoque_final ?? 0)}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+            {real?.contagem_ef?.data_contagem ? `Contagem de ${fmtDataBR(real.contagem_ef.data_contagem)}` : 'Sem contagem final'}
+          </Typography>
+        </Box>
+        <Box sx={{ ...cardSx, p: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>CONSUMO REAL</Typography>
+          <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.consumo_real ?? 0)}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+            Inicial + Compras − Final
+          </Typography>
+        </Box>
+      </Box>
 
       {nfes.length > 0 && (
         <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
@@ -618,9 +608,14 @@ function PainelCmv({
               '&:hover': { bgcolor: colors.canvas },
             }}
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.navy }}>
-              Recebimentos pendentes ({nfes.length})
-            </Typography>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: colors.navy, fontSize: '1.05rem', lineHeight: 1.2 }}>
+                Recebimentos pendentes ({nfes.length})
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', display: 'block', mt: 0.25 }}>
+                Confira se os itens chegaram. A data no CMV usa a entrega — não a emissão da NF.
+              </Typography>
+            </Box>
             {nfesAberto ? (
               <ExpandLessIcon fontSize="small" sx={{ color: colors.textSecondary }} />
             ) : (
@@ -628,65 +623,61 @@ function PainelCmv({
             )}
           </Box>
           <Collapse in={nfesAberto}>
-            <Box sx={{ px: 2, pb: 2 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Confira se os itens chegaram. A data no CMV usa a entrega — não a emissão da NF.
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>NF</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Saída</TableCell>
-                      <TableCell align="right">Valor</TableCell>
-                      <TableCell />
+            <TableContainer sx={{ maxHeight: 380, overflow: 'auto' }}>
+              <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>NF</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Saída</TableCell>
+                    <TableCell align="right">Valor</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {nfes.map((n) => (
+                    <TableRow key={n.id_nfe}>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {n.numero || n.id_nfe}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {n.emitente_nome || n.fornecedor}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={
+                            n.status_entrega === 'aguardando_conferencia'
+                              ? 'Pronto p/ conferir'
+                              : n.status_entrega === 'em_transito'
+                                ? 'Em trânsito'
+                                : n.status_portal || n.status_entrega || '—'
+                          }
+                          color={
+                            n.status_entrega === 'aguardando_conferencia' ? 'warning' : 'default'
+                          }
+                          sx={{ fontWeight: 700 }}
+                        />
+                      </TableCell>
+                      <TableCell>{fmtDataBR(n.data_saida)}</TableCell>
+                      <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          variant="contained"
+                          disableElevation
+                          onClick={() => void abrirConferir(n.id_nfe)}
+                        >
+                          Conferir
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {nfes.map((n) => (
-                      <TableRow key={n.id_nfe}>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                            {n.numero || n.id_nfe}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {n.emitente_nome || n.fornecedor}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={
-                              n.status_entrega === 'aguardando_conferencia'
-                                ? 'Pronto p/ conferir'
-                                : n.status_entrega === 'em_transito'
-                                  ? 'Em trânsito'
-                                  : n.status_portal || n.status_entrega || '—'
-                            }
-                            color={
-                              n.status_entrega === 'aguardando_conferencia' ? 'warning' : 'default'
-                            }
-                            sx={{ fontWeight: 700 }}
-                          />
-                        </TableCell>
-                        <TableCell>{fmtDataBR(n.data_saida)}</TableCell>
-                        <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
-                        <TableCell align="right">
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => void abrirConferir(n.id_nfe)}
-                          >
-                            Conferir
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Collapse>
         </Paper>
       )}
@@ -1681,6 +1672,9 @@ function PainelProdutos({
                       title={p.descricao || undefined}
                     >
                       {p.descricao || '—'}
+                    </TableCell>
+                    <TableCell align="center">
+                      {unitario ? '—' : (p.itens_ficha != null ? `${p.itens_ficha} iten${p.itens_ficha !== 1 ? 's' : ''}` : '—')}
                     </TableCell>
                     <TableCell align="center">
                       {unitario ? (

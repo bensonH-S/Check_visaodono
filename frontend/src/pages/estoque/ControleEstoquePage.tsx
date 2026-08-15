@@ -287,9 +287,12 @@ export default function ControleEstoquePage() {
 
   const aba: AbaEstoque = isAbaEstoque(abaParam) ? abaParam : abaInicialPermitida();
 
+  const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
+
   const irParaAba = useCallback(
     (proxima: AbaEstoque) => {
       if (proxima === aba) return;
+      setHeaderActions(null);
       navigate(`/estoque/${proxima}`);
     },
     [aba, navigate],
@@ -661,7 +664,7 @@ export default function ControleEstoquePage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', minHeight: 0, overflowY: 'auto' }}>
       <Box
         sx={{
           display: 'flex',
@@ -712,28 +715,37 @@ export default function ControleEstoquePage() {
         )}
       </Box>
 
-      <Tabs
-        value={idLoja ? aba : false}
-        onChange={(_e, v: AbaEstoque) => {
-          if (bloqueiaOutrasAbas && v !== 'conferencia') return;
-          irParaAba(v);
-        }}
-        variant="scrollable"
-        scrollButtons="auto"
+      <Box
         sx={{
-          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           borderBottom: `1px solid ${colors.border}`,
-          '& .MuiTab-root': {
-            minHeight: 44,
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '0.9rem',
-            px: 2,
-          },
-          '& .Mui-selected': { fontWeight: 800, color: `${colors.navy} !important` },
-          '& .MuiTabs-indicator': { height: 3, borderRadius: 2, bgcolor: colors.orange },
+          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
+        <Tabs
+          value={idLoja ? aba : false}
+          onChange={(_e, v: AbaEstoque) => {
+            if (bloqueiaOutrasAbas && v !== 'conferencia') return;
+            irParaAba(v);
+          }}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            minHeight: 44,
+            '& .MuiTab-root': {
+              minHeight: 44,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              px: 2,
+            },
+            '& .Mui-selected': { fontWeight: 800, color: `${colors.navy} !important` },
+            '& .MuiTabs-indicator': { height: 3, borderRadius: 2, bgcolor: colors.orange },
+          }}
+        >
           {podeOperacional && (
             <Tab value="cmv" label="CMV" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
@@ -756,7 +768,11 @@ export default function ControleEstoquePage() {
               disabled={!idLoja || bloqueiaOutrasAbas}
             />
           )}
-      </Tabs>
+        </Tabs>
+        <Box sx={{ display: 'flex', alignItems: 'center', ml: 'auto', pr: 1, py: 0.25 }}>
+          {headerActions}
+        </Box>
+      </Box>
 
       {!idLoja ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
@@ -1327,6 +1343,7 @@ export default function ControleEstoquePage() {
                     onProdutosVendaCountChange={setProdutosVendaCount}
                     onInsumosReload={() => void carregarProdutos()}
                     onIrFichas={() => irParaAba('fichas')}
+                    onSetHeaderActions={setHeaderActions}
                   />
                 )}
             </>

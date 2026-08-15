@@ -608,10 +608,9 @@ export default function EscalaVisitasPage() {
             <Box
               sx={{
                 display: 'flex',
-                flexWrap: 'nowrap',
+                flexWrap: 'wrap',
                 gap: 1,
                 alignItems: 'stretch',
-                overflowX: 'auto',
                 pb: 0.5,
                 minWidth: 0,
               }}
@@ -690,30 +689,45 @@ export default function EscalaVisitasPage() {
                             Aprovar
                           </Button>
                         )}
-                        {grade?.pode_devolver && (pendente || st.status === 'aprovado') && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="warning"
-                            startIcon={<UndoIcon />}
-                            disabled={salvando}
-                            onClick={() => void devolverRegiao(st.id_regiao)}
-                            sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
-                          >
-                            Recusar
-                          </Button>
-                        )}
-                        {grade?.pode_excluir && (
-                          <IconButton
-                            size="small"
-                            color="error"
-                            disabled={salvando}
-                            onClick={() => void excluirEscalaRegiao(st.id_regiao, st.nome_regiao)}
-                            sx={{ p: 0.5 }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )}
+                        {/* Recusar + Excluir agrupados à direita */}
+                        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                          {grade?.pode_devolver && (pendente || st.status === 'aprovado') && (
+                            <Tooltip title="Recusar" arrow>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  disabled={salvando}
+                                  onClick={() => void devolverRegiao(st.id_regiao)}
+                                  sx={{
+                                    p: 0.5,
+                                    color: colors.textSecondary,
+                                    '&:hover': { color: 'warning.main', bgcolor: 'rgba(237,108,2,0.10)' },
+                                  }}
+                                >
+                                  <UndoIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          )}
+                          {grade?.pode_excluir && (
+                            <Tooltip title="Excluir" arrow>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  disabled={salvando}
+                                  onClick={() => void excluirEscalaRegiao(st.id_regiao, st.nome_regiao)}
+                                  sx={{
+                                    p: 0.5,
+                                    color: colors.textSecondary,
+                                    '&:hover': { color: 'error.main', bgcolor: 'rgba(220,38,38,0.10)' },
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          )}
+                        </Box>
                       </Box>
                       <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
                         {montadaPor
@@ -804,30 +818,45 @@ export default function EscalaVisitasPage() {
                           Aprovar
                         </Button>
                       )}
-                      {grade.pode_devolver && (pendente || st.status === 'aprovado') && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="warning"
-                          startIcon={<UndoIcon />}
-                          disabled={salvando}
-                          onClick={() => void devolverDelivery()}
-                          sx={{ textTransform: 'none', minWidth: 0, py: 0.15 }}
-                        >
-                          Recusar
-                        </Button>
-                      )}
-                      {grade.pode_excluir && (
-                        <IconButton
-                          size="small"
-                          color="error"
-                          disabled={salvando}
-                          onClick={() => void excluirEscalaDelivery()}
-                          sx={{ p: 0.5 }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      )}
+                      {/* Recusar + Excluir agrupados à direita */}
+                      <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                        {grade.pode_devolver && (pendente || st.status === 'aprovado') && (
+                          <Tooltip title="Recusar" arrow>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={salvando}
+                                onClick={() => void devolverDelivery()}
+                                sx={{
+                                  p: 0.5,
+                                  color: colors.textSecondary,
+                                  '&:hover': { color: 'warning.main', bgcolor: 'rgba(237,108,2,0.10)' },
+                                }}
+                              >
+                                <UndoIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
+                        {grade.pode_excluir && (
+                          <Tooltip title="Excluir" arrow>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={salvando}
+                                onClick={() => void excluirEscalaDelivery()}
+                                sx={{
+                                  p: 0.5,
+                                  color: colors.textSecondary,
+                                  '&:hover': { color: 'error.main', bgcolor: 'rgba(220,38,38,0.10)' },
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </Box>
                     <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
                       {montadaPor

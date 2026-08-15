@@ -449,6 +449,28 @@ app.listen(PORT, async () => {
   } catch (e) {
     logger.error('server', 'Falha ao conectar PostgreSQL', { error: e.message });
   }
+  let hrDbStatus = '❌ Offline';
+  try {
+    const { hrPool } = await import('./backend/src/db.js');
+    await hrPool.query('SELECT 1');
+    hrDbStatus = '✅ Online';
+  } catch (e) {}
+
+  let frotasStatus = '❌ Offline';
+  try {
+    const { fulltrackStatus } = await import('./backend/src/services/fulltrackFleet.js');
+    const ft = fulltrackStatus();
+    if (ft.ativo && ft.tem_api_key && ft.tem_secret_key) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 2000);
+      const res = await fetch(`${ft.base_url.replace(/\/$/, '')}/vehicles/all`, {
+        headers: { apikey: process.env.FULLTRACK_API_KEY, secretkey: process.env.FULLTRACK_SECRET_KEY },
+        signal: ctrl.signal
+      });
+      clearTimeout(t);
+      if (res.ok) frotasStatus = '✅ Online';
+    }
+  } catch (e) {}
 
   logger.info('server', 'API iniciada', {
     modo,
@@ -460,22 +482,43 @@ app.listen(PORT, async () => {
     logs: getLogDir(),
   });
 
+  const BOX_W = 64; // largura interna entre ║ … ║
+  const displayWidth = (s) => {
+    let w = 0;
+    for (const ch of String(s)) {
+      const cp = ch.codePointAt(0);
+      if (cp === 0xfe0f) continue; // variation selector
+      // emoji / símbolos largos ocupam 2 colunas no terminal
+      if ((cp >= 0x2600 && cp <= 0x27bf) || cp >= 0x1f300) w += 2;
+      else w += 1;
+    }
+    return w;
+  };
+  const padEndVisual = (s, width) => {
+    const str = String(s);
+    const pad = Math.max(0, width - displayWidth(str));
+    return str + ' '.repeat(pad);
+  };
+  const row = (content = '') => `║${padEndVisual(content, BOX_W)}║`;
+  const line = (label, value) => row(`    ${label}${value}`);
+  const border = '═'.repeat(BOX_W);
+
   console.log(`
-╔════════════════════════════════════════════════════════════════╗
-║                                                                ║
-║       🚀 Visão do Dono — Check / Auditoria                     ║
-║                                                                ║
-║    Versão: ${String(APP_VERSION_AT_BOOT).padEnd(47)}     ║
-║    Modo: ${String(modo).padEnd(49)}     ║    
-║    Servidor: http://localhost:${String(PORT).padEnd(33)}║
-║    API: ${String(API_PREFIX).padEnd(50)}     ║
-║                                                                ║
-║    Banco: ${String(dbName).padEnd(48)}     ║
-║    Host: ${String(dbHost).padEnd(49)}     ║
-║    Status: ${String(dbStatus).padEnd(47)}    ║
-║    Logs → ${String(getLogDir()).padEnd(48)}     ║
-║                                                                ║
-╚════════════════════════════════════════════════════════════════╝
+╔${border}╗
+${row()}
+${row('       🚀 Visão do Dono — Check / Auditoria')}
+${row()}
+${line('Versão: ', String(APP_VERSION_AT_BOOT || '?'))}
+${line('Modo: ', String(modo))}
+${line('Servidor: ', 'http://localhost:' + PORT)}
+${line('API: ', String(API_PREFIX))}
+${row()}
+${line('Banco: ', String(dbName))}
+${line('Status: ', dbStatus)}
+${line('HR Payroll: ', hrDbStatus)}
+${line('Frotas (API): ', frotasStatus)}
+${row()}
+╚${border}╝
   `);
 
   try {
