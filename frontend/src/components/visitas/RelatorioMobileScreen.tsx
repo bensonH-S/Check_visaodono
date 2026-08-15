@@ -163,7 +163,7 @@ export default function RelatorioMobileScreen({
           <div className="ck-visitas__toolbar ck-visitas__anim ck-visitas__anim--1">
             <div className="ck-visitas__toolbar-heading">
               <p className="ck-visitas__mark-text ck-visitas__mark-text--toolbar">Grupo Alvim</p>
-              <h1 className="ck-visitas__title ck-visitas__title--toolbar" style={{ wordBreak: 'keep-all', hyphens: 'none' }}>
+              <h1 className="ck-visitas__title ck-visitas__title--toolbar" style={{ wordBreak: 'keep-all', hyphens: 'none', fontSize: 'clamp(2.0rem, 8vw, 2.5rem)' }}>
                 Relatório da visita
               </h1>
             </div>
