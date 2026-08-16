@@ -792,7 +792,7 @@ export const api = {
     request<EscalaVisitasGrade>('/escalas/visitas/semana', { method: 'PUT', body: JSON.stringify(body) }),
   escalaVisitasCopiar: (body: { de: string; para: string }) =>
     request<EscalaVisitasGrade>('/escalas/visitas/semana/copiar', { method: 'POST', body: JSON.stringify(body) }),
-  escalaVisitasSubmeter: (body: { semana_inicio: string; id_regiao: number }) =>
+  escalaVisitasSubmeter: (body: { semana_inicio: string; id_regiao?: number | null }) =>
     request<EscalaVisitasGrade>('/escalas/visitas/semana/submeter', {
       method: 'POST',
       body: JSON.stringify(body),

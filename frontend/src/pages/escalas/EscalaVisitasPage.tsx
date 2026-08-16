@@ -277,17 +277,16 @@ export default function EscalaVisitasPage() {
 
   async function enviarAprovacao() {
     const id = idRegiaoAcao();
-    if (!id) {
-      showToast('Selecione a região para enviar', 'warning');
-      return;
-    }
     if (pending.size) {
       showToast('Salve as alterações antes de enviar', 'warning');
       return;
     }
     setSalvando(true);
     try {
-      const data = await api.escalaVisitasSubmeter({ semana_inicio: semanaInicio, id_regiao: id });
+      const data = await api.escalaVisitasSubmeter({
+        semana_inicio: semanaInicio,
+        ...(id ? { id_regiao: id } : {}),
+      });
       setGrade(data);
       showToast('Escala enviada para aprovação', 'success');
     } catch (e) {

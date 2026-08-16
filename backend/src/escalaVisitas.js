@@ -359,8 +359,26 @@ export function formatarDataBr(iso) {
   return `${d}/${m}/${y}`;
 }
 
+async function usuarioAtuaEmTodasRegioesEscala(user) {
+  if (acessoTodasLojas(user) || podeGerenciarEscalaVisitas(user)) return true;
+  const emailJwt = String(user?.email || '').trim().toLowerCase();
+  if (emailJwt === 'igor@grupoalvim.com.br') return true;
+  if (!user?.sub) return false;
+  const { rows } = await pool.query(
+    `SELECT nome, email, cargo_aprovacao
+     FROM usuarios
+     WHERE id_usuario = $1`,
+    [user.sub],
+  );
+  const u = rows[0];
+  if (!u) return false;
+  if (String(u.email || '').trim().toLowerCase() === 'igor@grupoalvim.com.br') return true;
+  if (String(u.cargo_aprovacao || '').toLowerCase() === 'supervisor_geral') return true;
+  return podeEditarEscalaRegiao(user) && nomeCorrespondeChave(u.nome, 'igor');
+}
+
 async function idsRegioesVisiveis(user) {
-  if (acessoTodasLojas(user) || podeGerenciarEscalaVisitas(user)) {
+  if (await usuarioAtuaEmTodasRegioesEscala(user)) {
     const { rows } = await pool.query(
       'SELECT id_regiao FROM frota_regioes WHERE ativo = TRUE ORDER BY nome',
     );
@@ -916,46 +934,67 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
   if (!podeEditarEscalaRegiao(user) && !podeGerenciarEscalaVisitas(user)) {
     throw new Error('Sem permissão para submeter');
   }
-  const idRegiao = Number(id_regiao);
-  if (!idRegiao) throw new Error('Informe a região');
 
   const idsRegiaoUsuario = await idsRegioesVisiveis(user);
-  if (!podeGerenciarEscalaVisitas(user) && !idsRegiaoUsuario.includes(idRegiao)) {
+  const idInformado = id_regiao != null && id_regiao !== '' ? Number(id_regiao) : null;
+  const idsAlvo = idInformado
+    ? [idInformado]
+    : idsRegiaoUsuario.map((id) => Number(id)).filter(Boolean);
+
+  if (!idsAlvo.length) throw new Error('Informe a região');
+  if (idInformado && !podeGerenciarEscalaVisitas(user) && !idsRegiaoUsuario.map(Number).includes(idInformado)) {
     throw new Error('Sem acesso a esta região');
+  }
+  if (!idInformado && !podeGerenciarEscalaVisitas(user)) {
+    const idsOk = new Set(idsRegiaoUsuario.map((id) => Number(id)));
+    if (idsAlvo.some((id) => !idsOk.has(id))) {
+      throw new Error('Sem acesso a esta região');
+    }
   }
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
   const semana = await obterOuCriarSemana(semanaInicio, user.sub);
-  const st = await obterStatusRegiao(semana.id_semana, idRegiao);
-  if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) {
-    throw new Error('Só é possível enviar escala em rascunho');
+  const nomeAutor = (await nomeUsuarioPorId(user.sub)) || 'Regional';
+  const idsDiretores = await idsDiretoresEscala();
+  const submetidas = [];
+
+  for (const idRegiao of idsAlvo) {
+    const st = await obterStatusRegiao(semana.id_semana, idRegiao);
+    if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) continue;
+
+    await pool.query(
+      `UPDATE escala_visitas_regiao_status
+       SET status = $3,
+           submetido_por = $4,
+           submetido_em = NOW(),
+           revisado_por = NULL,
+           revisado_em = NULL,
+           comentario = NULL
+       WHERE id_semana = $1 AND id_regiao = $2`,
+      [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
+    );
+
+    const nomeRegiao = await nomeRegiaoPorId(idRegiao);
+    await notificarEscalaUsuarios({
+      idsUsuario: idsDiretores,
+      excluirId: user.sub,
+      tipo: 'pendente_aprovacao',
+      mensagem: `${nomeAutor} enviou a escala de ${nomeRegiao} (${formatarDataBr(semanaInicio)}) para aprovação.`,
+      idSemana: semana.id_semana,
+      idRegiao,
+      semanaInicio,
+    });
+    submetidas.push(idRegiao);
   }
 
-  await pool.query(
-    `UPDATE escala_visitas_regiao_status
-     SET status = $3,
-         submetido_por = $4,
-         submetido_em = NOW(),
-         revisado_por = NULL,
-         revisado_em = NULL,
-         comentario = NULL
-     WHERE id_semana = $1 AND id_regiao = $2`,
-    [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
-  );
+  if (!submetidas.length) {
+    throw new Error('Não há escala em rascunho para enviar');
+  }
 
-  const nomeRegiao = await nomeRegiaoPorId(idRegiao);
-  const nomeAutor = (await nomeUsuarioPorId(user.sub)) || 'Regional';
-  await notificarEscalaUsuarios({
-    idsUsuario: await idsDiretoresEscala(),
-    excluirId: user.sub,
-    tipo: 'pendente_aprovacao',
-    mensagem: `${nomeAutor} enviou a escala de ${nomeRegiao} (${formatarDataBr(semanaInicio)}) para aprovação.`,
-    idSemana: semana.id_semana,
-    idRegiao,
-    semanaInicio,
+  return carregarGradeVisitas(user, {
+    semana_inicio: semanaInicio,
+    id_regiao: idInformado,
   });
-
-  return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: idRegiao });
 }
 
 export async function aprovarEscalaRegiao(user, { semana_inicio, id_regiao, comentario = null }) {
