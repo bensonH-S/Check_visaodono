@@ -196,18 +196,26 @@ async function regiaoDoTecnico(idUsuario) {
   return rows[0]?.id_regiao ?? null;
 }
 
-const SQL_VEICULOS_REGIOES = `
+const SQL_VEICULOS_MAPA_BASE = `
   SELECT DISTINCT ON (v.id_veiculo)
          v.id_veiculo, v.placa, v.marca, v.modelo,
-         rt.id_regiao AS id_regiao,
-         r.nome AS nome_regiao
+         COALESCE(v.id_regiao, rt.id_regiao) AS id_regiao,
+         COALESCE(rv.nome, r.nome) AS nome_regiao
   FROM frota_veiculos v
-  INNER JOIN frota_regiao_tecnicos rt ON rt.id_usuario = v.id_usuario_responsavel
-  INNER JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
-  WHERE v.ativo = TRUE
-    AND v.id_usuario_responsavel IS NOT NULL
-    AND rt.id_regiao = ANY($1::int[])
-  ORDER BY v.id_veiculo, v.placa`;
+  LEFT JOIN frota_regiao_tecnicos rt ON rt.id_usuario = v.id_usuario_responsavel
+  LEFT JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
+  LEFT JOIN frota_regioes rv ON rv.id_regiao = v.id_regiao AND rv.ativo = TRUE
+  WHERE v.ativo = TRUE`;
+
+const SQL_VEICULOS_MAPA_TODOS = `${SQL_VEICULOS_MAPA_BASE}
+  ORDER BY v.id_veiculo, COALESCE(v.id_regiao, rt.id_regiao) NULLS LAST`;
+
+const SQL_VEICULOS_REGIOES = `${SQL_VEICULOS_MAPA_BASE}
+    AND (
+      rt.id_regiao = ANY($1::int[])
+      OR v.id_regiao = ANY($1::int[])
+    )
+  ORDER BY v.id_veiculo, COALESCE(v.id_regiao, rt.id_regiao) NULLS LAST`;
 
 const SQL_VEICULOS_REGIAO_DETALHE = `
   SELECT v.id_veiculo, v.placa, v.marca, v.modelo, v.ano, v.cor, v.combustivel,
@@ -657,7 +665,7 @@ router.patch('/multas/detran/:id/status', requirePermissao('frota.gerenciar', 'f
   }
 });
 
-router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar', 'lojas.todas', 'frota.regioes'), async (req, res, next) => {
+router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar', 'lojas.todas', 'frota.regioes', 'frota.mapa.ver'), async (req, res, next) => {
   try {
     const { rows: ids } = await pool.query(
       `SELECT id_veiculo FROM frota_veiculos WHERE ativo = TRUE`,
@@ -892,7 +900,12 @@ router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => 
       [idsRegiao],
     );
 
-    const { rows: veiculosDb } = await pool.query(SQL_VEICULOS_REGIOES, [idsRegiao]);
+    const veTodas =
+      acessoTodasLojas(req.user) || temPermissao(req.user, 'frota.gerenciar');
+    const { rows: veiculosDb } = await pool.query(
+      veTodas ? SQL_VEICULOS_MAPA_TODOS : SQL_VEICULOS_REGIOES,
+      veTodas ? [] : [idsRegiao],
+    );
 
     let veiculos = await combinarVeiculosComRastreamento(veiculosDb);
 

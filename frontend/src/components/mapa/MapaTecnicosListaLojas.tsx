@@ -200,7 +200,6 @@ export default function MapaTecnicosListaLojas() {
                 variante="campo"
                 veiculosMapa={veiculos}
                 veiculoMeta={veiculoTrajetoMeta}
-                preferirMapa
               />
             </div>
           )}

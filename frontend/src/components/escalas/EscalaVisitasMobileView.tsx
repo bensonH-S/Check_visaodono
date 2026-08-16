@@ -722,11 +722,15 @@ export default function EscalaVisitasMobileView() {
                   <p className="ck-escala__compact-sub">
                     {ehDeliveryOnly || modo === 'delivery'
                       ? podeEditarDelivery
-                        ? 'Toque nas lojas do dia, salve e envie para o diretor aprovar'
+                        ? statusAtivo === 'pendente_aprovacao'
+                          ? 'Ajuste as lojas e envie de novo para o diretor'
+                          : 'Toque nas lojas do dia, salve e envie para o diretor aprovar'
                         : 'Rota de delivery da semana (só leitura)'
                       : ehRegional
                         ? podeEditarGrade
-                          ? 'Escolha o dia, toque nas lojas da equipe e envie para aprovação'
+                          ? statusAtivo === 'pendente_aprovacao'
+                            ? 'Ajuste as lojas e envie de novo para o diretor'
+                            : 'Escolha o dia, toque nas lojas da equipe e envie para aprovação'
                           : 'Escala em só leitura — use Minhas para ver sua rota'
                         : 'Toque nos dias e envie para aprovação'}
                   </p>
@@ -1038,19 +1042,19 @@ export default function EscalaVisitasMobileView() {
                 {!podeEditarGrade && (
                   <div className="ck-escala__empty" style={{ marginBottom: 12 }}>
                     <strong>
-                      {statusAtivo === 'pendente_aprovacao'
-                        ? 'Escala em aprovação'
-                        : statusAtivo === 'aprovado'
-                          ? 'Escala aprovada'
-                          : 'Escala bloqueada'}
+                      {statusAtivo === 'aprovado' ? 'Escala aprovada' : 'Escala bloqueada'}
                     </strong>
                     <p>
-                      {statusAtivo === 'pendente_aprovacao'
-                        ? 'Só leitura enquanto o diretor analisa. Use Minhas / Por dia para ver o cronograma.'
-                        : statusAtivo === 'aprovado'
-                          ? 'Só leitura. Use Minhas / Por dia para ver o cronograma. Peça devolução ao diretor para editar.'
-                          : 'Sem permissão para montar nesta região.'}
+                      {statusAtivo === 'aprovado'
+                        ? 'Só leitura. Use Minhas para ver o cronograma. Peça devolução ao diretor para editar.'
+                        : 'Sem permissão para montar nesta região.'}
                     </p>
+                  </div>
+                )}
+                {podeEditarGrade && statusAtivo === 'pendente_aprovacao' && (
+                  <div className="ck-escala__empty" style={{ marginBottom: 12 }}>
+                    <strong>Enviada — pode ajustar</strong>
+                    <p>Toque nas lojas para montar. Ao salvar, envie de novo para o diretor.</p>
                   </div>
                 )}
                 {(montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).length === 0 ? (

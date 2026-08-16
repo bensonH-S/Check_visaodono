@@ -224,6 +224,37 @@ const STATUS_RASCUNHO = 'rascunho';
 const STATUS_PENDENTE = 'pendente_aprovacao';
 const STATUS_APROVADO = 'aprovado';
 
+function statusPermiteEdicaoRegional(status) {
+  return (status || STATUS_RASCUNHO) !== STATUS_APROVADO;
+}
+
+function consolidarStatusRegioes(statusList) {
+  if (!statusList.length) return STATUS_RASCUNHO;
+  if (statusList.some((s) => (s || STATUS_RASCUNHO) === STATUS_RASCUNHO)) return STATUS_RASCUNHO;
+  if (statusList.some((s) => s === STATUS_PENDENTE)) return STATUS_PENDENTE;
+  return STATUS_APROVADO;
+}
+
+async function reabrirStatusPendente(clientOrPool, { idSemana, idRegiao = null, delivery = false }) {
+  const db = clientOrPool || pool;
+  if (delivery) {
+    await db.query(
+      `UPDATE escala_visitas_delivery_status
+       SET status = $2, revisado_por = NULL, revisado_em = NULL, comentario = NULL
+       WHERE id_semana = $1 AND status = $3`,
+      [idSemana, STATUS_RASCUNHO, STATUS_PENDENTE],
+    );
+    return;
+  }
+  if (!idRegiao) return;
+  await db.query(
+    `UPDATE escala_visitas_regiao_status
+     SET status = $3, revisado_por = NULL, revisado_em = NULL, comentario = NULL
+     WHERE id_semana = $1 AND id_regiao = $2 AND status = $4`,
+    [idSemana, idRegiao, STATUS_RASCUNHO, STATUS_PENDENTE],
+  );
+}
+
 async function garantirStatusRegiao(clientOrPool, idSemana, idRegiao) {
   const db = clientOrPool || pool;
   await db.query(
@@ -682,23 +713,26 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
   let podeSubmeter = false;
   let statusRegiaoFiltro = null;
   if (editarRegiaoPerm) {
-    const alvo =
+    const idsAlvo =
       id_regiao && idsRegiaoUsuario.includes(Number(id_regiao))
-        ? Number(id_regiao)
-        : idsRegiaoUsuario.length === 1
-          ? idsRegiaoUsuario[0]
-          : null;
-    if (alvo != null) {
-      const st = await obterStatusRegiao(semana.id_semana, alvo);
-      statusRegiaoFiltro = st.status || STATUS_RASCUNHO;
-      podeEditarRegiao = statusRegiaoFiltro === STATUS_RASCUNHO;
-      podeSubmeter = statusRegiaoFiltro === STATUS_RASCUNHO;
+        ? [Number(id_regiao)]
+        : idsRegiaoUsuario;
+    if (idsAlvo.length) {
+      const statusAlvo = [];
+      for (const id of idsAlvo) {
+        const st = statusPorRegiao.find((s) => Number(s.id_regiao) === Number(id));
+        statusAlvo.push(st?.status || STATUS_RASCUNHO);
+      }
+      podeEditarRegiao = statusAlvo.some((s) => statusPermiteEdicaoRegional(s));
+      podeSubmeter = statusAlvo.some((s) => (s || STATUS_RASCUNHO) === STATUS_RASCUNHO);
+      statusRegiaoFiltro =
+        idsAlvo.length === 1 ? statusAlvo[0] || STATUS_RASCUNHO : consolidarStatusRegioes(statusAlvo);
     }
   }
 
   const statusDeliveryCodigo = statusDelivery.status || STATUS_RASCUNHO;
   const podeEditarDelivery =
-    gerenciar || (editarDeliveryPerm && statusDeliveryCodigo === STATUS_RASCUNHO);
+    gerenciar || (editarDeliveryPerm && statusPermiteEdicaoRegional(statusDeliveryCodigo));
   const podeSubmeterDelivery =
     !gerenciar &&
     temPermissao(user, 'escalas.visitas.editar_delivery') &&
@@ -767,8 +801,8 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
   if (soDelivery) {
     if (!lojaDelivery) throw new Error('Linha de delivery não configurada');
     const stDelivery = await obterStatusDelivery(semana.id_semana);
-    if ((stDelivery.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) {
-      throw new Error('Delivery bloqueado — aguarde aprovação ou devolução do diretor');
+    if (!statusPermiteEdicaoRegional(stDelivery.status)) {
+      throw new Error('Delivery aprovado — peça devolução ao diretor para editar');
     }
     for (const item of lista) {
       const idLoja = Number(item.id_loja);
@@ -787,8 +821,8 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
         throw new Error('Só é possível editar lojas da sua região');
       }
       const st = await obterStatusRegiao(semana.id_semana, idRegiaoLoja);
-      if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) {
-        throw new Error('Região bloqueada — aguarde aprovação ou devolução do diretor');
+      if (!statusPermiteEdicaoRegional(st.status)) {
+        throw new Error('Região aprovada — peça devolução ao diretor para editar');
       }
     }
   }
@@ -840,6 +874,23 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
            VALUES ($1, $2, $3, NULL, $4)`,
           [semana.id_semana, idLoja, dia, obs],
         );
+      }
+    }
+    if (soDelivery) {
+      await reabrirStatusPendente(client, { idSemana: semana.id_semana, delivery: true });
+    } else if (!gerenciar) {
+      const idsRegiaoSalvas = [
+        ...new Set(
+          idsLojaPayload
+            .map((id) => lojaRegiaoMap.get(id))
+            .filter((id) => id != null),
+        ),
+      ];
+      for (const idRegiaoSalva of idsRegiaoSalvas) {
+        await reabrirStatusPendente(client, {
+          idSemana: semana.id_semana,
+          idRegiao: idRegiaoSalva,
+        });
       }
     }
     await client.query(
