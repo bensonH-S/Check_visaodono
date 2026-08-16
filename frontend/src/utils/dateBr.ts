@@ -24,6 +24,17 @@ export function parseIsoDateLocal(iso: string | null | undefined): Date | null {
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
 
+/** Combina data YYYY-MM-DD e hora HH:mm no fuso local (Brasília no app). */
+export function dataHoraBrasiliaMs(dataIso: string, hora = '00:00', fimDoMinuto = false): number {
+  const d = parseIsoDateLocal(dataIso);
+  if (!d) return NaN;
+  const [hh, mm] = String(hora || '00:00').split(':');
+  const h = Number(hh);
+  const m = Number(mm);
+  d.setHours(Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0, fimDoMinuto ? 59 : 0, fimDoMinuto ? 999 : 0);
+  return d.getTime();
+}
+
 /** Normaliza data_visita da API para YYYY-MM-DD. */
 export function normalizarDataVisita(val: string | null | undefined): string | null {
   if (val == null || val === '') return null;

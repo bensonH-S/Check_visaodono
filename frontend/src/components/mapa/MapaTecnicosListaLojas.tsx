@@ -27,6 +27,8 @@ export default function MapaTecnicosListaLojas() {
     podeFiltrarDataTrajeto,
     dataTrajetoInicio,
     dataTrajetoFim,
+    horaTrajetoInicio,
+    horaTrajetoFim,
     selecionandoPeriodoTrajeto,
     ocultarRegioesIndividuaisTrajeto,
     consultaHistorico,
@@ -37,6 +39,7 @@ export default function MapaTecnicosListaLojas() {
     erroConsulta,
     selecionarRegiao,
     selecionarPeriodoTrajeto,
+    selecionarHorarioTrajeto,
     selecionarVeiculoTrajeto,
     abrirConsultaHistorico,
     fecharConsultaHistorico,
@@ -216,13 +219,31 @@ export default function MapaTecnicosListaLojas() {
                 veiculosMapa={veiculos}
                 veiculoMeta={veiculoTrajetoMeta}
               />
+              <MapaFiltroTrajetoCalendario
+                dataInicio={dataTrajetoInicio}
+                dataFim={dataTrajetoFim}
+                onPeriodoChange={selecionarPeriodoTrajeto}
+                variante="campo"
+              />
               <div className="ck-mapa__consulta-row">
-                <MapaFiltroTrajetoCalendario
-                  dataInicio={dataTrajetoInicio}
-                  dataFim={dataTrajetoFim}
-                  onPeriodoChange={selecionarPeriodoTrajeto}
-                  variante="campo"
-                />
+                <label className="ck-mapa__consulta-field ck-mapa__consulta-time">
+                  <span className="ck-mapa__consulta-label">De</span>
+                  <input
+                    type="time"
+                    value={horaTrajetoInicio}
+                    onChange={(e) => selecionarHorarioTrajeto(e.target.value, horaTrajetoFim)}
+                    aria-label="Horário inicial"
+                  />
+                </label>
+                <label className="ck-mapa__consulta-field ck-mapa__consulta-time">
+                  <span className="ck-mapa__consulta-label">Até</span>
+                  <input
+                    type="time"
+                    value={horaTrajetoFim}
+                    onChange={(e) => selecionarHorarioTrajeto(horaTrajetoInicio, e.target.value)}
+                    aria-label="Horário final"
+                  />
+                </label>
                 <button
                   type="button"
                   className="ck-mapa__consulta-btn"

@@ -17,7 +17,7 @@ import {
 } from '../../api/client';
 import { useMapaTecnicosMobile } from './MapaTecnicosMobileContext';
 import { useAppConfig } from '../../hooks/useAppConfig';
-import { dataHojeBrasilia, formatarDuracaoMs, formatDataCampoData } from '../../utils/dateBr';
+import { dataHojeBrasilia, dataHoraBrasiliaMs, formatarDuracaoMs, formatDataCampoData } from '../../utils/dateBr';
 import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
 import { contarPassagensPorLoja } from '../../utils/frotaPassagensLoja';
 import { posicaoParaVeiculoCatalogo } from '../../components/mapa/MapaFiltroTrajetoVeiculo';
@@ -29,6 +29,58 @@ import {
   COR_TRAJETO,
 } from '../../components/frota/frotaMapaBasemap';
 import { iconeMarcaLojaUrl } from '../../utils/marcaLojaMapa';
+
+function pontoNoIntervalo(atualizadoEm: string | null | undefined, inicioMs: number, fimMs: number) {
+  if (!atualizadoEm) return true;
+  const t = new Date(atualizadoEm).getTime();
+  if (!Number.isFinite(t)) return true;
+  return t >= inicioMs && t <= fimMs;
+}
+
+function filtrarRotaPorIntervalo(
+  rota: FrotaVeiculoRotaDiaRelatorio,
+  inicioMs: number,
+  fimMs: number,
+): FrotaVeiculoRotaDiaRelatorio {
+  const pontos = (rota.pontos ?? []).filter((p) => pontoNoIntervalo(p.atualizado_em, inicioMs, fimMs));
+  const rotas = (rota.rotas ?? [])
+    .map((r) => {
+      const pts = (r.pontos ?? []).filter((p) => pontoNoIntervalo(p.atualizado_em, inicioMs, fimMs));
+      if (pts.length < 2) return null;
+      const mesmoTamanho = pts.length === (r.pontos?.length ?? 0);
+      return {
+        ...r,
+        pontos: pts,
+        coords_rua: mesmoTamanho ? r.coords_rua : undefined,
+        inicio: pts[0]?.atualizado_em,
+        fim: pts[pts.length - 1]?.atualizado_em,
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r != null);
+  const excessos = (rota.excessos_mapa ?? []).filter(
+    (e) => pontoNoIntervalo(e.inicio_em, inicioMs, fimMs) || pontoNoIntervalo(e.fim_em, inicioMs, fimMs),
+  );
+  return {
+    ...rota,
+    pontos,
+    rotas:
+      rotas.length > 0
+        ? rotas
+        : pontos.length >= 2
+          ? [
+              {
+                id: 0,
+                pontos,
+                km: 0,
+                inicio: pontos[0]?.atualizado_em,
+                fim: pontos[pontos.length - 1]?.atualizado_em,
+              },
+            ]
+          : [],
+    excessos_mapa: excessos,
+    qtd_excessos: excessos.length,
+  };
+}
 
 function temDadosRota(relatorio: FrotaVeiculoRotaDiaRelatorio) {
   return (
@@ -86,6 +138,8 @@ export default function MapaTecnicosMobilePage() {
     erro,
     dataTrajetoInicio,
     dataTrajetoFim,
+    horaTrajetoInicio,
+    horaTrajetoFim,
     modoHistoricoTrajeto,
     trajetoReferenteHoje,
     veiculoTrajetoId,
@@ -131,24 +185,35 @@ export default function MapaTecnicosMobilePage() {
       try {
         const inicio = consultaHistorico || modoHistoricoTrajeto ? dataTrajetoInicio : dataHojeBrasilia();
         const fim = consultaHistorico || modoHistoricoTrajeto ? dataTrajetoFim || inicio : inicio;
+        const horaIni = consultaHistorico ? horaTrajetoInicio || '00:00' : '00:00';
+        const horaFim = consultaHistorico ? horaTrajetoFim || '23:59' : '23:59';
+        const inicioMs = dataHoraBrasiliaMs(inicio, horaIni);
+        const fimMs = dataHoraBrasiliaMs(fim, horaFim, true);
 
         const [rotaResult, velResult] = await Promise.allSettled([
           api.frotaVeiculoRotaDia(idVeiculo, inicio, fim),
           api.frotaVeiculoVelocidade(idVeiculo, inicio, fim),
         ]);
 
-        const rota = rotaResult.status === 'fulfilled' ? rotaResult.value : null;
+        const rotaBruta = rotaResult.status === 'fulfilled' ? rotaResult.value : null;
         const vel = velResult.status === 'fulfilled' ? velResult.value : null;
         if (vel) setVelocidade(vel);
+
+        const rota =
+          rotaBruta && Number.isFinite(inicioMs) && Number.isFinite(fimMs)
+            ? filtrarRotaPorIntervalo(rotaBruta, inicioMs, fimMs)
+            : rotaBruta;
 
         if (rota && temDadosRota(rota)) {
           setRotaDiaVeiculo(rota);
           return;
         }
 
-        const inicioTs = Math.floor(dayjs(inicio).startOf('day').valueOf() / 1000);
+        const inicioTs = Math.floor((Number.isFinite(inicioMs) ? inicioMs : dayjs(inicio).startOf('day').valueOf()) / 1000);
         const fimTs = Math.floor(
-          (consultaHistorico || modoHistoricoTrajeto ? dayjs(fim).endOf('day') : dayjs()).valueOf() / 1000,
+          (Number.isFinite(fimMs)
+            ? fimMs
+            : (consultaHistorico || modoHistoricoTrajeto ? dayjs(fim).endOf('day') : dayjs()).valueOf()) / 1000,
         );
         const historico = await api.frotaVeiculoHistoricoRastreamento(idVeiculo, {
           inicio: inicioTs,
@@ -167,7 +232,7 @@ export default function MapaTecnicosMobilePage() {
         setCarregandoTrajeto(false);
       }
     },
-    [consultaHistorico, modoHistoricoTrajeto, dataTrajetoInicio, dataTrajetoFim, setCarregandoTrajeto, setErroConsulta],
+    [consultaHistorico, modoHistoricoTrajeto, dataTrajetoInicio, dataTrajetoFim, horaTrajetoInicio, horaTrajetoFim, setCarregandoTrajeto, setErroConsulta],
   );
 
   const selecionarVeiculoMapa = useCallback(
@@ -263,10 +328,13 @@ export default function MapaTecnicosMobilePage() {
   const periodoLabel = useMemo(() => {
     const ini = formatDataCampoData(dataTrajetoInicio);
     const fim = formatDataCampoData(dataTrajetoFim);
+    const horaIni = horaTrajetoInicio || '00:00';
+    const horaFim = horaTrajetoFim || '23:59';
+    const comHora = horaIni !== '00:00' || horaFim !== '23:59';
     if (!consultaHistorico) return `Hoje · ${ini}`;
-    if (!dataTrajetoFim || dataTrajetoInicio === dataTrajetoFim) return ini;
-    return `${ini} a ${fim}`;
-  }, [consultaHistorico, dataTrajetoInicio, dataTrajetoFim]);
+    const datas = !dataTrajetoFim || dataTrajetoInicio === dataTrajetoFim ? ini : `${ini} a ${fim}`;
+    return comHora ? `${datas} · ${horaIni}–${horaFim}` : datas;
+  }, [consultaHistorico, dataTrajetoInicio, dataTrajetoFim, horaTrajetoInicio, horaTrajetoFim]);
 
   const lojasNoMapa = useMemo(() => {
     if (!consultaHistorico) return lojas;
@@ -337,6 +405,7 @@ export default function MapaTecnicosMobilePage() {
           mostrarAlternarTipoMapa={false}
           mostrarPopupVeiculo={false}
           ocultarPlaceholder={consultaHistorico}
+          consultaHistorico={consultaHistorico}
           regiaoFiltro={regiaoFiltro}
           trajetoDiaAtual={trajetoDiaAtual}
           veiculoAoVivoTrajeto={veiculoAoVivoTrajeto}
@@ -441,6 +510,17 @@ export default function MapaTecnicosMobilePage() {
               </span>
               {qtdExcessos > 0 ? <span className="is-alerta">{qtdExcessos} excessos</span> : null}
             </div>
+            {passagensLoja.length > 0 && (
+              <div className="ck-mapa__historico-lojas">
+                {passagensLoja.map((loja) => (
+                  <span key={loja.id_loja}>
+                    {loja.bk_number ? `${loja.bk_number} · ` : ''}
+                    {loja.nome.replace(/^BURGER KING\s*[·\-–]?\s*/i, '')}
+                    {loja.passagens > 1 ? ` (${loja.passagens}x)` : ''}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

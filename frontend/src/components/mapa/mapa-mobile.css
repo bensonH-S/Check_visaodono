@@ -251,6 +251,29 @@
   min-width: 0;
 }
 
+.ck-mapa__consulta-time {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.ck-mapa__consulta-time input[type='time'] {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #1b2a6b;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.2;
+  padding: 0;
+}
+
+.ck-mapa__consulta-time input[type='time']::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+}
+
 .ck-mapa__consulta-field {
   flex: 1;
   min-width: 0;
@@ -743,4 +766,31 @@
 .ck-mapa__historico-bar-stats span.is-alerta {
   color: var(--ck-orange);
   background: rgba(232, 82, 10, 0.12);
+}
+
+.ck-mapa__historico-lojas {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 1px;
+}
+
+.ck-mapa__historico-lojas::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-mapa__historico-lojas span {
+  flex-shrink: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #1b2a6b;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(232, 82, 10, 0.1);
 }

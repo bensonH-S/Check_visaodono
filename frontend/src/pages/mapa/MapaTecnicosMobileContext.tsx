@@ -29,6 +29,8 @@ type MapaTecnicosMobileContextValue = {
   podeFiltrarDataTrajeto: boolean;
   dataTrajetoInicio: string;
   dataTrajetoFim: string;
+  horaTrajetoInicio: string;
+  horaTrajetoFim: string;
   periodoTrajetoCompleto: boolean;
   selecionandoPeriodoTrajeto: boolean;
   ocultarRegioesIndividuaisTrajeto: boolean;
@@ -48,6 +50,7 @@ type MapaTecnicosMobileContextValue = {
   carregandoTrajeto: boolean;
   selecionarRegiao: (idRegiao: number | '') => void;
   selecionarPeriodoTrajeto: (inicio: string, fim: string) => void;
+  selecionarHorarioTrajeto: (inicio: string, fim: string) => void;
   selecionarVeiculoTrajeto: (veiculo: FrotaVeiculo | null) => void;
   abrirConsultaHistorico: () => void;
   fecharConsultaHistorico: () => void;
@@ -111,6 +114,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
   const [regiaoFiltro, setRegiaoFiltro] = useState<number | ''>('');
   const [dataTrajetoInicio, setDataTrajetoInicio] = useState(hoje);
   const [dataTrajetoFim, setDataTrajetoFim] = useState(hoje);
+  const [horaTrajetoInicio, setHoraTrajetoInicio] = useState('00:00');
+  const [horaTrajetoFim, setHoraTrajetoFim] = useState('23:59');
   const [veiculoTrajetoId, setVeiculoTrajetoId] = useState<number | null>(null);
   const [veiculoTrajetoMeta, setVeiculoTrajetoMeta] = useState<FrotaVeiculo | null>(null);
   const [consultaHistorico, setConsultaHistorico] = useState(false);
@@ -230,6 +235,12 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
     }
   }
 
+  function selecionarHorarioTrajeto(inicio: string, fim: string) {
+    setHoraTrajetoInicio(inicio || '00:00');
+    setHoraTrajetoFim(fim || '23:59');
+    setErroConsulta('');
+  }
+
   function selecionarVeiculoTrajeto(veiculo: FrotaVeiculo | null) {
     setVeiculoTrajetoId(veiculo?.id_veiculo ?? null);
     setVeiculoTrajetoMeta(veiculo);
@@ -240,6 +251,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
     setConsultaHistorico(true);
     setDataTrajetoInicio(hoje);
     setDataTrajetoFim(hoje);
+    setHoraTrajetoInicio('00:00');
+    setHoraTrajetoFim('23:59');
     setErroConsulta('');
   }
 
@@ -247,6 +260,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
     setConsultaHistorico(false);
     setDataTrajetoInicio(hoje);
     setDataTrajetoFim(hoje);
+    setHoraTrajetoInicio('00:00');
+    setHoraTrajetoFim('23:59');
     setErroConsulta('');
   }
 
@@ -271,6 +286,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
     setConsultaHistorico(false);
     setDataTrajetoInicio(hoje);
     setDataTrajetoFim(hoje);
+    setHoraTrajetoInicio('00:00');
+    setHoraTrajetoFim('23:59');
     setVeiculoTrajetoId(null);
     setVeiculoTrajetoMeta(null);
     setErroConsulta('');
@@ -331,6 +348,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       podeFiltrarDataTrajeto,
       dataTrajetoInicio,
       dataTrajetoFim,
+      horaTrajetoInicio,
+      horaTrajetoFim,
       periodoTrajetoCompleto: trajetoCompleto,
       selecionandoPeriodoTrajeto: selecionandoTrajeto,
       ocultarRegioesIndividuaisTrajeto: ocultarRegioesTrajeto,
@@ -351,6 +370,7 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       carregandoTrajeto,
       selecionarRegiao,
       selecionarPeriodoTrajeto,
+      selecionarHorarioTrajeto,
       selecionarVeiculoTrajeto,
       abrirConsultaHistorico,
       fecharConsultaHistorico,
@@ -379,6 +399,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       podeFiltrarDataTrajeto,
       dataTrajetoInicio,
       dataTrajetoFim,
+      horaTrajetoInicio,
+      horaTrajetoFim,
       trajetoCompleto,
       selecionandoTrajeto,
       ocultarRegioesTrajeto,

@@ -224,6 +224,14 @@ function alturaLabelLojaMobile(qtdCaracteres: number, larguraLabel: number): num
   return 10 + linhas * 13 + 6;
 }
 
+function nomeLojaCurtoMapa(loja: Pick<FrotaRegiaoLoja, 'name' | 'bk_number'>) {
+  const nome = String(loja.name || '')
+    .replace(/^BURGER KING\s*[·\-–]?\s*/i, '')
+    .trim();
+  if (loja.bk_number) return `${loja.bk_number} · ${nome || loja.name}`;
+  return nome || loja.name;
+}
+
 function marcadorLoja(loja: Pick<FrotaRegiaoLoja, 'name' | 'bk_number'>, mobile = false, destacada = false) {
   const src = escapeHtml(iconeMarcaLojaPorNome(loja));
   const size = mobile ? (destacada ? 36 : 32) : TAMANHO_ICONE_LOJA;
@@ -233,19 +241,19 @@ function marcadorLoja(loja: Pick<FrotaRegiaoLoja, 'name' | 'bk_number'>, mobile 
     : mobile
       ? 'box-shadow:0 2px 10px rgba(0,0,0,.28);'
       : 'box-shadow:0 1px 2px rgba(0,0,0,.35);';
-  const nome = escapeHtml(loja.name);
+  const rotulo = escapeHtml(nomeLojaCurtoMapa(loja));
   const maxLabelW = 240;
   const labelLargura =
     mobile && destacada
-      ? Math.min(maxLabelW, Math.max(size + 16, loja.name.length * 5.6 + 34))
+      ? Math.min(maxLabelW, Math.max(size + 16, nomeLojaCurtoMapa(loja).length * 5.6 + 34))
       : size;
   const labelAltura =
-    mobile && destacada ? alturaLabelLojaMobile(loja.name.length, labelLargura) : 0;
+    mobile && destacada ? alturaLabelLojaMobile(nomeLojaCurtoMapa(loja).length, labelLargura) : 0;
   const labelHtml =
     mobile && destacada
       ? `<div class="marker-loja-nome-mobile" style="max-width:${maxLabelW}px">
           <span class="marker-loja-nome-pin" aria-hidden="true">${iconePinLocalizacaoLojaSvg()}</span>
-          <span class="marker-loja-nome-texto">${nome}</span>
+          <span class="marker-loja-nome-texto">${rotulo}</span>
         </div>`
       : '';
   const alturaTotal = pinAltura + labelAltura;
@@ -414,6 +422,8 @@ type Props = {
   veiculoAoVivoTrajeto?: FrotaVeiculoPosicao | null;
   /** Esconde o aviso de mapa vazio (histórico de trajeto). */
   ocultarPlaceholder?: boolean;
+  /** Histórico: sem ícones de ignição; lojas visitadas com nome. */
+  consultaHistorico?: boolean;
 };
 
 const btnMapaSx = {
@@ -457,6 +467,7 @@ export default function FrotaLocalizacaoMap({
   trajetoDiaAtual = false,
   veiculoAoVivoTrajeto = null,
   ocultarPlaceholder = false,
+  consultaHistorico = false,
 }: Props) {
   const mobile = modo === 'mobile';
   const exibirPopupVeiculo = mostrarPopupVeiculo ?? !mobile;
@@ -698,12 +709,12 @@ export default function FrotaLocalizacaoMap({
         const lat = Number(l.latitude);
         const lng = Number(l.longitude);
         bounds.push([lat, lng]);
-        const destacada = lojaDestaqueId === l.id_loja;
+        const destacada = consultaHistorico || lojaDestaqueId === l.id_loja;
         let marker = cache.lojas.get(l.id_loja);
         if (!marker) {
           marker = L.marker([lat, lng], {
             icon: marcadorLoja(l, true, destacada),
-            zIndexOffset: destacada ? 400 : 200,
+            zIndexOffset: destacada ? 900 : 200,
           });
           marker.on('click', (ev) => {
             marcarCliqueMarcadorMobile(ev, ignorarProximoClickMapaRef);
@@ -714,7 +725,7 @@ export default function FrotaLocalizacaoMap({
         } else {
           marker.setLatLng([lat, lng]);
           marker.setIcon(marcadorLoja(l, true, destacada));
-          marker.setZIndexOffset(destacada ? 400 : 200);
+          marker.setZIndexOffset(destacada ? 900 : 200);
         }
       }
 
@@ -954,7 +965,7 @@ export default function FrotaLocalizacaoMap({
       aplicarVistaInicialMapa(mapInstance.current, pontosEnquadre, mobile);
       vistaInicialAplicada.current = true;
     }
-  }, [posicoes, lojas, veiculos, mapaPronto, mobile, exibirPopupVeiculo, tecnicoDestaqueId, veiculoDestaqueId, lojaDestaqueId, visivel]);
+  }, [posicoes, lojas, veiculos, mapaPronto, mobile, exibirPopupVeiculo, tecnicoDestaqueId, veiculoDestaqueId, lojaDestaqueId, visivel, consultaHistorico]);
 
   useEffect(() => {
     if (!mapaPronto || !trajetoriaLayer.current) return;
@@ -1000,7 +1011,7 @@ export default function FrotaLocalizacaoMap({
             bounds = L.latLngBounds([lat, lng], [lat, lng]);
           }
         }
-      } else if (temRotaDia && rotaDiaVeiculo && !trajetoDiaAtual) {
+      } else if (temRotaDia && rotaDiaVeiculo && !trajetoDiaAtual && !consultaHistorico) {
         desenharMarcadoresIgnicaoDia(
           veiculoTrajeto,
           rotaDiaVeiculo.pontos ?? [],
@@ -1053,7 +1064,7 @@ export default function FrotaLocalizacaoMap({
         mapa.flyToBounds(bounds, { padding: [72, 40], maxZoom: 16, duration: 0.5 });
       }
     }
-  }, [historicoVeiculo, rotaDiaVeiculo, mapaPronto, veiculoDestaqueId, trajetoDiaAtual, veiculoAoVivoTrajeto]);
+  }, [historicoVeiculo, rotaDiaVeiculo, mapaPronto, veiculoDestaqueId, trajetoDiaAtual, veiculoAoVivoTrajeto, consultaHistorico]);
 
   useEffect(() => {
     if (!mobile || !mapaPronto || !mapInstance.current) return;
