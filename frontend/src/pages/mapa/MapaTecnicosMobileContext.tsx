@@ -181,6 +181,14 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       setRegioes(data.regioes);
       setErro('');
       carregouInicial.current = true;
+      setVeiculoFoco((prev) => {
+        if (!prev) return prev;
+        return (data.veiculos ?? []).find((v) => v.id_veiculo === prev.id_veiculo) ?? prev;
+      });
+      setTecnicoFoco((prev) => {
+        if (!prev) return prev;
+        return data.tecnicos.find((t) => t.id_usuario === prev.id_usuario) ?? prev;
+      });
     } catch (e) {
       if (!carregouInicial.current) {
         setErro(e instanceof Error ? e.message : 'Erro ao carregar localizações');
@@ -193,6 +201,26 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
     if (!podeVerMapaTecnicosMobile(getUsuario())) return;
     void carregar();
   }, [userId, carregar]);
+
+  useEffect(() => {
+    if (!userId) return;
+    if (!podeVerMapaTecnicosMobile(getUsuario())) return;
+    if (consultaHistorico) return;
+
+    const INTERVALO_AO_VIVO_MS = 20_000;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void carregar();
+    }, INTERVALO_AO_VIVO_MS);
+    const onVisivel = () => {
+      if (document.visibilityState === 'visible') void carregar();
+    };
+    document.addEventListener('visibilitychange', onVisivel);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisivel);
+    };
+  }, [userId, carregar, consultaHistorico]);
 
   useEffect(() => {
     if (!regioes.length || regiaoInicializada.current) return;

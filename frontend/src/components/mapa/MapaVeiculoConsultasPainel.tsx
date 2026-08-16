@@ -21,7 +21,7 @@ import {
 } from '../../api/client';
 import { colors } from '../../theme/tokens';
 import { getUsuario, temPermissao } from '../../lib/auth';
-import { rotuloStatusVeiculoMapa, statusVeiculoMapa } from '../frota/frotaMapaVeiculo';
+import { nomeOcupanteVeiculo, primeiroNomeOcupante, rotuloStatusVeiculoMapa, statusVeiculoMapa, textoAtualizadoRelativo } from '../frota/frotaMapaVeiculo';
 import type { PassagemLojaResumo } from '../../utils/frotaPassagensLoja';
 import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
 import { formatDataHoraBalaoMapa } from '../../utils/dateBr';
@@ -88,6 +88,17 @@ export default function MapaVeiculoConsultasPainel({
   const statusAoVivo = veiculoAoVivo
     ? rotuloStatusVeiculoMapa(statusVeiculoMapa(veiculoAoVivo, veiculoAoVivo.rastreamento_disponivel !== false))
     : null;
+  const ocupante = veiculoAoVivo ? nomeOcupanteVeiculo(veiculoAoVivo) : null;
+  const [agoraTick, setAgoraTick] = useState(0);
+  const atualizadoLabel = agoraTick >= 0 && veiculoAoVivo?.atualizado_em
+    ? textoAtualizadoRelativo(veiculoAoVivo.atualizado_em)
+    : periodoLabel;
+
+  useEffect(() => {
+    if (!veiculoAoVivo) return;
+    const id = window.setInterval(() => setAgoraTick((n) => n + 1), 15_000);
+    return () => window.clearInterval(id);
+  }, [veiculoAoVivo?.id_veiculo]);
 
   useEffect(() => {
     setAba(null);
@@ -155,13 +166,19 @@ export default function MapaVeiculoConsultasPainel({
           <Typography sx={{ fontWeight: 800, color: colors.navy, fontSize: '0.95rem', lineHeight: 1.2 }}>
             {titulo}
           </Typography>
+          {ocupante && (
+            <Typography
+              variant="caption"
+              sx={{ display: 'block', fontWeight: 700, color: colors.navy, fontSize: '0.78rem', lineHeight: 1.2 }}
+            >
+              Com {primeiroNomeOcupante(ocupante)}
+            </Typography>
+          )}
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             {[
               statusAoVivo,
               veiculoAoVivo?.velocidade != null ? `${veiculoAoVivo.velocidade} km/h` : null,
-              veiculoAoVivo?.atualizado_em
-                ? formatDataHoraBalaoMapa(veiculoAoVivo.atualizado_em)
-                : periodoLabel,
+              atualizadoLabel,
             ]
               .filter(Boolean)
               .join(' · ') || subtitulo}

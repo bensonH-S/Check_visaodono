@@ -28,6 +28,8 @@ export function posicaoParaVeiculoCatalogo(v: FrotaVeiculoPosicao): FrotaVeiculo
     assuncao_em: null,
     id_regiao: v.id_regiao ?? null,
     nome_regiao: v.nome_regiao ?? null,
+    id_usuario_responsavel: v.id_usuario_responsavel ?? null,
+    nome_responsavel: v.nome_responsavel ?? null,
     rastreamento_disponivel: v.rastreamento_disponivel,
     id_rastreamento: v.id_rastreamento ?? null,
     gps_instalado: v.id_rastreamento != null,

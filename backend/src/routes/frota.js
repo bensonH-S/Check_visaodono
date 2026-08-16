@@ -199,12 +199,14 @@ async function regiaoDoTecnico(idUsuario) {
 const SQL_VEICULOS_MAPA_BASE = `
   SELECT DISTINCT ON (v.id_veiculo)
          v.id_veiculo, v.placa, v.marca, v.modelo,
+         v.id_usuario_responsavel, u.nome AS nome_responsavel,
          COALESCE(v.id_regiao, rt.id_regiao) AS id_regiao,
          COALESCE(rv.nome, r.nome) AS nome_regiao
   FROM frota_veiculos v
   LEFT JOIN frota_regiao_tecnicos rt ON rt.id_usuario = v.id_usuario_responsavel
   LEFT JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
   LEFT JOIN frota_regioes rv ON rv.id_regiao = v.id_regiao AND rv.ativo = TRUE
+  LEFT JOIN usuarios u ON u.id_usuario = v.id_usuario_responsavel
   WHERE v.ativo = TRUE`;
 
 const SQL_VEICULOS_MAPA_TODOS = `${SQL_VEICULOS_MAPA_BASE}

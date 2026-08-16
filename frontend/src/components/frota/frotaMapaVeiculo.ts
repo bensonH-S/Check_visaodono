@@ -60,6 +60,25 @@ export function formatarNomeModeloVeiculo(veiculo: Pick<FrotaVeiculoPosicao, 'ma
     .join(' ');
 }
 
+export function nomeOcupanteVeiculo(
+  veiculo: Pick<FrotaVeiculoPosicao, 'nome_responsavel' | 'motorista'>,
+): string | null {
+  const nome = String(veiculo.nome_responsavel || veiculo.motorista || '').trim();
+  if (!nome || nome.toUpperCase() === 'PADRAO') return null;
+  return nome;
+}
+
+export function primeiroNomeOcupante(nome: string) {
+  return nome.trim().split(/\s+/)[0] || nome;
+}
+
+export function rotuloMarcadorVeiculo(
+  veiculo: Pick<FrotaVeiculoPosicao, 'marca' | 'modelo' | 'nome_responsavel' | 'motorista'>,
+) {
+  const ocupante = nomeOcupanteVeiculo(veiculo);
+  return ocupante ? primeiroNomeOcupante(ocupante) : formatarNomeModeloVeiculo(veiculo);
+}
+
 export function statusVeiculoMapa(
   veiculo: Pick<FrotaVeiculoPosicao, 'ignicao' | 'velocidade' | 'rastreamento_disponivel'>,
   comGps = true,
@@ -86,7 +105,7 @@ function iconePopupVeiculoCarro() {
   return `<svg ${base}><path d="M5 11l1.5-4.5h11L19 11H5zm2.5 5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm9 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z"/></svg>`;
 }
 
-function iconePopupVeiculo(tipo: 'velocidade' | 'ignicao' | 'endereco' | 'atualizado') {
+function iconePopupVeiculo(tipo: 'velocidade' | 'ignicao' | 'endereco' | 'atualizado' | 'ocupante') {
   const base =
     'class="info-veiculo-icone" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"';
   if (tipo === 'velocidade') {
@@ -98,11 +117,14 @@ function iconePopupVeiculo(tipo: 'velocidade' | 'ignicao' | 'endereco' | 'atuali
   if (tipo === 'atualizado') {
     return `<svg ${base}><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
   }
+  if (tipo === 'ocupante') {
+    return `<svg ${base}><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
+  }
   return `<svg ${base}><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`;
 }
 
 function linhaPopupVeiculo(
-  tipo: 'velocidade' | 'ignicao' | 'endereco' | 'atualizado',
+  tipo: 'velocidade' | 'ignicao' | 'endereco' | 'atualizado' | 'ocupante',
   rotulo: string,
   valor: string,
 ) {
@@ -127,6 +149,7 @@ export function htmlInfoVeiculo(
   const status = statusVeiculoMapa(v, comGps);
   const modelo = formatarNomeModeloVeiculo(v);
   const titulo = modelo !== 'Veículo' ? `${v.placa} - ${modelo}` : v.placa;
+  const ocupante = nomeOcupanteVeiculo(v);
   const ignicao =
     v.ignicao === true ? 'Ligado' : v.ignicao === false ? 'Desligado' : 'Sem informação';
   const velocidade = v.velocidade != null ? `${v.velocidade} km/h` : '—';
@@ -146,6 +169,7 @@ export function htmlInfoVeiculo(
 
   return `<div class="info-veiculo-mapa info-veiculo-mapa--${status}">
     ${tituloPopupVeiculo(titulo)}
+    ${ocupante ? linhaPopupVeiculo('ocupante', 'Com:', ocupante) : ''}
     ${linhaPopupVeiculo('velocidade', 'Velocidade:', velocidade)}
     ${linhaPopupVeiculo('ignicao', 'Ignição:', ignicao)}
     ${linhaEstado}
@@ -155,7 +179,10 @@ export function htmlInfoVeiculo(
 }
 
 export function marcadorVeiculo(
-  veiculo: Pick<FrotaVeiculoPosicao, 'marca' | 'modelo' | 'ignicao' | 'velocidade' | 'rastreamento_disponivel'>,
+  veiculo: Pick<
+    FrotaVeiculoPosicao,
+    'marca' | 'modelo' | 'ignicao' | 'velocidade' | 'rastreamento_disponivel' | 'nome_responsavel' | 'motorista'
+  >,
   mobile = false,
   destacado = false,
   comGps = true,
@@ -163,7 +190,7 @@ export function marcadorVeiculo(
 ) {
   const w = mobile ? (destacado ? 40 : 34) : 32;
   const status = forcarStatus ?? statusVeiculoMapa(veiculo, comGps);
-  const modelo = formatarNomeModeloVeiculo(veiculo);
+  const modelo = rotuloMarcadorVeiculo(veiculo);
   const labelW = Math.min(mobile ? 84 : 76, Math.max(44, modelo.length * 6.5 + 14));
   const totalW = w + labelW + 6;
   const pinH = w + 10;

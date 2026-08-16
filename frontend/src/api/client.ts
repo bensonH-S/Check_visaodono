@@ -1972,6 +1972,8 @@ export interface FrotaVeiculoPosicao {
   modelo?: string | null;
   id_regiao?: number | null;
   nome_regiao?: string | null;
+  id_usuario_responsavel?: number | null;
+  nome_responsavel?: string | null;
   id_rastreamento?: number | null;
   latitude: number | null;
   longitude: number | null;

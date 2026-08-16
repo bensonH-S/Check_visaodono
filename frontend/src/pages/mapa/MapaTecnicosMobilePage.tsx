@@ -20,6 +20,7 @@ import { useAppConfig } from '../../hooks/useAppConfig';
 import { dataHojeBrasilia, dataHoraBrasiliaMs, formatarDuracaoMs, formatDataCampoData } from '../../utils/dateBr';
 import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
 import { contarPassagensPorLoja } from '../../utils/frotaPassagensLoja';
+import { distanciaKm } from '../../utils/mapaGeo';
 import { posicaoParaVeiculoCatalogo } from '../../components/mapa/MapaFiltroTrajetoVeiculo';
 import {
   COR_EXCESSO_FROTA,
@@ -124,6 +125,25 @@ function listarExcessosVelocidade(
     .sort((a, b) => b.velocidade - a.velocidade);
 }
 
+const DISTANCIA_OCUPANTE_KM = 0.15;
+
+function tecnicoEstaNoVeiculo(
+  tecnico: { id_usuario: number; latitude?: number | null; longitude?: number | null },
+  veiculosLista: FrotaVeiculoPosicao[],
+) {
+  const veiculo = veiculosLista.find((v) => Number(v.id_usuario_responsavel) === Number(tecnico.id_usuario));
+  if (!veiculo || veiculo.latitude == null || veiculo.longitude == null) return false;
+  if (tecnico.latitude == null || tecnico.longitude == null) return false;
+  return (
+    distanciaKm(
+      Number(tecnico.latitude),
+      Number(tecnico.longitude),
+      Number(veiculo.latitude),
+      Number(veiculo.longitude),
+    ) <= DISTANCIA_OCUPANTE_KM
+  );
+}
+
 export default function MapaTecnicosMobilePage() {
   const appConfig = useAppConfig();
   const {
@@ -176,11 +196,14 @@ export default function MapaTecnicosMobilePage() {
   }, [veiculoTrajetoAtivo, modoHistoricoTrajeto, veiculos]);
 
   const carregarTrajetoVeiculo = useCallback(
-    async (idVeiculo: number) => {
-      setHistoricoVeiculo([]);
-      setRotaDiaVeiculo(null);
-      setVelocidade(null);
-      setCarregandoTrajeto(true);
+    async (idVeiculo: number, opts?: { silencioso?: boolean }) => {
+      const silencioso = opts?.silencioso === true;
+      if (!silencioso) {
+        setHistoricoVeiculo([]);
+        setRotaDiaVeiculo(null);
+        setVelocidade(null);
+        setCarregandoTrajeto(true);
+      }
       setErroConsulta('');
       try {
         const inicio = consultaHistorico || modoHistoricoTrajeto ? dataTrajetoInicio : dataHojeBrasilia();
@@ -220,16 +243,17 @@ export default function MapaTecnicosMobilePage() {
           fim: fimTs,
         });
         setHistoricoVeiculo(historico.pontos);
-        if (!rota && !historico.pontos.length) {
+        if (!silencioso && !rota && !historico.pontos.length) {
           setErroConsulta('Sem trajeto neste período para o veículo.');
         }
       } catch {
+        if (silencioso) return;
         setHistoricoVeiculo([]);
         setRotaDiaVeiculo(null);
         setVelocidade(null);
         setErroConsulta('Não foi possível carregar o trajeto.');
       } finally {
-        setCarregandoTrajeto(false);
+        if (!silencioso) setCarregandoTrajeto(false);
       }
     },
     [consultaHistorico, modoHistoricoTrajeto, dataTrajetoInicio, dataTrajetoFim, horaTrajetoInicio, horaTrajetoFim, setCarregandoTrajeto, setErroConsulta],
@@ -278,11 +302,24 @@ export default function MapaTecnicosMobilePage() {
   }, [veiculoTrajetoAtivo, consultaHistorico, carregarTrajetoVeiculo]);
 
   useEffect(() => {
+    if (consultaHistorico || veiculoTrajetoAtivo == null) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void carregarTrajetoVeiculo(veiculoTrajetoAtivo, { silencioso: true });
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [consultaHistorico, veiculoTrajetoAtivo, carregarTrajetoVeiculo]);
+
+  useEffect(() => {
     if (!consultaHistorico || consultaTick === 0 || veiculoTrajetoAtivo == null) return;
     void carregarTrajetoVeiculo(veiculoTrajetoAtivo);
   }, [consultaTick, consultaHistorico, veiculoTrajetoAtivo, carregarTrajetoVeiculo]);
 
   const gpsTecnicosAtivo = appConfig?.gpsTecnicosEnabled !== false;
+  const posicoesNoMapa = useMemo(() => {
+    if (consultaHistorico || !gpsTecnicosAtivo) return [];
+    return posicoes.filter((p) => !tecnicoEstaNoVeiculo(p, veiculos));
+  }, [consultaHistorico, gpsTecnicosAtivo, posicoes, veiculos]);
   const mostrarPainelTecnico =
     gpsTecnicosAtivo &&
     lojaSelecionada != null &&
@@ -389,7 +426,7 @@ export default function MapaTecnicosMobilePage() {
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <FrotaLocalizacaoMap
-          posicoes={consultaHistorico ? [] : gpsTecnicosAtivo ? posicoes : []}
+          posicoes={posicoesNoMapa}
           lojas={lojasNoMapa}
           veiculos={veiculosNoMapa}
           historicoVeiculo={historicoVeiculo}

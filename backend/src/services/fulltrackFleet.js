@@ -1,6 +1,6 @@
 import { ajustarRotaAsRuas } from './routeMatching.js';
 
-const CACHE_TTL_MS = 45_000;
+const CACHE_TTL_MS = 15_000;
 
 let cachePosicoes = null;
 let cacheExpiraEm = 0;
@@ -677,6 +677,8 @@ export async function combinarVeiculosComRastreamento(veiculosDb = []) {
       modelo: v.modelo ?? null,
       id_regiao: v.id_regiao ?? null,
       nome_regiao: v.nome_regiao ?? null,
+      id_usuario_responsavel: v.id_usuario_responsavel ?? null,
+      nome_responsavel: v.nome_responsavel ?? null,
       id_rastreamento: null,
       latitude: null,
       longitude: null,
@@ -707,6 +709,8 @@ export async function combinarVeiculosComRastreamento(veiculosDb = []) {
         modelo: v.modelo ?? null,
         id_regiao: v.id_regiao ?? null,
         nome_regiao: v.nome_regiao ?? null,
+        id_usuario_responsavel: v.id_usuario_responsavel ?? null,
+        nome_responsavel: v.nome_responsavel ?? null,
         id_rastreamento: pos?.id_rastreamento ?? null,
         latitude: pos?.latitude ?? null,
         longitude: pos?.longitude ?? null,
