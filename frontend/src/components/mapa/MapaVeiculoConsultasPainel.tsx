@@ -58,6 +58,7 @@ type Props = {
   limiteKmh: number;
   consultouTrajeto: boolean;
   periodoLabel?: string | null;
+  kpis?: Array<{ label: string; valor: string; alerta?: boolean }>;
   onAbrirHistorico?: () => void;
   onClose: () => void;
 };
@@ -72,6 +73,7 @@ export default function MapaVeiculoConsultasPainel({
   limiteKmh,
   consultouTrajeto,
   periodoLabel = null,
+  kpis = [],
   onAbrirHistorico,
   onClose,
 }: Props) {
@@ -88,12 +90,12 @@ export default function MapaVeiculoConsultasPainel({
     : null;
 
   useEffect(() => {
-    setAba(consultouTrajeto ? 'trajeto' : null);
+    setAba(null);
     setErro('');
     setMultas([]);
     setAbastecimentos([]);
     setManutencoes([]);
-  }, [idVeiculo, consultouTrajeto]);
+  }, [idVeiculo]);
 
   useEffect(() => {
     if (!aba || aba === 'trajeto' || !podeOperacao) return;
@@ -159,16 +161,11 @@ export default function MapaVeiculoConsultasPainel({
               veiculoAoVivo?.velocidade != null ? `${veiculoAoVivo.velocidade} km/h` : null,
               veiculoAoVivo?.atualizado_em
                 ? formatDataHoraBalaoMapa(veiculoAoVivo.atualizado_em)
-                : null,
+                : periodoLabel,
             ]
               .filter(Boolean)
               .join(' · ') || subtitulo}
           </Typography>
-          {periodoLabel && (
-            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: colors.navy }}>
-              {periodoLabel}
-            </Typography>
-          )}
         </Box>
         {onAbrirHistorico && (
           <IconButton
@@ -217,7 +214,7 @@ export default function MapaVeiculoConsultasPainel({
               passagensLoja={passagensLoja}
               limiteKmh={limiteKmh}
               consultou={consultouTrajeto}
-              periodoLabel={periodoLabel}
+              kpis={kpis}
             />
           )}
           {!carregando && !erro && aba === 'multas' && <ListaMultas itens={multas} />}
@@ -246,24 +243,29 @@ function TrajetoBloco({
   passagensLoja,
   limiteKmh,
   consultou,
-  periodoLabel,
+  kpis,
 }: {
   excessos: FrotaRegistroVelocidade[];
   passagensLoja: PassagemLojaResumo[];
   limiteKmh: number;
   consultou: boolean;
-  periodoLabel?: string | null;
+  kpis: Array<{ label: string; valor: string; alerta?: boolean }>;
 }) {
   return (
     <>
-      {periodoLabel && (
-        <p className="ck-mapa__resumo-sec-title" style={{ marginTop: 0 }}>
-          {periodoLabel}
-        </p>
+      {consultou && kpis.length > 0 && (
+        <div className="ck-mapa__ficha-kpis">
+          {kpis.slice(0, 4).map((kpi) => (
+            <div key={kpi.label}>
+              <small>{kpi.label}</small>
+              <strong className={kpi.alerta ? 'is-alerta' : undefined}>{kpi.valor}</strong>
+            </div>
+          ))}
+        </div>
       )}
       <p className="ck-mapa__resumo-sec-title">Excessos · acima de {limiteKmh} km/h</p>
       {excessos.length ? (
-        excessos.slice(0, 12).map((r, idx) => (
+        excessos.slice(0, 8).map((r, idx) => (
           <div key={`${r.atualizado_em ?? idx}-${r.velocidade}`} className="ck-mapa__resumo-linha">
             <span>{r.atualizado_em ? formatDataHoraBalaoMapa(r.atualizado_em) : '—'}</span>
             <strong>
@@ -272,7 +274,7 @@ function TrajetoBloco({
           </div>
         ))
       ) : (
-        <Vazio texto={consultou ? 'Nenhum excesso neste período.' : 'Abra Histórico, escolha o dia e toque em Consultar.'} />
+        <Vazio texto={consultou ? 'Nenhum excesso neste dia.' : 'Toque em Consultar para ver o trajeto.'} />
       )}
       <p className="ck-mapa__resumo-sec-title" style={{ marginTop: 12 }}>
         Lojas visitadas
@@ -296,7 +298,7 @@ function TrajetoBloco({
           </div>
         ))
       ) : (
-        <Vazio texto={consultou ? 'Nenhuma passagem perto de lojas.' : 'As lojas aparecem após consultar o histórico.'} />
+        <Vazio texto={consultou ? 'Nenhuma passagem perto de lojas.' : 'As lojas aparecem após consultar.'} />
       )}
     </>
   );

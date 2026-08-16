@@ -238,6 +238,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
 
   function abrirConsultaHistorico() {
     setConsultaHistorico(true);
+    setDataTrajetoInicio(hoje);
+    setDataTrajetoFim(hoje);
     setErroConsulta('');
   }
 

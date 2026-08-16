@@ -81,11 +81,11 @@ export default function MapaTecnicosListaLojas() {
         ? `${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'} · toque no mapa`
         : 'Toque no mapa para escolher a unidade'
     : consultaHistorico
-      ? 'Escolha o veículo, o dia (e o horário sai no trajeto) e toque em Consultar.'
-      : 'Escolha o veículo ao vivo, ou toque em Histórico para ver dia e horário.';
+      ? ''
+      : 'Escolha o veículo, ou Histórico para um dia.';
 
   return (
-    <div className="ck-mapa__stage">
+    <div className={`ck-mapa__stage${consultaHistorico ? ' ck-mapa__stage--historico' : ''}`}>
       <div className="ck-mapa__glow" aria-hidden />
 
       <div className="ck-mapa__top">
@@ -94,19 +94,19 @@ export default function MapaTecnicosListaLojas() {
           <h1 className={`ck-mapa__title${!modoRestrito ? ' ck-mapa__title--compact' : ''}`}>
             {modoRestrito ? 'Mapa ao vivo' : consultaHistorico ? 'Histórico' : 'Mapa'}
           </h1>
+          {!consultaHistorico && (
           <p className="ck-mapa__sub">
             {modoRestrito
               ? [nomeRegiaoExibido, `${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'}`]
                   .filter(Boolean)
                   .join(' · ') || 'Rastreamento da frota'
-              : consultaHistorico
-                ? 'Consulte o trajeto de um dia ou período'
-                : podeFiltrarRegioes
-                  ? 'Escolha o veículo para acompanhar ao vivo'
-                  : nomeRegiaoExibido
-                    ? `Sua região · ${nomeRegiaoExibido}`
-                    : 'Acompanhe a frota na região'}
+              : podeFiltrarRegioes
+                ? 'Escolha o veículo para acompanhar ao vivo'
+                : nomeRegiaoExibido
+                  ? `Sua região · ${nomeRegiaoExibido}`
+                  : 'Acompanhe a frota na região'}
           </p>
+          )}
         </div>
         <div className="ck-mapa__menu">
           <CkMarkLogoMenu size={72} className="ck-mapa__logo" />
@@ -136,6 +136,7 @@ export default function MapaTecnicosListaLojas() {
             </div>
           )}
 
+          {!consultaHistorico && (
           <div className="ck-mapa__chips">
             <div className="ck-mapa__chips-scroll">
               {podeFiltrarRegioes && regioes.length > 0 ? (
@@ -190,6 +191,7 @@ export default function MapaTecnicosListaLojas() {
               </Tooltip>
             )}
           </div>
+          )}
 
           {!consultaHistorico && (
             <div className="ck-mapa__consulta">
@@ -220,6 +222,7 @@ export default function MapaTecnicosListaLojas() {
                   dataFim={dataTrajetoFim}
                   onPeriodoChange={selecionarPeriodoTrajeto}
                   variante="campo"
+                  somenteDia
                 />
                 <button
                   type="button"
@@ -238,7 +241,7 @@ export default function MapaTecnicosListaLojas() {
               {erroConsulta && <p className="ck-mapa__consulta-erro">{erroConsulta}</p>}
             </div>
           )}
-          <p className="ck-mapa__hint">{hint}</p>
+          {hint ? <p className="ck-mapa__hint">{hint}</p> : null}
         </>
       )}
 

@@ -115,7 +115,6 @@ export default function MapaTecnicosMobilePage() {
   const veiculoTrajetoAtivo = veiculoTrajetoId;
   const veiculosNoMapa = modoHistoricoTrajeto ? [] : veiculos;
   const trajetoDiaAtual = trajetoReferenteHoje || !modoHistoricoTrajeto;
-  const periodoSoHoje = trajetoReferenteHoje || !modoHistoricoTrajeto;
 
   const veiculoAoVivoTrajeto = useMemo(() => {
     if (!veiculoTrajetoAtivo || modoHistoricoTrajeto) return null;
@@ -263,21 +262,19 @@ export default function MapaTecnicosMobilePage() {
 
   const periodoLabel = useMemo(() => {
     const ini = formatDataCampoData(dataTrajetoInicio);
-    const fim = formatDataCampoData(dataTrajetoFim);
     if (!consultaHistorico) return `Hoje · ${ini}`;
-    if (dataTrajetoInicio === dataTrajetoFim) return `Histórico · ${ini}`;
-    return `Histórico · ${ini} a ${fim}`;
-  }, [consultaHistorico, dataTrajetoInicio, dataTrajetoFim]);
+    return ini;
+  }, [consultaHistorico, dataTrajetoInicio]);
 
-  const mostrarKpis = consultaHistorico && (consultou || carregandoTrajeto);
   const mostrarFicha =
     veiculoTrajetoAtivo != null &&
     !tecnicoFoco &&
-    !(lojaSelecionada && mostrarPainelTecnico);
+    !(lojaSelecionada && mostrarPainelTecnico) &&
+    (!consultaHistorico || consultou || carregandoTrajeto);
 
   const kpis = [
     {
-      label: periodoSoHoje ? 'KM rodado hoje' : 'KM no período',
+      label: 'KM',
       valor: consultou ? `${kmGps.toLocaleString('pt-BR')} km` : '—',
     },
     {
@@ -286,17 +283,13 @@ export default function MapaTecnicosMobilePage() {
       alerta: consultou && qtdExcessos > 0,
     },
     {
-      label: 'Vel. máxima',
+      label: 'Máx.',
       valor: consultou ? `${velocidadeMaxima.toLocaleString('pt-BR')} km/h` : '—',
       alerta: consultou && velocidadeMaxima > limiteKmh,
     },
     {
-      label: 'Tempo parado',
+      label: 'Parado',
       valor: consultou ? formatarDuracaoMs(tempoParadoMs) : '—',
-    },
-    {
-      label: 'Lojas visitadas',
-      valor: consultou ? String(passagensLoja.length) : '—',
     },
   ];
 
@@ -315,23 +308,12 @@ export default function MapaTecnicosMobilePage() {
         </Alert>
       )}
 
-      {mostrarKpis && (
-        <div className="ck-mapa__kpis">
-          {kpis.map((kpi) => (
-            <div key={kpi.label} className="ck-mapa__kpi">
-              <p className="ck-mapa__kpi-label">{kpi.label}</p>
-              <p className={`ck-mapa__kpi-valor${kpi.alerta ? ' is-alerta' : ''}`}>{kpi.valor}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
       {carregandoTrajeto && <LinearProgress sx={{ flexShrink: 0 }} />}
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <FrotaLocalizacaoMap
-          posicoes={gpsTecnicosAtivo ? posicoes : []}
-          lojas={lojas}
+          posicoes={consultaHistorico ? [] : gpsTecnicosAtivo ? posicoes : []}
+          lojas={consultaHistorico ? [] : lojas}
           veiculos={veiculosNoMapa}
           historicoVeiculo={historicoVeiculo}
           rotaDiaVeiculo={rotaDiaVeiculo}
@@ -358,7 +340,7 @@ export default function MapaTecnicosMobilePage() {
           onVeiculoClick={modoHistoricoTrajeto ? undefined : selecionarVeiculoMapa}
         />
 
-        {podeFiltrarDataTrajeto && (
+        {podeFiltrarDataTrajeto && !consultaHistorico && (
           <div className="ck-mapa__legenda">
             {(
               [
@@ -366,7 +348,6 @@ export default function MapaTecnicosMobilePage() {
                 { cor: COR_STATUS_DISPONIVEL, rotulo: 'Disponível' },
                 { cor: COR_STATUS_PARADO, rotulo: 'Parado' },
                 { cor: COR_TRAJETO, rotulo: 'Trajeto', linha: true },
-                ...(qtdExcessos > 0 ? [{ cor: COR_EXCESSO_FROTA, rotulo: 'Excesso', linha: true as const }] : []),
               ] as { cor: string; rotulo: string; linha?: boolean }[]
             ).map((item) => (
               <div key={item.rotulo} className="ck-mapa__legenda-item">
@@ -382,6 +363,20 @@ export default function MapaTecnicosMobilePage() {
               <div className="ck-mapa__legenda-item">
                 <img className="ck-mapa__legenda-loja" src={iconeMarcaLojaUrl('burger-king')} alt="" />
                 Loja
+              </div>
+            )}
+          </div>
+        )}
+        {consultaHistorico && consultou && (
+          <div className="ck-mapa__legenda ck-mapa__legenda--mini">
+            <div className="ck-mapa__legenda-item">
+              <span className="ck-mapa__legenda-line" style={{ background: COR_TRAJETO }} />
+              Trajeto
+            </div>
+            {qtdExcessos > 0 && (
+              <div className="ck-mapa__legenda-item">
+                <span className="ck-mapa__legenda-line" style={{ background: COR_EXCESSO_FROTA }} />
+                Excesso
               </div>
             )}
           </div>
@@ -416,10 +411,10 @@ export default function MapaTecnicosMobilePage() {
           <MapaVeiculoConsultasPainel
             titulo={tituloVeiculo}
             subtitulo={
-              rotaDiaVeiculo
-                ? `${rotaDiaVeiculo.data_inicio}${rotaDiaVeiculo.data_fim !== rotaDiaVeiculo.data_inicio ? ` a ${rotaDiaVeiculo.data_fim}` : ''} · limite ${limiteKmh} km/h`
-                : carregandoTrajeto
-                  ? 'Carregando trajeto…'
+              carregandoTrajeto
+                ? 'Carregando trajeto…'
+                : consultou
+                  ? `Limite ${limiteKmh} km/h`
                   : 'Escolha o que consultar neste veículo'
             }
             veiculoAoVivo={veiculoAoVivoTrajeto}
@@ -429,6 +424,7 @@ export default function MapaTecnicosMobilePage() {
             limiteKmh={limiteKmh}
             consultouTrajeto={consultou}
             periodoLabel={periodoLabel}
+            kpis={kpis}
             onAbrirHistorico={podeFiltrarDataTrajeto && !consultaHistorico ? abrirConsultaHistorico : undefined}
             onClose={() => selecionarVeiculoTrajeto(null)}
           />

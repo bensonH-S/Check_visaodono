@@ -23,6 +23,8 @@ type Props = {
   tomEscuro?: boolean;
   /** Campo largo com a data visível, no estilo do portal. */
   variante?: 'icone' | 'campo';
+  /** Um toque escolhe o dia e fecha — sem intervalo. */
+  somenteDia?: boolean;
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
@@ -46,6 +48,7 @@ export default function MapaFiltroTrajetoCalendario({
   onPeriodoChange,
   tomEscuro = false,
   variante = 'icone',
+  somenteDia = false,
 }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [escolhendoFim, setEscolhendoFim] = useState(false);
@@ -67,6 +70,12 @@ export default function MapaFiltroTrajetoCalendario({
   function selecionarDia(day: Dayjs | null) {
     if (!day?.isValid()) return;
     const iso = day.format('YYYY-MM-DD');
+
+    if (somenteDia) {
+      onPeriodoChange(iso, iso);
+      fechar();
+      return;
+    }
 
     if (escolhendoFim && dataInicio) {
       const inicio = isoParaDayjs(dataInicio);
@@ -108,7 +117,7 @@ export default function MapaFiltroTrajetoCalendario({
           }}
           aria-label="Filtrar trajeto por data"
         >
-          <span className="ck-mapa__consulta-label">Período</span>
+          <span className="ck-mapa__consulta-label">{somenteDia ? 'Dia' : 'Período'}</span>
           <span className="ck-mapa__consulta-value">
             <CalendarMonthOutlinedIcon sx={{ fontSize: 18, color: colors.navy, flexShrink: 0 }} />
             {rotulo}
@@ -138,16 +147,18 @@ export default function MapaFiltroTrajetoCalendario({
       >
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
-            Período do trajeto
+            {somenteDia ? 'Dia do trajeto' : 'Período do trajeto'}
           </Typography>
           <Typography variant="caption" sx={{ fontWeight: 600, color: colors.navy }}>
             {rotulo}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-            {escolhendoFim
-              ? 'Toque de novo no mesmo dia para confirmar, ou em outro para o intervalo.'
-              : 'Toque num dia (só esse dia) ou em dois dias para um período.'}
-          </Typography>
+          {!somenteDia && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+              {escolhendoFim
+                ? 'Toque de novo no mesmo dia para confirmar, ou em outro para o intervalo.'
+                : 'Toque num dia (só esse dia) ou em dois dias para um período.'}
+            </Typography>
+          )}
         </Box>
         <DateCalendar
           value={fimDayjs ?? inicioDayjs}
