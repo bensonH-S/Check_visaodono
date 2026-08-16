@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 import {
   api,
   type FrotaRegistroVelocidade,
+  type FrotaTecnicoPosicao,
   type FrotaVeiculoHistoricoPonto,
   type FrotaVeiculoPosicao,
   type FrotaVeiculoRotaDiaRelatorio,
@@ -128,7 +129,7 @@ function listarExcessosVelocidade(
 const DISTANCIA_OCUPANTE_KM = 0.15;
 
 function tecnicoEstaNoVeiculo(
-  tecnico: { id_usuario: number; latitude?: number | null; longitude?: number | null },
+  tecnico: Pick<FrotaTecnicoPosicao, 'id_usuario' | 'latitude' | 'longitude'>,
   veiculosLista: FrotaVeiculoPosicao[],
 ) {
   const veiculo = veiculosLista.find((v) => Number(v.id_usuario_responsavel) === Number(tecnico.id_usuario));
