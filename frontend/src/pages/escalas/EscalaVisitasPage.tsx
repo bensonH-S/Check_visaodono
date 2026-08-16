@@ -188,7 +188,9 @@ export default function EscalaVisitasPage() {
     const meuId = Number(idEu);
     const idsPaleta = new Set((grade?.regionais ?? []).map((r) => Number(r.id_usuario)));
     const paletaNoDia = idsAtuais.filter((id) => idsPaleta.has(Number(id)));
-    alterarCelulaRegional(idLoja, dia, paletaNoDia.length ? [] : [meuId]);
+    const estou = paletaNoDia.some((id) => Number(id) === meuId);
+    const outros = paletaNoDia.filter((id) => Number(id) !== meuId);
+    alterarCelulaRegional(idLoja, dia, estou ? outros : [...outros, meuId]);
   }
 
   function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {

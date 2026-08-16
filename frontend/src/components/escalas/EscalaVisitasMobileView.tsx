@@ -283,8 +283,9 @@ export default function EscalaVisitasMobileView() {
       const q = new URLSearchParams({ semana_inicio: semanaInicio });
       // Regional não filtra por região — senão some a escala pessoal (ex.: Igor sem frota).
       if (!ehRegional && idRegiao !== '') q.set('id_regiao', String(idRegiao));
-      if (idEnvio) q.set('id_envio', String(idEnvio));
-      else if (idUsuarioFiltro != null) q.set('id_usuario_envio', String(idUsuarioFiltro));
+      const verCopia = modo !== 'montar' && modo !== 'delivery';
+      if (verCopia && idEnvio) q.set('id_envio', String(idEnvio));
+      else if (verCopia && idUsuarioFiltro != null) q.set('id_usuario_envio', String(idUsuarioFiltro));
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
@@ -293,7 +294,7 @@ export default function EscalaVisitasMobileView() {
     } finally {
       setLoading(false);
     }
-  }, [podeVer, semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional]);
+  }, [podeVer, semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional, modo]);
 
   const carregarNotifs = useCallback(async () => {
     if (!podeVer) return;
@@ -384,14 +385,15 @@ export default function EscalaVisitasMobileView() {
       if (!idEu) return;
       const meuId = Number(idEu);
       const idsPaleta = new Set((grade?.regionais ?? []).map((r) => Number(r.id_usuario)));
-      const paletaNoDia = atual.filter((id) => idsPaleta.has(Number(id)));
-      const temVisita = paletaNoDia.length > 0;
+      const paleta = atual.filter((id) => idsPaleta.has(Number(id)));
+      const estou = paleta.some((id) => Number(id) === meuId);
+      const outros = paleta.filter((id) => Number(id) !== meuId);
       setPending((prev) => {
         const next = new Map(prev);
         next.set(chaveCelula(idLoja, dia), {
           id_loja: idLoja,
           dia,
-          id_regionais: temVisita ? [] : [meuId],
+          id_regionais: estou ? outros : [...outros, meuId],
         });
         return next;
       });
@@ -631,7 +633,7 @@ export default function EscalaVisitasMobileView() {
           bk_number: linha.bk_number,
           id_regiao: linha.id_regiao,
           marcada: idEu ? ids.some((id) => Number(id) === Number(idEu)) : ids.length > 0,
-          temVisita: ids.length > 0,
+          temVisita: idEu ? ids.some((id) => Number(id) === Number(idEu)) : ids.length > 0,
         };
       });
       return {
@@ -921,6 +923,8 @@ export default function EscalaVisitasMobileView() {
                   onClick={() => {
                     setModo(id);
                     if (id === 'montar' || id === 'delivery') {
+                      setIdEnvio(null);
+                      setIdUsuarioFiltro(null);
                       setSemanaInicio(segundaFeiraSubsequente());
                     } else {
                       setSemanaInicio(segundaFeiraAtual());
@@ -1125,11 +1129,8 @@ export default function EscalaVisitasMobileView() {
                 )}
                 {podeEditarGrade && statusAtivo === 'pendente_aprovacao' && (
                   <div className="ck-escala__empty" style={{ marginBottom: 12 }}>
-                    <strong>Enviada e copiada</strong>
-                    <p>
-                      O diretor já recebeu. Se a grade for excluída, o envio continua salvo — toque no
-                      nome para ver a cópia.
-                    </p>
+                    <strong>Enviada para aprovação</strong>
+                    <p>O diretor já recebeu. Toque nas lojas para ajustar a sua escala e envie de novo se precisar.</p>
                   </div>
                 )}
                 {(montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).length === 0 ? (
