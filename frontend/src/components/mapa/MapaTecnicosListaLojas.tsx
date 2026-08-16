@@ -222,7 +222,6 @@ export default function MapaTecnicosListaLojas() {
                   dataFim={dataTrajetoFim}
                   onPeriodoChange={selecionarPeriodoTrajeto}
                   variante="campo"
-                  somenteDia
                 />
                 <button
                   type="button"

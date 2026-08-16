@@ -412,6 +412,8 @@ type Props = {
   trajetoDiaAtual?: boolean;
   /** Posição ao vivo do veículo com trajeto carregado (dia atual). */
   veiculoAoVivoTrajeto?: FrotaVeiculoPosicao | null;
+  /** Esconde o aviso de mapa vazio (histórico de trajeto). */
+  ocultarPlaceholder?: boolean;
 };
 
 const btnMapaSx = {
@@ -454,6 +456,7 @@ export default function FrotaLocalizacaoMap({
   regiaoFiltro = '',
   trajetoDiaAtual = false,
   veiculoAoVivoTrajeto = null,
+  ocultarPlaceholder = false,
 }: Props) {
   const mobile = modo === 'mobile';
   const exibirPopupVeiculo = mostrarPopupVeiculo ?? !mobile;
@@ -1624,7 +1627,13 @@ export default function FrotaLocalizacaoMap({
         </Box>
         )}
 
-        {posicoes.length === 0 && lojas.length === 0 && veiculos.length === 0 && !carregando && (
+        {!ocultarPlaceholder &&
+          posicoes.length === 0 &&
+          lojas.length === 0 &&
+          veiculos.length === 0 &&
+          historicoVeiculo.length === 0 &&
+          !rotaDiaVeiculo &&
+          !carregando && (
           <Box
             sx={{
               position: 'absolute',

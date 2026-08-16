@@ -155,8 +155,8 @@ export default function MapaFiltroTrajetoCalendario({
           {!somenteDia && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
               {escolhendoFim
-                ? 'Toque de novo no mesmo dia para confirmar, ou em outro para o intervalo.'
-                : 'Toque num dia (só esse dia) ou em dois dias para um período.'}
+                ? 'Toque o último dia do período, ou no mesmo dia para consultar só ele.'
+                : 'Toque o primeiro dia e o último para o período.'}
             </Typography>
           )}
         </Box>

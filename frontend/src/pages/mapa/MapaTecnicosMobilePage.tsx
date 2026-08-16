@@ -113,7 +113,7 @@ export default function MapaTecnicosMobilePage() {
   const [consultaTick, setConsultaTick] = useState(0);
 
   const veiculoTrajetoAtivo = veiculoTrajetoId;
-  const veiculosNoMapa = modoHistoricoTrajeto ? [] : veiculos;
+  const veiculosNoMapa = consultaHistorico ? [] : veiculos;
   const trajetoDiaAtual = trajetoReferenteHoje || !modoHistoricoTrajeto;
 
   const veiculoAoVivoTrajeto = useMemo(() => {
@@ -129,8 +129,8 @@ export default function MapaTecnicosMobilePage() {
       setCarregandoTrajeto(true);
       setErroConsulta('');
       try {
-        const inicio = modoHistoricoTrajeto ? dataTrajetoInicio : dataHojeBrasilia();
-        const fim = modoHistoricoTrajeto ? dataTrajetoFim || inicio : inicio;
+        const inicio = consultaHistorico || modoHistoricoTrajeto ? dataTrajetoInicio : dataHojeBrasilia();
+        const fim = consultaHistorico || modoHistoricoTrajeto ? dataTrajetoFim || inicio : inicio;
 
         const [rotaResult, velResult] = await Promise.allSettled([
           api.frotaVeiculoRotaDia(idVeiculo, inicio, fim),
@@ -148,7 +148,7 @@ export default function MapaTecnicosMobilePage() {
 
         const inicioTs = Math.floor(dayjs(inicio).startOf('day').valueOf() / 1000);
         const fimTs = Math.floor(
-          (modoHistoricoTrajeto ? dayjs(fim).endOf('day') : dayjs()).valueOf() / 1000,
+          (consultaHistorico || modoHistoricoTrajeto ? dayjs(fim).endOf('day') : dayjs()).valueOf() / 1000,
         );
         const historico = await api.frotaVeiculoHistoricoRastreamento(idVeiculo, {
           inicio: inicioTs,
@@ -167,7 +167,7 @@ export default function MapaTecnicosMobilePage() {
         setCarregandoTrajeto(false);
       }
     },
-    [modoHistoricoTrajeto, dataTrajetoInicio, dataTrajetoFim, setCarregandoTrajeto, setErroConsulta],
+    [consultaHistorico, modoHistoricoTrajeto, dataTrajetoInicio, dataTrajetoFim, setCarregandoTrajeto, setErroConsulta],
   );
 
   const selecionarVeiculoMapa = useCallback(
@@ -262,15 +262,24 @@ export default function MapaTecnicosMobilePage() {
 
   const periodoLabel = useMemo(() => {
     const ini = formatDataCampoData(dataTrajetoInicio);
+    const fim = formatDataCampoData(dataTrajetoFim);
     if (!consultaHistorico) return `Hoje · ${ini}`;
-    return ini;
-  }, [consultaHistorico, dataTrajetoInicio]);
+    if (!dataTrajetoFim || dataTrajetoInicio === dataTrajetoFim) return ini;
+    return `${ini} a ${fim}`;
+  }, [consultaHistorico, dataTrajetoInicio, dataTrajetoFim]);
+
+  const lojasNoMapa = useMemo(() => {
+    if (!consultaHistorico) return lojas;
+    if (!consultou) return [];
+    const ids = new Set(passagensLoja.map((p) => p.id_loja));
+    return lojasComCoordenadas.filter((l) => ids.has(l.id_loja));
+  }, [consultaHistorico, consultou, passagensLoja, lojas, lojasComCoordenadas]);
 
   const mostrarFicha =
+    !consultaHistorico &&
     veiculoTrajetoAtivo != null &&
     !tecnicoFoco &&
-    !(lojaSelecionada && mostrarPainelTecnico) &&
-    (!consultaHistorico || consultou || carregandoTrajeto);
+    !(lojaSelecionada && mostrarPainelTecnico);
 
   const kpis = [
     {
@@ -313,10 +322,11 @@ export default function MapaTecnicosMobilePage() {
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <FrotaLocalizacaoMap
           posicoes={consultaHistorico ? [] : gpsTecnicosAtivo ? posicoes : []}
-          lojas={consultaHistorico ? [] : lojas}
+          lojas={lojasNoMapa}
           veiculos={veiculosNoMapa}
           historicoVeiculo={historicoVeiculo}
           rotaDiaVeiculo={rotaDiaVeiculo}
+          carregando={carregandoTrajeto}
           gpsAtivo={gpsTecnicosAtivo}
           rastreamentoAtivo={rastreamentoAtivo}
           onAtualizar={() => {}}
@@ -326,18 +336,23 @@ export default function MapaTecnicosMobilePage() {
           mostrarBotaoAtualizar={false}
           mostrarAlternarTipoMapa={false}
           mostrarPopupVeiculo={false}
+          ocultarPlaceholder={consultaHistorico}
           regiaoFiltro={regiaoFiltro}
           trajetoDiaAtual={trajetoDiaAtual}
           veiculoAoVivoTrajeto={veiculoAoVivoTrajeto}
-          tecnicoDestaqueId={tecnicoDestaqueId}
+          tecnicoDestaqueId={consultaHistorico ? null : tecnicoDestaqueId}
           veiculoDestaqueId={veiculoTrajetoAtivo}
-          lojaDestaqueId={lojaSelecionada?.id_loja ?? null}
-          onLojaClick={selecionarLoja}
-          onMapaClick={limparLoja}
-          onTecnicoClick={(tecnico) => {
-            if (!lojaSelecionada) focarTecnico(tecnico);
-          }}
-          onVeiculoClick={modoHistoricoTrajeto ? undefined : selecionarVeiculoMapa}
+          lojaDestaqueId={consultaHistorico ? null : lojaSelecionada?.id_loja ?? null}
+          onLojaClick={consultaHistorico ? undefined : selecionarLoja}
+          onMapaClick={consultaHistorico ? undefined : limparLoja}
+          onTecnicoClick={
+            consultaHistorico
+              ? undefined
+              : (tecnico) => {
+                  if (!lojaSelecionada) focarTecnico(tecnico);
+                }
+          }
+          onVeiculoClick={consultaHistorico ? undefined : selecionarVeiculoMapa}
         />
 
         {podeFiltrarDataTrajeto && !consultaHistorico && (
@@ -371,12 +386,18 @@ export default function MapaTecnicosMobilePage() {
           <div className="ck-mapa__legenda ck-mapa__legenda--mini">
             <div className="ck-mapa__legenda-item">
               <span className="ck-mapa__legenda-line" style={{ background: COR_TRAJETO }} />
-              Trajeto
+              Percurso
             </div>
             {qtdExcessos > 0 && (
               <div className="ck-mapa__legenda-item">
                 <span className="ck-mapa__legenda-line" style={{ background: COR_EXCESSO_FROTA }} />
                 Excesso
+              </div>
+            )}
+            {lojasNoMapa.length > 0 && (
+              <div className="ck-mapa__legenda-item">
+                <img className="ck-mapa__legenda-loja" src={iconeMarcaLojaUrl('burger-king')} alt="" />
+                Loja visitada
               </div>
             )}
           </div>
@@ -405,6 +426,22 @@ export default function MapaTecnicosMobilePage() {
               <TecnicoFocoPainel tecnico={tecnicoFoco!} onClose={limparTecnicoFoco} />
             )}
           </Box>
+        )}
+
+        {consultaHistorico && consultou && (
+          <div className="ck-mapa__historico-bar">
+            <div className="ck-mapa__historico-bar-id">
+              <strong>{tituloVeiculo}</strong>
+              <span>{periodoLabel}</span>
+            </div>
+            <div className="ck-mapa__historico-bar-stats">
+              <span>{kmGps.toLocaleString('pt-BR')} km</span>
+              <span>
+                {passagensLoja.length} {passagensLoja.length === 1 ? 'loja' : 'lojas'}
+              </span>
+              {qtdExcessos > 0 ? <span className="is-alerta">{qtdExcessos} excessos</span> : null}
+            </div>
+          </div>
         )}
 
         {mostrarFicha && veiculoTrajetoAtivo != null && (

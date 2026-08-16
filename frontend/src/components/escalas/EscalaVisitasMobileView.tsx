@@ -374,18 +374,19 @@ export default function EscalaVisitasMobileView() {
     if (!linha || linha.tipo === 'delivery') return;
     const atual = valorCelulaRegional(idLoja, dia, linha.dias[dia]);
 
-    // Regional: marca/desmarca só a si (Renato, Barbara, Igor, Plinio, Fagno).
+    // Regional: o card não mostra nome — toque liga/desliga a visita do dia.
     if (ehRegional) {
       if (!idEu) return;
-      const jaMarcado = atual.includes(idEu);
-      const idsPaleta = new Set((grade?.regionais ?? []).map((r) => r.id_usuario));
-      const semTecnicos = atual.filter((id) => idsPaleta.has(id) && id !== idEu);
+      const meuId = Number(idEu);
+      const idsPaleta = new Set((grade?.regionais ?? []).map((r) => Number(r.id_usuario)));
+      const paletaNoDia = atual.filter((id) => idsPaleta.has(Number(id)));
+      const temVisita = paletaNoDia.length > 0;
       setPending((prev) => {
         const next = new Map(prev);
         next.set(chaveCelula(idLoja, dia), {
           id_loja: idLoja,
           dia,
-          id_regionais: jaMarcado ? semTecnicos : [...semTecnicos, idEu],
+          id_regionais: temVisita ? [] : [meuId],
         });
         return next;
       });
@@ -581,19 +582,19 @@ export default function EscalaVisitasMobileView() {
   /** Montar regional no padrão delivery: dia → lista de lojas. */
   const montarPorDia = useMemo(() => {
     if (!grade) return [];
-    const idsPaleta = new Set((grade.regionais ?? []).map((r) => r.id_usuario));
+    const idsPaleta = new Set((grade.regionais ?? []).map((r) => Number(r.id_usuario)));
     const linhas = grade.linhas.filter((l) => l.tipo !== 'delivery');
     return DIAS_LONGO.map((label, dia) => {
       const lojas = linhas.map((linha) => {
         const ids = valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]).filter((id) =>
-          idsPaleta.has(id),
+          idsPaleta.has(Number(id)),
         );
         return {
           id_loja: linha.id_loja,
           nome: linha.nome,
           bk_number: linha.bk_number,
           id_regiao: linha.id_regiao,
-          marcada: idEu ? ids.includes(idEu) : ids.length > 0,
+          marcada: idEu ? ids.some((id) => Number(id) === Number(idEu)) : ids.length > 0,
           temVisita: ids.length > 0,
         };
       });

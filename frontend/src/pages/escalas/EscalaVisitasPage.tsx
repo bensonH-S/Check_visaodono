@@ -180,10 +180,10 @@ export default function EscalaVisitasPage() {
 
   function toggleCelulaRegionalEquipe(idLoja: number, dia: number, _idRegiao: number | null | undefined, idsAtuais: number[]) {
     if (!idEu) return;
-    const idsPaleta = new Set((grade?.regionais ?? []).map((r) => r.id_usuario));
-    const jaMarcado = idsAtuais.includes(idEu);
-    const semTecnicos = idsAtuais.filter((id) => idsPaleta.has(id) && id !== idEu);
-    alterarCelulaRegional(idLoja, dia, jaMarcado ? semTecnicos : [...semTecnicos, idEu]);
+    const meuId = Number(idEu);
+    const idsPaleta = new Set((grade?.regionais ?? []).map((r) => Number(r.id_usuario)));
+    const paletaNoDia = idsAtuais.filter((id) => idsPaleta.has(Number(id)));
+    alterarCelulaRegional(idLoja, dia, paletaNoDia.length ? [] : [meuId]);
   }
 
   function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {
