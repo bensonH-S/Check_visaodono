@@ -6,6 +6,49 @@ function temFusoHorario(s: string): boolean {
   return /Z$/i.test(s) || /[+-]\d{2}(:\d{2})?$/.test(s);
 }
 
+const FUTURO_GPS_MS = 2 * 60 * 1000;
+const OFFSET_BR_MS = 3 * 60 * 60 * 1000;
+
+/** Extrai YYYY-MM-DDTHH:mm:ss de ISO, "YYYY-MM-DD HH:mm" ou "DD/MM/YYYY HH:mm". */
+function naiveIsoDateTime(s: string): string | null {
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (br) {
+    if (!br[4]) return null;
+    return `${br[3]}-${br[2]}-${br[1]}T${br[4]}:${br[5]}:${br[6] ?? '00'}`;
+  }
+  const t = s.includes('T') ? s : s.replace(' ', 'T');
+  const m = t.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?)/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Fulltrack manda data sem fuso (Brasília ou UTC). Se interpretarmos errado,
+ * o relógio fica no futuro (ex.: 20:41 com Brasília ainda 18:27) e a UI diz "agora".
+ * Escolhe a leitura que não está no futuro e mais perto de agora.
+ */
+function parseTimestampGps(s: string): Date {
+  const naive = naiveIsoDateTime(s);
+  const now = Date.now();
+  const cands: Date[] = [];
+  const add = (d: Date) => {
+    if (!Number.isNaN(d.getTime())) cands.push(d);
+  };
+  add(new Date(s));
+  if (naive) {
+    add(new Date(`${naive}-03:00`));
+    add(new Date(`${naive}Z`));
+  }
+  for (const d of [...cands]) {
+    add(new Date(d.getTime() - OFFSET_BR_MS));
+  }
+  if (!cands.length) return new Date(NaN);
+  const passados = cands.filter((d) => d.getTime() <= now + FUTURO_GPS_MS);
+  const pool = passados.length ? passados : cands;
+  return pool.reduce((best, d) =>
+    Math.abs(d.getTime() - now) < Math.abs(best.getTime() - now) ? d : best,
+  );
+}
+
 /** Data civil de hoje em Brasília (YYYY-MM-DD). */
 export function dataHojeBrasilia(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: TZ_BR });
@@ -67,7 +110,7 @@ export function formatDataCampoData(value: string | Date | null | undefined): st
   return '—';
 }
 
-/** Converte timestamps da API para Date. Assume UTC quando não há fuso. */
+/** Converte timestamps da API para Date. Datas com hora (GPS/Fulltrack) escolhem o fuso mais próximo de agora. */
 export function parseDataApi(value: string | Date | null | undefined): Date {
   if (value == null || value === '') return new Date(NaN);
   if (value instanceof Date) return value;
@@ -80,25 +123,24 @@ export function parseDataApi(value: string | Date | null | undefined): Date {
     return new Date(y, m - 1, d, 12, 0, 0);
   }
 
-  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (br) {
-    const iso = `${br[3]}-${br[2]}-${br[1]}T${br[4] ?? '00'}:${br[5] ?? '00'}:${br[6] ?? '00'}-03:00`;
-    const dBr = new Date(iso);
-    return Number.isNaN(dBr.getTime()) ? new Date(NaN) : dBr;
-  }
-
   if (/^\d{10,13}$/.test(s)) {
     const n = Number(s);
     return new Date(n > 1e12 ? n : n * 1000);
   }
 
-  if (temFusoHorario(s)) {
-    return new Date(s);
+  if (naiveIsoDateTime(s)) {
+    return parseTimestampGps(s);
   }
 
-  const iso = s.includes('T') ? s : s.replace(' ', 'T');
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(iso)) {
-    return new Date(`${iso}Z`);
+  const brData = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brData) {
+    const iso = `${brData[3]}-${brData[2]}-${brData[1]}T12:00:00-03:00`;
+    const dBr = new Date(iso);
+    return Number.isNaN(dBr.getTime()) ? new Date(NaN) : dBr;
+  }
+
+  if (temFusoHorario(s)) {
+    return new Date(s);
   }
 
   return new Date(s);

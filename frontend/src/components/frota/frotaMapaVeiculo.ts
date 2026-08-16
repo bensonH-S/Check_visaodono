@@ -23,6 +23,7 @@ export function formatarDuracaoDesde(iso: string | null | undefined): string {
   const d = parseDataApi(iso);
   if (Number.isNaN(d.getTime())) return 'tempo indisponível';
   const diffMin = Math.round((Date.now() - d.getTime()) / 60_000);
+  if (diffMin < -5) return formatDataHoraBalaoMapa(iso);
   if (diffMin < 1) return 'agora';
   if (diffMin < 60) return `${diffMin} min`;
   const diffH = Math.round(diffMin / 60);
@@ -161,7 +162,7 @@ export function htmlInfoVeiculo(
   if (status === 'parado' && v.atualizado_em) {
     const ha = formatarDuracaoDesde(v.atualizado_em);
     const desde = formatDataHoraBalaoMapa(v.atualizado_em);
-    const valor = ha === 'agora' ? desde : `${desde} (há ${ha})`;
+    const valor = ha === 'agora' ? 'agora' : `${desde} (há ${ha})`;
     linhaEstado = linhaPopupVeiculo('ignicao', 'Desligado desde:', valor);
   } else if (estaParado && status !== 'sem_sinal') {
     linhaEstado = linhaPopupVeiculo('atualizado', 'Parado há:', formatarDuracaoDesde(v.atualizado_em));

@@ -115,18 +115,46 @@ function normalizarCombustivel(val) {
   return Math.round(n * 10) / 10;
 }
 
+function naiveIsoDateTimeGps(s) {
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (br) {
+    if (!br[4]) return null;
+    return `${br[3]}-${br[2]}-${br[1]}T${br[4]}:${br[5]}:${br[6] || '00'}`;
+  }
+  const t = s.includes('T') ? s : s.replace(' ', 'T');
+  const m = t.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?)/);
+  return m ? m[1] : null;
+}
+
+/** Fulltrack manda data sem fuso. Evita 20:41 no futuro quando Brasília ainda é 18:27. */
 function parseDataHoraPonto(str) {
   if (str == null || str === '') return null;
   const s = String(str).trim();
-  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})(?::(\d{2}))?$/);
-  if (br) {
-    const d = new Date(
-      `${br[3]}-${br[2]}-${br[1]}T${br[4]}:${br[5]}:${br[6] || '00'}-03:00`,
-    );
-    return Number.isFinite(d.getTime()) ? d : null;
+  const now = Date.now();
+  const naive = naiveIsoDateTimeGps(s);
+  const cands = [];
+  const add = (d) => {
+    if (d && Number.isFinite(d.getTime())) cands.push(d);
+  };
+  add(new Date(s.includes(' ') && !s.includes('T') ? s.replace(' ', 'T') : s));
+  if (naive) {
+    add(new Date(`${naive}-03:00`));
+    add(new Date(`${naive}Z`));
   }
-  const d = new Date(s.includes(' ') ? s.replace(' ', 'T') : s);
-  return Number.isFinite(d.getTime()) ? d : null;
+  for (const d of [...cands]) {
+    add(new Date(d.getTime() - 3 * 60 * 60 * 1000));
+  }
+  if (!cands.length) return null;
+  const passados = cands.filter((d) => d.getTime() <= now + 2 * 60 * 1000);
+  const pool = passados.length ? passados : cands;
+  return pool.reduce((best, d) =>
+    Math.abs(d.getTime() - now) < Math.abs(best.getTime() - now) ? d : best,
+  );
+}
+
+function isoTimestampGps(str) {
+  const d = parseDataHoraPonto(str);
+  return d ? d.toISOString() : str || null;
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -321,7 +349,7 @@ function mapPosicaoFulltrack(v, position) {
     velocidade: position ? parseInt(position.ras_eve_velocidade, 10) || 0 : null,
     ignicao: position ? position.ras_eve_ignicao === '1' : null,
     direcao: position?.ras_eve_direcao ?? null,
-    atualizado_em: position?.ras_eve_data_gps ?? v.ras_vei_data_ult_alt ?? null,
+    atualizado_em: isoTimestampGps(position?.ras_eve_data_gps ?? v.ras_vei_data_ult_alt),
     motorista:
       position?.ras_mot_nome && position.ras_mot_nome !== 'PADRAO' ? position.ras_mot_nome : null,
     odometro_km: normalizarOdometroKm(odometroRaw),
@@ -404,7 +432,7 @@ function mapearPontoHistorico(h, index) {
     longitude: lng,
     velocidade: velocidadePontoHistorico(h),
     ignicao: h.ras_eve_ignicao === '1' || h.ras_eve_ignicao === 1,
-    atualizado_em: h.ras_eve_data_gps || h.ras_tel_data || h.data_gps || null,
+    atualizado_em: isoTimestampGps(h.ras_eve_data_gps || h.ras_tel_data || h.data_gps || null),
     odometro_km: normalizarOdometroKm(h.ras_eve_hodometro),
     combustivel_litros: normalizarCombustivel(h.total_combustivel || h.sensor_combustivel),
   };
