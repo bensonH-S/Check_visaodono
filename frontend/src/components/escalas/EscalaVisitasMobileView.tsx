@@ -38,6 +38,7 @@ import {
   diaIndexNaSemana,
   fmtDataCurta,
   fmtEnvioQuando,
+  montarCardsAprovacaoEscala,
   primeiroNome,
   segundaFeiraAtual,
   segundaFeiraSubsequente,
@@ -250,11 +251,15 @@ export default function EscalaVisitasMobileView() {
 
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
+  const cardsAprovacao = useMemo(
+    () => montarCardsAprovacaoEscala(grade?.status_por_regiao ?? [], grade?.regionais ?? [], idUsuarioFiltro),
+    [grade?.status_por_regiao, grade?.regionais, idUsuarioFiltro],
+  );
   const pendentesAprovacao = useMemo(() => {
-    const regioes = (grade?.status_por_regiao ?? []).filter((s) => s.status === 'pendente_aprovacao');
+    const regioes = cardsAprovacao.filter((c) => c.status === 'pendente_aprovacao');
     const deliveryPendente = grade?.status_delivery?.status === 'pendente_aprovacao';
     return { regioes, deliveryPendente, length: regioes.length + (deliveryPendente ? 1 : 0) };
-  }, [grade?.status_por_regiao, grade?.status_delivery]);
+  }, [cardsAprovacao, grade?.status_delivery]);
   const modos = useMemo(() => {
     if (ehDeliveryOnly) return [{ id: 'delivery' as const, label: 'Delivery' }];
     // Regional: Minhas (só o próprio nome) + Montar (quando tem permissão de região).
@@ -478,11 +483,22 @@ export default function EscalaVisitasMobileView() {
     }
   }
 
-  async function aprovarRegiao(id: number) {
+  function visualizarEscalaPessoa(idUsuario: number) {
+    setIdRegiao('');
+    setIdUsuarioFiltro(Number(idUsuario));
+    setIdEnvio(null);
+    setModo('dia');
+  }
+
+  async function aprovarRegioes(ids: number[]) {
+    if (!ids.length) return;
     setSalvando(true);
     try {
-      const data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
-      setGrade(data);
+      let data = grade;
+      for (const id of ids) {
+        data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
+      }
+      if (data) setGrade(data);
       showToast('Escala aprovada', 'success');
       void carregarNotifs();
     } catch (e) {
@@ -492,11 +508,15 @@ export default function EscalaVisitasMobileView() {
     }
   }
 
-  async function recusarRegiao(id: number) {
+  async function recusarRegioes(ids: number[]) {
+    if (!ids.length) return;
     setSalvando(true);
     try {
-      const data = await api.escalaVisitasDevolver({ semana_inicio: semanaInicio, id_regiao: id });
-      setGrade(data);
+      let data = grade;
+      for (const id of ids) {
+        data = await api.escalaVisitasDevolver({ semana_inicio: semanaInicio, id_regiao: id });
+      }
+      if (data) setGrade(data);
       showToast('Escala recusada — regional pode montar de novo', 'success');
       void carregarNotifs();
     } catch (e) {
@@ -1025,26 +1045,30 @@ export default function EscalaVisitasMobileView() {
           {ehDiretor && !loading && pendentesAprovacao.length > 0 && (
             <div className="ck-escala__aprovacoes">
               <p className="ck-escala__section">Para aprovar</p>
-              {(grade?.status_por_regiao ?? [])
-                .filter((st) => st.status === 'pendente_aprovacao')
-                .map((st) => (
+              {pendentesAprovacao.regioes.map((card) => (
                   <div
-                    key={st.id_regiao}
+                    key={card.key}
                     className="ck-escala__aprovacao-card ck-escala__aprovacao-card--pendente_aprovacao"
                   >
                     <button
                       type="button"
                       className="ck-escala__aprovacao-info"
-                      onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por, st.id_envio)}
+                      onClick={() =>
+                        card.tipo === 'pessoa' && card.id_usuario
+                          ? visualizarEscalaPessoa(card.id_usuario)
+                          : visualizarEscalaRegiao(card.id_regiao!, null, card.id_envio)
+                      }
                     >
                       <strong>
-                        {st.nome_regiao}
+                        {card.titulo}
                         <em>Pendente</em>
                       </strong>
                       <span>
-                        {st.nome_submetido_por
-                          ? `Montada por ${primeiroNome(st.nome_submetido_por)}`
-                          : 'Aguardando envio'}
+                        {card.tipo === 'pessoa'
+                          ? 'Todas as lojas · aguardando aprovação'
+                          : card.montadaPor
+                            ? `Montada por ${card.montadaPor}`
+                            : 'Aguardando envio'}
                       </span>
                       <span className="ck-escala__aprovacao-ver">Toque para ver a escala →</span>
                     </button>
@@ -1052,8 +1076,8 @@ export default function EscalaVisitasMobileView() {
                       <button
                         type="button"
                         className="ck-escala__btn-aprovar"
-                        disabled={salvando}
-                        onClick={() => void aprovarRegiao(st.id_regiao)}
+                        disabled={salvando || card.ids_regiao_aprovar.length === 0}
+                        onClick={() => void aprovarRegioes(card.ids_regiao_aprovar)}
                       >
                         Aprovar
                       </button>
@@ -1061,7 +1085,9 @@ export default function EscalaVisitasMobileView() {
                         type="button"
                         className="ck-escala__btn-recusar"
                         disabled={salvando}
-                        onClick={() => void recusarRegiao(st.id_regiao)}
+                        onClick={() =>
+                          void recusarRegioes(card.ids_regiao_aprovar.length ? card.ids_regiao_aprovar : card.ids_regiao)
+                        }
                       >
                         Recusar
                       </button>

@@ -38,7 +38,8 @@ function erroHttp(e, res, next) {
     msg.includes('Só é possível') ||
     msg.includes('Semanas iguais') ||
     msg.includes('Delivery') ||
-    msg.includes('Envio')
+    msg.includes('Envio') ||
+    msg.includes('Não há')
   ) {
     return res.status(400).json({ error: msg });
   }

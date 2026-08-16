@@ -2143,6 +2143,7 @@ export interface EscalaVisitasRegional {
   avatar_inicial?: string | null;
   cor: string;
   grupo_nome?: string | null;
+  todas_lojas?: boolean;
 }
 
 export interface EscalaVisitasAtribuicao {
@@ -2216,6 +2217,7 @@ export interface EscalaVisitasRegiaoStatus {
   id_envio?: number | null;
   nome_ultimo_envio?: string | null;
   ultimo_envio_em?: string | null;
+  pessoas?: Array<{ id_usuario: number; nome: string }>;
 }
 
 export interface EscalaVisitasDeliveryStatus {

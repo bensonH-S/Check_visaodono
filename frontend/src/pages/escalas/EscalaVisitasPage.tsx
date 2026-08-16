@@ -45,7 +45,7 @@ import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
-import { agruparRegionaisEscala, primeiroNome, fmtEnvioQuando } from '../../components/escalas/escalaVisitasUtils';
+import { agruparRegionaisEscala, primeiroNome, fmtEnvioQuando, montarCardsAprovacaoEscala } from '../../components/escalas/escalaVisitasUtils';
 
 const STATUS_LABEL: Record<EscalaVisitasRegiaoStatusCodigo, string> = {
   rascunho: 'Rascunho',
@@ -331,12 +331,23 @@ export default function EscalaVisitasPage() {
     }
   }
 
-  async function aprovarRegiao(id: number) {
+  function visualizarEscalaPessoa(idUsuario: number) {
+    setAba('visitas');
+    setIdRegiao('');
+    setIdUsuarioFiltro(Number(idUsuario));
+    setIdEnvio(null);
+  }
+
+  async function aprovarRegioes(ids: number[]) {
+    if (!ids.length) return;
     setSalvando(true);
     try {
-      const data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
-      setGrade(data);
-      showToast('Região aprovada', 'success');
+      let data = grade;
+      for (const id of ids) {
+        data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
+      }
+      if (data) setGrade(data);
+      showToast(ids.length > 1 ? 'Escala aprovada' : 'Região aprovada', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
     } finally {
@@ -344,12 +355,16 @@ export default function EscalaVisitasPage() {
     }
   }
 
-  async function devolverRegiao(id: number) {
+  async function devolverRegioes(ids: number[]) {
+    if (!ids.length) return;
     setSalvando(true);
     try {
-      const data = await api.escalaVisitasDevolver({ semana_inicio: semanaInicio, id_regiao: id });
-      setGrade(data);
-      showToast('Escala devolvida ao regional', 'success');
+      let data = grade;
+      for (const id of ids) {
+        data = await api.escalaVisitasDevolver({ semana_inicio: semanaInicio, id_regiao: id });
+      }
+      if (data) setGrade(data);
+      showToast('Escala devolvida', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao devolver', 'error');
     } finally {
@@ -404,18 +419,21 @@ export default function EscalaVisitasPage() {
     }
   }
 
-  async function excluirEscalaRegiao(id: number, nome: string) {
+  async function excluirRegioes(ids: number[], nome: string) {
     if (
       !window.confirm(
-        `Excluir a escala de ${nome} desta semana?\n\nApaga todas as visitas montadas e volta para rascunho.`,
+        `Excluir a escala de ${nome} desta semana?\n\nApaga as visitas montadas e volta para rascunho.`,
       )
     ) {
       return;
     }
     setSalvando(true);
     try {
-      const data = await api.escalaVisitasLimpar({ semana_inicio: semanaInicio, id_regiao: id });
-      setGrade(data);
+      let data = grade;
+      for (const id of ids) {
+        data = await api.escalaVisitasLimpar({ semana_inicio: semanaInicio, id_regiao: id });
+      }
+      if (data) setGrade(data);
       setPending(new Map());
       showToast(`Escala de ${nome} excluída`, 'success');
     } catch (e) {
@@ -501,6 +519,11 @@ export default function EscalaVisitasPage() {
       return { ...loja, dias, total };
     });
   }, [linhaDelivery, lojasDelivery, grade, pending]);
+
+  const cardsAprovacao = useMemo(
+    () => montarCardsAprovacaoEscala(grade?.status_por_regiao ?? [], grade?.regionais ?? [], idUsuarioFiltro),
+    [grade?.status_por_regiao, grade?.regionais, idUsuarioFiltro],
+  );
 
   const regionaisAgrupados = useMemo(
     () => agruparRegionaisEscala(grade?.regionais ?? []),
@@ -666,8 +689,7 @@ export default function EscalaVisitasPage() {
             : Boolean(grade?.status_por_regiao?.length)) && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mt: 1, minWidth: 0 }}>
             {ehDiretor &&
-              ((aba === 'visitas' &&
-                (grade?.status_por_regiao ?? []).some((s) => s.status === 'pendente_aprovacao')) ||
+              ((aba === 'visitas' && cardsAprovacao.some((c) => c.status === 'pendente_aprovacao')) ||
                 (aba === 'delivery' && grade?.status_delivery?.status === 'pendente_aprovacao')) && (
                 <Typography variant="caption" sx={{ fontWeight: 800, color: colors.orange, letterSpacing: 0.04 }}>
                   Escalas aguardando aprovação
@@ -685,17 +707,12 @@ export default function EscalaVisitasPage() {
             >
               {!ehDeliveryOnly &&
                 aba === 'visitas' &&
-                (grade?.status_por_regiao ?? []).map((st) => {
-                  const pendente = st.status === 'pendente_aprovacao';
-                  const montadaPor = st.nome_submetido_por
-                    ? primeiroNome(st.nome_submetido_por)
-                    : null;
-                  const revisadaPor = st.nome_revisado_por
-                    ? primeiroNome(st.nome_revisado_por)
-                    : null;
+                cardsAprovacao.map((card) => {
+                  const pendente = card.status === 'pendente_aprovacao';
+                  const montadaPor = card.montadaPor;
                   return (
                     <Box
-                      key={st.id_regiao}
+                      key={card.key}
                       sx={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -707,12 +724,12 @@ export default function EscalaVisitasPage() {
                         borderRadius: 1.5,
                         bgcolor: pendente
                           ? 'rgba(232, 82, 10, 0.08)'
-                          : st.status === 'aprovado'
+                          : card.status === 'aprovado'
                             ? 'rgba(22, 163, 74, 0.08)'
                             : colors.canvasAlt,
                         border: pendente
                           ? '1px solid rgba(232, 82, 10, 0.28)'
-                          : st.status === 'aprovado'
+                          : card.status === 'aprovado'
                             ? '1px solid rgba(22, 163, 74, 0.28)'
                             : `1px solid ${colors.border}`,
                       }}
@@ -722,8 +739,12 @@ export default function EscalaVisitasPage() {
                           component="button"
                           type="button"
                           variant="caption"
-                          onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por, st.id_envio)}
-                          title="Clique para ver só esta região"
+                          onClick={() =>
+                            card.tipo === 'pessoa' && card.id_usuario
+                              ? visualizarEscalaPessoa(card.id_usuario)
+                              : visualizarEscalaRegiao(card.id_regiao!, null, card.id_envio)
+                          }
+                          title={card.tipo === 'pessoa' ? 'Ver a escala desta pessoa' : 'Clique para ver só esta região'}
                           sx={{
                             all: 'unset',
                             cursor: 'pointer',
@@ -733,16 +754,18 @@ export default function EscalaVisitasPage() {
                             mr: 0.25,
                           }}
                         >
-                          <PlaceIcon fontSize="small" sx={{ mr: 0.5, color: colors.textSecondary }} />
-                          {st.nome_regiao}
+                          {card.tipo === 'regiao' && (
+                            <PlaceIcon fontSize="small" sx={{ mr: 0.5, color: colors.textSecondary }} />
+                          )}
+                          {card.titulo}
                         </Typography>
-                        {grade?.pode_aprovar && pendente && (
+                        {grade?.pode_aprovar && pendente && card.ids_regiao_aprovar.length > 0 && (
                           <Button
                             size="small"
                             variant="contained"
                             startIcon={<CheckIcon />}
                             disabled={salvando}
-                            onClick={() => void aprovarRegiao(st.id_regiao)}
+                            onClick={() => void aprovarRegioes(card.ids_regiao_aprovar)}
                             sx={{
                               textTransform: 'none',
                               minWidth: 0,
@@ -754,15 +777,14 @@ export default function EscalaVisitasPage() {
                             Aprovar
                           </Button>
                         )}
-                        {/* Recusar + Excluir agrupados à direita */}
                         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                          {grade?.pode_devolver && (pendente || st.status === 'aprovado') && (
+                          {grade?.pode_devolver && (pendente || card.status === 'aprovado') && (
                             <Tooltip title="Recusar" arrow>
                               <span>
                                 <IconButton
                                   size="small"
                                   disabled={salvando}
-                                  onClick={() => void devolverRegiao(st.id_regiao)}
+                                  onClick={() => void devolverRegioes(card.ids_regiao_aprovar.length ? card.ids_regiao_aprovar : card.ids_regiao)}
                                   sx={{
                                     p: 0.5,
                                     color: colors.textSecondary,
@@ -780,7 +802,12 @@ export default function EscalaVisitasPage() {
                                 <IconButton
                                   size="small"
                                   disabled={salvando}
-                                  onClick={() => void excluirEscalaRegiao(st.id_regiao, st.nome_regiao)}
+                                  onClick={() =>
+                                    void excluirRegioes(
+                                      card.ids_regiao_aprovar.length ? card.ids_regiao_aprovar : card.ids_regiao,
+                                      card.titulo,
+                                    )
+                                  }
                                   sx={{
                                     p: 0.5,
                                     color: colors.textSecondary,
@@ -795,22 +822,24 @@ export default function EscalaVisitasPage() {
                         </Box>
                       </Box>
                       <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
-                        {montadaPor
-                          ? `Montada por ${montadaPor}${
-                              st.status === 'aprovado' && revisadaPor ? ` · Aprovada por ${revisadaPor}` : ''
-                            }${pendente ? ' · aguardando aprovação' : ''}`
-                          : st.id_envio && st.nome_ultimo_envio
-                            ? `Cópia salva de ${primeiroNome(st.nome_ultimo_envio)}`
-                            : st.status === 'rascunho'
+                        {card.tipo === 'pessoa'
+                          ? `${pendente ? 'Aguardando aprovação' : card.status === 'aprovado' ? 'Aprovada' : 'Rascunho'} · todas as lojas`
+                          : montadaPor
+                            ? `Montada por ${montadaPor}${pendente ? ' · aguardando aprovação' : ''}`
+                            : card.status === 'rascunho'
                               ? 'Ainda não enviada'
                               : '—'}
                       </Typography>
-                      {(st.id_envio || st.status !== 'rascunho') && (
+                      {(card.id_envio || card.status !== 'rascunho' || card.tipo === 'pessoa') && (
                       <Typography
                         component="button"
                         type="button"
                         variant="caption"
-                        onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por, st.id_envio)}
+                        onClick={() =>
+                          card.tipo === 'pessoa' && card.id_usuario
+                            ? visualizarEscalaPessoa(card.id_usuario)
+                            : visualizarEscalaRegiao(card.id_regiao!, null, card.id_envio)
+                        }
                         sx={{
                           all: 'unset',
                           cursor: 'pointer',

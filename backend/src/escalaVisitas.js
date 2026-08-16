@@ -448,6 +448,7 @@ export async function listarRegionaisEscala() {
     avatar_inicial: r.avatar_inicial,
     grupo_nome: r.grupo_nome ?? null,
     cor: corEscalaPorNome(r.nome, i),
+    todas_lojas: nomeCorrespondeChave(r.nome, 'igor') || nomeCorrespondeChave(r.nome, 'renato'),
   }));
 }
 
@@ -684,10 +685,51 @@ function enviosParaUsuario(envios, idUsuario) {
   const id = Number(idUsuario);
   if (!id) return [];
   const proprios = envios.filter((e) => e.submetido_por === id);
-  const fonte = proprios.length
-    ? proprios
-    : envios.filter((e) => (e.ids_usuario || []).includes(id));
-  return [...envioMaisRecentePorChave(fonte).values()];
+  return [...envioMaisRecentePorChave(proprios).values()];
+}
+
+async function pessoasPorRegiaoSemana(idSemana, idsRegiao) {
+  const map = new Map();
+  if (!idsRegiao.length) return map;
+  const lojaDelivery = await obterLojaDeliveryAnchor();
+  const { rows } = await pool.query(
+    `SELECT rl.id_regiao, u.id_usuario, u.nome
+     FROM escala_visitas_celula c
+     JOIN frota_regiao_lojas rl ON rl.id_loja = c.id_loja AND rl.id_regiao = ANY($2::int[])
+     JOIN usuarios u ON u.id_usuario = c.id_regional
+     WHERE c.id_semana = $1
+       AND c.id_regional IS NOT NULL
+       AND c.id_loja_destino IS NULL
+       AND ($3::int IS NULL OR c.id_loja <> $3)
+     GROUP BY rl.id_regiao, u.id_usuario, u.nome
+     ORDER BY u.nome`,
+    [idSemana, idsRegiao, lojaDelivery?.id_loja ?? null],
+  );
+  for (const row of rows) {
+    const idRegiao = Number(row.id_regiao);
+    if (!map.has(idRegiao)) map.set(idRegiao, []);
+    map.get(idRegiao).push({
+      id_usuario: Number(row.id_usuario),
+      nome: row.nome,
+    });
+  }
+  return map;
+}
+
+async function idsRegioesComVisitaDoUsuario(idSemana, idUsuario, idsRegiao) {
+  if (!idsRegiao.length || !idUsuario) return [];
+  const lojaDelivery = await obterLojaDeliveryAnchor();
+  const { rows } = await pool.query(
+    `SELECT DISTINCT rl.id_regiao
+     FROM escala_visitas_celula c
+     JOIN frota_regiao_lojas rl ON rl.id_loja = c.id_loja AND rl.id_regiao = ANY($3::int[])
+     WHERE c.id_semana = $1
+       AND c.id_regional = $2
+       AND c.id_loja_destino IS NULL
+       AND ($4::int IS NULL OR c.id_loja <> $4)`,
+    [idSemana, idUsuario, idsRegiao, lojaDelivery?.id_loja ?? null],
+  );
+  return rows.map((r) => Number(r.id_regiao));
 }
 
 async function registrarEnvioEscalaRegiao(db, { idSemana, idRegiao, idUsuario }) {
@@ -936,13 +978,16 @@ export async function carregarGradeVisitas(user, {
   const statusPorRegiaoRaw = await carregarStatusPorRegiao(semana.id_semana, idsRegiaoStatus);
   const statusDelivery = await obterStatusDelivery(semana.id_semana);
   const envioPorChave = envioMaisRecentePorChave(envios);
+  const pessoasMap = await pessoasPorRegiaoSemana(semana.id_semana, idsRegiaoStatus);
   const statusPorRegiao = statusPorRegiaoRaw.map((st) => {
     const envio = envioPorChave.get(`r-${Number(st.id_regiao)}`);
+    const pessoas = pessoasMap.get(Number(st.id_regiao)) || [];
     return {
       ...st,
       id_envio: envio?.id_envio ?? null,
       nome_ultimo_envio: envio?.nome_submetido_por ?? null,
       ultimo_envio_em: envio?.submetido_em ?? null,
+      pessoas,
     };
   });
   const envioDelivery = envioPorChave.get('delivery') || null;
@@ -1188,6 +1233,13 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
   const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  let idsParaEnviar = idsAlvo;
+  if (!idInformado && idsAlvo.length > 1) {
+    idsParaEnviar = await idsRegioesComVisitaDoUsuario(semana.id_semana, user.sub, idsAlvo);
+    if (!idsParaEnviar.length) {
+      throw new Error('Não há visitas suas em rascunho para enviar. Monte a sua escala e envie.');
+    }
+  }
   const nomeAutor = (await nomeUsuarioPorId(user.sub)) || 'Regional';
   const idsDiretores = await idsDiretoresEscala();
   const submetidas = [];
@@ -1195,7 +1247,7 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    for (const idRegiao of idsAlvo) {
+    for (const idRegiao of idsParaEnviar) {
       const st = await obterStatusRegiao(semana.id_semana, idRegiao);
       if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) continue;
 
