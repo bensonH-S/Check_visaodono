@@ -831,6 +831,7 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
   try {
     await client.query('BEGIN');
     const idsDeliveryOnly = await idsUsuariosDeliveryOnly();
+    const idsPaleta = new Set((await listarRegionaisEscala()).map((r) => Number(r.id_usuario)));
     for (const item of lista) {
       const idLoja = Number(item.id_loja);
       const dia = Number(item.dia);
@@ -838,6 +839,9 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
 
       const ehDelivery = lojaDelivery && idLoja === lojaDelivery.id_loja;
       let idsRegional = ehDelivery ? [] : regionaisParaSalvar(item);
+      if (!ehDelivery && idsPaleta.size) {
+        idsRegional = idsRegional.filter((id) => idsPaleta.has(Number(id)));
+      }
       if (!ehDelivery && idsDeliveryOnly.size) {
         idsRegional = idsRegional.filter((id) => !idsDeliveryOnly.has(id));
       }
@@ -1306,13 +1310,25 @@ async function idsDiretoresEscala() {
 
 async function listarEquipesVisitaPorRegiao(idsRegiao = []) {
   if (!idsRegiao.length) return [];
+  const paleta = await listarRegionaisEscala();
+  const idsPaleta = new Set(paleta.map((r) => Number(r.id_usuario)));
+  if (!idsPaleta.size) return [];
   const { rows } = await pool.query(
-    `SELECT rt.id_regiao, u.id_usuario, u.nome
-     FROM frota_regiao_tecnicos rt
-     JOIN usuarios u ON u.id_usuario = rt.id_usuario AND u.ativo = TRUE
-     WHERE rt.id_regiao = ANY($1::int[])
-     ORDER BY rt.id_regiao, u.nome`,
-    [idsRegiao],
+    `SELECT DISTINCT x.id_regiao, u.id_usuario, u.nome
+     FROM (
+       SELECT r.id_regiao, r.id_regional AS id_usuario
+       FROM frota_regioes r
+       WHERE r.id_regiao = ANY($1::int[]) AND r.id_regional IS NOT NULL AND r.ativo = TRUE
+       UNION
+       SELECT rr.id_regiao, rr.id_usuario
+       FROM frota_regiao_regionais rr
+       JOIN frota_regioes r ON r.id_regiao = rr.id_regiao AND r.ativo = TRUE
+       WHERE rr.id_regiao = ANY($1::int[])
+     ) x
+     JOIN usuarios u ON u.id_usuario = x.id_usuario AND u.ativo = TRUE
+     WHERE u.id_usuario = ANY($2::int[])
+     ORDER BY x.id_regiao, u.nome`,
+    [idsRegiao, [...idsPaleta]],
   );
   const porRegiao = new Map();
   for (const row of rows) {

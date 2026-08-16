@@ -81,8 +81,8 @@ export default function MapaTecnicosListaLojas() {
         ? `${qtdUnidades} ${qtdUnidades === 1 ? 'unidade' : 'unidades'} · toque no mapa`
         : 'Toque no mapa para escolher a unidade'
     : consultaHistorico
-      ? 'Escolha o veículo e o período, depois toque em Consultar.'
-      : 'Escolha o veículo na lista — o mapa vai até ele.';
+      ? 'Escolha o veículo, o dia (e o horário sai no trajeto) e toque em Consultar.'
+      : 'Escolha o veículo ao vivo, ou toque em Histórico para ver dia e horário.';
 
   return (
     <div className="ck-mapa__stage">

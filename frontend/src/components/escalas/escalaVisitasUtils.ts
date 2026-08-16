@@ -15,6 +15,11 @@ export function segundaFeiraAtual() {
   return d.toISOString().slice(0, 10);
 }
 
+/** Próxima segunda-feira — semana que o time monta na escala. */
+export function segundaFeiraSubsequente() {
+  return addDaysIso(segundaFeiraAtual(), 7);
+}
+
 export function fmtDataCurta(iso: string) {
   const [, m, dd] = iso.split('-');
   return `${dd}/${m}`;

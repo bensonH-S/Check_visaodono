@@ -39,6 +39,7 @@ import {
   fmtDataCurta,
   primeiroNome,
   segundaFeiraAtual,
+  segundaFeiraSubsequente,
 } from './escalaVisitasUtils';
 import {
   atribuicoesDoDia,
@@ -228,7 +229,9 @@ export default function EscalaVisitasMobileView() {
   const ehRegional = !ehDiretor && podeEditarEscalaRegiao(user);
   const ehDeliveryOnly = !ehDiretor && !ehRegional && podeEditarEscalaDelivery(user);
 
-  const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
+  const [semanaInicio, setSemanaInicio] = useState(
+    ehDeliveryOnly ? segundaFeiraSubsequente() : segundaFeiraAtual(),
+  );
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   const [modo, setModo] = useState<ModoVisualizacao>(
     ehDeliveryOnly ? 'delivery' : ehRegional ? 'minhas' : ehDiretor ? 'dia' : 'minhas',
@@ -348,25 +351,6 @@ export default function EscalaVisitasMobileView() {
     return idsLojasDestinoDoDia(original);
   }
 
-  function idsEquipeDaLoja(idRegiao: number | null | undefined): number[] {
-    if (idRegiao == null) return idEu ? [idEu] : [];
-    const eq = grade?.equipes_por_regiao?.find((e) => e.id_regiao === idRegiao);
-    if (eq?.ids_usuario?.length) return eq.ids_usuario;
-    return idEu ? [idEu] : [];
-  }
-
-  function nomesEquipeDaLoja(idRegiao: number | null | undefined): string {
-    if (idRegiao == null) return '';
-    const eq = grade?.equipes_por_regiao?.find((e) => e.id_regiao === idRegiao);
-    if (!eq?.nomes?.length) return '';
-    return eq.nomes.map((n) => primeiroNome(n)).join(' e ');
-  }
-
-  function celulaTemEquipe(idsAtuais: number[], idsEquipe: number[]) {
-    if (!idsEquipe.length) return idsAtuais.length > 0;
-    return idsEquipe.some((id) => idsAtuais.includes(id));
-  }
-
   function toggleDeliveryLoja(dia: number, idLojaDestino: number) {
     if (!podeEditarDelivery || !linhaDelivery) return;
     const atual = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
@@ -390,16 +374,18 @@ export default function EscalaVisitasMobileView() {
     if (!linha || linha.tipo === 'delivery') return;
     const atual = valorCelulaRegional(idLoja, dia, linha.dias[dia]);
 
-    // Regional: marca/desmarca a equipe inteira (técnicos andam juntos).
+    // Regional: marca/desmarca só a si (Renato, Barbara, Igor, Plinio, Fagno).
     if (ehRegional) {
-      const equipe = idsEquipeDaLoja(linha.id_regiao);
-      const jaMarcado = celulaTemEquipe(atual, equipe);
+      if (!idEu) return;
+      const jaMarcado = atual.includes(idEu);
+      const idsPaleta = new Set((grade?.regionais ?? []).map((r) => r.id_usuario));
+      const semTecnicos = atual.filter((id) => idsPaleta.has(id) && id !== idEu);
       setPending((prev) => {
         const next = new Map(prev);
         next.set(chaveCelula(idLoja, dia), {
           id_loja: idLoja,
           dia,
-          id_regionais: jaMarcado ? [] : equipe,
+          id_regionais: jaMarcado ? semTecnicos : [...semTecnicos, idEu],
         });
         return next;
       });
@@ -595,24 +581,20 @@ export default function EscalaVisitasMobileView() {
   /** Montar regional no padrão delivery: dia → lista de lojas. */
   const montarPorDia = useMemo(() => {
     if (!grade) return [];
+    const idsPaleta = new Set((grade.regionais ?? []).map((r) => r.id_usuario));
     const linhas = grade.linhas.filter((l) => l.tipo !== 'delivery');
     return DIAS_LONGO.map((label, dia) => {
       const lojas = linhas.map((linha) => {
-        const ids = valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]);
-        const equipe = idsEquipeDaLoja(linha.id_regiao);
-        const marcadaEquipe = celulaTemEquipe(ids, equipe);
+        const ids = valorCelulaRegional(linha.id_loja, dia, linha.dias[dia]).filter((id) =>
+          idsPaleta.has(id),
+        );
         return {
           id_loja: linha.id_loja,
           nome: linha.nome,
           bk_number: linha.bk_number,
           id_regiao: linha.id_regiao,
-          marcada: marcadaEquipe,
+          marcada: idEu ? ids.includes(idEu) : ids.length > 0,
           temVisita: ids.length > 0,
-          equipeLabel: nomesEquipeDaLoja(linha.id_regiao),
-          regionais: atribuicoesDoDia(linha.dias[dia]).map((a) => ({
-            nome: a.nome_regional ?? mapNomeRegional.get(a.id_regional!) ?? '—',
-            cor: a.cor ?? undefined,
-          })),
         };
       });
       return {
@@ -620,11 +602,10 @@ export default function EscalaVisitasMobileView() {
         label,
         data: fmtDataCurta(addDaysIso(grade.semana_inicio, dia)),
         lojas,
-        // Conta qualquer visita na loja (não só “minha equipe”), para o badge não zerar.
         totalMarcadas: lojas.filter((l) => l.temVisita).length,
       };
     });
-  }, [grade, pending, idEu, mapNomeRegional]);
+  }, [grade, pending, idEu]);
 
   const visitasPorDia = useMemo(() => {
     if (!grade) return [];
@@ -690,7 +671,6 @@ export default function EscalaVisitasMobileView() {
   }, [minhasVisitas, hojeIndex, idEu]);
 
   const diaAtual = visitasPorDia[diaSelecionado];
-  const semanaEhAtual = semanaInicio === segundaFeiraAtual();
 
   if (!podeVer) return null;
 
@@ -701,6 +681,8 @@ export default function EscalaVisitasMobileView() {
   const temFiltroRegiao = !ehDeliveryOnly && grade != null && grade.regioes.length > 1;
   const regiaoAtiva = grade?.regioes.find((r) => r.id_regiao === idRegiao);
   const modoTrabalho = ehDeliveryOnly || modo === 'montar' || modo === 'delivery';
+  const semanaAlvo = modoTrabalho ? segundaFeiraSubsequente() : segundaFeiraAtual();
+  const semanaEhAtual = semanaInicio === semanaAlvo;
 
   return (
     <div
@@ -730,7 +712,7 @@ export default function EscalaVisitasMobileView() {
                         ? podeEditarGrade
                           ? statusAtivo === 'pendente_aprovacao'
                             ? 'Ajuste as lojas e envie de novo para o diretor'
-                            : 'Escolha o dia, toque nas lojas da equipe e envie para aprovação'
+                            : 'Escolha o dia da próxima semana, toque nas lojas e envie para aprovação'
                           : 'Escala em só leitura — use Minhas para ver sua rota'
                         : 'Toque nos dias e envie para aprovação'}
                   </p>
@@ -751,7 +733,7 @@ export default function EscalaVisitasMobileView() {
                   <button
                     type="button"
                     className="ck-escala__hoje"
-                    onClick={() => setSemanaInicio(segundaFeiraAtual())}
+                    onClick={() => setSemanaInicio(semanaAlvo)}
                   >
                     Hoje
                   </button>
@@ -821,7 +803,7 @@ export default function EscalaVisitasMobileView() {
                   <button
                     type="button"
                     className="ck-escala__hoje"
-                    onClick={() => setSemanaInicio(segundaFeiraAtual())}
+                    onClick={() => setSemanaInicio(semanaAlvo)}
                   >
                     Hoje
                   </button>
@@ -876,7 +858,14 @@ export default function EscalaVisitasMobileView() {
                   role="tab"
                   aria-selected={modo === id}
                   className={`ck-visitas__seg-btn${modo === id ? ' is-on' : ''}`}
-                  onClick={() => setModo(id)}
+                  onClick={() => {
+                    setModo(id);
+                    if (id === 'montar' || id === 'delivery') {
+                      setSemanaInicio(segundaFeiraSubsequente());
+                    } else {
+                      setSemanaInicio(segundaFeiraAtual());
+                    }
+                  }}
                 >
                   {label}
                 </button>
@@ -1094,15 +1083,9 @@ export default function EscalaVisitasMobileView() {
                           <p className={`ck-escala__card-meta${loja.temVisita ? ' is-on' : ' is-off'}`}>
                             {loja.temVisita
                               ? podeEditarGrade
-                                ? `Visita${loja.equipeLabel ? ` (${loja.equipeLabel})` : ''}${
-                                    loja.regionais.length
-                                      ? ` · ${loja.regionais.map((r) => r.nome).join(', ')}`
-                                      : ''
-                                  } · toque para remover`
-                                : `Visita · ${
-                                    loja.regionais.map((r) => r.nome).join(', ') || 'agendada'
-                                  }`
-                              : 'Toque para agendar visita da equipe'}
+                                ? 'Visita · toque para remover'
+                                : 'Visita agendada'
+                              : 'Toque para agendar'}
                           </p>
                         </div>
                       </button>

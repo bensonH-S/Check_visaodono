@@ -424,13 +424,12 @@ export function podeFiltrarRegioesMapaMobile(usuario?: UsuarioSessao | null): bo
   );
 }
 
-/** Diretor, administrador ou supervisor — filtra trajeto do veículo por data no mapa mobile. */
+/** Quem vê o mapa mobile também consulta histórico (dia e horário). */
 export function podeFiltrarDataTrajetoMapaMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;
-  if (podeFiltrarRegioesMapaMobile(u)) return true;
-  if (u.perfil === 'administrador') return true;
-  return ehSupervisorRegiaoMobile(u);
+  if (modoAppTecnicoFrotaRestrito(u)) return false;
+  return podeVerMapaTecnicosMobile(u);
 }
 
 /** Usuário restrito à escala de delivery (sem poder de diretor/regional). */

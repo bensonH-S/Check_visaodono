@@ -17,7 +17,7 @@ import {
 } from '../../api/client';
 import { useMapaTecnicosMobile } from './MapaTecnicosMobileContext';
 import { useAppConfig } from '../../hooks/useAppConfig';
-import { dataHojeBrasilia, formatarDuracaoMs } from '../../utils/dateBr';
+import { dataHojeBrasilia, formatarDuracaoMs, formatDataCampoData } from '../../utils/dateBr';
 import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
 import { contarPassagensPorLoja } from '../../utils/frotaPassagensLoja';
 import { posicaoParaVeiculoCatalogo } from '../../components/mapa/MapaFiltroTrajetoVeiculo';
@@ -99,6 +99,7 @@ export default function MapaTecnicosMobilePage() {
     selecionarVeiculoTrajeto,
     setCarregandoTrajeto,
     setErroConsulta,
+    abrirConsultaHistorico,
     selecionarLoja,
     limparLoja,
     focarTecnico,
@@ -260,6 +261,14 @@ export default function MapaTecnicosMobilePage() {
     return modelo ? `${placa} · ${modelo}` : placa || 'Trajeto';
   }, [veiculoTrajetoMeta, rotaDiaVeiculo]);
 
+  const periodoLabel = useMemo(() => {
+    const ini = formatDataCampoData(dataTrajetoInicio);
+    const fim = formatDataCampoData(dataTrajetoFim);
+    if (!consultaHistorico) return `Hoje · ${ini}`;
+    if (dataTrajetoInicio === dataTrajetoFim) return `Histórico · ${ini}`;
+    return `Histórico · ${ini} a ${fim}`;
+  }, [consultaHistorico, dataTrajetoInicio, dataTrajetoFim]);
+
   const mostrarKpis = consultaHistorico && (consultou || carregandoTrajeto);
   const mostrarFicha =
     veiculoTrajetoAtivo != null &&
@@ -419,6 +428,8 @@ export default function MapaTecnicosMobilePage() {
             passagensLoja={passagensLoja}
             limiteKmh={limiteKmh}
             consultouTrajeto={consultou}
+            periodoLabel={periodoLabel}
+            onAbrirHistorico={podeFiltrarDataTrajeto && !consultaHistorico ? abrirConsultaHistorico : undefined}
             onClose={() => selecionarVeiculoTrajeto(null)}
           />
         )}

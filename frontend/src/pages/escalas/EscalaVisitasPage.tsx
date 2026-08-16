@@ -178,22 +178,12 @@ export default function EscalaVisitasPage() {
     });
   }
 
-  function idsEquipeDaLoja(idRegiao: number | null | undefined): number[] {
-    if (idRegiao == null) return idEu ? [idEu] : [];
-    const eq = grade?.equipes_por_regiao?.find((e) => e.id_regiao === idRegiao);
-    if (eq?.ids_usuario?.length) return eq.ids_usuario;
-    return idEu ? [idEu] : [];
-  }
-
-  function celulaTemEquipe(idsAtuais: number[], idsEquipe: number[]) {
-    if (!idsEquipe.length) return idsAtuais.length > 0;
-    return idsEquipe.some((id) => idsAtuais.includes(id));
-  }
-
-  function toggleCelulaRegionalEquipe(idLoja: number, dia: number, idRegiao: number | null | undefined, idsAtuais: number[]) {
-    const equipe = idsEquipeDaLoja(idRegiao);
-    const jaMarcado = celulaTemEquipe(idsAtuais, equipe);
-    alterarCelulaRegional(idLoja, dia, jaMarcado ? [] : equipe);
+  function toggleCelulaRegionalEquipe(idLoja: number, dia: number, _idRegiao: number | null | undefined, idsAtuais: number[]) {
+    if (!idEu) return;
+    const idsPaleta = new Set((grade?.regionais ?? []).map((r) => r.id_usuario));
+    const jaMarcado = idsAtuais.includes(idEu);
+    const semTecnicos = idsAtuais.filter((id) => idsPaleta.has(id) && id !== idEu);
+    alterarCelulaRegional(idLoja, dia, jaMarcado ? semTecnicos : [...semTecnicos, idEu]);
   }
 
   function alterarCelulaDelivery(idLoja: number, dia: number, idLojasDestino: number[]) {
@@ -1232,7 +1222,7 @@ export default function EscalaVisitasPage() {
       )}
       {ehRegional && podeEditarGrade && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
-          Cada célula marca a equipe inteira da região (os dois técnicos andam juntos).
+          Toque na célula para marcar sua visita. Só entram diretor, regionais e marketing.
         </Typography>
       )}
     </Box>

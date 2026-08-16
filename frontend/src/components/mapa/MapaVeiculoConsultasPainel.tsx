@@ -8,6 +8,7 @@ import GavelOutlinedIcon from '@mui/icons-material/GavelOutlined';
 import LocalGasStationOutlinedIcon from '@mui/icons-material/LocalGasStationOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import AltRouteOutlinedIcon from '@mui/icons-material/AltRouteOutlined';
+import HistoryIcon from '@mui/icons-material/History';
 import DirectionsCarFilledOutlinedIcon from '@mui/icons-material/DirectionsCarFilledOutlined';
 import {
   api,
@@ -20,10 +21,10 @@ import {
 } from '../../api/client';
 import { colors } from '../../theme/tokens';
 import { getUsuario, temPermissao } from '../../lib/auth';
-import { rotuloStatusVeiculoMapa, statusVeiculoMapa, textoAtualizadoRelativo } from '../frota/frotaMapaVeiculo';
+import { rotuloStatusVeiculoMapa, statusVeiculoMapa } from '../frota/frotaMapaVeiculo';
 import type { PassagemLojaResumo } from '../../utils/frotaPassagensLoja';
 import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
-import { formatDataHoraBrasilia } from '../../utils/dateBr';
+import { formatDataHoraBalaoMapa } from '../../utils/dateBr';
 
 export type AbaConsultaVeiculo = 'trajeto' | 'multas' | 'combustivel' | 'manutencao';
 
@@ -56,6 +57,8 @@ type Props = {
   passagensLoja: PassagemLojaResumo[];
   limiteKmh: number;
   consultouTrajeto: boolean;
+  periodoLabel?: string | null;
+  onAbrirHistorico?: () => void;
   onClose: () => void;
 };
 
@@ -68,6 +71,8 @@ export default function MapaVeiculoConsultasPainel({
   passagensLoja,
   limiteKmh,
   consultouTrajeto,
+  periodoLabel = null,
+  onAbrirHistorico,
   onClose,
 }: Props) {
   const podeOperacao = podeConsultarOperacaoFrota();
@@ -83,12 +88,12 @@ export default function MapaVeiculoConsultasPainel({
     : null;
 
   useEffect(() => {
-    setAba(null);
+    setAba(consultouTrajeto ? 'trajeto' : null);
     setErro('');
     setMultas([]);
     setAbastecimentos([]);
     setManutencoes([]);
-  }, [idVeiculo]);
+  }, [idVeiculo, consultouTrajeto]);
 
   useEffect(() => {
     if (!aba || aba === 'trajeto' || !podeOperacao) return;
@@ -152,12 +157,29 @@ export default function MapaVeiculoConsultasPainel({
             {[
               statusAoVivo,
               veiculoAoVivo?.velocidade != null ? `${veiculoAoVivo.velocidade} km/h` : null,
-              veiculoAoVivo?.atualizado_em ? textoAtualizadoRelativo(veiculoAoVivo.atualizado_em) : subtitulo,
+              veiculoAoVivo?.atualizado_em
+                ? formatDataHoraBalaoMapa(veiculoAoVivo.atualizado_em)
+                : null,
             ]
               .filter(Boolean)
-              .join(' · ')}
+              .join(' · ') || subtitulo}
           </Typography>
+          {periodoLabel && (
+            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: colors.navy }}>
+              {periodoLabel}
+            </Typography>
+          )}
         </Box>
+        {onAbrirHistorico && (
+          <IconButton
+            size="small"
+            onClick={onAbrirHistorico}
+            aria-label="Ver histórico do veículo"
+            sx={{ color: colors.navy }}
+          >
+            <HistoryIcon fontSize="small" />
+          </IconButton>
+        )}
         <IconButton size="small" onClick={onClose} aria-label="Fechar veículo">
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -195,6 +217,7 @@ export default function MapaVeiculoConsultasPainel({
               passagensLoja={passagensLoja}
               limiteKmh={limiteKmh}
               consultou={consultouTrajeto}
+              periodoLabel={periodoLabel}
             />
           )}
           {!carregando && !erro && aba === 'multas' && <ListaMultas itens={multas} />}
@@ -223,26 +246,33 @@ function TrajetoBloco({
   passagensLoja,
   limiteKmh,
   consultou,
+  periodoLabel,
 }: {
   excessos: FrotaRegistroVelocidade[];
   passagensLoja: PassagemLojaResumo[];
   limiteKmh: number;
   consultou: boolean;
+  periodoLabel?: string | null;
 }) {
   return (
     <>
+      {periodoLabel && (
+        <p className="ck-mapa__resumo-sec-title" style={{ marginTop: 0 }}>
+          {periodoLabel}
+        </p>
+      )}
       <p className="ck-mapa__resumo-sec-title">Excessos · acima de {limiteKmh} km/h</p>
       {excessos.length ? (
         excessos.slice(0, 12).map((r, idx) => (
           <div key={`${r.atualizado_em ?? idx}-${r.velocidade}`} className="ck-mapa__resumo-linha">
-            <span>{r.atualizado_em ? formatDataHoraBrasilia(r.atualizado_em).split(',').pop()?.trim() : '—'}</span>
+            <span>{r.atualizado_em ? formatDataHoraBalaoMapa(r.atualizado_em) : '—'}</span>
             <strong>
               {r.velocidade} km/h <span style={{ color: colors.orange }}>+{r.velocidade - r.limite}</span>
             </strong>
           </div>
         ))
       ) : (
-        <Vazio texto={consultou ? 'Nenhum excesso neste período.' : 'Consulte o histórico para ver o trajeto.'} />
+        <Vazio texto={consultou ? 'Nenhum excesso neste período.' : 'Abra Histórico, escolha o dia e toque em Consultar.'} />
       )}
       <p className="ck-mapa__resumo-sec-title" style={{ marginTop: 12 }}>
         Lojas visitadas
@@ -251,12 +281,22 @@ function TrajetoBloco({
         passagensLoja.map((item) => (
           <div key={item.id_loja} className="ck-mapa__resumo-loja">
             <img src={iconeMarcaLojaPorNome({ name: item.nome })} alt="" width={28} height={28} />
-            <span>{item.nome}</span>
+            <span>
+              {item.nome}
+              {item.primeira_em ? (
+                <small style={{ display: 'block', fontWeight: 600, opacity: 0.75 }}>
+                  {formatDataHoraBalaoMapa(item.primeira_em)}
+                  {item.ultima_em && item.ultima_em !== item.primeira_em
+                    ? ` → ${formatDataHoraBalaoMapa(item.ultima_em)}`
+                    : ''}
+                </small>
+              ) : null}
+            </span>
             <strong>{item.passagens}x</strong>
           </div>
         ))
       ) : (
-        <Vazio texto={consultou ? 'Nenhuma passagem perto de lojas.' : 'As lojas aparecem após consultar o trajeto.'} />
+        <Vazio texto={consultou ? 'Nenhuma passagem perto de lojas.' : 'As lojas aparecem após consultar o histórico.'} />
       )}
     </>
   );
