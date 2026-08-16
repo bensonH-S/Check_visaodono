@@ -588,6 +588,45 @@ function tabelaEnvioAusente(e) {
   return msg.includes('escala_visitas_envio') && /does not exist|não existe/i.test(msg);
 }
 
+let schemaEnvioPromise = null;
+
+/** Cria as tabelas de cópia no primeiro uso — o deploy por tag não roda migration sozinho. */
+async function garantirSchemaEnvio() {
+  if (!schemaEnvioPromise) {
+    schemaEnvioPromise = (async () => {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS escala_visitas_envio (
+          id_envio SERIAL PRIMARY KEY,
+          id_semana INT NOT NULL REFERENCES escala_visitas_semana(id_semana) ON DELETE CASCADE,
+          tipo TEXT NOT NULL CHECK (tipo IN ('regiao', 'delivery')),
+          id_regiao INT REFERENCES frota_regioes(id_regiao) ON DELETE SET NULL,
+          submetido_por INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+          submetido_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )`);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_escala_visitas_envio_semana
+          ON escala_visitas_envio (id_semana, tipo, id_regiao, submetido_em DESC)`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS escala_visitas_envio_celula (
+          id_envio_celula SERIAL PRIMARY KEY,
+          id_envio INT NOT NULL REFERENCES escala_visitas_envio(id_envio) ON DELETE CASCADE,
+          id_loja INT NOT NULL REFERENCES lojas(id_loja) ON DELETE CASCADE,
+          dia SMALLINT NOT NULL CHECK (dia >= 0 AND dia <= 6),
+          id_regional INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+          id_loja_destino INT REFERENCES lojas(id_loja) ON DELETE SET NULL,
+          observacao TEXT
+        )`);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_escala_visitas_envio_celula_envio
+          ON escala_visitas_envio_celula (id_envio, id_loja, dia)`);
+    })().catch((e) => {
+      schemaEnvioPromise = null;
+      throw e;
+    });
+  }
+  return schemaEnvioPromise;
+}
+
 function idsUsuarioDoEnvio(row) {
   const ids = new Set();
   if (row.submetido_por != null) ids.add(Number(row.submetido_por));
@@ -599,6 +638,7 @@ function idsUsuarioDoEnvio(row) {
 
 async function listarEnviosSemana(idSemana) {
   try {
+    await garantirSchemaEnvio();
     const { rows } = await pool.query(
       `SELECT e.id_envio, e.tipo, e.id_regiao, r.nome AS nome_regiao,
               e.submetido_por, us.nome AS nome_submetido_por, e.submetido_em,
@@ -1171,17 +1211,6 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
         [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
       );
 
-      try {
-        await registrarEnvioEscalaRegiao(client, {
-          idSemana: semana.id_semana,
-          idRegiao,
-          idUsuario: user.sub,
-        });
-      } catch (e) {
-        if (!tabelaEnvioAusente(e)) throw e;
-        console.error('[escalaVisitas] Tabela de envio ausente — rode a migration 131_escala_visitas_envio.sql');
-      }
-
       submetidas.push(idRegiao);
     }
     await client.query('COMMIT');
@@ -1190,6 +1219,21 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
     throw e;
   } finally {
     client.release();
+  }
+
+  // Cópia FORA da transação: no Postgres um INSERT falho aborta o COMMIT
+  // e o envio voltava a rascunho com toast de sucesso.
+  try {
+    await garantirSchemaEnvio();
+    for (const idRegiao of submetidas) {
+      await registrarEnvioEscalaRegiao(pool, {
+        idSemana: semana.id_semana,
+        idRegiao,
+        idUsuario: user.sub,
+      });
+    }
+  } catch (e) {
+    console.error('[escalaVisitas] Falha ao guardar cópia do envio', e);
   }
 
   for (const idRegiao of submetidas) {
@@ -1301,35 +1345,26 @@ export async function submeterEscalaDelivery(user, { semana_inicio }) {
     throw new Error('Só é possível enviar delivery em rascunho');
   }
 
-  const client = await pool.connect();
+  await pool.query(
+    `UPDATE escala_visitas_delivery_status
+     SET status = $2,
+         submetido_por = $3,
+         submetido_em = NOW(),
+         revisado_por = NULL,
+         revisado_em = NULL,
+         comentario = NULL
+     WHERE id_semana = $1`,
+    [semana.id_semana, STATUS_PENDENTE, user.sub],
+  );
+
   try {
-    await client.query('BEGIN');
-    await client.query(
-      `UPDATE escala_visitas_delivery_status
-       SET status = $2,
-           submetido_por = $3,
-           submetido_em = NOW(),
-           revisado_por = NULL,
-           revisado_em = NULL,
-           comentario = NULL
-       WHERE id_semana = $1`,
-      [semana.id_semana, STATUS_PENDENTE, user.sub],
-    );
-    try {
-      await registrarEnvioEscalaDelivery(client, {
-        idSemana: semana.id_semana,
-        idUsuario: user.sub,
-      });
-    } catch (e) {
-      if (!tabelaEnvioAusente(e)) throw e;
-      console.error('[escalaVisitas] Tabela de envio ausente — rode a migration 131_escala_visitas_envio.sql');
-    }
-    await client.query('COMMIT');
+    await garantirSchemaEnvio();
+    await registrarEnvioEscalaDelivery(pool, {
+      idSemana: semana.id_semana,
+      idUsuario: user.sub,
+    });
   } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
+    console.error('[escalaVisitas] Falha ao guardar cópia do delivery', e);
   }
 
   const nomeAutor = (await nomeUsuarioPorId(user.sub)) || 'Delivery';

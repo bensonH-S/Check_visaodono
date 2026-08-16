@@ -452,12 +452,16 @@ export default function EscalaVisitasMobileView() {
         : grade?.regioes.length === 1
           ? grade.regioes[0].id_regiao
           : null;
-    if (pending.size) {
-      showToast('Salve as alterações antes de enviar', 'warning');
-      return;
-    }
     setSalvando(true);
     try {
+      if (pending.size) {
+        await api.escalaVisitasSalvar({
+          semana_inicio: semanaInicio,
+          id_regiao: idRegiao === '' ? null : idRegiao,
+          celulas: [...pending.values()],
+        });
+        setPending(new Map());
+      }
       const data = await api.escalaVisitasSubmeter({
         semana_inicio: semanaInicio,
         ...(id ? { id_regiao: id } : {}),
@@ -501,12 +505,16 @@ export default function EscalaVisitasMobileView() {
   }
 
   async function enviarDeliveryAprovacao() {
-    if (pending.size) {
-      showToast('Salve as alterações antes de enviar', 'warning');
-      return;
-    }
     setSalvando(true);
     try {
+      if (pending.size) {
+        await api.escalaVisitasSalvar({
+          semana_inicio: semanaInicio,
+          id_regiao: idRegiao === '' ? null : idRegiao,
+          celulas: [...pending.values()],
+        });
+        setPending(new Map());
+      }
       const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
       setGrade(data);
       showToast('Delivery enviado para aprovação', 'success');
@@ -1117,8 +1125,11 @@ export default function EscalaVisitasMobileView() {
                 )}
                 {podeEditarGrade && statusAtivo === 'pendente_aprovacao' && (
                   <div className="ck-escala__empty" style={{ marginBottom: 12 }}>
-                    <strong>Enviada — pode ajustar</strong>
-                    <p>Toque nas lojas para montar. Ao salvar, envie de novo para o diretor.</p>
+                    <strong>Enviada e copiada</strong>
+                    <p>
+                      O diretor já recebeu. Se a grade for excluída, o envio continua salvo — toque no
+                      nome para ver a cópia.
+                    </p>
                   </div>
                 )}
                 {(montarPorDia.find((d) => d.dia === diaSelecionado)?.lojas ?? []).length === 0 ? (
@@ -1330,7 +1341,7 @@ export default function EscalaVisitasMobileView() {
                   variant="contained"
                   size="small"
                   startIcon={<SendIcon />}
-                  disabled={salvando || pending.size > 0}
+                  disabled={salvando}
                   onClick={() => void enviarAprovacao()}
                   sx={{ flex: 1, bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
                 >
@@ -1342,7 +1353,7 @@ export default function EscalaVisitasMobileView() {
                   variant="contained"
                   size="small"
                   startIcon={<SendIcon />}
-                  disabled={salvando || pending.size > 0}
+                  disabled={salvando}
                   onClick={() => void enviarDeliveryAprovacao()}
                   sx={{ flex: 1, bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
                 >

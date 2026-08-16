@@ -306,12 +306,16 @@ export default function EscalaVisitasPage() {
 
   async function enviarAprovacao() {
     const id = idRegiaoAcao();
-    if (pending.size) {
-      showToast('Salve as alterações antes de enviar', 'warning');
-      return;
-    }
     setSalvando(true);
     try {
+      if (pending.size) {
+        await api.escalaVisitasSalvar({
+          semana_inicio: semanaInicio,
+          id_regiao: idRegiao === '' ? null : idRegiao,
+          celulas: [...pending.values()],
+        });
+        setPending(new Map());
+      }
       const data = await api.escalaVisitasSubmeter({
         semana_inicio: semanaInicio,
         ...(id ? { id_regiao: id } : {}),
@@ -352,12 +356,16 @@ export default function EscalaVisitasPage() {
   }
 
   async function enviarDeliveryAprovacao() {
-    if (pending.size) {
-      showToast('Salve as alterações antes de enviar', 'warning');
-      return;
-    }
     setSalvando(true);
     try {
+      if (pending.size) {
+        await api.escalaVisitasSalvar({
+          semana_inicio: semanaInicio,
+          id_regiao: idRegiao === '' ? null : idRegiao,
+          celulas: [...pending.values()],
+        });
+        setPending(new Map());
+      }
       const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
       setGrade(data);
       showToast('Delivery enviado para aprovação', 'success');
@@ -627,7 +635,7 @@ export default function EscalaVisitasPage() {
                 variant="contained"
                 size="small"
                 startIcon={<SendIcon />}
-                disabled={salvando || pending.size > 0}
+                disabled={salvando}
                 onClick={() => void enviarAprovacao()}
                 sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
               >
@@ -639,7 +647,7 @@ export default function EscalaVisitasPage() {
                 variant="contained"
                 size="small"
                 startIcon={<SendIcon />}
-                disabled={salvando || pending.size > 0}
+                disabled={salvando}
                 onClick={() => void enviarDeliveryAprovacao()}
                 sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
               >
