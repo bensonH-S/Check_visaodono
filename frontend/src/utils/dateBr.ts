@@ -69,6 +69,18 @@ export function parseDataApi(value: string | Date | null | undefined): Date {
     return new Date(y, m - 1, d, 12, 0, 0);
   }
 
+  const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (br) {
+    const iso = `${br[3]}-${br[2]}-${br[1]}T${br[4] ?? '00'}:${br[5] ?? '00'}:${br[6] ?? '00'}-03:00`;
+    const dBr = new Date(iso);
+    return Number.isNaN(dBr.getTime()) ? new Date(NaN) : dBr;
+  }
+
+  if (/^\d{10,13}$/.test(s)) {
+    const n = Number(s);
+    return new Date(n > 1e12 ? n : n * 1000);
+  }
+
   if (temFusoHorario(s)) {
     return new Date(s);
   }

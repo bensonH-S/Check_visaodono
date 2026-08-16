@@ -1,4 +1,13 @@
-import type { FrotaVeiculoHistoricoPonto, Loja } from '../api/client';
+import type { FrotaVeiculoHistoricoPonto } from '../api/client';
+
+/** Campos mínimos para contar passagem perto da loja (portal Loja ou mapa FrotaRegiaoLoja). */
+export type LojaPassagemCoord = {
+  id_loja: number;
+  name: string;
+  bk_number?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+};
 import { distanciaKm } from './mapaGeo';
 
 /** Raio de proximidade da loja (metros) — alinhado ao mapa de localização. */
@@ -28,7 +37,7 @@ function ordenarPontos(pontos: FrotaVeiculoHistoricoPonto[]) {
   return [...pontos].sort((a, b) => tempoPontoMs(a) - tempoPontoMs(b));
 }
 
-function lojaComCoord(loja: Loja): { id_loja: number; nome: string; bk_number: string | null; lat: number; lng: number } | null {
+function lojaComCoord(loja: LojaPassagemCoord): { id_loja: number; nome: string; bk_number: string | null; lat: number; lng: number } | null {
   const lat = Number(loja.latitude);
   const lng = Number(loja.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
@@ -47,7 +56,7 @@ function lojaComCoord(loja: Loja): { id_loja: number; nome: string; bk_number: s
  */
 export function contarPassagensPorLoja(
   pontos: FrotaVeiculoHistoricoPonto[],
-  lojas: Loja[],
+  lojas: LojaPassagemCoord[],
   raioMetros = RAIO_PASSAGEM_LOJA_METROS,
 ): PassagemLojaResumo[] {
   const lojasOk = lojas.map(lojaComCoord).filter((l): l is NonNullable<typeof l> => l != null);

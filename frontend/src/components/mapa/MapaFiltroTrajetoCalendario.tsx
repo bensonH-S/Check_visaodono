@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
 import dayjs, { type Dayjs } from 'dayjs';
 import 'dayjs/locale/pt-br';
-import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
@@ -23,6 +21,8 @@ type Props = {
   onPeriodoChange: (inicio: string, fim: string) => void;
   /** Botão sobre fundo navy (stage immersive). */
   tomEscuro?: boolean;
+  /** Campo largo com a data visível, no estilo do portal. */
+  variante?: 'icone' | 'campo';
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
@@ -45,38 +45,52 @@ export default function MapaFiltroTrajetoCalendario({
   dataFim,
   onPeriodoChange,
   tomEscuro = false,
+  variante = 'icone',
 }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [escolhendoFim, setEscolhendoFim] = useState(false);
   const aberto = Boolean(anchorEl);
   const hoje = dataHojeBrasilia();
   const inicioDayjs = useMemo(() => isoParaDayjs(dataInicio), [dataInicio]);
   const fimDayjs = useMemo(() => isoParaDayjs(dataFim), [dataFim]);
   const periodoCompleto = periodoTrajetoCompleto(dataInicio, dataFim);
-  const selecionandoFim = !!dataInicio && !dataFim;
+  const campo = variante === 'campo';
   const periodoAtivo =
     periodoCompleto && (dataInicio !== hoje || dataFim !== hoje || dataInicio !== dataFim);
+  const rotulo = rotuloPeriodo(dataInicio, dataFim);
+
+  function fechar() {
+    setEscolhendoFim(false);
+    setAnchorEl(null);
+  }
 
   function selecionarDia(day: Dayjs | null) {
     if (!day?.isValid()) return;
     const iso = day.format('YYYY-MM-DD');
 
-    if (!dataInicio || dataFim) {
-      onPeriodoChange(iso, '');
+    if (escolhendoFim && dataInicio) {
+      const inicio = isoParaDayjs(dataInicio);
+      if (!inicio) {
+        onPeriodoChange(iso, iso);
+        setEscolhendoFim(false);
+        setAnchorEl(null);
+        return;
+      }
+      if (day.isSame(inicio, 'day')) {
+        onPeriodoChange(iso, iso);
+      } else if (day.isBefore(inicio, 'day')) {
+        onPeriodoChange(iso, dataInicio);
+      } else {
+        onPeriodoChange(dataInicio, iso);
+      }
+      setEscolhendoFim(false);
+      setAnchorEl(null);
       return;
     }
 
-    const inicio = isoParaDayjs(dataInicio);
-    if (inicio && day.isBefore(inicio, 'day')) {
-      onPeriodoChange(iso, dataInicio);
-    } else {
-      onPeriodoChange(dataInicio, iso);
-    }
-    setAnchorEl(null);
+    onPeriodoChange(iso, iso);
+    setEscolhendoFim(true);
   }
-
-  const instrucao = selecionandoFim
-    ? 'Toque na data final do intervalo'
-    : 'Toque na data inicial';
 
   return (
     <LocalizationProvider
@@ -84,59 +98,62 @@ export default function MapaFiltroTrajetoCalendario({
       adapterLocale="pt-br"
       localeText={datePickerPtBR}
     >
-      <Tooltip title={`Trajeto: ${rotuloPeriodo(dataInicio, dataFim)}`} arrow>
-        <IconButton
-          size="small"
-          onClick={(e) => setAnchorEl(e.currentTarget)}
-          aria-label="Filtrar trajeto por data"
-          sx={{
-            flexShrink: 0,
-            width: 36,
-            height: 36,
-            bgcolor:
-              periodoAtivo || selecionandoFim
-                ? colors.orange
-                : tomEscuro
-                  ? 'rgba(255, 255, 255, 0.14)'
-                  : 'rgba(27, 42, 107, 0.06)',
-            color: periodoAtivo || selecionandoFim || tomEscuro ? '#fff' : colors.navy,
-            boxShadow: periodoAtivo || selecionandoFim ? '0 2px 8px rgba(232, 82, 10, 0.28)' : 'none',
-            '&:hover': {
-              bgcolor:
-                periodoAtivo || selecionandoFim
-                  ? colors.orange
-                  : tomEscuro
-                    ? 'rgba(255, 255, 255, 0.22)'
-                    : 'rgba(27, 42, 107, 0.1)',
-            },
+      {campo ? (
+        <button
+          type="button"
+          className="ck-mapa__consulta-field"
+          onClick={(e) => {
+            setEscolhendoFim(false);
+            setAnchorEl(e.currentTarget);
           }}
+          aria-label="Filtrar trajeto por data"
+        >
+          <span className="ck-mapa__consulta-label">Período</span>
+          <span className="ck-mapa__consulta-value">
+            <CalendarMonthOutlinedIcon sx={{ fontSize: 18, color: colors.navy, flexShrink: 0 }} />
+            {rotulo}
+          </span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={`ck-mapa__tool-btn${periodoAtivo || escolhendoFim ? ' is-on' : ''}${tomEscuro ? ' is-dark' : ''}`}
+          onClick={(e) => {
+            setEscolhendoFim(false);
+            setAnchorEl(e.currentTarget);
+          }}
+          aria-label="Filtrar trajeto por data"
+          title={`Trajeto: ${rotulo}`}
         >
           <CalendarMonthOutlinedIcon sx={{ fontSize: 20 }} />
-        </IconButton>
-      </Tooltip>
+        </button>
+      )}
       <Popover
         open={aberto}
         anchorEl={anchorEl}
-        onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ paper: { sx: { mt: 0.5, borderRadius: 2 } } }}
+        onClose={fechar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: campo ? 'left' : 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: campo ? 'left' : 'right' }}
+        slotProps={{ paper: { sx: { mt: 0.5, borderRadius: 2, width: 320, maxWidth: 'calc(100vw - 24px)' } } }}
       >
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
             Período do trajeto
           </Typography>
           <Typography variant="caption" sx={{ fontWeight: 600, color: colors.navy }}>
-            {rotuloPeriodo(dataInicio, dataFim)}
+            {rotulo}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-            {instrucao}
+            {escolhendoFim
+              ? 'Toque de novo no mesmo dia para confirmar, ou em outro para o intervalo.'
+              : 'Toque num dia (só esse dia) ou em dois dias para um período.'}
           </Typography>
         </Box>
         <DateCalendar
           value={fimDayjs ?? inicioDayjs}
           onChange={selecionarDia}
           maxDate={isoParaDayjs(hoje) ?? dayjs()}
+          reduceAnimations
         />
       </Popover>
     </LocalizationProvider>

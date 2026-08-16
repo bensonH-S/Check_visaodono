@@ -431,7 +431,7 @@ router.get('/multas', requirePermissao('frota.gerenciar'), async (req, res, next
  * Não gasta saldo ao abrir a tela — só lê o banco.
  * Query: ?id_veiculo=
  */
-router.get('/multas/detran', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+router.get('/multas/detran', requirePermissao('frota.gerenciar', 'lojas.todas', 'frota.regioes'), async (req, res, next) => {
   try {
     const idVeiculo = req.query.id_veiculo != null ? Number(req.query.id_veiculo) : null;
     const cache = await listarMultasDetranCache({
@@ -657,7 +657,7 @@ router.patch('/multas/detran/:id/status', requirePermissao('frota.gerenciar', 'f
   }
 });
 
-router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar'), async (req, res, next) => {
+router.get('/veiculos', requirePermissao('frota.usar', 'frota.gerenciar', 'lojas.todas', 'frota.regioes'), async (req, res, next) => {
   try {
     const { rows: ids } = await pool.query(
       `SELECT id_veiculo FROM frota_veiculos WHERE ativo = TRUE`,
@@ -742,7 +742,7 @@ router.get('/assuncoes', requirePermissao('frota.gerenciar'), async (req, res, n
   }
 });
 
-router.get('/abastecimentos', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+router.get('/abastecimentos', requirePermissao('frota.gerenciar', 'lojas.todas', 'frota.regioes'), async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT a.id_abastecimento, a.id_veiculo, a.id_usuario, a.km_atual, a.valor_abastecido,
@@ -766,7 +766,7 @@ router.get('/abastecimentos', requirePermissao('frota.gerenciar'), async (req, r
   }
 });
 
-router.get('/manutencoes', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+router.get('/manutencoes', requirePermissao('frota.gerenciar', 'lojas.todas', 'frota.regioes'), async (req, res, next) => {
   try {
     const { rows } = await pool.query(
       `SELECT m.id_manutencao, m.id_veiculo, m.id_usuario, m.descricao, m.km, m.valor,
@@ -1187,7 +1187,7 @@ router.get('/rastreamento/veiculos/:id/rota-dia', requirePermMapaTecnicos, async
   }
 });
 
-router.get('/rastreamento/veiculos/:id/velocidade', requirePermissao('frota.gerenciar'), async (req, res, next) => {
+router.get('/rastreamento/veiculos/:id/velocidade', requirePermMapaTecnicos, async (req, res, next) => {
   try {
     const idVeiculo = Number(req.params.id);
     const dataInicioRaw = String(req.query.data_inicio || '').trim();

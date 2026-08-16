@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import type { FrotaVeiculoHistoricoPonto, FrotaVeiculoPosicao } from '../../api/client';
-import { formatDataHoraBalaoMapa, formatarDuracaoMs } from '../../utils/dateBr';
+import { formatDataHoraBalaoMapa, formatarDuracaoMs, parseDataApi } from '../../utils/dateBr';
 import { MAX_INTERVALO_PARADO_MS } from '../../utils/frotaTempoParado';
 import { geocodificarReversa } from '../../utils/geocodificarReversa';
 
@@ -20,7 +20,7 @@ function escapeHtml(texto: string) {
 
 export function formatarDuracaoDesde(iso: string | null | undefined): string {
   if (!iso) return 'tempo indisponível';
-  const d = new Date(iso);
+  const d = parseDataApi(iso);
   if (Number.isNaN(d.getTime())) return 'tempo indisponível';
   const diffMin = Math.round((Date.now() - d.getTime()) / 60_000);
   if (diffMin < 1) return 'agora';
@@ -32,7 +32,7 @@ export function formatarDuracaoDesde(iso: string | null | undefined): string {
 
 export function formatarAtualizadoVeiculo(iso: string | null | undefined): { rotulo: string; valor: string } {
   if (!iso) return { rotulo: 'Atualizado:', valor: 'sem registro' };
-  const d = new Date(iso);
+  const d = parseDataApi(iso);
   if (Number.isNaN(d.getTime())) return { rotulo: 'Atualizado:', valor: 'tempo indisponível' };
   return { rotulo: 'Atualizado:', valor: textoAtualizadoRelativo(iso) };
 }

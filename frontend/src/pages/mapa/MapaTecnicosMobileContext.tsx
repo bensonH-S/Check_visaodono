@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import dayjs from 'dayjs';
 import { api, type FrotaRegiaoLoja, type FrotaTecnicoPosicao, type FrotaVeiculo, type FrotaVeiculoPosicao } from '../../api/client';
 import {
   getUsuario,
@@ -15,6 +14,7 @@ import {
   selecionandoPeriodoTrajeto,
   trajetoReferenteHoje,
 } from '../../utils/mapaTrajetoPeriodo';
+import { dataHojeBrasilia } from '../../utils/dateBr';
 
 type RegiaoMapa = { id_regiao: number; nome: string };
 
@@ -36,6 +36,7 @@ type MapaTecnicosMobileContextValue = {
   modoHistoricoTrajeto: boolean;
   veiculoTrajetoId: number | null;
   veiculoTrajetoMeta: FrotaVeiculo | null;
+  consultaHistorico: boolean;
   rastreamentoAtivo: boolean;
   lojaSelecionada: FrotaRegiaoLoja | null;
   tecnicoFoco: FrotaTecnicoPosicao | null;
@@ -43,9 +44,17 @@ type MapaTecnicosMobileContextValue = {
   proximidade: ReturnType<typeof tecnicoMaisProximoLoja>;
   lojaTemGpsTecnicosHabilitados: (loja: FrotaRegiaoLoja) => boolean;
   erro: string;
+  erroConsulta: string;
+  carregandoTrajeto: boolean;
   selecionarRegiao: (idRegiao: number | '') => void;
   selecionarPeriodoTrajeto: (inicio: string, fim: string) => void;
   selecionarVeiculoTrajeto: (veiculo: FrotaVeiculo | null) => void;
+  abrirConsultaHistorico: () => void;
+  fecharConsultaHistorico: () => void;
+  consultarTrajeto: () => void;
+  registrarConsultarTrajeto: (fn: () => void) => void;
+  setCarregandoTrajeto: (v: boolean) => void;
+  setErroConsulta: (v: string) => void;
   limparFiltrosTrajeto: () => void;
   registrarLimparTrajetoAoVivo: (fn: () => void) => void;
   selecionarLoja: (loja: FrotaRegiaoLoja) => void;
@@ -90,24 +99,28 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
   const userId = user?.id_usuario;
   const podeFiltrarRegioes = podeFiltrarRegioesMapaMobile(user);
   const podeFiltrarDataTrajeto = podeFiltrarDataTrajetoMapaMobile(user);
-  const hoje = dayjs().format('YYYY-MM-DD');
+  const hoje = dataHojeBrasilia();
   const [posicoes, setPosicoes] = useState<FrotaTecnicoPosicao[]>([]);
   const [veiculos, setVeiculos] = useState<FrotaVeiculoPosicao[]>([]);
   const [rastreamentoAtivo, setRastreamentoAtivo] = useState(true);
   const [lojas, setLojas] = useState<FrotaRegiaoLoja[]>([]);
   const [regioes, setRegioes] = useState<RegiaoMapa[]>([]);
   const [erro, setErro] = useState('');
+  const [erroConsulta, setErroConsulta] = useState('');
+  const [carregandoTrajeto, setCarregandoTrajeto] = useState(false);
   const [regiaoFiltro, setRegiaoFiltro] = useState<number | ''>('');
   const [dataTrajetoInicio, setDataTrajetoInicio] = useState(hoje);
   const [dataTrajetoFim, setDataTrajetoFim] = useState(hoje);
   const [veiculoTrajetoId, setVeiculoTrajetoId] = useState<number | null>(null);
   const [veiculoTrajetoMeta, setVeiculoTrajetoMeta] = useState<FrotaVeiculo | null>(null);
+  const [consultaHistorico, setConsultaHistorico] = useState(false);
   const [lojaSelecionada, setLojaSelecionada] = useState<FrotaRegiaoLoja | null>(null);
   const [tecnicoFoco, setTecnicoFoco] = useState<FrotaTecnicoPosicao | null>(null);
   const [veiculoFoco, setVeiculoFoco] = useState<FrotaVeiculoPosicao | null>(null);
   const carregouInicial = useRef(false);
   const regiaoInicializada = useRef(false);
   const limparTrajetoAoVivoRef = useRef<() => void>(() => {});
+  const consultarTrajetoRef = useRef<() => void>(() => {});
 
   const lojasVisiveis = useMemo(
     () => filtrarLojasPorRegiao(lojas, regiaoFiltro),
@@ -209,29 +222,56 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
 
   function selecionarPeriodoTrajeto(inicio: string, fim: string) {
     setDataTrajetoInicio(inicio || hoje);
-    setDataTrajetoFim(fim);
+    setDataTrajetoFim(fim || inicio || hoje);
+    setErroConsulta('');
     if (inicio && !fim) {
       setRegiaoFiltro('');
       setLojaSelecionada(null);
     }
-    setVeiculoTrajetoId(null);
-    setVeiculoTrajetoMeta(null);
   }
 
   function selecionarVeiculoTrajeto(veiculo: FrotaVeiculo | null) {
     setVeiculoTrajetoId(veiculo?.id_veiculo ?? null);
     setVeiculoTrajetoMeta(veiculo);
+    setErroConsulta('');
+  }
+
+  function abrirConsultaHistorico() {
+    setConsultaHistorico(true);
+    setErroConsulta('');
+  }
+
+  function fecharConsultaHistorico() {
+    setConsultaHistorico(false);
+    setDataTrajetoInicio(hoje);
+    setDataTrajetoFim(hoje);
+    setErroConsulta('');
   }
 
   function registrarLimparTrajetoAoVivo(fn: () => void) {
     limparTrajetoAoVivoRef.current = fn;
   }
 
+  function registrarConsultarTrajeto(fn: () => void) {
+    consultarTrajetoRef.current = fn;
+  }
+
+  function consultarTrajeto() {
+    if (!veiculoTrajetoId) {
+      setErroConsulta('Selecione um veículo');
+      return;
+    }
+    setErroConsulta('');
+    consultarTrajetoRef.current();
+  }
+
   function limparFiltrosTrajeto() {
+    setConsultaHistorico(false);
     setDataTrajetoInicio(hoje);
     setDataTrajetoFim(hoje);
     setVeiculoTrajetoId(null);
     setVeiculoTrajetoMeta(null);
+    setErroConsulta('');
     limparTrajetoAoVivoRef.current();
   }
 
@@ -296,6 +336,7 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       modoHistoricoTrajeto: historicoTrajeto,
       veiculoTrajetoId,
       veiculoTrajetoMeta,
+      consultaHistorico,
       rastreamentoAtivo,
       lojaSelecionada,
       tecnicoFoco,
@@ -304,9 +345,17 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       lojaTemGpsTecnicosHabilitados: (loja: FrotaRegiaoLoja) =>
         lojaTemGpsTecnicosHabilitados(loja, posicoesVisiveis),
       erro,
+      erroConsulta,
+      carregandoTrajeto,
       selecionarRegiao,
       selecionarPeriodoTrajeto,
       selecionarVeiculoTrajeto,
+      abrirConsultaHistorico,
+      fecharConsultaHistorico,
+      consultarTrajeto,
+      registrarConsultarTrajeto,
+      setCarregandoTrajeto,
+      setErroConsulta,
       limparFiltrosTrajeto,
       registrarLimparTrajetoAoVivo,
       selecionarLoja,
@@ -335,12 +384,15 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       historicoTrajeto,
       veiculoTrajetoId,
       veiculoTrajetoMeta,
+      consultaHistorico,
       rastreamentoAtivo,
       lojaSelecionada,
       tecnicoFoco,
       veiculoFoco,
       proximidade,
       erro,
+      erroConsulta,
+      carregandoTrajeto,
     ],
   );
 

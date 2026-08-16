@@ -1,18 +1,34 @@
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
+import LinearProgress from '@mui/material/LinearProgress';
 import FrotaLocalizacaoMap from '../../components/frota/FrotaLocalizacaoMap';
 import TecnicoProximoPainel from '../../components/mapa/TecnicoProximoPainel';
 import TecnicoFocoPainel from '../../components/mapa/TecnicoFocoPainel';
+import MapaVeiculoConsultasPainel from '../../components/mapa/MapaVeiculoConsultasPainel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import {
   api,
+  type FrotaRegistroVelocidade,
   type FrotaVeiculoHistoricoPonto,
   type FrotaVeiculoPosicao,
   type FrotaVeiculoRotaDiaRelatorio,
+  type FrotaVeiculoVelocidadeRelatorio,
 } from '../../api/client';
 import { useMapaTecnicosMobile } from './MapaTecnicosMobileContext';
 import { useAppConfig } from '../../hooks/useAppConfig';
+import { dataHojeBrasilia, formatarDuracaoMs } from '../../utils/dateBr';
+import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
+import { contarPassagensPorLoja } from '../../utils/frotaPassagensLoja';
+import { posicaoParaVeiculoCatalogo } from '../../components/mapa/MapaFiltroTrajetoVeiculo';
+import {
+  COR_EXCESSO_FROTA,
+  COR_STATUS_DISPONIVEL,
+  COR_STATUS_EM_ROTA,
+  COR_STATUS_PARADO,
+  COR_TRAJETO,
+} from '../../components/frota/frotaMapaBasemap';
+import { iconeMarcaLojaUrl } from '../../utils/marcaLojaMapa';
 
 function temDadosRota(relatorio: FrotaVeiculoRotaDiaRelatorio) {
   return (
@@ -21,12 +37,48 @@ function temDadosRota(relatorio: FrotaVeiculoRotaDiaRelatorio) {
   );
 }
 
+function listarExcessosVelocidade(
+  relatorio: FrotaVeiculoVelocidadeRelatorio | null,
+  rota: FrotaVeiculoRotaDiaRelatorio | null,
+): FrotaRegistroVelocidade[] {
+  const limite = relatorio?.limite_kmh ?? rota?.limite_kmh ?? 80;
+  if (relatorio) {
+    const daApi = relatorio.excessos ?? [];
+    const lista = daApi.length
+      ? daApi.map((e) => ({
+          ...e,
+          limite: e.limite ?? limite,
+          status: 'excesso' as const,
+        }))
+      : (relatorio.registros ?? [])
+          .filter((r) => r.status === 'excesso' || Number(r.velocidade) > limite)
+          .map((r) => ({
+            ...r,
+            limite: r.limite ?? limite,
+            status: 'excesso' as const,
+          }));
+    return [...lista].sort((a, b) => Number(b.velocidade) - Number(a.velocidade));
+  }
+  return (rota?.pontos ?? [])
+    .filter((p) => Number(p.velocidade) > limite)
+    .map((p) => ({
+      velocidade: Number(p.velocidade) || 0,
+      limite,
+      latitude: Number(p.latitude),
+      longitude: Number(p.longitude),
+      atualizado_em: p.atualizado_em,
+      status: 'excesso' as const,
+    }))
+    .sort((a, b) => b.velocidade - a.velocidade);
+}
+
 export default function MapaTecnicosMobilePage() {
   const appConfig = useAppConfig();
   const {
     posicoes,
     veiculos,
     lojas,
+    lojasComCoordenadas,
     lojaSelecionada,
     tecnicoFoco,
     proximidade,
@@ -37,8 +89,16 @@ export default function MapaTecnicosMobilePage() {
     modoHistoricoTrajeto,
     trajetoReferenteHoje,
     veiculoTrajetoId,
+    veiculoTrajetoMeta,
+    podeFiltrarDataTrajeto,
+    consultaHistorico,
+    carregandoTrajeto,
     regiaoFiltro,
     registrarLimparTrajetoAoVivo,
+    registrarConsultarTrajeto,
+    selecionarVeiculoTrajeto,
+    setCarregandoTrajeto,
+    setErroConsulta,
     selecionarLoja,
     limparLoja,
     focarTecnico,
@@ -46,42 +106,44 @@ export default function MapaTecnicosMobilePage() {
     lojaTemGpsTecnicosHabilitados,
   } = useMapaTecnicosMobile();
 
-  const [veiculoDestaqueId, setVeiculoDestaqueId] = useState<number | null>(null);
   const [historicoVeiculo, setHistoricoVeiculo] = useState<FrotaVeiculoHistoricoPonto[]>([]);
   const [rotaDiaVeiculo, setRotaDiaVeiculo] = useState<FrotaVeiculoRotaDiaRelatorio | null>(null);
+  const [velocidade, setVelocidade] = useState<FrotaVeiculoVelocidadeRelatorio | null>(null);
+  const [consultaTick, setConsultaTick] = useState(0);
 
-  const veiculoTrajetoAtivo = modoHistoricoTrajeto ? veiculoTrajetoId : veiculoDestaqueId;
+  const veiculoTrajetoAtivo = veiculoTrajetoId;
   const veiculosNoMapa = modoHistoricoTrajeto ? [] : veiculos;
   const trajetoDiaAtual = trajetoReferenteHoje || !modoHistoricoTrajeto;
+  const periodoSoHoje = trajetoReferenteHoje || !modoHistoricoTrajeto;
 
   const veiculoAoVivoTrajeto = useMemo(() => {
     if (!veiculoTrajetoAtivo || modoHistoricoTrajeto) return null;
     return veiculos.find((v) => v.id_veiculo === veiculoTrajetoAtivo) ?? null;
   }, [veiculoTrajetoAtivo, modoHistoricoTrajeto, veiculos]);
 
-  useEffect(() => {
-    if (!modoHistoricoTrajeto) return;
-    setVeiculoDestaqueId(null);
-    setHistoricoVeiculo([]);
-    setRotaDiaVeiculo(null);
-  }, [modoHistoricoTrajeto, dataTrajetoInicio, dataTrajetoFim]);
-
   const carregarTrajetoVeiculo = useCallback(
     async (idVeiculo: number) => {
       setHistoricoVeiculo([]);
       setRotaDiaVeiculo(null);
+      setVelocidade(null);
+      setCarregandoTrajeto(true);
+      setErroConsulta('');
       try {
-        const inicio = modoHistoricoTrajeto ? dataTrajetoInicio : dayjs().format('YYYY-MM-DD');
+        const inicio = modoHistoricoTrajeto ? dataTrajetoInicio : dataHojeBrasilia();
         const fim = modoHistoricoTrajeto ? dataTrajetoFim || inicio : inicio;
 
-        try {
-          const rota = await api.frotaVeiculoRotaDia(idVeiculo, inicio, fim);
-          if (temDadosRota(rota)) {
-            setRotaDiaVeiculo(rota);
-            return;
-          }
-        } catch {
-          // fallback GPS abaixo
+        const [rotaResult, velResult] = await Promise.allSettled([
+          api.frotaVeiculoRotaDia(idVeiculo, inicio, fim),
+          api.frotaVeiculoVelocidade(idVeiculo, inicio, fim),
+        ]);
+
+        const rota = rotaResult.status === 'fulfilled' ? rotaResult.value : null;
+        const vel = velResult.status === 'fulfilled' ? velResult.value : null;
+        if (vel) setVelocidade(vel);
+
+        if (rota && temDadosRota(rota)) {
+          setRotaDiaVeiculo(rota);
+          return;
         }
 
         const inicioTs = Math.floor(dayjs(inicio).startOf('day').valueOf() / 1000);
@@ -93,22 +155,32 @@ export default function MapaTecnicosMobilePage() {
           fim: fimTs,
         });
         setHistoricoVeiculo(historico.pontos);
+        if (!rota && !historico.pontos.length) {
+          setErroConsulta('Sem trajeto neste período para o veículo.');
+        }
       } catch {
         setHistoricoVeiculo([]);
         setRotaDiaVeiculo(null);
+        setVelocidade(null);
+        setErroConsulta('Não foi possível carregar o trajeto.');
+      } finally {
+        setCarregandoTrajeto(false);
       }
     },
-    [modoHistoricoTrajeto, dataTrajetoInicio, dataTrajetoFim],
+    [modoHistoricoTrajeto, dataTrajetoInicio, dataTrajetoFim, setCarregandoTrajeto, setErroConsulta],
   );
 
-  const selecionarVeiculoMapa = useCallback((veiculo: FrotaVeiculoPosicao) => {
-    setVeiculoDestaqueId(veiculo.id_veiculo);
-  }, []);
+  const selecionarVeiculoMapa = useCallback(
+    (veiculo: FrotaVeiculoPosicao) => {
+      selecionarVeiculoTrajeto(posicaoParaVeiculoCatalogo(veiculo));
+    },
+    [selecionarVeiculoTrajeto],
+  );
 
   const limparTrajetoAoVivo = useCallback(() => {
-    setVeiculoDestaqueId(null);
     setHistoricoVeiculo([]);
     setRotaDiaVeiculo(null);
+    setVelocidade(null);
   }, []);
 
   useEffect(() => {
@@ -116,13 +188,34 @@ export default function MapaTecnicosMobilePage() {
   }, [registrarLimparTrajetoAoVivo, limparTrajetoAoVivo]);
 
   useEffect(() => {
+    if (!consultaHistorico) return;
+    setHistoricoVeiculo([]);
+    setRotaDiaVeiculo(null);
+    setVelocidade(null);
+  }, [consultaHistorico]);
+
+  useEffect(() => {
+    registrarConsultarTrajeto(() => {
+      if (veiculoTrajetoAtivo == null) return;
+      setConsultaTick((n) => n + 1);
+    });
+  }, [registrarConsultarTrajeto, veiculoTrajetoAtivo]);
+
+  useEffect(() => {
     if (veiculoTrajetoAtivo == null) {
       setHistoricoVeiculo([]);
       setRotaDiaVeiculo(null);
+      setVelocidade(null);
       return;
     }
+    if (consultaHistorico) return;
     void carregarTrajetoVeiculo(veiculoTrajetoAtivo);
-  }, [veiculoTrajetoAtivo, carregarTrajetoVeiculo]);
+  }, [veiculoTrajetoAtivo, consultaHistorico, carregarTrajetoVeiculo]);
+
+  useEffect(() => {
+    if (!consultaHistorico || consultaTick === 0 || veiculoTrajetoAtivo == null) return;
+    void carregarTrajetoVeiculo(veiculoTrajetoAtivo);
+  }, [consultaTick, consultaHistorico, veiculoTrajetoAtivo, carregarTrajetoVeiculo]);
 
   const gpsTecnicosAtivo = appConfig?.gpsTecnicosEnabled !== false;
   const mostrarPainelTecnico =
@@ -134,6 +227,69 @@ export default function MapaTecnicosMobilePage() {
     mostrarPainelTecnico && proximidade?.tecnico
       ? proximidade.tecnico.id_usuario
       : tecnicoFoco?.id_usuario ?? null;
+
+  const consultou = rotaDiaVeiculo != null || velocidade != null || historicoVeiculo.length > 0;
+  const excessos = useMemo(
+    () => listarExcessosVelocidade(velocidade, rotaDiaVeiculo),
+    [velocidade, rotaDiaVeiculo],
+  );
+  const limiteKmh = rotaDiaVeiculo?.limite_kmh ?? velocidade?.limite_kmh ?? 80;
+  const kmGps = rotaDiaVeiculo?.km_gps ?? 0;
+  const velocidadeMaxima = useMemo(() => {
+    if (velocidade?.velocidade_maxima != null) return velocidade.velocidade_maxima;
+    const dosPontos = (rotaDiaVeiculo?.pontos ?? historicoVeiculo).map((p) => Number(p.velocidade) || 0);
+    return dosPontos.length ? Math.max(0, ...dosPontos) : 0;
+  }, [velocidade, rotaDiaVeiculo, historicoVeiculo]);
+  const qtdExcessos = rotaDiaVeiculo?.qtd_excessos ?? excessos.length;
+  const tempoParadoMs = useMemo(() => {
+    if (rotaDiaVeiculo?.tempo_parado_ms != null) return rotaDiaVeiculo.tempo_parado_ms;
+    if (velocidade?.tempo_parado_ms != null) return velocidade.tempo_parado_ms;
+    return calcularTempoParadoMs(rotaDiaVeiculo?.pontos ?? historicoVeiculo);
+  }, [rotaDiaVeiculo, velocidade, historicoVeiculo]);
+  const passagensLoja = useMemo(() => {
+    const pontos = rotaDiaVeiculo?.pontos ?? historicoVeiculo;
+    if (!pontos.length || !lojasComCoordenadas.length) return [];
+    return contarPassagensPorLoja(pontos, lojasComCoordenadas);
+  }, [rotaDiaVeiculo?.pontos, historicoVeiculo, lojasComCoordenadas]);
+
+  const tituloVeiculo = useMemo(() => {
+    const placa = veiculoTrajetoMeta?.placa ?? rotaDiaVeiculo?.veiculo.placa ?? '';
+    const modelo = [veiculoTrajetoMeta?.marca ?? rotaDiaVeiculo?.veiculo.marca, veiculoTrajetoMeta?.modelo ?? rotaDiaVeiculo?.veiculo.modelo]
+      .filter(Boolean)
+      .join(' ');
+    return modelo ? `${placa} · ${modelo}` : placa || 'Trajeto';
+  }, [veiculoTrajetoMeta, rotaDiaVeiculo]);
+
+  const mostrarKpis = consultaHistorico && (consultou || carregandoTrajeto);
+  const mostrarFicha =
+    veiculoTrajetoAtivo != null &&
+    !tecnicoFoco &&
+    !(lojaSelecionada && mostrarPainelTecnico);
+
+  const kpis = [
+    {
+      label: periodoSoHoje ? 'KM rodado hoje' : 'KM no período',
+      valor: consultou ? `${kmGps.toLocaleString('pt-BR')} km` : '—',
+    },
+    {
+      label: 'Excessos',
+      valor: consultou ? String(qtdExcessos) : '—',
+      alerta: consultou && qtdExcessos > 0,
+    },
+    {
+      label: 'Vel. máxima',
+      valor: consultou ? `${velocidadeMaxima.toLocaleString('pt-BR')} km/h` : '—',
+      alerta: consultou && velocidadeMaxima > limiteKmh,
+    },
+    {
+      label: 'Tempo parado',
+      valor: consultou ? formatarDuracaoMs(tempoParadoMs) : '—',
+    },
+    {
+      label: 'Lojas visitadas',
+      valor: consultou ? String(passagensLoja.length) : '—',
+    },
+  ];
 
   return (
     <Box
@@ -150,6 +306,19 @@ export default function MapaTecnicosMobilePage() {
         </Alert>
       )}
 
+      {mostrarKpis && (
+        <div className="ck-mapa__kpis">
+          {kpis.map((kpi) => (
+            <div key={kpi.label} className="ck-mapa__kpi">
+              <p className="ck-mapa__kpi-label">{kpi.label}</p>
+              <p className={`ck-mapa__kpi-valor${kpi.alerta ? ' is-alerta' : ''}`}>{kpi.valor}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {carregandoTrajeto && <LinearProgress sx={{ flexShrink: 0 }} />}
+
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <FrotaLocalizacaoMap
           posicoes={gpsTecnicosAtivo ? posicoes : []}
@@ -165,7 +334,7 @@ export default function MapaTecnicosMobilePage() {
           modo="mobile"
           mostrarBotaoAtualizar={false}
           mostrarAlternarTipoMapa={false}
-          mostrarPopupVeiculo={!modoHistoricoTrajeto}
+          mostrarPopupVeiculo={false}
           regiaoFiltro={regiaoFiltro}
           trajetoDiaAtual={trajetoDiaAtual}
           veiculoAoVivoTrajeto={veiculoAoVivoTrajeto}
@@ -179,6 +348,35 @@ export default function MapaTecnicosMobilePage() {
           }}
           onVeiculoClick={modoHistoricoTrajeto ? undefined : selecionarVeiculoMapa}
         />
+
+        {podeFiltrarDataTrajeto && (
+          <div className="ck-mapa__legenda">
+            {(
+              [
+                { cor: COR_STATUS_EM_ROTA, rotulo: 'Em rota' },
+                { cor: COR_STATUS_DISPONIVEL, rotulo: 'Disponível' },
+                { cor: COR_STATUS_PARADO, rotulo: 'Parado' },
+                { cor: COR_TRAJETO, rotulo: 'Trajeto', linha: true },
+                ...(qtdExcessos > 0 ? [{ cor: COR_EXCESSO_FROTA, rotulo: 'Excesso', linha: true as const }] : []),
+              ] as { cor: string; rotulo: string; linha?: boolean }[]
+            ).map((item) => (
+              <div key={item.rotulo} className="ck-mapa__legenda-item">
+                {item.linha ? (
+                  <span className="ck-mapa__legenda-line" style={{ background: item.cor }} />
+                ) : (
+                  <span className="ck-mapa__legenda-dot" style={{ background: item.cor }} />
+                )}
+                {item.rotulo}
+              </div>
+            ))}
+            {lojasComCoordenadas.length > 0 && (
+              <div className="ck-mapa__legenda-item">
+                <img className="ck-mapa__legenda-loja" src={iconeMarcaLojaUrl('burger-king')} alt="" />
+                Loja
+              </div>
+            )}
+          </div>
+        )}
 
         {(tecnicoFoco || (lojaSelecionada && mostrarPainelTecnico && proximidade?.tecnico)) && (
           <Box
@@ -203,6 +401,26 @@ export default function MapaTecnicosMobilePage() {
               <TecnicoFocoPainel tecnico={tecnicoFoco!} onClose={limparTecnicoFoco} />
             )}
           </Box>
+        )}
+
+        {mostrarFicha && veiculoTrajetoAtivo != null && (
+          <MapaVeiculoConsultasPainel
+            titulo={tituloVeiculo}
+            subtitulo={
+              rotaDiaVeiculo
+                ? `${rotaDiaVeiculo.data_inicio}${rotaDiaVeiculo.data_fim !== rotaDiaVeiculo.data_inicio ? ` a ${rotaDiaVeiculo.data_fim}` : ''} · limite ${limiteKmh} km/h`
+                : carregandoTrajeto
+                  ? 'Carregando trajeto…'
+                  : 'Escolha o que consultar neste veículo'
+            }
+            veiculoAoVivo={veiculoAoVivoTrajeto}
+            idVeiculo={veiculoTrajetoAtivo}
+            excessos={excessos}
+            passagensLoja={passagensLoja}
+            limiteKmh={limiteKmh}
+            consultouTrajeto={consultou}
+            onClose={() => selecionarVeiculoTrajeto(null)}
+          />
         )}
       </Box>
     </Box>

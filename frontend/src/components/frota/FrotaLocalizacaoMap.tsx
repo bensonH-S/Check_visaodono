@@ -469,6 +469,7 @@ export default function FrotaLocalizacaoMap({
   const veiculoTrajetoLayer = useRef<L.LayerGroup | null>(null);
   const rotaDiaCamadas = useRef<CamadasRotaDiaMapa | null>(null);
   const veiculoRotaAnterior = useRef<number | null>(null);
+  const veiculoFocoAnterior = useRef<number | null>(null);
   const baseLayer = useRef<L.TileLayer | null>(null);
   const regiaoEnquadreAnterior = useRef<number | '' | null>(null);
   const vistaInicialAplicada = useRef(false);
@@ -1016,6 +1017,9 @@ export default function FrotaLocalizacaoMap({
       const idVeiculo = veiculoDestaqueId ?? rotaDiaVeiculo?.veiculo.id_veiculo;
       if (idVeiculo != null && veiculoRotaAnterior.current !== idVeiculo) {
         veiculoRotaAnterior.current = idVeiculo;
+        if (trajetoDiaAtual) {
+          return;
+        }
         if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
           mapa.flyTo(bounds.getCenter(), Math.max(mapa.getZoom(), 14), { duration: 0.5 });
         } else {
@@ -1047,6 +1051,24 @@ export default function FrotaLocalizacaoMap({
       }
     }
   }, [historicoVeiculo, rotaDiaVeiculo, mapaPronto, veiculoDestaqueId, trajetoDiaAtual, veiculoAoVivoTrajeto]);
+
+  useEffect(() => {
+    if (!mobile || !mapaPronto || !mapInstance.current) return;
+    if (veiculoDestaqueId == null) {
+      veiculoFocoAnterior.current = null;
+      return;
+    }
+    if (veiculoFocoAnterior.current === veiculoDestaqueId) return;
+    const v =
+      veiculoAoVivoTrajeto?.id_veiculo === veiculoDestaqueId
+        ? veiculoAoVivoTrajeto
+        : veiculos.find((item) => item.id_veiculo === veiculoDestaqueId);
+    const lat = Number(v?.latitude);
+    const lng = Number(v?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    veiculoFocoAnterior.current = veiculoDestaqueId;
+    mapInstance.current.flyTo([lat, lng], 16, { duration: 0.45 });
+  }, [veiculoDestaqueId, veiculos, veiculoAoVivoTrajeto, mapaPronto, mobile]);
 
   useEffect(() => {
     if (!mobile || !mapaPronto || !mapInstance.current) return;
