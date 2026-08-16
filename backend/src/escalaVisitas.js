@@ -583,7 +583,162 @@ async function obterOuCriarSemana(semanaInicio, idUsuario) {
   return rows[0];
 }
 
-export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = null }) {
+function tabelaEnvioAusente(e) {
+  const msg = String(e?.message || e || '');
+  return msg.includes('escala_visitas_envio') && /does not exist|não existe/i.test(msg);
+}
+
+function idsUsuarioDoEnvio(row) {
+  const ids = new Set();
+  if (row.submetido_por != null) ids.add(Number(row.submetido_por));
+  for (const id of row.ids_regional || []) {
+    if (id != null) ids.add(Number(id));
+  }
+  return [...ids];
+}
+
+async function listarEnviosSemana(idSemana) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT e.id_envio, e.tipo, e.id_regiao, r.nome AS nome_regiao,
+              e.submetido_por, us.nome AS nome_submetido_por, e.submetido_em,
+              COALESCE(
+                ARRAY_AGG(DISTINCT c.id_regional) FILTER (WHERE c.id_regional IS NOT NULL),
+                ARRAY[]::int[]
+              ) AS ids_regional
+       FROM escala_visitas_envio e
+       LEFT JOIN frota_regioes r ON r.id_regiao = e.id_regiao
+       LEFT JOIN usuarios us ON us.id_usuario = e.submetido_por
+       LEFT JOIN escala_visitas_envio_celula c ON c.id_envio = e.id_envio
+       WHERE e.id_semana = $1
+       GROUP BY e.id_envio, e.tipo, e.id_regiao, e.submetido_por, e.submetido_em, r.nome, us.nome
+       ORDER BY e.submetido_em DESC, e.id_envio DESC`,
+      [idSemana],
+    );
+    return rows.map((row) => ({
+      id_envio: Number(row.id_envio),
+      tipo: row.tipo,
+      id_regiao: row.id_regiao != null ? Number(row.id_regiao) : null,
+      nome_regiao: row.nome_regiao ?? null,
+      submetido_por: row.submetido_por != null ? Number(row.submetido_por) : null,
+      nome_submetido_por: row.nome_submetido_por ?? null,
+      submetido_em: row.submetido_em ?? null,
+      ids_usuario: idsUsuarioDoEnvio(row),
+    }));
+  } catch (e) {
+    if (tabelaEnvioAusente(e)) return [];
+    throw e;
+  }
+}
+
+function envioMaisRecentePorChave(envios) {
+  const latest = new Map();
+  for (const envio of envios) {
+    const chave = envio.tipo === 'delivery' ? 'delivery' : `r-${envio.id_regiao}`;
+    if (!latest.has(chave)) latest.set(chave, envio);
+  }
+  return latest;
+}
+
+function enviosParaUsuario(envios, idUsuario) {
+  const id = Number(idUsuario);
+  if (!id) return [];
+  const proprios = envios.filter((e) => e.submetido_por === id);
+  const fonte = proprios.length
+    ? proprios
+    : envios.filter((e) => (e.ids_usuario || []).includes(id));
+  return [...envioMaisRecentePorChave(fonte).values()];
+}
+
+async function registrarEnvioEscalaRegiao(db, { idSemana, idRegiao, idUsuario }) {
+  const lojaDelivery = await obterLojaDeliveryAnchor();
+  const { rows } = await db.query(
+    `INSERT INTO escala_visitas_envio (id_semana, tipo, id_regiao, submetido_por)
+     VALUES ($1, 'regiao', $2, $3)
+     RETURNING id_envio`,
+    [idSemana, idRegiao, idUsuario],
+  );
+  const idEnvio = rows[0]?.id_envio;
+  if (!idEnvio) return null;
+  await db.query(
+    `INSERT INTO escala_visitas_envio_celula
+       (id_envio, id_loja, dia, id_regional, id_loja_destino, observacao)
+     SELECT $1, c.id_loja, c.dia, c.id_regional, c.id_loja_destino, c.observacao
+     FROM escala_visitas_celula c
+     WHERE c.id_semana = $2
+       AND c.id_loja_destino IS NULL
+       AND ($4::int IS NULL OR c.id_loja <> $4)
+       AND EXISTS (
+         SELECT 1 FROM frota_regiao_lojas rl
+         WHERE rl.id_loja = c.id_loja AND rl.id_regiao = $3
+       )`,
+    [idEnvio, idSemana, idRegiao, lojaDelivery?.id_loja ?? null],
+  );
+  return idEnvio;
+}
+
+async function registrarEnvioEscalaDelivery(db, { idSemana, idUsuario }) {
+  const lojaDelivery = await obterLojaDeliveryAnchor();
+  if (!lojaDelivery) return null;
+  const { rows } = await db.query(
+    `INSERT INTO escala_visitas_envio (id_semana, tipo, id_regiao, submetido_por)
+     VALUES ($1, 'delivery', NULL, $2)
+     RETURNING id_envio`,
+    [idSemana, idUsuario],
+  );
+  const idEnvio = rows[0]?.id_envio;
+  if (!idEnvio) return null;
+  await db.query(
+    `INSERT INTO escala_visitas_envio_celula
+       (id_envio, id_loja, dia, id_regional, id_loja_destino, observacao)
+     SELECT $1, c.id_loja, c.dia, c.id_regional, c.id_loja_destino, c.observacao
+     FROM escala_visitas_celula c
+     WHERE c.id_semana = $2 AND c.id_loja = $3`,
+    [idEnvio, idSemana, lojaDelivery.id_loja],
+  );
+  return idEnvio;
+}
+
+const SQL_CELULAS_SELECT = `SELECT c.id_celula, c.id_loja, c.dia, c.id_regional, c.id_loja_destino, c.observacao,
+              u.nome AS nome_regional,
+              ld.name AS nome_loja_destino, ld.bk_number AS bk_loja_destino
+       FROM escala_visitas_celula c
+       LEFT JOIN usuarios u ON u.id_usuario = c.id_regional
+       LEFT JOIN lojas ld ON ld.id_loja = c.id_loja_destino`;
+
+const SQL_ENVIO_CELULAS_SELECT = `SELECT c.id_envio_celula AS id_celula, c.id_loja, c.dia, c.id_regional, c.id_loja_destino, c.observacao,
+              u.nome AS nome_regional,
+              ld.name AS nome_loja_destino, ld.bk_number AS bk_loja_destino
+       FROM escala_visitas_envio_celula c
+       LEFT JOIN usuarios u ON u.id_usuario = c.id_regional
+       LEFT JOIN lojas ld ON ld.id_loja = c.id_loja_destino`;
+
+async function carregarCelulasGrade({ idSemana, idsConsulta, idsEnvio = null }) {
+  if (idsEnvio?.length) {
+    const { rows } = await pool.query(
+      `${SQL_ENVIO_CELULAS_SELECT}
+       WHERE c.id_envio = ANY($1::int[])
+       ORDER BY c.id_loja, c.dia, c.id_envio_celula`,
+      [idsEnvio],
+    );
+    return rows;
+  }
+  if (!idsConsulta.length) return [];
+  const { rows } = await pool.query(
+    `${SQL_CELULAS_SELECT}
+     WHERE c.id_semana = $1 AND c.id_loja = ANY($2::int[])
+     ORDER BY c.id_loja, c.dia, c.id_celula`,
+    [idSemana, idsConsulta],
+  );
+  return rows;
+}
+
+export async function carregarGradeVisitas(user, {
+  semana_inicio,
+  id_regiao = null,
+  id_envio = null,
+  id_usuario_envio = null,
+} = {}) {
   if (!podeVerEscalaVisitas(user)) throw new Error('Sem permissão');
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
@@ -597,8 +752,34 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
 
   const idsLojas = lojas.map((l) => l.id_loja);
   const idsConsulta = lojaDelivery ? [...idsLojas, lojaDelivery.id_loja] : idsLojas;
+  const envios = await listarEnviosSemana(semana.id_semana);
+
+  let envioAtual = null;
+  let idsEnvioCelulas = null;
+  const idEnvioNum = id_envio != null && id_envio !== '' ? Number(id_envio) : null;
+  const idUsuarioEnvio =
+    id_usuario_envio != null && id_usuario_envio !== '' ? Number(id_usuario_envio) : null;
+
+  if (idEnvioNum) {
+    envioAtual = envios.find((e) => e.id_envio === idEnvioNum) || null;
+    if (envioAtual) idsEnvioCelulas = [envioAtual.id_envio];
+  } else if (idUsuarioEnvio) {
+    const escolhidos = enviosParaUsuario(envios, idUsuarioEnvio);
+    if (escolhidos.length) {
+      idsEnvioCelulas = escolhidos.map((e) => e.id_envio);
+      envioAtual = escolhidos[0];
+    }
+  }
+
+  const somenteLeitura = Boolean(idsEnvioCelulas?.length);
   let celulas = [];
-  if (idsConsulta.length) {
+  if (idsEnvioCelulas?.length) {
+    celulas = await carregarCelulasGrade({
+      idSemana: semana.id_semana,
+      idsConsulta,
+      idsEnvio: idsEnvioCelulas,
+    });
+  } else if (idsConsulta.length) {
     // Remove atribuições indevidas de usuários só-delivery na grade de visitas.
     const idsDeliveryOnly = [...(await idsUsuariosDeliveryOnly())];
     if (idsDeliveryOnly.length) {
@@ -610,26 +791,22 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
         [semana.id_semana, idsDeliveryOnly],
       );
     }
-
-    const { rows } = await pool.query(
-      `SELECT c.id_celula, c.id_loja, c.dia, c.id_regional, c.id_loja_destino, c.observacao,
-              u.nome AS nome_regional,
-              ld.name AS nome_loja_destino, ld.bk_number AS bk_loja_destino
-       FROM escala_visitas_celula c
-       LEFT JOIN usuarios u ON u.id_usuario = c.id_regional
-       LEFT JOIN lojas ld ON ld.id_loja = c.id_loja_destino
-       WHERE c.id_semana = $1 AND c.id_loja = ANY($2::int[])
-       ORDER BY c.id_loja, c.dia, c.id_celula`,
-      [semana.id_semana, idsConsulta],
-    );
-    celulas = rows;
+    celulas = await carregarCelulasGrade({
+      idSemana: semana.id_semana,
+      idsConsulta,
+    });
   }
 
   const mapCel = new Map();
   for (const c of celulas) {
     const key = `${c.id_loja}-${c.dia}`;
     if (!mapCel.has(key)) mapCel.set(key, []);
-    mapCel.get(key).push(c);
+    const lista = mapCel.get(key);
+    const dupKey = c.id_regional != null ? `r-${c.id_regional}` : `d-${c.id_loja_destino}`;
+    if (lista.some((x) => (x.id_regional != null ? `r-${x.id_regional}` : `d-${x.id_loja_destino}`) === dupKey)) {
+      continue;
+    }
+    lista.push(c);
   }
 
   const mapCor = new Map(regionais.map((r) => [r.id_usuario, r.cor]));
@@ -716,8 +893,19 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
   const idsRegiaoStatus = id_regiao
     ? [Number(id_regiao)]
     : regioes.map((r) => Number(r.id_regiao));
-  const statusPorRegiao = await carregarStatusPorRegiao(semana.id_semana, idsRegiaoStatus);
+  const statusPorRegiaoRaw = await carregarStatusPorRegiao(semana.id_semana, idsRegiaoStatus);
   const statusDelivery = await obterStatusDelivery(semana.id_semana);
+  const envioPorChave = envioMaisRecentePorChave(envios);
+  const statusPorRegiao = statusPorRegiaoRaw.map((st) => {
+    const envio = envioPorChave.get(`r-${Number(st.id_regiao)}`);
+    return {
+      ...st,
+      id_envio: envio?.id_envio ?? null,
+      nome_ultimo_envio: envio?.nome_submetido_por ?? null,
+      ultimo_envio_em: envio?.submetido_em ?? null,
+    };
+  });
+  const envioDelivery = envioPorChave.get('delivery') || null;
   const equipesPorRegiao = await listarEquipesVisitaPorRegiao(
     [...new Set(regioes.map((r) => Number(r.id_regiao)).filter(Boolean))],
   );
@@ -768,14 +956,15 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
     semana_inicio: semanaInicio,
     semana_fim: domingoDaSemana(semanaInicio),
     semana_label: `${formatarDataBr(semanaInicio)} até ${formatarDataBr(domingoDaSemana(semanaInicio))}`,
-    pode_editar: gerenciar,
-    pode_editar_regiao: podeEditarRegiao,
-    pode_editar_delivery: podeEditarDelivery,
-    pode_submeter: podeSubmeter,
-    pode_submeter_delivery: podeSubmeterDelivery,
+    pode_editar: somenteLeitura ? false : gerenciar,
+    pode_editar_regiao: somenteLeitura ? false : podeEditarRegiao,
+    pode_editar_delivery: somenteLeitura ? false : podeEditarDelivery,
+    pode_submeter: somenteLeitura ? false : podeSubmeter,
+    pode_submeter_delivery: somenteLeitura ? false : podeSubmeterDelivery,
     pode_aprovar: gerenciar && temPendente,
     pode_devolver: gerenciar && (temPendente || temAprovado),
-    pode_excluir: gerenciar,
+    pode_excluir: somenteLeitura ? false : gerenciar,
+    somente_leitura: somenteLeitura,
     id_regiao_filtro: id_regiao ? Number(id_regiao) : null,
     status_regiao: statusRegiaoFiltro,
     status_por_regiao: statusPorRegiao,
@@ -788,7 +977,12 @@ export async function carregarGradeVisitas(user, { semana_inicio, id_regiao = nu
       comentario: statusDelivery.comentario ?? null,
       nome_submetido_por: statusDelivery.nome_submetido_por ?? null,
       nome_revisado_por: statusDelivery.nome_revisado_por ?? null,
+      id_envio: envioDelivery?.id_envio ?? null,
+      nome_ultimo_envio: envioDelivery?.nome_submetido_por ?? null,
+      ultimo_envio_em: envioDelivery?.submetido_em ?? null,
     },
+    envios,
+    envio_atual: envioAtual,
     regionais,
     regioes,
     equipes_por_regiao: equipesPorRegiao,
@@ -958,22 +1152,47 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
   const idsDiretores = await idsDiretoresEscala();
   const submetidas = [];
 
-  for (const idRegiao of idsAlvo) {
-    const st = await obterStatusRegiao(semana.id_semana, idRegiao);
-    if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) continue;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const idRegiao of idsAlvo) {
+      const st = await obterStatusRegiao(semana.id_semana, idRegiao);
+      if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) continue;
 
-    await pool.query(
-      `UPDATE escala_visitas_regiao_status
-       SET status = $3,
-           submetido_por = $4,
-           submetido_em = NOW(),
-           revisado_por = NULL,
-           revisado_em = NULL,
-           comentario = NULL
-       WHERE id_semana = $1 AND id_regiao = $2`,
-      [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
-    );
+      await client.query(
+        `UPDATE escala_visitas_regiao_status
+         SET status = $3,
+             submetido_por = $4,
+             submetido_em = NOW(),
+             revisado_por = NULL,
+             revisado_em = NULL,
+             comentario = NULL
+         WHERE id_semana = $1 AND id_regiao = $2`,
+        [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
+      );
 
+      try {
+        await registrarEnvioEscalaRegiao(client, {
+          idSemana: semana.id_semana,
+          idRegiao,
+          idUsuario: user.sub,
+        });
+      } catch (e) {
+        if (!tabelaEnvioAusente(e)) throw e;
+        console.error('[escalaVisitas] Tabela de envio ausente — rode a migration 131_escala_visitas_envio.sql');
+      }
+
+      submetidas.push(idRegiao);
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  for (const idRegiao of submetidas) {
     const nomeRegiao = await nomeRegiaoPorId(idRegiao);
     await notificarEscalaUsuarios({
       idsUsuario: idsDiretores,
@@ -984,7 +1203,6 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
       idRegiao,
       semanaInicio,
     });
-    submetidas.push(idRegiao);
   }
 
   if (!submetidas.length) {
@@ -1083,17 +1301,36 @@ export async function submeterEscalaDelivery(user, { semana_inicio }) {
     throw new Error('Só é possível enviar delivery em rascunho');
   }
 
-  await pool.query(
-    `UPDATE escala_visitas_delivery_status
-     SET status = $2,
-         submetido_por = $3,
-         submetido_em = NOW(),
-         revisado_por = NULL,
-         revisado_em = NULL,
-         comentario = NULL
-     WHERE id_semana = $1`,
-    [semana.id_semana, STATUS_PENDENTE, user.sub],
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE escala_visitas_delivery_status
+       SET status = $2,
+           submetido_por = $3,
+           submetido_em = NOW(),
+           revisado_por = NULL,
+           revisado_em = NULL,
+           comentario = NULL
+       WHERE id_semana = $1`,
+      [semana.id_semana, STATUS_PENDENTE, user.sub],
+    );
+    try {
+      await registrarEnvioEscalaDelivery(client, {
+        idSemana: semana.id_semana,
+        idUsuario: user.sub,
+      });
+    } catch (e) {
+      if (!tabelaEnvioAusente(e)) throw e;
+      console.error('[escalaVisitas] Tabela de envio ausente — rode a migration 131_escala_visitas_envio.sql');
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 
   const nomeAutor = (await nomeUsuarioPorId(user.sub)) || 'Delivery';
   await notificarEscalaUsuarios({

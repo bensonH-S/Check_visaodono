@@ -25,6 +25,19 @@ export function fmtDataCurta(iso: string) {
   return `${dd}/${m}`;
 }
 
+export function fmtEnvioQuando(iso?: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function diaIndexNaSemana(semanaInicio: string, iso = new Date().toISOString().slice(0, 10)) {
   for (let i = 0; i < 7; i += 1) {
     if (addDaysIso(semanaInicio, i) === iso) return i;

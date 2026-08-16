@@ -37,7 +37,8 @@ function erroHttp(e, res, next) {
     msg.includes('Informe') ||
     msg.includes('Só é possível') ||
     msg.includes('Semanas iguais') ||
-    msg.includes('Delivery')
+    msg.includes('Delivery') ||
+    msg.includes('Envio')
   ) {
     return res.status(400).json({ error: msg });
   }
@@ -53,7 +54,15 @@ router.get('/semana', async (req, res, next) => {
       ? segundaFeiraDaSemana(String(req.query.semana_inicio))
       : segundaFeiraDaSemana(new Date());
     const id_regiao = req.query.id_regiao ? Number(req.query.id_regiao) : null;
-    const grade = await carregarGradeVisitas(req.user, { semana_inicio, id_regiao });
+    const id_envio = req.query.id_envio ? Number(req.query.id_envio) : null;
+    const id_usuario_envio = req.query.id_usuario_envio ? Number(req.query.id_usuario_envio) : null;
+    const grade = await carregarGradeVisitas(req.user, {
+      semana_inicio,
+      id_regiao,
+      id_envio: Number.isFinite(id_envio) && id_envio > 0 ? id_envio : null,
+      id_usuario_envio:
+        Number.isFinite(id_usuario_envio) && id_usuario_envio > 0 ? id_usuario_envio : null,
+    });
     res.json(grade);
   } catch (e) {
     return erroHttp(e, res, next);

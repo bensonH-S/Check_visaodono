@@ -2213,6 +2213,9 @@ export interface EscalaVisitasRegiaoStatus {
   comentario?: string | null;
   nome_submetido_por?: string | null;
   nome_revisado_por?: string | null;
+  id_envio?: number | null;
+  nome_ultimo_envio?: string | null;
+  ultimo_envio_em?: string | null;
 }
 
 export interface EscalaVisitasDeliveryStatus {
@@ -2224,6 +2227,20 @@ export interface EscalaVisitasDeliveryStatus {
   comentario?: string | null;
   nome_submetido_por?: string | null;
   nome_revisado_por?: string | null;
+  id_envio?: number | null;
+  nome_ultimo_envio?: string | null;
+  ultimo_envio_em?: string | null;
+}
+
+export interface EscalaVisitasEnvio {
+  id_envio: number;
+  tipo: 'regiao' | 'delivery';
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
+  submetido_por?: number | null;
+  nome_submetido_por?: string | null;
+  submetido_em?: string | null;
+  ids_usuario?: number[];
 }
 
 export interface EscalaVisitasGrade {
@@ -2239,9 +2256,12 @@ export interface EscalaVisitasGrade {
   pode_aprovar?: boolean;
   pode_devolver?: boolean;
   pode_excluir?: boolean;
+  somente_leitura?: boolean;
   status_regiao?: EscalaVisitasRegiaoStatusCodigo | null;
   status_por_regiao?: EscalaVisitasRegiaoStatus[];
   status_delivery?: EscalaVisitasDeliveryStatus | null;
+  envios?: EscalaVisitasEnvio[];
+  envio_atual?: EscalaVisitasEnvio | null;
   id_regiao_filtro: number | null;
   regionais: EscalaVisitasRegional[];
   regioes: Array<{ id_regiao: number; nome: string }>;

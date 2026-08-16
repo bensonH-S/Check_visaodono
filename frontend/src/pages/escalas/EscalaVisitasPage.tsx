@@ -45,7 +45,7 @@ import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
-import { agruparRegionaisEscala, primeiroNome } from '../../components/escalas/escalaVisitasUtils';
+import { agruparRegionaisEscala, primeiroNome, fmtEnvioQuando } from '../../components/escalas/escalaVisitasUtils';
 
 const STATUS_LABEL: Record<EscalaVisitasRegiaoStatusCodigo, string> = {
   rascunho: 'Rascunho',
@@ -110,6 +110,7 @@ export default function EscalaVisitasPage() {
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
+  const [idEnvio, setIdEnvio] = useState<number | null>(null);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -149,6 +150,8 @@ export default function EscalaVisitasPage() {
     try {
       const q = new URLSearchParams({ semana_inicio: semanaInicio });
       if (idRegiao !== '') q.set('id_regiao', String(idRegiao));
+      if (idEnvio) q.set('id_envio', String(idEnvio));
+      else if (idUsuarioFiltro != null) q.set('id_usuario_envio', String(idUsuarioFiltro));
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
@@ -161,7 +164,7 @@ export default function EscalaVisitasPage() {
     } finally {
       setLoading(false);
     }
-  }, [semanaInicio, idRegiao, ehRegional]);
+  }, [semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional]);
 
   useEffect(() => {
     void carregar();
@@ -274,22 +277,28 @@ export default function EscalaVisitasPage() {
   function voltarVisaoGeral() {
     setIdRegiao('');
     setIdUsuarioFiltro(null);
+    setIdEnvio(null);
   }
 
-  function visualizarEscalaRegiao(id: number, idUsuario?: number | null) {
+  function visualizarEscalaRegiao(id: number, idUsuario?: number | null, idEnvioArg?: number | null) {
     setAba('visitas');
     setIdRegiao(id);
     setIdUsuarioFiltro(idUsuario != null ? Number(idUsuario) : null);
+    setIdEnvio(idEnvioArg != null ? Number(idEnvioArg) : null);
   }
 
   function alternarFiltroPessoa(idUsuario: number) {
     if (idUsuarioFiltro === idUsuario) {
       setIdUsuarioFiltro(null);
+      setIdEnvio(null);
       return;
     }
     setIdUsuarioFiltro(idUsuario);
     setIdRegiao('');
+    setIdEnvio(null);
   }
+
+  function idRegiaoAcao(): number | null {
     if (idRegiao !== '') return Number(idRegiao);
     if (grade?.regioes?.length === 1) return grade.regioes[0].id_regiao;
     return null;
@@ -495,10 +504,21 @@ export default function EscalaVisitasPage() {
     const st = (grade?.status_por_regiao ?? []).find(
       (s) => s.submetido_por != null && Number(s.submetido_por) === Number(idUsuarioFiltro),
     );
-    return st?.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
-  }, [grade?.regionais, grade?.status_por_regiao, idUsuarioFiltro]);
+    if (st?.nome_submetido_por) return primeiroNome(st.nome_submetido_por);
+    const envio = (grade?.envios ?? []).find(
+      (e) => e.submetido_por != null && Number(e.submetido_por) === Number(idUsuarioFiltro),
+    );
+    return envio?.nome_submetido_por ? primeiroNome(envio.nome_submetido_por) : null;
+  }, [grade?.regionais, grade?.status_por_regiao, grade?.envios, idUsuarioFiltro]);
 
-  const filtrandoEscala = idRegiao !== '' || idUsuarioFiltro != null;
+  const filtrandoEscala = idRegiao !== '' || idUsuarioFiltro != null || idEnvio != null;
+  const rotuloEnvio = grade?.envio_atual
+    ? `Cópia enviada por ${
+        grade.envio_atual.nome_submetido_por
+          ? primeiroNome(grade.envio_atual.nome_submetido_por)
+          : 'regional'
+      }${grade.envio_atual.submetido_em ? ` em ${fmtEnvioQuando(grade.envio_atual.submetido_em)}` : ''}`
+    : null;
 
   return (
     <Box
@@ -566,6 +586,8 @@ export default function EscalaVisitasPage() {
                   onChange={(e) => {
                     const v = e.target.value;
                     setIdRegiao(String(v) === '' ? '' : Number(v));
+                    setIdEnvio(null);
+                    setIdUsuarioFiltro(null);
                   }}
                   disabled={ehRegional && grade.regioes.length === 1}
                 >
@@ -690,7 +712,7 @@ export default function EscalaVisitasPage() {
                           component="button"
                           type="button"
                           variant="caption"
-                          onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por)}
+                          onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por, st.id_envio)}
                           title="Clique para ver só esta região"
                           sx={{
                             all: 'unset',
@@ -767,15 +789,18 @@ export default function EscalaVisitasPage() {
                           ? `Montada por ${montadaPor}${
                               st.status === 'aprovado' && revisadaPor ? ` · Aprovada por ${revisadaPor}` : ''
                             }${pendente ? ' · aguardando aprovação' : ''}`
-                          : st.status === 'rascunho'
-                            ? 'Ainda não enviada'
-                            : '—'}
+                          : st.id_envio && st.nome_ultimo_envio
+                            ? `Cópia salva de ${primeiroNome(st.nome_ultimo_envio)}`
+                            : st.status === 'rascunho'
+                              ? 'Ainda não enviada'
+                              : '—'}
                       </Typography>
+                      {(st.id_envio || st.status !== 'rascunho') && (
                       <Typography
                         component="button"
                         type="button"
                         variant="caption"
-                        onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por)}
+                        onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por, st.id_envio)}
                         sx={{
                           all: 'unset',
                           cursor: 'pointer',
@@ -788,6 +813,7 @@ export default function EscalaVisitasPage() {
                       >
                         Visualizar escala
                       </Typography>
+                      )}
                     </Box>
                   );
                 })}
@@ -1081,6 +1107,7 @@ export default function EscalaVisitasPage() {
                 py: 0.75,
                 borderBottom: `1px solid ${colors.border}`,
                 flexShrink: 0,
+                flexWrap: 'wrap',
               }}
             >
               <Button
@@ -1101,6 +1128,11 @@ export default function EscalaVisitasPage() {
                   ? ` · ${grade?.regioes.find((r) => r.id_regiao === idRegiao)?.nome ?? ''}`
                   : ''}
               </Typography>
+              {rotuloEnvio && grade?.somente_leitura && (
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  {rotuloEnvio} — não se perde se a grade for editada ou excluída.
+                </Typography>
+              )}
             </Box>
           )}
           <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>

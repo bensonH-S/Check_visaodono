@@ -37,6 +37,7 @@ import {
   addDaysIso,
   diaIndexNaSemana,
   fmtDataCurta,
+  fmtEnvioQuando,
   primeiroNome,
   segundaFeiraAtual,
   segundaFeiraSubsequente,
@@ -234,6 +235,7 @@ export default function EscalaVisitasMobileView() {
   );
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
+  const [idEnvio, setIdEnvio] = useState<number | null>(null);
   const [modo, setModo] = useState<ModoVisualizacao>(
     ehDeliveryOnly ? 'delivery' : ehRegional ? 'minhas' : ehDiretor ? 'dia' : 'minhas',
   );
@@ -281,6 +283,8 @@ export default function EscalaVisitasMobileView() {
       const q = new URLSearchParams({ semana_inicio: semanaInicio });
       // Regional não filtra por região — senão some a escala pessoal (ex.: Igor sem frota).
       if (!ehRegional && idRegiao !== '') q.set('id_regiao', String(idRegiao));
+      if (idEnvio) q.set('id_envio', String(idEnvio));
+      else if (idUsuarioFiltro != null) q.set('id_usuario_envio', String(idUsuarioFiltro));
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
@@ -289,7 +293,7 @@ export default function EscalaVisitasMobileView() {
     } finally {
       setLoading(false);
     }
-  }, [podeVer, semanaInicio, idRegiao, ehRegional]);
+  }, [podeVer, semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional]);
 
   const carregarNotifs = useCallback(async () => {
     if (!podeVer) return;
@@ -554,21 +558,25 @@ export default function EscalaVisitasMobileView() {
   function voltarVisaoGeral() {
     setIdRegiao('');
     setIdUsuarioFiltro(null);
+    setIdEnvio(null);
   }
 
-  function visualizarEscalaRegiao(id: number, idUsuario?: number | null) {
+  function visualizarEscalaRegiao(id: number, idUsuario?: number | null, idEnvioArg?: number | null) {
     setIdRegiao(id);
     setIdUsuarioFiltro(idUsuario != null ? Number(idUsuario) : null);
+    setIdEnvio(idEnvioArg != null ? Number(idEnvioArg) : null);
     setModo('dia');
   }
 
   function alternarFiltroPessoa(idUsuario: number) {
     if (idUsuarioFiltro === idUsuario) {
       setIdUsuarioFiltro(null);
+      setIdEnvio(null);
       return;
     }
     setIdUsuarioFiltro(idUsuario);
     setIdRegiao('');
+    setIdEnvio(null);
   }
 
   const statusAtivo = ehDeliveryOnly
@@ -710,10 +718,20 @@ export default function EscalaVisitasMobileView() {
           (grade?.status_por_regiao ?? []).find(
             (s) => s.submetido_por != null && Number(s.submetido_por) === Number(idUsuarioFiltro),
           )?.nome_submetido_por ??
+          (grade?.envios ?? []).find(
+            (e) => e.submetido_por != null && Number(e.submetido_por) === Number(idUsuarioFiltro),
+          )?.nome_submetido_por ??
           '',
       ) || null
     : null;
-  const filtrandoEscala = idRegiao !== '' || idUsuarioFiltro != null;
+  const filtrandoEscala = idRegiao !== '' || idUsuarioFiltro != null || idEnvio != null;
+  const rotuloEnvio = grade?.envio_atual
+    ? `Cópia de ${
+        grade.envio_atual.nome_submetido_por
+          ? primeiroNome(grade.envio_atual.nome_submetido_por)
+          : 'envio'
+      }${grade.envio_atual.submetido_em ? ` · ${fmtEnvioQuando(grade.envio_atual.submetido_em)}` : ''}`
+    : null;
   const modoTrabalho = ehDeliveryOnly || modo === 'montar' || modo === 'delivery';
   const semanaAlvo = modoTrabalho ? segundaFeiraSubsequente() : segundaFeiraAtual();
   const semanaEhAtual = semanaInicio === semanaAlvo;
@@ -929,6 +947,7 @@ export default function EscalaVisitasMobileView() {
                 <p className="ck-escala__regiao">
                   {nomeFiltroPessoa ? `Escala de ${nomeFiltroPessoa}` : 'Exibindo'}
                   {regiaoAtiva ? ` · ${regiaoAtiva.nome}` : ''}
+                  {rotuloEnvio && grade?.somente_leitura ? ` · ${rotuloEnvio}` : ''}
                 </p>
               </div>
             )}
@@ -1004,7 +1023,7 @@ export default function EscalaVisitasMobileView() {
                     <button
                       type="button"
                       className="ck-escala__aprovacao-info"
-                      onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por)}
+                      onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por, st.id_envio)}
                     >
                       <strong>
                         {st.nome_regiao}
