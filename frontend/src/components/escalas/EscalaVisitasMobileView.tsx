@@ -233,6 +233,7 @@ export default function EscalaVisitasMobileView() {
     ehDeliveryOnly ? segundaFeiraSubsequente() : segundaFeiraAtual(),
   );
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
+  const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
   const [modo, setModo] = useState<ModoVisualizacao>(
     ehDeliveryOnly ? 'delivery' : ehRegional ? 'minhas' : ehDiretor ? 'dia' : 'minhas',
   );
@@ -550,6 +551,26 @@ export default function EscalaVisitasMobileView() {
     }
   }
 
+  function voltarVisaoGeral() {
+    setIdRegiao('');
+    setIdUsuarioFiltro(null);
+  }
+
+  function visualizarEscalaRegiao(id: number, idUsuario?: number | null) {
+    setIdRegiao(id);
+    setIdUsuarioFiltro(idUsuario != null ? Number(idUsuario) : null);
+    setModo('dia');
+  }
+
+  function alternarFiltroPessoa(idUsuario: number) {
+    if (idUsuarioFiltro === idUsuario) {
+      setIdUsuarioFiltro(null);
+      return;
+    }
+    setIdUsuarioFiltro(idUsuario);
+    setIdRegiao('');
+  }
+
   const statusAtivo = ehDeliveryOnly
     ? grade?.status_delivery?.status || null
     : grade?.status_regiao ||
@@ -621,16 +642,19 @@ export default function EscalaVisitasMobileView() {
         if (linha.tipo === 'delivery') continue;
         const c = linha.dias[dia];
         const attrs = atribuicoesDoDia(c);
-        if (!attrs.length) continue;
+        const filtrados = idUsuarioFiltro
+          ? attrs.filter((a) => Number(a.id_regional) === Number(idUsuarioFiltro))
+          : attrs;
+        if (!filtrados.length) continue;
         itens.push({
           id_loja: linha.id_loja,
           nome: linha.nome,
           bk: linha.bk_number,
-          regionais: attrs.map((a) => ({
+          regionais: filtrados.map((a) => ({
             nome: a.nome_regional ?? mapNomeRegional.get(a.id_regional!) ?? '—',
             cor: a.cor ?? undefined,
           })),
-          cor: attrs[0]?.cor ?? undefined,
+          cor: filtrados[0]?.cor ?? undefined,
         });
       }
       return {
@@ -640,7 +664,7 @@ export default function EscalaVisitasMobileView() {
         itens,
       };
     });
-  }, [grade, mapNomeRegional]);
+  }, [grade, mapNomeRegional, idUsuarioFiltro]);
 
   const minhasVisitas = useMemo(() => {
     if (!idEu) return [];
@@ -680,6 +704,16 @@ export default function EscalaVisitasMobileView() {
 
   const temFiltroRegiao = !ehDeliveryOnly && grade != null && grade.regioes.length > 1;
   const regiaoAtiva = grade?.regioes.find((r) => r.id_regiao === idRegiao);
+  const nomeFiltroPessoa = idUsuarioFiltro
+    ? primeiroNome(
+        grade?.regionais.find((r) => Number(r.id_usuario) === Number(idUsuarioFiltro))?.nome ??
+          (grade?.status_por_regiao ?? []).find(
+            (s) => s.submetido_por != null && Number(s.submetido_por) === Number(idUsuarioFiltro),
+          )?.nome_submetido_por ??
+          '',
+      ) || null
+    : null;
+  const filtrandoEscala = idRegiao !== '' || idUsuarioFiltro != null;
   const modoTrabalho = ehDeliveryOnly || modo === 'montar' || modo === 'delivery';
   const semanaAlvo = modoTrabalho ? segundaFeiraSubsequente() : segundaFeiraAtual();
   const semanaEhAtual = semanaInicio === semanaAlvo;
@@ -885,8 +919,33 @@ export default function EscalaVisitasMobileView() {
           )}
 
           <div className="ck-escala__sticky">
-            {regiaoAtiva && ehDiretor && (
-              <p className="ck-escala__regiao">Exibindo: {regiaoAtiva.nome}</p>
+            {(filtrandoEscala || regiaoAtiva) && ehDiretor && (
+              <div className="ck-escala__voltar-row">
+                {filtrandoEscala && (
+                  <button type="button" className="ck-escala__voltar" onClick={voltarVisaoGeral}>
+                    ← Voltar
+                  </button>
+                )}
+                <p className="ck-escala__regiao">
+                  {nomeFiltroPessoa ? `Escala de ${nomeFiltroPessoa}` : 'Exibindo'}
+                  {regiaoAtiva ? ` · ${regiaoAtiva.nome}` : ''}
+                </p>
+              </div>
+            )}
+            {ehDiretor && modo === 'dia' && (grade?.regionais ?? []).length > 0 && (
+              <div className="ck-escala__pessoas">
+                {(grade?.regionais ?? []).map((r) => (
+                  <button
+                    key={r.id_usuario}
+                    type="button"
+                    className={`ck-escala__pessoa${idUsuarioFiltro === r.id_usuario ? ' is-on' : ''}`}
+                    style={{ borderColor: r.cor ?? '#94a3b8', background: `${r.cor ?? '#94a3b8'}22` }}
+                    onClick={() => alternarFiltroPessoa(r.id_usuario)}
+                  >
+                    {primeiroNome(r.nome)}
+                  </button>
+                ))}
+              </div>
             )}
             {(modo === 'delivery' || (modo === 'montar' && ehRegional)) && !loading && (
               <div className="ck-escala__dias">
@@ -945,10 +1004,7 @@ export default function EscalaVisitasMobileView() {
                     <button
                       type="button"
                       className="ck-escala__aprovacao-info"
-                      onClick={() => {
-                        setIdRegiao(st.id_regiao);
-                        setModo('dia');
-                      }}
+                      onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por)}
                     >
                       <strong>
                         {st.nome_regiao}

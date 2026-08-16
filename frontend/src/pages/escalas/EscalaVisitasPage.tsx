@@ -31,6 +31,7 @@ import SendIcon from '@mui/icons-material/Send';
 import CheckIcon from '@mui/icons-material/Check';
 import UndoIcon from '@mui/icons-material/Undo';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlaceIcon from '@mui/icons-material/Place';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import {
@@ -108,6 +109,7 @@ export default function EscalaVisitasPage() {
   const ehDeliveryOnly = !ehDiretor && !ehRegional && podeEditarEscalaDelivery();
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
+  const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -269,7 +271,25 @@ export default function EscalaVisitasPage() {
     }
   }
 
-  function idRegiaoAcao(): number | null {
+  function voltarVisaoGeral() {
+    setIdRegiao('');
+    setIdUsuarioFiltro(null);
+  }
+
+  function visualizarEscalaRegiao(id: number, idUsuario?: number | null) {
+    setAba('visitas');
+    setIdRegiao(id);
+    setIdUsuarioFiltro(idUsuario != null ? Number(idUsuario) : null);
+  }
+
+  function alternarFiltroPessoa(idUsuario: number) {
+    if (idUsuarioFiltro === idUsuario) {
+      setIdUsuarioFiltro(null);
+      return;
+    }
+    setIdUsuarioFiltro(idUsuario);
+    setIdRegiao('');
+  }
     if (idRegiao !== '') return Number(idRegiao);
     if (grade?.regioes?.length === 1) return grade.regioes[0].id_regiao;
     return null;
@@ -426,10 +446,25 @@ export default function EscalaVisitasPage() {
     });
   }, [grade, pending]);
 
-  const linhasVisitasComTotais = useMemo(
-    () => linhasComTotais.filter((linha) => linha.tipo !== 'delivery'),
-    [linhasComTotais],
-  );
+  const linhasVisitasComTotais = useMemo(() => {
+    const visitas = linhasComTotais.filter((linha) => linha.tipo !== 'delivery');
+    if (idUsuarioFiltro == null) return visitas;
+    return visitas
+      .map((linha) => {
+        const dias = linha.dias.map((d) => {
+          const ids = ('ids_regional_efetivo' in d ? d.ids_regional_efetivo : []).filter(
+            (id) => Number(id) === Number(idUsuarioFiltro),
+          );
+          return { ...d, ids_regional_efetivo: ids };
+        });
+        const total = dias.reduce(
+          (n, d) => n + (('ids_regional_efetivo' in d ? d.ids_regional_efetivo : []).length),
+          0,
+        );
+        return { ...linha, dias, total_visitas_efetivo: total };
+      })
+      .filter((linha) => linha.total_visitas_efetivo > 0);
+  }, [linhasComTotais, idUsuarioFiltro]);
 
   const linhaDelivery = useMemo(() => linhaDeliveryDaGrade(grade?.linhas), [grade?.linhas]);
 
@@ -452,6 +487,18 @@ export default function EscalaVisitasPage() {
     () => agruparRegionaisEscala(grade?.regionais ?? []),
     [grade?.regionais],
   );
+
+  const nomeFiltroPessoa = useMemo(() => {
+    if (idUsuarioFiltro == null) return null;
+    const regional = grade?.regionais.find((r) => Number(r.id_usuario) === Number(idUsuarioFiltro));
+    if (regional?.nome) return primeiroNome(regional.nome);
+    const st = (grade?.status_por_regiao ?? []).find(
+      (s) => s.submetido_por != null && Number(s.submetido_por) === Number(idUsuarioFiltro),
+    );
+    return st?.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
+  }, [grade?.regionais, grade?.status_por_regiao, idUsuarioFiltro]);
+
+  const filtrandoEscala = idRegiao !== '' || idUsuarioFiltro != null;
 
   return (
     <Box
@@ -643,10 +690,7 @@ export default function EscalaVisitasPage() {
                           component="button"
                           type="button"
                           variant="caption"
-                          onClick={() => {
-                            setAba('visitas');
-                            setIdRegiao(st.id_regiao);
-                          }}
+                          onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por)}
                           title="Clique para ver só esta região"
                           sx={{
                             all: 'unset',
@@ -731,10 +775,7 @@ export default function EscalaVisitasPage() {
                         component="button"
                         type="button"
                         variant="caption"
-                        onClick={() => {
-                          setAba('visitas');
-                          setIdRegiao(st.id_regiao);
-                        }}
+                        onClick={() => visualizarEscalaRegiao(st.id_regiao, st.submetido_por)}
                         sx={{
                           all: 'unset',
                           cursor: 'pointer',
@@ -888,12 +929,16 @@ export default function EscalaVisitasPage() {
                   <Chip
                     key={r.id_usuario}
                     size="small"
+                    clickable
                     label={primeiroNome(r.nome)}
-                    title={r.nome}
+                    title={`Ver só a escala de ${primeiroNome(r.nome)}`}
+                    onClick={() => alternarFiltroPessoa(r.id_usuario)}
                     sx={{
                       bgcolor: `${r.cor}22`,
-                      border: `1px solid ${r.cor}`,
-                      fontWeight: 600,
+                      border: idUsuarioFiltro === r.id_usuario ? `2px solid ${r.cor}` : `1px solid ${r.cor}`,
+                      fontWeight: idUsuarioFiltro === r.id_usuario ? 800 : 600,
+                      boxShadow:
+                        idUsuarioFiltro === r.id_usuario ? `0 0 0 2px ${r.cor}55` : undefined,
                       '& .MuiChip-label': { color: colors.textPrimary },
                     }}
                   />,
@@ -1026,6 +1071,38 @@ export default function EscalaVisitasPage() {
             flexDirection: 'column',
           }}
         >
+          {filtrandoEscala && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1.25,
+                py: 0.75,
+                borderBottom: `1px solid ${colors.border}`,
+                flexShrink: 0,
+              }}
+            >
+              <Button
+                size="small"
+                startIcon={<ArrowBackIcon />}
+                onClick={voltarVisaoGeral}
+                sx={{ textTransform: 'none', fontWeight: 700, color: colors.navy }}
+              >
+                Voltar
+              </Button>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                {nomeFiltroPessoa
+                  ? `Escala de ${nomeFiltroPessoa}`
+                  : idRegiao !== ''
+                    ? grade?.regioes.find((r) => r.id_regiao === idRegiao)?.nome ?? 'Região'
+                    : 'Filtro'}
+                {nomeFiltroPessoa && idRegiao !== ''
+                  ? ` · ${grade?.regioes.find((r) => r.id_regiao === idRegiao)?.nome ?? ''}`
+                  : ''}
+              </Typography>
+            </Box>
+          )}
           <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
             <Table size="small" stickyHeader sx={tableSx}>
               <TableHead>

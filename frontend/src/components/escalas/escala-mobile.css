@@ -226,6 +226,51 @@
   color: var(--ck-orange);
 }
 
+.ck-escala .ck-escala__voltar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.ck-escala .ck-escala__voltar {
+  flex-shrink: 0;
+  border: 0;
+  background: rgba(27, 42, 107, 0.08);
+  color: var(--ck-navy, #1b2a6b);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+
+.ck-escala .ck-escala__voltar-row .ck-escala__regiao {
+  margin: 0;
+}
+
+.ck-escala .ck-escala__pessoas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.ck-escala .ck-escala__pessoa {
+  border: 1px solid;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #142048;
+}
+
+.ck-escala .ck-escala__pessoa.is-on {
+  box-shadow: 0 0 0 2px rgba(232, 82, 10, 0.35);
+  font-weight: 800;
+}
+
 .ck-escala .ck-escala__regiao {
   margin: 0 0 12px;
   font-size: 0.75rem;
