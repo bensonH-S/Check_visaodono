@@ -336,7 +336,7 @@ export default function ControleEstoquePage() {
     (async () => {
       setLoadingLojas(true);
       try {
-        const rows = await api.lojas({ ativas: true, operacionais: true });
+        const rows = await api.estoqueLojas({ ativas: true, operacionais: true });
         if (cancel) return;
         setLojas(rows);
         if (!idLoja && rows.length) {

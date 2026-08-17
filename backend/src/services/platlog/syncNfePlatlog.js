@@ -137,6 +137,9 @@ export async function syncNfePlatlog({
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      await client.query(
+        `ALTER TABLE estoque_nfe ADD COLUMN IF NOT EXISTS data_vencimento DATE`,
+      );
       const statusPortal = dl.statusLabel || null;
       const dataSaida = nfe.data_saida || null;
       const statusEntrega = classificarStatusPortal(statusPortal, {
@@ -146,8 +149,8 @@ export async function syncNfePlatlog({
         `INSERT INTO estoque_nfe (
            id_loja, fornecedor, chave, numero, serie, emissao,
            emitente_cnpj, emitente_nome, valor_total, xml_path, status,
-           data_saida, status_portal, status_entrega
-         ) VALUES ($1,'platlog',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada',$10::date,$11,$12)
+           data_saida, status_portal, status_entrega, data_vencimento
+         ) VALUES ($1,'platlog',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada',$10::date,$11,$12,$13::date)
          RETURNING id_nfe`,
         [
           idLoja,
@@ -162,6 +165,7 @@ export async function syncNfePlatlog({
           dataSaida,
           statusPortal,
           statusEntrega,
+          nfe.data_vencimento || null,
         ],
       );
       const idNfe = nfeRows[0].id_nfe;

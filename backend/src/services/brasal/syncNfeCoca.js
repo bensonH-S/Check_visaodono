@@ -119,6 +119,9 @@ export async function syncNfeCoca({
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      await client.query(
+        `ALTER TABLE estoque_nfe ADD COLUMN IF NOT EXISTS data_vencimento DATE`,
+      );
       const statusPortal = nfe.status_pedido || null;
       let statusEntrega = classificarStatusPortal(statusPortal, {
         temRemessa: true, // só chega aqui se itens têm remessa/NF
@@ -131,8 +134,8 @@ export async function syncNfeCoca({
         `INSERT INTO estoque_nfe (
            id_loja, fornecedor, chave, numero, serie, emissao,
            emitente_cnpj, emitente_nome, valor_total, xml_path, status,
-           status_portal, status_entrega
-         ) VALUES ($1,'coca',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada',$10,$11)
+           status_portal, status_entrega, data_vencimento
+         ) VALUES ($1,'coca',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada',$10,$11,$12::date)
          RETURNING id_nfe`,
         [
           idLoja,
@@ -146,6 +149,7 @@ export async function syncNfeCoca({
           jsonPath,
           statusPortal,
           statusEntrega,
+          nfe.data_vencimento || nfe.emissao || null,
         ],
       );
       const idNfe = nfeRows[0].id_nfe;

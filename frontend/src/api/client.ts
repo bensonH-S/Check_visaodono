@@ -948,6 +948,13 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  estoqueLojas: (params?: { ativas?: boolean; operacionais?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.ativas) q.set('ativas', '1');
+    if (params?.operacionais) q.set('operacionais', '1');
+    const s = q.toString();
+    return request<Loja[]>(`/estoque/lojas${s ? `?${s}` : ''}`);
+  },
   estoqueContagens: (idLoja: number) =>
     request<EstoqueContagemResumo[]>(`/estoque/contagens?id_loja=${idLoja}`),
   estoqueResumoMes: (idLoja: number) =>

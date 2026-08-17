@@ -84,6 +84,13 @@ export function parseNfeXml(xmlRaw) {
   const dhSaiEnt = tag(ide, 'dhSaiEnt') || tag(ide, 'dSaiEnt');
   const data_saida = dhSaiEnt ? String(dhSaiEnt).slice(0, 10) : null;
 
+  const cobr = tag(inf, 'cobr');
+  const vencimentos = tagsAll(cobr || inf, 'dVenc')
+    .map((s) => String(s || '').trim().slice(0, 10))
+    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .sort();
+  const data_vencimento = vencimentos[0] || null;
+
   const itens = tagsAll(inf, 'det').map((det, idx) => {
     const prod = tag(det, 'prod');
     return {
@@ -109,6 +116,8 @@ export function parseNfeXml(xmlRaw) {
     emissao,
     /** Saída/expedição do fornecedor (não é chegada na loja; usado como sugestão). */
     data_saida,
+    /** Primeira duplicata (cobr/dup/dVenc). Compras do mês usam esta data. */
+    data_vencimento,
     valor_total: numBr(tag(icmsTot, 'vNF')),
     emitente: {
       cnpj: String(tag(emit, 'CNPJ') || tag(emit, 'CPF') || '').trim(),

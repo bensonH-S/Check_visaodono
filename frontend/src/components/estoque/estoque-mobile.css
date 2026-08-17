@@ -878,14 +878,14 @@
 .ck-estoque .ck-estoque__kpis {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 16px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .ck-estoque .ck-estoque__kpi {
   min-width: 0;
-  padding: 10px 8px 9px;
-  border-radius: 14px;
+  padding: 7px 6px 6px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(8px);
@@ -898,7 +898,7 @@
 
 .ck-estoque .ck-estoque__kpi strong {
   display: block;
-  font-size: clamp(0.72rem, 3.1vw, 0.92rem);
+  font-size: clamp(0.62rem, 2.6vw, 0.78rem);
   font-weight: 800;
   line-height: 1.15;
   color: #fff;
@@ -907,13 +907,38 @@
 
 .ck-estoque .ck-estoque__kpi span {
   display: block;
-  margin-top: 5px;
-  font-size: 0.62rem;
+  margin-top: 2px;
+  font-size: 0.55rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.2;
+}
+
+.ck-estoque.ck-visitas--lista .ck-visitas__stage {
+  padding: calc(8px + env(safe-area-inset-top, 0px)) var(--ck-pad-x) 12px;
+}
+
+.ck-estoque.ck-visitas--lista .ck-visitas__title {
+  font-size: clamp(1.45rem, 6vw, 1.85rem);
+  line-height: 1.08;
+}
+
+.ck-estoque.ck-visitas--lista .ck-visitas__mark-text {
+  margin-bottom: 2px;
+}
+
+.ck-estoque.ck-visitas--lista .ck-visitas__mark-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.ck-estoque.ck-visitas--lista .ck-visitas__sub {
+  margin-top: 4px;
+  max-width: none;
+  font-size: 0.78rem;
+  line-height: 1.25;
 }
 
 .ck-estoque--detalhe .ck-estoque__sticky-head {

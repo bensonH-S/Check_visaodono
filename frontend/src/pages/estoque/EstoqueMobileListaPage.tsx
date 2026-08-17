@@ -118,7 +118,7 @@ export default function EstoqueMobileListaPage() {
     let cancel = false;
     (async () => {
       try {
-        const rows = await api.lojas({ ativas: true, operacionais: true });
+        const rows = await api.estoqueLojas({ ativas: true, operacionais: true });
         if (cancel) return;
         setLojas(rows);
         const preferida = preferenciaLojaInicial(rows);
@@ -257,14 +257,12 @@ export default function EstoqueMobileListaPage() {
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title">
                 Conferência
-                <br />
-                de estoque
               </h1>
             </div>
-            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+            <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
           </div>
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Conte os insumos da loja. Break e desperdício ficam na aba Break.
+            Conte os insumos. Break e perdas ficam na aba Break.
           </p>
           <div
             className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3"
@@ -288,7 +286,7 @@ export default function EstoqueMobileListaPage() {
             </div>
             <div className="ck-estoque__kpi">
               <strong>{loading ? '—' : fmtPct(cmvMes)}</strong>
-              <span>CMV teórico</span>
+              <span>CMV do mês</span>
             </div>
             <div className="ck-estoque__kpi">
               <strong>{loading ? '—' : fmtBrl(valorBreakMes)}</strong>

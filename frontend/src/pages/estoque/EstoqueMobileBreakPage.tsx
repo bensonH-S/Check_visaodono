@@ -213,7 +213,7 @@ export default function EstoqueMobileBreakPage() {
     let cancel = false;
     (async () => {
       try {
-        const rows = await api.lojas({ ativas: true, operacionais: true });
+        const rows = await api.estoqueLojas({ ativas: true, operacionais: true });
         if (cancel) return;
         setLojas(rows);
         const preferida = preferenciaLojaInicial(rows);
@@ -830,15 +830,13 @@ export default function EstoqueMobileBreakPage() {
             <div>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title">
-                Break
-                <br />
-                e perdas
+                Break e perdas
               </h1>
             </div>
-            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+            <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
           </div>
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Break, desperdício completo, desperdício incompleto e empréstimo. Toque no + e escolha o tipo.
+            Toque no + e escolha o tipo.
           </p>
           <div className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
             <div className="ck-visitas__metric ck-visitas__metric--accent">

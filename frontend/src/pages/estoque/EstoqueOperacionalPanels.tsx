@@ -2336,7 +2336,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
         api.estoqueBreaks(idLoja),
         api.estoqueBreakColaboradores(idLoja),
         api.estoqueBreakCatalogo(idLoja, 'refeicao'),
-        api.lojas({ ativas: true, operacionais: true }).catch(() => [] as Loja[]),
+        api.estoqueLojas({ ativas: true, operacionais: true }).catch(() => [] as Loja[]),
       ]);
       setLista(breaks);
       setColaboradores(cols);

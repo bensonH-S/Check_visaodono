@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { pool, hrPool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
-import { usuarioPodeLoja } from '../lojasUsuario.js';
+import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import {
   importarVendasLoja,
@@ -65,7 +65,7 @@ function parseIdLoja(src) {
 
 function acessoLoja(req, idLoja) {
   if (!idLoja) return { status: 400, error: 'Selecione a loja' };
-  if (!usuarioPodeLoja(req.user, idLoja)) {
+  if (!usuarioPodeLojaEstoque(req.user, idLoja)) {
     return { status: 403, error: 'Sem acesso a esta loja' };
   }
   return null;

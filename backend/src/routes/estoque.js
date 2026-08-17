@@ -1,10 +1,12 @@
 import { Router } from 'express';
+import fs from 'fs';
 import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
-import { usuarioPodeLoja } from '../lojasUsuario.js';
+import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
-import { ajustarSaldoPorContagem, calcularCmvTeorico } from '../services/estoqueMotor.js';
+import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
 import { calcularQtdContagem } from '../services/estoqueContagem.js';
+import { parseNfeXml } from '../services/nfeXml.js';
 import estoqueOperacional from './estoqueOperacional.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 
@@ -24,6 +26,23 @@ const verModulo = requirePermissao(
 
 router.use(estoqueOperacional);
 
+router.get('/lojas', verModulo, async (req, res, next) => {
+  try {
+    const ids = req.user?.lojas_ids_estoque;
+    if (!Array.isArray(ids) || !ids.length) return res.json([]);
+    const { ativas, operacionais } = req.query;
+    const params = [ids];
+    let q = 'SELECT * FROM lojas WHERE id_loja = ANY($1::int[])';
+    if (ativas === '1' || ativas === 'true') q += ' AND is_active = TRUE';
+    if (operacionais === '1' || operacionais === 'true') q += ' AND bk_number IS NOT NULL';
+    q += ' ORDER BY name';
+    const { rows } = await pool.query(q, params);
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
   const n = Number(v);
@@ -41,15 +60,15 @@ function parseIdLoja(src) {
 
 function acessoLoja(req, idLoja) {
   if (!idLoja) return { status: 400, error: 'Selecione a loja' };
-  if (!usuarioPodeLoja(req.user, idLoja)) {
+  if (!usuarioPodeLojaEstoque(req.user, idLoja)) {
     return { status: 403, error: 'Sem acesso a esta loja' };
   }
   return null;
 }
 
-function hojeISOLisboa() {
+function hojeISOBrasil() {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Lisbon',
+    timeZone: 'America/Sao_Paulo',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -244,35 +263,61 @@ function mapItem(row) {
   };
 }
 
-/** Valor vivo do estoque: saldo atual × preço (CMV). Sem saldo, null (a tela usa a última contagem). */
-async function valorAtualLoja(idLoja) {
-  if (!idLoja) return { valor_atual_loja: null };
-  const { rows } = await pool.query(
-    `SELECT ROUND(SUM(
-       COALESCE(s.quantidade, 0) * COALESCE(p.valor_unidade, 0)
-     )::numeric, 2) AS total,
-     COUNT(*) FILTER (WHERE s.id_insumo IS NOT NULL)::int AS n_saldos
-     FROM insumos p
-     LEFT JOIN estoque_saldos s
-       ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
-     WHERE p.id_loja = $1
-       AND p.ativo = TRUE
-       AND COALESCE(p.entra_cmv, TRUE)`,
-    [idLoja],
-  );
-  const n = Number(rows[0]?.n_saldos || 0);
-  if (!n) return { valor_atual_loja: null };
-  return {
-    valor_atual_loja: rows[0].total != null ? Number(rows[0].total) : 0,
-  };
-}
-
 function primeiroDiaMes(iso) {
   const s = String(iso || '').slice(0, 10);
   return s.length >= 7 ? `${s.slice(0, 7)}-01` : s;
 }
 
-/** Totais do mês: break, desperdício, compras e CMV teórico. */
+function round2(v) {
+  if (v == null || Number.isNaN(Number(v))) return null;
+  return Math.round(Number(v) * 100) / 100;
+}
+
+let schemaNfeVencimentoPromise = null;
+
+async function garantirSchemaNfeVencimento() {
+  if (!schemaNfeVencimentoPromise) {
+    schemaNfeVencimentoPromise = (async () => {
+      await pool.query(
+        `ALTER TABLE estoque_nfe ADD COLUMN IF NOT EXISTS data_vencimento DATE`,
+      );
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS idx_estoque_nfe_loja_vencimento
+         ON estoque_nfe (id_loja, data_vencimento)`,
+      );
+      const { rows } = await pool.query(
+        `SELECT id_nfe, xml_path FROM estoque_nfe
+         WHERE data_vencimento IS NULL
+           AND xml_path IS NOT NULL AND xml_path <> ''`,
+      );
+      for (const r of rows) {
+        try {
+          if (!/\.xml$/i.test(r.xml_path) || !fs.existsSync(r.xml_path)) continue;
+          const xml = fs.readFileSync(r.xml_path, 'utf8');
+          const venc = parseNfeXml(xml).data_vencimento;
+          if (!venc) continue;
+          await pool.query(
+            `UPDATE estoque_nfe SET data_vencimento = $2::date WHERE id_nfe = $1`,
+            [r.id_nfe, venc],
+          );
+        } catch {
+          /* XML antigo ou caminho do hub diferente — ignora */
+        }
+      }
+    })().catch((e) => {
+      schemaNfeVencimentoPromise = null;
+      throw e;
+    });
+  }
+  return schemaNfeVencimentoPromise;
+}
+
+/**
+ * Totais do mês para os cards: break (custo dos insumos), desperdício,
+ * compras (NFs com vencimento no mês, todos os fornecedores, com ou sem entrada)
+ * e CMV em andamento.
+ * Valor atual = EI + compras − saídas — não usa saldo vivo negativo.
+ */
 async function resumoMesLoja(idLoja, dataRef) {
   if (!idLoja) {
     return {
@@ -280,10 +325,15 @@ async function resumoMesLoja(idLoja, dataRef) {
       valor_desperdicio_mes: null,
       valor_compras_mes: null,
       cmv_teorico_pct: null,
+      valor_atual_loja: null,
     };
   }
-  const hoje = dataRef || hojeISOLisboa();
-  const inicio = primeiroDiaMes(hoje);
+  const hoje = dataRef || hojeISOBrasil();
+  await garantirSchemaNfeVencimento();
+  const inicioMes = primeiroDiaMes(hoje);
+  const inicio = await valorInicialMes(idLoja, hoje);
+  const de = inicio.data_inicial_mes || inicioMes;
+  const ei = inicio.valor_inicial_mes;
 
   const { rows: perdas } = await pool.query(
     `SELECT
@@ -300,34 +350,115 @@ async function resumoMesLoja(idLoja, dataRef) {
      WHERE b.id_loja = $1
        AND b.data_break >= $2::date
        AND b.data_break <= $3::date`,
-    [idLoja, inicio, hoje],
+    [idLoja, de, hoje],
   );
 
-  const { rows: compras } = await pool.query(
-    `SELECT COALESCE(SUM(m.quantidade * COALESCE(i.valor_unidade, 0)), 0)::numeric AS compras_valor
+  const { rows: comprasNf } = await pool.query(
+    `SELECT
+       COALESCE(SUM(valor_total) FILTER (WHERE d >= $2::date AND d <= $4::date), 0)::numeric AS compras_mes,
+       COALESCE(SUM(valor_total) FILTER (WHERE d >= $3::date AND d <= $4::date), 0)::numeric AS compras_apos_ei
+     FROM (
+       SELECT n.valor_total,
+              COALESCE(n.data_vencimento, n.emissao::date) AS d
+       FROM estoque_nfe n
+       WHERE n.id_loja = $1
+         AND COALESCE(n.status, '') <> 'erro'
+     ) x`,
+    [idLoja, inicioMes, de, hoje],
+  );
+
+  const { rows: comprasManuais } = await pool.query(
+    `SELECT
+       COALESCE(SUM(v) FILTER (WHERE d >= $2::date AND d <= $4::date), 0)::numeric AS compras_mes,
+       COALESCE(SUM(v) FILTER (WHERE d >= $3::date AND d <= $4::date), 0)::numeric AS compras_apos_ei
+     FROM (
+       SELECT m.quantidade * COALESCE(i.valor_unidade, 0) AS v,
+              COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) AS d
+       FROM estoque_movimentos m
+       JOIN insumos i ON i.id_insumo = m.id_insumo
+       WHERE m.id_loja = $1
+         AND m.tipo = 'entrada'
+         AND COALESCE(m.referencia_tipo, '') <> 'estoque_nfe'
+         AND COALESCE(i.entra_cmv, TRUE)
+     ) x`,
+    [idLoja, inicioMes, de, hoje],
+  );
+
+  const { rows: saidas } = await pool.query(
+    `SELECT COALESCE(SUM(
+       ABS(m.quantidade) * COALESCE(i.valor_unidade, 0)
+     ) FILTER (WHERE m.tipo = 'venda'), 0)::numeric AS venda_custo,
+     COALESCE(SUM(
+       ABS(m.quantidade) * COALESCE(i.valor_unidade, 0)
+     ) FILTER (WHERE m.tipo = 'break'), 0)::numeric AS perdas_custo
      FROM estoque_movimentos m
      JOIN insumos i ON i.id_insumo = m.id_insumo
      WHERE m.id_loja = $1
-       AND m.tipo = 'entrada'
+       AND m.tipo IN ('venda', 'break')
        AND COALESCE(i.entra_cmv, TRUE)
        AND COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) >= $2::date
        AND COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) <= $3::date`,
-    [idLoja, inicio, hoje],
+    [idLoja, de, hoje],
   );
 
-  let cmvTeoricoPct = null;
-  try {
-    const teorico = await calcularCmvTeorico(idLoja, { de: inicio, ate: hoje });
-    cmvTeoricoPct = teorico?.cmv_teorico_pct != null ? Number(teorico.cmv_teorico_pct) : null;
-  } catch {
-    cmvTeoricoPct = null;
+  const { rows: vendas } = await pool.query(
+    `SELECT COALESCE(SUM(vi.venda_liquida), 0)::numeric AS venda
+     FROM estoque_vendas v
+     JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
+     WHERE v.id_loja = $1
+       AND v.data_venda >= $2::date
+       AND v.data_venda <= $3::date`,
+    [idLoja, de, hoje],
+  );
+
+  const { rows: liveRows } = await pool.query(
+    `SELECT ROUND(SUM(
+       COALESCE(s.quantidade, 0) * COALESCE(p.valor_unidade, 0)
+     )::numeric, 2) AS total,
+     COUNT(*) FILTER (WHERE s.id_insumo IS NOT NULL)::int AS n_saldos
+     FROM insumos p
+     LEFT JOIN estoque_saldos s
+       ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
+     WHERE p.id_loja = $1
+       AND p.ativo = TRUE
+       AND COALESCE(p.entra_cmv, TRUE)`,
+    [idLoja],
+  );
+
+  const breakValor = Number(perdas[0]?.break_valor || 0);
+  const desperdicioValor = Number(perdas[0]?.desperdicio_valor || 0);
+  const comprasMes = round2(
+    Number(comprasNf[0]?.compras_mes || 0) + Number(comprasManuais[0]?.compras_mes || 0),
+  );
+  const comprasAposEi = round2(
+    Number(comprasNf[0]?.compras_apos_ei || 0) + Number(comprasManuais[0]?.compras_apos_ei || 0),
+  );
+  const saidasValor =
+    Number(saidas[0]?.venda_custo || 0) + Number(saidas[0]?.perdas_custo || 0);
+  const venda = Number(vendas[0]?.venda || 0);
+  const live = liveRows[0]?.n_saldos ? Number(liveRows[0].total) : null;
+
+  let valorAtual = null;
+  if (ei != null) {
+    valorAtual = round2(ei + comprasAposEi - saidasValor);
+  } else if (live != null && live >= 0) {
+    valorAtual = round2(live);
+  }
+  if (valorAtual != null && valorAtual < 0) valorAtual = 0;
+
+  let cmvPct = null;
+  if (venda > 0 && ei != null && valorAtual != null) {
+    cmvPct = Math.round(((ei + comprasAposEi - valorAtual) / venda) * 10000) / 100;
+  } else if (venda > 0 && saidasValor > 0) {
+    cmvPct = Math.round((saidasValor / venda) * 10000) / 100;
   }
 
   return {
-    valor_break_mes: Number(perdas[0]?.break_valor || 0),
-    valor_desperdicio_mes: Number(perdas[0]?.desperdicio_valor || 0),
-    valor_compras_mes: Number(compras[0]?.compras_valor || 0),
-    cmv_teorico_pct: cmvTeoricoPct,
+    valor_break_mes: round2(breakValor) ?? 0,
+    valor_desperdicio_mes: round2(desperdicioValor) ?? 0,
+    valor_compras_mes: comprasMes ?? 0,
+    cmv_teorico_pct: cmvPct,
+    valor_atual_loja: valorAtual,
   };
 }
 
@@ -356,7 +487,7 @@ async function valorInicialMes(idLoja, dataRef) {
        AND date_trunc('month', c.data_contagem) = date_trunc('month', $2::date)
      ORDER BY c.data_contagem ASC, c.id_contagem ASC
      LIMIT 1`,
-    [idLoja, dataRef || hojeISOLisboa()],
+    [idLoja, dataRef || hojeISOBrasil()],
   );
   if (!rows.length) {
     return { valor_inicial_mes: null, data_inicial_mes: null, id_contagem_inicial: null };
@@ -413,9 +544,9 @@ async function carregarContagem(id) {
   const pendentes = mapped.filter((i) => i.estoque_contado == null).length;
 
   const c = contagens[0];
-  const [inicioMes, atualLoja] = await Promise.all([
-    valorInicialMes(c.id_loja, c.data_contagem || hojeISOLisboa()),
-    valorAtualLoja(c.id_loja),
+  const [inicioMes, resumoMes] = await Promise.all([
+    valorInicialMes(c.id_loja, c.data_contagem || hojeISOBrasil()),
+    resumoMesLoja(c.id_loja, hojeISOBrasil()),
   ]);
   return {
     id_contagem: c.id_contagem,
@@ -430,7 +561,7 @@ async function carregarContagem(id) {
     total_valor,
     valor_atual: total_valor,
     ...inicioMes,
-    ...atualLoja,
+    ...resumoMes,
     total_diferenca,
     divergencias,
     pendentes,
@@ -632,10 +763,9 @@ router.get('/resumo-mes', permResumoMes, async (req, res, next) => {
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
-    const hoje = hojeISOLisboa();
-    const [inicioMes, atualLoja, resumoMes] = await Promise.all([
+    const hoje = hojeISOBrasil();
+    const [inicioMes, resumoMes] = await Promise.all([
       valorInicialMes(idLoja, hoje),
-      valorAtualLoja(idLoja),
       resumoMesLoja(idLoja, hoje),
     ]);
     res.json({
@@ -644,7 +774,6 @@ router.get('/resumo-mes', permResumoMes, async (req, res, next) => {
       ate: hoje,
       valor_inicial_mes: inicioMes.valor_inicial_mes,
       data_inicial_mes: inicioMes.data_inicial_mes,
-      valor_atual_loja: atualLoja.valor_atual_loja,
       ...resumoMes,
     });
   } catch (e) {
@@ -697,10 +826,9 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
        ${clausulaLimit}`,
       paramsQuery,
     );
-    const [inicioMes, atualLoja, resumoMes] = await Promise.all([
-      valorInicialMes(idLoja, hojeISOLisboa()),
-      valorAtualLoja(idLoja),
-      resumoMesLoja(idLoja, hojeISOLisboa()),
+    const [inicioMes, resumoMes] = await Promise.all([
+      valorInicialMes(idLoja, hojeISOBrasil()),
+      resumoMesLoja(idLoja, hojeISOBrasil()),
     ]);
     const mapeadas = rows.map((r) => ({
       ...r,
@@ -708,7 +836,6 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
       valor_atual: r.total_valor != null ? Number(r.total_valor) : null,
       valor_inicial_mes: inicioMes.valor_inicial_mes,
       data_inicial_mes: inicioMes.data_inicial_mes,
-      valor_atual_loja: atualLoja.valor_atual_loja,
       ...resumoMes,
     }));
 
@@ -737,7 +864,7 @@ router.get('/contagens/atual', permConferencia, async (req, res, next) => {
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
-    const hoje = hojeISOLisboa();
+    const hoje = hojeISOBrasil();
     const metaBase = { hoje, id_loja: idLoja };
 
     const { rows: abertas } = await pool.query(
@@ -798,7 +925,7 @@ router.post('/contagens', permConferencia, async (req, res, next) => {
     const tipo = normalizarTipoContagem(req.body?.tipo);
     const titulo =
       String(req.body?.titulo || '').trim() ||
-      tituloConferencia(data_contagem || hojeISOLisboa(), tipo);
+      tituloConferencia(data_contagem || hojeISOBrasil(), tipo);
     const observacao =
       req.body?.observacao != null ? String(req.body.observacao).trim() || null : null;
     const usarUltimo = req.body?.usar_ultimo_estoque !== false;
@@ -853,7 +980,7 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
-    const hoje = hojeISOLisboa();
+    const hoje = hojeISOBrasil();
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
     const tipo = normalizarTipoContagem(req.body?.tipo || 'critica_semanal');
     const metaBase = { hoje, id_loja: idLoja, tipo };

@@ -41,10 +41,42 @@ function unirIdsLojas(...listas) {
   return [...new Set(listas.flat().map(Number).filter(Boolean))];
 }
 
-function ehSupervisorRegiao(user) {
-  if (temPermissao(user, 'frota.regioes')) return true;
+function ehCargoRegional(user) {
   const cargo = String(user?.cargo_aprovacao || user?.perfil || '').toLowerCase();
   return cargo === 'supervisor_regional' || cargo === 'regional' || cargo === 'supervisor';
+}
+
+function ehSupervisorRegiao(user) {
+  if (temPermissao(user, 'frota.regioes')) return true;
+  return ehCargoRegional(user);
+}
+
+/** JWT não traz cargo; precisa dele para reconhecer regional sem lojas.todas. */
+async function anexarCargoAprovacao(user) {
+  if (!user?.sub || user.cargo_aprovacao != null) return;
+  const { rows } = await pool.query(
+    'SELECT cargo_aprovacao FROM usuarios WHERE id_usuario = $1',
+    [user.sub],
+  );
+  user.cargo_aprovacao = rows[0]?.cargo_aprovacao || null;
+}
+
+async function usuarioVinculadoComoRegional(idUsuario) {
+  const { rows } = await pool.query(
+    `SELECT 1
+     FROM frota_regioes r
+     WHERE r.ativo = TRUE
+       AND (
+         r.id_regional = $1
+         OR EXISTS (
+           SELECT 1 FROM frota_regiao_regionais rr
+           WHERE rr.id_regiao = r.id_regiao AND rr.id_usuario = $1
+         )
+       )
+     LIMIT 1`,
+    [idUsuario],
+  );
+  return rows.length > 0;
 }
 
 function ehGestorLoja(user) {
@@ -148,11 +180,28 @@ export async function usuarioPodeVerRegiaoMapa(user, idRegiao) {
 export async function attachLojasUsuario(req, _res, next) {
   if (!req.user?.sub) return next();
   try {
+    await anexarCargoAprovacao(req.user);
     req.user.lojas_ids = await carregarLojasIds(req.user);
+    req.user.lojas_ids_estoque = await carregarLojasIdsEstoque(req.user);
     next();
   } catch (e) {
     next(e);
   }
+}
+
+/**
+ * Estoque: regional (cargo ou vínculo na região) só vê lojas da própria região,
+ * mesmo com lojas.todas. Diretoria/TI com lojas.todas e sem região continua vendo todas.
+ */
+export async function carregarLojasIdsEstoque(user) {
+  if (ehGestorLoja(user)) {
+    return lojasUsuarioBase(user.sub);
+  }
+  const comoRegional = ehCargoRegional(user) || (await usuarioVinculadoComoRegional(user.sub));
+  if (comoRegional) {
+    return lojasRegiaoUsuario(user.sub);
+  }
+  return carregarLojasIds(user);
 }
 
 export function filtroSqlLojas(user, alias, col, params) {
@@ -205,6 +254,12 @@ export function usuarioPodeAcessarChamado(user, chamado) {
 export function usuarioPodeLoja(user, idLoja) {
   if (acessoTodasLojas(user)) return true;
   return (user.lojas_ids || []).includes(Number(idLoja));
+}
+
+export function usuarioPodeLojaEstoque(user, idLoja) {
+  const ids = user.lojas_ids_estoque;
+  if (Array.isArray(ids)) return ids.includes(Number(idLoja));
+  return usuarioPodeLoja(user, idLoja);
 }
 
 /**
