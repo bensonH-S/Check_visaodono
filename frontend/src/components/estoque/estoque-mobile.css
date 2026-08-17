@@ -1405,11 +1405,63 @@
 
 .ck-estoque--break .ck-estoque__break-form--planilha .ck-estoque__field > span,
 .ck-estoque--break .ck-estoque__break-form--planilha .ck-estoque__field > label {
-  font-size: 0.62rem;
+  display: block;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(15, 26, 69, 0.62);
+  color: rgba(20, 32, 72, 0.55);
+  margin-bottom: 6px;
+}
+
+.ck-estoque--break .ck-estoque__seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ck-estoque--break .ck-estoque__seg-btn {
+  border: 1px solid rgba(27, 42, 107, 0.16);
+  background: #fff;
+  color: var(--ck-ink);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  padding: 10px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ck-estoque--break .ck-estoque__seg-btn.is-on {
+  background: #1b2a6b;
+  border-color: #1b2a6b;
+  color: #fff;
+}
+
+.ck-estoque--break .ck-estoque__turno {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.ck-estoque--break .ck-estoque__turno-btn {
+  border: 1px solid rgba(27, 42, 107, 0.16);
+  background: #fff;
+  color: var(--ck-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 10px 6px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.ck-estoque--break .ck-estoque__turno-btn.is-on {
+  background: #ea580c;
+  border-color: #ea580c;
+  color: #fff;
 }
 
 .ck-estoque--break .ck-estoque__break-form--planilha input,

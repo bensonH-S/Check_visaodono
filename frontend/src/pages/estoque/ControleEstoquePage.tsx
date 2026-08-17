@@ -756,7 +756,7 @@ export default function ControleEstoquePage() {
             <Tab value="conferencia" label="Conferência" disabled={!idLoja} />
           )}
           {podeBreak && (
-            <Tab value="break" label="Break · consumo" disabled={!idLoja || bloqueiaOutrasAbas} />
+            <Tab value="break" label="Break · perdas" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
             <Tab value="pedido" label="Pedido" disabled={!idLoja || bloqueiaOutrasAbas} />

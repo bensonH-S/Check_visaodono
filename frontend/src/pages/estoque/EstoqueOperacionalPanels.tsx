@@ -41,6 +41,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   api,
   type EstoqueBreakResumo,
+  type Loja,
   type EstoqueCmvReal,
   type EstoqueCmvTeorico,
   type EstoqueCmvVariancia,
@@ -2286,35 +2287,63 @@ function PainelProdutos({
   );
 }
 
+function labelTipoBreak(tipo?: string | null) {
+  if (tipo === 'desperdicio_completo') return 'Desperdício completo';
+  if (tipo === 'desperdicio_incompleto') return 'Desperdício incompleto';
+  if (tipo === 'emprestimo') return 'Empréstimo';
+  return 'Break';
+}
+
+function labelTurnoBreak(turno?: string | null) {
+  if (turno === 'manha') return 'Manhã';
+  if (turno === 'tarde') return 'Tarde';
+  if (turno === 'noite') return 'Noite';
+  return '—';
+}
+
 function PainelBreak({ idLoja }: { idLoja: number }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<EstoqueBreakResumo[]>([]);
   const [produtosVenda, setProdutosVenda] = useState<ProdutoVendaEstoque[]>([]);
+  const [insumos, setInsumos] = useState<ProdutoEstoque[]>([]);
+  const [motivos, setMotivos] = useState<Array<{ codigo: string; nome: string }>>([]);
+  const [lojas, setLojas] = useState<Loja[]>([]);
   const [colaboradores, setColaboradores] = useState<Array<{ id_usuario: number; nome: string }>>(
     [],
   );
   const [open, setOpen] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [dataBreak, setDataBreak] = useState(hojeISO());
-  const [motivo, setMotivo] = useState('');
+  const [kind, setKind] = useState('refeicao');
+  const [turno, setTurno] = useState('');
+  const [motivoCodigo, setMotivoCodigo] = useState('');
+  const [idLojaDestino, setIdLojaDestino] = useState<number | ''>('');
   const [colabSelect, setColabSelect] = useState('');
   const [idColaborador, setIdColaborador] = useState<number | ''>('');
   const [nomeColaborador, setNomeColaborador] = useState('');
   const [codigo, setCodigo] = useState('');
   const [qtde, setQtde] = useState('1');
+  const usaInsumo = kind === 'desperdicio_incompleto' || kind === 'emprestimo';
+  const exigeColab = kind === 'refeicao';
+  const exigeTurno = kind !== 'emprestimo';
+  const exigeMotivo = kind === 'desperdicio_completo' || kind === 'desperdicio_incompleto';
   const colabDigitado = colaboradores.length === 0 || colabSelect === '__outro__';
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [breaks, prods, cols] = await Promise.all([
+      const [breaks, cols, cat, lojasRows] = await Promise.all([
         api.estoqueBreaks(idLoja),
-        api.estoqueProdutosVenda({ id_loja: idLoja }),
         api.estoqueBreakColaboradores(idLoja),
+        api.estoqueBreakCatalogo(idLoja, 'refeicao'),
+        api.lojas({ ativas: true, operacionais: true }).catch(() => [] as Loja[]),
       ]);
       setLista(breaks);
-      setProdutosVenda(prods.filter((p) => p.ativo !== false));
       setColaboradores(cols);
+      setLojas(lojasRows);
+      setProdutosVenda((cat.produtos || []).filter((p) => p.ativo !== false));
+      setInsumos((cat.insumos || []).filter((p) => p.ativo !== false));
+      setMotivos(cat.motivos || []);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar breaks', 'error');
     } finally {
@@ -2326,8 +2355,27 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     void carregar();
   }, [carregar]);
 
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const cat = await api.estoqueBreakCatalogo(idLoja, kind);
+        setProdutosVenda((cat.produtos || []).filter((p) => p.ativo !== false));
+        setInsumos((cat.insumos || []).filter((p) => p.ativo !== false));
+        setMotivos(cat.motivos || []);
+      } catch {
+        setProdutosVenda([]);
+        setInsumos([]);
+        setMotivos([]);
+      }
+    })();
+  }, [open, idLoja, kind]);
+
   const resetForm = () => {
-    setMotivo('');
+    setKind('refeicao');
+    setTurno('');
+    setMotivoCodigo('');
+    setIdLojaDestino('');
     setColabSelect('');
     setIdColaborador('');
     setNomeColaborador('');
@@ -2349,8 +2397,20 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
       (idColaborador
         ? colaboradores.find((c) => c.id_usuario === idColaborador)?.nome
         : null) || nomeColaborador.trim();
-    if (!nome) {
+    if (exigeColab && !nome) {
       showToast('Informe o colaborador que pegará o break', 'error');
+      return;
+    }
+    if (exigeTurno && !turno) {
+      showToast('Informe o turno', 'error');
+      return;
+    }
+    if (exigeMotivo && !motivoCodigo) {
+      showToast('Informe o motivo do desperdício', 'error');
+      return;
+    }
+    if (kind === 'emprestimo' && !idLojaDestino) {
+      showToast('Informe a loja que vai receber', 'error');
       return;
     }
     if (!codigo.trim() || !(quantidade > 0)) {
@@ -2359,20 +2419,29 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     }
     setSalvando(true);
     try {
+      const motivoNome = motivos.find((m) => m.codigo === motivoCodigo)?.nome;
       await api.estoqueLancarBreak({
         id_loja: idLoja,
         data_break: dataBreak,
-        motivo: motivo.trim() || undefined,
-        id_colaborador: idColaborador || undefined,
-        colaborador_nome: nome,
-        itens: [{ codigo_venda: codigo.trim(), quantidade }],
+        tipo: kind,
+        turno: turno || undefined,
+        motivo: motivoNome,
+        motivo_codigo: motivoCodigo || undefined,
+        id_colaborador: Number(idColaborador) > 0 ? Number(idColaborador) : undefined,
+        colaborador_nome: nome || undefined,
+        id_loja_destino: idLojaDestino || undefined,
+        itens: [
+          usaInsumo
+            ? { codigo_insumo: codigo.trim(), quantidade }
+            : { codigo_venda: codigo.trim(), quantidade },
+        ],
       });
-      showToast('Break lançado — estoque baixado', 'success');
+      showToast(`${labelTipoBreak(kind)} lançado — estoque baixado`, 'success');
       setOpen(false);
       resetForm();
       await carregar();
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao lançar break', 'error');
+      showToast(e instanceof Error ? e.message : 'Erro ao lançar', 'error');
     } finally {
       setSalvando(false);
     }
@@ -2391,11 +2460,10 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
-            Break · consumo da galera
+            Break · desperdício · empréstimo
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
-            Cada lançamento baixa o estoque na hora (via ficha) e entra no CMV do período como custo de
-            break.
+            Break usa os produtos do caderno. Desperdício completo/incompleto e empréstimo também baixam o estoque. Só o break entra no CMV como custo de refeição.
           </Typography>
         </Box>
         <Button
@@ -2407,7 +2475,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
           }}
           sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
         >
-          Lançar break
+          Lançar
         </Button>
       </Box>
 
@@ -2417,7 +2485,9 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             <TableHead>
               <TableRow>
                 <TableCell>Data</TableCell>
-                <TableCell>Colaborador</TableCell>
+                <TableCell>Tipo</TableCell>
+                <TableCell>Turno</TableCell>
+                <TableCell>Colaborador / destino</TableCell>
                 <TableCell>Motivo</TableCell>
                 <TableCell align="right">Itens</TableCell>
                 <TableCell>Lançado por</TableCell>
@@ -2427,7 +2497,15 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               {lista.map((b) => (
                 <TableRow key={b.id_break} hover>
                   <TableCell>{fmtDataBR(b.data_break)}</TableCell>
-                  <TableCell>{b.colaborador_nome || '—'}</TableCell>
+                  <TableCell>{labelTipoBreak(b.tipo)}</TableCell>
+                  <TableCell>{labelTurnoBreak(b.turno)}</TableCell>
+                  <TableCell>
+                    {b.tipo === 'emprestimo'
+                      ? b.loja_destino_nome
+                        ? `${b.loja_destino_bk ? `${b.loja_destino_bk} · ` : ''}${b.loja_destino_nome}`
+                        : '—'
+                      : b.colaborador_nome || '—'}
+                  </TableCell>
                   <TableCell>{b.motivo || '—'}</TableCell>
                   <TableCell align="right">{b.itens ?? 0}</TableCell>
                   <TableCell>{b.criado_por_nome || '—'}</TableCell>
@@ -2435,7 +2513,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               ))}
               {!lista.length && (
                 <TableRow>
-                  <TableCell colSpan={5}>
+                  <TableCell colSpan={7}>
                     <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
                       Nenhum break lançado
                     </Typography>
@@ -2455,9 +2533,28 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
         slotProps={{ paper: { sx: { maxWidth: 440 } } }}
       >
         <DialogTitleWithIcon plainIcon divider icon={<FreeBreakfastOutlinedIcon />}>
-          Lançar Break
+          {labelTipoBreak(kind)}
         </DialogTitleWithIcon>
         <DialogContent sx={dialogContentSx}>
+          <TextField
+            {...dialogFieldProps}
+            size="small"
+            select
+            label="Tipo"
+            value={kind}
+            onChange={(e) => {
+              setKind(e.target.value);
+              setCodigo('');
+              setMotivoCodigo('');
+              setIdLojaDestino('');
+            }}
+            sx={campoBreakFieldSx}
+          >
+            <MenuItem value="refeicao">Break</MenuItem>
+            <MenuItem value="desperdicio_completo">Desperdício completo</MenuItem>
+            <MenuItem value="desperdicio_incompleto">Desperdício incompleto</MenuItem>
+            <MenuItem value="emprestimo">Empréstimo</MenuItem>
+          </TextField>
           <Box sx={campoBreakDataSx}>
             <CampoDataFrota
               label="Data"
@@ -2483,7 +2580,24 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               }}
             />
           </Box>
-          {colaboradores.length > 0 ? (
+          {exigeTurno && (
+            <TextField
+              {...dialogFieldProps}
+              size="small"
+              select
+              label="Turno"
+              value={turno}
+              onChange={(e) => setTurno(e.target.value)}
+              sx={campoBreakFieldSx}
+              required
+            >
+              <MenuItem value="">Selecione…</MenuItem>
+              <MenuItem value="manha">Manhã</MenuItem>
+              <MenuItem value="tarde">Tarde</MenuItem>
+              <MenuItem value="noite">Noite</MenuItem>
+            </TextField>
+          )}
+          {exigeColab && colaboradores.length > 0 ? (
             <TextField
               {...dialogFieldProps}
               size="small"
@@ -2514,7 +2628,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               <MenuItem value="__outro__">Outro (digitar nome)</MenuItem>
             </TextField>
           ) : null}
-          {colabDigitado && (
+          {exigeColab && colabDigitado && (
             <TextField
               {...dialogFieldProps}
               size="small"
@@ -2530,12 +2644,65 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               required
             />
           )}
-          <EstoqueProdutoVendaAutocomplete
-            produtos={produtosVenda}
-            value={codigo}
-            onChange={setCodigo}
-            sx={campoBreakFieldSx}
-          />
+          {exigeMotivo && (
+            <TextField
+              {...dialogFieldProps}
+              size="small"
+              select
+              label="Motivo"
+              value={motivoCodigo}
+              onChange={(e) => setMotivoCodigo(e.target.value)}
+              sx={campoBreakFieldSx}
+              required
+            >
+              <MenuItem value="">Selecione…</MenuItem>
+              {motivos.map((m) => (
+                <MenuItem key={m.codigo} value={m.codigo}>
+                  {m.nome}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+          {kind === 'emprestimo' && (
+            <TextField
+              {...dialogFieldProps}
+              size="small"
+              select
+              label="Loja que recebe"
+              value={idLojaDestino === '' ? '' : String(idLojaDestino)}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setIdLojaDestino(Number.isFinite(n) && n > 0 ? n : '');
+              }}
+              sx={campoBreakFieldSx}
+              required
+            >
+              <MenuItem value="">Selecione…</MenuItem>
+              {lojas
+                .filter((l) => l.id_loja !== idLoja)
+                .map((l) => (
+                  <MenuItem key={l.id_loja} value={String(l.id_loja)}>
+                    {l.bk_number ? `${l.bk_number} · ${l.name}` : l.name}
+                  </MenuItem>
+                ))}
+            </TextField>
+          )}
+          {usaInsumo ? (
+            <EstoqueInsumoAutocomplete
+              produtos={insumos}
+              value={codigo}
+              onChange={setCodigo}
+              sx={campoBreakFieldSx}
+              placeholder="Mercadoria do estoque"
+            />
+          ) : (
+            <EstoqueProdutoVendaAutocomplete
+              produtos={produtosVenda}
+              value={codigo}
+              onChange={setCodigo}
+              sx={campoBreakFieldSx}
+            />
+          )}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <IconButton
               size="small"
@@ -2570,15 +2737,6 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               <AddIcon fontSize="small" />
             </IconButton>
           </Box>
-          <TextField
-            {...dialogFieldProps}
-            size="small"
-            label="Motivo"
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-            placeholder="Opcional"
-            sx={campoBreakFieldSx}
-          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <Button onClick={() => setOpen(false)}>Cancelar</Button>

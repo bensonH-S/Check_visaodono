@@ -1075,13 +1075,20 @@ export const api = {
     request<Array<{ id_usuario: number; nome: string }>>(
       `/estoque/break/colaboradores?id_loja=${idLoja}`,
     ),
+  estoqueBreakCatalogo: (idLoja: number, tipo: string) =>
+    request<EstoqueBreakCatalogo>(
+      `/estoque/break/catalogo?id_loja=${idLoja}&tipo=${encodeURIComponent(tipo)}`,
+    ),
   estoqueLancarBreak: (body: {
     id_loja: number;
     data_break?: string;
     tipo?: string;
+    turno?: string;
     motivo?: string;
+    motivo_codigo?: string;
     id_colaborador?: number;
     colaborador_nome?: string;
+    id_loja_destino?: number;
     itens: Array<{
       id_produto?: number;
       codigo_insumo?: string;
@@ -2845,13 +2852,27 @@ export interface EstoqueBreakResumo {
   id_loja: number;
   data_break: string;
   tipo: string;
+  turno?: string | null;
   motivo?: string | null;
+  motivo_codigo?: string | null;
   status: string;
   itens?: number;
   id_colaborador?: number | null;
   colaborador_nome?: string | null;
+  id_loja_destino?: number | null;
+  loja_destino_nome?: string | null;
+  loja_destino_bk?: string | null;
   criado_por_nome?: string | null;
   criado_em?: string;
+}
+
+export interface EstoqueBreakCatalogo {
+  tipo: string;
+  label: string;
+  turnos: Array<{ codigo: string; nome: string }>;
+  motivos: Array<{ codigo: string; nome: string }>;
+  produtos: ProdutoVendaEstoque[];
+  insumos: ProdutoEstoque[];
 }
 
 export interface FrotaRegiaoVeiculo {

@@ -26,6 +26,15 @@ function isoDate(v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 }
 
+function normalizarNomeColab(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
 export async function aplicarMovimento(
   client,
   {
@@ -365,6 +374,7 @@ export async function calcularConsumoBreak(idLoja, { de = null, ate = null } = {
      AND m.id_loja = b.id_loja
     JOIN insumos i ON i.id_insumo = m.id_insumo
     WHERE b.id_loja = $1
+      AND COALESCE(b.tipo, 'refeicao') IN ('refeicao', 'outro')
       ${filtro}
     `,
     params,
@@ -900,15 +910,52 @@ export async function ajustarSaldoPorContagem(client, idContagem, criado_por = n
   return { ajustes };
 }
 
-/** Lança break (consumo) — itens diretos e/ou produto venda via ficha. */
+let schemaBreakCadernoOk = false;
+
+export async function garantirSchemaBreakCaderno(client) {
+  if (schemaBreakCadernoOk) return;
+  try {
+    await client.query(`
+      ALTER TABLE estoque_break
+        ADD COLUMN IF NOT EXISTS turno TEXT,
+        ADD COLUMN IF NOT EXISTS id_loja_destino INTEGER REFERENCES lojas(id_loja) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS motivo_codigo TEXT
+    `);
+    await client.query(`ALTER TABLE estoque_break DROP CONSTRAINT IF EXISTS estoque_break_tipo_check`);
+    await client.query(`
+      ALTER TABLE estoque_break
+        ADD CONSTRAINT estoque_break_tipo_check
+        CHECK (tipo IN (
+          'refeicao', 'outro',
+          'desperdicio_completo', 'desperdicio_incompleto', 'emprestimo'
+        ))
+    `);
+  } catch {
+    /* coluna/constraint já existem */
+  }
+  schemaBreakCadernoOk = true;
+}
+
+const TIPOS_BREAK_OK = new Set([
+  'refeicao',
+  'outro',
+  'desperdicio_completo',
+  'desperdicio_incompleto',
+  'emprestimo',
+]);
+
+/** Lança break / desperdício / empréstimo — itens diretos e/ou produto venda via ficha. */
 export async function lancarBreak(
   {
     id_loja,
     data_break,
     tipo = 'refeicao',
+    turno = null,
     motivo = null,
+    motivo_codigo = null,
     id_colaborador = null,
     colaborador_nome = null,
+    id_loja_destino = null,
     itens = [],
     criado_por = null,
   },
@@ -918,31 +965,85 @@ export async function lancarBreak(
   const ownClient = !externalClient;
   try {
     if (ownClient) await client.query('BEGIN');
+    await garantirSchemaBreakCaderno(client);
+
+    const tipoOk = TIPOS_BREAK_OK.has(String(tipo || '')) ? String(tipo) : 'refeicao';
+    const turnoOk = ['manha', 'tarde', 'noite'].includes(String(turno || ''))
+      ? String(turno)
+      : null;
+    const idDest =
+      id_loja_destino != null && Number(id_loja_destino) > 0 && Number(id_loja_destino) !== Number(id_loja)
+        ? Number(id_loja_destino)
+        : null;
+    const motivoCod = motivo_codigo != null ? String(motivo_codigo).trim() || null : null;
 
     let idColab = id_colaborador != null ? Number(id_colaborador) : null;
-    if (idColab != null && !Number.isFinite(idColab)) idColab = null;
+    if (idColab != null && (!Number.isFinite(idColab) || idColab <= 0)) idColab = null;
     let nomeColab =
       colaborador_nome != null ? String(colaborador_nome).trim() || null : null;
 
-    if (idColab && !nomeColab) {
+    if (idColab) {
       const { rows: ur } = await client.query(
-        `SELECT nome FROM usuarios WHERE id_usuario = $1 AND ativo = TRUE`,
+        `SELECT id_usuario, nome FROM usuarios WHERE id_usuario = $1 AND ativo = TRUE`,
         [idColab],
       );
-      nomeColab = ur[0]?.nome ? String(ur[0].nome).trim() : null;
+      const u = ur[0];
+      if (!u) {
+        // Lista do break vem do RH (employees.id ≠ usuarios.id_usuario).
+        idColab = null;
+      } else {
+        const nomeUsuario = u.nome ? String(u.nome).trim() : '';
+        if (
+          nomeColab &&
+          nomeUsuario &&
+          normalizarNomeColab(nomeColab) !== normalizarNomeColab(nomeUsuario)
+        ) {
+          // ID bateu com outro usuário do sistema — grava só o nome escolhido.
+          idColab = null;
+        } else if (!nomeColab) {
+          nomeColab = nomeUsuario || null;
+        }
+      }
     }
-    if (!nomeColab) {
-      throw Object.assign(new Error('Informe o colaborador que pegará o break'), {
+    if (tipoOk === 'refeicao' || tipoOk === 'outro') {
+      if (!nomeColab) {
+        throw Object.assign(new Error('Informe o colaborador que pegará o break'), {
+          status: 400,
+        });
+      }
+    }
+    if ((tipoOk === 'refeicao' || tipoOk.startsWith('desperdicio')) && !turnoOk) {
+      throw Object.assign(new Error('Informe o turno (manhã, tarde ou noite)'), {
+        status: 400,
+      });
+    }
+    if (tipoOk.startsWith('desperdicio') && !motivoCod && !motivo) {
+      throw Object.assign(new Error('Informe o motivo do desperdício'), { status: 400 });
+    }
+    if (tipoOk === 'emprestimo' && !idDest) {
+      throw Object.assign(new Error('Informe a loja que vai receber o empréstimo'), {
         status: 400,
       });
     }
 
     const { rows: br } = await client.query(
       `INSERT INTO estoque_break
-         (id_loja, data_break, tipo, motivo, id_colaborador, colaborador_nome, criado_por)
-       VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5, $6, $7)
+         (id_loja, data_break, tipo, turno, motivo, motivo_codigo,
+          id_colaborador, colaborador_nome, id_loja_destino, criado_por)
+       VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [id_loja, data_break || null, tipo, motivo, idColab, nomeColab, criado_por],
+      [
+        id_loja,
+        data_break || null,
+        tipoOk,
+        turnoOk,
+        motivo,
+        motivoCod,
+        idColab,
+        nomeColab,
+        idDest,
+        criado_por,
+      ],
     );
     const idBreak = br[0].id_break;
     const baixas = [];

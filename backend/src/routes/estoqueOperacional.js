@@ -8,6 +8,7 @@ import {
   importarVendasLoja,
   processarVenda,
   lancarBreak,
+  garantirSchemaBreakCaderno,
   upsertProdutoVenda,
   registrarEntradas,
   calcularCmvTeorico,
@@ -28,6 +29,12 @@ import {
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/syncVendas.js';
 import { qtdeReceitaParaEstoque } from '../services/fichaReceitaEstoque.js';
+import {
+  TURNOS,
+  filtrarPorCaderno,
+  labelTipoLancamento,
+  motivosDoTipo,
+} from '../services/estoqueCadernos.js';
 import {
   executarSyncFornecedor,
   listarSyncFornecedor,
@@ -66,6 +73,68 @@ function acessoLoja(req, idLoja) {
 
 function userId(req) {
   return req.user?.id_usuario || req.user?.sub || null;
+}
+
+function normalizarNomeColab(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+async function usuariosLojaBreak(idLoja) {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT u.id_usuario, u.nome
+     FROM usuarios u
+     JOIN usuario_lojas ul ON ul.id_usuario = u.id_usuario AND ul.id_loja = $1
+     WHERE u.ativo = TRUE
+     ORDER BY u.nome`,
+    [idLoja],
+  );
+  return rows;
+}
+
+async function colaboradoresHrTodos() {
+  const { rows } = await hrPool.query(
+    `SELECT id, full_name AS nome FROM employees ORDER BY full_name`,
+  );
+  return rows;
+}
+
+function montarColaboradoresBreak(hrRows, usuarioRows) {
+  const porNome = new Map();
+  for (const u of usuarioRows) {
+    const k = normalizarNomeColab(u.nome);
+    if (k && !porNome.has(k)) porNome.set(k, u);
+  }
+  const visto = new Set();
+  const out = [];
+  for (const e of hrRows) {
+    const nome = String(e.nome || '').trim();
+    const k = normalizarNomeColab(nome);
+    if (!k || visto.has(k)) continue;
+    visto.add(k);
+    const match = porNome.get(k);
+    const idHr = Number(e.id);
+    out.push({
+      id_usuario: match
+        ? Number(match.id_usuario)
+        : Number.isFinite(idHr) && idHr > 0
+          ? -(idHr + 1_000_000)
+          : 0,
+      nome,
+    });
+  }
+  for (const u of usuarioRows) {
+    const k = normalizarNomeColab(u.nome);
+    if (!k || visto.has(k)) continue;
+    visto.add(k);
+    out.push({ id_usuario: Number(u.id_usuario), nome: String(u.nome || '').trim() });
+  }
+  out.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  return out.filter((c) => c.nome);
 }
 
 // ── Saldos / movimentos ────────────────────────────────────────────────────
@@ -773,13 +842,18 @@ router.get('/break', permBreak, async (req, res, next) => {
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
+    await garantirSchemaBreakCaderno(pool);
+
     const { rows } = await pool.query(
       `SELECT b.*, u.nome AS criado_por_nome,
               COALESCE(b.colaborador_nome, uc.nome) AS colaborador_nome,
+              ld.name AS loja_destino_nome,
+              ld.bk_number AS loja_destino_bk,
               (SELECT COUNT(*)::int FROM estoque_break_itens i WHERE i.id_break = b.id_break) AS itens
        FROM estoque_break b
        LEFT JOIN usuarios u ON u.id_usuario = b.criado_por
        LEFT JOIN usuarios uc ON uc.id_usuario = b.id_colaborador
+       LEFT JOIN lojas ld ON ld.id_loja = b.id_loja_destino
        WHERE b.id_loja = $1
        ORDER BY b.data_break DESC, b.id_break DESC
        LIMIT 100`,
@@ -797,28 +871,79 @@ router.get('/break/colaboradores', permBreak, async (req, res, next) => {
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
-    let rows = [];
+    const usuarios = await usuariosLojaBreak(idLoja);
+    let hrRows = [];
     try {
-      // Tenta buscar no banco externo (funciona em produção)
-      const resHr = await hrPool.query(
-        `SELECT id AS id_usuario, full_name AS nome
-         FROM employees
-         ORDER BY full_name`
-      );
-      rows = resHr.rows;
-    } catch (err) {
-      // Se falhar (ex: rodando localmente sem acesso ao HR DB), usa a tabela local sincronizada
-      const resLocal = await pool.query(
-        `SELECT DISTINCT u.id_usuario, u.nome
-         FROM usuarios u
-         JOIN usuario_lojas ul ON ul.id_usuario = u.id_usuario AND ul.id_loja = $1
-         WHERE u.ativo = TRUE
-         ORDER BY u.nome`,
-        [idLoja]
-      );
-      rows = resLocal.rows;
+      hrRows = await colaboradoresHrTodos();
+    } catch {
+      hrRows = [];
     }
-    res.json(rows);
+    res.json(montarColaboradoresBreak(hrRows, usuarios));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/break/catalogo', permBreak, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const tipo = String(req.query.tipo || 'refeicao').trim() || 'refeicao';
+    const produtos = [];
+    const insumos = [];
+
+    if (tipo === 'desperdicio_incompleto' || tipo === 'emprestimo') {
+      const { rows } = await pool.query(
+        `SELECT id_insumo, id_loja, codigo, descricao, ativo
+         FROM insumos
+         WHERE id_loja = $1 AND ativo = TRUE
+         ORDER BY descricao`,
+        [idLoja],
+      );
+      const mapped = rows.map((r) => ({
+        id_insumo: r.id_insumo,
+        id_produto: r.id_insumo,
+        id_loja: r.id_loja,
+        codigo: r.codigo,
+        descricao: r.descricao,
+        ativo: r.ativo !== false,
+        unidade_contagem: 'UND',
+        preco_caixa: 0,
+        und_convertida: 1,
+        valor_unidade: 0,
+      }));
+      insumos.push(
+        ...(tipo === 'emprestimo' ? mapped : filtrarPorCaderno(mapped, 'desperdicio_incompleto')),
+      );
+    } else {
+      const { rows } = await pool.query(
+        `SELECT id_produto, codigo, descricao, ativo
+         FROM produtos
+         WHERE id_loja = $1 AND ativo = TRUE
+         ORDER BY descricao
+         LIMIT 800`,
+        [idLoja],
+      );
+      const mapped = rows.map((r) => ({
+        id_produto: r.id_produto,
+        id_produto_venda: r.id_produto,
+        codigo: r.codigo,
+        descricao: r.descricao,
+        ativo: r.ativo !== false,
+      }));
+      produtos.push(...filtrarPorCaderno(mapped, tipo === 'desperdicio_completo' ? tipo : 'refeicao'));
+    }
+
+    res.json({
+      tipo,
+      label: labelTipoLancamento(tipo),
+      turnos: TURNOS,
+      motivos: motivosDoTipo(tipo),
+      produtos,
+      insumos,
+    });
   } catch (e) {
     next(e);
   }
@@ -831,7 +956,13 @@ router.post('/break', permBreak, async (req, res, next) => {
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
     const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
-    if (!itens.length) return res.status(400).json({ error: 'Informe os itens do break' });
+    if (!itens.length) return res.status(400).json({ error: 'Informe os itens do lançamento' });
+
+    const tipo = String(req.body?.tipo || 'refeicao').trim() || 'refeicao';
+    const turno = req.body?.turno != null ? String(req.body.turno).trim() : '';
+    const motivoCod =
+      req.body?.motivo_codigo != null ? String(req.body.motivo_codigo).trim() : '';
+    const idLojaDestino = parseIdLoja(req.body?.id_loja_destino);
 
     const idColab =
       req.body?.id_colaborador != null && req.body.id_colaborador !== ''
@@ -840,17 +971,22 @@ router.post('/break', permBreak, async (req, res, next) => {
     const nomeColab =
       req.body?.colaborador_nome != null ? String(req.body.colaborador_nome).trim() : '';
 
-    if (!(Number.isFinite(idColab) && idColab > 0) && !nomeColab) {
-      return res.status(400).json({ error: 'Informe o colaborador que pegará o break' });
+    if (tipo === 'refeicao' || tipo === 'outro') {
+      if (!(Number.isFinite(idColab) && idColab !== 0) && !nomeColab) {
+        return res.status(400).json({ error: 'Informe o colaborador que pegará o break' });
+      }
     }
 
     const result = await lancarBreak({
       id_loja: idLoja,
       data_break: req.body?.data_break || null,
-      tipo: req.body?.tipo || 'refeicao',
+      tipo,
+      turno: turno || null,
       motivo: req.body?.motivo != null ? String(req.body.motivo).trim() || null : null,
+      motivo_codigo: motivoCod || null,
       id_colaborador: Number.isFinite(idColab) && idColab > 0 ? idColab : null,
       colaborador_nome: nomeColab || null,
+      id_loja_destino: idLojaDestino,
       itens,
       criado_por: userId(req),
     });
@@ -865,6 +1001,9 @@ router.post('/break', permBreak, async (req, res, next) => {
     res.status(201).json(result);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
+    if (e.code === '23503') {
+      return res.status(400).json({ error: 'Não foi possível lançar o break. Tente de novo.' });
+    }
     next(e);
   }
 });

@@ -10,10 +10,12 @@ import {
   api,
   type EstoqueBreakResumo,
   type Loja,
+  type ProdutoEstoque,
   type ProdutoVendaEstoque,
 } from '../../api/client';
 import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFrota';
 import EstoqueProdutoVendaAutocomplete from '../../components/estoque/EstoqueProdutoVendaAutocomplete';
+import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
 import { safeAreaRightCalc } from '../../theme/safeArea';
@@ -23,12 +25,49 @@ import '../../components/estoque/estoque-mobile.css';
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
+type KindLanc = 'refeicao' | 'desperdicio_completo' | 'desperdicio_incompleto' | 'emprestimo';
+
+const KINDS: Array<{ id: KindLanc; label: string }> = [
+  { id: 'refeicao', label: 'Break' },
+  { id: 'desperdicio_completo', label: 'Desperdício completo' },
+  { id: 'desperdicio_incompleto', label: 'Desperdício incompleto' },
+  { id: 'emprestimo', label: 'Empréstimo' },
+];
+
+const TURNOS = [
+  { id: 'manha', label: 'Manhã' },
+  { id: 'tarde', label: 'Tarde' },
+  { id: 'noite', label: 'Noite' },
+];
+
 type BreakItemRascunho = {
   key: string;
   codigo: string;
   descricao: string;
   quantidade: number;
+  origem: 'venda' | 'insumo';
 };
+
+function labelTipo(tipo?: string | null) {
+  if (tipo === 'desperdicio_completo') return 'Desperdício completo';
+  if (tipo === 'desperdicio_incompleto') return 'Desperdício incompleto';
+  if (tipo === 'emprestimo') return 'Empréstimo';
+  return 'Break';
+}
+
+function labelTurno(turno?: string | null) {
+  if (turno === 'manha') return 'Manhã';
+  if (turno === 'tarde') return 'Tarde';
+  if (turno === 'noite') return 'Noite';
+  return '';
+}
+
+function tituloForm(kind: KindLanc) {
+  if (kind === 'desperdicio_completo') return 'DESPERDÍCIO COMPLETO';
+  if (kind === 'desperdicio_incompleto') return 'DESPERDÍCIO INCOMPLETO';
+  if (kind === 'emprestimo') return 'EMPRÉSTIMO';
+  return 'NOVO BREAK';
+}
 
 function fmtDataBR(iso: string | null | undefined) {
   if (!iso) return '—';
@@ -91,6 +130,8 @@ export default function EstoqueMobileBreakPage() {
     return Number.isFinite(saved) && saved > 0 ? saved : '';
   });
   const [produtosVenda, setProdutosVenda] = useState<ProdutoVendaEstoque[]>([]);
+  const [insumos, setInsumos] = useState<ProdutoEstoque[]>([]);
+  const [motivos, setMotivos] = useState<Array<{ codigo: string; nome: string }>>([]);
   const [colaboradores, setColaboradores] = useState<Array<{ id_usuario: number; nome: string }>>(
     [],
   );
@@ -104,11 +145,19 @@ export default function EstoqueMobileBreakPage() {
   const [formAberto, setFormAberto] = useState(false);
 
   const [dataBreak, setDataBreak] = useState(dataHojeIso());
+  const [kind, setKind] = useState<KindLanc>('refeicao');
+  const [turno, setTurno] = useState('');
+  const [motivoCodigo, setMotivoCodigo] = useState('');
+  const [idLojaDestino, setIdLojaDestino] = useState<number | ''>('');
   const [colabSelect, setColabSelect] = useState('');
   const [idColaborador, setIdColaborador] = useState<number | ''>('');
   const [nomeColaborador, setNomeColaborador] = useState('');
   const [codigo, setCodigo] = useState('');
   const [itens, setItens] = useState<BreakItemRascunho[]>([]);
+  const usaInsumo = kind === 'desperdicio_incompleto' || kind === 'emprestimo';
+  const exigeColab = kind === 'refeicao';
+  const exigeTurno = kind !== 'emprestimo';
+  const exigeMotivo = kind === 'desperdicio_completo' || kind === 'desperdicio_incompleto';
   const colabDigitado = colaboradores.length === 0 || colabSelect === '__outro__';
 
   const colabOptions = useMemo(() => {
@@ -139,6 +188,8 @@ export default function EstoqueMobileBreakPage() {
         String(b.motivo || '').toLowerCase().includes(q) ||
         String(b.colaborador_nome || '').toLowerCase().includes(q) ||
         String(b.criado_por_nome || '').toLowerCase().includes(q) ||
+        labelTipo(b.tipo).toLowerCase().includes(q) ||
+        labelTurno(b.turno).toLowerCase().includes(q) ||
         fmtDataBR(b.data_break).includes(q),
     );
   }, [lista, busca]);
@@ -177,13 +228,11 @@ export default function EstoqueMobileBreakPage() {
     setLoading(true);
     setErr('');
     try {
-      const [breaks, prods, cols] = await Promise.all([
+      const [breaks, cols] = await Promise.all([
         api.estoqueBreaks(lojaId),
-        api.estoqueProdutosVenda({ id_loja: lojaId }),
         api.estoqueBreakColaboradores(lojaId),
       ]);
       setLista(breaks);
-      setProdutosVenda(prods.filter((p) => p.ativo !== false));
       setColaboradores(cols);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erro ao carregar break');
@@ -192,11 +241,29 @@ export default function EstoqueMobileBreakPage() {
     }
   }, []);
 
+  const carregarCatalogo = useCallback(async (lojaId: number, tipo: KindLanc) => {
+    try {
+      const cat = await api.estoqueBreakCatalogo(lojaId, tipo);
+      setProdutosVenda((cat.produtos || []).filter((p) => p.ativo !== false));
+      setInsumos((cat.insumos || []).filter((p) => p.ativo !== false));
+      setMotivos(cat.motivos || []);
+    } catch {
+      setProdutosVenda([]);
+      setInsumos([]);
+      setMotivos([]);
+    }
+  }, []);
+
   useEffect(() => {
     if (!idLoja) return;
     setFormAberto(false);
     void carregar(idLoja);
   }, [idLoja, carregar]);
+
+  useEffect(() => {
+    if (!idLoja) return;
+    void carregarCatalogo(idLoja, kind);
+  }, [idLoja, kind, carregarCatalogo]);
 
   useEffect(() => {
     if (!dlgLoja) return;
@@ -233,6 +300,17 @@ export default function EstoqueMobileBreakPage() {
     setNomeColaborador('');
     setCodigo('');
     setItens([]);
+    setTurno('');
+    setMotivoCodigo('');
+    setIdLojaDestino('');
+  };
+
+  const escolherKind = (prox: KindLanc) => {
+    setKind(prox);
+    setCodigo('');
+    setItens([]);
+    setMotivoCodigo('');
+    setIdLojaDestino('');
   };
 
   const abrirForm = () => {
@@ -269,10 +347,44 @@ export default function EstoqueMobileBreakPage() {
           codigo: codigoSel,
           descricao,
           quantidade: 1,
+          origem: 'venda' as const,
         },
       ];
     });
     // Limpa o campo pra já escolher o próximo.
+    setCodigo('');
+  };
+
+  const adicionarInsumo = (cod: string) => {
+    const codigoSel = String(cod || '').trim();
+    if (!codigoSel) {
+      setCodigo('');
+      return;
+    }
+    const ins = insumos.find(
+      (p) => String(p.codigo || '').trim().toUpperCase() === codigoSel.toUpperCase(),
+    );
+    const descricao = String(ins?.descricao || '').trim() || codigoSel;
+    setItens((prev) => {
+      const existe = prev.find((i) => i.codigo === codigoSel && i.origem === 'insumo');
+      if (existe) {
+        return prev.map((i) =>
+          i.codigo === codigoSel && i.origem === 'insumo'
+            ? { ...i, quantidade: Math.round((i.quantidade + 1) * 1000) / 1000 }
+            : i,
+        );
+      }
+      return [
+        ...prev,
+        {
+          key: `${codigoSel}-${Date.now()}`,
+          codigo: codigoSel,
+          descricao,
+          quantidade: 1,
+          origem: 'insumo',
+        },
+      ];
+    });
     setCodigo('');
   };
 
@@ -294,8 +406,20 @@ export default function EstoqueMobileBreakPage() {
 
   const lancar = async () => {
     if (!idLoja) return;
-    if (!nomeColabAtual) {
+    if (exigeColab && !nomeColabAtual) {
       showToast('Informe o colaborador que pegará o break', 'error');
+      return;
+    }
+    if (exigeTurno && !turno) {
+      showToast('Informe o turno', 'error');
+      return;
+    }
+    if (exigeMotivo && !motivoCodigo) {
+      showToast('Informe o motivo do desperdício', 'error');
+      return;
+    }
+    if (kind === 'emprestimo' && !idLojaDestino) {
+      showToast('Informe a loja que vai receber', 'error');
       return;
     }
     if (!itens.length) {
@@ -304,18 +428,29 @@ export default function EstoqueMobileBreakPage() {
     }
     setSalvando(true);
     try {
+      const motivoNome = motivos.find((m) => m.codigo === motivoCodigo)?.nome || undefined;
       await api.estoqueLancarBreak({
         id_loja: idLoja,
         data_break: dataBreak,
-        id_colaborador: idColaborador || undefined,
-        colaborador_nome: nomeColabAtual,
-        itens: itens.map((i) => ({
-          codigo_venda: i.codigo,
-          quantidade: i.quantidade,
-          descricao: i.descricao,
-        })),
+        tipo: kind,
+        turno: turno || undefined,
+        motivo: motivoNome,
+        motivo_codigo: motivoCodigo || undefined,
+        id_colaborador: Number(idColaborador) > 0 ? Number(idColaborador) : undefined,
+        colaborador_nome: nomeColabAtual || undefined,
+        id_loja_destino: idLojaDestino || undefined,
+        itens: itens.map((i) =>
+          i.origem === 'insumo'
+            ? { codigo_insumo: i.codigo, quantidade: i.quantidade, descricao: i.descricao }
+            : { codigo_venda: i.codigo, quantidade: i.quantidade, descricao: i.descricao },
+        ),
       });
-      showToast(`Break lançado — ${itens.length} item(ns) baixados`, 'success');
+      showToast(
+        kind === 'refeicao'
+          ? `Break lançado — ${itens.length} item(ns) baixados`
+          : `${labelTipo(kind)} lançado`,
+        'success',
+      );
       fecharForm();
       await carregar(idLoja);
     } catch (e) {
@@ -397,7 +532,7 @@ export default function EstoqueMobileBreakPage() {
             >
               ←
             </button>
-            <h1 className="ck-estoque__contagem-title">NOVO BREAK</h1>
+            <h1 className="ck-estoque__contagem-title">{tituloForm(kind)}</h1>
             <div className="ck-estoque__contagem-total">
               <span>ITENS</span>
               <strong>{itens.length}</strong>
@@ -412,11 +547,46 @@ export default function EstoqueMobileBreakPage() {
         <div className="ck-visitas__scroll">
           <div className="ck-visitas__sheet ck-estoque__sheet-scroll ck-estoque__break-form-sheet">
             <div className="ck-estoque__break-form ck-estoque__break-form--planilha">
+              <div className="ck-estoque__seg" role="tablist" aria-label="Tipo de lançamento">
+                {KINDS.map((k) => (
+                  <button
+                    key={k.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={kind === k.id}
+                    className={`ck-estoque__seg-btn${kind === k.id ? ' is-on' : ''}`}
+                    disabled={salvando}
+                    onClick={() => escolherKind(k.id)}
+                  >
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="ck-estoque__field ck-estoque__field--date">
                 <CampoDataFrota label="Data" value={dataBreak} onChange={setDataBreak} />
               </div>
 
-              {colaboradores.length > 0 && (
+              {exigeTurno && (
+                <div className="ck-estoque__field">
+                  <span>Turno</span>
+                  <div className="ck-estoque__turno">
+                    {TURNOS.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className={`ck-estoque__turno-btn${turno === t.id ? ' is-on' : ''}`}
+                        disabled={salvando}
+                        onClick={() => setTurno(t.id)}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {exigeColab && colaboradores.length > 0 && (
                 <label className="ck-estoque__field">
                   <span>Colaborador</span>
                   <Autocomplete
@@ -470,7 +640,7 @@ export default function EstoqueMobileBreakPage() {
                 </label>
               )}
 
-              {colabDigitado && (
+              {exigeColab && colabDigitado && (
                 <label className="ck-estoque__field">
                   <span>Nome do colaborador</span>
                   <input
@@ -488,16 +658,68 @@ export default function EstoqueMobileBreakPage() {
                 </label>
               )}
 
+              {exigeMotivo && (
+                <label className="ck-estoque__field">
+                  <span>Motivo</span>
+                  <select
+                    value={motivoCodigo}
+                    onChange={(e) => setMotivoCodigo(e.target.value)}
+                    disabled={salvando}
+                  >
+                    <option value="">Selecione…</option>
+                    {motivos.map((m) => (
+                      <option key={m.codigo} value={m.codigo}>
+                        {m.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {kind === 'emprestimo' && (
+                <label className="ck-estoque__field">
+                  <span>Loja que recebe</span>
+                  <select
+                    value={idLojaDestino === '' ? '' : String(idLojaDestino)}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      setIdLojaDestino(Number.isFinite(n) && n > 0 ? n : '');
+                    }}
+                    disabled={salvando}
+                  >
+                    <option value="">Selecione…</option>
+                    {lojas
+                      .filter((l) => l.id_loja !== idLoja)
+                      .map((l) => (
+                        <option key={l.id_loja} value={l.id_loja}>
+                          {rotuloLoja(l)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+
               <div className="ck-estoque__field">
-                <span>Produto</span>
-                <EstoqueProdutoVendaAutocomplete
-                  produtos={produtosVenda}
-                  value={codigo}
-                  onChange={adicionarProduto}
-                  hideLabel
-                  disabled={salvando}
-                  placeholder="Digite ou escolha — já entra na lista"
-                />
+                <span>{usaInsumo ? 'Mercadoria' : 'Produto'}</span>
+                {usaInsumo ? (
+                  <EstoqueInsumoAutocomplete
+                    produtos={insumos}
+                    value={codigo}
+                    onChange={adicionarInsumo}
+                    hideLabel
+                    disabled={salvando}
+                    placeholder="Digite ou escolha — já entra na lista"
+                  />
+                ) : (
+                  <EstoqueProdutoVendaAutocomplete
+                    produtos={produtosVenda}
+                    value={codigo}
+                    onChange={adicionarProduto}
+                    hideLabel
+                    disabled={salvando}
+                    placeholder="Digite ou escolha — já entra na lista"
+                  />
+                )}
               </div>
             </div>
 
@@ -598,7 +820,7 @@ export default function EstoqueMobileBreakPage() {
             <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
           </div>
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Informe o colaborador e o produto de venda. O estoque baixa na hora via ficha.
+            Informe o turno e o item. Break usa só os produtos do caderno; desperdício e empréstimo também baixam o estoque.
           </p>
           <div className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
             <div className="ck-visitas__metric">
@@ -672,7 +894,7 @@ export default function EstoqueMobileBreakPage() {
                 <div className="ck-estoque__empty">
                   {busca.trim()
                     ? 'Nenhum lançamento encontrado na busca.'
-                    : 'Nenhum break nesta loja. Toque no + para lançar.'}
+                    : 'Nenhum lançamento nesta loja. Toque no + para registrar.'}
                 </div>
               )}
 
@@ -680,13 +902,21 @@ export default function EstoqueMobileBreakPage() {
                 listaFiltrada.map((b) => (
                   <div key={b.id_break} className="ck-estoque__card">
                     <div className="ck-estoque__card-top">
-                      <strong>{b.colaborador_nome || 'Colaborador não informado'}</strong>
+                      <strong>
+                        {b.tipo === 'emprestimo'
+                          ? b.loja_destino_nome
+                            ? `Para ${b.loja_destino_bk ? `${b.loja_destino_bk} · ` : ''}${b.loja_destino_nome}`
+                            : 'Empréstimo'
+                          : b.colaborador_nome || labelTipo(b.tipo)}
+                      </strong>
                       <span className="ck-estoque__chip ck-estoque__chip--ok">
                         {b.itens ?? 0} itens
                       </span>
                     </div>
                     <div className="ck-estoque__meta">
                       {fmtDataBR(b.data_break)}
+                      {labelTurno(b.turno) ? ` · ${labelTurno(b.turno)}` : ''}
+                      {b.tipo && b.tipo !== 'refeicao' ? ` · ${labelTipo(b.tipo)}` : ''}
                       {b.motivo ? ` · ${b.motivo}` : ''}
                     </div>
                     <div className="ck-estoque__chips">
