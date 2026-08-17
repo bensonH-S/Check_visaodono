@@ -33,9 +33,9 @@ function fmtDataHora(iso: string | null | undefined) {
   });
 }
 
-function fmtBrl(v: number | null | undefined) {
+function fmtPct(v: number | null | undefined) {
   if (v == null || Number.isNaN(Number(v))) return '—';
-  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
 
 function nomeLoja(l: Loja) {
@@ -155,25 +155,23 @@ export default function EstoqueMobileListaPage() {
     if (filtro === 'todas') return lista;
     return lista.filter((c) => c.status === filtro);
   }, [lista, filtro]);
-
-  const abertas = lista.filter((c) => c.status === 'aberta').length;
-  const finalizadas = lista.filter((c) => c.status === 'finalizada').length;
   const valorInicialMes = lista[0]?.valor_inicial_mes ?? null;
   const dataInicialMes = lista[0]?.data_inicial_mes ?? null;
   const valorAtualLoja = useMemo(() => {
-    // Valor atual da loja = última contagem COMPLETA (aberta ou finalizada).
-    // Semanal crítica só conta itens críticos — não pode virar o R$ do estoque.
+    if (lista[0]?.valor_atual_loja != null) return lista[0].valor_atual_loja;
     const abertaCompleta = lista.find(
       (c) => c.status === 'aberta' && c.tipo !== 'critica_semanal',
     );
-    if (abertaCompleta?.valor_atual != null || abertaCompleta?.total_valor != null) {
-      return abertaCompleta.valor_atual ?? abertaCompleta.total_valor ?? null;
-    }
+    if (abertaCompleta?.total_valor != null) return abertaCompleta.total_valor;
     const ultimaCompleta = lista.find(
       (c) => c.status === 'finalizada' && c.tipo !== 'critica_semanal',
     );
-    return ultimaCompleta?.valor_atual ?? ultimaCompleta?.total_valor ?? null;
+    return ultimaCompleta?.total_valor ?? null;
   }, [lista]);
+  const valorBreakMes = lista[0]?.valor_break_mes ?? null;
+  const valorDesperdicioMes = lista[0]?.valor_desperdicio_mes ?? null;
+  const valorComprasMes = lista[0]?.valor_compras_mes ?? null;
+  const cmvMes = lista[0]?.cmv_teorico_pct ?? null;
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
   const lojasFiltradas = useMemo(() => {
@@ -261,37 +259,43 @@ export default function EstoqueMobileListaPage() {
             <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
           </div>
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Conte os insumos da loja, salve o rascunho e finalize a conferência.
+            Conte os insumos da loja. Break e desperdício ficam na aba Break.
           </p>
           <div
-            className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3"
+            className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3"
             aria-live="polite"
           >
-            <div className="ck-visitas__metric">
-              <strong style={{ fontSize: '0.95rem' }}>
-                {loading ? '—' : fmtBrl(valorInicialMes)}
-              </strong>
+            <div className="ck-estoque__kpi">
+              <strong>{loading ? '—' : fmtBrl(valorInicialMes)}</strong>
               <span>
-                início
+                Início
                 {dataInicialMes
                   ? ` ${new Date(dataInicialMes + 'T12:00:00').toLocaleDateString('pt-BR', {
                       day: '2-digit',
                       month: '2-digit',
                     })}`
-                  : ' mês'}
+                  : ''}
               </span>
             </div>
-            <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong style={{ fontSize: '0.95rem' }}>
-                {loading ? '—' : fmtBrl(valorAtualLoja)}
-              </strong>
-              <span>valor atual</span>
+            <div className="ck-estoque__kpi ck-estoque__kpi--accent">
+              <strong>{loading ? '—' : fmtBrl(valorAtualLoja)}</strong>
+              <span>Valor atual</span>
             </div>
-            <div className="ck-visitas__metric">
-              <strong>{loading ? '—' : abertas}</strong>
-              <span>
-                abertas · {finalizadas} ok
-              </span>
+            <div className="ck-estoque__kpi">
+              <strong>{loading ? '—' : fmtPct(cmvMes)}</strong>
+              <span>CMV teórico</span>
+            </div>
+            <div className="ck-estoque__kpi">
+              <strong>{loading ? '—' : fmtBrl(valorBreakMes)}</strong>
+              <span>Break do mês</span>
+            </div>
+            <div className="ck-estoque__kpi">
+              <strong>{loading ? '—' : fmtBrl(valorDesperdicioMes)}</strong>
+              <span>Desperdício</span>
+            </div>
+            <div className="ck-estoque__kpi">
+              <strong>{loading ? '—' : fmtBrl(valorComprasMes)}</strong>
+              <span>Compras do mês</span>
             </div>
           </div>
         </div>

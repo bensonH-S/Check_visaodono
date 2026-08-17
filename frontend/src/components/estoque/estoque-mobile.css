@@ -875,29 +875,45 @@
   margin-bottom: 0;
 }
 
-/* 3 cards do hero sempre na mesma linha */
-.ck-estoque .ck-visitas__metrics--row {
-  flex-wrap: nowrap;
-  align-items: stretch;
+.ck-estoque .ck-estoque__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
 }
 
-.ck-estoque .ck-visitas__metrics--row .ck-visitas__metric {
-  flex: 1 1 0;
+.ck-estoque .ck-estoque__kpi {
   min-width: 0;
-  padding: 8px 8px;
+  padding: 10px 8px 9px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
 }
 
-.ck-estoque .ck-visitas__metrics--row .ck-visitas__metric strong {
-  font-size: clamp(0.78rem, 3.4vw, 0.95rem);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.ck-estoque .ck-estoque__kpi--accent {
+  background: rgba(232, 82, 10, 0.28);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
-.ck-estoque .ck-visitas__metrics--row .ck-visitas__metric span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.ck-estoque .ck-estoque__kpi strong {
+  display: block;
+  font-size: clamp(0.72rem, 3.1vw, 0.92rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: #fff;
+  word-break: break-word;
+}
+
+.ck-estoque .ck-estoque__kpi span {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.2;
 }
 
 .ck-estoque--detalhe .ck-estoque__sticky-head {

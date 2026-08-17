@@ -638,18 +638,20 @@ export default function ControleEstoquePage() {
   const valorInicialMesLista = listaContagens[0]?.valor_inicial_mes ?? null;
   const dataInicialMesLista = listaContagens[0]?.data_inicial_mes ?? null;
   const valorAtualLista = useMemo(() => {
-    // Valor atual da loja = última contagem COMPLETA. Semanal crítica não entra.
+    if (listaContagens[0]?.valor_atual_loja != null) return listaContagens[0].valor_atual_loja;
     const abertaCompleta = listaContagens.find(
       (c) => c.status === 'aberta' && c.tipo !== 'critica_semanal',
     );
-    if (abertaCompleta?.valor_atual != null || abertaCompleta?.total_valor != null) {
-      return abertaCompleta.valor_atual ?? abertaCompleta.total_valor ?? null;
-    }
+    if (abertaCompleta?.total_valor != null) return abertaCompleta.total_valor;
     const ultimaCompleta = listaContagens.find(
       (c) => c.status === 'finalizada' && c.tipo !== 'critica_semanal',
     );
-    return ultimaCompleta?.valor_atual ?? ultimaCompleta?.total_valor ?? null;
+    return ultimaCompleta?.total_valor ?? null;
   }, [listaContagens]);
+  const valorBreakLista = listaContagens[0]?.valor_break_mes ?? null;
+  const valorDesperdicioLista = listaContagens[0]?.valor_desperdicio_mes ?? null;
+  const valorComprasLista = listaContagens[0]?.valor_compras_mes ?? null;
+  const cmvLista = listaContagens[0]?.cmv_teorico_pct ?? null;
   const listaFiltrada = useMemo(() => {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
@@ -857,6 +859,26 @@ export default function ControleEstoquePage() {
                           label={`Valor atual: ${fmtBrl(valorAtualLista)}`}
                           color="primary"
                           sx={{ fontWeight: 800 }}
+                        />
+                        <Chip
+                          label={`CMV: ${cmvLista != null ? `${fmtNum(cmvLista, 1)}%` : '—'}`}
+                          variant="outlined"
+                          sx={{ fontWeight: 700 }}
+                        />
+                        <Chip
+                          label={`Break: ${fmtBrl(valorBreakLista)}`}
+                          variant="outlined"
+                          sx={{ fontWeight: 700 }}
+                        />
+                        <Chip
+                          label={`Desperdício: ${fmtBrl(valorDesperdicioLista)}`}
+                          variant="outlined"
+                          sx={{ fontWeight: 700 }}
+                        />
+                        <Chip
+                          label={`Compras: ${fmtBrl(valorComprasLista)}`}
+                          variant="outlined"
+                          sx={{ fontWeight: 700 }}
                         />
                         {(
                           [

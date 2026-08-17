@@ -950,6 +950,19 @@ export const api = {
     }),
   estoqueContagens: (idLoja: number) =>
     request<EstoqueContagemResumo[]>(`/estoque/contagens?id_loja=${idLoja}`),
+  estoqueResumoMes: (idLoja: number) =>
+    request<{
+      id_loja: number;
+      de: string;
+      ate: string;
+      valor_inicial_mes: number | null;
+      data_inicial_mes: string | null;
+      valor_atual_loja: number | null;
+      valor_break_mes: number | null;
+      valor_desperdicio_mes: number | null;
+      valor_compras_mes: number | null;
+      cmv_teorico_pct: number | null;
+    }>(`/estoque/resumo-mes?id_loja=${idLoja}`),
   /** Igual a `estoqueContagens`, mas paginado (offset). */
   estoqueContagensPaginado: (idLoja: number, opts?: { page?: number; pageSize?: number }) => {
     const q = new URLSearchParams({ id_loja: String(idLoja), paginate: '1' });
@@ -2540,6 +2553,12 @@ export interface EstoqueContagemResumo {
   /** Valor da 1ª contagem completa finalizada do mês (início do estoque). */
   valor_inicial_mes?: number | null;
   data_inicial_mes?: string | null;
+  /** Valor vivo da loja (saldo × preço), não o total da última contagem. */
+  valor_atual_loja?: number | null;
+  valor_break_mes?: number | null;
+  valor_desperdicio_mes?: number | null;
+  valor_compras_mes?: number | null;
+  cmv_teorico_pct?: number | null;
   itens_total?: number;
   pendentes?: number;
   divergencias?: number;

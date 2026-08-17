@@ -250,12 +250,8 @@ export default function EscalaVisitasMobileView() {
   const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
     new Map(),
   );
-  const [horariosDelivery, setHorariosDelivery] = useState<Array<{ hora_inicio: string; hora_fim: string }>>(
-    () => Array.from({ length: 7 }, () => ({ hora_inicio: '', hora_fim: '' })),
-  );
-  const [horariosDirty, setHorariosDirty] = useState(false);
   const [horariosManutLocal, setHorariosManutLocal] = useState<
-    Map<string, { hora_inicio: string; hora_fim: string }>
+    Map<number, { hora_inicio: string; hora_fim: string }>
   >(() => new Map());
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -374,16 +370,6 @@ export default function EscalaVisitasMobileView() {
   }, [manutencao?.tecnicos, semanaInicio]);
 
   useEffect(() => {
-    const base = Array.from({ length: 7 }, () => ({ hora_inicio: '', hora_fim: '' }));
-    for (const h of grade?.horarios_delivery ?? []) {
-      if (h.dia < 0 || h.dia > 6) continue;
-      base[h.dia] = { hora_inicio: h.hora_inicio || '', hora_fim: h.hora_fim || '' };
-    }
-    setHorariosDelivery(base);
-    setHorariosDirty(false);
-  }, [grade?.id_semana, grade?.semana_inicio]);
-
-  useEffect(() => {
     void carregarNotifs();
   }, [carregarNotifs, grade?.id_semana, grade?.status_por_regiao]);
 
@@ -466,40 +452,34 @@ export default function EscalaVisitasMobileView() {
     });
   }
 
-  function alterarHorarioDelivery(dia: number, campo: 'hora_inicio' | 'hora_fim', valor: string) {
-    if (!podeEditarDelivery) return;
-    setHorariosDelivery((prev) => prev.map((h, i) => (i === dia ? { ...h, [campo]: valor } : h)));
-    setHorariosDirty(true);
-  }
-
-  function horarioManut(idUsuario: number, dia: number) {
-    const local = horariosManutLocal.get(`${idUsuario}-${dia}`);
+  function horarioManutTecnico(idUsuario: number) {
+    const local = horariosManutLocal.get(idUsuario);
     if (local) return local;
-    const h = (manutencao?.horarios ?? []).find((x) => x.id_usuario === idUsuario && x.dia === dia);
+    const h = (manutencao?.horarios ?? []).find(
+      (x) => x.id_usuario === idUsuario && (x.hora_inicio || x.hora_fim),
+    );
     return { hora_inicio: h?.hora_inicio || '', hora_fim: h?.hora_fim || '' };
   }
 
-  function alterarHorarioManut(dia: number, campo: 'hora_inicio' | 'hora_fim', valor: string) {
+  function alterarHorarioManut(campo: 'hora_inicio' | 'hora_fim', valor: string) {
     if (idTecnicoManut == null || !manutencao?.pode_editar) return;
     setHorariosManutLocal((prev) => {
-      const k = `${idTecnicoManut}-${dia}`;
-      const fromPrev = prev.get(k);
+      const fromPrev = prev.get(idTecnicoManut);
       const fromServer = (manutencao?.horarios ?? []).find(
-        (x) => x.id_usuario === idTecnicoManut && x.dia === dia,
+        (x) => x.id_usuario === idTecnicoManut && (x.hora_inicio || x.hora_fim),
       );
       const atual = fromPrev || {
         hora_inicio: fromServer?.hora_inicio || '',
         hora_fim: fromServer?.hora_fim || '',
       };
       const next = new Map(prev);
-      next.set(k, { ...atual, [campo]: valor });
+      next.set(idTecnicoManut, { ...atual, [campo]: valor });
       return next;
     });
   }
 
   function alterarHorarioGestorLocal(
     idGestor: number,
-    dia: number,
     campo: 'hora_inicio' | 'hora_fim',
     valor: string,
   ) {
@@ -512,27 +492,25 @@ export default function EscalaVisitasMobileView() {
             ? linha
             : {
                 ...linha,
-                dias: linha.dias.map((d) => (d.dia !== dia ? d : { ...d, [campo]: valor || null })),
+                dias: linha.dias.map((d) => ({ ...d, [campo]: valor || null })),
               },
         ),
       };
     });
   }
 
-  async function salvarHorarioGestor(idGestor: number, dia: number, horaInicio: string, horaFim: string) {
+  async function salvarHorarioGestor(idGestor: number, horaInicio: string, horaFim: string) {
     if (!gestores?.pode_editar) return;
     setSalvando(true);
     try {
       const data = await api.escalaGestoresSalvar({
         semana_inicio: semanaInicio,
-        celulas: [
-          {
-            id_gestor: idGestor,
-            dia,
-            hora_inicio: horaInicio || null,
-            hora_fim: horaFim || null,
-          },
-        ],
+        celulas: Array.from({ length: 7 }, (_, dia) => ({
+          id_gestor: idGestor,
+          dia,
+          hora_inicio: horaInicio || null,
+          hora_fim: horaFim || null,
+        })),
       });
       setGestores(data);
     } catch (e) {
@@ -594,7 +572,7 @@ export default function EscalaVisitasMobileView() {
   }
 
   async function salvar() {
-    if (!pending.size && !horariosDirty) {
+    if (!pending.size) {
       showToast('Nada para salvar', 'info');
       return;
     }
@@ -604,15 +582,9 @@ export default function EscalaVisitasMobileView() {
         semana_inicio: semanaInicio,
         id_regiao: idRegiao === '' ? null : idRegiao,
         celulas: [...pending.values()],
-        horarios_delivery: horariosDelivery.map((h, dia) => ({
-          dia,
-          hora_inicio: h.hora_inicio || null,
-          hora_fim: h.hora_fim || null,
-        })),
       });
       setGrade(data);
       setPending(new Map());
-      setHorariosDirty(false);
       showToast('Escala salva', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
@@ -631,15 +603,14 @@ export default function EscalaVisitasMobileView() {
       const data = await api.escalaManutencaoSalvar({
         semana_inicio: semanaInicio,
         celulas: [...pendingManut.values()],
-        horarios: [...horariosManutLocal.entries()].map(([k, v]) => {
-          const [id, dia] = k.split('-');
-          return {
-            id_usuario: Number(id),
-            dia: Number(dia),
+        horarios: [...horariosManutLocal.entries()].flatMap(([idUsuario, v]) =>
+          Array.from({ length: 7 }, (_, dia) => ({
+            id_usuario: idUsuario,
+            dia,
             hora_inicio: v.hora_inicio || null,
             hora_fim: v.hora_fim || null,
-          };
-        }),
+          })),
+        ),
       });
       setManutencao(data);
       setPendingManut(new Map());
@@ -729,19 +700,13 @@ export default function EscalaVisitasMobileView() {
   async function enviarDeliveryAprovacao() {
     setSalvando(true);
     try {
-      if (pending.size || horariosDirty) {
+      if (pending.size) {
         await api.escalaVisitasSalvar({
           semana_inicio: semanaInicio,
           id_regiao: idRegiao === '' ? null : idRegiao,
           celulas: [...pending.values()],
-          horarios_delivery: horariosDelivery.map((h, dia) => ({
-            dia,
-            hora_inicio: h.hora_inicio || null,
-            hora_fim: h.hora_fim || null,
-          })),
         });
         setPending(new Map());
-        setHorariosDirty(false);
       }
       const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
       setGrade(data);
@@ -1546,56 +1511,53 @@ export default function EscalaVisitasMobileView() {
                             );
                           })}
                         </div>
-                        <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
-                          {linha.dias.map((d) => {
-                            const folga = d.tipo === 'folga' || d.tipo === 'ferias';
-                            const estiloHora = {
-                              flex: 1,
-                              border: '1px solid rgba(27,42,107,0.16)',
-                              borderRadius: 8,
-                              padding: '6px 8px',
-                              fontWeight: 700,
-                              fontSize: 13,
-                              opacity: folga ? 0.45 : 1,
-                            } as const;
-                            const persistirHora = (el: HTMLInputElement) => {
-                              const inputs = el.parentElement?.querySelectorAll('input[type="time"]');
-                              const a = (inputs?.[0] as HTMLInputElement | undefined)?.value || '';
-                              const b = (inputs?.[1] as HTMLInputElement | undefined)?.value || '';
-                              void salvarHorarioGestor(linha.id_gestor, d.dia, a, b);
-                            };
-                            return (
-                              <div key={`h-${d.dia}`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ width: 28, fontSize: 11, fontWeight: 800, color: '#64748B' }}>
-                                  {DIAS_ABREV[d.dia]}
-                                </span>
-                                <input
-                                  type="time"
-                                  aria-label={`Início ${linha.nome} ${DIAS_ABREV[d.dia]}`}
-                                  value={d.hora_inicio || ''}
-                                  disabled={!gestores.pode_editar || folga || salvando}
-                                  onChange={(e) =>
-                                    alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_inicio', e.target.value)
-                                  }
-                                  onBlur={(e) => persistirHora(e.currentTarget)}
-                                  style={estiloHora}
-                                />
-                                <span style={{ fontSize: 11, color: '#94A3B8' }}>até</span>
-                                <input
-                                  type="time"
-                                  aria-label={`Fim ${linha.nome} ${DIAS_ABREV[d.dia]}`}
-                                  value={d.hora_fim || ''}
-                                  disabled={!gestores.pode_editar || folga || salvando}
-                                  onChange={(e) =>
-                                    alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_fim', e.target.value)
-                                  }
-                                  onBlur={(e) => persistirHora(e.currentTarget)}
-                                  style={estiloHora}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
+                        {(() => {
+                          const hr = linha.dias.find((d) => d.hora_inicio || d.hora_fim);
+                          const inicio = hr?.hora_inicio || '';
+                          const fim = hr?.hora_fim || '';
+                          const estiloHora = {
+                            flex: 1,
+                            border: '1px solid rgba(27,42,107,0.16)',
+                            borderRadius: 8,
+                            padding: '6px 8px',
+                            fontWeight: 700,
+                            fontSize: 13,
+                          } as const;
+                          const persistirHora = (el: HTMLInputElement) => {
+                            const inputs = el.parentElement?.querySelectorAll('input[type="time"]');
+                            const a = (inputs?.[0] as HTMLInputElement | undefined)?.value || '';
+                            const b = (inputs?.[1] as HTMLInputElement | undefined)?.value || '';
+                            void salvarHorarioGestor(linha.id_gestor, a, b);
+                          };
+                          return (
+                            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: '#64748B' }}>Horário</span>
+                              <input
+                                type="time"
+                                aria-label={`Início ${linha.nome}`}
+                                value={inicio}
+                                disabled={!gestores.pode_editar || salvando}
+                                onChange={(e) =>
+                                  alterarHorarioGestorLocal(linha.id_gestor, 'hora_inicio', e.target.value)
+                                }
+                                onBlur={(e) => persistirHora(e.currentTarget)}
+                                style={estiloHora}
+                              />
+                              <span style={{ fontSize: 11, color: '#94A3B8' }}>até</span>
+                              <input
+                                type="time"
+                                aria-label={`Fim ${linha.nome}`}
+                                value={fim}
+                                disabled={!gestores.pode_editar || salvando}
+                                onChange={(e) =>
+                                  alterarHorarioGestorLocal(linha.id_gestor, 'hora_fim', e.target.value)
+                                }
+                                onBlur={(e) => persistirHora(e.currentTarget)}
+                                style={estiloHora}
+                              />
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -1610,7 +1572,7 @@ export default function EscalaVisitasMobileView() {
                 : (diaManut?.lojas ?? []).filter((l) => l.marcada);
               const hr =
                 idTecnicoManut != null
-                  ? horarioManut(idTecnicoManut, diaSelecionado)
+                  ? horarioManutTecnico(idTecnicoManut)
                   : { hora_inicio: '', hora_fim: '' };
               const horario = (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -1620,7 +1582,7 @@ export default function EscalaVisitasMobileView() {
                     aria-label="Início do expediente"
                     value={hr.hora_inicio}
                     disabled={!manutencao?.pode_editar || idTecnicoManut == null}
-                    onChange={(e) => alterarHorarioManut(diaSelecionado, 'hora_inicio', e.target.value)}
+                    onChange={(e) => alterarHorarioManut('hora_inicio', e.target.value)}
                     style={{
                       flex: 1,
                       border: '1px solid rgba(27,42,107,0.16)',
@@ -1636,7 +1598,7 @@ export default function EscalaVisitasMobileView() {
                     aria-label="Fim do expediente"
                     value={hr.hora_fim}
                     disabled={!manutencao?.pode_editar || idTecnicoManut == null}
-                    onChange={(e) => alterarHorarioManut(diaSelecionado, 'hora_fim', e.target.value)}
+                    onChange={(e) => alterarHorarioManut('hora_fim', e.target.value)}
                     style={{
                       flex: 1,
                       border: '1px solid rgba(27,42,107,0.16)',
@@ -1741,47 +1703,9 @@ export default function EscalaVisitasMobileView() {
               const lojasDia = podeEditarDelivery
                 ? (diaDelivery?.lojas ?? [])
                 : (diaDelivery?.lojas ?? []).filter((l) => l.marcada);
-              const horario = (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#64748B' }}>Horário</span>
-                  <input
-                    type="time"
-                    aria-label="Início do expediente"
-                    value={horariosDelivery[diaSelecionado]?.hora_inicio || ''}
-                    disabled={!podeEditarDelivery}
-                    onChange={(e) => alterarHorarioDelivery(diaSelecionado, 'hora_inicio', e.target.value)}
-                    style={{
-                      flex: 1,
-                      border: '1px solid rgba(27,42,107,0.16)',
-                      borderRadius: 10,
-                      padding: '8px 10px',
-                      fontWeight: 700,
-                      fontSize: 14,
-                    }}
-                  />
-                  <span style={{ fontSize: 12, color: '#94A3B8' }}>até</span>
-                  <input
-                    type="time"
-                    aria-label="Fim do expediente"
-                    value={horariosDelivery[diaSelecionado]?.hora_fim || ''}
-                    disabled={!podeEditarDelivery}
-                    onChange={(e) => alterarHorarioDelivery(diaSelecionado, 'hora_fim', e.target.value)}
-                    style={{
-                      flex: 1,
-                      border: '1px solid rgba(27,42,107,0.16)',
-                      borderRadius: 10,
-                      padding: '8px 10px',
-                      fontWeight: 700,
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-              );
               if (!lojasDia.length) {
                 return (
-                  <>
-                    {horario}
-                    <div className="ck-escala__empty">
+                  <div className="ck-escala__empty">
                     <strong>{podeEditarDelivery ? 'Nenhuma loja' : 'Sem delivery neste dia'}</strong>
                     <p>
                       {podeEditarDelivery
@@ -1791,13 +1715,9 @@ export default function EscalaVisitasMobileView() {
                           : 'Nenhuma rota nesta semana.'}
                     </p>
                   </div>
-                  </>
                 );
               }
-              return (
-                <>
-                  {horario}
-                  {lojasDia.map((loja) => (
+              return lojasDia.map((loja) => (
                 <button
                   key={loja.id_loja}
                   type="button"
@@ -1831,9 +1751,7 @@ export default function EscalaVisitasMobileView() {
                     </p>
                   </div>
                 </button>
-                  ))}
-                </>
-              );
+              ));
             })()
           ) : modo === 'dia' ? (
             diaAtual && diaAtual.itens.length === 0 ? (
@@ -1873,11 +1791,11 @@ export default function EscalaVisitasMobileView() {
                   variant="contained"
                   size="small"
                   startIcon={<SaveIcon />}
-                  disabled={salvando || (pending.size === 0 && !horariosDirty)}
+                  disabled={salvando || pending.size === 0}
                   onClick={() => void salvar()}
                   sx={{ flex: 1, bgcolor: NAVY, textTransform: 'none', fontWeight: 700 }}
                 >
-                  Salvar{pending.size > 0 ? ` (${pending.size})` : horariosDirty ? ' (horário)' : ''}
+                  Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
                 </Button>
               )}
               {modo === 'manutencao' && manutencao?.pode_editar && (

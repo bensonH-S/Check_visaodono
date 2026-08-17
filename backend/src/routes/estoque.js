@@ -3,7 +3,7 @@ import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
 import { usuarioPodeLoja } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
-import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
+import { ajustarSaldoPorContagem, calcularCmvTeorico } from '../services/estoqueMotor.js';
 import { calcularQtdContagem } from '../services/estoqueContagem.js';
 import estoqueOperacional from './estoqueOperacional.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
@@ -13,6 +13,7 @@ const router = Router();
 const permProdutos = requirePermissao('estoque.produtos');
 const permProdutosOuOp = requirePermissao('estoque.produtos', 'estoque.operacional', 'estoque.break');
 const permConferencia = requirePermissao('estoque.conferencia');
+const permResumoMes = requirePermissao('estoque.conferencia', 'estoque.break', 'estoque.operacional');
 const permReabrirContagem = requirePermissao('estoque.conferencia.reabrir');
 const verModulo = requirePermissao(
   'estoque.produtos',
@@ -243,6 +244,93 @@ function mapItem(row) {
   };
 }
 
+/** Valor vivo do estoque: saldo atual × preço (CMV). Sem saldo, null (a tela usa a última contagem). */
+async function valorAtualLoja(idLoja) {
+  if (!idLoja) return { valor_atual_loja: null };
+  const { rows } = await pool.query(
+    `SELECT ROUND(SUM(
+       COALESCE(s.quantidade, 0) * COALESCE(p.valor_unidade, 0)
+     )::numeric, 2) AS total,
+     COUNT(*) FILTER (WHERE s.id_insumo IS NOT NULL)::int AS n_saldos
+     FROM insumos p
+     LEFT JOIN estoque_saldos s
+       ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
+     WHERE p.id_loja = $1
+       AND p.ativo = TRUE
+       AND COALESCE(p.entra_cmv, TRUE)`,
+    [idLoja],
+  );
+  const n = Number(rows[0]?.n_saldos || 0);
+  if (!n) return { valor_atual_loja: null };
+  return {
+    valor_atual_loja: rows[0].total != null ? Number(rows[0].total) : 0,
+  };
+}
+
+function primeiroDiaMes(iso) {
+  const s = String(iso || '').slice(0, 10);
+  return s.length >= 7 ? `${s.slice(0, 7)}-01` : s;
+}
+
+/** Totais do mês: break, desperdício, compras e CMV teórico. */
+async function resumoMesLoja(idLoja, dataRef) {
+  if (!idLoja) {
+    return {
+      valor_break_mes: null,
+      valor_desperdicio_mes: null,
+      valor_compras_mes: null,
+      cmv_teorico_pct: null,
+    };
+  }
+  const hoje = dataRef || hojeISOLisboa();
+  const inicio = primeiroDiaMes(hoje);
+
+  const { rows: perdas } = await pool.query(
+    `SELECT
+       COALESCE(SUM(ABS(m.quantidade) * COALESCE(i.valor_unidade, 0))
+         FILTER (WHERE COALESCE(b.tipo, 'refeicao') IN ('refeicao', 'outro')), 0)::numeric AS break_valor,
+       COALESCE(SUM(ABS(m.quantidade) * COALESCE(i.valor_unidade, 0))
+         FILTER (WHERE b.tipo IN ('desperdicio_completo', 'desperdicio_incompleto')), 0)::numeric AS desperdicio_valor
+     FROM estoque_break b
+     JOIN estoque_movimentos m
+       ON m.referencia_tipo = 'estoque_break'
+      AND m.referencia_id = b.id_break
+      AND m.id_loja = b.id_loja
+     JOIN insumos i ON i.id_insumo = m.id_insumo
+     WHERE b.id_loja = $1
+       AND b.data_break >= $2::date
+       AND b.data_break <= $3::date`,
+    [idLoja, inicio, hoje],
+  );
+
+  const { rows: compras } = await pool.query(
+    `SELECT COALESCE(SUM(m.quantidade * COALESCE(i.valor_unidade, 0)), 0)::numeric AS compras_valor
+     FROM estoque_movimentos m
+     JOIN insumos i ON i.id_insumo = m.id_insumo
+     WHERE m.id_loja = $1
+       AND m.tipo = 'entrada'
+       AND COALESCE(i.entra_cmv, TRUE)
+       AND COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) >= $2::date
+       AND COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) <= $3::date`,
+    [idLoja, inicio, hoje],
+  );
+
+  let cmvTeoricoPct = null;
+  try {
+    const teorico = await calcularCmvTeorico(idLoja, { de: inicio, ate: hoje });
+    cmvTeoricoPct = teorico?.cmv_teorico_pct != null ? Number(teorico.cmv_teorico_pct) : null;
+  } catch {
+    cmvTeoricoPct = null;
+  }
+
+  return {
+    valor_break_mes: Number(perdas[0]?.break_valor || 0),
+    valor_desperdicio_mes: Number(perdas[0]?.desperdicio_valor || 0),
+    valor_compras_mes: Number(compras[0]?.compras_valor || 0),
+    cmv_teorico_pct: cmvTeoricoPct,
+  };
+}
+
 /** Valor da 1ª contagem completa finalizada do mês (início do estoque do mês). */
 async function valorInicialMes(idLoja, dataRef) {
   if (!idLoja) return { valor_inicial_mes: null, data_inicial_mes: null, id_contagem_inicial: null };
@@ -325,7 +413,10 @@ async function carregarContagem(id) {
   const pendentes = mapped.filter((i) => i.estoque_contado == null).length;
 
   const c = contagens[0];
-  const inicioMes = await valorInicialMes(c.id_loja, c.data_contagem || hojeISOLisboa());
+  const [inicioMes, atualLoja] = await Promise.all([
+    valorInicialMes(c.id_loja, c.data_contagem || hojeISOLisboa()),
+    valorAtualLoja(c.id_loja),
+  ]);
   return {
     id_contagem: c.id_contagem,
     id_loja: c.id_loja,
@@ -339,6 +430,7 @@ async function carregarContagem(id) {
     total_valor,
     valor_atual: total_valor,
     ...inicioMes,
+    ...atualLoja,
     total_diferenca,
     divergencias,
     pendentes,
@@ -535,6 +627,31 @@ router.patch('/produtos/:id', permProdutos, atualizarInsumo);
 
 // ── Contagens / conferência (por loja) ─────────────────────────────────────
 
+router.get('/resumo-mes', permResumoMes, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    const hoje = hojeISOLisboa();
+    const [inicioMes, atualLoja, resumoMes] = await Promise.all([
+      valorInicialMes(idLoja, hoje),
+      valorAtualLoja(idLoja),
+      resumoMesLoja(idLoja, hoje),
+    ]);
+    res.json({
+      id_loja: idLoja,
+      de: primeiroDiaMes(hoje),
+      ate: hoje,
+      valor_inicial_mes: inicioMes.valor_inicial_mes,
+      data_inicial_mes: inicioMes.data_inicial_mes,
+      valor_atual_loja: atualLoja.valor_atual_loja,
+      ...resumoMes,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/contagens', permConferencia, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
@@ -580,13 +697,19 @@ router.get('/contagens', permConferencia, async (req, res, next) => {
        ${clausulaLimit}`,
       paramsQuery,
     );
-    const inicioMes = await valorInicialMes(idLoja, hojeISOLisboa());
+    const [inicioMes, atualLoja, resumoMes] = await Promise.all([
+      valorInicialMes(idLoja, hojeISOLisboa()),
+      valorAtualLoja(idLoja),
+      resumoMesLoja(idLoja, hojeISOLisboa()),
+    ]);
     const mapeadas = rows.map((r) => ({
       ...r,
       total_valor: r.total_valor != null ? Number(r.total_valor) : null,
       valor_atual: r.total_valor != null ? Number(r.total_valor) : null,
       valor_inicial_mes: inicioMes.valor_inicial_mes,
       data_inicial_mes: inicioMes.data_inicial_mes,
+      valor_atual_loja: atualLoja.valor_atual_loja,
+      ...resumoMes,
     }));
 
     if (!paginacao.ativo) return res.json(mapeadas);

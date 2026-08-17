@@ -152,7 +152,7 @@ function InputsHorario({
     onBlur?.(a, b);
   }
   return (
-    <Box sx={{ display: 'flex', gap: 0.4, justifyContent: 'center', mt: 0.4 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-start' }}>
       <input
         type="time"
         aria-label={ariaInicio}
@@ -162,6 +162,9 @@ function InputsHorario({
         onBlur={(e) => persistir(e.currentTarget)}
         style={{ ...estiloInputHora, opacity: disabled ? 0.45 : 1 }}
       />
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, lineHeight: 1 }}>
+        –
+      </Typography>
       <input
         type="time"
         aria-label={ariaFim}
@@ -173,6 +176,11 @@ function InputsHorario({
       />
     </Box>
   );
+}
+
+function horarioDaPessoa(dias: Array<{ hora_inicio?: string | null; hora_fim?: string | null }>) {
+  const h = dias.find((d) => d.hora_inicio || d.hora_fim);
+  return { hora_inicio: h?.hora_inicio || '', hora_fim: h?.hora_fim || '' };
 }
 
 type CelulaChave = string;
@@ -208,12 +216,8 @@ export default function EscalaVisitasPage() {
   const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
     new Map(),
   );
-  const [horariosDelivery, setHorariosDelivery] = useState<Array<{ hora_inicio: string; hora_fim: string }>>(
-    () => Array.from({ length: 7 }, () => ({ hora_inicio: '', hora_fim: '' })),
-  );
-  const [horariosDirty, setHorariosDirty] = useState(false);
   const [horariosManutLocal, setHorariosManutLocal] = useState<
-    Map<string, { hora_inicio: string; hora_fim: string }>
+    Map<number, { hora_inicio: string; hora_fim: string }>
   >(() => new Map());
   const abaFolga = aba === 'gestores';
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
@@ -314,19 +318,6 @@ export default function EscalaVisitasPage() {
   }, [semanaInicio]);
 
   useEffect(() => {
-    const base = Array.from({ length: 7 }, () => ({ hora_inicio: '', hora_fim: '' }));
-    for (const h of grade?.horarios_delivery ?? []) {
-      if (h.dia < 0 || h.dia > 6) continue;
-      base[h.dia] = {
-        hora_inicio: h.hora_inicio || '',
-        hora_fim: h.hora_fim || '',
-      };
-    }
-    setHorariosDelivery(base);
-    setHorariosDirty(false);
-  }, [grade?.id_semana, grade?.semana_inicio]);
-
-  useEffect(() => {
     if (ehDeliveryOnly) setAba('delivery');
   }, [ehDeliveryOnly]);
 
@@ -412,7 +403,6 @@ export default function EscalaVisitasPage() {
 
   function alterarHorarioGestorLocal(
     idGestor: number,
-    dia: number,
     campo: 'hora_inicio' | 'hora_fim',
     valor: string,
   ) {
@@ -425,27 +415,25 @@ export default function EscalaVisitasPage() {
             ? linha
             : {
                 ...linha,
-                dias: linha.dias.map((d) => (d.dia !== dia ? d : { ...d, [campo]: valor || null })),
+                dias: linha.dias.map((d) => ({ ...d, [campo]: valor || null })),
               },
         ),
       };
     });
   }
 
-  async function salvarHorarioGestor(idGestor: number, dia: number, horaInicio: string, horaFim: string) {
+  async function salvarHorarioGestor(idGestor: number, horaInicio: string, horaFim: string) {
     if (!gestores?.pode_editar) return;
     setSalvando(true);
     try {
       const data = await api.escalaGestoresSalvar({
         semana_inicio: semanaInicio,
-        celulas: [
-          {
-            id_gestor: idGestor,
-            dia,
-            hora_inicio: horaInicio || null,
-            hora_fim: horaFim || null,
-          },
-        ],
+        celulas: Array.from({ length: 7 }, (_, dia) => ({
+          id_gestor: idGestor,
+          dia,
+          hora_inicio: horaInicio || null,
+          hora_fim: horaFim || null,
+        })),
       });
       setGestores(data);
     } catch (e) {
@@ -487,36 +475,28 @@ export default function EscalaVisitasPage() {
     alterarCelulaManut(idTecnicoManut, dia, todas ? [] : lojas.map((l) => l.id_loja));
   }
 
-  function alterarHorarioDelivery(dia: number, campo: 'hora_inicio' | 'hora_fim', valor: string) {
-    if (!podeEditarDelivery) return;
-    setHorariosDelivery((prev) => {
-      const next = prev.map((h, i) => (i === dia ? { ...h, [campo]: valor } : h));
-      return next;
-    });
-    setHorariosDirty(true);
-  }
-
-  function horarioManut(idUsuario: number, dia: number) {
-    const local = horariosManutLocal.get(`${idUsuario}-${dia}`);
+  function horarioManutTecnico(idUsuario: number) {
+    const local = horariosManutLocal.get(idUsuario);
     if (local) return local;
-    const h = (manutencao?.horarios ?? []).find((x) => x.id_usuario === idUsuario && x.dia === dia);
+    const h = (manutencao?.horarios ?? []).find(
+      (x) => x.id_usuario === idUsuario && (x.hora_inicio || x.hora_fim),
+    );
     return { hora_inicio: h?.hora_inicio || '', hora_fim: h?.hora_fim || '' };
   }
 
-  function alterarHorarioManut(dia: number, campo: 'hora_inicio' | 'hora_fim', valor: string) {
+  function alterarHorarioManut(campo: 'hora_inicio' | 'hora_fim', valor: string) {
     if (idTecnicoManut == null || !podeEditarManut) return;
     setHorariosManutLocal((prev) => {
-      const k = `${idTecnicoManut}-${dia}`;
-      const fromPrev = prev.get(k);
+      const fromPrev = prev.get(idTecnicoManut);
       const fromServer = (manutencao?.horarios ?? []).find(
-        (x) => x.id_usuario === idTecnicoManut && x.dia === dia,
+        (x) => x.id_usuario === idTecnicoManut && (x.hora_inicio || x.hora_fim),
       );
       const atual = fromPrev || {
         hora_inicio: fromServer?.hora_inicio || '',
         hora_fim: fromServer?.hora_fim || '',
       };
       const next = new Map(prev);
-      next.set(k, { ...atual, [campo]: valor });
+      next.set(idTecnicoManut, { ...atual, [campo]: valor });
       return next;
     });
   }
@@ -531,15 +511,14 @@ export default function EscalaVisitasPage() {
       const data = await api.escalaManutencaoSalvar({
         semana_inicio: semanaInicio,
         celulas: [...pendingManut.values()],
-        horarios: [...horariosManutLocal.entries()].map(([k, v]) => {
-          const [id, dia] = k.split('-');
-          return {
-            id_usuario: Number(id),
-            dia: Number(dia),
+        horarios: [...horariosManutLocal.entries()].flatMap(([idUsuario, v]) =>
+          Array.from({ length: 7 }, (_, dia) => ({
+            id_usuario: idUsuario,
+            dia,
             hora_inicio: v.hora_inicio || null,
             hora_fim: v.hora_fim || null,
-          };
-        }),
+          })),
+        ),
       });
       setManutencao(data);
       setPendingManut(new Map());
@@ -553,7 +532,7 @@ export default function EscalaVisitasPage() {
   }
 
   async function salvar() {
-    if (!pending.size && !horariosDirty) {
+    if (!pending.size) {
       showToast('Nada para salvar', 'info');
       return;
     }
@@ -563,21 +542,9 @@ export default function EscalaVisitasPage() {
         semana_inicio: semanaInicio,
         id_regiao: idRegiao === '' ? null : idRegiao,
         celulas: [...pending.values()],
-        horarios_delivery: horariosDelivery.map((h, dia) => ({
-          dia,
-          hora_inicio: h.hora_inicio || null,
-          hora_fim: h.hora_fim || null,
-        })),
       });
       setGrade(data);
       setPending(new Map());
-      setHorariosDirty(false);
-      const base = Array.from({ length: 7 }, () => ({ hora_inicio: '', hora_fim: '' }));
-      for (const h of data.horarios_delivery ?? []) {
-        if (h.dia < 0 || h.dia > 6) continue;
-        base[h.dia] = { hora_inicio: h.hora_inicio || '', hora_fim: h.hora_fim || '' };
-      }
-      setHorariosDelivery(base);
       showToast('Escala salva', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
@@ -700,19 +667,13 @@ export default function EscalaVisitasPage() {
   async function enviarDeliveryAprovacao() {
     setSalvando(true);
     try {
-      if (pending.size || horariosDirty) {
+      if (pending.size) {
         await api.escalaVisitasSalvar({
           semana_inicio: semanaInicio,
           id_regiao: idRegiao === '' ? null : idRegiao,
           celulas: [...pending.values()],
-          horarios_delivery: horariosDelivery.map((h, dia) => ({
-            dia,
-            hora_inicio: h.hora_inicio || null,
-            hora_fim: h.hora_fim || null,
-          })),
         });
         setPending(new Map());
-        setHorariosDirty(false);
       }
       const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
       setGrade(data);
@@ -1010,10 +971,10 @@ export default function EscalaVisitasPage() {
                 variant="contained"
                 size="small"
                 startIcon={<SaveIcon />}
-                disabled={salvando || (pending.size === 0 && !horariosDirty)}
+                disabled={salvando || pending.size === 0}
                 onClick={() => void salvar()}
               >
-                Salvar{pending.size > 0 ? ` (${pending.size})` : horariosDirty ? ' (horário)' : ''}
+                Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
               </Button>
             )}
             {aba === 'manutencao' && podeEditarManut && (
@@ -1426,8 +1387,11 @@ export default function EscalaVisitasPage() {
                     <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
                       Gestor
                     </TableCell>
+                    <TableCell sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      Horário
+                    </TableCell>
                     {DIAS.map((label, dia) => (
-                      <TableCell key={label} align="center" sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
                         <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: '#0F766E' }}>
                           {label}
                         </Typography>
@@ -1447,7 +1411,7 @@ export default function EscalaVisitasPage() {
                         {mostraGrupo && (
                           <TableRow>
                             <TableCell
-                              colSpan={9}
+                              colSpan={10}
                               sx={{
                                 bgcolor:
                                   linha.grupo === 'campo'
@@ -1493,10 +1457,30 @@ export default function EscalaVisitasPage() {
                               {linha.nome_loja || linha.folga_padrao || '—'}
                             </Typography>
                           </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const hr = horarioDaPessoa(linha.dias);
+                              return (
+                                <InputsHorario
+                                  inicio={hr.hora_inicio}
+                                  fim={hr.hora_fim}
+                                  disabled={!gestores.pode_editar}
+                                  ariaInicio={`Início ${linha.nome}`}
+                                  ariaFim={`Fim ${linha.nome}`}
+                                  onChangeInicio={(valor) =>
+                                    alterarHorarioGestorLocal(linha.id_gestor, 'hora_inicio', valor)
+                                  }
+                                  onChangeFim={(valor) =>
+                                    alterarHorarioGestorLocal(linha.id_gestor, 'hora_fim', valor)
+                                  }
+                                  onBlur={(inicio, fim) => void salvarHorarioGestor(linha.id_gestor, inicio, fim)}
+                                />
+                              );
+                            })()}
+                          </TableCell>
                           {linha.dias.map((d) => {
                             const tipo = d.tipo;
                             const label = tipo ? TIPO_GESTOR_LABEL[tipo] || tipo : '';
-                            const folga = tipo === 'folga' || tipo === 'ferias';
                             return (
                               <TableCell key={d.dia} align="center">
                                 <Chip
@@ -1512,22 +1496,6 @@ export default function EscalaVisitasPage() {
                                     ...(tipo ? TIPO_GESTOR_SX[tipo] : { bgcolor: colors.canvasAlt, color: colors.textSecondary }),
                                     cursor: gestores.pode_editar ? 'pointer' : 'default',
                                   }}
-                                />
-                                <InputsHorario
-                                  inicio={d.hora_inicio || ''}
-                                  fim={d.hora_fim || ''}
-                                  disabled={!gestores.pode_editar || folga}
-                                  ariaInicio={`Início ${linha.nome} ${DIAS[d.dia]}`}
-                                  ariaFim={`Fim ${linha.nome} ${DIAS[d.dia]}`}
-                                  onChangeInicio={(valor) =>
-                                    alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_inicio', valor)
-                                  }
-                                  onChangeFim={(valor) =>
-                                    alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_fim', valor)
-                                  }
-                                  onBlur={(inicio, fim) =>
-                                    void salvarHorarioGestor(linha.id_gestor, d.dia, inicio, fim)
-                                  }
                                 />
                               </TableCell>
                             );
@@ -1557,7 +1525,17 @@ export default function EscalaVisitasPage() {
             </Box>
           ) : (
             <>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 1.25, py: 1, borderBottom: `1px solid ${colors.border}` }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  px: 1.25,
+                  py: 1,
+                  borderBottom: `1px solid ${colors.border}`,
+                }}
+              >
                 {(manutencao.tecnicos ?? []).map((t) => (
                   <Chip
                     key={t.id_usuario}
@@ -1571,6 +1549,27 @@ export default function EscalaVisitasPage() {
                     }}
                   />
                 ))}
+                {idTecnicoManut != null && (
+                  <Box sx={{ ml: { sm: 'auto' }, display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: COR_MANUT }}>
+                      Horário
+                    </Typography>
+                    {(() => {
+                      const hr = horarioManutTecnico(idTecnicoManut);
+                      return (
+                        <InputsHorario
+                          inicio={hr.hora_inicio}
+                          fim={hr.hora_fim}
+                          disabled={!podeEditarManut}
+                          ariaInicio="Início do expediente"
+                          ariaFim="Fim do expediente"
+                          onChangeInicio={(valor) => alterarHorarioManut('hora_inicio', valor)}
+                          onChangeFim={(valor) => alterarHorarioManut('hora_fim', valor)}
+                        />
+                      );
+                    })()}
+                  </Box>
+                )}
               </Box>
               <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
                 <Table size="small" stickyHeader sx={tableSx}>
@@ -1586,24 +1585,14 @@ export default function EscalaVisitasPage() {
                         const idsDia = idTecnicoManut != null ? idsLojasManut(idTecnicoManut, dia) : [];
                         const lojas = manutencao.lojas ?? [];
                         const todas = lojas.length > 0 && idsDia.length === lojas.length;
-                        const hr = idTecnicoManut != null ? horarioManut(idTecnicoManut, dia) : { hora_inicio: '', hora_fim: '' };
                         return (
-                          <TableCell key={label} align="center" sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
                             <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: COR_MANUT }}>
                               {label}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                               {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                             </Typography>
-                            <InputsHorario
-                              inicio={hr.hora_inicio}
-                              fim={hr.hora_fim}
-                              disabled={!podeEditarManut || idTecnicoManut == null}
-                              ariaInicio={`Início ${label}`}
-                              ariaFim={`Fim ${label}`}
-                              onChangeInicio={(valor) => alterarHorarioManut(dia, 'hora_inicio', valor)}
-                              onChangeFim={(valor) => alterarHorarioManut(dia, 'hora_fim', valor)}
-                            />
                             {podeEditarManut && lojas.length > 0 && (
                               <Button
                                 size="small"
@@ -1703,49 +1692,13 @@ export default function EscalaVisitasPage() {
                       const idsDia = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
                       const todas = lojasDelivery.length > 0 && idsDia.length === lojasDelivery.length;
                       return (
-                        <TableCell key={label} align="center" sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
                           <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: colors.orange }}>
                             {label}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                           </Typography>
-                          <Box sx={{ display: 'flex', gap: 0.4, justifyContent: 'center', mt: 0.4 }}>
-                            <input
-                              type="time"
-                              aria-label={`Início ${label}`}
-                              value={horariosDelivery[dia]?.hora_inicio || ''}
-                              disabled={!podeEditarDelivery}
-                              onChange={(e) => alterarHorarioDelivery(dia, 'hora_inicio', e.target.value)}
-                              style={{
-                                width: 78,
-                                border: `1px solid ${colors.border}`,
-                                borderRadius: 6,
-                                fontSize: 11,
-                                fontWeight: 700,
-                                padding: '2px 4px',
-                                color: colors.navy,
-                                background: '#fff',
-                              }}
-                            />
-                            <input
-                              type="time"
-                              aria-label={`Fim ${label}`}
-                              value={horariosDelivery[dia]?.hora_fim || ''}
-                              disabled={!podeEditarDelivery}
-                              onChange={(e) => alterarHorarioDelivery(dia, 'hora_fim', e.target.value)}
-                              style={{
-                                width: 78,
-                                border: `1px solid ${colors.border}`,
-                                borderRadius: 6,
-                                fontSize: 11,
-                                fontWeight: 700,
-                                padding: '2px 4px',
-                                color: colors.navy,
-                                background: '#fff',
-                              }}
-                            />
-                          </Box>
                           {podeEditarDelivery && lojasDelivery.length > 0 && (
                             <Button
                               size="small"

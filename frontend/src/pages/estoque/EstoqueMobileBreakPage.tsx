@@ -69,6 +69,11 @@ function tituloForm(kind: KindLanc) {
   return 'NOVO BREAK';
 }
 
+function fmtBrl(v: number | null | undefined) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function fmtDataBR(iso: string | null | undefined) {
   if (!iso) return '—';
   const s = String(iso).slice(0, 10);
@@ -142,6 +147,12 @@ export default function EstoqueMobileBreakPage() {
   const [dlgLoja, setDlgLoja] = useState(false);
   const [buscaLoja, setBuscaLoja] = useState('');
   const [busca, setBusca] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState<'todos' | KindLanc>('todos');
+  const [dlgTipo, setDlgTipo] = useState(false);
+  const [resumoMes, setResumoMes] = useState<{
+    valor_break_mes: number | null;
+    valor_desperdicio_mes: number | null;
+  } | null>(null);
   const [formAberto, setFormAberto] = useState(false);
 
   const [dataBreak, setDataBreak] = useState(dataHojeIso());
@@ -181,9 +192,13 @@ export default function EstoqueMobileBreakPage() {
   }, [lojas, buscaLoja]);
 
   const listaFiltrada = useMemo(() => {
+    const porTipo =
+      filtroTipo === 'todos'
+        ? lista
+        : lista.filter((b) => (b.tipo || 'refeicao') === filtroTipo);
     const q = busca.trim().toLowerCase();
-    if (!q) return lista;
-    return lista.filter(
+    if (!q) return porTipo;
+    return porTipo.filter(
       (b) =>
         String(b.motivo || '').toLowerCase().includes(q) ||
         String(b.colaborador_nome || '').toLowerCase().includes(q) ||
@@ -192,12 +207,7 @@ export default function EstoqueMobileBreakPage() {
         labelTurno(b.turno).toLowerCase().includes(q) ||
         fmtDataBR(b.data_break).includes(q),
     );
-  }, [lista, busca]);
-
-  const totalItens = useMemo(
-    () => lista.reduce((s, b) => s + (Number(b.itens) || 0), 0),
-    [lista],
-  );
+  }, [lista, busca, filtroTipo]);
 
   useEffect(() => {
     let cancel = false;
@@ -228,12 +238,18 @@ export default function EstoqueMobileBreakPage() {
     setLoading(true);
     setErr('');
     try {
-      const [breaks, cols] = await Promise.all([
+      const [breaks, cols, resumo] = await Promise.all([
         api.estoqueBreaks(lojaId),
         api.estoqueBreakColaboradores(lojaId),
+        api.estoqueResumoMes(lojaId).catch(() => null),
       ]);
       setLista(breaks);
       setColaboradores(cols);
+      setResumoMes(
+        resumo
+          ? { valor_break_mes: resumo.valor_break_mes, valor_desperdicio_mes: resumo.valor_desperdicio_mes }
+          : null,
+      );
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erro ao carregar break');
     } finally {
@@ -279,7 +295,7 @@ export default function EstoqueMobileBreakPage() {
       document.documentElement.style.overflow = prevHtml;
       if (scrollEl) scrollEl.style.overflow = prevScroll;
     };
-  }, [dlgLoja]);
+  }, [dlgLoja, dlgTipo]);
 
   const selecionarLoja = (id: number) => {
     if (!podeTrocarLoja) return;
@@ -313,9 +329,11 @@ export default function EstoqueMobileBreakPage() {
     setIdLojaDestino('');
   };
 
-  const abrirForm = () => {
+  const abrirForm = (tipo?: KindLanc) => {
+    if (tipo) setKind(tipo);
     setDataBreak(dataHojeIso());
     limparForm();
+    setDlgTipo(false);
     setFormAberto(true);
   };
 
@@ -814,26 +832,30 @@ export default function EstoqueMobileBreakPage() {
               <h1 className="ck-visitas__title">
                 Break
                 <br />
-                da loja
+                e perdas
               </h1>
             </div>
             <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
           </div>
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Informe o turno e o item. Break usa só os produtos do caderno; desperdício e empréstimo também baixam o estoque.
+            Break, desperdício completo, desperdício incompleto e empréstimo. Toque no + e escolha o tipo.
           </p>
           <div className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+            <div className="ck-visitas__metric ck-visitas__metric--accent">
+              <strong style={{ fontSize: '0.95rem' }}>
+                {loading ? '—' : fmtBrl(resumoMes?.valor_break_mes)}
+              </strong>
+              <span>break mês</span>
+            </div>
+            <div className="ck-visitas__metric">
+              <strong style={{ fontSize: '0.95rem' }}>
+                {loading ? '—' : fmtBrl(resumoMes?.valor_desperdicio_mes)}
+              </strong>
+              <span>desperdício</span>
+            </div>
             <div className="ck-visitas__metric">
               <strong>{loading ? '—' : lista.length}</strong>
               <span>lançamentos</span>
-            </div>
-            <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong>{loading ? '—' : totalItens}</strong>
-              <span>itens baixados</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{lojaAtual?.bk_number || '—'}</strong>
-              <span>loja</span>
             </div>
           </div>
         </div>
@@ -871,6 +893,31 @@ export default function EstoqueMobileBreakPage() {
           ) : null}
 
           {idLoja ? (
+            <div className="ck-visitas__seg" role="tablist" style={{ marginTop: 10 }}>
+              {(
+                [
+                  ['todos', 'Todos'],
+                  ['refeicao', 'Break'],
+                  ['desperdicio_completo', 'Completo'],
+                  ['desperdicio_incompleto', 'Incompleto'],
+                  ['emprestimo', 'Empréstimo'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={filtroTipo === value}
+                  className={`ck-visitas__seg-btn${filtroTipo === value ? ' is-on' : ''}`}
+                  onClick={() => setFiltroTipo(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {idLoja ? (
             <div className="ck-estoque__busca-wrap" style={{ marginTop: 10 }}>
               <input
                 type="search"
@@ -894,7 +941,11 @@ export default function EstoqueMobileBreakPage() {
                 <div className="ck-estoque__empty">
                   {busca.trim()
                     ? 'Nenhum lançamento encontrado na busca.'
-                    : 'Nenhum lançamento nesta loja. Toque no + para registrar.'}
+                    : filtroTipo === 'desperdicio_completo'
+                      ? 'Nenhum desperdício completo. Toque no + para lançar.'
+                      : filtroTipo === 'desperdicio_incompleto'
+                        ? 'Nenhum desperdício incompleto. Toque no + para lançar.'
+                        : 'Nenhum lançamento nesta loja. Toque no + e escolha o tipo.'}
                 </div>
               )}
 
@@ -936,8 +987,8 @@ export default function EstoqueMobileBreakPage() {
 
       {idLoja ? (
         <Fab
-          aria-label="Novo break"
-          onClick={abrirForm}
+          aria-label="Novo lançamento"
+          onClick={() => setDlgTipo(true)}
           disabled={loading}
           sx={{
             position: 'fixed',
@@ -953,6 +1004,49 @@ export default function EstoqueMobileBreakPage() {
           <AddIcon />
         </Fab>
       ) : null}
+
+      {dlgTipo &&
+        createPortal(
+          <div className="ck-estoque">
+            <div
+              className="ck-estoque__loja-modal ck-estoque__modal--center"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Novo lançamento"
+            >
+              <button
+                type="button"
+                className="ck-estoque__loja-backdrop"
+                aria-label="Fechar"
+                onClick={() => setDlgTipo(false)}
+              />
+              <div className="ck-estoque__loja-panel ck-estoque__confirm">
+                <div className="ck-estoque__loja-panel-head">
+                  <strong>O que vai lançar?</strong>
+                  <button type="button" className="ck-estoque__loja-fechar" onClick={() => setDlgTipo(false)}>
+                    Fechar
+                  </button>
+                </div>
+                <p className="ck-estoque__confirm-text">
+                  Break é refeição da equipe. Desperdício completo e incompleto seguem o caderno BK. Empréstimo transfere para outra loja.
+                </p>
+                <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column' }}>
+                  {KINDS.map((k) => (
+                    <button
+                      key={k.id}
+                      type="button"
+                      className={`ck-estoque__btn ${k.id === 'refeicao' ? 'ck-estoque__btn--primary' : 'ck-estoque__btn--ghost'}`}
+                      onClick={() => abrirForm(k.id)}
+                    >
+                      {k.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {modalLoja}
     </div>
