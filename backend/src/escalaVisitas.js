@@ -573,6 +573,84 @@ function lojasDestinoParaSalvar(item) {
   return [];
 }
 
+function horaSql(v) {
+  if (v == null || v === '') return null;
+  const m = String(v).trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`;
+}
+
+function horaApi(v) {
+  if (v == null || v === '') return null;
+  return String(v).slice(0, 5);
+}
+
+let schemaHorarioPromise = null;
+
+async function garantirSchemaDeliveryHorario() {
+  if (!schemaHorarioPromise) {
+    schemaHorarioPromise = pool
+      .query(
+        `CREATE TABLE IF NOT EXISTS escala_visitas_delivery_horario (
+           id_semana INTEGER NOT NULL REFERENCES escala_visitas_semana(id_semana) ON DELETE CASCADE,
+           dia SMALLINT NOT NULL CHECK (dia >= 0 AND dia <= 6),
+           hora_inicio TIME,
+           hora_fim TIME,
+           PRIMARY KEY (id_semana, dia)
+         )`,
+      )
+      .catch((e) => {
+        schemaHorarioPromise = null;
+        throw e;
+      });
+  }
+  return schemaHorarioPromise;
+}
+
+async function carregarHorariosDelivery(idSemana) {
+  await garantirSchemaDeliveryHorario();
+  const { rows } = await pool.query(
+    `SELECT dia, hora_inicio::text AS hora_inicio, hora_fim::text AS hora_fim
+     FROM escala_visitas_delivery_horario
+     WHERE id_semana = $1`,
+    [idSemana],
+  );
+  const mapa = new Map(rows.map((r) => [Number(r.dia), r]));
+  return Array.from({ length: 7 }, (_, dia) => ({
+    dia,
+    hora_inicio: horaApi(mapa.get(dia)?.hora_inicio),
+    hora_fim: horaApi(mapa.get(dia)?.hora_fim),
+  }));
+}
+
+async function salvarHorariosDelivery(client, idSemana, lista) {
+  if (!Array.isArray(lista)) return;
+  await garantirSchemaDeliveryHorario();
+  for (const item of lista) {
+    const dia = Number(item.dia);
+    if (dia < 0 || dia > 6) continue;
+    const horaInicio = horaSql(item.hora_inicio);
+    const horaFim = horaSql(item.hora_fim);
+    if (!horaInicio && !horaFim) {
+      await client.query(
+        `DELETE FROM escala_visitas_delivery_horario WHERE id_semana = $1 AND dia = $2`,
+        [idSemana, dia],
+      );
+      continue;
+    }
+    await client.query(
+      `INSERT INTO escala_visitas_delivery_horario (id_semana, dia, hora_inicio, hora_fim)
+       VALUES ($1, $2, $3::time, $4::time)
+       ON CONFLICT (id_semana, dia) DO UPDATE
+         SET hora_inicio = EXCLUDED.hora_inicio, hora_fim = EXCLUDED.hora_fim`,
+      [idSemana, dia, horaInicio, horaFim],
+    );
+  }
+}
+
 async function obterOuCriarSemana(semanaInicio, idUsuario) {
   const { rows } = await pool.query(
     `INSERT INTO escala_visitas_semana (semana_inicio, atualizado_por)
@@ -1072,11 +1150,12 @@ export async function carregarGradeVisitas(user, {
     regioes,
     equipes_por_regiao: equipesPorRegiao,
     lojas_destino: lojasDestino,
+    horarios_delivery: await carregarHorariosDelivery(semana.id_semana),
     linhas,
   };
 }
 
-export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regiao = null }) {
+export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regiao = null, horarios_delivery = null }) {
   const gerenciar = podeGerenciarEscalaVisitas(user);
   const editarRegiao = podeEditarEscalaRegiao(user);
   const editarDelivery = temPermissao(user, 'escalas.visitas.editar_delivery') || gerenciar;
@@ -1198,6 +1277,9 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
       `UPDATE escala_visitas_semana SET atualizado_em = NOW(), atualizado_por = $2 WHERE id_semana = $1`,
       [semana.id_semana, user.sub],
     );
+    if (Array.isArray(horarios_delivery) && (gerenciar || editarDelivery)) {
+      await salvarHorariosDelivery(client, semana.id_semana, horarios_delivery);
+    }
     await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK');

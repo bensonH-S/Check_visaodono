@@ -847,7 +847,13 @@ export const api = {
     ),
   escalaGestoresSalvar: (body: {
     semana_inicio: string;
-    celulas: Array<{ id_gestor: number; dia: number; tipo?: string | null }>;
+    celulas: Array<{
+      id_gestor: number;
+      dia: number;
+      tipo?: string | null;
+      hora_inicio?: string | null;
+      hora_fim?: string | null;
+    }>;
   }) =>
     request<EscalaGestoresGrade>('/escalas/visitas/gestores', {
       method: 'PUT',
@@ -859,7 +865,13 @@ export const api = {
     ),
   escalaManutencaoSalvar: (body: {
     semana_inicio: string;
-    celulas: Array<{ id_usuario: number; dia: number; tipo?: string | null }>;
+    celulas?: Array<{ id_usuario: number; dia: number; id_lojas: number[] }>;
+    horarios?: Array<{
+      id_usuario: number;
+      dia: number;
+      hora_inicio?: string | null;
+      hora_fim?: string | null;
+    }>;
   }) =>
     request<EscalaManutencaoGrade>('/escalas/visitas/manutencao', {
       method: 'PUT',
@@ -2305,13 +2317,22 @@ export interface EscalaVisitasGrade {
     nomes: string[];
   }>;
   lojas_destino?: EscalaVisitasLojaDestino[];
+  horarios_delivery?: EscalaVisitasHorarioDia[];
   linhas: EscalaVisitasLinha[];
+}
+
+export interface EscalaVisitasHorarioDia {
+  dia: number;
+  hora_inicio: string | null;
+  hora_fim: string | null;
 }
 
 export interface EscalaGestoresDia {
   dia: number;
   data: string;
   tipo: 'folga' | 'ferias' | 'falta' | 'ausencia' | null;
+  hora_inicio?: string | null;
+  hora_fim?: string | null;
 }
 
 export interface EscalaGestoresLinha {
@@ -2332,25 +2353,41 @@ export interface EscalaGestoresGrade {
   linhas: EscalaGestoresLinha[];
 }
 
-export interface EscalaManutencaoLinha {
+export interface EscalaManutencaoTecnico {
   id_usuario: number;
   nome: string;
   id_regiao: number | null;
   nome_regiao: string | null;
   grupo: string;
-  dias: EscalaGestoresDia[];
+}
+
+export interface EscalaManutencaoLoja {
+  id_loja: number;
+  nome: string;
+  bk_number: string | null;
+}
+
+export interface EscalaManutencaoHorario {
+  id_usuario: number;
+  dia: number;
+  hora_inicio: string | null;
+  hora_fim: string | null;
 }
 
 export interface EscalaManutencaoGrade {
   semana_inicio: string;
   semana_fim: string;
   pode_editar: boolean;
-  linhas: EscalaManutencaoLinha[];
+  tecnicos: EscalaManutencaoTecnico[];
+  lojas: EscalaManutencaoLoja[];
+  visitas: Array<{ id_usuario: number; dia: number; id_loja: number }>;
+  horarios?: EscalaManutencaoHorario[];
 }
 
 export interface EscalaVisitasSalvarBody {
   semana_inicio: string;
   id_regiao?: number | null;
+  horarios_delivery?: EscalaVisitasHorarioDia[];
   celulas: Array<{
     id_loja: number;
     dia: number;

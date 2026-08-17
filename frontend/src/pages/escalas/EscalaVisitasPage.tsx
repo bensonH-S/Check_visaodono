@@ -115,6 +115,66 @@ function fmtDataCurta(iso: string) {
   return `${d}/${m}`;
 }
 
+const estiloInputHora = {
+  width: 78,
+  border: `1px solid ${colors.border}`,
+  borderRadius: 6,
+  fontSize: 11,
+  fontWeight: 700,
+  padding: '2px 4px',
+  color: colors.navy,
+  background: '#fff',
+} as const;
+
+function InputsHorario({
+  inicio,
+  fim,
+  disabled,
+  ariaInicio,
+  ariaFim,
+  onChangeInicio,
+  onChangeFim,
+  onBlur,
+}: {
+  inicio: string;
+  fim: string;
+  disabled?: boolean;
+  ariaInicio: string;
+  ariaFim: string;
+  onChangeInicio: (valor: string) => void;
+  onChangeFim: (valor: string) => void;
+  onBlur?: (inicio: string, fim: string) => void;
+}) {
+  function persistir(el: HTMLInputElement) {
+    const inputs = el.parentElement?.querySelectorAll('input[type="time"]');
+    const a = (inputs?.[0] as HTMLInputElement | undefined)?.value || '';
+    const b = (inputs?.[1] as HTMLInputElement | undefined)?.value || '';
+    onBlur?.(a, b);
+  }
+  return (
+    <Box sx={{ display: 'flex', gap: 0.4, justifyContent: 'center', mt: 0.4 }}>
+      <input
+        type="time"
+        aria-label={ariaInicio}
+        value={inicio}
+        disabled={disabled}
+        onChange={(e) => onChangeInicio(e.target.value)}
+        onBlur={(e) => persistir(e.currentTarget)}
+        style={{ ...estiloInputHora, opacity: disabled ? 0.45 : 1 }}
+      />
+      <input
+        type="time"
+        aria-label={ariaFim}
+        value={fim}
+        disabled={disabled}
+        onChange={(e) => onChangeFim(e.target.value)}
+        onBlur={(e) => persistir(e.currentTarget)}
+        style={{ ...estiloInputHora, opacity: disabled ? 0.45 : 1 }}
+      />
+    </Box>
+  );
+}
+
 type CelulaChave = string;
 type PendingCelula =
   | { id_loja: number; dia: number; id_regionais: number[] }
@@ -144,9 +204,21 @@ export default function EscalaVisitasPage() {
   );
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
   const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
-  const abaFolga = aba === 'gestores' || aba === 'manutencao';
+  const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
+  const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
+    new Map(),
+  );
+  const [horariosDelivery, setHorariosDelivery] = useState<Array<{ hora_inicio: string; hora_fim: string }>>(
+    () => Array.from({ length: 7 }, () => ({ hora_inicio: '', hora_fim: '' })),
+  );
+  const [horariosDirty, setHorariosDirty] = useState(false);
+  const [horariosManutLocal, setHorariosManutLocal] = useState<
+    Map<string, { hora_inicio: string; hora_fim: string }>
+  >(() => new Map());
+  const abaFolga = aba === 'gestores';
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
+  const podeEditarManut = Boolean(manutencao?.pode_editar);
 
   const mapCorRegional = useMemo(() => {
     const m = new Map<number, string>();
@@ -226,6 +298,33 @@ export default function EscalaVisitasPage() {
   useEffect(() => {
     void carregarManutencao();
   }, [carregarManutencao]);
+
+  useEffect(() => {
+    const ids = (manutencao?.tecnicos ?? []).map((t) => t.id_usuario);
+    if (!ids.length) {
+      setIdTecnicoManut(null);
+      return;
+    }
+    setIdTecnicoManut((atual) => (atual != null && ids.includes(atual) ? atual : ids[0]));
+  }, [manutencao?.tecnicos]);
+
+  useEffect(() => {
+    setPendingManut(new Map());
+    setHorariosManutLocal(new Map());
+  }, [semanaInicio]);
+
+  useEffect(() => {
+    const base = Array.from({ length: 7 }, () => ({ hora_inicio: '', hora_fim: '' }));
+    for (const h of grade?.horarios_delivery ?? []) {
+      if (h.dia < 0 || h.dia > 6) continue;
+      base[h.dia] = {
+        hora_inicio: h.hora_inicio || '',
+        hora_fim: h.hora_fim || '',
+      };
+    }
+    setHorariosDelivery(base);
+    setHorariosDirty(false);
+  }, [grade?.id_semana, grade?.semana_inicio]);
 
   useEffect(() => {
     if (ehDeliveryOnly) setAba('delivery');
@@ -311,39 +410,174 @@ export default function EscalaVisitasPage() {
     }
   }
 
-  async function cicloCelulaManutencao(idUsuario: number, dia: number, atual: string | null) {
-    if (!manutencao?.pode_editar) return;
-    const proximo = proximoTipoGestor(atual);
+  function alterarHorarioGestorLocal(
+    idGestor: number,
+    dia: number,
+    campo: 'hora_inicio' | 'hora_fim',
+    valor: string,
+  ) {
+    setGestores((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        linhas: prev.linhas.map((linha) =>
+          linha.id_gestor !== idGestor
+            ? linha
+            : {
+                ...linha,
+                dias: linha.dias.map((d) => (d.dia !== dia ? d : { ...d, [campo]: valor || null })),
+              },
+        ),
+      };
+    });
+  }
+
+  async function salvarHorarioGestor(idGestor: number, dia: number, horaInicio: string, horaFim: string) {
+    if (!gestores?.pode_editar) return;
+    setSalvando(true);
+    try {
+      const data = await api.escalaGestoresSalvar({
+        semana_inicio: semanaInicio,
+        celulas: [
+          {
+            id_gestor: idGestor,
+            dia,
+            hora_inicio: horaInicio || null,
+            hora_fim: horaFim || null,
+          },
+        ],
+      });
+      setGestores(data);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar horário', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  function idsLojasManut(idUsuario: number, dia: number) {
+    const p = pendingManut.get(`${idUsuario}-${dia}`);
+    if (p) return p.id_lojas;
+    return (manutencao?.visitas ?? [])
+      .filter((v) => v.id_usuario === idUsuario && v.dia === dia)
+      .map((v) => v.id_loja);
+  }
+
+  function alterarCelulaManut(idUsuario: number, dia: number, idLojas: number[]) {
+    if (!podeEditarManut) return;
+    setPendingManut((prev) => {
+      const next = new Map(prev);
+      next.set(`${idUsuario}-${dia}`, { id_usuario: idUsuario, dia, id_lojas: idLojas });
+      return next;
+    });
+  }
+
+  function toggleLojaManut(dia: number, idLoja: number) {
+    if (idTecnicoManut == null) return;
+    const atual = idsLojasManut(idTecnicoManut, dia);
+    const next = atual.includes(idLoja) ? atual.filter((id) => id !== idLoja) : [...atual, idLoja];
+    alterarCelulaManut(idTecnicoManut, dia, next);
+  }
+
+  function toggleDiaManutInteiro(dia: number) {
+    if (idTecnicoManut == null) return;
+    const lojas = manutencao?.lojas ?? [];
+    const atual = idsLojasManut(idTecnicoManut, dia);
+    const todas = lojas.length > 0 && lojas.every((l) => atual.includes(l.id_loja));
+    alterarCelulaManut(idTecnicoManut, dia, todas ? [] : lojas.map((l) => l.id_loja));
+  }
+
+  function alterarHorarioDelivery(dia: number, campo: 'hora_inicio' | 'hora_fim', valor: string) {
+    if (!podeEditarDelivery) return;
+    setHorariosDelivery((prev) => {
+      const next = prev.map((h, i) => (i === dia ? { ...h, [campo]: valor } : h));
+      return next;
+    });
+    setHorariosDirty(true);
+  }
+
+  function horarioManut(idUsuario: number, dia: number) {
+    const local = horariosManutLocal.get(`${idUsuario}-${dia}`);
+    if (local) return local;
+    const h = (manutencao?.horarios ?? []).find((x) => x.id_usuario === idUsuario && x.dia === dia);
+    return { hora_inicio: h?.hora_inicio || '', hora_fim: h?.hora_fim || '' };
+  }
+
+  function alterarHorarioManut(dia: number, campo: 'hora_inicio' | 'hora_fim', valor: string) {
+    if (idTecnicoManut == null || !podeEditarManut) return;
+    setHorariosManutLocal((prev) => {
+      const k = `${idTecnicoManut}-${dia}`;
+      const fromPrev = prev.get(k);
+      const fromServer = (manutencao?.horarios ?? []).find(
+        (x) => x.id_usuario === idTecnicoManut && x.dia === dia,
+      );
+      const atual = fromPrev || {
+        hora_inicio: fromServer?.hora_inicio || '',
+        hora_fim: fromServer?.hora_fim || '',
+      };
+      const next = new Map(prev);
+      next.set(k, { ...atual, [campo]: valor });
+      return next;
+    });
+  }
+
+  async function salvarManutencaoAgenda() {
+    if (!pendingManut.size && !horariosManutLocal.size) {
+      showToast('Nada para salvar', 'info');
+      return;
+    }
     setSalvando(true);
     try {
       const data = await api.escalaManutencaoSalvar({
         semana_inicio: semanaInicio,
-        celulas: [{ id_usuario: idUsuario, dia, tipo: proximo }],
+        celulas: [...pendingManut.values()],
+        horarios: [...horariosManutLocal.entries()].map(([k, v]) => {
+          const [id, dia] = k.split('-');
+          return {
+            id_usuario: Number(id),
+            dia: Number(dia),
+            hora_inicio: v.hora_inicio || null,
+            hora_fim: v.hora_fim || null,
+          };
+        }),
       });
       setManutencao(data);
+      setPendingManut(new Map());
+      setHorariosManutLocal(new Map());
+      showToast('Escala de manutenção salva', 'success');
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao salvar folga', 'error');
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
     } finally {
       setSalvando(false);
     }
   }
 
   async function salvar() {
-    if (!pending.size) {
+    if (!pending.size && !horariosDirty) {
       showToast('Nada para salvar', 'info');
       return;
     }
     setSalvando(true);
     try {
-      const q = new URLSearchParams({ semana_inicio: semanaInicio });
-      if (idRegiao !== '') q.set('id_regiao', String(idRegiao));
       const data = await api.escalaVisitasSalvar({
         semana_inicio: semanaInicio,
         id_regiao: idRegiao === '' ? null : idRegiao,
         celulas: [...pending.values()],
+        horarios_delivery: horariosDelivery.map((h, dia) => ({
+          dia,
+          hora_inicio: h.hora_inicio || null,
+          hora_fim: h.hora_fim || null,
+        })),
       });
       setGrade(data);
       setPending(new Map());
+      setHorariosDirty(false);
+      const base = Array.from({ length: 7 }, () => ({ hora_inicio: '', hora_fim: '' }));
+      for (const h of data.horarios_delivery ?? []) {
+        if (h.dia < 0 || h.dia > 6) continue;
+        base[h.dia] = { hora_inicio: h.hora_inicio || '', hora_fim: h.hora_fim || '' };
+      }
+      setHorariosDelivery(base);
       showToast('Escala salva', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
@@ -466,13 +700,19 @@ export default function EscalaVisitasPage() {
   async function enviarDeliveryAprovacao() {
     setSalvando(true);
     try {
-      if (pending.size) {
+      if (pending.size || horariosDirty) {
         await api.escalaVisitasSalvar({
           semana_inicio: semanaInicio,
           id_regiao: idRegiao === '' ? null : idRegiao,
           celulas: [...pending.values()],
+          horarios_delivery: horariosDelivery.map((h, dia) => ({
+            dia,
+            hora_inicio: h.hora_inicio || null,
+            hora_fim: h.hora_fim || null,
+          })),
         });
         setPending(new Map());
+        setHorariosDirty(false);
       }
       const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
       setGrade(data);
@@ -611,6 +851,20 @@ export default function EscalaVisitasPage() {
     });
   }, [linhaDelivery, lojasDelivery, grade, pending]);
 
+  const manutLinhas = useMemo(() => {
+    if (!manutencao || idTecnicoManut == null) return [];
+    return manutencao.lojas.map((loja) => {
+      let total = 0;
+      const dias = DIAS.map((_, dia) => {
+        const ids = idsLojasManut(idTecnicoManut, dia);
+        const marcada = ids.includes(loja.id_loja);
+        if (marcada) total += 1;
+        return { dia, marcada };
+      });
+      return { ...loja, dias, total };
+    });
+  }, [manutencao, idTecnicoManut, pendingManut]);
+
   const cardsAprovacao = useMemo(
     () => montarCardsAprovacaoEscala(grade?.status_por_regiao ?? [], grade?.regionais ?? [], idUsuarioFiltro),
     [grade?.status_por_regiao, grade?.regionais, idUsuarioFiltro],
@@ -740,7 +994,7 @@ export default function EscalaVisitasPage() {
                 </Select>
               </FormControl>
             )}
-            {grade?.pode_editar && !abaFolga && (
+            {grade?.pode_editar && !abaFolga && aba !== 'manutencao' && (
               <Button
                 variant="outlined"
                 size="small"
@@ -751,18 +1005,35 @@ export default function EscalaVisitasPage() {
                 Copiar semana anterior
               </Button>
             )}
-            {!abaFolga && (podeEditarGrade || podeEditarDelivery) && (
+            {!abaFolga && aba !== 'manutencao' && (podeEditarGrade || podeEditarDelivery) && (
               <Button
                 variant="contained"
                 size="small"
                 startIcon={<SaveIcon />}
-                disabled={salvando || pending.size === 0}
+                disabled={salvando || (pending.size === 0 && !horariosDirty)}
                 onClick={() => void salvar()}
               >
-                Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
+                Salvar{pending.size > 0 ? ` (${pending.size})` : horariosDirty ? ' (horário)' : ''}
               </Button>
             )}
-            {grade?.pode_submeter && !abaFolga && (
+            {aba === 'manutencao' && podeEditarManut && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<SaveIcon />}
+                disabled={salvando || (pendingManut.size === 0 && horariosManutLocal.size === 0)}
+                onClick={() => void salvarManutencaoAgenda()}
+                sx={{ bgcolor: COR_MANUT, '&:hover': { bgcolor: '#9A3412' } }}
+              >
+                Salvar
+                {pendingManut.size > 0
+                  ? ` (${pendingManut.size})`
+                  : horariosManutLocal.size > 0
+                    ? ' (horário)'
+                    : ''}
+              </Button>
+            )}
+            {grade?.pode_submeter && !abaFolga && aba !== 'manutencao' && (
               <Button
                 variant="contained"
                 size="small"
@@ -774,7 +1045,7 @@ export default function EscalaVisitasPage() {
                 Enviar para aprovação
               </Button>
             )}
-            {grade?.pode_submeter_delivery && !abaFolga && (
+            {grade?.pode_submeter_delivery && !abaFolga && aba !== 'manutencao' && (
               <Button
                 variant="contained"
                 size="small"
@@ -790,6 +1061,7 @@ export default function EscalaVisitasPage() {
         </Box>
 
         {!abaFolga &&
+          aba !== 'manutencao' &&
           (ehDeliveryOnly
           ? Boolean(grade?.status_delivery)
           : aba === 'delivery'
@@ -1125,7 +1397,7 @@ export default function EscalaVisitasPage() {
 
       {(loading || salvando) && <LinearProgress />}
 
-      {loading && !grade && !abaFolga ? (
+      {loading && !grade && aba !== 'gestores' && aba !== 'manutencao' ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6, flex: 1 }}>
           <CircularProgress />
         </Box>
@@ -1155,7 +1427,7 @@ export default function EscalaVisitasPage() {
                       Gestor
                     </TableCell>
                     {DIAS.map((label, dia) => (
-                      <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      <TableCell key={label} align="center" sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
                         <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: '#0F766E' }}>
                           {label}
                         </Typography>
@@ -1224,6 +1496,7 @@ export default function EscalaVisitasPage() {
                           {linha.dias.map((d) => {
                             const tipo = d.tipo;
                             const label = tipo ? TIPO_GESTOR_LABEL[tipo] || tipo : '';
+                            const folga = tipo === 'folga' || tipo === 'ferias';
                             return (
                               <TableCell key={d.dia} align="center">
                                 <Chip
@@ -1239,6 +1512,22 @@ export default function EscalaVisitasPage() {
                                     ...(tipo ? TIPO_GESTOR_SX[tipo] : { bgcolor: colors.canvasAlt, color: colors.textSecondary }),
                                     cursor: gestores.pode_editar ? 'pointer' : 'default',
                                   }}
+                                />
+                                <InputsHorario
+                                  inicio={d.hora_inicio || ''}
+                                  fim={d.hora_fim || ''}
+                                  disabled={!gestores.pode_editar || folga}
+                                  ariaInicio={`Início ${linha.nome} ${DIAS[d.dia]}`}
+                                  ariaFim={`Fim ${linha.nome} ${DIAS[d.dia]}`}
+                                  onChangeInicio={(valor) =>
+                                    alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_inicio', valor)
+                                  }
+                                  onChangeFim={(valor) =>
+                                    alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_fim', valor)
+                                  }
+                                  onBlur={(inicio, fim) =>
+                                    void salvarHorarioGestor(linha.id_gestor, d.dia, inicio, fim)
+                                  }
                                 />
                               </TableCell>
                             );
@@ -1262,113 +1551,127 @@ export default function EscalaVisitasPage() {
             flexDirection: 'column',
           }}
         >
-          {!manutencao?.linhas.length ? (
+          {!(manutencao?.tecnicos.length) ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary">Nenhum técnico de manutenção cadastrado.</Typography>
             </Box>
           ) : (
-            <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
-              <Table size="small" stickyHeader sx={tableSx}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell
-                      sx={{
-                        minWidth: COL_LOJA_MIN_WIDTH,
-                        fontWeight: 700,
-                        bgcolor: '#fff',
-                        position: 'sticky',
-                        left: 0,
-                        zIndex: 3,
-                      }}
-                    >
-                      Técnico
-                    </TableCell>
-                    {DIAS.map((label, dia) => (
-                      <TableCell
-                        key={label}
-                        align="center"
-                        sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}
-                      >
-                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: COR_MANUT }}>
-                          {label}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          {fmtDataCurta(addDaysIso(semanaInicio, dia))}
-                        </Typography>
+            <>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 1.25, py: 1, borderBottom: `1px solid ${colors.border}` }}>
+                {(manutencao.tecnicos ?? []).map((t) => (
+                  <Chip
+                    key={t.id_usuario}
+                    size="small"
+                    label={primeiroNome(t.nome)}
+                    onClick={() => setIdTecnicoManut(t.id_usuario)}
+                    sx={{
+                      fontWeight: 700,
+                      bgcolor: idTecnicoManut === t.id_usuario ? 'rgba(180, 83, 9, 0.16)' : colors.canvasAlt,
+                      color: idTecnicoManut === t.id_usuario ? COR_MANUT : colors.textSecondary,
+                    }}
+                  />
+                ))}
+              </Box>
+              <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
+                <Table size="small" stickyHeader sx={tableSx}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                        BKN
                       </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {manutencao.linhas.map((linha, idx) => {
-                    const mostraGrupo = idx === 0 || linha.grupo !== manutencao.linhas[idx - 1].grupo;
-                    return (
-                      <Fragment key={linha.id_usuario}>
-                        {mostraGrupo && (
-                          <TableRow>
-                            <TableCell
-                              colSpan={8}
-                              sx={{
-                                bgcolor: 'rgba(180, 83, 9, 0.08)',
-                                fontWeight: 800,
-                                fontSize: '0.72rem',
-                                letterSpacing: '0.04em',
-                                textTransform: 'uppercase',
-                                color: colors.navy,
-                                py: 0.75,
-                              }}
-                            >
-                              {linha.grupo}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        <TableRow hover>
-                          <TableCell
-                            sx={{
-                              position: 'sticky',
-                              left: 0,
-                              zIndex: 1,
-                              bgcolor: '#fff',
-                            }}
-                          >
-                            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>
-                              {linha.nome}
+                      <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
+                        Loja
+                      </TableCell>
+                      {DIAS.map((label, dia) => {
+                        const idsDia = idTecnicoManut != null ? idsLojasManut(idTecnicoManut, dia) : [];
+                        const lojas = manutencao.lojas ?? [];
+                        const todas = lojas.length > 0 && idsDia.length === lojas.length;
+                        const hr = idTecnicoManut != null ? horarioManut(idTecnicoManut, dia) : { hora_inicio: '', hora_fim: '' };
+                        return (
+                          <TableCell key={label} align="center" sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: COR_MANUT }}>
+                              {label}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              {linha.nome_regiao || 'Sem região'}
+                              {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                             </Typography>
+                            <InputsHorario
+                              inicio={hr.hora_inicio}
+                              fim={hr.hora_fim}
+                              disabled={!podeEditarManut || idTecnicoManut == null}
+                              ariaInicio={`Início ${label}`}
+                              ariaFim={`Fim ${label}`}
+                              onChangeInicio={(valor) => alterarHorarioManut(dia, 'hora_inicio', valor)}
+                              onChangeFim={(valor) => alterarHorarioManut(dia, 'hora_fim', valor)}
+                            />
+                            {podeEditarManut && lojas.length > 0 && (
+                              <Button
+                                size="small"
+                                onClick={() => toggleDiaManutInteiro(dia)}
+                                sx={{
+                                  mt: 0.35,
+                                  minWidth: 0,
+                                  px: 0.75,
+                                  py: 0.15,
+                                  fontSize: '0.65rem',
+                                  fontWeight: 700,
+                                  textTransform: 'none',
+                                  color: todas ? COR_MANUT : 'text.secondary',
+                                }}
+                              >
+                                {todas ? 'Limpar' : 'Todas'}
+                              </Button>
+                            )}
                           </TableCell>
-                          {linha.dias.map((d) => {
-                            const tipo = d.tipo;
-                            const label = tipo ? TIPO_GESTOR_LABEL[tipo] || tipo : '';
-                            return (
-                              <TableCell key={d.dia} align="center">
-                                <Chip
-                                  size="small"
-                                  label={label || (manutencao.pode_editar ? '—' : '')}
-                                  onClick={
-                                    manutencao.pode_editar
-                                      ? () => void cicloCelulaManutencao(linha.id_usuario, d.dia, tipo)
-                                      : undefined
-                                  }
-                                  sx={{
-                                    minWidth: 64,
-                                    ...(tipo
-                                      ? TIPO_GESTOR_SX[tipo]
-                                      : { bgcolor: colors.canvasAlt, color: colors.textSecondary }),
-                                    cursor: manutencao.pode_editar ? 'pointer' : 'default',
-                                  }}
-                                />
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      </Fragment>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                        );
+                      })}
+                      <TableCell align="center" sx={{ fontWeight: 700, minWidth: 48 }}>
+                        DIAS
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {manutLinhas.map((linha) => (
+                      <TableRow key={linha.id_loja} hover>
+                        <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
+                          {linha.bk_number || '—'}
+                        </TableCell>
+                        <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: '#fff', zIndex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
+                            {linha.nome}
+                          </Typography>
+                        </TableCell>
+                        {linha.dias.map((d) => (
+                          <TableCell key={d.dia} align="center" sx={{ p: 0.5 }}>
+                            <Checkbox
+                              size="medium"
+                              checked={d.marcada}
+                              disabled={!podeEditarManut}
+                              onChange={() => toggleLojaManut(d.dia, linha.id_loja)}
+                              sx={{
+                                p: 0.5,
+                                color: COR_MANUT,
+                                '&.Mui-checked': { color: COR_MANUT },
+                              }}
+                            />
+                          </TableCell>
+                        ))}
+                        <TableCell align="center" sx={{ fontWeight: 700 }}>
+                          {linha.total}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!manutLinhas.length && (
+                      <TableRow>
+                        <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                          <Typography color="text.secondary">Nenhuma loja neste filtro.</Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
           )}
         </Paper>
       ) : aba === 'delivery' ? (
@@ -1400,13 +1703,49 @@ export default function EscalaVisitasPage() {
                       const idsDia = valorCelulaDelivery(linhaDelivery.id_loja, dia, linhaDelivery.dias[dia]);
                       const todas = lojasDelivery.length > 0 && idsDia.length === lojasDelivery.length;
                       return (
-                        <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        <TableCell key={label} align="center" sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
                           <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: colors.orange }}>
                             {label}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                             {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                           </Typography>
+                          <Box sx={{ display: 'flex', gap: 0.4, justifyContent: 'center', mt: 0.4 }}>
+                            <input
+                              type="time"
+                              aria-label={`Início ${label}`}
+                              value={horariosDelivery[dia]?.hora_inicio || ''}
+                              disabled={!podeEditarDelivery}
+                              onChange={(e) => alterarHorarioDelivery(dia, 'hora_inicio', e.target.value)}
+                              style={{
+                                width: 78,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: 6,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '2px 4px',
+                                color: colors.navy,
+                                background: '#fff',
+                              }}
+                            />
+                            <input
+                              type="time"
+                              aria-label={`Fim ${label}`}
+                              value={horariosDelivery[dia]?.hora_fim || ''}
+                              disabled={!podeEditarDelivery}
+                              onChange={(e) => alterarHorarioDelivery(dia, 'hora_fim', e.target.value)}
+                              style={{
+                                width: 78,
+                                border: `1px solid ${colors.border}`,
+                                borderRadius: 6,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '2px 4px',
+                                color: colors.navy,
+                                background: '#fff',
+                              }}
+                            />
+                          </Box>
                           {podeEditarDelivery && lojasDelivery.length > 0 && (
                             <Button
                               size="small"
