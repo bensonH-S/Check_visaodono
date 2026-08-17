@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -36,6 +36,8 @@ import PlaceIcon from '@mui/icons-material/Place';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import {
   api,
+  type EscalaGestoresGrade,
+  type EscalaManutencaoGrade,
   type EscalaVisitasGrade,
   type EscalaVisitasLinha,
   type EscalaVisitasRegiaoStatusCodigo,
@@ -59,7 +61,28 @@ const STATUS_CHIP_SX: Record<EscalaVisitasRegiaoStatusCodigo, object> = {
   aprovado: { bgcolor: 'rgba(22, 163, 74, 0.12)', color: '#15803D', fontWeight: 700 },
 };
 
-const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
+const TIPO_GESTOR_LABEL: Record<string, string> = {
+  folga: 'Folga',
+  ferias: 'Férias',
+  falta: 'Falta',
+  ausencia: 'Ausência',
+};
+
+const TIPO_GESTOR_SX: Record<string, object> = {
+  folga: { bgcolor: 'rgba(234, 88, 12, 0.16)', color: '#C2410C', fontWeight: 800 },
+  ferias: { bgcolor: 'rgba(37, 99, 235, 0.14)', color: '#1D4ED8', fontWeight: 800 },
+  falta: { bgcolor: 'rgba(220, 38, 38, 0.14)', color: '#B91C1C', fontWeight: 800 },
+  ausencia: { bgcolor: 'rgba(100, 116, 139, 0.16)', color: '#475569', fontWeight: 800 },
+};
+
+const TIPO_GESTOR_CICLO = [null, 'folga', 'ferias'] as const;
+const COR_MANUT = '#B45309';
+const COR_GESTORES = '#0F766E';
+
+function proximoTipoGestor(atual: string | null) {
+  const i = TIPO_GESTOR_CICLO.findIndex((t) => t === atual);
+  return TIPO_GESTOR_CICLO[(i + 1) % TIPO_GESTOR_CICLO.length] || null;
+}
 /** Roxo da planilha Time de Campo para célula multi (ex.: I/R). */
 const COR_ESCALA_MULTI = '#7030A0';
 const COL_DIA_MIN_WIDTH = 108;
@@ -115,7 +138,12 @@ export default function EscalaVisitasPage() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
-  const [aba, setAba] = useState<'visitas' | 'delivery'>(ehDeliveryOnly ? 'delivery' : 'visitas');
+  const [aba, setAba] = useState<'visitas' | 'delivery' | 'gestores' | 'manutencao'>(
+    ehDeliveryOnly ? 'delivery' : 'visitas',
+  );
+  const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
+  const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
+  const abaFolga = aba === 'gestores' || aba === 'manutencao';
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
 
@@ -166,9 +194,37 @@ export default function EscalaVisitasPage() {
     }
   }, [semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional]);
 
+  const carregarGestores = useCallback(async () => {
+    if (ehDeliveryOnly) return;
+    try {
+      const data = await api.escalaGestoresSemana(semanaInicio);
+      setGestores(data);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao carregar gestores', 'error');
+    }
+  }, [semanaInicio, ehDeliveryOnly]);
+
+  const carregarManutencao = useCallback(async () => {
+    if (ehDeliveryOnly) return;
+    try {
+      const data = await api.escalaManutencaoSemana(semanaInicio);
+      setManutencao(data);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao carregar manutenção', 'error');
+    }
+  }, [semanaInicio, ehDeliveryOnly]);
+
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    void carregarGestores();
+  }, [carregarGestores]);
+
+  useEffect(() => {
+    void carregarManutencao();
+  }, [carregarManutencao]);
 
   useEffect(() => {
     if (ehDeliveryOnly) setAba('delivery');
@@ -235,6 +291,40 @@ export default function EscalaVisitasPage() {
     const p = pending.get(chaveCelula(idLoja, dia));
     if (p && 'id_lojas_destino' in p) return p.id_lojas_destino;
     return idsLojasDestinoDoDia(original);
+  }
+
+  async function cicloCelulaGestor(idGestor: number, dia: number, atual: string | null) {
+    if (!gestores?.pode_editar) return;
+    const proximo = proximoTipoGestor(atual);
+    setSalvando(true);
+    try {
+      const data = await api.escalaGestoresSalvar({
+        semana_inicio: semanaInicio,
+        celulas: [{ id_gestor: idGestor, dia, tipo: proximo }],
+      });
+      setGestores(data);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar folga', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function cicloCelulaManutencao(idUsuario: number, dia: number, atual: string | null) {
+    if (!manutencao?.pode_editar) return;
+    const proximo = proximoTipoGestor(atual);
+    setSalvando(true);
+    try {
+      const data = await api.escalaManutencaoSalvar({
+        semana_inicio: semanaInicio,
+        celulas: [{ id_usuario: idUsuario, dia, tipo: proximo }],
+      });
+      setManutencao(data);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar folga', 'error');
+    } finally {
+      setSalvando(false);
+    }
   }
 
   async function salvar() {
@@ -583,7 +673,7 @@ export default function EscalaVisitasPage() {
               exclusive
               size="small"
               value={aba}
-              onChange={(_, v: 'visitas' | 'delivery' | null) => {
+              onChange={(_, v: 'visitas' | 'delivery' | 'gestores' | 'manutencao' | null) => {
                 if (v) setAba(v);
               }}
               sx={{
@@ -598,19 +688,35 @@ export default function EscalaVisitasPage() {
                   fontSize: '0.82rem',
                 },
                 '& .Mui-selected': {
-                  bgcolor: aba === 'delivery' ? 'rgba(232, 82, 10, 0.14)' : '#fff',
-                  color: aba === 'delivery' ? colors.orange : colors.navy,
+                  bgcolor:
+                    aba === 'delivery'
+                      ? 'rgba(232, 82, 10, 0.14)'
+                      : aba === 'gestores'
+                        ? 'rgba(13, 148, 136, 0.14)'
+                        : aba === 'manutencao'
+                          ? 'rgba(180, 83, 9, 0.14)'
+                          : '#fff',
+                  color:
+                    aba === 'delivery'
+                      ? colors.orange
+                      : aba === 'gestores'
+                        ? COR_GESTORES
+                        : aba === 'manutencao'
+                          ? COR_MANUT
+                          : colors.navy,
                   boxShadow: '0 1px 4px rgba(27, 42, 107, 0.12)',
                 },
               }}
             >
               {!ehDeliveryOnly && <ToggleButton value="visitas">Visitas</ToggleButton>}
               <ToggleButton value="delivery">Delivery</ToggleButton>
+              {!ehDeliveryOnly && <ToggleButton value="gestores">Gestores</ToggleButton>}
+              {!ehDeliveryOnly && <ToggleButton value="manutencao">Manutenção</ToggleButton>}
             </ToggleButtonGroup>
           </Box>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-            {grade && grade.regioes.length > 0 && !ehDeliveryOnly && (
+            {grade && grade.regioes.length > 0 && !ehDeliveryOnly && aba === 'visitas' && (
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Região</InputLabel>
                 <Select
@@ -633,7 +739,7 @@ export default function EscalaVisitasPage() {
                 </Select>
               </FormControl>
             )}
-            {grade?.pode_editar && (
+            {grade?.pode_editar && !abaFolga && (
               <Button
                 variant="outlined"
                 size="small"
@@ -644,7 +750,7 @@ export default function EscalaVisitasPage() {
                 Copiar semana anterior
               </Button>
             )}
-            {(podeEditarGrade || podeEditarDelivery) && (
+            {!abaFolga && (podeEditarGrade || podeEditarDelivery) && (
               <Button
                 variant="contained"
                 size="small"
@@ -655,7 +761,7 @@ export default function EscalaVisitasPage() {
                 Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
               </Button>
             )}
-            {grade?.pode_submeter && (
+            {grade?.pode_submeter && !abaFolga && (
               <Button
                 variant="contained"
                 size="small"
@@ -667,7 +773,7 @@ export default function EscalaVisitasPage() {
                 Enviar para aprovação
               </Button>
             )}
-            {grade?.pode_submeter_delivery && (
+            {grade?.pode_submeter_delivery && !abaFolga && (
               <Button
                 variant="contained"
                 size="small"
@@ -682,7 +788,8 @@ export default function EscalaVisitasPage() {
           </Box>
         </Box>
 
-        {(ehDeliveryOnly
+        {!abaFolga &&
+          (ehDeliveryOnly
           ? Boolean(grade?.status_delivery)
           : aba === 'delivery'
             ? Boolean(grade?.status_delivery)
@@ -1017,10 +1124,252 @@ export default function EscalaVisitasPage() {
 
       {(loading || salvando) && <LinearProgress />}
 
-      {loading && !grade ? (
+      {loading && !grade && !abaFolga ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6, flex: 1 }}>
           <CircularProgress />
         </Box>
+      ) : aba === 'gestores' ? (
+        <Paper
+          sx={{
+            ...tablePaperSx,
+            flex: 1,
+            minHeight: { xs: 560, md: 0 },
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {!gestores?.linhas.length ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">Nenhum gestor cadastrado nesta escala.</Typography>
+            </Box>
+          ) : (
+            <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
+              <Table size="small" stickyHeader sx={tableSx}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                      BKN
+                    </TableCell>
+                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
+                      Gestor
+                    </TableCell>
+                    {DIAS.map((label, dia) => (
+                      <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: '#0F766E' }}>
+                          {label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {fmtDataCurta(addDaysIso(semanaInicio, dia))}
+                        </Typography>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {gestores.linhas.map((linha, idx) => {
+                    const mostraGrupo =
+                      idx === 0 || linha.grupo !== gestores.linhas[idx - 1].grupo;
+                    return (
+                      <Fragment key={linha.id_gestor}>
+                        {mostraGrupo && (
+                          <TableRow>
+                            <TableCell
+                              colSpan={9}
+                              sx={{
+                                bgcolor:
+                                  linha.grupo === 'campo'
+                                    ? 'rgba(27, 42, 107, 0.06)'
+                                    : 'rgba(13, 148, 136, 0.08)',
+                                fontWeight: 800,
+                                fontSize: '0.72rem',
+                                letterSpacing: '0.04em',
+                                textTransform: 'uppercase',
+                                color: colors.navy,
+                                py: 0.75,
+                              }}
+                            >
+                              {linha.grupo === 'campo' ? 'Time de campo' : 'Gestores'}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow hover>
+                          <TableCell
+                            sx={{
+                              position: 'sticky',
+                              left: 0,
+                              zIndex: 1,
+                              bgcolor: '#fff',
+                              fontWeight: 700,
+                              fontSize: '0.75rem',
+                            }}
+                          >
+                            {linha.bk_number || '—'}
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              position: 'sticky',
+                              left: COL_BKN_WIDTH,
+                              zIndex: 1,
+                              bgcolor: '#fff',
+                            }}
+                          >
+                            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>
+                              {linha.nome}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {linha.nome_loja || linha.folga_padrao || '—'}
+                            </Typography>
+                          </TableCell>
+                          {linha.dias.map((d) => {
+                            const tipo = d.tipo;
+                            const label = tipo ? TIPO_GESTOR_LABEL[tipo] || tipo : '';
+                            return (
+                              <TableCell key={d.dia} align="center">
+                                <Chip
+                                  size="small"
+                                  label={label || (gestores.pode_editar ? '—' : '')}
+                                  onClick={
+                                    gestores.pode_editar
+                                      ? () => void cicloCelulaGestor(linha.id_gestor, d.dia, tipo)
+                                      : undefined
+                                  }
+                                  sx={{
+                                    minWidth: 64,
+                                    ...(tipo ? TIPO_GESTOR_SX[tipo] : { bgcolor: colors.canvasAlt, color: colors.textSecondary }),
+                                    cursor: gestores.pode_editar ? 'pointer' : 'default',
+                                  }}
+                                />
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
+      ) : aba === 'manutencao' ? (
+        <Paper
+          sx={{
+            ...tablePaperSx,
+            flex: 1,
+            minHeight: { xs: 560, md: 0 },
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {!manutencao?.linhas.length ? (
+            <Box sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">Nenhum técnico de manutenção cadastrado.</Typography>
+            </Box>
+          ) : (
+            <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
+              <Table size="small" stickyHeader sx={tableSx}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell
+                      sx={{
+                        minWidth: COL_LOJA_MIN_WIDTH,
+                        fontWeight: 700,
+                        bgcolor: '#fff',
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 3,
+                      }}
+                    >
+                      Técnico
+                    </TableCell>
+                    {DIAS.map((label, dia) => (
+                      <TableCell
+                        key={label}
+                        align="center"
+                        sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}
+                      >
+                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: COR_MANUT }}>
+                          {label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {fmtDataCurta(addDaysIso(semanaInicio, dia))}
+                        </Typography>
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {manutencao.linhas.map((linha, idx) => {
+                    const mostraGrupo = idx === 0 || linha.grupo !== manutencao.linhas[idx - 1].grupo;
+                    return (
+                      <Fragment key={linha.id_usuario}>
+                        {mostraGrupo && (
+                          <TableRow>
+                            <TableCell
+                              colSpan={8}
+                              sx={{
+                                bgcolor: 'rgba(180, 83, 9, 0.08)',
+                                fontWeight: 800,
+                                fontSize: '0.72rem',
+                                letterSpacing: '0.04em',
+                                textTransform: 'uppercase',
+                                color: colors.navy,
+                                py: 0.75,
+                              }}
+                            >
+                              {linha.grupo}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow hover>
+                          <TableCell
+                            sx={{
+                              position: 'sticky',
+                              left: 0,
+                              zIndex: 1,
+                              bgcolor: '#fff',
+                            }}
+                          >
+                            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>
+                              {linha.nome}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {linha.nome_regiao || 'Sem região'}
+                            </Typography>
+                          </TableCell>
+                          {linha.dias.map((d) => {
+                            const tipo = d.tipo;
+                            const label = tipo ? TIPO_GESTOR_LABEL[tipo] || tipo : '';
+                            return (
+                              <TableCell key={d.dia} align="center">
+                                <Chip
+                                  size="small"
+                                  label={label || (manutencao.pode_editar ? '—' : '')}
+                                  onClick={
+                                    manutencao.pode_editar
+                                      ? () => void cicloCelulaManutencao(linha.id_usuario, d.dia, tipo)
+                                      : undefined
+                                  }
+                                  sx={{
+                                    minWidth: 64,
+                                    ...(tipo
+                                      ? TIPO_GESTOR_SX[tipo]
+                                      : { bgcolor: colors.canvasAlt, color: colors.textSecondary }),
+                                    cursor: manutencao.pode_editar ? 'pointer' : 'default',
+                                  }}
+                                />
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
       ) : aba === 'delivery' ? (
         <Paper
           sx={{

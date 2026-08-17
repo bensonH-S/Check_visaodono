@@ -16,6 +16,8 @@ import SaveIcon from '@mui/icons-material/Save';
 import SendIcon from '@mui/icons-material/Send';
 import {
   api,
+  type EscalaGestoresGrade,
+  type EscalaManutencaoGrade,
   type EscalaVisitasAtribuicao,
   type EscalaVisitasDia,
   type EscalaVisitasGrade,
@@ -56,7 +58,7 @@ import './escala-mobile.css';
 const ORANGE = '#E8520A';
 const NAVY = '#1B2A6B';
 
-type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery' | 'montar';
+type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery' | 'gestores' | 'manutencao' | 'montar';
 type PendingMap = Map<
   string,
   | { id_loja: number; dia: number; id_regionais: number[] }
@@ -242,6 +244,8 @@ export default function EscalaVisitasMobileView() {
   );
   const [diaSelecionado, setDiaSelecionado] = useState(() => diaIndexNaSemana(segundaFeiraAtual()) ?? 0);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
+  const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
+  const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
@@ -266,6 +270,8 @@ export default function EscalaVisitasMobileView() {
     if (ehRegional) {
       return [
         { id: 'minhas' as const, label: 'Minhas' },
+        { id: 'gestores' as const, label: 'Gestores' },
+        { id: 'manutencao' as const, label: 'Manutenção' },
         { id: 'montar' as const, label: 'Montar' },
       ];
     }
@@ -274,6 +280,8 @@ export default function EscalaVisitasMobileView() {
       { id: 'dia', label: 'Por dia' },
       { id: 'lojas', label: 'Por loja' },
       { id: 'delivery', label: 'Delivery' },
+      { id: 'gestores', label: 'Gestores' },
+      { id: 'manutencao', label: 'Manutenção' },
     ];
     if (ehDiretor || grade?.pode_editar_regiao || grade?.pode_editar) {
       base.unshift({ id: 'montar', label: 'Montar' });
@@ -301,6 +309,26 @@ export default function EscalaVisitasMobileView() {
     }
   }, [podeVer, semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional, modo]);
 
+  const carregarGestores = useCallback(async () => {
+    if (!podeVer || ehDeliveryOnly) return;
+    try {
+      const data = await api.escalaGestoresSemana(semanaInicio);
+      setGestores(data);
+    } catch {
+      /* silencioso no mobile se a aba ainda não existir no backend antigo */
+    }
+  }, [podeVer, ehDeliveryOnly, semanaInicio]);
+
+  const carregarManutencao = useCallback(async () => {
+    if (!podeVer || ehDeliveryOnly) return;
+    try {
+      const data = await api.escalaManutencaoSemana(semanaInicio);
+      setManutencao(data);
+    } catch {
+      /* silencioso no mobile se a aba ainda não existir no backend antigo */
+    }
+  }, [podeVer, ehDeliveryOnly, semanaInicio]);
+
   const carregarNotifs = useCallback(async () => {
     if (!podeVer) return;
     try {
@@ -314,6 +342,14 @@ export default function EscalaVisitasMobileView() {
   useEffect(() => {
     void carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    void carregarGestores();
+  }, [carregarGestores]);
+
+  useEffect(() => {
+    void carregarManutencao();
+  }, [carregarManutencao]);
 
   useEffect(() => {
     void carregarNotifs();
@@ -955,7 +991,7 @@ export default function EscalaVisitasMobileView() {
                 </button>
               ))}
             </div>
-            {temFiltroRegiao && !ehRegional && (
+            {temFiltroRegiao && !ehRegional && modo !== 'gestores' && modo !== 'manutencao' && (
               <button
                 type="button"
                 className={`ck-escala__filtro-btn${idRegiao !== '' ? ' is-on' : ''}`}
@@ -1231,6 +1267,165 @@ export default function EscalaVisitasMobileView() {
                     onCelula={marcarCelula}
                   />
                 ))
+            )
+          ) : modo === 'gestores' ? (
+            !gestores?.linhas.length ? (
+              <div className="ck-escala__empty">
+                <strong>Sem escala de gestores</strong>
+                <p>Ainda não há folgas lançadas nesta semana.</p>
+              </div>
+            ) : (
+              gestores.linhas.map((linha, idx) => {
+                const mostraGrupo = idx === 0 || linha.grupo !== gestores.linhas[idx - 1].grupo;
+                return (
+                  <div key={linha.id_gestor}>
+                    {mostraGrupo && (
+                      <p className="ck-escala__section">
+                        {linha.grupo === 'campo' ? 'Time de campo' : 'Gestores'}
+                      </p>
+                    )}
+                    <div className="ck-escala__card" style={{ marginBottom: 8 }}>
+                      <div className="ck-escala__card-body">
+                        <p className="ck-escala__card-title">
+                          {linha.bk_number ? `${linha.bk_number} · ` : ''}
+                          {linha.nome}
+                        </p>
+                        <p className="ck-escala__card-meta">
+                          {linha.nome_loja || linha.folga_padrao || ''}
+                        </p>
+                        <div className="ck-escala__turno" style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                          {linha.dias.map((d) => {
+                            const label = d.tipo === 'folga' ? 'F' : d.tipo === 'ferias' ? 'Fe' : d.tipo === 'falta' ? 'X' : d.tipo === 'ausencia' ? 'A' : '·';
+                            return (
+                              <button
+                                key={d.dia}
+                                type="button"
+                                disabled={!gestores.pode_editar || salvando}
+                                onClick={() => {
+                                  if (!gestores.pode_editar) return;
+                                  const ordem = [null, 'folga', 'ferias'] as const;
+                                  const i = ordem.findIndex((t) => t === d.tipo);
+                                  const proximo = ordem[(i + 1) % ordem.length];
+                                  setSalvando(true);
+                                  void api
+                                    .escalaGestoresSalvar({
+                                      semana_inicio: semanaInicio,
+                                      celulas: [{ id_gestor: linha.id_gestor, dia: d.dia, tipo: proximo }],
+                                    })
+                                    .then(setGestores)
+                                    .catch((e) =>
+                                      showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error'),
+                                    )
+                                    .finally(() => setSalvando(false));
+                                }}
+                                style={{
+                                  border: 'none',
+                                  borderRadius: 8,
+                                  padding: '6px 0',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  background:
+                                    d.tipo === 'folga'
+                                      ? 'rgba(234,88,12,0.18)'
+                                      : d.tipo === 'ferias'
+                                        ? 'rgba(37,99,235,0.16)'
+                                        : 'rgba(27,42,107,0.06)',
+                                  color:
+                                    d.tipo === 'folga' ? '#C2410C' : d.tipo === 'ferias' ? '#1D4ED8' : '#64748B',
+                                }}
+                              >
+                                <span style={{ display: 'block', fontSize: 9, opacity: 0.7 }}>{DIAS_ABREV[d.dia]}</span>
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )
+          ) : modo === 'manutencao' ? (
+            !manutencao?.linhas.length ? (
+              <div className="ck-escala__empty">
+                <strong>Sem escala de manutenção</strong>
+                <p>Nenhum técnico cadastrado nesta semana.</p>
+              </div>
+            ) : (
+              manutencao.linhas.map((linha, idx) => {
+                const mostraGrupo = idx === 0 || linha.grupo !== manutencao.linhas[idx - 1].grupo;
+                return (
+                  <div key={linha.id_usuario}>
+                    {mostraGrupo && <p className="ck-escala__section">{linha.grupo}</p>}
+                    <div className="ck-escala__card" style={{ marginBottom: 8 }}>
+                      <div className="ck-escala__card-body">
+                        <p className="ck-escala__card-title">{linha.nome}</p>
+                        <p className="ck-escala__card-meta">{linha.nome_regiao || 'Sem região'}</p>
+                        <div
+                          className="ck-escala__turno"
+                          style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}
+                        >
+                          {linha.dias.map((d) => {
+                            const label =
+                              d.tipo === 'folga'
+                                ? 'F'
+                                : d.tipo === 'ferias'
+                                  ? 'Fe'
+                                  : d.tipo === 'falta'
+                                    ? 'X'
+                                    : d.tipo === 'ausencia'
+                                      ? 'A'
+                                      : '·';
+                            return (
+                              <button
+                                key={d.dia}
+                                type="button"
+                                disabled={!manutencao.pode_editar || salvando}
+                                onClick={() => {
+                                  if (!manutencao.pode_editar) return;
+                                  const ordem = [null, 'folga', 'ferias'] as const;
+                                  const i = ordem.findIndex((t) => t === d.tipo);
+                                  const proximo = ordem[(i + 1) % ordem.length];
+                                  setSalvando(true);
+                                  void api
+                                    .escalaManutencaoSalvar({
+                                      semana_inicio: semanaInicio,
+                                      celulas: [{ id_usuario: linha.id_usuario, dia: d.dia, tipo: proximo }],
+                                    })
+                                    .then(setManutencao)
+                                    .catch((e) =>
+                                      showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error'),
+                                    )
+                                    .finally(() => setSalvando(false));
+                                }}
+                                style={{
+                                  border: 'none',
+                                  borderRadius: 8,
+                                  padding: '6px 0',
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  background:
+                                    d.tipo === 'folga'
+                                      ? 'rgba(234,88,12,0.18)'
+                                      : d.tipo === 'ferias'
+                                        ? 'rgba(37,99,235,0.16)'
+                                        : 'rgba(27,42,107,0.06)',
+                                  color:
+                                    d.tipo === 'folga' ? '#C2410C' : d.tipo === 'ferias' ? '#1D4ED8' : '#64748B',
+                                }}
+                              >
+                                <span style={{ display: 'block', fontSize: 9, opacity: 0.7 }}>{DIAS_ABREV[d.dia]}</span>
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )
           ) : modo === 'minhas' ? (
             minhasVisitas.length === 0 ? (

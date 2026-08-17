@@ -841,6 +841,30 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body || {}),
     }),
+  escalaGestoresSemana: (semanaInicio: string) =>
+    request<EscalaGestoresGrade>(
+      `/escalas/visitas/gestores?semana_inicio=${encodeURIComponent(semanaInicio)}`,
+    ),
+  escalaGestoresSalvar: (body: {
+    semana_inicio: string;
+    celulas: Array<{ id_gestor: number; dia: number; tipo?: string | null }>;
+  }) =>
+    request<EscalaGestoresGrade>('/escalas/visitas/gestores', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  escalaManutencaoSemana: (semanaInicio: string) =>
+    request<EscalaManutencaoGrade>(
+      `/escalas/visitas/manutencao?semana_inicio=${encodeURIComponent(semanaInicio)}`,
+    ),
+  escalaManutencaoSalvar: (body: {
+    semana_inicio: string;
+    celulas: Array<{ id_usuario: number; dia: number; tipo?: string | null }>;
+  }) =>
+    request<EscalaManutencaoGrade>('/escalas/visitas/manutencao', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
 
   metasPeriodos: () => request<MetasPeriodoResumo[]>('/metas/periodos'),
   metasPeriodo: (id: number) => request<MetasPeriodoDetalhe>(`/metas/periodos/${id}`),
@@ -2282,6 +2306,46 @@ export interface EscalaVisitasGrade {
   }>;
   lojas_destino?: EscalaVisitasLojaDestino[];
   linhas: EscalaVisitasLinha[];
+}
+
+export interface EscalaGestoresDia {
+  dia: number;
+  data: string;
+  tipo: 'folga' | 'ferias' | 'falta' | 'ausencia' | null;
+}
+
+export interface EscalaGestoresLinha {
+  id_gestor: number;
+  id_loja: number | null;
+  bk_number: string | null;
+  nome_loja: string | null;
+  nome: string;
+  grupo: 'loja' | 'campo';
+  folga_padrao: string | null;
+  dias: EscalaGestoresDia[];
+}
+
+export interface EscalaGestoresGrade {
+  semana_inicio: string;
+  semana_fim: string;
+  pode_editar: boolean;
+  linhas: EscalaGestoresLinha[];
+}
+
+export interface EscalaManutencaoLinha {
+  id_usuario: number;
+  nome: string;
+  id_regiao: number | null;
+  nome_regiao: string | null;
+  grupo: string;
+  dias: EscalaGestoresDia[];
+}
+
+export interface EscalaManutencaoGrade {
+  semana_inicio: string;
+  semana_fim: string;
+  pode_editar: boolean;
+  linhas: EscalaManutencaoLinha[];
 }
 
 export interface EscalaVisitasSalvarBody {

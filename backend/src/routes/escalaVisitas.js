@@ -17,6 +17,8 @@ import {
   submeterEscalaDelivery,
   submeterEscalaRegiao,
 } from '../escalaVisitas.js';
+import { carregarGradeGestores, salvarGradeGestores } from '../escalaGestores.js';
+import { carregarGradeManutencao, salvarGradeManutencao } from '../escalaManutencao.js';
 import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
@@ -296,6 +298,60 @@ router.patch('/notificacoes/lidas', async (req, res, next) => {
       id_notificacao: req.body?.id_notificacao ?? null,
     });
     res.json(out);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.get('/gestores', async (req, res, next) => {
+  try {
+    const semana_inicio = req.query.semana_inicio
+      ? segundaFeiraDaSemana(String(req.query.semana_inicio))
+      : segundaFeiraDaSemana(new Date());
+    const grade = await carregarGradeGestores(req.user, { semana_inicio });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.put('/gestores', async (req, res, next) => {
+  try {
+    const grade = await salvarGradeGestores(req.user, req.body || {});
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'salvar_escala_gestores',
+      entidade: 'escala_gestores',
+      descricao: `Escala de gestores semana ${grade?.semana_inicio || ''}`,
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.get('/manutencao', async (req, res, next) => {
+  try {
+    const semana_inicio = req.query.semana_inicio
+      ? segundaFeiraDaSemana(String(req.query.semana_inicio))
+      : segundaFeiraDaSemana(new Date());
+    const grade = await carregarGradeManutencao(req.user, { semana_inicio });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.put('/manutencao', async (req, res, next) => {
+  try {
+    const grade = await salvarGradeManutencao(req.user, req.body || {});
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'salvar_escala_manutencao',
+      entidade: 'escala_manutencao',
+      descricao: `Escala de manutenção semana ${grade?.semana_inicio || ''}`,
+    });
+    res.json(grade);
   } catch (e) {
     return erroHttp(e, res, next);
   }
