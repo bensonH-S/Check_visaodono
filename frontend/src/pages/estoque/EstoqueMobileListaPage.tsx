@@ -33,6 +33,11 @@ function fmtDataHora(iso: string | null | undefined) {
   });
 }
 
+function fmtBrl(v: number | null | undefined) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function fmtPct(v: number | null | undefined) {
   if (v == null || Number.isNaN(Number(v))) return '—';
   return `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
