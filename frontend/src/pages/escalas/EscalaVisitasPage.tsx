@@ -78,6 +78,7 @@ const TIPO_GESTOR_SX: Record<string, object> = {
 const TIPO_GESTOR_CICLO = [null, 'folga', 'ferias'] as const;
 const COR_MANUT = '#B45309';
 const COR_GESTORES = '#0F766E';
+const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 
 function proximoTipoGestor(atual: string | null) {
   const i = TIPO_GESTOR_CICLO.findIndex((t) => t === atual);
