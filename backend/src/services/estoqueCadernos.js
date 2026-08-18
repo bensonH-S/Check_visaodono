@@ -71,7 +71,7 @@ const ITENS_BREAK = [
   { nome: 'BATATA MEDIA', aliases: ['batata media', 'batata med'] },
   { nome: 'CASQUINHA DOCE DE LEITE', aliases: ['casquinha doce de leite'] },
   { nome: 'FREE REFIL', aliases: ['free refil', 'refil', 'refill'] },
-  { nome: 'REFRI PEPSI LATA', aliases: ['pepsi lata', 'refrigerante pepsi'] },
+  { nome: 'REFRI COCA LATA', aliases: ['coca lata', 'refrigerante coca', 'coca-cola lata'] },
   { nome: 'REFRI GUARANA LATA', aliases: ['guarana lata', 'refrigerante guarana'] },
   { nome: 'AGUA MINERAL BURGER KING', aliases: ['agua mineral', 'agua bk'] },
   { nome: 'SUNDAE BAUNILHA', aliases: ['sundae baunilha'] },
