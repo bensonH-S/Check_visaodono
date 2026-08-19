@@ -7,12 +7,18 @@ const RANKINGS_PERCENTUAL = new Set([
   'rank_delivery',
   'rank_ano_anterior',
   'rank_nps',
-  'rank_google',
   'rank_checklist_360',
 ]);
 
+/** Google: nota 1–5 (ex.: 4.8), não percentual. */
+const RANKINGS_NOTA = new Set(['rank_google']);
+
 export function rankingValorPercentual(codigo: string): boolean {
   return RANKINGS_PERCENTUAL.has(codigo);
+}
+
+export function rankingValorNota(codigo: string): boolean {
+  return RANKINGS_NOTA.has(codigo);
 }
 
 export function rankingColunaRevRec(codigo: string): boolean {
@@ -20,10 +26,18 @@ export function rankingColunaRevRec(codigo: string): boolean {
 }
 
 export function rankingDecimaisValor(codigo: string): number {
+  if (codigo === 'rank_google') return 1;
   if (codigo === 'rank_rev') return 4;
   if (codigo === 'rank_delivery') return 2;
-  if (codigo === 'rank_nps' || codigo === 'rank_ano_anterior' || codigo === 'rank_google') return 3;
+  if (codigo === 'rank_nps' || codigo === 'rank_ano_anterior') return 3;
   return 3;
+}
+
+/** Dados antigos do Google vieram como fração (0.048 = 4.8). */
+export function notaGoogleAbsoluta(valor: number | null | undefined): number | null {
+  if (valor == null || Number.isNaN(Number(valor))) return null;
+  const n = Number(valor);
+  return Math.abs(n) <= 1 ? n * 100 : n;
 }
 
 export const OPCOES_REV_CLASSE = [
@@ -127,6 +141,41 @@ export function mesmosValoresPercentuais(
   if (a == null && b == null) return true;
   if (a == null || b == null) return false;
   return Math.abs(Number(a) - Number(b)) < 1e-10;
+}
+
+export function formatValorNotaExibicao(
+  valor_numero: number | null,
+  valor_texto: string | null,
+  decimais = 1,
+): string {
+  if (valor_texto && valor_texto.toUpperCase() !== 'DEMANDA') return valor_texto;
+  const nota = notaGoogleAbsoluta(valor_numero);
+  if (nota == null) return '';
+  return nota.toFixed(decimais);
+}
+
+export function parseValorNota(
+  input: string,
+  decimais = 1,
+): { valor_numero: number | null; valor_texto: string | null } {
+  const s = input.trim().replace('%', '').trim();
+  if (!s) return { valor_numero: null, valor_texto: null };
+  const n = Number(s.replace(',', '.'));
+  if (Number.isNaN(n)) return { valor_numero: null, valor_texto: s };
+  const nota = notaGoogleAbsoluta(n) ?? n;
+  const factor = 10 ** decimais;
+  return { valor_numero: Math.round(nota * factor) / factor, valor_texto: null };
+}
+
+export function mesmosValoresNota(
+  a: number | null | undefined,
+  b: number | null | undefined,
+): boolean {
+  const na = notaGoogleAbsoluta(a);
+  const nb = notaGoogleAbsoluta(b);
+  if (na == null && nb == null) return true;
+  if (na == null || nb == null) return false;
+  return Math.abs(na - nb) < 1e-6;
 }
 
 export function parsePontosRanking(input: string): number | null {

@@ -16,6 +16,7 @@ import type { MetasRankingGrupo, MetasRankingLinha } from '../../api/client';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import {
+  formatValorNotaExibicao,
   formatValorPercentualExibicao,
   formatValorPercentualLeitura,
   linhaRevDemanda,
@@ -23,11 +24,14 @@ import {
   OPCOES_REV_CLASSE,
   OPCOES_REV_FAIXA,
   ordenarLinhasPorCriticoAsc,
+  mesmosValoresNota,
   mesmosValoresPercentuais,
   parsePontosRanking,
+  parseValorNota,
   parseValorPercentual,
   rankingColunaRevRec,
   rankingDecimaisValor,
+  rankingValorNota,
   rankingValorPercentual,
 } from './metasRankingUtils';
 
@@ -64,12 +68,19 @@ function RankingLinhaValor({
   onSalvar: (patch: Pick<RankingPatch, 'valor_numero' | 'valor_texto'>) => void;
 }) {
   const percentual = rankingValorPercentual(codigo);
+  const nota = rankingValorNota(codigo);
   const decimais = rankingDecimaisValor(codigo);
-  const [local, setLocal] = useState(() => formatValorPercentualExibicao(linha.valor_numero, linha.valor_texto, decimais));
+  const formatLocal = () =>
+    nota
+      ? formatValorNotaExibicao(linha.valor_numero, linha.valor_texto, decimais)
+      : percentual
+        ? formatValorPercentualExibicao(linha.valor_numero, linha.valor_texto, decimais)
+        : linha.valor_texto ?? (linha.valor_numero != null ? String(linha.valor_numero) : '');
+  const [local, setLocal] = useState(formatLocal);
 
   useEffect(() => {
-    setLocal(formatValorPercentualExibicao(linha.valor_numero, linha.valor_texto, decimais));
-  }, [linha.valor_numero, linha.valor_texto, decimais]);
+    setLocal(formatLocal());
+  }, [linha.valor_numero, linha.valor_texto, decimais, nota, percentual]);
 
   if (demanda) {
     return (
@@ -82,14 +93,26 @@ function RankingLinhaValor({
   if (!podeEditar) {
     return (
       <Typography component="span" variant="body2" sx={{ fontSize: '0.8rem' }}>
-        {percentual
-          ? formatValorPercentualLeitura(linha.valor_numero, linha.valor_texto, codigo)
-          : linha.valor_texto ?? (linha.valor_numero != null ? linha.valor_numero : '—')}
+        {nota
+          ? formatValorNotaExibicao(linha.valor_numero, linha.valor_texto, decimais) || '—'
+          : percentual
+            ? formatValorPercentualLeitura(linha.valor_numero, linha.valor_texto, codigo)
+            : linha.valor_texto ?? (linha.valor_numero != null ? linha.valor_numero : '—')}
       </Typography>
     );
   }
 
   const commit = () => {
+    if (nota) {
+      const parsed = parseValorNota(local, decimais);
+      const mudouNumero = !mesmosValoresNota(parsed.valor_numero, linha.valor_numero);
+      const mudouTexto = (parsed.valor_texto ?? null) !== (linha.valor_texto ?? null);
+      if (mudouNumero || mudouTexto) {
+        onSalvar(parsed);
+      }
+      setLocal(formatValorNotaExibicao(parsed.valor_numero, parsed.valor_texto, decimais));
+      return;
+    }
     if (percentual) {
       const parsed = parseValorPercentual(local, decimais);
       const mudouNumero = !mesmosValoresPercentuais(parsed.valor_numero, linha.valor_numero);
@@ -250,6 +273,7 @@ export default function MetasRankingTable({
   onSalvarLinha: (idRanking: number, patch: RankingPatch) => Promise<void>;
 }) {
   const valorPercentual = rankingValorPercentual(grupo.codigo);
+  const valorNota = rankingValorNota(grupo.codigo);
   const isRev = rankingColunaRevRec(grupo.codigo);
   const colunas = isRev ? 8 : 6;
 
@@ -273,7 +297,10 @@ export default function MetasRankingTable({
         </Typography>
         {grupo.meta_minima != null && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            Meta mínima: {formatValorPercentualLeitura(grupo.meta_minima, null, grupo.codigo)}
+            Meta mínima:{' '}
+            {valorNota
+              ? formatValorNotaExibicao(grupo.meta_minima, null, rankingDecimaisValor(grupo.codigo))
+              : formatValorPercentualLeitura(grupo.meta_minima, null, grupo.codigo)}
           </Typography>
         )}
         {podeEditar && (
@@ -292,9 +319,11 @@ export default function MetasRankingTable({
               <TableCell sx={{ fontWeight: 700 }}>Loja</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>BKN</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700 }}>
-                {valorPercentual
-                  ? `Valor (${rankingDecimaisValor(grupo.codigo)} dec. %)`
-                  : 'Valor'}
+                {valorNota
+                  ? 'Nota'
+                  : valorPercentual
+                    ? `Valor (${rankingDecimaisValor(grupo.codigo)} dec. %)`
+                    : 'Valor'}
               </TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>Pts</TableCell>
               {isRev ? (
