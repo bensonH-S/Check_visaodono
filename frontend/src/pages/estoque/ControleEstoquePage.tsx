@@ -55,6 +55,11 @@ import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
+import {
+  ehContagemParcial,
+  rotuloTipoContagem,
+  type TipoContagemEstoque,
+} from '../../components/estoque/estoqueContagemTipo';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import Tooltip from '@mui/material/Tooltip';
 
@@ -479,7 +484,7 @@ export default function ControleEstoquePage() {
     }
   }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
 
-  const iniciarSabado = async (tipo: 'critica_semanal' | 'completa' = 'critica_semanal') => {
+  const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
     if (!podeEditarConferencia || !idLoja) return;
     setIniciando(true);
     try {
@@ -487,7 +492,12 @@ export default function ControleEstoquePage() {
       await carregarListaContagens();
       aplicarContagem(det, setContagem, setRascunhoItens);
       setVerDetalhe(true);
-      const label = tipo === 'critica_semanal' ? 'Contagem semanal' : 'Contagem completa';
+      const label =
+        tipo === 'diaria'
+          ? 'Contagem diária'
+          : tipo === 'critica_semanal'
+            ? 'Contagem semanal'
+            : 'Contagem completa';
       showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
       irParaAba('conferencia');
     } catch (e) {
@@ -640,11 +650,11 @@ export default function ControleEstoquePage() {
   const valorAtualLista = useMemo(() => {
     if (listaContagens[0]?.valor_atual_loja != null) return listaContagens[0].valor_atual_loja;
     const abertaCompleta = listaContagens.find(
-      (c) => c.status === 'aberta' && c.tipo !== 'critica_semanal',
+      (c) => c.status === 'aberta' && !ehContagemParcial(c.tipo),
     );
     if (abertaCompleta?.total_valor != null) return abertaCompleta.total_valor;
     const ultimaCompleta = listaContagens.find(
-      (c) => c.status === 'finalizada' && c.tipo !== 'critica_semanal',
+      (c) => c.status === 'finalizada' && !ehContagemParcial(c.tipo),
     );
     return ultimaCompleta?.total_valor ?? null;
   }, [listaContagens]);
@@ -804,7 +814,8 @@ export default function ControleEstoquePage() {
                             Conferência — contagem de insumos
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            Conta carne, pão, batata… (itens físicos). Não se conta Whopper pronto.
+                            Diária puxa os produtos de giro do cadastro da loja — cada linha é o
+                            insumo real (código e descrição), não um grupo genérico.
                           </Typography>
                           {lojaAtual && (
                             <Typography
@@ -824,9 +835,17 @@ export default function ControleEstoquePage() {
                                 variant="contained"
                                 startIcon={<PlayArrowIcon />}
                                 disabled={iniciando}
+                                onClick={() => void iniciarSabado('diaria')}
+                              >
+                                Diária
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                startIcon={<PlayArrowIcon />}
+                                disabled={iniciando}
                                 onClick={() => void iniciarSabado('critica_semanal')}
                               >
-                                Semanal (críticos)
+                                Semanal
                               </Button>
                               <Button
                                 variant="outlined"
@@ -968,6 +987,14 @@ export default function ControleEstoquePage() {
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: aberta ? 700 : 500 }}>
                                       {c.titulo || `Conferência #${c.id_contagem}`}
+                                      <Typography
+                                        component="span"
+                                        variant="caption"
+                                        color="text.secondary"
+                                        sx={{ ml: 1, fontWeight: 600 }}
+                                      >
+                                        {rotuloTipoContagem(c.tipo)}
+                                      </Typography>
                                     </TableCell>
                                     <TableCell sx={{ color: colors.textSecondary }}>
                                       {c.criado_por_nome || '—'}

@@ -81,11 +81,13 @@ async function replicar(dbName) {
         `
         INSERT INTO insumos (
           codigo, descricao, id_loja, unidade_contagem, preco_caixa,
-          und_convertida, ativo, criado_em, atualizado_em
+          und_convertida, ativo, criado_em, atualizado_em,
+          contagem_critica, grupo_critico, contagem_diaria, grupo_diario
         )
         SELECT
           i.codigo, i.descricao, $1, i.unidade_contagem, i.preco_caixa,
-          i.und_convertida, i.ativo, NOW(), NOW()
+          i.und_convertida, i.ativo, NOW(), NOW(),
+          i.contagem_critica, i.grupo_critico, i.contagem_diaria, i.grupo_diario
         FROM insumos i
         WHERE i.id_loja = $2
         ON CONFLICT (id_loja, codigo) DO UPDATE SET
@@ -94,6 +96,10 @@ async function replicar(dbName) {
           preco_caixa = EXCLUDED.preco_caixa,
           und_convertida = EXCLUDED.und_convertida,
           ativo = EXCLUDED.ativo,
+          contagem_critica = EXCLUDED.contagem_critica,
+          grupo_critico = EXCLUDED.grupo_critico,
+          contagem_diaria = EXCLUDED.contagem_diaria,
+          grupo_diario = EXCLUDED.grupo_diario,
           atualizado_em = NOW()
         `,
         [id, LOJA_MODELO],

@@ -477,14 +477,18 @@ export default function EstoqueMobileConferenciaPage() {
           >
             ←
           </button>
-          <h1 className="ck-estoque__contagem-title">CONTAGEM</h1>
+          <h1 className="ck-estoque__contagem-title">
+            {contagem?.tipo === 'diaria' ? 'DIÁRIA' : 'CONTAGEM'}
+          </h1>
           <div className="ck-estoque__contagem-total">
             <span>TOTAL</span>
             <strong>{loading ? '—' : fmtBrl(resumo.totalValor)}</strong>
           </div>
         </div>
         <p className="ck-estoque__contagem-sub">
-          {contagem?.titulo || 'Contagem de insumos'}
+          {contagem?.tipo === 'diaria'
+            ? 'Produtos do estoque da loja'
+            : contagem?.titulo || 'Contagem de insumos'}
           {contagem?.data_contagem
             ? ` · ${new Date(contagem.data_contagem + 'T12:00:00').toLocaleDateString('pt-BR')}`
             : ''}
@@ -508,7 +512,11 @@ export default function EstoqueMobileConferenciaPage() {
         <div className="ck-estoque__busca-wrap">
           <input
             type="search"
-            placeholder="Buscar em todas as seções…"
+            placeholder={
+              contagem?.tipo === 'diaria'
+                ? 'Buscar produto do estoque…'
+                : 'Buscar em todas as seções…'
+            }
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             disabled={loading || !contagem}

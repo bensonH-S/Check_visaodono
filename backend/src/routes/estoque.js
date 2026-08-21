@@ -5,7 +5,7 @@ import { requirePermissao } from '../permissoes.js';
 import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
-import { calcularQtdContagem } from '../services/estoqueContagem.js';
+import { calcularQtdContagem, flagsContagemDiaria } from '../services/estoqueContagem.js';
 import { parseNfeXml } from '../services/nfeXml.js';
 import estoqueOperacional from './estoqueOperacional.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
@@ -78,6 +78,9 @@ function hojeISOBrasil() {
 function tituloConferencia(dataISO, tipo = 'completa') {
   const [y, m, d] = String(dataISO || '').split('-');
   const dataLabel = y && m && d ? `${d}/${m}/${y}` : null;
+  if (tipo === 'diaria') {
+    return dataLabel ? `Diária ${dataLabel}` : 'Contagem diária';
+  }
   if (tipo === 'critica_semanal') {
     return dataLabel ? `Semanal críticos ${dataLabel}` : 'Contagem semanal (críticos)';
   }
@@ -87,8 +90,25 @@ function tituloConferencia(dataISO, tipo = 'completa') {
 
 function normalizarTipoContagem(raw) {
   const t = String(raw || 'completa').trim().toLowerCase();
+  if (t === 'diaria' || t === 'diario' || t === 'dia') return 'diaria';
   if (t === 'critica_semanal' || t === 'semanal' || t === 'critica') return 'critica_semanal';
   return 'completa';
+}
+
+function filtroItensPorTipo(tipoContagem) {
+  if (tipoContagem === 'diaria') return ' AND p.contagem_diaria = TRUE';
+  if (tipoContagem === 'critica_semanal') return ' AND p.contagem_critica = TRUE';
+  return '';
+}
+
+function erroSemItensTipo(tipoContagem) {
+  if (tipoContagem === 'diaria') {
+    return 'Nenhum item de contagem diária nesta loja (carne, frango, queijo, bacon, pão, batata, óleo, copos/xarope)';
+  }
+  if (tipoContagem === 'critica_semanal') {
+    return 'Nenhum item crítico cadastrado nesta loja (mix, carnes, pão, batata, latas)';
+  }
+  return null;
 }
 
 async function criarContagemComItens(
@@ -97,7 +117,8 @@ async function criarContagemComItens(
 ) {
   if (!id_loja) throw Object.assign(new Error('Loja obrigatória'), { status: 400 });
   const tipoContagem = normalizarTipoContagem(tipo);
-  const filtroCriticos = tipoContagem === 'critica_semanal' ? ' AND p.contagem_critica = TRUE' : '';
+  const filtroItens = filtroItensPorTipo(tipoContagem);
+  const erroVazio = erroSemItensTipo(tipoContagem);
 
   const { rows: cont } = await client.query(
     `INSERT INTO estoque_contagens (id_loja, data_contagem, titulo, status, observacao, criado_por, tipo)
@@ -126,28 +147,24 @@ async function criarContagemComItens(
            AND c.id_loja = $2
          ORDER BY i.id_insumo, c.data_contagem DESC, c.id_contagem DESC
        ) u ON u.id_insumo = p.id_insumo
-       WHERE p.ativo = TRUE AND p.id_loja = $2${filtroCriticos}`,
+       WHERE p.ativo = TRUE AND p.id_loja = $2${filtroItens}
+       ORDER BY p.secao_contagem NULLS LAST, p.ordem_contagem NULLS LAST, p.descricao`,
       [idContagem, id_loja],
     );
-    if (tipoContagem === 'critica_semanal' && !rowCount) {
-      throw Object.assign(
-        new Error('Nenhum item crítico cadastrado nesta loja (mix, carnes, pão, batata, latas)'),
-        { status: 400 },
-      );
+    if (erroVazio && !rowCount) {
+      throw Object.assign(new Error(erroVazio), { status: 400 });
     }
   } else {
     const { rowCount } = await client.query(
       `INSERT INTO estoque_itens (id_contagem, id_insumo, estoque_sistema, estoque_contado)
        SELECT $1, p.id_insumo, 0, NULL
        FROM insumos p
-       WHERE p.ativo = TRUE AND p.id_loja = $2${filtroCriticos}`,
+       WHERE p.ativo = TRUE AND p.id_loja = $2${filtroItens}
+       ORDER BY p.secao_contagem NULLS LAST, p.ordem_contagem NULLS LAST, p.descricao`,
       [idContagem, id_loja],
     );
-    if (tipoContagem === 'critica_semanal' && !rowCount) {
-      throw Object.assign(
-        new Error('Nenhum item crítico cadastrado nesta loja (mix, carnes, pão, batata, latas)'),
-        { status: 400 },
-      );
+    if (erroVazio && !rowCount) {
+      throw Object.assign(new Error(erroVazio), { status: 400 });
     }
   }
   return idContagem;
@@ -525,7 +542,7 @@ async function carregarContagem(id) {
      FROM estoque_itens i
      JOIN insumos p ON p.id_insumo = i.id_insumo
      WHERE i.id_contagem = $1
-     ORDER BY p.ordem_contagem NULLS LAST, p.descricao, i.id_item`,
+     ORDER BY p.secao_contagem NULLS LAST, p.ordem_contagem NULLS LAST, p.descricao, i.id_item`,
     [id],
   );
 
@@ -653,11 +670,22 @@ async function criarInsumo(req, res, next) {
       return res.status(400).json({ error: 'UND parcial (PC/FD) deve ser maior que zero' });
     }
 
+    const diaria = flagsContagemDiaria(descricao);
     const { rows } = await pool.query(
-      `INSERT INTO insumos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, und_parcial, ativo)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+      `INSERT INTO insumos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, und_parcial, ativo, contagem_diaria, grupo_diario)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9)
        RETURNING *`,
-      [idLoja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, und_parcial],
+      [
+        idLoja,
+        codigo,
+        descricao,
+        unidade_contagem,
+        preco_caixa,
+        und_convertida,
+        und_parcial,
+        diaria.contagem_diaria,
+        diaria.grupo_diario,
+      ],
     );
     await auditar(req, {
       modulo: 'estoque',
@@ -714,12 +742,13 @@ async function atualizarInsumo(req, res, next) {
       return res.status(400).json({ error: 'UND parcial (PC/FD) deve ser maior que zero' });
     }
 
+    const diaria = flagsContagemDiaria(descricao);
     const { rows } = await pool.query(
       `UPDATE insumos
        SET codigo = $1, descricao = $2, unidade_contagem = $3,
            preco_caixa = $4, und_convertida = $5, und_parcial = $6,
-           ativo = $7, atualizado_em = NOW()
-       WHERE id_insumo = $8 AND id_loja = $9
+           ativo = $7, contagem_diaria = $8, grupo_diario = $9, atualizado_em = NOW()
+       WHERE id_insumo = $10 AND id_loja = $11
        RETURNING *`,
       [
         codigo,
@@ -729,6 +758,8 @@ async function atualizarInsumo(req, res, next) {
         und_convertida,
         und_parcial,
         ativo,
+        diaria.contagem_diaria,
+        diaria.grupo_diario,
         id,
         prev.id_loja,
       ],
@@ -982,7 +1013,7 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
 
     const hoje = hojeISOBrasil();
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
-    const tipo = normalizarTipoContagem(req.body?.tipo || 'critica_semanal');
+    const tipo = normalizarTipoContagem(req.body?.tipo || 'diaria');
     const metaBase = { hoje, id_loja: idLoja, tipo };
 
     const { rows: abertas } = await pool.query(

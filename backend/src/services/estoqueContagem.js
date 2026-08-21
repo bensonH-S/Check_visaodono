@@ -19,6 +19,52 @@ export function normalizarDesc(desc) {
     .trim();
 }
 
+const GRUPOS_DIARIOS = ['carne', 'frango', 'queijo', 'bacon', 'pao', 'batata', 'oleo', 'refil'];
+
+/**
+ * Itens de giro alto que o restaurante conta todo dia no app.
+ * carne bovina, frango, queijo, bacon, pão, batata, óleo, copos/xarope do free refill.
+ */
+export function classificarGrupoDiario(descricao) {
+  const d = normalizarDesc(descricao);
+  if (!d) return null;
+
+  if (/\bBATATA\b/.test(d) && !/\b(CARTONAGEM|CART BATATA|FUNDO|TAMPA|SAQUINHO|EMBALAG)\b/.test(d)) {
+    return 'batata';
+  }
+  if (/\bPAO\b/.test(d) && !/\b(CESTO|BRINDE|CART)\b/.test(d)) return 'pao';
+  if (/\bOLEO\b/.test(d) && !/\b(KIT|MEDIDOR)\b/.test(d)) return 'oleo';
+  if (/\bQUEIJO\b/.test(d) && !/\bMOLHO\b/.test(d)) return 'queijo';
+  if (/\bBACON\b/.test(d) && !/\b(MAIONESE|BACONESE|SACHET|MOLHO)\b/.test(d)) return 'bacon';
+  if (
+    /\b(CHICKEN|FRANGO)\b/.test(d) &&
+    !/\b(LAMINA|SACO |CARTON|MARMITA|ESTROGONOFF|BRINDE)\b/.test(d)
+  ) {
+    return 'frango';
+  }
+  if (/\bCARNE\b/.test(d) && !/\b(MARMITA|BRINDE|CART)\b/.test(d)) return 'carne';
+  if (
+    /\bCOPO\b/.test(d) &&
+    /\b(REFRIG|550)\b/.test(d) &&
+    !/\b(SHAKE|SUNDAE|CORTESIA|MIX|MINIONS|PORTA|TAMPA)\b/.test(d)
+  ) {
+    return 'refil';
+  }
+  if (/\bFREE REFIL/.test(d) || /\bFREE REFILL/.test(d)) return 'refil';
+  if (/\bBAG\b/.test(d) && /18\s*LT/.test(d) && /\b(COCA|FANTA|SPRITE|GUARANA)\b/.test(d)) {
+    return 'refil';
+  }
+  return null;
+}
+
+export function flagsContagemDiaria(descricao) {
+  const grupo = classificarGrupoDiario(descricao);
+  if (!grupo || !GRUPOS_DIARIOS.includes(grupo)) {
+    return { contagem_diaria: false, grupo_diario: null };
+  }
+  return { contagem_diaria: true, grupo_diario: grupo };
+}
+
 /**
  * Unidade de contagem do insumo (kg | und | L).
  * Regras de negócio (piloto Terraço / CMV):

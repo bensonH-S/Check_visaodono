@@ -979,7 +979,7 @@ export const api = {
   },
   estoqueContagemAtual: (idLoja: number) =>
     request<EstoqueContagemDetalhe>(`/estoque/contagens/atual?id_loja=${idLoja}`),
-  estoqueIniciarSabado: (body: { id_loja: number; tipo?: 'completa' | 'critica_semanal' }) =>
+  estoqueIniciarSabado: (body: { id_loja: number; tipo?: 'completa' | 'critica_semanal' | 'diaria' }) =>
     request<EstoqueContagemDetalhe>('/estoque/contagens/iniciar-sabado', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -991,7 +991,7 @@ export const api = {
     titulo?: string;
     observacao?: string;
     usar_ultimo_estoque?: boolean;
-    tipo?: 'completa' | 'critica_semanal';
+    tipo?: 'completa' | 'critica_semanal' | 'diaria';
     reutilizar_aberta?: boolean;
   }) =>
     request<EstoqueContagemDetalhe>('/estoque/contagens', {
@@ -2564,7 +2564,7 @@ export interface EstoqueContagemResumo {
   loja_codigo?: string | null;
   data_contagem: string;
   titulo: string | null;
-  tipo?: 'completa' | 'critica_semanal' | string;
+  tipo?: 'completa' | 'critica_semanal' | 'diaria' | string;
   status: 'aberta' | 'finalizada' | string;
   observacao?: string | null;
   total_valor: number | null;

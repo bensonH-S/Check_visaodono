@@ -16,8 +16,23 @@ import { getUsuario, lojaEstoqueTravadaMobile, podeReabrirContagemEstoque } from
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
+import {
+  ehContagemParcial,
+  rotuloTipoContagem,
+  type TipoContagemEstoque,
+} from '../../components/estoque/estoqueContagemTipo';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
+
+function hojeIsoSp() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+function labelIniciar(tipo: TipoContagemEstoque) {
+  if (tipo === 'diaria') return 'Contagem diária';
+  if (tipo === 'critica_semanal') return 'Contagem semanal';
+  return 'Contagem completa';
+}
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
@@ -153,14 +168,19 @@ export default function EstoqueMobileListaPage() {
   const valorAtualLoja = useMemo(() => {
     if (lista[0]?.valor_atual_loja != null) return lista[0].valor_atual_loja;
     const abertaCompleta = lista.find(
-      (c) => c.status === 'aberta' && c.tipo !== 'critica_semanal',
+      (c) => c.status === 'aberta' && !ehContagemParcial(c.tipo),
     );
     if (abertaCompleta?.total_valor != null) return abertaCompleta.total_valor;
     const ultimaCompleta = lista.find(
-      (c) => c.status === 'finalizada' && c.tipo !== 'critica_semanal',
+      (c) => c.status === 'finalizada' && !ehContagemParcial(c.tipo),
     );
     return ultimaCompleta?.total_valor ?? null;
   }, [lista]);
+  const diariaHoje = useMemo(() => {
+    const hoje = hojeIsoSp();
+    return lista.find((c) => c.tipo === 'diaria' && String(c.data_contagem || '').slice(0, 10) === hoje) || null;
+  }, [lista]);
+  const faltaDiariaHoje = Boolean(idLoja && (!diariaHoje || diariaHoje.status !== 'finalizada'));
   const valorBreakMes = lista[0]?.valor_break_mes ?? null;
   const valorDesperdicioMes = lista[0]?.valor_desperdicio_mes ?? null;
   const valorComprasMes = lista[0]?.valor_compras_mes ?? null;
@@ -195,7 +215,7 @@ export default function EstoqueMobileListaPage() {
     return () => travarScrollPagina(false);
   }, [dlgLoja, reabrirAlvo, dlgTipo]);
 
-  const iniciar = async (tipo: 'critica_semanal' | 'completa') => {
+  const iniciar = async (tipo: TipoContagemEstoque) => {
     if (!idLoja) return;
     setIniciando(true);
     setDlgTipo(false);
@@ -206,7 +226,7 @@ export default function EstoqueMobileListaPage() {
           state: { contagemPreload: det },
         });
       }
-      const label = tipo === 'critica_semanal' ? 'Contagem semanal' : 'Contagem completa';
+      const label = labelIniciar(tipo);
       showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
       await carregarLista(idLoja);
     } catch (e) {
@@ -345,15 +365,35 @@ export default function EstoqueMobileListaPage() {
           </div>
 
           {idLoja ? (
-            <button
-              type="button"
-              className="ck-estoque-nfe__atalho"
-              onClick={() => navigate('/estoque/mobile/nfes')}
-            >
-              <LocalShippingOutlinedIcon fontSize="small" />
-              <span>Receber NF · só marcar o que chegou</span>
-              <span aria-hidden>›</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className={`ck-estoque-nfe__atalho${faltaDiariaHoje ? ' is-diario' : ''}`}
+                disabled={iniciando}
+                onClick={() => void iniciar('diaria')}
+              >
+                <span className="ck-estoque-nfe__atalho-main">
+                  <strong>
+                    {diariaHoje?.status === 'aberta'
+                      ? 'Continuar contagem diária de hoje'
+                      : diariaHoje?.status === 'finalizada'
+                        ? 'Diária de hoje · feita'
+                        : 'Contagem diária de hoje'}
+                  </strong>
+                  <small>Produtos de giro do cadastro da loja</small>
+                </span>
+                <span aria-hidden>›</span>
+              </button>
+              <button
+                type="button"
+                className="ck-estoque-nfe__atalho"
+                onClick={() => navigate('/estoque/mobile/nfes')}
+              >
+                <LocalShippingOutlinedIcon fontSize="small" />
+                <span>Receber NF · só marcar o que chegou</span>
+                <span aria-hidden>›</span>
+              </button>
+            </>
           ) : null}
         </div>
 
@@ -365,14 +405,14 @@ export default function EstoqueMobileListaPage() {
               {lojaAtual
                 ? filtro !== 'todas' && lista.length > 0
                   ? 'Nenhuma conferência neste filtro.'
-                  : 'Nenhuma conferência nesta loja. Toque no + para iniciar.'
+                  : 'Nenhuma conferência nesta loja. Toque em contagem diária para começar.'
                 : 'Selecione a loja para começar.'}
             </div>
           )}
 
           {filtrada.map((c) => {
             const aberta = c.status === 'aberta';
-            const semanal = c.tipo === 'critica_semanal';
+            const parcial = ehContagemParcial(c.tipo);
             const divergencias = c.divergencias ?? 0;
             const pendentes = c.pendentes ?? 0;
             const mostrarReabrir = podeReabrir && !aberta;
@@ -402,7 +442,7 @@ export default function EstoqueMobileListaPage() {
                   <div className="ck-estoque__card-title">
                     <strong>{c.titulo || `Conferência #${c.id_contagem}`}</strong>
                     <span className="ck-estoque__card-tipo">
-                      {semanal ? 'Semanal · críticos' : 'Completa'}
+                      {rotuloTipoContagem(c.tipo)}
                       {dataCurta ? ` · ${dataCurta}` : ''}
                     </span>
                   </div>
@@ -415,7 +455,7 @@ export default function EstoqueMobileListaPage() {
 
                 <div className="ck-estoque__card-valor">
                   <strong>{valorPrincipal}</strong>
-                  <span>{semanal ? 'Valor parcial' : 'Valor da contagem'}</span>
+                  <span>{parcial ? 'Valor parcial' : 'Valor da contagem'}</span>
                 </div>
 
                 <div className="ck-estoque__card-foot">
@@ -496,16 +536,25 @@ export default function EstoqueMobileListaPage() {
                   </button>
                 </div>
                 <p className="ck-estoque__confirm-text">
-                  Semanal: só mix, carnes, pão, batata e latas. Completa: todos os insumos da loja.
+                  Diária puxa do estoque da loja os produtos de giro (carnes, pães, queijo, copos…).
+                  Semanal: mix e latas. Completa: todos os insumos.
                 </p>
                 <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column' }}>
                   <button
                     type="button"
                     className="ck-estoque__btn ck-estoque__btn--primary"
                     disabled={iniciando}
+                    onClick={() => void iniciar('diaria')}
+                  >
+                    {iniciando ? 'Abrindo…' : 'Contagem diária'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ck-estoque__btn ck-estoque__btn--ghost"
+                    disabled={iniciando}
                     onClick={() => void iniciar('critica_semanal')}
                   >
-                    {iniciando ? 'Abrindo…' : 'Contagem semanal (críticos)'}
+                    Contagem semanal (críticos)
                   </button>
                   <button
                     type="button"

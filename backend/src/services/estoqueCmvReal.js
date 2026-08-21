@@ -831,6 +831,15 @@ export async function statusDisciplinaEstoque(idLoja, { hoje = null } = {}) {
      LIMIT 1`,
     [id],
   );
+  const { rows: diariaHoje } = await pool.query(
+    `SELECT id_contagem, data_contagem
+     FROM estoque_contagens
+     WHERE id_loja = $1 AND status = 'finalizada'
+       AND tipo = 'diaria'
+       AND data_contagem = $2::date
+     LIMIT 1`,
+    [id, hojeIso],
+  );
   const { rows: abertas } = await pool.query(
     `SELECT COUNT(*)::int AS qtd FROM estoque_contagens
      WHERE id_loja = $1 AND status = 'aberta'`,
@@ -861,6 +870,14 @@ export async function statusDisciplinaEstoque(idLoja, { hoje = null } = {}) {
         diasCompleta == null
           ? 'Nenhuma contagem completa finalizada.'
           : `Última completa há ${diasCompleta} dias (meta ≤ 35).`,
+    });
+  }
+  if (!diariaHoje[0]) {
+    alertas.push({
+      tipo: 'contagem_diaria_pendente',
+      severidade: 'alta',
+      mensagem:
+        'Contagem diária de hoje ainda não foi feita (produtos de giro do estoque da loja).',
     });
   }
   if (diasCritica == null || diasCritica > 10) {

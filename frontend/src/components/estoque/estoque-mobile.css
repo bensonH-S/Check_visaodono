@@ -1667,6 +1667,27 @@
   margin-left: auto;
   opacity: 0.45;
 }
+.ck-estoque-nfe__atalho-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+.ck-estoque-nfe__atalho-main strong {
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+.ck-estoque-nfe__atalho-main small {
+  font-weight: 600;
+  font-size: 0.74rem;
+  opacity: 0.72;
+}
+.ck-estoque-nfe__atalho.is-diario {
+  border-color: rgba(232, 82, 10, 0.38);
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  color: #9a3412;
+}
 .ck-estoque-nfe__loja {
   margin: 0;
   padding: 0 4px 8px;
