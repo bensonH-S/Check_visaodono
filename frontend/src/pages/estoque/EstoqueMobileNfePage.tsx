@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import {
@@ -188,7 +188,7 @@ export default function EstoqueMobileNfePage() {
         id_item: c.id_item,
         conferido: true,
         qtd_conferida: c.ok ? c.qtd_recebida : 0,
-        divergencia_obs: c.ok ? null : 'Não chegou na entrega',
+        divergencia_obs: c.ok ? undefined : 'Não chegou na entrega',
       }));
       const r = await api.estoqueNfeConferir(det.id_nfe, { itens });
       showToast(
@@ -280,7 +280,7 @@ export default function EstoqueMobileNfePage() {
                       disabled={semMatch && esp <= 0}
                       onClick={() => marcar(it.id_item, true)}
                     >
-                      <CheckCircleOutlineIcon />
+                      <CheckCircleOutlinedIcon />
                     </button>
                     <button
                       type="button"
