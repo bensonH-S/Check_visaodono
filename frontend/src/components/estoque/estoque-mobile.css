@@ -388,9 +388,9 @@
   display: block;
   width: 100%;
   text-align: left;
-  margin: 0 0 10px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  margin: 0 0 12px;
+  padding: 16px 16px 14px;
+  border-radius: 16px;
   border: 1px solid rgba(27, 42, 107, 0.1);
   background: #fff;
   box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
@@ -399,18 +399,101 @@
   color: inherit;
 }
 
+.ck-estoque .ck-estoque__card--lista.is-aberta {
+  border-color: rgba(232, 82, 10, 0.35);
+  box-shadow: 0 0 0 1px rgba(232, 82, 10, 0.08);
+}
+
 .ck-estoque .ck-estoque__card-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.ck-estoque .ck-estoque__card-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ck-estoque .ck-estoque__card-top strong,
+.ck-estoque .ck-estoque__card-title strong {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+  line-height: 1.25;
+}
+
+.ck-estoque .ck-estoque__card-tipo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-estoque .ck-estoque__status {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.ck-estoque .ck-estoque__status.is-aberta {
+  background: rgba(232, 82, 10, 0.12);
+  color: #c2410c;
+}
+
+.ck-estoque .ck-estoque__status.is-ok {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.ck-estoque .ck-estoque__card-valor {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ck-estoque .ck-estoque__card-valor strong {
+  font-size: 1.28rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ck-navy);
+  line-height: 1.15;
+}
+
+.ck-estoque .ck-estoque__card-valor span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.48);
+}
+
+.ck-estoque .ck-estoque__card-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(27, 42, 107, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 
-.ck-estoque .ck-estoque__card-top strong {
-  font-size: 0.92rem;
-  font-weight: 800;
-  color: var(--ck-ink);
+.ck-estoque .ck-estoque__card-who {
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.58);
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ck-estoque .ck-estoque__meta {

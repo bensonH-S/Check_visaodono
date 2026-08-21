@@ -387,11 +387,20 @@ export default function EstoqueMobileListaPage() {
             const aberta = c.status === 'aberta';
             const semanal = c.tipo === 'critica_semanal';
             const divergencias = c.divergencias ?? 0;
+            const pendentes = c.pendentes ?? 0;
             const mostrarReabrir = podeReabrir && !aberta;
+            const valorPrincipal = fmtBrl(c.valor_atual ?? c.total_valor);
+            const dataCurta = (() => {
+              const iso = aberta ? c.criado_em : c.finalizado_em || c.criado_em;
+              if (!iso) return '';
+              const d = new Date(iso);
+              if (Number.isNaN(d.getTime())) return '';
+              return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            })();
             return (
               <div
                 key={c.id_contagem}
-                className="ck-estoque__card"
+                className={`ck-estoque__card ck-estoque__card--lista${aberta ? ' is-aberta' : ''}`}
                 role="button"
                 tabIndex={0}
                 onClick={() => navigate(`/estoque/mobile/${c.id_contagem}`)}
@@ -403,42 +412,30 @@ export default function EstoqueMobileListaPage() {
                 }}
               >
                 <div className="ck-estoque__card-top">
-                  <strong>{c.titulo || `Conferência #${c.id_contagem}`}</strong>
+                  <div className="ck-estoque__card-title">
+                    <strong>{c.titulo || `Conferência #${c.id_contagem}`}</strong>
+                    <span className="ck-estoque__card-tipo">
+                      {semanal ? 'Semanal · críticos' : 'Completa'}
+                      {dataCurta ? ` · ${dataCurta}` : ''}
+                    </span>
+                  </div>
                   <span
-                    className={`ck-estoque__chip ${aberta ? 'ck-estoque__chip--aberta' : 'ck-estoque__chip--ok'}`}
+                    className={`ck-estoque__status ${aberta ? 'is-aberta' : 'is-ok'}`}
                   >
                     {aberta ? 'Aberta' : 'Finalizada'}
                   </span>
                 </div>
-                <div className="ck-estoque__meta">
-                  {c.criado_por_nome ? `${c.criado_por_nome} · ` : ''}
-                  Iniciada {fmtDataHora(c.criado_em)}
-                  {!aberta && c.finalizado_em ? ` · Finalizada ${fmtDataHora(c.finalizado_em)}` : ''}
+
+                <div className="ck-estoque__card-valor">
+                  <strong>{valorPrincipal}</strong>
+                  <span>{semanal ? 'Valor parcial' : 'Valor da contagem'}</span>
                 </div>
-                <div className="ck-estoque__chips">
-                  <span className={`ck-estoque__chip ${semanal ? 'ck-estoque__chip--warn' : ''}`}>
-                    {semanal ? 'Semanal · críticos' : 'Completa'}
-                  </span>
-                  <span className="ck-estoque__chip ck-estoque__chip--ok">
-                    {semanal ? 'Parcial' : 'Atual'} {fmtBrl(c.valor_atual ?? c.total_valor)}
-                  </span>
-                  {c.valor_inicial_mes != null && (
-                    <span className="ck-estoque__chip">
-                      Início {fmtBrl(c.valor_inicial_mes)}
-                    </span>
-                  )}
-                  <span className="ck-estoque__chip">{c.itens_total ?? 0} itens</span>
-                  <span
-                    className={`ck-estoque__chip ${
-                      (c.pendentes ?? 0) > 0 ? 'ck-estoque__chip--pend' : 'ck-estoque__chip--ok'
-                    }`}
-                  >
-                    Pend. {c.pendentes ?? 0}
-                  </span>
-                  <span
-                    className={`ck-estoque__chip ${divergencias ? 'ck-estoque__chip--warn' : 'ck-estoque__chip--ok'}`}
-                  >
-                    Div. {divergencias}
+
+                <div className="ck-estoque__card-foot">
+                  <span className="ck-estoque__card-who">
+                    {c.criado_por_nome || '—'}
+                    {pendentes > 0 ? ` · ${pendentes} pend.` : ''}
+                    {divergencias > 0 ? ` · ${divergencias} div.` : ''}
                   </span>
                   {mostrarReabrir && (
                     <button
