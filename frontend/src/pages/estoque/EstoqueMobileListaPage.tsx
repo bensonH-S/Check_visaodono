@@ -21,19 +21,6 @@ import '../../components/estoque/estoque-mobile.css';
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
-function fmtDataHora(iso: string | null | undefined) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 function fmtBrl(v: number | null | undefined) {
   if (v == null || Number.isNaN(Number(v))) return '—';
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
