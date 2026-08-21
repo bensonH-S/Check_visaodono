@@ -2739,6 +2739,7 @@ export interface EstoqueNfeResumo {
   id_loja: number;
   fornecedor: string;
   numero?: string | null;
+  serie?: string | null;
   chave?: string | null;
   emissao?: string | null;
   data_saida?: string | null;
@@ -2746,6 +2747,7 @@ export interface EstoqueNfeResumo {
   status_portal?: string | null;
   status_entrega?: string | null;
   emitente_nome?: string | null;
+  emitente_cnpj?: string | null;
   valor_total?: number | null;
   entrada_registrada: boolean;
   tem_xml?: boolean;
@@ -2762,6 +2764,8 @@ export interface EstoqueNfeItem {
   descricao_insumo?: string | null;
   u_com?: string | null;
   q_com?: number | null;
+  v_un_com?: number | null;
+  v_prod?: number | null;
   qtd_estoque?: number | null;
   qtd_conferida?: number | null;
   conferido?: boolean;

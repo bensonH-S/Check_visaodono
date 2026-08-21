@@ -1841,3 +1841,20 @@
   border: 0;
   background: #f3f1ec;
 }
+.ck-estoque-nfe__forn {
+  font-weight: 800;
+  color: var(--ck-navy);
+}
+.ck-estoque-nfe__emit-hint {
+  margin: 2px 0 6px;
+  padding: 0 14px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.5);
+}
+.ck-estoque-nfe .ck-estoque-nfe__meta {
+  color: rgba(255, 255, 255, 0.88);
+}
+.ck-estoque-nfe .ck-visitas__stage .ck-estoque-nfe__danfe-btn {
+  margin-top: 14px;
+}

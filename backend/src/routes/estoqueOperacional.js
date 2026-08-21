@@ -1274,15 +1274,62 @@ router.get('/nfes/:id/danfe', permOp, async (req, res, next) => {
       return res.status(404).json({ error: 'XML da NF não está disponível nesta loja' });
     }
 
-    let xml;
+    let html;
     try {
-      xml = await fs.readFile(xmlPath, 'utf8');
-    } catch {
-      return res.status(404).json({ error: 'Arquivo XML da NF não encontrado no servidor' });
+      const raw = await fs.readFile(xmlPath, 'utf8');
+      if (/\.json$/i.test(xmlPath) || raw.trimStart().startsWith('{')) {
+        const j = JSON.parse(raw);
+        const det = await obterNfeDetalhe(idNfe);
+        html = renderDanfeHtml({
+          chave: j.chave || nfe.chave || '',
+          numero: j.numero || nfe.numero || '',
+          serie: j.serie || '',
+          emissao: j.emissao || null,
+          data_saida: j.data_saida || null,
+          valor_total: j.valor_total ?? null,
+          emitente: j.emitente || {
+            cnpj: '',
+            nome: det?.emitente_nome || 'Coca-Cola / Brasal',
+          },
+          destinatario: j.destinatario || { cnpj: '', nome: '' },
+          itens: (det?.itens || []).map((it, idx) => ({
+            nItem: it.n_item ?? idx + 1,
+            codigo: it.codigo_nf || '',
+            descricao: it.descricao || '',
+            qCom: it.q_com ?? it.qtd_estoque ?? 0,
+            uCom: it.u_com || it.unidade_contagem || '',
+            vUnCom: it.v_un_com ?? null,
+            vProd: it.v_prod ?? null,
+          })),
+        });
+      } else {
+        html = renderDanfeHtml(parseNfeXml(raw));
+      }
+    } catch (e) {
+      // Fallback: monta DANFE com o que já está no banco
+      const det = await obterNfeDetalhe(idNfe);
+      if (!det) throw e;
+      html = renderDanfeHtml({
+        chave: det.chave || nfe.chave || '',
+        numero: det.numero || '',
+        serie: det.serie || '',
+        emissao: det.emissao,
+        data_saida: det.data_saida,
+        valor_total: det.valor_total,
+        emitente: { cnpj: det.emitente_cnpj || '', nome: det.emitente_nome || '' },
+        destinatario: { cnpj: '', nome: '' },
+        itens: (det.itens || []).map((it, idx) => ({
+          nItem: it.n_item ?? idx + 1,
+          codigo: it.codigo_nf || '',
+          descricao: it.descricao || '',
+          qCom: it.q_com ?? it.qtd_estoque ?? 0,
+          uCom: it.u_com || it.unidade_contagem || '',
+          vUnCom: it.v_un_com ?? null,
+          vProd: it.v_prod ?? null,
+        })),
+      });
     }
 
-    const parsed = parseNfeXml(xml);
-    const html = renderDanfeHtml(parsed);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(html);

@@ -60,6 +60,15 @@ function rotuloLoja(l: Loja) {
   return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
 }
 
+/** Código interno → nome amigável (coca = portal Brasal da Coca-Cola). */
+function rotuloFornecedor(codigo: string | null | undefined, emitente?: string | null) {
+  const f = String(codigo || '').toLowerCase();
+  if (f === 'coca') return 'Coca-Cola';
+  if (f === 'platlog') return 'Platlog';
+  if (emitente && String(emitente).trim()) return String(emitente).trim();
+  return codigo || 'Fornecedor';
+}
+
 function qtdEsperada(it: EstoqueNfeItem) {
   const q = it.qtd_estoque ?? it.q_com ?? 0;
   return Number(q) || 0;
@@ -169,6 +178,7 @@ export default function EstoqueMobileNfePage() {
   const [salvando, setSalvando] = useState(false);
   const [danfeHtml, setDanfeHtml] = useState<string | null>(null);
   const [abrindoDanfe, setAbrindoDanfe] = useState(false);
+  const [filtroForn, setFiltroForn] = useState<'todas' | 'platlog' | 'coca'>('todas');
 
   useEffect(() => {
     void (async () => {
@@ -189,7 +199,7 @@ export default function EstoqueMobileNfePage() {
     if (!idLoja) return;
     setLoading(true);
     try {
-      const rows = await api.estoqueNfes(idLoja, { conferir: true, limit: 40 });
+      const rows = await api.estoqueNfes(idLoja, { conferir: true, limit: 80 });
       setLista(rows);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao listar NFs', 'error');
@@ -242,6 +252,84 @@ export default function EstoqueMobileNfePage() {
   }, [idNfe, carregarDetalhe, carregarLista]);
 
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
+
+  const listaFiltrada = useMemo(() => {
+    if (filtroForn === 'todas') return lista;
+    return lista.filter((n) => String(n.fornecedor || '').toLowerCase() === filtroForn);
+  }, [lista, filtroForn]);
+
+  const contagemForn = useMemo(() => {
+    let platlog = 0;
+    let coca = 0;
+    for (const n of lista) {
+      const f = String(n.fornecedor || '').toLowerCase();
+      if (f === 'platlog') platlog += 1;
+      if (f === 'coca') coca += 1;
+    }
+    return { platlog, coca, todas: lista.length };
+  }, [lista]);
+
+  const heroRecebimento = (
+    <div className="ck-visitas__stage">
+      <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+      <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+      <div className="ck-visitas__mesh" aria-hidden />
+      <div className="ck-visitas__stage-inner">
+        <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+          <div>
+            <p className="ck-visitas__mark-text">Grupo Alvim</p>
+            <h1 className="ck-visitas__title">Recebimentos</h1>
+          </div>
+          <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+        </div>
+        <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+          Nota do fornecedor → só confirmar o que chegou
+          {lojaAtual ? ` · ${rotuloLoja(lojaAtual)}` : ''}
+        </p>
+      </div>
+    </div>
+  );
+
+  const heroDetalhe = det ? (
+    <div className="ck-visitas__stage">
+      <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
+      <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
+      <div className="ck-visitas__mesh" aria-hidden />
+      <div className="ck-visitas__stage-inner">
+        <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
+          <div>
+            <p className="ck-visitas__mark-text">
+              {rotuloFornecedor(det.fornecedor, det.emitente_nome)}
+            </p>
+            <h1 className="ck-visitas__title" style={{ fontSize: 'clamp(1.85rem, 8vw, 2.4rem)' }}>
+              Ocorrências
+            </h1>
+          </div>
+          <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+        </div>
+        <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+          NF {det.numero || det.id_nfe}
+          {det.emitente_nome ? ` · ${det.emitente_nome}` : ''}
+        </p>
+        <div className="ck-estoque-nfe__meta ck-visitas__anim ck-visitas__anim--3">
+          <span>Emissão {fmtDataBR(det.emissao)}</span>
+          <span>Saída {fmtDataBR(det.data_saida)}</span>
+          <span>{fmtMoeda(det.valor_total)}</span>
+        </div>
+        {det.tem_xml ? (
+          <button
+            type="button"
+            className="ck-estoque-nfe__danfe-btn"
+            disabled={abrindoDanfe}
+            onClick={() => void abrirDanfe(det.id_nfe)}
+          >
+            <DescriptionOutlinedIcon fontSize="small" />
+            {abrindoDanfe ? 'Abrindo…' : 'Ver DANFE / nota fiscal'}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
 
   const marcar = (idItem: number, ok: boolean) => {
     setChecks((prev) => {
@@ -341,33 +429,7 @@ export default function EstoqueMobileNfePage() {
   if (idNfe && det) {
     return (
       <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque-nfe ck-estoque-nfe--detalhe">
-        <div className="ck-visitas__hero">
-          <div className="ck-visitas__top">
-            <CkMarkLogoMenu />
-            <div className="ck-visitas__titles">
-              <h1>Resumo de ocorrências</h1>
-              <p>
-                NF {det.numero || det.id_nfe} · {det.emitente_nome || det.fornecedor}
-              </p>
-            </div>
-          </div>
-          <div className="ck-estoque-nfe__meta">
-            <span>Emissão {fmtDataBR(det.emissao)}</span>
-            <span>Saída {fmtDataBR(det.data_saida)}</span>
-            <span>{fmtMoeda(det.valor_total)}</span>
-          </div>
-          {det.tem_xml ? (
-            <button
-              type="button"
-              className="ck-estoque-nfe__danfe-btn"
-              disabled={abrindoDanfe}
-              onClick={() => void abrirDanfe(det.id_nfe)}
-            >
-              <DescriptionOutlinedIcon fontSize="small" />
-              {abrindoDanfe ? 'Abrindo…' : 'Ver DANFE / nota fiscal'}
-            </button>
-          ) : null}
-        </div>
+        {heroDetalhe}
 
         <div className="ck-visitas__sheet ck-estoque-nfe__sheet">
           <div className="ck-estoque-nfe__scroll">
@@ -468,16 +530,7 @@ export default function EstoqueMobileNfePage() {
   // ── Lista de NFs pendentes ─────────────────────────────────────────────
   return (
     <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque-nfe">
-      <div className="ck-visitas__hero">
-        <div className="ck-visitas__top">
-          <CkMarkLogoMenu />
-          <div className="ck-visitas__titles">
-            <h1>Recebimentos NF</h1>
-            <p>Nota do fornecedor → só confirmar o que chegou</p>
-          </div>
-        </div>
-        {lojaAtual && <p className="ck-estoque-nfe__loja">{rotuloLoja(lojaAtual)}</p>}
-      </div>
+      {heroRecebimento}
 
       <div className="ck-visitas__sheet">
         <div className="ck-estoque-nfe__lista-head">
@@ -490,18 +543,39 @@ export default function EstoqueMobileNfePage() {
           </button>
         </div>
 
+        <div className="ck-visitas__seg" role="tablist">
+          {(
+            [
+              ['todas', `Todas (${contagemForn.todas})`],
+              ['platlog', `Platlog (${contagemForn.platlog})`],
+              ['coca', `Coca-Cola (${contagemForn.coca})`],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={filtroForn === value}
+              className={`ck-visitas__seg-btn${filtroForn === value ? ' is-on' : ''}`}
+              onClick={() => setFiltroForn(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="ck-visitas__sheet-body">
           {loading && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
 
-          {!loading && !lista.length && (
+          {!loading && !listaFiltrada.length && (
             <div className="ck-estoque__empty">
-              Nenhuma NF aguardando conferência nesta loja.
-              <br />
-              Quando o sync do fornecedor trouxer a nota, ela aparece aqui.
+              {lista.length
+                ? 'Nenhuma NF neste filtro.'
+                : 'Nenhuma NF aguardando conferência nesta loja.'}
             </div>
           )}
 
-          {lista.map((n) => (
+          {listaFiltrada.map((n) => (
             <div key={n.id_nfe} className="ck-estoque__card ck-estoque-nfe__card">
               <button
                 type="button"
@@ -513,8 +587,15 @@ export default function EstoqueMobileNfePage() {
                   <LocalShippingOutlinedIcon fontSize="small" />
                 </div>
                 <div className="ck-estoque__meta">
-                  {n.emitente_nome || n.fornecedor} · {n.itens_casados ?? n.itens ?? 0} itens
+                  <span className="ck-estoque-nfe__forn">
+                    {rotuloFornecedor(n.fornecedor, n.emitente_nome)}
+                  </span>
+                  {' · '}
+                  {n.itens_casados ?? n.itens ?? 0} itens
                 </div>
+                {n.emitente_nome && String(n.fornecedor).toLowerCase() === 'coca' ? (
+                  <div className="ck-estoque-nfe__emit-hint">{n.emitente_nome}</div>
+                ) : null}
                 <div className="ck-estoque__chips">
                   <span className="ck-estoque__chip">Emis. {fmtDataBR(n.emissao)}</span>
                   <span className="ck-estoque__chip ck-estoque__chip--ok">
