@@ -32,7 +32,6 @@ const FAIL = [185, 28, 28] as const;
 const MUTED = [100, 116, 139] as const;
 const DEMANDA_BG = [254, 242, 242] as const;
 const DEMANDA_TXT = [153, 27, 27] as const;
-const TOTAL_BG = [11, 26, 59] as const;
 
 const MESES = [
   '',
@@ -142,6 +141,15 @@ function rodape(doc: jsPDF, periodoLabel: string) {
 
 async function carregarIconeMarca(): Promise<LogoIcon | null> {
   try {
+    if (typeof window === 'undefined') {
+      const { readFileSync, existsSync } = await import('fs');
+      const { dirname, join } = await import('path');
+      const { fileURLToPath } = await import('url');
+      const png = join(dirname(fileURLToPath(import.meta.url)), '../../public/Logo_Alvim_Icone.png');
+      if (!existsSync(png)) return null;
+      const dataUrl = `data:image/png;base64,${readFileSync(png).toString('base64')}`;
+      return { dataUrl, w: 64, h: 64 };
+    }
     const res = await fetch(assetUrl('Logo_Alvim_Icone.png'));
     if (!res.ok) return null;
     const blob = await res.blob();
@@ -190,11 +198,8 @@ function desenharMarca(
 interface ResumoExecutivo {
   lojasUnicas: number;
   lojasDemanda: number;
-  indicadoresTotal: number;
   metasAtingidas: number;
   metasAvaliadas: number;
-  valorEmpresa: number;
-  valorGestor: number;
   pctAtingimento: number;
 }
 
@@ -203,21 +208,11 @@ function calcularResumo(
   lojasRevReprovadas: Set<number>,
 ): ResumoExecutivo {
   const lojas = new Set<number>();
-  let indicadoresTotal = 0;
   let metasAtingidas = 0;
   let metasAvaliadas = 0;
-  let valorEmpresa = 0;
-  let valorGestor = 0;
 
   for (const painel of dados.paineis) {
     for (const l of painel.lojas) lojas.add(l.id_loja);
-    indicadoresTotal += painel.indicadores.length;
-
-    const valores = calcValorMetaPorLoja(painel, lojasRevReprovadas);
-    let somaPainel = 0;
-    for (const v of valores.values()) somaPainel += v;
-    if (painel.tipo === 'empresa') valorEmpresa += somaPainel;
-    else valorGestor += somaPainel;
 
     for (const ind of painel.indicadores) {
       for (const c of ind.celulas) {
@@ -234,11 +229,8 @@ function calcularResumo(
   return {
     lojasUnicas: lojas.size,
     lojasDemanda: lojasRevReprovadas.size,
-    indicadoresTotal,
     metasAtingidas,
     metasAvaliadas,
-    valorEmpresa,
-    valorGestor,
     pctAtingimento: metasAvaliadas > 0 ? (metasAtingidas / metasAvaliadas) * 100 : 0,
   };
 }
@@ -269,12 +261,14 @@ function cabecalhoExecutivo(
   doc.text(rotuloPeriodo(periodo), PAGE_W - MARGIN, 21.5, { align: 'right' });
 
   let y = 32;
+  const barH = 13;
+  const statsW = 72;
+  const statsX = MARGIN + CONTENT_W - statsW;
 
-  const temObs = Boolean(periodo.observacao?.trim());
   setFill(doc, ROW_ALT);
   setStroke(doc, LINE);
   doc.setLineWidth(0.2);
-  doc.roundedRect(MARGIN, y, CONTENT_W, temObs ? 13 : 10, 1, 1, 'FD');
+  doc.roundedRect(MARGIN, y, CONTENT_W, barH, 1, 1, 'FD');
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6);
@@ -282,101 +276,34 @@ function cabecalhoExecutivo(
   doc.text('PERÍODO', MARGIN + 4, y + 3.8);
   doc.setFontSize(10);
   setText(doc, NAVY);
-  doc.text(rotuloPeriodo(periodo), MARGIN + 4, y + 8.2);
+  doc.text(rotuloPeriodo(periodo), MARGIN + 4, y + 9.4);
 
-  if (temObs) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6);
-    setText(doc, SLATE_LIGHT);
-    doc.text('OBSERVAÇÃO', MARGIN + CONTENT_W * 0.42, y + 3.8);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    setText(doc, SLATE);
-    const obs = doc.splitTextToSize(periodo.observacao!.trim(), CONTENT_W * 0.55 - 6);
-    doc.text(obs.slice(0, 2), MARGIN + CONTENT_W * 0.42, y + 8);
-  }
+  setStroke(doc, LINE);
+  doc.setLineWidth(0.2);
+  doc.line(statsX, y + 2.2, statsX, y + barH - 2.2);
 
-  y += temObs ? 16 : 13;
+  const lojasHint = resumo.lojasDemanda ? `${resumo.lojasDemanda} em demanda` : 'avaliadas';
+  const col1 = statsX + 5;
+  const col2 = statsX + 36;
 
-  const cards: Array<{ label: string; value: string; hint?: string }> = [
-    {
-      label: 'LOJAS',
-      value: String(resumo.lojasUnicas),
-      hint: resumo.lojasDemanda ? `${resumo.lojasDemanda} em demanda` : 'avaliadas',
-    },
-    {
-      label: 'ATINGIMENTO',
-      value: `${resumo.pctAtingimento.toFixed(0)}%`,
-      hint: `${resumo.metasAtingidas} de ${resumo.metasAvaliadas} metas`,
-    },
-    {
-      label: 'EMPRESA',
-      value: pdfTxt(fmtMoedaMeta(resumo.valorEmpresa)),
-      hint: 'total apurado',
-    },
-    {
-      label: 'GESTORES',
-      value: pdfTxt(fmtMoedaMeta(resumo.valorGestor)),
-      hint: 'total apurado',
-    },
-    {
-      label: 'PREMIAÇÃO',
-      value: pdfTxt(fmtMoedaMeta(resumo.valorEmpresa + resumo.valorGestor)),
-      hint: 'empresa + gestores',
-    },
-  ];
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(5.5);
+  setText(doc, SLATE_LIGHT);
+  doc.text('LOJAS', col1, y + 3.8);
+  doc.text('ATINGIMENTO', col2, y + 3.8);
 
-  const gap = 2.2;
-  const cardW = (CONTENT_W - gap * (cards.length - 1)) / cards.length;
-  const cardH = 15.5;
+  doc.setFontSize(10);
+  setText(doc, NAVY);
+  doc.text(String(resumo.lojasUnicas), col1, y + 8.4);
+  doc.text(`${resumo.pctAtingimento.toFixed(0)}%`, col2, y + 8.4);
 
-  for (let i = 0; i < cards.length; i++) {
-    const c = cards[i];
-    const x = MARGIN + i * (cardW + gap);
-    const isLast = i === cards.length - 1;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  setText(doc, MUTED);
+  doc.text(lojasHint, col1, y + 11.2);
+  doc.text(`${resumo.metasAtingidas} de ${resumo.metasAvaliadas}`, col2, y + 11.2);
 
-    if (isLast) {
-      setFill(doc, TOTAL_BG);
-      doc.roundedRect(x, y, cardW, cardH, 1, 1, 'F');
-      setFill(doc, ACCENT);
-      doc.rect(x, y, 1.3, cardH, 'F');
-      setText(doc, [160, 176, 200]);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.5);
-      doc.text(c.label, x + 4.5, y + 4.2);
-      setText(doc, [255, 255, 255]);
-      doc.setFontSize(10.5);
-      doc.text(c.value, x + 4.5, y + 9.8);
-      if (c.hint) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.5);
-        setText(doc, SLATE_LIGHT);
-        doc.text(c.hint, x + 4.5, y + 13.2);
-      }
-    } else {
-      setFill(doc, [255, 255, 255]);
-      setStroke(doc, LINE);
-      doc.setLineWidth(0.25);
-      doc.roundedRect(x, y, cardW, cardH, 1, 1, 'FD');
-      setFill(doc, NAVY);
-      doc.rect(x, y, 1.3, cardH, 'F');
-      setText(doc, SLATE_LIGHT);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.5);
-      doc.text(c.label, x + 4.5, y + 4.2);
-      setText(doc, NAVY);
-      doc.setFontSize(11);
-      doc.text(c.value, x + 4.5, y + 9.8);
-      if (c.hint) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.5);
-        setText(doc, MUTED);
-        doc.text(c.hint, x + 4.5, y + 13.2);
-      }
-    }
-  }
-
-  return y + cardH + 5;
+  return y + barH + 4.5;
 }
 
 function tituloGrupo(doc: jsPDF, y: number, grupo: MetasGrupoResumo): number {
@@ -651,7 +578,10 @@ function desenharGrupoCompleto(
   return y;
 }
 
-export async function gerarPdfMetasResumo(dados: MetasPeriodoDetalhe): Promise<void> {
+export async function gerarPdfMetasResumo(
+  dados: MetasPeriodoDetalhe,
+  opts?: { outputPath?: string },
+): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
   const logo = await carregarIconeMarca();
   const grupos = agruparPaineisResumo(dados.paineis);
@@ -676,6 +606,11 @@ export async function gerarPdfMetasResumo(dados: MetasPeriodoDetalhe): Promise<v
   rodape(doc, periodoLabel);
 
   const periodoSlug = periodoLabel.replace(/[/\s]+/g, '-');
+  if (opts?.outputPath) {
+    const { writeFileSync } = await import('fs');
+    writeFileSync(opts.outputPath, Buffer.from(doc.output('arraybuffer')));
+    return;
+  }
   doc.save(`metas-resumo-${periodoSlug}.pdf`);
 }
 

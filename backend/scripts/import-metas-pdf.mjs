@@ -215,11 +215,11 @@ try {
       await client.query('BEGIN');
 
       const { rows: periodoRows } = await client.query(
-        `INSERT INTO metas_periodos (ano, mes, titulo, observacao)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (ano, mes) DO UPDATE SET titulo = EXCLUDED.titulo, observacao = EXCLUDED.observacao
+        `INSERT INTO metas_periodos (ano, mes, titulo)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (ano, mes) DO UPDATE SET titulo = EXCLUDED.titulo
          RETURNING id_periodo`,
-        [periodo.ano, periodo.mes, periodo.titulo, `Importado de PDF: ${path.basename(periodo.arquivo)}`],
+        [periodo.ano, periodo.mes, periodo.titulo],
       );
       const idPeriodo = periodoRows[0].id_periodo;
       const lojasDb = await carregarLojas(client);

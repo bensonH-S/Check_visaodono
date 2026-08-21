@@ -414,11 +414,11 @@ try {
     `);
 
     const { rows: periodoRows } = await client.query(
-      `INSERT INTO metas_periodos (ano, mes, titulo, observacao)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (ano, mes) DO UPDATE SET titulo = EXCLUDED.titulo, observacao = EXCLUDED.observacao
+      `INSERT INTO metas_periodos (ano, mes, titulo)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (ano, mes) DO UPDATE SET titulo = EXCLUDED.titulo
        RETURNING id_periodo`,
-      [ANO, MES, 'Metas Julho 2026', 'Importado da planilha METAS JULHO 2026.xlsx'],
+      [ANO, MES, 'Metas Julho 2026'],
     );
     const idPeriodo = periodoRows[0].id_periodo;
     const lojasDb = await carregarLojas(client);

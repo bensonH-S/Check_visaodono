@@ -4,7 +4,7 @@ export const FAVICON_ICON = 'Logo_Alvim_Icone.png';
 
 /** Caminho base do app em produção: /auditoria (sem barra final) */
 export const appBasePath =
-  (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '') || '';
+  (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '') || '';
 
 /** Prefixo da API no mesmo domínio: /auditoria/api */
 export const apiBasePath = `${appBasePath}/api`.replace(/\/+/g, '/');
