@@ -6,6 +6,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import AddIcon from '@mui/icons-material/Add';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import {
   api,
   type EstoqueContagemResumo,
@@ -355,6 +356,18 @@ export default function EstoqueMobileListaPage() {
               </button>
             ))}
           </div>
+
+          {idLoja ? (
+            <button
+              type="button"
+              className="ck-estoque-nfe__atalho"
+              onClick={() => navigate('/estoque/mobile/nfes')}
+            >
+              <LocalShippingOutlinedIcon fontSize="small" />
+              <span>Receber NF · só marcar o que chegou</span>
+              <span aria-hidden>›</span>
+            </button>
+          ) : null}
         </div>
 
         <div className="ck-visitas__sheet-body">

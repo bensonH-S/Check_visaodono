@@ -653,22 +653,37 @@ export async function conferirRecebimentoNfe({
     }
   }
 
+  const dataEntrega = nfe.data_saida || nfe.data_entrega || hojeSpISO();
+
+  // Todos marcados como não chegaram: grava ocorrência sem lançar estoque
   if (!entradasItens.length) {
     await pool.query(
       `UPDATE estoque_nfe
-       SET status_entrega = 'divergente', atualizado_em = NOW()
-       WHERE id_nfe = $1`,
-      [idNfe],
+       SET data_entrega = $1::date,
+           entrada_registrada = TRUE,
+           entrada_em = NOW(),
+           entrada_por = $2,
+           status_entrega = 'divergente',
+           atualizado_em = NOW()
+       WHERE id_nfe = $3`,
+      [dataEntrega, criado_por, idNfe],
     );
-    throw Object.assign(
-      new Error('Nenhum item conferido com quantidade — nada a lançar no estoque'),
-      { status: 400 },
-    );
+    return {
+      ok: true,
+      id_nfe: idNfe,
+      data_entrega: dataEntrega,
+      data_saida: nfe.data_saida,
+      emissao: nfe.emissao,
+      status_entrega: 'divergente',
+      divergente: true,
+      entradas: [],
+      erros: ['Nenhum item chegou — NF registrada sem entrada de estoque'],
+    };
   }
 
   const entrada = await confirmarEntradaNfe({
     id_nfe: idNfe,
-    data_entrega: nfe.data_saida || nfe.data_entrega || hojeSpISO(),
+    data_entrega: dataEntrega,
     criado_por,
     forcar: false,
     itensOverride: entradasItens,

@@ -44,6 +44,7 @@ import ControleEstoquePage from './pages/estoque/ControleEstoquePage';
 import EstoqueMobileListaPage from './pages/estoque/EstoqueMobileListaPage';
 import EstoqueMobileConferenciaPage from './pages/estoque/EstoqueMobileConferenciaPage';
 import EstoqueMobileBreakPage from './pages/estoque/EstoqueMobileBreakPage';
+import EstoqueMobileNfePage from './pages/estoque/EstoqueMobileNfePage';
 import RotaEstoqueMobile from './components/RotaEstoqueMobile';
 import RotaEstoqueBreakMobile from './components/RotaEstoqueBreakMobile';
 import NcMobileListaPage from './pages/nc/NcMobileListaPage';
@@ -194,6 +195,22 @@ export default function App() {
                 <RotaEstoqueBreakMobile>
                   <EstoqueMobileBreakPage />
                 </RotaEstoqueBreakMobile>
+              }
+            />
+            <Route
+              path="estoque/mobile/nfes/:idNfe"
+              element={
+                <RotaEstoqueMobile>
+                  <EstoqueMobileNfePage />
+                </RotaEstoqueMobile>
+              }
+            />
+            <Route
+              path="estoque/mobile/nfes"
+              element={
+                <RotaEstoqueMobile>
+                  <EstoqueMobileNfePage />
+                </RotaEstoqueMobile>
               }
             />
             <Route
