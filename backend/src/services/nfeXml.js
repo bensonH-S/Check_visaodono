@@ -385,3 +385,89 @@ export function casarItensNfe(itensNfe, insumosLoja) {
     };
   });
 }
+
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function fmtMoedaBr(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function fmtDataBr(iso) {
+  if (!iso) return '—';
+  const s = String(iso).slice(0, 10);
+  const [y, m, d] = s.split('-');
+  return y && m && d ? `${d}/${m}/${y}` : s;
+}
+
+/** HTML legível estilo DANFE (mobile) a partir do XML parseado. */
+export function renderDanfeHtml(parsed) {
+  const itensRows = (parsed.itens || [])
+    .map(
+      (it) => `<tr>
+      <td>${escHtml(it.nItem)}</td>
+      <td>${escHtml(it.codigo)}</td>
+      <td>${escHtml(it.descricao)}</td>
+      <td class="num">${escHtml(it.qCom)} ${escHtml(it.uCom || '')}</td>
+      <td class="num">${fmtMoedaBr(it.vUnCom)}</td>
+      <td class="num">${fmtMoedaBr(it.vProd)}</td>
+    </tr>`,
+    )
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>DANFE NF ${escHtml(parsed.numero || '')}</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font: 14px/1.35 system-ui, sans-serif; color: #142048; background: #f3f1ec; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 16px 14px 40px; }
+    h1 { font-size: 1.15rem; margin: 0 0 4px; }
+    .muted { color: #5b647a; font-size: 0.85rem; }
+    .card { background: #fff; border: 1px solid #d7dbe7; border-radius: 12px; padding: 14px; margin-top: 12px; }
+    .grid { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { border-bottom: 1px solid #e6e9f2; padding: 8px 6px; text-align: left; vertical-align: top; }
+    th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: .04em; color: #5b647a; }
+    td.num, th.num { text-align: right; white-space: nowrap; }
+    .chave { word-break: break-all; font-family: ui-monospace, monospace; font-size: 0.78rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>DANFE · NF-e ${escHtml(parsed.numero || '—')} série ${escHtml(parsed.serie || '—')}</h1>
+    <p class="muted">Documento auxiliar gerado a partir do XML da nota</p>
+    <div class="card grid">
+      <div><strong>Emitente</strong><br/>${escHtml(parsed.emitente?.nome || '—')}<br/><span class="muted">${escHtml(parsed.emitente?.cnpj || '')}</span></div>
+      <div><strong>Destinatário</strong><br/>${escHtml(parsed.destinatario?.nome || '—')}<br/><span class="muted">${escHtml(parsed.destinatario?.cnpj || '')}</span></div>
+      <div><strong>Emissão</strong><br/>${escHtml(fmtDataBr(parsed.emissao))}</div>
+      <div><strong>Saída</strong><br/>${escHtml(fmtDataBr(parsed.data_saida))}</div>
+      <div><strong>Valor total</strong><br/>${fmtMoedaBr(parsed.valor_total)}</div>
+      <div><strong>Chave</strong><br/><span class="chave">${escHtml(parsed.chave || '—')}</span></div>
+    </div>
+    <div class="card" style="overflow:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Cód.</th><th>Produto</th>
+            <th class="num">Qtd</th><th class="num">Unit.</th><th class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>${itensRows}</tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>`;
+}

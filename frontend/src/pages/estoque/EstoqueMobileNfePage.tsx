@@ -5,9 +5,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
+import Dialog from '@mui/material/Dialog';
+import IconButton from '@mui/material/IconButton';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   api,
   type EstoqueNfeDetalhe,
@@ -44,6 +48,13 @@ function fmtMoeda(v: number | null | undefined) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function fmtQtd(v: number) {
+  return Number(v).toLocaleString('pt-BR', {
+    maximumFractionDigits: 3,
+    minimumFractionDigits: 0,
+  });
+}
+
 function rotuloLoja(l: Loja) {
   const nome = String(l.name || '').trim() || 'Loja';
   return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
@@ -64,6 +75,80 @@ function nomeItem(it: EstoqueNfeItem) {
   );
 }
 
+/** Unidade de estoque: cadastro → NF (uCom) → texto da descrição. Sem placeholder. */
+function unidadeEstoque(it: EstoqueNfeItem): string {
+  const cad = String(it.unidade_contagem || '').trim();
+  if (cad) return normalizarUnidade(cad);
+
+  const desc = `${it.descricao || ''} ${it.descricao_insumo || ''}`;
+  const fromDesc = unidadeNaDescricao(desc);
+  if (fromDesc) return fromDesc;
+
+  const uCom = String(it.u_com || '').trim();
+  if (uCom && !ehEmbalagem(uCom)) return normalizarUnidade(uCom);
+
+  return '';
+}
+
+function unidadeEmbalagem(it: EstoqueNfeItem): string {
+  const uCom = String(it.u_com || '').trim();
+  if (uCom && ehEmbalagem(uCom)) return normalizarUnidade(uCom);
+  const desc = `${it.descricao || ''} ${it.descricao_insumo || ''}`;
+  if (/\bCXA?\b|\bCAIXA\b/i.test(desc)) return 'cx';
+  if (/\bPCT|PACOTE|FD|FARDO|SC|SACO\b/i.test(desc)) return 'pct';
+  return uCom ? normalizarUnidade(uCom) : '';
+}
+
+function ehEmbalagem(u: string) {
+  return /^(cx|cxa|caixa|fd|fardo|pc|pct|pacote|dz|duzia|sc|saco|un|und|unid)$/i.test(
+    String(u).trim(),
+  );
+}
+
+function normalizarUnidade(u: string) {
+  const t = String(u).trim().toLowerCase();
+  if (!t) return '';
+  if (/^(kg|kgs|quilo|quilos)$/.test(t)) return 'kg';
+  if (/^(g|gr|grama|gramas)$/.test(t)) return 'g';
+  if (/^(l|lt|ltr|litro|litros)$/.test(t)) return 'lt';
+  if (/^(ml|mililitro|mililitros)$/.test(t)) return 'ml';
+  if (/^(cx|cxa|caixa)$/.test(t)) return 'cx';
+  if (/^(un|und|unid|unidade|unidades)$/.test(t)) return 'un';
+  if (/^(pct|pc|pacote)$/.test(t)) return 'pct';
+  if (/^(fd|fardo)$/.test(t)) return 'fd';
+  return t;
+}
+
+function unidadeNaDescricao(desc: string): string {
+  const d = String(desc || '').toUpperCase();
+  if (!d.trim()) return '';
+  // "7K", "12KG", "CX 6KG", "17,66 KG", "1KG"
+  if (/\d([.,]\d+)?\s*KG\b/.test(d) || /\dK(?:\s|$)/.test(d) || /\bKG\b/.test(d)) return 'kg';
+  if (/\d([.,]\d+)?\s*G\b/.test(d) && !/\bKG\b/.test(d)) return 'g';
+  if (/\d([.,]\d+)?\s*L(?:T|ITROS?)?\b/.test(d) || /\bLITRO/.test(d)) return 'lt';
+  if (/\d([.,]\d+)?\s*ML\b/.test(d)) return 'ml';
+  if (/\bUN(?:ID|IDADE)?S?\b/.test(d)) return 'un';
+  return '';
+}
+
+function rotuloQtd(it: EstoqueNfeItem, recebida: number, esperada: number) {
+  const undEst = unidadeEstoque(it);
+  const undEmb = unidadeEmbalagem(it);
+  const qCom = it.q_com != null ? Number(it.q_com) : null;
+
+  const linhaEstoque = undEst
+    ? `${fmtQtd(recebida)}/${fmtQtd(esperada)} ${undEst}`
+    : `${fmtQtd(recebida)}/${fmtQtd(esperada)}`;
+
+  let linhaEmb = '';
+  if (qCom != null && qCom > 0 && undEmb && undEmb !== undEst) {
+    const recEmb = esperada > 0 ? (recebida / esperada) * qCom : qCom;
+    linhaEmb = `${fmtQtd(recEmb)}/${fmtQtd(qCom)} ${undEmb}`;
+  }
+
+  return { linhaEstoque, linhaEmb };
+}
+
 export default function EstoqueMobileNfePage() {
   const navigate = useNavigate();
   const { idNfe: idNfeParam } = useParams<{ idNfe?: string }>();
@@ -82,6 +167,8 @@ export default function EstoqueMobileNfePage() {
   const [checks, setChecks] = useState<Record<number, ItemCheck>>({});
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [danfeHtml, setDanfeHtml] = useState<string | null>(null);
+  const [abrindoDanfe, setAbrindoDanfe] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -111,41 +198,45 @@ export default function EstoqueMobileNfePage() {
     }
   }, [idLoja]);
 
-  const carregarDetalhe = useCallback(async (id: number) => {
-    setLoading(true);
-    try {
-      const d = await api.estoqueNfeDetalhe(id);
-      setDet(d);
-      const map: Record<number, ItemCheck> = {};
-      for (const it of d.itens || []) {
-        const esp = qtdEsperada(it);
-        const ja = it.conferido
-          ? it.qtd_conferida != null && Number(it.qtd_conferida) > 0
-            ? true
-            : it.qtd_conferida === 0
-              ? false
-              : null
-          : null;
-        map[it.id_item] = {
-          id_item: it.id_item,
-          ok: ja,
-          qtd_esperada: esp,
-          qtd_recebida: ja === false ? 0 : esp,
-        };
+  const carregarDetalhe = useCallback(
+    async (id: number) => {
+      setLoading(true);
+      try {
+        const d = await api.estoqueNfeDetalhe(id);
+        setDet(d);
+        const map: Record<number, ItemCheck> = {};
+        for (const it of d.itens || []) {
+          const esp = qtdEsperada(it);
+          const ja = it.conferido
+            ? it.qtd_conferida != null && Number(it.qtd_conferida) > 0
+              ? true
+              : it.qtd_conferida === 0
+                ? false
+                : null
+            : null;
+          map[it.id_item] = {
+            id_item: it.id_item,
+            ok: ja,
+            qtd_esperada: esp,
+            qtd_recebida: ja === false ? 0 : esp,
+          };
+        }
+        setChecks(map);
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Erro ao abrir NF', 'error');
+        navigate('/estoque/mobile/nfes', { replace: true });
+      } finally {
+        setLoading(false);
       }
-      setChecks(map);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao abrir NF', 'error');
-      navigate('/estoque/mobile/nfes', { replace: true });
-    } finally {
-      setLoading(false);
-    }
-  }, [navigate]);
+    },
+    [navigate],
+  );
 
   useEffect(() => {
     if (idNfe && Number.isFinite(idNfe)) {
       void carregarDetalhe(idNfe);
     } else {
+      setDet(null);
       void carregarLista();
     }
   }, [idNfe, carregarDetalhe, carregarLista]);
@@ -175,6 +266,18 @@ export default function EstoqueMobileNfePage() {
     const pend = vals.filter((c) => c.ok == null).length;
     return { total, ok, nao, pend };
   }, [checks]);
+
+  const abrirDanfe = async (id: number) => {
+    setAbrindoDanfe(true);
+    try {
+      const html = await api.estoqueNfeDanfeHtml(id);
+      setDanfeHtml(html);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível abrir a DANFE', 'error');
+    } finally {
+      setAbrindoDanfe(false);
+    }
+  };
 
   const finalizar = async () => {
     if (!det) return;
@@ -215,10 +318,29 @@ export default function EstoqueMobileNfePage() {
     });
   };
 
+  const dialogDanfe = (
+    <Dialog
+      fullScreen
+      open={!!danfeHtml}
+      onClose={() => setDanfeHtml(null)}
+      slotProps={{ paper: { sx: { bgcolor: '#f3f1ec' } } }}
+    >
+      <div className="ck-estoque-nfe__danfe-bar">
+        <strong>DANFE</strong>
+        <IconButton aria-label="Fechar" onClick={() => setDanfeHtml(null)} size="small">
+          <CloseIcon />
+        </IconButton>
+      </div>
+      {danfeHtml ? (
+        <iframe title="DANFE" className="ck-estoque-nfe__danfe-frame" srcDoc={danfeHtml} />
+      ) : null}
+    </Dialog>
+  );
+
   // ── Detalhe: Resumo de ocorrências ─────────────────────────────────────
   if (idNfe && det) {
     return (
-      <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque-nfe">
+      <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque-nfe ck-estoque-nfe--detalhe">
         <div className="ck-visitas__hero">
           <div className="ck-visitas__top">
             <CkMarkLogoMenu />
@@ -234,68 +356,83 @@ export default function EstoqueMobileNfePage() {
             <span>Saída {fmtDataBR(det.data_saida)}</span>
             <span>{fmtMoeda(det.valor_total)}</span>
           </div>
+          {det.tem_xml ? (
+            <button
+              type="button"
+              className="ck-estoque-nfe__danfe-btn"
+              disabled={abrindoDanfe}
+              onClick={() => void abrirDanfe(det.id_nfe)}
+            >
+              <DescriptionOutlinedIcon fontSize="small" />
+              {abrindoDanfe ? 'Abrindo…' : 'Ver DANFE / nota fiscal'}
+            </button>
+          ) : null}
         </div>
 
-        <div className="ck-visitas__sheet">
-          <div className="ck-estoque-nfe__head">
-            <span>Produto</span>
-            <span>Unidades</span>
-            <span>Estado</span>
-          </div>
+        <div className="ck-visitas__sheet ck-estoque-nfe__sheet">
+          <div className="ck-estoque-nfe__scroll">
+            <div className="ck-estoque-nfe__head">
+              <span>Produto</span>
+              <span>Qtd</span>
+              <span>Estado</span>
+            </div>
 
-          {loading && <LinearProgress sx={{ my: 1, borderRadius: 1 }} />}
+            {loading && <LinearProgress sx={{ my: 1, borderRadius: 1 }} />}
 
-          <div className="ck-estoque-nfe__lista">
-            {(det.itens || []).map((it) => {
-              const c = checks[it.id_item];
-              const esp = c?.qtd_esperada ?? qtdEsperada(it);
-              const rec = c?.qtd_recebida ?? esp;
-              const estado = c?.ok;
-              const semMatch = !it.id_insumo;
-              return (
-                <div
-                  key={it.id_item}
-                  className={`ck-estoque-nfe__row${estado === false ? ' is-falta' : ''}${
-                    estado === true ? ' is-ok' : ''
-                  }${semMatch ? ' is-nomatch' : ''}`}
-                >
-                  <div className="ck-estoque-nfe__prod">
-                    <strong>{nomeItem(it)}</strong>
-                    {semMatch ? (
-                      <small>Sem cadastro de insumo — só registra ocorrência</small>
-                    ) : (
-                      <small>{it.codigo_nf || it.codigo_insumo}</small>
-                    )}
+            <div className="ck-estoque-nfe__lista">
+              {(det.itens || []).map((it) => {
+                const c = checks[it.id_item];
+                const esp = c?.qtd_esperada ?? qtdEsperada(it);
+                const rec = c?.qtd_recebida ?? esp;
+                const estado = c?.ok;
+                const semMatch = !it.id_insumo;
+                const { linhaEstoque, linhaEmb } = rotuloQtd(it, rec, esp);
+                return (
+                  <div
+                    key={it.id_item}
+                    className={`ck-estoque-nfe__row${estado === false ? ' is-falta' : ''}${
+                      estado === true ? ' is-ok' : ''
+                    }${semMatch ? ' is-nomatch' : ''}`}
+                  >
+                    <div className="ck-estoque-nfe__prod">
+                      <strong>{nomeItem(it)}</strong>
+                      {semMatch ? (
+                        <small>Sem cadastro de insumo — só registra ocorrência</small>
+                      ) : (
+                        <small>{it.codigo_nf || it.codigo_insumo}</small>
+                      )}
+                    </div>
+                    <div className="ck-estoque-nfe__qtd">
+                      <span>{linhaEstoque}</span>
+                      {linhaEmb ? <small>{linhaEmb}</small> : null}
+                    </div>
+                    <div className="ck-estoque-nfe__acoes">
+                      <button
+                        type="button"
+                        className={`ck-estoque-nfe__btn ck-estoque-nfe__btn--ok${
+                          estado === true ? ' is-on' : ''
+                        }`}
+                        aria-label="Chegou"
+                        disabled={semMatch && esp <= 0}
+                        onClick={() => marcar(it.id_item, true)}
+                      >
+                        <CheckCircleOutlinedIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className={`ck-estoque-nfe__btn ck-estoque-nfe__btn--no${
+                          estado === false ? ' is-on' : ''
+                        }`}
+                        aria-label="Não chegou"
+                        onClick={() => marcar(it.id_item, false)}
+                      >
+                        <HighlightOffIcon />
+                      </button>
+                    </div>
                   </div>
-                  <div className="ck-estoque-nfe__qtd">
-                    {rec}/{esp}
-                  </div>
-                  <div className="ck-estoque-nfe__acoes">
-                    <button
-                      type="button"
-                      className={`ck-estoque-nfe__btn ck-estoque-nfe__btn--ok${
-                        estado === true ? ' is-on' : ''
-                      }`}
-                      aria-label="Chegou"
-                      disabled={semMatch && esp <= 0}
-                      onClick={() => marcar(it.id_item, true)}
-                    >
-                      <CheckCircleOutlinedIcon />
-                    </button>
-                    <button
-                      type="button"
-                      className={`ck-estoque-nfe__btn ck-estoque-nfe__btn--no${
-                        estado === false ? ' is-on' : ''
-                      }`}
-                      aria-label="Não chegou"
-                      onClick={() => marcar(it.id_item, false)}
-                    >
-                      <HighlightOffIcon />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
           <div className="ck-estoque-nfe__footer">
@@ -323,6 +460,7 @@ export default function EstoqueMobileNfePage() {
             </button>
           </div>
         </div>
+        {dialogDanfe}
       </div>
     );
   }
@@ -338,16 +476,14 @@ export default function EstoqueMobileNfePage() {
             <p>Nota do fornecedor → só confirmar o que chegou</p>
           </div>
         </div>
-        {lojaAtual && (
-          <p className="ck-estoque-nfe__loja">{rotuloLoja(lojaAtual)}</p>
-        )}
+        {lojaAtual && <p className="ck-estoque-nfe__loja">{rotuloLoja(lojaAtual)}</p>}
       </div>
 
       <div className="ck-visitas__sheet">
-        <div className="ck-estoque__sheet-head">
+        <div className="ck-estoque-nfe__lista-head">
           <button
             type="button"
-            className="ck-estoque__voltar ck-visitas__btn-ghost"
+            className="ck-estoque-nfe__back"
             onClick={() => navigate('/estoque/mobile')}
           >
             ← Contagens
@@ -366,30 +502,43 @@ export default function EstoqueMobileNfePage() {
           )}
 
           {lista.map((n) => (
-            <button
-              key={n.id_nfe}
-              type="button"
-              className="ck-estoque__card ck-estoque-nfe__card"
-              onClick={() => navigate(`/estoque/mobile/nfes/${n.id_nfe}`)}
-            >
-              <div className="ck-estoque__card-top">
-                <strong>NF {n.numero || n.id_nfe}</strong>
-                <LocalShippingOutlinedIcon fontSize="small" />
-              </div>
-              <div className="ck-estoque__meta">
-                {n.emitente_nome || n.fornecedor} · {n.itens_casados ?? n.itens ?? 0} itens
-              </div>
-              <div className="ck-estoque__chips">
-                <span className="ck-estoque__chip">Emis. {fmtDataBR(n.emissao)}</span>
-                <span className="ck-estoque__chip ck-estoque__chip--ok">
-                  Saída {fmtDataBR(n.data_saida)}
-                </span>
-                <span className="ck-estoque__chip">{fmtMoeda(n.valor_total)}</span>
-              </div>
-            </button>
+            <div key={n.id_nfe} className="ck-estoque__card ck-estoque-nfe__card">
+              <button
+                type="button"
+                className="ck-estoque-nfe__card-main"
+                onClick={() => navigate(`/estoque/mobile/nfes/${n.id_nfe}`)}
+              >
+                <div className="ck-estoque__card-top">
+                  <strong>NF {n.numero || n.id_nfe}</strong>
+                  <LocalShippingOutlinedIcon fontSize="small" />
+                </div>
+                <div className="ck-estoque__meta">
+                  {n.emitente_nome || n.fornecedor} · {n.itens_casados ?? n.itens ?? 0} itens
+                </div>
+                <div className="ck-estoque__chips">
+                  <span className="ck-estoque__chip">Emis. {fmtDataBR(n.emissao)}</span>
+                  <span className="ck-estoque__chip ck-estoque__chip--ok">
+                    Saída {fmtDataBR(n.data_saida)}
+                  </span>
+                  <span className="ck-estoque__chip">{fmtMoeda(n.valor_total)}</span>
+                </div>
+              </button>
+              {n.tem_xml ? (
+                <button
+                  type="button"
+                  className="ck-estoque-nfe__card-danfe"
+                  disabled={abrindoDanfe}
+                  onClick={() => void abrirDanfe(n.id_nfe)}
+                >
+                  <DescriptionOutlinedIcon fontSize="small" />
+                  Ver DANFE
+                </button>
+              ) : null}
+            </div>
           ))}
         </div>
       </div>
+      {dialogDanfe}
     </div>
   );
 }

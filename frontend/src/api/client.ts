@@ -1222,6 +1222,19 @@ export const api = {
     return request<EstoqueNfeResumo[]>(`/estoque/nfes?${params}`);
   },
   estoqueNfeDetalhe: (idNfe: number) => request<EstoqueNfeDetalhe>(`/estoque/nfes/${idNfe}`),
+  /** URL autenticada do DANFE HTML (usar com fetch + Authorization). */
+  estoqueNfeDanfeUrl: (idNfe: number) => `${BASE}/estoque/nfes/${idNfe}/danfe`,
+  estoqueNfeDanfeHtml: async (idNfe: number) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/estoque/nfes/${idNfe}/danfe`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao abrir DANFE');
+    }
+    return res.text();
+  },
   estoqueNfeConferir: (
     idNfe: number,
     body: {
@@ -2735,6 +2748,7 @@ export interface EstoqueNfeResumo {
   emitente_nome?: string | null;
   valor_total?: number | null;
   entrada_registrada: boolean;
+  tem_xml?: boolean;
   itens?: number;
   itens_casados?: number;
 }
@@ -2746,6 +2760,7 @@ export interface EstoqueNfeItem {
   descricao?: string | null;
   codigo_insumo?: string | null;
   descricao_insumo?: string | null;
+  u_com?: string | null;
   q_com?: number | null;
   qtd_estoque?: number | null;
   qtd_conferida?: number | null;

@@ -42,6 +42,8 @@ import {
   upsertSyncFornecedor,
 } from '../services/platlog/schedulerPlatlog.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
+import fs from 'fs/promises';
+import { parseNfeXml, renderDanfeHtml } from '../services/nfeXml.js';
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
@@ -1245,11 +1247,47 @@ router.get('/nfes', permOp, async (req, res, next) => {
 router.get('/nfes/:id', permOp, async (req, res, next) => {
   try {
     const det = await obterNfeDetalhe(Number(req.params.id));
-    if (!det) return res.status(404).json({ error: 'NF n├úo encontrada' });
+    if (!det) return res.status(404).json({ error: 'NF não encontrada' });
     const bloqueio = acessoLoja(req, det.id_loja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
     res.json(det);
   } catch (e) {
+    next(e);
+  }
+});
+
+/** DANFE auxiliar (HTML) a partir do XML salvo no sync do fornecedor. */
+router.get('/nfes/:id/danfe', permOp, async (req, res, next) => {
+  try {
+    const idNfe = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT id_nfe, id_loja, numero, chave, xml_path FROM estoque_nfe WHERE id_nfe = $1`,
+      [idNfe],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'NF não encontrada' });
+    const nfe = rows[0];
+    const bloqueio = acessoLoja(req, nfe.id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const xmlPath = nfe.xml_path ? String(nfe.xml_path).trim() : '';
+    if (!xmlPath) {
+      return res.status(404).json({ error: 'XML da NF não está disponível nesta loja' });
+    }
+
+    let xml;
+    try {
+      xml = await fs.readFile(xmlPath, 'utf8');
+    } catch {
+      return res.status(404).json({ error: 'Arquivo XML da NF não encontrado no servidor' });
+    }
+
+    const parsed = parseNfeXml(xml);
+    const html = renderDanfeHtml(parsed);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(html);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
   }
 });

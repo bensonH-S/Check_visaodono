@@ -1,4 +1,4 @@
-/* Conferência de estoque mobile — estende ck-visitas */
+﻿/* ConferÃªncia de estoque mobile â€” estende ck-visitas */
 .ck-estoque .ck-estoque__loja {
   margin: 0 0 14px;
 }
@@ -96,7 +96,7 @@
   height: 1.55rem !important;
 }
 
-/* Hero azul fixo; só a lista/formulário rola (mesmo padrão visitas). */
+/* Hero azul fixo; sÃ³ a lista/formulÃ¡rio rola (mesmo padrÃ£o visitas). */
 .ck-estoque.ck-visitas--lista .ck-estoque__sheet-head {
   flex-shrink: 0;
 }
@@ -212,7 +212,7 @@
   overscroll-behavior: contain;
 }
 
-/* Modal centralizado (ex.: reabrir) — cobre a tela toda, inclusive sobre as tabs. */
+/* Modal centralizado (ex.: reabrir) â€” cobre a tela toda, inclusive sobre as tabs. */
 .ck-estoque .ck-estoque__loja-modal.ck-estoque__modal--center {
   justify-content: center;
   align-items: center;
@@ -764,7 +764,7 @@
   text-align: center;
   font: inherit;
   font-weight: 700;
-  font-size: 16px; /* teclado numérico + evita zoom no iOS */
+  font-size: 16px; /* teclado numÃ©rico + evita zoom no iOS */
 }
 
 .ck-estoque .ck-estoque__field input[type='number'] {
@@ -968,7 +968,7 @@
   box-shadow: none;
 }
 
-/* ── Contagem mobile (padrão planilha Terraço) ─────────────────────────── */
+/* â”€â”€ Contagem mobile (padrÃ£o planilha TerraÃ§o) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .ck-estoque--contagem.ck-visitas--lista {
   display: flex;
   flex-direction: column;
@@ -1395,7 +1395,7 @@
   color: #fff;
 }
 
-/* ── Break mobile (mesmo padrão da contagem) ───────────────────────────── */
+/* â”€â”€ Break mobile (mesmo padrÃ£o da contagem) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .ck-estoque--break.ck-visitas--lista {
   display: flex;
   flex-direction: column;
@@ -1410,7 +1410,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Formulário não pode colar no banner navy (sheet visitas usa margin negativo). */
+/* FormulÃ¡rio nÃ£o pode colar no banner navy (sheet visitas usa margin negativo). */
 .ck-estoque--break .ck-visitas__sheet {
   margin-top: 0;
   border-radius: 0;
@@ -1571,7 +1571,7 @@
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(27, 42, 107, 0.14);
-  background: linear-gradient(180deg, #fff 0%, #f4f7ff 100%);
+  background: linear-gradient(180deg, #fff 0%, #f7f5f1 100%);
   color: var(--ck-ink);
   font: inherit;
   font-weight: 700;
@@ -1600,16 +1600,93 @@
   font-weight: 700;
   color: rgba(255, 255, 255, 0.82);
 }
+.ck-estoque-nfe__danfe-btn {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ck-estoque-nfe__danfe-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.ck-estoque-nfe__lista-head {
+  margin: 0 0 12px;
+}
+.ck-estoque-nfe__back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.16);
+  background: #fff;
+  color: var(--ck-navy);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+}
 .ck-estoque-nfe__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+.ck-estoque-nfe__card-main {
   width: 100%;
   text-align: left;
   cursor: pointer;
   border: none;
-  background: #fff;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 14px 14px 10px;
+}
+.ck-estoque-nfe__card-danfe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  border: none;
+  border-top: 1px solid rgba(27, 42, 107, 0.1);
+  background: #faf9f6;
+  color: var(--ck-navy);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.ck-estoque-nfe--detalhe .ck-estoque-nfe__sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 0;
+}
+.ck-estoque-nfe__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
 }
 .ck-estoque-nfe__head {
   display: grid;
-  grid-template-columns: 1fr 72px 88px;
+  grid-template-columns: 1fr 88px 88px;
   gap: 8px;
   padding: 4px 6px 10px;
   font-size: 0.72rem;
@@ -1622,11 +1699,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-bottom: 88px;
 }
 .ck-estoque-nfe__row {
   display: grid;
-  grid-template-columns: 1fr 72px 88px;
+  grid-template-columns: 1fr 88px 88px;
   gap: 8px;
   align-items: center;
   padding: 12px 10px;
@@ -1669,8 +1745,19 @@
   text-align: center;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  font-size: 0.92rem;
+  font-size: 0.78rem;
   color: var(--ck-ink);
+  line-height: 1.2;
+}
+.ck-estoque-nfe__qtd span {
+  display: block;
+}
+.ck-estoque-nfe__qtd small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(20, 32, 72, 0.55);
 }
 .ck-estoque-nfe__acoes {
   display: flex;
@@ -1701,13 +1788,15 @@
   color: #fff;
 }
 .ck-estoque-nfe__footer {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
+  grid-template-columns: 1fr 1fr 1.35fr;
   gap: 8px;
-  padding: 10px 0 calc(10px + var(--app-tabbar-offset, 0px));
-  background: linear-gradient(180deg, rgba(244, 247, 255, 0) 0%, #f4f7ff 28%);
+  margin: 0 calc(var(--ck-pad-x) * -1);
+  padding: 12px var(--ck-pad-x) calc(12px + var(--app-tabbar-offset, 0px));
+  border-top: 1px solid rgba(27, 42, 107, 0.1);
+  background: var(--ck-paper, #f3f1ec);
+  box-shadow: none;
 }
 .ck-estoque-nfe__foot-btn {
   height: 46px;
@@ -1717,11 +1806,11 @@
   color: var(--ck-ink);
   font: inherit;
   font-weight: 800;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   cursor: pointer;
 }
 .ck-estoque-nfe__foot-btn--ghost {
-  background: #eef2ff;
+  background: #fff;
 }
 .ck-estoque-nfe__foot-btn--pri {
   background: #1b2a6b;
@@ -1731,4 +1820,24 @@
 .ck-estoque-nfe__foot-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+.ck-estoque-nfe__danfe-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+  background: #1b2a6b;
+  color: #fff;
+}
+.ck-estoque-nfe__danfe-bar strong {
+  font-size: 0.95rem;
+}
+.ck-estoque-nfe__danfe-bar .MuiIconButton-root {
+  color: #fff;
+}
+.ck-estoque-nfe__danfe-frame {
+  width: 100%;
+  height: calc(100% - 56px);
+  border: 0;
+  background: #f3f1ec;
 }

@@ -718,15 +718,41 @@ export async function obterNfeDetalhe(idNfe) {
     [id],
   );
   return {
-    ...nfe,
+    id_nfe: nfe.id_nfe,
+    id_loja: nfe.id_loja,
+    fornecedor: nfe.fornecedor,
+    numero: nfe.numero,
+    serie: nfe.serie,
+    chave: nfe.chave,
+    emissao: nfe.emissao,
+    data_saida: nfe.data_saida,
+    data_entrega: nfe.data_entrega,
+    data_vencimento: nfe.data_vencimento,
+    status_portal: nfe.status_portal,
+    status_entrega: nfe.status_entrega,
+    emitente_nome: nfe.emitente_nome,
+    emitente_cnpj: nfe.emitente_cnpj,
     valor_total: nfe.valor_total != null ? num(nfe.valor_total) : null,
     entrada_registrada: !!nfe.entrada_registrada,
+    tem_xml: !!(nfe.xml_path && String(nfe.xml_path).trim()),
     itens: itens.map((i) => ({
-      ...i,
+      id_item: i.id_item,
+      n_item: i.n_item,
+      codigo_nf: i.codigo_nf,
+      ean: i.ean,
+      descricao: i.descricao,
+      u_com: i.u_com,
       q_com: i.q_com != null ? num(i.q_com) : null,
+      v_un_com: i.v_un_com != null ? num(i.v_un_com) : null,
+      v_prod: i.v_prod != null ? num(i.v_prod) : null,
       qtd_estoque: i.qtd_estoque != null ? num(i.qtd_estoque) : null,
       qtd_conferida: i.qtd_conferida != null ? num(i.qtd_conferida) : null,
       conferido: !!i.conferido,
+      divergencia_obs: i.divergencia_obs,
+      id_insumo: i.id_insumo,
+      codigo_insumo: i.codigo_insumo,
+      descricao_insumo: i.descricao_insumo,
+      unidade_contagem: i.unidade_contagem,
     })),
   };
 }
@@ -764,9 +790,22 @@ export async function listarNfesEstoque(
   );
 
   return rows.map((r) => ({
-    ...r,
+    id_nfe: r.id_nfe,
+    id_loja: r.id_loja,
+    fornecedor: r.fornecedor,
+    numero: r.numero,
+    chave: r.chave,
+    emissao: r.emissao,
+    data_saida: r.data_saida,
+    data_entrega: r.data_entrega,
+    status_portal: r.status_portal,
+    status_entrega: r.status_entrega,
+    emitente_nome: r.emitente_nome,
     valor_total: r.valor_total != null ? num(r.valor_total) : null,
     entrada_registrada: !!r.entrada_registrada,
+    tem_xml: !!(r.xml_path && String(r.xml_path).trim()),
+    itens: r.itens,
+    itens_casados: r.itens_casados,
   }));
 }
 
