@@ -6,6 +6,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { importarVendasLoja } from '../services/estoqueMotor.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
+import { listarLojasBkOfficeSync } from '../services/bkoffice/syncVendas.js';
 import { pool } from '../db.js';
 
 const router = Router();
@@ -121,6 +122,25 @@ router.post('/estoque/vendas-import', requireKitToken, upload.single('arquivo'),
 /** Health do kit (confere token + API no ar). */
 router.get('/ping', requireKitToken, (_req, res) => {
   res.json({ ok: true, modo: 'kit-https', ts: new Date().toISOString() });
+});
+
+/** Lista lojas do rodízio BK Office (operacionais com BKN). */
+router.get('/estoque/lojas-sync', requireKitToken, async (req, res, next) => {
+  try {
+    const raw = String(req.query.ids || '').trim();
+    let ids = null;
+    if (raw && raw !== 'all' && raw !== '*') {
+      ids = raw
+        .split(/[,;\s]+/)
+        .map((s) => Number(s))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (!ids.length) ids = null;
+    }
+    const lojas = await listarLojasBkOfficeSync({ ids: ids && ids.length ? ids : 'all' });
+    res.json({ ok: true, total: lojas.length, lojas });
+  } catch (e) {
+    next(e);
+  }
 });
 
 export default router;

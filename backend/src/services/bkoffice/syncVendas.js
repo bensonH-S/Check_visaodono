@@ -13,13 +13,59 @@ const BASE_URL = process.env.BKOFFICE_URL || 'https://bkoffice-franquia.burgerki
 
 let jobRodando = false;
 let ultimoStatus = null;
-/** @type {{ ativo: boolean, intervalo_ms: number, id_loja: number, iniciado_em: string|null }} */
+/** @type {{ ativo: boolean, intervalo_ms: number, id_loja: number|null, id_lojas: number[], iniciado_em: string|null }} */
 let schedulerInfo = {
   ativo: false,
   intervalo_ms: 0,
   id_loja: 0,
+  id_lojas: [],
   iniciado_em: null,
 };
+
+/**
+ * Resolve quais lojas entram no sync automático.
+ * - BKOFFICE_SYNC_ID_LOJAS=all|*  → todas operacionais com BKN
+ * - BKOFFICE_SYNC_ID_LOJAS=21,15  → lista
+ * - BKOFFICE_SYNC_ID_LOJA=21      → uma (legado)
+ * - sem nada                     → all
+ */
+export function parseIdsLojasBkOfficeEnv(env = process.env) {
+  const multi = String(env.BKOFFICE_SYNC_ID_LOJAS || '').trim();
+  if (multi === 'all' || multi === '*') return 'all';
+  if (multi) {
+    const ids = multi
+      .split(/[,;\s]+/)
+      .map((s) => Number(s))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (ids.length) return ids;
+  }
+  const single = Number(env.BKOFFICE_SYNC_ID_LOJA || 0);
+  if (single > 0) return [single];
+  return 'all';
+}
+
+/** Lojas operacionais com código BKN (podem ser filtradas no portal). */
+export async function listarLojasBkOfficeSync({ ids = null } = {}) {
+  const parsed = ids != null ? ids : parseIdsLojasBkOfficeEnv();
+  const params = [];
+  let filtro = `is_active = TRUE AND bk_number IS NOT NULL AND TRIM(bk_number) <> ''`;
+  if (Array.isArray(parsed) && parsed.length) {
+    params.push(parsed);
+    filtro += ` AND id_loja = ANY($1::int[])`;
+  }
+  const { rows } = await pool.query(
+    `SELECT id_loja, name, bk_number
+     FROM lojas
+     WHERE ${filtro}
+     ORDER BY NULLIF(TRIM(bk_number), '')::bigint NULLS LAST, name`,
+    params,
+  );
+  return rows.map((r) => ({
+    id_loja: r.id_loja,
+    name: r.name,
+    bk_number: String(r.bk_number).trim(),
+  }));
+}
 
 export function getBkOfficeStatus() {
   const cronMs = Number(process.env.BKOFFICE_SYNC_CRON_MS || 0);
@@ -42,10 +88,12 @@ export function getBkOfficeStatus() {
       : serverSync
         ? 'manual_servidor'
         : 'pc_gerencia',
+    lojas_env: parseIdsLojasBkOfficeEnv(),
     scheduler: {
       ativo: schedulerInfo.ativo,
       intervalo_ms: schedulerInfo.intervalo_ms || (cronMs >= 60000 ? cronMs : 0),
       id_loja: schedulerInfo.id_loja || idLojaEnv || null,
+      id_lojas: schedulerInfo.id_lojas || [],
       iniciado_em: schedulerInfo.iniciado_em,
     },
   };
@@ -556,10 +604,10 @@ export async function syncVendasBkOffice({
 /**
  * Agenda sync periódico no SERVIDOR (BKOFFICE_SERVER_SYNC=1).
  *
- * Estratégia (rápida):
- * - Boot: backfill dia a dia (01 do mês → hoje) uma vez
- * - Depois: só o dia de hoje (rápido)
- * - 403 Akamai: backoff exponencial (15 min → 2 h) em vez de martelar a cada 60s
+ * Multi-loja (round-robin): a cada ciclo sincroniza a próxima loja do dia.
+ * Boot: backfill 01→hoje na loja atual do ponteiro (uma loja por vez no backfill inicial
+ * fica pesado; faz backfill só do dia atual em todas após a 1ª volta, e backfill mensal
+ * loja a loja nos ciclos seguintes se necessário).
  *
  * Fora do BR: obrigatório BKOFFICE_PROXY (residencial/BR), senão o Akamai bloqueia.
  */
@@ -569,14 +617,14 @@ export function iniciarSchedulerBkOffice() {
     process.env.BKOFFICE_SERVER_SYNC === 'true';
   const ms = Number(process.env.BKOFFICE_SYNC_CRON_MS || 0);
   if (!serverSync) {
-    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
+    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, id_lojas: [], iniciado_em: null };
     console.log(
       '[bkoffice] Scheduler no servidor DESLIGADO (BKOFFICE_SERVER_SYNC≠1).',
     );
     return null;
   }
   if (!ms || ms < 60000) {
-    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
+    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, id_lojas: [], iniciado_em: null };
     if (ms > 0 && ms < 60000) {
       console.warn('[bkoffice] Scheduler ignorado: BKOFFICE_SYNC_CRON_MS mínimo é 60000 (1 min)');
     }
@@ -584,13 +632,7 @@ export function iniciarSchedulerBkOffice() {
   }
   if (!process.env.BKOFFICE_USER || !process.env.BKOFFICE_PASS) {
     console.warn('[bkoffice] Scheduler ignorado: credenciais ausentes');
-    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
-    return null;
-  }
-  const idLoja = Number(process.env.BKOFFICE_SYNC_ID_LOJA || 0);
-  if (!idLoja) {
-    console.warn('[bkoffice] Scheduler ignorado: defina BKOFFICE_SYNC_ID_LOJA');
-    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, iniciado_em: null };
+    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, id_lojas: [], iniciado_em: null };
     return null;
   }
 
@@ -626,7 +668,12 @@ export function iniciarSchedulerBkOffice() {
 
   let backoffUntil = 0;
   let backoffMs = 0;
-  let backfillFeitoPara = null; // YYYY-MM (mês SP) já backfillado neste processo
+  let rrIndex = 0;
+  /** @type {Map<number, string>} id_loja → YYYY-MM já backfillado */
+  const backfillFeito = new Map();
+  /** @type {Array<{id_loja:number,name:string,bk_number:string}>} */
+  let lojasCache = [];
+  let lojasCacheEm = 0;
 
   const registrarFalha = (err) => {
     const msg = err?.message || String(err);
@@ -643,17 +690,37 @@ export function iniciarSchedulerBkOffice() {
     console.error('[bkoffice] Sync falhou:', msg);
   };
 
-  const syncDia = async (dia, motivo) => {
-    console.log(`[bkoffice] Sync ${motivo}: ${dia} (loja ${idLoja})`);
+  const carregarLojas = async () => {
+    if (lojasCache.length && Date.now() - lojasCacheEm < 30 * 60 * 1000) return lojasCache;
+    lojasCache = await listarLojasBkOfficeSync();
+    lojasCacheEm = Date.now();
+    schedulerInfo.id_lojas = lojasCache.map((l) => l.id_loja);
+    if (!lojasCache.length) {
+      console.warn('[bkoffice] Nenhuma loja com BKN para sync');
+    } else {
+      console.log(
+        `[bkoffice] ${lojasCache.length} loja(s) no rodízio: ${lojasCache
+          .map((l) => `${l.bk_number || l.id_loja}`)
+          .join(', ')}`,
+      );
+    }
+    return lojasCache;
+  };
+
+  const syncDiaLoja = async (loja, dia, motivo) => {
+    console.log(
+      `[bkoffice] Sync ${motivo}: ${dia} · loja ${loja.id_loja} (${loja.bk_number} ${loja.name})`,
+    );
     await syncVendasBkOffice({
-      id_loja: idLoja,
+      id_loja: loja.id_loja,
       data_inicio: dia,
       data_fim: dia,
+      termo_loja: loja.bk_number,
       processar: true,
     });
   };
 
-  const rodarCiclo = async (motivo, { backfill = false } = {}) => {
+  const rodarCiclo = async (motivo) => {
     if (jobRodando) {
       console.log(`[bkoffice] Sync ${motivo} pulado — já tem job em andamento`);
       return;
@@ -664,28 +731,30 @@ export function iniciarSchedulerBkOffice() {
       return;
     }
 
+    const lojas = await carregarLojas();
+    if (!lojas.length) return;
+
+    const loja = lojas[rrIndex % lojas.length];
+    rrIndex = (rrIndex + 1) % lojas.length;
+    schedulerInfo.id_loja = loja.id_loja;
+
     const hoje = hojeBR();
+    const mes = hoje.slice(0, 7);
     try {
-      if (backfill) {
+      if (backfillFeito.get(loja.id_loja) !== mes) {
         const ini = dataInicioMes();
-        console.log(`[bkoffice] Backfill ${ini} → ${hoje} (dia a dia, loja ${idLoja})`);
+        console.log(
+          `[bkoffice] Backfill ${ini}→${hoje} loja ${loja.id_loja} (${loja.bk_number})`,
+        );
         for (let d = ini; d <= hoje; d = addDaysISO(d, 1)) {
           if (Date.now() < backoffUntil) break;
-          await syncDia(d, `backfill`);
+          await syncDiaLoja(loja, d, 'backfill');
         }
-        backfillFeitoPara = hoje.slice(0, 7);
+        backfillFeito.set(loja.id_loja, mes);
         backoffMs = 0;
-        console.log(`[bkoffice] Backfill concluído até ${hoje}`);
         return;
       }
-
-      // Ciclo normal: só hoje (rápido). Se virou o mês e ainda não backfillou, faz.
-      const mes = hoje.slice(0, 7);
-      if (backfillFeitoPara !== mes) {
-        await rodarCiclo('backfill-mes', { backfill: true });
-        return;
-      }
-      await syncDia(hoje, motivo);
+      await syncDiaLoja(loja, hoje, motivo);
       backoffMs = 0;
     } catch (err) {
       registrarFalha(err);
@@ -695,20 +764,20 @@ export function iniciarSchedulerBkOffice() {
   schedulerInfo = {
     ativo: true,
     intervalo_ms: ms,
-    id_loja: idLoja,
+    id_loja: null,
+    id_lojas: [],
     iniciado_em: new Date().toISOString(),
   };
   console.log(
-    `[bkoffice] Scheduler ativo a cada ${Math.round(ms / 1000)}s (loja ${idLoja})` +
-      ` — boot=backfill 01→hoje, depois só hoje` +
+    `[bkoffice] Scheduler multi-loja a cada ${Math.round(ms / 1000)}s (round-robin)` +
       (proxyUrl ? ' — com proxy' : ' — SEM proxy'),
   );
 
   setTimeout(() => {
-    void rodarCiclo('inicial', { backfill: true });
+    void rodarCiclo('inicial');
   }, 15000);
 
   return setInterval(() => {
-    void rodarCiclo('agendado', { backfill: false });
+    void rodarCiclo('agendado');
   }, ms);
 }

@@ -33,6 +33,7 @@ const logErr = (...a) => console.error(...a);
 const idLoja = Number(getArg('--loja', process.env.BKOFFICE_SYNC_ID_LOJA || '21'));
 const ini = getArg('--inicio', '');
 const fim = getArg('--fim', ini);
+const termoArg = getArg('--termo', '') || null;
 
 function hojeBR() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -73,8 +74,27 @@ log({
   chrome: process.env.BKOFFICE_USE_CHROME !== '0',
 });
 
-// Sem Postgres na loja — termo da loja via env (bk_number) ou padrão Terraço
-let termoLoja = process.env.BKOFFICE_TERMO_LOJA || process.env.BKOFFICE_BK_NUMBER || null;
+// Termo do restaurante no portal: --termo / env / API do kit / fallback
+let termoLoja =
+  termoArg ||
+  process.env.BKOFFICE_TERMO_LOJA ||
+  process.env.BKOFFICE_BK_NUMBER ||
+  null;
+
+if (!termoLoja) {
+  try {
+    const lr = await fetch(`${apiBase}/public/kit/estoque/lojas-sync?ids=${idLoja}`, {
+      headers: { 'X-Meridian-Kit-Token': kitToken },
+    });
+    if (lr.ok) {
+      const body = await lr.json();
+      const hit = (body.lojas || []).find((l) => Number(l.id_loja) === idLoja);
+      if (hit?.bk_number) termoLoja = String(hit.bk_number).trim();
+    }
+  } catch {
+    /* ignore */
+  }
+}
 if (!termoLoja) {
   termoLoja = idLoja === 21 ? '30797' : String(idLoja);
 }

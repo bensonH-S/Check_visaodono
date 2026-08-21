@@ -112,14 +112,22 @@ function addDays(iso, delta) {
   return dt.toISOString().slice(0, 10);
 }
 
-function syncedPath() {
-  return path.join(kitRoot(), 'data', 'synced-days.json');
+function syncedPath(idLoja) {
+  return path.join(kitRoot(), 'data', `synced-days-${idLoja}.json`);
 }
 
-function loadSynced() {
+function loadSynced(idLoja) {
   try {
-    const p = syncedPath();
-    if (!fs.existsSync(p)) return { dias: [] };
+    const p = syncedPath(idLoja);
+    if (!fs.existsSync(p)) {
+      // migração: arquivo antigo global só vale p/ loja 21
+      const legacy = path.join(kitRoot(), 'data', 'synced-days.json');
+      if (Number(idLoja) === 21 && fs.existsSync(legacy)) {
+        const j = JSON.parse(fs.readFileSync(legacy, 'utf8'));
+        return { dias: Array.isArray(j.dias) ? j.dias.map(String) : [] };
+      }
+      return { dias: [] };
+    }
     const j = JSON.parse(fs.readFileSync(p, 'utf8'));
     return { dias: Array.isArray(j.dias) ? j.dias.map(String) : [] };
   } catch {
@@ -127,23 +135,68 @@ function loadSynced() {
   }
 }
 
-function saveSynced(state) {
+function saveSynced(idLoja, state) {
   const dir = path.join(kitRoot(), 'data');
   fs.mkdirSync(dir, { recursive: true });
   const uniq = [...new Set(state.dias)].sort();
-  fs.writeFileSync(syncedPath(), JSON.stringify({ dias: uniq, atualizado_em: new Date().toISOString() }, null, 2));
+  fs.writeFileSync(
+    syncedPath(idLoja),
+    JSON.stringify({ dias: uniq, atualizado_em: new Date().toISOString() }, null, 2),
+  );
 }
 
-function markSynced(dia) {
-  const state = loadSynced();
+function markSynced(idLoja, dia) {
+  const state = loadSynced(idLoja);
   if (!state.dias.includes(dia)) state.dias.push(dia);
-  saveSynced(state);
+  saveSynced(idLoja, state);
+}
+
+function rrPath() {
+  return path.join(kitRoot(), 'data', 'bkoffice-rr-index.json');
+}
+
+function loadRrIndex() {
+  try {
+    return Number(JSON.parse(fs.readFileSync(rrPath(), 'utf8')).index) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveRrIndex(index) {
+  try {
+    fs.mkdirSync(path.join(kitRoot(), 'data'), { recursive: true });
+    fs.writeFileSync(rrPath(), JSON.stringify({ index, em: new Date().toISOString() }), 'utf8');
+  } catch {
+    /* ignore */
+  }
 }
 
 function findNode(root) {
   const bundled = path.join(root, 'runtime', 'node', 'node.exe');
   if (fs.existsSync(bundled)) return bundled;
   return 'node';
+}
+
+async function fetchLojasSync(env) {
+  const apiBase = String(env.API_BASE || '').replace(/\/$/, '');
+  const token = env.BKOFFICE_KIT_TOKEN;
+  const idsEnv = String(env.BKOFFICE_SYNC_ID_LOJAS || '').trim() || 'all';
+  const q =
+    idsEnv === 'all' || idsEnv === '*'
+      ? 'all'
+      : idsEnv
+        ? idsEnv
+        : String(env.BKOFFICE_SYNC_ID_LOJA || '21');
+  const url = `${apiBase}/public/kit/estoque/lojas-sync?ids=${encodeURIComponent(q)}`;
+  const res = await fetch(url, { headers: { 'X-Meridian-Kit-Token': token } });
+  if (!res.ok) {
+    throw new Error(`lojas-sync HTTP ${res.status}`);
+  }
+  const body = await res.json();
+  const lojas = Array.isArray(body.lojas) ? body.lojas : [];
+  if (!lojas.length) throw new Error('API retornou zero lojas para sync');
+  return lojas;
 }
 
 function parseSyncOutput(text) {
@@ -163,7 +216,7 @@ function parseSyncOutput(text) {
   return { ok: false, erro: lines.slice(-3).join(' | ') || 'falha sem detalhe' };
 }
 
-function runSync(env, idLoja, ini, fim) {
+function runSync(env, idLoja, ini, fim, termoLoja = null) {
   const root = kitRoot();
   const node = findNode(root);
   const script = path.join(root, 'app', 'backend', 'scripts', 'sync-bkoffice-via-api.mjs');
@@ -186,19 +239,17 @@ function runSync(env, idLoja, ini, fim) {
     DB_PASS: '',
   };
   const timeoutMs = Math.max(360000, Number(env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || 180000) * 3 + 120000);
-  log(`sync ${ini} — baixando Excel BK Office (timeout ${Math.round(timeoutMs / 1000)}s)...`);
-  writeStatus({ estado: 'sincronizando', ultimo_sync: { dia: ini, ok: null } });
+  log(`sync loja=${idLoja} ${ini} — baixando Excel BK Office (timeout ${Math.round(timeoutMs / 1000)}s)...`);
+  writeStatus({ estado: 'sincronizando', loja: idLoja, ultimo_sync: { dia: ini, ok: null } });
   const t0 = Date.now();
+  const args = [script, `--loja=${idLoja}`, `--inicio=${ini}`, `--fim=${fim}`, '--quiet'];
+  if (termoLoja) args.push(`--termo=${termoLoja}`);
   return new Promise((resolve) => {
-    const proc = spawn(
-      node,
-      [script, `--loja=${idLoja}`, `--inicio=${ini}`, `--fim=${fim}`, '--quiet'],
-      {
-        cwd: path.join(root, 'app'),
-        env: childEnv,
-        windowsHide: true,
-      },
-    );
+    const proc = spawn(node, args, {
+      cwd: path.join(root, 'app'),
+      env: childEnv,
+      windowsHide: true,
+    });
     let out = '';
     let killed = false;
     const timer = setTimeout(() => {
@@ -221,28 +272,31 @@ function runSync(env, idLoja, ini, fim) {
       const parsed = parseSyncOutput(out);
       parsed.duracao_s = elapsed;
       parsed.dia = parsed.dia || ini;
+      parsed.loja = idLoja;
       if (killed) {
         parsed.ok = false;
         parsed.erro = `timeout apos ${Math.round(timeoutMs / 1000)}s`;
-        log(`FALHOU ${ini} — ${parsed.erro}`);
+        log(`FALHOU loja=${idLoja} ${ini} — ${parsed.erro}`);
       } else if (code === 0 && parsed.ok !== false) {
         parsed.ok = true;
         const venda = parsed.venda_total != null ? ` R$ ${parsed.venda_total}` : '';
-        log(`OK ${ini} — ${parsed.linhas ?? '?'} produtos${venda} gravados no Meridian (${elapsed}s)`);
+        log(`OK loja=${idLoja} ${ini} — ${parsed.linhas ?? '?'} produtos${venda} (${elapsed}s)`);
       } else {
         parsed.ok = false;
         parsed.erro = parsed.erro || `exit ${code}`;
-        log(`FALHOU ${ini} — ${parsed.erro} (${elapsed}s)`);
+        log(`FALHOU loja=${idLoja} ${ini} — ${parsed.erro} (${elapsed}s)`);
       }
       resolve(parsed);
     });
   });
 }
 
-async function syncIncremental(env, idLoja) {
+async function syncIncremental(env, loja) {
+  const idLoja = loja.id_loja;
+  const termo = loja.bk_number || null;
   const hoje = hojeBR();
   const iniMes = `${hoje.slice(0, 8)}01`;
-  const state = loadSynced();
+  const state = loadSynced(idLoja);
   const pendentes = [];
   for (let d = iniMes; d < hoje; d = addDays(d, 1)) {
     if (!state.dias.includes(d)) pendentes.push(d);
@@ -251,25 +305,27 @@ async function syncIncremental(env, idLoja) {
   writeStatus({
     estado: 'sincronizando',
     loja: idLoja,
+    loja_nome: loja.name,
+    bk_number: loja.bk_number,
     dias_ok: state.dias.filter((d) => d >= iniMes && d <= hoje),
     pendentes,
   });
 
   if (pendentes.length) {
-    log(`faltam ${pendentes.length} dia(s): ${pendentes.join(', ')}`);
+    log(`loja=${idLoja} faltam ${pendentes.length} dia(s): ${pendentes.join(', ')}`);
     for (const d of pendentes) {
-      const r = await runSync(env, idLoja, d, d);
+      const r = await runSync(env, idLoja, d, d, termo);
       writeStatus({ ultimo_sync: r });
-      if (r.ok) markSynced(d);
+      if (r.ok) markSynced(idLoja, d);
       else return false;
     }
   } else {
-    log(`mes OK ate ontem — so atualiza hoje (${hoje})`);
+    log(`loja=${idLoja} mes OK ate ontem — so atualiza hoje (${hoje})`);
   }
 
-  const rHoje = await runSync(env, idLoja, hoje, hoje);
+  const rHoje = await runSync(env, idLoja, hoje, hoje, termo);
   writeStatus({ ultimo_sync: rHoje });
-  if (rHoje.ok) markSynced(hoje);
+  if (rHoje.ok) markSynced(idLoja, hoje);
   return rHoje.ok;
 }
 
@@ -296,10 +352,10 @@ async function main() {
     process.exit(1);
   }
 
-  const idLoja = Number(secrets.BKOFFICE_SYNC_ID_LOJA || 21);
-  const intervalMs = 60000;
-  const intervalSec = 60;
-  log(`ativo loja=${idLoja} intervalo=${intervalSec}s (1 min — vendas intradiarias)`);
+  if (!secrets.BKOFFICE_SYNC_ID_LOJAS) secrets.BKOFFICE_SYNC_ID_LOJAS = 'all';
+
+  const intervalMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 90000));
+  const intervalSec = Math.round(intervalMs / 1000);
 
   if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.API_BASE || !secrets.BKOFFICE_KIT_TOKEN) {
     log('ERRO: cofre incompleto');
@@ -307,15 +363,39 @@ async function main() {
     process.exit(1);
   }
 
+  let lojas;
+  try {
+    lojas = await fetchLojasSync(secrets);
+    log(`rodizio ${lojas.length} loja(s): ${lojas.map((l) => l.bk_number || l.id_loja).join(', ')}`);
+  } catch (e) {
+    log(`ERRO ao listar lojas: ${e.message}`);
+    writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: e.message } });
+    process.exit(1);
+  }
+
   const once = process.argv.includes('--once') || process.argv.includes('--uma-vez');
   const forceBackfill = process.argv.includes('--backfill') || secrets.BKOFFICE_FORCE_BACKFILL === '1';
+  let rrIndex = loadRrIndex();
+
+  log(`ativo multi-loja intervalo=${intervalSec}s`);
 
   let ciclo = 0;
   let syncRodando = false;
   for (;;) {
     ciclo += 1;
-    writeStatus({ estado: 'rodando', ciclo, loja: idLoja });
-    log(`ciclo #${ciclo} iniciado`);
+    const loja = lojas[rrIndex % lojas.length];
+    rrIndex = (rrIndex + 1) % lojas.length;
+    saveRrIndex(rrIndex);
+
+    writeStatus({
+      estado: 'rodando',
+      ciclo,
+      loja: loja.id_loja,
+      loja_nome: loja.name,
+      bk_number: loja.bk_number,
+      lojas_total: lojas.length,
+    });
+    log(`ciclo #${ciclo} loja=${loja.id_loja} ${loja.bk_number} ${loja.name}`);
 
     let ok = false;
     if (syncRodando) {
@@ -325,20 +405,20 @@ async function main() {
       try {
         const hoje = hojeBR();
         if (once) {
-          log('modo teste — so hoje');
-          const r = await runSync(secrets, idLoja, hoje, hoje);
+          log('modo teste — so hoje nesta loja');
+          const r = await runSync(secrets, loja.id_loja, hoje, hoje, loja.bk_number);
           writeStatus({ ultimo_sync: r, estado: r.ok ? 'parado' : 'erro' });
-          if (r.ok) markSynced(hoje);
+          if (r.ok) markSynced(loja.id_loja, hoje);
           log(r.ok ? 'TESTE OK' : 'TESTE FALHOU');
           process.exit(r.ok ? 0 : 1);
         }
         if (forceBackfill && ciclo === 1) {
-          log('AVISO: backfill forcado 01→hoje');
+          log('AVISO: backfill forcado 01→hoje nesta loja');
           const ini = `${hoje.slice(0, 8)}01`;
           for (let d = ini; d <= hoje; d = addDays(d, 1)) {
-            const r = await runSync(secrets, idLoja, d, d);
+            const r = await runSync(secrets, loja.id_loja, d, d, loja.bk_number);
             writeStatus({ ultimo_sync: r });
-            if (r.ok) markSynced(d);
+            if (r.ok) markSynced(loja.id_loja, d);
             else {
               ok = false;
               break;
@@ -346,7 +426,15 @@ async function main() {
             ok = true;
           }
         } else {
-          ok = await syncIncremental(secrets, idLoja);
+          ok = await syncIncremental(secrets, loja);
+        }
+        // refresh lista a cada volta completa
+        if (rrIndex === 0) {
+          try {
+            lojas = await fetchLojasSync(secrets);
+          } catch (e) {
+            log(`aviso: nao atualizou lista de lojas (${e.message})`);
+          }
         }
       } catch (e) {
         log(`ERRO ${e.message || e}`);
@@ -371,16 +459,23 @@ async function main() {
       hour12: false,
     }).format(proximo);
 
-    const st = loadSynced();
+    const st = loadSynced(loja.id_loja);
     writeStatus({
       estado: ok ? 'dormindo' : 'erro',
       ciclo,
-      loja: idLoja,
+      loja: loja.id_loja,
+      loja_nome: loja.name,
+      bk_number: loja.bk_number,
+      lojas_total: lojas.length,
       dias_ok: st.dias,
       pendentes: [],
       proximo_ciclo: proximoFmt,
     });
-    log(ok ? `ciclo #${ciclo} OK — proximo em ${intervalSec}s (${proximoFmt})` : `ciclo #${ciclo} com falha — tenta de novo em ${intervalSec}s`);
+    log(
+      ok
+        ? `ciclo #${ciclo} OK — proximo em ${intervalSec}s (${proximoFmt})`
+        : `ciclo #${ciclo} com falha — tenta de novo em ${intervalSec}s`,
+    );
     await new Promise((r) => setTimeout(r, intervalMs));
   }
 }
