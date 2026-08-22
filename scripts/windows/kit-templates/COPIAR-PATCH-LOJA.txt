@@ -1,7 +1,7 @@
 PATCH RAPIDO — PC da gerencia (C:\Meridian-BKOffice-Gerencia)
 ============================================================
 
-Copie estes 3 arquivos do kit novo (substituir):
+Copie estes arquivos do kit novo (substituir):
 
   worker.mjs
   app\backend\scripts\sync-bkoffice-via-api.mjs
@@ -9,9 +9,12 @@ Copie estes 3 arquivos do kit novo (substituir):
 
 Depois:
   1. Task Manager — mate MeridianBkSync.exe e node worker.mjs
-  2. TESTAR-UMA-VEZ.bat  (aguarde ate 6 min — export Excel com retentativas)
-  3. Log deve mostrar: intervalo=60s e OK 2026-08-12 — R$ ...
+  2. TESTAR-UMA-VEZ.bat  (1 loja do rodizio; aguarde ate 6 min)
+  3. Log da loja: Logs\lojas\<BKN>-<nome>-AAAA-MM.log
   4. INSTALAR.bat (admin)
+
+Cofre: se o vault antigo nao tiver BKOFFICE_SYNC_ID_LOJAS, o worker
+assume "all" (20 lojas). Intervalo 90s.
 
 Se ainda falhar download: rode MeridianBkSync.exe --debug na pasta do kit
 e veja se o Chrome abre o BK Office (screenshot em Logs ou temp).

@@ -1,17 +1,7 @@
 /**
  * Loop 24h: sync BK Office → Postgres produção (PC gerência BR).
  * Round-robin em todas as lojas operacionais (ou lista em BKOFFICE_SYNC_ID_LOJAS).
- *
- * Serviço Windows: scripts/windows/install-servico-bkoffice.ps1
- * Manual:        node workers/bkoffice/loop.mjs
- *
- * Env (workers/bkoffice/.env ou backend/.env):
- *   DB_HOST, DB_USER, DB_PASS, DB_NAME_PROD
- *   BKOFFICE_USER, BKOFFICE_PASS
- *   SYNC_INTERVAL_MS=90000 (mín. 60s) — uma loja por ciclo
- *   BKOFFICE_SYNC_ID_LOJAS=all          (padrão)
- *   BKOFFICE_SYNC_ID_LOJAS=21,15,8      (lista)
- *   BKOFFICE_SYNC_ID_LOJA=21            (legado: só uma)
+ * Log: um arquivo por loja em Logs/lojas/.
  */
 import fs from 'fs';
 import path from 'path';
@@ -20,13 +10,14 @@ import dotenv from 'dotenv';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const logDir = path.join(root, 'Logs');
-fs.mkdirSync(logDir, { recursive: true });
+const logLojasDir = path.join(logDir, 'lojas');
+fs.mkdirSync(logLojasDir, { recursive: true });
 
 dotenv.config({ path: path.join(root, 'backend', '.env'), override: false });
 dotenv.config({ path: path.join(root, 'workers/bkoffice/.env'), override: true });
 
 process.env.DB_NAME = process.env.DB_NAME_PROD || process.env.DB_NAME || 'vision_check';
-if (process.env.BKOFFICE_USE_CHROME == null) process.env.BKOFFICE_USE_CHROME = '1';
+if (process.env.BKOFFICE_USE_CHROME == null) process.env.BKOFFICE_USE_CHROME = '0';
 if (process.env.BKOFFICE_HEADLESS == null) process.env.BKOFFICE_HEADLESS = '1';
 process.env.BKOFFICE_SYNC_CRON_MS = '0';
 
@@ -42,11 +33,69 @@ function hojeBR() {
   }).format(new Date());
 }
 
-function log(...args) {
-  const line = `[worker-bk] ${new Date().toISOString()} ${args.map(String).join(' ')}`;
+function agoraBR() {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(new Date());
+}
+
+function slugNome(name) {
+  const s = String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/BURGER KING\s*-?\s*/gi, '')
+    .replace(/POPYES\s*-?\s*/gi, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()
+    .slice(0, 36);
+  return s || 'loja';
+}
+
+function bknLoja(loja) {
+  const n = String(loja?.bk_number || '').replace(/\D/g, '');
+  return n || `id${loja?.id_loja || 0}`;
+}
+
+function arquivoLogLoja(loja) {
+  const ym = agoraBR().slice(0, 7);
+  return path.join(logLojasDir, `${bknLoja(loja)}-${slugNome(loja?.name)}-${ym}.log`);
+}
+
+function append(file, line) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.appendFileSync(file, `${line}\n`, 'utf8');
+}
+
+function logServico(...args) {
+  const line = `${agoraBR()}  INFO  ${args.map(String).join(' ')}`;
   console.log(line);
   try {
-    fs.appendFileSync(path.join(logDir, 'bkoffice-service.log'), `${line}\n`, 'utf8');
+    append(path.join(logDir, '_servico.log'), line);
+  } catch {
+    /* ignore */
+  }
+}
+
+function logLoja(loja, nivel, msg) {
+  const line = `${agoraBR()}  ${String(nivel).padEnd(4)}  ${msg}`;
+  console.log(`${line}  [${bknLoja(loja)}]`);
+  try {
+    const file = arquivoLogLoja(loja);
+    if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
+      append(
+        file,
+        `# Meridian BK Office — log exclusivo desta loja\n# BKN ${bknLoja(loja)}  |  ${loja?.name || '?'}  |  id_loja=${loja?.id_loja ?? '?'}\n`,
+      );
+    }
+    append(file, line);
   } catch {
     /* ignore */
   }
@@ -80,25 +129,25 @@ let rrIndex = loadRrIndex();
 
 async function tick() {
   if (rodando) {
-    log('pulando: sync anterior ainda em andamento');
+    logServico('pulando: sync anterior ainda em andamento');
     return;
   }
   rodando = true;
   const dia = hojeBR();
+  let loja = null;
   try {
     const lojas = await listarLojasBkOfficeSync();
     if (!lojas.length) {
-      log('ERRO: nenhuma loja com BKN para sync (BKOFFICE_SYNC_ID_LOJAS?)');
+      logServico('ERRO: nenhuma loja com BKN para sync (BKOFFICE_SYNC_ID_LOJAS?)');
       return;
     }
-    const loja = lojas[rrIndex % lojas.length];
+    loja = lojas[rrIndex % lojas.length];
     rrIndex = (rrIndex + 1) % lojas.length;
     saveRrIndex(rrIndex);
+    const pos = rrIndex === 0 ? lojas.length : rrIndex;
 
-    log(
-      `sync loja=${loja.id_loja} bkn=${loja.bk_number} "${loja.name}" dia=${dia} ` +
-        `(${(rrIndex === 0 ? lojas.length : rrIndex)}/${lojas.length} no rodízio) db=${process.env.DB_NAME}`,
-    );
+    logServico(`ciclo ${pos}/${lojas.length} → BKN ${bknLoja(loja)} ${loja.name}`);
+    logLoja(loja, 'INFO', `sync dia=${dia} db=${process.env.DB_NAME}`);
     const r = await syncVendasBkOffice({
       id_loja: loja.id_loja,
       data_inicio: dia,
@@ -106,18 +155,17 @@ async function tick() {
       termo_loja: loja.bk_number,
       processar: true,
     });
-    log('OK', JSON.stringify(r?.status || r || 'ok'));
+    logLoja(loja, 'OK', JSON.stringify(r?.status || r || 'ok'));
   } catch (e) {
-    log('ERRO', e.message || e);
+    logServico('ERRO', e.message || e);
+    if (loja) logLoja(loja, 'ERRO', e.message || String(e));
   } finally {
     rodando = false;
   }
 }
 
 const modo = parseIdsLojasBkOfficeEnv();
-log(
-  `iniciado intervalo=${INTERVAL}ms lojas=${JSON.stringify(modo)} db=${process.env.DB_NAME} rr=${rrIndex}`,
-);
+logServico(`iniciado intervalo=${INTERVAL}ms lojas=${JSON.stringify(modo)} db=${process.env.DB_NAME} rr=${rrIndex}`);
 await tick();
 setInterval(() => {
   void tick();

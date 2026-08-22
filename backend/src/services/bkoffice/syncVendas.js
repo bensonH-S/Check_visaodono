@@ -311,7 +311,8 @@ export async function baixarExcelVendas({
 
   // HEADLESS=0 → janela; qualquer outro valor (incl. 1) → invisível
   const headless = process.env.BKOFFICE_HEADLESS !== '0';
-  const useChrome = process.env.BKOFFICE_USE_CHROME !== '0';
+  // Opt-in: canal Chrome do Windows fecha o navegador do usuário no browser.close().
+  const useChrome = process.env.BKOFFICE_USE_CHROME === '1';
   const { buildChromiumLaunchOptions } = await import('../playwrightBrowser.js');
   const launchOpts = buildChromiumLaunchOptions({
     headless,
@@ -319,6 +320,8 @@ export async function baixarExcelVendas({
     downloadsPath: downloadDir,
     extraArgs: [
       '--disable-blink-features=AutomationControlled',
+      '--no-first-run',
+      '--no-default-browser-check',
     ],
   });
   launchOpts.ignoreDefaultArgs = ['--enable-automation'];

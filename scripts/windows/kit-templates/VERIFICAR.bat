@@ -8,7 +8,7 @@ echo ========================================
 echo Pasta: %CD%
 echo.
 
-echo --- STATUS (leia isto) ---
+echo --- STATUS (todas as lojas) ---
 if exist "data\STATUS.txt" (
   type "data\STATUS.txt"
 ) else (
@@ -28,19 +28,29 @@ schtasks /Query /TN "MeridianBkOfficeTerraco" /V /FO LIST 2>nul | findstr /I "St
 if errorlevel 1 echo (tarefa nao encontrada)
 echo.
 
-echo --- Dias ja enviados (synced-days.json) ---
-if exist "data\synced-days.json" (
-  powershell -NoProfile -Command "$j=Get-Content 'data\synced-days.json' -Raw|ConvertFrom-Json; Write-Host ('Total: '+$j.dias.Count+' dias'); if($j.dias.Count -le 20){$j.dias}else{$j.dias[-10..-1] -join ', ' + ' ... (ultimos 10)'}"
+echo --- Indice das 20 lojas ---
+if exist "Logs\lojas\_indice.txt" (
+  type "Logs\lojas\_indice.txt"
 ) else (
-  echo (arquivo ainda nao existe)
+  echo (ainda nao gerado — aguarde o primeiro boot)
 )
 echo.
 
-echo --- Ultimas 15 linhas do log ---
-if exist "Logs\bkoffice-python-service.log" (
-  powershell -NoProfile -Command "Get-Content -LiteralPath 'Logs\bkoffice-python-service.log' -Tail 15"
+echo --- Arquivos de log por loja ---
+if exist "Logs\lojas" (
+  dir /b "Logs\lojas\*.log" 2>nul
 ) else (
-  echo (log ainda nao existe)
+  echo (pasta Logs\lojas ainda nao existe)
+)
+echo.
+
+echo --- Servico (boot/rodizio) — ultimas 8 linhas ---
+if exist "Logs\_servico.log" (
+  powershell -NoProfile -Command "Get-Content -LiteralPath 'Logs\_servico.log' -Tail 8"
+) else if exist "Logs\bkoffice-python-service.log" (
+  powershell -NoProfile -Command "Get-Content -LiteralPath 'Logs\bkoffice-python-service.log' -Tail 8"
+) else (
+  echo (log de servico ainda nao existe)
 )
 echo.
 pause

@@ -27,7 +27,7 @@ export function rankingColunaRevRec(codigo: string): boolean {
 
 export function rankingDecimaisValor(codigo: string): number {
   if (codigo === 'rank_google') return 1;
-  if (codigo === 'rank_rev') return 4;
+  if (codigo === 'rank_rev') return 2;
   if (codigo === 'rank_delivery') return 2;
   if (codigo === 'rank_nps' || codigo === 'rank_ano_anterior') return 3;
   return 3;
@@ -92,7 +92,7 @@ export function formatValorPercentualExibicao(
   const abs = Math.abs(valor_numero);
   // Fração (0–1) → pontos percentuais; valores > 1 já estão em %.
   const pct = abs <= 1 ? valor_numero * 100 : valor_numero;
-  // Mantém as casas da coluna (ex.: 86,00 → 86.0000 no R.E.V. com 4 dec.).
+  // Mantém as casas da coluna (ex.: 86,00 no R.E.V. com 2 dec.).
   return pct.toFixed(decimais);
 }
 

@@ -6,6 +6,7 @@ COMO FUNCIONA (firewall-friendly)
   1) Neste PC: Chrome baixa o Excel do BK Office (IP Brasil)
   2) Envia o arquivo por HTTPS (porta 443) para o Meridian
   3) O SERVIDOR grava no banco — a loja NÃO precisa abrir 5432
+  4) Rodizio: 1 loja a cada ~90s  →  as 20 lojas em ~30 min
 
 SEGURANÇA
   - Sem config.env / sem senha de banco no PC
@@ -18,9 +19,16 @@ INSTALAR
   2) TESTAR-UMA-VEZ.bat  → deve sair TESTE OK
   3) INSTALAR.bat
 
+LOGS — UM ARQUIVO POR LOJA (nao misturar)
+  Logs\lojas\30797-terraco-shopping-2026-08.log
+  Logs\lojas\18915-408-sul-2026-08.log
+  ... (20 arquivos)
+  Logs\lojas\_indice.txt     lista BKN + nome
+  Logs\_servico.log          so boot e rodizio (sem venda)
+
+  STATUS de todas as lojas: data\STATUS.txt  (rode VERIFICAR.bat)
+
 No VPS (.env) obrigatório:
   BKOFFICE_KIT_TOKEN=<mesmo do build>
   BKOFFICE_SERVER_SYNC=0
-  + deploy da tag com rota /public/kit/...
-
-LOGS: Logs\bkoffice-python-service.log
+  + deploy da tag v1.8 com rota /public/kit/estoque/lojas-sync

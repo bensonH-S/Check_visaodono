@@ -120,7 +120,7 @@ function RankingLinhaValor({
       if (mudouNumero || mudouTexto) {
         onSalvar(parsed);
       }
-      // Normaliza na hora (ex.: 86,00 → 86.0000 no R.E.V.), mesmo se não precisou POST.
+      // Normaliza na hora (ex.: 86,00 → 86.00 no R.E.V.), mesmo se não precisou POST.
       setLocal(formatValorPercentualExibicao(parsed.valor_numero, parsed.valor_texto, decimais));
       return;
     }
