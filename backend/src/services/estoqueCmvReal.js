@@ -886,8 +886,8 @@ export async function statusDisciplinaEstoque(idLoja, { hoje = null } = {}) {
       severidade: 'media',
       mensagem:
         diasCritica == null
-          ? 'Nenhuma contagem semanal crítica finalizada.'
-          : `Última crítica semanal há ${diasCritica} dias (meta ≤ 10).`,
+          ? 'Nenhuma contagem semanal de segunda (mix e latas) finalizada.'
+          : `Última semanal (segunda) há ${diasCritica} dias (meta ≤ 10).`,
     });
   }
   if ((nfsPend[0]?.qtd || 0) > 0) {

@@ -82,7 +82,7 @@ function tituloConferencia(dataISO, tipo = 'completa') {
     return dataLabel ? `Diária ${dataLabel}` : 'Contagem diária';
   }
   if (tipo === 'critica_semanal') {
-    return dataLabel ? `Semanal críticos ${dataLabel}` : 'Contagem semanal (críticos)';
+    return dataLabel ? `Semanal mix/latas ${dataLabel}` : 'Contagem semanal (mix e latas)';
   }
   if (!dataLabel) return 'Conferência de estoque';
   return `Conferência ${dataLabel}`;
@@ -103,10 +103,10 @@ function filtroItensPorTipo(tipoContagem) {
 
 function erroSemItensTipo(tipoContagem) {
   if (tipoContagem === 'diaria') {
-    return 'Nenhum item de contagem diária nesta loja (carne, frango, queijo, bacon, pão, batata, óleo, copos/xarope)';
+    return 'Nenhum item de contagem diária nesta loja (giro do cadastro: carnes, frango, queijo, bacon, pão, batata, óleo, copos)';
   }
   if (tipoContagem === 'critica_semanal') {
-    return 'Nenhum item crítico cadastrado nesta loja (mix, carnes, pão, batata, latas)';
+    return 'Nenhum item da semanal nesta loja (mix e latas)';
   }
   return null;
 }
@@ -1013,7 +1013,7 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
 
     const hoje = hojeISOBrasil();
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
-    const tipo = normalizarTipoContagem(req.body?.tipo || 'diaria');
+    const tipo = normalizarTipoContagem(req.body?.tipo || 'critica_semanal');
     const metaBase = { hoje, id_loja: idLoja, tipo };
 
     const { rows: abertas } = await pool.query(

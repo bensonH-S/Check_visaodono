@@ -484,7 +484,7 @@ export default function ControleEstoquePage() {
     }
   }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
 
-  const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
+  const iniciarSabado = async (tipo: TipoContagemEstoque = 'critica_semanal') => {
     if (!podeEditarConferencia || !idLoja) return;
     setIniciando(true);
     try {
@@ -814,8 +814,8 @@ export default function ControleEstoquePage() {
                             Conferência — contagem de insumos
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            Diária puxa os produtos de giro do cadastro da loja — cada linha é o
-                            insumo real (código e descrição), não um grupo genérico.
+                            Diária: giro do cadastro da loja. Semanal de segunda: só mix e latas,
+                            independente da diária.
                           </Typography>
                           {lojaAtual && (
                             <Typography
@@ -845,7 +845,7 @@ export default function ControleEstoquePage() {
                                 disabled={iniciando}
                                 onClick={() => void iniciarSabado('critica_semanal')}
                               >
-                                Semanal
+                                Semanal (segunda)
                               </Button>
                               <Button
                                 variant="outlined"

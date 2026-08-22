@@ -29,6 +29,9 @@ export function classificarGrupoDiario(descricao) {
   const d = normalizarDesc(descricao);
   if (!d) return null;
 
+  // Mix 18L (BAG) fica só na semanal de segunda — não entra na diária.
+  if (/\bBAG\b/.test(d) && /\b18\b/.test(d) && /\bLT/.test(d)) return null;
+
   if (/\bBATATA\b/.test(d) && !/\b(CARTONAGEM|CART BATATA|FUNDO|TAMPA|SAQUINHO|EMBALAG)\b/.test(d)) {
     return 'batata';
   }
@@ -51,9 +54,6 @@ export function classificarGrupoDiario(descricao) {
     return 'refil';
   }
   if (/\bFREE REFIL/.test(d) || /\bFREE REFILL/.test(d)) return 'refil';
-  if (/\bBAG\b/.test(d) && /18\s*LT/.test(d) && /\b(COCA|FANTA|SPRITE|GUARANA)\b/.test(d)) {
-    return 'refil';
-  }
   return null;
 }
 

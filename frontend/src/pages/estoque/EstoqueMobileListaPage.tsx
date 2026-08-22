@@ -30,7 +30,7 @@ function hojeIsoSp() {
 
 function labelIniciar(tipo: TipoContagemEstoque) {
   if (tipo === 'diaria') return 'Contagem diária';
-  if (tipo === 'critica_semanal') return 'Contagem semanal';
+  if (tipo === 'critica_semanal') return 'Contagem semanal (segunda)';
   return 'Contagem completa';
 }
 
@@ -536,8 +536,8 @@ export default function EstoqueMobileListaPage() {
                   </button>
                 </div>
                 <p className="ck-estoque__confirm-text">
-                  Diária puxa do estoque da loja os produtos de giro (carnes, pães, queijo, copos…).
-                  Semanal: mix e latas. Completa: todos os insumos.
+                  Diária puxa os produtos de giro do cadastro. Semanal de segunda é outra
+                  contagem, só mix e latas — não se misturam.
                 </p>
                 <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column' }}>
                   <button
@@ -554,7 +554,7 @@ export default function EstoqueMobileListaPage() {
                     disabled={iniciando}
                     onClick={() => void iniciar('critica_semanal')}
                   >
-                    Contagem semanal (críticos)
+                    Contagem semanal (segunda · mix e latas)
                   </button>
                   <button
                     type="button"
