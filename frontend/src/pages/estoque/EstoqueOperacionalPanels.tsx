@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
-import Collapse from '@mui/material/Collapse';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -30,8 +29,6 @@ import AddIcon from '@mui/icons-material/Add';
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -64,7 +61,7 @@ import { custoLinhaReceita, UNIDADES_RECEITA, unidadeReceitaPadrao } from '../..
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
-import { colors } from '../../theme/tokens';
+import { colors, portalPanelSx } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 
 type AbaOp = 'cmv' | 'break' | 'pedido' | 'fichas' | 'saldo';
@@ -142,6 +139,183 @@ const campoBreakFieldSx = {
   },
 } as const;
 
+function PendenciaChip({
+  tipo,
+  children,
+  onClick,
+}: {
+  tipo: 'bloqueio' | 'atencao';
+  children: ReactNode;
+  onClick?: () => void;
+}) {
+  const bloqueio = tipo === 'bloqueio';
+  return (
+    <Box
+      component={onClick ? 'button' : 'div'}
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.85,
+        px: 1.15,
+        py: 0.5,
+        border: 'none',
+        borderRadius: '8px',
+        bgcolor: bloqueio ? 'rgba(180, 35, 24, 0.08)' : 'rgba(232, 82, 10, 0.08)',
+        whiteSpace: 'nowrap',
+        cursor: onClick ? 'pointer' : 'default',
+        font: 'inherit',
+      }}
+    >
+      <Box
+        sx={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          bgcolor: bloqueio ? '#B42318' : colors.orange,
+          flexShrink: 0,
+        }}
+      />
+      <Typography
+        sx={{
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          color: bloqueio ? '#9F1F17' : colors.orange,
+          letterSpacing: '-0.01em',
+        }}
+      >
+        {children}
+      </Typography>
+    </Box>
+  );
+}
+
+function textoPendenciaCurto(texto: string) {
+  return texto
+    .replace(/^Falta a contagem completa no fim do período\.?$/i, 'Contagem final do período')
+    .replace(/^Falta estoque final \(contagem completa no fim do período\)\.?$/i, 'Contagem final do período')
+    .replace(/^Falta estoque inicial \(contagem completa no início do período\)\.?$/i, 'Contagem inicial do período')
+    .replace(/^Contagem diária de hoje ainda não foi feita.*$/i, 'Diária de hoje')
+    .replace(/^Última semanal \(segunda\) há (\d+) dias \(meta ≤ 10\)\.?$/i, 'Semanal há $1 dias')
+    .replace(/^Nenhuma contagem semanal de segunda \(mix e latas\) finalizada\.?$/i, 'Semanal de segunda não feita')
+    .replace(/^(\d+) produto\(s\) sem ficha — CMV teórico fica incompleto\.?$/i, '$1 produtos sem ficha');
+}
+
+function LedgerRow({
+  prefix,
+  label,
+  value,
+  strong,
+}: {
+  prefix?: string;
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        gap: 2,
+        py: 0.7,
+        borderTop: strong ? `1px solid ${colors.border}` : 'none',
+        mt: strong ? 0.35 : 0,
+        pt: strong ? 1 : 0.7,
+      }}
+    >
+      <Typography sx={{ color: colors.textSecondary, fontSize: '0.84rem', fontWeight: strong ? 600 : 400 }}>
+        {prefix ? `${prefix} ${label}` : label}
+      </Typography>
+      <Typography
+        sx={{
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          fontSize: '0.84rem',
+          fontWeight: strong ? 650 : 500,
+          color: colors.textPrimary,
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+function grupoFornecedorNfe(n: EstoqueNfeResumo) {
+  const nome = `${n.emitente_nome || ''} ${n.fornecedor || ''}`.toUpperCase();
+  if (nome.includes('PLATLOG')) return 'Platlog';
+  if (nome.includes('BRASAL')) return 'Brasal';
+  const cru = (n.emitente_nome || n.fornecedor || 'Outros').replace(/\s+/g, ' ').trim();
+  return cru.replace(/\s+(LTDA|S\/A|S A|SA|EIRELI|ME)\.?$/i, '').trim() || 'Outros';
+}
+
+function NfeLinha({
+  n,
+  onClick,
+}: {
+  n: EstoqueNfeResumo;
+  onClick: () => void;
+}) {
+  const valor =
+    n.valor_total != null && Number.isFinite(Number(n.valor_total)) ? fmtMoeda(n.valor_total) : null;
+  const venc = n.data_vencimento ? fmtDataBR(n.data_vencimento) : null;
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        gap: 1.5,
+        py: 0.7,
+        cursor: 'pointer',
+        '&:hover .nfe-num': { color: colors.navy },
+      }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Typography className="nfe-num" sx={{ fontWeight: 600, fontSize: '0.84rem', letterSpacing: '-0.02em' }}>
+          {n.numero || n.id_nfe}
+        </Typography>
+        {venc ? (
+          <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.1 }}>{venc}</Typography>
+        ) : null}
+      </Box>
+      {valor ? (
+        <Typography
+          sx={{
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            fontSize: '0.84rem',
+            fontWeight: 600,
+            letterSpacing: '-0.02em',
+            flexShrink: 0,
+          }}
+        >
+          {valor}
+        </Typography>
+      ) : null}
+    </Box>
+  );
+}
+
+function alertaDuplicaMotivo(texto: string, motivo: string | null) {
+  if (!motivo) return false;
+  const n = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  const a = n(texto);
+  const b = n(motivo);
+  if (a === b) return true;
+  const falaFinal = /estoque final|contagem completa no fim|contagem final|fim do periodo/;
+  return falaFinal.test(a) && falaFinal.test(b);
+}
+
 type Props = {
   aba: AbaOp;
   idLoja: number;
@@ -211,7 +385,6 @@ function PainelCmv({
   const [conferindo, setConferindo] = useState(false);
   const [fechando, setFechando] = useState(false);
   const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);
-  const [nfesAberto, setNfesAberto] = useState(false);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -246,22 +419,23 @@ function PainelCmv({
 
   useEffect(() => {
     onSetHeaderActions?.(
-      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 0.25, alignItems: 'center' }}>
         <FiltroIntervaloDatasFrota
+          variante="texto"
           dataInicio={dataIni}
           dataFim={dataFim}
           onChangeInicio={setDataIni}
           onChangeFim={setDataFim}
         />
-        <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
-          Atualizar
-        </Button>
+        <IconButton size="small" aria-label="Atualizar" onClick={() => void carregar()}>
+          <RefreshIcon sx={{ fontSize: 18 }} />
+        </IconButton>
         <IconButton
           size="small"
           aria-label="Mais opções"
           onClick={(e) => setMenuEl(e.currentTarget)}
         >
-          <MoreVertIcon fontSize="small" />
+          <MoreVertIcon sx={{ fontSize: 18 }} />
         </IconButton>
       </Box>,
     );
@@ -299,6 +473,26 @@ function PainelCmv({
     }
   };
 
+  const conferirTodas = async () => {
+    const prontos = nfes.filter((n) => n.status_entrega === 'aguardando_conferencia');
+    if (!prontos.length) {
+      showToast('Nenhuma NF pronta para conferir', 'info');
+      return;
+    }
+    setConferindo(true);
+    try {
+      for (const n of prontos) {
+        await api.estoqueNfeConferir(n.id_nfe, { confirmar_todos: true });
+      }
+      showToast(`${prontos.length} NF(s) conferidas`, 'success');
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao conferir NFs', 'error');
+    } finally {
+      setConferindo(false);
+    }
+  };
+
   const fecharMes = async () => {
     const anoMes = dataIni.slice(0, 7);
     setFechando(true);
@@ -331,6 +525,7 @@ function PainelCmv({
       const t = (texto || '').trim();
       if (!t || seen.has(t)) return;
       if (motivoRealCard && t === motivoRealCard) return;
+      if (alertaDuplicaMotivo(t, motivoRealCard)) return;
       seen.add(t);
       msgs.push({ texto: t, peso, key });
     };
@@ -344,15 +539,14 @@ function PainelCmv({
     }
 
     for (const a of disciplina?.alertas || []) {
-      // NF pendente não é alerta vermelho de CMV — fica na seção Recebimentos
-      if (a.tipo === 'nf_sem_entrega') continue;
+      if (a.tipo === 'nf_sem_entrega' || a.tipo?.startsWith('nf_')) continue;
       push(a.mensagem, severidadePeso(a.severidade), `d-${a.tipo}-${a.mensagem}`);
     }
     if (realPctPreview != null) {
       push(real?.aviso, 0, 'real-aviso');
     }
     for (const av of real?.avisos || []) {
-      if (/NF\(s\) sem entrada/i.test(av)) continue;
+      if (/NF\s*\(|sem conferência no estoque/i.test(av)) continue;
       push(av, 1, `real-${av}`);
     }
     if (faltaFicha > 0) {
@@ -363,7 +557,7 @@ function PainelCmv({
       );
     }
 
-    return msgs.sort((a, b) => a.peso - b.peso).slice(0, 3);
+    return msgs.sort((a, b) => a.peso - b.peso).slice(0, motivoRealCard ? 2 : 3);
   }, [
     cmv?.cmv_teorico_pct,
     cmv?.meta_pct,
@@ -374,6 +568,23 @@ function PainelCmv({
     motivoRealCard,
     realPctPreview,
   ]);
+
+  const nfesPorGrupo = useMemo(() => {
+    const ordem = ['Platlog', 'Brasal'];
+    const map = new Map<string, EstoqueNfeResumo[]>();
+    for (const n of nfes) {
+      const g = grupoFornecedorNfe(n);
+      const arr = map.get(g) || [];
+      arr.push(n);
+      map.set(g, arr);
+    }
+    const principais = ordem.filter((k) => map.has(k)).map((k) => ({ nome: k, itens: map.get(k)! }));
+    const outros = [...map.keys()]
+      .filter((k) => !ordem.includes(k))
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      .map((k) => ({ nome: k, itens: map.get(k)! }));
+    return [...principais, ...outros];
+  }, [nfes]);
 
   if (loading && !cmv) {
     return (
@@ -392,93 +603,30 @@ function PainelCmv({
   const motivoReal = motivoRealCard;
 
   const corPct = (pct: number | null | undefined) => {
-    const v = pct ?? 0;
-    if (v === 0) return colors.textSecondary;
-    if (v <= metaPct) return '#15803d'; // Verde
-    if (v <= metaPct + 2.5) return '#ea580c'; // Laranja até +2.5% acima da meta
-    return '#b91c1c'; // Vermelho
+    if (pct == null) return colors.orange;
+    if (pct <= metaPct) return '#0F766E';
+    if (pct <= metaPct + 2.5) return colors.orange;
+    return '#B42318';
   };
 
-  const cardSx = {
-    flex: '1 1 160px',
-    minWidth: 160,
-    p: 2.25,
-    borderRadius: 2,
-    border: `1px solid ${colors.border}`,
-    bgcolor: colors.surface,
-  } as const;
+  const motivoRealCurto =
+    realPct != null
+      ? null
+      : real?.estoque_final == null
+        ? 'falta contagem final'
+        : real?.estoque_inicial == null
+          ? 'falta contagem inicial'
+          : 'pendente';
+
+  const escalaMeta = Math.max(50, metaPct * 1.35, (teoricoPct ?? 0) * 1.2);
+  const barraTeorico = teoricoPct != null ? Math.min(100, (teoricoPct / escalaMeta) * 100) : 0;
+  const marcaMeta = Math.min(96, (metaPct / escalaMeta) * 100);
 
   const mesFechado = disciplina?.fechamento_mes?.status === 'fechado';
   const ofensores = variancia?.itens || [];
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      {/* Título + alertas na mesma linha */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 2,
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        {/* Título + descrição à esquerda */}
-        <Box sx={{ flex: '1 1 auto', minWidth: 200 }}>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
-            Controle de CMV
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Custo teórico = vendas × ficha × preço unitário. Compras no CMV real pelo
-            vencimento da NF. Meta {metaPct}%.
-          </Typography>
-        </Box>
-
-        {/* Alertas na mesma linha ao lado do título */}
-        {alertasPriorizados.length > 0 && (
-          <Box
-            sx={{
-              flex: '1 1 340px',
-              maxWidth: { xs: '100%', md: 540 },
-              p: 1.25,
-              px: 2,
-              borderRadius: 2,
-              bgcolor: colors.orangeLight,
-              border: `1px solid ${colors.border}`,
-            }}
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.orange, mb: 0.25 }}>
-              Atenção
-            </Typography>
-            <Box component="ul" sx={{ m: 0, pl: 2 }}>
-              {alertasPriorizados.map((a) => (
-                <Typography
-                  key={a.key}
-                  component="li"
-                  variant="caption"
-                  sx={{ color: colors.textPrimary, display: 'list-item', mb: 0.25 }}
-                >
-                  {a.texto}
-                  {a.key === 'falta-ficha' && onIrFichas ? (
-                    <>
-                      {' '}
-                      <Button
-                        size="small"
-                        onClick={() => onIrFichas()}
-                        sx={{ textTransform: 'none', minWidth: 0, p: 0, fontSize: '0.75rem', fontWeight: 700 }}
-                      >
-                        Ir para fichas
-                      </Button>
-                    </>
-                  ) : null}
-                </Typography>
-              ))}
-            </Box>
-          </Box>
-        )}
-      </Box>
-
-      {/* Menu ancorado nas opções do header */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, overflow: 'hidden' }}>
       <Menu
         anchorEl={menuEl}
         open={!!menuEl}
@@ -503,206 +651,312 @@ function PainelCmv({
         </MenuItem>
       </Menu>
 
-      {/* 3 números principais */}
-      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-        <Box sx={{ ...cardSx, flex: '1.1 1 180px' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
-            VENDA
-          </Typography>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: colors.navy, mt: 0.5, lineHeight: 1.2 }}>
-            {fmtMoeda(venda ?? 0)}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {cmv?.dias_venda ?? 0} dia(s) · BK Office
-          </Typography>
-        </Box>
-
-        <Box sx={cardSx}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
-            CMV TEÓRICO
-          </Typography>
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: 800, color: corPct(teoricoPct), mt: 0.5, lineHeight: 1.2 }}
-          >
-            {teoricoPct != null ? `${fmtNum(teoricoPct, 1)}%` : '0%'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Custo {fmtMoeda(custoTeorico)}
-            {venda != null && custoTeorico != null ? ` sobre ${fmtMoeda(venda)}` : ''}
-          </Typography>
-        </Box>
-
-        <Box sx={cardSx}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.04em' }}>
-            CMV REAL
-          </Typography>
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: 800, color: corPct(realPct), mt: 0.5, lineHeight: 1.2 }}
-          >
-            {realPct != null ? `${fmtNum(realPct, 1)}%` : '0%'}
-          </Typography>
-          {motivoReal ? (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-              {motivoReal}
-            </Typography>
-          ) : (
-            <Typography variant="caption" color="text.secondary">
-              Consumo {fmtMoeda(real?.consumo_real)}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-
-      {/* Breakdown simples em cards */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 1.5 }}>
-        <Box sx={{ ...cardSx, p: 1.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>ESTOQUE INICIAL</Typography>
-          <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.estoque_inicial ?? 0)}</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-            {real?.contagem_ei?.data_contagem ? `Contagem de ${fmtDataBR(real.contagem_ei.data_contagem)}` : 'Sem contagem inicial'}
-          </Typography>
-        </Box>
-        <Box sx={{ ...cardSx, p: 1.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>COMPRAS</Typography>
-          <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.compras ?? 0)}</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-            NFs pelo vencimento (composição CMV)
-          </Typography>
-        </Box>
-        <Box sx={{ ...cardSx, p: 1.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>ESTOQUE FINAL</Typography>
-          <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.estoque_final ?? 0)}</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-            {real?.contagem_ef?.data_contagem ? `Contagem de ${fmtDataBR(real.contagem_ef.data_contagem)}` : 'Sem contagem final'}
-          </Typography>
-        </Box>
-        <Box sx={{ ...cardSx, p: 1.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>CONSUMO REAL</Typography>
-          <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.consumo_real ?? 0)}</Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-            Inicial + Compras − Final
-          </Typography>
-        </Box>
-      </Box>
-
-      {nfes.length > 0 && (
-        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <Box
-            role="button"
-            tabIndex={0}
-            onClick={() => setNfesAberto((v) => !v)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setNfesAberto((v) => !v);
-              }
-            }}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 1,
-              px: 2,
-              py: 1.25,
-              cursor: 'pointer',
-              '&:hover': { bgcolor: colors.canvas },
-            }}
-          >
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: colors.navy, fontSize: '1.05rem', lineHeight: 1.2 }}>
-                Recebimentos pendentes ({nfes.length})
+      <Box sx={{ ...portalPanelSx, p: { xs: 1.75, md: 2.25 }, flexShrink: 0 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+            gap: { xs: 1.5, md: 0 },
+          }}
+        >
+          {[
+            {
+              label: 'Venda',
+              value: fmtMoeda(venda ?? 0),
+              color: colors.textPrimary,
+              sub: `${cmv?.dias_venda ?? 0} dias · BK Office`,
+            },
+            {
+              label: 'CMV teórico',
+              value: teoricoPct != null ? `${fmtNum(teoricoPct, 1)}%` : '—',
+              color: corPct(teoricoPct),
+              sub: custoTeorico != null ? `custo ${fmtMoeda(custoTeorico)}` : `meta ${metaPct}%`,
+            },
+            {
+              label: 'CMV real',
+              value: realPct != null ? `${fmtNum(realPct, 1)}%` : '• Pendente',
+              color: corPct(realPct),
+              sub: motivoRealCurto || `consumo ${fmtMoeda(real?.consumo_real)}`,
+            },
+          ].map((k, i) => (
+            <Box
+              key={k.label}
+              sx={{
+                minWidth: 0,
+                px: { md: 2 },
+                pl: { md: i === 0 ? 0 : 2 },
+                pr: { md: i === 2 ? 0 : 2 },
+                borderLeft: { md: i === 0 ? 'none' : `1px solid ${colors.border}` },
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  color: colors.textMuted,
+                }}
+              >
+                {k.label}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', display: 'block', mt: 0.25 }}>
-                Confira se os itens chegaram. O CMV usa o vencimento da NF — a conferência só atualiza o saldo.
+              <Typography
+                sx={{
+                  fontWeight: 600,
+                  fontSize: { xs: '1.4rem', md: '1.7rem' },
+                  letterSpacing: '-0.035em',
+                  lineHeight: 1.15,
+                  color: k.color,
+                  mt: 0.55,
+                }}
+              >
+                {k.value}
+              </Typography>
+              <Typography sx={{ mt: 0.4, fontSize: '0.75rem', color: colors.textMuted }}>
+                {k.sub}
               </Typography>
             </Box>
-            {nfesAberto ? (
-              <ExpandLessIcon fontSize="small" sx={{ color: colors.textSecondary }} />
-            ) : (
-              <ExpandMoreIcon fontSize="small" sx={{ color: colors.textSecondary }} />
-            )}
+          ))}
+        </Box>
+
+        <Box sx={{ mt: 2.25 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
+            <Typography
+              sx={{
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+              }}
+            >
+              CMV teórico vs. meta
+            </Typography>
+            <Typography sx={{ fontSize: '0.7rem', color: colors.textMuted }}>
+              meta ≤ {metaPct}%
+            </Typography>
           </Box>
-          <Collapse in={nfesAberto}>
-            <TableContainer sx={{ maxHeight: 380, overflow: 'auto' }}>
-              <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>NF</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Vencimento</TableCell>
-                    <TableCell>Saída</TableCell>
-                    <TableCell align="right">Valor</TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {nfes.map((n) => (
-                    <TableRow key={n.id_nfe}>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                          {n.numero || n.id_nfe}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {n.emitente_nome || n.fornecedor}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={
-                            n.status_entrega === 'aguardando_conferencia'
-                              ? 'Pronto p/ conferir'
-                              : n.status_entrega === 'em_transito'
-                                ? 'Em trânsito'
-                                : n.status_portal || n.status_entrega || '—'
-                          }
-                          color={
-                            n.status_entrega === 'aguardando_conferencia' ? 'warning' : 'default'
-                          }
-                          sx={{ fontWeight: 700 }}
-                        />
-                      </TableCell>
-                      <TableCell>{fmtDataBR(n.data_vencimento)}</TableCell>
-                      <TableCell>{fmtDataBR(n.data_saida)}</TableCell>
-                      <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
-                      <TableCell align="right">
-                        <Button
-                          size="small"
-                          variant="contained"
-                          disableElevation
-                          onClick={() => void abrirConferir(n.id_nfe)}
-                        >
-                          Conferir
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+          <Box sx={{ position: 'relative', height: 6, borderRadius: 99, bgcolor: colors.canvasAlt }}>
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                width: `${barraTeorico}%`,
+                borderRadius: 99,
+                bgcolor: corPct(teoricoPct),
+              }}
+            />
+            <Box
+              sx={{
+                position: 'absolute',
+                top: -3,
+                bottom: -3,
+                left: `${marcaMeta}%`,
+                width: 0,
+                borderLeft: `1.5px dashed ${colors.borderStrong}`,
+              }}
+            />
+          </Box>
+        </Box>
+
+        {(() => {
+          const itens: { key: string; tipo: 'bloqueio' | 'atencao'; texto: string; onClick?: () => void }[] = [];
+          if (motivoReal) {
+            itens.push({
+              key: 'motivo',
+              tipo: 'bloqueio',
+              texto: textoPendenciaCurto(
+                motivoRealCurto === 'falta contagem final'
+                  ? 'Falta a contagem completa no fim do período.'
+                  : motivoReal,
+              ),
+            });
+          }
+          for (const a of alertasPriorizados) {
+            itens.push({
+              key: a.key,
+              tipo: a.peso === 0 ? 'bloqueio' : 'atencao',
+              texto: textoPendenciaCurto(a.texto),
+              onClick: a.key === 'falta-ficha' && onIrFichas ? () => onIrFichas() : undefined,
+            });
+          }
+          if (!itens.length) return null;
+          return (
+            <Box sx={{ mt: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.85 }}>
+              {itens.map((p) => (
+                <PendenciaChip key={p.key} tipo={p.tipo} onClick={p.onClick}>
+                  {p.texto}
+                </PendenciaChip>
+              ))}
+            </Box>
+          );
+        })()}
+      </Box>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: nfes.length > 0 ? '1fr 1fr' : '1fr' },
+          gap: 1.5,
+          alignItems: 'stretch',
+          flexShrink: 0,
+          height: { xs: 'auto', md: 268 },
+          minHeight: { xs: 220, md: 268 },
+        }}
+      >
+        <Box
+          sx={{
+            ...portalPanelSx,
+            p: { xs: 1.75, md: 2.25 },
+            height: '100%',
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: '0.68rem',
+              fontWeight: 600,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              color: colors.textMuted,
+              mb: 0.75,
+              flexShrink: 0,
+            }}
+          >
+            Composição do consumo
+          </Typography>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', minHeight: 0 }}>
+            <LedgerRow label="estoque inicial" value={fmtMoeda(real?.estoque_inicial ?? 0)} />
+            <LedgerRow prefix="+" label="compras (NFs)" value={fmtMoeda(real?.compras ?? 0)} />
+            <LedgerRow prefix="−" label="estoque final" value={fmtMoeda(real?.estoque_final ?? 0)} />
+            <LedgerRow prefix="=" label="consumo" value={fmtMoeda(real?.consumo_real ?? 0)} strong />
+          </Box>
+        </Box>
+
+        {nfes.length > 0 ? (
+          <Box
+            sx={{
+              ...portalPanelSx,
+              p: { xs: 1.75, md: 2.25 },
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
+              height: { xs: 268, md: '100%' },
+              overflow: 'hidden',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75, flexShrink: 0 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  color: colors.textMuted,
+                }}
+              >
+                Recebimentos
+              </Typography>
+              <Button
+                size="small"
+                disabled={conferindo}
+                onClick={() => void conferirTodas()}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                  color: colors.orange,
+                  minWidth: 0,
+                  p: 0,
+                  '&:hover': { bgcolor: 'transparent', color: colors.orangeHover },
+                }}
+              >
+                {conferindo ? 'Conferindo…' : 'Conferir todas'}
+              </Button>
+            </Box>
+            <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, mr: -0.75, pr: 0.75 }}>
+              {nfesPorGrupo.map((grupo) => (
+                <Box key={grupo.nome} sx={{ mb: 1.25, '&:last-child': { mb: 0 } }}>
+                  <Typography
+                    sx={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      color: colors.textMuted,
+                      mb: 0.25,
+                      pt: 0.35,
+                      position: 'sticky',
+                      top: 0,
+                      bgcolor: colors.surface,
+                      zIndex: 1,
+                    }}
+                  >
+                    {grupo.nome}
+                  </Typography>
+                  {grupo.itens.map((n, i) => (
+                    <Box
+                      key={n.id_nfe}
+                      sx={{ borderTop: i === 0 ? 'none' : `1px solid ${colors.border}` }}
+                    >
+                      <NfeLinha n={n} onClick={() => void abrirConferir(n.id_nfe)} />
+                    </Box>
                   ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Collapse>
-        </Paper>
-      )}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        ) : null}
+      </Box>
 
       {ofensores.length > 0 && (
-        <Paper
-          variant="outlined"
-          sx={{ p: 2, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+        <Box
+          sx={{
+            ...portalPanelSx,
+            p: 0,
+            overflow: 'hidden',
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
         >
-          <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1, color: colors.navy }}>
-            Onde o CMV está estourando
-          </Typography>
-          <TableContainer sx={{ flex: 1 }}>
+          <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
+            <Typography
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+              }}
+            >
+              Onde o CMV estoura
+            </Typography>
+          </Box>
+          <TableContainer sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>Insumo</TableCell>
-                  <TableCell align="right">Real</TableCell>
-                  <TableCell align="right">Teórico</TableCell>
-                  <TableCell align="right">Gap UN</TableCell>
-                  <TableCell align="right">Gap R$</TableCell>
+                  {['Insumo', 'Real', 'Teórico', 'Gap UN', 'Gap R$'].map((h) => (
+                    <TableCell
+                      key={h}
+                      align={h === 'Insumo' ? 'left' : 'right'}
+                      sx={{
+                        fontSize: '0.68rem',
+                        fontWeight: 600,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        color: colors.textMuted,
+                        borderColor: colors.border,
+                        bgcolor: colors.surface,
+                      }}
+                    >
+                      {h}
+                    </TableCell>
+                  ))}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -738,7 +992,7 @@ function PainelCmv({
               </TableBody>
             </Table>
           </TableContainer>
-        </Paper>
+        </Box>
       )}
 
       <Dialog open={!!nfeDet} onClose={() => setNfeDet(null)} maxWidth="md" fullWidth>
@@ -838,11 +1092,11 @@ function PainelSaldoKardex({ idLoja }: { idLoja: number }) {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy }}>
-            Saldo & kardex
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy }}>
+            Saldo
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Saldo teórico atual · movimentos por data de negócio (entrega/contagem).
+            Saldo teórico e movimentos da loja.
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1028,7 +1282,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
       <Paper sx={{ p: 2, border: `1px solid ${colors.border}` }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 800 }} gutterBottom>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy }} gutterBottom>
           Pedido sugerido da semana
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -2462,11 +2716,11 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
-            Break · desperdício · empréstimo
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy, letterSpacing: '-0.01em' }}>
+            Break
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
-            Break usa os produtos do caderno. Desperdício completo/incompleto e empréstimo também baixam o estoque. Só o break entra no CMV como custo de refeição.
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, maxWidth: 560 }}>
+            Break usa os produtos do caderno. Desperdício e empréstimo também baixam o estoque. Só o break entra no CMV.
           </Typography>
         </Box>
         <Button

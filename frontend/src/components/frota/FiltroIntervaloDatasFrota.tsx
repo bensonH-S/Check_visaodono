@@ -5,7 +5,9 @@ import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Popover from '@mui/material/Popover';
 import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
 import ClearIcon from '@mui/icons-material/Clear';
+import { colors } from '../../theme/tokens';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
@@ -21,6 +23,8 @@ type Props = {
   onChangeInicio: (value: string) => void;
   onChangeFim: (value: string) => void;
   compacto?: boolean;
+  /** Texto clicável, sem campo — para cabeçalhos de dashboard. */
+  variante?: 'campo' | 'texto';
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
@@ -33,6 +37,24 @@ function formatarTexto(inicio: string, fim: string) {
   if (!inicio && !fim) return '';
   if (inicio && fim && inicio !== fim) return `${fmt(inicio)} a ${fmt(fim)}`;
   return fmt(inicio || fim);
+}
+
+function formatarTextoCurto(inicio: string, fim: string) {
+  const partes = (iso: string) => {
+    const [y, m, d] = String(iso).slice(0, 10).split('-');
+    return { d, m, y };
+  };
+  const fmt = (iso: string, comAno: boolean) => {
+    const { d, m, y } = partes(iso);
+    if (!d || !m || !y) return formatDataCampoData(iso);
+    return comAno ? `${d}/${m}/${y}` : `${d}/${m}`;
+  };
+  if (!inicio && !fim) return 'Período';
+  if (inicio && fim && inicio !== fim) {
+    const mesmoAno = inicio.slice(0, 4) === fim.slice(0, 4);
+    return `${fmt(inicio, !mesmoAno)} — ${fmt(fim, true)}`;
+  }
+  return fmt(inicio || fim, true);
 }
 
 const filtroDataSx = {
@@ -81,6 +103,7 @@ export default function FiltroIntervaloDatasFrota({
   onChangeInicio,
   onChangeFim,
   compacto = false,
+  variante = 'campo',
 }: Props) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [escolhendoFim, setEscolhendoFim] = useState(false);
@@ -148,6 +171,44 @@ export default function FiltroIntervaloDatasFrota({
       adapterLocale="pt-br"
       localeText={datePickerPtBR}
     >
+      {variante === 'texto' ? (
+        <Box
+          role="button"
+          tabIndex={0}
+          aria-label="Período"
+          onClick={abrir}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setAnchorEl(e.currentTarget);
+              setEscolhendoFim(false);
+            }
+          }}
+          sx={{
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            minHeight: 32,
+            px: 0.5,
+            borderRadius: 1,
+            '&:hover .periodo-texto': { color: colors.textPrimary },
+          }}
+        >
+          <Typography
+            className="periodo-texto"
+            sx={{
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              letterSpacing: '-0.01em',
+              color: colors.textSecondary,
+              fontVariantNumeric: 'tabular-nums',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {formatarTextoCurto(dataInicio, dataFim)}
+          </Typography>
+        </Box>
+      ) : (
       <Box sx={compacto ? filtroDataCompactoSx : filtroDataSx}>
         <TextField
           fullWidth={!compacto}
@@ -195,12 +256,14 @@ export default function FiltroIntervaloDatasFrota({
             },
           }}
         />
+      </Box>
+      )}
         <Popover
           open={aberto}
           anchorEl={anchorEl}
           onClose={fechar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: variante === 'texto' ? 'right' : 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: variante === 'texto' ? 'right' : 'left' }}
           marginThreshold={8}
           slotProps={{
             paper: {
@@ -296,7 +359,6 @@ export default function FiltroIntervaloDatasFrota({
             </Box>
           </Box>
         </Popover>
-      </Box>
     </LocalizationProvider>
   );
 }

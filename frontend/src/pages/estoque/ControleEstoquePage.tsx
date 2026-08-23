@@ -7,9 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
-import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
@@ -26,6 +24,7 @@ import Typography from '@mui/material/Typography';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import EditIcon from '@mui/icons-material/Edit';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -178,6 +177,23 @@ function rotuloLoja(l: Loja) {
   return `${l.bk_number ? `${l.bk_number} · ` : ''}${l.name}`;
 }
 
+function tituloLoja(l: Loja) {
+  return l.name.replace(/\s+-\s+/g, ' — ');
+}
+
+function subtituloLoja(l: Loja) {
+  return [l.bk_number, l.city].filter(Boolean).join(' · ');
+}
+
+const ROTULO_ABA: Record<AbaEstoque, string> = {
+  cmv: 'CMV',
+  saldo: 'Saldo',
+  conferencia: 'Conferência',
+  break: 'Break',
+  pedido: 'Pedido',
+  fichas: 'Cadastro',
+};
+
 const emptyProdutoForm = {
   codigo: '',
   descricao: '',
@@ -311,7 +327,6 @@ export default function ControleEstoquePage() {
   const [loadingLojas, setLoadingLojas] = useState(true);
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
-  const [produtosVendaCount, setProdutosVendaCount] = useState(0);
   const [busca] = useState('');
   const [listaContagens, setListaContagens] = useState<EstoqueContagemResumo[]>([]);
   const [filtroStatus, setFiltroStatus] = useState<'todas' | 'aberta' | 'finalizada'>('todas');
@@ -374,7 +389,6 @@ export default function ControleEstoquePage() {
     setContagem(null);
     setListaContagens([]);
     setProdutos([]);
-    setProdutosVendaCount(0);
     setRascunhoItens({});
     setVerDetalhe(false);
   };
@@ -404,26 +418,12 @@ export default function ControleEstoquePage() {
     void carregarListaContagens();
   };
 
-  const carregarProdutosVendaCount = useCallback(async () => {
-    if (!idLoja || !podeOperacional) {
-      setProdutosVendaCount(0);
-      return;
-    }
-    try {
-      const rows = await api.estoqueProdutosVenda({ id_loja: idLoja });
-      setProdutosVendaCount(rows.length);
-    } catch {
-      setProdutosVendaCount(0);
-    }
-  }, [idLoja, podeOperacional]);
-
   const carregarTudo = useCallback(async () => {
     if (!idLoja) return;
     setLoading(true);
     try {
       const jobs: Promise<unknown>[] = [];
       if (podeProdutos || podeOperacional || podeBreak) jobs.push(carregarProdutos());
-      if (podeOperacional) jobs.push(carregarProdutosVendaCount());
       if (podeConferencia) jobs.push(carregarListaContagens());
       await Promise.all(jobs);
     } catch (e) {
@@ -438,7 +438,6 @@ export default function ControleEstoquePage() {
     podeBreak,
     podeConferencia,
     carregarProdutos,
-    carregarProdutosVendaCount,
     carregarListaContagens,
   ]);
 
@@ -452,10 +451,6 @@ export default function ControleEstoquePage() {
     if (!idLoja || !(podeProdutos || podeOperacional || podeBreak)) return;
     void carregarProdutos();
   }, [carregarProdutos, idLoja, podeProdutos, podeOperacional, podeBreak]);
-
-  useEffect(() => {
-    setProdutosVendaCount(0);
-  }, [idLoja]);
 
   useEffect(() => {
     if (abaParam && REDIRECT_ABA[abaParam]) {
@@ -676,67 +671,114 @@ export default function ControleEstoquePage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', minHeight: 0, overflowY: 'auto' }}>
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 2,
-          flexWrap: 'wrap',
-          pb: 0.5,
-        }}
-      >
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: colors.navy, letterSpacing: '-0.02em' }}>
-            Estoque
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            CMV, contagem, break e cadastro por loja
-          </Typography>
-        </Box>
-        {!bloqueiaOutrasAbas && (
-          <FormControl size="small" sx={{ minWidth: 240, maxWidth: 360 }}>
-            <InputLabel shrink>Loja</InputLabel>
-            <Select
-              label="Loja"
-              notched
-              value={idLoja}
-              displayEmpty
-              onChange={(e) => selecionarLoja(Number(e.target.value))}
-              MenuProps={{
-                slotProps: {
-                  paper: {
-                    sx: { maxHeight: 360, overflowY: 'auto' },
-                  },
-                },
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: aba === 'cmv' ? 1.75 : 2.5,
+        height: '100%',
+        minHeight: 0,
+        overflow: aba === 'cmv' ? 'hidden' : 'auto',
+      }}
+    >
+      <Box sx={{ flexShrink: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 2,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Box sx={{ minWidth: 0, flex: '1 1 240px' }}>
+            <Typography
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+                mb: aba === 'cmv' ? 0.5 : 0.75,
               }}
             >
-              {!idLoja && (
-                <MenuItem value="" disabled>
-                  Selecione a loja
-                </MenuItem>
-              )}
-              {lojas.map((l) => (
-                <MenuItem key={l.id_loja} value={l.id_loja}>
-                  {rotuloLoja(l)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
-      </Box>
-
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: `1px solid ${colors.border}`,
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
+              Estoque / {ROTULO_ABA[aba]}
+            </Typography>
+            {bloqueiaOutrasAbas ? (
+              <Typography
+                sx={{
+                  fontWeight: 600,
+                  fontSize: { xs: '1.4rem', md: aba === 'cmv' ? '1.65rem' : '1.85rem' },
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1.15,
+                  color: colors.textPrimary,
+                }}
+              >
+                {lojaAtual ? tituloLoja(lojaAtual) : '—'}
+              </Typography>
+            ) : (
+              <Select
+                variant="standard"
+                disableUnderline
+                displayEmpty
+                value={idLoja}
+                onChange={(e) => selecionarLoja(Number(e.target.value))}
+                IconComponent={KeyboardArrowDownIcon}
+                renderValue={(v) => {
+                  const l = lojas.find((x) => x.id_loja === Number(v));
+                  return l ? tituloLoja(l) : 'Selecione a loja';
+                }}
+                MenuProps={{
+                  slotProps: {
+                    paper: { sx: { maxHeight: 360, overflowY: 'auto' } },
+                  },
+                }}
+                sx={{
+                  mt: 0,
+                  maxWidth: '100%',
+                  fontWeight: 600,
+                  fontSize: { xs: '1.4rem', md: aba === 'cmv' ? '1.65rem' : '1.85rem' },
+                  letterSpacing: '-0.03em',
+                  color: colors.textPrimary,
+                  '& .MuiSelect-select': {
+                    py: 0,
+                    pr: lojas.length > 1 ? '1.6rem !important' : '0 !important',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: 'block',
+                  },
+                  '& .MuiSelect-icon': {
+                    display: lojas.length > 1 ? 'block' : 'none',
+                    color: colors.textMuted,
+                    right: 0,
+                    fontSize: 22,
+                  },
+                }}
+              >
+                {!idLoja && (
+                  <MenuItem value="" disabled>
+                    Selecione a loja
+                  </MenuItem>
+                )}
+                {lojas.map((l) => (
+                  <MenuItem key={l.id_loja} value={l.id_loja}>
+                    {rotuloLoja(l)}
+                  </MenuItem>
+                ))}
+              </Select>
+            )}
+            {lojaAtual ? (
+              <Typography sx={{ mt: aba === 'cmv' ? 0.3 : 0.45, fontSize: '0.8rem', color: colors.textMuted }}>
+                {subtituloLoja(lojaAtual) || '—'}
+              </Typography>
+            ) : null}
+          </Box>
+          {headerActions ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', pt: 0.15, ml: { md: 'auto' } }}>
+              {headerActions}
+            </Box>
+          ) : null}
+        </Box>
         <Tabs
           value={idLoja ? aba : false}
           onChange={(_e, v: AbaEstoque) => {
@@ -746,44 +788,43 @@ export default function ControleEstoquePage() {
           variant="scrollable"
           scrollButtons="auto"
           sx={{
-            minHeight: 44,
+            mt: aba === 'cmv' ? 1.15 : 1.75,
+            minHeight: 40,
+            minWidth: 0,
+            borderBottom: `1px solid ${colors.border}`,
             '& .MuiTab-root': {
-              minHeight: 44,
-              textTransform: 'none',
+              minHeight: 40,
+              minWidth: 0,
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
               fontWeight: 600,
-              fontSize: '0.9rem',
-              px: 2,
+              fontSize: '0.72rem',
+              color: colors.textMuted,
+              px: { xs: 1.25, md: 1.75 },
             },
-            '& .Mui-selected': { fontWeight: 800, color: `${colors.navy} !important` },
-            '& .MuiTabs-indicator': { height: 3, borderRadius: 2, bgcolor: colors.orange },
+            '& .Mui-selected': { fontWeight: 700, color: `${colors.textPrimary} !important` },
+            '& .MuiTabs-indicator': { height: 2, bgcolor: colors.orange },
           }}
         >
           {podeOperacional && (
             <Tab value="cmv" label="CMV" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
-            <Tab value="saldo" label="Saldo · kardex" disabled={!idLoja || bloqueiaOutrasAbas} />
+            <Tab value="saldo" label="Saldo" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeConferencia && (
             <Tab value="conferencia" label="Conferência" disabled={!idLoja} />
           )}
           {podeBreak && (
-            <Tab value="break" label="Break · perdas" disabled={!idLoja || bloqueiaOutrasAbas} />
+            <Tab value="break" label="Break" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
             <Tab value="pedido" label="Pedido" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
-            <Tab
-              value="fichas"
-              label={produtosVendaCount ? `Cadastro (${produtosVendaCount})` : 'Cadastro'}
-              disabled={!idLoja || bloqueiaOutrasAbas}
-            />
+            <Tab value="fichas" label="Cadastro" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
         </Tabs>
-        <Box sx={{ display: 'flex', alignItems: 'center', ml: 'auto', pr: 1, py: 0.25 }}>
-          {headerActions}
-        </Box>
       </Box>
 
       {!idLoja ? (
@@ -795,7 +836,15 @@ export default function ControleEstoquePage() {
               <CircularProgress size={28} />
             </Box>
           ) : (
-            <>
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: aba === 'cmv' ? 'hidden' : 'auto',
+              }}
+            >
               {aba === 'conferencia' && podeConferencia && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
                   {!verDetalhe ? (
@@ -810,23 +859,12 @@ export default function ControleEstoquePage() {
                         }}
                       >
                         <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                            Conferência — contagem de insumos
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy }}>
+                            Contagens
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            Diária: giro do cadastro da loja. Semanal de segunda: só mix e latas,
-                            independente da diária.
+                            Diária: giro da loja. Semanal de segunda: mix e latas.
                           </Typography>
-                          {lojaAtual && (
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}
-                            >
-                              <StorefrontIcon sx={{ fontSize: 18, color: colors.textSecondary }} />
-                              {rotuloLoja(lojaAtual)}
-                            </Typography>
-                          )}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                           {podeEditarConferencia && (
@@ -1385,17 +1423,26 @@ export default function ControleEstoquePage() {
                 (aba === 'cmv' || aba === 'saldo' || aba === 'pedido' || aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
-                  <EstoqueOperacionalPanels
-                    aba={aba as AbaOp}
-                    idLoja={idLoja}
-                    produtos={produtos}
-                    onProdutosVendaCountChange={setProdutosVendaCount}
-                    onInsumosReload={() => void carregarProdutos()}
-                    onIrFichas={() => irParaAba('fichas')}
-                    onSetHeaderActions={setHeaderActions}
-                  />
+                  <Box
+                    sx={{
+                      flex: 1,
+                      minHeight: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: aba === 'cmv' ? 'hidden' : undefined,
+                    }}
+                  >
+                    <EstoqueOperacionalPanels
+                      aba={aba as AbaOp}
+                      idLoja={idLoja}
+                      produtos={produtos}
+                      onInsumosReload={() => void carregarProdutos()}
+                      onIrFichas={() => irParaAba('fichas')}
+                      onSetHeaderActions={setHeaderActions}
+                    />
+                  </Box>
                 )}
-            </>
+            </Box>
           )}
 
       <Dialog
