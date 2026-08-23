@@ -1,8 +1,9 @@
 /**
- * CMV real por inventário + variância + entrada NF por data de entrega.
+ * CMV real por inventário + variância + entrada física da NF.
  *
- * Regra de ouro: compras entram no CMV pela DATA DE ENTREGA na loja,
- * nunca pela data de emissão da NF.
+ * Controle de CMV (R$ / %): compras entram pelo VENCIMENTO da NF
+ * (como a composição CMV da unidade). Sem vencimento, usa a emissão.
+ * Conferência na loja continua na data de entrega — só mexe no saldo.
  */
 import { pool } from '../db.js';
 import {
@@ -131,21 +132,45 @@ async function resolverContagensInventario(
 }
 
 /**
- * Compras no período pela DATA DE ENTREGA / data_movimento (nunca emissão).
+ * Compras no período pelo VENCIMENTO da NF (composição CMV).
+ * Entrada manual (sem NF) entra pela data do movimento.
  */
-export async function somarComprasPorEntrega(idLoja, { de, ate } = {}) {
-  const params = [idLoja];
-  let filtro = '';
+export async function somarComprasPorVencimento(idLoja, { de, ate } = {}) {
+  const paramsNf = [idLoja];
+  let filtroNf = ` AND COALESCE(n.status, '') <> 'erro'`;
   if (de) {
-    params.push(de);
-    filtro += ` AND COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) > $${params.length}::date`;
+    paramsNf.push(de);
+    filtroNf += ` AND COALESCE(n.data_vencimento, n.emissao::date) >= $${paramsNf.length}::date`;
   }
   if (ate) {
-    params.push(ate);
-    filtro += ` AND COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) <= $${params.length}::date`;
+    paramsNf.push(ate);
+    filtroNf += ` AND COALESCE(n.data_vencimento, n.emissao::date) <= $${paramsNf.length}::date`;
   }
 
-  const { rows } = await pool.query(
+  const { rows: nfRows } = await pool.query(
+    `SELECT
+       COALESCE(SUM(n.valor_total), 0)::numeric AS compras_valor,
+       COUNT(*)::int AS nfs,
+       COUNT(*) FILTER (WHERE n.entrada_registrada)::int AS nfs_com_entrada,
+       COUNT(*) FILTER (WHERE NOT n.entrada_registrada)::int AS nfs_sem_entrada
+     FROM estoque_nfe n
+     WHERE n.id_loja = $1
+       ${filtroNf}`,
+    paramsNf,
+  );
+
+  const paramsMan = [idLoja];
+  let filtroMan = '';
+  if (de) {
+    paramsMan.push(de);
+    filtroMan += ` AND COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) >= $${paramsMan.length}::date`;
+  }
+  if (ate) {
+    paramsMan.push(ate);
+    filtroMan += ` AND COALESCE(m.data_movimento, (m.criado_em AT TIME ZONE 'America/Sao_Paulo')::date) <= $${paramsMan.length}::date`;
+  }
+
+  const { rows: manRows } = await pool.query(
     `SELECT
        COALESCE(SUM(
          m.quantidade * CASE
@@ -153,39 +178,15 @@ export async function somarComprasPorEntrega(idLoja, { de, ate } = {}) {
            ELSE 0
          END
        ), 0)::numeric AS compras_valor,
-       COALESCE(SUM(m.quantidade), 0)::numeric AS compras_qtde,
-       COUNT(*)::int AS movimentos,
-       COUNT(DISTINCT m.referencia_id) FILTER (WHERE m.referencia_tipo = 'estoque_nfe')::int AS nfs
+       COUNT(*)::int AS movimentos
      FROM estoque_movimentos m
      JOIN insumos i ON i.id_insumo = m.id_insumo
      WHERE m.id_loja = $1
        AND m.tipo = 'entrada'
+       AND COALESCE(m.referencia_tipo, '') <> 'estoque_nfe'
        AND COALESCE(i.entra_cmv, TRUE)
-       ${filtro}`,
-    params,
-  );
-
-  const paramsNf = [idLoja];
-  let filtroNf = '';
-  if (de) {
-    paramsNf.push(de);
-    filtroNf += ` AND n.data_entrega > $${paramsNf.length}::date`;
-  }
-  if (ate) {
-    paramsNf.push(ate);
-    filtroNf += ` AND n.data_entrega <= $${paramsNf.length}::date`;
-  }
-
-  const { rows: nfRows } = await pool.query(
-    `SELECT
-       COUNT(*)::int AS nfs_entregues,
-       COUNT(*) FILTER (WHERE NOT n.entrada_registrada)::int AS nfs_sem_entrada,
-       COALESCE(SUM(n.valor_total) FILTER (WHERE n.entrada_registrada), 0)::numeric AS valor_nfs_entrada
-     FROM estoque_nfe n
-     WHERE n.id_loja = $1
-       AND n.data_entrega IS NOT NULL
-       ${filtroNf}`,
-    paramsNf,
+       ${filtroMan}`,
+    paramsMan,
   );
 
   const { rows: pend } = await pool.query(
@@ -195,20 +196,25 @@ export async function somarComprasPorEntrega(idLoja, { de, ate } = {}) {
     [idLoja],
   );
 
+  const valorNf = num(nfRows[0]?.compras_valor);
+  const valorMan = num(manRows[0]?.compras_valor);
   return {
-    compras_valor: Math.round(num(rows[0]?.compras_valor) * 100) / 100,
-    compras_qtde: num(rows[0]?.compras_qtde),
-    movimentos: rows[0]?.movimentos || 0,
-    nfs_mov: rows[0]?.nfs || 0,
-    nfs_entregues: nfRows[0]?.nfs_entregues || 0,
+    compras_valor: Math.round((valorNf + valorMan) * 100) / 100,
+    compras_qtde: 0,
+    movimentos: manRows[0]?.movimentos || 0,
+    nfs_mov: nfRows[0]?.nfs || 0,
+    nfs_entregues: nfRows[0]?.nfs_com_entrada || 0,
     nfs_sem_entrada_periodo: nfRows[0]?.nfs_sem_entrada || 0,
-    valor_nfs_entrada: Math.round(num(nfRows[0]?.valor_nfs_entrada) * 100) / 100,
+    valor_nfs_entrada: Math.round(valorNf * 100) / 100,
     nfs_pendentes_loja: pend[0]?.qtd || 0,
   };
 }
 
+/** @deprecated use somarComprasPorVencimento */
+export const somarComprasPorEntrega = somarComprasPorVencimento;
+
 /**
- * CMV real: Consumo = EI + Compras(data_entrega) − EF ; % = Consumo / Venda
+ * CMV real: Consumo = EI + Compras(vencimento da NF) − EF ; % = Consumo / Venda
  */
 export async function calcularCmvReal(
   idLoja,
@@ -241,7 +247,7 @@ export async function calcularCmvReal(
       ate: periodoAte || ate,
       meta,
     }),
-    somarComprasPorEntrega(id, {
+    somarComprasPorVencimento(id, {
       de: periodoDe,
       ate: periodoAte || ate,
     }),
@@ -264,7 +270,7 @@ export async function calcularCmvReal(
   }
   if (compras.nfs_pendentes_loja > 0) {
     avisos.push(
-      `${compras.nfs_pendentes_loja} NF(s) sem entrada confirmada — informe data de entrega para entrar no CMV.`,
+      `${compras.nfs_pendentes_loja} NF(s) ainda sem conferência no estoque — o CMV já usa o vencimento; a conferência só atualiza o saldo.`,
     );
   }
   if (estoqueInicial != null && estoqueFinal != null) {
@@ -287,7 +293,7 @@ export async function calcularCmvReal(
     id_loja: id,
     de: periodoDe,
     ate: periodoAte,
-    regra_compras: 'data_entrega',
+    regra_compras: 'data_vencimento',
     estoque_inicial: estoqueInicial,
     compras: comprasValor,
     estoque_final: estoqueFinal,
@@ -798,6 +804,7 @@ export async function listarNfesEstoque(
     emissao: r.emissao,
     data_saida: r.data_saida,
     data_entrega: r.data_entrega,
+    data_vencimento: r.data_vencimento,
     status_portal: r.status_portal,
     status_entrega: r.status_entrega,
     emitente_nome: r.emitente_nome,

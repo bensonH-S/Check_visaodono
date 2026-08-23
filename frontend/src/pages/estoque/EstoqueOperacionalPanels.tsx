@@ -429,7 +429,8 @@ function PainelCmv({
             Controle de CMV
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Custo teórico = vendas × ficha × preço unitário. Meta {metaPct}%.
+            Custo teórico = vendas × ficha × preço unitário. Compras no CMV real pelo
+            vencimento da NF. Meta {metaPct}%.
           </Typography>
         </Box>
 
@@ -567,7 +568,7 @@ function PainelCmv({
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>COMPRAS</Typography>
           <Typography variant="body1" sx={{ fontWeight: 800, color: colors.navy, my: 0.5 }}>{fmtMoeda(real?.compras ?? 0)}</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-            Entradas por data de entrega
+            NFs pelo vencimento (composição CMV)
           </Typography>
         </Box>
         <Box sx={{ ...cardSx, p: 1.5 }}>
@@ -614,7 +615,7 @@ function PainelCmv({
                 Recebimentos pendentes ({nfes.length})
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', display: 'block', mt: 0.25 }}>
-                Confira se os itens chegaram. A data no CMV usa a entrega — não a emissão da NF.
+                Confira se os itens chegaram. O CMV usa o vencimento da NF — a conferência só atualiza o saldo.
               </Typography>
             </Box>
             {nfesAberto ? (
@@ -630,6 +631,7 @@ function PainelCmv({
                   <TableRow>
                     <TableCell>NF</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>Vencimento</TableCell>
                     <TableCell>Saída</TableCell>
                     <TableCell align="right">Valor</TableCell>
                     <TableCell />
@@ -662,6 +664,7 @@ function PainelCmv({
                           sx={{ fontWeight: 700 }}
                         />
                       </TableCell>
+                      <TableCell>{fmtDataBR(n.data_vencimento)}</TableCell>
                       <TableCell>{fmtDataBR(n.data_saida)}</TableCell>
                       <TableCell align="right">{fmtMoeda(n.valor_total)}</TableCell>
                       <TableCell align="right">
@@ -746,8 +749,8 @@ function PainelCmv({
           {nfeDet && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Typography variant="body2" color="text.secondary">
-                Portal: {nfeDet.status_portal || '—'} · Saída {fmtDataBR(nfeDet.data_saida)} ·
-                Emissão {fmtDataBR(nfeDet.emissao)} (não entra no CMV)
+                Portal: {nfeDet.status_portal || '—'} · Vencimento {fmtDataBR(nfeDet.data_vencimento)} ·
+                Saída {fmtDataBR(nfeDet.data_saida)} · Emissão {fmtDataBR(nfeDet.emissao)}
               </Typography>
               <TableContainer>
                 <Table size="small">

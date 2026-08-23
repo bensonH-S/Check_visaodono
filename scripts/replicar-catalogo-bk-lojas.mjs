@@ -1,7 +1,10 @@
 /**
- * Replica produtos + fichas + insumos da loja modelo TERRAÇO (id=21)
- * para lojas Burger King (exclui Popeyes, Delivery e GA).
+ * Lista de contagem = planilha Terraço 01/08, com dois ajustes:
+ *   - mix Pepsi/BEG → bags Coca/Fanta/Sprite
+ *   - carnes do Plínio (gourmet / fraldinha) fora
+ * Popeyes fica sem produto. GA/Delivery não mexe.
  *
+ *   node scripts/replicar-catalogo-bk-lojas.mjs --db=both --dry-run
  *   node scripts/replicar-catalogo-bk-lojas.mjs --db=both --yes
  */
 import dotenv from 'dotenv';
@@ -9,8 +12,9 @@ import pg from 'pg';
 
 dotenv.config({ path: 'backend/.env', override: true });
 
-const LOJA_MODELO = 21; // BURGER KING - TERRAÇO SHOPPING
+const LOJA_MODELO = 21;
 const yes = process.argv.includes('--yes');
+const dryRun = process.argv.includes('--dry-run');
 const dbArg = (process.argv.find((a) => a.startsWith('--db=')) || '--db=both').slice(5);
 const databases =
   dbArg === 'dev'
@@ -19,8 +23,8 @@ const databases =
       ? ['vision_check']
       : ['vision_check_dev', 'vision_check'];
 
-if (!yes) {
-  console.error('Use --yes para confirmar. Ex.: node scripts/replicar-catalogo-bk-lojas.mjs --db=both --yes');
+if (!yes && !dryRun) {
+  console.error('Use --yes ou --dry-run.');
   process.exit(1);
 }
 
@@ -34,182 +38,197 @@ function client(db) {
   });
 }
 
-async function replicar(dbName) {
-  const c = client(dbName);
-  await c.connect();
-  console.log(`\n=== ${dbName} ===`);
+const SQL_TIPO = `
+  CASE
+    WHEN name ILIKE '%popy%' OR name ILIKE '%popeye%' THEN 'popeyes'
+    WHEN name ILIKE '%delivery%' OR name ILIKE '%assessoria%'
+      OR name ILIKE 'GA %' OR name ILIKE 'GA -%' THEN 'outros'
+    WHEN name ILIKE '%burger king%' THEN 'bk'
+    ELSE 'outros'
+  END
+`;
 
-  const modelo = await c.query(
-    `SELECT
-       (SELECT COUNT(*)::int FROM produtos WHERE id_loja=$1) AS produtos,
-       (SELECT COUNT(*)::int FROM insumos WHERE id_loja=$1) AS insumos,
-       (SELECT COUNT(*)::int FROM ficha_tecnica ft
-          JOIN produtos p ON p.id_produto=ft.id_produto WHERE p.id_loja=$1) AS fichas
-     `,
-    [LOJA_MODELO],
-  );
-  console.log('Modelo loja Terraço (21):', modelo.rows[0]);
+const SQL_FORA = `
+  descricao ~* 'PEPSI|LIPTON|SUKITA|SODA LIMONADA|ANTAR'
+  OR descricao ~* 'GOURMET'
+  OR descricao ~* 'FRALDINHA|FRANDINHA'
+`;
 
-  const { rows: alvos } = await c.query(
+async function codigosPermitidos(c) {
+  const { rows } = await c.query(
     `
-    SELECT id_loja, name
-    FROM lojas
-    WHERE id_loja <> $1
-      AND COALESCE(is_active, TRUE) = TRUE
-      AND name ILIKE '%burger king%'
-      AND name NOT ILIKE '%popy%'
-      AND name NOT ILIKE '%popeye%'
-      AND name NOT ILIKE '%delivery%'
-      AND name NOT ILIKE '%assessoria%'
-    ORDER BY id_loja
+    SELECT DISTINCT codigo FROM (
+      SELECT i.codigo
+      FROM estoque_itens ei
+      JOIN estoque_contagens c ON c.id_contagem = ei.id_contagem
+      JOIN insumos i ON i.id_insumo = ei.id_insumo
+      WHERE c.id_loja = $1
+        AND c.data_contagem = DATE '2026-08-01'
+        AND NOT (${SQL_FORA})
+      UNION
+      SELECT i.codigo
+      FROM insumos i
+      WHERE i.id_loja = $1
+        AND i.descricao ~* 'BAG'
+        AND i.descricao ~* 'COCA|SPRITE|FANTA'
+        AND i.descricao !~* 'MAIONESE|BARBECUE|MOLHO|BRINDE'
+    ) x
+    WHERE codigo IS NOT NULL AND btrim(codigo) <> ''
     `,
     [LOJA_MODELO],
   );
-  console.log(
-    'Lojas destino:',
-    alvos.length,
-    alvos.map((l) => `${l.id_loja}:${l.name}`).join(' | '),
+  return rows.map((r) => r.codigo);
+}
+
+async function limparAbertas(c, idLoja) {
+  const { rowCount } = await c.query(
+    `
+    DELETE FROM estoque_itens ei
+    USING estoque_contagens c, insumos i
+    WHERE ei.id_contagem = c.id_contagem
+      AND ei.id_insumo = i.id_insumo
+      AND c.id_loja = $1
+      AND c.status = 'aberta'
+      AND i.ativo = FALSE
+    `,
+    [idLoja],
+  );
+  return rowCount || 0;
+}
+
+async function aplicarLojaBk(c, idLoja, codigos) {
+  await c.query(
+    `
+    INSERT INTO insumos (
+      codigo, descricao, id_loja, unidade_contagem, preco_caixa,
+      und_convertida, und_parcial, ativo, criado_em, atualizado_em,
+      contagem_critica, grupo_critico, contagem_diaria, grupo_diario,
+      secao_contagem, ordem_contagem,
+      permite_contagem_caixa, permite_contagem_pc_fd, permite_contagem_kg_und, entra_cmv
+    )
+    SELECT
+      i.codigo, i.descricao, $1, i.unidade_contagem, i.preco_caixa,
+      i.und_convertida, i.und_parcial, TRUE, NOW(), NOW(),
+      i.contagem_critica, i.grupo_critico, i.contagem_diaria, i.grupo_diario,
+      i.secao_contagem, i.ordem_contagem,
+      i.permite_contagem_caixa, i.permite_contagem_pc_fd, i.permite_contagem_kg_und, i.entra_cmv
+    FROM insumos i
+    WHERE i.id_loja = $2
+      AND i.codigo = ANY($3::text[])
+    ON CONFLICT (id_loja, codigo) DO UPDATE SET
+      descricao = EXCLUDED.descricao,
+      unidade_contagem = EXCLUDED.unidade_contagem,
+      und_convertida = EXCLUDED.und_convertida,
+      und_parcial = EXCLUDED.und_parcial,
+      ativo = TRUE,
+      contagem_critica = EXCLUDED.contagem_critica,
+      grupo_critico = EXCLUDED.grupo_critico,
+      contagem_diaria = EXCLUDED.contagem_diaria,
+      grupo_diario = EXCLUDED.grupo_diario,
+      secao_contagem = EXCLUDED.secao_contagem,
+      ordem_contagem = EXCLUDED.ordem_contagem,
+      permite_contagem_caixa = EXCLUDED.permite_contagem_caixa,
+      permite_contagem_pc_fd = EXCLUDED.permite_contagem_pc_fd,
+      permite_contagem_kg_und = EXCLUDED.permite_contagem_kg_und,
+      entra_cmv = EXCLUDED.entra_cmv,
+      preco_caixa = CASE
+        WHEN insumos.custo_fonte IN ('nf', 'manual') THEN insumos.preco_caixa
+        ELSE EXCLUDED.preco_caixa
+      END,
+      atualizado_em = NOW()
+    `,
+    [idLoja, LOJA_MODELO, codigos],
   );
 
-  await c.query('BEGIN');
+  const extras = await c.query(
+    `
+    UPDATE insumos
+    SET ativo = FALSE,
+        contagem_diaria = FALSE,
+        contagem_critica = FALSE,
+        atualizado_em = NOW()
+    WHERE id_loja = $1
+      AND ativo = TRUE
+      AND codigo <> ALL($2::text[])
+    `,
+    [idLoja, codigos],
+  );
+
+  const abertas = await limparAbertas(c, idLoja);
+  const { rows } = await c.query(
+    `SELECT COUNT(*)::int AS n FROM insumos WHERE id_loja=$1 AND ativo`,
+    [idLoja],
+  );
+  return { ativos: rows[0].n, extras: extras.rowCount || 0, abertas };
+}
+
+async function zerarPopeyes(c, idLoja) {
+  const ins = await c.query(
+    `UPDATE insumos SET ativo=FALSE, contagem_diaria=FALSE, contagem_critica=FALSE, atualizado_em=NOW()
+     WHERE id_loja=$1 AND ativo=TRUE`,
+    [idLoja],
+  );
+  const prod = await c.query(
+    `UPDATE produtos SET ativo=FALSE, atualizado_em=NOW() WHERE id_loja=$1 AND ativo=TRUE`,
+    [idLoja],
+  );
+  const abertas = await limparAbertas(c, idLoja);
+  return { insumos: ins.rowCount || 0, produtos: prod.rowCount || 0, abertas };
+}
+
+async function replicar(dbName) {
+  const c = client(dbName);
+  await c.connect();
+  console.log(`\n=== ${dbName}${dryRun ? ' (dry-run)' : ''} ===`);
   try {
-    for (const loja of alvos) {
-      const id = loja.id_loja;
+    const { rows: lojas } = await c.query(
+      `SELECT id_loja, name, (${SQL_TIPO}) AS tipo
+       FROM lojas WHERE COALESCE(is_active, TRUE) ORDER BY id_loja`,
+    );
+    const codigos = await codigosPermitidos(c);
+    console.log('Lista planilha 01/08 + Coca − carnes Plínio:', codigos.length);
 
-      // Insumos
-      const ins = await c.query(
-        `
-        INSERT INTO insumos (
-          codigo, descricao, id_loja, unidade_contagem, preco_caixa,
-          und_convertida, ativo, criado_em, atualizado_em,
-          contagem_critica, grupo_critico, contagem_diaria, grupo_diario
-        )
-        SELECT
-          i.codigo, i.descricao, $1, i.unidade_contagem, i.preco_caixa,
-          i.und_convertida, i.ativo, NOW(), NOW(),
-          i.contagem_critica, i.grupo_critico, i.contagem_diaria, i.grupo_diario
-        FROM insumos i
-        WHERE i.id_loja = $2
-        ON CONFLICT (id_loja, codigo) DO UPDATE SET
-          descricao = EXCLUDED.descricao,
-          unidade_contagem = EXCLUDED.unidade_contagem,
-          preco_caixa = EXCLUDED.preco_caixa,
-          und_convertida = EXCLUDED.und_convertida,
-          ativo = EXCLUDED.ativo,
-          contagem_critica = EXCLUDED.contagem_critica,
-          grupo_critico = EXCLUDED.grupo_critico,
-          contagem_diaria = EXCLUDED.contagem_diaria,
-          grupo_diario = EXCLUDED.grupo_diario,
-          atualizado_em = NOW()
-        `,
-        [id, LOJA_MODELO],
-      );
-
-      // Produtos
-      const prod = await c.query(
-        `
-        INSERT INTO produtos (
-          codigo, descricao, id_loja, ativo, requer_ficha, preco_venda, criado_em, atualizado_em
-        )
-        SELECT
-          p.codigo, p.descricao, $1, p.ativo, COALESCE(p.requer_ficha, TRUE), p.preco_venda, NOW(), NOW()
-        FROM produtos p
-        WHERE p.id_loja = $2
-        ON CONFLICT (id_loja, codigo) DO UPDATE SET
-          descricao = EXCLUDED.descricao,
-          ativo = EXCLUDED.ativo,
-          requer_ficha = EXCLUDED.requer_ficha,
-          preco_venda = EXCLUDED.preco_venda,
-          atualizado_em = NOW()
-        `,
-        [id, LOJA_MODELO],
-      );
-
-      // Fichas: remove e recria a partir do modelo (evita drift)
-      await c.query(
-        `
-        DELETE FROM ficha_tecnica_itens
-        WHERE id_ficha IN (
-          SELECT ft.id_ficha FROM ficha_tecnica ft
-          JOIN produtos p ON p.id_produto = ft.id_produto
-          WHERE p.id_loja = $1
-        )
-        `,
-        [id],
-      );
-      await c.query(
-        `
-        DELETE FROM ficha_tecnica
-        WHERE id_produto IN (SELECT id_produto FROM produtos WHERE id_loja = $1)
-        `,
-        [id],
-      );
-
-      const fichas = await c.query(
-        `
-        INSERT INTO ficha_tecnica (id_produto, ativo, observacao, criado_em, atualizado_em)
-        SELECT dest.id_produto, fm.ativo, fm.observacao, NOW(), NOW()
-        FROM produtos origem
-        JOIN ficha_tecnica fm ON fm.id_produto = origem.id_produto AND fm.ativo = TRUE
-        JOIN produtos dest ON dest.id_loja = $1 AND dest.codigo = origem.codigo
-        WHERE origem.id_loja = $2
-        RETURNING id_ficha, id_produto
-        `,
-        [id, LOJA_MODELO],
-      );
-
-      // Itens da ficha via join por codigo do produto
-      const itens = await c.query(
-        `
-        INSERT INTO ficha_tecnica_itens (
-          id_ficha, codigo_insumo, quantidade, observacao, unidade_receita, qtde_estoque
-        )
-        SELECT
-          ftd.id_ficha,
-          fi.codigo_insumo,
-          fi.quantidade,
-          fi.observacao,
-          fi.unidade_receita,
-          fi.qtde_estoque
-        FROM produtos origem
-        JOIN ficha_tecnica fm ON fm.id_produto = origem.id_produto AND fm.ativo = TRUE
-        JOIN ficha_tecnica_itens fi ON fi.id_ficha = fm.id_ficha
-        JOIN produtos dest ON dest.id_loja = $1 AND dest.codigo = origem.codigo
-        JOIN ficha_tecnica ftd ON ftd.id_produto = dest.id_produto AND ftd.ativo = TRUE
-        WHERE origem.id_loja = $2
-        `,
-        [id, LOJA_MODELO],
-      );
-
-      console.log(
-        `  → ${loja.name}: insumos+${ins.rowCount}, produtos+${prod.rowCount}, fichas=${fichas.rowCount}, itens=${itens.rowCount}`,
-      );
+    if (dryRun) {
+      for (const l of lojas.filter((x) => x.tipo === 'bk')) {
+        const { rows } = await c.query(
+          `SELECT
+             COUNT(*) FILTER (WHERE ativo)::int AS ativos,
+             COUNT(*) FILTER (WHERE ativo AND codigo <> ALL($2::text[]))::int AS sobram
+           FROM insumos WHERE id_loja=$1`,
+          [l.id_loja, codigos],
+        );
+        console.log(`  ${l.name}: hoje ${rows[0].ativos} → ${codigos.length} (tira ${rows[0].sobram})`);
+      }
+      const pops = lojas.filter((x) => x.tipo === 'popeyes');
+      for (const l of pops) {
+        const { rows } = await c.query(
+          `SELECT COUNT(*) FILTER (WHERE ativo)::int AS n FROM insumos WHERE id_loja=$1`,
+          [l.id_loja],
+        );
+        console.log(`  ${l.name}: Popeyes sem produto (hoje ${rows[0].n})`);
+      }
+      return;
     }
 
-    await c.query('COMMIT');
-
-    const resumo = await c.query(`
-      SELECT l.id_loja, l.name,
-        (SELECT COUNT(*)::int FROM produtos p WHERE p.id_loja=l.id_loja AND p.ativo) AS produtos_ativos,
-        (SELECT COUNT(*)::int FROM insumos i WHERE i.id_loja=l.id_loja AND i.ativo) AS insumos_ativos,
-        (SELECT COUNT(*)::int FROM ficha_tecnica ft
-           JOIN produtos p ON p.id_produto=ft.id_produto
-          WHERE p.id_loja=l.id_loja AND ft.ativo) AS fichas
-      FROM lojas l
-      WHERE COALESCE(l.is_active, TRUE)
-      ORDER BY l.id_loja
-    `);
-    console.log('Resumo:');
-    console.table(resumo.rows);
-  } catch (e) {
-    await c.query('ROLLBACK');
-    throw e;
+    await c.query('BEGIN');
+    try {
+      for (const l of lojas.filter((x) => x.tipo === 'bk')) {
+        const r = await aplicarLojaBk(c, l.id_loja, codigos);
+        console.log(`  ${l.name}: ${r.ativos} itens (tirou ${r.extras}, abertas -${r.abertas})`);
+      }
+      for (const l of lojas.filter((x) => x.tipo === 'popeyes')) {
+        const r = await zerarPopeyes(c, l.id_loja);
+        console.log(`  ${l.name}: zerado (insumos -${r.insumos}, produtos -${r.produtos})`);
+      }
+      await c.query('COMMIT');
+    } catch (e) {
+      await c.query('ROLLBACK');
+      throw e;
+    }
   } finally {
     await c.end();
   }
 }
 
-for (const db of databases) {
-  await replicar(db);
-}
-console.log('\nConcluído.');
+for (const db of databases) await replicar(db);
+console.log(dryRun ? '\nDry-run ok.' : '\nConcluído.');

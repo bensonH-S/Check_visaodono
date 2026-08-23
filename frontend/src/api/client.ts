@@ -2683,7 +2683,7 @@ export interface EstoqueCmvReal {
   id_loja: number;
   de: string | null;
   ate: string | null;
-  regra_compras: 'data_entrega';
+  regra_compras: 'data_entrega' | 'data_vencimento';
   estoque_inicial: number | null;
   compras: number;
   estoque_final: number | null;
@@ -2744,6 +2744,7 @@ export interface EstoqueNfeResumo {
   emissao?: string | null;
   data_saida?: string | null;
   data_entrega?: string | null;
+  data_vencimento?: string | null;
   status_portal?: string | null;
   status_entrega?: string | null;
   emitente_nome?: string | null;
