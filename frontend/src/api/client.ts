@@ -1523,6 +1523,8 @@ export interface Pergunta {
   critica: boolean;
   /** Quando true, "Sim" indica problema (Não pontua 100). */
   sim_indica_problema?: boolean;
+  /** Limite de fotos desta pergunta (padrão do app: 5). */
+  max_fotos?: number;
   ordem: number;
 }
 

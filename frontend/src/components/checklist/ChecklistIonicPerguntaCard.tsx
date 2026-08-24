@@ -114,7 +114,7 @@ export default function ChecklistIonicPerguntaCard({
         <div className={`ck-q__foto${erroCampo === 'foto' ? ' is-err' : ''}`}>
           <PhotoCaptureMulti
             fotos={fotos}
-            max={maxFotos()}
+            max={maxFotos(p.max_fotos)}
             inlineActions
             compactThumbs
             thumbSize={72}

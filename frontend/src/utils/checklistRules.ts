@@ -15,7 +15,9 @@ const PADROES_SIM_INDICA_PROBLEMA = [
   /ha vazamento/i,
 ];
 
-export function maxFotos(): number {
+export function maxFotos(limite?: number): number {
+  const n = Number(limite);
+  if (Number.isFinite(n) && n >= 1) return Math.min(Math.floor(n), 10);
   return MAX_FOTOS_POR_PERGUNTA;
 }
 

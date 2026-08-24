@@ -198,7 +198,7 @@ export default function ChecklistPerguntaCard({
         >
           <PhotoCaptureMulti
             fotos={fotos}
-            max={maxFotos()}
+            max={maxFotos(p.max_fotos)}
             inlineActions
             compactThumbs
             thumbSize={72}
