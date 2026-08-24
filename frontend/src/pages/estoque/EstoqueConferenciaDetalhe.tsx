@@ -425,13 +425,14 @@ export default function EstoqueConferenciaDetalhe({
           <Table stickyHeader size="small" sx={{ ...tableSx, tableLayout: 'fixed' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ ...thSx, width: '38%' }}>Item</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 72 }}>Sist.</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 88 }}>Caixa</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 88 }}>Pc/fd</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 88 }}>Kg/und</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 76 }}>Qtd</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80, color: '#991b1b' }}>Dif.</TableCell>
+                <TableCell sx={{ ...thSx, width: '32%' }}>Item</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 68 }}>Sist.</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Caixa</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Pc/fd</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Kg/und</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 72 }}>Qtd</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'right', width: 96 }}>Valor</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 76, color: '#991b1b' }}>Dif.</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -444,6 +445,8 @@ export default function EstoqueConferenciaDetalhe({
                 const permiteKg = i.permite_contagem_kg_und !== false;
                 const contado = editavel ? calcQtdTerraco(raw, undCx, undPc) : i.estoque_contado;
                 const preenchido = contado != null && Number.isFinite(contado);
+                const valorLinha =
+                  !preenchido ? null : Math.round(contado * (Number(i.valor_unidade) || 0) * 100) / 100;
                 const dif = !preenchido ? null : contado - i.estoque_sistema;
                 const secao = nomeSecao(i);
                 const secaoAnt = idx > 0 ? nomeSecao(visiveis[idx - 1]) : '';
@@ -499,7 +502,7 @@ export default function EstoqueConferenciaDetalhe({
                     {mostrarFaixa && secao !== secaoAnt && (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           sx={{
                             fontSize: '0.65rem',
                             fontWeight: 700,
@@ -540,6 +543,7 @@ export default function EstoqueConferenciaDetalhe({
                         <Typography sx={{ fontSize: '0.68rem', color: colors.textMuted }}>
                           {i.codigo}
                           {i.unidade_contagem ? ` · ${String(i.unidade_contagem).toUpperCase()}` : ''}
+                          {Number(i.valor_unidade) > 0 ? ` · ${fmtBrl(i.valor_unidade)}` : ''}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', color: colors.textSecondary, fontSize: '0.8rem', py: 0.55 }}>
@@ -559,6 +563,19 @@ export default function EstoqueConferenciaDetalhe({
                       </TableCell>
                       <TableCell
                         sx={{
+                          textAlign: 'right',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
+                          py: 0.55,
+                          pr: 1.5,
+                          color: preenchido ? colors.textPrimary : colors.textMuted,
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {valorLinha == null ? '—' : fmtBrl(valorLinha)}
+                      </TableCell>
+                      <TableCell
+                        sx={{
                           textAlign: 'center',
                           fontWeight: 700,
                           py: 0.55,
@@ -573,7 +590,7 @@ export default function EstoqueConferenciaDetalhe({
               })}
               {!visiveis.length && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 5, color: colors.textMuted }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 5, color: colors.textMuted }}>
                     Nenhum item nesta faixa
                   </TableCell>
                 </TableRow>
