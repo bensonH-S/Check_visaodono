@@ -26,7 +26,6 @@ import EditIcon from '@mui/icons-material/Edit';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import { usePageTitle } from '../../hooks/usePageTitle';
@@ -61,7 +60,6 @@ import {
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import Tooltip from '@mui/material/Tooltip';
 
 type AbaEstoque = 'cmv' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
@@ -366,9 +364,9 @@ export default function ControleEstoquePage() {
 
   const carregarProdutos = useCallback(async () => {
     if (!idLoja) return;
-    const rows = await api.estoqueProdutos({ id_loja: idLoja, q: busca || undefined });
+    const rows = await api.estoqueProdutos({ id_loja: idLoja });
     setProdutos(rows);
-  }, [idLoja, busca]);
+  }, [idLoja]);
 
   const carregarListaContagens = useCallback(async () => {
     if (!idLoja) return [];
