@@ -661,6 +661,7 @@ export default function ControleEstoquePage() {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
+  const chromeCompacto = aba === 'cmv' || aba === 'saldo';
 
   if (loadingLojas) {
     return (
@@ -675,10 +676,10 @@ export default function ControleEstoquePage() {
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: aba === 'cmv' ? 1.75 : 2.5,
+        gap: chromeCompacto ? 1.75 : 2.5,
         height: '100%',
         minHeight: 0,
-        overflow: aba === 'cmv' ? 'hidden' : 'auto',
+        overflow: chromeCompacto ? 'hidden' : 'auto',
       }}
     >
       <Box sx={{ flexShrink: 0 }}>
@@ -699,7 +700,7 @@ export default function ControleEstoquePage() {
                 letterSpacing: '0.14em',
                 textTransform: 'uppercase',
                 color: colors.textMuted,
-                mb: aba === 'cmv' ? 0.5 : 0.75,
+                mb: chromeCompacto ? 0.5 : 0.75,
               }}
             >
               Estoque / {ROTULO_ABA[aba]}
@@ -708,7 +709,7 @@ export default function ControleEstoquePage() {
               <Typography
                 sx={{
                   fontWeight: 600,
-                  fontSize: { xs: '1.4rem', md: aba === 'cmv' ? '1.65rem' : '1.85rem' },
+                  fontSize: { xs: '1.4rem', md: chromeCompacto ? '1.65rem' : '1.85rem' },
                   letterSpacing: '-0.03em',
                   lineHeight: 1.15,
                   color: colors.textPrimary,
@@ -737,7 +738,7 @@ export default function ControleEstoquePage() {
                   mt: 0,
                   maxWidth: '100%',
                   fontWeight: 600,
-                  fontSize: { xs: '1.4rem', md: aba === 'cmv' ? '1.65rem' : '1.85rem' },
+                  fontSize: { xs: '1.4rem', md: chromeCompacto ? '1.65rem' : '1.85rem' },
                   letterSpacing: '-0.03em',
                   color: colors.textPrimary,
                   '& .MuiSelect-select': {
@@ -768,7 +769,7 @@ export default function ControleEstoquePage() {
               </Select>
             )}
             {lojaAtual ? (
-              <Typography sx={{ mt: aba === 'cmv' ? 0.3 : 0.45, fontSize: '0.8rem', color: colors.textMuted }}>
+              <Typography sx={{ mt: chromeCompacto ? 0.3 : 0.45, fontSize: '0.8rem', color: colors.textMuted }}>
                 {subtituloLoja(lojaAtual) || '—'}
               </Typography>
             ) : null}
@@ -788,7 +789,7 @@ export default function ControleEstoquePage() {
           variant="scrollable"
           scrollButtons="auto"
           sx={{
-            mt: aba === 'cmv' ? 1.15 : 1.75,
+            mt: chromeCompacto ? 1.15 : 1.75,
             minHeight: 40,
             minWidth: 0,
             borderBottom: `1px solid ${colors.border}`,
@@ -842,7 +843,7 @@ export default function ControleEstoquePage() {
                 minHeight: 0,
                 display: 'flex',
                 flexDirection: 'column',
-                overflow: aba === 'cmv' ? 'hidden' : 'auto',
+                overflow: chromeCompacto ? 'hidden' : 'auto',
               }}
             >
               {aba === 'conferencia' && podeConferencia && (
@@ -1429,7 +1430,7 @@ export default function ControleEstoquePage() {
                       minHeight: 0,
                       display: 'flex',
                       flexDirection: 'column',
-                      overflow: aba === 'cmv' ? 'hidden' : undefined,
+                      overflow: chromeCompacto ? 'hidden' : undefined,
                     }}
                   >
                     <EstoqueOperacionalPanels

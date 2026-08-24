@@ -221,6 +221,7 @@ function LedgerRow({
         alignItems: 'baseline',
         gap: 2,
         py: 0.7,
+        flexShrink: 0,
         borderTop: strong ? `1px solid ${colors.border}` : 'none',
         mt: strong ? 0.35 : 0,
         pt: strong ? 1 : 0.7,
@@ -341,7 +342,7 @@ export default function EstoqueOperacionalPanels({
     return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} onSetHeaderActions={onSetHeaderActions} />;
   }
   if (aba === 'saldo') {
-    return <PainelSaldoKardex idLoja={idLoja} />;
+    return <PainelSaldoKardex idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
   }
   if (aba === 'pedido') return <PainelPedido idLoja={idLoja} />;
   if (aba === 'fichas') {
@@ -796,22 +797,21 @@ function PainelCmv({
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: nfes.length > 0 ? '1fr 1fr' : '1fr' },
+          gridTemplateColumns: { xs: '1fr', md: nfes.length > 0 ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)' },
           gap: 1.5,
           alignItems: 'stretch',
-          flexShrink: 0,
-          height: { xs: 'auto', md: 268 },
-          minHeight: { xs: 220, md: 268 },
+          flex: 1,
+          minHeight: 0,
         }}
       >
         <Box
           sx={{
             ...portalPanelSx,
             p: { xs: 1.75, md: 2.25 },
-            height: '100%',
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
+            overflow: 'hidden',
           }}
         >
           <Typography
@@ -827,7 +827,7 @@ function PainelCmv({
           >
             Composição do consumo
           </Typography>
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-evenly', minHeight: 0 }}>
+          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             <LedgerRow label="estoque inicial" value={fmtMoeda(real?.estoque_inicial ?? 0)} />
             <LedgerRow prefix="+" label="compras (NFs)" value={fmtMoeda(real?.compras ?? 0)} />
             <LedgerRow prefix="−" label="estoque final" value={fmtMoeda(real?.estoque_final ?? 0)} />
@@ -843,7 +843,6 @@ function PainelCmv({
               display: 'flex',
               flexDirection: 'column',
               minHeight: 0,
-              height: { xs: 268, md: '100%' },
               overflow: 'hidden',
             }}
           >
@@ -917,8 +916,9 @@ function PainelCmv({
             ...portalPanelSx,
             p: 0,
             overflow: 'hidden',
-            flex: 1,
+            flex: '0 1 180px',
             minHeight: 0,
+            maxHeight: 180,
             display: 'flex',
             flexDirection: 'column',
           }}
@@ -1054,7 +1054,24 @@ function PainelCmv({
   );
 }
 
-function PainelSaldoKardex({ idLoja }: { idLoja: number }) {
+function rotuloTipoMovimento(tipo: string) {
+  const map: Record<string, string> = {
+    entrada: 'Entrada',
+    contagem: 'Contagem',
+    venda: 'Venda',
+    break: 'Break',
+    ajuste: 'Ajuste',
+  };
+  return map[tipo] || tipo;
+}
+
+function PainelSaldoKardex({
+  idLoja,
+  onSetHeaderActions,
+}: {
+  idLoja: number;
+  onSetHeaderActions?: (node: React.ReactNode) => void;
+}) {
   const [loading, setLoading] = useState(true);
   const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
   const [movs, setMovs] = useState<EstoqueMovimento[]>([]);
@@ -1066,7 +1083,7 @@ function PainelSaldoKardex({ idLoja }: { idLoja: number }) {
     setLoading(true);
     try {
       const [s, m] = await Promise.all([
-        api.estoqueSaldos(idLoja, q || undefined),
+        api.estoqueSaldos(idLoja),
         api.estoqueMovimentos(idLoja, {
           tipo: tipo || undefined,
           id_insumo: selInsumo || undefined,
@@ -1080,149 +1097,360 @@ function PainelSaldoKardex({ idLoja }: { idLoja: number }) {
     } finally {
       setLoading(false);
     }
-  }, [idLoja, q, tipo, selInsumo]);
+  }, [idLoja, tipo, selInsumo]);
 
   useEffect(() => {
     void carregar();
   }, [carregar]);
 
+  useEffect(() => {
+    onSetHeaderActions?.(
+      <IconButton size="small" aria-label="Atualizar" onClick={() => void carregar()}>
+        <RefreshIcon sx={{ fontSize: 18 }} />
+      </IconButton>,
+    );
+    return () => {
+      onSetHeaderActions?.(null);
+    };
+  }, [carregar, onSetHeaderActions]);
+
+  const busca = q.trim().toLowerCase();
+  const saldosFiltrados = useMemo(
+    () =>
+      saldos.filter(
+        (s) =>
+          !busca ||
+          s.codigo.toLowerCase().includes(busca) ||
+          s.descricao.toLowerCase().includes(busca),
+      ),
+    [saldos, busca],
+  );
+
   const totalValor = saldos.reduce((acc, s) => acc + (s.valor_total || 0), 0);
+  const negativos = saldos.filter((s) => s.quantidade < 0).length;
+  const insumoSel = saldos.find((s) => s.id_insumo === selInsumo);
+
+  const kpis = [
+    {
+      label: 'Valor em estoque',
+      value: fmtMoeda(totalValor),
+      color: totalValor < 0 ? '#B42318' : colors.textPrimary,
+      sub: 'saldo teórico',
+    },
+    {
+      label: 'Insumos',
+      value: String(saldos.length),
+      color: colors.textPrimary,
+      sub: busca ? `${saldosFiltrados.length} no filtro` : 'cadastrados na loja',
+    },
+    {
+      label: 'Negativos',
+      value: String(negativos),
+      color: negativos > 0 ? '#B42318' : colors.textPrimary,
+      sub: negativos > 0 ? 'quantidade abaixo de zero' : 'nenhum item negativo',
+    },
+  ];
+
+  if (loading && !saldos.length) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress size={28} />
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy }}>
-            Saldo
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Saldo teórico e movimentos da loja.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            placeholder="Buscar insumo"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            sx={{ minWidth: 180 }}
-          />
-          <TextField
-            select
-            size="small"
-            label="Tipo"
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="">Todos</MenuItem>
-            <MenuItem value="entrada">Entrada</MenuItem>
-            <MenuItem value="contagem">Contagem</MenuItem>
-            <MenuItem value="venda">Venda</MenuItem>
-            <MenuItem value="break">Break</MenuItem>
-            <MenuItem value="ajuste">Ajuste</MenuItem>
-          </TextField>
-          <Button size="small" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
-            Atualizar
-          </Button>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <Box sx={{ ...portalPanelSx, p: { xs: 1.75, md: 2.25 }, flexShrink: 0 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+            gap: { xs: 1.5, md: 0 },
+          }}
+        >
+          {kpis.map((k, i) => (
+            <Box
+              key={k.label}
+              sx={{
+                minWidth: 0,
+                px: { md: 2 },
+                pl: { md: i === 0 ? 0 : 2 },
+                pr: { md: i === 2 ? 0 : 2 },
+                borderLeft: { md: i === 0 ? 'none' : `1px solid ${colors.border}` },
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  color: colors.textMuted,
+                }}
+              >
+                {k.label}
+              </Typography>
+              <Typography
+                sx={{
+                  fontWeight: 600,
+                  fontSize: { xs: '1.4rem', md: '1.7rem' },
+                  letterSpacing: '-0.035em',
+                  lineHeight: 1.15,
+                  color: k.color,
+                  mt: 0.55,
+                }}
+              >
+                {k.value}
+              </Typography>
+              <Typography sx={{ mt: 0.4, fontSize: '0.75rem', color: colors.textMuted }}>
+                {k.sub}
+              </Typography>
+            </Box>
+          ))}
         </Box>
       </Box>
 
-      <Chip label={`Valor em estoque ${fmtMoeda(totalValor)}`} sx={{ alignSelf: 'flex-start', fontWeight: 700 }} />
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress size={28} />
-        </Box>
-      ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, flex: 1, minHeight: 0 }}>
-          <Paper variant="outlined" sx={{ overflow: 'auto', maxHeight: 520 }}>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Insumo</TableCell>
-                  <TableCell align="right">Qtd</TableCell>
-                  <TableCell align="right">R$</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {saldos.map((s) => (
-                  <TableRow
-                    key={s.id_insumo}
-                    hover
-                    selected={selInsumo === s.id_insumo}
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() =>
-                      setSelInsumo((prev) =>
-                        prev === s.id_insumo ? null : (s.id_insumo ?? null),
-                      )
-                    }
-                  >
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {s.codigo}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {s.descricao}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">{fmtNum(s.quantidade, 2)}</TableCell>
-                    <TableCell align="right">{fmtMoeda(s.valor_total)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-
-          <Paper variant="outlined" sx={{ overflow: 'auto', maxHeight: 520 }}>
-            <Box sx={{ px: 1.5, py: 1, borderBottom: `1px solid ${colors.border}` }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                Kardex {selInsumo ? '(filtrado)' : ''}
-              </Typography>
-            </Box>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Data</TableCell>
-                  <TableCell>Tipo</TableCell>
-                  <TableCell>Item</TableCell>
-                  <TableCell align="right">Δ</TableCell>
-                  <TableCell align="right">Saldo</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {movs.map((m) => (
-                  <TableRow key={m.id_movimento}>
-                    <TableCell>{fmtDataBR(m.data_movimento || m.criado_em)}</TableCell>
-                    <TableCell>{m.tipo}</TableCell>
-                    <TableCell>
-                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                        {m.codigo}
-                      </Typography>
-                    </TableCell>
-                    <TableCell
-                      align="right"
-                      sx={{ color: m.quantidade >= 0 ? '#15803d' : '#b91c1c', fontWeight: 700 }}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gap: 1.5,
+          alignItems: 'stretch',
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        <Box
+          sx={{
+            ...portalPanelSx,
+            p: { xs: 1.75, md: 2.25 },
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75, flexShrink: 0 }}>
+            <Typography
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+              }}
+            >
+              Insumos
+            </Typography>
+            <TextField
+              variant="standard"
+              placeholder="Buscar"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              InputProps={{ disableUnderline: true }}
+              sx={{
+                width: 140,
+                '& input': {
+                  fontSize: '0.8rem',
+                  py: 0.25,
+                  textAlign: 'right',
+                  color: colors.textSecondary,
+                },
+              }}
+            />
+          </Box>
+          <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, mr: -0.75, pr: 0.75 }}>
+            {saldosFiltrados.map((s, i) => {
+              const id = s.id_insumo ?? s.id_produto;
+              const sel = selInsumo === s.id_insumo;
+              const neg = s.quantidade < 0;
+              return (
+                <Box
+                  key={id}
+                  onClick={() =>
+                    setSelInsumo((prev) => (prev === s.id_insumo ? null : (s.id_insumo ?? null)))
+                  }
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    gap: 1.5,
+                    py: 0.75,
+                    cursor: 'pointer',
+                    borderTop: i === 0 ? 'none' : `1px solid ${colors.border}`,
+                    bgcolor: sel ? colors.navyMuted : 'transparent',
+                    mx: sel ? -1 : 0,
+                    px: sel ? 1 : 0,
+                    borderRadius: sel ? 1 : 0,
+                    '&:hover .saldo-cod': { color: colors.navy },
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography className="saldo-cod" sx={{ fontWeight: 600, fontSize: '0.84rem', letterSpacing: '-0.02em' }}>
+                      {s.codigo}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: '0.72rem',
+                        color: colors.textMuted,
+                        mt: 0.1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
-                      {fmtNum(m.quantidade, 2)}
-                    </TableCell>
-                    <TableCell align="right">{fmtNum(m.saldo_apos, 2)}</TableCell>
-                  </TableRow>
-                ))}
-                {!movs.length && (
-                  <TableRow>
-                    <TableCell colSpan={5}>
-                      <Typography variant="body2" color="text.secondary">
-                        Sem movimentos.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </Paper>
+                      {s.descricao}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                    <Typography
+                      sx={{
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                        fontSize: '0.84rem',
+                        fontWeight: 600,
+                        letterSpacing: '-0.02em',
+                        color: neg ? '#B42318' : colors.textPrimary,
+                      }}
+                    >
+                      {fmtNum(s.quantidade, 2)}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.1 }}>
+                      {fmtMoeda(s.valor_total)}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })}
+            {!saldosFiltrados.length ? (
+              <Typography sx={{ fontSize: '0.8rem', color: colors.textMuted, py: 2 }}>
+                Nenhum insumo.
+              </Typography>
+            ) : null}
+          </Box>
         </Box>
-      )}
+
+        <Box
+          sx={{
+            ...portalPanelSx,
+            p: { xs: 1.75, md: 2.25 },
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75, flexShrink: 0 }}>
+            <Typography
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Kardex{insumoSel ? ` · ${insumoSel.codigo}` : ''}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+              {selInsumo ? (
+                <Button
+                  size="small"
+                  onClick={() => setSelInsumo(null)}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    color: colors.orange,
+                    minWidth: 0,
+                    p: 0,
+                    '&:hover': { bgcolor: 'transparent', color: colors.orangeHover },
+                  }}
+                >
+                  Todos
+                </Button>
+              ) : null}
+              <TextField
+                select
+                variant="standard"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                InputProps={{ disableUnderline: true }}
+                sx={{
+                  minWidth: 88,
+                  '& .MuiSelect-select': {
+                    fontSize: '0.8rem',
+                    py: 0.25,
+                    color: colors.textSecondary,
+                    textAlign: 'right',
+                  },
+                }}
+              >
+                <MenuItem value="">Tipo</MenuItem>
+                <MenuItem value="entrada">Entrada</MenuItem>
+                <MenuItem value="contagem">Contagem</MenuItem>
+                <MenuItem value="venda">Venda</MenuItem>
+                <MenuItem value="break">Break</MenuItem>
+                <MenuItem value="ajuste">Ajuste</MenuItem>
+              </TextField>
+            </Box>
+          </Box>
+          <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, mr: -0.75, pr: 0.75 }}>
+            {movs.map((m, i) => {
+              const pos = m.quantidade >= 0;
+              return (
+                <Box
+                  key={m.id_movimento}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    gap: 1.5,
+                    py: 0.75,
+                    borderTop: i === 0 ? 'none' : `1px solid ${colors.border}`,
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 600, fontSize: '0.84rem', letterSpacing: '-0.02em' }}>
+                      {rotuloTipoMovimento(m.tipo)}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.1 }}>
+                      {fmtDataBR(m.data_movimento || m.criado_em)}
+                      {m.codigo ? ` · ${m.codigo}` : ''}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                    <Typography
+                      sx={{
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                        fontSize: '0.84rem',
+                        fontWeight: 600,
+                        letterSpacing: '-0.02em',
+                        color: pos ? '#0F766E' : '#B42318',
+                      }}
+                    >
+                      {pos ? '+' : ''}
+                      {fmtNum(m.quantidade, 2)}
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.1 }}>
+                      {m.saldo_apos != null ? fmtNum(m.saldo_apos, 2) : '—'}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })}
+            {!movs.length ? (
+              <Typography sx={{ fontSize: '0.8rem', color: colors.textMuted, py: 2 }}>
+                Sem movimentos.
+              </Typography>
+            ) : null}
+          </Box>
+        </Box>
+      </Box>
     </Box>
   );
 }
