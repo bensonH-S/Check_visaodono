@@ -73,6 +73,7 @@
     "migrate:checklist-novas-perguntas": "node scripts/run-sql.js migrations/081_checklist_novas_perguntas.sql",
     "migrate:checklist-pontos-criticos": "node scripts/run-sql.js migrations/147_checklist_pontos_criticos_qualidade.sql",
     "migrate:desativar-time-campo": "node scripts/run-sql.js migrations/149_desativar_time_de_campo_regionais_operacional.sql",
+    "migrate:regionais-sem-mapa": "node scripts/run-sql.js migrations/151_regionais_sem_mapa.sql",
     "migrate:checklist-renumerar": "node scripts/run-sql.js migrations/082_checklist_renumerar_codigos.sql",
     "migrate:freelancers-aprovar-regionais": "node scripts/run-sql.js migrations/083_freelancers_aprovar_regionais.sql",
     "migrate:estoque": "node scripts/run-sql.js migrations/084_controle_estoque.sql",

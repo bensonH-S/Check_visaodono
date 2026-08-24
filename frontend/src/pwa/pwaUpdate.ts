@@ -4,6 +4,7 @@ import { buildId } from '../config/buildVersion';
 export const PWA_UPDATE_DISPONIVEL = 'pwa:update-disponivel';
 
 const BUILD_ID_KEY = 'vision-check:last-build-id';
+const FORCE_ATTEMPT_KEY = 'vision-check:force-reload-at';
 
 let recarregando = false;
 let listenersConfigurados = false;
@@ -12,14 +13,35 @@ function dispararUpdateDisponivel() {
   window.dispatchEvent(new Event(PWA_UPDATE_DISPONIVEL));
 }
 
+function recarregarAgora() {
+  if (recarregando) return;
+  recarregando = true;
+  window.location.reload();
+}
+
+function tentouForcarAgora() {
+  try {
+    const at = Number(sessionStorage.getItem(FORCE_ATTEMPT_KEY) || 0);
+    return Date.now() - at < 20_000;
+  } catch {
+    return false;
+  }
+}
+
+function marcarTentativaForcar() {
+  try {
+    sessionStorage.setItem(FORCE_ATTEMPT_KEY, String(Date.now()));
+  } catch {
+    /* ignore */
+  }
+}
+
 function escutarTrocaController() {
   if (listenersConfigurados || !('serviceWorker' in navigator)) return;
   listenersConfigurados = true;
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (recarregando) return;
-    recarregando = true;
-    window.location.reload();
+    recarregarAgora();
   });
 }
 
@@ -32,12 +54,12 @@ export function configurarAtualizacaoServiceWorker(reg: ServiceWorkerRegistratio
     worker.addEventListener('statechange', () => {
       if (worker.state !== 'installed') return;
       if (!navigator.serviceWorker.controller) return;
-      dispararUpdateDisponivel();
+      void forcarAtualizacaoPwaSeNecessario();
     });
   });
 
   if (reg.waiting && navigator.serviceWorker.controller) {
-    dispararUpdateDisponivel();
+    void forcarAtualizacaoPwaSeNecessario();
   }
 }
 
@@ -59,11 +81,10 @@ export async function verificarAtualizacaoServiceWorker(): Promise<void> {
 
 export async function aplicarAtualizacaoPwa(): Promise<void> {
   if (!('serviceWorker' in navigator)) {
-    window.location.reload();
+    recarregarAgora();
     return;
   }
 
-  recarregando = true;
   try {
     const scope = import.meta.env.BASE_URL || '/';
     const registrations = await navigator.serviceWorker.getRegistrations();
@@ -73,14 +94,36 @@ export async function aplicarAtualizacaoPwa(): Promise<void> {
 
     if (reg?.waiting) {
       reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      window.setTimeout(() => recarregarAgora(), 1200);
       return;
     }
 
     await limparCachesPwa();
-    window.location.reload();
+    recarregarAgora();
   } catch {
-    window.location.reload();
+    recarregarAgora();
   }
+}
+
+async function swTemWaiting(): Promise<boolean> {
+  if (!('serviceWorker' in navigator)) return false;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    return registrations.some((r) => Boolean(r.waiting));
+  } catch {
+    return false;
+  }
+}
+
+/** Recarrega sozinho quando o servidor já está em outro build — sem pedir login de novo. */
+export async function forcarAtualizacaoPwaSeNecessario(): Promise<void> {
+  if (import.meta.env.DEV || recarregando || tentouForcarAgora()) return;
+  const stale = await verificarBuildDesatualizado();
+  const waiting = await swTemWaiting();
+  if (!stale && !waiting) return;
+  marcarTentativaForcar();
+  dispararUpdateDisponivel();
+  await aplicarAtualizacaoPwa();
 }
 
 async function limparCachesPwa() {
@@ -119,24 +162,16 @@ export async function iniciarVerificacaoPeriodicaPwa() {
 
   escutarTrocaController();
   await verificarAtualizacaoServiceWorker();
-
-  const desatualizado = await verificarBuildDesatualizado();
-  if (desatualizado) {
-    dispararUpdateDisponivel();
-  }
+  await forcarAtualizacaoPwaSeNecessario();
 
   window.setInterval(() => {
     void verificarAtualizacaoServiceWorker();
-    void verificarBuildDesatualizado().then((stale) => {
-      if (stale) dispararUpdateDisponivel();
-    });
-  }, 5 * 60 * 1000);
+    void forcarAtualizacaoPwaSeNecessario();
+  }, 60 * 1000);
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     void verificarAtualizacaoServiceWorker();
-    void verificarBuildDesatualizado().then((stale) => {
-      if (stale) dispararUpdateDisponivel();
-    });
+    void forcarAtualizacaoPwaSeNecessario();
   });
 }

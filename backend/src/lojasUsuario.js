@@ -154,18 +154,24 @@ export async function carregarRegioesAtuacaoTecnico(idUsuario) {
   }));
 }
 
-/** IDs de regiões cujo mapa de técnicos o usuário pode ver. */
+/** IDs de regiões cujo mapa de técnicos o usuário pode ver. Regionais não entram. */
 export async function idsRegioesVisiveisMapaFrota(user) {
+  await anexarCargoAprovacao(user);
   if (acessoTodasLojas(user) || temPermissao(user, 'frota.gerenciar')) {
     const { rows } = await pool.query(
       'SELECT id_regiao FROM frota_regioes WHERE ativo = TRUE ORDER BY nome',
     );
     return rows.map((r) => r.id_regiao);
   }
-  if (
-    !temPermissao(user, 'frota.mapa.ver') &&
-    !temPermissao(user, 'frota.regioes')
-  ) {
+  const cargo = String(user?.cargo_aprovacao || user?.perfil || '').toLowerCase();
+  if (['diretor', 'ceo', 'administrador', 'dono', 'ti'].includes(cargo)) {
+    const { rows } = await pool.query(
+      'SELECT id_regiao FROM frota_regioes WHERE ativo = TRUE ORDER BY nome',
+    );
+    return rows.map((r) => r.id_regiao);
+  }
+  if (ehCargoRegional(user)) return [];
+  if (!temPermissao(user, 'frota.mapa.ver') && !temPermissao(user, 'frota.usar')) {
     return [];
   }
   const regioes = await carregarRegioesAtuacaoTecnico(user.sub);

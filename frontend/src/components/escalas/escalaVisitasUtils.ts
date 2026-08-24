@@ -4,15 +4,28 @@ export const DIAS_LONGO = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'S�
 export function addDaysIso(iso: string, days: number) {
   const d = new Date(`${iso}T12:00:00`);
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+/** Data de hoje no fuso de Brasília (YYYY-MM-DD), sem depender do UTC do servidor. */
+export function dataIsoBrasilia(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 }
 
 export function segundaFeiraAtual() {
-  const d = new Date();
+  const hoje = dataIsoBrasilia();
+  const d = new Date(`${hoje}T12:00:00`);
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
+  return addDaysIso(hoje, diff);
 }
 
 /** Próxima segunda-feira — semana que o time monta na escala. */

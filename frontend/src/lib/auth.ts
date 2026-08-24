@@ -443,22 +443,17 @@ export function ehEscalaDeliveryOnly(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
-/** Mapa de técnicos em tempo real no app (diretor/CEO = todos; regional = sua região). */
+/** Mapa de técnicos no app: diretoria e técnico de frota. Regional não vê. */
 export function podeVerMapaTecnicosMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;
   if (ehEscalaDeliveryOnly(u)) return false;
-  if (temPermissao('lojas.todas', u)) return true;
-  // Técnico de frota: mapa liberado no app restrito
+  if (temPermissao('lojas.todas', u) || temPermissao('frota.gerenciar', u)) return true;
+  const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  if (['diretor', 'ceo', 'administrador', 'dono', 'ti'].includes(cargo)) return true;
   if (modoAppTecnicoFrotaRestrito(u)) return true;
-  if (
-    temPermissao('frota.mapa.ver', u) ||
-    temPermissao('frota.regioes', u) ||
-    temPermissao('frota.gerenciar', u)
-  ) {
-    return (u.regioes_atuacao?.length ?? 0) > 0;
-  }
-  return false;
+  if (ehSupervisorRegiaoMobile(u)) return false;
+  return temPermissao('frota.mapa.ver', u);
 }
 
 export function podeGerenciarEscalaVisitas(usuario?: UsuarioSessao | null): boolean {

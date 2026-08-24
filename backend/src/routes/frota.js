@@ -233,8 +233,8 @@ const requirePermRegioes = requirePermissao('frota.gerenciar', 'frota.regioes');
 const requirePermMapaTecnicos = requirePermissao(
   'frota.mapa.ver',
   'lojas.todas',
-  'frota.regioes',
   'frota.gerenciar',
+  'frota.usar',
 );
 
 function parseRegionaisJson(val) {

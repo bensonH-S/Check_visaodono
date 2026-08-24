@@ -1240,11 +1240,16 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
         );
       }
 
+      const idDonoDelivery = ehDelivery
+        ? soDelivery
+          ? Number(user.sub)
+          : [...idsDeliveryOnly][0] || null
+        : null;
       for (const idLojaDestino of idsLojaDestino) {
         await client.query(
-          `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_loja_destino, observacao)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [semana.id_semana, idLoja, dia, idLojaDestino, obs],
+          `INSERT INTO escala_visitas_celula (id_semana, id_loja, dia, id_regional, id_loja_destino, observacao)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [semana.id_semana, idLoja, dia, idDonoDelivery, idLojaDestino, obs],
         );
       }
 

@@ -23,7 +23,11 @@ export default function PwaUpdateBanner() {
   useEffect(() => {
     if (import.meta.env.DEV) return;
     void checar();
-    const onUpdate = () => setVisivel(true);
+    const onUpdate = () => {
+      setVisivel(true);
+      setAplicando(true);
+      void aplicarAtualizacaoPwa();
+    };
     window.addEventListener(PWA_UPDATE_DISPONIVEL, onUpdate);
     return () => window.removeEventListener(PWA_UPDATE_DISPONIVEL, onUpdate);
   }, [checar]);
@@ -54,8 +58,7 @@ export default function PwaUpdateBanner() {
         </Button>
       }
     >
-      Nova versão do app disponível. Toque em <strong>Atualizar agora</strong> para carregar o
-      design e as correções mais recentes.
+      Nova versão do app. Atualizando automaticamente…
     </Alert>
   );
 }

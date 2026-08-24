@@ -47,7 +47,15 @@ import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
-import { agruparRegionaisEscala, primeiroNome, fmtEnvioQuando, montarCardsAprovacaoEscala } from '../../components/escalas/escalaVisitasUtils';
+import {
+  addDaysIso,
+  agruparRegionaisEscala,
+  fmtDataCurta,
+  fmtEnvioQuando,
+  montarCardsAprovacaoEscala,
+  primeiroNome,
+  segundaFeiraAtual,
+} from '../../components/escalas/escalaVisitasUtils';
 
 const STATUS_LABEL: Record<EscalaVisitasRegiaoStatusCodigo, string> = {
   rascunho: 'Rascunho',
@@ -95,25 +103,6 @@ const SELECT_CELULA_SX = {
   fontSize: '0.72rem',
   '& .MuiSelect-select': { py: 0.75, whiteSpace: 'normal', lineHeight: 1.25 },
 } as const;
-
-function addDaysIso(iso: string, days: number) {
-  const d = new Date(`${iso}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function segundaFeiraAtual() {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
-
-function fmtDataCurta(iso: string) {
-  const [, m, d] = iso.split('-');
-  return `${d}/${m}`;
-}
 
 const estiloInputHora = {
   width: 78,
@@ -320,6 +309,14 @@ export default function EscalaVisitasPage() {
   useEffect(() => {
     if (ehDeliveryOnly) setAba('delivery');
   }, [ehDeliveryOnly]);
+
+  function abrirAba(proxima: 'visitas' | 'delivery' | 'gestores' | 'manutencao') {
+    setAba(proxima);
+    if (proxima === 'delivery') {
+      setIdEnvio(null);
+      setIdUsuarioFiltro(null);
+    }
+  }
 
   function alterarCelulaRegional(idLoja: number, dia: number, idRegionais: number[]) {
     if (!podeEditarGrade) return;
@@ -890,7 +887,7 @@ export default function EscalaVisitasPage() {
               size="small"
               value={aba}
               onChange={(_, v: 'visitas' | 'delivery' | 'gestores' | 'manutencao' | null) => {
-                if (v) setAba(v);
+                if (v) abrirAba(v);
               }}
               sx={{
                 ml: { sm: 0.5 },
@@ -1231,7 +1228,7 @@ export default function EscalaVisitasPage() {
                       <Chip
                         size="small"
                         clickable={!ehDeliveryOnly}
-                        onClick={() => setAba('delivery')}
+                        onClick={() => abrirAba('delivery')}
                         label={`Delivery: ${STATUS_LABEL[st.status] || st.status}`}
                         sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
                         title="Ver escala de delivery"
@@ -1300,7 +1297,9 @@ export default function EscalaVisitasPage() {
                             st.status === 'aprovado' && revisadaPor ? ` · Aprovada por ${revisadaPor}` : ''
                           }${pendente ? ' · aguardando aprovação' : ''}`
                         : st.status === 'rascunho'
-                          ? 'Ainda não enviada'
+                          ? (linhaDelivery?.total_visitas ?? 0) > 0
+                            ? `Rota com ${linhaDelivery?.total_visitas} loja(s) · ainda não enviada para aprovação`
+                            : 'Ainda não enviada'
                           : '—'}
                     </Typography>
                   </Box>

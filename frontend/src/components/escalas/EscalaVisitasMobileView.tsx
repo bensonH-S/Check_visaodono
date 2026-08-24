@@ -43,7 +43,6 @@ import {
   montarCardsAprovacaoEscala,
   primeiroNome,
   segundaFeiraAtual,
-  segundaFeiraSubsequente,
 } from './escalaVisitasUtils';
 import {
   atribuicoesDoDia,
@@ -233,14 +232,12 @@ export default function EscalaVisitasMobileView() {
   const ehRegional = !ehDiretor && podeEditarEscalaRegiao(user);
   const ehDeliveryOnly = !ehDiretor && !ehRegional && podeEditarEscalaDelivery(user);
 
-  const [semanaInicio, setSemanaInicio] = useState(
-    ehDeliveryOnly ? segundaFeiraSubsequente() : segundaFeiraAtual(),
-  );
+  const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
   const [idEnvio, setIdEnvio] = useState<number | null>(null);
   const [modo, setModo] = useState<ModoVisualizacao>(
-    ehDeliveryOnly ? 'delivery' : ehRegional ? 'minhas' : ehDiretor ? 'dia' : 'minhas',
+    ehDeliveryOnly ? 'minhas' : ehRegional ? 'minhas' : ehDiretor ? 'dia' : 'minhas',
   );
   const [diaSelecionado, setDiaSelecionado] = useState(() => diaIndexNaSemana(segundaFeiraAtual()) ?? 0);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
@@ -272,7 +269,12 @@ export default function EscalaVisitasMobileView() {
     return { regioes, deliveryPendente, length: regioes.length + (deliveryPendente ? 1 : 0) };
   }, [cardsAprovacao, grade?.status_delivery]);
   const modos = useMemo(() => {
-    if (ehDeliveryOnly) return [{ id: 'delivery' as const, label: 'Delivery' }];
+    if (ehDeliveryOnly) {
+      return [
+        { id: 'minhas' as const, label: 'Minhas' },
+        { id: 'montar' as const, label: 'Montar' },
+      ];
+    }
     // Regional: Minhas (só o próprio nome) + Montar (quando tem permissão de região).
     if (ehRegional) {
       return [
@@ -799,10 +801,12 @@ export default function EscalaVisitasMobileView() {
         dia,
         label,
         data: fmtDataCurta(addDaysIso(grade.semana_inicio, dia)),
-        lojas: lojas.map((loja) => ({
-          ...loja,
-          marcada: idsMarcados.includes(loja.id_loja),
-        })),
+        lojas: lojas
+          .map((loja) => ({
+            ...loja,
+            marcada: idsMarcados.includes(loja.id_loja),
+          }))
+          .sort((a, b) => Number(b.marcada) - Number(a.marcada)),
         totalMarcadas: idsMarcados.length,
       };
     });
@@ -893,6 +897,25 @@ export default function EscalaVisitasMobileView() {
   }, [grade, mapNomeRegional, idUsuarioFiltro]);
 
   const minhasVisitas = useMemo(() => {
+    if (ehDeliveryOnly && linhaDelivery && grade) {
+      return DIAS_LONGO.map((label, dia) => {
+        const destinos = atribuicoesDoDia(linhaDelivery.dias[dia] || { dia, atribuicoes: [] }).filter(
+          (a) => a.id_loja_destino != null,
+        );
+        return {
+          dia,
+          label,
+          data: fmtDataCurta(addDaysIso(grade.semana_inicio, dia)),
+          itens: destinos.map((a) => ({
+            id_loja: Number(a.id_loja_destino),
+            nome: a.nome_loja_destino || 'Loja',
+            bk: a.bk_loja_destino,
+            regionais: [] as Array<{ nome: string; cor?: string | null }>,
+            cor: ORANGE,
+          })),
+        };
+      }).filter((d) => d.itens.length > 0);
+    }
     if (!idEu) return [];
     return visitasPorDia
       .map((d) => ({
@@ -904,16 +927,19 @@ export default function EscalaVisitasMobileView() {
         }),
       }))
       .filter((d) => d.itens.length > 0);
-  }, [visitasPorDia, idEu, grade]);
+  }, [visitasPorDia, idEu, grade, ehDeliveryOnly, linhaDelivery]);
 
   const totalVisitas = useMemo(() => {
     if (!grade) return 0;
+    if (ehDeliveryOnly && linhaDelivery) {
+      return linhaDelivery.dias.reduce((n, d) => n + atribuicoesDoDia(d).length, 0);
+    }
     let n = 0;
     for (const linha of grade.linhas) {
       for (const d of linha.dias) n += atribuicoesDoDia(d).length;
     }
     return n;
-  }, [grade]);
+  }, [grade, ehDeliveryOnly, linhaDelivery]);
   const hojeIndex = diaIndexNaSemana(semanaInicio);
   const visitasHojeMinhas = useMemo(() => {
     if (hojeIndex == null || !idEu) return 0;
@@ -950,8 +976,9 @@ export default function EscalaVisitasMobileView() {
           : 'envio'
       }${grade.envio_atual.submetido_em ? ` · ${fmtEnvioQuando(grade.envio_atual.submetido_em)}` : ''}`
     : null;
-  const modoTrabalho = ehDeliveryOnly || modo === 'montar' || modo === 'delivery';
-  const semanaAlvo = modoTrabalho ? segundaFeiraSubsequente() : segundaFeiraAtual();
+  const modoMontarDelivery = ehDeliveryOnly && modo === 'montar';
+  const modoTrabalho = modo === 'montar' || modo === 'delivery';
+  const semanaAlvo = segundaFeiraAtual();
   const semanaEhAtual = semanaInicio === semanaAlvo;
 
   return (
@@ -982,7 +1009,7 @@ export default function EscalaVisitasMobileView() {
                         ? podeEditarGrade
                           ? statusAtivo === 'pendente_aprovacao'
                             ? 'Ajuste as lojas e envie de novo para o diretor'
-                            : 'Escolha o dia da próxima semana, toque nas lojas e envie para aprovação'
+                            : 'Escolha o dia, toque nas lojas e envie para aprovação'
                           : 'Escala em só leitura — use Minhas para ver sua rota'
                         : 'Toque nos dias e envie para aprovação'}
                   </p>
@@ -1025,7 +1052,9 @@ export default function EscalaVisitasMobileView() {
               <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
                 <div>
                   <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                  <h1 className="ck-visitas__title ck-visitas__title--oneline">Escala visitas</h1>
+                  <h1 className="ck-visitas__title ck-visitas__title--oneline">
+                    {ehDeliveryOnly ? 'Escala delivery' : 'Escala visitas'}
+                  </h1>
                 </div>
                 <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
               </div>
@@ -1035,7 +1064,9 @@ export default function EscalaVisitasMobileView() {
                   ? pendentesAprovacao.length
                     ? 'Há escalas aguardando sua aprovação.'
                     : 'Veja a escala consolidada da semana.'
-                  : ehRegional
+                  : ehDeliveryOnly
+                    ? 'Sua rota de delivery da semana.'
+                    : ehRegional
                     ? 'Suas visitas da semana — só o que está marcado no seu nome.'
                     : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
               </p>
@@ -1053,9 +1084,11 @@ export default function EscalaVisitasMobileView() {
                   <strong>
                     {loading
                       ? '—'
-                      : grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0}
+                      : ehDeliveryOnly
+                        ? minhasVisitas.reduce((n, d) => n + d.itens.length, 0)
+                        : grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0}
                   </strong>
-                  <span>lojas</span>
+                  <span>{ehDeliveryOnly ? 'na rota' : 'lojas'}</span>
                 </div>
               </div>
 
@@ -1133,10 +1166,8 @@ export default function EscalaVisitasMobileView() {
                     if (id === 'montar' || id === 'delivery') {
                       setIdEnvio(null);
                       setIdUsuarioFiltro(null);
-                      setSemanaInicio(segundaFeiraSubsequente());
-                    } else {
-                      setSemanaInicio(segundaFeiraAtual());
                     }
+                    setSemanaInicio(segundaFeiraAtual());
                   }}
                 >
                   {label}
@@ -1200,9 +1231,13 @@ export default function EscalaVisitasMobileView() {
                 ))}
               </div>
             )}
-            {(modo === 'delivery' || modo === 'manutencao' || (modo === 'montar' && ehRegional)) && !loading && (
+            {(modo === 'delivery' ||
+              modo === 'manutencao' ||
+              (modo === 'montar' && ehRegional) ||
+              modoMontarDelivery) &&
+              !loading && (
               <div className="ck-escala__dias">
-                {(modo === 'delivery'
+                {((modo === 'delivery' || modoMontarDelivery)
                   ? deliveryPorDia
                   : modo === 'manutencao'
                     ? manutPorDia
@@ -1345,7 +1380,7 @@ export default function EscalaVisitasMobileView() {
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
               <CircularProgress size={28} sx={{ color: NAVY }} />
             </div>
-          ) : modo === 'montar' ? (
+          ) : modo === 'montar' && !ehDeliveryOnly ? (
             ehRegional ? (
               <>
                 {!podeEditarGrade && (
@@ -1673,7 +1708,9 @@ export default function EscalaVisitasMobileView() {
                 <p>
                   {ehDiretor
                     ? 'Use “Por dia” ou “Por loja” para ver o planejamento do time.'
-                    : ehRegional
+                    : ehDeliveryOnly
+                      ? 'Nenhuma loja na sua rota nesta semana. Use Montar para agendar.'
+                      : ehRegional
                       ? 'Não há lojas marcadas no seu nome nesta semana.'
                       : 'Nenhuma visita planejada para você nesta semana.'}
                 </p>
@@ -1697,7 +1734,7 @@ export default function EscalaVisitasMobileView() {
                 </div>
               ))
             )
-          ) : modo === 'delivery' ? (
+          ) : modo === 'delivery' || modoMontarDelivery ? (
             (() => {
               const diaDelivery = deliveryPorDia.find((d) => d.dia === diaSelecionado);
               const lojasDia = podeEditarDelivery
@@ -1782,11 +1819,14 @@ export default function EscalaVisitasMobileView() {
           )}
           </div>
 
-          {((podeEditarGrade || grade?.pode_submeter) && modo === 'montar') ||
-          ((podeEditarDelivery || grade?.pode_submeter_delivery) && modo === 'delivery') ||
+          {((podeEditarGrade || grade?.pode_submeter) && modo === 'montar' && !ehDeliveryOnly) ||
+          ((podeEditarDelivery || grade?.pode_submeter_delivery) &&
+            (modo === 'delivery' || modoMontarDelivery)) ||
           (manutencao?.pode_editar && modo === 'manutencao') ? (
             <div className="ck-escala__acoes">
-              {(podeEditarGrade || (podeEditarDelivery && modo === 'delivery')) && modo !== 'manutencao' && (
+              {(podeEditarGrade ||
+                (podeEditarDelivery && (modo === 'delivery' || modoMontarDelivery))) &&
+                modo !== 'manutencao' && (
                 <Button
                   variant="contained"
                   size="small"
@@ -1815,7 +1855,7 @@ export default function EscalaVisitasMobileView() {
                       : ''}
                 </Button>
               )}
-              {grade?.pode_submeter && modo === 'montar' && (
+              {grade?.pode_submeter && modo === 'montar' && !ehDeliveryOnly && (
                 <Button
                   variant="contained"
                   size="small"
@@ -1827,7 +1867,7 @@ export default function EscalaVisitasMobileView() {
                   Enviar
                 </Button>
               )}
-              {grade?.pode_submeter_delivery && modo === 'delivery' && (
+              {grade?.pode_submeter_delivery && (modo === 'delivery' || modoMontarDelivery) && (
                 <Button
                   variant="contained"
                   size="small"
