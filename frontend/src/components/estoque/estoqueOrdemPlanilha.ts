@@ -25,18 +25,18 @@ function numOrdem(v: number | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Ordena insumos como na planilha: linha (ordem_contagem), depois faixa, depois nome. */
+/** Ordena insumos como na planilha: faixa (CONGELADOS…), depois linha, depois nome. */
 export function compararOrdemPlanilha(
   a: Pick<EstoqueItem, 'ordem_contagem' | 'secao_contagem' | 'descricao'>,
   b: Pick<EstoqueItem, 'ordem_contagem' | 'secao_contagem' | 'descricao'>,
 ): number {
+  const ra = rankSecaoPlanilha(a.secao_contagem);
+  const rb = rankSecaoPlanilha(b.secao_contagem);
+  if (ra !== rb) return ra - rb;
   const oa = numOrdem(a.ordem_contagem);
   const ob = numOrdem(b.ordem_contagem);
   if (oa == null && ob != null) return 1;
   if (oa != null && ob == null) return -1;
   if (oa != null && ob != null && oa !== ob) return oa - ob;
-  const ra = rankSecaoPlanilha(a.secao_contagem);
-  const rb = rankSecaoPlanilha(b.secao_contagem);
-  if (ra !== rb) return ra - rb;
   return String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR');
 }

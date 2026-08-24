@@ -818,7 +818,7 @@ export default function ControleEstoquePage() {
               }}
             >
               {aba === 'conferencia' && podeConferencia && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: verDetalhe ? 1 : 1.5, flex: 1, minHeight: 0, overflow: 'hidden' }}>
                   {!verDetalhe ? (
                     <>
                       <Box

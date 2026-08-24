@@ -6,7 +6,6 @@
 
 /** Ordem das faixas da planilha Terraço (não é alfabética: CONGELADOS vem antes de BRINDES). */
 export const SQL_ORDEM_PLANILHA = `
-  p.ordem_contagem NULLS LAST,
   CASE
     WHEN p.secao_contagem ILIKE 'CONGELADOS%' THEN 1
     WHEN p.secao_contagem ILIKE 'RESFRIADOS%' THEN 2
@@ -19,6 +18,7 @@ export const SQL_ORDEM_PLANILHA = `
     WHEN p.secao_contagem ILIKE 'LAN%' THEN 9
     ELSE 99
   END,
+  p.ordem_contagem NULLS LAST,
   p.descricao
 `;
 
