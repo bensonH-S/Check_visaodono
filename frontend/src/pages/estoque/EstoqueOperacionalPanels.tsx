@@ -1248,7 +1248,7 @@ function PainelSaldoKardex({
               placeholder="Buscar"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              InputProps={{ disableUnderline: true }}
+              slotProps={{ input: { disableUnderline: true } }}
               sx={{
                 width: 140,
                 '& input': {
@@ -1379,7 +1379,7 @@ function PainelSaldoKardex({
                 variant="standard"
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value)}
-                InputProps={{ disableUnderline: true }}
+                slotProps={{ input: { disableUnderline: true } }}
                 sx={{
                   minWidth: 88,
                   '& .MuiSelect-select': {
