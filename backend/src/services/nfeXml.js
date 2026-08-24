@@ -289,8 +289,14 @@ export function casarItensNfe(itensNfe, insumosLoja) {
           break;
         }
       }
-      // Também aceita catálogo sem zero se o código do catálogo for idêntico ao NF padded
-      // ex.: NF 31887 e catálogo 31887 — já coberto pelo exact.
+    }
+    // NF Platlog manda 021403; catálogo canônico é 21403. Só strip se o
+    // código com zeros NÃO existir na loja (020754 e 20754 são itens diferentes).
+    if (!match && /^\d+$/.test(codNf)) {
+      const stripped = String(Number(codNf));
+      if (stripped && stripped !== codNf && byCod.has(stripped)) {
+        match = byCod.get(stripped);
+      }
     }
     let match_tipo = match ? 'codigo' : null;
 

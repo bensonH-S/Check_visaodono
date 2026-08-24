@@ -586,7 +586,9 @@ export default function EstoqueMobileConferenciaPage() {
                         >
                           <label>{label}</label>
                           {!liberado ? (
-                            <div className="ck-estoque__blocked" aria-hidden title="Não se aplica" />
+                            <div className="ck-estoque__blocked" title="Não se aplica">
+                              —
+                            </div>
                           ) : editavel ? (
                             <input
                               type="number"

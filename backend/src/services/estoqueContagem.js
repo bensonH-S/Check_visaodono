@@ -19,11 +19,11 @@ export function normalizarDesc(desc) {
     .trim();
 }
 
-const GRUPOS_DIARIOS = ['carne', 'frango', 'queijo', 'bacon', 'pao', 'batata', 'oleo', 'refil'];
+const GRUPOS_DIARIOS = ['carne', 'frango', 'queijo', 'bacon', 'pao', 'batata', 'oleo', 'refil', 'vegetais'];
 
 /**
  * Itens de giro alto que o restaurante conta todo dia no app.
- * carne bovina, frango, queijo, bacon, pão, batata, óleo, copos/xarope do free refill.
+ * carne bovina, frango, queijo, bacon, pão, batata, óleo, copos/xarope do free refill, vegetais.
  */
 export function classificarGrupoDiario(descricao) {
   const d = normalizarDesc(descricao);
@@ -46,6 +46,12 @@ export function classificarGrupoDiario(descricao) {
     return 'frango';
   }
   if (/\bCARNE\b/.test(d) && !/\b(MARMITA|BRINDE|CART)\b/.test(d)) return 'carne';
+  if (
+    /\b(ALFACE|TOMATE|CEBOLA|PEPINO)\b/.test(d) &&
+    !/\b(FRITA|CRISPY|CART|SAC)\b/.test(d)
+  ) {
+    return 'vegetais';
+  }
   if (
     /\bCOPO\b/.test(d) &&
     /\b(REFRIG|550)\b/.test(d) &&

@@ -52,6 +52,8 @@ const SQL_FORA = `
   descricao ~* 'PEPSI|LIPTON|SUKITA|SODA LIMONADA|ANTAR'
   OR descricao ~* 'GOURMET'
   OR descricao ~* 'FRALDINHA|FRANDINHA'
+  OR descricao ~* 'PAO BRIOCHE BK CX 270'
+  OR codigo IN ('021403', 'TRC-PAOBRIOCHEBKCX270U', '14321', '038585', '034754')
 `;
 
 async function codigosPermitidos(c) {
