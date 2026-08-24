@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -50,6 +50,7 @@ import {
 } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
+import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
 import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
@@ -607,6 +608,11 @@ export default function ControleEstoquePage() {
       setExcluindo(false);
     }
   };
+
+  const itensOrdenados = useMemo(
+    () => [...(contagem?.itens || [])].sort(compararOrdemPlanilha),
+    [contagem?.itens],
+  );
 
   const resumoLive = useMemo(() => {
     if (!contagem?.itens?.length) return null;
@@ -1233,7 +1239,7 @@ export default function ControleEstoquePage() {
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {(contagem?.itens as EstoqueItem[] | undefined)?.map((i) => {
+                              {itensOrdenados.map((i, idx) => {
                                 const raw = rascunhoItens[i.id_item] ?? {
                                   caixa: '',
                                   pc: '',
@@ -1241,12 +1247,19 @@ export default function ControleEstoquePage() {
                                 };
                                 const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
                                 const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
+                                const permiteCx = i.permite_contagem_caixa !== false;
+                                const permitePc = i.permite_contagem_pc_fd !== false;
+                                const permiteKg = i.permite_contagem_kg_und !== false;
                                 const contado = editavel
                                   ? calcQtdTerraco(raw, undCx, undPc)
                                   : i.estoque_contado;
                                 const preenchido = contado != null && Number.isFinite(contado);
                                 const dif = !preenchido ? null : contado - i.estoque_sistema;
                                 const comDivergencia = dif != null && dif !== 0;
+                                const secao = String(i.secao_contagem || '').trim() || 'OUTROS';
+                                const secaoAnt = idx > 0
+                                  ? String(itensOrdenados[idx - 1].secao_contagem || '').trim() || 'OUTROS'
+                                  : '';
                                 const setCampo = (campo: keyof RascunhoLinha, valor: string) => {
                                   setRascunhoItens((prev) => ({
                                     ...prev,
@@ -1261,7 +1274,18 @@ export default function ControleEstoquePage() {
                                 const campoInput = (
                                   campo: keyof RascunhoLinha,
                                   dataAttr: string,
-                                ) => (
+                                  liberado: boolean,
+                                  valorLido: number | null | undefined,
+                                ) => {
+                                  if (!liberado) {
+                                    return (
+                                      <Box sx={{ color: 'rgba(15, 26, 69, 0.38)', fontWeight: 700 }}>
+                                        —
+                                      </Box>
+                                    );
+                                  }
+                                  if (!editavel) return fmtNum(valorLido ?? null, 3);
+                                  return (
                                   <TextField
                                     size="small"
                                     value={raw[campo]}
@@ -1274,8 +1298,8 @@ export default function ControleEstoquePage() {
                                           'input[data-estoque-campo]',
                                         ),
                                       );
-                                      const idx = inputs.indexOf(e.target as HTMLInputElement);
-                                      const proximo = idx >= 0 ? inputs[idx + 1] : null;
+                                      const idxInput = inputs.indexOf(e.target as HTMLInputElement);
+                                      const proximo = idxInput >= 0 ? inputs[idxInput + 1] : null;
                                       if (proximo) {
                                         proximo.focus();
                                         proximo.select();
@@ -1295,10 +1319,27 @@ export default function ControleEstoquePage() {
                                     }}
                                     sx={{ width: 84, mx: 'auto' }}
                                   />
-                                );
+                                  );
+                                };
                                 return (
+                                  <Fragment key={i.id_item}>
+                                    {secao !== secaoAnt && (
+                                      <TableRow>
+                                        <TableCell
+                                          colSpan={9}
+                                          sx={{
+                                            fontWeight: 800,
+                                            letterSpacing: 0.4,
+                                            bgcolor: '#EEF2F7',
+                                            color: colors.navy,
+                                            py: 1,
+                                          }}
+                                        >
+                                          {secao}
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
                                   <TableRow
-                                    key={i.id_item}
                                     hover
                                     sx={
                                       comDivergencia
@@ -1321,19 +1362,13 @@ export default function ControleEstoquePage() {
                                       {fmtNum(i.estoque_sistema, 3)}
                                     </TableCell>
                                     <TableCell sx={tdCenter}>
-                                      {editavel
-                                        ? campoInput('caixa', 'caixa')
-                                        : fmtNum(i.contagem_caixa ?? null, 3)}
+                                      {campoInput('caixa', 'caixa', permiteCx, i.contagem_caixa)}
                                     </TableCell>
                                     <TableCell sx={tdCenter}>
-                                      {editavel
-                                        ? campoInput('pc', 'pc')
-                                        : fmtNum(i.contagem_pc_fd ?? null, 3)}
+                                      {campoInput('pc', 'pc', permitePc, i.contagem_pc_fd)}
                                     </TableCell>
                                     <TableCell sx={tdCenter}>
-                                      {editavel
-                                        ? campoInput('kg', 'kg')
-                                        : fmtNum(i.contagem_kg_und ?? null, 3)}
+                                      {campoInput('kg', 'kg', permiteKg, i.contagem_kg_und)}
                                     </TableCell>
                                     <TableCell sx={{ ...tdCenter, fontWeight: 700 }}>
                                       {preenchido ? fmtNum(contado, 3) : '—'}
@@ -1342,9 +1377,10 @@ export default function ControleEstoquePage() {
                                       {dif == null ? '—' : fmtNum(dif, 3)}
                                     </TableCell>
                                   </TableRow>
+                                  </Fragment>
                                 );
                               })}
-                              {!contagem?.itens?.length && (
+                              {!itensOrdenados.length && (
                                 <TableRow>
                                   <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                                     Esta loja ainda não tem insumos cadastrados

@@ -4,6 +4,24 @@
  *   QTD     = CAIXA * und_convertida + PC/FD * und_parcial + KG/UND
  */
 
+/** Ordem das faixas da planilha Terraço (não é alfabética: CONGELADOS vem antes de BRINDES). */
+export const SQL_ORDEM_PLANILHA = `
+  p.ordem_contagem NULLS LAST,
+  CASE
+    WHEN p.secao_contagem ILIKE 'CONGELADOS%' THEN 1
+    WHEN p.secao_contagem ILIKE 'RESFRIADOS%' THEN 2
+    WHEN p.secao_contagem ILIKE 'MOLHOS%' THEN 3
+    WHEN p.secao_contagem ILIKE 'SOBREMESA%' THEN 4
+    WHEN p.secao_contagem ILIKE 'EMBALAGENS%' THEN 5
+    WHEN p.secao_contagem ILIKE 'LIMPEZA%' THEN 6
+    WHEN p.secao_contagem ILIKE 'REFRIGERANTES%' THEN 7
+    WHEN p.secao_contagem ILIKE 'BRINDES%' THEN 8
+    WHEN p.secao_contagem ILIKE 'LAN%' THEN 9
+    ELSE 99
+  END,
+  p.descricao
+`;
+
 export function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
   const n = Number(String(v).replace(',', '.'));

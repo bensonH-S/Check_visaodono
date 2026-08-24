@@ -5,7 +5,7 @@ import { requirePermissao } from '../permissoes.js';
 import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
-import { calcularQtdContagem, flagsContagemDiaria } from '../services/estoqueContagem.js';
+import { calcularQtdContagem, flagsContagemDiaria, SQL_ORDEM_PLANILHA } from '../services/estoqueContagem.js';
 import { parseNfeXml } from '../services/nfeXml.js';
 import estoqueOperacional from './estoqueOperacional.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
@@ -148,7 +148,7 @@ async function criarContagemComItens(
          ORDER BY i.id_insumo, c.data_contagem DESC, c.id_contagem DESC
        ) u ON u.id_insumo = p.id_insumo
        WHERE p.ativo = TRUE AND p.id_loja = $2${filtroItens}
-       ORDER BY p.secao_contagem NULLS LAST, p.ordem_contagem NULLS LAST, p.descricao`,
+       ORDER BY ${SQL_ORDEM_PLANILHA}`,
       [idContagem, id_loja],
     );
     if (erroVazio && !rowCount) {
@@ -160,7 +160,7 @@ async function criarContagemComItens(
        SELECT $1, p.id_insumo, 0, NULL
        FROM insumos p
        WHERE p.ativo = TRUE AND p.id_loja = $2${filtroItens}
-       ORDER BY p.secao_contagem NULLS LAST, p.ordem_contagem NULLS LAST, p.descricao`,
+       ORDER BY ${SQL_ORDEM_PLANILHA}`,
       [idContagem, id_loja],
     );
     if (erroVazio && !rowCount) {
@@ -542,7 +542,7 @@ async function carregarContagem(id) {
      FROM estoque_itens i
      JOIN insumos p ON p.id_insumo = i.id_insumo
      WHERE i.id_contagem = $1
-     ORDER BY p.secao_contagem NULLS LAST, p.ordem_contagem NULLS LAST, p.descricao, i.id_item`,
+     ORDER BY ${SQL_ORDEM_PLANILHA}, i.id_item`,
     [id],
   );
 

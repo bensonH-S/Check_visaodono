@@ -11,6 +11,7 @@ import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
+import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
 
 const AUTOSAVE_MS = 700;
 const SECAO_OUTROS = 'OUTROS';
@@ -199,7 +200,7 @@ export default function EstoqueMobileConferenciaPage() {
   const editavel = contagem?.status === 'aberta';
 
   const secoes = useMemo(() => {
-    const itens = contagem?.itens || [];
+    const itens = [...(contagem?.itens || [])].sort(compararOrdemPlanilha);
     const ordem: string[] = [];
     const mapa = new Map<string, EstoqueItem[]>();
     for (const i of itens) {
@@ -225,12 +226,14 @@ export default function EstoqueMobileConferenciaPage() {
   const itensVisiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     if (q) {
-      return (contagem?.itens || []).filter(
-        (i) =>
-          i.codigo.toLowerCase().includes(q) ||
-          i.descricao.toLowerCase().includes(q) ||
-          nomeSecao(i).toLowerCase().includes(q),
-      );
+      return [...(contagem?.itens || [])]
+        .filter(
+          (i) =>
+            i.codigo.toLowerCase().includes(q) ||
+            i.descricao.toLowerCase().includes(q) ||
+            nomeSecao(i).toLowerCase().includes(q),
+        )
+        .sort(compararOrdemPlanilha);
     }
     return secaoAtual?.itens || [];
   }, [contagem, busca, secaoAtual]);
