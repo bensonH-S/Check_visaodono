@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -21,10 +21,9 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import StorefrontIcon from '@mui/icons-material/Storefront';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import EditIcon from '@mui/icons-material/Edit';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -51,10 +50,11 @@ import {
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
-import { colors } from '../../theme/tokens';
+import { colors, portalPanelSx } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
+import EstoqueConferenciaDetalhe from './EstoqueConferenciaDetalhe';
 import {
   ehContagemParcial,
   rotuloTipoContagem,
@@ -134,12 +134,6 @@ const thLeft = {
   boxShadow: `inset 0 -1px 0 ${colors.border}`,
 } as const;
 
-const thDiferencaSx = {
-  ...thCenter,
-  color: '#991b1b',
-  bgcolor: '#FEE2E2 !important',
-} as const;
-
 function fmtBrl(v: number | null | undefined) {
   if (v == null || Number.isNaN(Number(v))) return '—';
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -206,29 +200,6 @@ const emptyProdutoForm = {
 type ProdutoForm = typeof emptyProdutoForm;
 
 const tdCenter = { textAlign: 'center' } as const;
-
-const linhaPreenchidaSx = {
-  bgcolor: 'rgba(22, 163, 74, 0.1)',
-  '&:hover': { bgcolor: 'rgba(22, 163, 74, 0.16)' },
-} as const;
-
-function diferencaSx(d: number | null) {
-  if (d == null) return { ...tdCenter };
-  if (d === 0) {
-    return { ...tdCenter, color: '#166534', fontWeight: 600 };
-  }
-  return {
-    ...tdCenter,
-    color: '#991b1b',
-    fontWeight: 700,
-    bgcolor: 'rgba(220, 38, 38, 0.12)',
-  };
-}
-
-const linhaDivergenciaSx = {
-  bgcolor: 'rgba(220, 38, 38, 0.1)',
-  '&:hover': { bgcolor: 'rgba(220, 38, 38, 0.16)' },
-} as const;
 
 type RascunhoLinha = { caixa: string; pc: string; kg: string };
 
@@ -328,7 +299,6 @@ export default function ControleEstoquePage() {
   const [loadingLojas, setLoadingLojas] = useState(true);
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
-  const [busca] = useState('');
   const [listaContagens, setListaContagens] = useState<EstoqueContagemResumo[]>([]);
   const [filtroStatus, setFiltroStatus] = useState<'todas' | 'aberta' | 'finalizada'>('todas');
   const [contagem, setContagem] = useState<EstoqueContagemDetalhe | null>(null);
@@ -646,7 +616,6 @@ export default function ControleEstoquePage() {
   const bloqueiaOutrasAbas = verDetalhe && contagem?.status === 'aberta';
   const abertasCount = listaContagens.filter((c) => c.status === 'aberta').length;
   const fechadasCount = listaContagens.filter((c) => c.status === 'finalizada').length;
-  const valorInicialMesLista = listaContagens[0]?.valor_inicial_mes ?? null;
   const dataInicialMesLista = listaContagens[0]?.data_inicial_mes ?? null;
   const valorAtualLista = useMemo(() => {
     if (listaContagens[0]?.valor_atual_loja != null) return listaContagens[0].valor_atual_loja;
@@ -660,14 +629,12 @@ export default function ControleEstoquePage() {
     return ultimaCompleta?.total_valor ?? null;
   }, [listaContagens]);
   const valorBreakLista = listaContagens[0]?.valor_break_mes ?? null;
-  const valorDesperdicioLista = listaContagens[0]?.valor_desperdicio_mes ?? null;
-  const valorComprasLista = listaContagens[0]?.valor_compras_mes ?? null;
   const cmvLista = listaContagens[0]?.cmv_teorico_pct ?? null;
   const listaFiltrada = useMemo(() => {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
-  const chromeCompacto = aba === 'cmv' || aba === 'saldo';
+  const chromeCompacto = aba === 'cmv' || aba === 'saldo' || aba === 'conferencia';
 
   if (loadingLojas) {
     return (
@@ -853,7 +820,7 @@ export default function ControleEstoquePage() {
               }}
             >
               {aba === 'conferencia' && podeConferencia && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0, overflow: 'hidden' }}>
                   {!verDetalhe ? (
                     <>
                       <Box
@@ -911,39 +878,75 @@ export default function ControleEstoquePage() {
                         </Box>
                       </Box>
 
+                      <Box sx={{ ...portalPanelSx, p: { xs: 1.5, md: 2 }, flexShrink: 0 }}>
+                        <Box
+                          sx={{
+                            display: 'grid',
+                            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+                            gap: { xs: 1.25, md: 0 },
+                          }}
+                        >
+                          {[
+                            {
+                              label: 'Valor atual',
+                              value: fmtBrl(valorAtualLista),
+                              sub: dataInicialMesLista
+                                ? `início ${fmtDataBR(dataInicialMesLista)}`
+                                : 'estoque da loja',
+                            },
+                            {
+                              label: 'Abertas',
+                              value: String(abertasCount),
+                              sub: `${fechadasCount} finalizada(s)`,
+                            },
+                            {
+                              label: 'CMV',
+                              value: cmvLista != null ? `${fmtNum(cmvLista, 1)}%` : '—',
+                              sub: `break ${fmtBrl(valorBreakLista)}`,
+                            },
+                          ].map((k, i) => (
+                            <Box
+                              key={k.label}
+                              sx={{
+                                minWidth: 0,
+                                px: { md: 2 },
+                                pl: { md: i === 0 ? 0 : 2 },
+                                pr: { md: i === 2 ? 0 : 2 },
+                                borderLeft: { md: i === 0 ? 'none' : `1px solid ${colors.border}` },
+                              }}
+                            >
+                              <Typography
+                                sx={{
+                                  fontSize: '0.68rem',
+                                  fontWeight: 600,
+                                  letterSpacing: '0.14em',
+                                  textTransform: 'uppercase',
+                                  color: colors.textMuted,
+                                }}
+                              >
+                                {k.label}
+                              </Typography>
+                              <Typography
+                                sx={{
+                                  fontWeight: 600,
+                                  fontSize: { xs: '1.35rem', md: '1.65rem' },
+                                  letterSpacing: '-0.035em',
+                                  lineHeight: 1.15,
+                                  color: colors.textPrimary,
+                                  mt: 0.45,
+                                }}
+                              >
+                                {k.value}
+                              </Typography>
+                              <Typography sx={{ mt: 0.35, fontSize: '0.75rem', color: colors.textMuted }}>
+                                {k.sub}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </Box>
+
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <Chip
-                          label={`Início do mês: ${fmtBrl(valorInicialMesLista)}${
-                            dataInicialMesLista ? ` (${fmtDataBR(dataInicialMesLista)})` : ''
-                          }`}
-                          variant="outlined"
-                          sx={{ fontWeight: 700 }}
-                        />
-                        <Chip
-                          label={`Valor atual: ${fmtBrl(valorAtualLista)}`}
-                          color="primary"
-                          sx={{ fontWeight: 800 }}
-                        />
-                        <Chip
-                          label={`CMV: ${cmvLista != null ? `${fmtNum(cmvLista, 1)}%` : '—'}`}
-                          variant="outlined"
-                          sx={{ fontWeight: 700 }}
-                        />
-                        <Chip
-                          label={`Break: ${fmtBrl(valorBreakLista)}`}
-                          variant="outlined"
-                          sx={{ fontWeight: 700 }}
-                        />
-                        <Chip
-                          label={`Desperdício: ${fmtBrl(valorDesperdicioLista)}`}
-                          variant="outlined"
-                          sx={{ fontWeight: 700 }}
-                        />
-                        <Chip
-                          label={`Compras: ${fmtBrl(valorComprasLista)}`}
-                          variant="outlined"
-                          sx={{ fontWeight: 700 }}
-                        />
                         {(
                           [
                             ['todas', `Todas (${listaContagens.length})`],
@@ -1087,372 +1090,30 @@ export default function ControleEstoquePage() {
                         </TableContainer>
                       </Paper>
                     </>
-                  ) : (
-                    <>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          gap: 1.5,
-                          flexWrap: 'wrap',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                          <IconButton onClick={voltarLista} aria-label="Voltar à lista">
-                            <ArrowBackIcon />
-                          </IconButton>
-                          <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                              {contagem?.titulo || 'Conferência'}
-                              {contagem?.criado_por_nome
-                                ? ` · ${contagem.criado_por_nome}`
-                                : ''}
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}
-                            >
-                              {lojaAtual && (
-                                <>
-                                  <StorefrontIcon sx={{ fontSize: 18 }} />
-                                  {rotuloLoja(lojaAtual)}
-                                </>
-                              )}
-                              {contagem?.criado_em
-                                ? ` · Iniciada ${fmtDataHora(contagem.criado_em)}`
-                                : ''}
-                              {contagem?.status === 'finalizada' && contagem.finalizado_em
-                                ? ` · Finalizada ${fmtDataHora(contagem.finalizado_em)}`
-                                : ''}
-                            </Typography>
-                          </Box>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                          {contagem?.status && (
-                            <Chip
-                              size="small"
-                              label={contagem.status === 'finalizada' ? 'Finalizada' : 'Aberta'}
-                              color={contagem.status === 'finalizada' ? 'success' : undefined}
-                              sx={
-                                contagem.status === 'finalizada'
-                                  ? {
-                                      bgcolor: 'rgba(22, 163, 74, 0.15)',
-                                      color: '#166534',
-                                      fontWeight: 700,
-                                    }
-                                  : chipAbertaSx
-                              }
-                            />
-                          )}
-                          {podeReabrir && contagem?.status === 'finalizada' && (
-                            <Tooltip title="Reabrir">
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  aria-label="Reabrir conferência"
-                                  disabled={reabrindo}
-                                  onClick={() => setDlgReabrir(true)}
-                                  sx={{ color: colors.navy }}
-                                >
-                                  {reabrindo ? (
-                                    <CircularProgress size={18} />
-                                  ) : (
-                                    <LockOpenIcon fontSize="small" />
-                                  )}
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                          )}
-                          <IconButton
-                            onClick={() =>
-                              contagem?.id_contagem
-                                ? void abrirContagem(contagem.id_contagem)
-                                : undefined
-                            }
-                            aria-label="Atualizar"
-                          >
-                            <RefreshIcon />
-                          </IconButton>
-                        </Box>
-                      </Box>
-
-                      {resumoLive && contagem?.id_contagem && (
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          <Chip
-                            label={`Início do mês: ${fmtBrl(contagem.valor_inicial_mes)}${
-                              contagem.data_inicial_mes
-                                ? ` (${fmtDataBR(contagem.data_inicial_mes)})`
-                                : ''
-                            }`}
-                            variant="outlined"
-                            sx={{ fontWeight: 700 }}
-                          />
-                          <Chip
-                            label={`Valor atual: ${fmtBrl(resumoLive.total_valor)}`}
-                            color="primary"
-                            sx={{ fontWeight: 800 }}
-                          />
-                          <Chip
-                            label={`${resumoLive.preenchidos}/${resumoLive.totalItens} contados`}
-                            variant="outlined"
-                          />
-                          <Chip
-                            label={`Pendentes: ${resumoLive.pendentes}`}
-                            color={resumoLive.pendentes ? 'warning' : 'success'}
-                          />
-                          <Chip
-                            label={`Divergências: ${resumoLive.divergencias}`}
-                            variant="filled"
-                            sx={
-                              resumoLive.divergencias
-                                ? {
-                                    bgcolor: 'rgba(220, 38, 38, 0.14)',
-                                    color: '#991b1b',
-                                    fontWeight: 700,
-                                  }
-                                : {
-                                    bgcolor: 'rgba(22, 163, 74, 0.14)',
-                                    color: '#166534',
-                                    fontWeight: 700,
-                                  }
-                            }
-                          />
-                        </Box>
-                      )}
-
-                      <Paper sx={tablePaperSx}>
-                        <TableContainer sx={tableContainerSx}>
-                          <Table stickyHeader size="small" sx={tableSx}>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell sx={thCenter}>Código</TableCell>
-                                <TableCell sx={thLeft}>Descrição</TableCell>
-                                <TableCell sx={thCenter}>Un.</TableCell>
-                                <TableCell sx={thCenter}>Sistema</TableCell>
-                                <TableCell sx={{ ...thCenter, minWidth: 88 }}>CAIXA</TableCell>
-                                <TableCell sx={{ ...thCenter, minWidth: 88 }}>PC/FD</TableCell>
-                                <TableCell sx={{ ...thCenter, minWidth: 96 }}>KG/UND</TableCell>
-                                <TableCell sx={thCenter}>QTD</TableCell>
-                                <TableCell sx={thDiferencaSx}>Diferença</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {itensOrdenados.map((i, idx) => {
-                                const raw = rascunhoItens[i.id_item] ?? {
-                                  caixa: '',
-                                  pc: '',
-                                  kg: '',
-                                };
-                                const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
-                                const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
-                                const permiteCx = i.permite_contagem_caixa !== false;
-                                const permitePc = i.permite_contagem_pc_fd !== false;
-                                const permiteKg = i.permite_contagem_kg_und !== false;
-                                const contado = editavel
-                                  ? calcQtdTerraco(raw, undCx, undPc)
-                                  : i.estoque_contado;
-                                const preenchido = contado != null && Number.isFinite(contado);
-                                const dif = !preenchido ? null : contado - i.estoque_sistema;
-                                const comDivergencia = dif != null && dif !== 0;
-                                const secao = String(i.secao_contagem || '').trim() || 'OUTROS';
-                                const secaoAnt = idx > 0
-                                  ? String(itensOrdenados[idx - 1].secao_contagem || '').trim() || 'OUTROS'
-                                  : '';
-                                const setCampo = (campo: keyof RascunhoLinha, valor: string) => {
-                                  setRascunhoItens((prev) => ({
-                                    ...prev,
-                                    [i.id_item]: {
-                                      caixa: prev[i.id_item]?.caixa ?? '',
-                                      pc: prev[i.id_item]?.pc ?? '',
-                                      kg: prev[i.id_item]?.kg ?? '',
-                                      [campo]: valor,
-                                    },
-                                  }));
-                                };
-                                const campoInput = (
-                                  campo: keyof RascunhoLinha,
-                                  dataAttr: string,
-                                  liberado: boolean,
-                                  valorLido: number | null | undefined,
-                                ) => {
-                                  if (!liberado) {
-                                    return (
-                                      <Box sx={{ color: 'rgba(15, 26, 69, 0.38)', fontWeight: 700 }}>
-                                        —
-                                      </Box>
-                                    );
-                                  }
-                                  if (!editavel) return fmtNum(valorLido ?? null, 3);
-                                  return (
-                                  <TextField
-                                    size="small"
-                                    value={raw[campo]}
-                                    onChange={(e) => setCampo(campo, e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key !== 'Enter') return;
-                                      e.preventDefault();
-                                      const inputs = Array.from(
-                                        document.querySelectorAll<HTMLInputElement>(
-                                          'input[data-estoque-campo]',
-                                        ),
-                                      );
-                                      const idxInput = inputs.indexOf(e.target as HTMLInputElement);
-                                      const proximo = idxInput >= 0 ? inputs[idxInput + 1] : null;
-                                      if (proximo) {
-                                        proximo.focus();
-                                        proximo.select();
-                                        proximo.scrollIntoView({
-                                          block: 'nearest',
-                                          behavior: 'smooth',
-                                        });
-                                      }
-                                    }}
-                                    placeholder="—"
-                                    slotProps={{
-                                      htmlInput: {
-                                        inputMode: 'decimal',
-                                        style: { textAlign: 'center' },
-                                        'data-estoque-campo': dataAttr,
-                                      },
-                                    }}
-                                    sx={{ width: 84, mx: 'auto' }}
-                                  />
-                                  );
-                                };
-                                return (
-                                  <Fragment key={i.id_item}>
-                                    {secao !== secaoAnt && (
-                                      <TableRow>
-                                        <TableCell
-                                          colSpan={9}
-                                          sx={{
-                                            fontWeight: 800,
-                                            letterSpacing: 0.4,
-                                            bgcolor: '#EEF2F7',
-                                            color: colors.navy,
-                                            py: 1,
-                                          }}
-                                        >
-                                          {secao}
-                                        </TableCell>
-                                      </TableRow>
-                                    )}
-                                  <TableRow
-                                    hover
-                                    sx={
-                                      comDivergencia
-                                        ? linhaDivergenciaSx
-                                        : preenchido
-                                          ? linhaPreenchidaSx
-                                          : undefined
-                                    }
-                                  >
-                                    <TableCell
-                                      sx={{ ...tdCenter, fontWeight: 600, whiteSpace: 'nowrap' }}
-                                    >
-                                      {i.codigo}
-                                    </TableCell>
-                                    <TableCell>{i.descricao}</TableCell>
-                                    <TableCell sx={{ ...tdCenter, fontWeight: 600 }}>
-                                      {String(i.unidade_contagem || '').toUpperCase()}
-                                    </TableCell>
-                                    <TableCell sx={tdCenter}>
-                                      {fmtNum(i.estoque_sistema, 3)}
-                                    </TableCell>
-                                    <TableCell sx={tdCenter}>
-                                      {campoInput('caixa', 'caixa', permiteCx, i.contagem_caixa)}
-                                    </TableCell>
-                                    <TableCell sx={tdCenter}>
-                                      {campoInput('pc', 'pc', permitePc, i.contagem_pc_fd)}
-                                    </TableCell>
-                                    <TableCell sx={tdCenter}>
-                                      {campoInput('kg', 'kg', permiteKg, i.contagem_kg_und)}
-                                    </TableCell>
-                                    <TableCell sx={{ ...tdCenter, fontWeight: 700 }}>
-                                      {preenchido ? fmtNum(contado, 3) : '—'}
-                                    </TableCell>
-                                    <TableCell sx={diferencaSx(dif)}>
-                                      {dif == null ? '—' : fmtNum(dif, 3)}
-                                    </TableCell>
-                                  </TableRow>
-                                  </Fragment>
-                                );
-                              })}
-                              {!itensOrdenados.length && (
-                                <TableRow>
-                                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                                    Esta loja ainda não tem insumos cadastrados
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Paper>
-
-                      {editavel && (
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
-                          {podeExcluir && (
-                            <IconButton
-                              color="error"
-                              onClick={() => setDlgExcluir(true)}
-                              aria-label="Excluir conferência"
-                              disabled={excluindo || salvandoItens}
-                            >
-                              <DeleteOutlineIcon />
-                            </IconButton>
-                          )}
-                          <Button
-                            variant="contained"
-                            disabled={salvandoItens}
-                            onClick={() => void salvarItens()}
-                            sx={{
-                              bgcolor: colors.orange,
-                              '&:hover': { bgcolor: colors.orangeHover },
-                            }}
-                          >
-                            Salvar (Rascunho)
-                          </Button>
-                          <Button
-                            variant="contained"
-                            disabled={salvandoItens}
-                            onClick={() => void finalizarContagem()}
-                          >
-                            Finalizar conferência
-                          </Button>
-                        </Box>
-                      )}
-                      {!editavel && contagem?.id_contagem && (
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
-                          {podeReabrir && contagem.status === 'finalizada' && (
-                            <Button
-                              variant="outlined"
-                              startIcon={
-                                reabrindo ? <CircularProgress size={16} /> : <LockOpenIcon />
-                              }
-                              disabled={reabrindo}
-                              onClick={() => setDlgReabrir(true)}
-                              sx={{ fontWeight: 700 }}
-                            >
-                              Reabrir
-                            </Button>
-                          )}
-                          {podeExcluir && (
-                            <Button
-                              color="error"
-                              startIcon={<DeleteOutlineIcon />}
-                              onClick={() => setDlgExcluir(true)}
-                              disabled={excluindo}
-                            >
-                              Excluir conferência
-                            </Button>
-                          )}
-                        </Box>
-                      )}
-                    </>
-                  )}
+                  ) : contagem ? (
+                    <EstoqueConferenciaDetalhe
+                      contagem={contagem}
+                      lojaAtual={lojaAtual}
+                      itens={itensOrdenados}
+                      rascunho={rascunhoItens}
+                      setRascunho={setRascunhoItens}
+                      editavel={editavel}
+                      resumo={resumoLive}
+                      salvando={salvandoItens}
+                      excluindo={excluindo}
+                      reabrindo={reabrindo}
+                      podeExcluir={podeExcluir}
+                      podeReabrir={podeReabrir}
+                      onVoltar={voltarLista}
+                      onAtualizar={() => {
+                        if (contagem.id_contagem) void abrirContagem(contagem.id_contagem);
+                      }}
+                      onSalvar={() => void salvarItens()}
+                      onFinalizar={() => void finalizarContagem()}
+                      onExcluir={() => setDlgExcluir(true)}
+                      onReabrir={() => setDlgReabrir(true)}
+                    />
+                  ) : null}
                 </Box>
               )}
 
