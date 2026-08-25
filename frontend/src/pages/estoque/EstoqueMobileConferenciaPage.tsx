@@ -115,6 +115,26 @@ function rascunhoDeItem(i: EstoqueItem): RascunhoLinha {
   };
 }
 
+function rascunhoComZeros(
+  itens: EstoqueItem[],
+  draft: Record<number, RascunhoLinha>,
+): Record<number, RascunhoLinha> {
+  const next = { ...draft };
+  for (const i of itens) {
+    const p = permiteCampos(i);
+    const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
+    const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
+    const line = next[i.id_item] || { caixa: '', pc: '', kg: '' };
+    if (calcQtdTerraco(line, undCx, undPc, p) != null) continue;
+    next[i.id_item] = {
+      caixa: p.caixa ? (String(line.caixa).trim() === '' ? '0' : line.caixa) : '',
+      pc: p.pc ? (String(line.pc).trim() === '' ? '0' : line.pc) : '',
+      kg: p.kg ? (String(line.kg).trim() === '' ? '0' : line.kg) : '',
+    };
+  }
+  return next;
+}
+
 function aplicarDraft(det: EstoqueContagemDetalhe) {
   const draft: Record<number, RascunhoLinha> = {};
   for (const i of det.itens || []) {
@@ -151,6 +171,7 @@ export default function EstoqueMobileConferenciaPage() {
   const [finalizando, setFinalizando] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
   const [dlgReabrir, setDlgReabrir] = useState(false);
+  const [dlgFinalizar, setDlgFinalizar] = useState(false);
   const [busca, setBusca] = useState('');
   const [indiceSecao, setIndiceSecao] = useState(0);
   const [err, setErr] = useState('');
@@ -413,19 +434,20 @@ export default function EstoqueMobileConferenciaPage() {
 
   const finalizar = async () => {
     if (!contagem?.id_contagem || !editavel) return;
-    if (resumo.pendentes > 0) {
-      const primeiraPendente = secoes.findIndex((s) => (resumo.porSecao.get(s.nome)?.pendentes || 0) > 0);
-      if (primeiraPendente >= 0) {
-        setIndiceSecao(primeiraPendente);
-        setBusca('');
-        scrollTopo();
-      }
-      showToast(`Ainda há ${resumo.pendentes} insumo(s) sem contagem`, 'error');
+    if (resumo.pendentes > 0 && !dlgFinalizar) {
+      setDlgFinalizar(true);
       return;
     }
+    setDlgFinalizar(false);
     setFinalizando(true);
     try {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      if (resumo.pendentes > 0) {
+        const draft = rascunhoComZeros(contagem.itens, rascunhoRef.current);
+        rascunhoRef.current = draft;
+        setRascunho(draft);
+        dirtyRef.current = true;
+      }
       await persistir({ silencioso: true, forcar: true });
       dirtyRef.current = false;
       await api.estoqueFinalizarContagem(contagem.id_contagem);
@@ -691,7 +713,7 @@ export default function EstoqueMobileConferenciaPage() {
             <button
               type="button"
               className="ck-estoque__dock-cta ck-estoque__dock-cta--ok"
-              disabled={salvando || finalizando || autoSalvando || resumo.pendentes > 0}
+              disabled={salvando || finalizando || autoSalvando}
               onClick={() => void finalizar()}
             >
               {finalizando ? 'Finalizando…' : 'Finalizar contagem'}
@@ -718,6 +740,26 @@ export default function EstoqueMobileConferenciaPage() {
             →
           </button>
         </nav>
+      )}
+
+      {dlgFinalizar && (
+        <div className="ck-estoque__dlg-backdrop" role="presentation">
+          <div className="ck-estoque__dlg" role="dialog" aria-modal="true">
+            <h2>Finalizar com itens em branco?</h2>
+            <p>
+              {resumo.pendentes} insumo(s) sem número entram como 0. O restante que você
+              preencheu permanece.
+            </p>
+            <div className="ck-estoque__dlg-actions">
+              <button type="button" onClick={() => setDlgFinalizar(false)} disabled={finalizando}>
+                Voltar
+              </button>
+              <button type="button" onClick={() => void finalizar()} disabled={finalizando}>
+                {finalizando ? 'Finalizando…' : 'Finalizar como 0'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {dlgReabrir && (

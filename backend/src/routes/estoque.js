@@ -1170,7 +1170,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     if (temSistema) {
       await pool.query(
         `UPDATE estoque_itens AS ei
-         SET estoque_contado = v.contado,
+         SET estoque_contado = COALESCE(v.contado, ei.estoque_contado),
              contagem_caixa = v.caixa,
              contagem_pc_fd = v.pc,
              contagem_kg_und = v.kg,
@@ -1184,7 +1184,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     } else {
       await pool.query(
         `UPDATE estoque_itens AS ei
-         SET estoque_contado = v.contado,
+         SET estoque_contado = COALESCE(v.contado, ei.estoque_contado),
              contagem_caixa = v.caixa,
              contagem_pc_fd = v.pc,
              contagem_kg_und = v.kg
@@ -1213,32 +1213,65 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
     if (detalhe.status === 'finalizada') {
       return res.status(400).json({ error: 'Contagem já finalizada' });
     }
-    if (detalhe.pendentes > 0) {
-      return res.status(400).json({
-        error: `Ainda há ${detalhe.pendentes} insumo(s) sem contagem. Preencha todos ou informe 0.`,
-      });
-    }
 
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
     await client.query('BEGIN');
+    // Item em branco = 0. Sem isso o botão da loja morre quando entra SKU novo
+    // ou o cadastro bloqueia o campo em que a pessoa já tinha contado.
     await client.query(
-      `UPDATE estoque_contagens
-       SET status = 'finalizada', total_valor = $1, finalizado_em = NOW()
-       WHERE id_contagem = $2`,
-      [detalhe.total_valor, id],
+      `UPDATE estoque_itens i
+       SET contagem_caixa = CASE
+             WHEN COALESCE(p.permite_contagem_caixa, TRUE) THEN COALESCE(i.contagem_caixa, 0)
+             ELSE i.contagem_caixa
+           END,
+           contagem_pc_fd = CASE
+             WHEN COALESCE(p.permite_contagem_caixa, TRUE) THEN i.contagem_pc_fd
+             WHEN COALESCE(p.permite_contagem_pc_fd, TRUE) THEN COALESCE(i.contagem_pc_fd, 0)
+             ELSE i.contagem_pc_fd
+           END,
+           contagem_kg_und = CASE
+             WHEN COALESCE(p.permite_contagem_caixa, TRUE)
+               OR COALESCE(p.permite_contagem_pc_fd, TRUE) THEN i.contagem_kg_und
+             ELSE COALESCE(i.contagem_kg_und, 0)
+           END,
+           estoque_contado = 0
+       FROM insumos p
+       WHERE p.id_insumo = i.id_insumo
+         AND i.id_contagem = $1
+         AND i.estoque_contado IS NULL`,
+      [id],
+    );
+    await client.query(
+      `UPDATE estoque_contagens c
+       SET status = 'finalizada',
+           finalizado_em = NOW(),
+           total_valor = (
+             SELECT ROUND(COALESCE(SUM(
+               CASE WHEN COALESCE(p.entra_cmv, TRUE)
+                 THEN COALESCE(i.estoque_contado, 0) * COALESCE(p.valor_unidade, 0)
+                 ELSE 0
+               END
+             ), 0)::numeric, 2)
+             FROM estoque_itens i
+             JOIN insumos p ON p.id_insumo = i.id_insumo
+             WHERE i.id_contagem = c.id_contagem
+           )
+       WHERE c.id_contagem = $1`,
+      [id],
     );
     await ajustarSaldoPorContagem(client, id, idUsuario);
     await client.query('COMMIT');
 
+    const finalizada = await carregarContagem(id);
     await auditar(req, {
       modulo: 'estoque',
       acao: 'finalizar',
       entidade: 'estoque_contagem',
       idReferencia: id,
-      descricao: `Contagem #${id} finalizada — total R$ ${detalhe.total_valor}`,
+      descricao: `Contagem #${id} finalizada — total R$ ${finalizada?.total_valor ?? detalhe.total_valor}`,
     });
 
-    res.json(await carregarContagem(id));
+    res.json(finalizada);
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     next(e);
