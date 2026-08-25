@@ -985,6 +985,23 @@ export const api = {
       body: JSON.stringify(body),
     }),
   estoqueContagem: (id: number) => request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}`),
+  estoqueRelatorioContagem: (params: {
+    id_loja: number;
+    tipo: 'diaria' | 'critica_semanal' | 'completa';
+    modo: 'estrutura' | 'dados';
+  }) => {
+    const q = new URLSearchParams({
+      id_loja: String(params.id_loja),
+      tipo: params.tipo,
+      modo: params.modo,
+    });
+    return request<{
+      modo: 'estrutura' | 'dados';
+      tipo: string;
+      usou_estrutura: boolean;
+      contagem: EstoqueContagemDetalhe;
+    }>(`/estoque/relatorio-contagem?${q}`);
+  },
   estoqueCriarContagem: (body: {
     id_loja: number;
     data_contagem?: string;

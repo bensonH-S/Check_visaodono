@@ -16,6 +16,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchIcon from '@mui/icons-material/Search';
@@ -177,6 +178,8 @@ export default function EstoqueConferenciaDetalhe({
   onFinalizar,
   onExcluir,
   onReabrir,
+  onBaixarRelatorio,
+  baixandoRelatorio = false,
 }: {
   contagem: EstoqueContagemDetalhe;
   lojaAtual: Loja | null;
@@ -196,6 +199,8 @@ export default function EstoqueConferenciaDetalhe({
   onFinalizar: () => void;
   onExcluir: () => void;
   onReabrir: () => void;
+  onBaixarRelatorio?: () => void;
+  baixandoRelatorio?: boolean;
 }) {
   const [busca, setBusca] = useState('');
   const [secaoManual, setSecaoManual] = useState<string | 'todas' | null>(null);
@@ -294,6 +299,25 @@ export default function EstoqueConferenciaDetalhe({
             <span>
               <IconButton size="small" disabled={reabrindo} onClick={onReabrir} sx={{ color: colors.navy }}>
                 {reabrindo ? <CircularProgress size={18} /> : <LockOpenIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        {onBaixarRelatorio && (
+          <Tooltip title="Baixar relatório">
+            <span>
+              <IconButton
+                size="small"
+                onClick={onBaixarRelatorio}
+                disabled={baixandoRelatorio}
+                aria-label="Baixar relatório"
+                sx={{ color: colors.navy }}
+              >
+                {baixandoRelatorio ? (
+                  <CircularProgress size={18} />
+                ) : (
+                  <FileDownloadOutlinedIcon fontSize="small" />
+                )}
               </IconButton>
             </span>
           </Tooltip>

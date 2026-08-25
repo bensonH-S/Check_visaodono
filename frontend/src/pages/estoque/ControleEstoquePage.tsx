@@ -19,6 +19,8 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -28,6 +30,8 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import {
   api,
@@ -59,7 +63,7 @@ import {
   rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
+import { gerarPdfContagemDiaria } from '../../utils/gerarPdfContagemDiaria';
 
 type AbaEstoque = 'cmv' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
@@ -110,6 +114,28 @@ const chipFinalizadaSx = {
   color: '#166534',
   fontWeight: 700,
   border: '1px solid #86EFAC',
+} as const;
+
+const toggleRelatorioSx = {
+  bgcolor: colors.canvasAlt,
+  borderRadius: 2,
+  p: 0.35,
+  '& .MuiToggleButtonGroup-grouped': {
+    border: 0,
+    borderRadius: '8px !important',
+    px: 1.25,
+    py: 0.7,
+    textTransform: 'none',
+    fontWeight: 700,
+    fontSize: '0.8rem',
+    color: colors.textSecondary,
+    '&.Mui-selected': {
+      bgcolor: colors.surface,
+      color: colors.navy,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+      '&:hover': { bgcolor: colors.surface },
+    },
+  },
 } as const;
 
 /** Fundo opaco no sticky — rgba deixa células passarem por baixo do título */
@@ -314,6 +340,10 @@ export default function ControleEstoquePage() {
   const [excluindo, setExcluindo] = useState(false);
   const [dlgReabrir, setDlgReabrir] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
+  const [baixandoRelatorio, setBaixandoRelatorio] = useState(false);
+  const [dlgRelatorio, setDlgRelatorio] = useState(false);
+  const [relatorioTipo, setRelatorioTipo] = useState<TipoContagemEstoque>('diaria');
+  const [relatorioModo, setRelatorioModo] = useState<'estrutura' | 'dados'>('estrutura');
 
   const lojaAtual = useMemo(
     () => lojas.find((l) => l.id_loja === idLoja) || null,
@@ -574,6 +604,71 @@ export default function ControleEstoquePage() {
       showToast(e instanceof Error ? e.message : 'Erro ao excluir', 'error');
     } finally {
       setExcluindo(false);
+    }
+  };
+
+  const abrirDlgRelatorio = (tipo?: TipoContagemEstoque, modo?: 'estrutura' | 'dados') => {
+    const t = tipo === 'diaria' || tipo === 'critica_semanal' || tipo === 'completa' ? tipo : 'diaria';
+    setRelatorioTipo(t);
+    setRelatorioModo(modo || (tipo ? 'dados' : 'estrutura'));
+    setDlgRelatorio(true);
+  };
+
+  const baixarRelatorioDiaria = async (opts?: {
+    tipo?: TipoContagemEstoque;
+    modo?: 'estrutura' | 'dados';
+    detalhe?: EstoqueContagemDetalhe | null;
+  }) => {
+    if (baixandoRelatorio || !idLoja) return;
+    const tipo = opts?.tipo || relatorioTipo;
+    const modo = opts?.modo || relatorioModo;
+    setBaixandoRelatorio(true);
+    try {
+      const detalheAberto =
+        opts?.detalhe ||
+        (contagem?.tipo === tipo && verDetalhe ? contagem : null);
+      if (modo === 'dados' && detalheAberto?.id_contagem && detalheAberto.tipo === tipo) {
+        await gerarPdfContagemDiaria({
+          contagem: detalheAberto,
+          loja: lojaAtual,
+          rascunho: rascunhoItens,
+          modo: 'dados',
+        });
+        showToast(
+          detalheAberto.status === 'finalizada'
+            ? 'Relatório com os dados da contagem'
+            : 'Relatório com os dados da contagem aberta',
+        );
+        setDlgRelatorio(false);
+        return;
+      }
+
+      const resp = await api.estoqueRelatorioContagem({
+        id_loja: idLoja,
+        tipo,
+        modo,
+      });
+      await gerarPdfContagemDiaria({
+        contagem: resp.contagem,
+        loja: lojaAtual,
+        modo: resp.modo,
+      });
+      if (resp.usou_estrutura) {
+        showToast('Não havia contagem desse tipo — baixei só a estrutura', 'warning');
+      } else if (resp.modo === 'estrutura') {
+        showToast('Modelo baixado (só a estrutura)');
+      } else {
+        showToast(
+          resp.contagem.status === 'finalizada'
+            ? 'Relatório com os dados da última contagem'
+            : 'Relatório com os dados da contagem aberta',
+        );
+      }
+      setDlgRelatorio(false);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar relatório', 'error');
+    } finally {
+      setBaixandoRelatorio(false);
     }
   };
 
@@ -867,6 +962,20 @@ export default function ControleEstoquePage() {
                               </Button>
                             </>
                           )}
+                          <Button
+                            variant="outlined"
+                            startIcon={
+                              baixandoRelatorio ? (
+                                <CircularProgress size={16} />
+                              ) : (
+                                <FileDownloadOutlinedIcon />
+                              )
+                            }
+                            disabled={baixandoRelatorio}
+                            onClick={() => abrirDlgRelatorio()}
+                          >
+                            Baixar relatório
+                          </Button>
                           <IconButton
                             onClick={() => void carregarListaContagens()}
                             aria-label="Atualizar"
@@ -1110,6 +1219,17 @@ export default function ControleEstoquePage() {
                       onFinalizar={() => void finalizarContagem()}
                       onExcluir={() => setDlgExcluir(true)}
                       onReabrir={() => setDlgReabrir(true)}
+                      onBaixarRelatorio={() =>
+                        abrirDlgRelatorio(
+                          contagem.tipo === 'diaria' ||
+                            contagem.tipo === 'critica_semanal' ||
+                            contagem.tipo === 'completa'
+                            ? contagem.tipo
+                            : 'diaria',
+                          'dados',
+                        )
+                      }
+                      baixandoRelatorio={baixandoRelatorio}
                     />
                   ) : null}
                 </Box>
@@ -1230,6 +1350,98 @@ export default function ControleEstoquePage() {
           <Button onClick={() => setDlgProduto(false)}>Cancelar</Button>
           <Button variant="contained" disabled={salvandoProduto} onClick={() => void salvarProduto()}>
             Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={dlgRelatorio}
+        onClose={() => !baixandoRelatorio && setDlgRelatorio(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitleWithIcon plainIcon divider icon={<FileDownloadOutlinedIcon />}>
+          Baixar relatório
+        </DialogTitleWithIcon>
+        <DialogContent sx={dialogContentSx}>
+          <Typography variant="body2" color="text.secondary">
+            Escolha o tipo e se o PDF vem em branco (só os itens) ou com a última contagem — aberta
+            ou finalizada.
+          </Typography>
+          <Box>
+            <Typography
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+                mb: 0.75,
+              }}
+            >
+              Tipo
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              size="small"
+              value={relatorioTipo}
+              onChange={(_e, v: TipoContagemEstoque | null) => {
+                if (v) setRelatorioTipo(v);
+              }}
+              sx={toggleRelatorioSx}
+            >
+              <ToggleButton value="diaria">Diário</ToggleButton>
+              <ToggleButton value="critica_semanal">Semanal</ToggleButton>
+              <ToggleButton value="completa">Mensal</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <Box>
+            <Typography
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+                mb: 0.75,
+              }}
+            >
+              Conteúdo
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              size="small"
+              value={relatorioModo}
+              onChange={(_e, v: 'estrutura' | 'dados' | null) => {
+                if (v) setRelatorioModo(v);
+              }}
+              sx={toggleRelatorioSx}
+            >
+              <ToggleButton value="estrutura">Só estrutura</ToggleButton>
+              <ToggleButton value="dados">Com dados</ToggleButton>
+            </ToggleButtonGroup>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              {relatorioModo === 'estrutura'
+                ? 'Folha com os itens da loja e campos em branco para preencher.'
+                : 'Usa a última contagem desse tipo, mesmo se ainda estiver aberta.'}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setDlgRelatorio(false)} disabled={baixandoRelatorio}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            disabled={baixandoRelatorio}
+            startIcon={
+              baixandoRelatorio ? <CircularProgress size={16} /> : <FileDownloadOutlinedIcon />
+            }
+            onClick={() => void baixarRelatorioDiaria({ tipo: relatorioTipo, modo: relatorioModo })}
+          >
+            Baixar PDF
           </Button>
         </DialogActions>
       </Dialog>

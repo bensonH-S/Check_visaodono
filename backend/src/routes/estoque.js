@@ -591,6 +591,63 @@ async function carregarContagem(id) {
   };
 }
 
+function tituloTipoRelatorio(tipo) {
+  if (tipo === 'diaria') return 'Contagem diária';
+  if (tipo === 'critica_semanal') return 'Contagem semanal';
+  return 'Contagem mensal';
+}
+
+/** Folha em branco com os itens do tipo (cadastro da loja), sem exigir contagem. */
+async function carregarEstruturaRelatorio(idLoja, tipo) {
+  const filtro = filtroItensPorTipo(tipo);
+  const hoje = hojeISOBrasil();
+  const { rows: lojaRows } = await pool.query(
+    'SELECT name, bk_number FROM lojas WHERE id_loja = $1',
+    [idLoja],
+  );
+  const loja = lojaRows[0] || {};
+  const { rows: itens } = await pool.query(
+    `SELECT p.id_insumo AS id_item, p.id_insumo,
+            COALESCE(s.quantidade, 0) AS estoque_sistema,
+            NULL AS estoque_contado,
+            NULL AS contagem_caixa, NULL AS contagem_pc_fd, NULL AS contagem_kg_und,
+            p.codigo, p.descricao, p.unidade_contagem, p.preco_caixa,
+            p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial, p.valor_unidade,
+            COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
+            COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
+            COALESCE(p.permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und,
+            COALESCE(p.entra_cmv, TRUE) AS entra_cmv,
+            p.secao_contagem, p.ordem_contagem
+     FROM insumos p
+     LEFT JOIN estoque_saldos s
+       ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
+     WHERE p.ativo = TRUE AND p.id_loja = $1${filtro}
+     ORDER BY ${SQL_ORDEM_PLANILHA}`,
+    [idLoja],
+  );
+  const mapped = itens.map(mapItem);
+  return {
+    id_contagem: 0,
+    id_loja: idLoja,
+    loja_nome: loja.name || null,
+    loja_codigo: loja.bk_number || null,
+    data_contagem: hoje,
+    titulo: `Modelo — ${tituloTipoRelatorio(tipo)}`,
+    tipo,
+    status: 'modelo',
+    observacao: null,
+    total_valor: null,
+    itens_total: mapped.length,
+    pendentes: mapped.length,
+    divergencias: 0,
+    criado_por: null,
+    criado_por_nome: null,
+    criado_em: null,
+    finalizado_em: null,
+    itens: mapped,
+  };
+}
+
 // ── Insumos (cadastro por loja; tabela insumos) ─────────────────────────────
 // Paths primários: /insumos ; aliases /produtos para compatibilidade.
 
@@ -806,6 +863,51 @@ router.get('/resumo-mes', permResumoMes, async (req, res, next) => {
       valor_inicial_mes: inicioMes.valor_inicial_mes,
       data_inicial_mes: inicioMes.data_inicial_mes,
       ...resumoMes,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Modelo ou dados da contagem (diária / semanal / mensal).
+ * modo=estrutura → itens do cadastro, campos vazios (não precisa ter iniciado).
+ * modo=dados → última contagem daquele tipo, aberta ou finalizada; se não houver, cai na estrutura.
+ */
+router.get('/relatorio-contagem', permConferencia, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const tipo = normalizarTipoContagem(req.query.tipo || 'diaria');
+    const querDados = String(req.query.modo || '').toLowerCase() === 'dados';
+
+    if (querDados) {
+      const { rows } = await pool.query(
+        `SELECT id_contagem FROM estoque_contagens
+         WHERE id_loja = $1 AND COALESCE(tipo, 'completa') = $2
+         ORDER BY data_contagem DESC NULLS LAST, criado_em DESC, id_contagem DESC
+         LIMIT 1`,
+        [idLoja, tipo],
+      );
+      if (rows.length) {
+        const detalhe = await carregarContagem(rows[0].id_contagem);
+        return res.json({ modo: 'dados', tipo, usou_estrutura: false, contagem: detalhe });
+      }
+    }
+
+    const estrutura = await carregarEstruturaRelatorio(idLoja, tipo);
+    if (!estrutura.itens.length) {
+      const msg =
+        erroSemItensTipo(tipo) || 'Nenhum insumo ativo nesta loja para o modelo mensal';
+      return res.status(400).json({ error: msg });
+    }
+    res.json({
+      modo: 'estrutura',
+      tipo,
+      usou_estrutura: querDados,
+      contagem: estrutura,
     });
   } catch (e) {
     next(e);
