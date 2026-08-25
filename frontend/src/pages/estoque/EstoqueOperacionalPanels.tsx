@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -43,12 +43,11 @@ import {
   type EstoqueCmvTeorico,
   type EstoqueCmvVariancia,
   type EstoqueDisciplina,
-  type EstoqueMovimento,
+  type EstoqueMetaVendas,
   type EstoqueNfeDetalhe,
   type EstoqueNfeResumo,
   type EstoquePedidoItem,
   type EstoquePedidoSugerido,
-  type EstoqueSaldoItem,
   type FichaTecnicaDetalhe,
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
@@ -85,6 +84,39 @@ function fmtDataBR(iso: string | null | undefined) {
   const [y, m, d] = s.split('-');
   if (!y || !m || !d) return s;
   return `${d}/${m}/${y}`;
+}
+
+function fmtHoraBR(iso: string | null | undefined) {
+  if (!iso) return null;
+  try {
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(iso));
+  } catch {
+    return null;
+  }
+}
+
+function textoFrescorVenda(d: {
+  dias_venda?: number | null;
+  ultimo_sync_em?: string | null;
+  hoje_ausente?: boolean;
+  hoje_parcial?: boolean;
+  ultima_data_venda?: string | null;
+} | null | undefined) {
+  const hora = fmtHoraBR(d?.ultimo_sync_em);
+  if (d?.hoje_ausente) {
+    return `hoje não entrou · último ${fmtDataBR(d.ultima_data_venda)}`;
+  }
+  if (d?.hoje_parcial) {
+    return hora ? `hoje incompleto · kit ${hora}` : 'hoje incompleto · kit atrasado';
+  }
+  const dias = d?.dias_venda ?? 0;
+  return hora ? `${dias} dias · kit ${hora}` : `${dias} dias · BK Office`;
 }
 
 function hojeISO() {
@@ -379,6 +411,7 @@ function PainelCmv({
   const [variancia, setVariancia] = useState<EstoqueCmvVariancia | null>(null);
   const [disciplina, setDisciplina] = useState<EstoqueDisciplina | null>(null);
   const [nfes, setNfes] = useState<EstoqueNfeResumo[]>([]);
+  const [metaVendas, setMetaVendas] = useState<EstoqueMetaVendas | null>(null);
   const [dataIni, setDataIni] = useState(() => inicioMesISO());
   const [dataFim, setDataFim] = useState(hojeISO());
   const [faltaFicha, setFaltaFicha] = useState(0);
@@ -387,28 +420,30 @@ function PainelCmv({
   const [fechando, setFechando] = useState(false);
   const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);
 
-  const carregar = useCallback(async () => {
-    setLoading(true);
+  const carregar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     try {
-      const [c, r, v, d, nf, pv] = await Promise.all([
+      const [c, r, v, d, nf, pv, meta] = await Promise.all([
         api.estoqueCmvTeorico(idLoja, { de: dataIni, ate: dataFim }),
         api.estoqueCmvReal(idLoja, { de: dataIni, ate: dataFim }),
         api.estoqueCmvVariancia(idLoja, { de: dataIni, ate: dataFim, limit: 30 }),
         api.estoqueDisciplina(idLoja),
         api.estoqueNfes(idLoja, { conferir: true, limit: 30 }),
         api.estoqueProdutosVenda({ id_loja: idLoja }),
+        api.estoqueMetaVendas(idLoja, { crescimento: 0.1 }).catch(() => null),
       ]);
       setCmv(c);
       setReal(r);
       setVariancia(v);
       setDisciplina(d);
       setNfes(nf);
+      setMetaVendas(meta);
       setFaltaFicha(
         pv.filter((p) => p.requer_ficha !== false && !(p.id_ficha && (p.itens_ficha ?? 0) > 0))
           .length,
       );
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao carregar CMV', 'error');
+      if (!silencioso) showToast(e instanceof Error ? e.message : 'Erro ao carregar CMV', 'error');
     } finally {
       setLoading(false);
     }
@@ -416,6 +451,11 @@ function PainelCmv({
 
   useEffect(() => {
     void carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => void carregar(true), 45000);
+    return () => window.clearInterval(t);
   }, [carregar]);
 
   useEffect(() => {
@@ -664,8 +704,8 @@ function PainelCmv({
             {
               label: 'Venda',
               value: fmtMoeda(venda ?? 0),
-              color: colors.textPrimary,
-              sub: `${cmv?.dias_venda ?? 0} dias · BK Office`,
+              color: cmv?.hoje_ausente || cmv?.hoje_parcial ? colors.orange : colors.textPrimary,
+              sub: textoFrescorVenda(cmv),
             },
             {
               label: 'CMV teórico',
@@ -720,6 +760,77 @@ function PainelCmv({
           ))}
         </Box>
 
+        {dataIni === inicioMesISO() && dataFim === hojeISO() && metaVendas ? (
+          <Box
+            sx={{
+              mt: 2,
+              pt: 1.75,
+              borderTop: `1px solid ${colors.border}`,
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
+              gap: { xs: 1.25, sm: 0 },
+            }}
+          >
+            {[
+              {
+                label: `Meta +${metaVendas.crescimento_pct ?? 10}%`,
+                value: metaVendas.meta_mtd != null ? fmtMoeda(metaVendas.meta_mtd) : 'Falta 2025',
+                sub:
+                  metaVendas.meta_mtd != null
+                    ? `${fmtMoeda(metaVendas.venda_ly_mtd)} no ano passado`
+                    : 'kit ainda não baixou o mesmo mês de 2025',
+              },
+              {
+                label: 'Projeção restante',
+                value: fmtMoeda(metaVendas.projecao_restante),
+                sub: `média ${fmtMoeda(metaVendas.media_dia)} × ${metaVendas.dias_restantes ?? 0} dias`,
+              },
+              {
+                label: 'Fecha o mês',
+                value: fmtMoeda(metaVendas.projecao_mes),
+                sub: 'venda até hoje + restante',
+              },
+            ].map((k, i) => (
+              <Box
+                key={k.label}
+                sx={{
+                  minWidth: 0,
+                  px: { sm: 2 },
+                  pl: { sm: i === 0 ? 0 : 2 },
+                  pr: { sm: i === 2 ? 0 : 2 },
+                  borderLeft: { sm: i === 0 ? 'none' : `1px solid ${colors.border}` },
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.12em',
+                    textTransform: 'uppercase',
+                    color: colors.textMuted,
+                  }}
+                >
+                  {k.label}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: { xs: '1.05rem', md: '1.15rem' },
+                    letterSpacing: '-0.03em',
+                    mt: 0.35,
+                    color: colors.textPrimary,
+                  }}
+                >
+                  {k.value}
+                </Typography>
+                <Typography sx={{ mt: 0.25, fontSize: '0.72rem', color: colors.textMuted }}>
+                  {k.sub}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        ) : null}
+
         <Box sx={{ mt: 2.25 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
             <Typography
@@ -762,6 +873,19 @@ function PainelCmv({
 
         {(() => {
           const itens: { key: string; tipo: 'bloqueio' | 'atencao'; texto: string; onClick?: () => void }[] = [];
+          if (cmv?.hoje_ausente) {
+            itens.push({
+              key: 'venda-ausente',
+              tipo: 'atencao',
+              texto: `Venda de hoje ainda não entrou (último ${fmtDataBR(cmv.ultima_data_venda)})`,
+            });
+          } else if (cmv?.hoje_parcial) {
+            itens.push({
+              key: 'venda-parcial',
+              tipo: 'atencao',
+              texto: `Venda de hoje incompleta — ILR (Bruto) vai na frente até o kit rebaixar`,
+            });
+          }
           if (motivoReal) {
             itens.push({
               key: 'motivo',
@@ -1054,17 +1178,6 @@ function PainelCmv({
   );
 }
 
-function rotuloTipoMovimento(tipo: string) {
-  const map: Record<string, string> = {
-    entrada: 'Entrada',
-    contagem: 'Contagem',
-    venda: 'Venda',
-    break: 'Break',
-    ajuste: 'Ajuste',
-  };
-  return map[tipo] || tipo;
-}
-
 function PainelSaldoKardex({
   idLoja,
   onSetHeaderActions,
@@ -1073,34 +1186,33 @@ function PainelSaldoKardex({
   onSetHeaderActions?: (node: React.ReactNode) => void;
 }) {
   const [loading, setLoading] = useState(true);
-  const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
-  const [movs, setMovs] = useState<EstoqueMovimento[]>([]);
-  const [q, setQ] = useState('');
-  const [tipo, setTipo] = useState('');
-  const [selInsumo, setSelInsumo] = useState<number | null>(null);
+  const [dados, setDados] = useState<EstoqueMetaVendas | null>(null);
+  const [crescimento, setCrescimento] = useState('10');
+  const crescimentoRef = useRef(crescimento);
+  crescimentoRef.current = crescimento;
 
-  const carregar = useCallback(async () => {
-    setLoading(true);
+  const carregar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     try {
-      const [s, m] = await Promise.all([
-        api.estoqueSaldos(idLoja),
-        api.estoqueMovimentos(idLoja, {
-          tipo: tipo || undefined,
-          id_insumo: selInsumo || undefined,
-          limit: 150,
-        }),
-      ]);
-      setSaldos(s);
-      setMovs(m);
+      const cres = Number(String(crescimentoRef.current).replace(',', '.')) / 100;
+      const r = await api.estoqueMetaVendas(idLoja, {
+        crescimento: Number.isFinite(cres) ? cres : 0.1,
+      });
+      setDados(r);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao carregar saldo', 'error');
+      if (!silencioso) showToast(e instanceof Error ? e.message : 'Erro ao carregar meta de venda', 'error');
     } finally {
       setLoading(false);
     }
-  }, [idLoja, tipo, selInsumo]);
+  }, [idLoja]);
 
   useEffect(() => {
     void carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => void carregar(true), 45000);
+    return () => window.clearInterval(t);
   }, [carregar]);
 
   useEffect(() => {
@@ -1114,44 +1226,7 @@ function PainelSaldoKardex({
     };
   }, [carregar, onSetHeaderActions]);
 
-  const busca = q.trim().toLowerCase();
-  const saldosFiltrados = useMemo(
-    () =>
-      saldos.filter(
-        (s) =>
-          !busca ||
-          s.codigo.toLowerCase().includes(busca) ||
-          s.descricao.toLowerCase().includes(busca),
-      ),
-    [saldos, busca],
-  );
-
-  const totalValor = saldos.reduce((acc, s) => acc + (s.valor_total || 0), 0);
-  const negativos = saldos.filter((s) => s.quantidade < 0).length;
-  const insumoSel = saldos.find((s) => s.id_insumo === selInsumo);
-
-  const kpis = [
-    {
-      label: 'Valor em estoque',
-      value: fmtMoeda(totalValor),
-      color: totalValor < 0 ? '#B42318' : colors.textPrimary,
-      sub: 'saldo teórico',
-    },
-    {
-      label: 'Insumos',
-      value: String(saldos.length),
-      color: colors.textPrimary,
-      sub: busca ? `${saldosFiltrados.length} no filtro` : 'cadastrados na loja',
-    },
-    {
-      label: 'Negativos',
-      value: String(negativos),
-      color: negativos > 0 ? '#B42318' : colors.textPrimary,
-      sub: negativos > 0 ? 'quantidade abaixo de zero' : 'nenhum item negativo',
-    },
-  ];
-
-  if (loading && !saldos.length) {
+  if (loading && !dados) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
         <CircularProgress size={28} />
@@ -1159,9 +1234,60 @@ function PainelSaldoKardex({
     );
   }
 
+  const venda = dados?.venda_mtd ?? 0;
+  const metaMtd = dados?.meta_mtd ?? null;
+  const ating = dados?.atingimento_mtd_pct;
+  const corAting =
+    ating == null ? colors.orange : ating >= 100 ? '#0F766E' : ating >= 90 ? colors.orange : '#B42318';
+  const barra = ating != null ? Math.min(100, Math.max(0, ating)) : Math.min(100, ((dados?.dias_decorridos || 0) / (dados?.dias_mes || 1)) * 100);
+  const mesLabel = dados?.mes_nome
+    ? `${dados.mes_nome.charAt(0).toUpperCase()}${dados.mes_nome.slice(1)}`
+    : 'Mês';
+  const diasVisiveis = [...(dados?.dias || [])].reverse().filter((d) => d.venda > 0 || d.venda_ly > 0);
+
+  const kpis = [
+    {
+      label: `Venda ${mesLabel}`,
+      value: fmtMoeda(venda),
+      color: dados?.hoje_ausente || dados?.hoje_parcial ? colors.orange : colors.textPrimary,
+      sub: textoFrescorVenda(dados),
+    },
+    {
+      label: `Meta +${dados?.crescimento_pct ?? 10}%`,
+      value: metaMtd != null ? fmtMoeda(metaMtd) : 'Pendente',
+      color: metaMtd != null ? colors.textPrimary : colors.orange,
+      sub:
+        metaMtd != null
+          ? `${fmtMoeda(dados?.venda_ly_mtd)} em ${dados?.ano ? dados.ano - 1 : '—'} no mesmo período`
+          : 'falta BK Office do ano passado',
+    },
+    {
+      label: 'Projeção restante',
+      value: fmtMoeda(dados?.projecao_restante),
+      color: colors.textPrimary,
+      sub: `média ${fmtMoeda(dados?.media_dia)} × ${dados?.dias_restantes ?? 0} dias · fecha ${fmtMoeda(dados?.projecao_mes)}`,
+    },
+  ];
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, overflow: 'hidden' }}>
       <Box sx={{ ...portalPanelSx, p: { xs: 1.75, md: 2.25 }, flexShrink: 0 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.25 }}>
+          <TextField
+            size="small"
+            label="Crescimento %"
+            value={crescimento}
+            onChange={(e) => setCrescimento(e.target.value)}
+            onBlur={() => void carregar()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void carregar();
+              }
+            }}
+            sx={{ width: 130 }}
+          />
+        </Box>
         <Box
           sx={{
             display: 'grid',
@@ -1209,13 +1335,50 @@ function PainelSaldoKardex({
             </Box>
           ))}
         </Box>
+
+        <Box sx={{ mt: 2.25 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
+            <Typography
+              sx={{
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+              }}
+            >
+              {metaMtd != null ? 'Atingimento da meta no período' : `Andamento do mês · dia ${dados?.dias_decorridos ?? '—'}/${dados?.dias_mes ?? '—'}`}
+            </Typography>
+            <Typography sx={{ fontSize: '0.7rem', color: colors.textMuted }}>
+              {metaMtd != null
+                ? `fecha o mês ${fmtMoeda(dados?.projecao_mes)}`
+                : `restante ${fmtMoeda(dados?.projecao_restante)} · fecha ${fmtMoeda(dados?.projecao_mes)}`}
+            </Typography>
+          </Box>
+          <Box sx={{ position: 'relative', height: 6, borderRadius: 99, bgcolor: colors.canvasAlt }}>
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                width: `${barra}%`,
+                borderRadius: 99,
+                bgcolor: corAting,
+              }}
+            />
+          </Box>
+        </Box>
+        {dados?.aviso ? (
+          <Typography sx={{ mt: 1.25, fontSize: '0.78rem', color: colors.orange }}>
+            {dados.aviso}
+          </Typography>
+        ) : null}
       </Box>
 
       <Box
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-          gap: 1.5,
+          gap: 1.75,
           alignItems: 'stretch',
           flex: 1,
           minHeight: 0,
@@ -1224,107 +1387,78 @@ function PainelSaldoKardex({
         <Box
           sx={{
             ...portalPanelSx,
-            p: { xs: 1.75, md: 2.25 },
+            p: { xs: 2.25, md: 2.75 },
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
             overflow: 'hidden',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75, flexShrink: 0 }}>
-            <Typography
-              sx={{
-                fontSize: '0.68rem',
-                fontWeight: 600,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: colors.textMuted,
-              }}
-            >
-              Insumos
-            </Typography>
-            <TextField
-              variant="standard"
-              placeholder="Buscar"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              slotProps={{ input: { disableUnderline: true } }}
-              sx={{
-                width: 140,
-                '& input': {
-                  fontSize: '0.8rem',
-                  py: 0.25,
-                  textAlign: 'right',
-                  color: colors.textSecondary,
-                },
-              }}
-            />
-          </Box>
+          <Typography
+            sx={{
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: colors.textMuted,
+              mb: 1.25,
+              flexShrink: 0,
+            }}
+          >
+            Dia a dia
+          </Typography>
           <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, mr: -0.75, pr: 0.75 }}>
-            {saldosFiltrados.map((s, i) => {
-              const id = s.id_insumo ?? s.id_produto;
-              const sel = selInsumo === s.id_insumo;
-              const neg = s.quantidade < 0;
+            {diasVisiveis.map((d, i) => {
+              const delta = d.venda_ly > 0 ? ((d.venda - d.venda_ly) / d.venda_ly) * 100 : null;
               return (
                 <Box
-                  key={id}
-                  onClick={() =>
-                    setSelInsumo((prev) => (prev === s.id_insumo ? null : (s.id_insumo ?? null)))
-                  }
+                  key={d.data}
                   sx={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    gap: 1.5,
-                    py: 0.75,
-                    cursor: 'pointer',
+                    alignItems: 'center',
+                    gap: 2,
+                    py: 1.35,
                     borderTop: i === 0 ? 'none' : `1px solid ${colors.border}`,
-                    bgcolor: sel ? colors.navyMuted : 'transparent',
-                    mx: sel ? -1 : 0,
-                    px: sel ? 1 : 0,
-                    borderRadius: sel ? 1 : 0,
-                    '&:hover .saldo-cod': { color: colors.navy },
                   }}
                 >
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography className="saldo-cod" sx={{ fontWeight: 600, fontSize: '0.84rem', letterSpacing: '-0.02em' }}>
-                      {s.codigo}
+                    <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.02em' }}>
+                      {fmtDataBR(d.data)}
                     </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: '0.72rem',
-                        color: colors.textMuted,
-                        mt: 0.1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {s.descricao}
+                    <Typography sx={{ fontSize: '0.85rem', color: colors.textMuted, mt: 0.2 }}>
+                      {d.venda_ly > 0
+                        ? `ano passado ${fmtMoeda(d.venda_ly)}`
+                        : `sem base ${dados?.ano ? dados.ano - 1 : ''}`}
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                     <Typography
                       sx={{
                         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                        fontSize: '0.84rem',
-                        fontWeight: 600,
+                        fontSize: '1.12rem',
+                        fontWeight: 700,
                         letterSpacing: '-0.02em',
-                        color: neg ? '#B42318' : colors.textPrimary,
                       }}
                     >
-                      {fmtNum(s.quantidade, 2)}
+                      {fmtMoeda(d.venda)}
                     </Typography>
-                    <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.1 }}>
-                      {fmtMoeda(s.valor_total)}
+                    <Typography
+                      sx={{
+                        fontSize: '0.85rem',
+                        mt: 0.15,
+                        color: delta == null ? colors.textMuted : delta >= 0 ? '#0F766E' : '#B42318',
+                      }}
+                    >
+                      {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${fmtNum(delta, 1)}%`}
                     </Typography>
                   </Box>
                 </Box>
               );
             })}
-            {!saldosFiltrados.length ? (
-              <Typography sx={{ fontSize: '0.8rem', color: colors.textMuted, py: 2 }}>
-                Nenhum insumo.
+            {!diasVisiveis.length ? (
+              <Typography sx={{ fontSize: '0.95rem', color: colors.textMuted, py: 2 }}>
+                Sem venda neste mês.
               </Typography>
             ) : null}
           </Box>
@@ -1333,121 +1467,84 @@ function PainelSaldoKardex({
         <Box
           sx={{
             ...portalPanelSx,
-            p: { xs: 1.75, md: 2.25 },
+            p: { xs: 2.25, md: 2.75 },
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
             overflow: 'hidden',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.75, flexShrink: 0 }}>
-            <Typography
-              sx={{
-                fontSize: '0.68rem',
-                fontWeight: 600,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: colors.textMuted,
-                minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Kardex{insumoSel ? ` · ${insumoSel.codigo}` : ''}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-              {selInsumo ? (
-                <Button
-                  size="small"
-                  onClick={() => setSelInsumo(null)}
-                  sx={{
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    color: colors.orange,
-                    minWidth: 0,
-                    p: 0,
-                    '&:hover': { bgcolor: 'transparent', color: colors.orangeHover },
-                  }}
-                >
-                  Todos
-                </Button>
-              ) : null}
-              <TextField
-                select
-                variant="standard"
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value)}
-                slotProps={{ input: { disableUnderline: true } }}
+          <Typography
+            sx={{
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: colors.textMuted,
+              mb: 1.25,
+              flexShrink: 0,
+            }}
+          >
+            Mais vendidos
+          </Typography>
+          <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, mr: -0.75, pr: 0.75 }}>
+            {(dados?.top_produtos || []).map((p, i) => (
+              <Box
+                key={p.codigo}
                 sx={{
-                  minWidth: 88,
-                  '& .MuiSelect-select': {
-                    fontSize: '0.8rem',
-                    py: 0.25,
-                    color: colors.textSecondary,
-                    textAlign: 'right',
-                  },
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 2,
+                  py: 1.35,
+                  borderTop: i === 0 ? 'none' : `1px solid ${colors.border}`,
                 }}
               >
-                <MenuItem value="">Tipo</MenuItem>
-                <MenuItem value="entrada">Entrada</MenuItem>
-                <MenuItem value="contagem">Contagem</MenuItem>
-                <MenuItem value="venda">Venda</MenuItem>
-                <MenuItem value="break">Break</MenuItem>
-                <MenuItem value="ajuste">Ajuste</MenuItem>
-              </TextField>
-            </Box>
-          </Box>
-          <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, mr: -0.75, pr: 0.75 }}>
-            {movs.map((m, i) => {
-              const pos = m.quantidade >= 0;
-              return (
-                <Box
-                  key={m.id_movimento}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'baseline',
-                    gap: 1.5,
-                    py: 0.75,
-                    borderTop: i === 0 ? 'none' : `1px solid ${colors.border}`,
-                  }}
-                >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 600, fontSize: '0.84rem', letterSpacing: '-0.02em' }}>
-                      {rotuloTipoMovimento(m.tipo)}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.1 }}>
-                      {fmtDataBR(m.data_movimento || m.criado_em)}
-                      {m.codigo ? ` · ${m.codigo}` : ''}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                    <Typography
-                      sx={{
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                        fontSize: '0.84rem',
-                        fontWeight: 600,
-                        letterSpacing: '-0.02em',
-                        color: pos ? '#0F766E' : '#B42318',
-                      }}
-                    >
-                      {pos ? '+' : ''}
-                      {fmtNum(m.quantidade, 2)}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.1 }}>
-                      {m.saldo_apos != null ? fmtNum(m.saldo_apos, 2) : '—'}
-                    </Typography>
-                  </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.02em' }}>
+                    {p.codigo}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: '0.88rem',
+                      color: colors.textMuted,
+                      mt: 0.2,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {p.descricao}
+                  </Typography>
                 </Box>
-              );
-            })}
-            {!movs.length ? (
-              <Typography sx={{ fontSize: '0.8rem', color: colors.textMuted, py: 2 }}>
-                Sem movimentos.
+                <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                  <Typography
+                    sx={{
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                      fontSize: '1.12rem',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {fmtMoeda(p.venda)}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.85rem', color: colors.textMuted, mt: 0.15 }}>
+                    {fmtNum(p.qtde, 0)} un
+                  </Typography>
+                </Box>
+              </Box>
+            ))}
+            {!dados?.top_produtos?.length ? (
+              <Typography sx={{ fontSize: '0.95rem', color: colors.textMuted, py: 2 }}>
+                Sem itens no mês.
               </Typography>
             ) : null}
+          </Box>
+          <Box sx={{ pt: 1.5, mt: 0.75, borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
+            <Typography sx={{ fontSize: '0.88rem', color: colors.textMuted }}>
+              Break {fmtMoeda(dados?.break_custo)}
+              {dados?.break_pct_venda != null ? ` · ${fmtNum(dados.break_pct_venda, 1)}% da venda` : ''}
+              {dados?.break_qtd ? ` · ${dados.break_qtd} lançamentos` : ''}
+            </Typography>
           </Box>
         </Box>
       </Box>

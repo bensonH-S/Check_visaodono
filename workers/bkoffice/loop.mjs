@@ -21,7 +21,6 @@ if (process.env.BKOFFICE_USE_CHROME == null) process.env.BKOFFICE_USE_CHROME = '
 if (process.env.BKOFFICE_HEADLESS == null) process.env.BKOFFICE_HEADLESS = '1';
 process.env.BKOFFICE_SYNC_CRON_MS = '0';
 
-const INTERVAL = Math.max(60000, Number(process.env.SYNC_INTERVAL_MS || 90000));
 const rrStatePath = path.join(logDir, 'bkoffice-rr-index.json');
 
 function hojeBR() {
@@ -120,12 +119,17 @@ function saveRrIndex(index) {
 
 const {
   syncVendasBkOffice,
+  syncVendasBkOfficeGrupo,
   listarLojasBkOfficeSync,
   parseIdsLojasBkOfficeEnv,
 } = await import('../../backend/src/services/bkoffice/syncVendas.js');
 
 let rodando = false;
 let rrIndex = loadRrIndex();
+
+function horaSP() {
+  return Number(agoraBR().slice(11, 13));
+}
 
 async function tick() {
   if (rodando) {
@@ -134,6 +138,7 @@ async function tick() {
   }
   rodando = true;
   const dia = hojeBR();
+  const aoVivo = horaSP() >= 8 && horaSP() <= 23;
   let loja = null;
   try {
     const lojas = await listarLojasBkOfficeSync();
@@ -141,12 +146,22 @@ async function tick() {
       logServico('ERRO: nenhuma loja com BKN para sync (BKOFFICE_SYNC_ID_LOJAS?)');
       return;
     }
+    if (aoVivo) {
+      logServico(`ao vivo grupo ${lojas.length} loja(s) dia=${dia}`);
+      const r = await syncVendasBkOfficeGrupo({
+        data_inicio: dia,
+        data_fim: dia,
+        processar: true,
+      });
+      logServico(`OK grupo lojas=${r.lojas ?? '?'} linhas=${r.linhas ?? '?'}`);
+      return;
+    }
     loja = lojas[rrIndex % lojas.length];
     rrIndex = (rrIndex + 1) % lojas.length;
     saveRrIndex(rrIndex);
     const pos = rrIndex === 0 ? lojas.length : rrIndex;
 
-    logServico(`ciclo ${pos}/${lojas.length} → BKN ${bknLoja(loja)} ${loja.name}`);
+    logServico(`noite ${pos}/${lojas.length} → BKN ${bknLoja(loja)} ${loja.name}`);
     logLoja(loja, 'INFO', `sync dia=${dia} db=${process.env.DB_NAME}`);
     const r = await syncVendasBkOffice({
       id_loja: loja.id_loja,
@@ -165,8 +180,9 @@ async function tick() {
 }
 
 const modo = parseIdsLojasBkOfficeEnv();
-logServico(`iniciado intervalo=${INTERVAL}ms lojas=${JSON.stringify(modo)} db=${process.env.DB_NAME} rr=${rrIndex}`);
+const liveMs = Math.max(8000, Number(process.env.SYNC_LIVE_INTERVAL_MS || 15000));
+logServico(`iniciado ao_vivo=${liveMs}ms lojas=${JSON.stringify(modo)} db=${process.env.DB_NAME} rr=${rrIndex}`);
 await tick();
 setInterval(() => {
   void tick();
-}, INTERVAL);
+}, liveMs);

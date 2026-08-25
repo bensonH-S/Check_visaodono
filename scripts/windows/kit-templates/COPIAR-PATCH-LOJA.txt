@@ -1,20 +1,28 @@
 PATCH RAPIDO — PC da gerencia (C:\Meridian-BKOffice-Gerencia)
 ============================================================
 
-Copie estes arquivos do kit novo (substituir):
+Copie estes arquivos do repo (substituir):
 
   worker.mjs
   app\backend\scripts\sync-bkoffice-via-api.mjs
   app\backend\src\services\bkoffice\syncVendas.js
+  app\backend\src\services\bkoffice\parseVendasExcel.js
+  app\backend\src\services\bkoffice\importVendasGrupo.js   (arquivo NOVO)
+
+No SERVIDOR (deploy) tambem precisa ir:
+  backend\src\routes\kitBkOffice.js
+  backend\src\services\bkoffice\importVendasGrupo.js
+  backend\src\services\bkoffice\parseVendasExcel.js
 
 Depois:
   1. Task Manager — mate MeridianBkSync.exe e node worker.mjs
-  2. TESTAR-UMA-VEZ.bat  (1 loja do rodizio; aguarde ate 6 min)
-  3. Log da loja: Logs\lojas\<BKN>-<nome>-AAAA-MM.log
+  2. TESTAR-UMA-VEZ.bat  (agora baixa O GRUPO inteiro de hoje)
+  3. Log: Logs\_servico.log
   4. INSTALAR.bat (admin)
 
-Cofre: se o vault antigo nao tiver BKOFFICE_SYNC_ID_LOJAS, o worker
-assume "all" (20 lojas). Intervalo 90s.
+Das 8h as 23h o kit baixa 1 Excel do setor (todas as lojas)
+e grava todas de uma vez. Intervalo ~15s apos o download.
+Nao e ILR ao vivo, mas todas as lojas atualizam juntas a cada
+2-4 min em vez de 40-60 min de rodizio.
 
-Se ainda falhar download: rode MeridianBkSync.exe --debug na pasta do kit
-e veja se o Chrome abre o BK Office (screenshot em Logs ou temp).
+Cofre: vault antigo sem BKOFFICE_SYNC_ID_LOJAS assume "all".

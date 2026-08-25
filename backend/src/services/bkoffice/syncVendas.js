@@ -463,7 +463,7 @@ export async function baixarExcelVendas({
       }),
     );
 
-    // Restaurante específico (obrigatório pra baixar certo da loja)
+    // Sem restaurante = todas as lojas do setor (sync ao vivo do grupo).
     await selecionarRestaurante(page, termoLoja);
 
     // Reaplica o tipo de relatório — filtros de loja/data às vezes resetam o radio
@@ -585,6 +585,72 @@ export async function syncVendasBkOffice({
     });
     ultimoStatus = { id_job: idJob, status: 'ok', mensagem: msg, em: new Date().toISOString() };
     return { id_job: idJob, arquivo: path.basename(filePath), linhas: validos.length, importResult };
+  } catch (e) {
+    const msg = e.message || String(e);
+    await atualizarJob(idJob, {
+      status: 'erro',
+      mensagem: msg.slice(0, 2000),
+      finalizado_em: new Date(),
+    }).catch(() => {});
+    ultimoStatus = { id_job: idJob, status: 'erro', mensagem: msg, em: new Date().toISOString() };
+    throw e;
+  } finally {
+    jobRodando = false;
+    try {
+      fs.rmSync(downloadDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * Um login + um Excel do setor (todas as lojas) no período.
+ * Usado no PC da gerência (loop.mjs) para venda quase ao vivo.
+ */
+export async function syncVendasBkOfficeGrupo({
+  data_inicio,
+  data_fim,
+  criado_por = null,
+  processar = true,
+} = {}) {
+  if (jobRodando) {
+    throw Object.assign(new Error('Já existe um sync BK Office em andamento'), { status: 409 });
+  }
+  jobRodando = true;
+  const { rows: jobRows } = await pool.query(
+    `INSERT INTO estoque_sync_jobs
+       (id_loja, data_inicio, data_fim, status, criado_por, iniciado_em)
+     VALUES (NULL, $1::date, $2::date, 'rodando', $3, NOW())
+     RETURNING id_job`,
+    [data_inicio, data_fim, criado_por],
+  );
+  const idJob = jobRows[0].id_job;
+  const downloadDir = path.join(os.tmpdir(), 'vision-check-bkoffice', `grupo-${idJob}`);
+
+  try {
+    const filePath = await baixarExcelVendas({
+      dataInicio: data_inicio,
+      dataFim: data_fim,
+      termoLoja: null,
+      downloadDir,
+      agruparPorDia: true,
+    });
+    const { importarVendasGrupoExcel } = await import('./importVendasGrupo.js');
+    const imported = await importarVendasGrupoExcel({
+      buffer: fs.readFileSync(filePath),
+      dataPadrao: data_fim || data_inicio,
+      processar,
+      arquivo_nome: path.basename(filePath),
+    });
+    const msg = `OK grupo: ${imported.lojas} lojas, ${imported.linhas} linhas`;
+    await atualizarJob(idJob, {
+      status: 'ok',
+      mensagem: msg,
+      finalizado_em: new Date(),
+    });
+    ultimoStatus = { id_job: idJob, status: 'ok', mensagem: msg, em: new Date().toISOString() };
+    return { id_job: idJob, arquivo: path.basename(filePath), ...imported };
   } catch (e) {
     const msg = e.message || String(e);
     await atualizarJob(idJob, {

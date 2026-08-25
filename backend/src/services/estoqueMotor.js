@@ -283,6 +283,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     params,
   );
 
+  const frescor = await resumoFrescorVendas(idLoja);
   const breakInfo = await calcularConsumoBreak(idLoja, { de, ate });
 
   const venda = num(rows[0]?.venda_liquida);
@@ -332,6 +333,13 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     cmv_confiavel: confiavel,
     custo_suspeito: custoSuspeito,
     dias_venda: diasRows[0]?.dias_venda || 0,
+    ultima_data_venda: frescor.ultima_data_venda,
+    ultimo_sync_em: frescor.ultimo_sync_em,
+    venda_hoje: frescor.venda_hoje,
+    itens_hoje: frescor.itens_hoje,
+    itens_dia_tipico: frescor.itens_dia_tipico,
+    hoje_ausente: frescor.hoje_ausente,
+    hoje_parcial: frescor.hoje_parcial,
     aviso: !confiavelBase
       ? 'CMV em R$ só fica confiável com custo de nota fiscal nos insumos (cobertura ≥ 80%). Ficha (quantidade) já conta; preço da planilha não. Break (consumo) entra à parte quando há custo válido.'
       : custoSuspeito
@@ -493,6 +501,237 @@ export async function calcularPedidoSugerido(
     estoque_seguranca_dias: segDias,
     produtos_base: vendas.length,
     itens,
+  };
+}
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function round2(v) {
+  return Math.round(num(v) * 100) / 100;
+}
+
+function round1(v) {
+  return Math.round(num(v) * 10) / 10;
+}
+
+/**
+ * Último dia importado do BK Office e se o dia de hoje está faltando ou pela metade.
+ * O app não é tempo real: o kit no PC baixa loja a loja.
+ */
+async function resumoFrescorVendas(idLoja) {
+  const hoje = hojeSpISO();
+  const { rows: cab } = await pool.query(
+    `
+    SELECT MAX(data_venda)::text AS ultima_data,
+           MAX(COALESCE(processado_em, criado_em)) AS ultimo_sync_em
+    FROM estoque_vendas
+    WHERE id_loja = $1 AND origem = 'bkoffice'
+    `,
+    [idLoja],
+  );
+  const { rows: hojeRows } = await pool.query(
+    `
+    SELECT COALESCE(SUM(vi.venda_liquida), 0)::numeric AS venda,
+           COUNT(*)::int AS itens
+    FROM estoque_vendas v
+    JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
+    WHERE v.id_loja = $1 AND v.data_venda = $2::date
+    `,
+    [idLoja, hoje],
+  );
+  const { rows: tipico } = await pool.query(
+    `
+    SELECT COALESCE(AVG(n), 0)::numeric AS media_itens
+    FROM (
+      SELECT COUNT(*)::int AS n
+      FROM estoque_vendas v
+      JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
+      WHERE v.id_loja = $1
+        AND v.data_venda >= ($2::date - INTERVAL '7 days')
+        AND v.data_venda < $2::date
+      GROUP BY v.data_venda
+    ) t
+    `,
+    [idLoja, hoje],
+  );
+  const ultima = String(cab[0]?.ultima_data || '').slice(0, 10) || null;
+  const itensHoje = Number(hojeRows[0]?.itens || 0);
+  const mediaItens = num(tipico[0]?.media_itens);
+  const hojeAusente = !ultima || ultima < hoje;
+  const hojeParcial =
+    !hojeAusente && mediaItens >= 20 && itensHoje > 0 && itensHoje < mediaItens * 0.45;
+  return {
+    ultima_data_venda: ultima,
+    ultimo_sync_em: cab[0]?.ultimo_sync_em || null,
+    venda_hoje: round2(hojeRows[0]?.venda),
+    itens_hoje: itensHoje,
+    itens_dia_tipico: Math.round(mediaItens),
+    hoje_ausente: hojeAusente,
+    hoje_parcial: hojeParcial,
+  };
+}
+
+/**
+ * Meta de venda da loja: mesmo mês do ano passado × (1 + crescimento).
+ * Sem base YoY, devolve realizado / ritmo / projeção e deixa meta nula.
+ */
+export async function calcularMetaVendas(idLoja, { crescimento = 0.1 } = {}) {
+  const id = Number(idLoja);
+  const cres = Number.isFinite(Number(crescimento)) ? Number(crescimento) : 0.1;
+  const hoje = hojeSpISO();
+  const [ys, ms, ds] = hoje.split('-').map(Number);
+  const diasMes = new Date(ys, ms, 0).getDate();
+  const yLy = ys - 1;
+  const diasMesLy = new Date(yLy, ms, 0).getDate();
+  const diaLy = Math.min(ds, diasMesLy);
+  const inicio = `${ys}-${pad2(ms)}-01`;
+  const fim = `${ys}-${pad2(ms)}-${pad2(diasMes)}`;
+  const inicioLy = `${yLy}-${pad2(ms)}-01`;
+  const hojeLy = `${yLy}-${pad2(ms)}-${pad2(diaLy)}`;
+  const fimLy = `${yLy}-${pad2(ms)}-${pad2(diasMesLy)}`;
+
+  const { rows: diasRows } = await pool.query(
+    `
+    SELECT v.data_venda::text AS data,
+           COALESCE(SUM(vi.venda_liquida), 0)::numeric AS venda
+    FROM estoque_vendas v
+    JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
+    WHERE v.id_loja = $1
+      AND (
+        (v.data_venda >= $2::date AND v.data_venda <= $3::date)
+        OR (v.data_venda >= $4::date AND v.data_venda <= $5::date)
+      )
+    GROUP BY v.data_venda
+    ORDER BY v.data_venda
+    `,
+    [id, inicio, hoje, inicioLy, fimLy],
+  );
+
+  const porData = new Map(diasRows.map((r) => [String(r.data).slice(0, 10), num(r.venda)]));
+  let vendaMtd = 0;
+  let vendaLyMtd = 0;
+  let vendaLyMes = 0;
+  const dias = [];
+  for (let d = 1; d <= ds; d++) {
+    const data = `${ys}-${pad2(ms)}-${pad2(d)}`;
+    const dataLy = `${yLy}-${pad2(ms)}-${pad2(Math.min(d, diasMesLy))}`;
+    const venda = porData.get(data) || 0;
+    const vendaLy = porData.get(dataLy) || 0;
+    vendaMtd += venda;
+    vendaLyMtd += vendaLy;
+    dias.push({
+      data,
+      data_ly: dataLy,
+      venda: round2(venda),
+      venda_ly: round2(vendaLy),
+      sem_sync: venda <= 0,
+    });
+  }
+  for (let d = 1; d <= diasMesLy; d++) {
+    vendaLyMes += porData.get(`${yLy}-${pad2(ms)}-${pad2(d)}`) || 0;
+  }
+
+  const diasVenda = dias.filter((x) => x.venda > 0).length;
+  const temLy = vendaLyMtd > 0 || vendaLyMes > 0;
+  const fator = 1 + (Number.isFinite(cres) ? cres : 0);
+  const metaMtd = temLy ? round2(vendaLyMtd * fator) : null;
+  const metaMes = temLy ? round2(vendaLyMes * fator) : null;
+  const mediaDia = ds > 0 ? vendaMtd / ds : 0;
+  const diasRestantes = Math.max(0, diasMes - ds);
+  const projecaoRestante = round2(mediaDia * diasRestantes);
+  const projecao = round2(vendaMtd + projecaoRestante);
+  const atingimentoMtd = metaMtd && metaMtd > 0 ? round1((vendaMtd / metaMtd) * 100) : null;
+  const ritmoMes = metaMes && metaMes > 0 ? round1((projecao / metaMes) * 100) : null;
+  const frescor = await resumoFrescorVendas(id);
+
+  const { rows: topRows } = await pool.query(
+    `
+    SELECT vi.codigo,
+           MAX(vi.descricao) AS descricao,
+           COALESCE(SUM(vi.venda_liquida), 0)::numeric AS venda,
+           COALESCE(SUM(vi.qtde), 0)::numeric AS qtde
+    FROM estoque_vendas v
+    JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
+    WHERE v.id_loja = $1
+      AND v.data_venda >= $2::date
+      AND v.data_venda <= $3::date
+    GROUP BY vi.codigo
+    ORDER BY venda DESC
+    LIMIT 8
+    `,
+    [id, inicio, hoje],
+  );
+
+  const breakInfo = await calcularConsumoBreak(id, { de: inicio, ate: hoje });
+  const meses = [
+    '',
+    'janeiro',
+    'fevereiro',
+    'março',
+    'abril',
+    'maio',
+    'junho',
+    'julho',
+    'agosto',
+    'setembro',
+    'outubro',
+    'novembro',
+    'dezembro',
+  ];
+
+  return {
+    id_loja: id,
+    ano: ys,
+    mes: ms,
+    mes_nome: meses[ms] || '',
+    de: inicio,
+    ate: hoje,
+    fim_mes: fim,
+    dias_mes: diasMes,
+    dias_decorridos: ds,
+    dias_restantes: diasRestantes,
+    dias_venda: diasVenda,
+    crescimento_pct: round1((Number.isFinite(cres) ? cres : 0) * 100),
+    venda_mtd: round2(vendaMtd),
+    venda_ly_mtd: round2(vendaLyMtd),
+    venda_ly_mes: round2(vendaLyMes),
+    meta_mtd: metaMtd,
+    meta_mes: metaMes,
+    gap_mtd: metaMtd != null ? round2(vendaMtd - metaMtd) : null,
+    media_dia: round2(mediaDia),
+    projecao_restante: projecaoRestante,
+    projecao_mes: projecao,
+    atingimento_mtd_pct: atingimentoMtd,
+    ritmo_mes_pct: ritmoMes,
+    tem_base_ly: temLy,
+    ultima_data_venda: frescor.ultima_data_venda,
+    ultimo_sync_em: frescor.ultimo_sync_em,
+    venda_hoje: frescor.venda_hoje,
+    itens_hoje: frescor.itens_hoje,
+    itens_dia_tipico: frescor.itens_dia_tipico,
+    hoje_ausente: frescor.hoje_ausente,
+    hoje_parcial: frescor.hoje_parcial,
+    aviso: temLy
+      ? frescor.hoje_ausente
+        ? `Venda de hoje ainda não entrou. O kit no PC atualiza loja a loja — último dia no sistema: ${frescor.ultima_data_venda || '—'}.`
+        : frescor.hoje_parcial
+          ? `Venda de hoje ainda está pela metade (${frescor.itens_hoje} itens vs ~${frescor.itens_dia_tipico} num dia típico). O ILR (Bruto) vai na frente até o kit rebaixar esta loja.`
+          : null
+      : `Sem venda de ${meses[ms]}/${yLy} nesta loja. A meta (ano passado + ${round1((Number.isFinite(cres) ? cres : 0) * 100)}%) entra quando o kit baixar esse período.`,
+    break_custo: round2(breakInfo.custo_break),
+    break_qtd: breakInfo.qtd_breaks,
+    break_pct_venda: vendaMtd > 0 && num(breakInfo.custo_break) > 0
+      ? round1((num(breakInfo.custo_break) / vendaMtd) * 100)
+      : null,
+    top_produtos: topRows.map((r) => ({
+      codigo: r.codigo,
+      descricao: r.descricao,
+      venda: round2(r.venda),
+      qtde: Math.round(num(r.qtde) * 1000) / 1000,
+    })),
+    dias,
   };
 }
 
@@ -1186,7 +1425,8 @@ export async function importarVendasLoja(
          ON CONFLICT (id_loja, data_venda, origem) DO UPDATE
            SET arquivo_nome = COALESCE(EXCLUDED.arquivo_nome, estoque_vendas.arquivo_nome),
                status = 'pendente',
-               observacao = NULL
+               observacao = NULL,
+               criado_em = NOW()
          RETURNING *`,
         [id_loja, data_venda, origem, arquivo_nome, criado_por],
       );

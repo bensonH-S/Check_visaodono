@@ -6,6 +6,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { importarVendasLoja } from '../services/estoqueMotor.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
+import { importarVendasGrupoExcel } from '../services/bkoffice/importVendasGrupo.js';
 import { listarLojasBkOfficeSync } from '../services/bkoffice/syncVendas.js';
 import { pool } from '../db.js';
 
@@ -72,8 +73,12 @@ router.post('/estoque/vendas-import', requireKitToken, upload.single('arquivo'),
       dataPadrao,
       bkNumber,
     });
+    // Só tenta sem filtro se o Excel não tem coluna BK Number (relatório de uma loja).
+    // Se tem BK Number e zerou, esta loja simplesmente não vendeu — NÃO jogar o grupo inteiro nela.
     if (!parsed.length && bkNumber) {
-      parsed = parseVendasExcelBuffer(req.file.buffer, { dataPadrao });
+      const bruto = parseVendasExcelBuffer(req.file.buffer, { dataPadrao });
+      const temBk = bruto.some((r) => r.bk_number);
+      if (!temBk) parsed = bruto;
     }
 
     const itens = parsed
@@ -115,6 +120,32 @@ router.post('/estoque/vendas-import', requireKitToken, upload.single('arquivo'),
     });
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+/**
+ * POST /public/kit/estoque/vendas-import-grupo
+ * Um Excel do setor (todas as lojas do dia) → fatia por BKN e grava cada loja.
+ */
+router.post('/estoque/vendas-import-grupo', requireKitToken, upload.single('arquivo'), async (req, res, next) => {
+  try {
+    if (!req.file?.buffer?.length) {
+      return res.status(400).json({ error: 'Envie o Excel no campo arquivo' });
+    }
+    const dataPadrao =
+      String(req.body?.data_fim || req.body?.data_inicio || req.body?.data_venda || '').slice(0, 10) ||
+      null;
+    const processar = req.body?.processar !== '0' && req.body?.processar !== false;
+    const result = await importarVendasGrupoExcel({
+      buffer: req.file.buffer,
+      dataPadrao,
+      processar,
+      arquivo_nome: req.file.originalname || 'kit-grupo.xlsx',
+    });
+    res.status(201).json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message, code: e.code });
     next(e);
   }
 });

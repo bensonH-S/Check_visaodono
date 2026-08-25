@@ -56,8 +56,8 @@ export function rotuloLojaDestino(
   return nome.length > 12 ? `${nome.slice(0, 11)}…` : nome;
 }
 
-export function linhaDeliveryDaGrade(
-  linhas?: Array<{ tipo?: string; id_loja: number; dias: EscalaVisitasDia[]; nome: string }>,
-) {
+export function linhaDeliveryDaGrade<T extends { tipo?: string }>(
+  linhas?: T[],
+): T | null {
   return linhas?.find((l) => l.tipo === 'delivery') ?? null;
 }

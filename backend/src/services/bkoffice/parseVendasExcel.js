@@ -150,7 +150,11 @@ export function parseVendasExcelBuffer(buffer, opts = {}) {
 
     const bk_number =
       colMap.bk_number != null ? String(row[colMap.bk_number] ?? '').trim() : '';
-    if (filtroBk && bk_number && bk_number !== filtroBk) continue;
+    if (filtroBk) {
+      const a = String(bk_number).replace(/\D/g, '');
+      const b = String(filtroBk).replace(/\D/g, '');
+      if (!a || a !== b) continue;
+    }
 
     const restaurante =
       colMap.restaurante != null ? String(row[colMap.restaurante] ?? '').trim() : '';
@@ -183,4 +187,59 @@ export function parseVendasExcelBuffer(buffer, opts = {}) {
 export function parseVendasExcelFile(filePath, opts = {}) {
   const buffer = fs.readFileSync(filePath);
   return parseVendasExcelBuffer(buffer, opts);
+}
+
+function soDigitos(v) {
+  return String(v || '').replace(/\D/g, '');
+}
+
+function normNome(v) {
+  return String(v || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/burger\s*king/g, '')
+    .replace(/popyes/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function resolverLojaVenda(item, lojas, byBkn) {
+  const bkn = soDigitos(item.bk_number);
+  if (bkn && byBkn.has(bkn)) return byBkn.get(bkn);
+  const rest = String(item.restaurante || '');
+  if (!rest) return null;
+  for (const l of lojas) {
+    const n = soDigitos(l.bk_number);
+    if (n && rest.includes(n)) return l;
+  }
+  const chave = normNome(rest);
+  if (!chave) return null;
+  for (const l of lojas) {
+    const nome = normNome(l.name);
+    if (nome && (nome.includes(chave) || chave.includes(nome))) return l;
+  }
+  return null;
+}
+
+/**
+ * Quebra o Excel do grupo (várias lojas) em baldes por id_loja.
+ */
+export function agruparItensPorLoja(itens, lojas) {
+  const byBkn = new Map();
+  for (const l of lojas) {
+    const n = soDigitos(l.bk_number);
+    if (n) byBkn.set(n, l);
+  }
+  const grupos = new Map();
+  const semLoja = [];
+  for (const item of itens) {
+    const loja = resolverLojaVenda(item, lojas, byBkn);
+    if (!loja) {
+      semLoja.push(item);
+      continue;
+    }
+    if (!grupos.has(loja.id_loja)) grupos.set(loja.id_loja, { loja, itens: [] });
+    grupos.get(loja.id_loja).itens.push(item);
+  }
+  return { grupos, semLoja };
 }

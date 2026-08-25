@@ -24,6 +24,7 @@ const getArg = (k, def) => {
   return hit ? hit.slice(k.length + 1) : def;
 };
 
+const grupo = process.argv.includes('--grupo') || process.argv.includes('--todas');
 const quiet = process.argv.includes('--quiet') || process.env.BKOFFICE_KIT_QUIET === '1';
 const log = (...a) => {
   if (!quiet) console.log(...a);
@@ -66,43 +67,48 @@ if (!process.env.BKOFFICE_USER || !process.env.BKOFFICE_PASS) {
 }
 
 log({
-  modo: 'kit-https',
-  loja: idLoja,
+  modo: grupo ? 'kit-https-grupo' : 'kit-https',
+  loja: grupo ? 'all' : idLoja,
   api: apiBase,
   data_inicio: dataInicio,
   data_fim: dataFim,
   chrome: process.env.BKOFFICE_USE_CHROME !== '0',
 });
 
-// Termo do restaurante no portal: --termo / env / API do kit / fallback
-let termoLoja =
-  termoArg ||
-  process.env.BKOFFICE_TERMO_LOJA ||
-  process.env.BKOFFICE_BK_NUMBER ||
-  null;
-
-if (!termoLoja) {
-  try {
-    const lr = await fetch(`${apiBase}/public/kit/estoque/lojas-sync?ids=${idLoja}`, {
-      headers: { 'X-Meridian-Kit-Token': kitToken },
-    });
-    if (lr.ok) {
-      const body = await lr.json();
-      const hit = (body.lojas || []).find((l) => Number(l.id_loja) === idLoja);
-      if (hit?.bk_number) termoLoja = String(hit.bk_number).trim();
-    }
-  } catch {
-    /* ignore */
-  }
-}
-if (!termoLoja) {
-  termoLoja = idLoja === 21 ? '30797' : String(idLoja);
-}
-
-const downloadDir = path.join(os.tmpdir(), 'vision-check-bkoffice-kit', `${idLoja}-${Date.now()}`);
+const downloadDir = path.join(
+  os.tmpdir(),
+  'vision-check-bkoffice-kit',
+  `${grupo ? 'grupo' : idLoja}-${Date.now()}`,
+);
 fs.mkdirSync(downloadDir, { recursive: true });
 
 const { baixarExcelVendas } = await import('../src/services/bkoffice/syncVendas.js');
+
+let termoLoja = null;
+if (!grupo) {
+  termoLoja =
+    termoArg ||
+    process.env.BKOFFICE_TERMO_LOJA ||
+    process.env.BKOFFICE_BK_NUMBER ||
+    null;
+  if (!termoLoja) {
+    try {
+      const lr = await fetch(`${apiBase}/public/kit/estoque/lojas-sync?ids=${idLoja}`, {
+        headers: { 'X-Meridian-Kit-Token': kitToken },
+      });
+      if (lr.ok) {
+        const body = await lr.json();
+        const hit = (body.lojas || []).find((l) => Number(l.id_loja) === idLoja);
+        if (hit?.bk_number) termoLoja = String(hit.bk_number).trim();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (!termoLoja) {
+    termoLoja = idLoja === 21 ? '30797' : String(idLoja);
+  }
+}
 
 let filePath;
 try {
@@ -121,25 +127,11 @@ try {
 }
 
 const buf = fs.readFileSync(filePath);
-const blob = new Blob([buf], {
-  type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-});
-const form = new FormData();
-form.append('arquivo', blob, path.basename(filePath));
-form.append('id_loja', String(idLoja));
-form.append('data_inicio', dataInicio);
-form.append('data_fim', dataFim);
-form.append('processar', '1');
 
-const url = `${apiBase}/public/kit/estoque/vendas-import`;
-log('upload', url, 'bytes', buf.length);
-
-try {
+async function postForm(url, form) {
   const resp = await fetch(url, {
     method: 'POST',
-    headers: {
-      'X-Meridian-Kit-Token': kitToken,
-    },
+    headers: { 'X-Meridian-Kit-Token': kitToken },
     body: form,
   });
   const text = await resp.text();
@@ -149,6 +141,90 @@ try {
   } catch {
     json = { raw: text.slice(0, 500) };
   }
+  return { resp, json };
+}
+
+function formBase() {
+  const blob = new Blob([buf], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const form = new FormData();
+  form.append('arquivo', blob, path.basename(filePath));
+  form.append('data_inicio', dataInicio);
+  form.append('data_fim', dataFim);
+  form.append('processar', '1');
+  return form;
+}
+
+try {
+  if (grupo) {
+    const urlGrupo = `${apiBase}/public/kit/estoque/vendas-import-grupo`;
+    log('upload grupo', urlGrupo, 'bytes', buf.length);
+    let { resp, json } = await postForm(urlGrupo, formBase());
+    if (resp.status === 404) {
+      log('API antiga sem import-grupo — envia loja a loja (mesmo Excel)');
+      const lr = await fetch(`${apiBase}/public/kit/estoque/lojas-sync?ids=all`, {
+        headers: { 'X-Meridian-Kit-Token': kitToken },
+      });
+      const body = lr.ok ? await lr.json() : { lojas: [] };
+      const lojas = Array.isArray(body.lojas) ? body.lojas : [];
+      const { parseVendasExcelBuffer, agruparItensPorLoja } = await import(
+        '../src/services/bkoffice/parseVendasExcel.js'
+      );
+      const parsed = parseVendasExcelBuffer(buf, { dataPadrao: dataFim });
+      const { grupos } = agruparItensPorLoja(parsed, lojas);
+      const resultados = [];
+      for (const g of grupos.values()) {
+        const form = formBase();
+        form.append('id_loja', String(g.loja.id_loja));
+        const r = await postForm(`${apiBase}/public/kit/estoque/vendas-import`, form);
+        if (!r.resp.ok) {
+          throw new Error(r.json?.error || `HTTP ${r.resp.status} loja ${g.loja.id_loja}`);
+        }
+        resultados.push({
+          id_loja: g.loja.id_loja,
+          linhas: r.json.linhas,
+          venda_total: r.json.venda_total,
+        });
+      }
+      json = {
+        ok: true,
+        lojas: resultados.length,
+        linhas: resultados.reduce((a, x) => a + (x.linhas || 0), 0),
+        venda_total: resultados.reduce((a, x) => a + (Number(x.venda_total) || 0), 0),
+        resultados,
+      };
+      resp = { ok: true, status: 201 };
+    }
+    if (!resp.ok) {
+      const msg = json?.error || json?.message || `HTTP ${resp.status}`;
+      logErr('KIT_RESULT:' + JSON.stringify({ ok: false, dia: dataInicio, erro: msg }));
+      logErr('\n=== ERRO API ===', resp.status, json);
+      process.exit(1);
+    }
+    const summary = {
+      ok: true,
+      modo: 'grupo',
+      dia: dataInicio,
+      lojas_ok: json.lojas ?? json.resultados?.length ?? 0,
+      ids: Array.isArray(json.resultados) ? json.resultados.map((r) => r.id_loja) : [],
+      linhas: json.linhas ?? 0,
+      venda_total: json.venda_total ?? null,
+      de: json.de ?? dataInicio,
+      ate: json.ate ?? dataFim,
+      gravado_no_banco: true,
+    };
+    console.log('KIT_RESULT:' + JSON.stringify(summary));
+    log('\n=== OK ===');
+    log(json);
+    process.exit(0);
+  }
+
+  const form = formBase();
+  form.append('id_loja', String(idLoja));
+  const url = `${apiBase}/public/kit/estoque/vendas-import`;
+  log('upload', url, 'bytes', buf.length);
+  const { resp, json } = await postForm(url, form);
   if (!resp.ok) {
     const msg = json?.error || json?.message || `HTTP ${resp.status}`;
     logErr('KIT_RESULT:' + JSON.stringify({ ok: false, dia: dataInicio, erro: msg }));

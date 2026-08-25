@@ -1,7 +1,8 @@
 /**
  * Worker BK Office — cofre criptografado + sync via HTTPS.
- * Rodízio: uma loja por ciclo (BKOFFICE_SYNC_ID_LOJAS=all).
- * Log: um arquivo por loja em Logs/lojas/ — não misturar no mesmo arquivo.
+ * Das 8h às 23h: 1 Excel do grupo (todas as lojas) em loop curto.
+ * De madrugada: rodízio loja a loja (backfill + ano passado).
+ * Log: um arquivo por loja em Logs/lojas/.
  */
 import fs from 'fs';
 import path from 'path';
@@ -212,6 +213,18 @@ function addDays(iso, delta) {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + delta);
   return dt.toISOString().slice(0, 10);
+}
+
+function mesmoDiaAnoPassado(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const last = new Date(Date.UTC(y - 1, m, 0)).getUTCDate();
+  const dd = String(Math.min(d, last)).padStart(2, '0');
+  const mm = String(m).padStart(2, '0');
+  return `${y - 1}-${mm}-${dd}`;
+}
+
+function horaSP() {
+  return Number(agoraBR().slice(11, 13));
 }
 
 function syncedPath(idLoja) {
@@ -429,6 +442,112 @@ function runSync(env, loja, ini, fim) {
   });
 }
 
+function kitChildEnv(env) {
+  const root = kitRoot();
+  const chromium = chromiumDoKit(root);
+  const childEnv = {
+    ...process.env,
+    ...env,
+    PATH: `${path.join(root, 'runtime', 'node')}${path.delimiter}${process.env.PATH || ''}`,
+    PLAYWRIGHT_BROWSERS_PATH: path.join(root, 'runtime', 'ms-playwright'),
+    BKOFFICE_USE_CHROME: '0',
+    BKOFFICE_HEADLESS: env.BKOFFICE_HEADLESS || '1',
+    BKOFFICE_KIT_QUIET: '1',
+    BKOFFICE_DOWNLOAD_TIMEOUT_MS: env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || '180000',
+    BKOFFICE_SERVER_SYNC: '0',
+    BKOFFICE_SYNC_CRON_MS: '0',
+    NODE_ENV: 'production',
+    DB_HOST: '',
+    DB_PASS: '',
+  };
+  if (chromium) {
+    childEnv.BKOFFICE_CHROMIUM_PATH = chromium;
+    childEnv.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chromium;
+  }
+  return childEnv;
+}
+
+function runSyncGrupo(env, ini, fim) {
+  const root = kitRoot();
+  const node = findNode(root);
+  const script = path.join(root, 'app', 'backend', 'scripts', 'sync-bkoffice-via-api.mjs');
+  if (!fs.existsSync(script)) {
+    throw new Error(`Script ausente: ${script}`);
+  }
+  const timeoutMs = Math.max(720000, Number(env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || 180000) * 4);
+  logServico(`ao vivo grupo dia=${ini} timeout=${Math.round(timeoutMs / 1000)}s`);
+  writeStatus({ estado: 'sincronizando', loja_nome: 'GRUPO (todas as lojas)', ultimo_sync: { dia: ini, ok: null } });
+  const t0 = Date.now();
+  const args = [script, '--grupo', `--inicio=${ini}`, `--fim=${fim}`, '--quiet'];
+  return new Promise((resolve) => {
+    const proc = spawn(node, args, {
+      cwd: path.join(root, 'app'),
+      env: kitChildEnv(env),
+      windowsHide: true,
+    });
+    let out = '';
+    let killed = false;
+    const timer = setTimeout(() => {
+      killed = true;
+      try {
+        proc.kill('SIGTERM');
+      } catch {
+        /* ignore */
+      }
+    }, timeoutMs);
+    proc.stdout.on('data', (b) => {
+      out += b.toString();
+    });
+    proc.stderr.on('data', (b) => {
+      out += b.toString();
+    });
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      const elapsed = Math.round((Date.now() - t0) / 1000);
+      const parsed = parseSyncOutput(out);
+      parsed.duracao_s = elapsed;
+      parsed.dia = parsed.dia || ini;
+      if (killed) {
+        parsed.ok = false;
+        parsed.erro = `timeout apos ${Math.round(timeoutMs / 1000)}s`;
+        logServico(`ERRO grupo ${parsed.erro}`);
+      } else if (code === 0 && parsed.ok !== false) {
+        parsed.ok = true;
+        logServico(
+          `OK grupo lojas=${parsed.lojas_ok ?? '?'} produtos=${parsed.linhas ?? '?'} venda=R$ ${fmtBrl(parsed.venda_total)} ${elapsed}s`,
+        );
+      } else {
+        parsed.ok = false;
+        parsed.erro = parsed.erro || `exit ${code}`;
+        logServico(`ERRO grupo ${parsed.erro}`);
+      }
+      resolve(parsed);
+    });
+  });
+}
+
+async function syncAoVivo(env, lojas) {
+  const hoje = hojeBR();
+  const r = await runSyncGrupo(env, hoje, hoje);
+  writeStatus({ ultimo_sync: r, modo: 'ao_vivo' });
+  const ids = Array.isArray(r.ids) ? r.ids.map(Number) : [];
+  const minLojas = Math.min(2, lojas.length);
+  if (r.ok && Number(r.lojas_ok || ids.length || 0) >= minLojas) {
+    const marcar = ids.length ? lojas.filter((l) => ids.includes(Number(l.id_loja))) : lojas;
+    for (const l of marcar) markSynced(l.id_loja, hoje);
+    return true;
+  }
+  logServico('grupo falhou ou veio 1 loja so — fallback so hoje, loja a loja, sem espera');
+  let ok = true;
+  for (const loja of lojas) {
+    const s = await runSync(env, loja, hoje, hoje);
+    writeStatus({ ultimo_sync: s }, loja);
+    if (s.ok) markSynced(loja.id_loja, hoje);
+    else ok = false;
+  }
+  return ok;
+}
+
 async function syncIncremental(env, loja, { forceBackfill = false } = {}) {
   const idLoja = loja.id_loja;
   const hoje = hojeBR();
@@ -470,6 +589,31 @@ async function syncIncremental(env, loja, { forceBackfill = false } = {}) {
   const rHoje = await runSync(env, loja, hoje, hoje);
   writeStatus({ ultimo_sync: rHoje }, loja);
   if (rHoje.ok) markSynced(idLoja, hoje);
+
+  // Dia operacional fecha tarde: até 14h rebaixa ontem para não congelar parcial.
+  const ontem = addDays(hoje, -1);
+  if (rHoje.ok && horaSP() < 14 && ontem >= iniMes) {
+    logLoja(loja, 'INFO', `rebaixa ontem (${ontem}) — loja pode ter fechado depois do último sync`);
+    const rOntem = await runSync(env, loja, ontem, ontem);
+    writeStatus({ ultimo_sync: rOntem }, loja);
+    if (rOntem.ok) markSynced(idLoja, ontem);
+  }
+
+  // Meta = ano passado + 10%. Um Excel do mesmo período no ano anterior, 1x por mês.
+  const lyIni = mesmoDiaAnoPassado(iniMes);
+  const lyFim = mesmoDiaAnoPassado(hoje);
+  const lyMark = `ly:${lyIni.slice(0, 7)}`;
+  const lyTry = `ly-try:${hoje}`;
+  const stLy = loadSynced(idLoja);
+  if (rHoje.ok && !stLy.dias.includes(lyMark) && !stLy.dias.includes(lyTry)) {
+    markSynced(idLoja, lyTry);
+    logLoja(loja, 'INFO', `ano passado para meta  ${lyIni}→${lyFim}`);
+    const rLy = await runSync(env, loja, lyIni, lyFim);
+    writeStatus({ ultimo_sync: rLy }, loja);
+    if (rLy.ok) markSynced(idLoja, lyMark);
+    else logLoja(loja, 'ERRO', `ano passado falhou — tenta de novo amanhã  ${rLy.erro || ''}`);
+  }
+
   return rHoje.ok;
 }
 
@@ -499,8 +643,8 @@ async function main() {
 
   if (!secrets.BKOFFICE_SYNC_ID_LOJAS) secrets.BKOFFICE_SYNC_ID_LOJAS = 'all';
 
-  const intervalMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 90000));
-  const intervalSec = Math.round(intervalMs / 1000);
+  const liveMs = Math.max(8000, Number(secrets.SYNC_LIVE_INTERVAL_MS || 15000));
+  const nightMs = Math.max(30000, Number(secrets.SYNC_INTERVAL_MS || 90000));
 
   if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.API_BASE || !secrets.BKOFFICE_KIT_TOKEN) {
     logServico('ERRO: cofre incompleto');
@@ -536,44 +680,41 @@ async function main() {
   const forceBackfill = process.argv.includes('--backfill') || secrets.BKOFFICE_FORCE_BACKFILL === '1';
   let rrIndex = loadRrIndex();
 
-  logServico(`ativo multi-loja intervalo=${intervalSec}s lojas=${lojas.length}`);
+  logServico(
+    `ativo lojas=${lojas.length} ao_vivo=${Math.round(liveMs / 1000)}s (8h-23h, 1 Excel do grupo) noite=${Math.round(nightMs / 1000)}s`,
+  );
 
   let ciclo = 0;
   let syncRodando = false;
   for (;;) {
     ciclo += 1;
-    const loja = lojas[rrIndex % lojas.length];
-    rrIndex = (rrIndex + 1) % lojas.length;
-    saveRrIndex(rrIndex);
+    const aoVivo = !forceBackfill && horaSP() >= 8 && horaSP() <= 23;
+    const waitMs = aoVivo ? liveMs : nightMs;
 
     writeStatus({
       estado: 'rodando',
       ciclo,
-      loja: loja.id_loja,
-      loja_nome: loja.name,
-      bk_number: loja.bk_number,
+      modo: aoVivo ? 'ao_vivo' : 'noite',
+      loja_nome: aoVivo ? 'GRUPO (todas as lojas)' : lojas[rrIndex % lojas.length]?.name,
       lojas_total: lojas.length,
     });
-    logServico(`ciclo #${ciclo} → BKN ${bknLoja(loja)} ${loja.name} (${((rrIndex === 0 ? lojas.length : rrIndex))}/${lojas.length})`);
-    logLoja(loja, 'INFO', `inicio ciclo #${ciclo}`);
 
     let ok = false;
     if (syncRodando) {
       logServico(`ciclo #${ciclo} pulado — sync anterior ainda rodando`);
-      logLoja(loja, 'ERRO', `ciclo #${ciclo} pulado — sync anterior ainda rodando`);
     } else {
       syncRodando = true;
       try {
         const hoje = hojeBR();
         if (once) {
-          logLoja(loja, 'INFO', 'modo teste — so hoje nesta loja');
-          const r = await runSync(secrets, loja, hoje, hoje);
-          writeStatus({ ultimo_sync: r, estado: r.ok ? 'parado' : 'erro' }, loja);
-          if (r.ok) markSynced(loja.id_loja, hoje);
-          logServico(r.ok ? 'TESTE OK' : 'TESTE FALHOU');
-          process.exit(r.ok ? 0 : 1);
+          logServico('modo teste — grupo de hoje (todas as lojas)');
+          ok = await syncAoVivo(secrets, lojas);
+          writeStatus({ estado: ok ? 'parado' : 'erro' });
+          logServico(ok ? 'TESTE OK' : 'TESTE FALHOU');
+          process.exit(ok ? 0 : 1);
         }
         if (forceBackfill && ciclo === 1) {
+          const loja = lojas[rrIndex % lojas.length];
           logLoja(loja, 'INFO', 'backfill forcado 01→hoje');
           const ini = `${hoje.slice(0, 8)}01`;
           for (let d = ini; d <= hoje; d = addDays(d, 1)) {
@@ -586,21 +727,35 @@ async function main() {
             }
             ok = true;
           }
+        } else if (aoVivo) {
+          logServico(`ciclo #${ciclo} ao vivo — 1 Excel para ${lojas.length} loja(s)`);
+          ok = await syncAoVivo(secrets, lojas);
+          if (ciclo % 4 === 0) {
+            try {
+              lojas = await fetchLojasSync(secrets);
+            } catch (e) {
+              logServico(`aviso: nao atualizou lista de lojas (${e.message})`);
+            }
+          }
         } else {
+          const loja = lojas[rrIndex % lojas.length];
+          rrIndex = (rrIndex + 1) % lojas.length;
+          saveRrIndex(rrIndex);
+          logServico(`ciclo #${ciclo} noite → BKN ${bknLoja(loja)} ${loja.name}`);
+          logLoja(loja, 'INFO', `inicio ciclo #${ciclo}`);
           ok = await syncIncremental(secrets, loja, { forceBackfill });
-        }
-        if (rrIndex === 0) {
-          try {
-            lojas = await fetchLojasSync(secrets);
-            logServico(`lista atualizada: ${lojas.length} loja(s)`);
-          } catch (e) {
-            logServico(`aviso: nao atualizou lista de lojas (${e.message})`);
+          if (rrIndex === 0) {
+            try {
+              lojas = await fetchLojasSync(secrets);
+              logServico(`lista atualizada: ${lojas.length} loja(s)`);
+            } catch (e) {
+              logServico(`aviso: nao atualizou lista de lojas (${e.message})`);
+            }
           }
         }
       } catch (e) {
-        logLoja(loja, 'ERRO', e.message || String(e));
-        logServico(`ERRO BKN ${bknLoja(loja)}: ${e.message || e}`);
-        writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: e.message || String(e) } }, loja);
+        logServico(`ERRO ciclo #${ciclo}: ${e.message || e}`);
+        writeStatus({ estado: 'erro', ultimo_sync: { ok: false, erro: e.message || String(e) } });
         if (once) process.exit(1);
       } finally {
         syncRodando = false;
@@ -609,7 +764,7 @@ async function main() {
 
     if (once) break;
 
-    const proximo = new Date(Date.now() + intervalMs);
+    const proximo = new Date(Date.now() + waitMs);
     const proximoFmt = new Intl.DateTimeFormat('sv-SE', {
       timeZone: 'America/Sao_Paulo',
       year: 'numeric',
@@ -621,24 +776,16 @@ async function main() {
       hour12: false,
     }).format(proximo);
 
-    const st = loadSynced(loja.id_loja);
     writeStatus({
       estado: ok ? 'dormindo' : 'erro',
       ciclo,
-      loja: loja.id_loja,
-      loja_nome: loja.name,
-      bk_number: loja.bk_number,
+      modo: aoVivo ? 'ao_vivo' : 'noite',
       lojas_total: lojas.length,
-      dias_ok: st.dias,
       pendentes: [],
       proximo_ciclo: proximoFmt,
     });
-    logLoja(
-      loja,
-      ok ? 'OK' : 'ERRO',
-      `fim ciclo #${ciclo}  proximo_rodizio_em=${intervalSec}s`,
-    );
-    await new Promise((r) => setTimeout(r, intervalMs));
+    logServico(`fim ciclo #${ciclo}  proximo_em=${Math.round(waitMs / 1000)}s  modo=${aoVivo ? 'ao_vivo' : 'noite'}`);
+    await new Promise((r) => setTimeout(r, waitMs));
   }
 }
 

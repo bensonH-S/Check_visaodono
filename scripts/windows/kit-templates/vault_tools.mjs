@@ -110,6 +110,7 @@ function buildSecretsFromEnv(envMap) {
     BKOFFICE_SERVER_SYNC: '0',
     BKOFFICE_SYNC_CRON_MS: '0',
     SYNC_INTERVAL_MS: envMap.SYNC_INTERVAL_MS || '90000',
+    SYNC_LIVE_INTERVAL_MS: envMap.SYNC_LIVE_INTERVAL_MS || '15000',
     NODE_ENV: 'production',
   };
 }

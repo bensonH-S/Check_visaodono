@@ -180,7 +180,7 @@ function subtituloLoja(l: Loja) {
 
 const ROTULO_ABA: Record<AbaEstoque, string> = {
   cmv: 'CMV',
-  saldo: 'Saldo',
+  saldo: 'Meta',
   conferencia: 'Conferência',
   break: 'Break',
   pedido: 'Pedido',
@@ -782,7 +782,7 @@ export default function ControleEstoquePage() {
             <Tab value="cmv" label="CMV" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
-            <Tab value="saldo" label="Saldo" disabled={!idLoja || bloqueiaOutrasAbas} />
+            <Tab value="saldo" label="Meta" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeConferencia && (
             <Tab value="conferencia" label="Conferência" disabled={!idLoja} />

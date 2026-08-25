@@ -555,7 +555,11 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+const esteArquivo = fileURLToPath(import.meta.url);
+const entrada = process.argv[1] ? path.resolve(process.argv[1]) : '';
+if (path.normalize(esteArquivo).toLowerCase() === path.normalize(entrada).toLowerCase()) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

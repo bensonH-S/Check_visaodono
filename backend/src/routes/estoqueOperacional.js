@@ -13,6 +13,7 @@ import {
   registrarEntradas,
   calcularCmvTeorico,
   calcularPedidoSugerido,
+  calcularMetaVendas,
   atualizarCustoInsumo,
 } from '../services/estoqueMotor.js';
 import {
@@ -1053,6 +1054,21 @@ router.get('/cmv/teorico', permOp, async (req, res, next) => {
     const meta = req.query.meta != null ? Number(req.query.meta) : 0.38;
 
     const result = await calcularCmvTeorico(idLoja, { de, ate, meta });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/meta-vendas', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const crescimento =
+      req.query.crescimento != null ? Number(req.query.crescimento) : 0.1;
+    const result = await calcularMetaVendas(idLoja, { crescimento });
     res.json(result);
   } catch (e) {
     next(e);

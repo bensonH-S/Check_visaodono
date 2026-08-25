@@ -1302,6 +1302,11 @@ export const api = {
     }
     return request<EstoquePedidoSugerido>(`/estoque/pedido-sugerido?${params}`);
   },
+  estoqueMetaVendas: (idLoja: number, opts?: { crescimento?: number }) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.crescimento != null) params.set('crescimento', String(opts.crescimento));
+    return request<EstoqueMetaVendas>(`/estoque/meta-vendas?${params}`);
+  },
   estoqueAtualizarCustoInsumo: (body: {
     id_loja: number;
     id_insumo?: number;
@@ -2678,7 +2683,62 @@ export interface EstoqueCmvTeorico {
   /** true quando CMV% > 70 — quase sempre und_convertida/preço unitário errado */
   custo_suspeito?: boolean;
   dias_venda: number;
+  ultima_data_venda?: string | null;
+  ultimo_sync_em?: string | null;
+  venda_hoje?: number;
+  itens_hoje?: number;
+  itens_dia_tipico?: number;
+  hoje_ausente?: boolean;
+  hoje_parcial?: boolean;
   aviso?: string | null;
+}
+
+export interface EstoqueMetaVendasDia {
+  data: string;
+  data_ly: string;
+  venda: number;
+  venda_ly: number;
+  sem_sync?: boolean;
+}
+
+export interface EstoqueMetaVendas {
+  id_loja: number;
+  ano: number;
+  mes: number;
+  mes_nome: string;
+  de: string;
+  ate: string;
+  fim_mes: string;
+  dias_mes: number;
+  dias_decorridos: number;
+  dias_restantes?: number;
+  dias_venda: number;
+  crescimento_pct: number;
+  venda_mtd: number;
+  venda_ly_mtd: number;
+  venda_ly_mes: number;
+  meta_mtd: number | null;
+  meta_mes: number | null;
+  gap_mtd: number | null;
+  media_dia: number;
+  projecao_restante?: number;
+  projecao_mes: number;
+  atingimento_mtd_pct: number | null;
+  ritmo_mes_pct: number | null;
+  tem_base_ly: boolean;
+  ultima_data_venda?: string | null;
+  ultimo_sync_em?: string | null;
+  venda_hoje?: number;
+  itens_hoje?: number;
+  itens_dia_tipico?: number;
+  hoje_ausente?: boolean;
+  hoje_parcial?: boolean;
+  aviso: string | null;
+  break_custo: number;
+  break_qtd: number;
+  break_pct_venda: number | null;
+  top_produtos: Array<{ codigo: string; descricao: string; venda: number; qtde: number }>;
+  dias: EstoqueMetaVendasDia[];
 }
 
 export interface EstoqueCmvReal {
