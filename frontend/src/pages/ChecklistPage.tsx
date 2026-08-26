@@ -58,6 +58,7 @@ import {
   deveLimparObservacao,
   parseFotos,
   parseMidiaUrls,
+  promoverFotosAposSalvar,
 } from '../utils/checklistRules';
 
 const BRAND_ORANGE = '#E8520A';
@@ -202,14 +203,11 @@ function toRespostaInput(p: Pergunta, r: RespostaLocal): RespostaInput {
   }
 
   if (exibeFoto(p, r.resposta, r.nota_estrelas)) {
-    const soDataUrl = fotos.filter((f) => typeof f === 'string' && f.startsWith('data:'));
-    if (soDataUrl.length) {
-      /* Só reenvia fotos novas; as já salvas (URL da API) ficam no banco. */
-      input.foto_url = serializeFotos(soDataUrl);
+    if (fotos.length) {
+      input.foto_url = serializeFotos(fotos);
     } else if (r.limpar_foto) {
       input.foto_url = null;
     }
-    /* vazio/URLs da API sem limpar_foto → omite (backend mantém) */
   }
   if (exibeObservacao(p, r.resposta, r.nota_estrelas) && r.observacao) input.observacao = r.observacao;
 
@@ -682,6 +680,24 @@ export default function ChecklistPage() {
     setSaving(true);
     try {
       await api.salvarRespostas(visitaId, itens);
+      setRespostas((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const item of itens) {
+          const r = prev[item.id_pergunta];
+          if (!r) continue;
+          const fotos = getFotos(r);
+          if (!fotos.some((f) => f.startsWith('data:'))) continue;
+          const promovidas = promoverFotosAposSalvar(fotos, visitaId, item.id_pergunta);
+          next[item.id_pergunta] = {
+            ...r,
+            fotos: promovidas,
+            foto_url: serializeFotos(promovidas) ?? undefined,
+          };
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
       if (!silencioso) showToast('Seção salva', 'success');
       return true;
     } catch (e) {

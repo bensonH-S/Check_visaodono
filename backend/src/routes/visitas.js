@@ -3,7 +3,6 @@ import { pool } from '../db.js';
 import {
   persistirFotos,
   classificarFotoCliente,
-  mesclarFotoUrlSalva,
   midiaUrlsResposta,
   decryptMidiaResposta,
   countMidiaResposta,
@@ -368,8 +367,12 @@ router.post('/:id/respostas', async (req, res, next) => {
 
         for (const row of rowsOut) {
           if (row.foto_acao === 'gravar') {
-            const novas = await persistirFotos(idVisita, row.id_pergunta, row.foto_url_raw);
-            row.foto_salva = mesclarFotoUrlSalva(prevFotos.get(row.id_pergunta) ?? null, novas);
+            row.foto_salva = await persistirFotos(
+              idVisita,
+              row.id_pergunta,
+              row.foto_url_raw,
+              prevFotos.get(row.id_pergunta) ?? null,
+            );
           } else {
             row.foto_salva = null;
           }

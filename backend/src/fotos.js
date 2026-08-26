@@ -1,13 +1,12 @@
 /**
  * Mídia (imagens/vídeos) criptografada no banco — sem arquivos em disco.
  */
+import crypto from 'crypto';
 import { encryptBuffer, encryptToBase64, decryptFromBase64, decryptBuffer } from './cryptoMedia.js';
 
 const APP_BASE_PATH = '/auditoria';
-
-function isDataUrl(v) {
-  return typeof v === 'string' && v.startsWith('data:');
-}
+const MAX_ITENS_MIDIA = 10;
+const MEDIA_REF_RE = /\/visitas\/(\d+)\/respostas\/(\d+)\/media\/(\d+)/;
 
 function parseDataUrl(dataUrl) {
   const m = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
@@ -15,8 +14,27 @@ function parseDataUrl(dataUrl) {
   return { mime: m[1], buffer: Buffer.from(m[2], 'base64') };
 }
 
-function parseClientLista(fotoUrl) {
-  const trimmed = String(fotoUrl).trim();
+function hashBuffer(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+function itensArmazenados(existente) {
+  if (!existente) return [];
+  try {
+    const prev = JSON.parse(existente);
+    if (prev?.v === 1 && Array.isArray(prev.items)) return prev.items;
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+/**
+ * Lista mista do cliente: data URLs novas e/ou URLs da API já persistidas.
+ * A ordem da lista é a ordem final (substitui, não concatena).
+ */
+function parseListaMista(fotoUrl) {
+  const trimmed = String(fotoUrl ?? '').trim();
   if (!trimmed) return [];
 
   let lista = [];
@@ -27,33 +45,37 @@ function parseClientLista(fotoUrl) {
     } catch {
       lista = [trimmed];
     }
-  } else if (isDataUrl(trimmed)) {
-    lista = [trimmed];
   } else {
-    return [];
+    lista = [trimmed];
   }
 
   const items = [];
   for (const item of lista) {
-    if (typeof item !== 'string' || !isDataUrl(item)) continue;
-    const parsed = parseDataUrl(item);
-    if (!parsed) continue;
-    if (
-      !parsed.mime.startsWith('image/') &&
-      !parsed.mime.startsWith('video/')
-    ) {
+    if (typeof item !== 'string' || !item) continue;
+    const data = parseDataUrl(item);
+    if (data) {
+      if (!data.mime.startsWith('image/') && !data.mime.startsWith('video/')) continue;
+      items.push({ kind: 'data', mime: data.mime, buffer: data.buffer });
       continue;
     }
-    items.push(parsed);
+    const ref = item.match(MEDIA_REF_RE);
+    if (ref) {
+      items.push({
+        kind: 'ref',
+        idVisita: Number(ref[1]),
+        idPergunta: Number(ref[2]),
+        index: Number(ref[3]),
+      });
+    }
   }
   return items;
 }
 
 /**
  * Classifica o payload de foto do cliente:
- * - gravar: data URLs novas → criptografa
+ * - gravar: lista final (data URLs e/ou URLs da API) → substitui a coluna
  * - limpar: vazio / null → apaga no banco
- * - manter: só URLs da API (já salvas) → não mexe na coluna
+ * - manter: campo omitido ou payload irreconhecível
  */
 export function classificarFotoCliente(fotoUrl) {
   /* undefined = campo omitido → não mexer na foto já salva */
@@ -61,47 +83,49 @@ export function classificarFotoCliente(fotoUrl) {
   if (fotoUrl == null || fotoUrl === '' || fotoUrl === '[]') {
     return { acao: 'limpar' };
   }
-  const items = parseClientLista(fotoUrl);
+  const items = parseListaMista(fotoUrl);
   if (items.length) return { acao: 'gravar', items };
-  /* URLs da API / payload já persistido → manter */
   return { acao: 'manter' };
 }
 
-/** Persiste mídia do checklist em `respostas.foto_url` (JSON criptografado). */
-export async function persistirFotos(_idVisita, _idPergunta, fotoUrl) {
-  const cls = classificarFotoCliente(fotoUrl);
-  if (cls.acao !== 'gravar' || !cls.items?.length) return null;
+/** Persiste a lista final em `respostas.foto_url` (substitui; ignora duplicatas). */
+export async function persistirFotos(idVisita, idPergunta, fotoUrl, existente) {
+  const lista = parseListaMista(fotoUrl);
+  if (!lista.length) return existente ?? null;
 
-  const stored = {
-    v: 1,
-    items: cls.items.map(({ buffer, mime }) => ({
-      m: mime,
-      d: encryptToBase64(buffer),
-    })),
-  };
-  return JSON.stringify(stored);
-}
+  const antigos = itensArmazenados(existente);
+  const seen = new Set();
+  const items = [];
+  const idVisitaN = Number(idVisita);
+  const idPerguntaN = Number(idPergunta);
 
-/** Junta fotos já salvas com payload novo (data URLs criptografadas). */
-export function mesclarFotoUrlSalva(existente, novasJson) {
-  if (!novasJson) return existente ?? null;
-  let novosItems = [];
-  try {
-    const parsed = JSON.parse(novasJson);
-    if (parsed?.v === 1 && Array.isArray(parsed.items)) novosItems = parsed.items;
-  } catch {
-    return novasJson;
-  }
-  let antigos = [];
-  if (existente) {
-    try {
-      const prev = JSON.parse(existente);
-      if (prev?.v === 1 && Array.isArray(prev.items)) antigos = prev.items;
-    } catch {
-      antigos = [];
+  for (const part of lista) {
+    if (items.length >= MAX_ITENS_MIDIA) break;
+
+    if (part.kind === 'data') {
+      const hash = hashBuffer(part.buffer);
+      if (seen.has(hash)) continue;
+      seen.add(hash);
+      items.push({ m: part.mime, d: encryptToBase64(part.buffer) });
+      continue;
     }
+
+    if (part.kind !== 'ref') continue;
+    if (part.idVisita !== idVisitaN || part.idPergunta !== idPerguntaN) continue;
+    const prev = antigos[part.index];
+    if (!prev?.d) continue;
+    try {
+      const hash = hashBuffer(decryptFromBase64(prev.d));
+      if (seen.has(hash)) continue;
+      seen.add(hash);
+    } catch {
+      continue;
+    }
+    items.push(prev);
   }
-  return JSON.stringify({ v: 1, items: [...antigos, ...novosItems] });
+
+  if (!items.length) return existente ?? null;
+  return JSON.stringify({ v: 1, items });
 }
 
 export function countMidiaResposta(fotoUrl) {

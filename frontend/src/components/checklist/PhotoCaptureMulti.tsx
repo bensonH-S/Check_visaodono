@@ -18,6 +18,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 
 import CameraCaptureOverlay from '../CameraCaptureOverlay';
 
+import { fetchMediaBlobAutenticada } from '../../api/client';
+
 import { compressImage } from '../../utils/compressImage';
 
 import { fileToDataUrl, isVideoDataUrl } from '../../utils/mediaFile';
@@ -88,7 +90,49 @@ interface Props {
 
 const TAMANHO_THUMB_COMPACTO = 92;
 
+function srcPrecisaAuth(src: string): boolean {
+  return Boolean(src) && !src.startsWith('data:') && !src.startsWith('blob:');
+}
 
+function useSrcMidia(src: string): { url: string | null; isVideo: boolean; loading: boolean } {
+  const [state, setState] = useState(() =>
+    srcPrecisaAuth(src)
+      ? { url: null as string | null, isVideo: false, loading: true }
+      : { url: urlFoto(src), isVideo: isVideoDataUrl(src), loading: false },
+  );
+
+  useEffect(() => {
+    if (!srcPrecisaAuth(src)) {
+      setState({ url: urlFoto(src), isVideo: isVideoDataUrl(src), loading: false });
+      return;
+    }
+
+    let ativo = true;
+    let objectUrl: string | null = null;
+    setState({ url: null, isVideo: false, loading: true });
+
+    fetchMediaBlobAutenticada(src)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        objectUrl = url;
+        if (!ativo) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        setState({ url, isVideo: blob.type.startsWith('video/'), loading: false });
+      })
+      .catch(() => {
+        if (ativo) setState({ url: null, isVideo: false, loading: false });
+      });
+
+    return () => {
+      ativo = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+
+  return state;
+}
 
 function MidiaPreview({
 
@@ -128,9 +172,7 @@ function MidiaPreview({
 
 }) {
 
-  const isVideo = isVideoDataUrl(src);
-
-  const url = urlFoto(src);
+  const { url, isVideo, loading } = useSrcMidia(src);
 
 
 
@@ -164,7 +206,33 @@ function MidiaPreview({
 
     >
 
-      {isVideo ? (
+      {loading ? (
+
+        <Box
+
+          sx={{
+
+            width: '100%',
+
+            height: '100%',
+
+            minHeight: compactThumbs ? undefined : inlineActions ? undefined : 80,
+
+            display: 'flex',
+
+            alignItems: 'center',
+
+            justifyContent: 'center',
+
+          }}
+
+        >
+
+          <CircularProgress size={compactThumbs ? 18 : 28} sx={{ color: 'rgba(255,255,255,0.7)' }} />
+
+        </Box>
+
+      ) : isVideo && url ? (
 
         <Box
 
@@ -190,7 +258,7 @@ function MidiaPreview({
 
         />
 
-      ) : (
+      ) : url ? (
 
         <Box
 
@@ -216,7 +284,7 @@ function MidiaPreview({
 
         />
 
-      )}
+      ) : null}
 
       <Typography
 

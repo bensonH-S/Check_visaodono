@@ -1,4 +1,5 @@
 import type { Pergunta } from '../api/client';
+import { apiBasePath } from '../config/paths';
 
 /** Máximo de fotos por pergunta no checklist. */
 export const MAX_FOTOS_POR_PERGUNTA = 5;
@@ -134,6 +135,24 @@ export function urlFoto(src: string): string {
   if (src.startsWith('data:') || src.startsWith('http')) return src;
   if (src.startsWith('/')) return src;
   return src;
+}
+
+export function isDataUrl(src: string): boolean {
+  return typeof src === 'string' && src.startsWith('data:');
+}
+
+/** URL autenticada da mídia já persistida (mesmo formato do backend). */
+export function urlMidiaResposta(idVisita: number, idPergunta: number, indice: number): string {
+  return `${apiBasePath}/visitas/${idVisita}/respostas/${idPergunta}/media/${indice}`;
+}
+
+/** Troca data URLs locais pelas URLs da API após o save (libera memória e evita reenvio). */
+export function promoverFotosAposSalvar(
+  fotos: string[],
+  idVisita: number,
+  idPergunta: number,
+): string[] {
+  return fotos.map((f, i) => (isDataUrl(f) ? urlMidiaResposta(idVisita, idPergunta, i) : f));
 }
 
 export function parseMidiaUrls(midia_urls?: string[]): string[] {

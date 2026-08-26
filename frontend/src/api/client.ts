@@ -3318,13 +3318,18 @@ export interface ManutNotificacao {
   created_at: string;
 }
 
-export async function fetchMediaAutenticada(mediaPath: string): Promise<string> {
+export async function fetchMediaBlobAutenticada(mediaPath: string): Promise<Blob> {
   const token = getToken();
   const res = await fetch(mediaPath, {
+    cache: 'no-store',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) throw new Error('Erro ao carregar mídia');
-  return URL.createObjectURL(await res.blob());
+  return res.blob();
+}
+
+export async function fetchMediaAutenticada(mediaPath: string): Promise<string> {
+  return URL.createObjectURL(await fetchMediaBlobAutenticada(mediaPath));
 }
 
 export interface ManutCriarBody {
