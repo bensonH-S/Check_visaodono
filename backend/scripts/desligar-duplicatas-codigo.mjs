@@ -138,6 +138,30 @@ try {
     const lista = porLoja.get(loja.id_loja) || [];
     const byId = new Map(lista.map((r) => [r.codigo, r]));
 
+    // eSupri: pão Whopper é só 034754 (PAO BK 5). 34754 é o mesmo pão sem o zero.
+    const dupWhopper = byId.get('34754');
+    const keepWhopper = byId.get('034754');
+    if (dupWhopper && keepWhopper && (dupWhopper.ativo || dupWhopper.contagem_diaria)) {
+      if (!keepWhopper.ativo) {
+        ativar.push({
+          loja: loja.name,
+          id_loja: loja.id_loja,
+          id_insumo: keepWhopper.id_insumo,
+          codigo: keepWhopper.codigo,
+          descricao: keepWhopper.descricao,
+        });
+      }
+      desligar.push({
+        loja: loja.name,
+        id_loja: loja.id_loja,
+        id_insumo: dupWhopper.id_insumo,
+        codigo: dupWhopper.codigo,
+        descricao: dupWhopper.descricao,
+        keep: keepWhopper.codigo,
+        keepId: keepWhopper.id_insumo,
+      });
+    }
+
     for (const [strip, oficiais] of porStrip) {
       for (const off of oficiais) {
         const irmaos = lista.filter((r) => stripCodigo(r.codigo) === strip);

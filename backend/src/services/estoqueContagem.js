@@ -141,13 +141,14 @@ export function classificarGrupoDiario(descricao) {
   ) {
     return 'frango';
   }
-  // Carne HB e Rebel (vegetariana). Cebola continua nos vegetais.
+  // Carne HB e Rebel (vegetariana). Cebola não entra na diária.
   if (/\bREBEL\b/.test(d) && !/\b(LAMINA|BRINDE|CART|MARMITA)\b/.test(d)) return 'carne';
   if (/\bCARNE HB\b/.test(d) && !/\b(MARMITA|BRINDE|CART)\b/.test(d)) return 'carne';
   if (/\b(FRALDINHA|FRANDINHA)\b/.test(d)) return null;
   if (/\bCARNE\b/.test(d) && !/\b(MARMITA|BRINDE|CART|FRALDINHA|FRANDINHA)\b/.test(d)) return 'carne';
+  if (/\bCEBOLA\b/.test(d)) return null;
   if (
-    /\b(ALFACE|TOMATE|CEBOLA)\b/.test(d) &&
+    /\b(ALFACE|TOMATE)\b/.test(d) &&
     !/\b(FRITA|CRISPY|CART|SAC)\b/.test(d)
   ) {
     return 'vegetais';

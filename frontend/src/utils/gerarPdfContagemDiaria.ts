@@ -369,7 +369,7 @@ function campoContagem(
   _yLinha: number,
   baseline: number,
   w: number,
-  rowH: number,
+  _rowH: number,
   texto: string,
   opts: {
     estrutura: boolean;
