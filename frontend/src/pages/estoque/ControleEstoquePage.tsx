@@ -945,7 +945,7 @@ export default function ControleEstoquePage() {
                             Contagens
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            Diária: essenciais (batata, pão, carne, queijo, vegetais, mix, bacon). Semanal de segunda: mix e latas.
+                            Diária: carne (Whopper, HB, vegetariana), frango, queijo (cheddar e crispy), bacon, pão, batata, óleo, copos, vegetais (tomate, alface, cebola), mix e casquinha. Semanal de segunda: mix (Coca 18 L, demais 10 L) e latas.
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>

@@ -380,7 +380,7 @@ export default function EstoqueMobileListaPage() {
                         ? 'Diária de hoje · feita'
                         : 'Contagem diária de hoje'}
                   </strong>
-                  <small>Essenciais: batata, pão, carne, queijo, vegetais, mix, bacon</small>
+                  <small>Carne, frango, queijo, bacon, pão, batata, óleo, copos, vegetais, mix, casquinha</small>
                 </span>
                 <span aria-hidden>›</span>
               </button>
@@ -536,8 +536,8 @@ export default function EstoqueMobileListaPage() {
                   </button>
                 </div>
                 <p className="ck-estoque__confirm-text">
-                  Diária puxa só os essenciais (batata, pão, carne, queijo, vegetais, mix, bacon).
-                  Semanal de segunda é outra contagem, só mix e latas — não se misturam.
+                  Diária puxa carne, frango, queijo, bacon, pão, batata, óleo, copos/xarope,
+                  vegetais e mix. Semanal de segunda é outra contagem, só mix (Coca 18 L, demais 10 L) e latas — não se misturam.
                 </p>
                 <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column' }}>
                   <button

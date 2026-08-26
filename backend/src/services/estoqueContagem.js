@@ -37,19 +37,85 @@ export function normalizarDesc(desc) {
     .trim();
 }
 
-const GRUPOS_DIARIOS = ['carne', 'queijo', 'bacon', 'pao', 'batata', 'vegetais', 'mix_sobremesa'];
+const GRUPOS_DIARIOS = [
+  'carne',
+  'frango',
+  'queijo',
+  'bacon',
+  'pao',
+  'batata',
+  'oleo',
+  'refil',
+  'vegetais',
+  'mix_sobremesa',
+];
+
+const MARCA_BAG_REFRI = /\b(PEPSI|COCA|GUARAN|SPRITE|FANTA|SUKITA|SODA|LIPTON|CHA |REFRI)\b/;
+
+function ehBagRefrigerante(d) {
+  return (
+    /\bBAG\b/.test(d) &&
+    MARCA_BAG_REFRI.test(d) &&
+    !/\b(MAIONESE|BARBECUE|MOLHO|BRINDE|CART|MOSTARDA)\b/.test(d)
+  );
+}
+
+function ehCocaColaClassica(d) {
+  return /\bCOCA\b/.test(d) && !/\b(ZERO|SEM ACUCAR)\b/.test(d);
+}
+
+/** Litros do bag de refrigerante, ou null se o texto não traz volume. */
+export function litrosBagRefri(descricao) {
+  const d = normalizarDesc(descricao);
+  if (/\b18000\s*ML\b/.test(d) || /\b18[,.]9\s*L/.test(d)) return 18;
+  if (/\b18\s*(LT|L)\b/.test(d)) return 18;
+  if (/\b10000\s*ML\b/.test(d) || /\b10\s*(LT|L)\b/.test(d) || /\b10L\b/.test(d)) return 10;
+  return null;
+}
 
 /**
- * Essenciais da contagem diária:
- * batata, pães, carne, queijo, vegetais (tomate, alface, cebola),
- * mix (baunilha e doce de leite), bacon.
+ * Mix da semanal: Coca-Cola clássica em bag 18 L; Zero / Fanta / Sprite / demais em 10 L.
+ */
+export function ehBagMixSemanal(descricao) {
+  const d = normalizarDesc(descricao);
+  if (!ehBagRefrigerante(d)) return false;
+  const litros = litrosBagRefri(d);
+  if (ehCocaColaClassica(d)) return litros === 18;
+  return litros === 10;
+}
+
+/**
+ * Volume correto no cadastro: Coca clássica 18 L, o resto 10 L.
+ * Só Fanta / Sprite / Coca Zero-sem açúcar — não mexe em chá 18,9 L.
+ */
+export function corrigirVolumeBagMix(descricao, undAtual) {
+  const d = normalizarDesc(descricao);
+  if (!ehBagRefrigerante(d)) return null;
+  if (/\bLIPTON\b/.test(d) || /\bCHA \b/.test(d)) return null;
+
+  const alvo = ehCocaColaClassica(d) ? 18 : 10;
+  let novaDesc = String(descricao || '');
+  if (alvo === 10) {
+    novaDesc = novaDesc
+      .replace(/18\s*LT/gi, '10 LT')
+      .replace(/18000\s*ML/gi, '10000ML');
+  }
+  const und = Number(undAtual);
+  const undOk = Number.isFinite(und) && Math.abs(und - alvo) < 0.01;
+  if (novaDesc === descricao && undOk) return null;
+  return { descricao: novaDesc, und_convertida: alvo };
+}
+
+/**
+ * Contagem diária: essenciais + giro antigo
+ * (frango, óleo, copos/xarope). Bags de mix ficam na semanal.
  */
 export function classificarGrupoDiario(descricao) {
   const d = normalizarDesc(descricao);
   if (!d) return null;
 
-  // Mix 18L (BAG) de refrigerante fica só na semanal.
-  if (/\bBAG\b/.test(d) && /\b18\b/.test(d) && /\bLT/.test(d)) return null;
+  // Bags de refrigerante (Coca 18 L / demais 10 L) ficam só na semanal.
+  if (ehBagRefrigerante(d)) return null;
 
   if (
     /\b(BAUNILHA|DOCE DE LEITE)\b/.test(d) &&
@@ -58,19 +124,45 @@ export function classificarGrupoDiario(descricao) {
   ) {
     return 'mix_sobremesa';
   }
+  if (/\bCASQUINHA\b/.test(d) && !/\b(BRINDE|CART|FUNDO|TAMPA)\b/.test(d)) {
+    return 'mix_sobremesa';
+  }
 
   if (/\bBATATA\b/.test(d) && !/\b(CARTONAGEM|CART BATATA|FUNDO|TAMPA|SAQUINHO|EMBALAG)\b/.test(d)) {
     return 'batata';
   }
-  if (/\bPAO\b/.test(d) && !/\b(CESTO|BRINDE|CART)\b/.test(d)) return 'pao';
+  if (/\bPAO\b/.test(d) && !/\b(CESTO|BRINDE|CART)\b/.test(d) && !/\b270\b/.test(d)) return 'pao';
+  if (/\bOLEO\b/.test(d) && !/\b(KIT|MEDIDOR)\b/.test(d)) return 'oleo';
   if (/\bQUEIJO\b/.test(d) && !/\bMOLHO\b/.test(d)) return 'queijo';
   if (/\bBACON\b/.test(d) && !/\b(MAIONESE|BACONESE|SACHET|MOLHO)\b/.test(d)) return 'bacon';
-  if (/\bCARNE\b/.test(d) && !/\b(MARMITA|BRINDE|CART)\b/.test(d)) return 'carne';
+  if (
+    /\b(CHICKEN|FRANGO)\b/.test(d) &&
+    !/\b(LAMINA|SACO |CARTON|MARMITA|ESTROGONOFF|BRINDE)\b/.test(d)
+  ) {
+    return 'frango';
+  }
+  // Carne HB e Rebel (vegetariana). Cebola continua nos vegetais.
+  if (/\bREBEL\b/.test(d) && !/\b(LAMINA|BRINDE|CART|MARMITA)\b/.test(d)) return 'carne';
+  if (/\bCARNE HB\b/.test(d) && !/\b(MARMITA|BRINDE|CART)\b/.test(d)) return 'carne';
+  if (/\b(FRALDINHA|FRANDINHA)\b/.test(d)) return null;
+  if (/\bCARNE\b/.test(d) && !/\b(MARMITA|BRINDE|CART|FRALDINHA|FRANDINHA)\b/.test(d)) return 'carne';
   if (
     /\b(ALFACE|TOMATE|CEBOLA)\b/.test(d) &&
     !/\b(FRITA|CRISPY|CART|SAC)\b/.test(d)
   ) {
     return 'vegetais';
+  }
+  // Só os copos genéricos 440 / 550. Campanha (Star Wars, Minions) não entra na diária.
+  if (
+    /\bCOPO\b/.test(d) &&
+    /\bUNIVERSAL\b/.test(d) &&
+    /\b(440|550)\b/.test(d) &&
+    !/\b(SHAKE|SUNDAE|CORTESIA|MIX|MINIONS|PORTA|TAMPA)\b/.test(d)
+  ) {
+    return 'refil';
+  }
+  if (/\bFREE REFIL/.test(d) || /\bFREE REFILL/.test(d) || /\bXAROPE\b/.test(d)) {
+    return 'refil';
   }
   return null;
 }
@@ -84,7 +176,7 @@ export function flagsContagemDiaria(descricao) {
 }
 
 /**
- * Semanal de segunda: mix (bag 18L) e latas. Carne/pão/batata ficam na diária.
+ * Semanal de segunda: mix (Coca 18 L, demais bags 10 L) e latas.
  */
 export function classificarGrupoCritico(descricao) {
   const d = normalizarDesc(descricao);
@@ -97,13 +189,7 @@ export function classificarGrupoCritico(descricao) {
   ) {
     return 'lata';
   }
-  if (
-    /\bBAG\b/.test(d) &&
-    /\b(PEPSI|COCA|GUARAN|SPRITE|FANTA|SUKITA|SODA|LIPTON|CHA |REFRI)\b/.test(d) &&
-    !/\b(MAIONESE|BARBECUE|MOLHO|BRINDE|CART)\b/.test(d)
-  ) {
-    return 'mix';
-  }
+  if (ehBagMixSemanal(d)) return 'mix';
   return null;
 }
 
@@ -125,7 +211,7 @@ export function rotuloGrupoContagem(grupo) {
     refil: 'Refil / copo',
     vegetais: 'Vegetais',
     mix_sobremesa: 'Mix (baunilha / doce de leite)',
-    mix: 'Mix (bag)',
+    mix: 'Mix (Coca 18L / demais 10L)',
     lata: 'Lata',
   };
   return mapa[String(grupo || '')] || grupo || '';

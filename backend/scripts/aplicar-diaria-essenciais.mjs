@@ -1,14 +1,18 @@
 /**
- * Recalcula a diária pelas regras atuais (essenciais) em todas as lojas.
+ * Recalcula diária/semanal e corrige volume dos bags de mix.
  *
- *   node backend/scripts/aplicar-diaria-essenciais.mjs --dry-run
+ *   node backend/scripts/aplicar-diaria-essenciais.mjs --dry-run --db=dev
  *   node backend/scripts/aplicar-diaria-essenciais.mjs --yes --db=prod
  */
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import pg from 'pg';
-import { flagsContagemDiaria } from '../src/services/estoqueContagem.js';
+import {
+  flagsContagemDiaria,
+  flagsContagemCritica,
+  corrigirVolumeBagMix,
+} from '../src/services/estoqueContagem.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..', '..');
@@ -42,49 +46,99 @@ const client = new pg.Client({
 await client.connect();
 try {
   const { rows } = await client.query(
-    `SELECT id_insumo, id_loja, descricao, contagem_diaria, grupo_diario
+    `SELECT id_insumo, id_loja, descricao, und_convertida, ativo,
+            contagem_diaria, grupo_diario, contagem_critica, grupo_critico
      FROM insumos
-     WHERE ativo = TRUE`,
+     WHERE ativo = TRUE
+        OR (
+          descricao ~* 'CARNE HB'
+          OR (descricao ~* 'REBEL' AND descricao !~* 'LAMINA|BRINDE|CART')
+          OR (
+            descricao ~* 'QUEIJO'
+            AND descricao ~* '(CRISPY|CHEDDAR)'
+            AND descricao !~* 'MOLHO'
+          )
+        )`,
   );
 
-  const porGrupo = new Map();
-  const updates = [];
+  const volumes = [];
+  const updatesDiaria = [];
+  const updatesCritica = [];
+  const porGrupoDiaria = new Map();
+  const porGrupoCritica = new Map();
+
   for (const r of rows) {
-    const next = flagsContagemDiaria(r.descricao);
-    const era = r.contagem_diaria === true;
-    const grupoAntes = r.grupo_diario || null;
-    if (era === next.contagem_diaria && grupoAntes === next.grupo_diario) continue;
-    updates.push({
-      id_insumo: r.id_insumo,
-      diaria: next.contagem_diaria,
-      grupo: next.grupo_diario,
-    });
-    if (next.contagem_diaria) {
-      const k = next.grupo_diario || 'outros';
-      porGrupo.set(k, (porGrupo.get(k) || 0) + 1);
+    const vol = corrigirVolumeBagMix(r.descricao, r.und_convertida);
+    const desc = vol ? vol.descricao : r.descricao;
+    if (vol) volumes.push({ id_insumo: r.id_insumo, ...vol, antes: r.descricao });
+
+    const nextD = flagsContagemDiaria(desc);
+    const eraD = r.contagem_diaria === true;
+    const grupoDAntes = r.grupo_diario || null;
+    if (eraD !== nextD.contagem_diaria || grupoDAntes !== nextD.grupo_diario) {
+      updatesDiaria.push({
+        id_insumo: r.id_insumo,
+        diaria: nextD.contagem_diaria,
+        grupo: nextD.grupo_diario,
+        ativar: nextD.contagem_diaria === true && r.ativo !== true,
+      });
+    }
+    if (nextD.contagem_diaria) {
+      const k = nextD.grupo_diario || 'outros';
+      porGrupoDiaria.set(k, (porGrupoDiaria.get(k) || 0) + 1);
+    }
+
+    const nextC = flagsContagemCritica(desc);
+    const eraC = r.contagem_critica === true;
+    const grupoCAntes = r.grupo_critico || null;
+    if (eraC !== nextC.contagem_critica || grupoCAntes !== nextC.grupo_critico) {
+      updatesCritica.push({
+        id_insumo: r.id_insumo,
+        critica: nextC.contagem_critica,
+        grupo: nextC.grupo_critico,
+      });
+    }
+    if (nextC.contagem_critica) {
+      const k = nextC.grupo_critico || 'outros';
+      porGrupoCritica.set(k, (porGrupoCritica.get(k) || 0) + 1);
     }
   }
 
-  console.log(`banco=${DB_NAME} insumos=${rows.length} a_alterar=${updates.length}`);
-  for (const [g, n] of [...porGrupo.entries()].sort()) {
-    console.log(`  ${g}: ${n} (novos/reclassificados neste lote)`);
+  console.log(
+    `banco=${DB_NAME} insumos=${rows.length} bags=${volumes.length} diaria=${updatesDiaria.length} semanal=${updatesCritica.length}`,
+  );
+  for (const v of volumes.slice(0, 15)) {
+    console.log(`  BAG  ${v.antes.slice(0, 50)}  →  ${v.descricao.slice(0, 50)}  und=${v.und_convertida}`);
+  }
+  for (const [g, n] of [...porGrupoDiaria.entries()].sort()) {
+    console.log(`  diaria ${g}: ${n} (total ativo nesta regra)`);
+  }
+  for (const [g, n] of [...porGrupoCritica.entries()].sort()) {
+    console.log(`  semanal ${g}: ${n} (total ativo nesta regra)`);
   }
 
-  if (dryRun || !updates.length) {
-    const amostra = updates.slice(0, 20);
-    for (const u of amostra) {
-      const row = rows.find((r) => r.id_insumo === u.id_insumo);
-      console.log(
-        `  ${u.diaria ? 'IN' : 'OUT'}  ${(row?.descricao || '').slice(0, 60)}  → ${u.grupo || '-'}`,
-      );
-    }
-    if (dryRun) {
-      console.log('dry-run: nada gravado');
-      process.exit(0);
-    }
+  if (dryRun) {
+    console.log('dry-run: nada gravado');
+    process.exit(0);
   }
 
   await client.query('BEGIN');
+  const foraLinha = await client.query(`
+    UPDATE insumos
+    SET ativo = FALSE,
+        contagem_diaria = FALSE,
+        contagem_critica = FALSE,
+        atualizado_em = NOW()
+    WHERE id_loja IN (
+      SELECT id_loja FROM lojas
+      WHERE COALESCE(is_active, TRUE) AND name ILIKE '%burger king%'
+    )
+      AND (
+        (descricao ~* 'P[AÃ]O' AND descricao ~* 'BRIOCHE' AND descricao ~* '270')
+        OR descricao ~* 'FRALDINHA|FRANDINHA'
+      )
+  `);
+  console.log(`fora de linha desativados=${foraLinha.rowCount}`);
   await client.query('ALTER TABLE insumos DROP CONSTRAINT IF EXISTS insumos_grupo_diario_check');
   await client.query(`
     ALTER TABLE insumos
@@ -98,16 +152,36 @@ try {
       )
   `);
 
-  for (const u of updates) {
+  for (const v of volumes) {
     await client.query(
       `UPDATE insumos
-       SET contagem_diaria = $2, grupo_diario = $3, atualizado_em = NOW()
+       SET descricao = $2, und_convertida = $3, atualizado_em = NOW()
        WHERE id_insumo = $1`,
-      [u.id_insumo, u.diaria, u.grupo],
+      [v.id_insumo, v.descricao, v.und_convertida],
     );
   }
 
-  const rem = await client.query(`
+  for (const u of updatesDiaria) {
+    await client.query(
+      `UPDATE insumos
+       SET contagem_diaria = $2, grupo_diario = $3,
+           ativo = CASE WHEN $4 THEN TRUE ELSE ativo END,
+           atualizado_em = NOW()
+       WHERE id_insumo = $1`,
+      [u.id_insumo, u.diaria, u.grupo, u.ativar === true],
+    );
+  }
+
+  for (const u of updatesCritica) {
+    await client.query(
+      `UPDATE insumos
+       SET contagem_critica = $2, grupo_critico = $3, atualizado_em = NOW()
+       WHERE id_insumo = $1`,
+      [u.id_insumo, u.critica, u.grupo],
+    );
+  }
+
+  const remD = await client.query(`
     DELETE FROM estoque_itens i
     USING estoque_contagens c, insumos p
     WHERE i.id_contagem = c.id_contagem
@@ -116,7 +190,7 @@ try {
       AND COALESCE(c.tipo, '') = 'diaria'
       AND COALESCE(p.contagem_diaria, FALSE) = FALSE
   `);
-  const add = await client.query(`
+  const addD = await client.query(`
     INSERT INTO estoque_itens (id_contagem, id_insumo, estoque_sistema, estoque_contado)
     SELECT c.id_contagem, p.id_insumo, COALESCE(s.quantidade, 0), NULL
     FROM estoque_contagens c
@@ -132,8 +206,36 @@ try {
       )
   `);
 
+  const remC = await client.query(`
+    DELETE FROM estoque_itens i
+    USING estoque_contagens c, insumos p
+    WHERE i.id_contagem = c.id_contagem
+      AND i.id_insumo = p.id_insumo
+      AND c.status = 'aberta'
+      AND COALESCE(c.tipo, '') = 'critica_semanal'
+      AND COALESCE(p.contagem_critica, FALSE) = FALSE
+  `);
+  const addC = await client.query(`
+    INSERT INTO estoque_itens (id_contagem, id_insumo, estoque_sistema, estoque_contado)
+    SELECT c.id_contagem, p.id_insumo, COALESCE(s.quantidade, 0), NULL
+    FROM estoque_contagens c
+    JOIN insumos p
+      ON p.id_loja = c.id_loja AND p.ativo = TRUE AND p.contagem_critica = TRUE
+    LEFT JOIN estoque_saldos s
+      ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
+    WHERE c.status = 'aberta'
+      AND COALESCE(c.tipo, '') = 'critica_semanal'
+      AND NOT EXISTS (
+        SELECT 1 FROM estoque_itens x
+        WHERE x.id_contagem = c.id_contagem AND x.id_insumo = p.id_insumo
+      )
+  `);
+
   await client.query('COMMIT');
-  console.log(`ok gravado updates=${updates.length} abertas_removidos=${rem.rowCount} abertas_incluidos=${add.rowCount}`);
+  console.log(
+    `ok gravado bags=${volumes.length} diaria=${updatesDiaria.length} semanal=${updatesCritica.length} ` +
+      `abertas_d -${remD.rowCount}/+${addD.rowCount} abertas_s -${remC.rowCount}/+${addC.rowCount}`,
+  );
 } catch (e) {
   await client.query('ROLLBACK').catch(() => {});
   console.error(e);
