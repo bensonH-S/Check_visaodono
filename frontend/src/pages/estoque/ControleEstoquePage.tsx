@@ -31,6 +31,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import {
@@ -344,6 +345,7 @@ export default function ControleEstoquePage() {
   const [dlgRelatorio, setDlgRelatorio] = useState(false);
   const [relatorioTipo, setRelatorioTipo] = useState<TipoContagemEstoque>('diaria');
   const [relatorioModo, setRelatorioModo] = useState<'estrutura' | 'dados'>('estrutura');
+  const [baixandoListaGestores, setBaixandoListaGestores] = useState(false);
 
   const lojaAtual = useMemo(
     () => lojas.find((l) => l.id_loja === idLoja) || null,
@@ -604,6 +606,19 @@ export default function ControleEstoquePage() {
       showToast(e instanceof Error ? e.message : 'Erro ao excluir', 'error');
     } finally {
       setExcluindo(false);
+    }
+  };
+
+  const baixarListaGestores = async () => {
+    if (baixandoListaGestores || !idLoja) return;
+    setBaixandoListaGestores(true);
+    try {
+      await api.estoqueBaixarClassificacaoGestores(idLoja);
+      showToast('Lista para os gestores gerada');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar lista', 'error');
+    } finally {
+      setBaixandoListaGestores(false);
     }
   };
 
@@ -930,7 +945,7 @@ export default function ControleEstoquePage() {
                             Contagens
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            Diária: giro da loja. Semanal de segunda: mix e latas.
+                            Diária: essenciais (batata, pão, carne, queijo, vegetais, mix, bacon). Semanal de segunda: mix e latas.
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -975,6 +990,20 @@ export default function ControleEstoquePage() {
                             onClick={() => abrirDlgRelatorio()}
                           >
                             Baixar relatório
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={
+                              baixandoListaGestores ? (
+                                <CircularProgress size={16} />
+                              ) : (
+                                <AssignmentOutlinedIcon />
+                              )
+                            }
+                            disabled={baixandoListaGestores}
+                            onClick={() => void baixarListaGestores()}
+                          >
+                            Lista gestores
                           </Button>
                           <IconButton
                             onClick={() => void carregarListaContagens()}

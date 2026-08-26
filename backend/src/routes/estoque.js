@@ -6,6 +6,11 @@ import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
 import { calcularQtdContagem, flagsContagemDiaria, SQL_ORDEM_PLANILHA } from '../services/estoqueContagem.js';
+import {
+  classificarInsumos,
+  montarWorkbookClassificacao,
+  workbookParaBuffer,
+} from '../services/estoqueClassificacaoRelatorio.js';
 import { parseNfeXml } from '../services/nfeXml.js';
 import estoqueOperacional from './estoqueOperacional.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
@@ -103,7 +108,7 @@ function filtroItensPorTipo(tipoContagem) {
 
 function erroSemItensTipo(tipoContagem) {
   if (tipoContagem === 'diaria') {
-    return 'Nenhum item de contagem diária nesta loja (giro do cadastro: carnes, frango, queijo, bacon, pão, batata, óleo, copos)';
+    return 'Nenhum item de contagem diária nesta loja (essenciais: batata, pão, carne, queijo, vegetais, mix baunilha/doce de leite, bacon)';
   }
   if (tipoContagem === 'critica_semanal') {
     return 'Nenhum item da semanal nesta loja (mix e latas)';
@@ -909,6 +914,80 @@ router.get('/relatorio-contagem', permConferencia, async (req, res, next) => {
       usou_estrutura: querDados,
       contagem: estrutura,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Planilha para gestores validarem supercrítico (diário) x crítico (semanal).
+ * formato=xlsx (padrão) baixa Excel; json devolve o recorte.
+ */
+router.get('/classificacao-contagem', permConferencia, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const { rows: lojaRows } = await pool.query(
+      'SELECT name, bk_number FROM lojas WHERE id_loja = $1',
+      [idLoja],
+    );
+    const loja = lojaRows[0] || {};
+    const { rows } = await pool.query(
+      `SELECT p.codigo, p.descricao, p.unidade_contagem, p.secao_contagem, p.ordem_contagem,
+              COALESCE(p.contagem_diaria, FALSE) AS contagem_diaria,
+              p.grupo_diario,
+              COALESCE(p.contagem_critica, FALSE) AS contagem_critica,
+              p.grupo_critico,
+              COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
+              COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
+              COALESCE(p.permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und
+       FROM insumos p
+       WHERE p.ativo = TRUE AND p.id_loja = $1
+       ORDER BY ${SQL_ORDEM_PLANILHA}`,
+      [idLoja],
+    );
+    const linhas = classificarInsumos(
+      rows.map((r) => ({
+        ...r,
+        contagem_diaria: flagBool(r.contagem_diaria, false),
+        contagem_critica: flagBool(r.contagem_critica, false),
+        permite_contagem_caixa: flagBool(r.permite_contagem_caixa, true),
+        permite_contagem_pc_fd: flagBool(r.permite_contagem_pc_fd, true),
+        permite_contagem_kg_und: flagBool(r.permite_contagem_kg_und, true),
+      })),
+    );
+
+    const formato = String(req.query.formato || 'xlsx').toLowerCase();
+    if (formato !== 'xlsx') {
+      return res.json({
+        id_loja: idLoja,
+        loja_nome: loja.name || null,
+        loja_codigo: loja.bk_number || null,
+        total: linhas.length,
+        supercritico: linhas.filter((l) => l._diaria).length,
+        critico: linhas.filter((l) => l._critica).length,
+        fora: linhas.filter((l) => !l._diaria && !l._critica).length,
+        itens: linhas.map(({ _diaria, _critica, ...rest }) => rest),
+      });
+    }
+
+    const wb = montarWorkbookClassificacao({
+      lojaNome: loja.name,
+      lojaCodigo: loja.bk_number,
+      linhas,
+    });
+    const buf = workbookParaBuffer(wb);
+    const bkn = String(loja.bk_number || idLoja).replace(/\W+/g, '');
+    const hoje = hojeISOBrasil();
+    const filename = `lista-contagem-gestores-${bkn}-${hoje}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buf);
   } catch (e) {
     next(e);
   }

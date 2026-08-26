@@ -37,47 +37,41 @@ export function normalizarDesc(desc) {
     .trim();
 }
 
-const GRUPOS_DIARIOS = ['carne', 'frango', 'queijo', 'bacon', 'pao', 'batata', 'oleo', 'refil', 'vegetais'];
+const GRUPOS_DIARIOS = ['carne', 'queijo', 'bacon', 'pao', 'batata', 'vegetais', 'mix_sobremesa'];
 
 /**
- * Itens de giro alto que o restaurante conta todo dia no app.
- * carne bovina, frango, queijo, bacon, pão, batata, óleo, copos/xarope do free refill, vegetais.
+ * Essenciais da contagem diária:
+ * batata, pães, carne, queijo, vegetais (tomate, alface, cebola),
+ * mix (baunilha e doce de leite), bacon.
  */
 export function classificarGrupoDiario(descricao) {
   const d = normalizarDesc(descricao);
   if (!d) return null;
 
-  // Mix 18L (BAG) fica só na semanal de segunda — não entra na diária.
+  // Mix 18L (BAG) de refrigerante fica só na semanal.
   if (/\bBAG\b/.test(d) && /\b18\b/.test(d) && /\bLT/.test(d)) return null;
+
+  if (
+    /\b(BAUNILHA|DOCE DE LEITE)\b/.test(d) &&
+    (/\bBEBIDA LACTEA\b/.test(d) || /\bMIX\b/.test(d) || /\b(SORVETE|SOFT)\b/.test(d)) &&
+    !/\b(NUTELLA|CASQUINHA|SUNDAE|COPO|BRINDE|CART|XAROPE|CONFEITARIA|MOCA)\b/.test(d)
+  ) {
+    return 'mix_sobremesa';
+  }
 
   if (/\bBATATA\b/.test(d) && !/\b(CARTONAGEM|CART BATATA|FUNDO|TAMPA|SAQUINHO|EMBALAG)\b/.test(d)) {
     return 'batata';
   }
   if (/\bPAO\b/.test(d) && !/\b(CESTO|BRINDE|CART)\b/.test(d)) return 'pao';
-  if (/\bOLEO\b/.test(d) && !/\b(KIT|MEDIDOR)\b/.test(d)) return 'oleo';
   if (/\bQUEIJO\b/.test(d) && !/\bMOLHO\b/.test(d)) return 'queijo';
   if (/\bBACON\b/.test(d) && !/\b(MAIONESE|BACONESE|SACHET|MOLHO)\b/.test(d)) return 'bacon';
-  if (
-    /\b(CHICKEN|FRANGO)\b/.test(d) &&
-    !/\b(LAMINA|SACO |CARTON|MARMITA|ESTROGONOFF|BRINDE)\b/.test(d)
-  ) {
-    return 'frango';
-  }
   if (/\bCARNE\b/.test(d) && !/\b(MARMITA|BRINDE|CART)\b/.test(d)) return 'carne';
   if (
-    /\b(ALFACE|TOMATE|CEBOLA|PEPINO)\b/.test(d) &&
+    /\b(ALFACE|TOMATE|CEBOLA)\b/.test(d) &&
     !/\b(FRITA|CRISPY|CART|SAC)\b/.test(d)
   ) {
     return 'vegetais';
   }
-  if (
-    /\bCOPO\b/.test(d) &&
-    /\b(REFRIG|550)\b/.test(d) &&
-    !/\b(SHAKE|SUNDAE|CORTESIA|MIX|MINIONS|PORTA|TAMPA)\b/.test(d)
-  ) {
-    return 'refil';
-  }
-  if (/\bFREE REFIL/.test(d) || /\bFREE REFILL/.test(d)) return 'refil';
   return null;
 }
 
@@ -87,6 +81,71 @@ export function flagsContagemDiaria(descricao) {
     return { contagem_diaria: false, grupo_diario: null };
   }
   return { contagem_diaria: true, grupo_diario: grupo };
+}
+
+/**
+ * Semanal de segunda: mix (bag 18L) e latas. Carne/pão/batata ficam na diária.
+ */
+export function classificarGrupoCritico(descricao) {
+  const d = normalizarDesc(descricao);
+  if (!d) return null;
+
+  if (
+    /\bLATA\b/.test(d) &&
+    /\b(COCA|PEPSI|GUARAN|SPRITE|FANTA|SUKITA|SODA|REFRI|ANTARCT)\b/.test(d) &&
+    !/\b(BRINDE|CART|COPO|CANUDO|TAMPA)\b/.test(d)
+  ) {
+    return 'lata';
+  }
+  if (
+    /\bBAG\b/.test(d) &&
+    /\b(PEPSI|COCA|GUARAN|SPRITE|FANTA|SUKITA|SODA|LIPTON|CHA |REFRI)\b/.test(d) &&
+    !/\b(MAIONESE|BARBECUE|MOLHO|BRINDE|CART)\b/.test(d)
+  ) {
+    return 'mix';
+  }
+  return null;
+}
+
+export function flagsContagemCritica(descricao) {
+  const grupo = classificarGrupoCritico(descricao);
+  if (!grupo) return { contagem_critica: false, grupo_critico: null };
+  return { contagem_critica: true, grupo_critico: grupo };
+}
+
+export function rotuloGrupoContagem(grupo) {
+  const mapa = {
+    carne: 'Carne',
+    frango: 'Frango',
+    queijo: 'Queijo',
+    bacon: 'Bacon',
+    pao: 'Pao',
+    batata: 'Batata',
+    oleo: 'Oleo',
+    refil: 'Refil / copo',
+    vegetais: 'Vegetais',
+    mix_sobremesa: 'Mix (baunilha / doce de leite)',
+    mix: 'Mix (bag)',
+    lata: 'Lata',
+  };
+  return mapa[String(grupo || '')] || grupo || '';
+}
+
+/** O que o app usa hoje, a partir das flags gravadas no cadastro. */
+export function rotuloListaAtual({ contagem_diaria, contagem_critica }) {
+  if (contagem_diaria && contagem_critica) return 'Supercritico e critico';
+  if (contagem_diaria) return 'Supercritico (diario)';
+  if (contagem_critica) return 'Critico (semanal)';
+  return 'Fora';
+}
+
+/** Sugestao pelas regras de descricao (para o gestor confrontar com o cadastro). */
+export function rotuloListaSugestao(descricao) {
+  const diaria = flagsContagemDiaria(descricao);
+  if (diaria.contagem_diaria) return 'Supercritico (diario)';
+  const critica = flagsContagemCritica(descricao);
+  if (critica.contagem_critica) return 'Critico (semanal)';
+  return 'Fora';
 }
 
 /**

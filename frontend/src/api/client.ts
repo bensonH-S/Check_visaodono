@@ -1002,6 +1002,28 @@ export const api = {
       contagem: EstoqueContagemDetalhe;
     }>(`/estoque/relatorio-contagem?${q}`);
   },
+  estoqueBaixarClassificacaoGestores: async (idLoja: number) => {
+    const q = new URLSearchParams({ id_loja: String(idLoja), formato: 'xlsx' });
+    const res = await fetch(`${BASE}/estoque/classificacao-contagem?${q}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao gerar lista');
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="([^"]+)"/);
+    const filename = match?.[1] || 'lista-contagem-gestores.xlsx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   estoqueCriarContagem: (body: {
     id_loja: number;
     data_contagem?: string;

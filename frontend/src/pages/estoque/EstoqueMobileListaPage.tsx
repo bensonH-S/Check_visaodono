@@ -380,7 +380,7 @@ export default function EstoqueMobileListaPage() {
                         ? 'Diária de hoje · feita'
                         : 'Contagem diária de hoje'}
                   </strong>
-                  <small>Produtos de giro do cadastro da loja</small>
+                  <small>Essenciais: batata, pão, carne, queijo, vegetais, mix, bacon</small>
                 </span>
                 <span aria-hidden>›</span>
               </button>
@@ -536,8 +536,8 @@ export default function EstoqueMobileListaPage() {
                   </button>
                 </div>
                 <p className="ck-estoque__confirm-text">
-                  Diária puxa os produtos de giro do cadastro. Semanal de segunda é outra
-                  contagem, só mix e latas — não se misturam.
+                  Diária puxa só os essenciais (batata, pão, carne, queijo, vegetais, mix, bacon).
+                  Semanal de segunda é outra contagem, só mix e latas — não se misturam.
                 </p>
                 <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column' }}>
                   <button
