@@ -75,6 +75,7 @@
     "migrate:desativar-time-campo": "node scripts/run-sql.js migrations/149_desativar_time_de_campo_regionais_operacional.sql",
     "migrate:regionais-sem-mapa": "node scripts/run-sql.js migrations/151_regionais_sem_mapa.sql",
     "migrate:checklist-renumerar": "node scripts/run-sql.js migrations/082_checklist_renumerar_codigos.sql",
+    "migrate:checklist-codigos-seq": "node scripts/run-sql.js migrations/155_checklist_operacional_codigos_sequenciais.sql",
     "migrate:freelancers-aprovar-regionais": "node scripts/run-sql.js migrations/083_freelancers_aprovar_regionais.sql",
     "migrate:estoque": "node scripts/run-sql.js migrations/084_controle_estoque.sql",
     "migrate:estoque-por-loja": "node scripts/run-sql.js migrations/085_estoque_produtos_por_loja.sql",
