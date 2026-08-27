@@ -69,20 +69,31 @@ function mapColunas(headers) {
       idx.qtde = i;
       return;
     }
+    // Mesma base do painel BK Office: "Bruto - Desconto" (ou Bruto+Acrescimo-Desconto).
+    if (n.includes('bruto') && n.includes('desconto')) {
+      idx.venda_desconto = i;
+      return;
+    }
+    if (n.includes('venda l') || n === 'venda liquida' || n === 'liquida' || n === 'net sales') {
+      idx.venda_liquida = i;
+      return;
+    }
+    if (n === 'valor' && idx.valor == null) {
+      idx.valor = i;
+      return;
+    }
+    if (n === 'desconto' && idx.desconto == null) {
+      idx.desconto = i;
+      return;
+    }
     if (
       n.includes('venda b') ||
       n === 'venda bruta' ||
       n === 'bruta' ||
       n === 'bruto' ||
-      n === 'gross sales' ||
-      // Relatório Produto Venda: coluna "Valor" ≈ bruto (antes da líquida)
-      n === 'valor'
+      n === 'gross sales'
     ) {
       idx.venda_bruta = i;
-      return;
-    }
-    if (n.includes('venda l') || n === 'venda liquida' || n === 'liquida' || n === 'net sales') {
-      idx.venda_liquida = i;
       return;
     }
     if (n === 'descricao' || n.includes('descric')) {
@@ -103,6 +114,27 @@ function mapColunas(headers) {
     }
   });
   return idx;
+}
+
+/** Valor da linha = Bruto−Desconto do BK Office (painel da franquia). */
+function resolverValorVenda(row, colMap) {
+  if (colMap.venda_desconto != null) {
+    const n = parseNumeroBR(row[colMap.venda_desconto]);
+    if (n != null) return n;
+  }
+  if (colMap.venda_liquida != null) {
+    const n = parseNumeroBR(row[colMap.venda_liquida]);
+    if (n != null) return n;
+  }
+  if (colMap.valor != null) {
+    const n = parseNumeroBR(row[colMap.valor]);
+    if (n != null) return n;
+  }
+  const bruto = colMap.venda_bruta != null ? parseNumeroBR(row[colMap.venda_bruta]) : null;
+  const desconto = colMap.desconto != null ? parseNumeroBR(row[colMap.desconto]) : null;
+  if (bruto != null && desconto != null) return Math.max(0, bruto - desconto);
+  if (bruto != null) return bruto;
+  return null;
 }
 
 /**
@@ -160,14 +192,9 @@ export function parseVendasExcelBuffer(buffer, opts = {}) {
       colMap.restaurante != null ? String(row[colMap.restaurante] ?? '').trim() : '';
     const data_venda =
       excelDateToISO(colMap.data != null ? row[colMap.data] : null) || opts.dataPadrao || null;
-    const venda_bruta = parseNumeroBR(
-      colMap.venda_bruta != null ? row[colMap.venda_bruta] : null,
-    );
-    const venda_liquida_col = parseNumeroBR(
-      colMap.venda_liquida != null ? row[colMap.venda_liquida] : null,
-    );
-    // CMV da franquia usa venda BRUTA do BK Office (não a líquida).
-    const venda_liquida = venda_bruta != null ? venda_bruta : venda_liquida_col;
+    const venda_liquida = resolverValorVenda(row, colMap);
+    const venda_bruta =
+      colMap.venda_bruta != null ? parseNumeroBR(row[colMap.venda_bruta]) : venda_liquida;
 
     out.push({
       data_venda,

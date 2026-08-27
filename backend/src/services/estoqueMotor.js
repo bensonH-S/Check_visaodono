@@ -1,6 +1,9 @@
 import { pool } from '../db.js';
 import { qtdeReceitaParaEstoque } from './fichaReceitaEstoque.js';
 
+/** Só vendas do kit BK Office — ignora upload/manual duplicado. */
+const FILTRO_VENDA_BK = "AND v.origem = 'bkoffice'";
+
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
   const n = Number(v);
@@ -233,7 +236,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
       FROM estoque_vendas v
       JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
       LEFT JOIN produtos p ON p.id_loja = v.id_loja AND p.codigo = vi.codigo
-      WHERE v.id_loja = $1 ${filtro}
+      WHERE v.id_loja = $1 ${FILTRO_VENDA_BK} ${filtro}
     ),
     custos AS (
       SELECT
@@ -279,7 +282,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
 
   const { rows: diasRows } = await pool.query(
     `SELECT COUNT(DISTINCT data_venda)::int AS dias_venda
-     FROM estoque_vendas v WHERE v.id_loja = $1 ${filtro}`,
+     FROM estoque_vendas v WHERE v.id_loja = $1 ${FILTRO_VENDA_BK} ${filtro}`,
     params,
   );
 
@@ -306,7 +309,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     id_loja: idLoja,
     de: de || null,
     ate: ate || null,
-    /** Valor usado no CMV = venda bruta do BK Office (coluna persistida como venda_liquida). */
+    /** Valor = Bruto−Desconto do BK Office (mesma base do painel da franquia). */
     venda_liquida: Math.round(venda * 100) / 100,
     venda_bruta: Math.round(venda * 100) / 100,
     custo_teorico: Math.round(custo * 100) / 100,
@@ -413,7 +416,7 @@ export async function calcularPedidoSugerido(
     SELECT vi.codigo, MAX(vi.descricao) AS descricao, SUM(vi.qtde)::numeric AS qtde
     FROM estoque_vendas v
     JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
-    WHERE v.id_loja = $1
+    WHERE v.id_loja = $1 ${FILTRO_VENDA_BK}
       AND v.data_venda >= (CURRENT_DATE - ($2::int || ' days')::interval)::date
       AND v.data_venda < CURRENT_DATE
     GROUP BY vi.codigo
@@ -537,7 +540,7 @@ async function resumoFrescorVendas(idLoja) {
            COUNT(*)::int AS itens
     FROM estoque_vendas v
     JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
-    WHERE v.id_loja = $1 AND v.data_venda = $2::date
+    WHERE v.id_loja = $1 AND v.data_venda = $2::date ${FILTRO_VENDA_BK}
     `,
     [idLoja, hoje],
   );
@@ -548,7 +551,7 @@ async function resumoFrescorVendas(idLoja) {
       SELECT COUNT(*)::int AS n
       FROM estoque_vendas v
       JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
-      WHERE v.id_loja = $1
+      WHERE v.id_loja = $1 ${FILTRO_VENDA_BK}
         AND v.data_venda >= ($2::date - INTERVAL '7 days')
         AND v.data_venda < $2::date
       GROUP BY v.data_venda
@@ -598,7 +601,7 @@ export async function calcularMetaVendas(idLoja, { crescimento = 0.1 } = {}) {
            COALESCE(SUM(vi.venda_liquida), 0)::numeric AS venda
     FROM estoque_vendas v
     JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
-    WHERE v.id_loja = $1
+    WHERE v.id_loja = $1 ${FILTRO_VENDA_BK}
       AND (
         (v.data_venda >= $2::date AND v.data_venda <= $3::date)
         OR (v.data_venda >= $4::date AND v.data_venda <= $5::date)
@@ -654,7 +657,7 @@ export async function calcularMetaVendas(idLoja, { crescimento = 0.1 } = {}) {
            COALESCE(SUM(vi.qtde), 0)::numeric AS qtde
     FROM estoque_vendas v
     JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
-    WHERE v.id_loja = $1
+    WHERE v.id_loja = $1 ${FILTRO_VENDA_BK}
       AND v.data_venda >= $2::date
       AND v.data_venda <= $3::date
     GROUP BY vi.codigo

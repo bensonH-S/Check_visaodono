@@ -154,7 +154,7 @@ export default function EstoqueMobileVendasPage() {
             <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
           </div>
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            BK Office em tempo real — atualiza a cada 45s
+            Bruto − Desconto · mesmo painel BK Office · atualiza a cada 45s
           </p>
           <div
             className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3"
