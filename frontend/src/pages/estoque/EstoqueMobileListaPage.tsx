@@ -8,6 +8,7 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import {
   api,
   type EstoqueContagemResumo,
@@ -395,6 +396,15 @@ export default function EstoqueMobileListaPage() {
                   </strong>
                   <small>Carne, frango, queijo, bacon, pão, batata, copos, mix</small>
                 </span>
+                <span aria-hidden>›</span>
+              </button>
+              <button
+                type="button"
+                className="ck-estoque-nfe__atalho"
+                onClick={() => navigate('/estoque/mobile/vendas')}
+              >
+                <TrendingUpOutlinedIcon fontSize="small" />
+                <span>Consultar vendas · BK Office em tempo real</span>
                 <span aria-hidden>›</span>
               </button>
               <button

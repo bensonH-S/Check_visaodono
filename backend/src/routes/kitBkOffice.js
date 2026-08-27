@@ -8,6 +8,12 @@ import { importarVendasLoja } from '../services/estoqueMotor.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { importarVendasGrupoExcel } from '../services/bkoffice/importVendasGrupo.js';
 import { listarLojasBkOfficeSync } from '../services/bkoffice/syncVendas.js';
+import {
+  adquirirLease,
+  liberarLease,
+  statusLease,
+  LEASE_TTL_DEFAULT_S,
+} from '../services/bkoffice/kitSyncLease.js';
 import { pool } from '../db.js';
 
 const router = Router();
@@ -153,6 +159,43 @@ router.post('/estoque/vendas-import-grupo', requireKitToken, upload.single('arqu
 /** Health do kit (confere token + API no ar). */
 router.get('/ping', requireKitToken, (_req, res) => {
   res.json({ ok: true, modo: 'kit-https', ts: new Date().toISOString() });
+});
+
+/**
+ * POST /public/kit/sync-lease
+ * body: { holder_id, holder_name?, ttl_s? }
+ * Só um PC sincroniza; o outro fica standby até o lease expirar (~5 min).
+ */
+router.post('/sync-lease', requireKitToken, async (req, res, next) => {
+  try {
+    const holder_id = String(req.body?.holder_id || '').trim();
+    const holder_name = String(req.body?.holder_name || '').trim() || null;
+    const ttl_s = Number(req.body?.ttl_s) || LEASE_TTL_DEFAULT_S;
+    const result = await adquirirLease({ holder_id, holder_name, ttl_s });
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.get('/sync-lease', requireKitToken, async (req, res, next) => {
+  try {
+    const holder_id = String(req.query?.holder_id || '').trim() || null;
+    res.json(await statusLease({ holder_id }));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete('/sync-lease', requireKitToken, async (req, res, next) => {
+  try {
+    const holder_id = String(req.body?.holder_id || req.query?.holder_id || '').trim();
+    res.json(await liberarLease({ holder_id }));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
 });
 
 /** Lista lojas do rodízio BK Office (operacionais com BKN). */

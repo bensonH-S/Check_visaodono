@@ -13,6 +13,8 @@ No SERVIDOR (deploy) tambem precisa ir:
   backend\src\routes\kitBkOffice.js
   backend\src\services\bkoffice\importVendasGrupo.js
   backend\src\services\bkoffice\parseVendasExcel.js
+  backend\src\services\bkoffice\kitSyncLease.js
+  backend\migrations\156_kit_bkoffice_lease.sql
 
 Depois:
   1. Task Manager — mate MeridianBkSync.exe e node worker.mjs
@@ -21,8 +23,16 @@ Depois:
   4. INSTALAR.bat (admin)
 
 Das 8h as 23h o kit baixa 1 Excel do setor (todas as lojas)
-e grava todas de uma vez. Intervalo ~15s apos o download.
+e grava todas de uma vez. Intervalo minimo 1 min apos o download.
 Nao e ILR ao vivo, mas todas as lojas atualizam juntas a cada
-2-4 min em vez de 40-60 min de rodizio.
+~1-3 min (download + espera de 60s).
+
+Failover (2 PCs): so 1 kit sincroniza por vez (lease ~5 min).
+Se o ativo parar, o outro assume em ate ~5 min.
+No log: "standby — ativo=..." ou "lease OK".
+Teste forcado: worker --once --sem-lease
 
 Cofre: vault antigo sem BKOFFICE_SYNC_ID_LOJAS assume "all".
+Se o cofre tiver SYNC_LIVE_INTERVAL_MS menor que 60000, o worker
+forca 1 min mesmo assim.
+Opcional: KIT_INSTANCE_ID / KIT_INSTANCE_NAME no cofre para nomear o PC.

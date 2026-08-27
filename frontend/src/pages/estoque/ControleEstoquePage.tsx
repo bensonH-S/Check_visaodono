@@ -64,22 +64,21 @@ import {
 } from '../../components/estoque/estoqueContagemTipo';
 import { gerarPdfContagemDiaria } from '../../utils/gerarPdfContagemDiaria';
 
-type AbaEstoque = 'cmv' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
+type AbaEstoque = 'cmv' | 'vendas' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
-const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'break', 'saldo', 'fichas'];
+const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'vendas', 'break', 'saldo', 'fichas'];
 
 /** URLs antigas → essenciais da validação */
 const REDIRECT_ABA: Record<string, AbaEstoque> = {
   insumos: 'fichas',
   estoque: 'saldo',
-  vendas: 'conferencia',
   produtos: 'fichas',
   ficha: 'fichas',
   kardex: 'saldo',
   nfe: 'conferencia',
-  cmv: 'conferencia',
-  pedido: 'conferencia',
-  meta: 'conferencia',
+  cmv: 'vendas',
+  pedido: 'vendas',
+  meta: 'vendas',
 };
 
 function isAbaEstoque(v: string | undefined): v is AbaEstoque {
@@ -192,6 +191,7 @@ function subtituloLoja(l: Loja) {
 
 const ROTULO_ABA: Record<AbaEstoque, string> = {
   cmv: 'CMV',
+  vendas: 'Vendas',
   saldo: 'Saldo',
   conferencia: 'Conferência',
   break: 'Break',
@@ -703,7 +703,7 @@ export default function ControleEstoquePage() {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
-  const chromeCompacto = aba === 'saldo' || aba === 'conferencia';
+  const chromeCompacto = aba === 'saldo' || aba === 'conferencia' || aba === 'vendas';
 
   if (loadingLojas) {
     return (
@@ -851,6 +851,9 @@ export default function ControleEstoquePage() {
         >
           {podeConferencia && (
             <Tab value="conferencia" label="Conferência" disabled={!idLoja} />
+          )}
+          {podeOperacional && (
+            <Tab value="vendas" label="Vendas" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeBreak && (
             <Tab value="break" label="Break" disabled={!idLoja || bloqueiaOutrasAbas} />
@@ -1134,7 +1137,7 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {((podeOperacional && (aba === 'saldo' || aba === 'fichas')) ||
+              {((podeOperacional && (aba === 'vendas' || aba === 'saldo' || aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <Box

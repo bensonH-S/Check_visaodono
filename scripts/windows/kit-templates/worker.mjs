@@ -6,12 +6,16 @@
  */
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import { loadVault } from './vault_tools.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/** TTL do lease no servidor (segundos). Standby assume se o ativo sumir. */
+const LEASE_TTL_S = 300;
 
 function kitRoot() {
   if (process.pkg) return path.dirname(process.execPath);
@@ -332,6 +336,73 @@ async function fetchLojasSync(env) {
   return lojas;
 }
 
+function kitInstanceId(env) {
+  const fromEnv = String(env.KIT_INSTANCE_ID || process.env.KIT_INSTANCE_ID || '').trim();
+  if (fromEnv) return fromEnv.slice(0, 80);
+  const host = os.hostname() || 'pc';
+  return `kit-${host}`.slice(0, 80);
+}
+
+/**
+ * Ativo/passivo: só o holder sincroniza. Se a API for antiga (404), segue sem lease.
+ * @returns {{ ativo: boolean, bypass?: boolean, holder?: string }}
+ */
+async function tentarLease(env, { liberar = false } = {}) {
+  if (env.KIT_LEASE_BYPASS === '1' || process.argv.includes('--sem-lease')) {
+    return { ativo: true, bypass: true };
+  }
+  const apiBase = String(env.API_BASE || '').replace(/\/$/, '');
+  const token = env.BKOFFICE_KIT_TOKEN;
+  const holder_id = kitInstanceId(env);
+  const holder_name = String(env.KIT_INSTANCE_NAME || os.hostname() || holder_id).slice(0, 120);
+  const url = `${apiBase}/public/kit/sync-lease`;
+
+  if (liberar) {
+    try {
+      await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'X-Meridian-Kit-Token': token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ holder_id }),
+      });
+    } catch {
+      /* ignore */
+    }
+    return { ativo: false };
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Meridian-Kit-Token': token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ holder_id, holder_name, ttl_s: LEASE_TTL_S }),
+    });
+    if (res.status === 404) {
+      logServico('aviso: API sem sync-lease — sync sem failover (deploy pendente)');
+      return { ativo: true, bypass: true };
+    }
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      throw new Error(`sync-lease HTTP ${res.status} ${t.slice(0, 120)}`);
+    }
+    const body = await res.json();
+    return {
+      ativo: Boolean(body.acquired || body.sou_eu),
+      holder: body.holder_name || body.holder_id || '?',
+      expires_at: body.expires_at || null,
+    };
+  } catch (e) {
+    // Rede caiu: se não conseguir falar com a API, não sincroniza (evita 2 ativos cegos).
+    logServico(`aviso lease: ${e.message || e}`);
+    return { ativo: false, erro: e.message || String(e) };
+  }
+}
+
 function parseSyncOutput(text) {
   const lines = text.split(/\r?\n/).filter(Boolean);
   for (const ln of lines) {
@@ -643,8 +714,9 @@ async function main() {
 
   if (!secrets.BKOFFICE_SYNC_ID_LOJAS) secrets.BKOFFICE_SYNC_ID_LOJAS = 'all';
 
-  const liveMs = Math.max(8000, Number(secrets.SYNC_LIVE_INTERVAL_MS || 15000));
-  const nightMs = Math.max(30000, Number(secrets.SYNC_INTERVAL_MS || 90000));
+  // Mínimo 1 min entre ciclos (ao vivo e noite).
+  const liveMs = Math.max(60000, Number(secrets.SYNC_LIVE_INTERVAL_MS || 60000));
+  const nightMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 60000));
 
   if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.API_BASE || !secrets.BKOFFICE_KIT_TOKEN) {
     logServico('ERRO: cofre incompleto');
@@ -679,10 +751,21 @@ async function main() {
   const once = process.argv.includes('--once') || process.argv.includes('--uma-vez');
   const forceBackfill = process.argv.includes('--backfill') || secrets.BKOFFICE_FORCE_BACKFILL === '1';
   let rrIndex = loadRrIndex();
+  const meuId = kitInstanceId(secrets);
 
   logServico(
-    `ativo lojas=${lojas.length} ao_vivo=${Math.round(liveMs / 1000)}s (8h-23h, 1 Excel do grupo) noite=${Math.round(nightMs / 1000)}s`,
+    `ativo lojas=${lojas.length} kit=${meuId} ao_vivo=${Math.round(liveMs / 1000)}s (8h-23h, 1 Excel do grupo) noite=${Math.round(nightMs / 1000)}s lease=${LEASE_TTL_S}s`,
   );
+
+  const liberarAoSair = async () => {
+    await tentarLease(secrets, { liberar: true });
+  };
+  process.on('SIGINT', () => {
+    liberarAoSair().finally(() => process.exit(0));
+  });
+  process.on('SIGTERM', () => {
+    liberarAoSair().finally(() => process.exit(0));
+  });
 
   let ciclo = 0;
   let syncRodando = false;
@@ -697,6 +780,7 @@ async function main() {
       modo: aoVivo ? 'ao_vivo' : 'noite',
       loja_nome: aoVivo ? 'GRUPO (todas as lojas)' : lojas[rrIndex % lojas.length]?.name,
       lojas_total: lojas.length,
+      kit_id: meuId,
     });
 
     let ok = false;
@@ -705,51 +789,79 @@ async function main() {
     } else {
       syncRodando = true;
       try {
-        const hoje = hojeBR();
-        if (once) {
-          logServico('modo teste — grupo de hoje (todas as lojas)');
-          ok = await syncAoVivo(secrets, lojas);
-          writeStatus({ estado: ok ? 'parado' : 'erro' });
-          logServico(ok ? 'TESTE OK' : 'TESTE FALHOU');
-          process.exit(ok ? 0 : 1);
-        }
-        if (forceBackfill && ciclo === 1) {
-          const loja = lojas[rrIndex % lojas.length];
-          logLoja(loja, 'INFO', 'backfill forcado 01→hoje');
-          const ini = `${hoje.slice(0, 8)}01`;
-          for (let d = ini; d <= hoje; d = addDays(d, 1)) {
-            const r = await runSync(secrets, loja, d, d);
-            writeStatus({ ultimo_sync: r }, loja);
-            if (r.ok) markSynced(loja.id_loja, d);
-            else {
-              ok = false;
-              break;
-            }
-            ok = true;
-          }
-        } else if (aoVivo) {
-          logServico(`ciclo #${ciclo} ao vivo — 1 Excel para ${lojas.length} loja(s)`);
-          ok = await syncAoVivo(secrets, lojas);
-          if (ciclo % 4 === 0) {
-            try {
-              lojas = await fetchLojasSync(secrets);
-            } catch (e) {
-              logServico(`aviso: nao atualizou lista de lojas (${e.message})`);
-            }
+        const lease = await tentarLease(secrets);
+        if (!lease.ativo) {
+          logServico(
+            `ciclo #${ciclo} standby — ativo=${lease.holder || '?'} (este kit=${meuId})${lease.erro ? ` ${lease.erro}` : ''}`,
+          );
+          writeStatus({
+            estado: 'standby',
+            ciclo,
+            modo: aoVivo ? 'ao_vivo' : 'noite',
+            loja_nome: lease.holder || 'outro kit',
+            lojas_total: lojas.length,
+            kit_id: meuId,
+            ultimo_sync: { ok: true, standby: true, holder: lease.holder || null },
+          });
+          ok = true;
+          if (once) {
+            logServico('TESTE em standby — outro kit tem o lease (use --sem-lease para forçar)');
+            process.exit(0);
           }
         } else {
-          const loja = lojas[rrIndex % lojas.length];
-          rrIndex = (rrIndex + 1) % lojas.length;
-          saveRrIndex(rrIndex);
-          logServico(`ciclo #${ciclo} noite → BKN ${bknLoja(loja)} ${loja.name}`);
-          logLoja(loja, 'INFO', `inicio ciclo #${ciclo}`);
-          ok = await syncIncremental(secrets, loja, { forceBackfill });
-          if (rrIndex === 0) {
-            try {
-              lojas = await fetchLojasSync(secrets);
-              logServico(`lista atualizada: ${lojas.length} loja(s)`);
-            } catch (e) {
-              logServico(`aviso: nao atualizou lista de lojas (${e.message})`);
+          if (lease.bypass) {
+            /* API antiga ou bypass explícito */
+          } else if (ciclo === 1 || ciclo % 10 === 0) {
+            logServico(`lease OK — este kit e o ativo (${meuId})`);
+          }
+
+          const hoje = hojeBR();
+          if (once) {
+            logServico('modo teste — grupo de hoje (todas as lojas)');
+            ok = await syncAoVivo(secrets, lojas);
+            writeStatus({ estado: ok ? 'parado' : 'erro' });
+            logServico(ok ? 'TESTE OK' : 'TESTE FALHOU');
+            await tentarLease(secrets, { liberar: true });
+            process.exit(ok ? 0 : 1);
+          }
+          if (forceBackfill && ciclo === 1) {
+            const loja = lojas[rrIndex % lojas.length];
+            logLoja(loja, 'INFO', 'backfill forcado 01→hoje');
+            const ini = `${hoje.slice(0, 8)}01`;
+            for (let d = ini; d <= hoje; d = addDays(d, 1)) {
+              const r = await runSync(secrets, loja, d, d);
+              writeStatus({ ultimo_sync: r }, loja);
+              if (r.ok) markSynced(loja.id_loja, d);
+              else {
+                ok = false;
+                break;
+              }
+              ok = true;
+            }
+          } else if (aoVivo) {
+            logServico(`ciclo #${ciclo} ao vivo — 1 Excel para ${lojas.length} loja(s)`);
+            ok = await syncAoVivo(secrets, lojas);
+            if (ciclo % 4 === 0) {
+              try {
+                lojas = await fetchLojasSync(secrets);
+              } catch (e) {
+                logServico(`aviso: nao atualizou lista de lojas (${e.message})`);
+              }
+            }
+          } else {
+            const loja = lojas[rrIndex % lojas.length];
+            rrIndex = (rrIndex + 1) % lojas.length;
+            saveRrIndex(rrIndex);
+            logServico(`ciclo #${ciclo} noite → BKN ${bknLoja(loja)} ${loja.name}`);
+            logLoja(loja, 'INFO', `inicio ciclo #${ciclo}`);
+            ok = await syncIncremental(secrets, loja, { forceBackfill });
+            if (rrIndex === 0) {
+              try {
+                lojas = await fetchLojasSync(secrets);
+                logServico(`lista atualizada: ${lojas.length} loja(s)`);
+              } catch (e) {
+                logServico(`aviso: nao atualizou lista de lojas (${e.message})`);
+              }
             }
           }
         }
@@ -783,6 +895,7 @@ async function main() {
       lojas_total: lojas.length,
       pendentes: [],
       proximo_ciclo: proximoFmt,
+      kit_id: meuId,
     });
     logServico(`fim ciclo #${ciclo}  proximo_em=${Math.round(waitMs / 1000)}s  modo=${aoVivo ? 'ao_vivo' : 'noite'}`);
     await new Promise((r) => setTimeout(r, waitMs));

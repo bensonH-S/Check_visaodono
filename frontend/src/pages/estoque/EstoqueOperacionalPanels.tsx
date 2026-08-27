@@ -64,7 +64,7 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors, portalPanelSx } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 
-type AbaOp = 'cmv' | 'break' | 'pedido' | 'fichas' | 'saldo';
+type AbaOp = 'cmv' | 'vendas' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -374,6 +374,9 @@ export default function EstoqueOperacionalPanels({
   if (aba === 'cmv') {
     return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} onSetHeaderActions={onSetHeaderActions} />;
   }
+  if (aba === 'vendas') {
+    return <PainelVendas idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
+  }
   if (aba === 'saldo') {
     return <PainelSaldoKardex idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
   }
@@ -395,6 +398,252 @@ function severidadePeso(s: string | undefined) {
   if (s === 'alta') return 0;
   if (s === 'media') return 1;
   return 2;
+}
+
+function PainelVendas({
+  idLoja,
+  onSetHeaderActions,
+}: {
+  idLoja: number;
+  onSetHeaderActions?: (node: React.ReactNode) => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [meta, setMeta] = useState<EstoqueMetaVendas | null>(null);
+
+  const carregar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
+    try {
+      const m = await api.estoqueMetaVendas(idLoja, { crescimento: 0.1 });
+      setMeta(m);
+    } catch (e) {
+      if (!silencioso) {
+        showToast(e instanceof Error ? e.message : 'Erro ao carregar vendas', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [idLoja]);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => void carregar(true), 45000);
+    return () => window.clearInterval(t);
+  }, [carregar]);
+
+  useEffect(() => {
+    onSetHeaderActions?.(
+      <IconButton size="small" aria-label="Atualizar vendas" onClick={() => void carregar()}>
+        <RefreshIcon sx={{ fontSize: 18 }} />
+      </IconButton>,
+    );
+    return () => {
+      onSetHeaderActions?.(null);
+    };
+  }, [carregar, onSetHeaderActions]);
+
+  const diasRecentes = useMemo(() => {
+    const lista = meta?.dias || [];
+    return [...lista].reverse().slice(0, 14);
+  }, [meta?.dias]);
+
+  if (loading && !meta) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress size={28} />
+      </Box>
+    );
+  }
+
+  const vendaHoje = meta?.venda_hoje ?? 0;
+  const corHoje =
+    meta?.hoje_ausente || meta?.hoje_parcial ? colors.orange : colors.textPrimary;
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, overflow: 'auto' }}>
+      {meta?.aviso ? (
+        <Paper
+          sx={{
+            px: 2,
+            py: 1.25,
+            bgcolor: meta.hoje_ausente ? 'rgba(180, 35, 24, 0.06)' : 'rgba(232, 82, 10, 0.08)',
+            border: `1px solid ${meta.hoje_ausente ? 'rgba(180, 35, 24, 0.2)' : 'rgba(232, 82, 10, 0.25)'}`,
+          }}
+        >
+          <Typography sx={{ fontSize: '0.84rem', color: colors.textPrimary }}>{meta.aviso}</Typography>
+        </Paper>
+      ) : null}
+
+      <Box sx={{ ...portalPanelSx, p: { xs: 1.75, md: 2.25 } }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+            gap: { xs: 1.5, md: 0 },
+          }}
+        >
+          {[
+            {
+              label: 'Venda hoje',
+              value: fmtMoeda(vendaHoje),
+              color: corHoje,
+              sub: textoFrescorVenda(meta),
+            },
+            {
+              label: `Venda ${meta?.mes_nome || 'mês'}`,
+              value: fmtMoeda(meta?.venda_mtd ?? 0),
+              color: colors.textPrimary,
+              sub: `${meta?.dias_venda ?? 0} dias com sync · média ${fmtMoeda(meta?.media_dia)}`,
+            },
+            {
+              label: 'Meta mês (+10%)',
+              value: meta?.meta_mes != null ? fmtMoeda(meta.meta_mes) : 'Sem base 2025',
+              color: colors.textPrimary,
+              sub:
+                meta?.atingimento_mtd_pct != null
+                  ? `${fmtNum(meta.atingimento_mtd_pct, 1)}% do MTD · projeção ${fmtMoeda(meta.projecao_mes)}`
+                  : `LY ${fmtMoeda(meta?.venda_ly_mes)}`,
+            },
+          ].map((k, i) => (
+            <Box
+              key={k.label}
+              sx={{
+                minWidth: 0,
+                px: { md: 2 },
+                pl: { md: i === 0 ? 0 : 2 },
+                pr: { md: i === 2 ? 0 : 2 },
+                borderLeft: { md: i === 0 ? 'none' : `1px solid ${colors.border}` },
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                  color: colors.textMuted,
+                }}
+              >
+                {k.label}
+              </Typography>
+              <Typography
+                sx={{
+                  fontWeight: 600,
+                  fontSize: { xs: '1.4rem', md: '1.7rem' },
+                  letterSpacing: '-0.035em',
+                  color: k.color,
+                  mt: 0.35,
+                }}
+              >
+                {k.value}
+              </Typography>
+              <Typography sx={{ fontSize: '0.78rem', color: colors.textMuted, mt: 0.5 }}>{k.sub}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: '1.2fr 0.8fr' },
+          gap: 1.75,
+          minHeight: 0,
+        }}
+      >
+        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden' }}>
+          <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: colors.navy }}>
+              Vendas por dia (BK Office)
+            </Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, mt: 0.25 }}>
+              Atualiza sozinho a cada 45s · origem kit PC gerência
+            </Typography>
+          </Box>
+          <TableContainer>
+            <Table size="small" sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Dia</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    Venda
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    {meta?.ano ? meta.ano - 1 : 'LY'}
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {diasRecentes.map((d) => (
+                  <TableRow key={d.data} hover>
+                    <TableCell>
+                      {fmtDataBR(d.data)}
+                      {d.sem_sync ? (
+                        <Chip
+                          label="sem sync"
+                          size="small"
+                          sx={{ ml: 1, height: 20, fontSize: '0.65rem' }}
+                        />
+                      ) : null}
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontWeight: d.data === meta?.ate ? 700 : 400 }}>
+                      {fmtMoeda(d.venda)}
+                    </TableCell>
+                    <TableCell align="right" sx={{ color: colors.textMuted }}>
+                      {fmtMoeda(d.venda_ly)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+
+        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden' }}>
+          <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: colors.navy }}>
+              Top produtos (mês)
+            </Typography>
+          </Box>
+          <TableContainer>
+            <Table size="small" sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Produto</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    Venda
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(meta?.top_produtos || []).length ? (
+                  meta!.top_produtos.map((p) => (
+                    <TableRow key={p.codigo} hover>
+                      <TableCell sx={{ maxWidth: 220 }}>
+                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }} noWrap title={p.descricao}>
+                          {p.descricao || p.codigo}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.7rem', color: colors.textMuted }}>{p.codigo}</Typography>
+                      </TableCell>
+                      <TableCell align="right">{fmtMoeda(p.venda)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={2} sx={{ color: colors.textMuted, py: 3 }}>
+                      Nenhuma venda no mês ainda.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </Box>
+    </Box>
+  );
 }
 
 function PainelCmv({
