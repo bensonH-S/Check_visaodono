@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
-import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
 import { api, type EstoqueMetaVendas, type Loja } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
