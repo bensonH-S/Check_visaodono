@@ -1126,6 +1126,24 @@ router.get('/contagens/:id', permConferencia, async (req, res, next) => {
   }
 });
 
+/** Diária: no máximo uma por loja/dia (aberta ou finalizada). */
+async function contagemDiariaDoDia(idLoja, dataIso) {
+  const { rows } = await pool.query(
+    `SELECT id_contagem, status
+     FROM estoque_contagens
+     WHERE id_loja = $1
+       AND COALESCE(tipo, 'completa') = 'diaria'
+       AND data_contagem = $2::date
+     ORDER BY
+       CASE WHEN status = 'aberta' THEN 0 ELSE 1 END,
+       criado_em DESC,
+       id_contagem DESC
+     LIMIT 1`,
+    [idLoja, dataIso],
+  );
+  return rows[0] || null;
+}
+
 router.post('/contagens', permConferencia, async (req, res, next) => {
   const client = await pool.connect();
   try {
@@ -1142,8 +1160,15 @@ router.post('/contagens', permConferencia, async (req, res, next) => {
       req.body?.observacao != null ? String(req.body.observacao).trim() || null : null;
     const usarUltimo = req.body?.usar_ultimo_estoque !== false;
     const reutilizarAberta = req.body?.reutilizar_aberta !== false;
+    const dataRef = data_contagem || hojeISOBrasil();
 
-    if (reutilizarAberta) {
+    if (tipo === 'diaria') {
+      const existente = await contagemDiariaDoDia(id_loja, dataRef);
+      if (existente) {
+        const detalhe = await carregarContagem(existente.id_contagem);
+        return res.json(detalhe);
+      }
+    } else if (reutilizarAberta) {
       const { rows: abertas } = await pool.query(
         `SELECT id_contagem FROM estoque_contagens
          WHERE status = 'aberta' AND id_loja = $1 AND COALESCE(tipo, 'completa') = $2
@@ -1197,16 +1222,32 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
     const tipo = normalizarTipoContagem(req.body?.tipo || 'critica_semanal');
     const metaBase = { hoje, id_loja: idLoja, tipo };
 
-    const { rows: abertas } = await pool.query(
-      `SELECT id_contagem FROM estoque_contagens
-       WHERE status = 'aberta' AND id_loja = $1 AND COALESCE(tipo, 'completa') = $2
-       ORDER BY criado_em DESC, id_contagem DESC
-       LIMIT 1`,
-      [idLoja, tipo],
-    );
-    if (abertas.length) {
-      const detalhe = await carregarContagem(abertas[0].id_contagem);
-      return res.json({ ...detalhe, meta: { ...metaBase, iniciada_agora: false } });
+    if (tipo === 'diaria') {
+      const existente = await contagemDiariaDoDia(idLoja, hoje);
+      if (existente) {
+        const detalhe = await carregarContagem(existente.id_contagem);
+        return res.json({
+          ...detalhe,
+          meta: {
+            ...metaBase,
+            iniciada_agora: false,
+            ja_existia: true,
+            ja_finalizada: existente.status === 'finalizada',
+          },
+        });
+      }
+    } else {
+      const { rows: abertas } = await pool.query(
+        `SELECT id_contagem FROM estoque_contagens
+         WHERE status = 'aberta' AND id_loja = $1 AND COALESCE(tipo, 'completa') = $2
+         ORDER BY criado_em DESC, id_contagem DESC
+         LIMIT 1`,
+        [idLoja, tipo],
+      );
+      if (abertas.length) {
+        const detalhe = await carregarContagem(abertas[0].id_contagem);
+        return res.json({ ...detalhe, meta: { ...metaBase, iniciada_agora: false } });
+      }
     }
 
     await client.query('BEGIN');

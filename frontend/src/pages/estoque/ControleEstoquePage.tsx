@@ -31,7 +31,6 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import {
@@ -54,13 +53,12 @@ import {
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
-import { colors, portalPanelSx } from '../../theme/tokens';
+import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
 import EstoqueConferenciaDetalhe from './EstoqueConferenciaDetalhe';
 import {
-  ehContagemParcial,
   rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
@@ -68,25 +66,20 @@ import { gerarPdfContagemDiaria } from '../../utils/gerarPdfContagemDiaria';
 
 type AbaEstoque = 'cmv' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
-const ABAS_ESTOQUE: AbaEstoque[] = [
-  'cmv',
-  'saldo',
-  'conferencia',
-  'break',
-  'pedido',
-  'fichas',
-];
+const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'break', 'saldo', 'fichas'];
 
-/** URLs antigas → novas */
+/** URLs antigas → essenciais da validação */
 const REDIRECT_ABA: Record<string, AbaEstoque> = {
-  insumos: 'cmv',
-  saldo: 'saldo',
+  insumos: 'fichas',
   estoque: 'saldo',
-  vendas: 'cmv',
+  vendas: 'conferencia',
   produtos: 'fichas',
   ficha: 'fichas',
   kardex: 'saldo',
-  nfe: 'cmv',
+  nfe: 'conferencia',
+  cmv: 'conferencia',
+  pedido: 'conferencia',
+  meta: 'conferencia',
 };
 
 function isAbaEstoque(v: string | undefined): v is AbaEstoque {
@@ -94,11 +87,11 @@ function isAbaEstoque(v: string | undefined): v is AbaEstoque {
 }
 
 function abaInicialPermitida(): AbaEstoque {
-  if (podeOperacionalEstoque(getUsuario())) return 'cmv';
   if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
   if (podeBreakEstoque(getUsuario())) return 'break';
+  if (podeOperacionalEstoque(getUsuario())) return 'saldo';
   if (podeProdutosEstoque(getUsuario())) return 'fichas';
-  return 'cmv';
+  return 'conferencia';
 }
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
@@ -164,14 +157,6 @@ function fmtBrl(v: number | null | undefined) {
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtNum(v: number | null | undefined, digitos = 2) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
-  return Number(v).toLocaleString('pt-BR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: digitos,
-  });
-}
-
 function fmtDataBR(iso: string | null | undefined) {
   if (!iso) return '—';
   const s = String(iso).slice(0, 10);
@@ -207,7 +192,7 @@ function subtituloLoja(l: Loja) {
 
 const ROTULO_ABA: Record<AbaEstoque, string> = {
   cmv: 'CMV',
-  saldo: 'Meta',
+  saldo: 'Saldo',
   conferencia: 'Conferência',
   break: 'Break',
   pedido: 'Pedido',
@@ -345,7 +330,6 @@ export default function ControleEstoquePage() {
   const [dlgRelatorio, setDlgRelatorio] = useState(false);
   const [relatorioTipo, setRelatorioTipo] = useState<TipoContagemEstoque>('diaria');
   const [relatorioModo, setRelatorioModo] = useState<'estrutura' | 'dados'>('estrutura');
-  const [baixandoListaGestores, setBaixandoListaGestores] = useState(false);
 
   const lojaAtual = useMemo(
     () => lojas.find((l) => l.id_loja === idLoja) || null,
@@ -466,14 +450,14 @@ export default function ControleEstoquePage() {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
-    const abasOp: AbaEstoque[] = ['cmv', 'saldo', 'pedido', 'fichas'];
+    const abasOp: AbaEstoque[] = ['saldo', 'fichas'];
     let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
-      destino = podeOperacional ? 'cmv' : podeBreak ? 'break' : 'conferencia';
-    } else if (abasOp.includes(aba) && !podeOperacional) {
-      destino = podeConferencia ? 'conferencia' : podeBreak ? 'break' : 'cmv';
+      destino = podeBreak ? 'break' : podeOperacional ? 'saldo' : 'fichas';
     } else if (aba === 'break' && !podeBreak) {
-      destino = podeOperacional ? 'cmv' : podeConferencia ? 'conferencia' : 'break';
+      destino = podeConferencia ? 'conferencia' : podeOperacional ? 'saldo' : 'fichas';
+    } else if (abasOp.includes(aba) && !podeOperacional) {
+      destino = podeConferencia ? 'conferencia' : podeBreak ? 'break' : 'fichas';
     }
     if (destino && destino !== aba) {
       navigate(`/estoque/${destino}`, { replace: true });
@@ -494,7 +478,11 @@ export default function ControleEstoquePage() {
           : tipo === 'critica_semanal'
             ? 'Contagem semanal'
             : 'Contagem completa';
-      showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
+      if (det.meta?.ja_finalizada) {
+        showToast('Diária de hoje já foi finalizada — abrindo consulta');
+      } else {
+        showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
+      }
       irParaAba('conferencia');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao iniciar conferência', 'error');
@@ -609,19 +597,6 @@ export default function ControleEstoquePage() {
     }
   };
 
-  const baixarListaGestores = async () => {
-    if (baixandoListaGestores || !idLoja) return;
-    setBaixandoListaGestores(true);
-    try {
-      await api.estoqueBaixarClassificacaoGestores(idLoja);
-      showToast('Lista para os gestores gerada');
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao gerar lista', 'error');
-    } finally {
-      setBaixandoListaGestores(false);
-    }
-  };
-
   const abrirDlgRelatorio = (tipo?: TipoContagemEstoque, modo?: 'estrutura' | 'dados') => {
     const t = tipo === 'diaria' || tipo === 'critica_semanal' || tipo === 'completa' ? tipo : 'diaria';
     setRelatorioTipo(t);
@@ -724,25 +699,11 @@ export default function ControleEstoquePage() {
   const bloqueiaOutrasAbas = verDetalhe && contagem?.status === 'aberta';
   const abertasCount = listaContagens.filter((c) => c.status === 'aberta').length;
   const fechadasCount = listaContagens.filter((c) => c.status === 'finalizada').length;
-  const dataInicialMesLista = listaContagens[0]?.data_inicial_mes ?? null;
-  const valorAtualLista = useMemo(() => {
-    if (listaContagens[0]?.valor_atual_loja != null) return listaContagens[0].valor_atual_loja;
-    const abertaCompleta = listaContagens.find(
-      (c) => c.status === 'aberta' && !ehContagemParcial(c.tipo),
-    );
-    if (abertaCompleta?.total_valor != null) return abertaCompleta.total_valor;
-    const ultimaCompleta = listaContagens.find(
-      (c) => c.status === 'finalizada' && !ehContagemParcial(c.tipo),
-    );
-    return ultimaCompleta?.total_valor ?? null;
-  }, [listaContagens]);
-  const valorBreakLista = listaContagens[0]?.valor_break_mes ?? null;
-  const cmvLista = listaContagens[0]?.cmv_teorico_pct ?? null;
   const listaFiltrada = useMemo(() => {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
-  const chromeCompacto = aba === 'cmv' || aba === 'saldo' || aba === 'conferencia';
+  const chromeCompacto = aba === 'saldo' || aba === 'conferencia';
 
   if (loadingLojas) {
     return (
@@ -888,12 +849,6 @@ export default function ControleEstoquePage() {
             '& .MuiTabs-indicator': { height: 2, bgcolor: colors.orange },
           }}
         >
-          {podeOperacional && (
-            <Tab value="cmv" label="CMV" disabled={!idLoja || bloqueiaOutrasAbas} />
-          )}
-          {podeOperacional && (
-            <Tab value="saldo" label="Meta" disabled={!idLoja || bloqueiaOutrasAbas} />
-          )}
           {podeConferencia && (
             <Tab value="conferencia" label="Conferência" disabled={!idLoja} />
           )}
@@ -901,7 +856,7 @@ export default function ControleEstoquePage() {
             <Tab value="break" label="Break" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
-            <Tab value="pedido" label="Pedido" disabled={!idLoja || bloqueiaOutrasAbas} />
+            <Tab value="saldo" label="Saldo" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
             <Tab value="fichas" label="Cadastro" disabled={!idLoja || bloqueiaOutrasAbas} />
@@ -988,94 +943,12 @@ export default function ControleEstoquePage() {
                           >
                             Baixar relatório
                           </Button>
-                          <Button
-                            variant="outlined"
-                            startIcon={
-                              baixandoListaGestores ? (
-                                <CircularProgress size={16} />
-                              ) : (
-                                <AssignmentOutlinedIcon />
-                              )
-                            }
-                            disabled={baixandoListaGestores}
-                            onClick={() => void baixarListaGestores()}
-                          >
-                            Lista gestores
-                          </Button>
                           <IconButton
                             onClick={() => void carregarListaContagens()}
                             aria-label="Atualizar"
                           >
                             <RefreshIcon />
                           </IconButton>
-                        </Box>
-                      </Box>
-
-                      <Box sx={{ ...portalPanelSx, p: { xs: 1.5, md: 2 }, flexShrink: 0 }}>
-                        <Box
-                          sx={{
-                            display: 'grid',
-                            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-                            gap: { xs: 1.25, md: 0 },
-                          }}
-                        >
-                          {[
-                            {
-                              label: 'Valor atual',
-                              value: fmtBrl(valorAtualLista),
-                              sub: dataInicialMesLista
-                                ? `início ${fmtDataBR(dataInicialMesLista)}`
-                                : 'estoque da loja',
-                            },
-                            {
-                              label: 'Abertas',
-                              value: String(abertasCount),
-                              sub: `${fechadasCount} finalizada(s)`,
-                            },
-                            {
-                              label: 'CMV',
-                              value: cmvLista != null ? `${fmtNum(cmvLista, 1)}%` : '—',
-                              sub: `break ${fmtBrl(valorBreakLista)}`,
-                            },
-                          ].map((k, i) => (
-                            <Box
-                              key={k.label}
-                              sx={{
-                                minWidth: 0,
-                                px: { md: 2 },
-                                pl: { md: i === 0 ? 0 : 2 },
-                                pr: { md: i === 2 ? 0 : 2 },
-                                borderLeft: { md: i === 0 ? 'none' : `1px solid ${colors.border}` },
-                              }}
-                            >
-                              <Typography
-                                sx={{
-                                  fontSize: '0.68rem',
-                                  fontWeight: 600,
-                                  letterSpacing: '0.14em',
-                                  textTransform: 'uppercase',
-                                  color: colors.textMuted,
-                                }}
-                              >
-                                {k.label}
-                              </Typography>
-                              <Typography
-                                sx={{
-                                  fontWeight: 600,
-                                  fontSize: { xs: '1.35rem', md: '1.65rem' },
-                                  letterSpacing: '-0.035em',
-                                  lineHeight: 1.15,
-                                  color: colors.textPrimary,
-                                  mt: 0.45,
-                                }}
-                              >
-                                {k.value}
-                              </Typography>
-                              <Typography sx={{ mt: 0.35, fontSize: '0.75rem', color: colors.textMuted }}>
-                                {k.sub}
-                              </Typography>
-                            </Box>
-                          ))}
                         </Box>
                       </Box>
 
@@ -1261,8 +1134,7 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {((podeOperacional &&
-                (aba === 'cmv' || aba === 'saldo' || aba === 'pedido' || aba === 'fichas')) ||
+              {((podeOperacional && (aba === 'saldo' || aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <Box

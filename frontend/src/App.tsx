@@ -45,6 +45,7 @@ import EstoqueMobileListaPage from './pages/estoque/EstoqueMobileListaPage';
 import EstoqueMobileConferenciaPage from './pages/estoque/EstoqueMobileConferenciaPage';
 import EstoqueMobileBreakPage from './pages/estoque/EstoqueMobileBreakPage';
 import EstoqueMobileNfePage from './pages/estoque/EstoqueMobileNfePage';
+import EstoqueMobileSaldoPage from './pages/estoque/EstoqueMobileSaldoPage';
 import RotaEstoqueMobile from './components/RotaEstoqueMobile';
 import RotaEstoqueBreakMobile from './components/RotaEstoqueBreakMobile';
 import NcMobileListaPage from './pages/nc/NcMobileListaPage';
@@ -195,6 +196,14 @@ export default function App() {
                 <RotaEstoqueBreakMobile>
                   <EstoqueMobileBreakPage />
                 </RotaEstoqueBreakMobile>
+              }
+            />
+            <Route
+              path="estoque/mobile/saldo"
+              element={
+                <RotaEstoqueMobile>
+                  <EstoqueMobileSaldoPage />
+                </RotaEstoqueMobile>
               }
             />
             <Route
@@ -374,12 +383,12 @@ export default function App() {
             />
             <Route
               path="estoque"
-              element={<Navigate to="/estoque/cmv" replace />}
+              element={<Navigate to="/estoque/conferencia" replace />}
             />
             <Route
               path="estoque/:aba"
               element={
-                <RotaPermissao permissoes={['estoque.produtos', 'estoque.conferencia', 'estoque.operacional']}>
+                <RotaPermissao permissoes={['estoque.produtos', 'estoque.conferencia', 'estoque.operacional', 'estoque.break']}>
                   <ControleEstoquePage />
                 </RotaPermissao>
               }

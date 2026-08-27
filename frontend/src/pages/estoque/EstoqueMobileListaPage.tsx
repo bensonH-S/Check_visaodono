@@ -7,6 +7,7 @@ import AddIcon from '@mui/icons-material/Add';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import {
   api,
   type EstoqueContagemResumo,
@@ -217,6 +218,14 @@ export default function EstoqueMobileListaPage() {
 
   const iniciar = async (tipo: TipoContagemEstoque) => {
     if (!idLoja) return;
+    if (tipo === 'diaria' && diariaHoje?.id_contagem) {
+      setDlgTipo(false);
+      navigate(`/estoque/mobile/${diariaHoje.id_contagem}`);
+      if (diariaHoje.status === 'finalizada') {
+        showToast('Diária de hoje já foi feita — consulta');
+      }
+      return;
+    }
     setIniciando(true);
     setDlgTipo(false);
     try {
@@ -226,8 +235,12 @@ export default function EstoqueMobileListaPage() {
           state: { contagemPreload: det },
         });
       }
-      const label = labelIniciar(tipo);
-      showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
+      if (det.meta?.ja_finalizada) {
+        showToast('Diária de hoje já foi finalizada — consulta');
+      } else {
+        const label = labelIniciar(tipo);
+        showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
+      }
       await carregarLista(idLoja);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao iniciar', 'error');
@@ -377,11 +390,20 @@ export default function EstoqueMobileListaPage() {
                     {diariaHoje?.status === 'aberta'
                       ? 'Continuar contagem diária de hoje'
                       : diariaHoje?.status === 'finalizada'
-                        ? 'Diária de hoje · feita'
+                        ? 'Diária de hoje · consultar'
                         : 'Contagem diária de hoje'}
                   </strong>
                   <small>Carne, frango, queijo, bacon, pão, batata, copos, mix</small>
                 </span>
+                <span aria-hidden>›</span>
+              </button>
+              <button
+                type="button"
+                className="ck-estoque-nfe__atalho"
+                onClick={() => navigate('/estoque/mobile/saldo')}
+              >
+                <Inventory2OutlinedIcon fontSize="small" />
+                <span>Consultar saldo · só ver quantidades</span>
                 <span aria-hidden>›</span>
               </button>
               <button

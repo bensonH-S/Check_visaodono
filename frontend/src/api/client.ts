@@ -1059,9 +1059,10 @@ export const api = {
   estoqueExcluirContagem: (id: number) =>
     request<void>(`/estoque/contagens/${id}`, { method: 'DELETE' }),
 
-  estoqueSaldos: (idLoja: number, q?: string) => {
+  estoqueSaldos: (idLoja: number, q?: string, opts?: { diaria?: boolean }) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (q) params.set('q', q);
+    if (opts?.diaria) params.set('diaria', '1');
     return request<EstoqueSaldoItem[]>(`/estoque/saldos?${params}`);
   },
   estoqueMovimentos: (
@@ -2673,6 +2674,10 @@ export interface EstoqueContagemDetalhe extends EstoqueContagemResumo {
     eh_sabado?: boolean;
     iniciada_agora?: boolean;
     aguardando_sabado?: boolean;
+    id_loja?: number;
+    tipo?: string;
+    ja_existia?: boolean;
+    ja_finalizada?: boolean;
   };
 }
 
@@ -2687,6 +2692,7 @@ export interface EstoqueSaldoItem {
   codigo: string;
   descricao: string;
   unidade_contagem: string;
+  grupo_diario?: string | null;
   valor_unidade: number;
   quantidade: number;
   valor_total: number;

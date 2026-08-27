@@ -48,6 +48,7 @@ import {
   type EstoqueNfeResumo,
   type EstoquePedidoItem,
   type EstoquePedidoSugerido,
+  type EstoqueSaldoItem,
   type FichaTecnicaDetalhe,
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
@@ -1183,28 +1184,27 @@ function PainelSaldoKardex({
   onSetHeaderActions,
 }: {
   idLoja: number;
-  onSetHeaderActions?: (node: React.ReactNode) => void;
+  onSetHeaderActions?: (node: ReactNode) => void;
 }) {
   const [loading, setLoading] = useState(true);
-  const [dados, setDados] = useState<EstoqueMetaVendas | null>(null);
-  const [crescimento, setCrescimento] = useState('10');
-  const crescimentoRef = useRef(crescimento);
-  crescimentoRef.current = crescimento;
+  const [itens, setItens] = useState<EstoqueSaldoItem[]>([]);
 
-  const carregar = useCallback(async (silencioso = false) => {
-    if (!silencioso) setLoading(true);
-    try {
-      const cres = Number(String(crescimentoRef.current).replace(',', '.')) / 100;
-      const r = await api.estoqueMetaVendas(idLoja, {
-        crescimento: Number.isFinite(cres) ? cres : 0.1,
-      });
-      setDados(r);
-    } catch (e) {
-      if (!silencioso) showToast(e instanceof Error ? e.message : 'Erro ao carregar meta de venda', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [idLoja]);
+  const carregar = useCallback(
+    async (silencioso = false) => {
+      if (!silencioso) setLoading(true);
+      try {
+        const rows = await api.estoqueSaldos(idLoja, undefined, { diaria: true });
+        setItens(rows);
+      } catch (e) {
+        if (!silencioso) {
+          showToast(e instanceof Error ? e.message : 'Erro ao carregar saldo da diária', 'error');
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [idLoja],
+  );
 
   useEffect(() => {
     void carregar();
@@ -1226,7 +1226,23 @@ function PainelSaldoKardex({
     };
   }, [carregar, onSetHeaderActions]);
 
-  if (loading && !dados) {
+  const rotuloGrupo = (g: string | null | undefined) => {
+    const mapa: Record<string, string> = {
+      carne: 'Carne',
+      frango: 'Frango',
+      queijo: 'Queijo',
+      bacon: 'Bacon',
+      pao: 'Pão',
+      batata: 'Batata',
+      oleo: 'Óleo',
+      refil: 'Copo / xarope',
+      vegetais: 'Vegetais',
+      mix_sobremesa: 'Mix',
+    };
+    return mapa[String(g || '')] || g || '—';
+  };
+
+  if (loading && !itens.length) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
         <CircularProgress size={28} />
@@ -1234,320 +1250,52 @@ function PainelSaldoKardex({
     );
   }
 
-  const venda = dados?.venda_mtd ?? 0;
-  const metaMtd = dados?.meta_mtd ?? null;
-  const ating = dados?.atingimento_mtd_pct;
-  const corAting =
-    ating == null ? colors.orange : ating >= 100 ? '#0F766E' : ating >= 90 ? colors.orange : '#B42318';
-  const barra = ating != null ? Math.min(100, Math.max(0, ating)) : Math.min(100, ((dados?.dias_decorridos || 0) / (dados?.dias_mes || 1)) * 100);
-  const mesLabel = dados?.mes_nome
-    ? `${dados.mes_nome.charAt(0).toUpperCase()}${dados.mes_nome.slice(1)}`
-    : 'Mês';
-  const diasVisiveis = [...(dados?.dias || [])].reverse().filter((d) => d.venda > 0 || d.venda_ly > 0);
-
-  const kpis = [
-    {
-      label: `Venda ${mesLabel}`,
-      value: fmtMoeda(venda),
-      color: dados?.hoje_ausente || dados?.hoje_parcial ? colors.orange : colors.textPrimary,
-      sub: textoFrescorVenda(dados),
-    },
-    {
-      label: `Meta +${dados?.crescimento_pct ?? 10}%`,
-      value: metaMtd != null ? fmtMoeda(metaMtd) : 'Pendente',
-      color: metaMtd != null ? colors.textPrimary : colors.orange,
-      sub:
-        metaMtd != null
-          ? `${fmtMoeda(dados?.venda_ly_mtd)} em ${dados?.ano ? dados.ano - 1 : '—'} no mesmo período`
-          : 'falta BK Office do ano passado',
-    },
-    {
-      label: 'Projeção restante',
-      value: fmtMoeda(dados?.projecao_restante),
-      color: colors.textPrimary,
-      sub: `média ${fmtMoeda(dados?.media_dia)} × ${dados?.dias_restantes ?? 0} dias · fecha ${fmtMoeda(dados?.projecao_mes)}`,
-    },
-  ];
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, overflow: 'hidden' }}>
-      <Box sx={{ ...portalPanelSx, p: { xs: 1.75, md: 2.25 }, flexShrink: 0 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.25 }}>
-          <TextField
-            size="small"
-            label="Crescimento %"
-            value={crescimento}
-            onChange={(e) => setCrescimento(e.target.value)}
-            onBlur={() => void carregar()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void carregar();
-              }
-            }}
-            sx={{ width: 130 }}
-          />
-        </Box>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-            gap: { xs: 1.5, md: 0 },
-          }}
-        >
-          {kpis.map((k, i) => (
-            <Box
-              key={k.label}
-              sx={{
-                minWidth: 0,
-                px: { md: 2 },
-                pl: { md: i === 0 ? 0 : 2 },
-                pr: { md: i === 2 ? 0 : 2 },
-                borderLeft: { md: i === 0 ? 'none' : `1px solid ${colors.border}` },
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: '0.68rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.14em',
-                  textTransform: 'uppercase',
-                  color: colors.textMuted,
-                }}
-              >
-                {k.label}
-              </Typography>
-              <Typography
-                sx={{
-                  fontWeight: 600,
-                  fontSize: { xs: '1.4rem', md: '1.7rem' },
-                  letterSpacing: '-0.035em',
-                  lineHeight: 1.15,
-                  color: k.color,
-                  mt: 0.55,
-                }}
-              >
-                {k.value}
-              </Typography>
-              <Typography sx={{ mt: 0.4, fontSize: '0.75rem', color: colors.textMuted }}>
-                {k.sub}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-
-        <Box sx={{ mt: 2.25 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
-            <Typography
-              sx={{
-                fontSize: '0.65rem',
-                fontWeight: 600,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: colors.textMuted,
-              }}
-            >
-              {metaMtd != null ? 'Atingimento da meta no período' : `Andamento do mês · dia ${dados?.dias_decorridos ?? '—'}/${dados?.dias_mes ?? '—'}`}
-            </Typography>
-            <Typography sx={{ fontSize: '0.7rem', color: colors.textMuted }}>
-              {metaMtd != null
-                ? `fecha o mês ${fmtMoeda(dados?.projecao_mes)}`
-                : `restante ${fmtMoeda(dados?.projecao_restante)} · fecha ${fmtMoeda(dados?.projecao_mes)}`}
-            </Typography>
-          </Box>
-          <Box sx={{ position: 'relative', height: 6, borderRadius: 99, bgcolor: colors.canvasAlt }}>
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                width: `${barra}%`,
-                borderRadius: 99,
-                bgcolor: corAting,
-              }}
-            />
-          </Box>
-        </Box>
-        {dados?.aviso ? (
-          <Typography sx={{ mt: 1.25, fontSize: '0.78rem', color: colors.orange }}>
-            {dados.aviso}
-          </Typography>
-        ) : null}
-      </Box>
-
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-          gap: 1.75,
-          alignItems: 'stretch',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <Box
-          sx={{
-            ...portalPanelSx,
-            p: { xs: 2.25, md: 2.75 },
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <Typography
-            sx={{
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: colors.textMuted,
-              mb: 1.25,
-              flexShrink: 0,
-            }}
-          >
-            Dia a dia
-          </Typography>
-          <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, mr: -0.75, pr: 0.75 }}>
-            {diasVisiveis.map((d, i) => {
-              const delta = d.venda_ly > 0 ? ((d.venda - d.venda_ly) / d.venda_ly) * 100 : null;
-              return (
-                <Box
-                  key={d.data}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 2,
-                    py: 1.35,
-                    borderTop: i === 0 ? 'none' : `1px solid ${colors.border}`,
-                  }}
-                >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.02em' }}>
-                      {fmtDataBR(d.data)}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.85rem', color: colors.textMuted, mt: 0.2 }}>
-                      {d.venda_ly > 0
-                        ? `ano passado ${fmtMoeda(d.venda_ly)}`
-                        : `sem base ${dados?.ano ? dados.ano - 1 : ''}`}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                    <Typography
-                      sx={{
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                        fontSize: '1.12rem',
-                        fontWeight: 700,
-                        letterSpacing: '-0.02em',
-                      }}
-                    >
-                      {fmtMoeda(d.venda)}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontSize: '0.85rem',
-                        mt: 0.15,
-                        color: delta == null ? colors.textMuted : delta >= 0 ? '#0F766E' : '#B42318',
-                      }}
-                    >
-                      {delta == null ? '—' : `${delta >= 0 ? '+' : ''}${fmtNum(delta, 1)}%`}
-                    </Typography>
-                  </Box>
-                </Box>
-              );
-            })}
-            {!diasVisiveis.length ? (
-              <Typography sx={{ fontSize: '0.95rem', color: colors.textMuted, py: 2 }}>
-                Sem venda neste mês.
-              </Typography>
-            ) : null}
-          </Box>
-        </Box>
-
-        <Box
-          sx={{
-            ...portalPanelSx,
-            p: { xs: 2.25, md: 2.75 },
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <Typography
-            sx={{
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: colors.textMuted,
-              mb: 1.25,
-              flexShrink: 0,
-            }}
-          >
-            Mais vendidos
-          </Typography>
-          <Box sx={{ overflowY: 'auto', flex: 1, minHeight: 0, mr: -0.75, pr: 0.75 }}>
-            {(dados?.top_produtos || []).map((p, i) => (
-              <Box
-                key={p.codigo}
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 2,
-                  py: 1.35,
-                  borderTop: i === 0 ? 'none' : `1px solid ${colors.border}`,
-                }}
-              >
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.02em' }}>
-                    {p.codigo}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      fontSize: '0.88rem',
-                      color: colors.textMuted,
-                      mt: 0.2,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {p.descricao}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                  <Typography
-                    sx={{
-                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                      fontSize: '1.12rem',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {fmtMoeda(p.venda)}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.85rem', color: colors.textMuted, mt: 0.15 }}>
-                    {fmtNum(p.qtde, 0)} un
-                  </Typography>
-                </Box>
-              </Box>
-            ))}
-            {!dados?.top_produtos?.length ? (
-              <Typography sx={{ fontSize: '0.95rem', color: colors.textMuted, py: 2 }}>
-                Sem itens no mês.
-              </Typography>
-            ) : null}
-          </Box>
-          <Box sx={{ pt: 1.5, mt: 0.75, borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.88rem', color: colors.textMuted }}>
-              Break {fmtMoeda(dados?.break_custo)}
-              {dados?.break_pct_venda != null ? ` · ${fmtNum(dados.break_pct_venda, 1)}% da venda` : ''}
-              {dados?.break_qtd ? ` · ${dados.break_qtd} lançamentos` : ''}
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
+      <Typography sx={{ fontSize: '0.8rem', color: colors.textMuted }}>
+        Só os insumos da diária. O saldo cai quando a venda do kit explode a ficha.
+      </Typography>
+      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
+          <Table stickyHeader size="small" sx={tableSx}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700 }}>Grupo</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Código</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Insumo</TableCell>
+                <TableCell sx={{ fontWeight: 700, textAlign: 'right' }}>Saldo</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Atualizado</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {itens.map((r) => (
+                <TableRow key={r.id_insumo || r.id_produto} hover>
+                  <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
+                    {rotuloGrupo(r.grupo_diario)}
+                  </TableCell>
+                  <TableCell sx={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}>
+                    {r.codigo}
+                  </TableCell>
+                  <TableCell>{r.descricao}</TableCell>
+                  <TableCell sx={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {fmtNum(r.quantidade, 2)} {r.unidade_contagem || ''}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.textMuted, whiteSpace: 'nowrap' }}>
+                    {r.atualizado_em ? fmtHoraBR(r.atualizado_em) : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!itens.length ? (
+                <TableRow>
+                  <TableCell colSpan={5} sx={{ color: colors.textMuted, py: 4, textAlign: 'center' }}>
+                    Nenhum insumo da diária nesta loja
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </Box>
   );
 }
@@ -3045,7 +2793,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             Break
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, maxWidth: 560 }}>
-            Break usa os produtos do caderno. Desperdício e empréstimo também baixam o estoque. Só o break entra no CMV.
+            Consumo interno (break), desperdício completo e incompleto. Todos baixam o estoque; só o break entra no CMV.
           </Typography>
         </Box>
         <Button

@@ -277,9 +277,15 @@ function ChamadosMobileLayoutInner() {
   /** NCs: chrome próprio (lista + resolver). */
   const isNcImmersive = isNc;
   const isEstoqueBreak = path === '/estoque/mobile/break';
+  const isEstoqueSaldo = path === '/estoque/mobile/saldo';
+  const isEstoqueNfe = path === '/estoque/mobile/nfes' || path.startsWith('/estoque/mobile/nfes/');
   const isEstoque = path === '/estoque/mobile' || path.startsWith('/estoque/mobile/');
-  /** `:idContagem` também casa com "break" — excluir a rota de break. */
-  const isEstoqueDetalhe = Boolean(useMatch('/estoque/mobile/:idContagem')) && !isEstoqueBreak;
+  /** `:idContagem` também casa com break / saldo / nfes — excluir. */
+  const isEstoqueDetalhe =
+    Boolean(useMatch('/estoque/mobile/:idContagem')) &&
+    !isEstoqueBreak &&
+    !isEstoqueSaldo &&
+    !isEstoqueNfe;
   /** Estoque: chrome próprio (lista + conferência + break). */
   const isEstoqueImmersive = isEstoque;
   const isFreelancersAprovacao = path === '/freelancers/aprovacao/mobile';
@@ -451,6 +457,8 @@ function ChamadosMobileLayoutInner() {
             ? 'Resolver NC'
           : isEstoqueBreak
             ? 'Break'
+          : isEstoqueSaldo
+            ? 'Saldo'
           : isEstoqueDetalhe
             ? 'Conferência'
           : isEstoque
@@ -492,6 +500,8 @@ function ChamadosMobileLayoutInner() {
               ? 'Resolver NC'
             : isEstoqueBreak
               ? 'Break'
+            : isEstoqueSaldo
+              ? 'Saldo'
             : isEstoqueDetalhe
               ? 'Conferência'
             : isEstoque

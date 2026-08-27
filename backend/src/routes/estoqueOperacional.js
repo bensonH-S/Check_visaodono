@@ -48,6 +48,8 @@ import { parseNfeXml, renderDanfeHtml } from '../services/nfeXml.js';
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
+/** Saldo da diária: loja consulta no app com permissão de conferência. */
+const permSaldo = requirePermissao('estoque.operacional', 'estoque.conferencia');
 const permBreak = requirePermissao('estoque.break', 'estoque.operacional');
 const permConfig = requirePermissao('configuracoes.ver', 'estoque.operacional');
 const upload = multer({
@@ -142,29 +144,43 @@ function montarColaboradoresBreak(hrRows, usuarioRows) {
 
 // ── Saldos / movimentos ────────────────────────────────────────────────────
 
-router.get('/saldos', permOp, async (req, res, next) => {
+router.get('/saldos', permSaldo, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
     const q = String(req.query.q || '').trim();
+    const soDiaria =
+      req.query.diaria === '1' ||
+      req.query.diaria === 'true' ||
+      String(req.query.escopo || '') === 'diaria';
     const params = [idLoja];
     let filtro = '';
     if (q) {
       params.push(`%${q}%`);
-      filtro = `AND (p.codigo ILIKE $${params.length} OR p.descricao ILIKE $${params.length})`;
+      filtro += ` AND (p.codigo ILIKE $${params.length} OR p.descricao ILIKE $${params.length})`;
+    }
+    if (soDiaria) {
+      filtro += ' AND COALESCE(p.contagem_diaria, FALSE) = TRUE';
     }
 
     const { rows } = await pool.query(
-      `SELECT p.id_insumo, p.codigo, p.descricao, p.unidade_contagem,
+      `SELECT p.id_insumo, p.codigo, p.descricao, p.unidade_contagem, p.grupo_diario,
               p.valor_unidade, COALESCE(s.quantidade, 0) AS quantidade,
               s.atualizado_em
        FROM insumos p
        LEFT JOIN estoque_saldos s
          ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
        WHERE p.id_loja = $1 AND p.ativo = TRUE ${filtro}
-       ORDER BY p.descricao`,
+       ORDER BY
+         CASE p.grupo_diario
+           WHEN 'carne' THEN 1 WHEN 'frango' THEN 2 WHEN 'queijo' THEN 3
+           WHEN 'bacon' THEN 4 WHEN 'pao' THEN 5 WHEN 'batata' THEN 6
+           WHEN 'oleo' THEN 7 WHEN 'refil' THEN 8 WHEN 'vegetais' THEN 9
+           WHEN 'mix_sobremesa' THEN 10 ELSE 99
+         END,
+         p.descricao`,
       params,
     );
     res.json(
@@ -174,6 +190,7 @@ router.get('/saldos', permOp, async (req, res, next) => {
         codigo: r.codigo,
         descricao: r.descricao,
         unidade_contagem: r.unidade_contagem,
+        grupo_diario: r.grupo_diario || null,
         valor_unidade: num(r.valor_unidade),
         quantidade: num(r.quantidade),
         atualizado_em: r.atualizado_em,
@@ -917,9 +934,8 @@ router.get('/break/catalogo', permBreak, async (req, res, next) => {
         und_convertida: 1,
         valor_unidade: 0,
       }));
-      insumos.push(
-        ...(tipo === 'emprestimo' ? mapped : filtrarPorCaderno(mapped, 'desperdicio_incompleto')),
-      );
+      // DI e empréstimo: todos os insumos ativos da loja (não só o caderno antigo).
+      insumos.push(...mapped);
     } else {
       const { rows } = await pool.query(
         `SELECT id_produto, codigo, descricao, ativo
