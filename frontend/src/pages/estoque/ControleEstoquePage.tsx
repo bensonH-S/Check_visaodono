@@ -944,9 +944,6 @@ export default function ControleEstoquePage() {
                           <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy }}>
                             Contagens
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            Diária: carne (Whopper, HB, vegetariana), frango, queijo (cheddar e crispy), bacon, pão, batata, óleo, copos, vegetais (tomate e alface), mix e casquinha. Semanal de segunda: mix (Coca 18 L, demais 10 L) e latas.
-                          </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                           {podeEditarConferencia && (

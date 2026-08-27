@@ -107,8 +107,8 @@ export function corrigirVolumeBagMix(descricao, undAtual) {
 }
 
 /**
- * Contagem diária: essenciais + giro antigo
- * (frango, óleo, copos/xarope). Bags de mix ficam na semanal.
+ * Contagem diária: carne, frango, queijo, bacon, pão, batata, copos/xarope, mix.
+ * Óleo, vegetais e casquinha ficam fora. Bags de mix ficam na semanal.
  */
 export function classificarGrupoDiario(descricao) {
   const d = normalizarDesc(descricao);
@@ -117,6 +117,10 @@ export function classificarGrupoDiario(descricao) {
   // Bags de refrigerante (Coca 18 L / demais 10 L) ficam só na semanal.
   if (ehBagRefrigerante(d)) return null;
 
+  if (/\bCASQUINHA\b/.test(d)) return null;
+  if (/\bOLEO\b/.test(d)) return null;
+  if (/\b(ALFACE|TOMATE|CEBOLA)\b/.test(d)) return null;
+
   if (
     /\b(BAUNILHA|DOCE DE LEITE)\b/.test(d) &&
     (/\bBEBIDA LACTEA\b/.test(d) || /\bMIX\b/.test(d) || /\b(SORVETE|SOFT)\b/.test(d)) &&
@@ -124,15 +128,11 @@ export function classificarGrupoDiario(descricao) {
   ) {
     return 'mix_sobremesa';
   }
-  if (/\bCASQUINHA\b/.test(d) && !/\b(BRINDE|CART|FUNDO|TAMPA)\b/.test(d)) {
-    return 'mix_sobremesa';
-  }
 
   if (/\bBATATA\b/.test(d) && !/\b(CARTONAGEM|CART BATATA|FUNDO|TAMPA|SAQUINHO|EMBALAG)\b/.test(d)) {
     return 'batata';
   }
   if (/\bPAO\b/.test(d) && !/\b(CESTO|BRINDE|CART)\b/.test(d) && !/\b270\b/.test(d)) return 'pao';
-  if (/\bOLEO\b/.test(d) && !/\b(KIT|MEDIDOR)\b/.test(d)) return 'oleo';
   if (/\bQUEIJO\b/.test(d) && !/\bMOLHO\b/.test(d)) return 'queijo';
   if (/\bBACON\b/.test(d) && !/\b(MAIONESE|BACONESE|SACHET|MOLHO)\b/.test(d)) return 'bacon';
   if (
@@ -141,18 +141,11 @@ export function classificarGrupoDiario(descricao) {
   ) {
     return 'frango';
   }
-  // Carne HB e Rebel (vegetariana). Cebola não entra na diária.
+  // Carne HB e Rebel (vegetariana).
   if (/\bREBEL\b/.test(d) && !/\b(LAMINA|BRINDE|CART|MARMITA)\b/.test(d)) return 'carne';
   if (/\bCARNE HB\b/.test(d) && !/\b(MARMITA|BRINDE|CART)\b/.test(d)) return 'carne';
   if (/\b(FRALDINHA|FRANDINHA)\b/.test(d)) return null;
   if (/\bCARNE\b/.test(d) && !/\b(MARMITA|BRINDE|CART|FRALDINHA|FRANDINHA)\b/.test(d)) return 'carne';
-  if (/\bCEBOLA\b/.test(d)) return null;
-  if (
-    /\b(ALFACE|TOMATE)\b/.test(d) &&
-    !/\b(FRITA|CRISPY|CART|SAC)\b/.test(d)
-  ) {
-    return 'vegetais';
-  }
   // Só os copos genéricos 440 / 550. Campanha (Star Wars, Minions) não entra na diária.
   if (
     /\bCOPO\b/.test(d) &&

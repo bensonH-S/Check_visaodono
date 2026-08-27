@@ -108,7 +108,7 @@ function filtroItensPorTipo(tipoContagem) {
 
 function erroSemItensTipo(tipoContagem) {
   if (tipoContagem === 'diaria') {
-    return 'Nenhum item de contagem diária nesta loja (carne, frango, queijo, bacon, pão, batata, óleo, copos/xarope, vegetais, mix)';
+    return 'Nenhum item de contagem diária nesta loja (carne, frango, queijo, bacon, pão, batata, copos/xarope, mix)';
   }
   if (tipoContagem === 'critica_semanal') {
     return 'Nenhum item da semanal nesta loja (mix Coca 18 L / demais 10 L e latas)';
