@@ -489,13 +489,13 @@ function PainelVendas({
               label: 'Venda hoje',
               value: fmtMoeda(vendaHoje),
               color: corHoje,
-              sub: `${textoFrescorVenda(meta)} · Bruto−Desconto`,
+              sub: `${textoFrescorVenda(meta)} · Bruto`,
             },
             {
               label: `Venda ${meta?.mes_nome || 'mês'}`,
               value: fmtMoeda(meta?.venda_mtd ?? 0),
               color: colors.textPrimary,
-              sub: `${meta?.dias_venda ?? 0} dias · média ${fmtMoeda(meta?.media_dia)} · BK Office`,
+              sub: `${meta?.dias_venda ?? 0} dias · média ${fmtMoeda(meta?.media_dia)} · Bruto`,
             },
             {
               label: 'Meta mês (+10%)',
@@ -559,7 +559,7 @@ function PainelVendas({
               Vendas por dia (BK Office)
             </Typography>
             <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, mt: 0.25 }}>
-              Bruto − Desconto (mesmo painel BK Office) · atualiza a cada 45s
+              Coluna Bruto do BK Office · atualiza a cada 45s
             </Typography>
           </Box>
           <TableContainer>

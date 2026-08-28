@@ -309,7 +309,7 @@ export async function calcularCmvTeorico(idLoja, { de = null, ate = null, meta =
     id_loja: idLoja,
     de: de || null,
     ate: ate || null,
-    /** Valor = Bruto−Desconto do BK Office (mesma base do painel da franquia). */
+    /** Valor = Bruto do BK Office. */
     venda_liquida: Math.round(venda * 100) / 100,
     venda_bruta: Math.round(venda * 100) / 100,
     custo_teorico: Math.round(custo * 100) / 100,

@@ -69,7 +69,7 @@ async function main() {
     console.log(`  ${r.origem.padEnd(10)} dias=${r.dias}  venda=R$ ${Number(r.venda).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
   }
   console.log(`\nTotal bkoffice: R$ ${totalBk.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
-  console.log('(Compare com Bruto − Desconto no painel BK Office)\n');
+  console.log('(Compare com a coluna Bruto no painel BK Office)\n');
   console.log('Últimos dias (bkoffice):');
   for (const r of porDia) {
     console.log(`  ${r.dia}  R$ ${Number(r.venda_bkoffice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
