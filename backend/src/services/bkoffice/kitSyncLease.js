@@ -94,3 +94,105 @@ export async function liberarLease({ holder_id } = {}) {
   );
   return { ok: true, liberado: rowCount > 0 };
 }
+
+/**
+ * Registra último sync ok (mesmo PC do lease ou qualquer kit com bypass).
+ * Usado pelo portal para alertar "kit parado".
+ */
+export async function registrarHeartbeat({
+  holder_id,
+  holder_name = null,
+  ok = true,
+  de = null,
+  ate = null,
+  lojas_ok = null,
+  venda_total = null,
+  produtos = null,
+} = {}) {
+  const id = String(holder_id || '').trim() || 'kit';
+  const name = String(holder_name || id).trim().slice(0, 120);
+  await pool.query(
+    `INSERT INTO kit_bkoffice_lease (
+       slot, holder_id, holder_name, expires_at, renewed_at,
+       last_sync_ok_at, last_sync_de, last_sync_ate, last_sync_lojas,
+       last_sync_venda, last_sync_produtos, last_sync_ok
+     ) VALUES (
+       $1, $2, $3,
+       NOW() + interval '5 minutes', NOW(),
+       NOW(), $4::date, $5::date, $6, $7, $8, $9
+     )
+     ON CONFLICT (slot) DO UPDATE SET
+       renewed_at = NOW(),
+       expires_at = GREATEST(kit_bkoffice_lease.expires_at, NOW() + interval '5 minutes'),
+       holder_id = COALESCE(kit_bkoffice_lease.holder_id, EXCLUDED.holder_id),
+       holder_name = COALESCE(EXCLUDED.holder_name, kit_bkoffice_lease.holder_name),
+       last_sync_ok_at = EXCLUDED.last_sync_ok_at,
+       last_sync_de = EXCLUDED.last_sync_de,
+       last_sync_ate = EXCLUDED.last_sync_ate,
+       last_sync_lojas = EXCLUDED.last_sync_lojas,
+       last_sync_venda = EXCLUDED.last_sync_venda,
+       last_sync_produtos = EXCLUDED.last_sync_produtos,
+       last_sync_ok = EXCLUDED.last_sync_ok`,
+    [
+      SLOT,
+      id,
+      name,
+      de || null,
+      ate || null,
+      lojas_ok != null ? Number(lojas_ok) : null,
+      venda_total != null ? Number(venda_total) : null,
+      produtos != null ? Number(produtos) : null,
+      Boolean(ok),
+    ],
+  );
+  return statusLease({ holder_id: id });
+}
+
+/** Status do kit para o portal (JWT). */
+export async function statusKitParaPortal() {
+  const { rows } = await pool.query(`SELECT * FROM kit_bkoffice_lease WHERE slot = $1`, [SLOT]);
+  const row = rows[0] || null;
+  if (!row) {
+    return {
+      ok: true,
+      kit_ativo: false,
+      stale: true,
+      minutos_sem_sync: null,
+      holder_name: null,
+      last_sync_ok_at: null,
+      last_sync_de: null,
+      last_sync_ate: null,
+      last_sync_lojas: null,
+      last_sync_venda: null,
+      aviso: 'Nenhum kit registrou sync ainda.',
+    };
+  }
+  const last = row.last_sync_ok_at ? new Date(row.last_sync_ok_at).getTime() : 0;
+  const minutos = last ? Math.round((Date.now() - last) / 60000) : null;
+  const hora = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Sao_Paulo',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date()),
+  );
+  const horarioComercial = hora >= 8 && hora <= 23;
+  const stale = horarioComercial && (minutos == null || minutos > 15);
+  return {
+    ok: true,
+    kit_ativo: !row.expires_at || new Date(row.expires_at).getTime() > Date.now(),
+    stale,
+    minutos_sem_sync: minutos,
+    holder_id: row.holder_id,
+    holder_name: row.holder_name,
+    last_sync_ok_at: row.last_sync_ok_at ? new Date(row.last_sync_ok_at).toISOString() : null,
+    last_sync_de: row.last_sync_de,
+    last_sync_ate: row.last_sync_ate,
+    last_sync_lojas: row.last_sync_lojas,
+    last_sync_venda: row.last_sync_venda != null ? Number(row.last_sync_venda) : null,
+    last_sync_ok: row.last_sync_ok,
+    aviso: stale
+      ? `Kit BK Office parado há ${minutos ?? '?'} min — vendas/estoque podem estar atrasados.`
+      : null,
+  };
+}

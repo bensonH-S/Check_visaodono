@@ -409,12 +409,18 @@ function PainelVendas({
 }) {
   const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState<EstoqueMetaVendas | null>(null);
+  const [kitAviso, setKitAviso] = useState<string | null>(null);
 
   const carregar = useCallback(async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const m = await api.estoqueMetaVendas(idLoja, { crescimento: 0.1 });
+      const [m, sync] = await Promise.all([
+        api.estoqueMetaVendas(idLoja, { crescimento: 0.1 }),
+        api.estoqueSyncStatus().catch(() => null),
+      ]);
       setMeta(m);
+      const kit = (sync as { kit?: { stale?: boolean; aviso?: string | null } } | null)?.kit;
+      setKitAviso(kit?.stale && kit?.aviso ? kit.aviso : null);
     } catch (e) {
       if (!silencioso) {
         showToast(e instanceof Error ? e.message : 'Erro ao carregar vendas', 'error');
@@ -463,6 +469,18 @@ function PainelVendas({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, overflow: 'auto' }}>
+      {kitAviso ? (
+        <Paper
+          sx={{
+            px: 2,
+            py: 1.25,
+            bgcolor: 'rgba(180, 35, 24, 0.08)',
+            border: '1px solid rgba(180, 35, 24, 0.25)',
+          }}
+        >
+          <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: '#B42318' }}>{kitAviso}</Typography>
+        </Paper>
+      ) : null}
       {meta?.aviso ? (
         <Paper
           sx={{

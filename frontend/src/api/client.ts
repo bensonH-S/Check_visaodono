@@ -3083,6 +3083,14 @@ export interface EstoqueSyncStatus {
     id_loja: number | null;
     iniciado_em: string | null;
   };
+  kit?: {
+    kit_ativo?: boolean;
+    stale?: boolean;
+    minutos_sem_sync?: number | null;
+    holder_name?: string | null;
+    last_sync_ok_at?: string | null;
+    aviso?: string | null;
+  };
   jobs: Array<{
     id_job: number;
     id_loja: number | null;

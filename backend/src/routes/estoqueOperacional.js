@@ -29,6 +29,7 @@ import {
 } from '../services/estoqueCmvReal.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/syncVendas.js';
+import { statusKitParaPortal } from '../services/bkoffice/kitSyncLease.js';
 import { qtdeReceitaParaEstoque } from '../services/fichaReceitaEstoque.js';
 import {
   TURNOS,
@@ -800,12 +801,22 @@ router.post('/vendas/import', permOp, upload.single('arquivo'), async (req, res,
 
 // ── Sync BK Office ─────────────────────────────────────────────────────────
 
-router.get('/sync/status', permOp, async (req, res) => {
-  const status = getBkOfficeStatus();
-  const { rows: jobs } = await pool.query(
-    `SELECT * FROM estoque_sync_jobs ORDER BY criado_em DESC LIMIT 10`,
-  );
-  res.json({ ...status, jobs });
+router.get('/sync/status', permOp, async (req, res, next) => {
+  try {
+    const status = getBkOfficeStatus();
+    const { rows: jobs } = await pool.query(
+      `SELECT * FROM estoque_sync_jobs ORDER BY criado_em DESC LIMIT 10`,
+    );
+    let kit = null;
+    try {
+      kit = await statusKitParaPortal();
+    } catch {
+      kit = null;
+    }
+    res.json({ ...status, jobs, kit });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.post('/sync/vendas', permOp, async (req, res, next) => {

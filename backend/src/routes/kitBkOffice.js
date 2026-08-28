@@ -12,6 +12,7 @@ import {
   adquirirLease,
   liberarLease,
   statusLease,
+  registrarHeartbeat,
   LEASE_TTL_DEFAULT_S,
 } from '../services/bkoffice/kitSyncLease.js';
 import { pool } from '../db.js';
@@ -192,6 +193,26 @@ router.delete('/sync-lease', requireKitToken, async (req, res, next) => {
   try {
     const holder_id = String(req.body?.holder_id || req.query?.holder_id || '').trim();
     res.json(await liberarLease({ holder_id }));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+/** POST /public/kit/sync-heartbeat — kit avisa que sincronizou. */
+router.post('/sync-heartbeat', requireKitToken, async (req, res, next) => {
+  try {
+    const result = await registrarHeartbeat({
+      holder_id: String(req.body?.holder_id || '').trim(),
+      holder_name: String(req.body?.holder_name || '').trim() || null,
+      ok: req.body?.ok !== false,
+      de: req.body?.de || null,
+      ate: req.body?.ate || null,
+      lojas_ok: req.body?.lojas_ok,
+      venda_total: req.body?.venda_total,
+      produtos: req.body?.produtos,
+    });
+    res.json(result);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);

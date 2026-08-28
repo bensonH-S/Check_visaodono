@@ -1,8 +1,13 @@
 /**
  * Worker BK Office — cofre criptografado + sync via HTTPS.
- * Das 8h às 23h: 1 Excel do grupo (todas as lojas) em loop curto.
- * De madrugada: rodízio loja a loja (backfill + ano passado).
- * Log: um arquivo por loja em Logs/lojas/.
+ *
+ * CONTRATO DEFINITIVO:
+ * - Valor = coluna Bruto do Excel "Restaurante e Produto Venda"
+ * - Ao vivo (8h–23h): a cada ~1 min rebaixa SEMPRE os últimos 3 dias (janela rolante)
+ * - Noite: backfill do mês + mesma janela loja a loja
+ * - Reimport aplica DELTA de quantidade no estoque (servidor)
+ * - Lease: 1 PC ativo; standby assume se expirar
+ * - Heartbeat: portal alerta se kit parado > 15 min
  */
 import fs from 'fs';
 import path from 'path';
@@ -16,6 +21,11 @@ const __dirname = path.dirname(__filename);
 
 /** TTL do lease no servidor (segundos). Standby assume se o ativo sumir. */
 const LEASE_TTL_S = 300;
+/**
+ * Janela rolante DEFINITIVA: todo ciclo ao vivo rebaixa estes dias.
+ * Dia nunca “congela” enquanto estiver na janela — amanhã D-2 ainda é refeito.
+ */
+const ROLLING_DIAS = 3;
 
 function kitRoot() {
   if (process.pkg) return path.dirname(process.execPath);
@@ -597,48 +607,98 @@ function runSyncGrupo(env, ini, fim) {
   });
 }
 
+function janelaRolante(hoje = hojeBR()) {
+  const ini = addDays(hoje, -(ROLLING_DIAS - 1));
+  const dias = [];
+  for (let d = ini; d <= hoje; d = addDays(d, 1)) dias.push(d);
+  return { ini, fim: hoje, dias };
+}
+
+/** Avisa a API que o kit sincronizou (portal detecta kit parado). */
+async function reportarHeartbeat(env, payload) {
+  try {
+    const apiBase = String(env.API_BASE || '').replace(/\/$/, '');
+    const token = env.BKOFFICE_KIT_TOKEN;
+    const holder_id = kitInstanceId(env);
+    const res = await fetch(`${apiBase}/public/kit/sync-heartbeat`, {
+      method: 'POST',
+      headers: {
+        'X-Meridian-Kit-Token': token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        holder_id,
+        holder_name: String(env.KIT_INSTANCE_NAME || os.hostname() || holder_id).slice(0, 120),
+        ...payload,
+      }),
+    });
+    if (res.status === 404) return;
+    if (!res.ok) logServico(`aviso heartbeat HTTP ${res.status}`);
+  } catch (e) {
+    logServico(`aviso heartbeat: ${e.message || e}`);
+  }
+}
+
+/**
+ * Ao vivo: SEMPRE rebaixa a janela rolante (D-2→hoje) num Excel só.
+ * Nunca pula dia recente por synced-days — evita furo no dia seguinte.
+ */
 async function syncAoVivo(env, lojas) {
-  const hoje = hojeBR();
-  const ontem = addDays(hoje, -1);
-  // Um Excel ontem+hoje: se o kit ficou parado, MTD/estoque recuperam no próximo ciclo.
-  logServico(`ao vivo grupo ${ontem}→${hoje} (ontem+hoje)`);
-  const r = await runSyncGrupo(env, ontem, hoje);
-  writeStatus({ ultimo_sync: r, modo: 'ao_vivo' });
+  const { ini, fim, dias } = janelaRolante();
+  logServico(`ao vivo grupo ${ini}→${fim} (janela ${ROLLING_DIAS}d, sempre rebaixa)`);
+  const r = await runSyncGrupo(env, ini, fim);
+  writeStatus({ ultimo_sync: { ...r, janela: `${ini}→${fim}` }, modo: 'ao_vivo' });
   const ids = Array.isArray(r.ids) ? r.ids.map(Number) : [];
   const minLojas = Math.min(2, lojas.length);
   if (r.ok && Number(r.lojas_ok || ids.length || 0) >= minLojas) {
     const marcar = ids.length ? lojas.filter((l) => ids.includes(Number(l.id_loja))) : lojas;
     for (const l of marcar) {
-      markSynced(l.id_loja, ontem);
-      markSynced(l.id_loja, hoje);
+      for (const d of dias) markSynced(l.id_loja, d);
     }
+    await reportarHeartbeat(env, {
+      ok: true,
+      de: ini,
+      ate: fim,
+      lojas_ok: Number(r.lojas_ok || marcar.length),
+      venda_total: r.venda_total ?? null,
+      produtos: r.linhas ?? null,
+    });
     return true;
   }
-  logServico('grupo falhou ou veio 1 loja so — fallback ontem+hoje, loja a loja');
+  logServico('grupo falhou — fallback loja a loja na janela rolante');
   let ok = true;
   for (const loja of lojas) {
-    const sOntem = await runSync(env, loja, ontem, ontem);
-    writeStatus({ ultimo_sync: sOntem }, loja);
-    if (sOntem.ok) markSynced(loja.id_loja, ontem);
-    else ok = false;
-    const s = await runSync(env, loja, hoje, hoje);
-    writeStatus({ ultimo_sync: s }, loja);
-    if (s.ok) markSynced(loja.id_loja, hoje);
-    else ok = false;
+    for (const d of dias) {
+      const s = await runSync(env, loja, d, d);
+      writeStatus({ ultimo_sync: s }, loja);
+      if (s.ok) markSynced(loja.id_loja, d);
+      else ok = false;
+    }
   }
+  await reportarHeartbeat(env, {
+    ok,
+    de: ini,
+    ate: fim,
+    lojas_ok: ok ? lojas.length : 0,
+    venda_total: null,
+    produtos: null,
+  });
   return ok;
 }
 
+/**
+ * Noite: backfill dias ANTES da janela; janela sempre rebaixada loja a loja.
+ */
 async function syncIncremental(env, loja, { forceBackfill = false } = {}) {
   const idLoja = loja.id_loja;
   const hoje = hojeBR();
   const iniMes = `${hoje.slice(0, 8)}01`;
+  const { ini: iniJanela, dias: diasJanela } = janelaRolante(hoje);
   const state = loadSynced(idLoja);
   const pendentes = [];
-  if (state.novo && !forceBackfill) {
-    logLoja(loja, 'INFO', `primeiro sync desta loja — so o dia de hoje (${hoje}), sem backfill do mes`);
-  } else {
-    for (let d = iniMes; d < hoje; d = addDays(d, 1)) {
+
+  if (forceBackfill || !state.novo) {
+    for (let d = iniMes; d < iniJanela; d = addDays(d, 1)) {
       if (!state.dias.includes(d)) pendentes.push(d);
     }
   }
@@ -656,37 +716,29 @@ async function syncIncremental(env, loja, { forceBackfill = false } = {}) {
   );
 
   if (pendentes.length) {
-    logLoja(loja, 'INFO', `faltam ${pendentes.length} dia(s) do mes: ${pendentes.join(', ')}`);
+    logLoja(loja, 'INFO', `backfill ${pendentes.length} dia(s) antes da janela: ${pendentes.join(', ')}`);
     for (const d of pendentes) {
       const r = await runSync(env, loja, d, d);
       writeStatus({ ultimo_sync: r }, loja);
       if (r.ok) markSynced(idLoja, d);
       else return false;
     }
-  } else if (!state.novo) {
-    logLoja(loja, 'INFO', `mes OK ate ontem — atualiza so hoje (${hoje})`);
   }
 
-  const rHoje = await runSync(env, loja, hoje, hoje);
-  writeStatus({ ultimo_sync: rHoje }, loja);
-  if (rHoje.ok) markSynced(idLoja, hoje);
-
-  // Dia operacional fecha tarde: até 14h rebaixa ontem para não congelar parcial.
-  const ontem = addDays(hoje, -1);
-  if (rHoje.ok && horaSP() < 14 && ontem >= iniMes) {
-    logLoja(loja, 'INFO', `rebaixa ontem (${ontem}) — loja pode ter fechado depois do último sync`);
-    const rOntem = await runSync(env, loja, ontem, ontem);
-    writeStatus({ ultimo_sync: rOntem }, loja);
-    if (rOntem.ok) markSynced(idLoja, ontem);
+  logLoja(loja, 'INFO', `janela rolante ${diasJanela[0]}→${hoje}`);
+  for (const d of diasJanela) {
+    const r = await runSync(env, loja, d, d);
+    writeStatus({ ultimo_sync: r }, loja);
+    if (r.ok) markSynced(idLoja, d);
+    else return false;
   }
 
-  // Meta = ano passado + 10%. Um Excel do mesmo período no ano anterior, 1x por mês.
   const lyIni = mesmoDiaAnoPassado(iniMes);
   const lyFim = mesmoDiaAnoPassado(hoje);
   const lyMark = `ly:${lyIni.slice(0, 7)}`;
   const lyTry = `ly-try:${hoje}`;
   const stLy = loadSynced(idLoja);
-  if (rHoje.ok && !stLy.dias.includes(lyMark) && !stLy.dias.includes(lyTry)) {
+  if (!stLy.dias.includes(lyMark) && !stLy.dias.includes(lyTry)) {
     markSynced(idLoja, lyTry);
     logLoja(loja, 'INFO', `ano passado para meta  ${lyIni}→${lyFim}`);
     const rLy = await runSync(env, loja, lyIni, lyFim);
@@ -695,7 +747,41 @@ async function syncIncremental(env, loja, { forceBackfill = false } = {}) {
     else logLoja(loja, 'ERRO', `ano passado falhou — tenta de novo amanhã  ${rLy.erro || ''}`);
   }
 
-  return rHoje.ok;
+  return true;
+}
+
+/** Rebaixa 01→hoje, 1 Excel/dia. worker --rebaixar-mes --sem-lease */
+async function syncRebaixarMes(env, lojas) {
+  const hoje = hojeBR();
+  const ini = `${hoje.slice(0, 8)}01`;
+  logServico(`REBAIXAR MÊS ${ini}→${hoje} — 1 Excel/dia, todas as lojas`);
+  let ok = true;
+  for (let d = ini; d <= hoje; d = addDays(d, 1)) {
+    logServico(`rebaixar dia ${d}`);
+    const r = await runSyncGrupo(env, d, d);
+    writeStatus({ ultimo_sync: { ...r, dia: d }, modo: 'rebaixar_mes' });
+    if (r.ok && Number(r.lojas_ok || 0) >= Math.min(2, lojas.length)) {
+      const ids = Array.isArray(r.ids) ? r.ids.map(Number) : [];
+      const marcar = ids.length ? lojas.filter((l) => ids.includes(Number(l.id_loja))) : lojas;
+      for (const l of marcar) markSynced(l.id_loja, d);
+    } else {
+      logServico(`dia ${d} grupo fraco — fallback loja a loja`);
+      for (const loja of lojas) {
+        const s = await runSync(env, loja, d, d);
+        if (s.ok) markSynced(loja.id_loja, d);
+        else ok = false;
+      }
+    }
+  }
+  await reportarHeartbeat(env, {
+    ok,
+    de: ini,
+    ate: hoje,
+    lojas_ok: lojas.length,
+    venda_total: null,
+    produtos: null,
+  });
+  return ok;
 }
 
 async function main() {
@@ -759,12 +845,13 @@ async function main() {
   }
 
   const once = process.argv.includes('--once') || process.argv.includes('--uma-vez');
+  const rebaixarMes = process.argv.includes('--rebaixar-mes');
   const forceBackfill = process.argv.includes('--backfill') || secrets.BKOFFICE_FORCE_BACKFILL === '1';
   let rrIndex = loadRrIndex();
   const meuId = kitInstanceId(secrets);
 
   logServico(
-    `ativo lojas=${lojas.length} kit=${meuId} ao_vivo=${Math.round(liveMs / 1000)}s (8h-23h, 1 Excel do grupo) noite=${Math.round(nightMs / 1000)}s lease=${LEASE_TTL_S}s`,
+    `ativo lojas=${lojas.length} kit=${meuId} ao_vivo=${Math.round(liveMs / 1000)}s janela=${ROLLING_DIAS}d noite=${Math.round(nightMs / 1000)}s lease=${LEASE_TTL_S}s`,
   );
 
   const liberarAoSair = async () => {
@@ -826,8 +913,16 @@ async function main() {
           }
 
           const hoje = hojeBR();
+          if (rebaixarMes) {
+            logServico('modo REBAIXAR MÊS — 01→hoje, todas as lojas');
+            ok = await syncRebaixarMes(secrets, lojas);
+            writeStatus({ estado: ok ? 'parado' : 'erro' });
+            logServico(ok ? 'REBAIXAR MÊS OK' : 'REBAIXAR MÊS FALHOU');
+            await tentarLease(secrets, { liberar: true });
+            process.exit(ok ? 0 : 1);
+          }
           if (once) {
-            logServico('modo teste — grupo de hoje (todas as lojas)');
+            logServico(`modo teste — janela rolante ${ROLLING_DIAS}d`);
             ok = await syncAoVivo(secrets, lojas);
             writeStatus({ estado: ok ? 'parado' : 'erro' });
             logServico(ok ? 'TESTE OK' : 'TESTE FALHOU');
