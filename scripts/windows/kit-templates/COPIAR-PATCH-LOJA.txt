@@ -22,10 +22,14 @@ Depois:
   3. Log: Logs\_servico.log
   4. INSTALAR.bat (admin)
 
-Das 8h as 23h o kit baixa 1 Excel do setor (todas as lojas)
+Das 8h as 23h o kit baixa 1 Excel do setor (ontem+hoje)
 e grava todas de uma vez. Intervalo minimo 1 min apos o download.
+Se o kit ficou parado, o proximo ciclo recupera ontem e hoje.
 Nao e ILR ao vivo, mas todas as lojas atualizam juntas a cada
 ~1-3 min (download + espera de 60s).
+
+Reimport aplica DELTA de quantidade no estoque (nao congela qtde).
+Valor = coluna Bruto do Excel.
 
 Failover (2 PCs): so 1 kit sincroniza por vez (lease ~5 min).
 Se o ativo parar, o outro assume em ate ~5 min.

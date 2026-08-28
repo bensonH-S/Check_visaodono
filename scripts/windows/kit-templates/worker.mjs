@@ -599,18 +599,28 @@ function runSyncGrupo(env, ini, fim) {
 
 async function syncAoVivo(env, lojas) {
   const hoje = hojeBR();
-  const r = await runSyncGrupo(env, hoje, hoje);
+  const ontem = addDays(hoje, -1);
+  // Um Excel ontem+hoje: se o kit ficou parado, MTD/estoque recuperam no próximo ciclo.
+  logServico(`ao vivo grupo ${ontem}→${hoje} (ontem+hoje)`);
+  const r = await runSyncGrupo(env, ontem, hoje);
   writeStatus({ ultimo_sync: r, modo: 'ao_vivo' });
   const ids = Array.isArray(r.ids) ? r.ids.map(Number) : [];
   const minLojas = Math.min(2, lojas.length);
   if (r.ok && Number(r.lojas_ok || ids.length || 0) >= minLojas) {
     const marcar = ids.length ? lojas.filter((l) => ids.includes(Number(l.id_loja))) : lojas;
-    for (const l of marcar) markSynced(l.id_loja, hoje);
+    for (const l of marcar) {
+      markSynced(l.id_loja, ontem);
+      markSynced(l.id_loja, hoje);
+    }
     return true;
   }
-  logServico('grupo falhou ou veio 1 loja so — fallback so hoje, loja a loja, sem espera');
+  logServico('grupo falhou ou veio 1 loja so — fallback ontem+hoje, loja a loja');
   let ok = true;
   for (const loja of lojas) {
+    const sOntem = await runSync(env, loja, ontem, ontem);
+    writeStatus({ ultimo_sync: sOntem }, loja);
+    if (sOntem.ok) markSynced(loja.id_loja, ontem);
+    else ok = false;
     const s = await runSync(env, loja, hoje, hoje);
     writeStatus({ ultimo_sync: s }, loja);
     if (s.ok) markSynced(loja.id_loja, hoje);

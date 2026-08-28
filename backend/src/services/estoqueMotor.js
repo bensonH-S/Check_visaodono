@@ -1435,8 +1435,7 @@ export async function importarVendasLoja(
       );
       const idVenda = vend[0].id_venda;
 
-      // Reimport: limpa pendentes; linhas já processadas atualizam valor (CMV)
-      // sem apagar a baixa de estoque já feita.
+      // Reimport: remove só pendentes órfãos; processados recebem delta de qtde + Bruto novo.
       await client.query(
         `DELETE FROM estoque_venda_itens
          WHERE id_venda = $1 AND processado = FALSE`,
@@ -1452,20 +1451,83 @@ export async function importarVendasLoja(
         if (!codigo || qtde <= 0) continue;
 
         const pv = await upsertProdutoVenda(client, codigo, descricao, id_loja);
-        await client.query(
-          `INSERT INTO estoque_venda_itens
-             (id_venda, codigo, descricao, qtde, venda_liquida, id_produto, processado, sem_ficha)
-           VALUES ($1,$2,$3,$4,$5,$6,FALSE,FALSE)
-           ON CONFLICT (id_venda, codigo) DO UPDATE
-             SET descricao = EXCLUDED.descricao,
-                 qtde = CASE
-                   WHEN estoque_venda_itens.processado THEN estoque_venda_itens.qtde
-                   ELSE EXCLUDED.qtde
-                 END,
-                 venda_liquida = EXCLUDED.venda_liquida,
-                 id_produto = COALESCE(EXCLUDED.id_produto, estoque_venda_itens.id_produto)`,
-          [idVenda, codigo, descricao, qtde, venda_liquida, pv?.id_produto || null],
+        const { rows: existentes } = await client.query(
+          `SELECT id_item, qtde, processado
+           FROM estoque_venda_itens
+           WHERE id_venda = $1 AND codigo = $2
+           LIMIT 1`,
+          [idVenda, codigo],
         );
+
+        if (!existentes.length) {
+          await client.query(
+            `INSERT INTO estoque_venda_itens
+               (id_venda, codigo, descricao, qtde, venda_liquida, id_produto, processado, sem_ficha)
+             VALUES ($1,$2,$3,$4,$5,$6,FALSE,FALSE)`,
+            [idVenda, codigo, descricao, qtde, venda_liquida, pv?.id_produto || null],
+          );
+          continue;
+        }
+
+        const ant = existentes[0];
+        const qtdeAnt = num(ant.qtde);
+        if (ant.processado) {
+          const deltaQ = Math.round((qtde - qtdeAnt) * 10000) / 10000;
+          if (Math.abs(deltaQ) >= 0.0001) {
+            const baixa = await baixarPorProdutoVenda(client, {
+              id_loja,
+              codigo_venda: codigo,
+              quantidade: deltaQ,
+              tipo: 'venda',
+              referencia_tipo: 'estoque_venda_item',
+              referencia_id: ant.id_item,
+              observacao: `Reimport venda #${idVenda} ${data_venda} — ${codigo} delta ${deltaQ}`,
+              criado_por,
+            });
+            if (baixa.sem_ficha) {
+              await client.query(
+                `UPDATE estoque_venda_itens
+                 SET descricao = $1, venda_liquida = $2, id_produto = COALESCE($3, id_produto),
+                     sem_ficha = TRUE, erro = 'Sem ficha técnica'
+                 WHERE id_item = $4`,
+                [descricao, venda_liquida, pv?.id_produto || null, ant.id_item],
+              );
+              continue;
+            }
+            if (!baixa.ok && !baixa.parcial) {
+              await client.query(
+                `UPDATE estoque_venda_itens
+                 SET descricao = $1, venda_liquida = $2, id_produto = COALESCE($3, id_produto),
+                     erro = $4
+                 WHERE id_item = $5`,
+                [
+                  descricao,
+                  venda_liquida,
+                  pv?.id_produto || null,
+                  (baixa.erros || []).join('; ') || 'Falha no delta de estoque',
+                  ant.id_item,
+                ],
+              );
+              continue;
+            }
+          }
+          await client.query(
+            `UPDATE estoque_venda_itens
+             SET descricao = $1, qtde = $2, venda_liquida = $3,
+                 id_produto = COALESCE($4, id_produto),
+                 sem_ficha = FALSE, erro = NULL
+             WHERE id_item = $5`,
+            [descricao, qtde, venda_liquida, pv?.id_produto || null, ant.id_item],
+          );
+        } else {
+          await client.query(
+            `UPDATE estoque_venda_itens
+             SET descricao = $1, qtde = $2, venda_liquida = $3,
+                 id_produto = COALESCE($4, id_produto)
+             WHERE id_item = $5`,
+            [descricao, qtde, venda_liquida, pv?.id_produto || null, ant.id_item],
+          );
+        }
       }
 
       let proc = null;
