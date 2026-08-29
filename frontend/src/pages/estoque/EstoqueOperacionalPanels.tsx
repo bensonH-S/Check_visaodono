@@ -49,6 +49,7 @@ import {
   type EstoquePedidoItem,
   type EstoquePedidoSugerido,
   type EstoqueSaldoItem,
+  type EstoqueSyncLojaStatus,
   type FichaTecnicaDetalhe,
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
@@ -110,14 +111,8 @@ function textoFrescorVenda(d: {
   ultima_data_venda?: string | null;
 } | null | undefined) {
   const hora = fmtHoraBR(d?.ultimo_sync_em);
-  if (d?.hoje_ausente) {
-    return `hoje não entrou · último ${fmtDataBR(d.ultima_data_venda)}`;
-  }
-  if (d?.hoje_parcial) {
-    return hora ? `hoje incompleto · kit ${hora}` : 'hoje incompleto · kit atrasado';
-  }
   const dias = d?.dias_venda ?? 0;
-  return hora ? `${dias} dias · kit ${hora}` : `${dias} dias · BK Office`;
+  return hora ? `sync ${hora}` : `${dias} dias · BK Office`;
 }
 
 function hojeISO() {
@@ -410,17 +405,20 @@ function PainelVendas({
   const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState<EstoqueMetaVendas | null>(null);
   const [kitAviso, setKitAviso] = useState<string | null>(null);
+  const [syncLojas, setSyncLojas] = useState<EstoqueSyncLojaStatus[]>([]);
 
   const carregar = useCallback(async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const [m, sync] = await Promise.all([
+      const [m, sync, painel] = await Promise.all([
         api.estoqueMetaVendas(idLoja, { crescimento: 0.1 }),
         api.estoqueSyncStatus().catch(() => null),
+        api.estoqueSyncLojas().catch(() => null),
       ]);
       setMeta(m);
       const kit = (sync as { kit?: { stale?: boolean; aviso?: string | null } } | null)?.kit;
       setKitAviso(kit?.stale && kit?.aviso ? kit.aviso : null);
+      setSyncLojas(painel?.lojas || []);
     } catch (e) {
       if (!silencioso) {
         showToast(e instanceof Error ? e.message : 'Erro ao carregar vendas', 'error');
@@ -455,6 +453,13 @@ function PainelVendas({
     return [...lista].reverse().slice(0, 14);
   }, [meta?.dias]);
 
+  const resumoSync = useMemo(() => {
+    const hojeN = syncLojas.filter((l) => l.status === 'hoje').length;
+    const ontemN = syncLojas.filter((l) => l.status === 'ontem').length;
+    const atrasadoN = syncLojas.filter((l) => l.status === 'atrasado' || l.status === 'sem_sync').length;
+    return { hoje: hojeN, ontem: ontemN, atrasado: atrasadoN, total: syncLojas.length };
+  }, [syncLojas]);
+
   if (loading && !meta) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -464,8 +469,7 @@ function PainelVendas({
   }
 
   const vendaHoje = meta?.venda_hoje ?? 0;
-  const corHoje =
-    meta?.hoje_ausente || meta?.hoje_parcial ? colors.orange : colors.textPrimary;
+  const corHoje = colors.textPrimary;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, overflow: 'auto' }}>
@@ -479,18 +483,6 @@ function PainelVendas({
           }}
         >
           <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: '#B42318' }}>{kitAviso}</Typography>
-        </Paper>
-      ) : null}
-      {meta?.aviso ? (
-        <Paper
-          sx={{
-            px: 2,
-            py: 1.25,
-            bgcolor: meta.hoje_ausente ? 'rgba(180, 35, 24, 0.06)' : 'rgba(232, 82, 10, 0.08)',
-            border: `1px solid ${meta.hoje_ausente ? 'rgba(180, 35, 24, 0.2)' : 'rgba(232, 82, 10, 0.25)'}`,
-          }}
-        >
-          <Typography sx={{ fontSize: '0.84rem', color: colors.textPrimary }}>{meta.aviso}</Typography>
         </Paper>
       ) : null}
 
@@ -562,6 +554,92 @@ function PainelVendas({
           ))}
         </Box>
       </Box>
+
+      {syncLojas.length ? (
+        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden' }}>
+          <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: colors.navy }}>
+              Sync por loja (BK Office)
+            </Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, mt: 0.25 }}>
+              {resumoSync.hoje} com hoje · {resumoSync.ontem} até ontem · {resumoSync.atrasado} atrasada
+              {resumoSync.total ? ` · ${resumoSync.total} lojas` : ''} · Bruto do mês
+            </Typography>
+          </Box>
+          <TableContainer sx={{ maxHeight: 320 }}>
+            <Table size="small" stickyHeader sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>BKN</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Loja</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Último dia</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Último sync</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    Mês
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    Hoje
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {syncLojas.map((l) => {
+                  const destaque = l.id_loja === idLoja;
+                  const corChip =
+                    l.status === 'hoje'
+                      ? { bg: 'rgba(18, 120, 70, 0.12)', fg: '#127846' }
+                      : l.status === 'ontem'
+                        ? { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' }
+                        : { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' };
+                  return (
+                    <TableRow
+                      key={l.id_loja}
+                      hover
+                      sx={destaque ? { bgcolor: 'rgba(15, 55, 95, 0.04)' } : undefined}
+                    >
+                      <TableCell>
+                        <Chip
+                          label={l.status_label}
+                          size="small"
+                          sx={{
+                            height: 22,
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            bgcolor: corChip.bg,
+                            color: corChip.fg,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: destaque ? 700 : 400 }}>{l.bk_number || '—'}</TableCell>
+                      <TableCell sx={{ maxWidth: 220 }}>
+                        <Typography
+                          sx={{ fontSize: '0.8rem', fontWeight: destaque ? 700 : 500 }}
+                          noWrap
+                          title={l.name}
+                        >
+                          {l.name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{fmtDataBR(l.ultima_data_venda) || '—'}</TableCell>
+                      <TableCell sx={{ color: colors.textMuted, whiteSpace: 'nowrap' }}>
+                        {fmtHoraBR(l.ultimo_sync_em) || '—'}
+                        {l.minutos_sem_sync != null && l.minutos_sem_sync > 15 ? (
+                          <Typography component="span" sx={{ fontSize: '0.68rem', color: '#B42318', ml: 0.75 }}>
+                            ({l.minutos_sem_sync} min)
+                          </Typography>
+                        ) : null}
+                      </TableCell>
+                      <TableCell align="right">{fmtMoeda(l.venda_mes)}</TableCell>
+                      <TableCell align="right">{fmtMoeda(l.venda_hoje)}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      ) : null}
 
       <Box
         sx={{
@@ -1520,7 +1598,7 @@ function PainelSaldoKardex({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
       <Typography sx={{ fontSize: '0.8rem', color: colors.textMuted }}>
-        Só os insumos da diária. O saldo cai quando a venda do kit explode a ficha.
+        Só os insumos da diária. O saldo cai quando a venda do sync explode a ficha.
       </Typography>
       <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>

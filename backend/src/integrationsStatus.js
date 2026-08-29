@@ -237,19 +237,25 @@ async function statusBkOffice() {
     const st = getBkOfficeStatus();
     const sch = st.scheduler;
     let detail = 'Configurada';
+    const bright =
+      process.env.BKOFFICE_BRIGHTDATA === '1' ||
+      Boolean(String(process.env.BRIGHTDATA_PROXY_PASSWORD || '').trim());
+    const proxyOk = Boolean(st.proxy && st.proxy !== 'erro_config') || bright;
     if (sch?.ativo) {
       const seg = Math.round((sch.intervalo_ms || 0) / 1000);
-      const proxyOk = Boolean(
-        (process.env.BKOFFICE_PROXY || process.env.HTTPS_PROXY || '').trim(),
-      );
+      const n = (sch.id_lojas || []).length;
       const base = st.job_rodando
-        ? `Servidor ativo — sync em andamento (a cada ${seg}s, loja ${sch.id_loja})`
-        : `Servidor ativo — a cada ${seg}s (loja ${sch.id_loja} Terraço)`;
-      detail = proxyOk ? `${base} · proxy OK` : `${base} · SEM proxy (risco 403 Akamai)`;
+        ? `VPS ativo — sync em andamento (a cada ${seg}s${n ? `, ${n} lojas` : ''})`
+        : `VPS ativo — a cada ${seg}s · todas as lojas${n ? ` (${n})` : ''}`;
+      detail = proxyOk
+        ? `${base} · Bright Data/proxy OK`
+        : `${base} · SEM proxy BR (risco 403)`;
     } else if (st.server_sync) {
-      detail = 'Servidor liberado — defina BKOFFICE_SYNC_CRON_MS>=60000 (+ proxy BR se fora do Brasil)';
+      detail =
+        'VPS liberado — defina BKOFFICE_SYNC_CRON_MS>=60000 + Bright Data (BRIGHTDATA_PROXY_PASSWORD)';
     } else {
-      detail = 'PC gerência — sync no Windows BR (BKOFFICE_SERVER_SYNC=0 no VPS)';
+      detail =
+        'Sync no VPS desligado (BKOFFICE_SERVER_SYNC≠1). Kit PC gerência é legado/opcional.';
     }
     return {
       id: 'bkoffice',

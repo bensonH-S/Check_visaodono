@@ -1,8 +1,5 @@
 /**
- * LEGADO — Kit PC gerência (HTTPS).
- * Desligado por padrão: só monta com BKOFFICE_KIT_ENABLED=1.
- * Arquivo espelho + docs: legacy/kit-bkoffice-gerencia/
- *
+ * Endpoints do kit PC gerência (HTTPS) — sem JWT de usuário.
  * Auth: header X-Meridian-Kit-Token === BKOFFICE_KIT_TOKEN
  */
 import { Router } from 'express';

@@ -1,7 +1,5 @@
 /**
- * LEGADO — lease ativo/passivo do kit PC gerência.
- * Só usado se BKOFFICE_KIT_ENABLED=1.
- * Docs: legacy/kit-bkoffice-gerencia/README.md
+ * Lease ativo/passivo: só um kit PC sincroniza; o outro assume se o lease expirar.
  */
 import { pool } from '../../db.js';
 

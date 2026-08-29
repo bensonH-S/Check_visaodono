@@ -14,6 +14,7 @@ import {
   calcularCmvTeorico,
   calcularPedidoSugerido,
   calcularMetaVendas,
+  listarStatusSyncVendasLojas,
   atualizarCustoInsumo,
 } from '../services/estoqueMotor.js';
 import {
@@ -808,12 +809,32 @@ router.get('/sync/status', permOp, async (req, res, next) => {
       `SELECT * FROM estoque_sync_jobs ORDER BY criado_em DESC LIMIT 10`,
     );
     let kit = null;
-    try {
-      kit = await statusKitParaPortal();
-    } catch {
-      kit = null;
+    const kitEnabled =
+      process.env.BKOFFICE_KIT_ENABLED === '1' ||
+      process.env.BKOFFICE_KIT_ENABLED === 'true';
+    if (kitEnabled) {
+      try {
+        kit = await statusKitParaPortal();
+      } catch {
+        kit = null;
+      }
     }
     res.json({ ...status, jobs, kit });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Status de sync BK Office por loja (último dia + bruto do mês). */
+router.get('/sync/lojas', permOp, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const result = await listarStatusSyncVendasLojas(ids);
+    res.json(result);
   } catch (e) {
     next(e);
   }

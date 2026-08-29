@@ -716,13 +716,7 @@ export async function calcularMetaVendas(idLoja, { crescimento = 0.1 } = {}) {
     itens_dia_tipico: frescor.itens_dia_tipico,
     hoje_ausente: frescor.hoje_ausente,
     hoje_parcial: frescor.hoje_parcial,
-    aviso: temLy
-      ? frescor.hoje_ausente
-        ? `Venda de hoje ainda não entrou. O kit no PC atualiza loja a loja — último dia no sistema: ${frescor.ultima_data_venda || '—'}.`
-        : frescor.hoje_parcial
-          ? `Venda de hoje ainda está pela metade (${frescor.itens_hoje} itens vs ~${frescor.itens_dia_tipico} num dia típico). O ILR (Bruto) vai na frente até o kit rebaixar esta loja.`
-          : null
-      : `Sem venda de ${meses[ms]}/${yLy} nesta loja. A meta (ano passado + ${round1((Number.isFinite(cres) ? cres : 0) * 100)}%) entra quando o kit baixar esse período.`,
+    aviso: null,
     break_custo: round2(breakInfo.custo_break),
     break_qtd: breakInfo.qtd_breaks,
     break_pct_venda: vendaMtd > 0 && num(breakInfo.custo_break) > 0
@@ -735,6 +729,89 @@ export async function calcularMetaVendas(idLoja, { crescimento = 0.1 } = {}) {
       qtde: Math.round(num(r.qtde) * 1000) / 1000,
     })),
     dias,
+  };
+}
+
+/**
+ * Painel: sync BK Office por loja (último dia, horário, bruto do mês).
+ * @param {number[]|null} idsPermitidos — null = todas com BKN
+ */
+export async function listarStatusSyncVendasLojas(idsPermitidos = null) {
+  const hoje = hojeSpISO();
+  const ontem = (() => {
+    const [y, m, d] = hoje.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() - 1);
+    return dt.toISOString().slice(0, 10);
+  })();
+  const inicioMes = `${hoje.slice(0, 8)}01`;
+  const ids =
+    Array.isArray(idsPermitidos) && idsPermitidos.length
+      ? idsPermitidos.map(Number).filter((n) => n > 0)
+      : null;
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      l.id_loja,
+      l.bk_number,
+      l.name,
+      MAX(v.data_venda)::text AS ultima_data_venda,
+      MAX(COALESCE(v.processado_em, v.criado_em)) AS ultimo_sync_em,
+      COALESCE(SUM(vi.venda_liquida) FILTER (
+        WHERE v.data_venda >= $1::date AND v.data_venda <= $2::date
+      ), 0)::float AS venda_mes,
+      COALESCE(SUM(vi.venda_liquida) FILTER (
+        WHERE v.data_venda = $2::date
+      ), 0)::float AS venda_hoje
+    FROM lojas l
+    LEFT JOIN estoque_vendas v
+      ON v.id_loja = l.id_loja AND v.origem = 'bkoffice'
+    LEFT JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
+    WHERE l.bk_number IS NOT NULL AND trim(l.bk_number) <> ''
+      AND ($3::int[] IS NULL OR l.id_loja = ANY($3::int[]))
+    GROUP BY l.id_loja, l.bk_number, l.name
+    ORDER BY l.name
+    `,
+    [inicioMes, hoje, ids],
+  );
+
+  const agora = Date.now();
+  return {
+    hoje,
+    inicio_mes: inicioMes,
+    lojas: rows.map((r) => {
+      const ultima = String(r.ultima_data_venda || '').slice(0, 10) || null;
+      const syncEm = r.ultimo_sync_em ? new Date(r.ultimo_sync_em) : null;
+      const minSemSync =
+        syncEm && !Number.isNaN(syncEm.getTime())
+          ? Math.max(0, Math.round((agora - syncEm.getTime()) / 60000))
+          : null;
+      let status = 'sem_sync';
+      let status_label = 'Sem sync';
+      if (ultima === hoje) {
+        status = 'hoje';
+        status_label = 'Hoje ok';
+      } else if (ultima === ontem) {
+        status = 'ontem';
+        status_label = 'Até ontem';
+      } else if (ultima) {
+        status = 'atrasado';
+        status_label = 'Atrasado';
+      }
+      return {
+        id_loja: Number(r.id_loja),
+        bk_number: String(r.bk_number || '').replace(/\D/g, '') || null,
+        name: r.name,
+        ultima_data_venda: ultima,
+        ultimo_sync_em: syncEm && !Number.isNaN(syncEm.getTime()) ? syncEm.toISOString() : null,
+        minutos_sem_sync: minSemSync,
+        venda_mes: round2(r.venda_mes),
+        venda_hoje: round2(r.venda_hoje),
+        status,
+        status_label,
+      };
+    }),
   };
 }
 

@@ -1,13 +1,11 @@
 /**
- * Sync BK Office → vendas no banco (pensado para rodar NO BRASIL).
- * Servidor fora do BR leva 403 Akamai; use este CLI no PC Windows local.
+ * Sync BK Office → vendas (produção: VPS + Bright Data BR).
  *
- *   npm run estoque:sync-bkoffice -- --loja=21 --db=prod
- *   npm run estoque:sync-bkoffice -- --loja=21 --db=dev --dias=0
- *   npm run estoque:sync-bkoffice -- --loja=21 --db=prod --data=2026-08-06
+ *   npm run estoque:sync-bkoffice -- --loja=21 --db=prod --dias=0
+ *   npm run estoque:sync-bkoffice -- --loja=21 --db=prod --data=2026-08-28
  *
- * Credenciais: BKOFFICE_USER / BKOFFICE_PASS no backend/.env
- * No Windows local: BKOFFICE_USE_CHROME=1 e BKOFFICE_HEADLESS=0 se precisar.
+ * Env: BKOFFICE_USER/PASS, BKOFFICE_BRIGHTDATA=1, BRIGHTDATA_PROXY_PASSWORD
+ * No VPS: BKOFFICE_USE_CHROME=0 (Chromium Playwright). Windows local: USE_CHROME=1 ok.
  */
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,6 +23,8 @@ const getArg = (k, def) => {
 };
 
 const idLoja = Number(getArg('--loja', '21'));
+const todas = args.includes('--todas') || getArg('--todas', '') === '1';
+const termoArg = getArg('--termo', '');
 const dias = Number(getArg('--dias', '0')); // 0 = só hoje
 const dataArg = getArg('--data', '');
 const iniArg = getArg('--inicio', '');
@@ -64,7 +64,8 @@ if (ini > fim) {
 }
 
 console.log({
-  loja: idLoja,
+  modo: todas ? 'todas' : 'loja',
+  loja: todas ? 'all' : idLoja,
   db: process.env.DB_NAME,
   data_inicio: ini,
   data_fim: fim,
@@ -78,17 +79,28 @@ if (!process.env.BKOFFICE_USER || !process.env.BKOFFICE_PASS) {
   process.exit(1);
 }
 
-const { syncVendasBkOffice } = await import('../src/services/bkoffice/syncVendas.js');
+const { syncVendasBkOffice, syncVendasBkOfficeTodas } = await import(
+  '../src/services/bkoffice/syncVendas.js'
+);
 
 try {
-  const result = await syncVendasBkOffice({
-    id_loja: idLoja,
-    data_inicio: ini,
-    data_fim: fim,
-    processar: true,
-  });
+  const result = todas
+    ? await syncVendasBkOfficeTodas({
+        data_inicio: ini,
+        data_fim: fim,
+        processar: true,
+      })
+    : await syncVendasBkOffice({
+        id_loja: idLoja,
+        data_inicio: ini,
+        data_fim: fim,
+        termo_loja: termoArg || null,
+        processar: true,
+      });
   console.log('\n=== OK ===');
   console.log(result);
+  if (todas && result.falhas > 0 && result.ok === 0) process.exit(1);
+  if (todas && result.falhas > 0) process.exit(2);
   process.exit(0);
 } catch (e) {
   console.error('\n=== ERRO ===');

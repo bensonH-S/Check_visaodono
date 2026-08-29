@@ -73,10 +73,13 @@ function mapColunas(headers) {
     if (n.includes('desconto')) {
       return;
     }
+    // Excel produto: coluna "Valor" = Bruto do painel (antes de imposto/líquida).
     if (
       n === 'bruto' ||
       n === 'bruta' ||
       n === 'venda bruta' ||
+      n === 'valor' ||
+      n === 'venda' ||
       n.includes('venda b') ||
       n === 'gross sales'
     ) {
@@ -85,10 +88,6 @@ function mapColunas(headers) {
     }
     if (n.includes('venda l') || n === 'venda liquida' || n === 'liquida' || n === 'net sales') {
       idx.venda_liquida = i;
-      return;
-    }
-    if (n === 'valor' && idx.valor == null) {
-      idx.valor = i;
       return;
     }
     if (n === 'descricao' || n.includes('descric')) {
@@ -111,18 +110,19 @@ function mapColunas(headers) {
   return idx;
 }
 
-/** Valor da linha = coluna Bruto do BK Office. */
+/** Valor da linha = Bruto/Valor do BK Office (nunca Venda Líquida). */
 function resolverValorVenda(row, colMap) {
   if (colMap.venda_bruta != null) {
     const n = parseNumeroBR(row[colMap.venda_bruta]);
     if (n != null) return n;
   }
-  if (colMap.venda_liquida != null) {
-    const n = parseNumeroBR(row[colMap.venda_liquida]);
-    if (n != null) return n;
-  }
   if (colMap.valor != null) {
     const n = parseNumeroBR(row[colMap.valor]);
+    if (n != null) return n;
+  }
+  // Último recurso — só se o Excel não tiver Bruto/Valor.
+  if (colMap.venda_liquida != null) {
+    const n = parseNumeroBR(row[colMap.venda_liquida]);
     if (n != null) return n;
   }
   return null;
@@ -157,6 +157,16 @@ export function parseVendasExcelBuffer(buffer, opts = {}) {
   }
 
   const filtroBk = opts.bkNumber ? String(opts.bkNumber).trim() : null;
+  const aceitos = new Set();
+  if (filtroBk) {
+    aceitos.add(String(filtroBk).replace(/\D/g, ''));
+    const extra = opts.bkAliases;
+    if (extra instanceof Set) {
+      for (const x of extra) aceitos.add(String(x).replace(/\D/g, ''));
+    } else if (Array.isArray(extra)) {
+      for (const x of extra) aceitos.add(String(x).replace(/\D/g, ''));
+    }
+  }
   const out = [];
 
   for (let r = headerRow + 1; r < rows.length; r++) {
@@ -173,10 +183,9 @@ export function parseVendasExcelBuffer(buffer, opts = {}) {
 
     const bk_number =
       colMap.bk_number != null ? String(row[colMap.bk_number] ?? '').trim() : '';
-    if (filtroBk) {
+    if (aceitos.size) {
       const a = String(bk_number).replace(/\D/g, '');
-      const b = String(filtroBk).replace(/\D/g, '');
-      if (!a || a !== b) continue;
+      if (!a || !aceitos.has(a)) continue;
     }
 
     const restaurante =
@@ -241,12 +250,23 @@ function resolverLojaVenda(item, lojas, byBkn) {
 
 /**
  * Quebra o Excel do grupo (várias lojas) em baldes por id_loja.
+ * @param {Map<string,string>|Record<string,string>|null} aliases BKN antigo → atual
  */
-export function agruparItensPorLoja(itens, lojas) {
+export function agruparItensPorLoja(itens, lojas, aliases = null) {
   const byBkn = new Map();
   for (const l of lojas) {
     const n = soDigitos(l.bk_number);
     if (n) byBkn.set(n, l);
+  }
+  const aliasEntries =
+    aliases instanceof Map
+      ? [...aliases.entries()]
+      : aliases && typeof aliases === 'object'
+        ? Object.entries(aliases)
+        : [];
+  for (const [antigo, atual] of aliasEntries) {
+    const loja = byBkn.get(soDigitos(atual));
+    if (loja) byBkn.set(soDigitos(antigo), loja);
   }
   const grupos = new Map();
   const semLoja = [];

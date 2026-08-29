@@ -2,10 +2,9 @@
  * Worker BK Office — cofre criptografado + sync via HTTPS.
  *
  * CONTRATO DEFINITIVO:
- * - Valor = coluna Bruto do Excel "Restaurante e Produto Venda"
- * - Ao vivo (8h–23h): a cada ~1 min rebaixa SEMPRE os últimos 3 dias (janela rolante)
- * - Noite: backfill do mês + mesma janela loja a loja
- * - Reimport aplica DELTA de quantidade no estoque (servidor)
+ * - Valor = coluna Bruto/Valor do Excel "Produto Venda" (com Dia)
+ * - A cada ~1 min: um Excel do DIA DE HOJE (todas as lojas) → sobe e agrega
+ * - Sem janela de 3 dias / sem rebaixa eterno do mês
  * - Lease: 1 PC ativo; standby assume se expirar
  * - Heartbeat: portal alerta se kit parado > 15 min
  */
@@ -21,11 +20,8 @@ const __dirname = path.dirname(__filename);
 
 /** TTL do lease no servidor (segundos). Standby assume se o ativo sumir. */
 const LEASE_TTL_S = 300;
-/**
- * Janela rolante DEFINITIVA: todo ciclo ao vivo rebaixa estes dias.
- * Dia nunca “congela” enquanto estiver na janela — amanhã D-2 ainda é refeito.
- */
-const ROLLING_DIAS = 3;
+/** Ciclo ao vivo = só o dia de hoje (1 Excel). */
+const ROLLING_DIAS = 1;
 
 function kitRoot() {
   if (process.pkg) return path.dirname(process.execPath);
@@ -555,7 +551,11 @@ function runSyncGrupo(env, ini, fim) {
   if (!fs.existsSync(script)) {
     throw new Error(`Script ausente: ${script}`);
   }
-  const timeoutMs = Math.max(720000, Number(env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || 180000) * 4);
+  // Grupo: overlay + export pode passar de 10 min — margem larga.
+  const timeoutMs = Math.max(
+    1200000,
+    Number(env.BKOFFICE_GRUPO_DOWNLOAD_TIMEOUT_MS || env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || 420000) * 3,
+  );
   logServico(`ao vivo grupo dia=${ini} timeout=${Math.round(timeoutMs / 1000)}s`);
   writeStatus({ estado: 'sincronizando', loja_nome: 'GRUPO (todas as lojas)', ultimo_sync: { dia: ini, ok: null } });
   const t0 = Date.now();
@@ -607,6 +607,71 @@ function runSyncGrupo(env, ini, fim) {
   });
 }
 
+/** Fallback: 1 login Playwright → N lojas (sem re-login). */
+function runSyncSessao(env, ini, fim) {
+  const root = kitRoot();
+  const node = findNode(root);
+  const script = path.join(root, 'app', 'backend', 'scripts', 'sync-bkoffice-via-api.mjs');
+  if (!fs.existsSync(script)) {
+    throw new Error(`Script ausente: ${script}`);
+  }
+  const timeoutMs = Math.max(1800000, Number(env.BKOFFICE_SESSAO_TIMEOUT_MS || 2400000));
+  logServico(`sessão 1-login dia=${ini} timeout=${Math.round(timeoutMs / 1000)}s`);
+  writeStatus({
+    estado: 'sincronizando',
+    loja_nome: 'SESSÃO (1 login, N lojas)',
+    ultimo_sync: { dia: ini, ok: null },
+  });
+  const t0 = Date.now();
+  const args = [script, '--sessao', `--inicio=${ini}`, `--fim=${fim}`, '--quiet'];
+  return new Promise((resolve) => {
+    const proc = spawn(node, args, {
+      cwd: path.join(root, 'app'),
+      env: kitChildEnv(env),
+      windowsHide: true,
+    });
+    let out = '';
+    let killed = false;
+    const timer = setTimeout(() => {
+      killed = true;
+      try {
+        proc.kill('SIGTERM');
+      } catch {
+        /* ignore */
+      }
+    }, timeoutMs);
+    proc.stdout.on('data', (b) => {
+      out += b.toString();
+    });
+    proc.stderr.on('data', (b) => {
+      out += b.toString();
+    });
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      const elapsed = Math.round((Date.now() - t0) / 1000);
+      const parsed = parseSyncOutput(out);
+      parsed.duracao_s = elapsed;
+      parsed.dia = parsed.dia || ini;
+      parsed.modo = 'sessao';
+      if (killed) {
+        parsed.ok = false;
+        parsed.erro = `timeout apos ${Math.round(timeoutMs / 1000)}s`;
+        logServico(`ERRO sessão ${parsed.erro}`);
+      } else if (code === 0 && parsed.ok !== false) {
+        parsed.ok = true;
+        logServico(
+          `OK sessão lojas=${parsed.lojas_ok ?? '?'} produtos=${parsed.linhas ?? '?'} venda=R$ ${fmtBrl(parsed.venda_total)} ${elapsed}s`,
+        );
+      } else {
+        parsed.ok = false;
+        parsed.erro = parsed.erro || `exit ${code}`;
+        logServico(`ERRO sessão ${parsed.erro}`);
+      }
+      resolve(parsed);
+    });
+  });
+}
+
 function janelaRolante(hoje = hojeBR()) {
   const ini = addDays(hoje, -(ROLLING_DIAS - 1));
   const dias = [];
@@ -640,12 +705,11 @@ async function reportarHeartbeat(env, payload) {
 }
 
 /**
- * Ao vivo: SEMPRE rebaixa a janela rolante (D-2→hoje) num Excel só.
- * Nunca pula dia recente por synced-days — evita furo no dia seguinte.
+ * Ao vivo: 1 Excel do dia de hoje (todas as lojas) → sobe e agrega.
  */
 async function syncAoVivo(env, lojas) {
   const { ini, fim, dias } = janelaRolante();
-  logServico(`ao vivo grupo ${ini}→${fim} (janela ${ROLLING_DIAS}d, sempre rebaixa)`);
+  logServico(`ao vivo grupo dia=${ini} (só hoje)`);
   const r = await runSyncGrupo(env, ini, fim);
   writeStatus({ ultimo_sync: { ...r, janela: `${ini}→${fim}` }, modo: 'ao_vivo' });
   const ids = Array.isArray(r.ids) ? r.ids.map(Number) : [];
@@ -665,25 +729,27 @@ async function syncAoVivo(env, lojas) {
     });
     return true;
   }
-  logServico('grupo falhou — fallback loja a loja na janela rolante');
-  let ok = true;
-  for (const loja of lojas) {
-    for (const d of dias) {
-      const s = await runSync(env, loja, d, d);
-      writeStatus({ ultimo_sync: s }, loja);
-      if (s.ok) markSynced(loja.id_loja, d);
-      else ok = false;
+  logServico('grupo falhou — fallback 1 sessão (login único, N lojas)');
+  const s = await runSyncSessao(env, ini, fim);
+  writeStatus({ ultimo_sync: { ...s, janela: `${ini}→${fim}` }, modo: 'sessao' });
+  const idsS = Array.isArray(s.ids) ? s.ids.map(Number) : [];
+  const minLojasS = Math.min(2, lojas.length);
+  const okSessao = Boolean(s.ok && Number(s.lojas_ok || idsS.length || 0) >= minLojasS);
+  if (okSessao) {
+    const marcar = idsS.length ? lojas.filter((l) => idsS.includes(Number(l.id_loja))) : lojas;
+    for (const l of marcar) {
+      for (const d of dias) markSynced(l.id_loja, d);
     }
   }
   await reportarHeartbeat(env, {
-    ok,
+    ok: okSessao,
     de: ini,
     ate: fim,
-    lojas_ok: ok ? lojas.length : 0,
-    venda_total: null,
-    produtos: null,
+    lojas_ok: Number(s.lojas_ok || (okSessao ? lojas.length : 0)),
+    venda_total: s.venda_total ?? null,
+    produtos: s.linhas ?? null,
   });
-  return ok;
+  return okSessao;
 }
 
 /**
@@ -809,6 +875,12 @@ async function main() {
   }
 
   if (!secrets.BKOFFICE_SYNC_ID_LOJAS) secrets.BKOFFICE_SYNC_ID_LOJAS = 'all';
+
+  // Validação local: sobe Excel pro API deste PC (parse novo), não pro VPS antigo.
+  if (process.argv.includes('--local-api')) {
+    secrets.API_BASE = 'http://127.0.0.1:5000/auditoria/api';
+    logServico(`API_BASE override → ${secrets.API_BASE}`);
+  }
 
   // Mínimo 1 min entre ciclos (ao vivo e noite).
   const liveMs = Math.max(60000, Number(secrets.SYNC_LIVE_INTERVAL_MS || 60000));

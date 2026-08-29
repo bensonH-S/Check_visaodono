@@ -1154,6 +1154,12 @@ export const api = {
     return res.json() as Promise<{ linhas: number; dias: number; resultados: unknown[] }>;
   },
   estoqueSyncStatus: () => request<EstoqueSyncStatus>('/estoque/sync/status'),
+  estoqueSyncLojas: () =>
+    request<{
+      hoje: string;
+      inicio_mes: string;
+      lojas: EstoqueSyncLojaStatus[];
+    }>('/estoque/sync/lojas'),
   estoqueSyncVendas: (body: {
     id_loja: number;
     data_inicio: string;
@@ -3100,6 +3106,19 @@ export interface EstoqueSyncStatus {
     mensagem?: string | null;
     criado_em: string;
   }>;
+}
+
+export interface EstoqueSyncLojaStatus {
+  id_loja: number;
+  bk_number: string | null;
+  name: string;
+  ultima_data_venda: string | null;
+  ultimo_sync_em: string | null;
+  minutos_sem_sync: number | null;
+  venda_mes: number;
+  venda_hoje: number;
+  status: 'hoje' | 'ontem' | 'atrasado' | 'sem_sync';
+  status_label: string;
 }
 
 export interface EstoqueSyncResult {

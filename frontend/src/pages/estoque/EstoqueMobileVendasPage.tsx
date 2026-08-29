@@ -57,9 +57,9 @@ function textoSync(meta: EstoqueMetaVendas | null) {
     return `hoje não entrou · último ${fmtDataBR(meta.ultima_data_venda)}`;
   }
   if (meta.hoje_parcial) {
-    return hora ? `hoje incompleto · kit ${hora}` : 'hoje incompleto';
+    return hora ? `hoje incompleto · sync ${hora}` : 'hoje incompleto';
   }
-  return hora ? `kit ${hora}` : 'BK Office';
+  return hora ? `sync ${hora}` : 'BK Office';
 }
 
 export default function EstoqueMobileVendasPage() {
@@ -137,8 +137,6 @@ export default function EstoqueMobileVendasPage() {
     return [...lista].reverse().slice(0, 10);
   }, [meta?.dias]);
 
-  const alerta = meta?.hoje_ausente || meta?.hoje_parcial ? meta.aviso : null;
-
   return (
     <div className="ck-visitas ck-visitas--lista ck-estoque">
       <div className="ck-visitas__stage">
@@ -183,20 +181,6 @@ export default function EstoqueMobileVendasPage() {
               {err}
             </p>
           )}
-
-          {alerta ? (
-            <p
-              style={{
-                color: meta?.hoje_ausente ? '#b42318' : '#c2410c',
-                fontWeight: 600,
-                fontSize: '0.82rem',
-                margin: '0 0 12px',
-                lineHeight: 1.45,
-              }}
-            >
-              {alerta}
-            </p>
-          ) : null}
 
           {podeTrocarLoja ? (
             <div className="ck-estoque__loja">

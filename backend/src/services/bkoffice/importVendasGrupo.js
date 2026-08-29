@@ -4,6 +4,7 @@
 import { importarVendasLoja } from '../estoqueMotor.js';
 import { parseVendasExcelBuffer, agruparItensPorLoja } from './parseVendasExcel.js';
 import { listarLojasBkOfficeSync } from './syncVendas.js';
+import { carregarAliasesBkn } from './bknAlias.js';
 
 export async function importarVendasGrupoExcel({
   buffer,
@@ -16,6 +17,7 @@ export async function importarVendasGrupoExcel({
   }
 
   const lojas = await listarLojasBkOfficeSync({ ids: 'all' });
+  const aliases = await carregarAliasesBkn();
   const parsed = parseVendasExcelBuffer(buffer, { dataPadrao });
   const itens = parsed
     .map((r) => ({
@@ -31,7 +33,7 @@ export async function importarVendasGrupoExcel({
     );
   }
 
-  const { grupos, semLoja } = agruparItensPorLoja(itens, lojas);
+  const { grupos, semLoja } = agruparItensPorLoja(itens, lojas, aliases);
   if (!grupos.size) {
     throw Object.assign(
       new Error(

@@ -272,8 +272,20 @@ api.post('/public/push/sw-event', (req, res) => {
 
 api.use('/auth', authRouter);
 
-const { default: kitBkOfficeRouter } = await import('./backend/src/routes/kitBkOffice.js');
-api.use('/public/kit', kitBkOfficeRouter);
+// Kit PC gerência = LEGADO. Só monta se BKOFFICE_KIT_ENABLED=1.
+// Código arquivado em legacy/kit-bkoffice-gerencia/README.md
+const kitEnabled =
+  process.env.BKOFFICE_KIT_ENABLED === '1' ||
+  process.env.BKOFFICE_KIT_ENABLED === 'true';
+if (kitEnabled) {
+  const { default: kitBkOfficeRouter } = await import('./backend/src/routes/kitBkOffice.js');
+  api.use('/public/kit', kitBkOfficeRouter);
+  console.log('[bkoffice] Kit PC gerência HABILITADO (/public/kit)');
+} else {
+  console.log(
+    '[bkoffice] Kit PC gerência DESLIGADO — produção via Bright Data. Ver legacy/kit-bkoffice-gerencia/',
+  );
+}
 
 /** Rotas /public/* nunca exigem login (mesmo se registradas depois por engano). */
 api.use((req, res, next) => {
