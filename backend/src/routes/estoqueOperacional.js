@@ -44,6 +44,7 @@ import {
   obterSyncPorId,
   upsertSyncFornecedor,
 } from '../services/platlog/schedulerPlatlog.js';
+import { calcularCiclo } from '../services/estoqueCiclo.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 import fs from 'fs/promises';
 import { parseNfeXml, renderDanfeHtml } from '../services/nfeXml.js';
@@ -143,6 +144,37 @@ function montarColaboradoresBreak(hrRows, usuarioRows) {
   out.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   return out.filter((c) => c.nome);
 }
+
+// ── Ciclo de estoque (timestamp A → B) ─────────────────────────────────────
+
+router.get('/ciclos/preview', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const idInicio = req.query.id_contagem_inicio
+      ? Number(req.query.id_contagem_inicio)
+      : null;
+    const idFim = req.query.id_contagem_fim ? Number(req.query.id_contagem_fim) : null;
+    const tipo = req.query.tipo ? String(req.query.tipo).trim() : null;
+    const persistir =
+      req.query.persistir === '1' ||
+      req.query.persistir === 'true';
+
+    const result = await calcularCiclo({
+      id_loja: idLoja,
+      id_contagem_inicio: Number.isFinite(idInicio) && idInicio > 0 ? idInicio : null,
+      id_contagem_fim: Number.isFinite(idFim) && idFim > 0 ? idFim : null,
+      tipo: tipo || null,
+      persistir,
+    });
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
 
 // ── Saldos / movimentos ────────────────────────────────────────────────────
 

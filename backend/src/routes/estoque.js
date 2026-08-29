@@ -6,6 +6,7 @@ import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
 import { calcularQtdContagem, flagsContagemDiaria, SQL_ORDEM_PLANILHA } from '../services/estoqueContagem.js';
+import { avaliarForaJanela, carregarPerfil } from '../services/estoqueCiclo.js';
 import {
   classificarInsumos,
   montarWorkbookClassificacao,
@@ -592,6 +593,8 @@ async function carregarContagem(id) {
     criado_por_nome: c.criado_por_nome,
     criado_em: c.criado_em,
     finalizado_em: c.finalizado_em,
+    contado_em: c.contado_em ?? c.finalizado_em ?? null,
+    fora_janela: c.fora_janela ?? null,
     itens: mapped,
   };
 }
@@ -1463,10 +1466,15 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
          AND i.estoque_contado IS NULL`,
       [id],
     );
+    const perfil = await carregarPerfil(detalhe.id_loja, client);
+    const agora = new Date();
+    const foraJanela = avaliarForaJanela(agora, perfil);
     await client.query(
       `UPDATE estoque_contagens c
        SET status = 'finalizada',
            finalizado_em = NOW(),
+           contado_em = COALESCE(c.contado_em, NOW()),
+           fora_janela = $2,
            total_valor = (
              SELECT ROUND(COALESCE(SUM(
                CASE WHEN COALESCE(p.entra_cmv, TRUE)
@@ -1479,7 +1487,7 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
              WHERE i.id_contagem = c.id_contagem
            )
        WHERE c.id_contagem = $1`,
-      [id],
+      [id, foraJanela],
     );
     await ajustarSaldoPorContagem(client, id, idUsuario);
     await client.query('COMMIT');
