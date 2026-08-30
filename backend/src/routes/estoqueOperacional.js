@@ -33,6 +33,12 @@ import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/sync
 import { statusKitParaPortal } from '../services/bkoffice/kitSyncLease.js';
 import { qtdeReceitaParaEstoque } from '../services/fichaReceitaEstoque.js';
 import {
+  garantirSchemaPilotoBaixa,
+  listarAuditoriaPiloto,
+  linhasExcelAuditoriaPiloto,
+} from '../services/estoqueConsumo.js';
+import XLSX from 'xlsx';
+import {
   TURNOS,
   filtrarPorCaderno,
   labelTipoLancamento,
@@ -308,6 +314,79 @@ router.get('/movimentos', permOp, async (req, res, next) => {
         total: totalRows[0].total,
       }),
     );
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/baixa-pendencias', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    await garantirSchemaPilotoBaixa(pool);
+    const limite = Math.min(Number(req.query.limit) || 100, 500);
+    const { rows } = await pool.query(
+      `SELECT p.*, i.descricao AS insumo_descricao
+       FROM estoque_baixa_pendencias p
+       LEFT JOIN insumos i ON i.id_insumo = p.id_insumo
+       WHERE p.id_loja = $1
+       ORDER BY p.criado_em DESC, p.id_pendencia DESC
+       LIMIT $2`,
+      [idLoja, limite],
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/piloto-auditoria', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    await garantirSchemaPilotoBaixa(pool);
+    const status = String(req.query.status || '').trim() || null;
+    const codigo = String(req.query.codigo_insumo || '').trim() || null;
+    const limite = Math.min(Number(req.query.limit) || 300, 2000);
+    const rows = await listarAuditoriaPiloto(pool, {
+      id_loja: idLoja,
+      status,
+      codigo_insumo: codigo,
+      limit: limite,
+    });
+    const formato = String(req.query.formato || 'json').toLowerCase();
+    if (formato !== 'xlsx') {
+      return res.json({
+        id_loja: idLoja,
+        total: rows.length,
+        itens: rows,
+      });
+    }
+    const { rows: lojaRows } = await pool.query(
+      `SELECT name, bk_number FROM lojas WHERE id_loja = $1`,
+      [idLoja],
+    );
+    const loja = lojaRows[0] || {};
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(linhasExcelAuditoriaPiloto(rows)),
+      'Auditoria',
+    );
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const bkn = String(loja.bk_number || idLoja).replace(/\W+/g, '');
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
+      new Date(),
+    );
+    const filename = `piloto-baixa-auditoria-${bkn}-${hoje}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buf);
   } catch (e) {
     next(e);
   }

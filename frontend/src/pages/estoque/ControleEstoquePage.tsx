@@ -64,9 +64,9 @@ import {
 } from '../../components/estoque/estoqueContagemTipo';
 import { gerarPdfContagemDiaria } from '../../utils/gerarPdfContagemDiaria';
 
-type AbaEstoque = 'cmv' | 'vendas' | 'rede' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
+type AbaEstoque = 'cmv' | 'vendas' | 'rede' | 'piloto' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
-const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'vendas', 'rede', 'break', 'saldo', 'fichas'];
+const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'vendas', 'rede', 'piloto', 'break', 'saldo', 'fichas'];
 
 /** URLs antigas → essenciais da validação */
 const REDIRECT_ABA: Record<string, AbaEstoque> = {
@@ -194,6 +194,7 @@ const ROTULO_ABA: Record<AbaEstoque, string> = {
   cmv: 'CMV',
   vendas: 'Vendas',
   rede: 'Rede',
+  piloto: 'Piloto',
   saldo: 'Saldo',
   conferencia: 'Conferência',
   break: 'Break',
@@ -458,7 +459,7 @@ export default function ControleEstoquePage() {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
-    const abasOp: AbaEstoque[] = ['saldo', 'fichas', 'vendas', 'rede'];
+    const abasOp: AbaEstoque[] = ['saldo', 'fichas', 'vendas', 'rede', 'piloto'];
     let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
       destino = podeBreak ? 'break' : podeOperacional ? 'saldo' : 'fichas';
@@ -711,7 +712,7 @@ export default function ControleEstoquePage() {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
-  const chromeCompacto = aba === 'saldo' || aba === 'conferencia' || aba === 'rede';
+  const chromeCompacto = aba === 'saldo' || aba === 'conferencia' || aba === 'rede' || aba === 'piloto';
 
   if (loadingLojas) {
     return (
@@ -865,6 +866,9 @@ export default function ControleEstoquePage() {
           )}
           {podeOperacional && (
             <Tab value="rede" label="Rede" disabled={!idLoja || bloqueiaOutrasAbas} />
+          )}
+          {podeOperacional && (
+            <Tab value="piloto" label="Piloto" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeBreak && (
             <Tab value="break" label="Break" disabled={!idLoja || bloqueiaOutrasAbas} />
@@ -1148,7 +1152,7 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {((podeOperacional && (aba === 'vendas' || aba === 'rede' || aba === 'saldo' || aba === 'fichas')) ||
+              {((podeOperacional && (aba === 'vendas' || aba === 'rede' || aba === 'piloto' || aba === 'saldo' || aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <Box

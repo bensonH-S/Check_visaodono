@@ -312,8 +312,12 @@ try {
   );
   process.exit(0);
 } catch (e) {
-  logErr('KIT_RESULT:' + JSON.stringify({ ok: false, dia: dataInicio, erro: e.message || String(e) }));
-  logErr(e.message || e);
+  const detalhe =
+    e?.name === 'AggregateError' && Array.isArray(e.errors)
+      ? e.errors.map((x) => x?.message || String(x)).filter(Boolean).join(' | ')
+      : e.message || String(e);
+  logErr('KIT_RESULT:' + JSON.stringify({ ok: false, dia: dataInicio, erro: detalhe || 'AggregateError' }));
+  logErr(detalhe || e);
   process.exit(1);
 } finally {
   try {

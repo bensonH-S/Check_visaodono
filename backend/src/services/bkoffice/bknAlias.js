@@ -23,6 +23,15 @@ async function carregarMapas(force = false) {
     return { direto: cache, reverso: cacheReverse };
   }
   const direto = new Map(FALLBACK_ANTIGO_PARA_ATUAL);
+  // Kit PC gerência: sem Postgres (DB_HOST vazio) — só fallback estático
+  if (!String(process.env.DB_HOST || '').trim()) {
+    const reverso = new Map();
+    for (const [antigo, atual] of direto) reverso.set(atual, antigo);
+    cache = direto;
+    cacheReverse = reverso;
+    cacheAt = Date.now();
+    return { direto, reverso };
+  }
   try {
     const { rows } = await pool.query(
       `SELECT bkn_antigo, bkn_atual FROM bkoffice_bkn_alias`,
@@ -33,7 +42,17 @@ async function carregarMapas(force = false) {
       if (a && b) direto.set(a, b);
     }
   } catch (e) {
-    if (e.code !== '42P01') throw e;
+    // Kit / rede / tabela ausente: segue só com fallback (AggregateError do pg vem sem ECONNREFUSED no .message)
+    const code = e?.code || '';
+    const msgs = [e?.message, ...(Array.isArray(e?.errors) ? e.errors.map((x) => x?.message) : [])]
+      .filter(Boolean)
+      .join(' ');
+    if (
+      code !== '42P01' &&
+      !/ECONNREFUSED|ENOTFOUND|ECONNRESET|timeout|connect|AggregateError/i.test(`${code} ${msgs}`)
+    ) {
+      throw e;
+    }
   }
   const reverso = new Map();
   for (const [antigo, atual] of direto) {

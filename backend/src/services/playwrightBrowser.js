@@ -28,6 +28,7 @@ export function resolveChromiumExecutable() {
 /**
  * Monta opções de launch do Playwright.
  * Em Linux/produção NÃO cai no cache vazio do Playwright se houver Chromium do sistema.
+ * No Windows com preferChromeChannel: usa o Chrome instalado (não o Chromium do kit).
  */
 export function buildChromiumLaunchOptions({
   headless = true,
@@ -40,16 +41,17 @@ export function buildChromiumLaunchOptions({
 
   if (downloadsPath) opts.downloadsPath = downloadsPath;
 
+  // Kit PC gerência: Chrome do Windows passa no BK; Chromium empacotado gera AggregateError/flaky
+  if (preferChromeChannel && process.platform === 'win32') {
+    opts.channel = 'chrome';
+    if (headless) opts.args.push('--headless=new');
+    return opts;
+  }
+
   const execPath = resolveChromiumExecutable();
   if (execPath) {
     opts.executablePath = execPath;
     return opts;
-  }
-
-  // Canal Chrome só faz sentido no Windows com Chrome instalado
-  if (preferChromeChannel && process.platform === 'win32') {
-    opts.channel = 'chrome';
-    if (headless) opts.args.push('--headless=new');
   }
 
   return opts;

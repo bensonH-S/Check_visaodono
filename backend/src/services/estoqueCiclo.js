@@ -4,7 +4,11 @@
  */
 import { pool } from '../db.js';
 import { carregarFichaPorCodigoVenda } from './estoqueMotor.js';
-import { qtdeReceitaParaEstoque } from './fichaReceitaEstoque.js';
+import {
+  garantirSchemaPilotoBaixa,
+  resolverConsumoInsumo,
+  resolverInsumoCanonico,
+} from './estoqueConsumo.js';
 
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
@@ -66,16 +70,7 @@ async function carregarPerfil(idLoja, client = pool) {
 }
 
 async function resolverInsumoRico(client, idLoja, codigo) {
-  const cod = String(codigo || '').trim().toUpperCase();
-  if (!cod) return null;
-  const { rows } = await client.query(
-    `SELECT id_insumo, codigo, descricao, und_convertida
-     FROM insumos
-     WHERE id_loja = $1 AND UPPER(codigo) = $2 AND ativo = TRUE
-     LIMIT 1`,
-    [idLoja, cod],
-  );
-  return rows[0] || null;
+  return resolverInsumoCanonico(client, idLoja, codigo);
 }
 
 async function carregarContagemCiclo(idContagem, client = pool) {
@@ -266,6 +261,7 @@ async function consumoTeoricoPorInsumo(idLoja, porCodigoVenda, idInsumosSet) {
   const fichaCache = new Map();
   const insumoCache = new Map();
   try {
+    await garantirSchemaPilotoBaixa(pool);
     const getInsumo = async (codigo) => {
       const key = String(codigo || '').trim().toUpperCase();
       if (!key) return null;
@@ -299,15 +295,14 @@ async function consumoTeoricoPorInsumo(idLoja, porCodigoVenda, idInsumosSet) {
       for (const item of ficha.itens) {
         const insumo = await getInsumo(item.codigo_insumo);
         if (!insumo || !idInsumosSet.has(insumo.id_insumo)) continue;
-        const porUnidade =
-          item.qtde_estoque != null && Number(item.qtde_estoque) > 0
-            ? num(item.qtde_estoque)
-            : qtdeReceitaParaEstoque(
-                item.quantidade,
-                item.unidade_receita || 'und',
-                insumo,
-              );
-        const c = qtdeVenda * porUnidade;
+        const consumoItem = await resolverConsumoInsumo(client, {
+          idInsumo: insumo.id_insumo,
+          quantidadeReceita: item.quantidade,
+          unidadeReceita: item.unidade_receita || 'und',
+          unidadeEstoque: insumo.unidade_contagem,
+        });
+        if (!consumoItem.ok) continue;
+        const c = qtdeVenda * consumoItem.quantidadeEstoque;
         consumo.set(insumo.id_insumo, round4((consumo.get(insumo.id_insumo) || 0) + c));
       }
     }

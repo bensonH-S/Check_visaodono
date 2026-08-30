@@ -1024,6 +1024,39 @@ export const api = {
     a.remove();
     URL.revokeObjectURL(url);
   },
+  estoquePilotoAuditoria: (idLoja: number, opts?: { status?: string; codigo_insumo?: string; limit?: number }) => {
+    const q = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.status) q.set('status', opts.status);
+    if (opts?.codigo_insumo) q.set('codigo_insumo', opts.codigo_insumo);
+    if (opts?.limit) q.set('limit', String(opts.limit));
+    return request<{ id_loja: number; total: number; itens: EstoquePilotoAuditoriaItem[] }>(
+      `/estoque/piloto-auditoria?${q}`,
+    );
+  },
+  estoqueBaixarPilotoAuditoria: async (idLoja: number, opts?: { status?: string; codigo_insumo?: string }) => {
+    const q = new URLSearchParams({ id_loja: String(idLoja), formato: 'xlsx', limit: '2000' });
+    if (opts?.status) q.set('status', opts.status);
+    if (opts?.codigo_insumo) q.set('codigo_insumo', opts.codigo_insumo);
+    const res = await fetch(`${BASE}/estoque/piloto-auditoria?${q}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao gerar auditoria');
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="([^"]+)"/);
+    const filename = match?.[1] || 'piloto-baixa-auditoria.xlsx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   estoqueCriarContagem: (body: {
     id_loja: number;
     data_contagem?: string;
@@ -2703,6 +2736,32 @@ export interface EstoqueSaldoItem {
   quantidade: number;
   valor_total: number;
   atualizado_em?: string | null;
+}
+
+export interface EstoquePilotoAuditoriaItem {
+  id_auditoria: number;
+  id_loja: number;
+  id_venda?: number | null;
+  data_venda?: string | null;
+  codigo_produto?: string | null;
+  descricao_produto?: string | null;
+  quantidade_vendida?: number | null;
+  codigo_ficha?: string | null;
+  id_insumo?: number | null;
+  codigo_insumo?: string | null;
+  descricao_insumo?: string | null;
+  quantidade_receita?: number | null;
+  unidade_receita?: string | null;
+  unidade_estoque?: string | null;
+  fator_aplicado?: number | null;
+  origem_conversao?: string | null;
+  consumo_unitario?: number | null;
+  delta?: number | null;
+  saldo_antes?: number | null;
+  saldo_depois?: number | null;
+  status: 'MOVIMENTO_GERADO' | 'FORA_DO_PILOTO' | 'CONVERSAO_NAO_VALIDADA' | string;
+  observacao?: string | null;
+  criado_em?: string | null;
 }
 
 export interface EstoqueCmvTeorico {

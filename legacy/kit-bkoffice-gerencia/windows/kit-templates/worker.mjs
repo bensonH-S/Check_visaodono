@@ -435,26 +435,6 @@ function runSync(env, loja, ini, fim) {
   if (!fs.existsSync(script)) {
     throw new Error(`Script ausente: ${script}`);
   }
-  const chromium = chromiumDoKit(root);
-  const childEnv = {
-    ...process.env,
-    ...env,
-    PATH: `${path.join(root, 'runtime', 'node')}${path.delimiter}${process.env.PATH || ''}`,
-    PLAYWRIGHT_BROWSERS_PATH: path.join(root, 'runtime', 'ms-playwright'),
-    BKOFFICE_USE_CHROME: '0',
-    BKOFFICE_HEADLESS: env.BKOFFICE_HEADLESS || '1',
-    BKOFFICE_KIT_QUIET: '1',
-    BKOFFICE_DOWNLOAD_TIMEOUT_MS: env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || '180000',
-    BKOFFICE_SERVER_SYNC: '0',
-    BKOFFICE_SYNC_CRON_MS: '0',
-    NODE_ENV: 'production',
-    DB_HOST: '',
-    DB_PASS: '',
-  };
-  if (chromium) {
-    childEnv.BKOFFICE_CHROMIUM_PATH = chromium;
-    childEnv.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chromium;
-  }
   const timeoutMs = Math.max(360000, Number(env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || 180000) * 3 + 120000);
   logLoja(loja, 'INFO', `dia=${ini}  baixando Excel BK Office  timeout=${Math.round(timeoutMs / 1000)}s`);
   writeStatus({ estado: 'sincronizando', loja: idLoja, ultimo_sync: { dia: ini, ok: null } }, loja);
@@ -464,7 +444,7 @@ function runSync(env, loja, ini, fim) {
   return new Promise((resolve) => {
     const proc = spawn(node, args, {
       cwd: path.join(root, 'app'),
-      env: childEnv,
+      env: kitChildEnv(env),
       windowsHide: true,
     });
     let out = '';
@@ -521,14 +501,16 @@ function runSync(env, loja, ini, fim) {
 
 function kitChildEnv(env) {
   const root = kitRoot();
-  const chromium = chromiumDoKit(root);
+  // Windows + Chrome instalado: NÃO apontar pro Chromium do kit (causava AggregateError no Playwright).
+  const useChrome = String(env.BKOFFICE_USE_CHROME || '1') !== '0';
   const childEnv = {
     ...process.env,
     ...env,
     PATH: `${path.join(root, 'runtime', 'node')}${path.delimiter}${process.env.PATH || ''}`,
     PLAYWRIGHT_BROWSERS_PATH: path.join(root, 'runtime', 'ms-playwright'),
-    BKOFFICE_USE_CHROME: '0',
+    BKOFFICE_USE_CHROME: useChrome ? '1' : '0',
     BKOFFICE_HEADLESS: env.BKOFFICE_HEADLESS || '1',
+    BKOFFICE_BRIGHTDATA: '0',
     BKOFFICE_KIT_QUIET: '1',
     BKOFFICE_DOWNLOAD_TIMEOUT_MS: env.BKOFFICE_DOWNLOAD_TIMEOUT_MS || '180000',
     BKOFFICE_SERVER_SYNC: '0',
@@ -537,9 +519,16 @@ function kitChildEnv(env) {
     DB_HOST: '',
     DB_PASS: '',
   };
-  if (chromium) {
-    childEnv.BKOFFICE_CHROMIUM_PATH = chromium;
-    childEnv.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chromium;
+  // Limpa paths herdados que forçariam Chromium empacotado
+  delete childEnv.BKOFFICE_CHROMIUM_PATH;
+  delete childEnv.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  delete childEnv.CHROMIUM_PATH;
+  if (!useChrome) {
+    const chromium = chromiumDoKit(root);
+    if (chromium) {
+      childEnv.BKOFFICE_CHROMIUM_PATH = chromium;
+      childEnv.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = chromium;
+    }
   }
   return childEnv;
 }
@@ -665,6 +654,12 @@ function runSyncSessao(env, ini, fim) {
       } else {
         parsed.ok = false;
         parsed.erro = parsed.erro || `exit ${code}`;
+        const tail = out
+          .split(/\r?\n/)
+          .filter(Boolean)
+          .slice(-8)
+          .join(' || ');
+        if (tail) logServico(`detalhe sessão: ${tail.slice(0, 500)}`);
         logServico(`ERRO sessão ${parsed.erro}`);
       }
       resolve(parsed);
@@ -705,11 +700,53 @@ async function reportarHeartbeat(env, payload) {
 }
 
 /**
- * Ao vivo: 1 Excel do dia de hoje (todas as lojas) → sobe e agrega.
+ * Ao vivo: 1 login → N lojas (sessão). Grupo Excel costuma dar "sem dados" cedo demais no dia.
  */
 async function syncAoVivo(env, lojas) {
   const { ini, fim, dias } = janelaRolante();
-  logServico(`ao vivo grupo dia=${ini} (só hoje)`);
+  logServico(`ao vivo sessão dia=${ini} (1 login, ${lojas.length} lojas)`);
+  const s = await runSyncSessao(env, ini, fim);
+  writeStatus({ ultimo_sync: { ...s, janela: `${ini}→${fim}` }, modo: 'sessao' });
+  const idsS = Array.isArray(s.ids) ? s.ids.map(Number) : [];
+  const minLojasS = Math.min(2, lojas.length);
+  const okSessao = Boolean(s.ok && Number(s.lojas_ok || idsS.length || 0) >= minLojasS);
+  if (okSessao) {
+    const marcar = idsS.length ? lojas.filter((l) => idsS.includes(Number(l.id_loja))) : lojas;
+    for (const l of marcar) {
+      for (const d of dias) markSynced(l.id_loja, d);
+    }
+    await reportarHeartbeat(env, {
+      ok: true,
+      de: ini,
+      ate: fim,
+      lojas_ok: Number(s.lojas_ok || marcar.length),
+      venda_total: s.venda_total ?? null,
+      produtos: s.linhas ?? null,
+    });
+    return true;
+  }
+
+  const semDados =
+    /sem dados|busca sem dados para o periodo/i.test(String(s.erro || '')) ||
+    (Number(s.lojas_ok || 0) === 0 && !s.erro);
+  if (semDados) {
+    logServico(
+      `sessão sem vendas no BK para ${ini} — normal se lojas fechadas; tenta de novo no próximo ciclo`,
+    );
+    await reportarHeartbeat(env, {
+      ok: true,
+      de: ini,
+      ate: fim,
+      lojas_ok: 0,
+      venda_total: null,
+      produtos: null,
+      nota: 'bk_sem_dados_dia',
+    });
+    // Não é falha do kit: BK ainda sem movimento. Evita TESTE FALHOU / panic.
+    return true;
+  }
+
+  logServico(`sessão falhou (${s.erro || 'sem detalhe'}) — fallback grupo Excel`);
   const r = await runSyncGrupo(env, ini, fim);
   writeStatus({ ultimo_sync: { ...r, janela: `${ini}→${fim}` }, modo: 'ao_vivo' });
   const ids = Array.isArray(r.ids) ? r.ids.map(Number) : [];
@@ -729,27 +766,15 @@ async function syncAoVivo(env, lojas) {
     });
     return true;
   }
-  logServico('grupo falhou — fallback 1 sessão (login único, N lojas)');
-  const s = await runSyncSessao(env, ini, fim);
-  writeStatus({ ultimo_sync: { ...s, janela: `${ini}→${fim}` }, modo: 'sessao' });
-  const idsS = Array.isArray(s.ids) ? s.ids.map(Number) : [];
-  const minLojasS = Math.min(2, lojas.length);
-  const okSessao = Boolean(s.ok && Number(s.lojas_ok || idsS.length || 0) >= minLojasS);
-  if (okSessao) {
-    const marcar = idsS.length ? lojas.filter((l) => idsS.includes(Number(l.id_loja))) : lojas;
-    for (const l of marcar) {
-      for (const d of dias) markSynced(l.id_loja, d);
-    }
-  }
   await reportarHeartbeat(env, {
-    ok: okSessao,
+    ok: false,
     de: ini,
     ate: fim,
-    lojas_ok: Number(s.lojas_ok || (okSessao ? lojas.length : 0)),
-    venda_total: s.venda_total ?? null,
-    produtos: s.linhas ?? null,
+    lojas_ok: Number(r.lojas_ok || 0),
+    venda_total: r.venda_total ?? null,
+    produtos: r.linhas ?? null,
   });
-  return okSessao;
+  return false;
 }
 
 /**

@@ -1,5 +1,14 @@
 import { pool } from '../db.js';
-import { qtdeReceitaParaEstoque } from './fichaReceitaEstoque.js';
+import {
+  MOTIVO_BAIXA,
+  STATUS_AUDITORIA_PILOTO,
+  criarSessaoAuditoriaPiloto,
+  garantirSchemaPilotoBaixa,
+  lojaEmPilotoBaixa,
+  registrarPendenciaBaixa,
+  resolverConsumoInsumo,
+  resolverInsumoCanonico,
+} from './estoqueConsumo.js';
 
 /** Só vendas do kit BK Office — ignora upload/manual duplicado. */
 const FILTRO_VENDA_BK = "AND v.origem = 'bkoffice'";
@@ -849,18 +858,9 @@ export async function atualizarCustoInsumo(
   return rows[0];
 }
 
-/** Resolve insumo de estoque por loja + código. */
+/** Resolve insumo de estoque por loja + código (alias canônico, depois código exato). */
 export async function resolverInsumoPorCodigo(client, idLoja, codigo) {
-  const cod = String(codigo || '').trim().toUpperCase();
-  if (!cod) return null;
-  const { rows } = await client.query(
-    `SELECT id_insumo, codigo, descricao
-     FROM insumos
-     WHERE id_loja = $1 AND UPPER(codigo) = $2 AND ativo = TRUE
-     LIMIT 1`,
-    [idLoja, cod],
-  );
-  return rows[0] || null;
+  return resolverInsumoCanonico(client, idLoja, codigo);
 }
 
 /** Upsert produto de venda pelo código BK, por loja.
@@ -962,14 +962,42 @@ export async function baixarPorProdutoVenda(
     return { ok: false, sem_ficha: false, baixas: [], erros: ['Quantidade inválida'] };
   }
 
+  await garantirSchemaPilotoBaixa(pool);
+  const pilotoVenda = tipo === 'venda' && (await lojaEmPilotoBaixa(client, id_loja));
+  const ignorados = [];
+  const pendencias = [];
+
+  const registrarPulo = async (motivo, extra) => {
+    pendencias.push({ motivo, ...extra });
+    await registrarPendenciaBaixa(client, {
+      id_loja,
+      codigo_venda: String(codigo_venda || '').trim(),
+      motivo,
+      observacao: observacao || null,
+      ...extra,
+    });
+  };
+
   const codVenda = String(codigo_venda || '').trim();
   const { rows: prodRows } = await client.query(
-    `SELECT id_produto, codigo, requer_ficha
+    `SELECT id_produto, codigo, descricao, requer_ficha
      FROM produtos
      WHERE id_loja = $1 AND codigo = $2 AND ativo = TRUE
      LIMIT 1`,
     [id_loja, codVenda],
   );
+
+  const auditoria = pilotoVenda
+    ? await criarSessaoAuditoriaPiloto(client, {
+        id_loja,
+        codigo_venda: codVenda,
+        quantidade_vendida: qtde,
+        referencia_tipo,
+        referencia_id,
+        descricao_produto: prodRows[0]?.descricao || null,
+      })
+    : null;
+
   // Produto unitário (Coca, brinquedo…): não exige ficha.
   // Se existir insumo com o mesmo código, baixa 1:1; senão só processa a venda.
   if (prodRows[0] && prodRows[0].requer_ficha === false) {
@@ -981,9 +1009,37 @@ export async function baixarPorProdutoVenda(
         unitario: true,
         baixas: [],
         erros: [],
+        ignorados,
+        pendencias,
         id_produto: prodRows[0].id_produto,
       };
     }
+    if (pilotoVenda && !insumo.contagem_diaria) {
+      ignorados.push({ codigo: insumo.codigo, motivo: MOTIVO_BAIXA.FORA_PILOTO });
+      const saldo = await obterSaldo(id_loja, insumo.id_insumo, client);
+      await auditoria?.log({
+        status: STATUS_AUDITORIA_PILOTO.FORA_DO_PILOTO,
+        codigo_ficha: insumo.codigo,
+        id_insumo: insumo.id_insumo,
+        codigo_insumo: insumo.codigo,
+        descricao_insumo: insumo.descricao,
+        unidade_estoque: insumo.unidade_contagem,
+        delta: 0,
+        saldo_antes: saldo,
+        saldo_depois: saldo,
+      });
+      return {
+        ok: true,
+        sem_ficha: false,
+        unitario: true,
+        baixas: [],
+        erros: [],
+        ignorados,
+        pendencias,
+        id_produto: prodRows[0].id_produto,
+      };
+    }
+    const saldoAntes = await obterSaldo(id_loja, insumo.id_insumo, client);
     const delta = -qtde;
     const mov = await aplicarMovimento(client, {
       id_loja,
@@ -994,6 +1050,23 @@ export async function baixarPorProdutoVenda(
       referencia_id,
       observacao: observacao || `Baixa unitária: ${codVenda} x${qtde}`,
       criado_por,
+    });
+    await auditoria?.log({
+      status: STATUS_AUDITORIA_PILOTO.MOVIMENTO_GERADO,
+      codigo_ficha: insumo.codigo,
+      id_insumo: insumo.id_insumo,
+      codigo_insumo: insumo.codigo,
+      descricao_insumo: insumo.descricao,
+      quantidade_receita: qtde,
+      unidade_receita: insumo.unidade_contagem,
+      unidade_estoque: insumo.unidade_contagem,
+      fator_aplicado: 1,
+      origem_conversao: 'identidade',
+      consumo_unitario: 1,
+      delta,
+      saldo_antes: saldoAntes,
+      saldo_depois: mov.saldo_apos,
+      observacao: 'unitario 1:1',
     });
     return {
       ok: true,
@@ -1008,6 +1081,8 @@ export async function baixarPorProdutoVenda(
         },
       ],
       erros: [],
+      ignorados,
+      pendencias,
       id_produto: prodRows[0].id_produto,
     };
   }
@@ -1024,19 +1099,78 @@ export async function baixarPorProdutoVenda(
     const insumo = await resolverInsumoPorCodigo(client, id_loja, item.codigo_insumo);
     if (!insumo) {
       erros.push(`Insumo ${item.codigo_insumo} não cadastrado na loja`);
+      await registrarPulo(MOTIVO_BAIXA.INSUMO_NAO_CADASTRADO, {
+        codigo_insumo: item.codigo_insumo,
+        quantidade_receita: num(item.quantidade),
+        unidade_receita: item.unidade_receita || 'und',
+      });
+      await auditoria?.log({
+        status: STATUS_AUDITORIA_PILOTO.CONVERSAO_NAO_VALIDADA,
+        codigo_ficha: item.codigo_insumo,
+        quantidade_receita: num(item.quantidade),
+        unidade_receita: item.unidade_receita || 'und',
+        observacao: 'insumo não cadastrado na loja',
+      });
       continue;
     }
-    // qtde_estoque = equivalente na unidade de compra/contagem;
-    // quantidade = porção de produção (g/fatia/und) — só para exibição/receita
-    const porUnidadeVenda =
-      item.qtde_estoque != null && Number(item.qtde_estoque) > 0
-        ? num(item.qtde_estoque)
-        : qtdeReceitaParaEstoque(
-            item.quantidade,
-            item.unidade_receita || 'und',
-            insumo,
-          );
+
+    if (pilotoVenda && !insumo.contagem_diaria) {
+      ignorados.push({ codigo: insumo.codigo, motivo: MOTIVO_BAIXA.FORA_PILOTO });
+      const saldo = await obterSaldo(id_loja, insumo.id_insumo, client);
+      await auditoria?.log({
+        status: STATUS_AUDITORIA_PILOTO.FORA_DO_PILOTO,
+        codigo_ficha: item.codigo_insumo,
+        id_insumo: insumo.id_insumo,
+        codigo_insumo: insumo.codigo,
+        descricao_insumo: insumo.descricao,
+        quantidade_receita: num(item.quantidade),
+        unidade_receita: item.unidade_receita || 'und',
+        unidade_estoque: insumo.unidade_contagem,
+        delta: 0,
+        saldo_antes: saldo,
+        saldo_depois: saldo,
+      });
+      continue;
+    }
+
+    const consumo = await resolverConsumoInsumo(client, {
+      idInsumo: insumo.id_insumo,
+      quantidadeReceita: item.quantidade,
+      unidadeReceita: item.unidade_receita || 'und',
+      unidadeEstoque: insumo.unidade_contagem,
+    });
+    if (!consumo.ok) {
+      await registrarPulo(consumo.motivo, {
+        codigo_insumo: insumo.codigo,
+        id_insumo: insumo.id_insumo,
+        quantidade_receita: num(item.quantidade),
+        unidade_receita: item.unidade_receita || 'und',
+        unidade_estoque: insumo.unidade_contagem,
+      });
+      const saldo = await obterSaldo(id_loja, insumo.id_insumo, client);
+      await auditoria?.log({
+        status: STATUS_AUDITORIA_PILOTO.CONVERSAO_NAO_VALIDADA,
+        codigo_ficha: item.codigo_insumo,
+        id_insumo: insumo.id_insumo,
+        codigo_insumo: insumo.codigo,
+        descricao_insumo: insumo.descricao,
+        quantidade_receita: num(item.quantidade),
+        unidade_receita: item.unidade_receita || 'und',
+        unidade_estoque: insumo.unidade_contagem,
+        fator_aplicado: consumo.fatorAplicado ?? null,
+        origem_conversao: consumo.origemConversao ?? null,
+        delta: 0,
+        saldo_antes: saldo,
+        saldo_depois: saldo,
+        observacao: consumo.motivo,
+      });
+      continue;
+    }
+
+    const porUnidadeVenda = consumo.quantidadeEstoque;
     const delta = -(qtde * porUnidadeVenda);
+    if (delta === 0) continue;
+    const saldoAntes = await obterSaldo(id_loja, insumo.id_insumo, client);
     const mov = await aplicarMovimento(client, {
       id_loja,
       id_insumo: insumo.id_insumo,
@@ -1046,23 +1180,45 @@ export async function baixarPorProdutoVenda(
       referencia_id,
       observacao:
         observacao ||
-        `Baixa ${tipo}: ${codigo_venda} x${qtde} → ${item.codigo_insumo} (receita ${item.quantidade} ${item.unidade_receita || 'und'} = ${porUnidadeVenda} est.)`,
+        `Baixa ${tipo}: ${codigo_venda} x${qtde} → ${insumo.codigo} (receita ${item.quantidade} ${item.unidade_receita || 'und'} = ${porUnidadeVenda} ${insumo.unidade_contagem || ''} via ${consumo.origemConversao})`,
       criado_por,
+    });
+    await auditoria?.log({
+      status: STATUS_AUDITORIA_PILOTO.MOVIMENTO_GERADO,
+      codigo_ficha: item.codigo_insumo,
+      id_insumo: insumo.id_insumo,
+      codigo_insumo: insumo.codigo,
+      descricao_insumo: insumo.descricao,
+      quantidade_receita: num(item.quantidade),
+      unidade_receita: item.unidade_receita || 'und',
+      unidade_estoque: insumo.unidade_contagem,
+      fator_aplicado: consumo.fatorAplicado ?? null,
+      origem_conversao: consumo.origemConversao,
+      consumo_unitario: porUnidadeVenda,
+      delta,
+      saldo_antes: saldoAntes,
+      saldo_depois: mov.saldo_apos,
     });
     baixas.push({
       id_insumo: insumo.id_insumo,
       codigo: insumo.codigo,
       quantidade: delta,
       saldo_apos: mov.saldo_apos,
+      origem_conversao: consumo.origemConversao,
     });
   }
 
+  const soForaPiloto =
+    baixas.length === 0 && erros.length === 0 && ignorados.length > 0 && pendencias.length === 0;
+
   return {
-    ok: erros.length === 0 && baixas.length > 0,
+    ok: (erros.length === 0 && baixas.length > 0) || soForaPiloto,
     sem_ficha: false,
-    parcial: erros.length > 0 && baixas.length > 0,
+    parcial: baixas.length > 0 && (erros.length > 0 || pendencias.length > 0),
     baixas,
     erros,
+    ignorados,
+    pendencias,
     id_ficha: ficha.id_ficha,
   };
 }

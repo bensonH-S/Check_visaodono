@@ -1,8 +1,7 @@
 /**
- * Converte quantidade da receita de produção → unidade de estoque/compra.
- *
- * Receita (produto): g, fatia, concha, volta, und
- * Estoque (compra/contagem): tipicamente kg (granel) ou peça (pão, copo, cone)
+ * Heurística de exibição/custo na tela de fichas.
+ * A baixa de estoque NÃO usa esta função — ver estoqueConsumo.js
+ * (fator validado). Não assumir UN = KG.
  */
 
 const G_POR_FATIA = {

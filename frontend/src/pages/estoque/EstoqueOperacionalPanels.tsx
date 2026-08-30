@@ -68,8 +68,9 @@ import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors, portalPanelSx } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
+import EstoquePilotoAuditoriaPanel from './EstoquePilotoAuditoriaPanel';
 
-type AbaOp = 'cmv' | 'vendas' | 'rede' | 'break' | 'pedido' | 'fichas' | 'saldo';
+type AbaOp = 'cmv' | 'vendas' | 'rede' | 'piloto' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -441,6 +442,9 @@ export default function EstoqueOperacionalPanels({
         onSetHeaderActions={onSetHeaderActions}
       />
     );
+  }
+  if (aba === 'piloto') {
+    return <EstoquePilotoAuditoriaPanel idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
   }
   if (aba === 'saldo') {
     return <PainelSaldoKardex idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;

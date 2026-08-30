@@ -74,6 +74,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/estoque/break': { title: 'Estoque', icon: <Inventory2Icon sx={iconSx} /> },
   '/estoque/pedido': { title: 'Estoque', icon: <Inventory2Icon sx={iconSx} /> },
   '/estoque/fichas': { title: 'Estoque', icon: <Inventory2Icon sx={iconSx} /> },
+  '/estoque/piloto': { title: 'Estoque', icon: <Inventory2Icon sx={iconSx} /> },
   '/estoque/mobile': { title: 'Estoque. Conferência', icon: <Inventory2Icon sx={iconSx} /> },
   '/estoque/mobile/break': { title: 'Estoque. Break', icon: <Inventory2Icon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
