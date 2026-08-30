@@ -735,10 +735,17 @@ async function criarInsumo(req, res, next) {
       return res.status(400).json({ error: 'UND parcial (PC/FD) deve ser maior que zero' });
     }
 
+    const permite_contagem_caixa = req.body?.permite_contagem_caixa !== false;
+    const permite_contagem_pc_fd = req.body?.permite_contagem_pc_fd !== false;
+    const permite_contagem_kg_und = req.body?.permite_contagem_kg_und !== false;
+
     const diaria = flagsContagemDiaria(descricao);
     const { rows } = await pool.query(
-      `INSERT INTO insumos (id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, und_parcial, ativo, contagem_diaria, grupo_diario)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9)
+      `INSERT INTO insumos (
+        id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, und_parcial,
+        ativo, contagem_diaria, grupo_diario,
+        permite_contagem_caixa, permite_contagem_pc_fd, permite_contagem_kg_und
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         idLoja,
@@ -750,6 +757,9 @@ async function criarInsumo(req, res, next) {
         und_parcial,
         diaria.contagem_diaria,
         diaria.grupo_diario,
+        permite_contagem_caixa,
+        permite_contagem_pc_fd,
+        permite_contagem_kg_und,
       ],
     );
     await auditar(req, {
@@ -807,13 +817,28 @@ async function atualizarInsumo(req, res, next) {
       return res.status(400).json({ error: 'UND parcial (PC/FD) deve ser maior que zero' });
     }
 
+    const permite_contagem_caixa =
+      req.body?.permite_contagem_caixa != null
+        ? !!req.body.permite_contagem_caixa
+        : prev.permite_contagem_caixa !== false;
+    const permite_contagem_pc_fd =
+      req.body?.permite_contagem_pc_fd != null
+        ? !!req.body.permite_contagem_pc_fd
+        : prev.permite_contagem_pc_fd !== false;
+    const permite_contagem_kg_und =
+      req.body?.permite_contagem_kg_und != null
+        ? !!req.body.permite_contagem_kg_und
+        : prev.permite_contagem_kg_und !== false;
+
     const diaria = flagsContagemDiaria(descricao);
     const { rows } = await pool.query(
       `UPDATE insumos
        SET codigo = $1, descricao = $2, unidade_contagem = $3,
            preco_caixa = $4, und_convertida = $5, und_parcial = $6,
-           ativo = $7, contagem_diaria = $8, grupo_diario = $9, atualizado_em = NOW()
-       WHERE id_insumo = $10 AND id_loja = $11
+           ativo = $7, contagem_diaria = $8, grupo_diario = $9,
+           permite_contagem_caixa = $10, permite_contagem_pc_fd = $11, permite_contagem_kg_und = $12,
+           atualizado_em = NOW()
+       WHERE id_insumo = $13 AND id_loja = $14
        RETURNING *`,
       [
         codigo,
@@ -825,6 +850,9 @@ async function atualizarInsumo(req, res, next) {
         ativo,
         diaria.contagem_diaria,
         diaria.grupo_diario,
+        permite_contagem_caixa,
+        permite_contagem_pc_fd,
+        permite_contagem_kg_und,
         id,
         prev.id_loja,
       ],

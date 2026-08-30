@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
-import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { api, type EstoqueMetaVendas, type Loja } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
@@ -50,17 +50,7 @@ function fmtHoraBR(iso: string | null | undefined) {
   }
 }
 
-function textoSync(meta: EstoqueMetaVendas | null) {
-  if (!meta) return 'aguardando…';
-  const hora = fmtHoraBR(meta.ultimo_sync_em);
-  if (meta.hoje_ausente) {
-    return `hoje não entrou · último ${fmtDataBR(meta.ultima_data_venda)}`;
-  }
-  if (meta.hoje_parcial) {
-    return hora ? `hoje incompleto · sync ${hora}` : 'hoje incompleto';
-  }
-  return hora ? `sync ${hora}` : 'BK Office';
-}
+
 
 export default function EstoqueMobileVendasPage() {
   const navigate = useNavigate();
@@ -77,6 +67,7 @@ export default function EstoqueMobileVendasPage() {
   const [meta, setMeta] = useState<EstoqueMetaVendas | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [dlgLoja, setDlgLoja] = useState(false);
 
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
@@ -152,7 +143,7 @@ export default function EstoqueMobileVendasPage() {
             <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
           </div>
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Coluna Bruto do BK Office · atualiza a cada 45s
+            Acompanhe as vendas da loja em tempo real.
           </p>
           <div
             className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3"
@@ -166,9 +157,15 @@ export default function EstoqueMobileVendasPage() {
               <strong>{loading && !meta ? '—' : fmtMoeda(meta?.venda_mtd)}</strong>
               <span>mês</span>
             </div>
-            <div className="ck-visitas__metric">
-              <strong style={{ fontSize: '0.95rem' }}>{textoSync(meta)}</strong>
-              <span>sync</span>
+            <div className="ck-visitas__metric" style={{ minWidth: 0 }}>
+              <strong style={{ fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {loading && !meta
+                  ? '—'
+                  : meta?.hoje_ausente
+                    ? fmtDataBR(meta.ultima_data_venda)
+                    : fmtHoraBR(meta?.ultimo_sync_em) || 'Hoje'}
+              </strong>
+              <span>{meta?.hoje_ausente ? 'última venda' : 'sync'}</span>
             </div>
           </div>
         </div>
@@ -182,25 +179,49 @@ export default function EstoqueMobileVendasPage() {
             </p>
           )}
 
-          {podeTrocarLoja ? (
-            <div className="ck-estoque__loja">
-              <button
-                type="button"
-                className="ck-estoque__loja-btn"
-                onClick={() => {
-                  const idx = lojas.findIndex((l) => l.id_loja === idLoja);
-                  const next = lojas[(idx + 1) % lojas.length];
-                  if (!next) return;
-                  setIdLoja(next.id_loja);
-                  localStorage.setItem(LOJA_STORAGE_KEY, String(next.id_loja));
-                }}
-              >
-                <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
-                <span aria-hidden>▾</span>
-              </button>
-            </div>
-          ) : lojaAtual ? (
-            <div className="ck-estoque__loja">
+          <div className="ck-estoque__loja ck-estoque__loja--com-voltar">
+            <button type="button" className="ck-estoque__voltar" onClick={() => navigate('/estoque/mobile')}>
+              <span aria-hidden>‹</span>
+            </button>
+            {podeTrocarLoja ? (
+              <div style={{ position: 'relative', flex: 1, minWidth: 0, marginLeft: 52 }}>
+                <button
+                  type="button"
+                  className="ck-estoque__loja-btn"
+                  onClick={() => setDlgLoja((v) => !v)}
+                >
+                  <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
+                  <span aria-hidden>{dlgLoja ? '▴' : '▾'}</span>
+                </button>
+                {dlgLoja && (
+                  <>
+                    <div
+                      className="ck-estoque__dropdown-backdrop"
+                      onClick={() => setDlgLoja(false)}
+                    />
+                    <div className="ck-estoque__loja-dropdown">
+                      {lojas.map((l) => {
+                        const ativa = l.id_loja === idLoja;
+                        return (
+                          <button
+                            key={l.id_loja}
+                            type="button"
+                            className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
+                            onClick={() => {
+                              setIdLoja(l.id_loja);
+                              localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
+                              setDlgLoja(false);
+                            }}
+                          >
+                            {rotuloLoja(l)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : lojaAtual ? (
               <div className="ck-estoque__loja-fix" aria-label="Loja">
                 <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
                 <div className="ck-estoque__loja-fix-text">
@@ -208,18 +229,8 @@ export default function EstoqueMobileVendasPage() {
                   <strong>{nomeLoja(lojaAtual)}</strong>
                 </div>
               </div>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            className="ck-estoque-nfe__atalho"
-            onClick={() => navigate('/estoque/mobile')}
-          >
-            <Inventory2OutlinedIcon fontSize="small" />
-            <span>Voltar para conferências</span>
-            <span aria-hidden>›</span>
-          </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="ck-visitas__sheet-body">

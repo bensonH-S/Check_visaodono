@@ -1,4 +1,4 @@
-﻿/* ConferÃªncia de estoque mobile â€” estende ck-visitas */
+/* ConferÃªncia de estoque mobile â€” estende ck-visitas */
 .ck-estoque .ck-estoque__loja {
   margin: 0 0 14px;
 }
@@ -156,6 +156,178 @@
 .ck-estoque .ck-estoque__loja-btn > span:last-child {
   color: rgba(20, 32, 72, 0.45);
   flex-shrink: 0;
+}
+
+/* Dropdown flutuante posicionado logo abaixo do campo */
+.ck-estoque__dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  background: rgba(15, 26, 69, 0.25);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-estoque__loja-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(27, 42, 107, 0.16);
+  box-shadow: 0 12px 36px rgba(15, 26, 69, 0.22);
+  z-index: 9999;
+  padding: 6px 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ck-estoque__loja-dropdown::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-estoque__secao-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 0 10px;
+  padding: 0 2px;
+}
+
+.ck-estoque__grupo-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ck-navy);
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(27, 42, 107, 0.08);
+  border-left: 3px solid #ea580c;
+}
+
+.ck-estoque__grupo-qtd {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--ck-navy);
+  background: #fff;
+  border: 1px solid rgba(27, 42, 107, 0.14);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.ck-estoque__tipo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #c2410c;
+  background: #fff7ed;
+  border: 1px solid #ffedd5;
+  width: fit-content;
+}
+
+.ck-estoque__codigo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  width: fit-content;
+}
+
+.ck-estoque__saldo-qtd {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 68px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ck-estoque__saldo-qtd strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--ck-navy);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.ck-estoque__saldo-qtd span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(20, 32, 72, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.ck-estoque .ck-estoque__card--saldo {
+  border-left: 4px solid #ea580c !important;
+}
+
+.ck-estoque__modal-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(27, 42, 107, 0.14);
+  background: #fff;
+  color: var(--ck-ink);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(20, 32, 72, 0.04);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.ck-estoque__modal-action-btn:active {
+  transform: scale(0.98);
+  background: #f8fafc;
+}
+
+.ck-estoque__modal-action-btn strong {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ck-navy);
+}
+
+.ck-estoque__modal-action-btn small {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.62);
+  line-height: 1.3;
+}
+
+.ck-estoque__modal-action-btn--pri {
+  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
+  border-color: #fdba74;
+}
+
+.ck-estoque__modal-action-btn--pri strong {
+  color: #c2410c;
+}
+
+.ck-estoque__modal-action-btn--pri small {
+  color: #9a3412;
 }
 
 /* Acima da tab bar mobile (+ folga); portal no body. */
@@ -691,6 +863,70 @@
 
 .ck-estoque .ck-estoque__confirm-actions .ck-estoque__btn {
   flex: 1;
+  min-height: 52px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+}
+
+.ck-estoque__atalhos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 16px;
+  box-sizing: border-box;
+}
+
+.ck-estoque__btn-grid-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 78px;
+  padding: 10px 4px;
+  border-radius: 14px;
+  border: 1px solid rgba(27, 42, 107, 0.12);
+  background: linear-gradient(180deg, #fff 0%, #f9f8f6 100%);
+  color: var(--ck-ink);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(20, 32, 72, 0.04);
+  transition: transform 0.12s ease, border-color 0.12s ease;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.ck-estoque__btn-grid-card:active {
+  transform: scale(0.96);
+  background: #f1efe9;
+}
+
+.ck-estoque__btn-grid-card .MuiSvgIcon-root {
+  color: var(--ck-navy);
+  font-size: 1.55rem !important;
+}
+
+.ck-estoque__btn-grid-card strong {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.ck-estoque__btn-grid-card small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(20, 32, 72, 0.55);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .ck-estoque .ck-estoque__chip {
@@ -1000,7 +1236,7 @@
 }
 
 .ck-estoque.ck-visitas--lista .ck-visitas__stage {
-  padding: calc(8px + env(safe-area-inset-top, 0px)) var(--ck-pad-x) 12px;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) var(--ck-pad-x) 42px;
 }
 
 .ck-estoque.ck-visitas--lista .ck-visitas__title {
@@ -1328,6 +1564,19 @@
   white-space: nowrap;
 }
 
+.ck-estoque--contagem .ck-estoque__unidade-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(234, 88, 12, 0.12);
+  color: #c2410c;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .ck-estoque--contagem .ck-estoque__desc {
   margin-bottom: 10px;
   font-size: 0.9rem;
@@ -1374,26 +1623,49 @@
   color: rgba(15, 26, 69, 0.62);
 }
 
+.ck-estoque--contagem .ck-estoque__field:not(.is-blocked) label {
+  color: var(--ck-navy);
+  font-weight: 800;
+}
+
 .ck-estoque--contagem .ck-estoque__field input {
   border-color: rgba(15, 26, 69, 0.22);
   background: #fff;
+}
+
+.ck-estoque--contagem .ck-estoque__field:not(.is-blocked) input {
+  border: 1.5px solid rgba(27, 42, 107, 0.3);
+  background: #fff;
+  font-weight: 700;
+  color: #0f1a45;
+  box-shadow: 0 1px 3px rgba(15, 26, 69, 0.05);
+}
+
+.ck-estoque--contagem .ck-estoque__field:not(.is-blocked) input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.18);
 }
 
 .ck-estoque--contagem .ck-estoque__sistema {
   background: #eef2f7;
 }
 
+.ck-estoque--contagem .ck-estoque__field.is-blocked {
+  opacity: 0.45;
+}
+
 .ck-estoque--contagem .ck-estoque__field.is-blocked label {
   color: rgba(15, 26, 69, 0.35);
+  font-weight: 600;
 }
 
 .ck-estoque--contagem .ck-estoque__blocked {
   width: 100%;
   height: 42px;
   border-radius: 10px;
-  background: #eef2f7;
-  border: 1px dashed rgba(15, 26, 69, 0.22);
-  color: rgba(15, 26, 69, 0.38);
+  background: #f1f5f9;
+  border: 1px dashed rgba(15, 26, 69, 0.2);
+  color: rgba(15, 26, 69, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;

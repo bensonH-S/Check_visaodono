@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
-import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { api, type EstoqueSaldoItem, type Loja } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
@@ -60,6 +60,7 @@ export default function EstoqueMobileSaldoPage() {
   const [itens, setItens] = useState<EstoqueSaldoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [dlgLoja, setDlgLoja] = useState(false);
 
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
@@ -152,25 +153,49 @@ export default function EstoqueMobileSaldoPage() {
             </p>
           )}
 
-          {podeTrocarLoja ? (
-            <div className="ck-estoque__loja">
-              <button
-                type="button"
-                className="ck-estoque__loja-btn"
-                onClick={() => {
-                  const idx = lojas.findIndex((l) => l.id_loja === idLoja);
-                  const next = lojas[(idx + 1) % lojas.length];
-                  if (!next) return;
-                  setIdLoja(next.id_loja);
-                  localStorage.setItem(LOJA_STORAGE_KEY, String(next.id_loja));
-                }}
-              >
-                <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
-                <span aria-hidden>▾</span>
-              </button>
-            </div>
-          ) : lojaAtual ? (
-            <div className="ck-estoque__loja">
+          <div className="ck-estoque__loja ck-estoque__loja--com-voltar">
+            <button type="button" className="ck-estoque__voltar" onClick={() => navigate('/estoque/mobile')}>
+              <span aria-hidden>‹</span>
+            </button>
+            {podeTrocarLoja ? (
+              <div style={{ position: 'relative', flex: 1, minWidth: 0, marginLeft: 52 }}>
+                <button
+                  type="button"
+                  className="ck-estoque__loja-btn"
+                  onClick={() => setDlgLoja((v) => !v)}
+                >
+                  <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
+                  <span aria-hidden>{dlgLoja ? '▴' : '▾'}</span>
+                </button>
+                {dlgLoja && (
+                  <>
+                    <div
+                      className="ck-estoque__dropdown-backdrop"
+                      onClick={() => setDlgLoja(false)}
+                    />
+                    <div className="ck-estoque__loja-dropdown">
+                      {lojas.map((l) => {
+                        const ativa = l.id_loja === idLoja;
+                        return (
+                          <button
+                            key={l.id_loja}
+                            type="button"
+                            className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
+                            onClick={() => {
+                              setIdLoja(l.id_loja);
+                              localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
+                              setDlgLoja(false);
+                            }}
+                          >
+                            {rotuloLoja(l)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : lojaAtual ? (
               <div className="ck-estoque__loja-fix" aria-label="Loja">
                 <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
                 <div className="ck-estoque__loja-fix-text">
@@ -178,18 +203,8 @@ export default function EstoqueMobileSaldoPage() {
                   <strong>{nomeLoja(lojaAtual)}</strong>
                 </div>
               </div>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            className="ck-estoque-nfe__atalho"
-            onClick={() => navigate('/estoque/mobile')}
-          >
-            <Inventory2OutlinedIcon fontSize="small" />
-            <span>Voltar para conferências</span>
-            <span aria-hidden>›</span>
-          </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="ck-visitas__sheet-body">
@@ -204,30 +219,24 @@ export default function EstoqueMobileSaldoPage() {
           {!loading &&
             grupos.map(([grupo, rows]) => (
               <div key={grupo} style={{ marginBottom: 16 }}>
-                <p
-                  style={{
-                    margin: '0 0 8px',
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    color: '#64748b',
-                  }}
-                >
-                  {rotuloGrupo(grupo)}
-                </p>
+                <div className="ck-estoque__secao-titulo">
+                  <span className="ck-estoque__grupo-pill">{rotuloGrupo(grupo)}</span>
+                  <span className="ck-estoque__grupo-qtd">{rows.length} {rows.length === 1 ? 'item' : 'itens'}</span>
+                </div>
                 {rows.map((r) => (
-                  <div key={r.id_insumo || r.id_produto} className="ck-estoque__card ck-estoque__card--lista">
-                    <div className="ck-estoque__card-top">
+                  <div key={r.id_insumo || r.id_produto} className="ck-estoque__card ck-estoque__card--lista ck-estoque__card--saldo">
+                    <div className="ck-estoque__card-top" style={{ alignItems: 'center' }}>
                       <div className="ck-estoque__card-title">
                         <strong>{r.descricao}</strong>
-                        <span className="ck-estoque__card-tipo">{r.codigo}</span>
+                        <div style={{ marginTop: 4 }}>
+                          <span className="ck-estoque__codigo-badge">{r.codigo}</span>
+                        </div>
                       </div>
-                      <div className="ck-estoque__card-valor">
+                      <div className="ck-estoque__saldo-qtd">
                         <strong>
-                          {fmtNum(r.quantidade, 2)} {r.unidade_contagem || ''}
+                          {fmtNum(r.quantidade, 2)}
                         </strong>
-                        <span>saldo</span>
+                        <span>{r.unidade_contagem || 'un'}</span>
                       </div>
                     </div>
                   </div>
