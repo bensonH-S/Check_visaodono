@@ -11,6 +11,12 @@ const BRIGHTDATA_USER_DEFAULT =
  * @returns {{ server: string, username?: string, password?: string, provider: 'brightdata'|'legacy' }|null}
  */
 export function resolveBkOfficePlaywrightProxy() {
+  // Kit PC / Chrome BR: BKOFFICE_BRIGHTDATA=0 desliga o proxy mesmo com senha no .env
+  const brightOff =
+    process.env.BKOFFICE_BRIGHTDATA === '0' ||
+    process.env.BKOFFICE_BRIGHTDATA === 'false';
+  if (brightOff) return null;
+
   const brightPass = String(process.env.BRIGHTDATA_PROXY_PASSWORD || '').trim();
   const brightForced =
     process.env.BKOFFICE_BRIGHTDATA === '1' ||

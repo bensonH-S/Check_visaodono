@@ -94,14 +94,14 @@ function buildSecretsFromEnv(envMap) {
     );
   }
   return {
-    // Modo HTTPS — sem DB na loja
+    // Modo HTTPS — sem DB na loja; Chrome/Chromium local no PC BR (sem Bright Data)
     API_BASE: apiBase.replace(/\/$/, ''),
     BKOFFICE_KIT_TOKEN: kitToken,
     BKOFFICE_USER: envMap.BKOFFICE_USER || '',
     BKOFFICE_PASS: envMap.BKOFFICE_PASS || '',
     BKOFFICE_URL: envMap.BKOFFICE_URL || 'https://bkoffice-franquia.burgerking.com.br',
-    BKOFFICE_USE_CHROME: '0',
-    BKOFFICE_HEADLESS: '1',
+    BKOFFICE_USE_CHROME: envMap.BKOFFICE_USE_CHROME || '1',
+    BKOFFICE_HEADLESS: envMap.BKOFFICE_HEADLESS || '1',
     BKOFFICE_TIMEOUT_MS: envMap.BKOFFICE_TIMEOUT_MS || '180000',
     BKOFFICE_DOWNLOAD_TIMEOUT_MS: envMap.BKOFFICE_DOWNLOAD_TIMEOUT_MS || '180000',
     BKOFFICE_SYNC_ID_LOJA: envMap.BKOFFICE_SYNC_ID_LOJA || '21',
@@ -109,8 +109,10 @@ function buildSecretsFromEnv(envMap) {
     BKOFFICE_BK_NUMBER: envMap.BKOFFICE_BK_NUMBER || '30797',
     BKOFFICE_SERVER_SYNC: '0',
     BKOFFICE_SYNC_CRON_MS: '0',
-    SYNC_INTERVAL_MS: envMap.SYNC_INTERVAL_MS || '60000',
-    SYNC_LIVE_INTERVAL_MS: envMap.SYNC_LIVE_INTERVAL_MS || '60000',
+    BKOFFICE_BRIGHTDATA: '0',
+    BKOFFICE_KIT_ENABLED: '0',
+    SYNC_INTERVAL_MS: envMap.SYNC_INTERVAL_MS || '2400000',
+    SYNC_LIVE_INTERVAL_MS: envMap.SYNC_LIVE_INTERVAL_MS || '2400000',
     NODE_ENV: 'production',
   };
 }
