@@ -2717,9 +2717,6 @@ function PainelProdutos({
                       {p.descricao || '—'}
                     </TableCell>
                     <TableCell align="center">
-                      {unitario ? '—' : (p.itens_ficha != null ? `${p.itens_ficha} iten${p.itens_ficha !== 1 ? 's' : ''}` : '—')}
-                    </TableCell>
-                    <TableCell align="center">
                       {unitario ? (
                         <Chip
                           size="small"
@@ -2770,19 +2767,13 @@ function PainelProdutos({
                             </Box>
                           }
                         >
-                          <Box
-                            component="span"
-                            sx={{
-                              display: 'inline-block',
-                              px: 1,
-                              py: 0.25,
-                              borderRadius: 1,
-                              cursor: 'help',
-                              '&:hover': { bgcolor: 'action.hover' },
-                            }}
-                          >
-                            {p.itens_ficha ?? 0}
-                          </Box>
+                          <Chip
+                            size="small"
+                            label={`${p.itens_ficha ?? 0} iten${p.itens_ficha !== 1 ? 's' : ''}`}
+                            color="primary"
+                            variant="outlined"
+                            sx={{ fontWeight: 600, cursor: 'help' }}
+                          />
                         </Tooltip>
                       ) : (
                         <Chip
@@ -2798,9 +2789,7 @@ function PainelProdutos({
                       align="right"
                       sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
                     >
-                      {p.valor_venda != null && Number(p.valor_venda) > 0
-                        ? fmtMoeda(p.valor_venda)
-                        : '—'}
+                      {fmtMoeda(p.valor_venda ?? 0)}
                     </TableCell>
                     <TableCell align="center">
                       <Chip
