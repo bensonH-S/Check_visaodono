@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -35,6 +36,9 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
 import {
   api,
   type EstoqueBreakResumo,
@@ -65,7 +69,7 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors, portalPanelSx } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 
-type AbaOp = 'cmv' | 'vendas' | 'break' | 'pedido' | 'fichas' | 'saldo';
+type AbaOp = 'cmv' | 'vendas' | 'rede' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
 function fmtNum(v: number | null | undefined, digitos = 2) {
   if (v == null || Number.isNaN(Number(v))) return '—';
@@ -103,18 +107,6 @@ function fmtHoraBR(iso: string | null | undefined) {
   }
 }
 
-function textoFrescorVenda(d: {
-  dias_venda?: number | null;
-  ultimo_sync_em?: string | null;
-  hoje_ausente?: boolean;
-  hoje_parcial?: boolean;
-  ultima_data_venda?: string | null;
-} | null | undefined) {
-  const hora = fmtHoraBR(d?.ultimo_sync_em);
-  const dias = d?.dias_venda ?? 0;
-  return hora ? `sync ${hora}` : `${dias} dias · BK Office`;
-}
-
 function hojeISO() {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
@@ -122,6 +114,71 @@ function hojeISO() {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
+}
+
+function isoDiaSP(iso: string | Date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(typeof iso === 'string' ? new Date(iso) : iso);
+}
+
+/** 29/08 no ano corrente; 29/08/25 se for outro ano. */
+function fmtDataCurta(iso: string | null | undefined) {
+  if (!iso) return '—';
+  const s = String(iso).slice(0, 10);
+  const [y, m, d] = s.split('-');
+  if (!y || !m || !d) return s;
+  return y === hojeISO().slice(0, 4) ? `${d}/${m}` : `${d}/${m}/${y.slice(2)}`;
+}
+
+function fmtHoraCurta(iso: string | null | undefined) {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    const hora = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d);
+    return isoDiaSP(d) === hojeISO() ? hora : `${fmtDataCurta(isoDiaSP(d))} ${hora}`;
+  } catch {
+    return null;
+  }
+}
+
+function textoFrescorVenda(d: {
+  dias_venda?: number | null;
+  ultimo_sync_em?: string | null;
+  hoje_ausente?: boolean;
+  hoje_parcial?: boolean;
+  ultima_data_venda?: string | null;
+} | null | undefined) {
+  if (d?.hoje_ausente) {
+    return `hoje não entrou · último ${fmtDataCurta(d.ultima_data_venda)}`;
+  }
+  if (d?.hoje_parcial) {
+    const hora = fmtHoraCurta(d.ultimo_sync_em);
+    return hora ? `hoje incompleto · sync ${hora}` : 'hoje incompleto';
+  }
+  const hora = fmtHoraCurta(d?.ultimo_sync_em);
+  const dias = d?.dias_venda ?? 0;
+  return hora ? `sync ${hora}` : `${dias} dias · BK Office`;
+}
+
+function deltaPct(atual: number | null | undefined, ly: number | null | undefined) {
+  if (atual == null || ly == null || !Number.isFinite(atual) || !Number.isFinite(ly) || ly <= 0) {
+    return null;
+  }
+  return ((atual - ly) / ly) * 100;
+}
+
+function fmtDelta(pct: number | null) {
+  if (pct == null || Number.isNaN(pct)) return null;
+  const sinal = pct > 0 ? '+' : '';
+  return `${sinal}${pct.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`;
 }
 
 /** Dia 01 do mês corrente (America/Sao_Paulo). */
@@ -352,6 +409,8 @@ type Props = {
   onProdutosVendaCountChange?: (n: number) => void;
   onInsumosReload?: () => void;
   onIrFichas?: () => void;
+  onIrRede?: () => void;
+  onSelectLoja?: (id: number) => void;
   onSetHeaderActions?: (node: React.ReactNode) => void;
 };
 
@@ -364,13 +423,24 @@ export default function EstoqueOperacionalPanels({
   onProdutosVendaCountChange,
   onInsumosReload,
   onIrFichas,
+  onIrRede,
+  onSelectLoja,
   onSetHeaderActions,
 }: Props) {
   if (aba === 'cmv') {
     return <PainelCmv idLoja={idLoja} onIrFichas={onIrFichas} onSetHeaderActions={onSetHeaderActions} />;
   }
   if (aba === 'vendas') {
-    return <PainelVendas idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
+    return <PainelVendas idLoja={idLoja} onIrRede={onIrRede} onSetHeaderActions={onSetHeaderActions} />;
+  }
+  if (aba === 'rede') {
+    return (
+      <PainelSyncRede
+        idLoja={idLoja}
+        onSelectLoja={onSelectLoja}
+        onSetHeaderActions={onSetHeaderActions}
+      />
+    );
   }
   if (aba === 'saldo') {
     return <PainelSaldoKardex idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
@@ -395,13 +465,120 @@ function severidadePeso(s: string | undefined) {
   return 2;
 }
 
+const vendasThSx = {
+  fontWeight: 700,
+  fontSize: '0.68rem',
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase' as const,
+  color: colors.textSecondary,
+  bgcolor: `${colors.canvasAlt} !important`,
+  borderBottom: `1px solid ${colors.border}`,
+  py: 1,
+} as const;
+
+function corSyncStatus(status: string) {
+  if (status === 'hoje') return { bg: 'rgba(18, 120, 70, 0.12)', fg: '#127846' };
+  if (status === 'ontem') return { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' };
+  return { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' };
+}
+
+function VendasKpiCard({
+  label,
+  value,
+  sub,
+  icon,
+  iconBg,
+  iconColor,
+  valueColor,
+  footer,
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: string;
+  icon: ReactNode;
+  iconBg: string;
+  iconColor: string;
+  valueColor?: string;
+  footer?: ReactNode;
+}) {
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        ...portalPanelSx,
+        p: { xs: 1.75, md: 2 },
+        height: '100%',
+        minHeight: 118,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+      }}
+    >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            sx={{
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              color: colors.textSecondary,
+            }}
+          >
+            {label}
+          </Typography>
+          <Typography
+            sx={{
+              fontWeight: 700,
+              mt: 0.6,
+              fontSize: { xs: '1.35rem', md: '1.65rem' },
+              lineHeight: 1.15,
+              letterSpacing: '-0.03em',
+              color: valueColor || colors.navy,
+            }}
+          >
+            {value}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            width: 40,
+            height: 40,
+            borderRadius: 1.5,
+            bgcolor: iconBg,
+            color: iconColor,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            '& .MuiSvgIcon-root': { fontSize: 20 },
+          }}
+        >
+          {icon}
+        </Box>
+      </Box>
+      {sub ? (
+        <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 1.1 }}>{sub}</Typography>
+      ) : null}
+      {footer}
+    </Paper>
+  );
+}
+
 function PainelVendas({
   idLoja,
+  onIrRede,
   onSetHeaderActions,
 }: {
   idLoja: number;
+  onIrRede?: () => void;
   onSetHeaderActions?: (node: React.ReactNode) => void;
 }) {
+  const navigate = useNavigate();
+  const abrirRede = useCallback(() => {
+    if (onIrRede) onIrRede();
+    else navigate('/estoque/rede');
+  }, [navigate, onIrRede]);
   const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState<EstoqueMetaVendas | null>(null);
   const [kitAviso, setKitAviso] = useState<string | null>(null);
@@ -437,28 +614,94 @@ function PainelVendas({
     return () => window.clearInterval(t);
   }, [carregar]);
 
-  useEffect(() => {
-    onSetHeaderActions?.(
-      <IconButton size="small" aria-label="Atualizar vendas" onClick={() => void carregar()}>
-        <RefreshIcon sx={{ fontSize: 18 }} />
-      </IconButton>,
-    );
-    return () => {
-      onSetHeaderActions?.(null);
-    };
-  }, [carregar, onSetHeaderActions]);
-
-  const diasRecentes = useMemo(() => {
-    const lista = meta?.dias || [];
-    return [...lista].reverse().slice(0, 14);
-  }, [meta?.dias]);
-
   const resumoSync = useMemo(() => {
     const hojeN = syncLojas.filter((l) => l.status === 'hoje').length;
     const ontemN = syncLojas.filter((l) => l.status === 'ontem').length;
     const atrasadoN = syncLojas.filter((l) => l.status === 'atrasado' || l.status === 'sem_sync').length;
     return { hoje: hojeN, ontem: ontemN, atrasado: atrasadoN, total: syncLojas.length };
   }, [syncLojas]);
+
+  useEffect(() => {
+    onSetHeaderActions?.(
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {resumoSync.total ? (
+          <Box
+            component="button"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              abrirRede();
+            }}
+            title="Abrir sync da rede"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.6,
+              border: `1px solid ${colors.border}`,
+              bgcolor: colors.surface,
+              borderRadius: '8px',
+              px: 1,
+              py: 0.35,
+              cursor: 'pointer',
+              font: 'inherit',
+              '&:hover': { bgcolor: colors.canvas, borderColor: colors.borderStrong },
+              '& .MuiChip-root': { pointerEvents: 'none' },
+            }}
+          >
+            <Chip
+              size="small"
+              label={`${resumoSync.hoje} ok`}
+              sx={{
+                height: 20,
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                bgcolor: 'rgba(18, 120, 70, 0.12)',
+                color: '#127846',
+              }}
+            />
+            {resumoSync.atrasado ? (
+              <Chip
+                size="small"
+                label={`${resumoSync.atrasado} atrasada${resumoSync.atrasado === 1 ? '' : 's'}`}
+                sx={{
+                  height: 20,
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  bgcolor: 'rgba(180, 35, 24, 0.1)',
+                  color: '#B42318',
+                }}
+              />
+            ) : null}
+            <ChevronRightIcon sx={{ fontSize: 18, color: colors.textMuted }} />
+          </Box>
+        ) : null}
+        <IconButton size="small" aria-label="Atualizar vendas" onClick={() => void carregar()}>
+          <RefreshIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+      </Box>,
+    );
+    return () => {
+      onSetHeaderActions?.(null);
+    };
+    // deps primitivos + callbacks estáveis (pai deve memoizar onIrRede)
+  }, [
+    abrirRede,
+    carregar,
+    onSetHeaderActions,
+    resumoSync.atrasado,
+    resumoSync.hoje,
+    resumoSync.total,
+  ]);
+
+  const diasRecentes = useMemo(() => {
+    const lista = meta?.dias || [];
+    return [...lista].reverse().slice(0, 14);
+  }, [meta?.dias]);
+
+  const topProdutos = meta?.top_produtos || [];
+  const temLy = Boolean(meta?.tem_base_ly);
+  const anoLy = meta?.ano ? meta.ano - 1 : null;
 
   if (loading && !meta) {
     return (
@@ -469,10 +712,11 @@ function PainelVendas({
   }
 
   const vendaHoje = meta?.venda_hoje ?? 0;
-  const corHoje = colors.textPrimary;
+  const hojeProblema = Boolean(meta?.hoje_ausente || meta?.hoje_parcial);
+  const mesNome = meta?.mes_nome ? meta.mes_nome.charAt(0).toUpperCase() + meta.mes_nome.slice(1) : 'mês';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, flex: 1, minHeight: 0, overflow: 'auto' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0, pb: 2 }}>
       {kitAviso ? (
         <Paper
           sx={{
@@ -486,249 +730,167 @@ function PainelVendas({
         </Paper>
       ) : null}
 
-      <Box sx={{ ...portalPanelSx, p: { xs: 1.75, md: 2.25 } }}>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-            gap: { xs: 1.5, md: 0 },
-          }}
-        >
-          {[
-            {
-              label: 'Venda hoje',
-              value: fmtMoeda(vendaHoje),
-              color: corHoje,
-              sub: `${textoFrescorVenda(meta)} · Bruto`,
-            },
-            {
-              label: `Venda ${meta?.mes_nome || 'mês'}`,
-              value: fmtMoeda(meta?.venda_mtd ?? 0),
-              color: colors.textPrimary,
-              sub: `${meta?.dias_venda ?? 0} dias · média ${fmtMoeda(meta?.media_dia)} · Bruto`,
-            },
-            {
-              label: 'Meta mês (+10%)',
-              value: meta?.meta_mes != null ? fmtMoeda(meta.meta_mes) : 'Sem base 2025',
-              color: colors.textPrimary,
-              sub:
-                meta?.atingimento_mtd_pct != null
-                  ? `${fmtNum(meta.atingimento_mtd_pct, 1)}% do MTD · projeção ${fmtMoeda(meta.projecao_mes)}`
-                  : `LY ${fmtMoeda(meta?.venda_ly_mes)}`,
-            },
-          ].map((k, i) => (
-            <Box
-              key={k.label}
-              sx={{
-                minWidth: 0,
-                px: { md: 2 },
-                pl: { md: i === 0 ? 0 : 2 },
-                pr: { md: i === 2 ? 0 : 2 },
-                borderLeft: { md: i === 0 ? 'none' : `1px solid ${colors.border}` },
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: '0.68rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.14em',
-                  textTransform: 'uppercase',
-                  color: colors.textMuted,
-                }}
-              >
-                {k.label}
-              </Typography>
-              <Typography
-                sx={{
-                  fontWeight: 600,
-                  fontSize: { xs: '1.4rem', md: '1.7rem' },
-                  letterSpacing: '-0.035em',
-                  color: k.color,
-                  mt: 0.35,
-                }}
-              >
-                {k.value}
-              </Typography>
-              <Typography sx={{ fontSize: '0.78rem', color: colors.textMuted, mt: 0.5 }}>{k.sub}</Typography>
-            </Box>
-          ))}
-        </Box>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+          gap: 1.5,
+          flexShrink: 0,
+        }}
+      >
+        <VendasKpiCard
+          label="Venda hoje"
+          value={fmtMoeda(vendaHoje)}
+          sub={`${textoFrescorVenda(meta)} · bruto`}
+          icon={<TodayOutlinedIcon />}
+          iconBg={hojeProblema ? 'rgba(232, 82, 10, 0.1)' : colors.navyMuted}
+          iconColor={hojeProblema ? colors.orange : colors.navy}
+          valueColor={hojeProblema ? colors.orange : colors.navy}
+        />
+        <VendasKpiCard
+          label={`Venda ${mesNome}`}
+          value={fmtMoeda(meta?.venda_mtd ?? 0)}
+          sub={`${meta?.dias_venda ?? 0} dias com venda · média ${fmtMoeda(meta?.media_dia)}`}
+          icon={<CalendarMonthOutlinedIcon />}
+          iconBg="rgba(59, 130, 246, 0.1)"
+          iconColor="#2563EB"
+        />
       </Box>
-
-      {syncLojas.length ? (
-        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden' }}>
-          <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: colors.navy }}>
-              Sync por loja (BK Office)
-            </Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, mt: 0.25 }}>
-              {resumoSync.hoje} com hoje · {resumoSync.ontem} até ontem · {resumoSync.atrasado} atrasada
-              {resumoSync.total ? ` · ${resumoSync.total} lojas` : ''} · Bruto do mês
-            </Typography>
-          </Box>
-          <TableContainer sx={{ maxHeight: 320 }}>
-            <Table size="small" stickyHeader sx={tableSx}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>BKN</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Loja</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Último dia</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Último sync</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>
-                    Mês
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>
-                    Hoje
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {syncLojas.map((l) => {
-                  const destaque = l.id_loja === idLoja;
-                  const corChip =
-                    l.status === 'hoje'
-                      ? { bg: 'rgba(18, 120, 70, 0.12)', fg: '#127846' }
-                      : l.status === 'ontem'
-                        ? { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' }
-                        : { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' };
-                  return (
-                    <TableRow
-                      key={l.id_loja}
-                      hover
-                      sx={destaque ? { bgcolor: 'rgba(15, 55, 95, 0.04)' } : undefined}
-                    >
-                      <TableCell>
-                        <Chip
-                          label={l.status_label}
-                          size="small"
-                          sx={{
-                            height: 22,
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            bgcolor: corChip.bg,
-                            color: corChip.fg,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: destaque ? 700 : 400 }}>{l.bk_number || '—'}</TableCell>
-                      <TableCell sx={{ maxWidth: 220 }}>
-                        <Typography
-                          sx={{ fontSize: '0.8rem', fontWeight: destaque ? 700 : 500 }}
-                          noWrap
-                          title={l.name}
-                        >
-                          {l.name}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{fmtDataBR(l.ultima_data_venda) || '—'}</TableCell>
-                      <TableCell sx={{ color: colors.textMuted, whiteSpace: 'nowrap' }}>
-                        {fmtHoraBR(l.ultimo_sync_em) || '—'}
-                        {l.minutos_sem_sync != null && l.minutos_sem_sync > 15 ? (
-                          <Typography component="span" sx={{ fontSize: '0.68rem', color: '#B42318', ml: 0.75 }}>
-                            ({l.minutos_sem_sync} min)
-                          </Typography>
-                        ) : null}
-                      </TableCell>
-                      <TableCell align="right">{fmtMoeda(l.venda_mes)}</TableCell>
-                      <TableCell align="right">{fmtMoeda(l.venda_hoje)}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      ) : null}
 
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: '1.2fr 0.8fr' },
-          gap: 1.75,
-          minHeight: 0,
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
+          gap: 2,
+          alignItems: 'start',
+          width: '100%',
+          minWidth: 0,
         }}
       >
-        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden' }}>
-          <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
+        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden', minWidth: 0, width: '100%' }}>
+          <Box sx={{ px: 2, py: 1.4, borderBottom: `1px solid ${colors.border}` }}>
             <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: colors.navy }}>
-              Vendas por dia (BK Office)
+              Vendas por dia
             </Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, mt: 0.25 }}>
-              Coluna Bruto do BK Office · atualiza a cada 45s
+            <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 0.2 }}>
+              Bruto BK Office{temLy && anoLy ? ` · vs ${anoLy}` : ''}
             </Typography>
           </Box>
-          <TableContainer>
-            <Table size="small" sx={tableSx}>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ ...tableSx, tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Dia</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  <TableCell sx={{ ...vendasThSx, width: 88 }}>Dia</TableCell>
+                  <TableCell align="right" sx={vendasThSx}>
                     Venda
                   </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>
-                    {meta?.ano ? meta.ano - 1 : 'LY'}
-                  </TableCell>
+                  {temLy ? (
+                    <TableCell align="right" sx={{ ...vendasThSx, width: 88 }}>
+                      vs {anoLy}
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {diasRecentes.map((d) => (
-                  <TableRow key={d.data} hover>
-                    <TableCell>
-                      {fmtDataBR(d.data)}
-                      {d.sem_sync ? (
-                        <Chip
-                          label="sem sync"
-                          size="small"
-                          sx={{ ml: 1, height: 20, fontSize: '0.65rem' }}
-                        />
-                      ) : null}
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: d.data === meta?.ate ? 700 : 400 }}>
-                      {fmtMoeda(d.venda)}
-                    </TableCell>
-                    <TableCell align="right" sx={{ color: colors.textMuted }}>
-                      {fmtMoeda(d.venda_ly)}
+                {diasRecentes.length ? (
+                  diasRecentes.map((d) => {
+                    const hojeLinha = d.data === meta?.ate;
+                    const delta = temLy ? deltaPct(d.venda, d.venda_ly) : null;
+                    return (
+                      <TableRow
+                        key={d.data}
+                        hover
+                        sx={hojeLinha ? { bgcolor: 'rgba(27, 42, 107, 0.04)' } : undefined}
+                      >
+                        <TableCell sx={{ fontWeight: hojeLinha ? 700 : 500, whiteSpace: 'nowrap' }}>
+                          {fmtDataCurta(d.data)}
+                          {hojeLinha ? (
+                            <Typography component="span" sx={{ ml: 0.75, fontSize: '0.68rem', color: colors.textMuted }}>
+                              hoje
+                            </Typography>
+                          ) : null}
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            fontWeight: hojeLinha ? 700 : 600,
+                            whiteSpace: 'nowrap',
+                            color: d.sem_sync ? colors.textMuted : colors.textPrimary,
+                          }}
+                        >
+                          {d.sem_sync ? '—' : fmtMoeda(d.venda)}
+                        </TableCell>
+                        {temLy ? (
+                          <TableCell
+                            align="right"
+                            sx={{
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                              color: delta == null ? colors.textMuted : delta >= 0 ? '#127846' : '#B42318',
+                            }}
+                          >
+                            {fmtDelta(delta) || '—'}
+                          </TableCell>
+                        ) : null}
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={temLy ? 3 : 2} sx={{ color: colors.textSecondary, py: 3 }}>
+                      Nenhuma venda no mês ainda.
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>
         </Paper>
 
-        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden' }}>
-          <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
+        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden', minWidth: 0, width: '100%' }}>
+          <Box sx={{ px: 2, py: 1.4, borderBottom: `1px solid ${colors.border}` }}>
             <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: colors.navy }}>
-              Top produtos (mês)
+              Top produtos do mês
+            </Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 0.2 }}>
+              Maiores vendas brutas
             </Typography>
           </Box>
-          <TableContainer>
-            <Table size="small" sx={tableSx}>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ ...tableSx, tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Produto</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  <TableCell sx={{ ...vendasThSx, width: 44 }}>#</TableCell>
+                  <TableCell sx={vendasThSx}>Produto</TableCell>
+                  <TableCell align="right" sx={{ ...vendasThSx, width: 120 }}>
                     Venda
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(meta?.top_produtos || []).length ? (
-                  meta!.top_produtos.map((p) => (
+                {topProdutos.length ? (
+                  topProdutos.map((p, i) => (
                     <TableRow key={p.codigo} hover>
-                      <TableCell sx={{ maxWidth: 220 }}>
-                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }} noWrap title={p.descricao}>
+                      <TableCell sx={{ fontWeight: 700, color: i < 3 ? colors.orange : colors.textSecondary }}>
+                        {i + 1}
+                      </TableCell>
+                      <TableCell sx={{ overflow: 'hidden' }}>
+                        <Typography noWrap title={p.descricao || p.codigo} sx={{ fontSize: '0.82rem', fontWeight: 600 }}>
                           {p.descricao || p.codigo}
                         </Typography>
-                        <Typography sx={{ fontSize: '0.7rem', color: colors.textMuted }}>{p.codigo}</Typography>
+                        <Typography noWrap sx={{ fontSize: '0.68rem', color: colors.textMuted }}>
+                          {p.codigo}
+                          {p.qtde ? ` · ${fmtNum(p.qtde, 0)} un` : ''}
+                        </Typography>
                       </TableCell>
-                      <TableCell align="right">{fmtMoeda(p.venda)}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap', color: colors.navy }}>
+                        {fmtMoeda(p.venda)}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={2} sx={{ color: colors.textMuted, py: 3 }}>
+                    <TableCell colSpan={3} sx={{ color: colors.textSecondary, py: 3 }}>
                       Nenhuma venda no mês ainda.
                     </TableCell>
                   </TableRow>
@@ -738,6 +900,207 @@ function PainelVendas({
           </TableContainer>
         </Paper>
       </Box>
+    </Box>
+  );
+}
+
+function tsSyncLoja(l: EstoqueSyncLojaStatus) {
+  if (l.ultimo_sync_em) {
+    const t = new Date(l.ultimo_sync_em).getTime();
+    if (Number.isFinite(t)) return t;
+  }
+  if (l.minutos_sem_sync != null && Number.isFinite(l.minutos_sem_sync)) {
+    return Date.now() - l.minutos_sem_sync * 60_000;
+  }
+  return 0;
+}
+
+function PainelSyncRede({
+  idLoja,
+  onSelectLoja,
+  onSetHeaderActions,
+}: {
+  idLoja: number;
+  onSelectLoja?: (id: number) => void;
+  onSetHeaderActions?: (node: React.ReactNode) => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [syncLojas, setSyncLojas] = useState<EstoqueSyncLojaStatus[]>([]);
+
+  const carregar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
+    try {
+      const painel = await api.estoqueSyncLojas();
+      setSyncLojas(painel?.lojas || []);
+    } catch (e) {
+      if (!silencioso) {
+        showToast(e instanceof Error ? e.message : 'Erro ao carregar sync da rede', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => void carregar(true), 45000);
+    return () => window.clearInterval(t);
+  }, [carregar]);
+
+  useEffect(() => {
+    onSetHeaderActions?.(
+      <IconButton size="small" aria-label="Atualizar sync da rede" onClick={() => void carregar()}>
+        <RefreshIcon sx={{ fontSize: 18 }} />
+      </IconButton>,
+    );
+    return () => {
+      onSetHeaderActions?.(null);
+    };
+  }, [carregar, onSetHeaderActions]);
+
+  const lojasOrdenadas = useMemo(
+    () =>
+      [...syncLojas].sort((a, b) => {
+        const diff = tsSyncLoja(b) - tsSyncLoja(a);
+        if (diff !== 0) return diff;
+        return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+      }),
+    [syncLojas],
+  );
+
+  const resumo = useMemo(() => {
+    const hoje = syncLojas.filter((l) => l.status === 'hoje').length;
+    const ontem = syncLojas.filter((l) => l.status === 'ontem').length;
+    const atrasado = syncLojas.filter((l) => l.status === 'atrasado' || l.status === 'sem_sync').length;
+    return { hoje, ontem, atrasado, total: syncLojas.length };
+  }, [syncLojas]);
+
+  if (loading && !syncLojas.length) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+        <CircularProgress size={28} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+        <Typography sx={{ fontSize: '0.8rem', color: colors.textSecondary }}>
+          Bruto do mês · da mais recente à mais atrasada · atualiza a cada 45s
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+          <Chip
+            size="small"
+            label={`${resumo.hoje} hoje`}
+            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(18, 120, 70, 0.12)', color: '#127846' }}
+          />
+          {resumo.ontem ? (
+            <Chip
+              size="small"
+              label={`${resumo.ontem} ontem`}
+              sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(232, 82, 10, 0.12)', color: '#C2410C' }}
+            />
+          ) : null}
+          {resumo.atrasado ? (
+            <Chip
+              size="small"
+              label={`${resumo.atrasado} atrasada${resumo.atrasado === 1 ? '' : 's'}`}
+              sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(180, 35, 24, 0.1)', color: '#B42318' }}
+            />
+          ) : null}
+          <Chip
+            size="small"
+            label={`${resumo.total} lojas`}
+            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 600, bgcolor: colors.canvasAlt, color: colors.textSecondary }}
+          />
+        </Box>
+      </Box>
+
+      <Paper sx={tablePaperSx}>
+        <TableContainer sx={tableContainerSx}>
+          <Table size="small" stickyHeader sx={tableSx}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={vendasThSx}>Status</TableCell>
+                <TableCell sx={vendasThSx}>BKN</TableCell>
+                <TableCell sx={vendasThSx}>Loja</TableCell>
+                <TableCell sx={vendasThSx}>Último dia</TableCell>
+                <TableCell sx={vendasThSx}>Sync</TableCell>
+                <TableCell align="right" sx={vendasThSx}>
+                  Mês
+                </TableCell>
+                <TableCell align="right" sx={vendasThSx}>
+                  Hoje
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {lojasOrdenadas.length ? (
+                lojasOrdenadas.map((l) => {
+                  const destaque = l.id_loja === idLoja;
+                  const cor = corSyncStatus(l.status);
+                  const atrasada = l.status === 'atrasado' || l.status === 'sem_sync';
+                  return (
+                    <TableRow
+                      key={l.id_loja}
+                      hover
+                      onClick={onSelectLoja ? () => onSelectLoja(l.id_loja) : undefined}
+                      sx={{
+                        bgcolor: destaque ? 'rgba(27, 42, 107, 0.05)' : undefined,
+                        cursor: onSelectLoja ? 'pointer' : 'default',
+                      }}
+                    >
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85 }}>
+                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cor.fg, flexShrink: 0 }} />
+                          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: cor.fg }}>
+                            {l.status_label}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: destaque ? 700 : 500 }}>{l.bk_number || '—'}</TableCell>
+                      <TableCell>
+                        <Typography
+                          noWrap
+                          title={l.name}
+                          sx={{ fontSize: '0.82rem', fontWeight: destaque ? 700 : 500, maxWidth: 280 }}
+                        >
+                          {l.name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{fmtDataCurta(l.ultima_data_venda)}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
+                        {fmtHoraCurta(l.ultimo_sync_em) || '—'}
+                        {atrasada && l.minutos_sem_sync != null ? (
+                          <Typography component="span" sx={{ ml: 0.75, fontSize: '0.7rem', color: '#B42318', fontWeight: 600 }}>
+                            · {l.minutos_sem_sync} min
+                          </Typography>
+                        ) : null}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {fmtMoeda(l.venda_mes)}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {fmtMoeda(l.venda_hoje)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} sx={{ color: colors.textSecondary, py: 4, textAlign: 'center' }}>
+                    Nenhuma loja com sync BK Office.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </Box>
   );
 }

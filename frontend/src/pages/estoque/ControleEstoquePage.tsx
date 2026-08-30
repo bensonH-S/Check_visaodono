@@ -64,9 +64,9 @@ import {
 } from '../../components/estoque/estoqueContagemTipo';
 import { gerarPdfContagemDiaria } from '../../utils/gerarPdfContagemDiaria';
 
-type AbaEstoque = 'cmv' | 'vendas' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
+type AbaEstoque = 'cmv' | 'vendas' | 'rede' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
-const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'vendas', 'break', 'saldo', 'fichas'];
+const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'vendas', 'rede', 'break', 'saldo', 'fichas'];
 
 /** URLs antigas → essenciais da validação */
 const REDIRECT_ABA: Record<string, AbaEstoque> = {
@@ -79,6 +79,7 @@ const REDIRECT_ABA: Record<string, AbaEstoque> = {
   cmv: 'vendas',
   pedido: 'vendas',
   meta: 'vendas',
+  sync: 'rede',
 };
 
 function isAbaEstoque(v: string | undefined): v is AbaEstoque {
@@ -192,6 +193,7 @@ function subtituloLoja(l: Loja) {
 const ROTULO_ABA: Record<AbaEstoque, string> = {
   cmv: 'CMV',
   vendas: 'Vendas',
+  rede: 'Rede',
   saldo: 'Saldo',
   conferencia: 'Conferência',
   break: 'Break',
@@ -368,7 +370,7 @@ export default function ControleEstoquePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- só no mount
   }, []);
 
-  const selecionarLoja = (id: number) => {
+  const selecionarLoja = useCallback((id: number) => {
     setIdLoja(id);
     localStorage.setItem(LOJA_STORAGE_KEY, String(id));
     setContagem(null);
@@ -376,13 +378,19 @@ export default function ControleEstoquePage() {
     setProdutos([]);
     setRascunhoItens({});
     setVerDetalhe(false);
-  };
+  }, []);
 
   const carregarProdutos = useCallback(async () => {
     if (!idLoja) return;
     const rows = await api.estoqueProdutos({ id_loja: idLoja });
     setProdutos(rows);
   }, [idLoja]);
+
+  const irParaFichas = useCallback(() => irParaAba('fichas'), [irParaAba]);
+  const irParaRede = useCallback(() => navigate('/estoque/rede'), [navigate]);
+  const recarregarInsumos = useCallback(() => {
+    void carregarProdutos();
+  }, [carregarProdutos]);
 
   const carregarListaContagens = useCallback(async () => {
     if (!idLoja) return [];
@@ -450,7 +458,7 @@ export default function ControleEstoquePage() {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
-    const abasOp: AbaEstoque[] = ['saldo', 'fichas'];
+    const abasOp: AbaEstoque[] = ['saldo', 'fichas', 'vendas', 'rede'];
     let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
       destino = podeBreak ? 'break' : podeOperacional ? 'saldo' : 'fichas';
@@ -703,7 +711,7 @@ export default function ControleEstoquePage() {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
-  const chromeCompacto = aba === 'saldo' || aba === 'conferencia' || aba === 'vendas';
+  const chromeCompacto = aba === 'saldo' || aba === 'conferencia' || aba === 'rede';
 
   if (loadingLojas) {
     return (
@@ -854,6 +862,9 @@ export default function ControleEstoquePage() {
           )}
           {podeOperacional && (
             <Tab value="vendas" label="Vendas" disabled={!idLoja || bloqueiaOutrasAbas} />
+          )}
+          {podeOperacional && (
+            <Tab value="rede" label="Rede" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeBreak && (
             <Tab value="break" label="Break" disabled={!idLoja || bloqueiaOutrasAbas} />
@@ -1137,7 +1148,7 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {((podeOperacional && (aba === 'vendas' || aba === 'saldo' || aba === 'fichas')) ||
+              {((podeOperacional && (aba === 'vendas' || aba === 'rede' || aba === 'saldo' || aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <Box
@@ -1153,8 +1164,10 @@ export default function ControleEstoquePage() {
                       aba={aba as AbaOp}
                       idLoja={idLoja}
                       produtos={produtos}
-                      onInsumosReload={() => void carregarProdutos()}
-                      onIrFichas={() => irParaAba('fichas')}
+                      onInsumosReload={recarregarInsumos}
+                      onIrFichas={irParaFichas}
+                      onIrRede={irParaRede}
+                      onSelectLoja={selecionarLoja}
                       onSetHeaderActions={setHeaderActions}
                     />
                   </Box>
