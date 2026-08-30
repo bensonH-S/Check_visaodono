@@ -287,16 +287,15 @@ export default function EstoqueMobileNfePage() {
       <div className="ck-visitas__mesh" aria-hidden />
       <div className="ck-visitas__stage-inner">
         <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-          <div>
+          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
             <p className="ck-visitas__mark-text">Grupo Alvim</p>
             <h1 className="ck-visitas__title">Recebimentos</h1>
+            <p className="ck-visitas__sub">
+              Conferência e recebimento de notas fiscais de entrada.
+            </p>
           </div>
-          <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+          <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
         </div>
-        <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-          Conferência e recebimento de notas fiscais
-          {lojaAtual ? ` · ${rotuloLoja(lojaAtual)}` : ''}
-        </p>
       </div>
     </div>
   );
@@ -316,7 +315,7 @@ export default function EstoqueMobileNfePage() {
               Ocorrências
             </h1>
           </div>
-          <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+          <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
         </div>
         <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
           NF {det.numero || det.id_nfe}

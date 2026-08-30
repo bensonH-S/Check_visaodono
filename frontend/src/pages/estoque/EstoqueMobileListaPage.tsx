@@ -9,6 +9,7 @@ import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
+import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
 import {
   api,
   type EstoqueContagemResumo,
@@ -257,17 +258,17 @@ export default function EstoqueMobileListaPage() {
         <div className="ck-visitas__mesh" aria-hidden />
         <div className="ck-visitas__stage-inner">
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div>
+            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title">
                 Conferência
               </h1>
+              <p className="ck-visitas__sub">
+                Controle e auditoria de contagens físicas e apuração de CMV.
+              </p>
             </div>
-            <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+            <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
           </div>
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Conte os insumos. Break e perdas ficam na aba Break.
-          </p>
             <div className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
               <div className="ck-estoque__kpi">
                 <strong>{loading ? '—' : fmtBrl(valorInicialMes ?? 0)}</strong>
@@ -500,11 +501,21 @@ export default function EstoqueMobileListaPage() {
                 </div>
 
                 <div className="ck-estoque__card-foot">
-                  <span className="ck-estoque__card-who">
-                    {c.criado_por_nome || '—'}
-                    {pendentes > 0 ? ` · ${pendentes} pend.` : ''}
-                    {divergencias > 0 ? ` · ${divergencias} div.` : ''}
-                  </span>
+                  <div className="ck-estoque__card-meta-left">
+                    <span className="ck-estoque__card-who" title="Responsável pela conferência">
+                      <PersonOutlinedIcon sx={{ fontSize: 16, color: 'var(--ck-navy)' }} />
+                      <strong>{c.criado_por_nome || 'Não informado'}</strong>
+                    </span>
+                    {pendentes > 0 && (
+                      <span className="ck-estoque__badge-pend">{pendentes} pendente{pendentes !== 1 ? 's' : ''}</span>
+                    )}
+                    {divergencias > 0 && (
+                      <span className="ck-estoque__badge-div">{divergencias} divergência{divergencias !== 1 ? 's' : ''}</span>
+                    )}
+                    {!aberta && pendentes === 0 && (
+                      <span className="ck-estoque__badge-ok">Conferido</span>
+                    )}
+                  </div>
                   {mostrarReabrir && (
                     <button
                       type="button"

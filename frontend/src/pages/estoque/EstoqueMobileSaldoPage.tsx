@@ -124,21 +124,21 @@ export default function EstoqueMobileSaldoPage() {
         <div className="ck-visitas__mesh" aria-hidden />
         <div className="ck-visitas__stage-inner">
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div>
+            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title">Saldo</h1>
+              <p className="ck-visitas__sub">
+                Consulta de saldo e posição física dos insumos da diária.
+              </p>
             </div>
-            <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+            <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
           </div>
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Só consulta — insumos da diária. Não abre contagem.
-          </p>
           <div
             className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3"
             aria-live="polite"
           >
             <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong>{loading ? '—' : itens.length}</strong>
+              <strong>{loading ? '0' : (itens?.length ?? 0)}</strong>
               <span>itens</span>
             </div>
           </div>

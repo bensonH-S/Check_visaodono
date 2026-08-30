@@ -23,7 +23,7 @@ function rotuloLoja(l: Loja) {
 }
 
 function fmtMoeda(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
+  if (v == null || Number.isNaN(Number(v))) return 'R$ 0,00';
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
@@ -35,18 +35,20 @@ function fmtDataBR(iso: string | null | undefined) {
   return `${d}/${m}/${y}`;
 }
 
-function fmtHoraBR(iso: string | null | undefined) {
-  if (!iso) return null;
+function fmtDataHoraBR(iso: string | null | undefined) {
+  if (!iso) return '—';
   try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
     return new Intl.DateTimeFormat('pt-BR', {
       timeZone: 'America/Sao_Paulo',
       day: '2-digit',
       month: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(new Date(iso));
+    }).format(d);
   } catch {
-    return null;
+    return '—';
   }
 }
 
@@ -136,36 +138,34 @@ export default function EstoqueMobileVendasPage() {
         <div className="ck-visitas__mesh" aria-hidden />
         <div className="ck-visitas__stage-inner">
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div>
+            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title">Vendas</h1>
+              <p className="ck-visitas__sub">
+                Acompanhe as vendas da loja em tempo real.
+              </p>
             </div>
-            <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+            <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
           </div>
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Acompanhe as vendas da loja em tempo real.
-          </p>
           <div
             className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3"
             aria-live="polite"
           >
             <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong>{loading && !meta ? '—' : fmtMoeda(meta?.venda_hoje)}</strong>
+              <strong>{loading && !meta ? 'R$ 0,00' : fmtMoeda(meta?.venda_hoje ?? 0)}</strong>
               <span>hoje</span>
             </div>
             <div className="ck-visitas__metric">
-              <strong>{loading && !meta ? '—' : fmtMoeda(meta?.venda_mtd)}</strong>
+              <strong>{loading && !meta ? 'R$ 0,00' : fmtMoeda(meta?.venda_mtd ?? 0)}</strong>
               <span>mês</span>
             </div>
             <div className="ck-visitas__metric" style={{ minWidth: 0 }}>
-              <strong style={{ fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <strong>
                 {loading && !meta
                   ? '—'
-                  : meta?.hoje_ausente
-                    ? fmtDataBR(meta.ultima_data_venda)
-                    : fmtHoraBR(meta?.ultimo_sync_em) || 'Hoje'}
+                  : fmtDataHoraBR(meta?.ultimo_sync_em || meta?.ultima_data_venda)}
               </strong>
-              <span>{meta?.hoje_ausente ? 'última venda' : 'sync'}</span>
+              <span>SYNC</span>
             </div>
           </div>
         </div>
