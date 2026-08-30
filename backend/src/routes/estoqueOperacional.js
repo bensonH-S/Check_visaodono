@@ -998,8 +998,8 @@ router.get('/break/catalogo', permBreak, async (req, res, next) => {
         und_convertida: 1,
         valor_unidade: 0,
       }));
-      // DI e empréstimo: todos os insumos ativos da loja (não só o caderno antigo).
-      insumos.push(...mapped);
+      // Lista curada (códigos); se vazia/sem match, cai no caderno antigo via filtrarPorCaderno.
+      insumos.push(...filtrarPorCaderno(mapped, tipo));
     } else {
       const { rows } = await pool.query(
         `SELECT id_produto, codigo, descricao, ativo

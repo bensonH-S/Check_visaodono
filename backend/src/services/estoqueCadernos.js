@@ -1,5 +1,9 @@
 /** Cadernos BK 2024 — Break, Desperdício Completo e Desperdício Incompleto. */
 
+import { filtrarPorCodigos, codigosDoTipo } from './estoqueCadernosListas.js';
+
+export { filtrarPorCodigos, codigosDoTipo };
+
 export const TIPOS_LANCAMENTO = [
   'refeicao',
   'outro',
@@ -40,7 +44,7 @@ export const MOTIVOS_DI = [
   { codigo: 'loja_fechada', nome: 'Loja fechada' },
 ];
 
-const ITENS_BREAK = [
+export const ITENS_BREAK = [
   { nome: 'WHOPPER/Q', aliases: ['whopper q', 'whopper queijo', 'whopper'] },
   { nome: 'WHOP JR/Q', aliases: ['whop jr', 'whopper jr', 'whopper junior'] },
   { nome: 'WHOPPER FURIOSO', aliases: ['whopper furioso'] },
@@ -79,7 +83,7 @@ const ITENS_BREAK = [
   { nome: 'SUNDAE MORANGO', aliases: ['sundae morango'] },
 ];
 
-const ITENS_DC = [
+export const ITENS_DC = [
   { nome: 'WHOPPER', aliases: ['whopper'] },
   { nome: 'WHOPPER JR', aliases: ['whopper jr', 'whopper junior'] },
   { nome: 'BIG KING', aliases: ['big king'] },
@@ -116,7 +120,7 @@ const ITENS_DC = [
   { nome: 'MOLHO FURIOSO B.', aliases: ['molho furioso'] },
 ];
 
-const ITENS_DI = [
+export const ITENS_DI = [
   { nome: 'ALFACE AMERICANA', aliases: ['alface americana', 'alface'] },
   { nome: 'AMENDOIM', aliases: ['amendoim'] },
   { nome: 'BACON EM CUBOS', aliases: ['bacon cubos', 'bacon'] },
@@ -186,6 +190,10 @@ export function motivosDoTipo(tipo) {
 }
 
 export function filtrarPorCaderno(rows, tipo) {
+  // Lista curada por código (gestores) tem prioridade sobre alias fuzzy.
+  const porCodigo = filtrarPorCodigos(rows, tipo);
+  if (porCodigo.length) return porCodigo;
+
   const lista =
     tipo === 'desperdicio_completo' ? ITENS_DC : tipo === 'desperdicio_incompleto' ? ITENS_DI : ITENS_BREAK;
   return (rows || []).filter((row) => {
