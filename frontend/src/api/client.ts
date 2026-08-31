@@ -1193,6 +1193,15 @@ export const api = {
       inicio_mes: string;
       lojas: EstoqueSyncLojaStatus[];
     }>('/estoque/sync/lojas'),
+  estoqueContagensRede: (opts?: { tipo?: 'diaria' | 'critica_semanal' | 'completa'; data?: string }) => {
+    const q = new URLSearchParams();
+    if (opts?.tipo) q.set('tipo', opts.tipo);
+    if (opts?.data) q.set('data', opts.data);
+    const qs = q.toString();
+    return request<{ hoje: string; tipo: string; lojas: EstoqueContagemRedeItem[] }>(
+      `/estoque/contagens/rede${qs ? `?${qs}` : ''}`,
+    );
+  },
   estoqueSyncVendas: (body: {
     id_loja: number;
     data_inicio: string;
@@ -3178,6 +3187,24 @@ export interface EstoqueSyncLojaStatus {
   venda_hoje: number;
   status: 'hoje' | 'ontem' | 'atrasado' | 'sem_sync';
   status_label: string;
+}
+
+export interface EstoqueContagemRedeItem {
+  id_loja: number;
+  bk_number: string | null;
+  name: string;
+  id_contagem: number | null;
+  status: 'contou' | 'aberta' | 'faltou';
+  status_label: string;
+  titulo: string | null;
+  tipo: string;
+  data_contagem: string | null;
+  criado_em: string | null;
+  finalizado_em: string | null;
+  contado_em: string | null;
+  criado_por_nome: string | null;
+  ultima_data: string | null;
+  ultima_finalizado_em: string | null;
 }
 
 export interface EstoqueSyncResult {

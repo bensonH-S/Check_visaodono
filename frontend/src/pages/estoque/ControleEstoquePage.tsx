@@ -8,6 +8,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
@@ -332,7 +333,7 @@ export default function ControleEstoquePage() {
   const [baixandoRelatorio, setBaixandoRelatorio] = useState(false);
   const [dlgRelatorio, setDlgRelatorio] = useState(false);
   const [relatorioTipo, setRelatorioTipo] = useState<TipoContagemEstoque>('diaria');
-  const [relatorioModo, setRelatorioModo] = useState<'estrutura' | 'dados'>('estrutura');
+  const [relatorioModo, setRelatorioModo] = useState<'estrutura' | 'dados'>('dados');
 
   const lojaAtual = useMemo(
     () => lojas.find((l) => l.id_loja === idLoja) || null,
@@ -609,7 +610,7 @@ export default function ControleEstoquePage() {
   const abrirDlgRelatorio = (tipo?: TipoContagemEstoque, modo?: 'estrutura' | 'dados') => {
     const t = tipo === 'diaria' || tipo === 'critica_semanal' || tipo === 'completa' ? tipo : 'diaria';
     setRelatorioTipo(t);
-    setRelatorioModo(modo || (tipo ? 'dados' : 'estrutura'));
+    setRelatorioModo(modo || 'dados');
     setDlgRelatorio(true);
   };
 
@@ -617,12 +618,27 @@ export default function ControleEstoquePage() {
     tipo?: TipoContagemEstoque;
     modo?: 'estrutura' | 'dados';
     detalhe?: EstoqueContagemDetalhe | null;
+    id_contagem?: number;
   }) => {
     if (baixandoRelatorio || !idLoja) return;
     const tipo = opts?.tipo || relatorioTipo;
     const modo = opts?.modo || relatorioModo;
     setBaixandoRelatorio(true);
     try {
+      if (opts?.id_contagem) {
+        const detalhe = await api.estoqueContagem(opts.id_contagem);
+        await gerarPdfContagemDiaria({
+          contagem: detalhe,
+          loja: lojaAtual,
+          modo: 'dados',
+        });
+        showToast(
+          detalhe.status === 'finalizada'
+            ? 'Relatório com os dados da contagem'
+            : 'Relatório com os dados da contagem aberta',
+        );
+        return;
+      }
       const detalheAberto =
         opts?.detalhe ||
         (contagem?.tipo === tipo && verDetalhe ? contagem : null);
@@ -1091,7 +1107,31 @@ export default function ControleEstoquePage() {
                                     >
                                       {divergencias}
                                     </TableCell>
-                                    <TableCell sx={tdCenter}>
+                                    <TableCell
+                                      sx={tdCenter}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Tooltip title="Baixar relatório desta contagem">
+                                        <span>
+                                          <IconButton
+                                            size="small"
+                                            aria-label="Baixar relatório desta contagem"
+                                            disabled={baixandoRelatorio}
+                                            onClick={() =>
+                                              void baixarRelatorioDiaria({
+                                                id_contagem: c.id_contagem,
+                                              })
+                                            }
+                                            sx={{ color: 'inherit' }}
+                                          >
+                                            {baixandoRelatorio ? (
+                                              <CircularProgress size={16} />
+                                            ) : (
+                                              <FileDownloadOutlinedIcon fontSize="small" />
+                                            )}
+                                          </IconButton>
+                                        </span>
+                                      </Tooltip>
                                       <ChevronRightIcon fontSize="small" color="action" />
                                     </TableCell>
                                   </TableRow>
@@ -1137,14 +1177,16 @@ export default function ControleEstoquePage() {
                       onExcluir={() => setDlgExcluir(true)}
                       onReabrir={() => setDlgReabrir(true)}
                       onBaixarRelatorio={() =>
-                        abrirDlgRelatorio(
-                          contagem.tipo === 'diaria' ||
+                        void baixarRelatorioDiaria({
+                          detalhe: contagem,
+                          modo: 'dados',
+                          tipo:
+                            contagem.tipo === 'diaria' ||
                             contagem.tipo === 'critica_semanal' ||
                             contagem.tipo === 'completa'
-                            ? contagem.tipo
-                            : 'diaria',
-                          'dados',
-                        )
+                              ? contagem.tipo
+                              : 'diaria',
+                        })
                       }
                       baixandoRelatorio={baixandoRelatorio}
                     />
@@ -1283,8 +1325,8 @@ export default function ControleEstoquePage() {
         </DialogTitleWithIcon>
         <DialogContent sx={dialogContentSx}>
           <Typography variant="body2" color="text.secondary">
-            Escolha o tipo e se o PDF vem em branco (só os itens) ou com a última contagem — aberta
-            ou finalizada.
+            Escolha o tipo. Por padrão o PDF vem com a última contagem feita — aberta ou
+            finalizada. Só estrutura gera a folha em branco.
           </Typography>
           <Box>
             <Typography

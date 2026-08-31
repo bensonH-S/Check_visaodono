@@ -3,7 +3,7 @@
  *
  * CONTRATO DEFINITIVO:
  * - Valor = coluna Bruto/Valor do Excel "Produto Venda" (com Dia)
- * - A cada ~1 min: um Excel do DIA DE HOJE (todas as lojas) → sobe e agrega
+ * - A cada ~2 min: um Excel do DIA DE HOJE (todas as lojas) → sobe e agrega
  * - Sem janela de 3 dias / sem rebaixa eterno do mês
  * - Lease: 1 PC ativo; standby assume se expirar
  * - Heartbeat: portal alerta se kit parado > 15 min
@@ -907,9 +907,12 @@ async function main() {
     logServico(`API_BASE override → ${secrets.API_BASE}`);
   }
 
-  // Mínimo 1 min entre ciclos (ao vivo e noite).
-  const liveMs = Math.max(60000, Number(secrets.SYNC_LIVE_INTERVAL_MS || 60000));
-  const nightMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 60000));
+  // Ao vivo: 1–3 min. Vault legado vinha com 40 min e o kit só andava no Testar.
+  const liveMs = Math.min(
+    180000,
+    Math.max(60000, Number(secrets.SYNC_LIVE_INTERVAL_MS || 120000)),
+  );
+  const nightMs = Math.max(60000, Number(secrets.SYNC_INTERVAL_MS || 300000));
 
   if (!secrets.BKOFFICE_USER || !secrets.BKOFFICE_PASS || !secrets.API_BASE || !secrets.BKOFFICE_KIT_TOKEN) {
     logServico('ERRO: cofre incompleto');
@@ -950,6 +953,9 @@ async function main() {
   logServico(
     `ativo lojas=${lojas.length} kit=${meuId} ao_vivo=${Math.round(liveMs / 1000)}s janela=${ROLLING_DIAS}d noite=${Math.round(nightMs / 1000)}s lease=${LEASE_TTL_S}s`,
   );
+  if (!once) {
+    logServico('loop automatico nesta sessao — proximo ciclo sozinho, sem clicar Testar');
+  }
 
   const liberarAoSair = async () => {
     await tentarLease(secrets, { liberar: true });

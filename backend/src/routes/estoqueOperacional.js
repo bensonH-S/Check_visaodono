@@ -50,7 +50,7 @@ import {
   obterSyncPorId,
   upsertSyncFornecedor,
 } from '../services/platlog/schedulerPlatlog.js';
-import { calcularCiclo } from '../services/estoqueCiclo.js';
+import { calcularCiclo, listarStatusContagemRede } from '../services/estoqueCiclo.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 import fs from 'fs/promises';
 import { parseNfeXml, renderDanfeHtml } from '../services/nfeXml.js';
@@ -945,6 +945,27 @@ router.get('/sync/lojas', permOp, async (req, res, next) => {
         ? idsEstoque.map(Number).filter((n) => n > 0)
         : null;
     const result = await listarStatusSyncVendasLojas(ids);
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Diária do dia por loja: quem já contou, quem está em andamento, quem falta. */
+router.get('/contagens/rede', permOp, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const tipo = String(req.query.tipo || 'diaria').toLowerCase();
+    const data = String(req.query.data || '').slice(0, 10) || null;
+    const result = await listarStatusContagemRede({
+      idsPermitidos: ids,
+      tipo: ['diaria', 'critica_semanal', 'completa'].includes(tipo) ? tipo : 'diaria',
+      data,
+    });
     res.json(result);
   } catch (e) {
     next(e);

@@ -179,7 +179,7 @@ $cscCandidates = @(
 $csc = $cscCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $csc) { throw 'csc.exe nao encontrado (precisa .NET Framework 4.x)' }
 $exeOut = Join-Path $OutDir 'MeridianBkSync.exe'
-& $csc /nologo /optimize+ /target:winexe /r:System.Windows.Forms.dll /out:"$exeOut" (Join-Path $OutDir 'MeridianBkSync.cs')
+& $csc /nologo /optimize+ /target:winexe /out:"$exeOut" (Join-Path $OutDir 'MeridianBkSync.cs')
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exeOut)) { throw 'Falha ao compilar MeridianBkSync.exe' }
 # codigo-fonte do launcher nao precisa ir pro PC da gerencia
 Remove-Item (Join-Path $OutDir 'MeridianBkSync.cs') -Force -ErrorAction SilentlyContinue
@@ -216,5 +216,5 @@ if (-not $SkipZip) { Write-Host "  Zip:   $zipPath" }
 Write-Host '  Exe:   MeridianBkSync.exe'
 Write-Host '  Vault: data\vault.dat (AES) - SEM DB_HOST'
 Write-Host 'No VPS: BKOFFICE_KIT_TOKEN=... + deploy + recreate'
-Write-Host 'Leve a PASTA ao PC da gerencia (substitua C:\Meridian-BKOffice-Gerencia):'
-Write-Host '  TESTAR-UMA-VEZ.bat e depois INSTALAR.bat'
+Write-Host 'Leve a PASTA ao PC da gerencia (C:\Meridian-BKOffice-Gerencia, nao mova depois):'
+Write-Host '  TESTAR-UMA-VEZ.bat (1 vez) e INSTALAR.bat (loop sozinho na sessao logada)'

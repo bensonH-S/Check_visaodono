@@ -16,11 +16,19 @@ if exist "data\STATUS.txt" (
 )
 echo.
 
-echo --- Processo rodando? ---
+echo --- Processo rodando? (loop automatico = node worker.mjs SEM --once) ---
 set RODANDO=NAO
-powershell -NoProfile -Command "$p=Get-CimInstance Win32_Process -Filter \"Name='MeridianBkSync.exe' OR Name='node.exe'\" -ea SilentlyContinue | Where-Object { $_.CommandLine -like '*worker.mjs*' -or $_.ExecutablePath -like '*MeridianBkSync*' }; if($p){$p|Select-Object ProcessId,Name|Format-Table -AutoSize; exit 0}else{exit 1}"
+powershell -NoProfile -Command "$p=Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" -ea SilentlyContinue | Where-Object { $_.CommandLine -like '*worker.mjs*' -and $_.CommandLine -notlike '*--once*' }; if($p){$p|Select-Object ProcessId,Name|Format-Table -AutoSize; exit 0}else{exit 1}"
 if %errorlevel%==0 (set RODANDO=SIM)
-echo Rodando: %RODANDO%
+echo Loop automatico: %RODANDO%
+if "%RODANDO%"=="NAO" echo *** NAO esta sozinho. Rode INSTALAR.bat (nao basta o Testar). ***
+echo.
+echo --- Atalho Inicializar ---
+if exist "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Meridian BK Office.lnk" (
+  echo SIM — liga depois do login
+) else (
+  echo NAO — rode INSTALAR.bat
+)
 echo.
 
 echo --- Tarefa agendada ---

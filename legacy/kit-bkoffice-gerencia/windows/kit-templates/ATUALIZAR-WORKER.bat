@@ -19,7 +19,7 @@ if not exist "data\synced-days.json" (
 )
 
 echo.
-echo Pronto. Rode TESTAR-UMA-VEZ.bat para testar so hoje.
-echo Depois INSTALAR.bat para religar a tarefa.
+echo Pronto. TESTAR-UMA-VEZ.bat = 1 vez. INSTALAR.bat = loop sozinho.
+echo Se trocou de PC: rode INSTALAR.bat de novo nesta pasta.
 echo.
 pause

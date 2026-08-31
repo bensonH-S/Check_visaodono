@@ -15,9 +15,11 @@ SEGURANÇA
   - Launcher: MeridianBkSync.exe
 
 INSTALAR
-  1) Copie a pasta para o PC (melhor C:\Meridian-BKOffice-Gerencia)
-  2) TESTAR-UMA-VEZ.bat  → deve sair TESTE OK
-  3) INSTALAR.bat
+  1) Copie a pasta para o PC (melhor C:\Meridian-BKOffice-Gerencia) e NAO mova depois
+  2) TESTAR-UMA-VEZ.bat  → deve sair TESTE OK  (isso e 1 vez, nao e o automatico)
+  3) INSTALAR.bat        → sobe o loop na SUA sessao + atalho Inicializar
+  4) VERIFICAR.bat       → "Loop automatico: SIM"
+  Deixe este usuario logado. Nao use o exe oculto antigo — o Chrome nao abre.
 
 LOGS — UM ARQUIVO POR LOJA (nao misturar)
   Logs\lojas\30797-terraco-shopping-2026-08.log

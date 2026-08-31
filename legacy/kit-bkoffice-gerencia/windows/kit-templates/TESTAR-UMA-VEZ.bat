@@ -2,6 +2,7 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 echo === Teste manual — grupo de hoje (todas as lojas) ===
+echo Isto e 1 vez. O automatico e a tarefa Windows (INSTALAR.bat).
 echo Credenciais: cofre data\vault.dat (sem config.env)
 echo.
 if not exist "%~dp0data\vault.dat" (

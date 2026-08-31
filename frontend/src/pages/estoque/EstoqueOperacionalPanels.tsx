@@ -23,6 +23,8 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -54,6 +56,7 @@ import {
   type EstoquePedidoSugerido,
   type EstoqueSaldoItem,
   type EstoqueSyncLojaStatus,
+  type EstoqueContagemRedeItem,
   type FichaTecnicaDetalhe,
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
@@ -485,6 +488,35 @@ function corSyncStatus(status: string) {
   if (status === 'ontem') return { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' };
   return { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' };
 }
+
+function corContagemStatus(status: string) {
+  if (status === 'contou') return { bg: 'rgba(18, 120, 70, 0.12)', fg: '#127846' };
+  if (status === 'aberta') return { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' };
+  return { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' };
+}
+
+const REDE_VISTA_KEY = 'estoque-rede-vista';
+const toggleRedeSx = {
+  bgcolor: colors.canvasAlt,
+  borderRadius: 2,
+  p: 0.3,
+  '& .MuiToggleButtonGroup-grouped': {
+    border: 0,
+    borderRadius: '8px !important',
+    px: 1.4,
+    py: 0.45,
+    textTransform: 'none' as const,
+    fontWeight: 700,
+    fontSize: '0.78rem',
+    color: colors.textSecondary,
+    '&.Mui-selected': {
+      bgcolor: colors.surface,
+      color: colors.navy,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+      '&:hover': { bgcolor: colors.surface },
+    },
+  },
+} as const;
 
 function VendasKpiCard({
   label,
@@ -928,14 +960,29 @@ function PainelSyncRede({
   onSelectLoja?: (id: number) => void;
   onSetHeaderActions?: (node: React.ReactNode) => void;
 }) {
+  const [vista, setVista] = useState<'vendas' | 'contagens'>(() => {
+    try {
+      return localStorage.getItem(REDE_VISTA_KEY) === 'vendas' ? 'vendas' : 'contagens';
+    } catch {
+      return 'vendas';
+    }
+  });
+  const [filtroContagem, setFiltroContagem] = useState<'todas' | 'contou' | 'aberta' | 'faltou'>(
+    'todas',
+  );
   const [loading, setLoading] = useState(true);
   const [syncLojas, setSyncLojas] = useState<EstoqueSyncLojaStatus[]>([]);
+  const [contagensRede, setContagensRede] = useState<EstoqueContagemRedeItem[]>([]);
 
   const carregar = useCallback(async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const painel = await api.estoqueSyncLojas();
+      const [painel, contagens] = await Promise.all([
+        api.estoqueSyncLojas(),
+        api.estoqueContagensRede({ tipo: 'diaria' }).catch(() => null),
+      ]);
       setSyncLojas(painel?.lojas || []);
+      setContagensRede(contagens?.lojas || []);
     } catch (e) {
       if (!silencioso) {
         showToast(e instanceof Error ? e.message : 'Erro ao carregar sync da rede', 'error');
@@ -956,14 +1003,34 @@ function PainelSyncRede({
 
   useEffect(() => {
     onSetHeaderActions?.(
-      <IconButton size="small" aria-label="Atualizar sync da rede" onClick={() => void carregar()}>
-        <RefreshIcon sx={{ fontSize: 18 }} />
-      </IconButton>,
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={vista}
+          onChange={(_e, v: 'vendas' | 'contagens' | null) => {
+            if (!v) return;
+            setVista(v);
+            try {
+              localStorage.setItem(REDE_VISTA_KEY, v);
+            } catch {
+              /* ignore */
+            }
+          }}
+          sx={toggleRedeSx}
+        >
+          <ToggleButton value="vendas">Vendas</ToggleButton>
+          <ToggleButton value="contagens">Quem contou</ToggleButton>
+        </ToggleButtonGroup>
+        <IconButton size="small" aria-label="Atualizar rede" onClick={() => void carregar()}>
+          <RefreshIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+      </Box>,
     );
     return () => {
       onSetHeaderActions?.(null);
     };
-  }, [carregar, onSetHeaderActions]);
+  }, [carregar, onSetHeaderActions, vista]);
 
   const lojasOrdenadas = useMemo(
     () =>
@@ -982,10 +1049,160 @@ function PainelSyncRede({
     return { hoje, ontem, atrasado, total: syncLojas.length };
   }, [syncLojas]);
 
-  if (loading && !syncLojas.length) {
+  const resumoContagem = useMemo(() => {
+    const contou = contagensRede.filter((l) => l.status === 'contou').length;
+    const aberta = contagensRede.filter((l) => l.status === 'aberta').length;
+    const faltou = contagensRede.filter((l) => l.status === 'faltou').length;
+    return { contou, aberta, faltou, total: contagensRede.length };
+  }, [contagensRede]);
+
+  const lojasContagem = useMemo(() => {
+    const peso = (s: string) => (s === 'faltou' ? 0 : s === 'aberta' ? 1 : 2);
+    const filtrada =
+      filtroContagem === 'todas'
+        ? contagensRede
+        : contagensRede.filter((l) => l.status === filtroContagem);
+    return [...filtrada].sort((a, b) => {
+      const d = peso(a.status) - peso(b.status);
+      if (d !== 0) return d;
+      if (a.status === 'contou') {
+        const ta = a.finalizado_em ? new Date(a.finalizado_em).getTime() : 0;
+        const tb = b.finalizado_em ? new Date(b.finalizado_em).getTime() : 0;
+        return tb - ta;
+      }
+      return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+    });
+  }, [contagensRede, filtroContagem]);
+
+  if (loading && !syncLojas.length && !contagensRede.length) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
         <CircularProgress size={28} />
+      </Box>
+    );
+  }
+
+  if (vista === 'contagens') {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Typography sx={{ fontSize: '0.8rem', color: colors.textSecondary }}>
+            Diária de hoje · quem já contou · atualiza a cada 45s
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            {(
+              [
+                ['todas', `${resumoContagem.total} lojas`],
+                ['contou', `${resumoContagem.contou} contaram`],
+                ['aberta', `${resumoContagem.aberta} em andamento`],
+                ['faltou', `${resumoContagem.faltou} faltam`],
+              ] as const
+            )
+              .filter(([key]) => key === 'todas' || resumoContagem[key] > 0 || filtroContagem === key)
+              .map(([key, label]) => {
+                const ativo = filtroContagem === key;
+                const tom =
+                  key === 'contou'
+                    ? { bg: 'rgba(18, 120, 70, 0.12)', fg: '#127846' }
+                    : key === 'aberta'
+                      ? { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' }
+                      : key === 'faltou'
+                        ? { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' }
+                        : { bg: colors.canvasAlt, fg: colors.textSecondary };
+                return (
+                  <Chip
+                    key={key}
+                    size="small"
+                    clickable
+                    label={label}
+                    onClick={() => setFiltroContagem(key)}
+                    sx={{
+                      height: 22,
+                      fontSize: '0.7rem',
+                      fontWeight: ativo ? 700 : 600,
+                      bgcolor: tom.bg,
+                      color: tom.fg,
+                      outline: ativo ? `1px solid ${tom.fg}` : undefined,
+                    }}
+                  />
+                );
+              })}
+          </Box>
+        </Box>
+
+        <Paper sx={tablePaperSx}>
+          <TableContainer sx={tableContainerSx}>
+            <Table size="small" stickyHeader sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={vendasThSx}>Status</TableCell>
+                  <TableCell sx={vendasThSx}>BKN</TableCell>
+                  <TableCell sx={vendasThSx}>Loja</TableCell>
+                  <TableCell sx={vendasThSx}>Quem contou</TableCell>
+                  <TableCell sx={vendasThSx}>Iniciada</TableCell>
+                  <TableCell sx={vendasThSx}>Finalizada</TableCell>
+                  <TableCell sx={vendasThSx}>Última diária</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {lojasContagem.length ? (
+                  lojasContagem.map((l) => {
+                    const destaque = l.id_loja === idLoja;
+                    const cor = corContagemStatus(l.status);
+                    return (
+                      <TableRow
+                        key={l.id_loja}
+                        hover
+                        onClick={onSelectLoja ? () => onSelectLoja(l.id_loja) : undefined}
+                        sx={{
+                          bgcolor: destaque ? 'rgba(27, 42, 107, 0.05)' : undefined,
+                          cursor: onSelectLoja ? 'pointer' : 'default',
+                        }}
+                      >
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85 }}>
+                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cor.fg, flexShrink: 0 }} />
+                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: cor.fg }}>
+                              {l.status_label}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: destaque ? 700 : 500 }}>{l.bk_number || '—'}</TableCell>
+                        <TableCell>
+                          <Typography
+                            noWrap
+                            title={l.name}
+                            sx={{ fontSize: '0.82rem', fontWeight: destaque ? 700 : 500, maxWidth: 280 }}
+                          >
+                            {l.name}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.82rem' }}>
+                          {l.criado_por_nome || '—'}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
+                          {fmtHoraCurta(l.criado_em) || '—'}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
+                          {fmtHoraCurta(l.finalizado_em) || '—'}
+                        </TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
+                          {fmtDataCurta(l.ultima_data)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} sx={{ color: colors.textSecondary, py: 4, textAlign: 'center' }}>
+                      Nenhuma loja neste recorte.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
       </Box>
     );
   }

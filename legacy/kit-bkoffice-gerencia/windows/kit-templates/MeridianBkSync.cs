@@ -4,8 +4,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Windows.Forms;
 
 internal static class Program
 {
@@ -86,16 +84,7 @@ internal static class Program
     private static void Fail(string root, string msg)
     {
         Log(root, "ERRO " + msg);
-        try
-        {
-            MessageBox.Show(
-                msg + "\n\nVeja Logs\\bkoffice-python-service.log",
-                "Meridian BK Office",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error
-            );
-        }
-        catch { }
+        // Sem MessageBox: tarefa agendada fica presa num OK que ninguem clica.
     }
 
     private static void Log(string root, string msg)

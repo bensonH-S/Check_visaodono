@@ -112,7 +112,7 @@ export async function garantirSchemaPilotoBaixa(client) {
   try {
     await client.query(`
       ALTER TABLE lojas_estoque_perfil
-        ADD COLUMN IF NOT EXISTS piloto_baixa BOOLEAN NOT NULL DEFAULT FALSE
+        ADD COLUMN IF NOT EXISTS piloto_baixa BOOLEAN NOT NULL DEFAULT TRUE
     `);
   } catch (e) {
     if (e.code !== '42P01') throw e;
@@ -210,7 +210,7 @@ async function semearPilotoBaixa(client) {
     INSERT INTO lojas_estoque_perfil (id_loja, piloto_baixa)
     SELECT l.id_loja, TRUE
     FROM lojas l
-    WHERE TRIM(l.bk_number::text) = '23531'
+    WHERE l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
     ON CONFLICT (id_loja) DO UPDATE SET piloto_baixa = TRUE, atualizado_em = NOW()
   `);
   await client.query(`
@@ -250,13 +250,14 @@ async function semearPilotoBaixa(client) {
 export async function lojaEmPilotoBaixa(client, idLoja) {
   try {
     const { rows } = await client.query(
-      `SELECT COALESCE(piloto_baixa, FALSE) AS piloto
+      `SELECT COALESCE(piloto_baixa, TRUE) AS piloto
        FROM lojas_estoque_perfil WHERE id_loja = $1`,
       [idLoja],
     );
-    return rows[0]?.piloto === true;
+    if (!rows.length) return true;
+    return rows[0]?.piloto !== false;
   } catch (e) {
-    if (e.code === '42P01' || e.code === '42703') return false;
+    if (e.code === '42P01' || e.code === '42703') return true;
     throw e;
   }
 }

@@ -472,4 +472,106 @@ export async function calcularCiclo({
   return ciclo;
 }
 
+function hojeSpISO() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+/**
+ * Painel da rede: diária do dia (quem contou, quem está em andamento, quem falta).
+ * Casa em data_contagem (dia operacional), não no horário de fechamento.
+ */
+export async function listarStatusContagemRede({
+  idsPermitidos = null,
+  tipo = 'diaria',
+  data = null,
+} = {}) {
+  const hoje = data && /^\d{4}-\d{2}-\d{2}$/.test(String(data)) ? String(data).slice(0, 10) : hojeSpISO();
+  const tipoNorm = String(tipo || 'diaria');
+  const ids =
+    Array.isArray(idsPermitidos) && idsPermitidos.length
+      ? idsPermitidos.map(Number).filter((n) => n > 0)
+      : null;
+
+  const { rows } = await pool.query(
+    `
+    SELECT
+      l.id_loja,
+      l.bk_number,
+      l.name,
+      c.id_contagem,
+      c.status,
+      c.titulo,
+      COALESCE(c.tipo, 'completa') AS tipo,
+      c.data_contagem::text AS data_contagem,
+      c.criado_em,
+      c.finalizado_em,
+      COALESCE(c.contado_em, c.finalizado_em) AS contado_em,
+      u.nome AS criado_por_nome,
+      ult.data_contagem::text AS ultima_data,
+      ult.finalizado_em AS ultima_finalizado_em
+    FROM lojas l
+    LEFT JOIN LATERAL (
+      SELECT *
+      FROM estoque_contagens x
+      WHERE x.id_loja = l.id_loja
+        AND COALESCE(x.tipo, 'completa') = $2
+        AND x.data_contagem = $1::date
+      ORDER BY x.criado_em DESC, x.id_contagem DESC
+      LIMIT 1
+    ) c ON TRUE
+    LEFT JOIN usuarios u ON u.id_usuario = c.criado_por
+    LEFT JOIN LATERAL (
+      SELECT data_contagem, finalizado_em
+      FROM estoque_contagens y
+      WHERE y.id_loja = l.id_loja
+        AND COALESCE(y.tipo, 'completa') = $2
+        AND y.status = 'finalizada'
+      ORDER BY COALESCE(y.contado_em, y.finalizado_em, y.data_contagem::timestamptz) DESC NULLS LAST,
+               y.id_contagem DESC
+      LIMIT 1
+    ) ult ON TRUE
+    WHERE l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
+      AND ($3::int[] IS NULL OR l.id_loja = ANY($3::int[]))
+    ORDER BY l.name
+    `,
+    [hoje, tipoNorm, ids],
+  );
+
+  const lojas = rows.map((r) => {
+    let status = 'faltou';
+    let status_label = 'Não contou';
+    if (r.id_contagem && r.status === 'finalizada') {
+      status = 'contou';
+      status_label = 'Contou';
+    } else if (r.id_contagem && r.status === 'aberta') {
+      status = 'aberta';
+      status_label = 'Em andamento';
+    }
+    return {
+      id_loja: r.id_loja,
+      bk_number: r.bk_number,
+      name: r.name,
+      id_contagem: r.id_contagem || null,
+      status,
+      status_label,
+      titulo: r.titulo || null,
+      tipo: r.tipo || tipoNorm,
+      data_contagem: r.data_contagem || null,
+      criado_em: r.criado_em || null,
+      finalizado_em: r.finalizado_em || null,
+      contado_em: r.contado_em || null,
+      criado_por_nome: r.criado_por_nome || null,
+      ultima_data: r.ultima_data || null,
+      ultima_finalizado_em: r.ultima_finalizado_em || null,
+    };
+  });
+
+  return { hoje, tipo: tipoNorm, lojas };
+}
+
 export { carregarPerfil, ancoraContagem };
