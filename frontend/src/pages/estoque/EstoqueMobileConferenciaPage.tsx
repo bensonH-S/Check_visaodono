@@ -626,8 +626,12 @@ export default function EstoqueMobileConferenciaPage() {
                               placeholder="—"
                               data-estoque-campo={campo}
                               onChange={(e) => setCampo(i.id_item, campo, e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                              onBlur={() => {
+                              onFocus={(e) => {
+                                e.target.select();
+                                e.target.placeholder = '';
+                              }}
+                              onBlur={(e) => {
+                                e.target.placeholder = '—';
                                 if (dirtyRef.current) {
                                   if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
                                   void persistir({ silencioso: true }).catch(() => {});
@@ -751,10 +755,10 @@ export default function EstoqueMobileConferenciaPage() {
               preencheu permanece.
             </p>
             <div className="ck-estoque__dlg-actions">
-              <button type="button" onClick={() => setDlgFinalizar(false)} disabled={finalizando}>
+              <button type="button" onClick={() => setDlgFinalizar(false)} disabled={finalizando} style={{ backgroundColor: 'transparent', color: '#64748b', border: '1px solid #cbd5e1' }}>
                 Voltar
               </button>
-              <button type="button" onClick={() => void finalizar()} disabled={finalizando}>
+              <button type="button" onClick={() => void finalizar()} disabled={finalizando} style={{ backgroundColor: '#B42318', color: '#fff', border: 'none', fontWeight: 600 }}>
                 {finalizando ? 'Finalizando…' : 'Finalizar como 0'}
               </button>
             </div>

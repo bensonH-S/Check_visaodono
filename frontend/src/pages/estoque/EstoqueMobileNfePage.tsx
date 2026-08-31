@@ -11,6 +11,7 @@ import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import {
   api,
@@ -55,8 +56,12 @@ function fmtQtd(v: number) {
   });
 }
 
+function nomeLoja(l: Loja) {
+  return String(l.name || '').trim() || 'Loja';
+}
+
 function rotuloLoja(l: Loja) {
-  const nome = String(l.name || '').trim() || 'Loja';
+  const nome = nomeLoja(l);
   return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
 }
 
@@ -179,6 +184,12 @@ export default function EstoqueMobileNfePage() {
   const [danfeHtml, setDanfeHtml] = useState<string | null>(null);
   const [abrindoDanfe, setAbrindoDanfe] = useState(false);
   const [filtroForn, setFiltroForn] = useState<'todas' | 'platlog' | 'coca'>('todas');
+  const [dlgLoja, setDlgLoja] = useState(false);
+  const user = getUsuario();
+  const lojaTravada = lojaEstoqueTravadaMobile(user);
+  const podeTrocarLoja = !lojaTravada && lojas.length > 1;
+
+
 
   useEffect(() => {
     void (async () => {
@@ -276,16 +287,15 @@ export default function EstoqueMobileNfePage() {
       <div className="ck-visitas__mesh" aria-hidden />
       <div className="ck-visitas__stage-inner">
         <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-          <div>
+          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
             <p className="ck-visitas__mark-text">Grupo Alvim</p>
             <h1 className="ck-visitas__title">Recebimentos</h1>
+            <p className="ck-visitas__sub">
+              Conferência e recebimento de notas fiscais de entrada.
+            </p>
           </div>
-          <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+          <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
         </div>
-        <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-          Nota do fornecedor → só confirmar o que chegou
-          {lojaAtual ? ` · ${rotuloLoja(lojaAtual)}` : ''}
-        </p>
       </div>
     </div>
   );
@@ -305,7 +315,7 @@ export default function EstoqueMobileNfePage() {
               Ocorrências
             </h1>
           </div>
-          <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+          <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
         </div>
         <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
           NF {det.numero || det.id_nfe}
@@ -533,14 +543,59 @@ export default function EstoqueMobileNfePage() {
       {heroRecebimento}
 
       <div className="ck-visitas__sheet">
-        <div className="ck-estoque-nfe__lista-head">
-          <button
-            type="button"
-            className="ck-estoque-nfe__back"
-            onClick={() => navigate('/estoque/mobile')}
-          >
-            ← Contagens
-          </button>
+        <div className="ck-estoque__sheet-head" style={{ marginBottom: 12 }}>
+          <div className="ck-estoque__loja ck-estoque__loja--com-voltar">
+            <button type="button" className="ck-estoque__voltar" onClick={() => navigate('/estoque/mobile')}>
+              <span aria-hidden>‹</span>
+            </button>
+            {podeTrocarLoja ? (
+              <div style={{ position: 'relative', flex: 1, minWidth: 0, marginLeft: 52 }}>
+                <button
+                  type="button"
+                  className="ck-estoque__loja-btn"
+                  onClick={() => setDlgLoja((v) => !v)}
+                >
+                  <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
+                  <span aria-hidden>{dlgLoja ? '▴' : '▾'}</span>
+                </button>
+                {dlgLoja && (
+                  <>
+                    <div
+                      className="ck-estoque__dropdown-backdrop"
+                      onClick={() => setDlgLoja(false)}
+                    />
+                    <div className="ck-estoque__loja-dropdown">
+                      {lojas.map((l) => {
+                        const ativa = l.id_loja === idLoja;
+                        return (
+                          <button
+                            key={l.id_loja}
+                            type="button"
+                            className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
+                            onClick={() => {
+                              setIdLoja(l.id_loja);
+                              localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
+                              setDlgLoja(false);
+                            }}
+                          >
+                            {rotuloLoja(l)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : lojaAtual ? (
+              <div className="ck-estoque__loja-fix" aria-label="Loja">
+                <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
+                <div className="ck-estoque__loja-fix-text">
+                  {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
+                  <strong>{nomeLoja(lojaAtual)}</strong>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="ck-visitas__seg" role="tablist">

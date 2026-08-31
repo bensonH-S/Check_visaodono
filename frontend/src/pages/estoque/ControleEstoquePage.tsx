@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
@@ -209,6 +211,9 @@ const emptyProdutoForm = {
   unidade_contagem: 'UND',
   preco_caixa: '',
   und_convertida: '1',
+  permite_contagem_caixa: true,
+  permite_contagem_pc_fd: true,
+  permite_contagem_kg_und: true,
 };
 
 type ProdutoForm = typeof emptyProdutoForm;
@@ -512,6 +517,9 @@ export default function ControleEstoquePage() {
         unidade_contagem: formProduto.unidade_contagem.toUpperCase(),
         preco_caixa: Number(String(formProduto.preco_caixa).replace(',', '.')),
         und_convertida: Number(String(formProduto.und_convertida).replace(',', '.')),
+        permite_contagem_caixa: formProduto.permite_contagem_caixa,
+        permite_contagem_pc_fd: formProduto.permite_contagem_pc_fd,
+        permite_contagem_kg_und: formProduto.permite_contagem_kg_und,
       };
       if (editando) {
         await api.estoqueAtualizarProduto(editando.id_produto, body);
@@ -749,7 +757,7 @@ export default function ControleEstoquePage() {
         overflow: chromeCompacto ? 'hidden' : 'auto',
       }}
     >
-      <Box sx={{ flexShrink: 0 }}>
+      <Box sx={{ flexShrink: 0, position: 'relative', zIndex: 10 }}>
         <Box
           sx={{
             display: 'flex',
@@ -1304,6 +1312,43 @@ export default function ControleEstoquePage() {
                 htmlInput: { inputMode: 'decimal' },
               }}
             />
+          </Box>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Campos de contagem liberados na conferência:
+            </Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formProduto.permite_contagem_caixa}
+                    onChange={(e) => setFormProduto((f) => ({ ...f, permite_contagem_caixa: e.target.checked }))}
+                    size="small"
+                  />
+                }
+                label="Caixa (CX)"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formProduto.permite_contagem_pc_fd}
+                    onChange={(e) => setFormProduto((f) => ({ ...f, permite_contagem_pc_fd: e.target.checked }))}
+                    size="small"
+                  />
+                }
+                label="Pacote / Fardo (PC/FD)"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formProduto.permite_contagem_kg_und}
+                    onChange={(e) => setFormProduto((f) => ({ ...f, permite_contagem_kg_und: e.target.checked }))}
+                    size="small"
+                  />
+                }
+                label="Kg / Unidade avulsa (KG/UND)"
+              />
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
-import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { api, type EstoqueMetaVendas, type Loja } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
@@ -23,7 +23,7 @@ function rotuloLoja(l: Loja) {
 }
 
 function fmtMoeda(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
+  if (v == null || Number.isNaN(Number(v))) return 'R$ 0,00';
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
@@ -35,32 +35,24 @@ function fmtDataBR(iso: string | null | undefined) {
   return `${d}/${m}/${y}`;
 }
 
-function fmtHoraBR(iso: string | null | undefined) {
-  if (!iso) return null;
+function fmtDataHoraBR(iso: string | null | undefined) {
+  if (!iso) return '—';
   try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
     return new Intl.DateTimeFormat('pt-BR', {
       timeZone: 'America/Sao_Paulo',
       day: '2-digit',
       month: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(new Date(iso));
+    }).format(d);
   } catch {
-    return null;
+    return '—';
   }
 }
 
-function textoSync(meta: EstoqueMetaVendas | null) {
-  if (!meta) return 'aguardando…';
-  const hora = fmtHoraBR(meta.ultimo_sync_em);
-  if (meta.hoje_ausente) {
-    return `hoje não entrou · último ${fmtDataBR(meta.ultima_data_venda)}`;
-  }
-  if (meta.hoje_parcial) {
-    return hora ? `hoje incompleto · sync ${hora}` : 'hoje incompleto';
-  }
-  return hora ? `sync ${hora}` : 'BK Office';
-}
+
 
 export default function EstoqueMobileVendasPage() {
   const navigate = useNavigate();
@@ -77,6 +69,7 @@ export default function EstoqueMobileVendasPage() {
   const [meta, setMeta] = useState<EstoqueMetaVendas | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [dlgLoja, setDlgLoja] = useState(false);
 
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
@@ -145,30 +138,34 @@ export default function EstoqueMobileVendasPage() {
         <div className="ck-visitas__mesh" aria-hidden />
         <div className="ck-visitas__stage-inner">
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div>
+            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title">Vendas</h1>
+              <p className="ck-visitas__sub">
+                Acompanhe as vendas da loja em tempo real.
+              </p>
             </div>
-            <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+            <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
           </div>
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Coluna Bruto do BK Office · atualiza a cada 45s
-          </p>
           <div
             className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3"
             aria-live="polite"
           >
             <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong>{loading && !meta ? '—' : fmtMoeda(meta?.venda_hoje)}</strong>
+              <strong>{loading && !meta ? 'R$ 0,00' : fmtMoeda(meta?.venda_hoje ?? 0)}</strong>
               <span>hoje</span>
             </div>
             <div className="ck-visitas__metric">
-              <strong>{loading && !meta ? '—' : fmtMoeda(meta?.venda_mtd)}</strong>
+              <strong>{loading && !meta ? 'R$ 0,00' : fmtMoeda(meta?.venda_mtd ?? 0)}</strong>
               <span>mês</span>
             </div>
-            <div className="ck-visitas__metric">
-              <strong style={{ fontSize: '0.95rem' }}>{textoSync(meta)}</strong>
-              <span>sync</span>
+            <div className="ck-visitas__metric" style={{ minWidth: 0 }}>
+              <strong>
+                {loading && !meta
+                  ? '—'
+                  : fmtDataHoraBR(meta?.ultimo_sync_em || meta?.ultima_data_venda)}
+              </strong>
+              <span>SYNC</span>
             </div>
           </div>
         </div>
@@ -182,25 +179,49 @@ export default function EstoqueMobileVendasPage() {
             </p>
           )}
 
-          {podeTrocarLoja ? (
-            <div className="ck-estoque__loja">
-              <button
-                type="button"
-                className="ck-estoque__loja-btn"
-                onClick={() => {
-                  const idx = lojas.findIndex((l) => l.id_loja === idLoja);
-                  const next = lojas[(idx + 1) % lojas.length];
-                  if (!next) return;
-                  setIdLoja(next.id_loja);
-                  localStorage.setItem(LOJA_STORAGE_KEY, String(next.id_loja));
-                }}
-              >
-                <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
-                <span aria-hidden>▾</span>
-              </button>
-            </div>
-          ) : lojaAtual ? (
-            <div className="ck-estoque__loja">
+          <div className="ck-estoque__loja ck-estoque__loja--com-voltar">
+            <button type="button" className="ck-estoque__voltar" onClick={() => navigate('/estoque/mobile')}>
+              <span aria-hidden>‹</span>
+            </button>
+            {podeTrocarLoja ? (
+              <div style={{ position: 'relative', flex: 1, minWidth: 0, marginLeft: 52 }}>
+                <button
+                  type="button"
+                  className="ck-estoque__loja-btn"
+                  onClick={() => setDlgLoja((v) => !v)}
+                >
+                  <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
+                  <span aria-hidden>{dlgLoja ? '▴' : '▾'}</span>
+                </button>
+                {dlgLoja && (
+                  <>
+                    <div
+                      className="ck-estoque__dropdown-backdrop"
+                      onClick={() => setDlgLoja(false)}
+                    />
+                    <div className="ck-estoque__loja-dropdown">
+                      {lojas.map((l) => {
+                        const ativa = l.id_loja === idLoja;
+                        return (
+                          <button
+                            key={l.id_loja}
+                            type="button"
+                            className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
+                            onClick={() => {
+                              setIdLoja(l.id_loja);
+                              localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
+                              setDlgLoja(false);
+                            }}
+                          >
+                            {rotuloLoja(l)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : lojaAtual ? (
               <div className="ck-estoque__loja-fix" aria-label="Loja">
                 <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
                 <div className="ck-estoque__loja-fix-text">
@@ -208,18 +229,8 @@ export default function EstoqueMobileVendasPage() {
                   <strong>{nomeLoja(lojaAtual)}</strong>
                 </div>
               </div>
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            className="ck-estoque-nfe__atalho"
-            onClick={() => navigate('/estoque/mobile')}
-          >
-            <Inventory2OutlinedIcon fontSize="small" />
-            <span>Voltar para conferências</span>
-            <span aria-hidden>›</span>
-          </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="ck-visitas__sheet-body">

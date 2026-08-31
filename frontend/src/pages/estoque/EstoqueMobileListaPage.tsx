@@ -9,6 +9,7 @@ import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
+import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
 import {
   api,
   type EstoqueContagemResumo,
@@ -110,7 +111,6 @@ export default function EstoqueMobileListaPage() {
   const [err, setErr] = useState('');
   const [dlgLoja, setDlgLoja] = useState(false);
   const [dlgTipo, setDlgTipo] = useState(false);
-  const [buscaLoja, setBuscaLoja] = useState('');
   const [reabrirAlvo, setReabrirAlvo] = useState<EstoqueContagemResumo | null>(null);
 
   const carregarLista = useCallback(async (lojaId: number) => {
@@ -189,24 +189,7 @@ export default function EstoqueMobileListaPage() {
   const cmvMes = lista[0]?.cmv_teorico_pct ?? null;
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
-  const lojasFiltradas = useMemo(() => {
-    const q = buscaLoja.trim().toLowerCase();
-    if (!q) return lojas;
-    return lojas.filter((l) => rotuloLoja(l).toLowerCase().includes(q));
-  }, [lojas, buscaLoja]);
 
-  const selecionarLoja = (id: number) => {
-    if (!podeTrocarLoja) return;
-    setIdLoja(id);
-    localStorage.setItem(LOJA_STORAGE_KEY, String(id));
-    setDlgLoja(false);
-    setBuscaLoja('');
-  };
-
-  const fecharDlgLoja = () => {
-    setDlgLoja(false);
-    setBuscaLoja('');
-  };
 
   useEffect(() => {
     if (!dlgLoja && !reabrirAlvo && !dlgTipo) {
@@ -275,54 +258,51 @@ export default function EstoqueMobileListaPage() {
         <div className="ck-visitas__mesh" aria-hidden />
         <div className="ck-visitas__stage-inner">
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div>
+            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
               <h1 className="ck-visitas__title">
                 Conferência
               </h1>
+              <p className="ck-visitas__sub">
+                Controle e auditoria de contagens físicas e apuração de CMV.
+              </p>
             </div>
-            <CkMarkLogoMenu size={48} className="ck-visitas__mark-icon" />
+            <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
           </div>
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Conte os insumos. Break e perdas ficam na aba Break.
-          </p>
-          <div
-            className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3"
-            aria-live="polite"
-          >
-            <div className="ck-estoque__kpi">
-              <strong>{loading ? '—' : fmtBrl(valorInicialMes)}</strong>
-              <span>
-                Início
-                {dataInicialMes
-                  ? ` ${new Date(dataInicialMes + 'T12:00:00').toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                    })}`
-                  : ''}
-              </span>
+            <div className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
+              <div className="ck-estoque__kpi">
+                <strong>{loading ? '—' : fmtBrl(valorInicialMes ?? 0)}</strong>
+                <span>
+                  Início
+                  {dataInicialMes
+                    ? ` ${new Date(dataInicialMes + 'T12:00:00').toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                      })}`
+                    : ''}
+                </span>
+              </div>
+              <div className="ck-estoque__kpi ck-estoque__kpi--accent">
+                <strong>{loading ? '—' : fmtBrl(valorAtualLoja ?? 0)}</strong>
+                <span>Valor atual</span>
+              </div>
+              <div className="ck-estoque__kpi">
+                <strong>{loading ? '—' : fmtPct(cmvMes ?? 0)}</strong>
+                <span>CMV do mês</span>
+              </div>
+              <div className="ck-estoque__kpi">
+                <strong>{loading ? '—' : fmtBrl(valorBreakMes ?? 0)}</strong>
+                <span>Break do mês</span>
+              </div>
+              <div className="ck-estoque__kpi">
+                <strong>{loading ? '—' : fmtBrl(valorDesperdicioMes ?? 0)}</strong>
+                <span>Desperdício</span>
+              </div>
+              <div className="ck-estoque__kpi">
+                <strong>{loading ? '—' : fmtBrl(valorComprasMes ?? 0)}</strong>
+                <span>Compras do mês</span>
+              </div>
             </div>
-            <div className="ck-estoque__kpi ck-estoque__kpi--accent">
-              <strong>{loading ? '—' : fmtBrl(valorAtualLoja)}</strong>
-              <span>Valor atual</span>
-            </div>
-            <div className="ck-estoque__kpi">
-              <strong>{loading ? '—' : fmtPct(cmvMes)}</strong>
-              <span>CMV do mês</span>
-            </div>
-            <div className="ck-estoque__kpi">
-              <strong>{loading ? '—' : fmtBrl(valorBreakMes)}</strong>
-              <span>Break do mês</span>
-            </div>
-            <div className="ck-estoque__kpi">
-              <strong>{loading ? '—' : fmtBrl(valorDesperdicioMes)}</strong>
-              <span>Desperdício</span>
-            </div>
-            <div className="ck-estoque__kpi">
-              <strong>{loading ? '—' : fmtBrl(valorComprasMes)}</strong>
-              <span>Compras do mês</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -335,15 +315,42 @@ export default function EstoqueMobileListaPage() {
           )}
 
           {podeTrocarLoja ? (
-            <div className="ck-estoque__loja">
+            <div className="ck-estoque__loja" style={{ position: 'relative' }}>
               <button
                 type="button"
                 className="ck-estoque__loja-btn"
-                onClick={() => setDlgLoja(true)}
+                onClick={() => setDlgLoja((v) => !v)}
               >
                 <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
-                <span aria-hidden>▾</span>
+                <span aria-hidden>{dlgLoja ? '▴' : '▾'}</span>
               </button>
+              {dlgLoja && (
+                <>
+                  <div
+                    className="ck-estoque__dropdown-backdrop"
+                    onClick={() => setDlgLoja(false)}
+                  />
+                  <div className="ck-estoque__loja-dropdown">
+                    {lojas.map((l) => {
+                      const ativa = l.id_loja === idLoja;
+                      return (
+                        <button
+                          key={l.id_loja}
+                          type="button"
+                          className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
+                          onClick={() => {
+                            setIdLoja(l.id_loja);
+                            localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
+                            setDlgLoja(false);
+                          }}
+                        >
+                          {rotuloLoja(l)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           ) : lojaAtual ? (
             <div className="ck-estoque__loja">
@@ -383,6 +390,7 @@ export default function EstoqueMobileListaPage() {
               <button
                 type="button"
                 className={`ck-estoque-nfe__atalho${faltaDiariaHoje ? ' is-diario' : ''}`}
+                style={{ marginBottom: '16px' }}
                 disabled={iniciando}
                 onClick={() => void iniciar('diaria')}
               >
@@ -394,37 +402,39 @@ export default function EstoqueMobileListaPage() {
                         ? 'Diária de hoje · consultar'
                         : 'Contagem diária de hoje'}
                   </strong>
-                  <small>Carne, frango, queijo, bacon, pão, batata, copos, mix</small>
+                  <small>Rotina diária de insumos</small>
                 </span>
                 <span aria-hidden>›</span>
               </button>
-              <button
-                type="button"
-                className="ck-estoque-nfe__atalho"
-                onClick={() => navigate('/estoque/mobile/vendas')}
-              >
-                <TrendingUpOutlinedIcon fontSize="small" />
-                <span>Consultar vendas · BK Office em tempo real</span>
-                <span aria-hidden>›</span>
-              </button>
-              <button
-                type="button"
-                className="ck-estoque-nfe__atalho"
-                onClick={() => navigate('/estoque/mobile/saldo')}
-              >
-                <Inventory2OutlinedIcon fontSize="small" />
-                <span>Consultar saldo · só ver quantidades</span>
-                <span aria-hidden>›</span>
-              </button>
-              <button
-                type="button"
-                className="ck-estoque-nfe__atalho"
-                onClick={() => navigate('/estoque/mobile/nfes')}
-              >
-                <LocalShippingOutlinedIcon fontSize="small" />
-                <span>Receber NF · só marcar o que chegou</span>
-                <span aria-hidden>›</span>
-              </button>
+              <div className="ck-estoque__atalhos-grid">
+                <button
+                  type="button"
+                  className="ck-estoque__btn-grid-card"
+                  onClick={() => navigate('/estoque/mobile/vendas')}
+                >
+                  <TrendingUpOutlinedIcon />
+                  <strong>Vendas</strong>
+                  <small>Tempo real</small>
+                </button>
+                <button
+                  type="button"
+                  className="ck-estoque__btn-grid-card"
+                  onClick={() => navigate('/estoque/mobile/saldo')}
+                >
+                  <Inventory2OutlinedIcon />
+                  <strong>Saldo</strong>
+                  <small>Quantidades</small>
+                </button>
+                <button
+                  type="button"
+                  className="ck-estoque__btn-grid-card"
+                  onClick={() => navigate('/estoque/mobile/nfes')}
+                >
+                  <LocalShippingOutlinedIcon />
+                  <strong>Receber NF</strong>
+                  <small>Conferência</small>
+                </button>
+              </div>
             </>
           ) : null}
         </div>
@@ -448,7 +458,7 @@ export default function EstoqueMobileListaPage() {
             const divergencias = c.divergencias ?? 0;
             const pendentes = c.pendentes ?? 0;
             const mostrarReabrir = podeReabrir && !aberta;
-            const valorPrincipal = fmtBrl(c.valor_atual ?? c.total_valor);
+            const valorPrincipal = fmtBrl(c.valor_atual ?? c.total_valor ?? 0);
             const dataCurta = (() => {
               const iso = aberta ? c.criado_em : c.finalizado_em || c.criado_em;
               if (!iso) return '';
@@ -491,11 +501,21 @@ export default function EstoqueMobileListaPage() {
                 </div>
 
                 <div className="ck-estoque__card-foot">
-                  <span className="ck-estoque__card-who">
-                    {c.criado_por_nome || '—'}
-                    {pendentes > 0 ? ` · ${pendentes} pend.` : ''}
-                    {divergencias > 0 ? ` · ${divergencias} div.` : ''}
-                  </span>
+                  <div className="ck-estoque__card-meta-left">
+                    <span className="ck-estoque__card-who" title="Responsável pela conferência">
+                      <PersonOutlinedIcon sx={{ fontSize: 16, color: 'var(--ck-navy)' }} />
+                      <strong>{c.criado_por_nome || 'Não informado'}</strong>
+                    </span>
+                    {pendentes > 0 && (
+                      <span className="ck-estoque__badge-pend">{pendentes} pendente{pendentes !== 1 ? 's' : ''}</span>
+                    )}
+                    {divergencias > 0 && (
+                      <span className="ck-estoque__badge-div">{divergencias} divergência{divergencias !== 1 ? 's' : ''}</span>
+                    )}
+                    {!aberta && pendentes === 0 && (
+                      <span className="ck-estoque__badge-ok">Conferido</span>
+                    )}
+                  </div>
                   {mostrarReabrir && (
                     <button
                       type="button"
@@ -568,33 +588,35 @@ export default function EstoqueMobileListaPage() {
                   </button>
                 </div>
                 <p className="ck-estoque__confirm-text">
-                  Diária puxa carne, frango, queijo, bacon, pão, batata, copos/xarope e mix.
-                  Semanal de segunda é outra contagem, só mix (Coca 18 L, demais 10 L) e latas — não se misturam.
+                  Selecione o tipo de contagem que deseja realizar:
                 </p>
-                <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column' }}>
+                <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column', gap: 10 }}>
                   <button
                     type="button"
-                    className="ck-estoque__btn ck-estoque__btn--primary"
+                    className="ck-estoque__modal-action-btn ck-estoque__modal-action-btn--pri"
                     disabled={iniciando}
                     onClick={() => void iniciar('diaria')}
                   >
-                    {iniciando ? 'Abrindo…' : 'Contagem diária'}
+                    <strong>Contagem diária</strong>
+                    <small>Carne, frango, queijo, bacon, pão, batata, copos e mix</small>
                   </button>
                   <button
                     type="button"
-                    className="ck-estoque__btn ck-estoque__btn--ghost"
+                    className="ck-estoque__modal-action-btn"
                     disabled={iniciando}
                     onClick={() => void iniciar('critica_semanal')}
                   >
-                    Contagem semanal (segunda · mix e latas)
+                    <strong>Contagem semanal (segunda)</strong>
+                    <small>Contagem específica de mix (Coca 18L, outros 10L) e latas</small>
                   </button>
                   <button
                     type="button"
-                    className="ck-estoque__btn ck-estoque__btn--ghost"
+                    className="ck-estoque__modal-action-btn"
                     disabled={iniciando}
                     onClick={() => void iniciar('completa')}
                   >
-                    Contagem completa
+                    <strong>Contagem completa</strong>
+                    <small>Inventário geral de todos os insumos cadastrados da loja</small>
                   </button>
                 </div>
               </div>
@@ -603,63 +625,7 @@ export default function EstoqueMobileListaPage() {
           document.body,
         )}
 
-      {dlgLoja &&
-        podeTrocarLoja &&
-        createPortal(
-          <div className="ck-estoque">
-            <div
-              className="ck-estoque__loja-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Selecionar loja"
-            >
-              <button
-                type="button"
-                className="ck-estoque__loja-backdrop"
-                aria-label="Fechar"
-                onClick={fecharDlgLoja}
-              />
-              <div className="ck-estoque__loja-panel">
-                <div className="ck-estoque__loja-panel-head">
-                  <strong>Escolher loja</strong>
-                  <button type="button" className="ck-estoque__loja-fechar" onClick={fecharDlgLoja}>
-                    Fechar
-                  </button>
-                </div>
-                {lojas.length > 8 && (
-                  <div className="ck-estoque__loja-busca">
-                    <input
-                      type="search"
-                      placeholder="Buscar loja…"
-                      value={buscaLoja}
-                      onChange={(e) => setBuscaLoja(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                )}
-                <div className="ck-estoque__loja-lista">
-                  {lojasFiltradas.map((l) => {
-                    const ativa = l.id_loja === idLoja;
-                    return (
-                      <button
-                        key={l.id_loja}
-                        type="button"
-                        className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
-                        onClick={() => selecionarLoja(l.id_loja)}
-                      >
-                        {rotuloLoja(l)}
-                      </button>
-                    );
-                  })}
-                  {!lojasFiltradas.length && (
-                    <div className="ck-estoque__empty">Nenhuma loja encontrada.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+
 
       {reabrirAlvo &&
         createPortal(
