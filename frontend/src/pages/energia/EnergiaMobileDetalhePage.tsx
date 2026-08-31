@@ -1,14 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
-import TextField from '@mui/material/TextField';
-import MenuItem from '@mui/material/MenuItem';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import ChamadoAnexosGaleria from '../../components/manutencao/ChamadoAnexosGaleria';
-import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { api, type EnergiaChamadoDetalhe, type ManutAnexo } from '../../api/client';
 import { getUsuario, podeAbrirEnergia } from '../../lib/auth';
 import { formatDataHoraBalaoMapa } from '../../utils/dateBr';
@@ -22,8 +16,14 @@ import {
   type EnergiaStatus,
   dataUrlToBlob,
 } from './energiaConstants';
-import '../../components/visitas/visitas-mobile.css';
-import '../../components/nc/nc-mobile.css';
+import { EnergiaLojaHead, EnergiaMobileChrome, EnergiaMobileStage } from './EnergiaMobileShell';
+
+function classeStatus(status: string) {
+  if (status === 'finalizado') return 'is-ok';
+  if (status === 'em_andamento') return 'is-andamento';
+  if (status === 'cancelado') return 'is-cancelado';
+  return 'is-aberta';
+}
 
 export default function EnergiaMobileDetalhePage() {
   const { idChamado } = useParams();
@@ -111,63 +111,125 @@ export default function EnergiaMobileDetalhePage() {
 
   if (loading) {
     return (
-      <div className="ck-visitas ck-nc">
+      <EnergiaMobileChrome>
         <LinearProgress />
-      </div>
+      </EnergiaMobileChrome>
     );
   }
 
   if (!item) {
     return (
-      <div className="ck-visitas ck-nc" style={{ padding: 16 }}>
-        <Alert severity="error">{err || 'Não encontrado.'}</Alert>
-        <Button sx={{ mt: 2 }} onClick={() => navigate('/energia/mobile')}>
-          Voltar
-        </Button>
-      </div>
+      <EnergiaMobileChrome>
+        <EnergiaMobileStage title="Energia" sub="Protocolo não encontrado." />
+        <div className="ck-visitas__sheet">
+          <div className="ck-estoque__sheet-head">
+            <EnergiaLojaHead
+              lojas={[]}
+              idLoja=""
+              podeTrocarLoja={false}
+              lojaAtual={null}
+              dlgLoja={false}
+              setDlgLoja={() => undefined}
+              onVoltar={() => navigate('/energia/mobile')}
+            />
+            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem' }}>
+              {err || 'Não encontrado.'}
+            </p>
+          </div>
+        </div>
+      </EnergiaMobileChrome>
     );
   }
 
   return (
-    <div className="ck-visitas ck-nc ck-nc--page">
-      <div className="ck-visitas__stage" style={{ minHeight: 150 }}>
-        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-        <div className="ck-visitas__stage-inner">
-          <div className="ck-visitas__hero-row">
-            <div>
-              <p className="ck-visitas__mark-text">Energia #{item.numero}</p>
-              <h1 className="ck-visitas__title" style={{ fontSize: '1.4rem' }}>
-                {item.protocolo}
-              </h1>
-              <p className="ck-visitas__sub" style={{ marginTop: 6 }}>
-                {item.nome_loja} · {rotuloStatusEnergia(item.status)}
-              </p>
+    <EnergiaMobileChrome>
+      <EnergiaMobileStage
+        title="Energia"
+        sub={`Protocolo ${item.protocolo} · ${rotuloTipoOcorrencia(item.tipo_ocorrencia)}`}
+        kpis={
+          <div
+            className="ck-estoque__kpis ck-estoque__kpis--2 ck-visitas__anim ck-visitas__anim--3"
+            aria-live="polite"
+          >
+            <div className="ck-estoque__kpi ck-estoque__kpi--accent">
+              <strong>#{item.numero}</strong>
+              <span>Chamado</span>
             </div>
-            <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+            <div className="ck-estoque__kpi">
+              <strong>{item.anexos.length}</strong>
+              <span>{item.anexos.length === 1 ? 'foto' : 'fotos'}</span>
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="ck-visitas__sheet">
-        {busy && <LinearProgress sx={{ mb: 1 }} />}
-        {err && (
-          <Alert severity="error" sx={{ mb: 1.5 }} onClose={() => setErr('')}>
-            {err}
-          </Alert>
-        )}
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, pb: 2 }}>
-          <Campo label="Concessionária" valor={item.concessionaria} />
-          <Campo label="Tipo" valor={rotuloTipoOcorrencia(item.tipo_ocorrencia)} />
-          <Campo label="Quando" valor={formatDataHoraBalaoMapa(item.ocorrido_em)} />
-          <Campo label="Registrado por" valor={item.nome_abriu} />
-          {item.descricao && <Campo label="Detalhes" valor={item.descricao} />}
-          {item.status === 'finalizado' && (
-            <>
-              <Campo label="Finalizado" valor={formatDataHoraBalaoMapa(item.finalizado_em)} />
-              {item.observacao_final && <Campo label="Encerramento" valor={item.observacao_final} />}
-            </>
+      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+        <div className="ck-estoque__sheet-head">
+          {err && (
+            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
+              {err}
+            </p>
           )}
+          <EnergiaLojaHead
+            lojas={[]}
+            idLoja={item.id_loja}
+            podeTrocarLoja={false}
+            lojaAtual={null}
+            dlgLoja={false}
+            setDlgLoja={() => undefined}
+            onVoltar={() => navigate('/energia/mobile')}
+            lojaFixa={{ bk_number: item.bk_number, nome: item.nome_loja }}
+          />
+        </div>
+
+        <div className="ck-visitas__sheet-body">
+          {busy && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
+
+          <div className="ck-estoque__card ck-estoque__card--lista ck-estoque__card--static">
+            <div className="ck-estoque__card-top">
+              <div className="ck-estoque__card-title">
+                <strong>Protocolo {item.protocolo}</strong>
+                <span className="ck-estoque__card-tipo">{item.concessionaria}</span>
+              </div>
+              <span className={`ck-estoque__status ${classeStatus(item.status)}`}>
+                {rotuloStatusEnergia(item.status)}
+              </span>
+            </div>
+            <dl className="ck-energia__dl" style={{ marginTop: 14 }}>
+              <div>
+                <dt>Tipo</dt>
+                <dd>{rotuloTipoOcorrencia(item.tipo_ocorrencia)}</dd>
+              </div>
+              <div>
+                <dt>Quando</dt>
+                <dd>{formatDataHoraBalaoMapa(item.ocorrido_em)}</dd>
+              </div>
+              <div>
+                <dt>Registrado por</dt>
+                <dd>{item.nome_abriu}</dd>
+              </div>
+              {item.descricao ? (
+                <div>
+                  <dt>Detalhes</dt>
+                  <dd>{item.descricao}</dd>
+                </div>
+              ) : null}
+              {item.status === 'finalizado' ? (
+                <>
+                  <div>
+                    <dt>Finalizado</dt>
+                    <dd>{formatDataHoraBalaoMapa(item.finalizado_em)}</dd>
+                  </div>
+                  {item.observacao_final ? (
+                    <div>
+                      <dt>Encerramento</dt>
+                      <dd>{item.observacao_final}</dd>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </dl>
+          </div>
 
           <ChamadoAnexosGaleria
             anexos={item.anexos as ManutAnexo[]}
@@ -176,58 +238,75 @@ export default function EnergiaMobileDetalhePage() {
           />
 
           {podeAbrir && aberto && (
-            <>
-              <TextField
-                select
-                size="small"
-                label="Status"
-                value={item.status}
-                onChange={(e) => void mudarStatus(e.target.value as 'aberto' | 'em_andamento')}
-              >
-                <MenuItem value="aberto">Aberto</MenuItem>
-                <MenuItem value="em_andamento">Em andamento</MenuItem>
-              </TextField>
-              <PhotoCaptureMulti fotos={fotosNovas} onChange={setFotosNovas} max={10} inlineActions compactThumbs hideCaption />
-              {fotosNovas.length > 0 && (
-                <Button variant="outlined" onClick={() => void enviarFotos()} disabled={busy}>
-                  Anexar fotos
-                </Button>
-              )}
-              <TextField
-                size="small"
-                multiline
-                minRows={2}
-                label="Observação ao finalizar (opcional)"
-                value={observacaoFinal}
-                onChange={(e) => setObservacaoFinal(e.target.value)}
+            <div className="ck-estoque__break-form">
+              <label className="ck-estoque__field">
+                <span>Status</span>
+                <select
+                  value={item.status}
+                  onChange={(e) => void mudarStatus(e.target.value as 'aberto' | 'em_andamento')}
+                  disabled={busy}
+                >
+                  <option value="aberto">Aberto</option>
+                  <option value="em_andamento">Em andamento</option>
+                </select>
+              </label>
+
+              <PhotoCaptureMulti
+                fotos={fotosNovas}
+                onChange={setFotosNovas}
+                max={10}
+                inlineActions
+                compactThumbs
+                hideCaption
               />
-              <Button
-                variant="contained"
-                color="success"
-                disabled={busy || !item.anexos.length}
-                onClick={() => void finalizar()}
-              >
-                Finalizar e gerar relatório
-              </Button>
-            </>
+
+              <div className="ck-energia__acoes">
+                {fotosNovas.length > 0 && (
+                  <button
+                    type="button"
+                    className="ck-estoque__btn ck-estoque__btn--ghost"
+                    onClick={() => void enviarFotos()}
+                    disabled={busy}
+                  >
+                    Anexar fotos
+                  </button>
+                )}
+
+                <label className="ck-estoque__field">
+                  <span>Observação ao finalizar (opcional)</span>
+                  <textarea
+                    value={observacaoFinal}
+                    onChange={(e) => setObservacaoFinal(e.target.value)}
+                    disabled={busy}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  className="ck-estoque__btn ck-estoque__btn--ok ck-estoque__btn--break-cta"
+                  disabled={busy || !item.anexos.length}
+                  onClick={() => void finalizar()}
+                >
+                  Finalizar e gerar relatório
+                </button>
+              </div>
+            </div>
           )}
 
           {item.status === 'finalizado' && (
-            <Button variant="contained" disabled={busy} onClick={() => void baixarPdf()}>
-              Baixar relatório PDF
-            </Button>
+            <div className="ck-energia__acoes">
+              <button
+                type="button"
+                className="ck-estoque__btn ck-estoque__btn--primary ck-estoque__btn--break-cta"
+                disabled={busy}
+                onClick={() => void baixarPdf()}
+              >
+                Baixar relatório PDF
+              </button>
+            </div>
           )}
-        </Box>
+        </div>
       </div>
-    </div>
-  );
-}
-
-function Campo({ label, valor }: { label: string; valor: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: 0.4 }}>{label.toUpperCase()}</div>
-      <div style={{ fontSize: 15, fontWeight: 650, color: '#1B2A6B', marginTop: 2 }}>{valor}</div>
-    </div>
+    </EnergiaMobileChrome>
   );
 }

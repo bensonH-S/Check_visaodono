@@ -1,0 +1,88 @@
+/* Energia mobile — reutiliza o chrome de estoque (ck-estoque). */
+
+.ck-energia .ck-estoque__kpis--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ck-energia .ck-estoque__status.is-andamento {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.ck-energia .ck-estoque__status.is-cancelado {
+  background: rgba(20, 32, 72, 0.08);
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-energia .ck-estoque__card--lista.is-andamento {
+  border-color: rgba(37, 99, 235, 0.28);
+  border-left: 4px solid #2563eb !important;
+}
+
+.ck-energia .ck-estoque__card--static {
+  cursor: default;
+}
+
+.ck-energia .ck-energia__dl {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.ck-energia .ck-energia__dl div {
+  min-width: 0;
+}
+
+.ck-energia .ck-energia__dl dt {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: rgba(20, 32, 72, 0.55);
+}
+
+.ck-energia .ck-energia__dl dd {
+  margin: 3px 0 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--ck-ink);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.ck-energia .ck-estoque__break-form input,
+.ck-energia .ck-estoque__break-form select {
+  text-align: left;
+}
+
+.ck-energia .ck-estoque__break-form textarea {
+  width: 100%;
+  min-height: 88px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 42, 107, 0.18);
+  background: #fff;
+  padding: 12px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ck-ink);
+  text-align: left;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.ck-energia .ck-estoque__break-form {
+  margin-top: 4px;
+}
+
+.ck-energia .ck-energia__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.ck-energia .ck-energia__acoes .ck-estoque__btn {
+  width: 100%;
+  flex: none;
+}

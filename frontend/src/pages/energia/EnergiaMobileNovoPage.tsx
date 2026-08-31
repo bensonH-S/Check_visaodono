@@ -1,18 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
-import MenuItem from '@mui/material/MenuItem';
-import Button from '@mui/material/Button';
-import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
-import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { api, type Loja } from '../../api/client';
-import { getUsuario, podeAbrirEnergia } from '../../lib/auth';
-import { useChamadosMobileLoja } from '../../context/ChamadosMobileLojaContext';
+import { getUsuario, lojaEstoqueTravadaMobile, podeAbrirEnergia } from '../../lib/auth';
 import { extensaoMidia } from '../../utils/mediaFile';
-import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
 import { showToast } from '../../utils/toast';
 import {
   CONCESSIONARIAS,
@@ -21,19 +13,20 @@ import {
   datetimeLocalParaIso,
   dataUrlToBlob,
 } from './energiaConstants';
-import '../../components/visitas/visitas-mobile.css';
-import '../../components/nc/nc-mobile.css';
-
-const campoSx = {
-  '& .MuiInputBase-input': { fontSize: 16 },
-};
+import { EnergiaLojaHead, EnergiaMobileChrome, EnergiaMobileStage } from './EnergiaMobileShell';
+import {
+  idLojaInicialStorage,
+  preferenciaLojaInicial,
+  persistirLoja,
+  travarScrollPagina,
+} from './energiaMobileLoja';
 
 export default function EnergiaMobileNovoPage() {
   const navigate = useNavigate();
   const user = getUsuario();
-  const { idLoja: idLojaCtx } = useChamadosMobileLoja();
+  const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
-  const [idLoja, setIdLoja] = useState<number | ''>('');
+  const [idLoja, setIdLoja] = useState<number | ''>(idLojaInicialStorage);
   const [protocolo, setProtocolo] = useState('');
   const [concessionaria, setConcessionaria] = useState('Concessionária de energia');
   const [concessionariaOutra, setConcessionariaOutra] = useState('');
@@ -43,18 +36,44 @@ export default function EnergiaMobileNovoPage() {
   const [fotos, setFotos] = useState<string[]>([]);
   const [err, setErr] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [dlgLoja, setDlgLoja] = useState(false);
 
   useEffect(() => {
-    api
-      .lojas({ ativas: true, operacionais: true })
-      .then((lista) => {
-        setLojas(lista);
-        if (idLojaCtx) setIdLoja(idLojaCtx);
-        else if (lista.length === 1) setIdLoja(lista[0].id_loja);
-        else if (user?.lojas?.length === 1) setIdLoja(user.lojas[0].id_loja);
-      })
-      .catch((e) => setErr(e instanceof Error ? e.message : 'Erro ao carregar lojas'));
-  }, [idLojaCtx, user?.lojas]);
+    let cancel = false;
+    (async () => {
+      try {
+        const rows = await api.lojas({ ativas: true, operacionais: true });
+        if (cancel) return;
+        setLojas(rows);
+        const preferida = preferenciaLojaInicial(rows);
+        if (!preferida) return;
+        if (!idLoja || !rows.some((l) => l.id_loja === idLoja)) {
+          setIdLoja(preferida);
+          persistirLoja(preferida);
+        } else if (lojaTravada && preferida !== idLoja) {
+          setIdLoja(preferida);
+          persistirLoja(preferida);
+        }
+      } catch (e) {
+        if (!cancel) setErr(e instanceof Error ? e.message : 'Erro ao carregar lojas');
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!dlgLoja) {
+      travarScrollPagina(false);
+      return;
+    }
+    travarScrollPagina(true);
+    return () => travarScrollPagina(false);
+  }, [dlgLoja]);
+
+  const podeTrocarLoja = !lojaTravada && lojas.length > 1;
+  const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
 
   async function salvar() {
     setErr('');
@@ -103,120 +122,122 @@ export default function EnergiaMobileNovoPage() {
   }
 
   return (
-    <div className="ck-visitas ck-nc ck-nc--page">
-      <div className="ck-visitas__stage" style={{ minHeight: 160 }}>
-        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-        <div className="ck-visitas__stage-inner">
-          <div className="ck-visitas__hero-row">
-            <div>
-              <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title" style={{ fontSize: '1.55rem' }}>
-                Novo protocolo
-              </h1>
-            </div>
-            <CkMarkLogoMenu size={56} className="ck-visitas__mark-icon" />
+    <EnergiaMobileChrome>
+      <EnergiaMobileStage
+        title="Registrar"
+        sub="Anote o protocolo da ligação e anexe as fotos da ocorrência."
+      />
+
+      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
+        <div className="ck-estoque__sheet-head">
+          {err && (
+            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
+              {err}
+            </p>
+          )}
+          <EnergiaLojaHead
+            lojas={lojas}
+            idLoja={idLoja}
+            onChangeLoja={setIdLoja}
+            podeTrocarLoja={podeTrocarLoja}
+            lojaAtual={lojaAtual}
+            dlgLoja={dlgLoja}
+            setDlgLoja={setDlgLoja}
+            onVoltar={() => navigate('/energia/mobile')}
+          />
+        </div>
+
+        <div className="ck-visitas__sheet-body">
+          {salvando && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
+
+          <div className="ck-estoque__break-form">
+            <label className="ck-estoque__field">
+              <span>Protocolo da ligação</span>
+              <input
+                type="text"
+                required
+                value={protocolo}
+                onChange={(e) => setProtocolo(e.target.value)}
+                placeholder="Número gerado pela concessionária"
+                autoComplete="off"
+                disabled={salvando}
+              />
+            </label>
+
+            <label className="ck-estoque__field">
+              <span>Concessionária</span>
+              <select
+                value={concessionaria}
+                onChange={(e) => setConcessionaria(e.target.value)}
+                disabled={salvando}
+              >
+                {CONCESSIONARIAS.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {concessionaria === 'Outra' && (
+              <label className="ck-estoque__field">
+                <span>Nome da concessionária</span>
+                <input
+                  type="text"
+                  value={concessionariaOutra}
+                  onChange={(e) => setConcessionariaOutra(e.target.value)}
+                  placeholder="Qual concessionária"
+                  autoComplete="off"
+                  disabled={salvando}
+                />
+              </label>
+            )}
+
+            <label className="ck-estoque__field">
+              <span>O que aconteceu</span>
+              <select value={tipo} onChange={(e) => setTipo(e.target.value)} disabled={salvando}>
+                {TIPOS_OCORRENCIA.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="ck-estoque__field">
+              <span>Data e hora</span>
+              <input
+                type="datetime-local"
+                required
+                value={ocorrido}
+                onChange={(e) => setOcorrido(e.target.value)}
+                disabled={salvando}
+              />
+            </label>
+
+            <label className="ck-estoque__field">
+              <span>Detalhes (opcional)</span>
+              <textarea
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                placeholder="Ex.: queda de energia, oscilação, equipamento queimou…"
+                disabled={salvando}
+              />
+            </label>
+
+            <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={10} obrigatoria inlineActions hideCaption />
+
+            <button
+              type="button"
+              className="ck-estoque__btn ck-estoque__btn--primary ck-estoque__btn--break-cta"
+              onClick={() => void salvar()}
+              disabled={salvando}
+            >
+              {salvando ? 'Salvando…' : 'Registrar protocolo'}
+            </button>
           </div>
         </div>
       </div>
-
-      <div className="ck-visitas__sheet">
-        {salvando && <LinearProgress sx={{ mb: 1 }} />}
-        {err && (
-          <Alert severity="error" sx={{ mb: 1.5 }}>
-            {err}
-          </Alert>
-        )}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pb: 2 }}>
-          <TextField
-            select
-            required
-            size="small"
-            label="Loja"
-            value={idLoja}
-            onChange={(e) => setIdLoja(Number(e.target.value))}
-            slotProps={{ select: selectMenuScrollProps }}
-            sx={campoSx}
-          >
-            {lojas.map((l) => (
-              <MenuItem key={l.id_loja} value={l.id_loja}>
-                {l.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            required
-            size="small"
-            label="Protocolo da ligação"
-            placeholder="Número gerado pela concessionária"
-            value={protocolo}
-            onChange={(e) => setProtocolo(e.target.value)}
-            sx={campoSx}
-          />
-          <TextField
-            select
-            size="small"
-            label="Concessionária"
-            value={concessionaria}
-            onChange={(e) => setConcessionaria(e.target.value)}
-            helperText="Neoenergia ou genérico, se não souber o nome."
-            slotProps={{ select: selectMenuScrollProps }}
-            sx={campoSx}
-          >
-            {CONCESSIONARIAS.map((c) => (
-              <MenuItem key={c.value} value={c.value}>
-                {c.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          {concessionaria === 'Outra' && (
-            <TextField
-              size="small"
-              label="Nome da concessionária"
-              value={concessionariaOutra}
-              onChange={(e) => setConcessionariaOutra(e.target.value)}
-              sx={campoSx}
-            />
-          )}
-          <TextField
-            select
-            size="small"
-            label="O que aconteceu"
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-            slotProps={{ select: selectMenuScrollProps }}
-            sx={campoSx}
-          >
-            {TIPOS_OCORRENCIA.map((t) => (
-              <MenuItem key={t.value} value={t.value}>
-                {t.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            required
-            size="small"
-            type="datetime-local"
-            label="Data e hora"
-            value={ocorrido}
-            onChange={(e) => setOcorrido(e.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
-            sx={campoSx}
-          />
-          <TextField
-            size="small"
-            multiline
-            minRows={2}
-            label="Detalhes (opcional)"
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            sx={campoSx}
-          />
-          <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={10} obrigatoria inlineActions hideCaption />
-          <Button variant="contained" onClick={() => void salvar()} disabled={salvando} sx={{ py: 1.2 }}>
-            {salvando ? 'Salvando…' : 'Registrar protocolo'}
-          </Button>
-        </Box>
-      </div>
-    </div>
+    </EnergiaMobileChrome>
   );
 }
