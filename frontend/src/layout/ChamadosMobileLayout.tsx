@@ -420,16 +420,16 @@ function ChamadosMobileLayoutInner() {
             show: !!podeNc,
           },
           {
-            to: '/energia/mobile',
-            label: 'Energia',
-            icon: <BoltIcon fontSize="small" />,
-            show: !!podeEnergia,
-          },
-          {
             to: '/estoque/mobile',
             label: 'Estoque',
             icon: <Inventory2Icon fontSize="small" />,
             show: !!podeEstoque,
+          },
+          {
+            to: '/energia/mobile',
+            label: 'Energia',
+            icon: <BoltIcon fontSize="small" />,
+            show: !!podeEnergia,
           },
           {
             to: '/estoque/mobile/break',

@@ -537,12 +537,25 @@ export function podeVerNcMobile(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
+/** Quem opera a loja e liga para a concessionária — independente de estoque. */
+function operaLojaEnergia(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (ehGestorLojaMobile(u)) return true;
+  const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  return cargo === 'gerente' || cargo === 'coordenador';
+}
+
 export function podeVerEnergia(usuario?: UsuarioSessao | null): boolean {
-  return temPermissao('energia.ver', usuario) || temPermissao('energia.abrir', usuario);
+  return (
+    temPermissao('energia.ver', usuario) ||
+    temPermissao('energia.abrir', usuario) ||
+    operaLojaEnergia(usuario)
+  );
 }
 
 export function podeAbrirEnergia(usuario?: UsuarioSessao | null): boolean {
-  return temPermissao('energia.abrir', usuario);
+  return temPermissao('energia.abrir', usuario) || operaLojaEnergia(usuario);
 }
 
 /** Aprovar turnos freelancer — regional (cargo/permissão) ou TI/diretor/dono (todas as lojas). */

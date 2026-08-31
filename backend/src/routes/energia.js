@@ -1,12 +1,26 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { pool } from '../db.js';
-import { requirePermissao } from '../permissoes.js';
+import { temPermissao } from '../permissoes.js';
 import { filtroSqlLojas, usuarioPodeLoja } from '../lojasUsuario.js';
 import { encryptAnexo, decryptAnexo, midiaPermitida } from '../fotos.js';
 
 const router = Router();
 const APP_BASE_PATH = '/auditoria';
+
+function ehGestorLojaEnergia(user) {
+  const cargo = String(user?.cargo_aprovacao || user?.perfil || '').toLowerCase();
+  return cargo === 'gerente' || cargo === 'coordenador';
+}
+
+function requireAcessoEnergia(abrir = false) {
+  return (req, res, next) => {
+    if (temPermissao(req.user, 'energia.abrir')) return next();
+    if (!abrir && temPermissao(req.user, 'energia.ver')) return next();
+    if (ehGestorLojaEnergia(req.user)) return next();
+    return res.status(403).json({ error: 'Sem permissão para esta ação' });
+  };
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -78,7 +92,7 @@ function detalheJson(chamado, anexos) {
 
 router.get(
   '/anexos/:idAnexo/media',
-  requirePermissao('energia.ver', 'energia.abrir'),
+  requireAcessoEnergia(false),
   async (req, res, next) => {
     try {
       const { rows } = await pool.query(
@@ -102,7 +116,7 @@ router.get(
   },
 );
 
-router.get('/', requirePermissao('energia.ver', 'energia.abrir'), async (req, res, next) => {
+router.get('/', requireAcessoEnergia(false), async (req, res, next) => {
   try {
     const { status, loja } = req.query;
     let q = `${SQL_LISTA} WHERE 1=1`;
@@ -136,7 +150,7 @@ router.get('/', requirePermissao('energia.ver', 'energia.abrir'), async (req, re
   }
 });
 
-router.get('/:id', requirePermissao('energia.ver', 'energia.abrir'), async (req, res, next) => {
+router.get('/:id', requireAcessoEnergia(false), async (req, res, next) => {
   try {
     const chamado = await carregarChamado(Number(req.params.id));
     if (!chamado) return res.status(404).json({ error: 'Chamado de energia não encontrado' });
@@ -150,7 +164,7 @@ router.get('/:id', requirePermissao('energia.ver', 'energia.abrir'), async (req,
   }
 });
 
-router.post('/', requirePermissao('energia.abrir'), async (req, res, next) => {
+router.post('/', requireAcessoEnergia(true), async (req, res, next) => {
   try {
     const idLoja = Number(req.body.id_loja);
     const protocolo = normalizarTexto(req.body.protocolo, 80);
@@ -186,7 +200,7 @@ router.post('/', requirePermissao('energia.abrir'), async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requirePermissao('energia.abrir'), async (req, res, next) => {
+router.patch('/:id', requireAcessoEnergia(true), async (req, res, next) => {
   try {
     const idChamado = Number(req.params.id);
     const atual = await carregarChamado(idChamado);
@@ -260,7 +274,7 @@ router.patch('/:id', requirePermissao('energia.abrir'), async (req, res, next) =
 
 router.post(
   '/:id/fotos',
-  requirePermissao('energia.abrir'),
+  requireAcessoEnergia(true),
   upload.array('fotos', 10),
   async (req, res, next) => {
     try {
@@ -306,7 +320,7 @@ router.post(
   },
 );
 
-router.post('/:id/finalizar', requirePermissao('energia.abrir'), async (req, res, next) => {
+router.post('/:id/finalizar', requireAcessoEnergia(true), async (req, res, next) => {
   try {
     const idChamado = Number(req.params.id);
     const atual = await carregarChamado(idChamado);

@@ -60,6 +60,7 @@ import EnergiaMobileDetalhePage from './pages/energia/EnergiaMobileDetalhePage';
 import FreelancersAprovacaoMobilePage from './pages/freelancers/FreelancersAprovacaoMobilePage';
 import RotaNcMobile from './components/RotaNcMobile';
 import RotaEnergiaMobile from './components/RotaEnergiaMobile';
+import RotaEnergia from './components/RotaEnergia';
 import RotaFreelancersAprovacao from './components/RotaFreelancersAprovacao';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
@@ -448,25 +449,25 @@ export default function App() {
             <Route
               path="energia/novo"
               element={
-                <RotaPermissao permissoes={['energia.abrir']}>
+                <RotaEnergia>
                   <EnergiaNovoPage />
-                </RotaPermissao>
+                </RotaEnergia>
               }
             />
             <Route
               path="energia/:idChamado"
               element={
-                <RotaPermissao permissoes={['energia.ver', 'energia.abrir']}>
+                <RotaEnergia>
                   <EnergiaDetalhePage />
-                </RotaPermissao>
+                </RotaEnergia>
               }
             />
             <Route
               path="energia"
               element={
-                <RotaPermissao permissoes={['energia.ver', 'energia.abrir']}>
+                <RotaEnergia>
                   <EnergiaPage />
-                </RotaPermissao>
+                </RotaEnergia>
               }
             />
             <Route
