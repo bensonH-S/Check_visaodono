@@ -15,6 +15,7 @@ export function isPaginaScrollInterno(path: string): boolean {
     path === '/frota' || (path.startsWith('/frota/') && !path.startsWith('/frota/mobile'));
   return (
     path === '/chamados' ||
+    path === '/energia' ||
     path === '/visitas' ||
     path === '/escalas/visitas' ||
     path === '/estoque' ||

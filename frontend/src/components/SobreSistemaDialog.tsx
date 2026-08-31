@@ -14,6 +14,7 @@ import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
+import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { APP_ABOUT, APP_MODULES, APP_NAME, APP_TAGLINE } from '../config/brand';
@@ -25,6 +26,7 @@ const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos 
 const MODULE_ICONS: Record<(typeof APP_MODULES)[number], SvgIconComponent> = {
   'Checklist e visitas': AssignmentOutlinedIcon,
   'Chamados e aprovações': BuildOutlinedIcon,
+  'Energia e protocolos': BoltOutlinedIcon,
   'Frota e mapa': DirectionsCarOutlinedIcon,
   'Estoque e break': Inventory2OutlinedIcon,
   NCs: WarningAmberOutlinedIcon,

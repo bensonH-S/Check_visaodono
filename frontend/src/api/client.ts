@@ -353,6 +353,43 @@ export const api = {
     return res.json() as Promise<NcDetalhe>;
   },
 
+  energiaChamados: (params?: { status?: string; loja?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.loja != null) q.set('loja', String(params.loja));
+    const suffix = q.toString() ? `?${q}` : '';
+    return request<EnergiaListaResponse>(`/energia${suffix}`);
+  },
+  energiaDetalhe: (id: number) => request<EnergiaChamadoDetalhe>(`/energia/${id}`),
+  energiaCriar: (body: EnergiaCriarBody) =>
+    request<EnergiaChamadoDetalhe>('/energia', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  energiaAtualizar: (id: number, body: EnergiaAtualizarBody) =>
+    request<EnergiaChamadoDetalhe>(`/energia/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  energiaFinalizar: (id: number, body?: { observacao_final?: string }) =>
+    request<EnergiaChamadoDetalhe>(`/energia/${id}/finalizar`, {
+      method: 'POST',
+      body: JSON.stringify(body || {}),
+    }),
+  energiaEnviarFotos: async (id: number, formData: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${BASE}/energia/${id}/fotos`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao enviar fotos');
+    }
+    return res.json() as Promise<EnergiaChamadoDetalhe>;
+  },
+
   manutCategorias: () => request<ManutCategoria[]>('/manutencao/categorias'),
   manutCategoriaCriar: (body: ManutCategoriaInput) =>
     request<ManutCategoria>('/manutencao/categorias', { method: 'POST', body: JSON.stringify(body) }),
@@ -3499,6 +3536,60 @@ export interface NcResponse {
     visitas_pendentes?: string;
   };
 }
+
+export interface EnergiaAnexo {
+  id_anexo: number;
+  tipo_mime: string;
+  nome_arquivo?: string | null;
+  created_at: string;
+  media_url: string;
+}
+
+export interface EnergiaChamado {
+  id_chamado: number;
+  numero: number;
+  id_loja: number;
+  protocolo: string;
+  concessionaria: string;
+  tipo_ocorrencia: string;
+  descricao: string | null;
+  status: string;
+  ocorrido_em: string;
+  finalizado_em: string | null;
+  observacao_final: string | null;
+  created_at: string;
+  updated_at: string;
+  nome_loja: string;
+  bk_number: string | null;
+  nome_abriu: string;
+  nome_finalizou: string | null;
+  qtd_fotos: number;
+}
+
+export interface EnergiaChamadoDetalhe extends EnergiaChamado {
+  anexos: EnergiaAnexo[];
+}
+
+export interface EnergiaListaResponse {
+  items: EnergiaChamado[];
+  stats: {
+    total_aberto: number;
+    total_finalizado: number;
+  };
+}
+
+export interface EnergiaCriarBody {
+  id_loja: number;
+  protocolo: string;
+  concessionaria: string;
+  tipo_ocorrencia: string;
+  descricao?: string;
+  ocorrido_em?: string;
+}
+
+export type EnergiaAtualizarBody = Partial<
+  Pick<EnergiaCriarBody, 'protocolo' | 'concessionaria' | 'tipo_ocorrencia' | 'descricao' | 'ocorrido_em'>
+> & { status?: 'aberto' | 'em_andamento' };
 
 export interface FreelancerTurnoAprovacao {
   checkin_id: number;

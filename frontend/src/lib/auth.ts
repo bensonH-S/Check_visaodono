@@ -146,6 +146,7 @@ export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
   if (podeVerVisitasMobile(usuario)) return '/visitas/mobile';
   if (podeVerEscalaVisitas(usuario)) return '/escalas/visitas/mobile';
   if (podeVerNcMobile(usuario)) return '/nc/mobile';
+  if (podeVerEnergia(usuario)) return '/energia/mobile';
   if (podeUsarFrota(usuario)) return '/frota/mobile';
   if (podeConferenciaEstoque(usuario)) return '/estoque/mobile';
   if (podeBreakEstoque(usuario)) return '/estoque/mobile/break';
@@ -534,6 +535,14 @@ export function podeVerNcMobile(usuario?: UsuarioSessao | null): boolean {
     temPermissao('ncs.resolver', usuario) ||
     temPermissao('portal.dashboard.ver', usuario)
   );
+}
+
+export function podeVerEnergia(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('energia.ver', usuario) || temPermissao('energia.abrir', usuario);
+}
+
+export function podeAbrirEnergia(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('energia.abrir', usuario);
 }
 
 /** Aprovar turnos freelancer — regional (cargo/permissão) ou TI/diretor/dono (todas as lojas). */

@@ -51,8 +51,15 @@ import RotaEstoqueMobile from './components/RotaEstoqueMobile';
 import RotaEstoqueBreakMobile from './components/RotaEstoqueBreakMobile';
 import NcMobileListaPage from './pages/nc/NcMobileListaPage';
 import NcMobileResolverPage from './pages/nc/NcMobileResolverPage';
+import EnergiaPage from './pages/energia/EnergiaPage';
+import EnergiaNovoPage from './pages/energia/EnergiaNovoPage';
+import EnergiaDetalhePage from './pages/energia/EnergiaDetalhePage';
+import EnergiaMobileListaPage from './pages/energia/EnergiaMobileListaPage';
+import EnergiaMobileNovoPage from './pages/energia/EnergiaMobileNovoPage';
+import EnergiaMobileDetalhePage from './pages/energia/EnergiaMobileDetalhePage';
 import FreelancersAprovacaoMobilePage from './pages/freelancers/FreelancersAprovacaoMobilePage';
 import RotaNcMobile from './components/RotaNcMobile';
+import RotaEnergiaMobile from './components/RotaEnergiaMobile';
 import RotaFreelancersAprovacao from './components/RotaFreelancersAprovacao';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
@@ -189,6 +196,30 @@ export default function App() {
                 <RotaNcMobile>
                   <NcMobileListaPage />
                 </RotaNcMobile>
+              }
+            />
+            <Route
+              path="energia/mobile/novo"
+              element={
+                <RotaEnergiaMobile>
+                  <EnergiaMobileNovoPage />
+                </RotaEnergiaMobile>
+              }
+            />
+            <Route
+              path="energia/mobile/:idChamado"
+              element={
+                <RotaEnergiaMobile>
+                  <EnergiaMobileDetalhePage />
+                </RotaEnergiaMobile>
+              }
+            />
+            <Route
+              path="energia/mobile"
+              element={
+                <RotaEnergiaMobile>
+                  <EnergiaMobileListaPage />
+                </RotaEnergiaMobile>
               }
             />
             <Route
@@ -411,6 +442,30 @@ export default function App() {
               element={
                 <RotaPermissao permissoes={['portal.dashboard.ver']}>
                   <NcPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="energia/novo"
+              element={
+                <RotaPermissao permissoes={['energia.abrir']}>
+                  <EnergiaNovoPage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="energia/:idChamado"
+              element={
+                <RotaPermissao permissoes={['energia.ver', 'energia.abrir']}>
+                  <EnergiaDetalhePage />
+                </RotaPermissao>
+              }
+            />
+            <Route
+              path="energia"
+              element={
+                <RotaPermissao permissoes={['energia.ver', 'energia.abrir']}>
+                  <EnergiaPage />
                 </RotaPermissao>
               }
             />

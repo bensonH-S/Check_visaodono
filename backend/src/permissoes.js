@@ -39,6 +39,8 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'estoque.break', nome: 'Break — lançar consumo de colaboradores', grupo: 'Estoque', ordem: 204 },
   { codigo: 'ncs.ver', nome: 'Ver não conformidades da região', grupo: 'Não conformidades', ordem: 170 },
   { codigo: 'ncs.resolver', nome: 'Resolver não conformidades (foto e encerramento)', grupo: 'Não conformidades', ordem: 171 },
+  { codigo: 'energia.ver', nome: 'Ver chamados de energia e relatórios', grupo: 'Energia', ordem: 175 },
+  { codigo: 'energia.abrir', nome: 'Registrar protocolo e fotos de ocorrência de energia', grupo: 'Energia', ordem: 176 },
   { codigo: 'freelancers.aprovar', nome: 'Aprovar turnos de freelancers (ponto) na região', grupo: 'Freelancers', ordem: 180 },
   { codigo: 'sistema.backup', nome: 'Gerar e baixar dump do banco (TI)', grupo: 'Sistema', ordem: 190 },
 ];

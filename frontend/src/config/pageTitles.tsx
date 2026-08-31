@@ -23,6 +23,7 @@ import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import BoltIcon from '@mui/icons-material/Bolt';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 
@@ -44,6 +45,8 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/lojas': { title: 'Lojas', icon: <StoreIcon sx={iconSx} /> },
   '/nao-conformidades': { title: 'Não Conformidades', icon: <WarningAmberIcon sx={iconSx} /> },
   '/chamados': { title: 'Chamados', icon: <BuildIcon sx={iconSx} /> },
+  '/energia': { title: 'Energia', icon: <BoltIcon sx={iconSx} /> },
+  '/energia/novo': { title: 'Registrar ocorrência', icon: <BoltIcon sx={iconSx} /> },
   '/chamados/novo': { title: 'Abrir chamado', icon: <AddIcon sx={iconSx} /> },
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/frota': { title: 'Frota', icon: <DirectionsCarIcon sx={iconSx} /> },
@@ -106,6 +109,9 @@ export function resolvePageTitle(path: string): PageTitleConfig {
   }
   if (path.startsWith('/frota/')) return PAGE_TITLES[path] ?? PAGE_TITLES['/frota'];
   if (path.startsWith('/chamados/aprovacoes/')) return PAGE_TITLES['/chamados/aprovacoes'];
+  if (path.startsWith('/energia/')) {
+    return { title: 'Energia', icon: <BoltIcon sx={iconSx} /> };
+  }
   if (path.startsWith('/chamados/')) return PAGE_TITLES['/chamados'];
   if (path.startsWith('/configuracoes/')) {
     return PAGE_TITLES[path] ?? PAGE_TITLES['/configuracoes'];

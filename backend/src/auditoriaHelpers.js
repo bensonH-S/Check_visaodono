@@ -95,6 +95,7 @@ export function inferirModulo(path) {
   if (p.includes('/wpp')) return 'configuracoes';
   if (p.includes('/auth')) return 'auth';
   if (p.includes('/nao-conformidades')) return 'checklist';
+  if (p.includes('/energia')) return 'energia';
   if (p.includes('/push')) return 'sistema';
   if (p.includes('/auditoria')) return 'configuracoes';
   return 'sistema';
@@ -117,6 +118,7 @@ function extrairContextoBody(body) {
   if (body.tipo) push('tipo', body.tipo);
   if (body.descricao && typeof body.descricao === 'string') push(null, `“${body.descricao.slice(0, 80)}”`);
   if (body.id_loja) push('loja', `#${body.id_loja}`);
+  if (body.protocolo) push('protocolo', body.protocolo);
   if (body.semana_inicio) push('semana', body.semana_inicio);
   if (body.id_periodo) push('período', `#${body.id_periodo}`);
   return bits.slice(0, 4);
@@ -161,6 +163,12 @@ function descricaoRecurso(path, method, body) {
   }
   if (p.includes('/checklist')) return `${verbo} checklist${sufixo}`;
   if (p.includes('/nao-conformidades')) return `${verbo} não conformidade${sufixo}`;
+  if (p.includes('/energia')) {
+    const id = ids[0];
+    if (p.includes('/finalizar')) return `${verbo} (finalizou) chamado de energia${id ? ` #${id}` : ''}${sufixo}`;
+    if (p.includes('/fotos')) return `${verbo} fotos do chamado de energia${id ? ` #${id}` : ''}${sufixo}`;
+    return `${verbo} chamado de energia${id ? ` #${id}` : ''}${sufixo}`;
+  }
   if (p.includes('/usuarios')) {
     const id = ids[0];
     return `${verbo} usuário${id ? ` #${id}` : ''}${sufixo}`;

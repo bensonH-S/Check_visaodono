@@ -13,6 +13,7 @@ import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import BoltIcon from '@mui/icons-material/Bolt';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import BrandLogo from '../components/BrandLogo';
 import NotificacoesSino from '../components/NotificacoesSino';
@@ -32,7 +33,7 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeVerEnergia, podeAbrirEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
@@ -276,6 +277,12 @@ function ChamadosMobileLayoutInner() {
   const isNcResolver = Boolean(useMatch('/nc/mobile/:idNc'));
   /** NCs: chrome próprio (lista + resolver). */
   const isNcImmersive = isNc;
+  const isEnergiaNovo = Boolean(useMatch('/energia/mobile/novo')) || path === '/energia/mobile/novo';
+  const isEnergiaDetalhe =
+    (Boolean(useMatch('/energia/mobile/:idChamado')) || /^\/energia\/mobile\/\d+$/.test(path)) &&
+    !isEnergiaNovo;
+  const isEnergia = path === '/energia/mobile' || path.startsWith('/energia/mobile/');
+  const isEnergiaImmersive = isEnergia;
   const isEstoqueBreak = path === '/estoque/mobile/break';
   const isEstoqueSaldo = path === '/estoque/mobile/saldo';
   const isEstoqueNfe = path === '/estoque/mobile/nfes' || path.startsWith('/estoque/mobile/nfes/');
@@ -309,9 +316,11 @@ function ChamadosMobileLayoutInner() {
     isFrotaSub ||
     isRelatorio ||
     isNcResolver ||
+    isEnergiaNovo ||
+    isEnergiaDetalhe ||
     isEstoqueDetalhe ||
     isChecklistConcluido;
-  const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio || isNcResolver || isEstoqueDetalhe;
+  const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio || isNcResolver || isEnergiaNovo || isEnergiaDetalhe || isEstoqueDetalhe;
   const podeAbrir = user && !modoRestrito && temPermissao('chamados.abrir', user);
   const podeChecklist = user && !modoRestrito && podeUsarChecklist(user);
   const podeChamados =
@@ -322,6 +331,8 @@ function ChamadosMobileLayoutInner() {
   const podeVisitas = user && !modoRestrito && podeVerVisitasMobile(user);
   const podeEscalaVisitas = user && !modoRestrito && podeVerEscalaVisitas(user);
   const podeNc = user && !modoRestrito && podeVerNcMobile(user);
+  const podeEnergia = user && !modoRestrito && podeVerEnergia(user);
+  const podeAbrirEnergiaMobile = user && !modoRestrito && podeAbrirEnergia(user);
   const podeEstoque = user && !modoRestrito && podeConferenciaEstoque(user);
   const podeBreak = user && !modoRestrito && podeBreakEstoque(user);
   const podeFreelancers = user && !modoRestrito && podeAprovarFreelancers(user);
@@ -409,6 +420,12 @@ function ChamadosMobileLayoutInner() {
             show: !!podeNc,
           },
           {
+            to: '/energia/mobile',
+            label: 'Energia',
+            icon: <BoltIcon fontSize="small" />,
+            show: !!podeEnergia,
+          },
+          {
             to: '/estoque/mobile',
             label: 'Estoque',
             icon: <Inventory2Icon fontSize="small" />,
@@ -455,6 +472,10 @@ function ChamadosMobileLayoutInner() {
             ? 'Escala de visitas'
           : isNcResolver
             ? 'Resolver NC'
+          : isEnergiaNovo
+            ? 'Novo protocolo'
+          : isEnergiaDetalhe
+            ? 'Ocorrência de energia'
           : isEstoqueBreak
             ? 'Break'
           : isEstoqueSaldo
@@ -465,6 +486,8 @@ function ChamadosMobileLayoutInner() {
             ? 'Estoque'
           : isNc
             ? 'Não conformidades'
+          : isEnergia
+            ? 'Energia'
           : isFreelancersAprovacao
             ? 'Aprovar freelancers'
           : isMapa
@@ -498,6 +521,10 @@ function ChamadosMobileLayoutInner() {
               ? 'Escala de visitas'
             : isNcResolver
               ? 'Resolver NC'
+            : isEnergiaNovo
+              ? 'Novo protocolo'
+            : isEnergiaDetalhe
+              ? 'Ocorrência de energia'
             : isEstoqueBreak
               ? 'Break'
             : isEstoqueSaldo
@@ -508,6 +535,8 @@ function ChamadosMobileLayoutInner() {
               ? 'Estoque'
             : isNc
               ? 'Não conformidades'
+            : isEnergia
+              ? 'Energia'
             : isMapa
               ? 'Mapa da Frota'
             : isRelatorio
@@ -570,6 +599,7 @@ function ChamadosMobileLayoutInner() {
 
   function rotaVoltarMobile() {
     if (isNcResolver) return '/nc/mobile';
+    if (isEnergiaNovo || isEnergiaDetalhe) return '/energia/mobile';
     if (isEstoqueDetalhe) return '/estoque/mobile';
     if (isFrotaSub) return '/frota/mobile';
     if (isRelatorio) return '/visitas/mobile';
@@ -595,7 +625,7 @@ function ChamadosMobileLayoutInner() {
     >
       <PwaInstallDialog />
       <PwaUpdateBanner />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -713,7 +743,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
         <Box
           sx={{
             position: 'relative',
@@ -745,6 +775,7 @@ function ChamadosMobileLayoutInner() {
             isFrotaImmersive ||
             isEscalaVisitas ||
             isNcImmersive ||
+            isEnergiaImmersive ||
             isEstoqueImmersive ||
             isFreelancersImmersive ||
             isChamadosImmersive ||
@@ -756,6 +787,7 @@ function ChamadosMobileLayoutInner() {
             isFrotaImmersive ||
             isEscalaVisitas ||
             isNcImmersive ||
+            isEnergiaImmersive ||
             isEstoqueImmersive ||
             isFreelancersImmersive ||
             isChamadosImmersive ||
@@ -768,6 +800,7 @@ function ChamadosMobileLayoutInner() {
               isFrotaImmersive ||
               isEscalaVisitas ||
               isNcImmersive ||
+              isEnergiaImmersive ||
               isEstoqueImmersive ||
               isFreelancersImmersive ||
               isChamadosImmersive ||
@@ -792,10 +825,29 @@ function ChamadosMobileLayoutInner() {
       </Box>
       )}
 
-      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && !isFreelancersAprovacao && !isEstoque && !isNc && (
+      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && !isFreelancersAprovacao && !isEstoque && !isNc && !isEnergia && (
         <Fab
           aria-label="Abrir novo chamado"
           onClick={() => navigate('/chamados/mobile/novo')}
+          sx={{
+            position: 'fixed',
+            right: safeAreaRightCalc(20),
+            bottom: safeAreaBottomCalc(rodapeTotalH + 16),
+            zIndex: 40,
+            bgcolor: '#E8520A',
+            color: '#fff',
+            boxShadow: '0 6px 20px rgba(232, 82, 10, 0.42)',
+            '&:hover': { bgcolor: '#d14a09' },
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      )}
+
+      {podeAbrirEnergiaMobile && isEnergia && !isEnergiaNovo && !isEnergiaDetalhe && (
+        <Fab
+          aria-label="Registrar ocorrência de energia"
+          onClick={() => navigate('/energia/mobile/novo')}
           sx={{
             position: 'fixed',
             right: safeAreaRightCalc(20),
@@ -826,10 +878,11 @@ function ChamadosMobileLayoutInner() {
               const abaManutencao = item.to === '/frota/mobile/manutencao';
               const abaVisitas = item.to === '/visitas/mobile';
               const abaNc = item.to === '/nc/mobile';
+              const abaEnergia = item.to === '/energia/mobile';
               const abaEstoque = item.to === '/estoque/mobile';
               const abaBreak = item.to === '/estoque/mobile/break';
               const abaFreelancers = item.to === '/freelancers/aprovacao/mobile';
-              const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc || abaEstoque;
+              const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc || abaEnergia || abaEstoque;
               return (
               <NavLink
                 key={item.to}
@@ -852,6 +905,8 @@ function ChamadosMobileLayoutInner() {
                               ? isVisitas || isRelatorio
                               : abaNc
                                 ? isNc
+                              : abaEnergia
+                                ? isEnergia
                               : abaEstoque
                                 ? isEstoque && !isEstoqueBreak
                               : abaBreak

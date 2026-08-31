@@ -25,6 +25,7 @@ const MODULOS = [
   { value: '', label: 'Todos' },
   { value: 'auth', label: 'Acesso' },
   { value: 'chamados', label: 'Chamados' },
+  { value: 'energia', label: 'Energia' },
   { value: 'frota', label: 'Frota' },
   { value: 'escalas', label: 'Escalas' },
   { value: 'visitas', label: 'Visitas' },
