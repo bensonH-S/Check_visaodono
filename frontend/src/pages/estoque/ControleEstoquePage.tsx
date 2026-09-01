@@ -506,8 +506,28 @@ export default function ControleEstoquePage() {
     }
   };
 
+  const setCampoContagemForm = (
+    campo: 'permite_contagem_caixa' | 'permite_contagem_pc_fd' | 'permite_contagem_kg_und',
+    checked: boolean,
+  ) => {
+    const next = { ...formProduto, [campo]: checked };
+    if (!next.permite_contagem_caixa && !next.permite_contagem_pc_fd && !next.permite_contagem_kg_und) {
+      showToast('Deixe pelo menos um campo de contagem liberado', 'error');
+      return;
+    }
+    setFormProduto(next);
+  };
+
   const salvarProduto = async () => {
     if (!idLoja) return;
+    if (
+      !formProduto.permite_contagem_caixa &&
+      !formProduto.permite_contagem_pc_fd &&
+      !formProduto.permite_contagem_kg_und
+    ) {
+      showToast('Deixe pelo menos um campo de contagem liberado', 'error');
+      return;
+    }
     setSalvandoProduto(true);
     try {
       const body = {
@@ -1322,7 +1342,7 @@ export default function ControleEstoquePage() {
                 control={
                   <Checkbox
                     checked={formProduto.permite_contagem_caixa}
-                    onChange={(e) => setFormProduto((f) => ({ ...f, permite_contagem_caixa: e.target.checked }))}
+                    onChange={(e) => setCampoContagemForm('permite_contagem_caixa', e.target.checked)}
                     size="small"
                   />
                 }
@@ -1332,7 +1352,7 @@ export default function ControleEstoquePage() {
                 control={
                   <Checkbox
                     checked={formProduto.permite_contagem_pc_fd}
-                    onChange={(e) => setFormProduto((f) => ({ ...f, permite_contagem_pc_fd: e.target.checked }))}
+                    onChange={(e) => setCampoContagemForm('permite_contagem_pc_fd', e.target.checked)}
                     size="small"
                   />
                 }
@@ -1342,7 +1362,7 @@ export default function ControleEstoquePage() {
                 control={
                   <Checkbox
                     checked={formProduto.permite_contagem_kg_und}
-                    onChange={(e) => setFormProduto((f) => ({ ...f, permite_contagem_kg_und: e.target.checked }))}
+                    onChange={(e) => setCampoContagemForm('permite_contagem_kg_und', e.target.checked)}
                     size="small"
                   />
                 }

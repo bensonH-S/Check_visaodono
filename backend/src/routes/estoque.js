@@ -5,7 +5,12 @@ import { requirePermissao } from '../permissoes.js';
 import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
-import { calcularQtdContagem, flagsContagemDiaria, SQL_ORDEM_PLANILHA } from '../services/estoqueContagem.js';
+import {
+  calcularQtdContagem,
+  flagsContagemDiaria,
+  SQL_ORDEM_PLANILHA,
+  temCampoContagemLiberado,
+} from '../services/estoqueContagem.js';
 import { avaliarForaJanela, carregarPerfil } from '../services/estoqueCiclo.js';
 import {
   classificarInsumos,
@@ -738,6 +743,11 @@ async function criarInsumo(req, res, next) {
     const permite_contagem_caixa = req.body?.permite_contagem_caixa !== false;
     const permite_contagem_pc_fd = req.body?.permite_contagem_pc_fd !== false;
     const permite_contagem_kg_und = req.body?.permite_contagem_kg_und !== false;
+    if (!temCampoContagemLiberado(permite_contagem_caixa, permite_contagem_pc_fd, permite_contagem_kg_und)) {
+      return res.status(400).json({
+        error: 'Libere pelo menos um campo de contagem (caixa, pacote ou kg/und).',
+      });
+    }
 
     const diaria = flagsContagemDiaria(descricao);
     const { rows } = await pool.query(
@@ -829,6 +839,14 @@ async function atualizarInsumo(req, res, next) {
       req.body?.permite_contagem_kg_und != null
         ? !!req.body.permite_contagem_kg_und
         : prev.permite_contagem_kg_und !== false;
+    if (
+      ativo &&
+      !temCampoContagemLiberado(permite_contagem_caixa, permite_contagem_pc_fd, permite_contagem_kg_und)
+    ) {
+      return res.status(400).json({
+        error: 'Libere pelo menos um campo de contagem (caixa, pacote ou kg/und).',
+      });
+    }
 
     const diaria = flagsContagemDiaria(descricao);
     const { rows } = await pool.query(

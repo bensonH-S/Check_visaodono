@@ -303,6 +303,11 @@ export function celulaBloqueadaContagem(cell) {
   return cell.s.patternType === 'solid';
 }
 
+/** Item ativo precisa de pelo menos um campo editável na conferência. */
+export function temCampoContagemLiberado(permiteCaixa, permitePc, permiteKg) {
+  return permiteCaixa !== false || permitePc !== false || permiteKg !== false;
+}
+
 /**
  * Calcula QTD a partir dos três campos da planilha.
  * Retorna null se nenhum campo habilitado foi informado (item pendente).
