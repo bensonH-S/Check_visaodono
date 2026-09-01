@@ -3806,7 +3806,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                   {emp.loja_origem_nome || 'outra loja'}
                 </Typography>
                 {(emp.itens || []).map((it, idx) => (
-                  <Typography key={idx} variant="caption" display="block" color="text.secondary">
+                  <Typography key={idx} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     {it.codigo} · {it.descricao}
                     {it.contagem_pc_fd != null ? ` · ${it.contagem_pc_fd} pct` : ''}
                     {it.contagem_caixa != null ? ` · ${it.contagem_caixa} cx` : ''}
