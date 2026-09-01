@@ -1936,6 +1936,23 @@
   margin-bottom: 6px;
 }
 
+.ck-estoque--break .ck-estoque__field.is-blocked {
+  opacity: 0.45;
+}
+
+.ck-estoque--break .ck-estoque__blocked {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px dashed rgba(15, 26, 69, 0.2);
+  color: rgba(15, 26, 69, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
 .ck-estoque--break .ck-estoque__seg {
   display: grid;
   grid-template-columns: 1fr 1fr;

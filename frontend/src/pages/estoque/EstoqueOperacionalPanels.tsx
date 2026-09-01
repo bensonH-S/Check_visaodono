@@ -44,6 +44,7 @@ import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
 import {
   api,
   type EstoqueBreakResumo,
+  type EstoqueEmprestimoAReceber,
   type Loja,
   type EstoqueCmvReal,
   type EstoqueCmvTeorico,
@@ -3555,7 +3556,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const [produtosVenda, setProdutosVenda] = useState<ProdutoVendaEstoque[]>([]);
   const [insumos, setInsumos] = useState<ProdutoEstoque[]>([]);
   const [motivos, setMotivos] = useState<Array<{ codigo: string; nome: string }>>([]);
-  const [lojas, setLojas] = useState<Loja[]>([]);
+  const [lojasDestino, setLojasDestino] = useState<Loja[]>([]);
   const [colaboradores, setColaboradores] = useState<Array<{ id_usuario: number; nome: string }>>(
     [],
   );
@@ -3571,24 +3572,37 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const [nomeColaborador, setNomeColaborador] = useState('');
   const [codigo, setCodigo] = useState('');
   const [qtde, setQtde] = useState('1');
+  const [caixaEmp, setCaixaEmp] = useState('');
+  const [pcEmp, setPcEmp] = useState('');
+  const [kgEmp, setKgEmp] = useState('');
+  const [aReceber, setAReceber] = useState<EstoqueEmprestimoAReceber[]>([]);
+  const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
   const usaInsumo = kind === 'desperdicio_incompleto' || kind === 'emprestimo';
   const exigeColab = kind === 'refeicao';
   const exigeTurno = kind !== 'emprestimo';
   const exigeMotivo = kind === 'desperdicio_completo' || kind === 'desperdicio_incompleto';
   const colabDigitado = colaboradores.length === 0 || colabSelect === '__outro__';
+  const insumoEmp = insumos.find(
+    (p) => String(p.codigo || '').trim().toUpperCase() === codigo.trim().toUpperCase(),
+  );
+  const empCx = insumoEmp?.permite_contagem_caixa !== false;
+  const empPc = insumoEmp?.permite_contagem_pc_fd !== false;
+  const empKg = insumoEmp?.permite_contagem_kg_und !== false;
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [breaks, cols, cat, lojasRows] = await Promise.all([
+      const [breaks, cols, cat, lojasRows, pendentes] = await Promise.all([
         api.estoqueBreaks(idLoja),
         api.estoqueBreakColaboradores(idLoja),
         api.estoqueBreakCatalogo(idLoja, 'refeicao'),
-        api.estoqueLojas({ ativas: true, operacionais: true }).catch(() => [] as Loja[]),
+        api.estoqueLojasDestinoEmprestimo().catch(() => [] as Loja[]),
+        api.estoqueEmprestimosAReceber(idLoja).catch(() => [] as EstoqueEmprestimoAReceber[]),
       ]);
       setLista(breaks);
       setColaboradores(cols);
-      setLojas(lojasRows);
+      setLojasDestino(lojasRows);
+      setAReceber(pendentes);
       setProdutosVenda((cat.produtos || []).filter((p) => p.ativo !== false));
       setInsumos((cat.insumos || []).filter((p) => p.ativo !== false));
       setMotivos(cat.motivos || []);
@@ -3629,6 +3643,9 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     setNomeColaborador('');
     setCodigo('');
     setQtde('1');
+    setCaixaEmp('');
+    setPcEmp('');
+    setKgEmp('');
     setDataBreak(hojeISO());
   };
 
@@ -3661,7 +3678,21 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
       showToast('Informe a loja que vai receber', 'error');
       return;
     }
-    if (!codigo.trim() || !(quantidade > 0)) {
+    const parseCampo = (raw: string) => {
+      if (!String(raw || '').trim()) return null;
+      const n = Number(String(raw).replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    };
+    if (kind === 'emprestimo') {
+      if (!codigo.trim()) {
+        showToast('Informe a mercadoria', 'error');
+        return;
+      }
+      if (parseCampo(caixaEmp) == null && parseCampo(pcEmp) == null && parseCampo(kgEmp) == null) {
+        showToast('Informe caixa, pct ou kg/und', 'error');
+        return;
+      }
+    } else if (!codigo.trim() || !(quantidade > 0)) {
       showToast('Informe produto e quantidade', 'error');
       return;
     }
@@ -3680,11 +3711,23 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
         id_loja_destino: idLojaDestino || undefined,
         itens: [
           usaInsumo
-            ? { codigo_insumo: codigo.trim(), quantidade }
+            ? kind === 'emprestimo'
+              ? {
+                  codigo_insumo: codigo.trim(),
+                  contagem_caixa: parseCampo(caixaEmp),
+                  contagem_pc_fd: parseCampo(pcEmp),
+                  contagem_kg_und: parseCampo(kgEmp),
+                }
+              : { codigo_insumo: codigo.trim(), quantidade }
             : { codigo_venda: codigo.trim(), quantidade },
         ],
       });
-      showToast(`${labelTipoBreak(kind)} lançado — estoque baixado`, 'success');
+      showToast(
+        kind === 'emprestimo'
+          ? 'Empréstimo enviado — a outra loja confirma o recebimento'
+          : `${labelTipoBreak(kind)} lançado — estoque baixado`,
+        'success',
+      );
       setOpen(false);
       resetForm();
       await carregar();
@@ -3692,6 +3735,19 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
       showToast(e instanceof Error ? e.message : 'Erro ao lançar', 'error');
     } finally {
       setSalvando(false);
+    }
+  };
+
+  const confirmarRecebimento = async (idBreak: number) => {
+    setConfirmandoId(idBreak);
+    try {
+      await api.estoqueConfirmarRecebimentoEmprestimo(idBreak, idLoja);
+      showToast('Recebimento confirmado — saldo atualizado');
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível confirmar', 'error');
+    } finally {
+      setConfirmandoId(null);
     }
   };
 
@@ -3711,7 +3767,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             Break
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, maxWidth: 560 }}>
-            Consumo interno (break), desperdício completo e incompleto. Todos baixam o estoque; só o break entra no CMV.
+            Break e desperdício baixam na hora. Empréstimo sai da origem na hora e só entra no estoque da outra loja depois do OK.
           </Typography>
         </Box>
         <Button
@@ -3726,6 +3782,51 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
           Lançar
         </Button>
       </Box>
+
+      {aReceber.length > 0 && (
+        <Paper sx={{ ...tablePaperSx, p: 2, border: '1px solid #E8520A' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: colors.navy }}>
+            Empréstimos para receber
+          </Typography>
+          {aReceber.map((emp) => (
+            <Box
+              key={emp.id_break}
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                py: 1,
+                borderTop: '1px solid rgba(15,26,69,0.08)',
+              }}
+            >
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  De {emp.loja_origem_bk ? `${emp.loja_origem_bk} · ` : ''}
+                  {emp.loja_origem_nome || 'outra loja'}
+                </Typography>
+                {(emp.itens || []).map((it, idx) => (
+                  <Typography key={idx} variant="caption" display="block" color="text.secondary">
+                    {it.codigo} · {it.descricao}
+                    {it.contagem_pc_fd != null ? ` · ${it.contagem_pc_fd} pct` : ''}
+                    {it.contagem_caixa != null ? ` · ${it.contagem_caixa} cx` : ''}
+                    {it.contagem_kg_und != null ? ` · ${it.contagem_kg_und} kg/und` : ''}
+                  </Typography>
+                ))}
+              </Box>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={confirmandoId === emp.id_break}
+                onClick={() => void confirmarRecebimento(emp.id_break)}
+                sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, flexShrink: 0 }}
+              >
+                {confirmandoId === emp.id_break ? '…' : 'OK — recebi'}
+              </Button>
+            </Box>
+          ))}
+        </Paper>
+      )}
 
       <Paper sx={tablePaperSx}>
         <TableContainer sx={tableContainerSx}>
@@ -3749,9 +3850,17 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                   <TableCell>{labelTurnoBreak(b.turno)}</TableCell>
                   <TableCell>
                     {b.tipo === 'emprestimo'
-                      ? b.loja_destino_nome
-                        ? `${b.loja_destino_bk ? `${b.loja_destino_bk} · ` : ''}${b.loja_destino_nome}`
-                        : '—'
+                      ? `${
+                          b.loja_destino_nome
+                            ? `${b.loja_destino_bk ? `${b.loja_destino_bk} · ` : ''}${b.loja_destino_nome}`
+                            : '—'
+                        }${
+                          b.recebimento_status === 'pendente'
+                            ? ' · aguardando'
+                            : b.recebimento_status === 'recebido'
+                              ? ' · recebido'
+                              : ''
+                        }`
                       : b.colaborador_nome || '—'}
                   </TableCell>
                   <TableCell>{b.motivo || '—'}</TableCell>
@@ -3803,6 +3912,31 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             <MenuItem value="desperdicio_incompleto">Desperdício incompleto</MenuItem>
             <MenuItem value="emprestimo">Empréstimo</MenuItem>
           </TextField>
+          {kind === 'emprestimo' && (
+            <TextField
+              {...dialogFieldProps}
+              size="small"
+              select
+              label="Loja que recebe"
+              value={idLojaDestino === '' ? '' : String(idLojaDestino)}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setIdLojaDestino(Number.isFinite(n) && n > 0 ? n : '');
+              }}
+              sx={campoBreakFieldSx}
+              required
+              helperText="A loja destino confirma no app com OK — recebi. Só então o saldo entra."
+            >
+              <MenuItem value="">Selecione a loja…</MenuItem>
+              {lojasDestino
+                .filter((l) => l.id_loja !== idLoja)
+                .map((l) => (
+                  <MenuItem key={l.id_loja} value={String(l.id_loja)}>
+                    {l.bk_number ? `${l.bk_number} · ${l.name}` : l.name}
+                  </MenuItem>
+                ))}
+            </TextField>
+          )}
           <Box sx={campoBreakDataSx}>
             <CampoDataFrota
               label="Data"
@@ -3911,30 +4045,6 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               ))}
             </TextField>
           )}
-          {kind === 'emprestimo' && (
-            <TextField
-              {...dialogFieldProps}
-              size="small"
-              select
-              label="Loja que recebe"
-              value={idLojaDestino === '' ? '' : String(idLojaDestino)}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setIdLojaDestino(Number.isFinite(n) && n > 0 ? n : '');
-              }}
-              sx={campoBreakFieldSx}
-              required
-            >
-              <MenuItem value="">Selecione…</MenuItem>
-              {lojas
-                .filter((l) => l.id_loja !== idLoja)
-                .map((l) => (
-                  <MenuItem key={l.id_loja} value={String(l.id_loja)}>
-                    {l.bk_number ? `${l.bk_number} · ${l.name}` : l.name}
-                  </MenuItem>
-                ))}
-            </TextField>
-          )}
           {usaInsumo ? (
             <EstoqueInsumoAutocomplete
               produtos={insumos}
@@ -3951,6 +4061,37 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               sx={campoBreakFieldSx}
             />
           )}
+          {kind === 'emprestimo' ? (
+            <Box sx={{ display: 'flex', gap: 0.75 }}>
+              <TextField
+                {...dialogFieldProps}
+                size="small"
+                label="Caixa"
+                value={caixaEmp}
+                onChange={(e) => setCaixaEmp(e.target.value)}
+                disabled={!empCx || !codigo}
+                sx={{ ...campoBreakFieldSx, flex: 1 }}
+              />
+              <TextField
+                {...dialogFieldProps}
+                size="small"
+                label="Pct"
+                value={pcEmp}
+                onChange={(e) => setPcEmp(e.target.value)}
+                disabled={!empPc || !codigo}
+                sx={{ ...campoBreakFieldSx, flex: 1 }}
+              />
+              <TextField
+                {...dialogFieldProps}
+                size="small"
+                label="Kg/und"
+                value={kgEmp}
+                onChange={(e) => setKgEmp(e.target.value)}
+                disabled={!empKg || !codigo}
+                sx={{ ...campoBreakFieldSx, flex: 1 }}
+              />
+            </Box>
+          ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <IconButton
               size="small"
@@ -3985,11 +4126,12 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               <AddIcon fontSize="small" />
             </IconButton>
           </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <Button onClick={() => setOpen(false)}>Cancelar</Button>
           <Button variant="contained" disabled={salvando} onClick={() => void lancar()}>
-            Confirmar baixa
+            {kind === 'emprestimo' ? 'Enviar empréstimo' : 'Confirmar baixa'}
           </Button>
         </DialogActions>
       </Dialog>

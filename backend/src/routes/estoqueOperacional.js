@@ -8,6 +8,9 @@ import {
   importarVendasLoja,
   processarVenda,
   lancarBreak,
+  listarLojasDestinoEmprestimo,
+  listarEmprestimosAReceber,
+  confirmarRecebimentoEmprestimo,
   garantirSchemaBreakCaderno,
   upsertProdutoVenda,
   registrarEntradas,
@@ -1020,6 +1023,56 @@ router.post('/sync/vendas', permOp, async (req, res, next) => {
 
 // ── Break ──────────────────────────────────────────────────────────────────
 
+router.get('/break/lojas-destino', permBreak, async (req, res, next) => {
+  try {
+    const rows = await listarLojasDestinoEmprestimo();
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/break/a-receber', permBreak, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    const rows = await listarEmprestimosAReceber(idLoja);
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/break/:id/receber', permBreak, async (req, res, next) => {
+  try {
+    const idBreak = Number(req.params.id);
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    if (!Number.isFinite(idBreak) || idBreak <= 0) {
+      return res.status(400).json({ error: 'Empréstimo inválido' });
+    }
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await confirmarRecebimentoEmprestimo({
+      id_break: idBreak,
+      id_loja_destino: idLoja,
+      recebido_por: userId(req),
+    });
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'receber',
+      entidade: 'estoque_break',
+      idReferencia: idBreak,
+      descricao: `Empréstimo #${idBreak} recebido na loja ${idLoja}`,
+    });
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
 router.get('/break', permBreak, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
@@ -1080,7 +1133,13 @@ router.get('/break/catalogo', permBreak, async (req, res, next) => {
 
     if (tipo === 'desperdicio_incompleto' || tipo === 'emprestimo') {
       const { rows } = await pool.query(
-        `SELECT id_insumo, id_loja, codigo, descricao, ativo
+        `SELECT id_insumo, id_loja, codigo, descricao, ativo,
+                unidade_contagem,
+                COALESCE(und_convertida, 1) AS und_convertida,
+                COALESCE(und_parcial, 1) AS und_parcial,
+                COALESCE(permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
+                COALESCE(permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
+                COALESCE(permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und
          FROM insumos
          WHERE id_loja = $1 AND ativo = TRUE
          ORDER BY descricao`,
@@ -1093,10 +1152,14 @@ router.get('/break/catalogo', permBreak, async (req, res, next) => {
         codigo: r.codigo,
         descricao: r.descricao,
         ativo: r.ativo !== false,
-        unidade_contagem: 'UND',
+        unidade_contagem: r.unidade_contagem || 'UND',
         preco_caixa: 0,
-        und_convertida: 1,
+        und_convertida: Number(r.und_convertida) || 1,
+        und_parcial: Number(r.und_parcial) || 1,
         valor_unidade: 0,
+        permite_contagem_caixa: r.permite_contagem_caixa !== false,
+        permite_contagem_pc_fd: r.permite_contagem_pc_fd !== false,
+        permite_contagem_kg_und: r.permite_contagem_kg_und !== false,
       }));
       // Lista curada (códigos); se vazia/sem match, cai no caderno antigo via filtrarPorCaderno.
       insumos.push(...filtrarPorCaderno(mapped, tipo));

@@ -1252,6 +1252,15 @@ export const api = {
     }),
   estoqueBreaks: (idLoja: number) =>
     request<EstoqueBreakResumo[]>(`/estoque/break?id_loja=${idLoja}`),
+  estoqueLojasDestinoEmprestimo: () =>
+    request<Loja[]>('/estoque/break/lojas-destino'),
+  estoqueEmprestimosAReceber: (idLoja: number) =>
+    request<EstoqueEmprestimoAReceber[]>(`/estoque/break/a-receber?id_loja=${idLoja}`),
+  estoqueConfirmarRecebimentoEmprestimo: (idBreak: number, idLoja: number) =>
+    request<{ break: EstoqueBreakResumo; entradas: unknown[] }>(`/estoque/break/${idBreak}/receber`, {
+      method: 'POST',
+      body: JSON.stringify({ id_loja: idLoja }),
+    }),
   estoqueBreakColaboradores: (idLoja: number) =>
     request<Array<{ id_usuario: number; nome: string }>>(
       `/estoque/break/colaboradores?id_loja=${idLoja}`,
@@ -1274,8 +1283,11 @@ export const api = {
       id_produto?: number;
       codigo_insumo?: string;
       codigo_venda?: string;
-      quantidade: number;
+      quantidade?: number;
       descricao?: string;
+      contagem_caixa?: number | null;
+      contagem_pc_fd?: number | null;
+      contagem_kg_und?: number | null;
     }>;
   }) =>
     request<{ break: EstoqueBreakResumo; baixas: unknown[]; erros: string[] }>('/estoque/break', {
@@ -2674,6 +2686,9 @@ export interface ProdutoEstoque {
   valor_unidade: number;
   /** nf | catalogo | manual — fontes aceitas no CMV. Null/planilha = sem custo automático. */
   custo_fonte?: string | null;
+  permite_contagem_caixa?: boolean;
+  permite_contagem_pc_fd?: boolean;
+  permite_contagem_kg_und?: boolean;
   ativo: boolean;
   criado_em?: string;
   atualizado_em?: string;
@@ -3266,8 +3281,31 @@ export interface EstoqueBreakResumo {
   id_loja_destino?: number | null;
   loja_destino_nome?: string | null;
   loja_destino_bk?: string | null;
+  recebimento_status?: string | null;
+  recebido_em?: string | null;
   criado_por_nome?: string | null;
   criado_em?: string;
+}
+
+export interface EstoqueEmprestimoItem {
+  codigo?: string | null;
+  descricao?: string | null;
+  quantidade?: number | null;
+  contagem_caixa?: number | null;
+  contagem_pc_fd?: number | null;
+  contagem_kg_und?: number | null;
+}
+
+export interface EstoqueEmprestimoAReceber {
+  id_break: number;
+  data_break: string;
+  criado_em?: string;
+  recebimento_status?: string | null;
+  id_loja_origem: number;
+  loja_origem_nome?: string | null;
+  loja_origem_bk?: string | null;
+  criado_por_nome?: string | null;
+  itens: EstoqueEmprestimoItem[];
 }
 
 export interface EstoqueBreakCatalogo {
