@@ -19,6 +19,8 @@ Logs/*
 backend/Logs/
 _tmp-*
 **/_tmp-*
+_tmp-local/
+/*.xlsx
 *.xlsm
 scripts/windows/tools/
 scripts/windows/build-kit-gerencia.ps1
