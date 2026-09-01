@@ -17,6 +17,7 @@ const SRC = {
 
 const dryRun = process.argv.includes('--dry-run');
 const REF_EMAIL = 'raquel.707@gmail.com';
+const REF_GESTOR_EMAIL = 'marcielsouza2m@gmail.com';
 
 // E-mails migrados na rodada anterior (HR → Meridian)
 const EMAILS_MIGRADOS = [
@@ -92,6 +93,21 @@ try {
   );
   const permissoes = refPerms.map((p) => p.codigo);
   if (!permissoes.length) throw new Error('Raquel sem permissões configuradas');
+
+  const { rows: refGestor } = await tgt.query(
+    `SELECT id_usuario, nome, email, cargo, cargo_aprovacao, perfil::text AS perfil
+     FROM usuarios WHERE LOWER(email) = $1`,
+    [REF_GESTOR_EMAIL],
+  );
+  if (!refGestor[0]) throw new Error(`Referência gestor ${REF_GESTOR_EMAIL} não encontrada`);
+  const { rows: refGestorPerms } = await tgt.query(
+    `SELECT codigo FROM usuario_permissoes WHERE id_usuario = $1 ORDER BY codigo`,
+    [refGestor[0].id_usuario],
+  );
+  const permissoesGestor = refGestorPerms
+    .map((p) => p.codigo)
+    .filter((c) => !String(c).startsWith('chamados.'));
+  if (!permissoesGestor.length) throw new Error('Marciel sem permissões de gestor');
 
   const { rows: lojasMeridian } = await tgt.query(
     `SELECT id_loja, name, bk_number FROM lojas WHERE bk_number IS NOT NULL AND TRIM(bk_number) <> ''`,
@@ -187,14 +203,15 @@ try {
                perfil = $4::perfil_usuario,
                ativo = TRUE
              WHERE id_usuario = $1`,
-            [idUsuario, refUser[0].cargo, refUser[0].cargo_aprovacao, refUser[0].perfil],
+            [idUsuario, refGestor[0].cargo, refGestor[0].cargo_aprovacao, refGestor[0].perfil],
           );
         } else {
           await client.query(`UPDATE usuarios SET ativo = TRUE WHERE id_usuario = $1`, [idUsuario]);
         }
 
         await client.query('DELETE FROM usuario_permissoes WHERE id_usuario = $1', [idUsuario]);
-        for (const codigo of permissoes) {
+        const permsAlvo = isGestor ? permissoesGestor : permissoes;
+        for (const codigo of permsAlvo) {
           await client.query(
             `INSERT INTO usuario_permissoes (id_usuario, codigo) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
             [idUsuario, codigo],
@@ -236,6 +253,7 @@ try {
   }
 
   console.log(`Referência: ${refUser[0].nome} — permissões: ${permissoes.join(', ')}`);
+  console.log(`Gestor (Marciel): ${permissoesGestor.join(', ')}`);
   console.log(dryRun ? '\n=== SIMULAÇÃO ===' : '\n=== APLICADO ===');
   console.log(`Usuários processados: ${EMAILS_MIGRADOS.length}`);
   console.log(`Com loja atribuída: ${atualizados.length}`);
@@ -250,9 +268,9 @@ try {
 
   console.log('\n=== TEXTO ZAP ===');
   const linhas = [
-    `*Permissões e lojas — igual Raquel*`,
+    `*Permissões e lojas — gestor igual Marciel (Terraço)*`,
     dryRun ? '_(simulação)_' : '',
-    `Permissões: ${permissoes.join(', ')}`,
+    `Permissões gestor: ${permissoesGestor.join(', ')}`,
     '',
     '*Gestores com loja:*',
     ...atualizados.map((u) => `• ${u.nome} → ${u.loja_meridian}`),

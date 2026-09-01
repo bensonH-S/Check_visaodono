@@ -86,6 +86,7 @@
     "migrate:energia-chamados": "node scripts/run-sql.js migrations/163_energia_chamados.sql",
     "migrate:estoque-diaria-fatores": "node scripts/run-sql.js migrations/164_estoque_diaria_sem_lancamento_fatores.sql",
     "migrate:estoque-contagem-campos-bloqueados": "node scripts/run-sql.js migrations/165_estoque_contagem_campos_bloqueados.sql",
+    "migrate:gestores-perms-marciel": "node scripts/run-sql.js migrations/166_gestores_perms_iguais_marciel.sql",
     "test:estoque-consumo": "node --test src/services/estoqueConsumo.test.js",
     "migrate:estoque-unitario": "node scripts/run-sql.js migrations/101_produtos_requer_ficha.sql",
     "migrate:sim-indica-problema": "node scripts/run-sql.js migrations/089_perguntas_sim_indica_problema.sql",
