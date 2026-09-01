@@ -84,6 +84,7 @@
     "migrate:estoque-piloto-auditoria": "node scripts/run-sql.js migrations/161_estoque_piloto_auditoria.sql",
     "migrate:estoque-piloto-todas-lojas": "node scripts/run-sql.js migrations/162_estoque_piloto_todas_lojas.sql",
     "migrate:energia-chamados": "node scripts/run-sql.js migrations/163_energia_chamados.sql",
+    "migrate:estoque-diaria-fatores": "node scripts/run-sql.js migrations/164_estoque_diaria_sem_lancamento_fatores.sql",
     "test:estoque-consumo": "node --test src/services/estoqueConsumo.test.js",
     "migrate:estoque-unitario": "node scripts/run-sql.js migrations/101_produtos_requer_ficha.sql",
     "migrate:sim-indica-problema": "node scripts/run-sql.js migrations/089_perguntas_sim_indica_problema.sql",

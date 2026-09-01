@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   MOTIVO_BAIXA,
+  nucleoCodigoNumerico,
   normalizarUnidade,
   resolverConsumoEstoque,
 } from './estoqueConsumo.js';
@@ -135,6 +136,44 @@ describe('resolverConsumoEstoque — conversão ausente', () => {
     });
     assert.equal(r.ok, false);
     assert.equal(r.motivo, MOTIVO_BAIXA.CONVERSAO_BLOQUEADA);
+  });
+});
+
+describe('nucleoCodigoNumerico — Excel come zero', () => {
+  it('034754 e 34754 são o mesmo núcleo', () => {
+    assert.equal(nucleoCodigoNumerico('034754'), '34754');
+    assert.equal(nucleoCodigoNumerico('34754'), '34754');
+    assert.equal(nucleoCodigoNumerico('036252'), '36252');
+  });
+  it('não mexe em código com letra ou hífen', () => {
+    assert.equal(nucleoCodigoNumerico('35205-2'), null);
+    assert.equal(nucleoCodigoNumerico('ABC'), null);
+  });
+});
+
+describe('fatores NF + ficha', () => {
+  it('nugget: 10 UN × 12kg/588 = 0,20408 kg', () => {
+    const r = resolverConsumoEstoque({
+      quantidadeReceita: 10,
+      unidadeReceita: 'und',
+      unidadeEstoque: 'KG',
+      fatorConversao: 12 / 588,
+      fatorStatus: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(Math.round(r.quantidadeEstoque * 1e5) / 1e5, 0.20408);
+  });
+
+  it('chicken jr: 1 UN × 9,88kg/152 = 0,065 kg', () => {
+    const r = resolverConsumoEstoque({
+      quantidadeReceita: 1,
+      unidadeReceita: 'und',
+      unidadeEstoque: 'KG',
+      fatorConversao: 9.88 / 152,
+      fatorStatus: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidadeEstoque, 0.065);
   });
 });
 

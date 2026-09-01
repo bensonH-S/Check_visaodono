@@ -22,6 +22,16 @@ function num(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * Núcleo numérico do código (Excel come zero à esquerda).
+ * Só dígitos: 034754 e 34754 → "34754". Código com letra/hífen → null.
+ */
+export function nucleoCodigoNumerico(codigo) {
+  const c = String(codigo || '').trim();
+  if (!/^\d+$/.test(c)) return null;
+  return c.replace(/^0+/, '') || '0';
+}
+
 function round6(n) {
   return Math.round(num(n) * 1e6) / 1e6;
 }
@@ -245,6 +255,38 @@ async function semearPilotoBaixa(client) {
     WHERE UPPER(TRIM(i.codigo)) = '021403' AND i.ativo = TRUE AND i.contagem_diaria = TRUE
     ON CONFLICT (id_loja, codigo_ficha) DO NOTHING
   `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, 'und', 'kg', ROUND((9.88 / 152)::numeric, 8),
+           'NF cx 9,88kg / ficha 152 und', 'validado', NOW()
+    FROM insumos i
+    WHERE i.ativo = TRUE AND LTRIM(TRIM(i.codigo), '0') = '31777' AND i.descricao ~* 'CHICKEN JR'
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, 'und', 'kg', ROUND((12.0 / 588)::numeric, 8),
+           'NF cx 12kg / ficha 588 und', 'validado', NOW()
+    FROM insumos i
+    WHERE i.ativo = TRUE AND LTRIM(TRIM(i.codigo), '0') = '34580' AND i.descricao ~* 'NUGGET'
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, 'und', 'kg', ROUND((4.0 / 1187)::numeric, 8),
+           'caixa 4kg / ficha 1187 und', 'validado', NOW()
+    FROM insumos i
+    WHERE i.ativo = TRUE AND LTRIM(TRIM(i.codigo), '0') = '28582' AND i.descricao ~* 'TIRA'
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, 'und', 'kg', ROUND((12.0 / 122)::numeric, 8),
+           'caixa 12kg / ficha 122 und', 'validado', NOW()
+    FROM insumos i
+    WHERE i.ativo = TRUE AND LTRIM(TRIM(i.codigo), '0') = '38178' AND i.descricao ~* 'REBEL'
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
 }
 
 export async function lojaEmPilotoBaixa(client, idLoja) {
@@ -263,8 +305,9 @@ export async function lojaEmPilotoBaixa(client, idLoja) {
 }
 
 /**
- * Resolve insumo canônico: alias explícito da ficha, depois código exato.
- * Não remove zero à esquerda.
+ * Resolve insumo canônico: alias, código exato, depois o mesmo número
+ * com/sem zero à esquerda — só se existir UM ativo na loja.
+ * Não chuta quando 028459 e 28459 são dois produtos diferentes.
  */
 export async function resolverInsumoCanonico(client, idLoja, codigo) {
   const cod = String(codigo || '').trim().toUpperCase();
@@ -295,7 +338,23 @@ export async function resolverInsumoCanonico(client, idLoja, codigo) {
      LIMIT 1`,
     [idLoja, cod],
   );
-  return rows[0] || null;
+  if (rows[0]) return rows[0];
+
+  const nucleo = nucleoCodigoNumerico(cod);
+  if (!nucleo) return null;
+
+  const { rows: padded } = await client.query(
+    `SELECT id_insumo, codigo, descricao, unidade_contagem,
+            COALESCE(contagem_diaria, FALSE) AS contagem_diaria, ativo
+     FROM insumos
+     WHERE id_loja = $1
+       AND ativo = TRUE
+       AND codigo ~ '^[0-9]+$'
+       AND LTRIM(codigo, '0') = $2`,
+    [idLoja, nucleo],
+  );
+  if (padded.length === 1) return padded[0];
+  return null;
 }
 
 async function buscarConversao(client, idInsumo, unidadeOrigem, unidadeDestino) {
