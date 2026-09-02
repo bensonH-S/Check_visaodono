@@ -37,6 +37,18 @@ describe('resolverConsumoEstoque — cheddar', () => {
     assert.equal(r.origemConversao, 'fator_validado');
   });
 
+  it('2 fatias usam o mesmo fator UND→KG (0,0115)', () => {
+    const r = resolverConsumoEstoque({
+      quantidadeReceita: 2,
+      unidadeReceita: 'fatia',
+      unidadeEstoque: 'KG',
+      fatorConversao: 0.0115,
+      fatorStatus: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidadeEstoque, 0.023);
+  });
+
   it('10 Whoppers = -0,230 kg', () => {
     const porProduto = resolverConsumoEstoque({
       quantidadeReceita: 2,
