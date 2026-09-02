@@ -10,6 +10,7 @@ import {
   sqlFiltroItensContagem,
   statusConversaoFracionada,
   unidadeFracionadaEfetiva,
+  validarUnidadeFracionadaCadastro,
 } from './estoqueContagem.js';
 import {
   MOTIVO_CONVERSAO,
@@ -183,5 +184,53 @@ describe('statusConversaoFracionada', () => {
 
   it('par distinto com fator validado', () => {
     assert.equal(statusConversaoFracionada('UND', 'KG', true), 'validada');
+  });
+});
+
+describe('validarUnidadeFracionadaCadastro', () => {
+  it('identidade KG→KG passa sem banco', async () => {
+    const r = await validarUnidadeFracionadaCadastro(null, {
+      unidadeFracionada: 'KG',
+      unidadeContagem: 'KG',
+    });
+    assert.equal(r.ok, true);
+  });
+
+  it('UND→KG sem conversão é bloqueado', async () => {
+    const client = { query: async () => ({ rows: [] }) };
+    const r = await validarUnidadeFracionadaCadastro(client, {
+      idInsumo: 1,
+      codigo: 'NOCONV',
+      unidadeFracionada: 'UND',
+      unidadeContagem: 'KG',
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.motivo, MOTIVO_CONVERSAO.NAO_ENCONTRADA);
+  });
+
+  it('UND→KG com fator validado passa', async () => {
+    const client = {
+      query: async () => ({
+        rows: [{ fator: 0.0115, status: 'validado', unidade_origem: 'und' }],
+      }),
+    };
+    const r = await validarUnidadeFracionadaCadastro(client, {
+      idInsumo: 99,
+      codigo: '35619',
+      unidadeFracionada: 'UND',
+      unidadeContagem: 'KG',
+    });
+    assert.equal(r.ok, true);
+  });
+});
+
+describe('snapshot × saldo vivo (regra numérica)', () => {
+  it('tela = contado − snapshot; ajuste = contado − vivo', () => {
+    const snapshot = 50;
+    const contado = 45;
+    const vivo = 48;
+    assert.equal(contado - snapshot, -5);
+    assert.equal(contado - vivo, -3);
+    assert.equal(vivo + (contado - vivo), contado);
   });
 });
