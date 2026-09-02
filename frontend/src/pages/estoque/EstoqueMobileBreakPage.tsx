@@ -21,8 +21,12 @@ import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
 import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
-import '../../components/visitas/visitas-mobile.css';
-import '../../components/estoque/estoque-mobile.css';
+import {
+  fracionadaInteira,
+  rotuloCampoFracionado,
+  sanitizarEntradaFracionada,
+  unidadeFisicaInsumo,
+} from '../../components/estoque/estoqueContagemCampo';
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
@@ -46,6 +50,7 @@ type BreakItemRascunho = {
   codigo: string;
   descricao: string;
   quantidade: number;
+  qtdRaw: string;
   origem: 'venda' | 'insumo';
   caixa: string;
   pc: string;
@@ -410,7 +415,7 @@ export default function EstoqueMobileBreakPage() {
       if (existe) {
         return prev.map((i) =>
           i.codigo === codigoSel
-            ? { ...i, quantidade: Math.round((i.quantidade + 1) * 1000) / 1000 }
+            ? { ...i, quantidade: Math.round((i.quantidade + 1) * 1000) / 1000, qtdRaw: String(Math.round((i.quantidade + 1) * 1000) / 1000) }
             : i,
         );
       }
@@ -421,6 +426,7 @@ export default function EstoqueMobileBreakPage() {
           codigo: codigoSel,
           descricao,
           quantidade: 1,
+          qtdRaw: '1',
           origem: 'venda' as const,
           caixa: '',
           pc: '',
@@ -454,6 +460,7 @@ export default function EstoqueMobileBreakPage() {
           codigo: codigoSel,
           descricao,
           quantidade: 1,
+          qtdRaw: '1',
           origem: 'insumo',
           caixa: '',
           pc: '',
@@ -469,10 +476,34 @@ export default function EstoqueMobileBreakPage() {
       prev
         .map((i) => {
           if (i.key !== key) return i;
-          const prox = Math.round((i.quantidade + delta) * 1000) / 1000;
-          return { ...i, quantidade: prox };
+          const ins = insumos.find(
+            (p) => String(p.codigo || '').trim().toUpperCase() === i.codigo.toUpperCase(),
+          );
+          const inteiro = i.origem === 'insumo' && fracionadaInteira(ins?.unidade_fracionada || ins?.unidade_contagem);
+          const passo = inteiro ? 1 : Math.abs(delta) === 1 ? 0.1 : delta;
+          const prox = Math.round((i.quantidade + (delta < 0 ? -passo : passo)) * 1000) / 1000;
+          if (prox <= 0) return { ...i, quantidade: 0, qtdRaw: '' };
+          const qtd = inteiro ? Math.round(prox) : prox;
+          return { ...i, quantidade: qtd, qtdRaw: String(qtd).replace('.', ',') };
         })
         .filter((i) => i.quantidade > 0),
+    );
+  };
+
+  const setQtdRawItem = (key: string, raw: string) => {
+    setItens((prev) =>
+      prev.map((i) => {
+        if (i.key !== key) return i;
+        const ins = insumos.find(
+          (p) => String(p.codigo || '').trim().toUpperCase() === i.codigo.toUpperCase(),
+        );
+        const inteiro =
+          i.origem !== 'insumo' ||
+          fracionadaInteira(ins?.unidade_fracionada || ins?.unidade_contagem);
+        const limpo = sanitizarEntradaFracionada(raw, inteiro);
+        const n = parseCampoQtd(limpo);
+        return { ...i, qtdRaw: limpo, quantidade: n != null && n > 0 ? n : 0 };
+      }),
     );
   };
 
@@ -545,18 +576,24 @@ export default function EstoqueMobileBreakPage() {
         id_colaborador: Number(idColaborador) > 0 ? Number(idColaborador) : undefined,
         colaborador_nome: nomeColabAtual || undefined,
         id_loja_destino: idLojaDestino || undefined,
-        itens: itens.map((i) =>
-          i.origem === 'insumo'
-            ? {
-                codigo_insumo: i.codigo,
-                descricao: i.descricao,
-                quantidade: i.quantidade,
-                contagem_caixa: parseCampoQtd(i.caixa),
-                contagem_pc_fd: parseCampoQtd(i.pc),
-                contagem_kg_und: parseCampoQtd(i.kg),
-              }
-            : { codigo_venda: i.codigo, quantidade: i.quantidade, descricao: i.descricao },
-        ),
+        itens: itens.map((i) => {
+          if (i.origem !== 'insumo') {
+            return { codigo_venda: i.codigo, quantidade: i.quantidade, descricao: i.descricao };
+          }
+          const ins = insumos.find(
+            (p) => String(p.codigo || '').trim().toUpperCase() === i.codigo.toUpperCase(),
+          );
+          const unidade = unidadeFisicaInsumo(ins);
+          return {
+            codigo_insumo: i.codigo,
+            descricao: i.descricao,
+            quantidade: i.quantidade,
+            unidade,
+            contagem_caixa: parseCampoQtd(i.caixa),
+            contagem_pc_fd: parseCampoQtd(i.pc),
+            contagem_kg_und: parseCampoQtd(i.kg),
+          };
+        }),
       });
       showToast(
         kind === 'emprestimo'
@@ -863,18 +900,22 @@ export default function EstoqueMobileBreakPage() {
                     <div className="ck-estoque__desc">{item.descricao}</div>
                     {kind === 'emprestimo' ? (
                       <div className="ck-estoque__row ck-estoque__row--tres">
-                        {(
-                          [
-                            ['caixa', 'CAIXA', 'caixa'] as const,
-                            ['pc', 'PCT', 'pc'] as const,
-                            ['kg', 'KG / UND', 'kg'] as const,
-                          ]
-                        ).map(([campo, label, keyCampo]) => {
+                        {(() => {
                           const ins = insumos.find(
                             (p) =>
                               String(p.codigo || '').trim().toUpperCase() ===
                               item.codigo.toUpperCase(),
                           );
+                          const rotuloFrac = rotuloCampoFracionado(
+                            ins?.unidade_fracionada || ins?.unidade_contagem,
+                          );
+                          return (
+                            [
+                              ['caixa', 'CAIXA', 'caixa'] as const,
+                              ['pc', 'PCT', 'pc'] as const,
+                              ['kg', rotuloFrac, 'kg'] as const,
+                            ]
+                          ).map(([campo, label, keyCampo]) => {
                           const lib = permiteCamposInsumo(ins)[keyCampo];
                           return (
                             <div
@@ -886,19 +927,38 @@ export default function EstoqueMobileBreakPage() {
                                 <div className="ck-estoque__blocked">—</div>
                               ) : (
                                 <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  step="any"
+                                  type="text"
+                                  inputMode={
+                                    keyCampo === 'kg' &&
+                                    fracionadaInteira(
+                                      ins?.unidade_fracionada || ins?.unidade_contagem,
+                                    )
+                                      ? 'numeric'
+                                      : 'decimal'
+                                  }
                                   min="0"
                                   placeholder="—"
                                   disabled={salvando}
                                   value={item[campo]}
-                                  onChange={(e) => setCampoItem(item.key, campo, e.target.value)}
+                                  onChange={(e) =>
+                                    setCampoItem(
+                                      item.key,
+                                      campo,
+                                      sanitizarEntradaFracionada(
+                                        e.target.value,
+                                        keyCampo === 'kg' &&
+                                          fracionadaInteira(
+                                            ins?.unidade_fracionada || ins?.unidade_contagem,
+                                          ),
+                                      ),
+                                    )
+                                  }
                                 />
                               )}
                             </div>
                           );
-                        })}
+                        });
+                        })()}
                       </div>
                     ) : (
                     <div className="ck-estoque__qty ck-estoque__qty--item">
@@ -911,9 +971,47 @@ export default function EstoqueMobileBreakPage() {
                       >
                         −
                       </button>
-                      <span className="ck-estoque__qty-val" aria-label="Quantidade">
-                        {item.quantidade}
-                      </span>
+                      {item.origem === 'insumo' ? (
+                        <label className="ck-estoque__field" style={{ flex: 1, margin: 0 }}>
+                          <span className="ck-estoque__qty-val" style={{ display: 'block' }}>
+                            Quantidade ({unidadeFisicaInsumo(
+                              insumos.find(
+                                (p) =>
+                                  String(p.codigo || '').trim().toUpperCase() ===
+                                  item.codigo.toUpperCase(),
+                              ),
+                            )}
+                            )
+                          </span>
+                          <input
+                            type="text"
+                            inputMode={
+                              fracionadaInteira(
+                                insumos.find(
+                                  (p) =>
+                                    String(p.codigo || '').trim().toUpperCase() ===
+                                    item.codigo.toUpperCase(),
+                                )?.unidade_fracionada ||
+                                  insumos.find(
+                                    (p) =>
+                                      String(p.codigo || '').trim().toUpperCase() ===
+                                      item.codigo.toUpperCase(),
+                                  )?.unidade_contagem,
+                              )
+                                ? 'numeric'
+                                : 'decimal'
+                            }
+                            aria-label="Quantidade"
+                            disabled={salvando}
+                            value={item.qtdRaw}
+                            onChange={(e) => setQtdRawItem(item.key, e.target.value)}
+                          />
+                        </label>
+                      ) : (
+                        <span className="ck-estoque__qty-val" aria-label="Quantidade">
+                          {item.quantidade}
+                        </span>
+                      )}
                       <button
                         type="button"
                         className="ck-estoque__qty-btn"

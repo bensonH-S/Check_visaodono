@@ -40,6 +40,7 @@ import {
   listarAuditoriaPiloto,
   linhasExcelAuditoriaPiloto,
 } from '../services/estoqueConsumo.js';
+import { garantirSchemaUnidadeFracionada } from '../services/estoqueContagem.js';
 import XLSX from 'xlsx';
 import {
   TURNOS,
@@ -90,6 +91,18 @@ function acessoLoja(req, idLoja) {
 
 function userId(req) {
   return req.user?.id_usuario || req.user?.sub || null;
+}
+
+function respostaErroOperacional(res, e) {
+  if (!e.status) return false;
+  const body = { error: e.message };
+  if (e.motivo) body.motivo = e.motivo;
+  if (e.codigo != null) body.codigo = e.codigo;
+  if (e.descricao != null) body.descricao = e.descricao;
+  if (e.unidade_origem != null) body.unidade_origem = e.unidade_origem;
+  if (e.unidade_destino != null) body.unidade_destino = e.unidade_destino;
+  res.status(e.status).json(body);
+  return true;
 }
 
 function normalizarNomeColab(s) {
@@ -1068,7 +1081,7 @@ router.post('/break/:id/receber', permBreak, async (req, res, next) => {
     });
     res.json(result);
   } catch (e) {
-    if (e.status) return res.status(e.status).json({ error: e.message });
+    if (respostaErroOperacional(res, e)) return;
     next(e);
   }
 });
@@ -1132,9 +1145,11 @@ router.get('/break/catalogo', permBreak, async (req, res, next) => {
     const insumos = [];
 
     if (tipo === 'desperdicio_incompleto' || tipo === 'emprestimo') {
+      await garantirSchemaUnidadeFracionada(pool);
       const { rows } = await pool.query(
         `SELECT id_insumo, id_loja, codigo, descricao, ativo,
                 unidade_contagem,
+                COALESCE(NULLIF(BTRIM(unidade_fracionada), ''), unidade_contagem) AS unidade_fracionada,
                 COALESCE(und_convertida, 1) AS und_convertida,
                 COALESCE(und_parcial, 1) AS und_parcial,
                 COALESCE(permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
@@ -1153,6 +1168,7 @@ router.get('/break/catalogo', permBreak, async (req, res, next) => {
         descricao: r.descricao,
         ativo: r.ativo !== false,
         unidade_contagem: r.unidade_contagem || 'UND',
+        unidade_fracionada: r.unidade_fracionada || r.unidade_contagem || 'UND',
         preco_caixa: 0,
         und_convertida: Number(r.und_convertida) || 1,
         und_parcial: Number(r.und_parcial) || 1,
@@ -1246,7 +1262,7 @@ router.post('/break', permBreak, async (req, res, next) => {
     });
     res.status(201).json(result);
   } catch (e) {
-    if (e.status) return res.status(e.status).json({ error: e.message });
+    if (respostaErroOperacional(res, e)) return;
     if (e.code === '23503') {
       return res.status(400).json({ error: 'Não foi possível lançar o break. Tente de novo.' });
     }

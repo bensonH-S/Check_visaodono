@@ -2,13 +2,16 @@ import { pool } from '../db.js';
 import { resolverQtdContagem, anexarFatoresFracionada, garantirSchemaUnidadeFracionada } from './estoqueContagem.js';
 import {
   MOTIVO_BAIXA,
+  MOTIVO_CONVERSAO,
   STATUS_AUDITORIA_PILOTO,
+  converterQuantidade,
   criarSessaoAuditoriaPiloto,
   garantirSchemaPilotoBaixa,
   lojaEmPilotoBaixa,
   registrarPendenciaBaixa,
   resolverConsumoInsumo,
   resolverInsumoCanonico,
+  erroConversaoOperacional,
 } from './estoqueConsumo.js';
 
 /** Só vendas do kit BK Office — ignora upload/manual duplicado. */
@@ -956,6 +959,8 @@ export async function baixarPorProdutoVenda(
     referencia_id = null,
     observacao = null,
     criado_por = null,
+    /** Break / desperdício: conversão ausente aborta o documento (rollback). */
+    rigido = false,
   },
 ) {
   const qtde = num(quantidade);
@@ -1099,6 +1104,12 @@ export async function baixarPorProdutoVenda(
   for (const item of ficha.itens) {
     const insumo = await resolverInsumoPorCodigo(client, id_loja, item.codigo_insumo);
     if (!insumo) {
+      if (rigido) {
+        throw Object.assign(
+          new Error(`Insumo ${item.codigo_insumo} não cadastrado na loja`),
+          { status: 400, codigo: item.codigo_insumo },
+        );
+      }
       erros.push(`Insumo ${item.codigo_insumo} não cadastrado na loja`);
       await registrarPulo(MOTIVO_BAIXA.INSUMO_NAO_CADASTRADO, {
         codigo_insumo: item.codigo_insumo,
@@ -1141,6 +1152,18 @@ export async function baixarPorProdutoVenda(
       unidadeEstoque: insumo.unidade_contagem,
     });
     if (!consumo.ok) {
+      if (rigido) {
+        throw erroConversaoOperacional({
+          codigo: insumo.codigo,
+          descricao: insumo.descricao,
+          unidade_origem: item.unidade_receita || 'und',
+          unidade_destino: insumo.unidade_contagem,
+          motivo:
+            consumo.motivo === MOTIVO_BAIXA.CONVERSAO_BLOQUEADA
+              ? MOTIVO_CONVERSAO.BLOQUEADA
+              : MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+        });
+      }
       await registrarPulo(consumo.motivo, {
         codigo_insumo: insumo.codigo,
         id_insumo: insumo.id_insumo,
@@ -1521,6 +1544,64 @@ function qtdEmprestimo(fat, raw) {
   return { ok: true, qtd: r.qtd };
 }
 
+function temCamposFisicosBreak(raw) {
+  return (
+    campoContagem(raw?.contagem_caixa ?? raw?.caixa) != null ||
+    campoContagem(raw?.contagem_pc_fd ?? raw?.pc) != null ||
+    campoContagem(raw?.contagem_kg_und ?? raw?.kg) != null
+  );
+}
+
+/**
+ * Quantidade física (campos Terraço ou quantidade+unidade) → unidade canônica.
+ * Reusa converterQuantidade / resolverQtdContagem. Nunca assume 1 UND = 1 KG.
+ */
+export async function resolverQtdOperacionalInsumo(client, fat, raw = {}) {
+  const cx = campoContagem(raw.contagem_caixa ?? raw.caixa);
+  const pc = campoContagem(raw.contagem_pc_fd ?? raw.pc);
+  const kg = campoContagem(raw.contagem_kg_und ?? raw.kg);
+
+  if (temCamposFisicosBreak(raw)) {
+    const calc = qtdEmprestimo(fat, raw);
+    if (!calc.ok) {
+      const e = calc.erro || {};
+      throw erroConversaoOperacional({
+        codigo: e.codigo || fat.codigo,
+        descricao: fat.descricao,
+        unidade_origem: e.unidade_origem,
+        unidade_destino: e.unidade_destino,
+        motivo: e.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+      });
+    }
+    return { qtd: calc.qtd, cx, pc, kg };
+  }
+
+  const qtde = num(raw.quantidade);
+  if (!(qtde > 0)) {
+    return { qtd: null, cx: null, pc: null, kg: null };
+  }
+
+  const orig = raw.unidade || raw.unidade_fisica || fat.unidade_fracionada || fat.unidade_contagem;
+  const dest = fat.unidade_contagem;
+  const conv = await converterQuantidade(client, {
+    idInsumo: fat.id_insumo,
+    codigo: fat.codigo,
+    quantidade: qtde,
+    unidadeOrigem: orig,
+    unidadeDestino: dest,
+  });
+  if (!conv.ok) {
+    throw erroConversaoOperacional({
+      codigo: fat.codigo,
+      descricao: fat.descricao,
+      unidade_origem: conv.unidade_origem || orig,
+      unidade_destino: conv.unidade_destino || dest,
+      motivo: conv.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+    });
+  }
+  return { qtd: conv.quantidade, cx: null, pc: null, kg: qtde };
+}
+
 /** Lança break / desperdício / empréstimo — itens diretos e/ou produto venda via ficha. */
 export async function lancarBreak(
   {
@@ -1637,63 +1718,57 @@ export async function lancarBreak(
 
     for (const raw of itens) {
       const qtde = num(raw.quantidade);
-      const insumoEmp =
-        tipoOk === 'emprestimo' && Boolean(raw.id_insumo || raw.codigo_insumo);
-      if (!insumoEmp && qtde <= 0) continue;
+      const isInsumo = Boolean(raw.id_insumo || raw.codigo_insumo);
+      const temFisico = temCamposFisicosBreak(raw);
+      if (!isInsumo && qtde <= 0) continue;
+      if (isInsumo && !temFisico && qtde <= 0) continue;
 
-      if (raw.id_insumo || raw.codigo_insumo) {
+      if (isInsumo) {
         let idInsumo = raw.id_insumo ? Number(raw.id_insumo) : null;
         let codigo = raw.codigo_insumo || raw.codigo || null;
         let descricao = raw.descricao || null;
         if (!idInsumo && codigo) {
           const insumo = await resolverInsumoPorCodigo(client, id_loja, codigo);
           if (!insumo) {
-            erros.push(`Insumo ${codigo} não encontrado`);
-            continue;
+            throw Object.assign(new Error(`Insumo ${codigo} não encontrado`), {
+              status: 400,
+              codigo,
+            });
           }
           idInsumo = insumo.id_insumo;
           codigo = insumo.codigo;
           descricao = insumo.descricao;
         }
         if (!idInsumo) {
-          erros.push('Item sem insumo');
-          continue;
+          throw Object.assign(new Error('Item sem insumo'), { status: 400 });
         }
-        let qtdeBaixa = qtde;
-        let cx = null;
-        let pc = null;
-        let kg = null;
-        if (tipoOk === 'emprestimo') {
-          const fat = await carregarFatoresInsumo(client, idInsumo);
-          if (!fat) {
-            erros.push(`Insumo ${codigo || idInsumo} sem cadastro`);
-            continue;
-          }
-          cx = campoContagem(raw.contagem_caixa ?? raw.caixa);
-          pc = campoContagem(raw.contagem_pc_fd ?? raw.pc);
-          kg = campoContagem(raw.contagem_kg_und ?? raw.kg);
-          const calc = qtdEmprestimo(fat, raw);
-          if (!calc.ok) {
-            const e = calc.erro || {};
-            erros.push(
-              `${e.codigo || fat.codigo}: ${e.motivo || 'conversao_nao_encontrada'} (${e.unidade_origem} → ${e.unidade_destino})`,
-            );
-            continue;
-          }
-          if (calc.qtd == null || calc.qtd <= 0) {
-            erros.push(`${fat.codigo}: informe caixa, pct ou kg/und`);
-            continue;
-          }
-          qtdeBaixa = calc.qtd;
-          descricao = fat.descricao || descricao;
-          codigo = fat.codigo || codigo;
+        const fat = await carregarFatoresInsumo(client, idInsumo);
+        if (!fat) {
+          throw Object.assign(new Error(`Insumo ${codigo || idInsumo} sem cadastro`), {
+            status: 400,
+            codigo,
+          });
         }
+        const calc = await resolverQtdOperacionalInsumo(client, fat, raw);
+        if (calc.qtd == null || calc.qtd <= 0) {
+          throw Object.assign(
+            new Error(
+              tipoOk === 'emprestimo'
+                ? `${fat.codigo}: informe caixa, pct ou kg/und`
+                : `${fat.codigo}: informe a quantidade`,
+            ),
+            { status: 400, codigo: fat.codigo },
+          );
+        }
+        const qtdeBaixa = calc.qtd;
+        descricao = fat.descricao || descricao;
+        codigo = fat.codigo || codigo;
         await client.query(
           `INSERT INTO estoque_break_itens
              (id_break, id_insumo, codigo, descricao, quantidade,
               contagem_caixa, contagem_pc_fd, contagem_kg_und)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [idBreak, idInsumo, codigo, descricao, qtdeBaixa, cx, pc, kg],
+          [idBreak, idInsumo, codigo, descricao, qtdeBaixa, calc.cx, calc.pc, calc.kg],
         );
         const mov = await aplicarMovimento(client, {
           id_loja,
@@ -1726,8 +1801,7 @@ export async function lancarBreak(
           codigoVenda = rows[0]?.codigo;
         }
         if (!codigoVenda) {
-          erros.push('Produto de venda inválido');
-          continue;
+          throw Object.assign(new Error('Produto de venda inválido'), { status: 400 });
         }
         const pv = await upsertProdutoVenda(client, codigoVenda, raw.descricao || '', id_loja);
         await client.query(
@@ -1745,19 +1819,21 @@ export async function lancarBreak(
           referencia_id: idBreak,
           observacao: motivo || `Break #${idBreak} — ${codigoVenda}`,
           criado_por,
+          rigido: true,
         });
         if (result.sem_ficha) {
-          erros.push(`Sem ficha para ${codigoVenda}`);
-        } else {
-          baixas.push(...result.baixas);
-          if (result.erros.length) erros.push(...result.erros);
+          throw Object.assign(new Error(`Sem ficha para ${codigoVenda}`), {
+            status: 400,
+            codigo: codigoVenda,
+          });
         }
+        if (result.erros.length) {
+          throw Object.assign(new Error(result.erros.join('; ')), { status: 400 });
+        }
+        baixas.push(...result.baixas);
       }
     }
 
-    if (!baixas.length && erros.length) {
-      throw Object.assign(new Error(erros.join('; ')), { status: 400 });
-    }
     if (!baixas.length) {
       throw Object.assign(new Error('Informe ao menos um item para o break'), { status: 400 });
     }
@@ -1871,8 +1947,25 @@ export async function confirmarRecebimentoEmprestimo({
           { status: 400 },
         );
       }
-      const qtde = num(item.quantidade);
-      if (qtde <= 0) continue;
+      const fat = await carregarFatoresInsumo(client, dest.id_insumo);
+      if (!fat) {
+        throw Object.assign(
+          new Error(`SKU ${codigo || '—'} sem cadastro de fatores nesta loja.`),
+          { status: 400, codigo },
+        );
+      }
+      let qtde;
+      if (temCamposFisicosBreak(item)) {
+        const calc = await resolverQtdOperacionalInsumo(client, fat, {
+          contagem_caixa: item.contagem_caixa,
+          contagem_pc_fd: item.contagem_pc_fd,
+          contagem_kg_und: item.contagem_kg_und,
+        });
+        qtde = calc.qtd;
+      } else {
+        qtde = num(item.quantidade);
+      }
+      if (!(qtde > 0)) continue;
       const mov = await aplicarMovimento(client, {
         id_loja: id_loja_destino,
         id_insumo: dest.id_insumo,

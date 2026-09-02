@@ -188,3 +188,28 @@ describe('nunca UN = KG', () => {
     assert.equal(r.ok, false);
   });
 });
+
+describe('resolverConsumoEstoque — L → L', () => {
+  it('0,5 L permanece 0,5', () => {
+    const r = resolverConsumoEstoque({
+      quantidadeReceita: 0.5,
+      unidadeReceita: 'L',
+      unidadeEstoque: 'l',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidadeEstoque, 0.5);
+    assert.equal(r.origemConversao, 'identidade');
+  });
+});
+
+describe('resolverConsumoEstoque — decimal KG', () => {
+  it('1,7 KG permanece 1,7', () => {
+    const r = resolverConsumoEstoque({
+      quantidadeReceita: 1.7,
+      unidadeReceita: 'KG',
+      unidadeEstoque: 'kg',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidadeEstoque, 1.7);
+  });
+});

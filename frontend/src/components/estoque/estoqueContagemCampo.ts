@@ -49,6 +49,23 @@ export function rotuloCampoFracionado(
   return raw || 'UNIDADES';
 }
 
+/** Rótulo curto para o operador (UND / KG / L). */
+export function rotuloUnidadeOperacional(unidade: string | null | undefined): string {
+  const n = normUnidade(unidade);
+  if (n === 'und') return 'UND';
+  if (n === 'kg') return 'KG';
+  if (n === 'l' || n === 'lt') return 'L';
+  const raw = String(unidade || '').trim().toUpperCase();
+  return raw || 'UND';
+}
+
+export function unidadeFisicaInsumo(item: {
+  unidade_fracionada?: string | null;
+  unidade_contagem?: string | null;
+} | null | undefined): string {
+  return rotuloUnidadeOperacional(item?.unidade_fracionada || item?.unidade_contagem || 'UND');
+}
+
 export function fracionadaInteira(unidade: string | null | undefined): boolean {
   return normUnidade(unidade) === 'und';
 }

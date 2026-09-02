@@ -90,6 +90,8 @@
     "migrate:estoque-emprestimo-recebimento": "node scripts/run-sql.js migrations/167_estoque_emprestimo_recebimento.sql",
     "migrate:estoque-participa-contagem": "node scripts/run-sql.js migrations/169_insumos_participa_contagem.sql",
     "test:estoque-consumo": "node --test src/services/estoqueConsumo.test.js",
+    "test:estoque-motor": "node --test src/services/estoqueMotor.test.js",
+    "test:estoque": "node --test src/services/estoqueConsumo.test.js src/services/estoqueContagem.test.js src/services/estoqueMotor.test.js",
     "migrate:estoque-unitario": "node scripts/run-sql.js migrations/101_produtos_requer_ficha.sql",
     "migrate:sim-indica-problema": "node scripts/run-sql.js migrations/089_perguntas_sim_indica_problema.sql",
     "migrate:na-reabrir-visita": "node scripts/run-sql.js migrations/090_na_excluir_pontuacao_reabrir_visita.sql",

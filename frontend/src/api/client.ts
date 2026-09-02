@@ -1310,6 +1310,7 @@ export const api = {
       codigo_insumo?: string;
       codigo_venda?: string;
       quantidade?: number;
+      unidade?: string;
       descricao?: string;
       contagem_caixa?: number | null;
       contagem_pc_fd?: number | null;

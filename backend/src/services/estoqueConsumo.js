@@ -23,6 +23,43 @@ export const MOTIVO_CONVERSAO = {
   QUANTIDADE_INVALIDA: 'quantidade_invalida',
 };
 
+/** UND / KG / L no texto de erro operacional. */
+export function rotuloUnidadeOperacional(u) {
+  const n = String(u || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (['und', 'un', 'unid', 'unidade', 'unidades', 'pc', 'pcs', 'peca', 'pecas'].includes(n)) {
+    return 'UND';
+  }
+  if (['kg', 'kilo', 'kilos'].includes(n)) return 'KG';
+  if (n === 'l' || n === 'lt' || n === 'litro' || n === 'litros') return 'L';
+  const raw = String(u || '').trim().toUpperCase();
+  return raw || '?';
+}
+
+export function erroConversaoOperacional({
+  codigo = null,
+  descricao = null,
+  unidade_origem = null,
+  unidade_destino = null,
+  motivo = MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+} = {}) {
+  const orig = rotuloUnidadeOperacional(unidade_origem);
+  const dest = rotuloUnidadeOperacional(unidade_destino);
+  const cod = codigo != null && String(codigo).trim() ? String(codigo).trim() : '—';
+  const msg = `Falta conversão validada ${orig} → ${dest} para ${cod}`;
+  return Object.assign(new Error(msg), {
+    status: 400,
+    motivo: motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+    codigo: codigo != null ? String(codigo) : null,
+    descricao: descricao != null ? String(descricao) : null,
+    unidade_origem: unidade_origem != null ? String(unidade_origem) : null,
+    unidade_destino: unidade_destino != null ? String(unidade_destino) : null,
+  });
+}
+
 function motivoBaixaDeConversao(motivo) {
   if (motivo === MOTIVO_CONVERSAO.BLOQUEADA) return MOTIVO_BAIXA.CONVERSAO_BLOQUEADA;
   if (motivo === MOTIVO_CONVERSAO.QUANTIDADE_INVALIDA) return MOTIVO_BAIXA.QUANTIDADE_INVALIDA;

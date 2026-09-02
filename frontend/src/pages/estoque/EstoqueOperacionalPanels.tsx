@@ -66,6 +66,12 @@ import CampoDataFrota from '../../components/frota/CampoDataFrota';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
 import EstoqueProdutoVendaAutocomplete from '../../components/estoque/EstoqueProdutoVendaAutocomplete';
+import {
+  fracionadaInteira,
+  rotuloCampoFracionado,
+  sanitizarEntradaFracionada,
+  unidadeFisicaInsumo,
+} from '../../components/estoque/estoqueContagemCampo';
 import { custoLinhaReceita, UNIDADES_RECEITA, unidadeReceitaPadrao } from '../../utils/fichaReceitaEstoque';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import { showToast } from '../../utils/toast';
@@ -3612,6 +3618,8 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const empCx = insumoEmp?.permite_contagem_caixa !== false;
   const empPc = insumoEmp?.permite_contagem_pc_fd !== false;
   const empKg = insumoEmp?.permite_contagem_kg_und !== false;
+  const unidadeFisica = unidadeFisicaInsumo(insumoEmp);
+  const qtdInteira = !usaInsumo || fracionadaInteira(insumoEmp?.unidade_fracionada || insumoEmp?.unidade_contagem);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -3676,8 +3684,9 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const ajustarQtde = (delta: number) => {
     const atual = Number(String(qtde).replace(',', '.'));
     const base = Number.isFinite(atual) ? atual : 0;
-    const prox = Math.max(0, Math.round((base + delta) * 1000) / 1000);
-    setQtde(String(prox));
+    const passo = qtdInteira ? 1 : 0.1;
+    const prox = Math.max(0, Math.round((base + (delta < 0 ? -passo : passo)) * 1000) / 1000);
+    setQtde(qtdInteira ? String(Math.round(prox)) : String(prox).replace('.', ','));
   };
 
   const lancar = async () => {
@@ -3741,8 +3750,9 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                   contagem_caixa: parseCampo(caixaEmp),
                   contagem_pc_fd: parseCampo(pcEmp),
                   contagem_kg_und: parseCampo(kgEmp),
+                  unidade: unidadeFisica,
                 }
-              : { codigo_insumo: codigo.trim(), quantidade }
+              : { codigo_insumo: codigo.trim(), quantidade, unidade: unidadeFisica }
             : { codigo_venda: codigo.trim(), quantidade },
         ],
       });
@@ -4108,9 +4118,16 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               <TextField
                 {...dialogFieldProps}
                 size="small"
-                label="Kg/und"
+                label={rotuloCampoFracionado(insumoEmp?.unidade_fracionada || insumoEmp?.unidade_contagem)}
                 value={kgEmp}
-                onChange={(e) => setKgEmp(e.target.value)}
+                onChange={(e) =>
+                  setKgEmp(
+                    sanitizarEntradaFracionada(
+                      e.target.value,
+                      fracionadaInteira(insumoEmp?.unidade_fracionada || insumoEmp?.unidade_contagem),
+                    ),
+                  )
+                }
                 disabled={!empKg || !codigo}
                 sx={{ ...campoBreakFieldSx, flex: 1 }}
               />
@@ -4130,7 +4147,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               size="small"
               label="Quantidade"
               value={qtde}
-              onChange={(e) => setQtde(e.target.value)}
+              onChange={(e) => setQtde(sanitizarEntradaFracionada(e.target.value, qtdInteira))}
               sx={{
                 ...campoBreakFieldSx,
                 flex: 1,
@@ -4138,7 +4155,12 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               }}
               slotProps={{
                 ...dialogFieldProps.slotProps,
-                htmlInput: { style: { textAlign: 'center' } },
+                htmlInput: { style: { textAlign: 'center' }, inputMode: qtdInteira ? 'numeric' : 'decimal' },
+                input: {
+                  endAdornment: usaInsumo ? (
+                    <InputAdornment position="end">{unidadeFisica}</InputAdornment>
+                  ) : undefined,
+                },
               }}
             />
             <IconButton
