@@ -16,6 +16,19 @@ export const MOTIVO_BAIXA = {
   INSUMO_NAO_CADASTRADO: 'INSUMO_NAO_CADASTRADO',
 };
 
+/** Motivos do resolvedor compartilhado (contagem e baixa). */
+export const MOTIVO_CONVERSAO = {
+  NAO_ENCONTRADA: 'conversao_nao_encontrada',
+  BLOQUEADA: 'conversao_bloqueada',
+  QUANTIDADE_INVALIDA: 'quantidade_invalida',
+};
+
+function motivoBaixaDeConversao(motivo) {
+  if (motivo === MOTIVO_CONVERSAO.BLOQUEADA) return MOTIVO_BAIXA.CONVERSAO_BLOQUEADA;
+  if (motivo === MOTIVO_CONVERSAO.QUANTIDADE_INVALIDA) return MOTIVO_BAIXA.QUANTIDADE_INVALIDA;
+  return MOTIVO_BAIXA.CONVERSAO_NAO_VALIDADA;
+}
+
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
   const n = Number(v);
@@ -68,7 +81,87 @@ export function fatorSi(unidadeOrigem, unidadeDestino) {
 }
 
 /**
- * Converte quantidade da receita → unidade de estoque.
+ * Núcleo numérico: 1 origem = fator destino.
+ * Identidade e SI (g↔kg) não consultam o banco. Demais casos exigem fator validado.
+ * Nunca assume fator 1 quando as unidades diferem.
+ *
+ * @param {{ permitirZero?: boolean }} [opts] — contagem aceita 0; baixa exige quantidade > 0.
+ */
+export function aplicarConversaoUnidades({
+  quantidade,
+  unidadeOrigem,
+  unidadeDestino,
+  fatorConversao = null,
+  fatorStatus = null,
+  permitirZero = false,
+} = {}) {
+  if (quantidade === null || quantidade === undefined || quantidade === '') {
+    return { ok: false, motivo: MOTIVO_CONVERSAO.QUANTIDADE_INVALIDA, fatorAplicado: null };
+  }
+  const q = num(quantidade);
+  if (!Number.isFinite(q)) {
+    return { ok: false, motivo: MOTIVO_CONVERSAO.QUANTIDADE_INVALIDA, fatorAplicado: null };
+  }
+  if (!(q > 0) && !(permitirZero && q === 0)) {
+    return { ok: false, motivo: MOTIVO_CONVERSAO.QUANTIDADE_INVALIDA, fatorAplicado: null };
+  }
+
+  const orig = normalizarUnidade(unidadeOrigem);
+  const dest = normalizarUnidade(unidadeDestino);
+  const meta = { unidade_origem: orig, unidade_destino: dest };
+
+  if (orig === dest) {
+    return {
+      ok: true,
+      quantidade: round6(q),
+      origemConversao: 'identidade',
+      fatorAplicado: 1,
+      ...meta,
+    };
+  }
+
+  const si = fatorSi(orig, dest);
+  if (si != null) {
+    return {
+      ok: true,
+      quantidade: round6(q * si),
+      origemConversao: 'si',
+      fatorAplicado: si,
+      ...meta,
+    };
+  }
+
+  const status = String(fatorStatus || '').toLowerCase();
+  if (status === 'bloqueado') {
+    return {
+      ok: false,
+      motivo: MOTIVO_CONVERSAO.BLOQUEADA,
+      fatorAplicado: num(fatorConversao, 0) || null,
+      ...meta,
+    };
+  }
+
+  const fator = num(fatorConversao, 0);
+  if (status === 'validado' && fator > 0) {
+    return {
+      ok: true,
+      quantidade: round6(q * fator),
+      origemConversao: 'fator_validado',
+      fatorAplicado: fator,
+      ...meta,
+    };
+  }
+
+  return {
+    ok: false,
+    motivo: MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+    fatorAplicado: null,
+    ...meta,
+  };
+}
+
+/**
+ * Converte quantidade da receita → unidade de estoque (baixa).
  * fatorConversao = quanto 1 unidade_origem vale na unidade_destino (já validado).
  *
  * @returns {{ ok: true, quantidadeEstoque: number, origemConversao: string } | { ok: false, motivo: string }}
@@ -80,39 +173,23 @@ export function resolverConsumoEstoque({
   fatorConversao = null,
   fatorStatus = null,
 } = {}) {
-  const q = num(quantidadeReceita);
-  if (!(q > 0)) {
-    return { ok: false, motivo: MOTIVO_BAIXA.QUANTIDADE_INVALIDA };
+  const r = aplicarConversaoUnidades({
+    quantidade: quantidadeReceita,
+    unidadeOrigem: unidadeReceita,
+    unidadeDestino: unidadeEstoque,
+    fatorConversao,
+    fatorStatus,
+    permitirZero: false,
+  });
+  if (!r.ok) {
+    return { ok: false, motivo: motivoBaixaDeConversao(r.motivo), fatorAplicado: r.fatorAplicado ?? null };
   }
-
-  const orig = normalizarUnidade(unidadeReceita);
-  const dest = normalizarUnidade(unidadeEstoque);
-
-  if (orig === dest) {
-    return { ok: true, quantidadeEstoque: round6(q), origemConversao: 'identidade', fatorAplicado: 1 };
-  }
-
-  const si = fatorSi(orig, dest);
-  if (si != null) {
-    return { ok: true, quantidadeEstoque: round6(q * si), origemConversao: 'si', fatorAplicado: si };
-  }
-
-  const status = String(fatorStatus || '').toLowerCase();
-  if (status === 'bloqueado') {
-    return { ok: false, motivo: MOTIVO_BAIXA.CONVERSAO_BLOQUEADA, fatorAplicado: num(fatorConversao, 0) || null };
-  }
-
-  const fator = num(fatorConversao, 0);
-  if (status === 'validado' && fator > 0) {
-    return {
-      ok: true,
-      quantidadeEstoque: round6(q * fator),
-      origemConversao: 'fator_validado',
-      fatorAplicado: fator,
-    };
-  }
-
-  return { ok: false, motivo: MOTIVO_BAIXA.CONVERSAO_NAO_VALIDADA, fatorAplicado: null };
+  return {
+    ok: true,
+    quantidadeEstoque: r.quantidade,
+    origemConversao: r.origemConversao,
+    fatorAplicado: r.fatorAplicado,
+  };
 }
 
 let schemaPilotoOk = false;
@@ -357,7 +434,7 @@ export async function resolverInsumoCanonico(client, idLoja, codigo) {
   return null;
 }
 
-async function buscarConversao(client, idInsumo, unidadeOrigem, unidadeDestino) {
+export async function buscarConversao(client, idInsumo, unidadeOrigem, unidadeDestino) {
   const orig = normalizarUnidade(unidadeOrigem);
   const dest = normalizarUnidade(unidadeDestino);
   const origens = orig === 'fatia' ? ['fatia', 'und'] : orig === 'und' ? ['und', 'fatia'] : [orig];
@@ -379,30 +456,96 @@ async function buscarConversao(client, idInsumo, unidadeOrigem, unidadeDestino) 
   }
 }
 
-export async function resolverConsumoInsumo(client, {
-  idInsumo,
-  quantidadeReceita,
-  unidadeReceita,
-  unidadeEstoque,
-}) {
-  const orig = normalizarUnidade(unidadeReceita);
-  const dest = normalizarUnidade(unidadeEstoque);
+/**
+ * Converte quantidade entre unidades usando estoque_conversoes (status=validado).
+ * Fonte única para baixa e contagem. Nunca inventa fator 1 se origem ≠ destino.
+ */
+export async function converterQuantidade(client, {
+  idInsumo = null,
+  codigo = null,
+  quantidade,
+  unidadeOrigem,
+  unidadeDestino,
+} = {}) {
+  const orig = normalizarUnidade(unidadeOrigem);
+  const dest = normalizarUnidade(unidadeDestino);
+  const erroBase = {
+    ok: false,
+    id_insumo: idInsumo,
+    codigo: codigo != null ? String(codigo) : null,
+    unidade_origem: orig,
+    unidade_destino: dest,
+  };
+
   let fatorConversao = null;
   let fatorStatus = null;
   if (orig !== dest && fatorSi(orig, dest) == null) {
+    if (!idInsumo) {
+      return { ...erroBase, motivo: MOTIVO_CONVERSAO.NAO_ENCONTRADA, fatorAplicado: null };
+    }
     const row = await buscarConversao(client, idInsumo, orig, dest);
     if (row) {
       fatorConversao = row.fator;
       fatorStatus = row.status;
     }
   }
-  return resolverConsumoEstoque({
-    quantidadeReceita,
-    unidadeReceita,
-    unidadeEstoque,
+
+  const r = aplicarConversaoUnidades({
+    quantidade,
+    unidadeOrigem: orig,
+    unidadeDestino: dest,
     fatorConversao,
     fatorStatus,
+    permitirZero: true,
   });
+  if (!r.ok) {
+    return {
+      ...erroBase,
+      motivo: r.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+      fatorAplicado: r.fatorAplicado ?? null,
+    };
+  }
+  return {
+    ok: true,
+    quantidade: r.quantidade,
+    origemConversao: r.origemConversao,
+    fatorAplicado: r.fatorAplicado,
+    id_insumo: idInsumo,
+    codigo: codigo != null ? String(codigo) : null,
+    unidade_origem: orig,
+    unidade_destino: dest,
+  };
+}
+
+export async function resolverConsumoInsumo(client, {
+  idInsumo,
+  quantidadeReceita,
+  unidadeReceita,
+  unidadeEstoque,
+}) {
+  const q = num(quantidadeReceita);
+  if (!(q > 0)) {
+    return { ok: false, motivo: MOTIVO_BAIXA.QUANTIDADE_INVALIDA };
+  }
+  const r = await converterQuantidade(client, {
+    idInsumo,
+    quantidade: q,
+    unidadeOrigem: unidadeReceita,
+    unidadeDestino: unidadeEstoque,
+  });
+  if (!r.ok) {
+    return {
+      ok: false,
+      motivo: motivoBaixaDeConversao(r.motivo),
+      fatorAplicado: r.fatorAplicado ?? null,
+    };
+  }
+  return {
+    ok: true,
+    quantidadeEstoque: r.quantidade,
+    origemConversao: r.origemConversao,
+    fatorAplicado: r.fatorAplicado,
+  };
 }
 
 export async function registrarPendenciaBaixa(client, payload) {

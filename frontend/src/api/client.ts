@@ -2679,6 +2679,8 @@ export interface ProdutoEstoque {
   codigo: string;
   descricao: string;
   unidade_contagem: string;
+  /** Unidade física do último nível da contagem (KG, UND, L). Herda unidade_contagem se vazia. */
+  unidade_fracionada?: string;
   preco_caixa: number;
   und_convertida: number;
   /** Fator PC/FD na fórmula QTD (padrão 1). */
@@ -2699,6 +2701,7 @@ export type ProdutoEstoqueInput = {
   codigo: string;
   descricao: string;
   unidade_contagem?: string;
+  unidade_fracionada?: string;
   preco_caixa?: number;
   und_convertida?: number;
   und_parcial?: number;
@@ -2741,6 +2744,8 @@ export interface EstoqueItem {
   codigo: string;
   descricao: string;
   unidade_contagem: string;
+  /** Unidade física digitada no campo KG/UND. */
+  unidade_fracionada?: string;
   preco_caixa: number;
   und_convertida: number;
   und_parcial?: number;
@@ -2759,10 +2764,17 @@ export interface EstoqueItem {
   contagem_caixa?: number | null;
   contagem_pc_fd?: number | null;
   contagem_kg_und?: number | null;
-  /** QTD = CAIXA*und_convertida + PC*und_parcial + KG/UND */
+  /** QTD canônica (unidade_contagem), após conversão do campo KG/UND. */
   estoque_contado: number | null;
   diferenca: number | null;
   valor_estoque: number | null;
+  erro_conversao?: {
+    motivo: string;
+    id_insumo?: number | null;
+    codigo?: string | null;
+    unidade_origem?: string;
+    unidade_destino?: string;
+  } | null;
 }
 
 export interface EstoqueContagemDetalhe extends EstoqueContagemResumo {

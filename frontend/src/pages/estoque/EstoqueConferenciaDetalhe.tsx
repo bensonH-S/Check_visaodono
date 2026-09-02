@@ -23,6 +23,15 @@ import SearchIcon from '@mui/icons-material/Search';
 import type { EstoqueContagemDetalhe, EstoqueItem, Loja } from '../../api/client';
 import { rotuloTipoContagem } from '../../components/estoque/estoqueContagemTipo';
 import { rankSecaoPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
+import {
+  fracionadaInteira,
+  qtdPreviewSeguro,
+  rotuloCampoFracionado,
+  sanitizarEntradaFracionada,
+  sanitizarEntradaNaoNegativa,
+  temEntradaTerraco,
+  unidadeFracionadaItem,
+} from '../../components/estoque/estoqueContagemCampo';
 import { colors } from '../../theme/tokens';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 
@@ -63,31 +72,6 @@ function fmtDataHora(iso: string | null | undefined) {
   });
 }
 
-function parseNumCampo(raw: string): number | null {
-  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
-  const n = Number(String(raw).replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-}
-
-function calcQtdTerraco(
-  linha: RascunhoLinha | undefined,
-  undConvertida: number,
-  undParcial: number,
-): number | null {
-  if (!linha) return null;
-  const tem =
-    String(linha.caixa).trim() !== '' ||
-    String(linha.pc).trim() !== '' ||
-    String(linha.kg).trim() !== '';
-  if (!tem) return null;
-  const caixa = parseNumCampo(linha.caixa) ?? 0;
-  const pc = parseNumCampo(linha.pc) ?? 0;
-  const kg = parseNumCampo(linha.kg) ?? 0;
-  const base = undConvertida > 0 ? undConvertida : 1;
-  const parcial = undParcial > 0 ? undParcial : 1;
-  return Math.round((caixa * base + pc * parcial + kg) * 10000) / 10000;
-}
-
 function nomeSecao(i: EstoqueItem) {
   return String(i.secao_contagem || '').trim() || 'OUTROS';
 }
@@ -103,10 +87,8 @@ function itemPreenchido(
   editavel: boolean,
 ): boolean {
   if (!editavel) return i.estoque_contado != null && Number.isFinite(Number(i.estoque_contado));
-  const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
-  const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
-  const qtd = calcQtdTerraco(raw, undCx, undPc);
-  return qtd != null && Number.isFinite(qtd);
+  if (temEntradaTerraco(raw)) return true;
+  return false;
 }
 
 function focarColuna(campo: CampoContagem, from: HTMLInputElement, dir: 1 | -1) {
@@ -453,7 +435,7 @@ export default function EstoqueConferenciaDetalhe({
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 68 }}>Sist.</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Caixa</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Pc/fd</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Kg/und</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 88 }}>Sobra</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 72 }}>Qtd</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'right', width: 96 }}>Valor</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 76, color: '#991b1b' }}>Dif.</TableCell>
@@ -462,16 +444,16 @@ export default function EstoqueConferenciaDetalhe({
             <TableBody>
               {visiveis.map((i, idx) => {
                 const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '' };
-                const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
-                const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
                 const permiteCx = i.permite_contagem_caixa !== false;
                 const permitePc = i.permite_contagem_pc_fd !== false;
                 const permiteKg = i.permite_contagem_kg_und !== false;
-                const contado = editavel ? calcQtdTerraco(raw, undCx, undPc) : i.estoque_contado;
-                const preenchido = contado != null && Number.isFinite(contado);
+                const rotuloFrac = rotuloCampoFracionado(unidadeFracionadaItem(i));
+                const inteiroFrac = fracionadaInteira(unidadeFracionadaItem(i));
+                const contado = editavel ? qtdPreviewSeguro(i, raw) : i.estoque_contado;
+                const preenchido = editavel ? temEntradaTerraco(raw) : contado != null && Number.isFinite(Number(contado));
                 const valorLinha =
-                  !preenchido ? null : Math.round(contado * (Number(i.valor_unidade) || 0) * 100) / 100;
-                const dif = !preenchido ? null : contado - i.estoque_sistema;
+                  contado == null ? null : Math.round(contado * (Number(i.valor_unidade) || 0) * 100) / 100;
+                const dif = contado == null ? null : contado - i.estoque_sistema;
                 const secao = nomeSecao(i);
                 const secaoAnt = idx > 0 ? nomeSecao(visiveis[idx - 1]) : '';
                 const setCampo = (campo: CampoContagem, valor: string) => {
@@ -489,6 +471,7 @@ export default function EstoqueConferenciaDetalhe({
                   key: CampoContagem,
                   liberado: boolean,
                   lido: number | null | undefined,
+                  opts?: { rotulo?: string; inteiro?: boolean },
                 ) => {
                   if (!liberado) {
                     return <Box sx={{ color: colors.textMuted, fontSize: '0.8rem' }}>—</Box>;
@@ -498,7 +481,13 @@ export default function EstoqueConferenciaDetalhe({
                     <TextField
                       size="small"
                       value={raw[key]}
-                      onChange={(e) => setCampo(key, e.target.value)}
+                      onChange={(e) => {
+                        const v =
+                          key === 'kg'
+                            ? sanitizarEntradaFracionada(e.target.value, Boolean(opts?.inteiro))
+                            : sanitizarEntradaNaoNegativa(e.target.value);
+                        setCampo(key, v);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === 'ArrowDown') {
                           e.preventDefault();
@@ -513,11 +502,22 @@ export default function EstoqueConferenciaDetalhe({
                       placeholder="—"
                       slotProps={{
                         htmlInput: {
-                          inputMode: 'decimal',
+                          inputMode: opts?.inteiro ? 'numeric' : 'decimal',
                           'data-estoque-campo': key,
                         },
+                        input: opts?.rotulo
+                          ? {
+                              endAdornment: (
+                                <InputAdornment position="end">
+                                  <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: colors.textMuted }}>
+                                    {opts.rotulo}
+                                  </Typography>
+                                </InputAdornment>
+                              ),
+                            }
+                          : undefined,
                       }}
-                      sx={inputSx}
+                      sx={opts?.rotulo ? { ...inputSx, width: 92 } : inputSx}
                     />
                   );
                 };
@@ -580,10 +580,13 @@ export default function EstoqueConferenciaDetalhe({
                         {campo('pc', permitePc, i.contagem_pc_fd)}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', py: 0.55 }}>
-                        {campo('kg', permiteKg, i.contagem_kg_und)}
+                        {campo('kg', permiteKg, i.contagem_kg_und, {
+                          rotulo: rotuloFrac,
+                          inteiro: inteiroFrac,
+                        })}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', fontWeight: 700, color: colors.textPrimary, py: 0.55 }}>
-                        {preenchido ? fmtNum(contado, 3) : '—'}
+                        {contado == null ? '—' : fmtNum(contado, 3)}
                       </TableCell>
                       <TableCell
                         sx={{

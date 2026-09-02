@@ -5,11 +5,16 @@ import { requirePermissao } from '../permissoes.js';
 import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
+import { MOTIVO_CONVERSAO } from '../services/estoqueConsumo.js';
 import {
-  calcularQtdContagem,
+  anexarFatoresFracionada,
   flagsContagemDiaria,
+  garantirSchemaUnidadeFracionada,
+  resolverQtdContagem,
   SQL_ORDEM_PLANILHA,
   temCampoContagemLiberado,
+  unidadeFracionadaEfetiva,
+  validarUnidadeFracionadaCadastro,
 } from '../services/estoqueContagem.js';
 import { avaliarForaJanela, carregarPerfil } from '../services/estoqueCiclo.js';
 import {
@@ -195,6 +200,7 @@ function mapProduto(row) {
     codigo: row.codigo,
     descricao: row.descricao,
     unidade_contagem: unidadeMaiuscula(row.unidade_contagem),
+    unidade_fracionada: unidadeFracionadaEfetiva(row.unidade_fracionada, row.unidade_contagem),
     preco_caixa: row.preco_caixa != null ? Number(row.preco_caixa) : 0,
     und_convertida: row.und_convertida != null ? Number(row.und_convertida) : 1,
     und_parcial: row.und_parcial != null ? Number(row.und_parcial) : 1,
@@ -247,7 +253,8 @@ function mapItem(row) {
       : num(row.estoque_contado);
 
   // Preferência: recalcular QTD pelos 3 campos Terraço quando houver entrada
-  const qtdCalc = calcularQtdContagem({
+  let erro_conversao = row.erro_fator_fracionada || null;
+  const qtdRes = resolverQtdContagem({
     contagem_caixa,
     contagem_pc_fd,
     contagem_kg_und,
@@ -256,8 +263,18 @@ function mapItem(row) {
     permite_contagem_caixa,
     permite_contagem_pc_fd,
     permite_contagem_kg_und,
+    unidade_contagem: row.unidade_contagem,
+    unidade_fracionada: row.unidade_fracionada,
+    fator_fracionada: row.fator_fracionada,
+    fator_fracionada_status: row.fator_fracionada_status,
+    id_insumo: row.id_insumo ?? row.id_produto,
+    codigo: row.codigo,
   });
-  if (qtdCalc != null) estoque_contado = qtdCalc;
+  if (!qtdRes.ok) {
+    erro_conversao = qtdRes.erro;
+  } else if (qtdRes.qtd != null) {
+    estoque_contado = qtdRes.qtd;
+  }
 
   const valor_unidade = num(row.valor_unidade);
   const qtd = estoque_contado ?? 0;
@@ -271,6 +288,7 @@ function mapItem(row) {
     codigo: row.codigo,
     descricao: row.descricao,
     unidade_contagem: unidadeMaiuscula(row.unidade_contagem),
+    unidade_fracionada: unidadeFracionadaEfetiva(row.unidade_fracionada, row.unidade_contagem),
     preco_caixa: num(row.preco_caixa),
     und_convertida,
     und_parcial,
@@ -288,6 +306,7 @@ function mapItem(row) {
     estoque_contado,
     diferenca,
     valor_estoque: estoque_contado == null ? null : valor_estoque,
+    erro_conversao,
   };
 }
 
@@ -528,6 +547,7 @@ async function valorInicialMes(idLoja, dataRef) {
 }
 
 async function carregarContagem(id) {
+  await garantirSchemaUnidadeFracionada(pool);
   const { rows: contagens } = await pool.query(
     `SELECT c.*, l.name AS loja_nome, l.bk_number AS loja_codigo,
             u.nome AS criado_por_nome
@@ -542,7 +562,9 @@ async function carregarContagem(id) {
   const { rows: itens } = await pool.query(
     `SELECT i.id_item, i.id_insumo, i.estoque_sistema, i.estoque_contado,
             i.contagem_caixa, i.contagem_pc_fd, i.contagem_kg_und,
-            p.codigo, p.descricao, p.unidade_contagem, p.preco_caixa,
+            p.codigo, p.descricao, p.unidade_contagem,
+            COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
+            p.preco_caixa,
             p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial, p.valor_unidade,
             COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
             COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
@@ -556,6 +578,7 @@ async function carregarContagem(id) {
      ORDER BY ${SQL_ORDEM_PLANILHA}, i.id_item`,
     [id],
   );
+  await anexarFatoresFracionada(pool, itens);
 
   const mapped = itens.map(mapItem);
   const comContagem = mapped.filter((i) => i.estoque_contado != null);
@@ -612,6 +635,7 @@ function tituloTipoRelatorio(tipo) {
 
 /** Folha em branco com os itens do tipo (cadastro da loja), sem exigir contagem. */
 async function carregarEstruturaRelatorio(idLoja, tipo) {
+  await garantirSchemaUnidadeFracionada(pool);
   const filtro = filtroItensPorTipo(tipo);
   const hoje = hojeISOBrasil();
   const { rows: lojaRows } = await pool.query(
@@ -624,7 +648,9 @@ async function carregarEstruturaRelatorio(idLoja, tipo) {
             COALESCE(s.quantidade, 0) AS estoque_sistema,
             NULL AS estoque_contado,
             NULL AS contagem_caixa, NULL AS contagem_pc_fd, NULL AS contagem_kg_und,
-            p.codigo, p.descricao, p.unidade_contagem, p.preco_caixa,
+            p.codigo, p.descricao, p.unidade_contagem,
+            COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
+            p.preco_caixa,
             p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial, p.valor_unidade,
             COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
             COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
@@ -638,6 +664,7 @@ async function carregarEstruturaRelatorio(idLoja, tipo) {
      ORDER BY ${SQL_ORDEM_PLANILHA}`,
     [idLoja],
   );
+  await anexarFatoresFracionada(pool, itens);
   const mapped = itens.map(mapItem);
   return {
     id_contagem: 0,
@@ -666,6 +693,7 @@ async function carregarEstruturaRelatorio(idLoja, tipo) {
 
 async function listarInsumos(req, res, next) {
   try {
+    await garantirSchemaUnidadeFracionada(pool);
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
@@ -740,6 +768,26 @@ async function criarInsumo(req, res, next) {
       return res.status(400).json({ error: 'UND parcial (PC/FD) deve ser maior que zero' });
     }
 
+    const enviouFracionada =
+      req.body?.unidade_fracionada != null && String(req.body.unidade_fracionada).trim() !== '';
+    const unidade_fracionada = enviouFracionada
+      ? unidadeMaiuscula(req.body.unidade_fracionada)
+      : unidade_contagem;
+
+    const parCreate = await validarUnidadeFracionadaCadastro(pool, {
+      codigo,
+      unidadeFracionada: unidade_fracionada,
+      unidadeContagem: unidade_contagem,
+    });
+    if (!parCreate.ok) {
+      return res.status(400).json({
+        error: parCreate.error,
+        motivo: parCreate.motivo,
+        unidade_origem: parCreate.unidade_origem,
+        unidade_destino: parCreate.unidade_destino,
+      });
+    }
+
     const permite_contagem_caixa = req.body?.permite_contagem_caixa !== false;
     const permite_contagem_pc_fd = req.body?.permite_contagem_pc_fd !== false;
     const permite_contagem_kg_und = req.body?.permite_contagem_kg_und !== false;
@@ -749,19 +797,22 @@ async function criarInsumo(req, res, next) {
       });
     }
 
+    await garantirSchemaUnidadeFracionada(pool);
     const diaria = flagsContagemDiaria(descricao);
     const { rows } = await pool.query(
       `INSERT INTO insumos (
-        id_loja, codigo, descricao, unidade_contagem, preco_caixa, und_convertida, und_parcial,
+        id_loja, codigo, descricao, unidade_contagem, unidade_fracionada,
+        preco_caixa, und_convertida, und_parcial,
         ativo, contagem_diaria, grupo_diario,
         permite_contagem_caixa, permite_contagem_pc_fd, permite_contagem_kg_und
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8, $9, $10, $11, $12)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         idLoja,
         codigo,
         descricao,
         unidade_contagem,
+        unidadeMaiuscula(unidade_fracionada),
         preco_caixa,
         und_convertida,
         und_parcial,
@@ -817,6 +868,30 @@ async function atualizarInsumo(req, res, next) {
         ? num(req.body.und_parcial, 1)
         : num(prev.und_parcial, 1);
     const ativo = req.body?.ativo != null ? !!req.body.ativo : prev.ativo !== false;
+    const enviouFracionada =
+      Object.prototype.hasOwnProperty.call(req.body || {}, 'unidade_fracionada') &&
+      req.body.unidade_fracionada != null &&
+      String(req.body.unidade_fracionada).trim() !== '';
+    const unidade_fracionada = enviouFracionada
+      ? unidadeMaiuscula(req.body.unidade_fracionada)
+      : unidadeFracionadaEfetiva(prev.unidade_fracionada, prev.unidade_contagem);
+
+    const parUpdate = await validarUnidadeFracionadaCadastro(pool, {
+      idInsumo: id,
+      codigo,
+      unidadeFracionada: unidade_fracionada,
+      unidadeContagem: unidade_contagem,
+    });
+    if (!parUpdate.ok) {
+      return res.status(400).json({
+        error: parUpdate.error,
+        motivo: parUpdate.motivo,
+        unidade_origem: parUpdate.unidade_origem,
+        unidade_destino: parUpdate.unidade_destino,
+        id_insumo: parUpdate.id_insumo ?? id,
+        codigo: parUpdate.codigo ?? codigo,
+      });
+    }
 
     if (!codigo) return res.status(400).json({ error: 'Informe o código do insumo' });
     if (descricao.length < 2) return res.status(400).json({ error: 'Informe a descrição do insumo' });
@@ -849,19 +924,21 @@ async function atualizarInsumo(req, res, next) {
     }
 
     const diaria = flagsContagemDiaria(descricao);
+    await garantirSchemaUnidadeFracionada(pool);
     const { rows } = await pool.query(
       `UPDATE insumos
-       SET codigo = $1, descricao = $2, unidade_contagem = $3,
-           preco_caixa = $4, und_convertida = $5, und_parcial = $6,
-           ativo = $7, contagem_diaria = $8, grupo_diario = $9,
-           permite_contagem_caixa = $10, permite_contagem_pc_fd = $11, permite_contagem_kg_und = $12,
+       SET codigo = $1, descricao = $2, unidade_contagem = $3, unidade_fracionada = $4,
+           preco_caixa = $5, und_convertida = $6, und_parcial = $7,
+           ativo = $8, contagem_diaria = $9, grupo_diario = $10,
+           permite_contagem_caixa = $11, permite_contagem_pc_fd = $12, permite_contagem_kg_und = $13,
            atualizado_em = NOW()
-       WHERE id_insumo = $13 AND id_loja = $14
+       WHERE id_insumo = $14 AND id_loja = $15
        RETURNING *`,
       [
         codigo,
         descricao,
         unidade_contagem,
+        unidade_fracionada,
         preco_caixa,
         und_convertida,
         und_parcial,
@@ -1342,11 +1419,15 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       return res.status(400).json({ error: 'Contagem finalizada — não pode ser editada' });
     }
 
+    await garantirSchemaUnidadeFracionada(pool);
+
     const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
     if (!itens.length) return res.status(400).json({ error: 'Envie ao menos um item' });
 
     const { rows: fatoresRows } = await pool.query(
-      `SELECT i.id_item, p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial,
+      `SELECT i.id_item, i.id_insumo, p.codigo, p.unidade_contagem,
+              COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
+              p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial,
               COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
               COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
               COALESCE(p.permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und
@@ -1355,6 +1436,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
        WHERE i.id_contagem = $1`,
       [id],
     );
+    await anexarFatoresFracionada(pool, fatoresRows);
     const fatores = new Map(fatoresRows.map((r) => [Number(r.id_item), r]));
 
     const ids = [];
@@ -1363,6 +1445,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     const pcs = [];
     const kgs = [];
     const sistemas = [];
+    const errosConversao = [];
     let temSistema = false;
     for (const item of itens) {
       const idItem = Number(item.id_item);
@@ -1404,7 +1487,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
           : item.contagem_kg_und === null || item.contagem_kg_und === ''
             ? null
             : num(item.contagem_kg_und);
-        contado = calcularQtdContagem({
+        const qtdRes = resolverQtdContagem({
           contagem_caixa: caixa,
           contagem_pc_fd: pc,
           contagem_kg_und: kg,
@@ -1413,7 +1496,24 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
           permite_contagem_caixa: permiteCaixa,
           permite_contagem_pc_fd: permitePc,
           permite_contagem_kg_und: permiteKg,
+          unidade_contagem: fat.unidade_contagem,
+          unidade_fracionada: fat.unidade_fracionada,
+          fator_fracionada: fat.fator_fracionada,
+          fator_fracionada_status: fat.fator_fracionada_status,
+          id_insumo: fat.id_insumo,
+          codigo: fat.codigo,
         });
+        if (!qtdRes.ok) {
+          errosConversao.push({
+            id_insumo: qtdRes.erro.id_insumo ?? fat.id_insumo ?? null,
+            codigo: qtdRes.erro.codigo ?? fat.codigo ?? null,
+            unidade_origem: qtdRes.erro.unidade_origem,
+            unidade_destino: qtdRes.erro.unidade_destino,
+            motivo: qtdRes.erro.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+          });
+          continue;
+        }
+        contado = qtdRes.qtd;
       } else if (item.estoque_contado !== undefined) {
         // Compat: API antiga com um único campo QTD
         contado =
@@ -1434,6 +1534,15 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       } else {
         sistemas.push(null);
       }
+    }
+
+    if (errosConversao.length) {
+      const motivo = errosConversao[0]?.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA;
+      return res.status(400).json({
+        error: 'Conversão de contagem não encontrada',
+        motivo,
+        itens: errosConversao,
+      });
     }
 
     if (!ids.length) return res.status(400).json({ error: 'Nenhum item válido' });

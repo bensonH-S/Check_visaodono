@@ -66,6 +66,10 @@ import {
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
 import { gerarPdfContagemDiaria } from '../../utils/gerarPdfContagemDiaria';
+import {
+  qtdPreviewSeguro,
+  temEntradaTerraco,
+} from '../../components/estoque/estoqueContagemCampo';
 
 type AbaEstoque = 'cmv' | 'vendas' | 'rede' | 'piloto' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
@@ -205,10 +209,13 @@ const ROTULO_ABA: Record<AbaEstoque, string> = {
   fichas: 'Cadastro',
 };
 
+const UNIDADES_FRACIONADAS = ['KG', 'UND', 'L'] as const;
+
 const emptyProdutoForm = {
   codigo: '',
   descricao: '',
   unidade_contagem: 'UND',
+  unidade_fracionada: 'UND',
   preco_caixa: '',
   und_convertida: '1',
   permite_contagem_caixa: true,
@@ -226,26 +233,6 @@ function parseNumCampo(raw: string): number | null {
   if (raw === undefined || raw === null || String(raw).trim() === '') return null;
   const n = Number(String(raw).replace(',', '.'));
   return Number.isFinite(n) ? n : null;
-}
-
-/** QTD Terraço: CAIXA*base + PC*parcial + KG/UND */
-function calcQtdTerraco(
-  linha: RascunhoLinha | undefined,
-  undConvertida: number,
-  undParcial: number,
-): number | null {
-  if (!linha) return null;
-  const tem =
-    String(linha.caixa).trim() !== '' ||
-    String(linha.pc).trim() !== '' ||
-    String(linha.kg).trim() !== '';
-  if (!tem) return null;
-  const caixa = parseNumCampo(linha.caixa) ?? 0;
-  const pc = parseNumCampo(linha.pc) ?? 0;
-  const kg = parseNumCampo(linha.kg) ?? 0;
-  const base = undConvertida > 0 ? undConvertida : 1;
-  const parcial = undParcial > 0 ? undParcial : 1;
-  return Math.round((caixa * base + pc * parcial + kg) * 10000) / 10000;
 }
 
 function rascunhoDeItem(i: EstoqueItem): RascunhoLinha {
@@ -399,6 +386,30 @@ export default function ControleEstoquePage() {
     void carregarProdutos();
   }, [carregarProdutos]);
 
+  const abrirNovoInsumo = () => {
+    setEditando(null);
+    setFormProduto({ ...emptyProdutoForm });
+    setDlgProduto(true);
+  };
+
+  const abrirEditarInsumo = (p: ProdutoEstoque) => {
+    const uc = String(p.unidade_contagem || 'UND').toUpperCase();
+    const uf = String(p.unidade_fracionada || uc).toUpperCase();
+    setEditando(p);
+    setFormProduto({
+      codigo: p.codigo || '',
+      descricao: p.descricao || '',
+      unidade_contagem: uc,
+      unidade_fracionada: uf,
+      preco_caixa: p.preco_caixa != null ? String(p.preco_caixa) : '',
+      und_convertida: p.und_convertida != null ? String(p.und_convertida) : '1',
+      permite_contagem_caixa: p.permite_contagem_caixa !== false,
+      permite_contagem_pc_fd: p.permite_contagem_pc_fd !== false,
+      permite_contagem_kg_und: p.permite_contagem_kg_und !== false,
+    });
+    setDlgProduto(true);
+  };
+
   const carregarListaContagens = useCallback(async () => {
     if (!idLoja) return [];
     const rows = await api.estoqueContagens(idLoja);
@@ -535,6 +546,7 @@ export default function ControleEstoquePage() {
         codigo: formProduto.codigo.trim(),
         descricao: formProduto.descricao.trim(),
         unidade_contagem: formProduto.unidade_contagem.toUpperCase(),
+        unidade_fracionada: formProduto.unidade_fracionada.toUpperCase(),
         preco_caixa: Number(String(formProduto.preco_caixa).replace(',', '.')),
         und_convertida: Number(String(formProduto.und_convertida).replace(',', '.')),
         permite_contagem_caixa: formProduto.permite_contagem_caixa,
@@ -727,16 +739,17 @@ export default function ControleEstoquePage() {
     let pendentes = 0;
     let preenchidos = 0;
     for (const i of contagem.itens) {
-      const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
-      const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
-      const contado = calcQtdTerraco(rascunhoItens[i.id_item], undCx, undPc);
-      if (contado == null || !Number.isFinite(contado)) {
+      const raw = rascunhoItens[i.id_item];
+      if (!temEntradaTerraco(raw)) {
         pendentes += 1;
         continue;
       }
       preenchidos += 1;
-      total += contado * i.valor_unidade;
-      if (contado !== i.estoque_sistema) divergencias += 1;
+      const contado = qtdPreviewSeguro(i, raw);
+      if (contado != null && Number.isFinite(contado)) {
+        total += contado * i.valor_unidade;
+        if (contado !== i.estoque_sistema) divergencias += 1;
+      }
     }
     return {
       total_valor: Math.round(total * 100) / 100,
@@ -1239,6 +1252,8 @@ export default function ControleEstoquePage() {
                       idLoja={idLoja}
                       produtos={produtos}
                       onInsumosReload={recarregarInsumos}
+                      onNovoInsumo={podeProdutos ? abrirNovoInsumo : undefined}
+                      onEditarInsumo={podeProdutos ? abrirEditarInsumo : undefined}
                       onIrFichas={irParaFichas}
                       onIrRede={irParaRede}
                       onSelectLoja={selecionarLoja}
@@ -1288,7 +1303,7 @@ export default function ControleEstoquePage() {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' },
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
               gap: 2,
               alignItems: 'stretch',
               '& .MuiFormControl-root': { height: '100%' },
@@ -1297,21 +1312,60 @@ export default function ControleEstoquePage() {
           >
             <TextField
               select
-              label="Unidade"
+              label="Unidade do saldo"
+              helperText="Canônica — o estoque fica nesta unidade"
               {...dialogFieldProps}
               value={formProduto.unidade_contagem}
-              onChange={(e) =>
+              onChange={(e) => {
+                const next = String(e.target.value).toUpperCase();
                 setFormProduto((f) => ({
                   ...f,
-                  unidade_contagem: String(e.target.value).toUpperCase(),
-                }))
-              }
+                  unidade_contagem: next,
+                  unidade_fracionada: editando ? f.unidade_fracionada : next,
+                }));
+              }}
             >
               <MenuItem value="UND">UND</MenuItem>
               <MenuItem value="KG">KG</MenuItem>
               <MenuItem value="LT">LT</MenuItem>
               <MenuItem value="CX">CX</MenuItem>
             </TextField>
+            <TextField
+              select
+              label="Unidade da contagem fracionada"
+              helperText="Sobra/avulso que o gestor informa (campo KG/UND)"
+              {...dialogFieldProps}
+              value={formProduto.unidade_fracionada}
+              onChange={(e) =>
+                setFormProduto((f) => ({
+                  ...f,
+                  unidade_fracionada: String(e.target.value).toUpperCase(),
+                }))
+              }
+            >
+              {UNIDADES_FRACIONADAS.map((u) => (
+                <MenuItem key={u} value={u}>
+                  {u}
+                </MenuItem>
+              ))}
+              {formProduto.unidade_fracionada &&
+                !(UNIDADES_FRACIONADAS as readonly string[]).includes(formProduto.unidade_fracionada) && (
+                  <MenuItem value={formProduto.unidade_fracionada}>
+                    {formProduto.unidade_fracionada}
+                  </MenuItem>
+                )}
+            </TextField>
+          </Box>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 2,
+              alignItems: 'stretch',
+              '& .MuiFormControl-root': { height: '100%' },
+              '& .MuiOutlinedInput-root': { minHeight: 56 },
+            }}
+          >
             <TextField
               label="Preço da caixa"
               {...dialogFieldProps}

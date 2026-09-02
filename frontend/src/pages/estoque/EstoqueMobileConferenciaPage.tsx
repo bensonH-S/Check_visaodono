@@ -12,6 +12,18 @@ import { showToast } from '../../utils/toast';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
 import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
+import {
+  fracionadaInteira,
+  parseNumCampoContagem,
+  permiteCamposItem,
+  qtdPreviewSeguro,
+  rotuloCampoFracionado,
+  sanitizarEntradaFracionada,
+  sanitizarEntradaNaoNegativa,
+  temEntradaTerraco,
+  unidadeFracionadaItem,
+  type RascunhoContagem,
+} from '../../components/estoque/estoqueContagemCampo';
 
 const AUTOSAVE_MS = 700;
 const SECAO_OUTROS = 'OUTROS';
@@ -50,46 +62,14 @@ function fmtDataHora(iso: string | null | undefined) {
   });
 }
 
-type RascunhoLinha = { caixa: string; pc: string; kg: string };
+type RascunhoLinha = RascunhoContagem;
 
-type CamposPermitidos = {
-  caixa: boolean;
-  pc: boolean;
-  kg: boolean;
-};
-
-function permiteCampos(i: EstoqueItem): CamposPermitidos {
-  return {
-    caixa: i.permite_contagem_caixa !== false,
-    pc: i.permite_contagem_pc_fd !== false,
-    kg: i.permite_contagem_kg_und !== false,
-  };
+function permiteCampos(i: EstoqueItem) {
+  return permiteCamposItem(i);
 }
 
 function parseNumCampo(raw: string): number | null {
-  if (raw === undefined || raw === null || String(raw).trim() === '') return null;
-  const n = Number(String(raw).replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
-}
-
-function calcQtdTerraco(
-  linha: RascunhoLinha | undefined,
-  undConvertida: number,
-  undParcial: number,
-  permite: CamposPermitidos,
-): number | null {
-  if (!linha) return null;
-  const tem =
-    (permite.caixa && String(linha.caixa).trim() !== '') ||
-    (permite.pc && String(linha.pc).trim() !== '') ||
-    (permite.kg && String(linha.kg).trim() !== '');
-  if (!tem) return null;
-  const caixa = permite.caixa ? parseNumCampo(linha.caixa) ?? 0 : 0;
-  const pc = permite.pc ? parseNumCampo(linha.pc) ?? 0 : 0;
-  const kg = permite.kg ? parseNumCampo(linha.kg) ?? 0 : 0;
-  const base = undConvertida > 0 ? undConvertida : 1;
-  const parcial = undParcial > 0 ? undParcial : 1;
-  return Math.round((caixa * base + pc * parcial + kg) * 10000) / 10000;
+  return parseNumCampoContagem(raw);
 }
 
 function calcTotalLinha(qtd: number | null | undefined, valorUnidade: number): number | null {
@@ -122,10 +102,8 @@ function rascunhoComZeros(
   const next = { ...draft };
   for (const i of itens) {
     const p = permiteCampos(i);
-    const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
-    const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
     const line = next[i.id_item] || { caixa: '', pc: '', kg: '' };
-    if (calcQtdTerraco(line, undCx, undPc, p) != null) continue;
+    if (temEntradaTerraco(line, p)) continue;
     next[i.id_item] = {
       caixa: p.caixa ? (String(line.caixa).trim() === '' ? '0' : line.caixa) : '',
       pc: p.pc ? (String(line.pc).trim() === '' ? '0' : line.pc) : '',
@@ -266,19 +244,19 @@ export default function EstoqueMobileConferenciaPage() {
     let totalValor = 0;
     const porSecao = new Map<string, { pendentes: number; total: number }>();
     for (const i of itens) {
-      const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
-      const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
       const permite = permiteCampos(i);
-      const contado = calcQtdTerraco(rascunho[i.id_item], undCx, undPc, permite);
+      const raw = rascunho[i.id_item];
+      const tem = temEntradaTerraco(raw, permite);
+      const contado = qtdPreviewSeguro(i, raw, permite);
       const nome = nomeSecao(i);
       const st = porSecao.get(nome) || { pendentes: 0, total: 0 };
       st.total += 1;
-      if (contado == null || !Number.isFinite(contado)) {
+      if (!tem) {
         pendentes += 1;
         st.pendentes += 1;
       } else {
         preenchidos += 1;
-        if (i.entra_cmv !== false) {
+        if (i.entra_cmv !== false && contado != null) {
           totalValor += contado * (Number(i.valor_unidade) || 0);
         }
       }
@@ -562,12 +540,12 @@ export default function EstoqueMobileConferenciaPage() {
             <>
               {itensVisiveis.map((i) => {
                 const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '' };
-                const undCx = Number(i.und_convertida) > 0 ? Number(i.und_convertida) : 1;
-                const undPc = Number(i.und_parcial) > 0 ? Number(i.und_parcial) : 1;
                 const permite = permiteCampos(i);
-                const contado = calcQtdTerraco(raw, undCx, undPc, permite);
+                const rotuloFrac = rotuloCampoFracionado(unidadeFracionadaItem(i));
+                const inteiroFrac = fracionadaInteira(unidadeFracionadaItem(i));
+                const contado = qtdPreviewSeguro(i, raw, permite);
                 const totalLinha = calcTotalLinha(contado, Number(i.valor_unidade) || 0);
-                const preenchido = contado != null && Number.isFinite(contado);
+                const preenchido = temEntradaTerraco(raw, permite);
                 const foraCmv = i.entra_cmv === false;
                 return (
                   <div
@@ -600,11 +578,11 @@ export default function EstoqueMobileConferenciaPage() {
                     <div className="ck-estoque__row ck-estoque__row--tres">
                       {(
                         [
-                          ['caixa', 'CAIXA', permite.caixa],
-                          ['pc', 'PC / FD', permite.pc],
-                          ['kg', 'KG / UND', permite.kg],
+                          ['caixa', 'CAIXA', permite.caixa, false],
+                          ['pc', 'PC / FD', permite.pc, false],
+                          ['kg', rotuloFrac, permite.kg, inteiroFrac],
                         ] as const
-                      ).map(([campo, label, liberado]) => (
+                      ).map(([campo, label, liberado, inteiro]) => (
                         <div
                           key={campo}
                           className={`ck-estoque__field${liberado ? '' : ' is-blocked'}`}
@@ -616,16 +594,20 @@ export default function EstoqueMobileConferenciaPage() {
                             </div>
                           ) : editavel ? (
                             <input
-                              type="number"
-                              inputMode="decimal"
-                              step="any"
-                              min="0"
+                              type="text"
+                              inputMode={inteiro ? 'numeric' : 'decimal'}
                               enterKeyHint="next"
                               autoComplete="off"
                               value={raw[campo]}
                               placeholder="—"
                               data-estoque-campo={campo}
-                              onChange={(e) => setCampo(i.id_item, campo, e.target.value)}
+                              onChange={(e) => {
+                                const v =
+                                  campo === 'kg'
+                                    ? sanitizarEntradaFracionada(e.target.value, inteiro)
+                                    : sanitizarEntradaNaoNegativa(e.target.value);
+                                setCampo(i.id_item, campo, v);
+                              }}
                               onFocus={(e) => {
                                 e.target.select();
                                 e.target.placeholder = '';

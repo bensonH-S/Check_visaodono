@@ -1,8 +1,18 @@
 /**
  * Contagem estilo planilha Terraço:
  *   VL.UNIT = VL.CAIXA / und_convertida
- *   QTD     = CAIXA * und_convertida + PC/FD * und_parcial + KG/UND
+ *   QTD     = CAIXA * und_convertida + PC/FD * und_parcial + KG/UND convertido
+ *
+ * O campo KG/UND entra na unidade_fracionada e é convertido para unidade_contagem
+ * via estoque_conversoes. Sem conversão validada, o cálculo falha (não assume 1).
  */
+import {
+  aplicarConversaoUnidades,
+  converterQuantidade,
+  fatorSi,
+  MOTIVO_CONVERSAO,
+  normalizarUnidade,
+} from './estoqueConsumo.js';
 
 /** Ordem das faixas da planilha Terraço (não é alfabética: CONGELADOS vem antes de BRINDES). */
 export const SQL_ORDEM_PLANILHA = `
@@ -308,11 +318,121 @@ export function temCampoContagemLiberado(permiteCaixa, permitePc, permiteKg) {
   return permiteCaixa !== false || permitePc !== false || permiteKg !== false;
 }
 
+/** Unidade física do último nível; herda a canônica se ainda não configurada. */
+export function unidadeFracionadaEfetiva(unidadeFracionada, unidadeContagem) {
+  const frac = String(unidadeFracionada || '').trim();
+  if (frac) return frac;
+  return String(unidadeContagem || 'UND').trim() || 'UND';
+}
+
+function precisaFatorFracionada(unidadeFracionada, unidadeContagem) {
+  const orig = normalizarUnidade(unidadeFracionadaEfetiva(unidadeFracionada, unidadeContagem));
+  const dest = normalizarUnidade(unidadeContagem || orig);
+  if (orig === dest) return false;
+  if (fatorSi(orig, dest) != null) return false;
+  return true;
+}
+
+/** Unidades que o cadastro pode escolher para o campo fracionado. */
+export const UNIDADES_FRACIONADAS_CADASTRO = ['KG', 'UND', 'L'];
+
 /**
- * Calcula QTD a partir dos três campos da planilha.
- * Retorna null se nenhum campo habilitado foi informado (item pendente).
+ * Impede configurar fracionada ≠ canônica sem fator validado.
+ * Não cria conversão. Identidade e SI (g↔kg) passam sem banco.
  */
-export function calcularQtdContagem({
+export async function validarUnidadeFracionadaCadastro(client, {
+  idInsumo = null,
+  codigo = null,
+  unidadeFracionada,
+  unidadeContagem,
+} = {}) {
+  const orig = String(unidadeFracionada || '').trim().toUpperCase();
+  const dest = String(unidadeContagem || '').trim().toUpperCase();
+  if (!orig || !dest) {
+    return {
+      ok: false,
+      error: 'Informe a unidade canônica e a unidade da contagem fracionada.',
+      motivo: 'unidade_invalida',
+    };
+  }
+
+  const origN = normalizarUnidade(orig);
+  const destN = normalizarUnidade(dest);
+  if (origN === destN) return { ok: true };
+  if (fatorSi(origN, destN) != null) return { ok: true };
+
+  if (!UNIDADES_FRACIONADAS_CADASTRO.includes(orig)) {
+    return {
+      ok: false,
+      error: `Unidade fracionada inválida (${orig}). Use KG, UND ou L.`,
+      motivo: 'unidade_fracionada_invalida',
+      unidade_origem: origN,
+      unidade_destino: destN,
+    };
+  }
+
+  if (!idInsumo) {
+    return {
+      ok: false,
+      error:
+        `Não há conversão validada ${orig} → ${dest} neste cadastro. ` +
+        'Crie o insumo com a mesma unidade e cadastre o fator antes de alterar a unidade fracionada.',
+      motivo: MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+      unidade_origem: origN,
+      unidade_destino: destN,
+    };
+  }
+
+  const r = await converterQuantidade(client, {
+    idInsumo,
+    codigo,
+    quantidade: 1,
+    unidadeOrigem: orig,
+    unidadeDestino: dest,
+  });
+  if (r.ok) return { ok: true };
+  return {
+    ok: false,
+    error:
+      `Falta conversão validada ${orig} → ${dest}. ` +
+      'Cadastre o fator em estoque_conversoes antes de usar esta unidade fracionada.',
+    motivo: r.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+    unidade_origem: r.unidade_origem || origN,
+    unidade_destino: r.unidade_destino || destN,
+    id_insumo: idInsumo,
+    codigo: codigo != null ? String(codigo) : null,
+  };
+}
+
+let schemaFracionadaOk = false;
+
+export async function garantirSchemaUnidadeFracionada(client) {
+  if (schemaFracionadaOk) return;
+  try {
+    await client.query(`
+      ALTER TABLE insumos
+        ADD COLUMN IF NOT EXISTS unidade_fracionada TEXT
+    `);
+    await client.query(`
+      UPDATE insumos
+      SET unidade_fracionada = UPPER(TRIM(unidade_contagem))
+      WHERE unidade_fracionada IS NULL
+         OR BTRIM(unidade_fracionada) = ''
+    `);
+    schemaFracionadaOk = true;
+  } catch (e) {
+    if (e.code !== '42P01') throw e;
+  }
+}
+
+/**
+ * Resolve QTD canônica a partir dos três campos Terraço.
+ * CAIXA e PC/FD seguem und_convertida / und_parcial.
+ * KG/UND passa por unidade_fracionada → unidade_contagem.
+ *
+ * @returns {{ ok: true, qtd: number|null } | { ok: false, erro: object }}
+ */
+export function resolverQtdContagem({
   contagem_caixa,
   contagem_pc_fd,
   contagem_kg_und,
@@ -321,7 +441,13 @@ export function calcularQtdContagem({
   permite_contagem_caixa = true,
   permite_contagem_pc_fd = true,
   permite_contagem_kg_und = true,
-}) {
+  unidade_contagem = null,
+  unidade_fracionada = null,
+  fator_fracionada = null,
+  fator_fracionada_status = null,
+  id_insumo = null,
+  codigo = null,
+} = {}) {
   const usaCaixa = permite_contagem_caixa !== false;
   const usaPc = permite_contagem_pc_fd !== false;
   const usaKg = permite_contagem_kg_und !== false;
@@ -332,15 +458,115 @@ export function calcularQtdContagem({
     usaPc && contagem_pc_fd !== null && contagem_pc_fd !== undefined && contagem_pc_fd !== '';
   const temKg =
     usaKg && contagem_kg_und !== null && contagem_kg_und !== undefined && contagem_kg_und !== '';
-  if (!temCaixa && !temPc && !temKg) return null;
+  if (!temCaixa && !temPc && !temKg) return { ok: true, qtd: null };
 
   const caixa = temCaixa ? num(contagem_caixa) : 0;
   const pc = temPc ? num(contagem_pc_fd) : 0;
-  const kg = temKg ? num(contagem_kg_und) : 0;
   const base = num(und_convertida, 1) > 0 ? num(und_convertida, 1) : 1;
   const parcial = num(und_parcial, 1) > 0 ? num(und_parcial, 1) : 1;
-  const qtd = caixa * base + pc * parcial + kg;
-  return Math.round(qtd * 10000) / 10000;
+  const qtdCaixa = caixa * base;
+  const qtdParcial = pc * parcial;
+
+  let qtdFracionada = 0;
+  if (temKg) {
+    const dest = unidade_contagem || unidadeFracionadaEfetiva(unidade_fracionada, unidade_contagem);
+    const orig = unidadeFracionadaEfetiva(unidade_fracionada, dest);
+    const conv = aplicarConversaoUnidades({
+      quantidade: contagem_kg_und,
+      unidadeOrigem: orig,
+      unidadeDestino: dest,
+      fatorConversao: fator_fracionada,
+      fatorStatus: fator_fracionada_status,
+      permitirZero: true,
+    });
+    if (!conv.ok) {
+      return {
+        ok: false,
+        erro: {
+          motivo: conv.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+          id_insumo,
+          codigo,
+          unidade_origem: conv.unidade_origem || normalizarUnidade(orig),
+          unidade_destino: conv.unidade_destino || normalizarUnidade(dest),
+        },
+      };
+    }
+    qtdFracionada = conv.quantidade;
+  }
+
+  const qtd = Math.round((qtdCaixa + qtdParcial + qtdFracionada) * 10000) / 10000;
+  return { ok: true, qtd };
+}
+
+/**
+ * Calcula QTD a partir dos três campos da planilha.
+ * Retorna null se nenhum campo habilitado foi informado (item pendente).
+ * Se a conversão fracionada falhar, lança erro com `.conversao`.
+ */
+export function calcularQtdContagem(params) {
+  const r = resolverQtdContagem(params);
+  if (!r.ok) {
+    const err = new Error(r.erro?.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA);
+    err.conversao = r.erro;
+    err.status = 400;
+    throw err;
+  }
+  return r.qtd;
+}
+
+/**
+ * Busca fator validado só quando unidade_fracionada ≠ unidade_contagem (e não é SI).
+ */
+export async function carregarFatorFracionada(client, {
+  id_insumo,
+  codigo = null,
+  unidade_contagem,
+  unidade_fracionada,
+} = {}) {
+  const dest = unidade_contagem;
+  const orig = unidadeFracionadaEfetiva(unidade_fracionada, dest);
+  if (!precisaFatorFracionada(orig, dest)) {
+    return { ok: true, fator: 1, status: 'validado', origemConversao: 'identidade' };
+  }
+  const r = await converterQuantidade(client, {
+    idInsumo: id_insumo,
+    codigo,
+    quantidade: 1,
+    unidadeOrigem: orig,
+    unidadeDestino: dest,
+  });
+  if (!r.ok) return r;
+  return {
+    ok: true,
+    fator: r.fatorAplicado,
+    status: 'validado',
+    origemConversao: r.origemConversao,
+  };
+}
+
+/** Anexa fator_fracionada em cada row (cache por id_insumo). */
+export async function anexarFatoresFracionada(client, rows) {
+  const cache = new Map();
+  for (const row of rows || []) {
+    const key = Number(row.id_insumo);
+    if (!Number.isFinite(key) || key <= 0) continue;
+    if (!cache.has(key)) {
+      cache.set(
+        key,
+        await carregarFatorFracionada(client, {
+          id_insumo: key,
+          codigo: row.codigo,
+          unidade_contagem: row.unidade_contagem,
+          unidade_fracionada: row.unidade_fracionada,
+        }),
+      );
+    }
+    const fat = cache.get(key);
+    row.fator_fracionada = fat.ok ? fat.fator : null;
+    row.fator_fracionada_status = fat.ok ? fat.status : fat.motivo === MOTIVO_CONVERSAO.BLOQUEADA ? 'bloqueado' : null;
+    row.erro_fator_fracionada = fat.ok ? null : fat;
+  }
+  return rows;
 }
 
 /** Extrai und_convertida / und_parcial das fórmulas D e H da planilha. */

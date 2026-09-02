@@ -1,5 +1,5 @@
 import { pool } from '../db.js';
-import { calcularQtdContagem } from './estoqueContagem.js';
+import { resolverQtdContagem, anexarFatoresFracionada, garantirSchemaUnidadeFracionada } from './estoqueContagem.js';
 import {
   MOTIVO_BAIXA,
   STATUS_AUDITORIA_PILOTO,
@@ -1477,8 +1477,10 @@ function campoContagem(v) {
 }
 
 async function carregarFatoresInsumo(client, idInsumo) {
+  await garantirSchemaUnidadeFracionada(client);
   const { rows } = await client.query(
     `SELECT id_insumo, codigo, descricao, unidade_contagem,
+            COALESCE(NULLIF(BTRIM(unidade_fracionada), ''), unidade_contagem) AS unidade_fracionada,
             COALESCE(und_convertida, 1) AS und_convertida,
             COALESCE(und_parcial, 1) AS und_parcial,
             COALESCE(permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
@@ -1487,11 +1489,13 @@ async function carregarFatoresInsumo(client, idInsumo) {
      FROM insumos WHERE id_insumo = $1`,
     [idInsumo],
   );
-  return rows[0] || null;
+  if (!rows[0]) return null;
+  await anexarFatoresFracionada(client, rows);
+  return rows[0];
 }
 
 function qtdEmprestimo(fat, raw) {
-  return calcularQtdContagem({
+  const r = resolverQtdContagem({
     contagem_caixa: campoContagem(raw.contagem_caixa ?? raw.caixa),
     contagem_pc_fd: campoContagem(raw.contagem_pc_fd ?? raw.pc),
     contagem_kg_und: campoContagem(raw.contagem_kg_und ?? raw.kg),
@@ -1500,7 +1504,15 @@ function qtdEmprestimo(fat, raw) {
     permite_contagem_caixa: fat.permite_contagem_caixa,
     permite_contagem_pc_fd: fat.permite_contagem_pc_fd,
     permite_contagem_kg_und: fat.permite_contagem_kg_und,
+    unidade_contagem: fat.unidade_contagem,
+    unidade_fracionada: fat.unidade_fracionada,
+    fator_fracionada: fat.fator_fracionada,
+    fator_fracionada_status: fat.fator_fracionada_status,
+    id_insumo: fat.id_insumo,
+    codigo: fat.codigo,
   });
+  if (!r.ok) return r;
+  return { ok: true, qtd: r.qtd };
 }
 
 /** Lança break / desperdício / empréstimo — itens diretos e/ou produto venda via ficha. */
@@ -1655,11 +1667,18 @@ export async function lancarBreak(
           pc = campoContagem(raw.contagem_pc_fd ?? raw.pc);
           kg = campoContagem(raw.contagem_kg_und ?? raw.kg);
           const calc = qtdEmprestimo(fat, raw);
-          if (calc == null || calc <= 0) {
+          if (!calc.ok) {
+            const e = calc.erro || {};
+            erros.push(
+              `${e.codigo || fat.codigo}: ${e.motivo || 'conversao_nao_encontrada'} (${e.unidade_origem} → ${e.unidade_destino})`,
+            );
+            continue;
+          }
+          if (calc.qtd == null || calc.qtd <= 0) {
             erros.push(`${fat.codigo}: informe caixa, pct ou kg/und`);
             continue;
           }
-          qtdeBaixa = calc;
+          qtdeBaixa = calc.qtd;
           descricao = fat.descricao || descricao;
           codigo = fat.codigo || codigo;
         }

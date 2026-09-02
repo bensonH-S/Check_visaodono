@@ -413,6 +413,8 @@ type Props = {
   produtos: ProdutoEstoque[];
   onProdutosVendaCountChange?: (n: number) => void;
   onInsumosReload?: () => void;
+  onNovoInsumo?: () => void;
+  onEditarInsumo?: (insumo: ProdutoEstoque) => void;
   onIrFichas?: () => void;
   onIrRede?: () => void;
   onSelectLoja?: (id: number) => void;
@@ -427,6 +429,8 @@ export default function EstoqueOperacionalPanels({
   produtos,
   onProdutosVendaCountChange,
   onInsumosReload,
+  onNovoInsumo,
+  onEditarInsumo,
   onIrFichas,
   onIrRede,
   onSelectLoja,
@@ -461,6 +465,8 @@ export default function EstoqueOperacionalPanels({
         insumos={produtos}
         onCountChange={onProdutosVendaCountChange}
         onInsumosReload={onInsumosReload}
+        onNovoInsumo={onNovoInsumo}
+        onEditarInsumo={onEditarInsumo}
       />
     );
   }
@@ -2377,11 +2383,15 @@ function PainelProdutos({
   insumos,
   onCountChange,
   onInsumosReload,
+  onNovoInsumo,
+  onEditarInsumo,
 }: {
   idLoja: number;
   insumos: ProdutoEstoque[];
   onCountChange?: (n: number) => void;
   onInsumosReload?: () => void;
+  onNovoInsumo?: () => void;
+  onEditarInsumo?: (insumo: ProdutoEstoque) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<ProdutoVendaEstoque[]>([]);
@@ -2813,6 +2823,11 @@ function PainelProdutos({
               Novo produto
             </Button>
           )}
+          {abaCadastro === 'insumos' && onNovoInsumo && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => onNovoInsumo()}>
+              Novo insumo
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -2824,7 +2839,8 @@ function PainelProdutos({
                 <TableRow>
                   <TableCell>Código</TableCell>
                   <TableCell>Descrição (insumo)</TableCell>
-                  <TableCell align="center">Unidade</TableCell>
+                  <TableCell align="center">Saldo</TableCell>
+                  <TableCell align="center">Fracionada</TableCell>
                   <TableCell align="center">Fonte</TableCell>
                   <TableCell align="right">R$/und</TableCell>
                 </TableRow>
@@ -2833,11 +2849,19 @@ function PainelProdutos({
                 {insumosFiltrados.map((i) => {
                   const okCusto = temCustoAutomatico(i);
                   return (
-                    <TableRow key={i.id_insumo ?? i.id_produto} hover>
+                    <TableRow
+                      key={i.id_insumo ?? i.id_produto}
+                      hover
+                      onClick={onEditarInsumo ? () => onEditarInsumo(i) : undefined}
+                      sx={onEditarInsumo ? { cursor: 'pointer' } : undefined}
+                    >
                       <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
                       <TableCell>{i.descricao}</TableCell>
                       <TableCell align="center">
                         {String(i.unidade_contagem || 'UND').toUpperCase()}
+                      </TableCell>
+                      <TableCell align="center">
+                        {String(i.unidade_fracionada || i.unidade_contagem || 'UND').toUpperCase()}
                       </TableCell>
                       <TableCell align="center">
                         <Chip
@@ -2860,7 +2884,7 @@ function PainelProdutos({
                 })}
                 {!insumosFiltrados.length && (
                   <TableRow>
-                    <TableCell colSpan={5}>
+                    <TableCell colSpan={6}>
                       <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
                         {filtroCusto === 'sem'
                           ? 'Nenhum insumo sem custo automático nesta loja.'
