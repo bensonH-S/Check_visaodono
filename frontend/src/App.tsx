@@ -8,6 +8,7 @@ import ChamadosMobileLayout from './layout/ChamadosMobileLayout';
 import LoginPage from './pages/LoginPage';
 import LoginMobilePage from './pages/LoginMobilePage';
 import DashboardPage from './pages/DashboardPage';
+import PortaisPage from './pages/PortaisPage';
 import RankingPage from './pages/RankingPage';
 import ChecklistPage from './pages/ChecklistPage';
 import ChecklistMobilePage from './pages/ChecklistMobilePage';
@@ -407,6 +408,7 @@ export default function App() {
                 </RotaPermissao>
               }
             />
+            <Route path="portais" element={<PortaisPage />} />
             <Route
               path="escalas/visitas"
               element={

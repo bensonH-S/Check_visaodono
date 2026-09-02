@@ -26,6 +26,7 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import LanguageIcon from '@mui/icons-material/Language';
 
 import { colors } from '../theme/tokens';
 
@@ -42,6 +43,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/ranking': { title: 'Ranking de Lojas', icon: <EmojiEventsIcon sx={iconSx} /> },
   '/checklist': { title: 'Checklist', icon: <AssignmentIcon sx={iconSx} /> },
   '/visitas': { title: 'Histórico de Visitas', icon: <HistoryIcon sx={iconSx} /> },
+  '/portais': { title: 'Portais', icon: <LanguageIcon sx={iconSx} /> },
   '/lojas': { title: 'Lojas', icon: <StoreIcon sx={iconSx} /> },
   '/nao-conformidades': { title: 'Não Conformidades', icon: <WarningAmberIcon sx={iconSx} /> },
   '/chamados': { title: 'Chamados', icon: <BuildIcon sx={iconSx} /> },

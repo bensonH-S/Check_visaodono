@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { assetUrl, toAppPath, LOGO_GRUPO_ALVIM } from '../config/paths';
 import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
@@ -20,6 +20,7 @@ import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
 import SettingsIcon from '@mui/icons-material/Settings';
+import LanguageIcon from '@mui/icons-material/Language';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useEffect, useRef } from 'react';
 import { showWelcomeToast } from '../utils/toast';
@@ -39,7 +40,8 @@ import {
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
+import { safeAreaBottomCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
+import MobileTabBar from '../components/MobileTabBar';
 
 type NavItem = {
   to: string;
@@ -47,7 +49,6 @@ type NavItem = {
   icon: React.ReactNode;
   show: boolean;
   end?: boolean;
-  mobileTab?: boolean;
   mobileOnly?: boolean;
   isActive?: (pathname: string) => boolean;
 };
@@ -114,9 +115,16 @@ export default function PortalLayout() {
   const emFrota = path === '/frota' || (path.startsWith('/frota/') && !path.startsWith('/frota/mobile'));
 
   const nav: NavItem[] = [
-    { to: '/dashboard', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true, mobileTab: true },
-    { to: '/checklist', label: 'Checklist', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), end: true, mobileTab: true, mobileOnly: true },
-    { to: '/chamados', label: 'Chamados', icon: <BuildIcon fontSize="small" />, show: temPermissao('chamados.ver', user), end: true, mobileTab: true },
+    { to: '/dashboard', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
+    { to: '/checklist', label: 'Checklist', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), end: true, mobileOnly: true },
+    {
+      to: '/chamados',
+      label: 'Chamados',
+      icon: <BuildIcon fontSize="small" />,
+      show: temPermissao('chamados.ver', user),
+      end: true,
+      isActive: (p: string) => p.startsWith('/chamados') && !p.startsWith('/chamados/aprovacoes'),
+    },
     {
       to: '/frota',
       label: 'Frota',
@@ -124,12 +132,13 @@ export default function PortalLayout() {
       show: podeAcessarModuloFrota(user),
       isActive: (p: string) => p === '/frota' || (p.startsWith('/frota/') && !p.startsWith('/frota/mobile')),
     },
-    { to: '/escalas/visitas', label: 'Escala visitas', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), end: true, mobileTab: true },
+    { to: '/escalas/visitas', label: 'Escala visitas', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), end: true },
     { to: '/metas', label: 'Metas', icon: <TrackChangesIcon fontSize="small" />, show: podeVerMetas(user), end: true },
-    { to: '/estoque', label: 'Controle Estoque', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user) },
-    { to: '/energia', label: 'Energia', icon: <BoltIcon fontSize="small" />, show: podeVerEnergia(user), end: true, mobileTab: true },
-    { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, mobileTab: true },
+    { to: '/estoque', label: 'Controle Estoque', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), isActive: (p: string) => p === '/estoque' || p.startsWith('/estoque/') },
+    { to: '/energia', label: 'Energia', icon: <BoltIcon fontSize="small" />, show: podeVerEnergia(user), end: true, isActive: (p: string) => p.startsWith('/energia') },
+    { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, isActive: (p: string) => p.startsWith('/chamados/aprovacoes') },
     { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user) },
+    { to: '/portais', label: 'Portais', icon: <LanguageIcon fontSize="small" />, show: true, end: true },
     {
       to: '/configuracoes',
       label: 'Configurações',
@@ -140,8 +149,7 @@ export default function PortalLayout() {
   ].filter((n) => n.show);
 
   const sidebarNav = nav.filter((n) => !n.mobileOnly);
-  const mobileTabs = nav.filter((n) => n.mobileTab);
-  const mobileTabsRodape = mobileTabs;
+  const mobileTabsRodape = nav;
 
   const pageTitle = resolvePageTitle(path);
   usePageTitle(pageTitle.title);
@@ -251,41 +259,11 @@ export default function PortalLayout() {
         </Box>
 
         {mobileTabsRodape.length > 0 && !isChamadoNovo && (
-          <Box
-            component="nav"
-            className="md:hidden mobile-tab-bar"
-            sx={{
-              ...mobileTabBarShellSx(colors.surface, 50),
-              display: { xs: 'block', md: 'none' },
-              borderColor: colors.border,
-            }}
-          >
-            <Box sx={{ ...mobileTabBarNavSx(52), display: 'flex' }}>
-            {mobileTabsRodape.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                style={{ textDecoration: 'none', flex: 1 }}
-              >
-                {({ isActive }) => (
-                  <Box
-                    sx={{
-                      ...mobileTabBarItemSx(52),
-                      color: isActive ? colors.navy : colors.textMuted,
-                      fontSize: '0.625rem',
-                      fontWeight: isActive ? 600 : 500,
-                      '& .MuiSvgIcon-root': { fontSize: 20, mb: 0.25 },
-                    }}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </Box>
-                )}
-              </NavLink>
-            ))}
-            </Box>
-          </Box>
+          <MobileTabBar
+            items={mobileTabsRodape}
+            pinnedTos={['/dashboard', '/checklist', '/chamados']}
+            hiddenOnDesktop
+          />
         )}
       </Box>
     </Box>

@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useLocation, useMatch, NavLink } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -39,7 +39,8 @@ import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
-import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, MOBILE_WATERMARK_LOGO, mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarOffsetCss, mobileTabBarShellSx, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
+import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, MOBILE_WATERMARK_LOGO, mobileTabBarOffsetCss, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
+import MobileTabBar from '../components/MobileTabBar';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -54,6 +55,46 @@ const PAGE_BG = '#f5f5f3';
 const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
 const TAB_NAV_H = 52;
+const ABAS_COM_SUBPAGINA = [
+  '/checklist/mobile',
+  '/chamados/mobile',
+  '/frota/mobile',
+  '/visitas/mobile',
+  '/nc/mobile',
+  '/energia/mobile',
+  '/estoque/mobile',
+];
+
+function abaMobileAtiva(
+  to: string,
+  path: string,
+  flags: {
+    isChecklist: boolean;
+    isFrota: boolean;
+    isVisitas: boolean;
+    isRelatorio: boolean;
+    isNc: boolean;
+    isEnergia: boolean;
+    isEstoque: boolean;
+    isEstoqueBreak: boolean;
+    isFreelancersAprovacao: boolean;
+  },
+) {
+  if (to === '/checklist/mobile') return flags.isChecklist;
+  if (to === '/chamados/mobile') return path === '/chamados/mobile' || path.startsWith('/chamados/mobile/');
+  if (to === '/frota/mobile') return flags.isFrota;
+  if (to === '/frota/mobile/abastecimento') return path.startsWith('/frota/mobile/abastecimento');
+  if (to === '/frota/mobile/manutencao') return path.startsWith('/frota/mobile/manutencao');
+  if (to === '/visitas/mobile') return flags.isVisitas || flags.isRelatorio;
+  if (to === '/nc/mobile') return flags.isNc;
+  if (to === '/energia/mobile') return flags.isEnergia;
+  if (to === '/estoque/mobile') return flags.isEstoque && !flags.isEstoqueBreak;
+  if (to === '/estoque/mobile/break') return flags.isEstoqueBreak;
+  if (to === '/freelancers/aprovacao/mobile') return flags.isFreelancersAprovacao;
+  if (to === '/escalas/visitas/mobile') return path.startsWith('/escalas/visitas/mobile');
+  if (to === '/mapa/mobile') return path === '/mapa/mobile' || path.startsWith('/mapa/mobile/');
+  return path === to || path.startsWith(`${to}/`);
+}
 
 function nomeLoja(loja: UsuarioSessao['lojas'][number]) {
   return loja.nome;
@@ -864,81 +905,35 @@ function ChamadosMobileLayoutInner() {
       )}
 
       {mostrarTabs && (
-        <Box
-          component="footer"
-          className="mobile-tab-bar"
-          sx={mobileTabBarShellSx()}
-        >
-          <Box component="nav" sx={mobileTabBarNavSx(TAB_NAV_H)}>
-            {mobileTabs.map((item) => {
-              const abaChecklist = item.to === '/checklist/mobile';
-              const abaChamados = item.to === '/chamados/mobile';
-              const abaFrota = item.to === '/frota/mobile';
-              const abaAbastecimento = item.to === '/frota/mobile/abastecimento';
-              const abaManutencao = item.to === '/frota/mobile/manutencao';
-              const abaVisitas = item.to === '/visitas/mobile';
-              const abaNc = item.to === '/nc/mobile';
-              const abaEnergia = item.to === '/energia/mobile';
-              const abaEstoque = item.to === '/estoque/mobile';
-              const abaBreak = item.to === '/estoque/mobile/break';
-              const abaFreelancers = item.to === '/freelancers/aprovacao/mobile';
-              const abaComSubpaginas = abaChecklist || abaChamados || abaFrota || abaVisitas || abaNc || abaEnergia || abaEstoque;
-              return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={!abaComSubpaginas}
-                style={{ textDecoration: 'none', flex: 1 }}
-              >
-                {({ isActive }) => {
-                  const ativa = abaChecklist
-                    ? isChecklist
-                    : abaChamados
-                      ? path === '/chamados/mobile' || path.startsWith('/chamados/mobile/')
-                      : abaFrota
-                        ? isFrota
-                        : abaAbastecimento
-                          ? path.startsWith('/frota/mobile/abastecimento')
-                          : abaManutencao
-                            ? path.startsWith('/frota/mobile/manutencao')
-                            : abaVisitas
-                              ? isVisitas || isRelatorio
-                              : abaNc
-                                ? isNc
-                              : abaEnergia
-                                ? isEnergia
-                              : abaEstoque
-                                ? isEstoque && !isEstoqueBreak
-                              : abaBreak
-                                ? isEstoqueBreak
-                              : abaFreelancers
-                                ? isFreelancersAprovacao
-                              : isActive;
-                  return (
-                  <Box
-                    sx={{
-                      ...mobileTabBarItemSx(TAB_NAV_H),
-                      color: ativa ? ORANGE : 'text.secondary',
-                      fontSize: modoRestrito ? '0.7rem' : '0.625rem',
-                      fontWeight: ativa ? 700 : 500,
-                      gap: modoRestrito ? 0.35 : 0,
-                      '& .MuiSvgIcon-root': {
-                        fontSize: modoRestrito ? 24 : 22,
-                        mb: 0.25,
-                        color: ativa ? ORANGE : 'inherit',
-                      },
-                    }}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </Box>
-                  );
-                }}
-              </NavLink>
-              );
-            })}
-          </Box>
-        </Box>
+        <MobileTabBar
+          items={mobileTabs.map((item) => ({
+            ...item,
+            end: !ABAS_COM_SUBPAGINA.includes(item.to),
+            isActive: (pathname: string) =>
+              abaMobileAtiva(item.to, pathname, {
+                isChecklist,
+                isFrota,
+                isVisitas,
+                isRelatorio,
+                isNc,
+                isEnergia,
+                isEstoque,
+                isEstoqueBreak,
+                isFreelancersAprovacao,
+              }),
+          }))}
+          pinnedTos={
+            modoRestrito
+              ? []
+              : deliveryOnly
+                ? ['/escalas/visitas/mobile', '/checklist/mobile', '/visitas/mobile']
+                : ['/checklist/mobile', '/chamados/mobile', '/frota/mobile']
+          }
+          accent={ORANGE}
+          tabHeight={TAB_NAV_H}
+          fontSize={modoRestrito ? '0.7rem' : '0.625rem'}
+          iconSize={modoRestrito ? 24 : 22}
+        />
       )}
     </Box>
   );
