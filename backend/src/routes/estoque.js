@@ -10,6 +10,8 @@ import {
   anexarFatoresFracionada,
   flagsContagemDiaria,
   garantirSchemaUnidadeFracionada,
+  mensagemErroConversao,
+  recomputarEstoqueContadoContagem,
   resolverQtdContagem,
   SQL_ORDEM_PLANILHA,
   temCampoContagemLiberado,
@@ -272,6 +274,8 @@ function mapItem(row) {
   });
   if (!qtdRes.ok) {
     erro_conversao = qtdRes.erro;
+    // Sem fator válido não reaproveita QTD antiga (podia ser 37 lido como KG).
+    estoque_contado = null;
   } else if (qtdRes.qtd != null) {
     estoque_contado = qtdRes.qtd;
   }
@@ -1539,7 +1543,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     if (errosConversao.length) {
       const motivo = errosConversao[0]?.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA;
       return res.status(400).json({
-        error: 'Conversão de contagem não encontrada',
+        error: mensagemErroConversao(errosConversao),
         motivo,
         itens: errosConversao,
       });
@@ -1550,7 +1554,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     if (temSistema) {
       await pool.query(
         `UPDATE estoque_itens AS ei
-         SET estoque_contado = COALESCE(v.contado, ei.estoque_contado),
+         SET estoque_contado = v.contado,
              contagem_caixa = v.caixa,
              contagem_pc_fd = v.pc,
              contagem_kg_und = v.kg,
@@ -1564,7 +1568,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     } else {
       await pool.query(
         `UPDATE estoque_itens AS ei
-         SET estoque_contado = COALESCE(v.contado, ei.estoque_contado),
+         SET estoque_contado = v.contado,
              contagem_caixa = v.caixa,
              contagem_pc_fd = v.pc,
              contagem_kg_und = v.kg
@@ -1596,6 +1600,23 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
 
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
     await client.query('BEGIN');
+    const { rows: lock } = await client.query(
+      `SELECT id_contagem, status FROM estoque_contagens WHERE id_contagem = $1 FOR UPDATE`,
+      [id],
+    );
+    if (!lock.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Contagem não encontrada' });
+    }
+    if (lock[0].status === 'finalizada') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Contagem já finalizada' });
+    }
+
+    // Recalcula QTD canônica com o motor da Etapa 1. Qualquer conversão
+    // ausente aborta a transação inteira (nada é zerado nem ajustado).
+    await recomputarEstoqueContadoContagem(client, id);
+
     // Item em branco = 0. Sem isso o botão da loja morre quando entra SKU novo
     // ou o cadastro bloqueia o campo em que a pessoa já tinha contado.
     await client.query(
@@ -1659,6 +1680,13 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
     res.json(finalizada);
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
+    if (e.status === 400 && Array.isArray(e.itens)) {
+      return res.status(400).json({
+        error: e.message,
+        motivo: e.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+        itens: e.itens,
+      });
+    }
     next(e);
   } finally {
     client.release();

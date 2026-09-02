@@ -569,6 +569,99 @@ export async function anexarFatoresFracionada(client, rows) {
   return rows;
 }
 
+export function mensagemErroConversao(itens) {
+  const lista = Array.isArray(itens) ? itens : [];
+  const primeiro = lista[0] || {};
+  const extra = lista.length > 1 ? ` (+${lista.length - 1} item(ns))` : '';
+  const cod = primeiro.codigo || (primeiro.id_insumo != null ? `#${primeiro.id_insumo}` : '?');
+  const orig = primeiro.unidade_origem || '?';
+  const dest = primeiro.unidade_destino || '?';
+  return `Conversão de contagem não encontrada: ${cod} (${orig} → ${dest})${extra}`;
+}
+
+export function erroConversaoContagem(itens) {
+  const lista = Array.isArray(itens) ? itens : [];
+  const err = new Error(mensagemErroConversao(lista));
+  err.status = 400;
+  err.motivo = lista[0]?.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA;
+  err.itens = lista;
+  return err;
+}
+
+/**
+ * Recalcula estoque_contado de todos os itens com o motor da Etapa 1.
+ * Sem conversão validada: lança 400 e não grava nada.
+ * Sem campos Terraço: mantém o estoque_contado já persistido (legado / pendente).
+ */
+export async function recomputarEstoqueContadoContagem(client, idContagem) {
+  await garantirSchemaUnidadeFracionada(client);
+  const { rows } = await client.query(
+    `SELECT i.id_item, i.id_insumo, i.contagem_caixa, i.contagem_pc_fd, i.contagem_kg_und,
+            i.estoque_contado,
+            p.codigo, p.unidade_contagem,
+            COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
+            p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial,
+            COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
+            COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
+            COALESCE(p.permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und
+     FROM estoque_itens i
+     JOIN insumos p ON p.id_insumo = i.id_insumo
+     WHERE i.id_contagem = $1`,
+    [idContagem],
+  );
+  await anexarFatoresFracionada(client, rows);
+
+  const erros = [];
+  const ids = [];
+  const contados = [];
+  for (const row of rows) {
+    const qtdRes = resolverQtdContagem({
+      contagem_caixa: row.contagem_caixa,
+      contagem_pc_fd: row.contagem_pc_fd,
+      contagem_kg_und: row.contagem_kg_und,
+      und_convertida: row.und_convertida,
+      und_parcial: row.und_parcial,
+      permite_contagem_caixa: row.permite_contagem_caixa,
+      permite_contagem_pc_fd: row.permite_contagem_pc_fd,
+      permite_contagem_kg_und: row.permite_contagem_kg_und,
+      unidade_contagem: row.unidade_contagem,
+      unidade_fracionada: row.unidade_fracionada,
+      fator_fracionada: row.fator_fracionada,
+      fator_fracionada_status: row.fator_fracionada_status,
+      id_insumo: row.id_insumo,
+      codigo: row.codigo,
+    });
+    if (!qtdRes.ok) {
+      erros.push({
+        id_insumo: qtdRes.erro.id_insumo ?? row.id_insumo ?? null,
+        codigo: qtdRes.erro.codigo ?? row.codigo ?? null,
+        unidade_origem: qtdRes.erro.unidade_origem,
+        unidade_destino: qtdRes.erro.unidade_destino,
+        motivo: qtdRes.erro.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
+      });
+      continue;
+    }
+    ids.push(Number(row.id_item));
+    const persistido =
+      row.estoque_contado == null || row.estoque_contado === ''
+        ? null
+        : num(row.estoque_contado);
+    contados.push(qtdRes.qtd != null ? qtdRes.qtd : persistido);
+  }
+
+  if (erros.length) throw erroConversaoContagem(erros);
+  if (!ids.length) return { atualizados: 0 };
+
+  await client.query(
+    `UPDATE estoque_itens AS ei
+     SET estoque_contado = v.contado
+     FROM unnest($1::int[], $2::numeric[]) AS v(id_item, contado)
+     WHERE ei.id_item = v.id_item AND ei.id_contagem = $3`,
+    [ids, contados, idContagem],
+  );
+  return { atualizados: ids.length };
+}
+
 /** Extrai und_convertida / und_parcial das fórmulas D e H da planilha. */
 export function extrairFatoresFormula(fD, fH) {
   const mD = String(fD || '').match(/\/\s*([\d.,]+)/);

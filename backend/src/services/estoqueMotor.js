@@ -1337,7 +1337,13 @@ export async function processarVenda(idVenda, { criado_por = null } = {}, extern
 }
 
 /**
- * Ao finalizar contagem: ajusta saldo para o valor contado.
+ * Ao finalizar contagem: ajusta o saldo vivo para o valor contado (canônico).
+ *
+ * Referências (não misturar):
+ *   - Tela/divergência: estoque_itens.estoque_sistema (snapshot ao abrir).
+ *   - Fechamento: estoque_saldos.quantidade (saldo atual).
+ * O ajuste é delta = estoque_contado − saldo vivo, para o físico virar o saldo.
+ * estoque_sistema não entra no movimento — regra já existente, não inventada aqui.
  */
 export async function ajustarSaldoPorContagem(client, idContagem, criado_por = null) {
   const { rows: cont } = await client.query(
