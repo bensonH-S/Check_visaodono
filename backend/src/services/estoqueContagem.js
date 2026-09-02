@@ -325,12 +325,29 @@ export function unidadeFracionadaEfetiva(unidadeFracionada, unidadeContagem) {
   return String(unidadeContagem || 'UND').trim() || 'UND';
 }
 
-function precisaFatorFracionada(unidadeFracionada, unidadeContagem) {
+export function precisaFatorFracionada(unidadeFracionada, unidadeContagem) {
   const orig = normalizarUnidade(unidadeFracionadaEfetiva(unidadeFracionada, unidadeContagem));
   const dest = normalizarUnidade(unidadeContagem || orig);
   if (orig === dest) return false;
   if (fatorSi(orig, dest) != null) return false;
   return true;
+}
+
+/**
+ * Filtro SQL (alias p) para montar novas contagens.
+ * Mensal: participa. Diária/semanal: participa + flag do tipo.
+ */
+export function sqlFiltroItensContagem(tipoContagem) {
+  let sql = ' AND COALESCE(p.participa_contagem, TRUE) = TRUE';
+  if (tipoContagem === 'diaria') sql += ' AND p.contagem_diaria = TRUE';
+  if (tipoContagem === 'critica_semanal') sql += ' AND p.contagem_critica = TRUE';
+  return sql;
+}
+
+/** Situação da conversão fracionada → canônica para a matriz de configuração. */
+export function statusConversaoFracionada(unidadeFracionada, unidadeContagem, fatorOk) {
+  if (!precisaFatorFracionada(unidadeFracionada, unidadeContagem)) return 'nao_aplicavel';
+  return fatorOk ? 'validada' : 'pendente';
 }
 
 /** Unidades que o cadastro pode escolher para o campo fracionado. */
@@ -418,6 +435,10 @@ export async function garantirSchemaUnidadeFracionada(client) {
       SET unidade_fracionada = UPPER(TRIM(unidade_contagem))
       WHERE unidade_fracionada IS NULL
          OR BTRIM(unidade_fracionada) = ''
+    `);
+    await client.query(`
+      ALTER TABLE insumos
+        ADD COLUMN IF NOT EXISTS participa_contagem BOOLEAN NOT NULL DEFAULT TRUE
     `);
     schemaFracionadaOk = true;
   } catch (e) {

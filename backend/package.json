@@ -88,6 +88,7 @@
     "migrate:estoque-contagem-campos-bloqueados": "node scripts/run-sql.js migrations/165_estoque_contagem_campos_bloqueados.sql",
     "migrate:gestores-perms-marciel": "node scripts/run-sql.js migrations/166_gestores_perms_iguais_marciel.sql",
     "migrate:estoque-emprestimo-recebimento": "node scripts/run-sql.js migrations/167_estoque_emprestimo_recebimento.sql",
+    "migrate:estoque-participa-contagem": "node scripts/run-sql.js migrations/169_insumos_participa_contagem.sql",
     "test:estoque-consumo": "node --test src/services/estoqueConsumo.test.js",
     "migrate:estoque-unitario": "node scripts/run-sql.js migrations/101_produtos_requer_ficha.sql",
     "migrate:sim-indica-problema": "node scripts/run-sql.js migrations/089_perguntas_sim_indica_problema.sql",

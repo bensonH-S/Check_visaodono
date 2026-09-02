@@ -90,6 +90,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/configuracoes/cargos': { title: 'Cargos', icon: <BadgeIcon sx={iconSx} /> },
   '/configuracoes/whatsapp': { title: 'WhatsApp', icon: <WhatsAppIcon sx={{ fontSize: 22, color: '#25D366' }} /> },
   '/configuracoes/estoque-sync-nf': { title: 'Sync NF estoque', icon: <LocalShippingIcon sx={iconSx} /> },
+  '/configuracoes/contagem': { title: 'Configuração da Contagem', icon: <Inventory2Icon sx={iconSx} /> },
   '/configuracoes/notificacoes': { title: 'Notificações', icon: <NotificationsIcon sx={iconSx} /> },
   '/configuracoes/auditoria': { title: 'Auditoria', icon: <HistoryIcon sx={iconSx} /> },
   '/relatorio': { title: 'Relatório da Visita', icon: <DescriptionIcon sx={iconSx} /> },

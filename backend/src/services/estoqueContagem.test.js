@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 import {
   calcularQtdContagem,
   resolverQtdContagem,
+  sqlFiltroItensContagem,
+  statusConversaoFracionada,
   unidadeFracionadaEfetiva,
 } from './estoqueContagem.js';
 import {
@@ -146,5 +148,40 @@ describe('converterQuantidade — lookup em estoque_conversoes', () => {
     assert.equal(r.codigo, '021403');
     assert.equal(r.unidade_origem, 'und');
     assert.equal(r.unidade_destino, 'kg');
+  });
+});
+
+describe('sqlFiltroItensContagem', () => {
+  it('mensal exige participa_contagem', () => {
+    const sql = sqlFiltroItensContagem('completa');
+    assert.match(sql, /participa_contagem/);
+    assert.doesNotMatch(sql, /contagem_diaria/);
+    assert.doesNotMatch(sql, /contagem_critica/);
+  });
+
+  it('diária exige participa + contagem_diaria', () => {
+    const sql = sqlFiltroItensContagem('diaria');
+    assert.match(sql, /participa_contagem/);
+    assert.match(sql, /contagem_diaria = TRUE/);
+  });
+
+  it('semanal exige participa + contagem_critica', () => {
+    const sql = sqlFiltroItensContagem('critica_semanal');
+    assert.match(sql, /participa_contagem/);
+    assert.match(sql, /contagem_critica = TRUE/);
+  });
+});
+
+describe('statusConversaoFracionada', () => {
+  it('identidade não exige fator', () => {
+    assert.equal(statusConversaoFracionada('KG', 'KG', false), 'nao_aplicavel');
+  });
+
+  it('par distinto sem fator fica pendente', () => {
+    assert.equal(statusConversaoFracionada('UND', 'KG', false), 'pendente');
+  });
+
+  it('par distinto com fator validado', () => {
+    assert.equal(statusConversaoFracionada('UND', 'KG', true), 'validada');
   });
 });

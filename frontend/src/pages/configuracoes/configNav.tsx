@@ -7,6 +7,7 @@ import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import HistoryIcon from '@mui/icons-material/History';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import { getUsuario, temPermissao } from '../../lib/auth';
 import type { UsuarioSessao } from '../../lib/auth';
@@ -97,6 +98,17 @@ const CONFIG_NAV: ConfigNavSection[] = [
         label: 'WhatsApp',
         icon: <WhatsAppIcon fontSize="small" sx={{ color: '#25D366' }} />,
         permissoes: ['configuracoes.ver'],
+      },
+    ],
+  },
+  {
+    title: 'Estoque',
+    items: [
+      {
+        to: '/configuracoes/contagem',
+        label: 'Configuração da Contagem',
+        icon: <Inventory2Icon fontSize="small" />,
+        permissoes: ['estoque.produtos'],
       },
       {
         to: '/configuracoes/estoque-sync-nf',

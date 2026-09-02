@@ -11,9 +11,12 @@ import {
   flagsContagemDiaria,
   garantirSchemaUnidadeFracionada,
   mensagemErroConversao,
+  precisaFatorFracionada,
   recomputarEstoqueContadoContagem,
   resolverQtdContagem,
   SQL_ORDEM_PLANILHA,
+  sqlFiltroItensContagem,
+  statusConversaoFracionada,
   temCampoContagemLiberado,
   unidadeFracionadaEfetiva,
   validarUnidadeFracionadaCadastro,
@@ -114,9 +117,7 @@ function normalizarTipoContagem(raw) {
 }
 
 function filtroItensPorTipo(tipoContagem) {
-  if (tipoContagem === 'diaria') return ' AND p.contagem_diaria = TRUE';
-  if (tipoContagem === 'critica_semanal') return ' AND p.contagem_critica = TRUE';
-  return '';
+  return sqlFiltroItensContagem(tipoContagem);
 }
 
 function erroSemItensTipo(tipoContagem) {
@@ -188,6 +189,38 @@ async function criarContagemComItens(
   return idContagem;
 }
 
+function bodyTem(body, key) {
+  return Object.prototype.hasOwnProperty.call(body || {}, key) && body[key] !== undefined;
+}
+
+function boolOuPrev(body, key, prevBool, fallback = false) {
+  if (!bodyTem(body, key) || body[key] == null) return prevBool == null ? fallback : !!prevBool;
+  return !!body[key];
+}
+
+/** PUT: preserva flags explícitas. Não recalcula pela descrição. */
+function flagsDiariaPut(body, prev) {
+  const contagem_diaria = boolOuPrev(body, 'contagem_diaria', prev.contagem_diaria, false);
+  let grupo_diario = prev.grupo_diario || null;
+  if (bodyTem(body, 'grupo_diario')) {
+    const g = body.grupo_diario;
+    grupo_diario = g == null || String(g).trim() === '' ? null : String(g).trim();
+  }
+  if (!contagem_diaria) grupo_diario = null;
+  return { contagem_diaria, grupo_diario };
+}
+
+function flagsCriticaPut(body, prev) {
+  const contagem_critica = boolOuPrev(body, 'contagem_critica', prev.contagem_critica, false);
+  let grupo_critico = prev.grupo_critico || null;
+  if (bodyTem(body, 'grupo_critico')) {
+    const g = body.grupo_critico;
+    grupo_critico = g == null || String(g).trim() === '' ? null : String(g).trim();
+  }
+  if (!contagem_critica) grupo_critico = null;
+  return { contagem_critica, grupo_critico };
+}
+
 function flagBool(v, fallback = true) {
   if (v === null || v === undefined) return fallback;
   return v !== false && v !== 'f' && v !== 0 && v !== '0';
@@ -212,6 +245,11 @@ function mapProduto(row) {
     permite_contagem_caixa: flagBool(row.permite_contagem_caixa, true),
     permite_contagem_pc_fd: flagBool(row.permite_contagem_pc_fd, true),
     permite_contagem_kg_und: flagBool(row.permite_contagem_kg_und, true),
+    participa_contagem: flagBool(row.participa_contagem, true),
+    contagem_diaria: flagBool(row.contagem_diaria, false),
+    contagem_critica: flagBool(row.contagem_critica, false),
+    grupo_diario: row.grupo_diario != null ? String(row.grupo_diario) : null,
+    grupo_critico: row.grupo_critico != null ? String(row.grupo_critico) : null,
     entra_cmv: flagBool(row.entra_cmv, true),
     secao_contagem: row.secao_contagem != null ? String(row.secao_contagem) : null,
     ordem_contagem: row.ordem_contagem != null ? Number(row.ordem_contagem) : null,
@@ -802,14 +840,25 @@ async function criarInsumo(req, res, next) {
     }
 
     await garantirSchemaUnidadeFracionada(pool);
-    const diaria = flagsContagemDiaria(descricao);
+    const diariaHeuristica = flagsContagemDiaria(descricao);
+    const diaria = bodyTem(req.body, 'contagem_diaria')
+      ? {
+          contagem_diaria: !!req.body.contagem_diaria,
+          grupo_diario: req.body.contagem_diaria
+            ? (req.body.grupo_diario || diariaHeuristica.grupo_diario)
+            : null,
+        }
+      : diariaHeuristica;
+    const participa_contagem = bodyTem(req.body, 'participa_contagem')
+      ? !!req.body.participa_contagem
+      : true;
     const { rows } = await pool.query(
       `INSERT INTO insumos (
         id_loja, codigo, descricao, unidade_contagem, unidade_fracionada,
         preco_caixa, und_convertida, und_parcial,
-        ativo, contagem_diaria, grupo_diario,
+        ativo, participa_contagem, contagem_diaria, grupo_diario,
         permite_contagem_caixa, permite_contagem_pc_fd, permite_contagem_kg_und
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         idLoja,
@@ -820,6 +869,7 @@ async function criarInsumo(req, res, next) {
         preco_caixa,
         und_convertida,
         und_parcial,
+        participa_contagem,
         diaria.contagem_diaria,
         diaria.grupo_diario,
         permite_contagem_caixa,
@@ -927,16 +977,20 @@ async function atualizarInsumo(req, res, next) {
       });
     }
 
-    const diaria = flagsContagemDiaria(descricao);
+    const participa_contagem = boolOuPrev(req.body, 'participa_contagem', prev.participa_contagem, true);
+    const diaria = flagsDiariaPut(req.body, prev);
+    const critica = flagsCriticaPut(req.body, prev);
     await garantirSchemaUnidadeFracionada(pool);
     const { rows } = await pool.query(
       `UPDATE insumos
        SET codigo = $1, descricao = $2, unidade_contagem = $3, unidade_fracionada = $4,
            preco_caixa = $5, und_convertida = $6, und_parcial = $7,
-           ativo = $8, contagem_diaria = $9, grupo_diario = $10,
-           permite_contagem_caixa = $11, permite_contagem_pc_fd = $12, permite_contagem_kg_und = $13,
+           ativo = $8, participa_contagem = $9,
+           contagem_diaria = $10, grupo_diario = $11,
+           contagem_critica = $12, grupo_critico = $13,
+           permite_contagem_caixa = $14, permite_contagem_pc_fd = $15, permite_contagem_kg_und = $16,
            atualizado_em = NOW()
-       WHERE id_insumo = $14 AND id_loja = $15
+       WHERE id_insumo = $17 AND id_loja = $18
        RETURNING *`,
       [
         codigo,
@@ -947,8 +1001,11 @@ async function atualizarInsumo(req, res, next) {
         und_convertida,
         und_parcial,
         ativo,
+        participa_contagem,
         diaria.contagem_diaria,
         diaria.grupo_diario,
+        critica.contagem_critica,
+        critica.grupo_critico,
         permite_contagem_caixa,
         permite_contagem_pc_fd,
         permite_contagem_kg_und,
@@ -971,6 +1028,225 @@ async function atualizarInsumo(req, res, next) {
     next(e);
   }
 }
+
+function mapConfigContagem(row) {
+  const uf = unidadeFracionadaEfetiva(row.unidade_fracionada, row.unidade_contagem);
+  const uc = unidadeMaiuscula(row.unidade_contagem);
+  const fatorOk = row.fator_fracionada_status === 'validado';
+  return {
+    id_insumo: row.id_insumo,
+    codigo: row.codigo,
+    descricao: row.descricao,
+    ativo: row.ativo !== false,
+    participa_contagem: flagBool(row.participa_contagem, true),
+    contagem_diaria: flagBool(row.contagem_diaria, false),
+    contagem_critica: flagBool(row.contagem_critica, false),
+    permite_contagem_caixa: flagBool(row.permite_contagem_caixa, true),
+    permite_contagem_pc_fd: flagBool(row.permite_contagem_pc_fd, true),
+    permite_contagem_kg_und: flagBool(row.permite_contagem_kg_und, true),
+    unidade_contagem: uc,
+    unidade_fracionada: uf,
+    conversao_status: statusConversaoFracionada(uf, uc, fatorOk),
+  };
+}
+
+async function listarConfiguracaoContagem(req, res, next) {
+  try {
+    await garantirSchemaUnidadeFracionada(pool);
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const { rows } = await pool.query(
+      `SELECT p.id_insumo, p.codigo, p.descricao, p.ativo,
+              COALESCE(p.participa_contagem, TRUE) AS participa_contagem,
+              COALESCE(p.contagem_diaria, FALSE) AS contagem_diaria,
+              COALESCE(p.contagem_critica, FALSE) AS contagem_critica,
+              COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
+              COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
+              COALESCE(p.permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und,
+              p.unidade_contagem,
+              COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada
+       FROM insumos p
+       WHERE p.id_loja = $1 AND p.ativo = TRUE
+       ORDER BY ${SQL_ORDEM_PLANILHA}`,
+      [idLoja],
+    );
+    await anexarFatoresFracionada(pool, rows);
+    res.json({ id_loja: idLoja, itens: rows.map(mapConfigContagem) });
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function salvarConfiguracaoContagem(req, res, next) {
+  const client = await pool.connect();
+  let committed = false;
+  try {
+    await garantirSchemaUnidadeFracionada(client);
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
+    if (!itens.length) {
+      return res.status(400).json({ error: 'Nenhum produto para salvar' });
+    }
+    if (itens.length > 800) {
+      return res.status(400).json({ error: 'Lote grande demais (máx. 800)' });
+    }
+
+    await client.query('BEGIN');
+    const resumo = {
+      alterados: 0,
+      entrando_contagem: 0,
+      saindo_contagem: 0,
+      caixa: 0,
+      pc_fd: 0,
+      kg_und: 0,
+      diaria: 0,
+      critica: 0,
+      fracionada: 0,
+    };
+    const saida = [];
+
+    for (const item of itens) {
+      const idInsumo = Number(item?.id_insumo);
+      if (!Number.isFinite(idInsumo) || idInsumo <= 0) {
+        const err = new Error('Item sem id_insumo');
+        err.status = 400;
+        throw err;
+      }
+      const { rows: atuais } = await client.query(
+        `SELECT * FROM insumos WHERE id_insumo = $1 AND id_loja = $2 FOR UPDATE`,
+        [idInsumo, idLoja],
+      );
+      if (!atuais.length) {
+        const err = new Error(`Insumo ${idInsumo} não encontrado nesta loja`);
+        err.status = 400;
+        throw err;
+      }
+      const prev = atuais[0];
+      const participa_contagem = boolOuPrev(item, 'participa_contagem', prev.participa_contagem, true);
+      const diaria = flagsDiariaPut(item, prev);
+      const critica = flagsCriticaPut(item, prev);
+      const permite_contagem_caixa = boolOuPrev(item, 'permite_contagem_caixa', prev.permite_contagem_caixa, true);
+      const permite_contagem_pc_fd = boolOuPrev(item, 'permite_contagem_pc_fd', prev.permite_contagem_pc_fd, true);
+      const permite_contagem_kg_und = boolOuPrev(item, 'permite_contagem_kg_und', prev.permite_contagem_kg_und, true);
+      const ufPrev = unidadeFracionadaEfetiva(prev.unidade_fracionada, prev.unidade_contagem);
+      const unidade_fracionada = bodyTem(item, 'unidade_fracionada')
+        ? unidadeMaiuscula(item.unidade_fracionada)
+        : ufPrev;
+
+      if (
+        prev.ativo !== false &&
+        !temCampoContagemLiberado(permite_contagem_caixa, permite_contagem_pc_fd, permite_contagem_kg_und)
+      ) {
+        const err = new Error(
+          `${prev.codigo}: libere pelo menos um campo de contagem (caixa, pacote ou kg/und).`,
+        );
+        err.status = 400;
+        throw err;
+      }
+
+      if (unidade_fracionada !== ufPrev || precisaFatorFracionada(unidade_fracionada, prev.unidade_contagem)) {
+        if (unidade_fracionada !== ufPrev) {
+          const par = await validarUnidadeFracionadaCadastro(client, {
+            idInsumo,
+            codigo: prev.codigo,
+            unidadeFracionada: unidade_fracionada,
+            unidadeContagem: prev.unidade_contagem,
+          });
+          if (!par.ok) {
+            const err = new Error(`${prev.codigo}: ${par.error}`);
+            err.status = 400;
+            err.codigo = prev.codigo;
+            err.motivo = par.motivo;
+            throw err;
+          }
+        }
+      }
+
+      const upd = await client.query(
+        `UPDATE insumos
+         SET participa_contagem = $1,
+             contagem_diaria = $2, grupo_diario = $3,
+             contagem_critica = $4, grupo_critico = $5,
+             permite_contagem_caixa = $6, permite_contagem_pc_fd = $7, permite_contagem_kg_und = $8,
+             unidade_fracionada = $9,
+             atualizado_em = NOW()
+         WHERE id_insumo = $10 AND id_loja = $11 AND ativo = TRUE
+         RETURNING *`,
+        [
+          participa_contagem,
+          diaria.contagem_diaria,
+          diaria.grupo_diario,
+          critica.contagem_critica,
+          critica.grupo_critico,
+          permite_contagem_caixa,
+          permite_contagem_pc_fd,
+          permite_contagem_kg_und,
+          unidade_fracionada,
+          idInsumo,
+          idLoja,
+        ],
+      );
+      if (upd.rowCount !== 1) {
+        const err = new Error(`${prev.codigo}: não foi possível atualizar (produto inativo?)`);
+        err.status = 400;
+        throw err;
+      }
+      const next = upd.rows[0];
+      if (!!prev.participa_contagem !== !!next.participa_contagem) {
+        if (next.participa_contagem) resumo.entrando_contagem += 1;
+        else resumo.saindo_contagem += 1;
+      }
+      if (!!prev.permite_contagem_caixa !== !!next.permite_contagem_caixa) resumo.caixa += 1;
+      if (!!prev.permite_contagem_pc_fd !== !!next.permite_contagem_pc_fd) resumo.pc_fd += 1;
+      if (!!prev.permite_contagem_kg_und !== !!next.permite_contagem_kg_und) resumo.kg_und += 1;
+      if (!!prev.contagem_diaria !== !!next.contagem_diaria) resumo.diaria += 1;
+      if (!!prev.contagem_critica !== !!next.contagem_critica) resumo.critica += 1;
+      if (ufPrev !== unidadeFracionadaEfetiva(next.unidade_fracionada, next.unidade_contagem)) {
+        resumo.fracionada += 1;
+      }
+      resumo.alterados += 1;
+      saida.push(next);
+    }
+
+    await anexarFatoresFracionada(client, saida);
+    await client.query('COMMIT');
+    committed = true;
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'atualizar',
+      entidade: 'configuracao_contagem',
+      idReferencia: idLoja,
+      descricao: `Configuração da contagem (loja ${idLoja}): ${resumo.alterados} insumos`,
+    });
+    res.json({
+      id_loja: idLoja,
+      resumo,
+      itens: saida.map(mapConfigContagem),
+    });
+  } catch (err) {
+    if (!committed) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore */
+      }
+    }
+    if (err.status === 400) {
+      return res.status(400).json({ error: err.message, codigo: err.codigo, motivo: err.motivo });
+    }
+    next(err);
+  } finally {
+    client.release();
+  }
+}
+
+router.get('/configuracao-contagem', permProdutos, listarConfiguracaoContagem);
+router.put('/configuracao-contagem', permProdutos, salvarConfiguracaoContagem);
 
 router.get('/insumos', permProdutosOuOp, listarInsumos);
 router.get('/produtos', permProdutosOuOp, listarInsumos);

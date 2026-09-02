@@ -14,6 +14,7 @@ export default function RotaConfiguracoes({ children }: Props) {
     podeGerenciarChecklistPerguntas(user) ||
     temPermissao('usuarios.gerenciar', user) ||
     temPermissao('portal.lojas.ver', user) ||
+    temPermissao('estoque.produtos', user) ||
     podeGerirNotificacoes(user) ||
     podeVerAuditoria(user);
   if (!permitido) return <Navigate to={primeiraRotaPermitida(user)} replace />;

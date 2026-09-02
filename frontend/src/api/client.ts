@@ -985,6 +985,32 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  estoqueConfiguracaoContagem: (idLoja: number) =>
+    request<{ id_loja: number; itens: InsumoConfigContagem[] }>(
+      `/estoque/configuracao-contagem?id_loja=${idLoja}`,
+    ),
+  estoqueSalvarConfiguracaoContagem: (body: {
+    id_loja: number;
+    itens: Array<
+      Pick<InsumoConfigContagem, 'id_insumo'> &
+        Partial<
+          Pick<
+            InsumoConfigContagem,
+            | 'participa_contagem'
+            | 'contagem_diaria'
+            | 'contagem_critica'
+            | 'permite_contagem_caixa'
+            | 'permite_contagem_pc_fd'
+            | 'permite_contagem_kg_und'
+            | 'unidade_fracionada'
+          >
+        >
+    >;
+  }) =>
+    request<{ id_loja: number; resumo: ConfigContagemResumo; itens: InsumoConfigContagem[] }>(
+      '/estoque/configuracao-contagem',
+      { method: 'PUT', body: JSON.stringify(body) },
+    ),
   estoqueLojas: (params?: { ativas?: boolean; operacionais?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.ativas) q.set('ativas', '1');
@@ -2691,6 +2717,11 @@ export interface ProdutoEstoque {
   permite_contagem_caixa?: boolean;
   permite_contagem_pc_fd?: boolean;
   permite_contagem_kg_und?: boolean;
+  participa_contagem?: boolean;
+  contagem_diaria?: boolean;
+  contagem_critica?: boolean;
+  grupo_diario?: string | null;
+  grupo_critico?: string | null;
   ativo: boolean;
   criado_em?: string;
   atualizado_em?: string;
@@ -2705,7 +2736,43 @@ export type ProdutoEstoqueInput = {
   preco_caixa?: number;
   und_convertida?: number;
   und_parcial?: number;
+  participa_contagem?: boolean;
+  contagem_diaria?: boolean;
+  contagem_critica?: boolean;
+  permite_contagem_caixa?: boolean;
+  permite_contagem_pc_fd?: boolean;
+  permite_contagem_kg_und?: boolean;
 };
+
+export type ConversaoContagemStatus = 'nao_aplicavel' | 'validada' | 'pendente' | 'bloqueada';
+
+export interface InsumoConfigContagem {
+  id_insumo: number;
+  codigo: string;
+  descricao: string;
+  ativo: boolean;
+  participa_contagem: boolean;
+  contagem_diaria: boolean;
+  contagem_critica: boolean;
+  permite_contagem_caixa: boolean;
+  permite_contagem_pc_fd: boolean;
+  permite_contagem_kg_und: boolean;
+  unidade_contagem: string;
+  unidade_fracionada: string;
+  conversao_status: ConversaoContagemStatus;
+}
+
+export interface ConfigContagemResumo {
+  alterados: number;
+  entrando_contagem: number;
+  saindo_contagem: number;
+  caixa: number;
+  pc_fd: number;
+  kg_und: number;
+  diaria: number;
+  critica: number;
+  fracionada: number;
+}
 
 export interface EstoqueContagemResumo {
   id_contagem: number;

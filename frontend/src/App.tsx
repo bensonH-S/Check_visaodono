@@ -74,6 +74,7 @@ import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
 import NotificacoesPage from './pages/configuracoes/NotificacoesPage';
 import AuditoriaPage from './pages/configuracoes/AuditoriaPage';
 import EstoqueSyncNfPage from './pages/configuracoes/EstoqueSyncNfPage';
+import ConfiguracaoContagemPage from './pages/configuracoes/ConfiguracaoContagemPage';
 import RotaAuditoria from './components/RotaAuditoria';
 import RotaConfiguracoes from './components/RotaConfiguracoes';
 import RotaPermissao from './components/RotaPermissao';
@@ -595,6 +596,14 @@ export default function App() {
                 element={
                   <RotaPermissao permissoes={['configuracoes.ver', 'estoque.operacional']}>
                     <EstoqueSyncNfPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="contagem"
+                element={
+                  <RotaPermissao permissoes={['estoque.produtos']}>
+                    <ConfiguracaoContagemPage />
                   </RotaPermissao>
                 }
               />
