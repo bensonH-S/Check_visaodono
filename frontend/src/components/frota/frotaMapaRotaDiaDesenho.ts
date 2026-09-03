@@ -94,13 +94,18 @@ function prepararRotasDesenho(rotas: FrotaRotaDiaSegmento[], pontos: FrotaVeicul
 }
 
 function coordsDesenhoRota(rota: FrotaRotaDiaSegmento): LatLngPar[] {
-  const ruas = rota.coords_rua;
-  if (ruas && ruas.length >= 2) {
-    return ruas
-      .map(([lat, lng]) => [Number(lat), Number(lng)] as LatLngPar)
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  const gps = coordsRota(rota.pontos ?? []);
+  const ruas = (rota.coords_rua ?? [])
+    .map(([lat, lng]) => [Number(lat), Number(lng)] as LatLngPar)
+    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  // Só usa coords_rua se parecer geometria densificada pelo map-match (não cópia do GPS).
+  if (
+    ruas.length >= 2 &&
+    (gps.length < 2 || ruas.length >= Math.max(gps.length + 5, Math.ceil(gps.length * 1.4)))
+  ) {
+    return ruas;
   }
-  return coordsRota(rota.pontos ?? []);
+  return gps;
 }
 
 function distanciaCoordsMetros(a: LatLngPar, b: LatLngPar): number {
@@ -386,6 +391,7 @@ function desenharExcesso(
   marcadorLayer: L.LayerGroup,
   linhaLayer: L.LayerGroup,
   bounds: L.LatLngBounds,
+  corExcesso = COR_EXCESSO,
 ) {
   const cInicio = excesso.inicio as LatLngPar;
   const cFim = excesso.fim as LatLngPar;
@@ -427,7 +433,7 @@ function desenharExcesso(
   );
   L.polyline(coordsLinha, {
     pane: PANE_EXCESSO_LINHA,
-    color: COR_EXCESSO,
+    color: corExcesso,
     weight: 4,
     opacity: 1,
     lineCap: 'butt',
@@ -500,6 +506,7 @@ export function desenharRotaDiaNoMapa(
   pontos: FrotaVeiculoHistoricoPonto[],
   excessosMapa: FrotaExcessoMapaItem[],
   limiteKmh: number,
+  opcoes?: { coresRota?: readonly string[]; corExcesso?: string },
 ): L.LatLngBounds | null {
   limparCamadasRotaDia(camadas);
 
@@ -507,9 +514,12 @@ export function desenharRotaDiaNoMapa(
   const pontosTrajeto = rotasDesenho.flatMap((r) => r.pontos ?? []);
   const coordsPercurso: LatLngPar[] = [];
   let bounds = L.latLngBounds([]);
+  const cores = opcoes?.coresRota?.length ? opcoes.coresRota : CORES_ROTAS;
+  const corExcesso = opcoes?.corExcesso ?? COR_EXCESSO;
+  const pesoRota = opcoes?.coresRota?.length ? 6 : 5;
 
   for (const excesso of excessosMapa) {
-    desenharExcesso(excesso, limiteKmh, camadas.excessoMarcador, camadas.excessoLinha, bounds);
+    desenharExcesso(excesso, limiteKmh, camadas.excessoMarcador, camadas.excessoLinha, bounds, corExcesso);
   }
 
   for (const evento of agruparEventosParado(pontosTrajeto.length ? pontosTrajeto : pontos)) {
@@ -520,12 +530,12 @@ export function desenharRotaDiaNoMapa(
     const coords = coordsDesenhoRota(rota);
     if (coords.length < 2) continue;
     coordsPercurso.push(...coords);
-    const cor = CORES_ROTAS[idx % CORES_ROTAS.length];
+    const cor = cores[idx % cores.length];
     const polyline = L.polyline(coords, {
       pane: PANE_ROTA,
       color: cor,
-      weight: 5,
-      opacity: 0.9,
+      weight: pesoRota,
+      opacity: 0.95,
       lineCap: 'round',
       lineJoin: 'round',
     }).addTo(camadas.rota);

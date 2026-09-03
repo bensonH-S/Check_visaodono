@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+// Removed ThemeProvider and CssBaseline since they are inside CustomThemeProvider
 import { appBasePath } from './config/paths';
-import { theme } from './theme';
+import { CustomThemeProvider } from './context/ThemeContext';
 import RequireAuth from './components/RequireAuth';
 import PortalLayout from './layout/PortalLayout';
 import ChamadosMobileLayout from './layout/ChamadosMobileLayout';
@@ -87,8 +87,7 @@ import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
 export default function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <CustomThemeProvider>
       <AppToastContainer />
       <ZoomWarning />
       <BrowserRouter basename={appBasePath}>
@@ -623,6 +622,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
-    </ThemeProvider>
+    </CustomThemeProvider>
   );
 }

@@ -23,16 +23,19 @@ import {
 } from './frotaMapaVeiculo';
 import {
   CORES_TRAJETO_FROTA,
+  CORES_TRAJETO_FROTA_ESCURO,
   COR_EXCESSO_FROTA,
   COR_FIM_TRAJETO,
   COR_INICIO_TRAJETO,
   COR_PARADO_FROTA,
+  FROTA_MAPA_ESCURO_FUNDO,
   FROTA_MAPA_FUNDO,
-  criarCamadaBasemapLimpo,
+  criarCamadaBasemapClaro,
+  criarCamadaBasemapEscuro,
 } from './frotaMapaBasemap';
+import { useAppTheme } from '../../context/ThemeContext';
 import './mapaMarcadores.css';
 
-const CORES_ROTAS = [...CORES_TRAJETO_FROTA];
 const VISTA_BRASILIA: L.LatLngExpression = [-15.7939, -47.8828];
 const ZOOM_BRASILIA = 11;
 const PANE_ROTA = 'paneRota';
@@ -278,10 +281,20 @@ function trazerGrupoParaFrente(grupo: L.LayerGroup, mapa: L.Map) {
 }
 
 function boundsSomenteRota(coordsListas: LatLngPar[][]): L.LatLngBounds | null {
-  const todas = coordsListas.flat();
-  if (!todas.length) return null;
-  let bounds = L.latLngBounds(todas[0], todas[0]);
-  for (const c of todas.slice(1)) bounds.extend(c);
+  const bounds = L.latLngBounds([]);
+  for (const lista of coordsListas) {
+    for (const c of lista) bounds.extend(c);
+  }
+  return bounds.isValid() ? bounds : null;
+}
+
+function boundsLojas(lojas: { latitude?: number | null; longitude?: number | null }[]): L.LatLngBounds | null {
+  const bounds = L.latLngBounds([]);
+  for (const loja of lojas) {
+    const lat = Number(loja.latitude);
+    const lng = Number(loja.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) bounds.extend([lat, lng]);
+  }
   return bounds.isValid() ? bounds : null;
 }
 
@@ -570,13 +583,17 @@ function adicionarMarcadorExcesso(
 }
 
 function coordsDesenhoRota(rota: FrotaRotaDiaSegmento): LatLngPar[] {
-  const ruas = rota.coords_rua;
-  if (ruas && ruas.length >= 2) {
-    return ruas
-      .map(([lat, lng]) => [Number(lat), Number(lng)] as LatLngPar)
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  const gps = coordsRota(rota.pontos ?? []);
+  const ruas = (rota.coords_rua ?? [])
+    .map(([lat, lng]) => [Number(lat), Number(lng)] as LatLngPar)
+    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+  if (
+    ruas.length >= 2 &&
+    (gps.length < 2 || ruas.length >= Math.max(gps.length + 5, Math.ceil(gps.length * 1.4)))
+  ) {
+    return ruas;
   }
-  return coordsRota(rota.pontos ?? []);
+  return gps;
 }
 
 function desenharExcessoMapa(
@@ -701,8 +718,12 @@ export default function FrotaRotaDiaMap({
   mostrarPlacasExcesso = true,
   passagensPorLoja = {},
 }: Props) {
+  const { mode } = useAppTheme();
+  const mapaEscuro = mode === 'dark';
+  const coresRota = mapaEscuro ? CORES_TRAJETO_FROTA_ESCURO : CORES_TRAJETO_FROTA;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const baseLayerRef = useRef<L.Layer | null>(null);
   const rotaLayerRef = useRef<L.LayerGroup | null>(null);
   const paradoLayerRef = useRef<L.LayerGroup | null>(null);
   const excessoLayerRef = useRef<L.LayerGroup | null>(null);
@@ -717,15 +738,16 @@ export default function FrotaRotaDiaMap({
   const [alinhandoRuas, setAlinhandoRuas] = useState(false);
 
   const ajustarVista = useCallback((mapa: L.Map, bounds: L.LatLngBounds | null) => {
+    mapa.invalidateSize(false);
     if (!bounds || !bounds.isValid()) {
-      mapa.setView(VISTA_BRASILIA, ZOOM_BRASILIA);
+      mapa.setView(VISTA_BRASILIA, ZOOM_BRASILIA, { animate: false });
       return;
     }
     if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
-      mapa.setView(bounds.getCenter(), 15);
+      mapa.setView(bounds.getCenter(), 15, { animate: false });
       return;
     }
-    mapa.fitBounds(bounds, { padding: [56, 56], maxZoom: 16, animate: true });
+    mapa.fitBounds(bounds, { padding: [56, 56], maxZoom: 15, animate: false });
   }, []);
 
   const desenharRotas = useCallback(() => {
@@ -822,7 +844,7 @@ export default function FrotaRotaDiaMap({
         const coords = coordsDesenhoRota(rota);
         if (coords.length < 2) continue;
         coordsPercurso.push(...coords);
-        const cor = CORES_ROTAS[idx % CORES_ROTAS.length];
+        const cor = coresRota[idx % coresRota.length];
         desenharPolylineRota(coords, cor, rotaLayer, mapa, rota, 0.9, destaqueLayer, limiteKmh);
         desenharMarcadoresRota(coords, rota.id, cor, rotaLayer);
       }
@@ -838,7 +860,13 @@ export default function FrotaRotaDiaMap({
       trazerGrupoParaFrente(excessoLayer, mapa);
       trazerGrupoParaFrente(destaqueLayer, mapa);
 
-      boundsRef.current = boundsSomenteRota([coordsPercurso]);
+      const boundsRota = boundsSomenteRota([coordsPercurso]);
+      const boundsLoja = boundsLojas(lojas);
+      boundsRef.current = boundsRota ?? boundsLoja;
+      if (boundsRef.current && boundsLoja && boundsRota) {
+        boundsRef.current.extend(boundsLoja.getSouthWest());
+        boundsRef.current.extend(boundsLoja.getNorthEast());
+      }
       ajustarVista(mapa, boundsRef.current);
       window.requestAnimationFrame(() => {
         mapa.invalidateSize(false);
@@ -850,7 +878,7 @@ export default function FrotaRotaDiaMap({
         setAlinhandoRuas(false);
       }
     }
-  }, [rotas, pontos, excessosMapa, lojas, limiteKmh, diaAtual, veiculoAoVivo, veiculoInfo, mostrarParadas, mostrarPlacasExcesso, passagensPorLoja, ajustarVista]);
+  }, [rotas, pontos, excessosMapa, lojas, limiteKmh, diaAtual, veiculoAoVivo, veiculoInfo, mostrarParadas, mostrarPlacasExcesso, passagensPorLoja, ajustarVista, coresRota]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -876,9 +904,10 @@ export default function FrotaRotaDiaMap({
     }
     elevarPanesPopupMapa(mapa);
 
-    criarCamadaBasemapLimpo().addTo(mapa);
+    const base = mapaEscuro ? criarCamadaBasemapEscuro() : criarCamadaBasemapClaro();
+    baseLayerRef.current = base.addTo(mapa);
     if (container) {
-      container.style.background = FROTA_MAPA_FUNDO;
+      container.style.background = mapaEscuro ? FROTA_MAPA_ESCURO_FUNDO : FROTA_MAPA_FUNDO;
     }
     rotaLayerRef.current = L.layerGroup().addTo(mapa);
     lojasLayerRef.current = L.layerGroup().addTo(mapa);
@@ -911,6 +940,7 @@ export default function FrotaRotaDiaMap({
       observer.disconnect();
       mapa.remove();
       mapRef.current = null;
+      baseLayerRef.current = null;
       rotaLayerRef.current = null;
       lojasLayerRef.current = null;
       excessoLayerRef.current = null;
@@ -921,7 +951,7 @@ export default function FrotaRotaDiaMap({
       boundsRef.current = null;
       setMapaPronto(false);
     };
-  }, [ajustarVista]);
+  }, [ajustarVista, mapaEscuro]);
 
   useEffect(() => {
     if (!mapaPronto) return;

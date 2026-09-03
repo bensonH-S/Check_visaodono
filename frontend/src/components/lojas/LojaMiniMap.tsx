@@ -4,7 +4,13 @@ import Paper from '@mui/material/Paper';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { colors } from '../../theme/tokens';
-import { criarCamadaBasemapLimpo } from '../frota/frotaMapaBasemap';
+import { useAppTheme } from '../../context/ThemeContext';
+import {
+  FROTA_MAPA_ESCURO_FUNDO,
+  FROTA_MAPA_FUNDO,
+  criarCamadaBasemapClaro,
+  criarCamadaBasemapEscuro,
+} from '../frota/frotaMapaBasemap';
 
 const PIN_ICON = L.divIcon({
   className: '',
@@ -27,10 +33,6 @@ const btnMapaSx = {
   color: 'text.primary',
   fontFamily: 'inherit',
 };
-
-function criarCamadaRua() {
-  return criarCamadaBasemapLimpo();
-}
 
 function criarCamadaSatelite() {
   return L.tileLayer('https://{s}.google.com/vt/lyrs=y&hl=pt-BR&x={x}&y={y}&z={z}', {
@@ -61,10 +63,12 @@ function coordenadaValida(lat: number | null, lng: number | null) {
 }
 
 export default function LojaMiniMap({ latitude, longitude, onChange, height = 220 }: Props) {
+  const { mode } = useAppTheme();
+  const mapaEscuro = mode === 'dark';
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
-  const camadaRef = useRef<L.TileLayer | null>(null);
+  const camadaRef = useRef<L.Layer | null>(null);
   const onChangeRef = useRef(onChange);
   const [tipoMapa, setTipoMapa] = useState<TipoMapa>('rua');
 
@@ -74,8 +78,8 @@ export default function LojaMiniMap({ latitude, longitude, onChange, height = 22
     if (!mapRef.current || mapInstance.current) return;
 
     const temPos = coordenadaValida(latitude, longitude);
-    const center: L.LatLngExpression = temPos ? [latitude!, longitude!] : [-15.78, -47.93];
-    const zoom = temPos ? 16 : 4;
+    const center: L.LatLngExpression = temPos ? [latitude!, longitude!] : [-15.7801, -47.9292];
+    const zoom = temPos ? 16 : 11;
 
     const mapa = L.map(mapRef.current, {
       center,
@@ -128,9 +132,15 @@ export default function LojaMiniMap({ latitude, longitude, onChange, height = 22
       mapa.removeLayer(camadaRef.current);
     }
 
-    camadaRef.current = tipoMapa === 'satelite' ? criarCamadaSatelite() : criarCamadaRua();
+    if (tipoMapa === 'satelite') {
+      camadaRef.current = criarCamadaSatelite();
+      mapa.getContainer().style.background = FROTA_MAPA_FUNDO;
+    } else {
+      camadaRef.current = mapaEscuro ? criarCamadaBasemapEscuro() : criarCamadaBasemapClaro();
+      mapa.getContainer().style.background = mapaEscuro ? FROTA_MAPA_ESCURO_FUNDO : FROTA_MAPA_FUNDO;
+    }
     camadaRef.current.addTo(mapa);
-  }, [tipoMapa]);
+  }, [tipoMapa, mapaEscuro]);
 
   useEffect(() => {
     const mapa = mapInstance.current;
@@ -162,54 +172,53 @@ export default function LojaMiniMap({ latitude, longitude, onChange, height = 22
         borderRadius: 1,
         overflow: 'hidden',
         border: `1px solid ${colors.border}`,
+        bgcolor: mapaEscuro ? FROTA_MAPA_ESCURO_FUNDO : FROTA_MAPA_FUNDO,
         '& .leaflet-control-zoom': { border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,.2)' },
+        '& .leaflet-gl-layer, & .maplibregl-map': { zIndex: 0 },
       }}
     >
       <Box
         sx={{
           position: 'absolute',
-          bottom: 8,
-          left: 8,
+          top: 8,
+          right: 8,
           zIndex: 1000,
+          display: 'flex',
+          gap: 0,
+          bgcolor: 'background.paper',
+          borderRadius: 1,
+          boxShadow: 1,
+          overflow: 'hidden',
         }}
+        component={Paper}
+        elevation={2}
       >
-        <Paper
-          elevation={3}
+        <Box
+          component="button"
+          type="button"
+          onClick={() => setTipoMapa('rua')}
           sx={{
-            display: 'flex',
-            borderRadius: 0.75,
-            overflow: 'hidden',
+            ...btnMapaSx,
+            border: 'none',
+            bgcolor: tipoMapa === 'rua' ? 'action.selected' : 'transparent',
+            cursor: 'pointer',
           }}
         >
-          <Box
-            component="button"
-            type="button"
-            onClick={() => setTipoMapa('rua')}
-            sx={{
-              ...btnMapaSx,
-              bgcolor: tipoMapa === 'rua' ? 'grey.200' : 'background.paper',
-              border: 'none',
-              cursor: 'pointer',
-              borderRight: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            Mapa
-          </Box>
-          <Box
-            component="button"
-            type="button"
-            onClick={() => setTipoMapa('satelite')}
-            sx={{
-              ...btnMapaSx,
-              bgcolor: tipoMapa === 'satelite' ? 'grey.200' : 'background.paper',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            Satélite
-          </Box>
-        </Paper>
+          Mapa
+        </Box>
+        <Box
+          component="button"
+          type="button"
+          onClick={() => setTipoMapa('satelite')}
+          sx={{
+            ...btnMapaSx,
+            border: 'none',
+            bgcolor: tipoMapa === 'satelite' ? 'action.selected' : 'transparent',
+            cursor: 'pointer',
+          }}
+        >
+          Satélite
+        </Box>
       </Box>
       <Box ref={mapRef} sx={{ width: '100%', height: '100%' }} />
     </Box>

@@ -2,15 +2,58 @@
 @import "tailwindcss";
 
 :root {
-  --ga-navy: #1b2a6b;
-  --ga-orange: #e8520a;
-  --ga-canvas: #f9fafb;
-  --ga-surface: #ffffff;
-  --ga-border: #e5e7eb;
+  /* Light Theme (Default) */
+  --ga-navy: #1B2A6B;
+  --ga-navy-dark: #152056;
+  --ga-navy-muted: rgba(27, 42, 107, 0.06);
+  --ga-navy-border: rgba(27, 42, 107, 0.1);
+  --ga-orange: #E8520A;
+  --ga-orange-hover: #CF4909;
+  --ga-orange-light: #FFF7F3;
+  --ga-surface: #FFFFFF;
+  --ga-canvas: #F9FAFB;
+  --ga-canvas-alt: #F3F4F6;
+  --ga-border: #E5E7EB;
+  --ga-border-strong: #D1D5DB;
+  --ga-text-primary: #111827;
+  --ga-text-secondary: #6B7280;
+  --ga-text-muted: #9CA3AF;
+  --ga-sidebar-bg: #FFFFFF;
+  --ga-sidebar-border: #E5E7EB;
+  --ga-sidebar-active-bg: rgba(27, 42, 107, 0.06);
+  --ga-sidebar-active-text: #1B2A6B;
+  --ga-sidebar-active-border: #E8520A;
+  --ga-sidebar-active-icon: #1B2A6B;
+
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+}
+
+:root.dark {
+  /* Dark Theme */
+  --ga-navy: #1B2A6B; /* Mantendo identidade visual primária */
+  --ga-navy-dark: #152056;
+  --ga-navy-muted: rgba(255, 255, 255, 0.04);
+  --ga-navy-border: rgba(255, 255, 255, 0.08);
+  --ga-orange: #E8520A;
+  --ga-orange-hover: #F97316;
+  --ga-orange-light: rgba(232, 82, 10, 0.1);
+  --ga-surface: #1E293B; /* Superfície Graphite/Navy */
+  --ga-canvas: #0F172A; /* Fundo Navy quase preto */
+  --ga-canvas-alt: #0B1120;
+  --ga-border: rgba(255, 255, 255, 0.15);
+  --ga-border-strong: rgba(255, 255, 255, 0.3);
+  --ga-text-primary: #F8FAFC;
+  --ga-text-secondary: #94A3B8;
+  --ga-text-muted: #64748B;
+  --ga-sidebar-bg: #0F172A;
+  --ga-sidebar-border: rgba(255, 255, 255, 0.12);
+  --ga-sidebar-active-bg: rgba(255, 255, 255, 0.04);
+  --ga-sidebar-active-text: #F8FAFC;
+  --ga-sidebar-active-border: #E8520A;
+  --ga-sidebar-active-icon: #E8520A;
 }
 
 html {

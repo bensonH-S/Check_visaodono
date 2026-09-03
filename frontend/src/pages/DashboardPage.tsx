@@ -1,180 +1,204 @@
-import { useEffect, useState } from 'react';
-import Grid from '@mui/material/Grid';
-import Typography from '@mui/material/Typography';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import LinearProgress from '@mui/material/LinearProgress';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
 import { api } from '../api/client';
-import type { DashboardData, DashboardSaudeLojasData } from '../api/client';
-import DashboardMetricCards from '../components/dashboard/DashboardMetricCards';
-import DashboardRankingChart from '../components/dashboard/DashboardRankingChart';
-import DashboardNcsChart from '../components/dashboard/DashboardNcsChart';
-import DashboardSaudeLojas from '../components/dashboard/DashboardSaudeLojas';
-import { colors } from '../theme/tokens';
-
-type Modo = 'rede' | 'loja';
+import type { DashboardData, FrotaMapaPosicoes, RankingLoja } from '../api/client';
+import { podeVerMapaTecnicosMobile } from '../lib/auth';
+import { useCommandCenterFilters } from '../context/CommandCenterFiltersContext';
+import CcKpiRow from '../components/dashboard/commandCenter/CcKpiRow';
+import CcAtencao from '../components/dashboard/commandCenter/CcAtencao';
+import CcRanking from '../components/dashboard/commandCenter/CcRanking';
+import CcFrota from '../components/dashboard/commandCenter/CcFrota';
+import CcNcsDonut from '../components/dashboard/commandCenter/CcNcsDonut';
+import CcEvolucao from '../components/dashboard/commandCenter/CcEvolucao';
+import CcAtividades from '../components/dashboard/commandCenter/CcAtividades';
+import { LIMITE_VELOCIDADE_KMH } from '../components/dashboard/commandCenter/ccFormat';
 
 export default function DashboardPage() {
-  const [modo, setModo] = useState<Modo>('rede');
+  const { data: dataFiltro, regiaoId } = useCommandCenterFilters();
   const [data, setData] = useState<DashboardData | null>(null);
-  const [saude, setSaude] = useState<DashboardSaudeLojasData | null>(null);
+  const [ranking, setRanking] = useState<RankingLoja[]>([]);
+  const [frota, setFrota] = useState<FrotaMapaPosicoes | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingFrota, setLoadingFrota] = useState(false);
   const [err, setErr] = useState('');
-  const [errSaude, setErrSaude] = useState('');
-  const [loadingSaude, setLoadingSaude] = useState(false);
-  const [idLojaFoco, setIdLojaFoco] = useState<number | null>(null);
+  const [errFrota, setErrFrota] = useState<string | null>(null);
+
+  const podeFrota = podeVerMapaTecnicosMobile();
+  const filtrosDash = useMemo(
+    () => ({ data: dataFiltro, id_regiao: regiaoId }),
+    [dataFiltro, regiaoId],
+  );
+
+  const carregarFrota = useCallback(() => {
+    if (!podeFrota) {
+      setFrota(null);
+      setErrFrota('Sem permissão para visualizar o mapa da frota.');
+      return;
+    }
+    setLoadingFrota(true);
+    setErrFrota(null);
+    api
+      .frotaMapaPosicoes({ id_regiao: regiaoId })
+      .then(setFrota)
+      .catch((e) => {
+        setFrota(null);
+        setErrFrota(e?.message || 'Não foi possível carregar a frota.');
+      })
+      .finally(() => setLoadingFrota(false));
+  }, [podeFrota, regiaoId]);
+
+  const carregar = useCallback(() => {
+    setLoading(true);
+    setErr('');
+    Promise.all([
+      api.dashboard(filtrosDash),
+      api.ranking({ id_regiao: regiaoId }).catch(() => [] as RankingLoja[]),
+    ])
+      .then(([dash, rank]) => {
+        setData(dash);
+        setRanking(rank.length ? rank : dash.ranking || []);
+      })
+      .catch((e) => setErr(e?.message || 'Falha ao carregar o Command Center.'))
+      .finally(() => setLoading(false));
+    carregarFrota();
+  }, [carregarFrota, filtrosDash, regiaoId]);
 
   useEffect(() => {
-    api.dashboard().then(setData).catch((e) => setErr(e.message));
-    // Pré-carrega ficha por loja em paralelo
-    setLoadingSaude(true);
-    api
-      .dashboardSaudeLojas()
-      .then(setSaude)
-      .catch((e) => setErrSaude(e.message || 'Não foi possível carregar a saúde das lojas.'))
-      .finally(() => setLoadingSaude(false));
-  }, []);
+    carregar();
+  }, [carregar]);
 
-  if (err) return <Typography color="error">{err}</Typography>;
-  if (!data) return <LinearProgress />;
+  useEffect(() => {
+    if (!podeFrota) return;
+    const id = window.setInterval(() => carregarFrota(), 60_000);
+    return () => window.clearInterval(id);
+  }, [podeFrota, carregarFrota]);
 
-  const ncsPorGravidade =
-    data.ncs_por_gravidade?.length
-      ? data.ncs_por_gravidade
-      : data.metricas.total_ncs_abertas > 0
-        ? [
-            { gravidade: 'Crítica', total: data.metricas.ncs_criticas },
-            {
-              gravidade: 'Moderada',
-              total: Math.max(0, data.metricas.total_ncs_abertas - data.metricas.ncs_criticas),
-            },
-          ].filter((n) => n.total > 0)
-        : [];
+  const veiculosAlerta = useMemo(() => {
+    if (!podeFrota) return null;
+    if (!frota) return loadingFrota ? null : 0;
+    return frota.veiculos.filter((v) => {
+      const vel = Number(v.velocidade);
+      return Number.isFinite(vel) && vel > LIMITE_VELOCIDADE_KMH;
+    }).length;
+  }, [frota, podeFrota, loadingFrota]);
 
-  const m = data.metricas;
+  const ncsPorGravidade = useMemo(() => {
+    if (!data) return [];
+    if (data.ncs_por_gravidade?.length) return data.ncs_por_gravidade;
+    const m = data.metricas;
+    if (m.total_ncs_abertas <= 0) return [];
+    return [
+      { gravidade: 'Crítica', total: m.ncs_criticas },
+      { gravidade: 'Moderada', total: m.ncs_moderadas ?? Math.max(0, m.total_ncs_abertas - m.ncs_criticas) },
+      { gravidade: 'Baixa', total: m.ncs_leves ?? 0 },
+    ].filter((n) => n.total > 0);
+  }, [data]);
+
+  if (err && !data) {
+    return (
+      <Box sx={{ py: 6, textAlign: 'center' }}>
+        <Typography color="error" sx={{ mb: 2 }}>
+          {err}
+        </Typography>
+        <Button variant="contained" onClick={carregar} sx={{ bgcolor: 'var(--ga-orange)' }}>
+          Tentar novamente
+        </Button>
+      </Box>
+    );
+  }
+
+  const m = data?.metricas;
+  const atencao = data?.atencao;
+  const atividades = data?.atividades;
 
   return (
-    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: { xs: 2, lg: 2.5 } }}>
+    <Box sx={{ width: '100%', maxWidth: 1920, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <CcKpiRow
+        loading={loading && !data}
+        mediaGeral={m?.media_geral ?? 0}
+        variacaoMes={m?.variacao_mes}
+        sparkline={m?.sparkline}
+        visitasMes={m?.visitas_mes ?? 0}
+        visitasPlanejadas={m?.visitas_planejadas}
+        ncsAbertas={m?.total_ncs_abertas ?? 0}
+        ncsCriticas={m?.ncs_criticas ?? 0}
+        ncsModeradas={m?.ncs_moderadas ?? 0}
+        lojasRisco={m?.lojas_abaixo_75 ?? 0}
+        veiculosAlerta={veiculosAlerta}
+      />
+
       <Box
         sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1.5,
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(320px, 0.95fr) minmax(420px, 1.35fr)' },
+          gridTemplateRows: { lg: 'auto 1fr' },
+          gridTemplateAreas: {
+            xs: `
+              "atencao"
+              "ranking"
+              "frota"
+              "ncs"
+              "evolucao"
+              "atividades"
+            `,
+            lg: `
+              "atencao frota"
+              "ranking frota"
+            `,
+          },
         }}
       >
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={modo}
-          onChange={(_e, v: Modo | null) => {
-            if (v) setModo(v);
-          }}
-          sx={{
-            bgcolor: colors.canvasAlt,
-            borderRadius: 2,
-            p: 0.35,
-            '& .MuiToggleButtonGroup-grouped': {
-              border: 0,
-              borderRadius: '8px !important',
-              px: 2,
-              py: 0.6,
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.85rem',
-              color: colors.textSecondary,
-              '&.Mui-selected': {
-                bgcolor: colors.surface,
-                color: colors.navy,
-                boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                '&:hover': { bgcolor: colors.surface },
-              },
-            },
-          }}
-        >
-          <ToggleButton value="rede">Rede</ToggleButton>
-          <ToggleButton value="loja">Por loja</ToggleButton>
-        </ToggleButtonGroup>
-
-        {saude && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ cursor: modo === 'rede' ? 'pointer' : 'default' }}
-            onClick={() => modo === 'rede' && setModo('loja')}
-          >
-            {saude.resumo.criticas} críticas · {saude.resumo.atencao} atenção · {saude.resumo.ok} ok
-            {modo === 'rede' ? ' → ver por loja' : ''}
-          </Typography>
-        )}
+        <Box sx={{ gridArea: 'atencao' }}>
+          <CcAtencao loading={loading && !data} data={atencao} />
+        </Box>
+        <Box sx={{ gridArea: 'ranking' }}>
+          <CcRanking loading={loading && !ranking.length} ranking={ranking} />
+        </Box>
+        <Box sx={{ gridArea: 'frota', minHeight: { lg: 520 } }}>
+          <CcFrota
+            loading={loadingFrota && !frota}
+            data={frota}
+            erro={errFrota}
+            onRefresh={carregarFrota}
+            dataRef={dataFiltro}
+          />
+        </Box>
       </Box>
 
-      {modo === 'rede' ? (
-        <>
-          <DashboardMetricCards metricas={m} />
-
-          {saude && saude.resumo.criticas + saude.resumo.atencao > 0 && (
-            <Box
-              onClick={() => setModo('loja')}
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: 1,
-                px: 2,
-                py: 1.25,
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'rgba(232, 82, 10, 0.35)',
-                bgcolor: 'rgba(232, 82, 10, 0.06)',
-                cursor: 'pointer',
-                '&:hover': { bgcolor: 'rgba(232, 82, 10, 0.1)' },
-              }}
-            >
-              <Typography sx={{ fontWeight: 700, color: colors.navy, fontSize: '0.9rem' }}>
-                {saude.resumo.criticas + saude.resumo.atencao} lojas precisam de ação
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                CMV alto: {saude.resumo.cmv_alto ?? 0} · metas em X: {saude.resumo.metas_atrasadas ?? 0} ·
-                com NC: {saude.resumo.com_nc ?? 0}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{ ml: 'auto', fontWeight: 700, color: colors.orange }}
-              >
-                Abrir por loja →
-              </Typography>
-            </Box>
-          )}
-
-          <Grid container spacing={{ xs: 1.5, sm: 2, lg: 2.5 }} sx={{ alignItems: 'stretch' }}>
-            <Grid size={{ xs: 12, lg: 7 }}>
-              <DashboardRankingChart
-                ranking={data.ranking}
-                onLojaClick={(id) => {
-                  setIdLojaFoco(id);
-                  setModo('loja');
-                }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, lg: 5 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, height: '100%' }}>
-                <DashboardNcsChart
-                  ncsPorGravidade={ncsPorGravidade}
-                  totalAbertas={m.total_ncs_abertas}
-                />
-              </Box>
-            </Grid>
-          </Grid>
-        </>
-      ) : loadingSaude && !saude ? (
-        <LinearProgress />
-      ) : errSaude && !saude ? (
-        <Typography color="error">{errSaude}</Typography>
-      ) : saude ? (
-        <DashboardSaudeLojas data={saude} idLojaFoco={idLojaFoco} />
-      ) : null}
+      <Box
+        sx={{
+          display: 'grid',
+          gap: { xs: 1.25, md: 2 },
+          gridTemplateColumns: {
+            xs: 'minmax(0, 0.9fr) minmax(0, 1.05fr) minmax(0, 1fr)',
+            lg: 'minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 0.95fr)',
+          },
+          alignItems: 'stretch',
+          minWidth: 0,
+        }}
+      >
+        <CcNcsDonut
+          loading={loading && !data}
+          ncsPorGravidade={ncsPorGravidade}
+          totalAbertas={m?.total_ncs_abertas ?? 0}
+        />
+        <CcEvolucao
+          loading={loading && !data}
+          serie={data?.evolucao_performance ?? []}
+          mediaAtual={m?.media_geral ?? 0}
+          variacaoMes={m?.variacao_mes}
+        />
+        <CcAtividades
+          loading={loading && !data}
+          auditoriasHoje={atividades?.auditorias_hoje ?? 0}
+          ncsCriticas={atividades?.ncs_criticas ?? m?.ncs_criticas ?? 0}
+          lojasAbaixoMeta={atividades?.lojas_abaixo_meta ?? m?.lojas_abaixo_75 ?? 0}
+          veiculosAlerta={veiculosAlerta}
+        />
+      </Box>
     </Box>
   );
 }

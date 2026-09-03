@@ -30,16 +30,17 @@ import LanguageIcon from '@mui/icons-material/Language';
 
 import { colors } from '../theme/tokens';
 
-const iconSx = { fontSize: 20, color: colors.textSecondary };
+const iconSx = { fontSize: 20, color: colors.textPrimary };
 
 export type PageTitleConfig = {
   title: string;
+  subtitle?: string;
   icon: ReactNode;
 };
 
 export const PAGE_TITLES: Record<string, PageTitleConfig> = {
-  '/dashboard': { title: 'Início', icon: <DashboardIcon sx={iconSx} /> },
-  '/': { title: 'Início', icon: <DashboardIcon sx={iconSx} /> },
+  '/dashboard': { title: 'Command Center', subtitle: 'Visão estratégica da operação da rede', icon: <DashboardIcon sx={iconSx} /> },
+  '/': { title: 'Command Center', subtitle: 'Visão estratégica da operação da rede', icon: <DashboardIcon sx={iconSx} /> },
   '/ranking': { title: 'Ranking de Lojas', icon: <EmojiEventsIcon sx={iconSx} /> },
   '/checklist': { title: 'Checklist', icon: <AssignmentIcon sx={iconSx} /> },
   '/visitas': { title: 'Histórico de Visitas', icon: <HistoryIcon sx={iconSx} /> },

@@ -120,8 +120,19 @@ export const api = {
   me: (opts?: { skipSessionRedirect?: boolean }) =>
     request<UsuarioSessao>('/auth/me', opts),
 
-  dashboard: () => request<DashboardData>('/dashboard'),
-  ranking: () => request<RankingLoja[]>('/dashboard/ranking'),
+  dashboard: (opts?: { data?: string; id_regiao?: number | null }) => {
+    const qs = new URLSearchParams();
+    if (opts?.data) qs.set('data', opts.data);
+    if (opts?.id_regiao != null && opts.id_regiao > 0) qs.set('id_regiao', String(opts.id_regiao));
+    const q = qs.toString();
+    return request<DashboardData>(`/dashboard${q ? `?${q}` : ''}`);
+  },
+  ranking: (opts?: { id_regiao?: number | null }) => {
+    const qs = new URLSearchParams();
+    if (opts?.id_regiao != null && opts.id_regiao > 0) qs.set('id_regiao', String(opts.id_regiao));
+    const q = qs.toString();
+    return request<RankingLoja[]>(`/dashboard/ranking${q ? `?${q}` : ''}`);
+  },
   dashboardSaudeLojas: () => request<DashboardSaudeLojasData>('/dashboard/saude-lojas'),
   lojas: (params?: { ativas?: boolean; operacionais?: boolean }) => {
     const q = new URLSearchParams();
@@ -666,7 +677,21 @@ export const api = {
   frotaRegiao: (idRegiao: number) => request<FrotaRegiaoDetalhe>(`/frota/regioes/${idRegiao}`),
   frotaRegiaoPosicoes: (idRegiao: number) =>
     request<FrotaRegiaoPosicoesMapa>(`/frota/regioes/${idRegiao}/posicoes`),
-  frotaMapaPosicoes: () => request<FrotaMapaPosicoes>('/frota/mapa/posicoes'),
+  frotaMapaPosicoes: (opts?: { id_regiao?: number | null }) => {
+    const qs = new URLSearchParams();
+    if (opts?.id_regiao != null && opts.id_regiao > 0) qs.set('id_regiao', String(opts.id_regiao));
+    const q = qs.toString();
+    return request<FrotaMapaPosicoes>(`/frota/mapa/posicoes${q ? `?${q}` : ''}`);
+  },
+  frotaVeiculoProximaVisita: (idVeiculo: number, opts?: { data?: string }) => {
+    const qs = new URLSearchParams();
+    if (opts?.data) qs.set('data', opts.data);
+    const q = qs.toString();
+    return request<FrotaVeiculoProximaVisita>(
+      `/frota/rastreamento/veiculos/${idVeiculo}/proxima-visita${q ? `?${q}` : ''}`,
+      { cache: 'no-store' },
+    );
+  },
   frotaVeiculoHistoricoRastreamento: (idVeiculo: number, opts?: { inicio?: number; fim?: number }) => {
     const qs = new URLSearchParams();
     if (opts?.inicio != null) qs.set('inicio', String(opts.inicio));
@@ -1755,15 +1780,42 @@ export interface VisitaDetalhe {
   historico_notas: Array<{ nota: string; data_registro: string }>;
 }
 
+export interface DashboardEvolucaoPonto {
+  mes: string;
+  rotulo: string;
+  media: number;
+}
+
+export interface DashboardAtencao {
+  ncs_criticas: number;
+  ncs_vencidas: number;
+  aguardando_verificacao: number;
+  lojas_sem_visita: number;
+}
+
+export interface DashboardAtividades {
+  auditorias_hoje: number;
+  ncs_criticas: number;
+  lojas_abaixo_meta: number;
+}
+
 export interface DashboardData {
   metricas: {
     media_geral: number;
     visitas_mes: number;
+    visitas_planejadas?: number;
     total_ncs_abertas: number;
     ncs_criticas: number;
+    ncs_moderadas?: number;
+    ncs_leves?: number;
     lojas_abaixo_75: number;
     lojas_ativas: number;
+    variacao_mes?: number | null;
+    sparkline?: number[];
   };
+  atencao?: DashboardAtencao;
+  atividades?: DashboardAtividades;
+  evolucao_performance?: DashboardEvolucaoPonto[];
   ranking: RankingLoja[];
   ncs_recentes: Array<{
     descricao: string;
@@ -2232,6 +2284,21 @@ export interface FrotaVeiculoPosicao {
   odometro_km?: number | null;
   combustivel_litros?: number | null;
   rastreamento_disponivel?: boolean;
+}
+
+export interface FrotaVeiculoProximaVisita {
+  id_veiculo: number;
+  proxima_visita: {
+    id_loja: number;
+    nome: string;
+    bk_number?: string | number | null;
+    rotulo: string;
+    data_visita: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
+  eta_minutos: number | null;
+  eta_horario: string | null;
 }
 
 export interface FrotaVeiculoHistoricoPonto {

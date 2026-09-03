@@ -91,22 +91,34 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
       <Box
         sx={{
           px: 1.75,
-          pt: 2.25,
-          pb: 2,
+          pt: 2,
+          pb: 1.5,
           borderBottom: '1px solid',
           borderColor: colors.border,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
         }}
       >
-        <BrandLogo maxWidth={118} sx={{ filter: 'none', mx: 'auto', display: 'block' }} />
+        <BrandLogo
+          maxWidth={118}
+          sx={{
+            filter: 'none',
+            display: 'block',
+            // Compensa padding transparente do PNG
+            mb: '-14px',
+          }}
+        />
         <Typography
           sx={{
-            mt: 1.25,
+            mt: 0,
             textAlign: 'center',
             fontSize: '0.625rem',
             fontWeight: 600,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
             color: colors.textMuted,
+            lineHeight: 1,
           }}
         >
           {APP_NAME}
@@ -114,45 +126,61 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
       </Box>
 
       <Box component="nav" sx={{ flex: 1, px: 1.25, py: 1.75, overflowY: 'auto' }}>
-        <Typography sx={{ ...sectionLabelSx, px: 1, mb: 1 }}>Navegação</Typography>
-        {nav.map((item) => (
-          <NavLink key={item.to} to={item.to} end={item.end} style={{ textDecoration: 'none' }}>
-            {({ isActive: navActive }) => {
-              const isActive = item.isActive ? item.isActive(appPath) : navActive;
-              return (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  px: 1.25,
-                  py: 0.75,
-                  mb: 0.375,
-                  borderRadius: `${radius.md}px`,
-                  fontSize: '0.8125rem',
-                  fontWeight: isActive ? 600 : 450,
-                  color: isActive ? colors.navy : colors.textSecondary,
-                  bgcolor: isActive ? colors.navyMuted : 'transparent',
-                  borderLeft: '3px solid',
-                  borderColor: isActive ? colors.orange : 'transparent',
-                  transition: 'background-color 0.12s, color 0.12s, border-color 0.12s',
-                  '&:hover': {
-                    bgcolor: isActive ? colors.navyMuted : colors.canvasAlt,
-                    color: colors.textPrimary,
-                  },
-                  '& .MuiSvgIcon-root': {
-                    fontSize: 17,
-                    color: isActive ? colors.navy : colors.textMuted,
-                  },
-                }}
-              >
-                {item.icon}
-                {item.label}
-              </Box>
-            );
-            }}
-          </NavLink>
-        ))}
+        {(() => {
+          const noSection = nav.filter((n) => !n.section);
+          const sections = Array.from(new Set(nav.filter((n) => n.section).map((n) => n.section as string)));
+
+          const renderItem = (item: SidebarNavItem) => (
+            <NavLink key={item.to} to={item.to} end={item.end} style={{ textDecoration: 'none' }}>
+              {({ isActive: navActive }) => {
+                const isActive = item.isActive ? item.isActive(appPath) : navActive;
+                return (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 1.25,
+                      py: 0.75,
+                      mb: 0.375,
+                      borderRadius: `${radius.md}px`,
+                      fontSize: '0.8125rem',
+                      fontWeight: isActive ? 600 : 450,
+                      color: isActive ? 'var(--ga-sidebar-active-text)' : colors.textSecondary,
+                      bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : 'transparent',
+                      borderLeft: '3px solid',
+                      borderColor: isActive ? 'var(--ga-sidebar-active-border)' : 'transparent',
+                      transition: 'background-color 0.12s, color 0.12s, border-color 0.12s',
+                      '&:hover': {
+                        bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : colors.canvasAlt,
+                        color: colors.textPrimary,
+                      },
+                      '& .MuiSvgIcon-root': {
+                        fontSize: 17,
+                        color: isActive ? 'var(--ga-sidebar-active-icon)' : colors.textMuted,
+                      },
+                    }}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </Box>
+                );
+              }}
+            </NavLink>
+          );
+
+          return (
+            <>
+              {noSection.map(renderItem)}
+              {sections.map((sec) => (
+                <Box key={sec} sx={{ mt: 2.5 }}>
+                  <Typography sx={{ ...sectionLabelSx, px: 1, mb: 1 }}>{sec}</Typography>
+                  {nav.filter((n) => n.section === sec).map(renderItem)}
+                </Box>
+              ))}
+            </>
+          );
+        })()}
       </Box>
 
       <Box
@@ -204,7 +232,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
             <Typography sx={{ fontWeight: 600, lineHeight: 1.25, color: colors.textPrimary, fontSize: '0.75rem' }} noWrap>
               {user?.nome}
             </Typography>
-            <Typography sx={{ color: colors.textMuted, fontSize: '0.625rem', lineHeight: 1.25 }} noWrap>
+            <Typography sx={{ color: colors.textPrimary, fontSize: '0.625rem', lineHeight: 1.25, opacity: 0.9, mt: 0.4 }} noWrap>
               {nomeExibicaoUsuario(user)}
             </Typography>
           </Box>

@@ -26,7 +26,7 @@ function ConfigMenuItem({ to, label, icon }: { to: string; label: string; icon: 
             borderRadius: `${radius.md}px`,
             fontSize: '0.8125rem',
             fontWeight: isActive ? 600 : 450,
-            color: isActive ? colors.navy : colors.textSecondary,
+            color: isActive ? colors.textPrimary : colors.textSecondary,
             bgcolor: isActive ? colors.surface : 'transparent',
             borderLeft: '3px solid',
             borderColor: isActive ? colors.orange : 'transparent',
@@ -37,7 +37,7 @@ function ConfigMenuItem({ to, label, icon }: { to: string; label: string; icon: 
             },
             '& .MuiSvgIcon-root': {
               fontSize: 16,
-              color: isActive ? colors.navy : colors.textMuted,
+              color: isActive ? colors.textPrimary : colors.textMuted,
             },
           }}
         >
@@ -105,7 +105,7 @@ export default function ConfiguracoesLayout() {
                 fontSize: '0.8125rem',
                 fontWeight: 500,
                 color: colors.textSecondary,
-                '&.Mui-selected': { color: colors.navy, fontWeight: 600 },
+                '&.Mui-selected': { color: colors.textPrimary, fontWeight: 600 },
               },
             }}
           >

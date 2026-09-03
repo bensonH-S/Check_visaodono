@@ -4,17 +4,7 @@ import { colors, radius, shadows } from './theme/tokens';
 export { colors, shadows, radius } from './theme/tokens';
 export { portalPanelSx, portalCardSx, portalIconBoxSx, sectionLabelSx } from './theme/tokens';
 
-export const theme = createTheme({
-  palette: {
-    primary: { main: colors.navy, dark: colors.navyDark, contrastText: '#fff' },
-    secondary: { main: colors.orange, dark: colors.orangeHover, contrastText: '#fff' },
-    success: { main: '#059669', contrastText: '#fff' },
-    warning: { main: '#D97706', contrastText: '#fff' },
-    error: { main: '#DC2626', contrastText: '#fff' },
-    background: { default: colors.canvas, paper: colors.surface },
-    text: { primary: colors.textPrimary, secondary: colors.textSecondary },
-    divider: colors.border,
-  },
+const baseThemeOptions = {
   typography: {
     htmlFontSize: 14,
     fontSize: 14,
@@ -77,12 +67,18 @@ export const theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
+          color: colors.textPrimary,
           borderRadius: radius.md,
           bgcolor: colors.surface,
           '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
           '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: colors.borderStrong },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: colors.navy, borderWidth: 1 },
         },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        icon: { color: colors.textSecondary },
       },
     },
     MuiDialog: {
@@ -94,4 +90,36 @@ export const theme = createTheme({
       styleOverrides: { root: { borderRadius: 4, bgcolor: colors.canvasAlt } },
     },
   },
+};
+
+export const lightTheme = createTheme({
+  ...baseThemeOptions,
+  palette: {
+    mode: 'light',
+    primary: { main: '#1B2A6B', dark: '#152056', contrastText: '#fff' },
+    secondary: { main: '#E8520A', dark: '#CF4909', contrastText: '#fff' },
+    success: { main: '#059669', contrastText: '#fff' },
+    warning: { main: '#D97706', contrastText: '#fff' },
+    error: { main: '#DC2626', contrastText: '#fff' },
+    background: { default: '#F9FAFB', paper: '#FFFFFF' },
+    text: { primary: '#111827', secondary: '#6B7280' },
+    divider: '#E5E7EB',
+  },
 });
+
+export const darkTheme = createTheme({
+  ...baseThemeOptions,
+  palette: {
+    mode: 'dark',
+    primary: { main: '#1B2A6B', dark: '#152056', contrastText: '#fff' },
+    secondary: { main: '#E8520A', dark: '#F97316', contrastText: '#fff' },
+    success: { main: '#059669', contrastText: '#fff' },
+    warning: { main: '#D97706', contrastText: '#fff' },
+    error: { main: '#DC2626', contrastText: '#fff' },
+    background: { default: '#0F172A', paper: '#1E293B' },
+    text: { primary: '#F8FAFC', secondary: '#94A3B8' },
+    divider: '#334155',
+  },
+});
+
+export const theme = lightTheme;

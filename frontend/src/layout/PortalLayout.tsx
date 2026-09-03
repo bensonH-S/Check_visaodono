@@ -7,6 +7,8 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -22,7 +24,22 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LanguageIcon from '@mui/icons-material/Language';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { useEffect, useRef } from 'react';
+import StoreIcon from '@mui/icons-material/Store';
+import PeopleIcon from '@mui/icons-material/People';
+import BadgeIcon from '@mui/icons-material/Badge';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import DescriptionIcon from '@mui/icons-material/Description';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAppTheme } from '../context/ThemeContext';
+import {
+  CommandCenterFiltersProvider,
+  useCommandCenterFilters,
+} from '../context/CommandCenterFiltersContext';
 import { showWelcomeToast } from '../utils/toast';
 import NotificacoesSino from '../components/NotificacoesSino';
 import SobreSistemaButton from '../components/SobreSistemaButton';
@@ -42,6 +59,17 @@ import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { safeAreaBottomCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
 import MobileTabBar from '../components/MobileTabBar';
+import { api } from '../api/client';
+import dayjs, { type Dayjs } from 'dayjs';
+import 'dayjs/locale/pt-br';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import Popover from '@mui/material/Popover';
+import { datePickerPtBR } from '../utils/datePickerLocale';
+import { dataHojeBrasilia } from '../utils/dateBr';
+
+dayjs.locale('pt-br');
 
 type NavItem = {
   to: string;
@@ -51,9 +79,21 @@ type NavItem = {
   end?: boolean;
   mobileOnly?: boolean;
   isActive?: (pathname: string) => boolean;
+  section?: string;
 };
 
 export default function PortalLayout() {
+  return (
+    <CommandCenterFiltersProvider>
+      <PortalLayoutInner />
+    </CommandCenterFiltersProvider>
+  );
+}
+
+function PortalLayoutInner() {
+  const { mode, toggleTheme } = useAppTheme();
+  const { data: dataFiltro, setData: setDataFiltro, regiaoId, regiaoNome, setRegiao } =
+    useCommandCenterFilters();
   const navigate = useNavigate();
   const location = useLocation();
   const path = toAppPath(location.pathname);
@@ -108,6 +148,146 @@ export default function PortalLayout() {
     </>
   );
 
+  const [anchorRegiao, setAnchorRegiao] = useState<null | HTMLElement>(null);
+  const [anchorData, setAnchorData] = useState<null | HTMLElement>(null);
+  const [regioesOpcoes, setRegioesOpcoes] = useState<{ id: number | null; nome: string }[]>([
+    { id: null, nome: 'Todas as regiões' },
+  ]);
+
+  const dataFiltroLabel = useMemo(() => {
+    const d = dayjs(dataFiltro);
+    if (!d.isValid()) return dataFiltro;
+    return d.locale('pt-br').format('D [de] MMMM [de] YYYY');
+  }, [dataFiltro]);
+
+  useEffect(() => {
+    if (!isDashboard) return;
+    let cancelado = false;
+    api
+      .frotaRegioes()
+      .then((lista) => {
+        if (cancelado) return;
+        const nomes = lista
+          .filter((r) => r.ativo !== false)
+          .map((r) => ({ id: r.id_regiao, nome: r.nome }))
+          .filter((r) => r.nome);
+        setRegioesOpcoes([{ id: null, nome: 'Todas as regiões' }, ...nomes]);
+      })
+      .catch(() => {
+        if (!cancelado) setRegioesOpcoes([{ id: null, nome: 'Todas as regiões' }]);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [isDashboard]);
+  
+  const dashboardFilters = isDashboard ? (
+    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mr: { xs: 0, md: 1 } }}>
+      {/* Date Filter */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          px: 1.5,
+          height: 34,
+          borderRadius: '14px',
+          border: '1px solid',
+          borderColor: colors.border,
+          bgcolor: 'transparent',
+          color: colors.textPrimary,
+          fontSize: '0.75rem',
+          fontWeight: 500,
+          cursor: 'pointer',
+          '&:hover': { borderColor: colors.borderStrong },
+        }}
+        onClick={(e) => setAnchorData(e.currentTarget)}
+      >
+        <span style={{ textTransform: 'none' }}>{dataFiltroLabel}</span>
+        <CalendarMonthIcon sx={{ fontSize: 16, color: colors.textSecondary }} />
+      </Box>
+      <Popover
+        open={Boolean(anchorData)}
+        anchorEl={anchorData}
+        onClose={() => setAnchorData(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{
+          paper: {
+            sx: {
+              mt: 0.75,
+              borderRadius: '14px',
+              border: '1px solid',
+              borderColor: colors.border,
+              bgcolor: colors.surface,
+              overflow: 'hidden',
+            },
+          },
+        }}
+      >
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br" localeText={datePickerPtBR}>
+          <DateCalendar
+            value={dayjs(dataFiltro)}
+            onChange={(d: Dayjs | null) => {
+              if (!d?.isValid()) return;
+              setDataFiltro(d.format('YYYY-MM-DD'));
+              setAnchorData(null);
+            }}
+            maxDate={dayjs(dataHojeBrasilia())}
+            sx={{
+              '& .MuiPickersDay-root': { borderRadius: '14px' },
+              '& .MuiPickersDay-root.Mui-selected': { bgcolor: colors.orange },
+            }}
+          />
+        </LocalizationProvider>
+      </Popover>
+
+      {/* Region Filter */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 1.5,
+          height: 34,
+          width: { xs: 130, md: 160 },
+          borderRadius: '14px',
+          border: '1px solid',
+          borderColor: colors.border,
+          bgcolor: 'transparent',
+          color: colors.textPrimary,
+          fontSize: '0.75rem',
+          fontWeight: 500,
+          cursor: 'pointer',
+          '&:hover': { borderColor: colors.borderStrong }
+        }}
+        onClick={(e) => setAnchorRegiao(e.currentTarget)}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{regiaoNome}</span>
+        <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, color: colors.textSecondary }}>
+          <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+        </Box>
+      </Box>
+      <Menu
+        anchorEl={anchorRegiao}
+        open={Boolean(anchorRegiao)}
+        onClose={() => setAnchorRegiao(null)}
+        sx={{ '& .MuiPaper-root': { bgcolor: colors.surface, borderRadius: '14px', minWidth: 160 } }}
+      >
+        {regioesOpcoes.map((r) => (
+          <MenuItem 
+            key={r.id ?? 'todas'} 
+            selected={r.id === regiaoId}
+            onClick={() => { setRegiao(r.id, r.nome); setAnchorRegiao(null); }}
+            sx={{ fontSize: '0.8125rem', color: colors.textPrimary }}
+          >
+            {r.nome}
+          </MenuItem>
+        ))}
+      </Menu>
+    </Box>
+  ) : null;
+
   const colunaEstreita = isChecklist || isChamadoNovo;
   const scrollInterno = isPaginaScrollInterno(path);
   const paginaEscalaVisitas = path === '/escalas/visitas';
@@ -115,37 +295,31 @@ export default function PortalLayout() {
   const emFrota = path === '/frota' || (path.startsWith('/frota/') && !path.startsWith('/frota/mobile'));
 
   const nav: NavItem[] = [
-    { to: '/dashboard', label: 'Início', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
-    { to: '/checklist', label: 'Checklist', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), end: true, mobileOnly: true },
-    {
-      to: '/chamados',
-      label: 'Chamados',
-      icon: <BuildIcon fontSize="small" />,
-      show: temPermissao('chamados.ver', user),
-      end: true,
-      isActive: (p: string) => p.startsWith('/chamados') && !p.startsWith('/chamados/aprovacoes'),
-    },
-    {
-      to: '/frota',
-      label: 'Frota',
-      icon: <DirectionsCarIcon fontSize="small" />,
-      show: podeAcessarModuloFrota(user),
-      isActive: (p: string) => p === '/frota' || (p.startsWith('/frota/') && !p.startsWith('/frota/mobile')),
-    },
-    { to: '/escalas/visitas', label: 'Escala visitas', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), end: true },
-    { to: '/metas', label: 'Metas', icon: <TrackChangesIcon fontSize="small" />, show: podeVerMetas(user), end: true },
-    { to: '/estoque', label: 'Controle Estoque', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), isActive: (p: string) => p === '/estoque' || p.startsWith('/estoque/') },
-    { to: '/energia', label: 'Energia', icon: <BoltIcon fontSize="small" />, show: podeVerEnergia(user), end: true, isActive: (p: string) => p.startsWith('/energia') },
-    { to: '/chamados/aprovacoes', label: 'Aprovações', icon: <ThumbUpAltOutlinedIcon fontSize="small" />, show: temPermissao('chamados.aprovar', user), end: true, isActive: (p: string) => p.startsWith('/chamados/aprovacoes') },
-    { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user) },
-    { to: '/portais', label: 'Portais', icon: <LanguageIcon fontSize="small" />, show: true, end: true },
-    {
-      to: '/configuracoes',
-      label: 'Configurações',
-      icon: <SettingsIcon fontSize="small" />,
-      show: temPermissao('configuracoes.ver', user) || podeGerenciarChecklistPerguntas(user) || temPermissao('usuarios.gerenciar', user) || temPermissao('portal.lojas.ver', user) || podeVerAuditoria(user),
-      end: false,
-    },
+    { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
+    
+    // OPERAÇÃO
+    { to: '/visao-geral', label: 'Visão Geral', icon: <TimelineIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'OPERAÇÃO' },
+    { to: '/checklist', label: 'Auditorias', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), section: 'OPERAÇÃO' },
+    { to: '/nao-conformidades', label: 'Não Conformidades', icon: <WarningAmberIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'OPERAÇÃO' },
+    { to: '/metas', label: 'Metas', icon: <TrackChangesIcon fontSize="small" />, show: podeVerMetas(user), section: 'OPERAÇÃO' },
+    { to: '/chamados', label: 'Chamados', icon: <BuildIcon fontSize="small" />, show: temPermissao('chamados.ver', user), section: 'OPERAÇÃO' },
+    { to: '/energia', label: 'Energia', icon: <BoltIcon fontSize="small" />, show: podeVerEnergia(user), section: 'OPERAÇÃO' },
+
+    // CAMPO
+    { to: '/frota', label: 'Frota', icon: <DirectionsCarIcon fontSize="small" />, show: podeAcessarModuloFrota(user), section: 'CAMPO' },
+    { to: '/escalas/visitas', label: 'Planejamento', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), section: 'CAMPO' },
+    { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user), section: 'CAMPO' },
+
+    // GESTÃO
+    { to: '/estoque', label: 'Estoque & CMV', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), section: 'GESTÃO' },
+    { to: '/relatorios', label: 'Relatórios', icon: <DescriptionIcon fontSize="small" />, show: true, section: 'GESTÃO' },
+    { to: '/indicadores', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: true, section: 'GESTÃO' },
+
+    // CONFIGURAÇÃO
+    { to: '/configuracoes/lojas', label: 'Unidades', icon: <StoreIcon fontSize="small" />, show: temPermissao('portal.lojas.ver', user) || temPermissao('configuracoes.ver', user), section: 'CONFIGURAÇÃO' },
+    { to: '/usuarios', label: 'Usuários', icon: <PeopleIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user), section: 'CONFIGURAÇÃO' },
+    { to: '/configuracoes/cargos', label: 'Permissões', icon: <BadgeIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user), section: 'CONFIGURAÇÃO' },
+    { to: '/configuracoes', label: 'Configurações', icon: <SettingsIcon fontSize="small" />, show: temPermissao('configuracoes.ver', user) || podeGerenciarChecklistPerguntas(user), end: false, section: 'CONFIGURAÇÃO' },
   ].filter((n) => n.show);
 
   const sidebarNav = nav.filter((n) => !n.mobileOnly);
@@ -196,6 +370,10 @@ export default function PortalLayout() {
           >
             <PageHeaderTitle {...pageTitle} variant="desktop" />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {dashboardFilters}
+              <IconButton size="small" aria-label="Alternar Tema" onClick={toggleTheme} sx={{ color: colors.textSecondary }}>
+                {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 20 }} /> : <DarkModeIcon sx={{ fontSize: 20 }} />}
+              </IconButton>
               {!isMobileLayout ? notificacoes : null}
             </Box>
           </Box>
@@ -226,6 +404,9 @@ export default function PortalLayout() {
           </Box>
           <SobreSistemaButton variante="portal" />
           <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
+          <IconButton size="small" aria-label="Alternar Tema" onClick={toggleTheme} sx={{ color: colors.textSecondary }}>
+            {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 20 }} /> : <DarkModeIcon sx={{ fontSize: 20 }} />}
+          </IconButton>
           {isMobileLayout ? notificacoes : null}
           <IconButton size="small" aria-label="Sair" onClick={handleLogout} sx={{ color: colors.textSecondary }}>
             <LogoutIcon sx={{ fontSize: 18 }} />
