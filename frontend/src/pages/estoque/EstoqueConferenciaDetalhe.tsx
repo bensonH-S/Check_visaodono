@@ -59,6 +59,18 @@ function fmtNum(v: number | null | undefined, digitos = 2) {
   });
 }
 
+/** VL.CAIXA da planilha; se só houver unitário, reconstrói com und_convertida. */
+function vlCaixaItem(i: EstoqueItem) {
+  const caixa = Number(i.preco_caixa);
+  if (Number.isFinite(caixa) && caixa > 0) return caixa;
+  const unit = Number(i.valor_unidade);
+  const und = Number(i.und_convertida);
+  if (Number.isFinite(unit) && unit > 0 && Number.isFinite(und) && und > 0) {
+    return Math.round(unit * und * 100) / 100;
+  }
+  return null;
+}
+
 function fmtDataHora(iso: string | null | undefined) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -431,14 +443,16 @@ export default function EstoqueConferenciaDetalhe({
           <Table stickyHeader size="small" sx={{ ...tableSx, tableLayout: 'fixed' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ ...thSx, width: '32%' }}>Item</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 68 }}>Sist.</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Caixa</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Pc/fd</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 88 }}>Sobra</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 72 }}>Qtd</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'right', width: 96 }}>Valor</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 76, color: '#991b1b' }}>Dif.</TableCell>
+                <TableCell sx={{ ...thSx, width: '26%' }}>Item</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'right', width: 88 }}>Vl. unit.</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'right', width: 88 }}>Vl. caixa</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 64 }}>Sist.</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 76 }}>Caixa</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 76 }}>Pc/fd</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 84 }}>UND/KG</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 64 }}>Qtd</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'right', width: 92 }}>Valor</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 72, color: '#991b1b' }}>Dif.</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -453,6 +467,8 @@ export default function EstoqueConferenciaDetalhe({
                 const preenchido = editavel ? temEntradaTerraco(raw) : contado != null && Number.isFinite(Number(contado));
                 const valorLinha =
                   contado == null ? null : Math.round(contado * (Number(i.valor_unidade) || 0) * 100) / 100;
+                const vlUnit = Number(i.valor_unidade) > 0 ? Number(i.valor_unidade) : null;
+                const vlCaixa = vlCaixaItem(i);
                 const dif = contado == null ? null : contado - i.estoque_sistema;
                 const secao = nomeSecao(i);
                 const secaoAnt = idx > 0 ? nomeSecao(visiveis[idx - 1]) : '';
@@ -526,7 +542,7 @@ export default function EstoqueConferenciaDetalhe({
                     {mostrarFaixa && secao !== secaoAnt && (
                       <TableRow>
                         <TableCell
-                          colSpan={8}
+                          colSpan={10}
                           sx={{
                             fontSize: '0.65rem',
                             fontWeight: 700,
@@ -567,8 +583,35 @@ export default function EstoqueConferenciaDetalhe({
                         <Typography sx={{ fontSize: '0.68rem', color: colors.textMuted }}>
                           {i.codigo}
                           {i.unidade_contagem ? ` · ${String(i.unidade_contagem).toUpperCase()}` : ''}
-                          {Number(i.valor_unidade) > 0 ? ` · ${fmtBrl(i.valor_unidade)}` : ''}
                         </Typography>
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textAlign: 'right',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          py: 0.55,
+                          pr: 1.25,
+                          color: vlUnit == null ? colors.textMuted : colors.textPrimary,
+                          fontVariantNumeric: 'tabular-nums',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {vlUnit == null ? '—' : fmtBrl(vlUnit)}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textAlign: 'right',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          py: 0.55,
+                          pr: 1.25,
+                          color: vlCaixa == null ? colors.textMuted : colors.textPrimary,
+                          fontVariantNumeric: 'tabular-nums',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {vlCaixa == null ? '—' : fmtBrl(vlCaixa)}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', color: colors.textSecondary, fontSize: '0.8rem', py: 0.55 }}>
                         {fmtNum(i.estoque_sistema, 3)}
@@ -617,7 +660,7 @@ export default function EstoqueConferenciaDetalhe({
               })}
               {!visiveis.length && (
                 <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 5, color: colors.textMuted }}>
+                    <TableCell colSpan={10} align="center" sx={{ py: 5, color: colors.textMuted }}>
                     Nenhum item nesta faixa
                   </TableCell>
                 </TableRow>
