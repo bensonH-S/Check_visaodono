@@ -289,6 +289,7 @@ export default function App() {
                 </RotaFreelancersAprovacao>
               }
             />
+            <Route path="portais/mobile" element={<PortaisPage />} />
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
           </Route>
           <Route

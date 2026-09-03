@@ -33,6 +33,7 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
+import LanguageIcon from '@mui/icons-material/Language';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeVerEnergia, podeAbrirEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
@@ -337,6 +338,7 @@ function ChamadosMobileLayoutInner() {
   /** Estoque: chrome próprio (lista + conferência + break). */
   const isEstoqueImmersive = isEstoque;
   const isFreelancersAprovacao = path === '/freelancers/aprovacao/mobile';
+  const isPortais = path === '/portais/mobile' || path.startsWith('/portais/mobile/');
   /** Freelas: chrome próprio (stage + sheet), sem header/título MUI. */
   const isFreelancersImmersive = isFreelancersAprovacao;
   /** Lista, novo e detalhe: chrome immersive. */
@@ -416,6 +418,12 @@ function ChamadosMobileLayoutInner() {
             icon: <BuildIcon fontSize="small" />,
             show: !!podeFrota,
           },
+          {
+            to: '/portais/mobile',
+            label: 'Portais',
+            icon: <LanguageIcon fontSize="small" />,
+            show: true,
+          },
         ]
       : [
           {
@@ -490,6 +498,12 @@ function ChamadosMobileLayoutInner() {
             icon: <MapOutlinedIcon fontSize="small" />,
             show: !!podeMapa,
           },
+          {
+            to: '/portais/mobile',
+            label: 'Portais',
+            icon: <LanguageIcon fontSize="small" />,
+            show: true,
+          },
         ]
   ).filter((t) => t.show);
 
@@ -533,6 +547,8 @@ function ChamadosMobileLayoutInner() {
             ? 'Aprovar freelancers'
           : isMapa
             ? 'Mapa da Frota'
+          : isPortais
+            ? 'Portais'
           : isRelatorio
             ? 'Relatório da visita'
           : isFrotaSub || frotaAbaPrincipalRestrito
@@ -580,6 +596,8 @@ function ChamadosMobileLayoutInner() {
               ? 'Energia'
             : isMapa
               ? 'Mapa da Frota'
+            : isPortais
+              ? 'Portais'
             : isRelatorio
               ? 'Relatório da visita'
             : isFrotaSub
@@ -608,7 +626,8 @@ function ChamadosMobileLayoutInner() {
       path.startsWith('/mapa/mobile') ||
       path === '/frota/mobile' ||
       path.startsWith('/frota/mobile/abastecimento') ||
-      path.startsWith('/frota/mobile/manutencao');
+      path.startsWith('/frota/mobile/manutencao') ||
+      path.startsWith('/portais/mobile');
     if (!permitido) {
       navigate('/mapa/mobile', { replace: true });
     }

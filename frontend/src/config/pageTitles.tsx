@@ -44,6 +44,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/checklist': { title: 'Checklist', icon: <AssignmentIcon sx={iconSx} /> },
   '/visitas': { title: 'Histórico de Visitas', icon: <HistoryIcon sx={iconSx} /> },
   '/portais': { title: 'Portais', icon: <LanguageIcon sx={iconSx} /> },
+  '/portais/mobile': { title: 'Portais', icon: <LanguageIcon sx={iconSx} /> },
   '/lojas': { title: 'Lojas', icon: <StoreIcon sx={iconSx} /> },
   '/nao-conformidades': { title: 'Não Conformidades', icon: <WarningAmberIcon sx={iconSx} /> },
   '/chamados': { title: 'Chamados', icon: <BuildIcon sx={iconSx} /> },

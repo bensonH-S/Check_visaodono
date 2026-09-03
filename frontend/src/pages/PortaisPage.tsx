@@ -1,10 +1,10 @@
+import { useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
-import { assetUrl } from '../config/paths';
-import { colors, portalCardSx, radius } from '../theme/tokens';
+import { assetUrl, toAppPath } from '../config/paths';
+import { colors, radius, shadows } from '../theme/tokens';
 
 type PortalItem = {
   id: string;
@@ -12,8 +12,9 @@ type PortalItem = {
   subtitulo: string;
   descricao: string;
   href: string;
-  logo?: string;
-  logoBg?: string;
+  logo: string;
+  logoBg: string;
+  logoPad?: number;
 };
 
 const PORTAIS: PortalItem[] = [
@@ -21,10 +22,11 @@ const PORTAIS: PortalItem[] = [
     id: 'ciga',
     nome: 'CIGA',
     subtitulo: 'Centro de Inteligência',
-    descricao: 'Plataforma de inteligência corporativa e financeira do Grupo Alvim.',
+    descricao: 'Inteligência corporativa e financeira do Grupo Alvim.',
     href: 'https://centralga.com.br/ciga/',
     logo: 'CIGA.png',
     logoBg: '#111111',
+    logoPad: 2,
   },
   {
     id: 'freecontrol',
@@ -32,15 +34,19 @@ const PORTAIS: PortalItem[] = [
     subtitulo: 'Cadastro de freelancers',
     descricao: 'Cadastro e gestão de freelancers das unidades.',
     href: 'https://www.grupoalvim.com.br/freelancers/Cadastro',
-    logo: 'Logo_GA_fonte_freecontrol.png',
-    logoBg: '#111111',
+    logo: 'Logo_Grupo_Alvim.png',
+    logoBg: '#000000',
+    logoPad: 1.5,
   },
   {
     id: 'ouvidoria',
     nome: 'Ouvidoria',
     subtitulo: 'Canal confidencial',
-    descricao: 'Denúncias, assédio, operações e sugestões — seguro e confidencial.',
+    descricao: 'Acesse ou registre sua manifestação.',
     href: 'https://ouvidoriagrupoalvim.com.br/',
+    logo: 'Logo_Ouvidoria.jpg',
+    logoBg: '#FFFFFF',
+    logoPad: 0.5,
   },
 ];
 
@@ -52,100 +58,109 @@ function PortalCard({ portal }: { portal: PortalItem }) {
       target="_blank"
       rel="noopener noreferrer"
       sx={{
-        ...portalCardSx,
         display: 'flex',
         flexDirection: 'column',
-        gap: 1.75,
         height: '100%',
+        overflow: 'hidden',
         textDecoration: 'none',
         color: 'inherit',
-        cursor: 'pointer',
-        '&:hover .portal-abrir': {
-          color: colors.orange,
+        bgcolor: colors.surface,
+        border: '1px solid',
+        borderColor: colors.border,
+        borderRadius: `${radius.xl}px`,
+        boxShadow: shadows.card,
+        transition: 'transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
+        '&:hover': {
+          borderColor: colors.navyBorder,
+          boxShadow: shadows.cardHover,
+        },
+        '&:active': {
+          transform: 'scale(0.985)',
+          borderColor: colors.orange,
         },
       }}
     >
       <Box
         sx={{
-          height: 88,
-          borderRadius: `${radius.md}px`,
-          bgcolor: portal.logoBg ?? colors.navyMuted,
+          height: { xs: 188, sm: 168 },
+          bgcolor: portal.logoBg,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
         }}
       >
-        {portal.logo ? (
-          <Box
-            component="img"
-            src={assetUrl(portal.logo)}
-            alt=""
-            sx={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              p: 1,
-            }}
-          />
-        ) : (
-          <RecordVoiceOverIcon sx={{ fontSize: 36, color: colors.navy }} />
-        )}
-      </Box>
-
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 700, color: colors.navy, fontSize: '1rem', lineHeight: 1.25 }}>
-          {portal.nome}
-        </Typography>
-        <Typography
+        <Box
+          component="img"
+          src={assetUrl(portal.logo)}
+          alt=""
           sx={{
-            mt: 0.25,
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            color: colors.textMuted,
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            p: portal.logoPad ?? 1.5,
           }}
-        >
-          {portal.subtitulo}
-        </Typography>
-        <Typography sx={{ mt: 1, fontSize: '0.8125rem', color: colors.textSecondary, lineHeight: 1.45 }}>
-          {portal.descricao}
-        </Typography>
+        />
       </Box>
 
-      <Typography
-        className="portal-abrir"
+      <Box
         sx={{
-          display: 'inline-flex',
+          display: 'flex',
           alignItems: 'center',
-          gap: 0.5,
-          fontSize: '0.8125rem',
-          fontWeight: 600,
-          color: colors.navy,
-          transition: 'color 0.12s',
+          gap: 1.25,
+          px: 2,
+          py: 1.75,
         }}
       >
-        Abrir portal
-        <OpenInNewIcon sx={{ fontSize: 15 }} />
-      </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, color: colors.navy, fontSize: '1.05rem', lineHeight: 1.2 }}>
+            {portal.nome}
+          </Typography>
+          <Typography sx={{ mt: 0.35, fontSize: '0.78rem', fontWeight: 600, color: colors.textSecondary }}>
+            {portal.subtitulo}
+          </Typography>
+          <Typography sx={{ mt: 0.5, fontSize: '0.78rem', color: colors.textMuted, lineHeight: 1.4 }}>
+            {portal.descricao}
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: `${radius.md}px`,
+            bgcolor: colors.orangeLight,
+            color: colors.orange,
+            display: 'grid',
+            placeItems: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <OpenInNewIcon sx={{ fontSize: 18 }} />
+        </Box>
+      </Box>
     </Box>
   );
 }
 
 export default function PortaisPage() {
-  return (
-    <Box sx={{ width: '100%', maxWidth: 960 }}>
-      <Typography sx={{ fontWeight: 700, color: colors.navy, fontSize: '1.125rem' }}>
-        Portais do Grupo Alvim
-      </Typography>
-      <Typography sx={{ mt: 0.5, mb: 2.5, fontSize: '0.875rem', color: colors.textSecondary }}>
-        Atalhos para os ambientes externos da operação.
-      </Typography>
+  const mobile = toAppPath(useLocation().pathname).startsWith('/portais/mobile');
 
-      <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+  return (
+    <Box sx={{ width: '100%', maxWidth: mobile ? 480 : 960, mx: mobile ? 'auto' : 0 }}>
+      {!mobile && (
+        <>
+          <Typography sx={{ fontWeight: 700, color: colors.navy, fontSize: '1.125rem' }}>
+            Portais do Grupo Alvim
+          </Typography>
+          <Typography sx={{ mt: 0.5, mb: 2.5, fontSize: '0.875rem', color: colors.textSecondary }}>
+            Atalhos para os ambientes externos da operação.
+          </Typography>
+        </>
+      )}
+
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mt: mobile ? 0.5 : 0 }}>
         {PORTAIS.map((portal) => (
-          <Grid key={portal.id} size={{ xs: 12, sm: 6, md: 4 }}>
+          <Grid key={portal.id} size={{ xs: 12, sm: 6, md: mobile ? 12 : 4 }}>
             <PortalCard portal={portal} />
           </Grid>
         ))}
