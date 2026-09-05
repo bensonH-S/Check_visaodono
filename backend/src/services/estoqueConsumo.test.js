@@ -21,6 +21,11 @@ describe('normalizarUnidade', () => {
     assert.equal(normalizarUnidade('KG'), 'kg');
     assert.equal(normalizarUnidade('kilo'), 'kg');
   });
+  it('não trata concha/volta/anel como UND', () => {
+    assert.equal(normalizarUnidade('concha'), 'concha');
+    assert.equal(normalizarUnidade('volta'), 'volta');
+    assert.equal(normalizarUnidade('anel'), 'anel');
+  });
 });
 
 describe('resolverConsumoEstoque — cheddar', () => {
@@ -211,6 +216,34 @@ describe('resolverConsumoEstoque — L → L', () => {
     assert.equal(r.ok, true);
     assert.equal(r.quantidadeEstoque, 0.5);
     assert.equal(r.origemConversao, 'identidade');
+  });
+});
+
+describe('resolverConsumoEstoque — onion IMPT 038810', () => {
+  it('0,045 kg da ficha → 0,06136364 UND (caixa 11 kg / 15 UND)', () => {
+    const r = resolverConsumoEstoque({
+      quantidadeReceita: 0.045,
+      unidadeReceita: 'kg',
+      unidadeEstoque: 'und',
+      fatorConversao: 15 / 11,
+      fatorStatus: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidadeEstoque, 0.061364);
+  });
+});
+
+describe('resolverConsumoEstoque — g → UND com fator kg já validado', () => {
+  it('14 g via 1 kg = 16 UND (caixa 16 kg) = 0,000875 UND', () => {
+    const r = resolverConsumoEstoque({
+      quantidadeReceita: 14,
+      unidadeReceita: 'g',
+      unidadeEstoque: 'und',
+      fatorConversao: 0.001 * (1 / 16),
+      fatorStatus: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidadeEstoque, 0.000875);
   });
 });
 

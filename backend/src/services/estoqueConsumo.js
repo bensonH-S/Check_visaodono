@@ -401,6 +401,37 @@ async function semearPilotoBaixa(client) {
     WHERE i.ativo = TRUE AND LTRIM(TRIM(i.codigo), '0') = '38178' AND i.descricao ~* 'REBEL'
     ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
   `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, u.origem, u.destino, u.fator,
+           'CX 11KG IMPT / und_convertida=15: 1 UND = 11/15 KG (não é o anel)',
+           'validado', NOW()
+    FROM insumos i
+    CROSS JOIN (VALUES
+      ('kg', 'und', ROUND((15.0 / 11)::numeric, 8)),
+      ('und', 'kg', ROUND((11.0 / 15)::numeric, 8)),
+      ('g', 'und', ROUND((15.0 / 11000)::numeric, 8))
+    ) AS u(origem, destino, fator)
+    WHERE i.ativo = TRUE
+      AND LTRIM(TRIM(i.codigo), '0') = '38810'
+      AND UPPER(TRIM(i.unidade_contagem)) IN ('UND', 'UN', 'UNID')
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, u.origem, u.destino, u.fator,
+           'rótulo CASQUINHA 300 UN / 3,3 kg: 1 UND = 0,011 KG',
+           'validado', NOW()
+    FROM insumos i
+    CROSS JOIN (VALUES
+      ('und', 'kg', 0.011::numeric),
+      ('kg', 'und', ROUND((1 / 0.011)::numeric, 8))
+    ) AS u(origem, destino, fator)
+    WHERE i.ativo = TRUE
+      AND LTRIM(TRIM(i.codigo), '0') = '36234'
+      AND UPPER(TRIM(i.unidade_contagem)) IN ('UND', 'UN', 'UNID')
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
 }
 
 export async function lojaEmPilotoBaixa(client, idLoja) {
@@ -471,6 +502,51 @@ export async function resolverInsumoCanonico(client, idLoja, codigo) {
   return null;
 }
 
+const MASSAS = new Set(['g', 'kg']);
+
+/**
+ * Fator cadastrado, ou o mesmo fator atravessando g↔kg (SI).
+ * Não inventa massa↔peça: só reutiliza conversão já validada na outra unidade SI.
+ */
+export async function resolverFatorComPonteMassa(client, idInsumo, unidadeOrigem, unidadeDestino) {
+  const orig = normalizarUnidade(unidadeOrigem);
+  const dest = normalizarUnidade(unidadeDestino);
+  const direto = await buscarConversao(client, idInsumo, orig, dest);
+  if (direto) {
+    return { fator: Number(direto.fator), status: direto.status, origem: 'fator_validado' };
+  }
+
+  if (MASSAS.has(orig) && !MASSAS.has(dest)) {
+    for (const via of orig === 'g' ? ['kg', 'g'] : ['g', 'kg']) {
+      const preSi = orig === via ? 1 : fatorSi(orig, via);
+      if (preSi == null) continue;
+      const row = await buscarConversao(client, idInsumo, via, dest);
+      if (row) {
+        return {
+          fator: preSi * Number(row.fator),
+          status: row.status,
+          origem: 'si_mais_fator',
+        };
+      }
+    }
+  }
+  if (!MASSAS.has(orig) && MASSAS.has(dest)) {
+    for (const via of dest === 'g' ? ['g', 'kg'] : ['kg', 'g']) {
+      const postSi = dest === via ? 1 : fatorSi(via, dest);
+      if (postSi == null) continue;
+      const row = await buscarConversao(client, idInsumo, orig, via);
+      if (row) {
+        return {
+          fator: Number(row.fator) * postSi,
+          status: row.status,
+          origem: 'si_mais_fator',
+        };
+      }
+    }
+  }
+  return null;
+}
+
 export async function buscarConversao(client, idInsumo, unidadeOrigem, unidadeDestino) {
   const orig = normalizarUnidade(unidadeOrigem);
   const dest = normalizarUnidade(unidadeDestino);
@@ -520,10 +596,10 @@ export async function converterQuantidade(client, {
     if (!idInsumo) {
       return { ...erroBase, motivo: MOTIVO_CONVERSAO.NAO_ENCONTRADA, fatorAplicado: null };
     }
-    const row = await buscarConversao(client, idInsumo, orig, dest);
-    if (row) {
-      fatorConversao = row.fator;
-      fatorStatus = row.status;
+    const resolvido = await resolverFatorComPonteMassa(client, idInsumo, orig, dest);
+    if (resolvido) {
+      fatorConversao = resolvido.fator;
+      fatorStatus = resolvido.status;
     }
   }
 
