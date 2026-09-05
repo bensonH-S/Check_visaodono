@@ -8,6 +8,7 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import ClearIcon from '@mui/icons-material/Clear';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
@@ -105,6 +106,10 @@ export default function FiltroIntervaloDatasFrota({
   compacto = false,
   variante = 'campo',
 }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : '#1B2A6B';
+  const acentoHover = escuro ? 'rgba(232, 82, 10, 0.22)' : 'rgba(27, 42, 107, 0.1)';
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [escolhendoFim, setEscolhendoFim] = useState(false);
   const aberto = Boolean(anchorEl);
@@ -273,6 +278,11 @@ export default function FiltroIntervaloDatasFrota({
                 overflow: 'visible',
                 width: 320,
                 maxWidth: 'calc(100vw - 24px)',
+                bgcolor: 'var(--ga-picker-paper)',
+                backgroundImage: 'none',
+                border: `1px solid ${colors.borderStrong}`,
+                boxShadow: '0 10px 28px rgba(0, 0, 0, 0.28)',
+                color: colors.textPrimary,
               },
             },
           }}
@@ -290,6 +300,7 @@ export default function FiltroIntervaloDatasFrota({
                 my: 0,
                 height: 'auto !important',
                 maxHeight: 'none',
+                color: colors.textPrimary,
                 '& .MuiPickersCalendarHeader-root': {
                   pl: 1.5,
                   pr: 1.5,
@@ -298,16 +309,22 @@ export default function FiltroIntervaloDatasFrota({
                 },
                 '& .MuiPickersCalendarHeader-label': {
                   fontSize: '0.9rem',
+                  color: colors.textPrimary,
+                },
+                '& .MuiPickersArrowSwitcher-button': {
+                  color: colors.textPrimary,
                 },
                 '& .MuiDayCalendar-header': {
                   justifyContent: 'space-around',
                   px: 0.5,
                 },
+                '& .MuiDayCalendar-weekDayLabel': {
+                  color: colors.textSecondary,
+                },
                 '& .MuiDayCalendar-weekContainer': {
                   justifyContent: 'space-around',
                   margin: 0,
                 },
-                /* Altura estável: sem slide absoluto (evita flash da 6ª semana) */
                 '& .MuiDayCalendar-monthContainer': {
                   minHeight: 'unset !important',
                   height: 'auto !important',
@@ -339,6 +356,20 @@ export default function FiltroIntervaloDatasFrota({
                 },
                 '& .MuiPickersDay-root': {
                   margin: 0,
+                  color: colors.textPrimary,
+                },
+                '& .MuiPickersDay-root.Mui-selected': {
+                  bgcolor: `${acento} !important`,
+                  color: '#fff !important',
+                },
+                '& .MuiPickersDay-root.Mui-selected:hover, & .MuiPickersDay-root.Mui-selected:focus': {
+                  bgcolor: `${acento} !important`,
+                },
+                '& .MuiPickersDay-root:not(.Mui-selected):hover': {
+                  bgcolor: acentoHover,
+                },
+                '& .MuiPickersDay-today': {
+                  borderColor: `${acento} !important`,
                 },
               }}
             />

@@ -20,6 +20,9 @@ export const ROTAS_NAV: RotaNav[] = [
   { path: '/checklist', permissoes: ['checklist.ver', 'checklist.executar'] },
   { path: '/configuracoes', permissoes: ['configuracoes.ver'] },
   { path: '/configuracoes/contagem', permissoes: ['estoque.produtos'] },
+  { path: '/usuarios', permissoes: ['usuarios.gerenciar'] },
+  { path: '/lojas', permissoes: ['portal.lojas.ver'] },
+  { path: '/cargos', permissoes: ['usuarios.gerenciar', 'configuracoes.ver'] },
   { path: '/configuracoes/usuarios', permissoes: ['usuarios.gerenciar'] },
   { path: '/configuracoes/lojas', permissoes: ['portal.lojas.ver'] },
 ];

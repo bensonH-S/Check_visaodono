@@ -10,12 +10,23 @@ import { useTheme } from '@mui/material/styles';
 import { toAppPath } from '../config/paths';
 import { getUsuario } from '../lib/auth';
 import { colors, radius } from '../theme/tokens';
+import { useAppTheme } from '../context/ThemeContext';
 import {
   getFrotaNavSections,
   isFrotaNavItemAtivo,
 } from '../pages/frota/frotaNav';
 
-function FrotaMenuItem({ to, label, icon, ativo }: { to: string; label: string; icon: React.ReactNode; ativo: boolean }) {
+function FrotaMenuItem({
+  to,
+  label,
+  icon,
+  ativo,
+}: {
+  to: string;
+  label: string;
+  icon: React.ReactNode;
+  ativo: boolean;
+}) {
   return (
     <NavLink to={to} end={false} style={{ textDecoration: 'none' }}>
       <Box
@@ -28,10 +39,10 @@ function FrotaMenuItem({ to, label, icon, ativo }: { to: string; label: string; 
           borderRadius: `${radius.md}px`,
           fontSize: '0.8125rem',
           fontWeight: ativo ? 600 : 450,
-          color: ativo ? colors.navy : colors.textSecondary,
+          color: ativo ? colors.textPrimary : colors.textSecondary,
           bgcolor: ativo ? colors.surface : 'transparent',
           borderLeft: '3px solid',
-          borderColor: ativo ? colors.orange : 'transparent',
+          borderColor: ativo ? '#E8520A' : 'transparent',
           transition: 'background-color 0.12s, color 0.12s',
           '&:hover': {
             bgcolor: colors.surface,
@@ -39,7 +50,7 @@ function FrotaMenuItem({ to, label, icon, ativo }: { to: string; label: string; 
           },
           '& .MuiSvgIcon-root': {
             fontSize: 16,
-            color: ativo ? colors.navy : colors.textMuted,
+            color: ativo ? '#E8520A' : colors.textMuted,
           },
         }}
       >
@@ -53,6 +64,9 @@ function FrotaMenuItem({ to, label, icon, ativo }: { to: string; label: string; 
 /** Módulo único de frota — menu interno dentro de um painel fechado. */
 export default function FrotaLayout() {
   const theme = useTheme();
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const path = toAppPath(useLocation().pathname);
   const sections = getFrotaNavSections(getUsuario());
@@ -96,7 +110,7 @@ export default function FrotaLayout() {
             sx={{
               minHeight: 44,
               px: 1,
-              '& .MuiTabs-indicator': { bgcolor: colors.orange, height: 2 },
+              '& .MuiTabs-indicator': { bgcolor: acento, height: 2 },
               '& .MuiTab-root': {
                 minHeight: 44,
                 py: 1,
@@ -106,7 +120,7 @@ export default function FrotaLayout() {
                 fontSize: '0.8125rem',
                 fontWeight: 500,
                 color: colors.textSecondary,
-                '&.Mui-selected': { color: colors.navy, fontWeight: 600 },
+                '&.Mui-selected': { color: `${acento} !important`, fontWeight: 600 },
               },
             }}
           >

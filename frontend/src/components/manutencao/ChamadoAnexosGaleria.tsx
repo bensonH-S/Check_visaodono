@@ -15,7 +15,9 @@ import PlayCircleIcon from '@mui/icons-material/PlayCircle';
 import { fetchMediaAutenticada, type ManutAnexo } from '../../api/client';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 
-const NAVY = '#1B2A6B';
+import { colors } from '../../theme/tokens';
+
+const NAVY = colors.textPrimary;
 
 type TipoAnexo = 'imagem' | 'video' | 'pdf' | 'arquivo';
 
@@ -248,7 +250,7 @@ export function AnexoModal({
           justifyContent: 'space-between',
           gap: 1,
           fontWeight: 700,
-          color: NAVY,
+          color: colors.textPrimary,
           pr: 1,
         }}
       >

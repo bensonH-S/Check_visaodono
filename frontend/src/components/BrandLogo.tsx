@@ -22,7 +22,11 @@ export default function BrandLogo({ maxWidth = 200, sx, variante = 'full' }: Bra
         height: 'auto',
         display: 'block',
         objectFit: 'contain',
+        transition: 'transform 0.2s ease',
         ...sx,
+        '&:hover': {
+          transform: 'scale(1.06)',
+        },
       }}
     />
   );

@@ -76,9 +76,10 @@ export default function MetasPremiosTable({
   return (
     <Paper sx={{ ...tablePaperSx }}>
       {podeEditar && (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 2, pt: 1.5 }}>
-          Valor unitário é fixo por colaborador. Informe quantas metas de Saúde e R.E.V. foram batidas —
-          Subtotal (Saúde × Valor) e Total ((Saúde + R.E.V.) × Valor) calculam automaticamente e salvam ao sair do campo.
+        <Typography variant="body2" sx={{ color: colors.textSecondary, px: 2, pt: 1.5 }}>
+          O valor unitário é fixo por colaborador. Informe quantas metas de Saúde e R.E.V. foram batidas.
+          Subtotal (Saúde × Valor) e Total ((Saúde + R.E.V.) × Valor) calculam automaticamente e salvam ao
+          sair do campo.
         </Typography>
       )}
       <TableContainer sx={tableContainerSx}>

@@ -12,6 +12,8 @@ import {
   listarBackupsLocais,
   caminhoBackupSeguro,
 } from '../services/dbBackup.js';
+import { obterConfiguracaoSmtp, salvarConfiguracaoSmtp } from '../services/smtpConfig.js';
+import { testarEnvioSmtp } from '../services/mailer.js';
 
 const router = Router();
 
@@ -115,5 +117,64 @@ function pathBasename(name) {
   return String(name || '').replace(/[/\\]/g, '');
 }
 
+function requireConfigVer(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+  if (
+    temPermissao(req.user, 'configuracoes.ver') ||
+    temPermissao(req.user, 'usuarios.gerenciar') ||
+    String(req.user.perfil || '').toLowerCase() === 'administrador'
+  ) {
+    return next();
+  }
+  return res.status(403).json({ error: 'Permissão negada para configurações' });
+}
+
+router.get('/smtp', requireConfigVer, async (_req, res, next) => {
+  try {
+    const config = await obterConfiguracaoSmtp();
+    res.json(config);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/smtp', requireConfigVer, async (req, res, next) => {
+  try {
+    const usuarioNome = req.user?.nome || req.user?.email || 'Usuário';
+    const config = await salvarConfiguracaoSmtp(req.body, usuarioNome);
+    await auditar(req, {
+      modulo: 'configuracoes',
+      acao: 'alteracao',
+      entidade: 'smtp',
+      descricao: `Atualizou configurações de SMTP (${config.host}:${config.port}, ativo: ${config.ativo})`,
+      detalhes: { host: config.host, port: config.port, usuario: config.usuario, ativo: config.ativo },
+    });
+    res.json(config);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/smtp/teste', requireConfigVer, async (req, res, next) => {
+  try {
+    const { para, assunto, mensagem } = req.body;
+    const resultado = await testarEnvioSmtp({ para, assunto, mensagem });
+    await auditar(req, {
+      modulo: 'configuracoes',
+      acao: 'operacao',
+      entidade: 'smtp',
+      descricao: `Enviou e-mail de teste SMTP para ${para}`,
+      detalhes: { para },
+    });
+    res.json(resultado);
+  } catch (e) {
+    logger.error('sistema', 'Falha ao testar envio SMTP', { error: e.message });
+    res.status(400).json({ error: e.message || 'Falha ao enviar e-mail de teste' });
+  }
+});
+
 export default router;
 export { ehUsuarioTi };
+

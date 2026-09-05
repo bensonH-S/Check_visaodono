@@ -861,7 +861,7 @@ export default function FrotaRotaDiaMap({
       trazerGrupoParaFrente(destaqueLayer, mapa);
 
       const boundsRota = boundsSomenteRota([coordsPercurso]);
-      const boundsLoja = boundsLojas(lojas);
+      const boundsLoja = boundsLojas(lojas as any);
       boundsRef.current = boundsRota ?? boundsLoja;
       if (boundsRef.current && boundsLoja && boundsRota) {
         boundsRef.current.extend(boundsLoja.getSouthWest());

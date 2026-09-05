@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarChecklistPerguntas, podeVerAuditoria, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarChecklistPerguntas, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
@@ -15,14 +15,12 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import HistoryIcon from '@mui/icons-material/History';
 import BuildIcon from '@mui/icons-material/Build';
-import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
 import SettingsIcon from '@mui/icons-material/Settings';
-import LanguageIcon from '@mui/icons-material/Language';
 import LogoutIcon from '@mui/icons-material/Logout';
 import StoreIcon from '@mui/icons-material/Store';
 import PeopleIcon from '@mui/icons-material/People';
@@ -110,7 +108,6 @@ function PortalLayoutInner() {
     navigate(location.pathname + location.search + location.hash, { replace: true, state: {} });
   }, [location.state, location.pathname, location.search, location.hash, navigate]);
 
-  const isChecklist = path === '/checklist' || path.startsWith('/checklist/');
   const isChamadoNovo = path === '/chamados/novo';
   const emAprovacoes = path.startsWith('/chamados/aprovacoes');
   const isDashboard = path === '/dashboard';
@@ -288,7 +285,8 @@ function PortalLayoutInner() {
     </Box>
   ) : null;
 
-  const colunaEstreita = isChecklist || isChamadoNovo;
+  /** Novo chamado: coluna estreita sem sidebar. Checklist desktop fica no portal completo. */
+  const colunaEstreita = isChamadoNovo;
   const scrollInterno = isPaginaScrollInterno(path);
   const paginaEscalaVisitas = path === '/escalas/visitas';
   const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
@@ -312,13 +310,13 @@ function PortalLayoutInner() {
 
     // GESTÃO
     { to: '/estoque', label: 'Estoque & CMV', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), section: 'GESTÃO' },
-    { to: '/relatorios', label: 'Relatórios', icon: <DescriptionIcon fontSize="small" />, show: true, section: 'GESTÃO' },
-    { to: '/indicadores', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: true, section: 'GESTÃO' },
+    { to: '/visitas', label: 'Relatórios', icon: <DescriptionIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user), section: 'GESTÃO' },
+    { to: '/ranking', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'GESTÃO' },
 
     // CONFIGURAÇÃO
-    { to: '/configuracoes/lojas', label: 'Unidades', icon: <StoreIcon fontSize="small" />, show: temPermissao('portal.lojas.ver', user) || temPermissao('configuracoes.ver', user), section: 'CONFIGURAÇÃO' },
+    { to: '/lojas', label: 'Unidades', icon: <StoreIcon fontSize="small" />, show: temPermissao('portal.lojas.ver', user) || temPermissao('configuracoes.ver', user), section: 'CONFIGURAÇÃO' },
     { to: '/usuarios', label: 'Usuários', icon: <PeopleIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user), section: 'CONFIGURAÇÃO' },
-    { to: '/configuracoes/cargos', label: 'Permissões', icon: <BadgeIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user), section: 'CONFIGURAÇÃO' },
+    { to: '/cargos', label: 'Permissões', icon: <BadgeIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user) || temPermissao('configuracoes.ver', user), section: 'CONFIGURAÇÃO' },
     { to: '/configuracoes', label: 'Configurações', icon: <SettingsIcon fontSize="small" />, show: temPermissao('configuracoes.ver', user) || podeGerenciarChecklistPerguntas(user), end: false, section: 'CONFIGURAÇÃO' },
   ].filter((n) => n.show);
 

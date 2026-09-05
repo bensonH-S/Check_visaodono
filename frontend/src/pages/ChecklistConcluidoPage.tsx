@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { checklistPaths } from '../config/mobileRoutes';
+import { checklistPaths, relatorioVisitaPath } from '../config/mobileRoutes';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -52,7 +52,7 @@ export default function ChecklistConcluidoPage() {
         id={id}
         dataFormatada={visita ? fmtData(visita.data_visita) : ''}
         onVoltar={() => navigate(paths.base)}
-        onRelatorio={() => navigate(`/relatorio/visita/${id}`)}
+        onRelatorio={() => navigate(relatorioVisitaPath(id!, paths.mobile))}
         onNovaVisita={() => navigate(paths.base, { state: { reiniciar: true } })}
         onInicio={() => navigate(paths.base)}
       />

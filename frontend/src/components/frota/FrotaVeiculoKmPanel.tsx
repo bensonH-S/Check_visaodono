@@ -20,6 +20,7 @@ import {
 } from '../../api/client';
 import FiltroIntervaloDatasFrota from './FiltroIntervaloDatasFrota';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { dataDentroIntervalo } from '../../utils/frotaPortalFiltros';
 import { montarRegistrosKm, ROTULO_TIPO_KM, type RegistroKmFrota } from '../../utils/frotaKmRegistros';
@@ -35,6 +36,8 @@ const COR_TIPO: Record<RegistroKmFrota['tipo'], 'primary' | 'success' | 'warning
 };
 
 function ResumoKm({ label, valor }: { label: string; valor: string }) {
+  const { mode } = useAppTheme();
+  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
   return (
     <Paper
       elevation={0}
@@ -45,13 +48,13 @@ function ResumoKm({ label, valor }: { label: string; valor: string }) {
         border: '1px solid',
         borderColor: colors.border,
         borderRadius: 2,
-        borderTop: `3px solid ${colors.navy}`,
+        borderTop: `3px solid ${acento}`,
       }}
     >
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
         {label}
       </Typography>
-      <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', color: colors.navy }}>{valor}</Typography>
+      <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', color: acento }}>{valor}</Typography>
     </Paper>
   );
 }

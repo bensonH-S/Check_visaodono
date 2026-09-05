@@ -12,31 +12,29 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
-import { api, fmtNota, fmtData, fetchMediaAutenticada } from '../api/client';
+import { api, fmtNota, fmtData, fetchMediaAutenticada, scoreChipSx } from '../api/client';
 import type { VisitaDetalhe } from '../api/client';
 import { gerarPdfVisita } from '../utils/gerarPdfVisita';
 import { showToast } from '../utils/toast';
 import { formatarHoraVisita, formatarLocalVisita } from '../utils/visitaFormat';
 import { isMobileAppPath } from '../config/mobileRoutes';
-import { assetUrl, FAVICON_ICON } from '../config/paths';
 import { podeReabrirVisitas } from '../lib/auth';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
 import RelatorioMobileScreen from '../components/visitas/RelatorioMobileScreen';
+import PageLoading from '../components/PageLoading';
 import ImageLightbox from '../components/ImageLightbox';
+import { useAppTheme } from '../context/ThemeContext';
+import { colors } from '../theme/tokens';
+import { pageFillLayoutSx } from '../utils/pageFillLayout';
 import '../components/visitas/visitas-mobile.css';
 
-const NAVY = '#0F1A45';
-const NAVY_MID = '#1B2A6B';
-const ACCENT = '#E8520A';
-const OK = '#15803D';
-const FAIL = '#B91C1C';
-const LINE = '#E2E8F0';
-const ROW_ALT = '#F8FAFC';
-const SLATE = '#475569';
-const SLATE_LIGHT = '#94A3B8';
+const ORANGE = '#E8520A';
+
+function acentoTema(escuro: boolean) {
+  return escuro ? ORANGE : colors.navy;
+}
 
 function tituloChecklist(v: VisitaDetalhe['visita']): string {
   if (v.tipo_checklist_codigo === 'time_de_campo') return 'Time de Campo';
@@ -52,47 +50,36 @@ function formatarResposta(r: VisitaDetalhe['respostas'][0]): string {
 
 function corResposta(
   resposta: string | null | undefined,
-  pergunta?: { texto?: string; sim_indica_problema?: boolean },
+  pergunta: { texto?: string; sim_indica_problema?: boolean } | undefined,
+  escuro: boolean,
 ): { color: string; bg: string } {
   const invertida = pergunta
     ? pergunta.sim_indica_problema === true ||
       (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
     : false;
+  const ok = escuro
+    ? { color: '#4ADE80', bg: 'rgba(74, 222, 128, 0.16)' }
+    : { color: '#15803D', bg: '#ECFDF5' };
+  const fail = escuro
+    ? { color: '#F87171', bg: 'rgba(248, 113, 113, 0.16)' }
+    : { color: '#B91C1C', bg: '#FEF2F2' };
+  const neutro = escuro
+    ? { color: colors.textSecondary, bg: 'rgba(148, 163, 184, 0.12)' }
+    : { color: '#475569', bg: colors.canvasAlt };
+
   if (invertida) {
-    if (resposta === 'Não') return { color: OK, bg: '#ECFDF5' };
-    if (resposta === 'Sim') return { color: FAIL, bg: '#FEF2F2' };
+    if (resposta === 'Não') return ok;
+    if (resposta === 'Sim') return fail;
   }
-  if (resposta === 'Sim') return { color: OK, bg: '#ECFDF5' };
-  if (resposta === 'Não') return { color: FAIL, bg: '#FEF2F2' };
-  if (resposta === 'N/A') return { color: SLATE, bg: ROW_ALT };
-  return { color: SLATE, bg: ROW_ALT };
+  if (resposta === 'Sim') return ok;
+  if (resposta === 'Não') return fail;
+  return neutro;
 }
 
-function corNota(nota: number): string {
-  if (nota >= 85) return OK;
-  if (nota >= 75) return ACCENT;
-  return FAIL;
-}
-
-function MarcaGrupoAlvim({ size = 28 }: { size?: number }) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Box
-        component="img"
-        src={assetUrl(FAVICON_ICON)}
-        alt=""
-        sx={{ width: size, height: size, borderRadius: 1 }}
-      />
-      <Typography sx={{ fontWeight: 800, fontSize: size * 0.5, lineHeight: 1 }}>
-        <Box component="span" sx={{ color: '#A0B0C8' }}>
-          grupo
-        </Box>
-        <Box component="span" sx={{ color: ACCENT }}>
-          alvim
-        </Box>
-      </Typography>
-    </Box>
-  );
+function barraCategoria(pct: number, escuro: boolean) {
+  if (pct >= 80) return escuro ? '#4ADE80' : '#15803D';
+  if (pct >= 60) return acentoTema(escuro);
+  return escuro ? '#94A3B8' : '#1B2A6B';
 }
 
 function CardMetrica({
@@ -101,39 +88,51 @@ function CardMetrica({
   hint,
   destaque,
   corValor,
-  compact,
+  escuro,
 }: {
   label: string;
   value: string;
   hint?: string;
   destaque?: boolean;
   corValor?: string;
-  compact?: boolean;
+  escuro: boolean;
 }) {
+  const bordaEsq = destaque ? corValor ?? acentoTema(escuro) : acentoTema(escuro);
   return (
     <Paper
       elevation={0}
       sx={{
-        flex: compact ? '1 1 0' : 1,
-        minWidth: compact ? 0 : 0,
-        p: compact ? 0.75 : 1.5,
-        borderRadius: compact ? 1 : 1.5,
-        bgcolor: destaque ? NAVY : '#fff',
-        border: destaque ? 'none' : `1px solid ${LINE}`,
-        borderLeft: `3px solid ${destaque ? corValor ?? ACCENT : NAVY}`,
-        position: 'relative',
-        overflow: 'hidden',
+        p: { xs: 1.25, sm: 1.5 },
+        borderRadius: 1.5,
+        bgcolor: destaque
+          ? escuro
+            ? 'rgba(232, 82, 10, 0.14)'
+            : colors.navy
+          : colors.surface,
+        border: '1px solid',
+        borderColor: destaque
+          ? escuro
+            ? 'rgba(232, 82, 10, 0.45)'
+            : 'transparent'
+          : colors.border,
+        borderLeft: `3px solid ${bordaEsq}`,
+        minWidth: 0,
+        height: '100%',
       }}
     >
       <Typography
         variant="caption"
         sx={{
           fontWeight: 700,
-          letterSpacing: compact ? 0.3 : 0.5,
-          color: SLATE_LIGHT,
-          fontSize: compact ? '0.55rem' : '0.62rem',
+          letterSpacing: 0.4,
+          color: destaque
+            ? escuro
+              ? colors.textSecondary
+              : 'rgba(255,255,255,0.65)'
+            : colors.textMuted,
+          fontSize: '0.65rem',
           display: 'block',
-          mb: compact ? 0.15 : 0.5,
+          mb: 0.35,
         }}
       >
         {label}
@@ -141,17 +140,26 @@ function CardMetrica({
       <Typography
         sx={{
           fontWeight: 800,
-          fontSize: compact ? (destaque ? '1.1rem' : '0.95rem') : destaque ? '1.5rem' : '1.15rem',
-          lineHeight: 1.1,
-          color: destaque ? '#fff' : NAVY,
+          fontSize: { xs: '1.15rem', sm: destaque ? '1.5rem' : '1.15rem' },
+          lineHeight: 1.15,
+          color: destaque ? (escuro ? corValor ?? acentoTema(escuro) : '#fff') : colors.textPrimary,
         }}
       >
         {value}
       </Typography>
-      {hint && !compact && (
+      {hint && (
         <Typography
           variant="caption"
-          sx={{ color: destaque ? SLATE_LIGHT : SLATE, fontSize: '0.65rem', mt: 0.25, display: 'block' }}
+          sx={{
+            color: destaque
+              ? escuro
+                ? colors.textSecondary
+                : 'rgba(255,255,255,0.7)'
+              : colors.textSecondary,
+            fontSize: '0.68rem',
+            mt: 0.35,
+            display: 'block',
+          }}
         >
           {hint}
         </Typography>
@@ -160,27 +168,29 @@ function CardMetrica({
   );
 }
 
-function SecaoTitulo({ children }: { children: string }) {
+function SecaoTitulo({ children, acento }: { children: string; acento: string }) {
   return (
     <Box
       sx={{
         display: 'flex',
         alignItems: 'center',
-        bgcolor: NAVY,
+        bgcolor: (tema) => (tema.palette.mode === 'dark' ? 'rgba(30, 41, 59, 0.95)' : colors.navy),
+        border: '1px solid',
+        borderColor: colors.border,
         borderRadius: 1,
         overflow: 'hidden',
         mb: 2,
       }}
     >
-      <Box sx={{ width: 4, alignSelf: 'stretch', bgcolor: ACCENT, flexShrink: 0 }} />
+      <Box sx={{ width: 4, alignSelf: 'stretch', bgcolor: acento, flexShrink: 0 }} />
       <Typography
         sx={{
           fontWeight: 800,
           fontSize: '0.85rem',
-          color: '#fff',
-          letterSpacing: 0.5,
+          letterSpacing: 0.4,
           py: 1,
           px: 1.5,
+          color: (tema) => (tema.palette.mode === 'dark' ? colors.textPrimary : '#fff'),
         }}
       >
         {children}
@@ -193,6 +203,10 @@ export default function RelatorioPage() {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = acentoTema(escuro);
+  const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const mobileApp = isMobileAppPath(location.pathname);
   const [data, setData] = useState<VisitaDetalhe | null>(null);
   const [err, setErr] = useState('');
@@ -211,7 +225,7 @@ export default function RelatorioPage() {
         showToast('PDF baixado com sucesso', 'success');
       }
     } catch (e) {
-      if ((e as Error).name === 'AbortError') return; // Compartilhamento cancelado
+      if ((e as Error).name === 'AbortError') return;
       showToast((e as Error).message || 'Não foi possível gerar o PDF', 'error');
     } finally {
       setExportandoPdf(false);
@@ -254,7 +268,7 @@ export default function RelatorioPage() {
         </div>
       );
     }
-    if (!data) return <LinearProgress />;
+    if (!data) return <PageLoading />;
     return (
       <>
         <RelatorioMobileScreen
@@ -289,7 +303,7 @@ export default function RelatorioPage() {
   }
 
   if (err) return <Typography color="error">{err}</Typography>;
-  if (!data) return <LinearProgress />;
+  if (!data) return <PageLoading />;
 
   const v = data.visita;
   const nota = Number(v.nota_final);
@@ -307,37 +321,59 @@ export default function RelatorioPage() {
     porCategoria.get(cat)!.push(r);
   }
 
-  const cabecalhoRelatorio = (
-    <Box sx={{ mb: 2.5 }}>
-      <Box
-        sx={{
-          bgcolor: NAVY,
-          borderRadius: '12px 12px 0 0',
-          px: 2,
-          py: 1.5,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 1.5,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1 }}>
-          <MarcaGrupoAlvim size={28} />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-            <Tooltip title="Voltar">
-              <IconButton
-                size="small"
-                aria-label="Voltar"
-                onClick={() => navigate(-1)}
-                sx={{
-                  color: '#fff',
-                  bgcolor: 'rgba(255,255,255,0.12)',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' },
-                }}
-              >
-                <ArrowBackIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+  const paperSx = {
+    p: { xs: 1.5, sm: 2 },
+    mb: 2,
+    borderRadius: 2,
+    border: `1px solid ${colors.border}`,
+    bgcolor: colors.surface,
+  } as const;
+
+  return (
+    <Box sx={{ ...pageFillLayoutSx, gap: 1.5, pb: 0 }}>
+      {/* Cabeçalho — fixo (sem rolagem) */}
+      <Paper elevation={0} sx={{ ...paperSx, mb: 0, flexShrink: 0, overflow: 'hidden', p: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 1.5,
+            px: { xs: 1.5, sm: 2 },
+            py: 1.75,
+            borderBottom: `1px solid ${colors.border}`,
+            borderTop: `3px solid ${acento}`,
+          }}
+        >
+          <Box sx={{ minWidth: 0, flex: '1 1 220px' }}>
+            <Typography
+              variant="caption"
+              sx={{ color: colors.textMuted, letterSpacing: 0.8, fontWeight: 700, display: 'block' }}
+            >
+              RELATÓRIO DE VISITA
+            </Typography>
+            <Typography
+              sx={{
+                fontWeight: 800,
+                color: colors.textPrimary,
+                fontSize: { xs: '1.05rem', sm: '1.2rem' },
+                lineHeight: 1.25,
+                mt: 0.25,
+              }}
+            >
+              {titulo}
+            </Typography>
+            <Typography variant="body2" sx={{ color: colors.textSecondary, mt: 0.35 }}>
+              {v.name}
+              {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+            {Number.isFinite(nota) && (
+              <Chip label={`Nota ${fmtNota(v.nota_final)}`} size="small" sx={scoreChipSx(nota, escuro)} />
+            )}
             {podeReabrir && v.status === 'Finalizada' && (
               <Tooltip title="Reabrir">
                 <span>
@@ -347,114 +383,95 @@ export default function RelatorioPage() {
                     disabled={reabrindo}
                     onClick={() => setDlgReabrir(true)}
                     sx={{
-                      color: '#fff',
-                      bgcolor: 'rgba(255,255,255,0.12)',
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' },
+                      color: colors.textPrimary,
+                      border: `1px solid ${colors.border}`,
+                      bgcolor: colors.surface,
+                      '&:hover': { bgcolor: colors.canvasAlt },
                     }}
                   >
-                    {reabrindo ? (
-                      <CircularProgress size={18} sx={{ color: '#fff' }} />
-                    ) : (
-                      <LockOpenIcon fontSize="small" />
-                    )}
+                    {reabrindo ? <CircularProgress size={18} /> : <LockOpenIcon fontSize="small" />}
                   </IconButton>
                 </span>
               </Tooltip>
             )}
-            <Tooltip title={exportandoPdf ? 'Gerando…' : 'Baixar PDF'}>
-              <span>
-                <IconButton
-                  size="small"
-                  aria-label="Baixar PDF"
-                  disabled={exportandoPdf}
-                  onClick={() => void exportarPdf()}
-                  sx={{
-                    color: '#fff',
-                    bgcolor: FAIL,
-                    '&:hover': { bgcolor: '#991B1B' },
-                    '&.Mui-disabled': { color: 'rgba(255,255,255,0.5)', bgcolor: 'rgba(185,28,28,0.5)' },
-                  }}
-                >
-                  {exportandoPdf ? (
-                    <CircularProgress size={18} sx={{ color: '#fff' }} />
-                  ) : (
-                    <PictureAsPdfIcon fontSize="small" />
-                  )}
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography
-              variant="caption"
-              sx={{ color: SLATE_LIGHT, letterSpacing: 1, fontSize: '0.62rem', display: 'block' }}
-            >
-              RELATÓRIO DE VISITA
-            </Typography>
-            <Typography
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={
+                exportandoPdf ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfIcon />
+              }
+              disabled={exportandoPdf}
+              onClick={() => void exportarPdf()}
               sx={{
-                fontWeight: 800,
-                color: '#fff',
-                fontSize: '1.05rem',
-                lineHeight: 1.2,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                textTransform: 'none',
+                fontWeight: 700,
+                bgcolor: acento,
+                '&:hover': { bgcolor: acentoHover },
+                '&.Mui-disabled': {
+                  bgcolor: escuro ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.35)',
+                  color: '#fff',
+                },
               }}
             >
-              {titulo}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#B4C3DC', fontSize: '0.72rem' }}>
-              {v.name}
-              {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
-            </Typography>
+              {exportandoPdf ? 'Gerando…' : 'PDF'}
+            </Button>
           </Box>
         </Box>
-      </Box>
 
-      <Box sx={{ height: 3, bgcolor: ACCENT }} />
-
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: '0 0 12px 12px',
-          border: `1px solid ${LINE}`,
-          borderTop: 'none',
-          overflow: 'hidden',
-        }}
-      >
+        {/* Meta: loja / auditor / data */}
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
-            gap: 0,
-            bgcolor: ROW_ALT,
-            borderBottom: `1px solid ${LINE}`,
-            px: 2,
-            py: 1.25,
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+            gap: { xs: 1.25, sm: 0 },
+            bgcolor: escuro ? 'rgba(148, 163, 184, 0.12)' : colors.canvasAlt,
+            borderBottom: `1px solid ${colors.border}`,
+            px: { xs: 1.5, sm: 2 },
+            py: 1.5,
           }}
         >
-          <Box>
-            <Typography variant="caption" sx={{ color: SLATE_LIGHT, fontWeight: 700, fontSize: '0.62rem' }}>
-              LOJA
-            </Typography>
-            <Typography sx={{ fontWeight: 700, color: NAVY, fontSize: '0.9rem' }}>{v.name}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" sx={{ color: SLATE_LIGHT, fontWeight: 700, fontSize: '0.62rem' }}>
-              AUDITOR
-            </Typography>
-            <Typography sx={{ color: SLATE, fontSize: '0.85rem' }}>{v.nome_usuario}</Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" sx={{ color: SLATE_LIGHT, fontWeight: 700, fontSize: '0.62rem' }}>
-              DATA
-            </Typography>
-            <Typography sx={{ color: SLATE, fontSize: '0.85rem' }}>{dataTxt}</Typography>
-          </Box>
+          {(
+            [
+              ['LOJA', v.name],
+              ['AUDITOR', v.nome_usuario],
+              ['DATA', dataTxt],
+            ] as const
+          ).map(([label, value], i) => (
+            <Box
+              key={label}
+              sx={{
+                px: { sm: i === 0 ? 0 : 1.5 },
+                borderLeft: {
+                  sm: i > 0 ? `1px solid ${colors.border}` : 'none',
+                },
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ color: colors.textMuted, fontWeight: 700, fontSize: '0.65rem', display: 'block' }}
+              >
+                {label}
+              </Typography>
+              <Typography sx={{ fontWeight: label === 'LOJA' ? 700 : 500, color: colors.textPrimary, fontSize: '0.9rem' }}>
+                {value}
+              </Typography>
+            </Box>
+          ))}
         </Box>
 
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, p: 1.5 }}>
+        {/* Métricas */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: 'repeat(2, minmax(0, 1fr))',
+              sm: 'repeat(3, minmax(0, 1fr))',
+              md: 'repeat(5, minmax(0, 1fr))',
+            },
+            gap: 1.25,
+            p: { xs: 1.5, sm: 2 },
+          }}
+        >
           <CardMetrica
             label="NOTA FINAL"
             value={fmtNota(v.nota_final)}
@@ -466,34 +483,39 @@ export default function RelatorioPage() {
                   : 'abaixo da meta'
             }
             destaque
-            corValor={corNota(nota)}
+            escuro={escuro}
+            corValor={nota >= 85 ? (escuro ? '#4ADE80' : '#15803D') : nota >= 75 ? acento : escuro ? '#F87171' : '#B91C1C'}
           />
           <CardMetrica
             label="CATEGORIAS"
             value={String(data.desempenho_categorias.length)}
             hint={catsOk ? `${catsOk} acima de 80%` : 'avaliadas'}
+            escuro={escuro}
           />
           <CardMetrica
             label="RESPOSTAS"
             value={String(data.respostas.length)}
             hint="itens registrados"
+            escuro={escuro}
           />
           <CardMetrica
             label="NCs"
             value={String(data.nao_conformidades.length)}
             hint={data.nao_conformidades.length ? 'não conformidades' : 'nenhuma'}
+            escuro={escuro}
           />
           <CardMetrica
             label="DURAÇÃO"
             value={v.duracao_minutos != null ? `${v.duracao_minutos} min` : '—'}
             hint={diff != null ? `${diff >= 0 ? '+' : ''}${diff.toFixed(0)}p vs anterior` : 'tempo em loja'}
+            escuro={escuro}
           />
         </Box>
 
         <Box
           sx={{
-            px: 2,
-            pb: 1.5,
+            px: { xs: 1.5, sm: 2 },
+            pb: 1.75,
             display: 'flex',
             flexWrap: 'wrap',
             gap: 0.75,
@@ -505,69 +527,96 @@ export default function RelatorioPage() {
             label={v.status}
             sx={{
               fontWeight: 700,
-              bgcolor: v.status === 'Finalizada' ? '#ECFDF5' : '#FFF7ED',
-              color: v.status === 'Finalizada' ? OK : ACCENT,
+              bgcolor:
+                v.status === 'Finalizada'
+                  ? escuro
+                    ? 'rgba(74, 222, 128, 0.16)'
+                    : '#ECFDF5'
+                  : escuro
+                    ? 'rgba(232, 82, 10, 0.18)'
+                    : 'rgba(27, 42, 107, 0.08)',
+              color: v.status === 'Finalizada' ? (escuro ? '#4ADE80' : '#15803D') : acento,
+              border: '1px solid',
+              borderColor:
+                v.status === 'Finalizada'
+                  ? escuro
+                    ? 'rgba(74, 222, 128, 0.35)'
+                    : 'rgba(22, 163, 74, 0.3)'
+                  : escuro
+                    ? 'rgba(232, 82, 10, 0.4)'
+                    : 'rgba(27, 42, 107, 0.3)',
             }}
           />
-          <Chip size="small" variant="outlined" label={formatarLocalVisita(v)} />
+          <Chip
+            size="small"
+            variant="outlined"
+            label={formatarLocalVisita(v)}
+            sx={{ borderColor: colors.border, color: colors.textPrimary }}
+          />
           {v.meta_visita?.gerente && (
-            <Chip size="small" variant="outlined" label={`Gerente: ${v.meta_visita.gerente}`} />
+            <Chip
+              size="small"
+              variant="outlined"
+              label={`Gerente: ${v.meta_visita.gerente}`}
+              sx={{ borderColor: colors.border, color: colors.textPrimary }}
+            />
           )}
           {anterior && (
             <Chip
               size="small"
               variant="outlined"
               label={`Anterior: ${fmtNota(anterior.nota)} (${fmtData(anterior.data_registro)})`}
+              sx={{ borderColor: colors.border, color: colors.textPrimary }}
             />
           )}
         </Box>
       </Paper>
-    </Box>
-  );
 
-  const corpoRelatorio = (
-    <>
-      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 2, border: `1px solid ${LINE}` }}>
-        <SecaoTitulo>Desempenho por categoria</SecaoTitulo>
+      {/* Conteúdo a partir das categorias — única área com rolagem */}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', pr: 0.25 }}>
+      {/* Desempenho */}
+      <Paper elevation={0} sx={{ ...paperSx, mb: 2 }}>
+        <SecaoTitulo acento={acento}>Desempenho por categoria</SecaoTitulo>
         {data.desempenho_categorias.map((c, i) => {
           const pctRaw = c.percentual;
           const temNota = pctRaw != null && pctRaw !== '' && Number.isFinite(Number(pctRaw));
           const pct = temNota ? Number(pctRaw) : 0;
-          const barColor = pct >= 80 ? OK : pct >= 60 ? ACCENT : NAVY_MID;
+          const barColor = barraCategoria(pct, escuro);
           return (
             <Box
               key={c.categoria}
               sx={{
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr auto', sm: 'minmax(120px, 180px) 1fr auto' },
                 alignItems: 'center',
-                gap: 1.5,
+                columnGap: 1.5,
+                rowGap: 0.5,
                 mb: 1.25,
-                py: 0.5,
-                px: 0.5,
+                py: 0.75,
+                px: 0.75,
                 borderRadius: 1,
-                bgcolor: i % 2 === 1 ? ROW_ALT : 'transparent',
+                bgcolor: i % 2 === 1 ? (escuro ? 'rgba(148, 163, 184, 0.08)' : colors.canvasAlt) : 'transparent',
               }}
             >
               <Typography
                 variant="caption"
                 sx={{
-                  width: 130,
-                  flexShrink: 0,
                   fontWeight: 600,
-                  color: NAVY,
-                  lineHeight: 1.25,
+                  color: colors.textPrimary,
+                  lineHeight: 1.3,
+                  gridColumn: { xs: '1 / -1', sm: 'auto' },
                 }}
               >
                 {c.categoria}
               </Typography>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box sx={{ minWidth: 0, gridColumn: { xs: '1', sm: 'auto' } }}>
                 <LinearProgress
                   variant="determinate"
                   value={Math.min(100, Math.max(0, pct))}
                   sx={{
                     height: 8,
                     borderRadius: 4,
-                    bgcolor: '#E2E8F0',
+                    bgcolor: escuro ? 'rgba(203, 213, 225, 0.28)' : '#E2E8F0',
                     '& .MuiLinearProgress-bar': { bgcolor: barColor, borderRadius: 4 },
                   }}
                 />
@@ -582,20 +631,21 @@ export default function RelatorioPage() {
           );
         })}
         {!data.desempenho_categorias.length && (
-          <Typography color="text.secondary">Sem respostas registradas.</Typography>
+          <Typography sx={{ color: colors.textSecondary }}>Sem respostas registradas.</Typography>
         )}
       </Paper>
 
-      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 2, border: `1px solid ${LINE}` }}>
-        <SecaoTitulo>Respostas do checklist</SecaoTitulo>
+      {/* Respostas */}
+      <Paper elevation={0} sx={{ ...paperSx, mb: 2 }}>
+        <SecaoTitulo acento={acento}>Respostas do checklist</SecaoTitulo>
         {[...porCategoria.entries()].map(([categoria, items]) => (
           <Box key={categoria} sx={{ mb: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-              <Typography sx={{ fontWeight: 800, color: NAVY_MID, fontSize: '0.9rem' }}>
+              <Typography sx={{ fontWeight: 800, color: colors.textPrimary, fontSize: '0.9rem' }}>
                 {categoria}
               </Typography>
-              <Box sx={{ flex: 1, height: 2, bgcolor: LINE, position: 'relative' }}>
-                <Box sx={{ position: 'absolute', left: 0, top: 0, width: 48, height: 2, bgcolor: ACCENT }} />
+              <Box sx={{ flex: 1, height: 2, bgcolor: colors.border, position: 'relative', minWidth: 24 }}>
+                <Box sx={{ position: 'absolute', left: 0, top: 0, width: 48, height: 2, bgcolor: acento }} />
               </Box>
             </Box>
             {items.map((r, idx) => (
@@ -603,51 +653,59 @@ export default function RelatorioPage() {
                 key={r.id_pergunta}
                 resposta={r}
                 idx={idx}
-                mobileApp={false}
+                escuro={escuro}
+                acento={acento}
                 onAbrirFoto={(src, pergunta) => setFotoAberta({ src, pergunta })}
               />
             ))}
           </Box>
         ))}
         {!data.respostas.length && (
-          <Typography color="text.secondary">Nenhuma resposta registrada.</Typography>
+          <Typography sx={{ color: colors.textSecondary }}>Nenhuma resposta registrada.</Typography>
         )}
       </Paper>
 
+      {/* NCs */}
       {data.nao_conformidades.length > 0 && (
-        <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: `1px solid #FECACA` }}>
-          <SecaoTitulo>Não conformidades</SecaoTitulo>
+        <Paper
+          elevation={0}
+          sx={{
+            ...paperSx,
+            mb: 0,
+            borderColor: escuro ? 'rgba(248, 113, 113, 0.35)' : '#FECACA',
+          }}
+        >
+          <SecaoTitulo acento={acento}>Não conformidades</SecaoTitulo>
           {data.nao_conformidades.map((nc, i) => (
             <Box
               key={i}
               sx={{
                 display: 'flex',
+                flexWrap: 'wrap',
                 gap: 1,
                 py: 1,
                 px: 1.25,
                 mb: 1,
-                bgcolor: '#FEF2F2',
+                bgcolor: escuro ? 'rgba(248, 113, 113, 0.12)' : '#FEF2F2',
                 borderRadius: 1,
-                borderLeft: `3px solid ${FAIL}`,
+                borderLeft: `3px solid ${escuro ? '#F87171' : '#B91C1C'}`,
               }}
             >
-              <Typography variant="body2" sx={{ color: FAIL, fontWeight: 600 }}>
+              <Typography
+                variant="body2"
+                sx={{ color: escuro ? '#F87171' : '#B91C1C', fontWeight: 600 }}
+              >
                 [{nc.gravidade}]
               </Typography>
-              <Typography variant="body2" sx={{ color: SLATE }}>
+              <Typography variant="body2" sx={{ color: colors.textPrimary, flex: '1 1 200px' }}>
                 <strong>{nc.area}:</strong> {nc.descricao}
               </Typography>
             </Box>
           ))}
         </Paper>
       )}
-    </>
-  );
+      </Box>
 
-  return (
-    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
-      {cabecalhoRelatorio}
-      {corpoRelatorio}
       <Dialog open={dlgReabrir} onClose={() => !reabrindo && setDlgReabrir(false)} fullWidth maxWidth="xs">
         <DialogTitleWithIcon plainIcon icon={<LockOpenIcon />}>
           Reabrir visita
@@ -680,16 +738,18 @@ export default function RelatorioPage() {
 function RespostaRelatorio({
   resposta: r,
   idx,
-  mobileApp,
+  escuro,
+  acento,
   onAbrirFoto,
 }: {
   resposta: VisitaDetalhe['respostas'][0];
   idx: number;
-  mobileApp: boolean;
+  escuro: boolean;
+  acento: string;
   onAbrirFoto: (src: string, pergunta: string) => void;
 }) {
   const [urls, setUrls] = useState<string[]>([]);
-  const st = corResposta(r.resposta, r);
+  const st = corResposta(r.resposta, r, escuro);
 
   useEffect(() => {
     let cancelado = false;
@@ -715,24 +775,24 @@ function RespostaRelatorio({
     };
   }, [r.midia_urls]);
 
-  const cols = urls.length === 1 ? 1 : 2;
-  const imgH = urls.length === 1 ? (mobileApp ? 200 : 280) : mobileApp ? 140 : 180;
+  const cols = urls.length === 1 ? 1 : urls.length >= 3 ? 3 : 2;
+  const imgH = urls.length === 1 ? { xs: 200, sm: 280 } : { xs: 140, sm: 180 };
 
   return (
     <Box
       sx={{
         mb: 1.5,
-        p: 1.5,
+        p: { xs: 1.25, sm: 1.5 },
         borderRadius: 1.5,
-        bgcolor: idx % 2 === 0 ? '#fff' : ROW_ALT,
-        border: `1px solid ${LINE}`,
+        bgcolor: idx % 2 === 0 ? colors.surface : escuro ? 'rgba(148, 163, 184, 0.08)' : colors.canvasAlt,
+        border: `1px solid ${colors.border}`,
       }}
     >
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 0.75 }}>
         {r.codigo && (
           <Box
             sx={{
-              bgcolor: ACCENT,
+              bgcolor: acento,
               color: '#fff',
               fontWeight: 800,
               fontSize: '0.72rem',
@@ -747,13 +807,27 @@ function RespostaRelatorio({
             {r.codigo}
           </Box>
         )}
-        <Typography variant="body2" sx={{ fontWeight: 700, color: NAVY, lineHeight: 1.4, flex: 1 }}>
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: 700, color: colors.textPrimary, lineHeight: 1.4, flex: 1 }}
+        >
           {r.texto}
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: r.observacao?.trim() || urls.length ? 1 : 0 }}>
-        <Typography variant="caption" sx={{ color: SLATE_LIGHT, fontWeight: 700, fontSize: '0.62rem' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: r.observacao?.trim() || urls.length ? 1 : 0,
+        }}
+      >
+        <Typography
+          variant="caption"
+          sx={{ color: colors.textMuted, fontWeight: 700, fontSize: '0.62rem' }}
+        >
           RESPOSTA
         </Typography>
         <Box
@@ -773,10 +847,16 @@ function RespostaRelatorio({
 
       {r.observacao?.trim() && (
         <Box sx={{ mb: urls.length ? 1.25 : 0 }}>
-          <Typography variant="caption" sx={{ color: SLATE_LIGHT, fontWeight: 700, fontSize: '0.62rem' }}>
+          <Typography
+            variant="caption"
+            sx={{ color: colors.textMuted, fontWeight: 700, fontSize: '0.62rem' }}
+          >
             OBSERVAÇÃO
           </Typography>
-          <Typography variant="body2" sx={{ color: SLATE, fontStyle: 'italic', mt: 0.25 }}>
+          <Typography
+            variant="body2"
+            sx={{ color: colors.textSecondary, fontStyle: 'italic', mt: 0.25 }}
+          >
             {r.observacao.trim()}
           </Typography>
         </Box>
@@ -786,14 +866,23 @@ function RespostaRelatorio({
         <Box>
           <Typography
             variant="caption"
-            sx={{ color: SLATE_LIGHT, fontWeight: 700, fontSize: '0.62rem', display: 'block', mb: 0.75 }}
+            sx={{
+              color: colors.textMuted,
+              fontWeight: 700,
+              fontSize: '0.62rem',
+              display: 'block',
+              mb: 0.75,
+            }}
           >
             EVIDÊNCIAS FOTOGRÁFICAS
           </Typography>
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: cols === 1 ? '1fr' : '1fr 1fr',
+              gridTemplateColumns: {
+                xs: cols === 1 ? '1fr' : '1fr 1fr',
+                md: cols === 1 ? '1fr' : cols === 3 ? 'repeat(3, 1fr)' : '1fr 1fr',
+              },
               gap: 1,
             }}
           >
@@ -810,8 +899,8 @@ function RespostaRelatorio({
                   position: 'relative',
                   borderRadius: 1.5,
                   overflow: 'hidden',
-                  border: `1px solid ${LINE}`,
-                  bgcolor: ROW_ALT,
+                  border: `1px solid ${colors.border}`,
+                  bgcolor: colors.canvasAlt,
                   p: 0,
                   cursor: 'zoom-in',
                   textAlign: 'left',
@@ -835,7 +924,7 @@ function RespostaRelatorio({
                     position: 'absolute',
                     bottom: 8,
                     left: 8,
-                    bgcolor: NAVY,
+                    bgcolor: escuro ? 'rgba(15, 23, 42, 0.85)' : colors.navy,
                     color: '#fff',
                     fontWeight: 700,
                     fontSize: '0.65rem',
@@ -853,7 +942,7 @@ function RespostaRelatorio({
       )}
 
       {!urls.length && (r.midia_urls?.length ?? 0) > 0 && (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+        <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: colors.textSecondary }}>
           {(r.midia_urls?.length ?? 0)} anexo(s) — incluídos no PDF
         </Typography>
       )}

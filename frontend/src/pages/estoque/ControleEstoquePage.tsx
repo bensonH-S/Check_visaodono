@@ -59,6 +59,7 @@ import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlan
 import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
+import PageLoading from '../../components/PageLoading';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
 import EstoqueConferenciaDetalhe from './EstoqueConferenciaDetalhe';
 import {
@@ -132,31 +133,33 @@ const toggleRelatorioSx = {
     color: colors.textSecondary,
     '&.Mui-selected': {
       bgcolor: colors.surface,
-      color: colors.navy,
+      color: (theme: any) => (theme.palette.mode === 'dark' ? colors.orange : colors.navy),
       boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
       '&:hover': { bgcolor: colors.surface },
     },
   },
 } as const;
 
-/** Fundo opaco no sticky — rgba deixa células passarem por baixo do título */
+/** Fundo opaco no sticky — adapta ao tema escuro e claro */
 const thCenter = {
   textAlign: 'center',
   fontWeight: 700,
-  bgcolor: '#FFFFFF !important',
+  bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? '#1e293b !important' : '#FFFFFF !important'),
+  color: (theme: any) => (theme.palette.mode === 'dark' ? '#94A3B8' : colors.textSecondary),
   backgroundImage: 'none !important',
   backgroundClip: 'padding-box',
   zIndex: 4,
-  boxShadow: `inset 0 -1px 0 ${colors.border}`,
+  boxShadow: (theme: any) => `inset 0 -1px 0 ${theme.palette.mode === 'dark' ? '#334155' : colors.border}`,
 } as const;
 
 const thLeft = {
   fontWeight: 700,
-  bgcolor: '#FFFFFF !important',
+  bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? '#1e293b !important' : '#FFFFFF !important'),
+  color: (theme: any) => (theme.palette.mode === 'dark' ? '#94A3B8' : colors.textSecondary),
   backgroundImage: 'none !important',
   backgroundClip: 'padding-box',
   zIndex: 4,
-  boxShadow: `inset 0 -1px 0 ${colors.border}`,
+  boxShadow: (theme: any) => `inset 0 -1px 0 ${theme.palette.mode === 'dark' ? '#334155' : colors.border}`,
 } as const;
 
 function fmtBrl(v: number | null | undefined) {
@@ -772,11 +775,7 @@ export default function ControleEstoquePage() {
   const chromeCompacto = aba === 'saldo' || aba === 'conferencia' || aba === 'rede' || aba === 'piloto';
 
   if (loadingLojas) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress size={32} />
-      </Box>
-    );
+    return <PageLoading label="Carregando lojas…" />;
   }
 
   return (
@@ -944,119 +943,126 @@ export default function ControleEstoquePage() {
           <Typography color="text.secondary">Selecione a loja para começar</Typography>
         </Paper>
       ) : loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-              <CircularProgress size={28} />
-            </Box>
-          ) : (
-            <Box
-              sx={{
-                flex: 1,
-                minHeight: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: chromeCompacto ? 'hidden' : 'auto',
-              }}
-            >
-              {aba === 'conferencia' && podeConferencia && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: verDetalhe ? 1 : 1.5, flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                  {!verDetalhe ? (
-                    <>
-                      <Box
+        <PageLoading label="Carregando dados do estoque…" />
+      ) : (
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: chromeCompacto ? 'hidden' : 'auto',
+          }}
+        >
+          {aba === 'conferencia' && podeConferencia && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: verDetalhe ? 1 : 1.5, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              {!verDetalhe ? (
+                <>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 1.5,
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <Box>
+                      <Typography
+                        variant="subtitle1"
                         sx={{
-                          display: 'flex',
-                          gap: 1.5,
-                          flexWrap: 'wrap',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
+                          fontWeight: 700,
+                          color: (theme: any) => (theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy),
                         }}
                       >
-                        <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy }}>
-                            Contagens
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                          {podeEditarConferencia && (
-                            <>
-                              <Button
-                                variant="contained"
-                                startIcon={<PlayArrowIcon />}
-                                disabled={iniciando}
-                                onClick={() => void iniciarSabado('diaria')}
-                              >
-                                Diária
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                startIcon={<PlayArrowIcon />}
-                                disabled={iniciando}
-                                onClick={() => void iniciarSabado('critica_semanal')}
-                              >
-                                Semanal (segunda)
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                startIcon={<PlayArrowIcon />}
-                                disabled={iniciando}
-                                onClick={() => void iniciarSabado('completa')}
-                              >
-                                Completa
-                              </Button>
-                            </>
-                          )}
+                        Contagens
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {podeEditarConferencia && (
+                        <>
+                          <Button
+                            variant="contained"
+                            startIcon={<PlayArrowIcon />}
+                            disabled={iniciando}
+                            onClick={() => void iniciarSabado('diaria')}
+                          >
+                            Diária
+                          </Button>
                           <Button
                             variant="outlined"
-                            startIcon={
-                              baixandoRelatorio ? (
-                                <CircularProgress size={16} />
-                              ) : (
-                                <FileDownloadOutlinedIcon />
-                              )
-                            }
-                            disabled={baixandoRelatorio}
-                            onClick={() => abrirDlgRelatorio()}
+                            startIcon={<PlayArrowIcon />}
+                            disabled={iniciando}
+                            onClick={() => void iniciarSabado('critica_semanal')}
                           >
-                            Baixar relatório
+                            Semanal (segunda)
                           </Button>
-                          <IconButton
-                            onClick={() => void carregarListaContagens()}
-                            aria-label="Atualizar"
+                          <Button
+                            variant="outlined"
+                            startIcon={<PlayArrowIcon />}
+                            disabled={iniciando}
+                            onClick={() => void iniciarSabado('completa')}
                           >
-                            <RefreshIcon />
-                          </IconButton>
-                        </Box>
-                      </Box>
+                            Completa
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="outlined"
+                        startIcon={
+                          baixandoRelatorio ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <FileDownloadOutlinedIcon />
+                          )
+                        }
+                        disabled={baixandoRelatorio}
+                        onClick={() => abrirDlgRelatorio()}
+                      >
+                        Baixar relatório
+                      </Button>
+                      <IconButton
+                        onClick={() => void carregarListaContagens()}
+                        aria-label="Atualizar"
+                      >
+                        <RefreshIcon />
+                      </IconButton>
+                    </Box>
+                  </Box>
 
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                        {(
-                          [
-                            ['todas', `Todas (${listaContagens.length})`],
-                            ['aberta', `Abertas (${abertasCount})`],
-                            ['finalizada', `Finalizadas (${fechadasCount})`],
-                          ] as const
-                        ).map(([value, label]) => {
-                          const ativo = filtroStatus === value;
-                          const sxFiltro =
-                            value === 'aberta'
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {(
+                      [
+                        ['todas', `Todas (${listaContagens.length})`],
+                        ['aberta', `Abertas (${abertasCount})`],
+                        ['finalizada', `Finalizadas (${fechadasCount})`],
+                      ] as const
+                    ).map(([value, label]) => {
+                      const ativo = filtroStatus === value;
+                      const sxFiltro =
+                        value === 'aberta'
+                          ? {
+                              ...chipAbertaSx,
+                              bgcolor: ativo ? '#FEF08A' : '#FEF9C3',
+                              opacity: ativo ? 1 : 0.92,
+                            }
+                          : value === 'finalizada'
+                            ? {
+                                ...chipFinalizadaSx,
+                                bgcolor: ativo ? '#86EFAC' : '#DCFCE7',
+                                opacity: ativo ? 1 : 0.92,
+                              }
+                            : ativo
                               ? {
-                                  ...chipAbertaSx,
-                                  bgcolor: ativo ? '#FEF08A' : '#FEF9C3',
-                                  opacity: ativo ? 1 : 0.92,
+                                  bgcolor: (theme: any) =>
+                                    theme.palette.mode === 'dark' ? 'rgba(232, 82, 10, 0.15)' : colors.navyMuted,
+                                  color: (theme: any) =>
+                                    theme.palette.mode === 'dark' ? colors.orange : colors.navy,
+                                  fontWeight: 700,
+                                  border: (theme: any) =>
+                                    `1px solid ${theme.palette.mode === 'dark' ? colors.orange : colors.navyBorder}`,
                                 }
-                              : value === 'finalizada'
-                                ? {
-                                    ...chipFinalizadaSx,
-                                    bgcolor: ativo ? '#86EFAC' : '#DCFCE7',
-                                    opacity: ativo ? 1 : 0.92,
-                                  }
-                                : ativo
-                                  ? {
-                                      bgcolor: colors.navyMuted,
-                                      color: colors.navy,
-                                      fontWeight: 700,
-                                      border: `1px solid ${colors.navyBorder}`,
-                                    }
-                                  : undefined;
+                              : undefined;
                           return (
                             <Chip
                               key={value}

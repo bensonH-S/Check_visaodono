@@ -293,7 +293,7 @@ function textoPendenciaCurto(texto: string) {
     .replace(/^Falta estoque final \(contagem completa no fim do período\)\.?$/i, 'Contagem final do período')
     .replace(/^Falta estoque inicial \(contagem completa no início do período\)\.?$/i, 'Contagem inicial do período')
     .replace(/^Contagem diária de hoje ainda não foi feita.*$/i, 'Diária de hoje')
-    .replace(/^Última semanal \(segunda\) há (\d+) dias \(meta ≤ 10\)\.?$/i, 'Semanal há $1 dias')
+    .replace(/^Última semanal \(segunda\) há (\d+) dias \(meta â‰¤ 10\)\.?$/i, 'Semanal há $1 dias')
     .replace(/^Nenhuma contagem semanal de segunda \(mix e latas\) finalizada\.?$/i, 'Semanal de segunda não feita')
     .replace(/^(\d+) produto\(s\) sem ficha — CMV teórico fica incompleto\.?$/i, '$1 produtos sem ficha');
 }
@@ -369,7 +369,7 @@ function NfeLinha({
         gap: 1.5,
         py: 0.7,
         cursor: 'pointer',
-        '&:hover .nfe-num': { color: colors.navy },
+        '&:hover .nfe-num': { color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy },
       }}
     >
       <Box sx={{ minWidth: 0 }}>
@@ -486,13 +486,13 @@ function severidadePeso(s: string | undefined) {
 }
 
 const vendasThSx = {
+  color: (theme: any) => (theme.palette.mode === 'dark' ? '#94A3B8' : colors.textSecondary),
+  bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? '#1e293b !important' : `${colors.canvasAlt} !important`),
+  borderBottom: (theme: any) => `1px solid ${theme.palette.mode === 'dark' ? '#334155' : colors.border}`,
   fontWeight: 700,
   fontSize: '0.68rem',
   letterSpacing: '0.06em',
   textTransform: 'uppercase' as const,
-  color: colors.textSecondary,
-  bgcolor: `${colors.canvasAlt} !important`,
-  borderBottom: `1px solid ${colors.border}`,
   py: 1,
 } as const;
 
@@ -524,7 +524,7 @@ const toggleRedeSx = {
     color: colors.textSecondary,
     '&.Mui-selected': {
       bgcolor: colors.surface,
-      color: colors.navy,
+      color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy,
       boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
       '&:hover': { bgcolor: colors.surface },
     },
@@ -545,9 +545,9 @@ function VendasKpiCard({
   value: ReactNode;
   sub?: string;
   icon: ReactNode;
-  iconBg: string;
-  iconColor: string;
-  valueColor?: string;
+  iconBg: any;
+  iconColor: any;
+  valueColor?: any;
   footer?: ReactNode;
 }) {
   return (
@@ -583,7 +583,7 @@ function VendasKpiCard({
               fontSize: { xs: '1.35rem', md: '1.65rem' },
               lineHeight: 1.15,
               letterSpacing: '-0.03em',
-              color: valueColor || colors.navy,
+              color: valueColor || ((theme: any) => (theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy)),
             }}
           >
             {value}
@@ -792,9 +792,9 @@ function PainelVendas({
           value={fmtMoeda(vendaHoje)}
           sub={`${textoFrescorVenda(meta)} · bruto`}
           icon={<TodayOutlinedIcon />}
-          iconBg={hojeProblema ? 'rgba(232, 82, 10, 0.1)' : colors.navyMuted}
-          iconColor={hojeProblema ? colors.orange : colors.navy}
-          valueColor={hojeProblema ? colors.orange : colors.navy}
+          iconBg={hojeProblema ? 'rgba(232, 82, 10, 0.1)' : ((theme: any) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : colors.navyMuted)}
+          iconColor={hojeProblema ? colors.orange : ((theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy)}
+          valueColor={hojeProblema ? colors.orange : ((theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy)}
         />
         <VendasKpiCard
           label={`Venda ${mesNome}`}
@@ -818,7 +818,7 @@ function PainelVendas({
       >
         <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden', minWidth: 0, width: '100%' }}>
           <Box sx={{ px: 2, py: 1.4, borderBottom: `1px solid ${colors.border}` }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: colors.navy }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
               Vendas por dia
             </Typography>
             <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 0.2 }}>
@@ -898,7 +898,7 @@ function PainelVendas({
 
         <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden', minWidth: 0, width: '100%' }}>
           <Box sx={{ px: 2, py: 1.4, borderBottom: `1px solid ${colors.border}` }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: colors.navy }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
               Top produtos do mês
             </Typography>
             <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 0.2 }}>
@@ -932,7 +932,7 @@ function PainelVendas({
                           {p.qtde ? ` · ${fmtNum(p.qtde, 0)} un` : ''}
                         </Typography>
                       </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap', color: colors.navy }}>
+                      <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap', color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
                         {fmtMoeda(p.venda)}
                       </TableCell>
                     </TableRow>
@@ -1416,7 +1416,7 @@ function PainelCmv({
         </IconButton>
         <IconButton
           size="small"
-          aria-label="Mais opções"
+          aria-label="Mais opçõeses"
           onClick={(e) => setMenuEl(e.currentTarget)}
         >
           <MoreVertIcon sx={{ fontSize: 18 }} />
@@ -1726,7 +1726,7 @@ function PainelCmv({
               {
                 label: 'Projeção restante',
                 value: fmtMoeda(metaVendas.projecao_restante),
-                sub: `média ${fmtMoeda(metaVendas.media_dia)} × ${metaVendas.dias_restantes ?? 0} dias`,
+                sub: `média ${fmtMoeda(metaVendas.media_dia)} Ã— ${metaVendas.dias_restantes ?? 0} dias`,
               },
               {
                 label: 'Fecha o mês',
@@ -1788,7 +1788,7 @@ function PainelCmv({
               CMV teórico vs. meta
             </Typography>
             <Typography sx={{ fontSize: '0.7rem', color: colors.textMuted }}>
-              meta ≤ {metaPct}%
+              meta â‰¤ {metaPct}%
             </Typography>
           </Box>
           <Box sx={{ position: 'relative', height: 6, borderRadius: 99, bgcolor: colors.canvasAlt }}>
@@ -1897,7 +1897,7 @@ function PainelCmv({
           <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             <LedgerRow label="estoque inicial" value={fmtMoeda(real?.estoque_inicial ?? 0)} />
             <LedgerRow prefix="+" label="compras (NFs)" value={fmtMoeda(real?.compras ?? 0)} />
-            <LedgerRow prefix="−" label="estoque final" value={fmtMoeda(real?.estoque_final ?? 0)} />
+            <LedgerRow prefix="âˆ’" label="estoque final" value={fmtMoeda(real?.estoque_final ?? 0)} />
             <LedgerRow prefix="=" label="consumo" value={fmtMoeda(real?.consumo_real ?? 0)} strong />
           </Box>
         </Box>
@@ -2297,11 +2297,11 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
       <Paper sx={{ p: 2, border: `1px solid ${colors.border}` }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy }} gutterBottom>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }} gutterBottom>
           Pedido sugerido da semana
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Base: vendas dos últimos {dados?.periodo_dias ?? 7} dias × fichas − saldo atual. Você
+          Base: vendas dos últimos {dados?.periodo_dias ?? 7} dias Ã— fichas âˆ’ saldo atual. Você
           ajusta e confirma (o app não pede sozinho).
         </Typography>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -2479,7 +2479,7 @@ function PainelProdutos({
   };
 
   const abrirProduto = async (p: ProdutoVendaEstoque) => {
-    // Abre na hora (a API às vezes demora ~1s e parecia que “não abria”)
+    // Abre na hora (a API às vezes demora ~1s e parecia que "não abria")
     const fallbackItens =
       (p.insumos_ficha || []).length > 0
         ? (p.insumos_ficha || []).map((i) => ({
@@ -3006,7 +3006,7 @@ function PainelProdutos({
                                           )?.label || i.unidade_receita
                                         }`
                                       : ''}{' '}
-                                    × {nomeInsumo(i.codigo_insumo)}
+                                    Ã— {nomeInsumo(i.codigo_insumo)}
                                   </Typography>
                                 ))
                               ) : (
@@ -3394,7 +3394,7 @@ function PainelProdutos({
                       <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>
                         {i.quantidade} {rotuloUnidade(i.unidade_receita)}
                       </Box>
-                      {' × '}
+                      {' Ã— '}
                       {nomeInsumo(i.codigo_insumo)}
                       {custo > 0 ? (
                         <>
@@ -3797,7 +3797,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
         <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: colors.navy, letterSpacing: '-0.01em' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy, letterSpacing: '-0.01em' }}>
             Break
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, maxWidth: 560 }}>
@@ -3811,7 +3811,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             resetForm();
             setOpen(true);
           }}
-          sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
+          sx={{ bgcolor: (theme: any) => theme.palette.mode === 'dark' ? colors.orange : colors.navy, color: (theme: any) => theme.palette.mode === 'dark' ? '#E5E7EB' : '#FFFFFF', '&:hover': { bgcolor: (theme: any) => theme.palette.mode === 'dark' ? colors.orangeHover : colors.navyDark } }}
         >
           Lançar
         </Button>
@@ -3819,7 +3819,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
 
       {aReceber.length > 0 && (
         <Paper sx={{ ...tablePaperSx, p: 2, border: '1px solid #E8520A' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: colors.navy }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
             Empréstimos para receber
           </Typography>
           {aReceber.map((emp) => (
@@ -4184,3 +4184,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     </Box>
   );
 }
+
+
+
+

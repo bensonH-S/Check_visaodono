@@ -24,7 +24,21 @@ import {
   urgenciaChip,
 } from '../../utils/manutencaoUi';
 
-const NAVY = '#1B2A6B';
+import { colors } from '../../theme/tokens';
+
+const NAVY = colors.textPrimary;
+
+function brandAcento() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    ? '#E8520A'
+    : colors.navy;
+}
+
+function brandAcentoHover() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+    ? '#c94508'
+    : colors.navyDark;
+}
 
 function statusAccent(status: string) {
   const col = KANBAN_COLUNAS.find((c) => c.status === status);
@@ -160,6 +174,9 @@ function LinhaTecnicoResponsavel({
         lineHeight: compacto ? 1.15 : undefined,
         whiteSpace: 'nowrap',
         boxShadow: 'none',
+        bgcolor: brandAcento(),
+        color: '#fff',
+        '&:hover': { bgcolor: brandAcentoHover(), boxShadow: 'none' },
         '& .MuiButton-startIcon': {
           mr: compacto ? 0.25 : 0.35,
           ml: 0,
@@ -499,7 +516,7 @@ export default function ChamadoDetalheHeader({
                     px: 0.75,
                     py: 0.35,
                     borderRadius: 1.25,
-                    bgcolor: NAVY,
+                    bgcolor: brandAcento(),
                     color: '#fff',
                     fontWeight: 800,
                     fontSize: '0.72rem',

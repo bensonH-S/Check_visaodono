@@ -222,8 +222,14 @@
 }
 
 .ck-escala .ck-escala__filtro-btn.is-on {
-  border-color: rgba(232, 82, 10, 0.45);
-  color: var(--ck-orange);
+  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.45));
+  color: var(--ck-accent, var(--ck-orange));
+}
+
+.ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
+  background: var(--ck-accent, var(--ck-orange));
+  color: #fff;
+  border-color: var(--ck-accent, var(--ck-orange));
 }
 
 .ck-escala .ck-escala__voltar-row {
@@ -393,13 +399,13 @@
 }
 
 .ck-escala .ck-escala__dia.is-today {
-  border-color: rgba(232, 82, 10, 0.45);
+  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.45));
 }
 
 .ck-escala .ck-escala__dia.is-on {
-  border-color: var(--ck-orange);
-  background: rgba(232, 82, 10, 0.08);
-  box-shadow: 0 4px 14px rgba(232, 82, 10, 0.18);
+  border-color: var(--ck-accent, var(--ck-orange));
+  background: var(--ck-accent-soft, rgba(232, 82, 10, 0.08));
+  box-shadow: 0 4px 14px var(--ck-accent-shadow, rgba(232, 82, 10, 0.18));
 }
 
 .ck-escala .ck-escala__dia strong {
@@ -432,7 +438,7 @@
 }
 
 .ck-escala .ck-escala__dia.is-on .ck-escala__dia-n {
-  background: var(--ck-orange);
+  background: var(--ck-accent, var(--ck-orange));
   color: #fff;
 }
 
@@ -446,7 +452,7 @@
 }
 
 .ck-escala .ck-escala__loja-semana.is-delivery {
-  border-color: rgba(232, 82, 10, 0.22);
+  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.22));
 }
 
 .ck-escala .ck-escala__loja-semana > strong {
@@ -458,7 +464,7 @@
 }
 
 .ck-escala .ck-escala__loja-semana.is-delivery > strong {
-  color: var(--ck-orange);
+  color: var(--ck-accent, var(--ck-orange));
 }
 
 .ck-escala .ck-escala__faixa {
@@ -500,8 +506,8 @@
 }
 
 .ck-escala .ck-escala__card.is-delivery-on {
-  border-color: rgba(232, 82, 10, 0.35);
-  background: rgba(232, 82, 10, 0.05);
+  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.35));
+  background: var(--ck-accent-soft, rgba(232, 82, 10, 0.05));
 }
 
 .ck-escala .ck-escala__card.is-edit {
@@ -521,7 +527,7 @@
 }
 
 .ck-escala .ck-escala__card-meta.is-on {
-  color: var(--ck-orange);
+  color: var(--ck-accent, var(--ck-orange));
 }
 
 .ck-escala .ck-escala__card-meta.is-off {
@@ -727,8 +733,9 @@
 }
 
 .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao {
-  border-color: rgba(232, 82, 10, 0.35);
-  background: rgba(232, 82, 10, 0.06);
+  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.35));
+  background: var(--ck-accent-soft, rgba(232, 82, 10, 0.06));
+  border-left: 3px solid var(--ck-accent, var(--ck-orange));
 }
 
 .ck-escala .ck-escala__aprovacao-card--aprovado {
@@ -768,7 +775,7 @@
 }
 
 .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao strong em {
-  color: #c2410c;
+  color: var(--ck-accent, #c2410c);
 }
 
 .ck-escala .ck-escala__aprovacao-card--aprovado strong em {
@@ -785,7 +792,7 @@
 .ck-escala .ck-escala__aprovacao-ver {
   margin-top: 6px !important;
   font-weight: 700;
-  color: var(--ck-orange) !important;
+  color: var(--ck-accent, var(--ck-orange)) !important;
 }
 
 .ck-escala .ck-escala__aprovacao-acoes {

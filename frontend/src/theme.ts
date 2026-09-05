@@ -29,7 +29,11 @@ const baseThemeOptions = {
       styleOverrides: {
         root: { borderRadius: radius.md, padding: '8px 16px', fontSize: '0.8125rem', fontWeight: 500 },
         contained: {
-          '&.MuiButton-containedPrimary': { '&:hover': { backgroundColor: colors.navyDark } },
+          '&.MuiButton-containedPrimary': {
+            backgroundColor: 'var(--ga-primary-btn) !important',
+            color: '#FFFFFF !important',
+            '&:hover': { backgroundColor: 'var(--ga-primary-hover) !important' },
+          },
         },
         outlined: {
           borderColor: colors.border,
@@ -42,17 +46,23 @@ const baseThemeOptions = {
       styleOverrides: {
         root: { fontWeight: 500, fontSize: '0.75rem' },
         outlined: { borderColor: colors.border },
+        outlinedSuccess: {
+          borderColor: 'rgba(5, 150, 105, 0.55)',
+          color: '#059669',
+          backgroundColor: 'rgba(5, 150, 105, 0.12)',
+          '& .MuiChip-icon': { color: '#059669' },
+        },
       },
     },
     MuiTableHead: {
       styleOverrides: {
         root: {
           '& .MuiTableCell-head': {
-            fontWeight: 500,
+            fontWeight: 600,
             fontSize: '0.75rem',
-            color: colors.textSecondary,
-            bgcolor: colors.canvas,
-            borderBottom: `1px solid ${colors.border}`,
+            color: 'var(--ga-text-secondary)',
+            backgroundColor: 'var(--ga-surface) !important',
+            borderBottom: '1px solid var(--ga-border)',
           },
         },
       },
@@ -63,7 +73,7 @@ const baseThemeOptions = {
     MuiTableRow: {
       styleOverrides: { root: { '&:hover': { bgcolor: colors.canvas } } },
     },
-    MuiTextField: { defaultProps: { size: 'small' } },
+    MuiTextField: { defaultProps: { size: 'small' as const } },
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
@@ -72,7 +82,17 @@ const baseThemeOptions = {
           bgcolor: colors.surface,
           '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
           '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: colors.borderStrong },
-          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: colors.navy, borderWidth: 1 },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: colors.orange,
+            borderWidth: 1.5,
+          },
+        },
+      },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          '&.Mui-focused': { color: colors.orange },
         },
       },
     },
@@ -87,7 +107,11 @@ const baseThemeOptions = {
       },
     },
     MuiLinearProgress: {
-      styleOverrides: { root: { borderRadius: 4, bgcolor: colors.canvasAlt } },
+      defaultProps: { color: 'inherit' as const },
+      styleOverrides: {
+        root: { borderRadius: 4, bgcolor: 'var(--ga-progress-track)', color: 'var(--ga-progress-bar)' },
+        bar: { borderRadius: 4, bgcolor: 'var(--ga-progress-bar)' },
+      },
     },
   },
 };
@@ -97,7 +121,7 @@ export const lightTheme = createTheme({
   palette: {
     mode: 'light',
     primary: { main: '#1B2A6B', dark: '#152056', contrastText: '#fff' },
-    secondary: { main: '#E8520A', dark: '#CF4909', contrastText: '#fff' },
+    secondary: { main: '#1B2A6B', dark: '#152056', contrastText: '#fff' },
     success: { main: '#059669', contrastText: '#fff' },
     warning: { main: '#D97706', contrastText: '#fff' },
     error: { main: '#DC2626', contrastText: '#fff' },
@@ -111,11 +135,11 @@ export const darkTheme = createTheme({
   ...baseThemeOptions,
   palette: {
     mode: 'dark',
-    primary: { main: '#1B2A6B', dark: '#152056', contrastText: '#fff' },
-    secondary: { main: '#E8520A', dark: '#F97316', contrastText: '#fff' },
-    success: { main: '#059669', contrastText: '#fff' },
-    warning: { main: '#D97706', contrastText: '#fff' },
-    error: { main: '#DC2626', contrastText: '#fff' },
+    primary: { main: '#E8520A', dark: '#c94508', light: '#FB923C', contrastText: '#fff' },
+    secondary: { main: '#E8520A', dark: '#F97316', contrastText: '#E5E7EB' },
+    success: { main: '#34D399', contrastText: '#052e16' },
+    warning: { main: '#FB923C', contrastText: '#431407' },
+    error: { main: '#F87171', contrastText: '#450a0a' },
     background: { default: '#0F172A', paper: '#1E293B' },
     text: { primary: '#F8FAFC', secondary: '#94A3B8' },
     divider: '#334155',
@@ -123,3 +147,7 @@ export const darkTheme = createTheme({
 });
 
 export const theme = lightTheme;
+
+
+
+

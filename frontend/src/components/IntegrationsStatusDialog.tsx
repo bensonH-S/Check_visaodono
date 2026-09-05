@@ -9,6 +9,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
 import { Activity } from 'lucide-react';
 import type { IntegrationStatusGroup, IntegrationStatusItem } from '../api/client';
+import { useAppTheme } from '../context/ThemeContext';
 import { colors } from '../theme/tokens';
 
 type Props = {
@@ -71,6 +72,10 @@ export default function IntegrationsStatusDialog({
   titulo,
   onAtualizar,
 }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : '#1B2A6B';
+  const cardBg = escuro ? 'rgba(148, 163, 184, 0.08)' : colors.canvasAlt;
   const tituloExibido =
     titulo || (contexto ? `Status API · ${groups[0]?.name || ''}`.replace(/\s·\s$/, '') : 'Status API');
 
@@ -84,7 +89,10 @@ export default function IntegrationsStatusDialog({
         paper: {
           sx: {
             borderRadius: 2.5,
-            boxShadow: '0 16px 48px rgba(27, 42, 107, 0.18)',
+            bgcolor: colors.surface,
+            backgroundImage: 'none',
+            border: `1px solid ${colors.border}`,
+            boxShadow: escuro ? '0 16px 48px rgba(0, 0, 0, 0.45)' : '0 16px 48px rgba(15, 23, 42, 0.12)',
             overflow: 'hidden',
           },
         },
@@ -93,17 +101,18 @@ export default function IntegrationsStatusDialog({
       <DialogTitle
         sx={{
           fontWeight: 700,
-          color: colors.navy,
+          color: colors.textPrimary,
           display: 'flex',
           alignItems: 'center',
           gap: 1,
           py: 1.5,
           px: 2,
           borderBottom: `1px solid ${colors.border}`,
+          bgcolor: colors.surface,
         }}
       >
-        <Activity size={22} strokeWidth={2} color={colors.navy} aria-hidden />
-        <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.05rem', color: colors.navy, flex: 1 }}>
+        <Activity size={22} strokeWidth={2} color={acento} aria-hidden />
+        <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.05rem', color: colors.textPrimary, flex: 1 }}>
           {loading ? 'Status API' : tituloExibido || 'Status API'}
         </Typography>
         <IconButton
@@ -112,8 +121,8 @@ export default function IntegrationsStatusDialog({
           onClick={onAtualizar}
           disabled={loading}
           sx={{
-            color: colors.navy,
-            '&.Mui-disabled': { color: colors.navy, opacity: 0.85 },
+            color: acento,
+            '&.Mui-disabled': { color: acento, opacity: 0.55 },
           }}
         >
           <RefreshIcon
@@ -131,12 +140,12 @@ export default function IntegrationsStatusDialog({
             }
           />
         </IconButton>
-        <IconButton size="small" aria-label="Fechar" onClick={onClose} sx={{ color: colors.navy }}>
+        <IconButton size="small" aria-label="Fechar" onClick={onClose} sx={{ color: colors.textSecondary }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: '20px !important', pb: 2.5, px: 2, minHeight: 160 }}>
+      <DialogContent sx={{ pt: '20px !important', pb: 2.5, px: 2, minHeight: 160, bgcolor: colors.surface }}>
         {loading ? (
           <Box
             sx={{
@@ -147,7 +156,7 @@ export default function IntegrationsStatusDialog({
               py: 5,
             }}
           >
-            <CircularProgress size={22} thickness={4} sx={{ color: 'rgba(27, 42, 107, 0.45)' }} />
+            <CircularProgress size={22} thickness={4} sx={{ color: acento }} />
             <Typography sx={{ fontSize: '0.92rem', color: 'text.secondary', fontWeight: 500 }}>
               A verificar APIs...
             </Typography>
@@ -170,7 +179,7 @@ export default function IntegrationsStatusDialog({
                       fontWeight: 800,
                       letterSpacing: '0.06em',
                       textTransform: 'uppercase',
-                      color: 'rgba(27, 42, 107, 0.55)',
+                      color: colors.textMuted,
                     }}
                   >
                     {grupo.name}
@@ -188,12 +197,12 @@ export default function IntegrationsStatusDialog({
                         px: 1.25,
                         py: 1.1,
                         borderRadius: 2,
-                        border: '1px solid rgba(27, 42, 107, 0.12)',
-                        bgcolor: 'rgba(27, 42, 107, 0.03)',
+                        border: `1px solid ${colors.border}`,
+                        bgcolor: cardBg,
                       }}
                     >
                       <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', color: colors.navy }}>
+                        <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', color: colors.textPrimary }}>
                           {item.name}
                         </Typography>
                         <Typography

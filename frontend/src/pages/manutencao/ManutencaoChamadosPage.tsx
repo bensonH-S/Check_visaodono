@@ -4,7 +4,6 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
@@ -18,6 +17,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import PageLoading from '../../components/PageLoading';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -25,13 +25,14 @@ import { useTheme } from '@mui/material/styles';
 import { api } from '../../api/client';
 import type { ManutChamado } from '../../api/client';
 import { getUsuario, temPermissao } from '../../lib/auth';
-import { KANBAN_COLUNAS, STATUS_CHAMADO } from '../../utils/manutencaoUi';
+import { KANBAN_COLUNAS, STATUS_CHAMADO, statusEstiloTema } from '../../utils/manutencaoUi';
 import ChamadosKanbanBoard from '../../components/manutencao/ChamadosKanbanBoard';
 import ChamadoCardResumo from '../../components/manutencao/ChamadoCardResumo';
 import { NOTIFICACOES_REFRESH } from '../../utils/notificacoesEvent';
 import { parseDataApi } from '../../utils/dateBr';
 import { pageFillLayoutSx } from '../../utils/pageFillLayout';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 
 const TODAS_LOJAS = 'todas';
 
@@ -79,6 +80,10 @@ function pertenceAoPeriodo(abertoEm: string | undefined, prazoSla: string, perio
 export default function ManutencaoChamadosPage() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
   const telaCompacta = useMediaQuery(theme.breakpoints.down('lg'));
   const sessao = getUsuario();
@@ -152,18 +157,14 @@ export default function ManutencaoChamadosPage() {
   }, []);
 
   if (loading) {
-    return (
-      <Box className="flex justify-center py-16">
-        <CircularProgress />
-      </Box>
-    );
+    return <PageLoading />;
   }
 
   return (
     <Box sx={pageFillLayoutSx}>
       {/* Toolbar compacta — não rola */}
       <Box sx={{ flexShrink: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: colors.textSecondary }}>
           {listaFiltrada.length} chamado{listaFiltrada.length !== 1 ? 's' : ''}
           {filtrosAtivos ? ' · filtros ativos' : ''}
         </Typography>
@@ -174,6 +175,18 @@ export default function ManutencaoChamadosPage() {
               exclusive
               value={modo}
               onChange={(_, v: ModoVisual | null) => v && setModo(v)}
+              sx={{
+                bgcolor: colors.surface,
+                border: `1px solid ${colors.border}`,
+                '& .MuiToggleButton-root': {
+                  color: colors.textSecondary,
+                  border: 'none',
+                  '&.Mui-selected': {
+                    bgcolor: escuro ? 'rgba(232, 82, 10, 0.2)' : 'rgba(27, 42, 107, 0.08)',
+                    color: acento,
+                  },
+                },
+              }}
             >
               <ToggleButton value="lista" aria-label="Lista">
                 <ViewListIcon sx={{ fontSize: 17 }} />
@@ -189,11 +202,27 @@ export default function ManutencaoChamadosPage() {
             startIcon={<FilterListIcon sx={{ fontSize: 16 }} />}
             endIcon={<ExpandMoreIcon sx={{ fontSize: 16, transform: filtrosAbertos ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />}
             onClick={() => setFiltrosAbertos((v) => !v)}
+            sx={{
+              textTransform: 'none',
+              borderColor: colors.borderStrong,
+              color: colors.textPrimary,
+            }}
           >
             Filtros
           </Button>
           {sessao && temPermissao('chamados.abrir', sessao) && (
-            <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => navigate('/chamados/novo')}>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/chamados/novo')}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                bgcolor: acento,
+                '&:hover': { bgcolor: acentoHover },
+              }}
+            >
               Novo
             </Button>
           )}
@@ -206,11 +235,15 @@ export default function ManutencaoChamadosPage() {
           size="small"
           onClick={() => setFiltroStatus('')}
           variant={filtroStatus === '' ? 'filled' : 'outlined'}
-          color={filtroStatus === '' ? 'primary' : 'default'}
+          sx={
+            filtroStatus === ''
+              ? { bgcolor: acento, color: '#fff', fontWeight: 600 }
+              : { borderColor: colors.border, color: colors.textPrimary }
+          }
         />
         {KANBAN_COLUNAS.map((col) => {
           const qtd = contagemPorStatus.get(col.status) ?? 0;
-          const st = STATUS_CHAMADO[col.status];
+          const st = statusEstiloTema(col.status);
           const ativo = filtroStatus === col.status;
           return (
             <Chip
@@ -219,7 +252,11 @@ export default function ManutencaoChamadosPage() {
               label={`${col.label} · ${qtd}`}
               onClick={() => setFiltroStatus(ativo ? '' : col.status)}
               variant={ativo ? 'filled' : 'outlined'}
-              sx={ativo ? { bgcolor: st?.bg, color: st?.color, fontWeight: 600 } : undefined}
+              sx={
+                ativo
+                  ? { bgcolor: st.bg, color: st.color, fontWeight: 600 }
+                  : { borderColor: colors.border, color: colors.textPrimary }
+              }
             />
           );
         })}
@@ -286,7 +323,17 @@ export default function ManutencaoChamadosPage() {
           <Paper elevation={0} sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: colors.border }}>
             <Typography color="text.secondary" gutterBottom>Nenhum chamado ainda.</Typography>
             {sessao && temPermissao('chamados.abrir', sessao) && (
-              <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/chamados/novo')}>
+              <Button
+                variant="contained"
+                sx={{
+                  mt: 2,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  bgcolor: acento,
+                  '&:hover': { bgcolor: acentoHover },
+                }}
+                onClick={() => navigate('/chamados/novo')}
+              >
                 Abrir primeiro chamado
               </Button>
             )}

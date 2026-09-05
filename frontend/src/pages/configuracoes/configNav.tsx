@@ -1,12 +1,10 @@
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import PeopleIcon from '@mui/icons-material/People';
-import StoreIcon from '@mui/icons-material/Store';
 import CategoryIcon from '@mui/icons-material/Category';
 import ScheduleIcon from '@mui/icons-material/Schedule';
-import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import HistoryIcon from '@mui/icons-material/History';
+import EmailIcon from '@mui/icons-material/Email';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import { getUsuario, temPermissao } from '../../lib/auth';
@@ -35,29 +33,6 @@ const CONFIG_NAV: ConfigNavSection[] = [
         label: 'Perguntas',
         icon: <AssignmentIcon fontSize="small" />,
         permissoes: ['configuracoes.perguntas'],
-      },
-    ],
-  },
-  {
-    title: 'Cadastros',
-    items: [
-      {
-        to: '/configuracoes/usuarios',
-        label: 'Usuários',
-        icon: <PeopleIcon fontSize="small" />,
-        permissoes: ['usuarios.gerenciar'],
-      },
-      {
-        to: '/configuracoes/lojas',
-        label: 'Lojas',
-        icon: <StoreIcon fontSize="small" />,
-        permissoes: ['portal.lojas.ver'],
-      },
-      {
-        to: '/configuracoes/cargos',
-        label: 'Cargos',
-        icon: <BadgeIcon fontSize="small" />,
-        permissoes: ['configuracoes.ver', 'usuarios.gerenciar'],
       },
     ],
   },
@@ -99,6 +74,12 @@ const CONFIG_NAV: ConfigNavSection[] = [
         icon: <WhatsAppIcon fontSize="small" sx={{ color: '#25D366' }} />,
         permissoes: ['configuracoes.ver'],
       },
+      {
+        to: '/configuracoes/smtp',
+        label: 'SMTP',
+        icon: <EmailIcon fontSize="small" />,
+        permissoes: ['configuracoes.ver', 'usuarios.gerenciar'],
+      },
     ],
   },
   {
@@ -121,6 +102,8 @@ const CONFIG_NAV: ConfigNavSection[] = [
 ];
 
 function itemVisivel(item: ConfigNavItem, user: UsuarioSessao | null) {
+  if (!user) return false;
+  if (user.perfil === 'administrador' || user.cargo_aprovacao === 'administrador') return true;
   if (item.regra && !item.regra(user)) return false;
   if (!item.permissoes.length) return Boolean(item.regra?.(user));
   return item.permissoes.some((p) => temPermissao(p, user));

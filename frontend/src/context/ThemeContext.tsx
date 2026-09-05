@@ -42,7 +42,7 @@ export function CustomThemeProvider({ children }: { children: React.ReactNode })
   return (
     <ThemeContext.Provider value={{ mode, toggleTheme, setMode }}>
       <MuiThemeProvider theme={activeTheme}>
-        {/* We moved CssBaseline here so it adopts the current theme palette automatically */}
+        <CssBaseline />
         {children}
       </MuiThemeProvider>
     </ThemeContext.Provider>

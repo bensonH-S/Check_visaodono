@@ -344,7 +344,7 @@ function ChamadosMobileLayoutInner() {
   /** Lista, novo e detalhe: chrome immersive. */
   const isChamadosLista = path === '/chamados/mobile';
   const isChamadosImmersive = isChamadosLista || isNovo || isDetalhe;
-  const isRelatorio = path.startsWith('/relatorio/visita/');
+  const isRelatorio = path.startsWith('/relatorio/mobile/visita/');
   const { fase: checklistFaseUi, dispararVoltar: dispararVoltarChecklist } = useChecklistMobileUi();
   const isChecklistEmAndamento =
     isChecklist && (checklistFaseUi === 'iniciada' || checklistFaseUi === 'perguntas');

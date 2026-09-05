@@ -18,6 +18,7 @@ import {
 } from '../../constants/frotaVeiculo';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type Props = {
   form: FormVeiculoFrota;
@@ -205,9 +206,11 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
 }
 
 function SecaoFormTitulo({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  const { mode } = useAppTheme();
+  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
-      <Box sx={{ display: 'inline-flex', color: colors.navy, opacity: 0.85 }}>{icon}</Box>
+      <Box sx={{ display: 'inline-flex', color: acento, opacity: 0.85 }}>{icon}</Box>
       <Typography
         variant="caption"
         color="text.secondary"

@@ -20,6 +20,7 @@ import { toAppPath } from '../config/paths';
 import { colors, layout, radius, sectionLabelSx } from '../theme/tokens';
 import { APP_NAME } from '../config/brand';
 import { useAppConfig } from '../hooks/useAppConfig';
+import { useAppTheme } from '../context/ThemeContext';
 import { api, type IntegrationStatusGroup } from '../api/client';
 
 export type SidebarNavItem = {
@@ -28,6 +29,7 @@ export type SidebarNavItem = {
   icon: React.ReactNode;
   end?: boolean;
   isActive?: (pathname: string) => boolean;
+  section?: string;
 };
 
 type Props = {
@@ -39,6 +41,9 @@ type Props = {
 
 export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) {
   const { version, environment } = useAppConfig();
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : '#1B2A6B';
   const { pathname } = useLocation();
   const appPath = toAppPath(pathname);
   const versionLabel = version === 'dev' ? 'dev' : version.startsWith('v') ? version : `v${version}`;
@@ -103,7 +108,6 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
         <BrandLogo
           maxWidth={118}
           sx={{
-            filter: 'none',
             display: 'block',
             // Compensa padding transparente do PNG
             mb: '-14px',
@@ -111,14 +115,14 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
         />
         <Typography
           sx={{
-            mt: 0,
+            mt: 0.25,
             textAlign: 'center',
-            fontSize: '0.625rem',
-            fontWeight: 600,
-            letterSpacing: '0.08em',
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            letterSpacing: '0.06em',
             textTransform: 'uppercase',
-            color: colors.textMuted,
-            lineHeight: 1,
+            lineHeight: 1.15,
+            color: escuro ? colors.textPrimary : '#E8520A',
           }}
         >
           {APP_NAME}
@@ -211,7 +215,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
                 fontSize: '0.625rem',
                 fontWeight: 600,
                 color: '#fff',
-                bgcolor: colors.navy,
+                bgcolor: acento,
                 flexShrink: 0,
                 boxShadow: `0 0 0 2px ${colors.surface}`,
                 border: 'none',
@@ -221,7 +225,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
                 transition: 'transform 0.12s, box-shadow 0.12s',
                 '&:hover': {
                   transform: 'scale(1.06)',
-                  boxShadow: `0 0 0 2px ${colors.surface}, 0 0 0 4px ${colors.orange}55`,
+                  boxShadow: `0 0 0 2px ${colors.surface}, 0 0 0 4px ${acento}55`,
                 },
               }}
             >
@@ -252,7 +256,17 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
             </IconButton>
           </Tooltip>
         </Box>
-        <Typography sx={{ display: 'block', textAlign: 'center', color: colors.textMuted, fontSize: '0.5625rem', mt: 1 }}>
+        <Typography
+          sx={{
+            display: 'block',
+            textAlign: 'center',
+            color: colors.textSecondary,
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            mt: 1.1,
+            letterSpacing: '0.02em',
+          }}
+        >
           {versionLabel} · {environment}
         </Typography>
       </Box>
@@ -269,7 +283,9 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
               minWidth: 200,
               borderRadius: 2,
               mb: 0.75,
-              boxShadow: '0 12px 32px rgba(27, 42, 107, 0.16)',
+              bgcolor: colors.surface,
+              border: `1px solid ${colors.border}`,
+              boxShadow: escuro ? '0 12px 32px rgba(0, 0, 0, 0.45)' : '0 12px 32px rgba(15, 23, 42, 0.12)',
             },
           },
         }}
@@ -281,20 +297,20 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
           }}
         >
           <ListItemIcon>
-            <InfoOutlinedIcon fontSize="small" sx={{ color: colors.navy }} />
+            <InfoOutlinedIcon fontSize="small" sx={{ color: acento }} />
           </ListItemIcon>
           <ListItemText
             primary="Sobre"
-            slotProps={{ primary: { sx: { fontSize: '0.875rem', fontWeight: 600, color: colors.navy } } }}
+            slotProps={{ primary: { sx: { fontSize: '0.875rem', fontWeight: 600, color: colors.textPrimary } } }}
           />
         </MenuItem>
         <MenuItem onClick={abrirStatusApi}>
           <ListItemIcon sx={{ minWidth: 36 }}>
-            <Activity size={18} strokeWidth={2} color={colors.navy} aria-hidden />
+            <Activity size={18} strokeWidth={2} color={acento} aria-hidden />
           </ListItemIcon>
           <ListItemText
             primary="Status API"
-            slotProps={{ primary: { sx: { fontSize: '0.875rem', fontWeight: 600, color: colors.navy } } }}
+            slotProps={{ primary: { sx: { fontSize: '0.875rem', fontWeight: 600, color: colors.textPrimary } } }}
           />
         </MenuItem>
       </Menu>

@@ -370,7 +370,7 @@ function desenharPainel(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   setText(doc, NAVY);
-  doc.text(painel.titulo, MARGIN, y + 3);
+  doc.text(painel.titulo.replace(/\s*[—–―]\s*/g, ' - '), MARGIN, y + 3);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6);

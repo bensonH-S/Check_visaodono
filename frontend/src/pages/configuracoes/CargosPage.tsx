@@ -30,8 +30,7 @@ import type { Cargo, TipoChecklist } from '../../api/client';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { useToast } from '../../hooks/useToast';
-
-const NAVY = '#1B2A6B';
+import { colors } from '../../theme/tokens';
 
 const emptyForm = {
   nome: '',
@@ -174,7 +173,15 @@ export default function CargosPage() {
           <TableBody>
             {lista.map((c) => (
               <TableRow key={c.id_cargo} hover onClick={() => abrirEditar(c)} sx={{ cursor: 'pointer' }}>
-                <TableCell sx={{ fontWeight: 600, color: NAVY, whiteSpace: 'nowrap' }}>{c.nome}</TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: (theme: any) => (theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy),
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {c.nome}
+                </TableCell>
                 <TableCell sx={{ maxWidth: 360 }}>
                   <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'normal', lineHeight: 1.4 }}>
                     {c.descricao || '—'}
@@ -229,7 +236,11 @@ export default function CargosPage() {
 
       <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="sm">
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <BadgeIcon sx={{ color: NAVY }} />
+          <BadgeIcon
+            sx={{
+              color: (theme: any) => (theme.palette.mode === 'dark' ? colors.orange : colors.navy),
+            }}
+          />
           {editId ? 'Editar cargo' : 'Novo cargo'}
         </DialogTitle>
         <DialogContent dividers sx={dialogContentSx}>

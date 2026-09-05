@@ -16,6 +16,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import EmailIcon from '@mui/icons-material/Email';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
@@ -91,8 +92,11 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/configuracoes/lojas': { title: 'Lojas', icon: <StoreIcon sx={iconSx} /> },
   '/configuracoes/categorias': { title: 'Categorias', icon: <CategoryIcon sx={iconSx} /> },
   '/configuracoes/sla': { title: 'SLA', icon: <ScheduleIcon sx={iconSx} /> },
+  '/cargos': { title: 'Permissões & Cargos', icon: <BadgeIcon sx={iconSx} /> },
+  '/permissoes': { title: 'Permissões & Cargos', icon: <BadgeIcon sx={iconSx} /> },
   '/configuracoes/cargos': { title: 'Cargos', icon: <BadgeIcon sx={iconSx} /> },
   '/configuracoes/whatsapp': { title: 'WhatsApp', icon: <WhatsAppIcon sx={{ fontSize: 22, color: '#25D366' }} /> },
+  '/configuracoes/smtp': { title: 'SMTP', icon: <EmailIcon sx={iconSx} /> },
   '/configuracoes/estoque-sync-nf': { title: 'Sync NF estoque', icon: <LocalShippingIcon sx={iconSx} /> },
   '/configuracoes/contagem': { title: 'Configuração da Contagem', icon: <Inventory2Icon sx={iconSx} /> },
   '/configuracoes/notificacoes': { title: 'Notificações', icon: <NotificationsIcon sx={iconSx} /> },

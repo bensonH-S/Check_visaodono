@@ -65,6 +65,31 @@ export const STATUS_CHAMADO: Record<string, { label: string; color: string; bg: 
   cancelado: { label: 'Cancelado', color: '#991B1B', bg: '#FEE2E2' },
 };
 
+const STATUS_CHAMADO_ESCURO: Record<string, { color: string; bg: string }> = {
+  aberto: { color: '#FCD34D', bg: 'rgba(251, 191, 36, 0.18)' },
+  em_atendimento: { color: '#93C5FD', bg: 'rgba(96, 165, 250, 0.18)' },
+  em_aprovacao: { color: '#C4B5FD', bg: 'rgba(167, 139, 250, 0.18)' },
+  aprovado: { color: '#5EEAD4', bg: 'rgba(45, 212, 191, 0.16)' },
+  concluido: { color: '#86EFAC', bg: 'rgba(74, 222, 128, 0.16)' },
+  cancelado: { color: '#FCA5A5', bg: 'rgba(248, 113, 113, 0.16)' },
+};
+
+function temaEscuro() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+}
+
+function estiloStatus(status: string) {
+  const base = STATUS_CHAMADO[status] ?? { label: status, color: '#4B5563', bg: '#F3F4F6' };
+  if (!temaEscuro()) return base;
+  const dark = STATUS_CHAMADO_ESCURO[status] ?? { color: '#CBD5E1', bg: 'rgba(148, 163, 184, 0.14)' };
+  return { label: base.label, color: dark.color, bg: dark.bg };
+}
+
+/** Cores de status adaptadas ao tema (filtros, chips custom). */
+export function statusEstiloTema(status: string) {
+  return estiloStatus(status);
+}
+
 export const KANBAN_COLUNAS = [
   { status: 'aberto', label: 'Em aberto', accent: '#F59E0B', icon: 'schedule' },
   { status: 'em_atendimento', label: 'Em Tratamento', accent: '#3B82F6', icon: 'schedule' },
@@ -131,12 +156,19 @@ export function destinoAprovacaoChip(
 ) {
   if (!destino) return null;
   const label = labelDestinoAprovacao(destino, cargos);
+  const escuro = temaEscuro();
   const st =
     destino === 'financeiro'
-      ? { color: '#7C3AED', bg: '#EDE9FE' }
+      ? escuro
+        ? { color: '#C4B5FD', bg: 'rgba(167, 139, 250, 0.18)' }
+        : { color: '#7C3AED', bg: '#EDE9FE' }
       : destino === 'diretor'
-        ? { color: '#1E40AF', bg: '#DBEAFE' }
-        : { color: '#1B2A6B', bg: '#E8EBF5' };
+        ? escuro
+          ? { color: '#93C5FD', bg: 'rgba(96, 165, 250, 0.18)' }
+          : { color: '#1E40AF', bg: '#DBEAFE' }
+        : escuro
+          ? { color: '#FDBA74', bg: 'rgba(232, 82, 10, 0.18)' }
+          : { color: '#1B2A6B', bg: '#E8EBF5' };
   return (
     <Chip
       label={label}
@@ -154,14 +186,31 @@ export const TIPO_CHAMADO: Record<string, { label: string; color: string; bg: st
 export function tipoChamadoChip(tipo?: string) {
   if (!tipo || tipo === 'normal') return null;
   const st = TIPO_CHAMADO[tipo] ?? TIPO_CHAMADO.orcamento;
+  const escuro = temaEscuro();
+  const color =
+    tipo === 'orcamento'
+      ? escuro
+        ? '#FDBA74'
+        : st.color
+      : escuro
+        ? '#93C5FD'
+        : st.color;
+  const bg =
+    tipo === 'orcamento'
+      ? escuro
+        ? 'rgba(251, 146, 60, 0.18)'
+        : st.bg
+      : escuro
+        ? 'rgba(96, 165, 250, 0.18)'
+        : st.bg;
   return (
     <Chip
       label={st.label}
       size="small"
       sx={{
         ...chipMetadadoSx,
-        color: st.color,
-        bgcolor: st.bg,
+        color,
+        bgcolor: bg,
         border: 'none',
       }}
     />
@@ -173,7 +222,7 @@ export function statusChamadoLabel(status: string) {
 }
 
 export function statusChip(status: string) {
-  const st = STATUS_CHAMADO[status] ?? { label: status, color: '#4B5563', bg: '#F3F4F6' };
+  const st = estiloStatus(status);
   return (
     <Chip
       label={st.label}
@@ -197,17 +246,26 @@ type SlaEstilo = { color: string; bg: string; border: string };
 
 function estiloSla(prazoSla: string): SlaEstilo {
   const prazo = parseDataApi(prazoSla);
+  const escuro = temaEscuro();
   if (Number.isNaN(prazo.getTime())) {
-    return { color: '#4B5563', bg: '#F3F4F6', border: '#D1D5DB' };
+    return escuro
+      ? { color: '#CBD5E1', bg: 'rgba(148, 163, 184, 0.14)', border: 'rgba(148, 163, 184, 0.35)' }
+      : { color: '#4B5563', bg: '#F3F4F6', border: '#D1D5DB' };
   }
   const diffMs = prazo.getTime() - Date.now();
   if (diffMs < 0) {
-    return { color: '#991B1B', bg: '#FEE2E2', border: '#EF4444' };
+    return escuro
+      ? { color: '#FCA5A5', bg: 'rgba(248, 113, 113, 0.16)', border: 'rgba(248, 113, 113, 0.45)' }
+      : { color: '#991B1B', bg: '#FEE2E2', border: '#EF4444' };
   }
   if (diffMs < 2 * 60 * 60 * 1000) {
-    return { color: '#92400E', bg: '#FEF3C7', border: '#F59E0B' };
+    return escuro
+      ? { color: '#FCD34D', bg: 'rgba(251, 191, 36, 0.18)', border: 'rgba(251, 191, 36, 0.45)' }
+      : { color: '#92400E', bg: '#FEF3C7', border: '#F59E0B' };
   }
-  return { color: '#1E40AF', bg: '#DBEAFE', border: '#3B82F6' };
+  return escuro
+    ? { color: '#93C5FD', bg: 'rgba(96, 165, 250, 0.18)', border: 'rgba(96, 165, 250, 0.4)' }
+    : { color: '#1E40AF', bg: '#DBEAFE', border: '#3B82F6' };
 }
 
 export function prazoSlaChip(prazoSla: string) {

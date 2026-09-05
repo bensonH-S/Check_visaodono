@@ -11,6 +11,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CameraCaptureOverlay from '../CameraCaptureOverlay';
 import { compressImage } from '../../utils/compressImage';
 import { fileToDataUrl } from '../../utils/mediaFile';
+import { useAppTheme } from '../../context/ThemeContext';
 
 interface Props {
   value?: string;
@@ -20,6 +21,10 @@ interface Props {
 }
 
 export default function PhotoCapture({ value, onChange, disabled, obrigatoria }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const btnFotoBg = escuro ? 'rgba(232, 82, 10, 0.72)' : 'rgba(27, 42, 107, 0.88)';
+  const btnFotoHover = escuro ? 'rgba(232, 82, 10, 0.88)' : 'rgba(21, 32, 86, 0.95)';
   const cameraFallbackRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -55,20 +60,23 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
   };
 
   const botoesAcao = (variante: 'inicial' | 'trocar') => (
-    <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, width: '100%' }}>
       <Button
-        variant={variante === 'inicial' ? 'contained' : 'outlined'}
+        variant="contained"
         size="small"
         disabled={disabled || loading}
         startIcon={<CameraAltIcon sx={{ fontSize: 18 }} />}
         onClick={abrirCamera}
         sx={{
-          flex: 1,
           minHeight: 40,
           fontSize: '0.8rem',
           fontWeight: 600,
           whiteSpace: 'nowrap',
           px: 1,
+          bgcolor: btnFotoBg,
+          color: '#fff',
+          boxShadow: 'none',
+          '&:hover': { bgcolor: btnFotoHover, boxShadow: 'none' },
         }}
       >
         {variante === 'inicial' ? 'Tirar foto' : 'Tirar outra'}
@@ -80,12 +88,18 @@ export default function PhotoCapture({ value, onChange, disabled, obrigatoria }:
         startIcon={<PhotoLibraryIcon sx={{ fontSize: 18 }} />}
         onClick={() => galleryRef.current?.click()}
         sx={{
-          flex: 1,
           minHeight: 40,
           fontSize: '0.8rem',
           fontWeight: 600,
           whiteSpace: 'nowrap',
           px: 1,
+          borderColor: 'rgba(148, 163, 184, 0.55)',
+          color: 'var(--ga-text-secondary)',
+          bgcolor: 'transparent',
+          '&:hover': {
+            borderColor: 'rgba(148, 163, 184, 0.85)',
+            bgcolor: 'rgba(148, 163, 184, 0.1)',
+          },
         }}
       >
         Galeria

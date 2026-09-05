@@ -104,16 +104,16 @@ function focarColuna(campo: CampoContagem, from: HTMLInputElement, dir: 1 | -1) 
 }
 
 const thSx = {
+  color: (theme: any) => (theme.palette.mode === 'dark' ? '#94A3B8' : colors.textMuted),
+  bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? '#1e293b !important' : `${colors.surface} !important`),
+  boxShadow: (theme: any) => `inset 0 -1px 0 ${theme.palette.mode === 'dark' ? '#334155' : colors.border}`,
   fontSize: '0.68rem',
   fontWeight: 600,
   letterSpacing: '0.08em',
   textTransform: 'uppercase' as const,
-  color: colors.textMuted,
-  bgcolor: `${colors.surface} !important`,
   backgroundImage: 'none !important',
   zIndex: 4,
   py: 0.7,
-  boxShadow: `inset 0 -1px 0 ${colors.border}`,
 };
 
 const inputSx = {
@@ -279,7 +279,7 @@ export default function EstoqueConferenciaDetalhe({
         {podeReabrir && contagem.status === 'finalizada' && (
           <Tooltip title="Reabrir">
             <span>
-              <IconButton size="small" disabled={reabrindo} onClick={onReabrir} sx={{ color: colors.navy }}>
+              <IconButton size="small" disabled={reabrindo} onClick={onReabrir} sx={{ color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
                 {reabrindo ? <CircularProgress size={18} /> : <LockOpenIcon fontSize="small" />}
               </IconButton>
             </span>
@@ -293,7 +293,7 @@ export default function EstoqueConferenciaDetalhe({
                 onClick={onBaixarRelatorio}
                 disabled={baixandoRelatorio}
                 aria-label="Baixar relatório"
-                sx={{ color: colors.navy }}
+                sx={{ color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}
               >
                 {baixandoRelatorio ? (
                   <CircularProgress size={18} />
@@ -325,7 +325,15 @@ export default function EstoqueConferenciaDetalhe({
               variant="contained"
               disabled={salvando}
               onClick={onSalvar}
-              sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover }, fontWeight: 700, flexShrink: 0 }}
+              sx={{
+                bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? colors.orange : colors.navy),
+                color: '#FFFFFF',
+                '&:hover': {
+                  bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? colors.orangeHover : colors.navyDark),
+                },
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
             >
               Salvar
             </Button>
@@ -334,7 +342,15 @@ export default function EstoqueConferenciaDetalhe({
               variant="contained"
               disabled={salvando}
               onClick={onFinalizar}
-              sx={{ bgcolor: colors.navy, '&:hover': { bgcolor: colors.navyDark }, fontWeight: 700, flexShrink: 0 }}
+              sx={{
+                bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? colors.orange : colors.navy),
+                color: '#FFFFFF',
+                '&:hover': {
+                  bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? colors.orangeHover : colors.navyDark),
+                },
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
             >
               Finalizar
             </Button>
@@ -397,9 +413,17 @@ export default function EstoqueConferenciaDetalhe({
             onClick={() => setSecaoManual('todas')}
             sx={{
               ...chipBase,
-              bgcolor: secaoFiltro === 'todas' ? colors.navy : colors.canvasAlt,
+              bgcolor: (theme: any) =>
+                secaoFiltro === 'todas'
+                  ? (theme.palette.mode === 'dark' ? colors.orange : colors.navy)
+                  : colors.canvasAlt,
               color: secaoFiltro === 'todas' ? '#fff' : colors.textSecondary,
-              border: `1px solid ${secaoFiltro === 'todas' ? colors.navy : colors.border}`,
+              border: (theme: any) =>
+                `1px solid ${
+                  secaoFiltro === 'todas'
+                    ? (theme.palette.mode === 'dark' ? colors.orange : colors.navy)
+                    : colors.border
+                }`,
             }}
           />
           {secoes.map((s) => {
@@ -416,9 +440,23 @@ export default function EstoqueConferenciaDetalhe({
                 }}
                 sx={{
                   ...chipBase,
-                  bgcolor: ativa ? colors.navy : s.preenchidos === s.total ? '#DCFCE7' : colors.canvasAlt,
-                  color: ativa ? '#fff' : s.preenchidos === s.total ? '#166534' : colors.textSecondary,
-                  border: `1px solid ${ativa ? colors.navy : colors.border}`,
+                  bgcolor: (theme: any) =>
+                    ativa
+                      ? (theme.palette.mode === 'dark' ? colors.orange : colors.navy)
+                      : s.preenchidos === s.total
+                        ? (theme.palette.mode === 'dark' ? 'rgba(5, 150, 105, 0.25)' : '#DCFCE7')
+                        : colors.canvasAlt,
+                  color: ativa
+                    ? '#fff'
+                    : s.preenchidos === s.total
+                      ? '#166534'
+                      : colors.textSecondary,
+                  border: (theme: any) =>
+                    `1px solid ${
+                      ativa
+                        ? (theme.palette.mode === 'dark' ? colors.orange : colors.navy)
+                        : colors.border
+                    }`,
                 }}
               />
             );
@@ -629,3 +667,7 @@ export default function EstoqueConferenciaDetalhe({
     </Box>
   );
 }
+
+
+
+

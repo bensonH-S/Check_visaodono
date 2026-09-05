@@ -20,8 +20,9 @@ import {
   TIPOS_EVENTO_APROVACAO_INTERNO_MOBILE,
 } from '../../utils/timelineAprovacao';
 import { useState } from 'react';
+import { colors } from '../../theme/tokens';
 
-const NAVY = '#1B2A6B';
+const NAVY = colors.textPrimary;
 const ORANGE = '#E8520A';
 const TAMANHO_MINIATURA_DESKTOP = 52;
 const TAMANHO_MINIATURA_MOBILE = 64;
@@ -281,7 +282,7 @@ export default function ChamadoTimeline({
                     width: 32,
                     height: 32,
                     borderRadius: '50%',
-                    bgcolor: 'white',
+                    bgcolor: colors.surface,
                     border: '2px solid rgba(27, 42, 107, 0.12)',
                     display: 'flex',
                     alignItems: 'center',
@@ -355,7 +356,7 @@ export default function ChamadoTimeline({
                       whiteSpace: 'pre-wrap',
                       lineHeight: 1.55,
                       color: 'text.primary',
-                      bgcolor: 'white',
+                      bgcolor: colors.surface,
                       borderRadius: 1,
                       px: 1.25,
                       py: 1,

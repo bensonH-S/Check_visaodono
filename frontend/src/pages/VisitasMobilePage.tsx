@@ -11,7 +11,6 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
-import LinearProgress from '@mui/material/LinearProgress';
 import IconButton from '@mui/material/IconButton';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -37,6 +36,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import VisitasMobileScreen from '../components/visitas/VisitasMobileScreen';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
+import PageLoading from '../components/PageLoading';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
 import { getUsuario, podeApagarVisitas, podeReabrirVisitas } from '../lib/auth';
@@ -153,7 +153,7 @@ function VisitaCardMobile({
   const podeEmail = podeEnviarEmailRelatorio(v) && !!onEnviarEmail;
   const destino = emRascunho
     ? `${checklistBase}?visita=${v.id_visita}`
-    : `/relatorio/visita/${v.id_visita}`;
+    : `/relatorio/mobile/visita/${v.id_visita}`;
   return (
     <Paper
       elevation={0}
@@ -578,7 +578,7 @@ export default function VisitasMobilePage() {
     </Dialog>
   );
 
-  if (loading) return <LinearProgress />;
+  if (loading) return <PageLoading />;
 
   if (err) return <Typography color="error">{err}</Typography>;
 
@@ -656,7 +656,15 @@ export default function VisitasMobilePage() {
         gap: { xs: 1, md: 1.5 },
       }}
     >
-      <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0, fontSize: { xs: '0.8rem', md: '0.875rem' } }}>
+      <Typography
+        variant="body2"
+        sx={{
+          flexShrink: 0,
+          fontSize: { xs: '0.8rem', md: '0.875rem' },
+          color: (theme: any) => (theme.palette.mode === 'dark' ? '#FFFFFF' : 'text.primary'),
+          fontWeight: 600,
+        }}
+      >
         {visitasFiltradas.length} de {visitas.length} visita(s)
         {filtroUsuario !== '' && nomePessoaSelecionada ? ` · ${nomePessoaSelecionada}` : ''}
         {filtroTipo ? ` · ${nomeTipoVisita(filtroTipo, visitas)}` : ''}
@@ -824,19 +832,51 @@ export default function VisitasMobilePage() {
                     <TableCell align="center">{notaChip(v.nota_final)}</TableCell>
                     <TableCell align="center">{statusChip(v.status)}</TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 0.25,
+                          minHeight: 32,
+                          verticalAlign: 'middle',
+                        }}
+                      >
                         {v.status === 'Rascunho' ? (
                           <Button
                             component={Link}
                             to={`${checklistBase}?visita=${v.id_visita}`}
                             size="small"
-                            color="warning"
-                            startIcon={<PlayArrowIcon />}
+                            startIcon={<PlayArrowIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                              height: 32,
+                              minHeight: 32,
+                              px: 1,
+                              py: 0,
+                              fontWeight: 700,
+                              textTransform: 'none',
+                              color: colors.navy,
+                              lineHeight: 1,
+                            }}
                           >
                             Continuar
                           </Button>
                         ) : (
-                          <Button component={Link} to={`/relatorio/visita/${v.id_visita}`} size="small">
+                          <Button
+                            component={Link}
+                            to={`/relatorio/mobile/visita/${v.id_visita}`}
+                            size="small"
+                            sx={{
+                              height: 32,
+                              minHeight: 32,
+                              px: 1,
+                              py: 0,
+                              fontWeight: 700,
+                              textTransform: 'none',
+                              color: colors.navy,
+                              lineHeight: 1,
+                            }}
+                          >
                             Ver
                           </Button>
                         )}
@@ -848,12 +888,12 @@ export default function VisitasMobilePage() {
                                 aria-label="Enviar relatório por e-mail"
                                 disabled={enviandoEmailId === v.id_visita}
                                 onClick={() => void enviarRelatorioEmail(v)}
-                                sx={{ color: colors.orange }}
+                                sx={{ width: 32, height: 32, color: colors.navy }}
                               >
                                 {enviandoEmailId === v.id_visita ? (
                                   <CircularProgress size={16} />
                                 ) : (
-                                  <EmailOutlinedIcon fontSize="small" />
+                                  <EmailOutlinedIcon sx={{ fontSize: 18 }} />
                                 )}
                               </IconButton>
                             </span>
@@ -865,9 +905,9 @@ export default function VisitasMobilePage() {
                               size="small"
                               aria-label="Reabrir visita"
                               onClick={() => setReabrirAlvo(v)}
-                              sx={{ color: colors.navy }}
+                              sx={{ width: 32, height: 32, color: colors.navy }}
                             >
-                              <LockOpenIcon fontSize="small" />
+                              <LockOpenIcon sx={{ fontSize: 18 }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -877,9 +917,9 @@ export default function VisitasMobilePage() {
                               size="small"
                               aria-label="Apagar relatório"
                               onClick={() => setApagarAlvo(v)}
-                              sx={{ color: 'error.main' }}
+                              sx={{ width: 32, height: 32, color: 'error.main' }}
                             >
-                              <DeleteOutlinedIcon fontSize="small" />
+                              <DeleteOutlinedIcon sx={{ fontSize: 18 }} />
                             </IconButton>
                           </Tooltip>
                         )}

@@ -11,7 +11,6 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import AddIcon from '@mui/icons-material/Add';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
-import LinearProgress from '@mui/material/LinearProgress';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
@@ -23,6 +22,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import PageLoading from '../../components/PageLoading';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import {
@@ -35,6 +35,7 @@ import { getUsuario, podeGerenciarMetas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 import { agruparPaineisResumo, calcValorMetaPorLoja, fmtMoedaMeta } from '../../components/metas/metasPageUtils';
 import MetasRankingTable from '../../components/metas/MetasRankingTable';
 import MetasPremiosTable from '../../components/metas/MetasPremiosTable';
@@ -96,35 +97,47 @@ function fmtValorCelula(valor_texto: string | null, valor_numero: number | null,
   return '—';
 }
 
-function celulaSx(valor_texto: string | null, atingiu: boolean | null) {
+function celulaSx(valor_texto: string | null, atingiu: boolean | null, escuro: boolean) {
   if (valor_texto === 'OK' || (atingiu === true && valor_texto !== 'X')) {
     return {
-      bgcolor: 'rgba(22, 163, 74, 0.1)',
+      bgcolor: escuro ? 'rgba(34, 197, 94, 0.18)' : 'rgba(22, 163, 74, 0.1)',
       fontWeight: 600,
-      color: '#166534',
+      color: escuro ? '#86EFAC' : '#166534',
     };
   }
   if (valor_texto === 'X' || atingiu === false) {
     return {
-      bgcolor: 'rgba(234, 88, 12, 0.1)',
+      bgcolor: escuro ? 'rgba(251, 146, 60, 0.18)' : 'rgba(234, 88, 12, 0.1)',
       fontWeight: 600,
-      color: '#9a3412',
+      color: escuro ? '#FDBA74' : '#9a3412',
     };
   }
   return {};
 }
 
-const subtotalRowSx = {
-  bgcolor: 'rgba(59, 130, 246, 0.12)',
-  '& td': { fontWeight: 700, color: '#1e3a8a', borderTop: '2px solid rgba(59, 130, 246, 0.35)' },
-} as const;
+function subtotalRowSx(escuro: boolean) {
+  return {
+    bgcolor: escuro ? 'rgba(96, 165, 250, 0.14)' : 'rgba(59, 130, 246, 0.12)',
+    '& td': {
+      fontWeight: 700,
+      color: escuro ? '#93C5FD' : '#1e3a8a',
+      borderTop: `2px solid ${escuro ? 'rgba(96, 165, 250, 0.4)' : 'rgba(59, 130, 246, 0.35)'}`,
+    },
+  } as const;
+}
 
-const finalRowSx = {
-  bgcolor: 'rgba(22, 163, 74, 0.06)',
-  outline: '2px dashed rgba(22, 163, 74, 0.45)',
-  outlineOffset: -2,
-  '& td': { fontWeight: 700, color: '#166534', borderTop: '1px solid rgba(22, 163, 74, 0.25)' },
-} as const;
+function finalRowSx(escuro: boolean) {
+  return {
+    bgcolor: escuro ? 'rgba(34, 197, 94, 0.12)' : 'rgba(22, 163, 74, 0.06)',
+    outline: `2px dashed ${escuro ? 'rgba(74, 222, 128, 0.45)' : 'rgba(22, 163, 74, 0.45)'}`,
+    outlineOffset: -2,
+    '& td': {
+      fontWeight: 700,
+      color: escuro ? '#86EFAC' : '#166534',
+      borderTop: `1px solid ${escuro ? 'rgba(74, 222, 128, 0.3)' : 'rgba(22, 163, 74, 0.25)'}`,
+    },
+  } as const;
+}
 
 function PainelResumoTable({
   painel,
@@ -137,6 +150,12 @@ function PainelResumoTable({
   lojasRevReprovadas: Set<number>;
   onAlterarCelula: (idIndicador: number, idLoja: number, valor: string) => void;
 }) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const stickyBg = colors.surface;
+  const subtotalBg = escuro ? 'rgba(96, 165, 250, 0.14)' : 'rgba(59, 130, 246, 0.12)';
+  const finalBg = escuro ? 'rgba(34, 197, 94, 0.12)' : 'rgba(22, 163, 74, 0.06)';
+
   const valorPorLoja = useMemo(
     () => calcValorMetaPorLoja(painel, lojasRevReprovadas),
     [painel, lojasRevReprovadas],
@@ -144,16 +163,20 @@ function PainelResumoTable({
 
   const colDemandaSx = (idLoja: number) =>
     lojasRevReprovadas.has(idLoja)
-      ? { bgcolor: 'rgba(220, 38, 38, 0.12)', color: '#991b1b', fontWeight: 700 }
+      ? {
+          bgcolor: escuro ? 'rgba(248, 113, 113, 0.18)' : 'rgba(220, 38, 38, 0.12)',
+          color: escuro ? '#FCA5A5' : '#991b1b',
+          fontWeight: 700,
+        }
       : {};
 
   return (
     <Paper sx={{ ...tablePaperSx, mb: 2 }}>
       <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-          {painel.titulo}
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
+          {painel.titulo.replace(/\s*[—–―]\s*/g, ' - ')}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{ color: colors.textSecondary }}>
           {painel.tipo === 'empresa' ? 'Metas da empresa por loja' : 'Metas dos gerentes por loja'}
         </Typography>
       </Box>
@@ -161,10 +184,10 @@ function PainelResumoTable({
         <Table size="small" stickyHeader sx={tableSx}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ minWidth: 180, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 2 }}>
+              <TableCell sx={{ minWidth: 180, fontWeight: 700, bgcolor: stickyBg, position: 'sticky', left: 0, zIndex: 2 }}>
                 Indicador
               </TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, minWidth: 56, bgcolor: '#fff', position: 'sticky', left: 180, zIndex: 2 }}>
+              <TableCell align="center" sx={{ fontWeight: 700, minWidth: 56, bgcolor: stickyBg, position: 'sticky', left: 180, zIndex: 2 }}>
                 Peso
               </TableCell>
               {painel.lojas.map((l) => (
@@ -181,10 +204,10 @@ function PainelResumoTable({
           <TableBody>
             {painel.indicadores.map((ind) => (
               <TableRow key={ind.id_indicador} hover>
-                <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
+                <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: stickyBg, zIndex: 1 }}>
                   {ind.nome}
                 </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, position: 'sticky', left: 180, bgcolor: '#fff', zIndex: 1 }}>
+                <TableCell align="center" sx={{ fontWeight: 700, position: 'sticky', left: 180, bgcolor: stickyBg, zIndex: 1 }}>
                   {ind.peso}
                 </TableCell>
                 {ind.celulas.map((c) => {
@@ -194,7 +217,7 @@ function PainelResumoTable({
                       key={c.id_loja}
                       align="center"
                       sx={{
-                        ...celulaSx(c.valor_texto, c.atingiu),
+                        ...celulaSx(c.valor_texto, c.atingiu, escuro),
                         ...colDemandaSx(c.id_loja),
                         fontSize: '0.8rem',
                         p: podeEditar ? 0.35 : undefined,
@@ -210,12 +233,17 @@ function PainelResumoTable({
                             minWidth: 58,
                             fontSize: '0.78rem',
                             fontWeight: 700,
+                            color: colors.textPrimary,
                             '& .MuiSelect-select': { py: 0.5, px: 0.75 },
                             bgcolor:
                               valorAtual === 'OK'
-                                ? 'rgba(22,163,74,0.12)'
+                                ? escuro
+                                  ? 'rgba(34,197,94,0.18)'
+                                  : 'rgba(22,163,74,0.12)'
                                 : valorAtual === 'X'
-                                  ? 'rgba(234,88,12,0.12)'
+                                  ? escuro
+                                    ? 'rgba(251,146,60,0.18)'
+                                    : 'rgba(234,88,12,0.12)'
                                   : 'transparent',
                           }}
                         >
@@ -233,11 +261,11 @@ function PainelResumoTable({
                 })}
               </TableRow>
             ))}
-            <TableRow sx={subtotalRowSx}>
-              <TableCell sx={{ position: 'sticky', left: 0, bgcolor: 'rgba(59, 130, 246, 0.12)', zIndex: 1 }}>
+            <TableRow sx={subtotalRowSx(escuro)}>
+              <TableCell sx={{ position: 'sticky', left: 0, bgcolor: subtotalBg, zIndex: 1 }}>
                 SUBTOTAL
               </TableCell>
-              <TableCell align="center" sx={{ position: 'sticky', left: 180, bgcolor: 'rgba(59, 130, 246, 0.12)', zIndex: 1 }}>
+              <TableCell align="center" sx={{ position: 'sticky', left: 180, bgcolor: subtotalBg, zIndex: 1 }}>
                 {painel.subtotal_peso}
               </TableCell>
               {painel.lojas.map((l) => {
@@ -250,11 +278,11 @@ function PainelResumoTable({
                 );
               })}
             </TableRow>
-            <TableRow sx={finalRowSx}>
-              <TableCell sx={{ position: 'sticky', left: 0, bgcolor: 'rgba(22, 163, 74, 0.06)', zIndex: 1 }}>
+            <TableRow sx={finalRowSx(escuro)}>
+              <TableCell sx={{ position: 'sticky', left: 0, bgcolor: finalBg, zIndex: 1 }}>
                 FINAL
               </TableCell>
-              <TableCell align="center" sx={{ position: 'sticky', left: 180, bgcolor: 'rgba(22, 163, 74, 0.06)', zIndex: 1 }}>
+              <TableCell align="center" sx={{ position: 'sticky', left: 180, bgcolor: finalBg, zIndex: 1 }}>
                 {fmtMoedaMeta(painel.subtotal_peso)}
               </TableCell>
               {painel.lojas.map((l) => {
@@ -275,6 +303,10 @@ function PainelResumoTable({
 }
 
 export default function MetasPage() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const sessao = getUsuario();
   const podeCriar = podeGerenciarMetas(sessao);
   const [periodos, setPeriodos] = useState<MetasPeriodoResumo[]>([]);
@@ -483,14 +515,14 @@ export default function MetasPage() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, flex: 1 }}>
-      <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${colors.border}` }}>
+      <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${colors.border}`, bgcolor: colors.surface }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.05rem' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.05rem', color: colors.textPrimary }}>
               Metas
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Indicadores da empresa, gestores e rankings — espelho da planilha de metas
+            <Typography variant="caption" sx={{ color: colors.textSecondary, display: 'block' }}>
+              Indicadores da empresa, gestores e rankings (espelho da planilha de metas)
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
@@ -520,9 +552,12 @@ export default function MetasPage() {
                 sx={{
                   textTransform: 'none',
                   fontWeight: 700,
-                  borderColor: colors.navy,
-                  color: colors.navy,
-                  '&:hover': { borderColor: colors.navyDark, bgcolor: colors.navyMuted },
+                  borderColor: acento,
+                  color: acento,
+                  '&:hover': {
+                    borderColor: acentoHover,
+                    bgcolor: escuro ? 'rgba(232, 82, 10, 0.12)' : colors.navyMuted,
+                  },
                 }}
               >
                 Novo mês
@@ -536,7 +571,24 @@ export default function MetasPage() {
             (document.activeElement as HTMLElement | null)?.blur?.();
             setAba(v);
           }}
-          sx={{ mt: 2, minHeight: 40 }}
+          sx={{
+            mt: 2,
+            minHeight: 40,
+            '& .MuiTab-root': {
+              color: colors.textSecondary,
+              textTransform: 'none',
+              fontWeight: 600,
+              '&.Mui-selected': {
+                color: acento,
+                fontWeight: 700,
+              },
+            },
+            '& .MuiTabs-indicator': {
+              bgcolor: acento,
+              height: 3,
+              borderRadius: '3px 3px 0 0',
+            },
+          }}
         >
           <Tab label="Resumo" sx={{ minHeight: 40, py: 0 }} />
           <Tab label="Rankings" sx={{ minHeight: 40, py: 0 }} />
@@ -544,7 +596,7 @@ export default function MetasPage() {
         </Tabs>
       </Paper>
 
-      {loading && <LinearProgress />}
+      {loading && !dados && <PageLoading />}
 
       {!loading && !periodos.length ? (
         <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, border: `1px solid ${colors.border}` }}>
@@ -586,8 +638,24 @@ export default function MetasPage() {
             />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogNovo(false)} disabled={criando} sx={{ textTransform: 'none' }}>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setDialogNovo(false)}
+            disabled={criando}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              color: colors.textSecondary,
+              borderColor: colors.borderStrong,
+              bgcolor: colors.surface,
+              '&:hover': {
+                borderColor: colors.borderStrong,
+                bgcolor: colors.canvasAlt,
+                color: colors.textPrimary,
+              },
+            }}
+          >
             Cancelar
           </Button>
           <Button
@@ -662,26 +730,46 @@ export default function MetasPage() {
       {!loading && dados && aba === 1 && (
         <Box>
           {dados.pode_editar && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}>
-              Qualquer alteração nesta aba é salva automaticamente — ao sair do campo, pressionar Enter
-              ou selecionar uma opção na lista.
+            <Typography variant="body2" sx={{ color: colors.textSecondary, mb: 1.25 }}>
+              As alterações nesta aba são salvas automaticamente ao sair do campo, pressionar Enter
+              ou escolher uma opção na lista.
             </Typography>
           )}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
-            {dados.rankings.map((g, i) => (
-              <Chip
-                key={g.codigo}
-                label={g.nome}
-                onClick={() => {
-                  (document.activeElement as HTMLElement | null)?.blur?.();
-                  setRankingIdx(i);
-                }}
-                color={rankingIdx === i ? 'primary' : 'default'}
-                variant={rankingIdx === i ? 'filled' : 'outlined'}
-                size="small"
-                sx={{ fontWeight: 600 }}
-              />
-            ))}
+            {dados.rankings.map((g, i) => {
+              const ativo = rankingIdx === i;
+              return (
+                <Chip
+                  key={g.codigo}
+                  label={g.nome}
+                  onClick={() => {
+                    (document.activeElement as HTMLElement | null)?.blur?.();
+                    setRankingIdx(i);
+                  }}
+                  variant={ativo ? 'filled' : 'outlined'}
+                  size="small"
+                  sx={{
+                    fontWeight: 600,
+                    ...(ativo
+                      ? {
+                          bgcolor: acento,
+                          color: '#fff',
+                          border: '1px solid transparent',
+                          '&:hover': { bgcolor: acentoHover },
+                        }
+                      : {
+                          borderColor: colors.border,
+                          color: colors.textPrimary,
+                          bgcolor: colors.surface,
+                          '&:hover': {
+                            bgcolor: escuro ? 'rgba(232, 82, 10, 0.1)' : colors.navyMuted,
+                            borderColor: acento,
+                          },
+                        }),
+                  }}
+                />
+              );
+            })}
           </Box>
           {rankingAtual ? (
             <MetasRankingTable
@@ -701,11 +789,6 @@ export default function MetasPage() {
         />
       )}
 
-      {loading && !dados && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress />
-        </Box>
-      )}
     </Box>
   );
 }

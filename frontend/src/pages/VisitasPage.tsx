@@ -11,7 +11,6 @@ import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
-import LinearProgress from '@mui/material/LinearProgress';
 import IconButton from '@mui/material/IconButton';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -37,6 +36,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import VisitasMobileScreen from '../components/visitas/VisitasMobileScreen';
 import DialogTitleWithIcon from '../components/DialogTitleWithIcon';
+import PageLoading from '../components/PageLoading';
 import { api, fmtNota, fmtData, notaChipSx } from '../api/client';
 import type { VisitaResumo } from '../api/client';
 import { getUsuario, podeApagarVisitas, podeReabrirVisitas } from '../lib/auth';
@@ -44,6 +44,7 @@ import { showToast } from '../utils/toast';
 import { gerarPdfVisitasPorPessoa } from '../utils/gerarPdfVisitasPorPessoa';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
 import { colors } from '../theme/tokens';
+import { useAppTheme } from '../context/ThemeContext';
 
 type OrdenacaoVisitas = 'data_desc' | 'nota_desc';
 
@@ -67,8 +68,26 @@ function nomeTipoVisita(codigo: string, visitas: VisitaResumo[]): string {
 }
 
 const STATUS_VISITA = [
-  { value: 'Rascunho', label: 'Rascunho', color: '#92400E', bg: '#FEF3C7', accent: '#F59E0B' },
-  { value: 'Finalizada', label: 'Finalizada', color: '#166534', bg: '#DCFCE7', accent: '#22C55E' },
+  {
+    value: 'Rascunho',
+    label: 'Rascunho',
+    color: '#92400E',
+    bg: '#FEF3C7',
+    accent: '#F59E0B',
+    colorDark: '#FCD34D',
+    bgDark: 'rgba(251, 191, 36, 0.18)',
+    borderDark: 'rgba(251, 191, 36, 0.4)',
+  },
+  {
+    value: 'Finalizada',
+    label: 'Finalizada',
+    color: '#166534',
+    bg: '#DCFCE7',
+    accent: '#22C55E',
+    colorDark: '#6EE7B7',
+    bgDark: 'rgba(52, 211, 153, 0.18)',
+    borderDark: 'rgba(52, 211, 153, 0.45)',
+  },
 ] as const;
 
 function notaChip(nota: string | number | null | undefined) {
@@ -77,7 +96,7 @@ function notaChip(nota: string | number | null | undefined) {
   return <Chip label={fmtNota(valor)} size="small" sx={notaChipSx(valor)} />;
 }
 
-function statusChip(status: string) {
+function statusChip(status: string, escuro: boolean) {
   const cfg = STATUS_VISITA.find((s) => s.value === status);
   if (!cfg) {
     return <Chip label={status} size="small" variant="outlined" />;
@@ -89,9 +108,9 @@ function statusChip(status: string) {
       sx={{
         fontWeight: 700,
         fontSize: '0.72rem',
-        color: cfg.color,
-        bgcolor: cfg.bg,
-        border: `1px solid ${cfg.accent}40`,
+        color: escuro ? cfg.colorDark : cfg.color,
+        bgcolor: escuro ? cfg.bgDark : cfg.bg,
+        border: `1px solid ${escuro ? cfg.borderDark : `${cfg.accent}40`}`,
       }}
     />
   );
@@ -138,6 +157,8 @@ function VisitaCardMobile({
   onReabrir,
   enviandoEmail,
   onEnviarEmail,
+  escuro,
+  acento,
 }: {
   visita: VisitaResumo;
   checklistBase: string;
@@ -147,6 +168,8 @@ function VisitaCardMobile({
   onReabrir?: (v: VisitaResumo) => void;
   enviandoEmail?: boolean;
   onEnviarEmail?: (v: VisitaResumo) => void;
+  escuro: boolean;
+  acento: string;
 }) {
   const accent = statusAccent(v.status);
   const emRascunho = v.status === 'Rascunho';
@@ -179,12 +202,14 @@ function VisitaCardMobile({
           p: 1.5,
           textDecoration: 'none',
           color: 'inherit',
-          '&:active': { bgcolor: 'rgba(27, 42, 107, 0.04)' },
+          '&:active': {
+            bgcolor: escuro ? 'rgba(232, 82, 10, 0.1)' : 'rgba(27, 42, 107, 0.04)',
+          },
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.25 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy, lineHeight: 1.3 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: acento, lineHeight: 1.3 }}>
               {v.name}
             </Typography>
             {v.bk_number && (
@@ -194,7 +219,7 @@ function VisitaCardMobile({
             )}
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5, flexShrink: 0 }}>
-            {statusChip(v.status)}
+            {statusChip(v.status, escuro)}
             {notaChip(v.nota_final)}
           </Box>
         </Box>
@@ -239,7 +264,7 @@ function VisitaCardMobile({
             borderColor: 'divider',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: colors.navy }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: acento }}>
             {emRascunho ? (
               <PlayArrowIcon sx={{ fontSize: 16 }} />
             ) : (
@@ -253,7 +278,18 @@ function VisitaCardMobile({
         </Box>
       </Box>
       {(podeEmail && onEnviarEmail) || (podeReabrir && !emRascunho && onReabrir) || (podeApagar && onApagar) ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pr: 0.75, gap: 0.25 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            alignSelf: 'stretch',
+            px: 0.5,
+            gap: 0,
+            borderLeft: `1px solid ${colors.border}`,
+          }}
+        >
           {podeEmail && onEnviarEmail && (
             <Tooltip title="Enviar relatório por e-mail">
               <span>
@@ -266,9 +302,9 @@ function VisitaCardMobile({
                     e.stopPropagation();
                     onEnviarEmail(v);
                   }}
-                  sx={{ color: colors.orange }}
+                  sx={{ width: 34, height: 34, color: acento }}
                 >
-                  {enviandoEmail ? <CircularProgress size={16} /> : <EmailOutlinedIcon fontSize="small" />}
+                  {enviandoEmail ? <CircularProgress size={16} /> : <EmailOutlinedIcon sx={{ fontSize: 18 }} />}
                 </IconButton>
               </span>
             </Tooltip>
@@ -283,9 +319,9 @@ function VisitaCardMobile({
                   e.stopPropagation();
                   onReabrir(v);
                 }}
-                sx={{ color: colors.navy }}
+                sx={{ width: 34, height: 34, color: acento }}
               >
-                <LockOpenIcon fontSize="small" />
+                <LockOpenIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </Tooltip>
           )}
@@ -298,9 +334,9 @@ function VisitaCardMobile({
                 e.stopPropagation();
                 onApagar(v);
               }}
-              sx={{ color: 'error.main' }}
+              sx={{ width: 34, height: 34, color: 'error.main' }}
             >
-              <DeleteOutlinedIcon fontSize="small" />
+              <DeleteOutlinedIcon sx={{ fontSize: 18 }} />
             </IconButton>
           )}
         </Box>
@@ -316,11 +352,15 @@ function FiltrosStatus({
   filtroStatus,
   onFiltro,
   mobile,
+  escuro,
+  acento,
 }: {
   visitas: VisitaResumo[];
   filtroStatus: FiltroStatusVisita;
   onFiltro: (status: FiltroStatusVisita) => void;
   mobile: boolean;
+  escuro: boolean;
+  acento: string;
 }) {
   const contagemPorStatus = useMemo(() => {
     const map = new Map<string, number>();
@@ -354,9 +394,9 @@ function FiltrosStatus({
         sx={{
           fontWeight: 700,
           flexShrink: 0,
-          bgcolor: filtroStatus === '' ? colors.navy : 'white',
-          color: filtroStatus === '' ? 'white' : colors.navy,
-          borderColor: colors.navyBorder,
+          bgcolor: filtroStatus === '' ? acento : colors.surface,
+          color: filtroStatus === '' ? 'white' : acento,
+          borderColor: escuro ? 'rgba(232, 82, 10, 0.45)' : colors.navyBorder,
         }}
       />
       {STATUS_VISITA.map((st) => {
@@ -372,9 +412,9 @@ function FiltrosStatus({
               fontWeight: 600,
               fontSize: '0.78rem',
               flexShrink: 0,
-              bgcolor: ativo ? st.bg : 'white',
-              color: ativo ? st.color : 'text.secondary',
-              borderColor: `${st.accent}50`,
+              bgcolor: ativo ? (escuro ? st.bgDark : st.bg) : colors.surface,
+              color: ativo ? (escuro ? st.colorDark : st.color) : 'text.secondary',
+              borderColor: escuro ? st.borderDark : `${st.accent}50`,
             }}
           />
         );
@@ -385,6 +425,10 @@ function FiltrosStatus({
 
 export default function VisitasPage() {
   const theme = useTheme();
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const location = useLocation();
   const navigate = useNavigate();
   const checklistBase = checklistBasePath(location.pathname);
@@ -578,7 +622,7 @@ export default function VisitasPage() {
     </Dialog>
   );
 
-  if (loading) return <LinearProgress />;
+  if (loading) return <PageLoading />;
 
   if (err) return <Typography color="error">{err}</Typography>;
 
@@ -656,7 +700,15 @@ export default function VisitasPage() {
         gap: { xs: 1, md: 1.5 },
       }}
     >
-      <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0, fontSize: { xs: '0.8rem', md: '0.875rem' } }}>
+      <Typography
+        variant="body2"
+        sx={{
+          flexShrink: 0,
+          fontSize: { xs: '0.8rem', md: '0.875rem' },
+          color: (theme: any) => (theme.palette.mode === 'dark' ? '#FFFFFF' : 'text.primary'),
+          fontWeight: 600,
+        }}
+      >
         {visitasFiltradas.length} de {visitas.length} visita(s)
         {filtroUsuario !== '' && nomePessoaSelecionada ? ` · ${nomePessoaSelecionada}` : ''}
         {filtroTipo ? ` · ${nomeTipoVisita(filtroTipo, visitas)}` : ''}
@@ -718,7 +770,7 @@ export default function VisitasPage() {
             onChange={(e) => setOrdenacao(e.target.value as OrdenacaoVisitas)}
           >
             <MenuItem value="data_desc">Data (mais recente)</MenuItem>
-            <MenuItem value="nota_desc">Nota (maior → menor)</MenuItem>
+            <MenuItem value="nota_desc">Nota (maior â†’ menor)</MenuItem>
           </Select>
         </FormControl>
 
@@ -731,8 +783,8 @@ export default function VisitasPage() {
           sx={{
             flexShrink: 0,
             minHeight: 40,
-            bgcolor: colors.navy,
-            '&:hover': { bgcolor: '#152456' },
+            bgcolor: acento,
+            '&:hover': { bgcolor: acentoHover },
           }}
         >
           {gerandoPdf ? 'Gerando…' : 'Gerar relatório do auditor'}
@@ -750,6 +802,8 @@ export default function VisitasPage() {
             filtroStatus={filtroStatus}
             onFiltro={setFiltroStatus}
             mobile={isMobile}
+            escuro={escuro}
+            acento={acento}
           />
         </Box>
       </Box>
@@ -778,6 +832,8 @@ export default function VisitasPage() {
               onReabrir={setReabrirAlvo}
               enviandoEmail={enviandoEmailId === v.id_visita}
               onEnviarEmail={(vv) => void enviarRelatorioEmail(vv)}
+              escuro={escuro}
+              acento={acento}
             />
           ))}
           {!visitasFiltradas.length && (
@@ -822,21 +878,53 @@ export default function VisitasPage() {
                     <TableCell>{v.duracao_minutos ? `${v.duracao_minutos} min` : '—'}</TableCell>
                     <TableCell sx={tableCellWrapSx}>{v.nome_usuario}</TableCell>
                     <TableCell align="center">{notaChip(v.nota_final)}</TableCell>
-                    <TableCell align="center">{statusChip(v.status)}</TableCell>
+                    <TableCell align="center">{statusChip(v.status, escuro)}</TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                      <Box
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 0.25,
+                          minHeight: 32,
+                          verticalAlign: 'middle',
+                        }}
+                      >
                         {v.status === 'Rascunho' ? (
                           <Button
                             component={Link}
                             to={`${checklistBase}?visita=${v.id_visita}`}
                             size="small"
-                            color="warning"
-                            startIcon={<PlayArrowIcon />}
+                            startIcon={<PlayArrowIcon sx={{ fontSize: 16 }} />}
+                            sx={{
+                              height: 32,
+                              minHeight: 32,
+                              px: 1,
+                              py: 0,
+                              fontWeight: 700,
+                              textTransform: 'none',
+                              color: acento,
+                              lineHeight: 1,
+                            }}
                           >
                             Continuar
                           </Button>
                         ) : (
-                          <Button component={Link} to={`/relatorio/visita/${v.id_visita}`} size="small">
+                          <Button
+                            component={Link}
+                            to={`/relatorio/visita/${v.id_visita}`}
+                            size="small"
+                            sx={{
+                              height: 32,
+                              minHeight: 32,
+                              px: 1,
+                              py: 0,
+                              fontWeight: 700,
+                              textTransform: 'none',
+                              color: acento,
+                              lineHeight: 1,
+                            }}
+                          >
                             Ver
                           </Button>
                         )}
@@ -848,12 +936,12 @@ export default function VisitasPage() {
                                 aria-label="Enviar relatório por e-mail"
                                 disabled={enviandoEmailId === v.id_visita}
                                 onClick={() => void enviarRelatorioEmail(v)}
-                                sx={{ color: colors.orange }}
+                                sx={{ width: 32, height: 32, color: acento }}
                               >
                                 {enviandoEmailId === v.id_visita ? (
                                   <CircularProgress size={16} />
                                 ) : (
-                                  <EmailOutlinedIcon fontSize="small" />
+                                  <EmailOutlinedIcon sx={{ fontSize: 18 }} />
                                 )}
                               </IconButton>
                             </span>
@@ -865,9 +953,9 @@ export default function VisitasPage() {
                               size="small"
                               aria-label="Reabrir visita"
                               onClick={() => setReabrirAlvo(v)}
-                              sx={{ color: colors.navy }}
+                              sx={{ width: 32, height: 32, color: acento }}
                             >
-                              <LockOpenIcon fontSize="small" />
+                              <LockOpenIcon sx={{ fontSize: 18 }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -877,9 +965,9 @@ export default function VisitasPage() {
                               size="small"
                               aria-label="Apagar relatório"
                               onClick={() => setApagarAlvo(v)}
-                              sx={{ color: 'error.main' }}
+                              sx={{ width: 32, height: 32, color: 'error.main' }}
                             >
-                              <DeleteOutlinedIcon fontSize="small" />
+                              <DeleteOutlinedIcon sx={{ fontSize: 18 }} />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -928,3 +1016,5 @@ export default function VisitasPage() {
     </Box>
   );
 }
+
+

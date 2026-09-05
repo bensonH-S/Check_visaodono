@@ -61,6 +61,8 @@ import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDat
 import ImageLightbox from '../../components/ImageLightbox';
 import PdfBoletoDialog from '../../components/frota/PdfBoletoDialog';
 import { colors, radius, shadows } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
+import PageLoading from '../../components/PageLoading';
 import { dataHojeBrasilia, formatDataHoraBrasilia } from '../../utils/dateBr';
 import { dataDentroIntervalo, matchVeiculo, matchVeiculoObj } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tableSx } from '../../utils/tablePageLayout';
@@ -138,21 +140,31 @@ function normalizarGrupo(natureza?: string | null) {
     .trim();
 }
 
-function obterGrupoChipEstilo(natureza?: string | null) {
+function obterGrupoChipEstilo(natureza?: string | null, escuro = false) {
   const n = normalizarGrupo(natureza);
   if (/gravissima/.test(n)) {
-    return { bgcolor: 'rgba(183, 28, 28, 0.12)', color: '#b71c1c', border: '1px solid #b71c1c' };
+    return escuro
+      ? { bgcolor: 'rgba(248, 113, 113, 0.2)', color: '#FCA5A5', border: '1px solid rgba(248, 113, 113, 0.45)' }
+      : { bgcolor: 'rgba(183, 28, 28, 0.12)', color: '#b71c1c', border: '1px solid #b71c1c' };
   }
   if (/grave/.test(n)) {
-    return { bgcolor: 'rgba(230, 81, 0, 0.12)', color: '#e65100', border: '1px solid #e65100' };
+    return escuro
+      ? { bgcolor: 'rgba(251, 146, 60, 0.2)', color: '#FDBA74', border: '1px solid rgba(251, 146, 60, 0.45)' }
+      : { bgcolor: 'rgba(230, 81, 0, 0.12)', color: '#e65100', border: '1px solid #e65100' };
   }
   if (/media|média/.test(n) || n === 'media') {
-    return { bgcolor: 'rgba(249, 168, 37, 0.16)', color: '#f57f17', border: '1px solid #f9a825' };
+    return escuro
+      ? { bgcolor: 'rgba(251, 191, 36, 0.18)', color: '#FCD34D', border: '1px solid rgba(251, 191, 36, 0.4)' }
+      : { bgcolor: 'rgba(249, 168, 37, 0.16)', color: '#f57f17', border: '1px solid #f9a825' };
   }
   if (/leve/.test(n)) {
-    return { bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32', border: '1px solid #2e7d32' };
+    return escuro
+      ? { bgcolor: 'rgba(52, 211, 153, 0.18)', color: '#6EE7B7', border: '1px solid rgba(52, 211, 153, 0.45)' }
+      : { bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32', border: '1px solid #2e7d32' };
   }
-  return { bgcolor: 'rgba(84, 110, 122, 0.1)', color: '#546e7a', border: '1px solid #78909c' };
+  return escuro
+    ? { bgcolor: 'rgba(148, 163, 184, 0.14)', color: '#CBD5E1', border: '1px solid rgba(148, 163, 184, 0.35)' }
+    : { bgcolor: 'rgba(84, 110, 122, 0.1)', color: '#546e7a', border: '1px solid #78909c' };
 }
 
 function multaTemDescricao(m: FrotaMultaDetran) {
@@ -213,6 +225,10 @@ function KpiItem({ label, valor }: { label: string; valor: string }) {
 }
 
 export default function FrotaOperacaoPage() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const navigate = useNavigate();
   const { aba: abaParam } = useParams<{ aba: string }>();
   const aba = parseAba(abaParam);
@@ -602,11 +618,17 @@ export default function FrotaOperacaoPage() {
       case 'Paga':
       case 'Quitado':
       case 'Isento':
-        return { bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32', border: '1px solid #2e7d32' };
+        return escuro
+          ? { bgcolor: 'rgba(52, 211, 153, 0.18)', color: '#6EE7B7', border: '1px solid rgba(52, 211, 153, 0.45)' }
+          : { bgcolor: 'rgba(46, 125, 50, 0.12)', color: '#2e7d32', border: '1px solid #2e7d32' };
       case 'Vencida':
-        return { bgcolor: 'rgba(211, 47, 47, 0.12)', color: '#d32f2f', border: '1px solid #d32f2f' };
+        return escuro
+          ? { bgcolor: 'rgba(248, 113, 113, 0.2)', color: '#FCA5A5', border: '1px solid rgba(248, 113, 113, 0.45)' }
+          : { bgcolor: 'rgba(211, 47, 47, 0.12)', color: '#d32f2f', border: '1px solid #d32f2f' };
       default:
-        return { bgcolor: 'rgba(2, 136, 209, 0.12)', color: '#0288d1', border: '1px solid #0288d1' };
+        return escuro
+          ? { bgcolor: 'rgba(96, 165, 250, 0.18)', color: '#93C5FD', border: '1px solid rgba(96, 165, 250, 0.45)' }
+          : { bgcolor: 'rgba(2, 136, 209, 0.12)', color: '#0288d1', border: '1px solid #0288d1' };
     }
   };
 
@@ -1051,7 +1073,7 @@ export default function FrotaOperacaoPage() {
           p: 1.5,
           flexShrink: 0,
           border: '1px solid',
-          borderColor: colors.navyBorder,
+          borderColor: colors.border,
           borderRadius: `${radius.lg}px`,
           bgcolor: colors.surface,
           boxShadow: shadows.sm,
@@ -1081,7 +1103,13 @@ export default function FrotaOperacaoPage() {
           </Button>
         )}
         {aba === 'cadastro' && (
-          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={abrirNovo} sx={{ ml: 'auto' }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={abrirNovo}
+            sx={{ ml: 'auto', bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
+          >
             Adicionar veículo
           </Button>
         )}
@@ -1093,7 +1121,7 @@ export default function FrotaOperacaoPage() {
         </Alert>
       )}
 
-      {loading && <LinearProgress sx={{ flexShrink: 0, borderRadius: 1 }} />}
+      {loading && <PageLoading />}
 
       <Paper
         elevation={0}
@@ -1164,8 +1192,8 @@ export default function FrotaOperacaoPage() {
                 minHeight: 44,
                 color: colors.textSecondary,
               },
-              '& .Mui-selected': { color: `${colors.navy} !important` },
-              '& .MuiTabs-indicator': { backgroundColor: colors.navy, height: 2.5 },
+              '& .Mui-selected': { color: `${acento} !important` },
+              '& .MuiTabs-indicator': { backgroundColor: acento, height: 2.5 },
             }}
           >
             {abasVisiveis.map((item) => (
@@ -1281,7 +1309,7 @@ export default function FrotaOperacaoPage() {
                       sx={{ cursor: 'pointer' }}
                       onClick={() => navigate(`/frota/veiculos/${v.id_veiculo}`)}
                     >
-                      <TableCell sx={{ fontWeight: 700, color: colors.navy }}>{v.placa}</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: colors.textPrimary }}>{v.placa}</TableCell>
                       <TableCell sx={tableCellWrapSx}>{tituloVeiculo(v)}</TableCell>
                       <TableCell>
                         <Chip
@@ -1319,7 +1347,7 @@ export default function FrotaOperacaoPage() {
                               size="small"
                               aria-label="Editar KM da atribuição"
                               onClick={() => abrirEditarKmAtribuicao(v)}
-                              sx={{ color: colors.navy }}
+                              sx={{ color: acento }}
                             >
                               <SpeedOutlinedIcon fontSize="small" />
                             </IconButton>
@@ -1330,7 +1358,7 @@ export default function FrotaOperacaoPage() {
                             size="small"
                             aria-label="Atribuir responsável"
                             onClick={() => abrirAtribuir(v)}
-                            sx={{ color: colors.navy }}
+                            sx={{ color: acento }}
                           >
                             <PersonAddAlt1OutlinedIcon fontSize="small" />
                           </IconButton>
@@ -1340,7 +1368,7 @@ export default function FrotaOperacaoPage() {
                             size="small"
                             aria-label="Editar veículo"
                             onClick={() => abrirEditar(v)}
-                            sx={{ color: colors.navy }}
+                            sx={{ color: acento }}
                           >
                             <EditOutlinedIcon fontSize="small" />
                           </IconButton>
@@ -1382,7 +1410,7 @@ export default function FrotaOperacaoPage() {
                     <TableCell sx={{ fontWeight: 600 }}>{a.placa}</TableCell>
                     <TableCell sx={tableCellWrapSx}>{a.nome_usuario}</TableCell>
                     <TableCell align="right">{fmtKm(a.km_atual)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, color: colors.navy }}>
+                    <TableCell align="right" sx={{ fontWeight: 600, color: colors.textPrimary }}>
                       R$ {a.valor_abastecido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>{formatDataHoraBrasilia(a.data_abastecimento)}</TableCell>
@@ -1463,7 +1491,7 @@ export default function FrotaOperacaoPage() {
                               px: 0.75,
                               fontWeight: 700,
                               fontVariantNumeric: 'tabular-nums',
-                              color: colors.navy,
+                              color: colors.textPrimary,
                               textTransform: 'none',
                             }}
                           >
@@ -1547,13 +1575,13 @@ export default function FrotaOperacaoPage() {
                             <Chip
                               label={m.natureza}
                               size="small"
-                              sx={{ fontWeight: 700, height: 22, ...obterGrupoChipEstilo(m.natureza) }}
+                              sx={{ fontWeight: 700, height: 22, ...obterGrupoChipEstilo(m.natureza, escuro) }}
                             />
                           ) : (
                             '—'
                           )}
                         </TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.navy }}>
+                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.textPrimary }}>
                           {fmtMoeda(m.valor)}
                         </TableCell>
                         <TableCell align="center">{m.data_vencimento ? fmtData(m.data_vencimento) : '—'}</TableCell>
@@ -1564,7 +1592,7 @@ export default function FrotaOperacaoPage() {
                                 <Button
                                   size="small"
                                   onClick={() => setModalDetalheMulta({ open: true, multa: m })}
-                                  sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.navy }}
+                                  sx={{ textTransform: 'none', minWidth: 0, p: 0, textAlign: 'center', display: 'inline', color: colors.textPrimary }}
                                 >
                                   Ver Descrição
                                 </Button>
@@ -1618,7 +1646,7 @@ export default function FrotaOperacaoPage() {
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                   Total de Multas
                 </Typography>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                   {fmtMoeda(totalMultas)}
                 </Typography>
               </Box>
@@ -1647,8 +1675,8 @@ export default function FrotaOperacaoPage() {
                 gap: 1,
               }}
             >
-              <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: '#1565c0' }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1565c0' }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: acento }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.textPrimary }}>
                 IPVA (SEFAZ-DF)
               </Typography>
             </Box>
@@ -1657,7 +1685,7 @@ export default function FrotaOperacaoPage() {
                 ...tableContainerSx,
                 flex: '0 0 auto',
                 maxHeight: 280,
-                borderLeft: '3px solid #1565c0',
+                borderLeft: `3px solid ${acento}`,
               }}
             >
               <Table size="small" stickyHeader sx={tableSx}>
@@ -1683,7 +1711,7 @@ export default function FrotaOperacaoPage() {
                         </TableCell>
                         <TableCell align="center">{d.ano_referencia || '—'}</TableCell>
                         <TableCell align="center">{d.cota || '—'}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.navy }}>
+                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.textPrimary }}>
                           {fmtMoeda(d.valor_total)}
                         </TableCell>
                         <TableCell align="center">
@@ -1699,7 +1727,7 @@ export default function FrotaOperacaoPage() {
                                   titulo: `Boleto IPVA · ${d.placa} · ${d.ano_referencia || ''}`,
                                 })
                               }
-                              sx={{ textTransform: 'none', minWidth: 0, color: colors.navy }}
+                              sx={{ textTransform: 'none', minWidth: 0, color: colors.textPrimary }}
                             >
                               Ver PDF
                             </Button>
@@ -1711,7 +1739,7 @@ export default function FrotaOperacaoPage() {
                           <Button
                             size="small"
                             onClick={() => setModalDebito({ open: true, debito: d })}
-                            sx={{ textTransform: 'none', minWidth: 0, p: 0, color: colors.navy }}
+                            sx={{ textTransform: 'none', minWidth: 0, p: 0, color: colors.textPrimary }}
                           >
                             Ver valores
                           </Button>
@@ -1792,14 +1820,14 @@ export default function FrotaOperacaoPage() {
                         <TableCell align="center">{d.ano_referencia || '—'}</TableCell>
                         <TableCell align="center">{d.data_validade ? fmtData(d.data_validade) : '—'}</TableCell>
                         <TableCell align="center">{d.data_vencimento ? fmtData(d.data_vencimento) : '—'}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.navy }}>
+                        <TableCell align="center" sx={{ fontWeight: 600, color: colors.textPrimary }}>
                           {fmtMoeda(d.valor_total)}
                         </TableCell>
                         <TableCell align="center">
                           <Button
                             size="small"
                             onClick={() => setModalDebito({ open: true, debito: d })}
-                            sx={{ textTransform: 'none', minWidth: 0, p: 0, color: colors.navy }}
+                            sx={{ textTransform: 'none', minWidth: 0, p: 0, color: colors.textPrimary }}
                           >
                             Ver valores
                           </Button>
@@ -1848,7 +1876,7 @@ export default function FrotaOperacaoPage() {
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                   Total de Débitos
                 </Typography>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                   {fmtMoeda(totalDebitos)}
                 </Typography>
               </Box>
@@ -1865,7 +1893,7 @@ export default function FrotaOperacaoPage() {
       />
 
       <Dialog open={atribuirOpen} onClose={() => !atribuirSalvando && setAtribuirOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy }}>
+        <DialogTitle sx={{ fontWeight: 700, color: colors.textSecondary }}>
           Atribuir · {atribuirVeiculo?.placa}
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -1910,20 +1938,38 @@ export default function FrotaOperacaoPage() {
               >
                 Editar KM
               </Button>
+              <Box sx={{ flex: 1 }} />
             </>
-          ) : null}
-          <Box sx={{ flex: 1 }} />
-          <Button disabled={atribuirSalvando} onClick={() => setAtribuirOpen(false)}>
+          ) : (
+            <Box sx={{ flex: 1 }} />
+          )}
+          <Button
+            variant="outlined"
+            disabled={atribuirSalvando}
+            onClick={() => setAtribuirOpen(false)}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              color: colors.textSecondary,
+              borderColor: colors.borderStrong,
+              '&:hover': { bgcolor: colors.canvasAlt, borderColor: colors.borderStrong, color: colors.textPrimary },
+            }}
+          >
             Cancelar
           </Button>
-          <Button variant="contained" disabled={atribuirSalvando} onClick={() => void confirmarAtribuir()}>
-            Atribuir
+          <Button
+            variant="contained"
+            disabled={atribuirSalvando}
+            onClick={() => void confirmarAtribuir()}
+            sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
+          >
+            Salvar
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={kmAtribOpen} onClose={() => !kmAtribSalvando && setKmAtribOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy }}>
+        <DialogTitle sx={{ fontWeight: 700, color: acento }}>
           KM atribuição · {kmAtribVeiculo?.placa}
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -1955,14 +2001,19 @@ export default function FrotaOperacaoPage() {
           <Button disabled={kmAtribSalvando} onClick={() => setKmAtribOpen(false)}>
             Cancelar
           </Button>
-          <Button variant="contained" disabled={kmAtribSalvando} onClick={() => void confirmarKmAtribuicao()}>
+          <Button
+            variant="contained"
+            disabled={kmAtribSalvando}
+            onClick={() => void confirmarKmAtribuicao()}
+            sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
+          >
             Salvar
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={proxOpen} onClose={() => !proxSalvando && setProxOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy }}>
+        <DialogTitle sx={{ fontWeight: 700, color: acento }}>
           Próxima manutenção · {proxVeiculo?.placa}
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -1988,14 +2039,19 @@ export default function FrotaOperacaoPage() {
           <Button disabled={proxSalvando} onClick={() => setProxOpen(false)}>
             Cancelar
           </Button>
-          <Button variant="contained" disabled={proxSalvando} onClick={() => void confirmarProximaManutencao()}>
+          <Button
+            variant="contained"
+            disabled={proxSalvando}
+            onClick={() => void confirmarProximaManutencao()}
+            sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
+          >
             Salvar
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={liberarOpen} onClose={() => !liberarSalvando && setLiberarOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy }}>
+        <DialogTitle sx={{ fontWeight: 700, color: acento }}>
           Remover responsável · {liberarVeiculo?.placa}
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -2049,7 +2105,7 @@ export default function FrotaOperacaoPage() {
         <DialogTitle
           sx={{
             fontWeight: 700,
-            color: colors.navy,
+            color: acento,
             display: 'flex',
             alignItems: 'center',
             gap: 1.5,
@@ -2069,7 +2125,7 @@ export default function FrotaOperacaoPage() {
             <Chip
               label={modalDetalheMulta.multa.natureza}
               size="small"
-              sx={{ fontWeight: 700, ml: 0.5, ...obterGrupoChipEstilo(modalDetalheMulta.multa.natureza) }}
+              sx={{ fontWeight: 700, ml: 0.5, ...obterGrupoChipEstilo(modalDetalheMulta.multa.natureza, escuro) }}
             />
           ) : null}
         </DialogTitle>
@@ -2106,7 +2162,7 @@ export default function FrotaOperacaoPage() {
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
                       LOCAL DA INFRAÇÃO
                     </Typography>
-                    <Typography variant="body2" sx={{ color: colors.navy, fontWeight: 600 }}>
+                    <Typography variant="body2" sx={{ color: colors.textPrimary, fontWeight: 600 }}>
                       {modalDetalheMulta.multa.local_infracao}
                     </Typography>
                   </Box>
@@ -2133,7 +2189,7 @@ export default function FrotaOperacaoPage() {
                       mb: 2.5,
                       p: 1.5,
                       borderRadius: 1,
-                      bgcolor: 'rgba(11, 26, 59, 0.03)',
+                      bgcolor: escuro ? 'rgba(148, 163, 184, 0.08)' : colors.canvasAlt,
                       border: `1px solid ${colors.border}`,
                     }}
                   >
@@ -2142,7 +2198,7 @@ export default function FrotaOperacaoPage() {
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
                           PONTOS
                         </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, mt: 0.75 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary, mt: 0.75 }}>
                           {pontos}
                         </Typography>
                       </Box>
@@ -2152,7 +2208,7 @@ export default function FrotaOperacaoPage() {
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
                           VEL. PERMITIDA
                         </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, mt: 0.75 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary, mt: 0.75 }}>
                           {velPerm} km/h
                         </Typography>
                       </Box>
@@ -2162,7 +2218,7 @@ export default function FrotaOperacaoPage() {
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
                           VEL. AFERIDA
                         </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy, mt: 0.75 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary, mt: 0.75 }}>
                           {velAfer} km/h
                         </Typography>
                       </Box>
@@ -2197,7 +2253,7 @@ export default function FrotaOperacaoPage() {
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
                           RESPONSÁVEL DA INFRAÇÃO
                         </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                           {modalDetalheMulta.multa.responsavel_infracao}
                         </Typography>
                       </Box>
@@ -2210,7 +2266,7 @@ export default function FrotaOperacaoPage() {
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
                           ÓRGÃO AUTUADOR
                         </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                           {modalDetalheMulta.multa.orgao}
                         </Typography>
                       </Box>
@@ -2226,7 +2282,7 @@ export default function FrotaOperacaoPage() {
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
                       DATA DE NOTIFICAÇÃO DA AUTUAÇÃO
                     </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                       {fmtData(modalDetalheMulta.multa.data_notificacao_autuacao)}
                     </Typography>
                   </Box>
@@ -2248,7 +2304,7 @@ export default function FrotaOperacaoPage() {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy }}>
+        <DialogTitle sx={{ fontWeight: 700, color: acento }}>
           Outros valores · {modalDebito.debito?.tipo || 'Débito'}
           {modalDebito.debito?.placa ? ` · ${modalDebito.debito.placa}` : ''}
         </DialogTitle>
@@ -2260,7 +2316,7 @@ export default function FrotaOperacaoPage() {
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: '0.04em' }}>
                     RAZÃO SOCIAL
                   </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                     {modalDebito.debito.razao_social}
                   </Typography>
                 </Box>
@@ -2290,7 +2346,7 @@ export default function FrotaOperacaoPage() {
                       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
                         {c.label}
                       </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                         {fmtMoeda(c.valor)}
                       </Typography>
                     </Box>
@@ -2326,7 +2382,7 @@ export default function FrotaOperacaoPage() {
       </Dialog>
 
       <Dialog open={confirmarSyncOpen} onClose={() => setConfirmarSyncOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle sx={{ fontWeight: 700, color: acento, display: 'flex', alignItems: 'center', gap: 1 }}>
           <SyncIcon /> {syncTipo === 'debitos' ? 'Confirmar sincronização de Débitos' : 'Confirmar sincronização de Multas'}
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
@@ -2344,7 +2400,7 @@ export default function FrotaOperacaoPage() {
                       size="small"
                     />
                   }
-                  label={<Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>IPVA</Typography>}
+                  label={<Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary }}>IPVA</Typography>}
                   sx={{ m: 0 }}
                 />
                 <FormControlLabel
@@ -2358,7 +2414,7 @@ export default function FrotaOperacaoPage() {
                     />
                   }
                   label={
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                       Licenciamento
                     </Typography>
                   }
@@ -2448,8 +2504,8 @@ export default function FrotaOperacaoPage() {
                               px: 0.6,
                               py: 0.1,
                               borderRadius: 1,
-                              bgcolor: '#ffebee',
-                              color: '#c62828',
+                              bgcolor: escuro ? 'rgba(248, 113, 113, 0.2)' : '#ffebee',
+                              color: escuro ? '#FCA5A5' : '#c62828',
                               fontSize: '0.65rem',
                               fontWeight: 600,
                               lineHeight: 1.4,
@@ -2487,6 +2543,7 @@ export default function FrotaOperacaoPage() {
             onClick={() => {
               void sincronizarDetran(syncVeiculoIds, syncTipo);
             }}
+            sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
           >
             Confirmar
           </Button>
@@ -2504,7 +2561,7 @@ export default function FrotaOperacaoPage() {
         fullWidth
         maxWidth="xs"
       >
-        <DialogTitle sx={{ fontWeight: 700, color: colors.navy, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle sx={{ fontWeight: 700, color: acento, display: 'flex', alignItems: 'center', gap: 1 }}>
           {syncProgress.fase === 'progresso' ? (
             <>
               <SyncIcon /> Sincronizando
@@ -2528,7 +2585,7 @@ export default function FrotaOperacaoPage() {
                   value={syncProgress.pct}
                   size={88}
                   thickness={4}
-                  sx={{ color: colors.navy }}
+                  sx={{ color: acento }}
                 />
                 <Box
                   sx={{
@@ -2542,7 +2599,7 @@ export default function FrotaOperacaoPage() {
                     justifyContent: 'center',
                   }}
                 >
-                  <Typography variant="subtitle1" component="div" sx={{ fontWeight: 700, color: colors.navy }}>
+                  <Typography variant="subtitle1" component="div" sx={{ fontWeight: 700, color: colors.textPrimary }}>
                     {syncProgress.pct}%
                   </Typography>
                 </Box>
@@ -2585,6 +2642,7 @@ export default function FrotaOperacaoPage() {
             <Button
               variant="contained"
               onClick={() => setSyncProgress((prev) => ({ ...prev, open: false }))}
+              sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
             >
               OK
             </Button>

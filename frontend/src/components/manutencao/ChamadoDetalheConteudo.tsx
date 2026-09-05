@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -39,7 +39,9 @@ import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { detalheChamadoSx } from '../../utils/responsiveLayout';
 import { MOBILE_SCROLL_AREA } from '../../theme/safeArea';
 
-const NAVY = '#1B2A6B';
+import { colors } from '../../theme/tokens';
+
+const NAVY = colors.textPrimary;
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
 
 const tituloModalSx = {
@@ -397,13 +399,13 @@ export default function ChamadoDetalheConteudo({
         sx={{
           ...(isMobile ? detalheChamadoSx('mobile') : {}),
           display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
+          flexDirection: 'column',
           flex: 1,
-          py: 8,
+          py: 2,
+          px: 1,
         }}
       >
-        <CircularProgress />
+        <LinearProgress />
       </Box>
     );
   }
@@ -502,7 +504,7 @@ export default function ChamadoDetalheConteudo({
             p: 2,
             borderRadius: 2,
             border: '1px solid rgba(27, 42, 107, 0.1)',
-            bgcolor: '#fff',
+            bgcolor: colors.surface,
             boxShadow: '0 1px 6px rgba(27, 42, 107, 0.06)',
           }}
         >

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -12,10 +13,10 @@ import Chip from '@mui/material/Chip';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
-import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/Search';
+import PageLoading from '../../components/PageLoading';
 import { api, type AuditoriaEvento, type AuditoriaUsuarioFiltro } from '../../api/client';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
@@ -39,7 +40,26 @@ const MODULOS = [
 ];
 
 /** Cores por tipo de ação (não pelo módulo). */
-function estiloAcao(tipo?: string) {
+function estiloAcao(tipo?: string, isDark = false) {
+  if (isDark) {
+    switch (tipo) {
+      case 'exclusao':
+        return { bg: 'rgba(239, 68, 68, 0.16)', color: '#F87171', border: 'rgba(239, 68, 68, 0.38)' };
+      case 'upload':
+        return { bg: 'rgba(96, 165, 250, 0.16)', color: '#60A5FA', border: 'rgba(96, 165, 250, 0.38)' };
+      case 'acesso':
+        return { bg: 'rgba(251, 191, 36, 0.16)', color: '#FBBF24', border: 'rgba(251, 191, 36, 0.38)' };
+      case 'criacao':
+        return { bg: 'rgba(52, 211, 153, 0.16)', color: '#34D399', border: 'rgba(52, 211, 153, 0.38)' };
+      case 'alteracao':
+        return { bg: 'rgba(192, 132, 252, 0.16)', color: '#C084FC', border: 'rgba(192, 132, 252, 0.38)' };
+      case 'operacao':
+        return { bg: 'rgba(56, 189, 248, 0.16)', color: '#38BDF8', border: 'rgba(56, 189, 248, 0.38)' };
+      default:
+        return { bg: 'rgba(156, 163, 175, 0.16)', color: '#CBD5E1', border: 'rgba(156, 163, 175, 0.35)' };
+    }
+  }
+
   switch (tipo) {
     case 'exclusao':
       return { bg: 'rgba(220, 38, 38, 0.10)', color: '#B91C1C', border: 'rgba(220, 38, 38, 0.28)' };
@@ -59,7 +79,9 @@ function estiloAcao(tipo?: string) {
 }
 
 function ChipAcao({ ev }: { ev: AuditoriaEvento }) {
-  const estilo = estiloAcao(ev.tipo_acao);
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const estilo = estiloAcao(ev.tipo_acao, isDark);
   return (
     <Chip
       size="small"
@@ -238,7 +260,7 @@ export default function AuditoriaPage() {
       )}
 
       <Paper elevation={0} sx={tablePaperSx}>
-        {loading && <LinearProgress />}
+        {loading && <PageLoading />}
         <TableContainer sx={tableContainerSx}>
           <Table size="small" sx={tableSx}>
             <TableHead>

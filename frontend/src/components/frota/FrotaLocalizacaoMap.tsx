@@ -51,7 +51,6 @@ const ZOOM_PONTO_UNICO_MOBILE = 15;
 /** Limite máximo ao enquadrar várias lojas. */
 const ZOOM_MAXIMO_ENQUADRE = 15;
 const ZOOM_MAXIMO_ENQUADRE_MOBILE = 16;
-const ZOOM_PADRAO_BRASIL = 4;
 /** Centro de Brasília/DF — padrão enquanto lojas carregam. */
 const CENTRO_DISTRITO_FEDERAL: L.LatLngExpression = [-15.7801, -47.9292];
 const ZOOM_INICIAL_DF = 11;

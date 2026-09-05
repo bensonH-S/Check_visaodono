@@ -145,7 +145,7 @@ export default function VisitasMobileScreen({
                 const emRascunho = v.status === 'Rascunho';
                 const destino = emRascunho
                   ? `${checklistBase}?visita=${v.id_visita}`
-                  : `/relatorio/visita/${v.id_visita}`;
+                  : `/relatorio/mobile/visita/${v.id_visita}`;
                 return (
                   <div key={v.id_visita} className="ck-visitas__card-wrap">
                     <Link

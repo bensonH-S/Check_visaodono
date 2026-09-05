@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -17,11 +16,17 @@ import { api, type FrotaTermoPortalResumo } from '../../api/client';
 import FrotaTermoAssinadoModal from '../../components/frota/FrotaTermoAssinadoModal';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { dataDentroIntervalo } from '../../utils/frotaPortalFiltros';
 import { tableCellWrapSx, tableContainerSx, tableSx } from '../../utils/tablePageLayout';
+import PageLoading from '../../components/PageLoading';
 
 export default function FrotaTermosPortalPage() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoMuted = escuro ? 'rgba(232, 82, 10, 0.14)' : 'rgba(27, 42, 107, 0.08)';
   const [termos, setTermos] = useState<FrotaTermoPortalResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
@@ -71,7 +76,7 @@ export default function FrotaTermosPortalPage() {
         sx={{
           border: '1px solid',
           borderColor: colors.border,
-          borderLeft: `4px solid ${colors.navy}`,
+          borderLeft: `4px solid ${acento}`,
           borderRadius: 2,
           overflow: 'hidden',
         }}
@@ -91,18 +96,18 @@ export default function FrotaTermosPortalPage() {
               width: 44,
               height: 44,
               borderRadius: 2,
-              bgcolor: 'rgba(27, 42, 107, 0.08)',
+              bgcolor: acentoMuted,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: colors.navy,
+              color: acento,
               flexShrink: 0,
             }}
           >
             <AssignmentTurnedInIcon />
           </Box>
           <Box>
-            <Typography sx={{ fontWeight: 700 }}>Termos de ferramentas assinados</Typography>
+            <Typography sx={{ fontWeight: 700, color: colors.textPrimary }}>Termos de ferramentas assinados</Typography>
             <Typography variant="body2" color="text.secondary">
               Consulte quem assinou o termo de compromisso e visualize o documento.
             </Typography>
@@ -118,7 +123,7 @@ export default function FrotaTermosPortalPage() {
             alignItems: 'flex-end',
             borderBottom: '1px solid',
             borderColor: colors.border,
-            bgcolor: 'rgba(27, 42, 107, 0.02)',
+            bgcolor: colors.canvasAlt,
           }}
         >
           <TextField
@@ -150,7 +155,7 @@ export default function FrotaTermosPortalPage() {
         </Box>
 
         {loading ? (
-          <LinearProgress />
+          <PageLoading />
         ) : (
           <TableContainer sx={{ ...tableContainerSx, maxHeight: 520 }}>
             <Table size="small" stickyHeader sx={tableSx}>

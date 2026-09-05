@@ -8,6 +8,7 @@ import PersonOutlineOutlinedIcon from '@mui/icons-material/PersonOutlineOutlined
 import type { FrotaVeiculo } from '../../api/client';
 import { rotuloVeiculoOpcao } from '../../constants/frotaVeiculo';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type Props = {
   options: FrotaVeiculo[];
@@ -33,6 +34,15 @@ export default function FrotaVeiculoAutocomplete({
   disabled = false,
   sx,
 }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoMuted = escuro ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.07)';
+  const acentoBorder = escuro ? 'rgba(232, 82, 10, 0.28)' : 'rgba(27, 42, 107, 0.12)';
+  const acentoSelectedBg = escuro ? 'rgba(232, 82, 10, 0.1)' : 'rgba(27, 42, 107, 0.08)';
+  const acentoSelectedBorder = escuro ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.28)';
+  const hoverBg = escuro ? 'rgba(232, 82, 10, 0.08)' : 'rgba(27, 42, 107, 0.04)';
+
   return (
     <Autocomplete
       options={options}
@@ -67,14 +77,19 @@ export default function FrotaVeiculoAutocomplete({
           height: 40,
           minHeight: 40,
           alignItems: 'center',
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderColor: `${acento} !important`,
+          },
         },
         '& .MuiOutlinedInput-input': {
           py: '4px !important',
           boxSizing: 'border-box' as const,
           fontSize: '0.875rem',
+          fontWeight: value ? 700 : 400,
+          color: value ? acento : colors.textPrimary,
         },
-        '& .MuiInputLabel-root.MuiInputLabel-shrink': {
-          transform: 'translate(14px, -9px) scale(0.75)',
+        '& .MuiInputLabel-root.Mui-focused': {
+          color: `${acento} !important`,
         },
         ...sx,
       }}
@@ -101,13 +116,13 @@ export default function FrotaVeiculoAutocomplete({
               py: 1,
               borderRadius: 2,
               border: '1px solid',
-              borderColor: selecionado ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.08)',
-              bgcolor: selecionado ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
+              borderColor: selecionado ? acentoSelectedBorder : acentoBorder,
+              bgcolor: selecionado ? acentoSelectedBg : 'transparent',
               '&[aria-selected="true"]': {
-                bgcolor: 'rgba(232, 82, 10, 0.1)',
+                bgcolor: acentoSelectedBg,
               },
               '&:hover': {
-                bgcolor: selecionado ? 'rgba(232, 82, 10, 0.14)' : 'rgba(27, 42, 107, 0.04)',
+                bgcolor: selecionado ? (escuro ? 'rgba(232, 82, 10, 0.14)' : 'rgba(27, 42, 107, 0.12)') : hoverBg,
               },
             }}
           >
@@ -117,8 +132,8 @@ export default function FrotaVeiculoAutocomplete({
                   width: 38,
                   height: 38,
                   borderRadius: 1.5,
-                  bgcolor: selecionado ? colors.orange : 'rgba(27, 42, 107, 0.07)',
-                  color: selecionado ? '#fff' : colors.navy,
+                  bgcolor: selecionado ? acento : acentoMuted,
+                  color: selecionado ? '#fff' : colors.textPrimary,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -128,7 +143,10 @@ export default function FrotaVeiculoAutocomplete({
                 <DirectionsCarFilledOutlinedIcon sx={{ fontSize: 19 }} />
               </Box>
               <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 800, color: colors.navy, lineHeight: 1.2 }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 800, color: selecionado ? acento : colors.textPrimary, lineHeight: 1.2 }}
+                >
                   {v.placa}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2 }}>
@@ -137,7 +155,7 @@ export default function FrotaVeiculoAutocomplete({
                 </Typography>
                 {v.nome_regiao && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.35 }}>
-                    <LocationOnOutlinedIcon sx={{ fontSize: 13, color: colors.orange, opacity: 0.9 }} />
+                    <LocationOnOutlinedIcon sx={{ fontSize: 13, color: acento, opacity: 0.9 }} />
                     <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
                       {v.nome_regiao}
                     </Typography>

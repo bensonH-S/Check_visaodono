@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import ChamadoAnexosGaleria from '../../components/manutencao/ChamadoAnexosGaleria';
+import PageLoading from '../../components/PageLoading';
 import { api, type EnergiaChamadoDetalhe, type ManutAnexo } from '../../api/client';
 import { getUsuario, podeAbrirEnergia } from '../../lib/auth';
 import { formatDataHoraBalaoMapa } from '../../utils/dateBr';
@@ -112,7 +113,7 @@ export default function EnergiaMobileDetalhePage() {
   if (loading) {
     return (
       <EnergiaMobileChrome>
-        <LinearProgress />
+        <PageLoading />
       </EnergiaMobileChrome>
     );
   }

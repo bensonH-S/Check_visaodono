@@ -2,6 +2,8 @@ import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import FiltroIntervaloDatasFrota from './FiltroIntervaloDatasFrota';
+import { useAppTheme } from '../../context/ThemeContext';
+import { colors } from '../../theme/tokens';
 
 type Props = {
   aba: number;
@@ -25,6 +27,10 @@ export default function FrotaVeiculoAbasEdicao({
   onChangeKmFim,
   semPadding = false,
 }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+
   return (
     <Box
       sx={{
@@ -49,7 +55,15 @@ export default function FrotaVeiculoAbasEdicao({
           minHeight: 42,
           flex: '1 1 auto',
           minWidth: 0,
-          '& .MuiTab-root': { minHeight: 42, minWidth: 'auto', px: 1.5 },
+          '& .MuiTab-root': {
+            minHeight: 42,
+            minWidth: 'auto',
+            px: 1.5,
+            textTransform: 'none',
+            color: colors.textSecondary,
+          },
+          '& .Mui-selected': { color: `${acento} !important` },
+          '& .MuiTabs-indicator': { backgroundColor: acento },
         }}
       >
         <Tab label="Dados do veículo" value={0} />

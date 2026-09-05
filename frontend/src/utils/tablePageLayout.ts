@@ -1,4 +1,3 @@
-import { colors } from '../theme/tokens';
 import { pageFillLayoutSx } from '../utils/pageFillLayout';
 
 export const tablePageLayoutSx = {
@@ -10,9 +9,9 @@ export const tablePaperSx = {
   minHeight: 0,
   width: '100%',
   border: '1px solid',
-  borderColor: colors.border,
+  borderColor: 'divider',
   borderRadius: 2,
-  bgcolor: colors.surface,
+  bgcolor: 'background.paper',
   boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
   display: 'flex',
   flexDirection: 'column',
@@ -34,3 +33,5 @@ export const tableCellWrapSx = {
   whiteSpace: 'normal',
   wordBreak: 'break-word',
 } as const;
+
+

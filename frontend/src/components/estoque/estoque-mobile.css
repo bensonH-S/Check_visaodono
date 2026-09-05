@@ -1,4 +1,4 @@
-/* ConferÃªncia de estoque mobile â€” estende ck-visitas */
+/* ConferÃªncia de estoque mobile ââ‚¬" estende ck-visitas */
 .ck-estoque .ck-estoque__loja {
   margin: 0 0 14px;
 }
@@ -8,7 +8,7 @@
   height: 44px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.16);
-  background: #fff;
+  background: var(--ga-surface);
   padding: 0 12px;
   font: inherit;
   font-weight: 600;
@@ -89,7 +89,7 @@
 .ck-estoque .ck-estoque__loja-fix-icon {
   flex-shrink: 0;
   margin-top: 2px;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   opacity: 0.9;
   font-size: 1.55rem !important;
   width: 1.55rem !important;
@@ -111,8 +111,8 @@
   height: 44px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.18);
-  background: #fff;
-  color: var(--ck-navy);
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
   font: inherit;
   font-size: 1.25rem;
   font-weight: 700;
@@ -130,7 +130,7 @@
   height: auto;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.18);
-  background: #fff;
+  background: var(--ga-surface);
   color: var(--ck-ink);
   font: inherit;
   font-weight: 600;
@@ -174,7 +174,7 @@
   right: 0;
   max-height: 280px;
   overflow-y: auto;
-  background: #fff;
+  background: var(--ga-surface);
   border-radius: 14px;
   border: 1px solid rgba(27, 42, 107, 0.16);
   box-shadow: 0 12px 36px rgba(15, 26, 69, 0.22);
@@ -203,7 +203,7 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   padding: 4px 10px;
   border-radius: 8px;
   background: rgba(27, 42, 107, 0.08);
@@ -213,8 +213,8 @@
 .ck-estoque__grupo-qtd {
   font-size: 0.74rem;
   font-weight: 800;
-  color: var(--ck-navy);
-  background: #fff;
+  color: var(--ga-text-primary);
+  background: var(--ga-surface);
   border: 1px solid rgba(27, 42, 107, 0.14);
   padding: 3px 10px;
   border-radius: 999px;
@@ -262,7 +262,7 @@
 .ck-estoque__saldo-qtd strong {
   font-size: 1.25rem;
   font-weight: 800;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
   text-align: center;
@@ -291,7 +291,7 @@
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid rgba(27, 42, 107, 0.14);
-  background: #fff;
+  background: var(--ga-surface);
   color: var(--ck-ink);
   font: inherit;
   cursor: pointer;
@@ -307,7 +307,7 @@
 .ck-estoque__modal-action-btn strong {
   font-size: 0.95rem;
   font-weight: 800;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
 }
 
 .ck-estoque__modal-action-btn small {
@@ -375,7 +375,7 @@
   width: 100%;
   max-height: min(62dvh, 460px);
   border-radius: 18px 18px 14px 14px;
-  background: #fff;
+  background: var(--ga-surface);
   box-shadow: 0 -8px 32px rgba(15, 26, 69, 0.2);
   padding-bottom: 12px;
   pointer-events: auto;
@@ -384,7 +384,7 @@
   overscroll-behavior: contain;
 }
 
-/* Modal centralizado (ex.: reabrir) â€” cobre a tela toda, inclusive sobre as tabs. */
+/* Modal centralizado (ex.: reabrir) ââ‚¬" cobre a tela toda, inclusive sobre as tabs. */
 .ck-estoque .ck-estoque__loja-modal.ck-estoque__modal--center {
   justify-content: center;
   align-items: center;
@@ -412,13 +412,13 @@
 .ck-estoque .ck-estoque__loja-panel-head strong {
   font-size: 1rem;
   font-weight: 800;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
 }
 
 .ck-estoque .ck-estoque__loja-fechar {
   border: none;
   background: transparent;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   font: inherit;
   font-weight: 700;
   font-size: 0.85rem;
@@ -480,7 +480,7 @@
 
 .ck-estoque .ck-estoque__loja-item.is-on {
   background: rgba(232, 82, 10, 0.08);
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   font-weight: 800;
 }
 
@@ -489,7 +489,7 @@
   height: 44px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.18);
-  background: #fff;
+  background: var(--ga-surface);
   color: var(--ck-ink);
   font: inherit;
   font-weight: 600;
@@ -519,7 +519,7 @@
   font: inherit;
   font-weight: 600;
   font-size: 16px;
-  background: #fff;
+  background: var(--ga-surface);
   color: var(--ck-ink);
 }
 
@@ -558,8 +558,8 @@
 }
 
 .ck-estoque .ck-estoque__btn--ghost {
-  background: #fff;
-  color: var(--ck-navy);
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
   border: 1.5px solid rgba(27, 42, 107, 0.16);
   box-shadow: 0 2px 6px rgba(27, 42, 107, 0.04);
 }
@@ -585,7 +585,7 @@
   border-radius: 16px;
   border: 1px solid rgba(27, 42, 107, 0.1);
   border-left: 4px solid #e8520a !important;
-  background: #fff;
+  background: var(--ga-surface);
   box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
   cursor: pointer;
   font: inherit;
@@ -663,7 +663,7 @@
   font-size: 1.28rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   line-height: 1.15;
   text-align: center;
 }
@@ -703,7 +703,7 @@
   gap: 5px;
   font-size: 0.84rem;
   font-weight: 700;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   line-height: 1.2;
 }
 
@@ -832,7 +832,7 @@
   height: 44px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.18);
-  background: #fff;
+  background: var(--ga-surface);
   padding: 0 12px;
   font: inherit;
   font-weight: 600;
@@ -846,7 +846,7 @@
 
 .ck-estoque .ck-estoque__break-form .ck-estoque__field--date .MuiOutlinedInput-root {
   border-radius: 12px;
-  background: #fff;
+  background: var(--ga-surface);
   min-height: 48px;
 }
 
@@ -869,7 +869,7 @@
   height: 48px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.18);
-  background: #fff;
+  background: var(--ga-surface);
   overflow: hidden;
 }
 
@@ -877,7 +877,7 @@
   flex: 0 0 52px;
   border: none;
   background: rgba(27, 42, 107, 0.06);
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   font: inherit;
   font-size: 1.35rem;
   font-weight: 700;
@@ -908,7 +908,7 @@
   font-weight: 700;
   font-size: 1.05rem;
   color: var(--ck-ink);
-  background: #fff;
+  background: var(--ga-surface);
   padding: 0 8px;
 }
 
@@ -981,7 +981,7 @@
 }
 
 .ck-estoque__btn-grid-card .MuiSvgIcon-root {
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   font-size: 1.55rem !important;
 }
 
@@ -1016,8 +1016,8 @@
   font-size: 0.68rem;
   font-weight: 700;
   border: 1px solid rgba(27, 42, 107, 0.18);
-  color: var(--ck-navy);
-  background: #fff;
+  color: var(--ga-text-primary);
+  background: var(--ga-surface);
 }
 
 .ck-estoque .ck-estoque__chip--aberta {
@@ -1113,7 +1113,7 @@
 .ck-estoque .ck-estoque__cod {
   font-size: 0.72rem;
   font-weight: 800;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
 }
 
 .ck-estoque .ck-estoque__und {
@@ -1157,7 +1157,7 @@
   height: 42px;
   border-radius: 10px;
   border: 1px solid rgba(27, 42, 107, 0.16);
-  background: #fff;
+  background: var(--ga-surface);
   text-align: center;
   font: inherit;
   font-weight: 700;
@@ -1255,8 +1255,8 @@
   padding: 0;
   border: 1px solid rgba(27, 42, 107, 0.18);
   border-radius: 12px;
-  background: #fff;
-  color: var(--ck-navy);
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
   font-size: 1.25rem;
   line-height: 1;
   box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
@@ -1403,7 +1403,7 @@
   box-shadow: none;
 }
 
-/* â”€â”€ Contagem mobile (padrÃ£o planilha TerraÃ§o) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â"â‚¬â"â‚¬ Contagem mobile (padrÃ£o planilha TerraÃ§o) â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬ */
 .ck-estoque--contagem.ck-visitas--lista {
   display: flex;
   flex-direction: column;
@@ -1509,7 +1509,7 @@
   font: inherit;
   font-weight: 600;
   font-size: 16px;
-  background: #fff;
+  background: var(--ga-surface);
   color: var(--ck-ink);
 }
 
@@ -1570,7 +1570,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px var(--ck-pad-x, 16px) calc(10px + var(--app-tabbar-offset, 0px));
-  background: #fff;
+  background: var(--ga-surface);
   border-top: 1px solid rgba(15, 26, 69, 0.1);
   box-shadow: 0 -6px 20px rgba(15, 26, 69, 0.06);
 }
@@ -1648,7 +1648,7 @@
   border: 1px solid rgba(27, 42, 107, 0.12);
   border-left: 4px solid #e8520a !important;
   border-radius: 12px;
-  background: #fff;
+  background: var(--ga-surface);
   overflow: visible;
   min-width: 0;
 }
@@ -1677,7 +1677,7 @@
 .ck-estoque--contagem .ck-estoque__linha-total {
   font-size: 0.92rem;
   font-weight: 800;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1742,18 +1742,18 @@
 }
 
 .ck-estoque--contagem .ck-estoque__field:not(.is-blocked) label {
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   font-weight: 800;
 }
 
 .ck-estoque--contagem .ck-estoque__field input {
   border-color: rgba(15, 26, 69, 0.22);
-  background: #fff;
+  background: var(--ga-surface);
 }
 
 .ck-estoque--contagem .ck-estoque__field:not(.is-blocked) input {
   border: 1.5px solid rgba(27, 42, 107, 0.3);
-  background: #fff;
+  background: var(--ga-surface);
   font-weight: 700;
   color: #0f1a45;
   box-shadow: 0 1px 3px rgba(15, 26, 69, 0.05);
@@ -1833,7 +1833,7 @@
 .ck-estoque .ck-estoque__dlg {
   width: min(100%, 400px);
   border-radius: 18px;
-  background: #fff;
+  background: var(--ga-surface);
   padding: 18px 16px 14px;
   box-shadow: 0 16px 48px rgba(15, 26, 69, 0.28);
 }
@@ -1842,7 +1842,7 @@
   margin: 0 0 8px;
   font-size: 1.05rem;
   font-weight: 800;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
 }
 
 .ck-estoque .ck-estoque__dlg p {
@@ -1863,8 +1863,8 @@
   padding: 0 14px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.16);
-  background: #fff;
-  color: var(--ck-navy);
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -1876,7 +1876,7 @@
   color: #fff;
 }
 
-/* â”€â”€ Break mobile (mesmo padrÃ£o da contagem) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â"â‚¬â"â‚¬ Break mobile (mesmo padrÃ£o da contagem) â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬â"â‚¬ */
 .ck-estoque--break.ck-visitas--lista {
   display: flex;
   flex-direction: column;
@@ -1913,7 +1913,7 @@
 }
 
 .ck-estoque--break .ck-estoque__loja-btn--break {
-  background: #fff;
+  background: var(--ga-surface);
   border-color: rgba(255, 255, 255, 0.35);
 }
 
@@ -1962,7 +1962,7 @@
 
 .ck-estoque--break .ck-estoque__seg-btn {
   border: 1.5px solid rgba(27, 42, 107, 0.18);
-  background: #fff;
+  background: var(--ga-surface);
   color: var(--ck-ink);
   font: inherit;
   font-size: 0.84rem;
@@ -1980,8 +1980,8 @@
 }
 
 .ck-estoque--break .ck-estoque__seg-btn.is-on {
-  background: #1b2a6b;
-  border-color: #1b2a6b;
+  background: var(--ga-primary-btn);
+  border-color: var(--ga-primary-btn);
   color: #fff;
   box-shadow: 0 4px 12px rgba(27, 42, 107, 0.22);
 }
@@ -1994,7 +1994,7 @@
 
 .ck-estoque--break .ck-estoque__turno-btn {
   border: 1.5px solid rgba(27, 42, 107, 0.18);
-  background: #fff;
+  background: var(--ga-surface);
   color: var(--ck-ink);
   font: inherit;
   font-size: 0.88rem;
@@ -2161,8 +2161,8 @@
   padding: 0 12px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.16);
-  background: #fff;
-  color: var(--ck-navy);
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
   font: inherit;
   font-size: 0.88rem;
   font-weight: 800;
@@ -2196,7 +2196,7 @@
   border: none;
   border-top: 1px solid rgba(27, 42, 107, 0.1);
   background: #faf9f6;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 800;
@@ -2239,7 +2239,7 @@
   padding: 12px 10px;
   border-radius: 14px;
   border: 1px solid rgba(27, 42, 107, 0.12);
-  background: #fff;
+  background: var(--ga-surface);
 }
 .ck-estoque-nfe__row.is-ok {
   border-color: rgba(22, 163, 74, 0.35);
@@ -2300,7 +2300,7 @@
   height: 40px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.14);
-  background: #fff;
+  background: var(--ga-surface);
   color: rgba(20, 32, 72, 0.45);
   display: inline-flex;
   align-items: center;
@@ -2333,7 +2333,7 @@
   height: 46px;
   border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.16);
-  background: #fff;
+  background: var(--ga-surface);
   color: var(--ck-ink);
   font: inherit;
   font-weight: 800;
@@ -2341,11 +2341,11 @@
   cursor: pointer;
 }
 .ck-estoque-nfe__foot-btn--ghost {
-  background: #fff;
+  background: var(--ga-surface);
 }
 .ck-estoque-nfe__foot-btn--pri {
-  background: #1b2a6b;
-  border-color: #1b2a6b;
+  background: var(--ga-primary-btn);
+  border-color: var(--ga-primary-btn);
   color: #fff;
 }
 .ck-estoque-nfe__foot-btn:disabled {
@@ -2357,7 +2357,7 @@
   align-items: center;
   justify-content: space-between;
   padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
-  background: #1b2a6b;
+  background: var(--ga-primary-btn);
   color: #fff;
 }
 .ck-estoque-nfe__danfe-bar strong {
@@ -2374,7 +2374,7 @@
 }
 .ck-estoque-nfe__forn {
   font-weight: 800;
-  color: var(--ck-navy);
+  color: var(--ga-text-primary);
 }
 .ck-estoque-nfe__emit-hint {
   margin: 2px 0 6px;
@@ -2389,3 +2389,104 @@
 .ck-estoque-nfe .ck-visitas__stage .ck-estoque-nfe__danfe-btn {
   margin-top: 14px;
 }
+
+/* ==========================================================================
+   Dark Mode Overrides para Estoque Mobile
+   ========================================================================== */
+:root.dark .ck-estoque,
+.dark .ck-estoque,
+:root.dark .ck-estoque-nfe,
+.dark .ck-estoque-nfe {
+  --ck-paper: var(--ga-canvas);
+  --ck-ink: var(--ga-text-primary);
+  --ck-navy: var(--ga-primary-btn);
+  --ck-navy-deep: #0b1120;
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+}
+
+:root.dark .ck-estoque .ck-estoque__busca-wrap input,
+.dark .ck-estoque .ck-estoque__busca-wrap input,
+:root.dark .ck-estoque-nfe input,
+.dark .ck-estoque-nfe input {
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__busca-wrap input::placeholder,
+.dark .ck-estoque .ck-estoque__busca-wrap input::placeholder {
+  color: var(--ga-text-muted);
+}
+
+:root.dark .ck-estoque .ck-estoque__item,
+.dark .ck-estoque .ck-estoque__item,
+:root.dark .ck-estoque-nfe__card,
+.dark .ck-estoque-nfe__card {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  color: var(--ga-text-primary);
+}
+
+:root.dark .ck-estoque .ck-estoque__desc,
+.dark .ck-estoque .ck-estoque__desc,
+:root.dark .ck-estoque-nfe__forn,
+.dark .ck-estoque-nfe__forn {
+  color: var(--ga-text-primary);
+}
+
+:root.dark .ck-estoque .ck-estoque__cod,
+.dark .ck-estoque .ck-estoque__cod,
+:root.dark .ck-estoque-nfe__meta,
+.dark .ck-estoque-nfe__meta {
+  color: var(--ga-text-secondary);
+}
+
+:root.dark .ck-estoque .ck-estoque__secao-banner,
+.dark .ck-estoque .ck-estoque__secao-banner {
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__vl,
+.dark .ck-estoque .ck-estoque__vl {
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__field input,
+.dark .ck-estoque .ck-estoque__field input {
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__dock-cta,
+.dark .ck-estoque .ck-estoque__dock-cta,
+:root.dark .ck-estoque-nfe__foot-btn,
+.dark .ck-estoque-nfe__foot-btn {
+  background: var(--ga-primary-btn);
+  color: #ffffff;
+}
+
+:root.dark .ck-estoque .ck-estoque__dock-side,
+.dark .ck-estoque .ck-estoque__dock-side {
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__btn--save,
+.dark .ck-estoque .ck-estoque__btn--save {
+  background: var(--ga-primary-btn);
+  color: #ffffff;
+}
+
+:root.dark .ck-estoque-nfe__danfe-frame,
+.dark .ck-estoque-nfe__danfe-frame {
+  background: var(--ga-canvas);
+}
+
+

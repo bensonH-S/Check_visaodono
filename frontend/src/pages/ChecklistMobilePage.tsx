@@ -32,6 +32,7 @@ import ChecklistStartScreen from '../components/checklist/ChecklistStartScreen';
 import ChecklistIonicFluxo from '../components/checklist/ChecklistIonicFluxo';
 import VisitaIniciadaScreen from '../components/checklist/VisitaIniciadaScreen';
 import TimeCampoMetaForm from '../components/checklist/TimeCampoMetaForm';
+import PageLoading from '../components/PageLoading';
 import { useChecklistMobileUi } from '../context/ChecklistMobileUiContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { selectMenuScrollProps } from '../utils/selectMenuScroll';
@@ -904,26 +905,17 @@ export default function ChecklistMobilePage() {
   };
 
   if (loading || retomando) {
+    const label = retomando ? 'Retomando checklist…' : 'Carregando…';
     if (paths.mobile) {
       return (
         <ChecklistIonicShell>
-          <div className="checklist-ionic" style={{ padding: 24, textAlign: 'center' }}>
-            <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />
-            <Typography variant="body2" color="text.secondary">
-              {retomando ? 'Retomando checklist…' : 'Carregando…'}
-            </Typography>
+          <div className="checklist-ionic" style={{ padding: 0 }}>
+            <PageLoading label={label} />
           </div>
         </ChecklistIonicShell>
       );
     }
-    return (
-      <Box sx={{ p: 2 }}>
-        <LinearProgress sx={{ borderRadius: 1 }} />
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
-          {retomando ? 'Retomando checklist…' : 'Carregando…'}
-        </Typography>
-      </Box>
-    );
+    return <PageLoading label={label} />;
   }
 
   if (somenteVisualizacao) {

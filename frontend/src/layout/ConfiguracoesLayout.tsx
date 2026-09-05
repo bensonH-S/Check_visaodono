@@ -26,18 +26,18 @@ function ConfigMenuItem({ to, label, icon }: { to: string; label: string; icon: 
             borderRadius: `${radius.md}px`,
             fontSize: '0.8125rem',
             fontWeight: isActive ? 600 : 450,
-            color: isActive ? colors.textPrimary : colors.textSecondary,
-            bgcolor: isActive ? colors.surface : 'transparent',
+            color: isActive ? 'var(--ga-sidebar-active-text)' : colors.textSecondary,
+            bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : 'transparent',
             borderLeft: '3px solid',
-            borderColor: isActive ? colors.orange : 'transparent',
-            transition: 'background-color 0.12s, color 0.12s',
+            borderColor: isActive ? 'var(--ga-sidebar-active-border)' : 'transparent',
+            transition: 'background-color 0.12s, color 0.12s, border-color 0.12s',
             '&:hover': {
-              bgcolor: colors.surface,
+              bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : colors.canvasAlt,
               color: colors.textPrimary,
             },
             '& .MuiSvgIcon-root': {
               fontSize: 16,
-              color: isActive ? colors.textPrimary : colors.textMuted,
+              color: isActive ? 'var(--ga-sidebar-active-icon)' : colors.textMuted,
             },
           }}
         >
@@ -171,7 +171,8 @@ export default function ConfiguracoesLayout() {
             minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
-            overflow: 'hidden',
+            overflowY: 'auto',
+            overflowX: 'hidden',
             p: { xs: 2, md: 2.5 },
             bgcolor: colors.surface,
           }}

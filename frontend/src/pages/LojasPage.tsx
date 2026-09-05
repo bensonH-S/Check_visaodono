@@ -85,7 +85,7 @@ export default function LojasPage() {
                     sx={{
                       ...tableCellWrapSx,
                       cursor: 'pointer',
-                      color: colors.navy,
+                      color: (theme: any) => (theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy),
                       fontWeight: 600,
                       '&:hover': { textDecoration: 'underline' },
                     }}
@@ -106,7 +106,13 @@ export default function LojasPage() {
                   <TableCell>{notaChip(Number(l.nota_atual))}</TableCell>
                   <TableCell>
                     {l.bk_number && (
-                      <Button component={Link} to="/checklist" size="small" state={{ lojaId: l.id_loja }}>
+                      <Button
+                        variant="outlined"
+                        component={Link}
+                        to="/checklist"
+                        size="small"
+                        state={{ lojaId: l.id_loja }}
+                      >
                         Visita
                       </Button>
                     )}
