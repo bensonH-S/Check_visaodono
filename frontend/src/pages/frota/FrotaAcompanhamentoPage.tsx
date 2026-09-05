@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -187,6 +188,23 @@ export default function FrotaAcompanhamentoPage() {
   const hoje = dataHojeBrasilia();
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const veiculoQuery = searchParams.get('veiculo');
+  const placaQuery = searchParams.get('placa');
+
+  useEffect(() => {
+    if (!veiculos.length) return;
+    const alvo = (veiculoQuery || placaQuery || '').trim();
+    if (!alvo) return;
+    const v = veiculos.find(
+      (item) =>
+        String(item.id_veiculo) === alvo ||
+        item.placa?.toUpperCase() === alvo.toUpperCase(),
+    );
+    if (v) {
+      setVeiculoSel(v);
+    }
+  }, [veiculos, veiculoQuery, placaQuery]);
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
   const [rota, setRota] = useState<FrotaVeiculoRotaDiaRelatorio | null>(null);
@@ -257,6 +275,12 @@ export default function FrotaAcompanhamentoPage() {
       .catch((e) => setErro(e instanceof Error ? e.message : 'Erro ao carregar acompanhamento'))
       .finally(() => setLoading(false));
   }, [veiculoSel, dataInicio, dataFim]);
+
+  useEffect(() => {
+    if (veiculoSel && (veiculoQuery || placaQuery) && !consultou && !loading) {
+      buscar();
+    }
+  }, [veiculoSel, veiculoQuery, placaQuery, consultou, loading, buscar]);
 
   useEffect(() => {
     if (!periodoSoHoje) {
@@ -338,7 +362,21 @@ export default function FrotaAcompanhamentoPage() {
         <FrotaVeiculoAutocomplete
           options={veiculosOrdenados}
           value={veiculoSel}
-          onChange={setVeiculoSel}
+          onChange={(v) => {
+            setVeiculoSel(v);
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                if (v) next.set('veiculo', String(v.id_veiculo));
+                else {
+                  next.delete('veiculo');
+                  next.delete('placa');
+                }
+                return next;
+              },
+              { replace: true },
+            );
+          }}
           sx={{ minWidth: 260, flex: '1 1 260px', maxWidth: 400 }}
         />
         <FiltroIntervaloDatasFrota

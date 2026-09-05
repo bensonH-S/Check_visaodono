@@ -232,6 +232,9 @@ export default function FrotaOperacaoPage() {
   const navigate = useNavigate();
   const { aba: abaParam } = useParams<{ aba: string }>();
   const aba = parseAba(abaParam);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const veiculoQuery = searchParams.get('veiculo');
+  const placaQuery = searchParams.get('placa');
 
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -313,6 +316,20 @@ export default function FrotaOperacaoPage() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
+
+  useEffect(() => {
+    if (!veiculos.length) return;
+    const alvo = (veiculoQuery || placaQuery || '').trim();
+    if (!alvo) return;
+    const v = veiculos.find(
+      (item) =>
+        String(item.id_veiculo) === alvo ||
+        item.placa?.toUpperCase() === alvo.toUpperCase(),
+    );
+    if (v) {
+      setVeiculoSel(v);
+    }
+  }, [veiculos, veiculoQuery, placaQuery]);
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [dialogAberto, setDialogAberto] = useState(false);
@@ -840,7 +857,8 @@ export default function FrotaOperacaoPage() {
   const mostrarPeriodo = aba === 'combustivel' || aba === 'multas' || aba === 'manutencoes' || aba === 'debitos';
 
   function setAba(next: AbaOperacao) {
-    navigate(`/frota/operacao/${next}`, { replace: true });
+    const q = searchParams.toString();
+    navigate(`/frota/operacao/${next}${q ? `?${q}` : ''}`, { replace: true });
   }
 
   async function gerarRelatorioMultas() {
@@ -862,6 +880,15 @@ export default function FrotaOperacaoPage() {
     setVeiculoSel(null);
     setDataInicio('');
     setDataFim('');
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('veiculo');
+        next.delete('placa');
+        return next;
+      },
+      { replace: true },
+    );
   }
 
   function abrirNovo() {
@@ -1086,7 +1113,22 @@ export default function FrotaOperacaoPage() {
         <FrotaVeiculoAutocomplete
           options={aba === 'manutencoes' ? veiculosGpsTodos : veiculosOrdenados}
           value={veiculoSel}
-          onChange={setVeiculoSel}
+          onChange={(v) => {
+            setVeiculoSel(v);
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                if (v) {
+                  next.set('veiculo', String(v.id_veiculo));
+                } else {
+                  next.delete('veiculo');
+                  next.delete('placa');
+                }
+                return next;
+              },
+              { replace: true },
+            );
+          }}
           sx={{ minWidth: 260, flex: '1 1 260px', maxWidth: 400 }}
         />
         {mostrarPeriodo && (

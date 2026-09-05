@@ -68,7 +68,9 @@ export default function FrotaLayout() {
   const escuro = mode === 'dark';
   const acento = escuro ? '#E8520A' : colors.navy;
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const path = toAppPath(useLocation().pathname);
+  const location = useLocation();
+  const path = toAppPath(location.pathname);
+  const search = location.search;
   const sections = getFrotaNavSections(getUsuario());
   const items = sections.flatMap((s) => s.items);
   const tabAtivo = Math.max(
@@ -125,7 +127,7 @@ export default function FrotaLayout() {
             }}
           >
             {items.map((item) => (
-              <Tab key={item.to} label={item.label} component={Link} to={item.to} />
+              <Tab key={item.to} label={item.label} component={Link} to={`${item.to}${search}`} />
             ))}
           </Tabs>
         </Box>
@@ -174,7 +176,7 @@ export default function FrotaLayout() {
                 {section.items.map((item) => (
                   <FrotaMenuItem
                     key={item.to}
-                    to={item.to}
+                    to={`${item.to}${search}`}
                     label={item.label}
                     icon={item.icon}
                     ativo={isFrotaNavItemAtivo(path, item.to)}

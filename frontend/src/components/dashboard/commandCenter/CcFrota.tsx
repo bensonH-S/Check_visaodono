@@ -223,7 +223,7 @@ function PainelVeiculo({
         fullWidth
         variant="outlined"
         size="small"
-        onClick={() => navigate(`/frota?veiculo=${veiculo.id_veiculo}`)}
+        onClick={() => navigate(`/frota/operacao/cadastro?veiculo=${veiculo.id_veiculo}`)}
         sx={{
           mt: 2,
           borderRadius: `${CC_RADIUS}px`,
@@ -238,7 +238,7 @@ function PainelVeiculo({
           },
         }}
       >
-        Ver detalhes
+        Mais detalhes
       </Button>
     </Box>
   );
