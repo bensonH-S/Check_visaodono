@@ -39,6 +39,8 @@ frontend/public/app-version.json
 # _op_desativar_gerentes.mjs já está no git e continua tracked.
 backend/scripts/_op_*.mjs
 !backend/scripts/_op_desativar_gerentes.mjs
+!backend/scripts/_op_alinhar_mensal_setembro.mjs
+!backend/scripts/_op_alinhar_mensal_sem_codigo.mjs
 backend/scripts/_recon_*.mjs
 backend/scripts/diag-*.mjs
 backend/scripts/dump-*.mjs
