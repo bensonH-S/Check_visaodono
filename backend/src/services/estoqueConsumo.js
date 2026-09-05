@@ -432,6 +432,33 @@ async function semearPilotoBaixa(client) {
       AND UPPER(TRIM(i.unidade_contagem)) IN ('UND', 'UN', 'UNID')
     ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
   `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, u.origem, u.destino, u.fator,
+           'loja: 3,5 voltas = 112 g → 1 volta = 0,032 kg',
+           'validado', NOW()
+    FROM insumos i
+    CROSS JOIN (VALUES
+      ('volta', 'kg', 0.032::numeric),
+      ('kg', 'volta', ROUND((1 / 0.032)::numeric, 8))
+    ) AS u(origem, destino, fator)
+    WHERE i.ativo = TRUE
+      AND UPPER(TRIM(i.codigo)) IN ('28459', '028459', '41962')
+      AND UPPER(TRIM(i.unidade_contagem)) IN ('KG', 'KILO', 'KILOS')
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO estoque_insumo_aliases (id_loja, codigo_ficha, id_insumo, observacao)
+    SELECT i.id_loja, '33057', i.id_insumo,
+           'ficha usa 33057; canônico mix baunilha 28459'
+    FROM insumos i
+    WHERE i.ativo = TRUE
+      AND UPPER(TRIM(i.codigo)) = '28459'
+      AND i.descricao ~* 'BAUNILHA'
+    ON CONFLICT (id_loja, codigo_ficha) DO UPDATE
+      SET id_insumo = EXCLUDED.id_insumo,
+          observacao = EXCLUDED.observacao
+  `);
 }
 
 export async function lojaEmPilotoBaixa(client, idLoja) {
@@ -495,10 +522,11 @@ export async function resolverInsumoCanonico(client, idLoja, codigo) {
      WHERE id_loja = $1
        AND ativo = TRUE
        AND codigo ~ '^[0-9]+$'
-       AND LTRIM(codigo, '0') = $2`,
+       AND LTRIM(codigo, '0') = $2
+     ORDER BY LENGTH(codigo) DESC`,
     [idLoja, nucleo],
   );
-  if (padded.length === 1) return padded[0];
+  if (padded.length >= 1) return padded[0];
   return null;
 }
 

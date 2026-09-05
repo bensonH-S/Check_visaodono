@@ -247,6 +247,20 @@ describe('resolverConsumoEstoque — g → UND com fator kg já validado', () =>
   });
 });
 
+describe('resolverConsumoEstoque — mix volta → kg', () => {
+  it('3,5 voltas × 0,032 kg = 0,112 kg', () => {
+    const r = resolverConsumoEstoque({
+      quantidadeReceita: 3.5,
+      unidadeReceita: 'volta',
+      unidadeEstoque: 'kg',
+      fatorConversao: 0.032,
+      fatorStatus: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidadeEstoque, 0.112);
+  });
+});
+
 describe('resolverConsumoEstoque — decimal KG', () => {
   it('1,7 KG permanece 1,7', () => {
     const r = resolverConsumoEstoque({
