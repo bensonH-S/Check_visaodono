@@ -21,7 +21,9 @@ _tmp-*
 **/_tmp-*
 _tmp-local/
 /*.xlsx
+**/*.xlsx
 *.xlsm
+PLANILHAS*/
 scripts/windows/tools/
 scripts/windows/build-kit-gerencia.ps1
 workers/bkoffice/.env
@@ -32,3 +34,14 @@ backend/uploads/
 .DS_Store
 VERSION
 frontend/public/app-version.json
+
+# Scripts e patches operacionais one-off (não versionar).
+# _op_desativar_gerentes.mjs já está no git e continua tracked.
+backend/scripts/_op_*.mjs
+!backend/scripts/_op_desativar_gerentes.mjs
+backend/scripts/_recon_*.mjs
+backend/scripts/diag-*.mjs
+backend/scripts/dump-*.mjs
+backend/scripts/aplicar-*.mjs
+backend/scripts/validar-etapa5*.mjs
+backend/migrations/168_mateus_sudoeste_nao_lago_sul.sql
