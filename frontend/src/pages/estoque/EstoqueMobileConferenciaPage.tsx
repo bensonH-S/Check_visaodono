@@ -14,14 +14,17 @@ import '../../components/estoque/estoque-mobile.css';
 import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
 import {
   fracionadaInteira,
+  modoEntradaEfetivo,
   parseNumCampoContagem,
   permiteCamposItem,
+  podeInformarKg,
   qtdPreviewSeguro,
-  rotuloCampoFracionado,
+  rascunhoDeItemContagem,
+  rotuloModoEntrada,
   sanitizarEntradaFracionada,
   sanitizarEntradaNaoNegativa,
   temEntradaTerraco,
-  unidadeFracionadaItem,
+  type ModoEntradaFracionada,
   type RascunhoContagem,
 } from '../../components/estoque/estoqueContagemCampo';
 
@@ -78,21 +81,7 @@ function calcTotalLinha(qtd: number | null | undefined, valorUnidade: number): n
 }
 
 function rascunhoDeItem(i: EstoqueItem): RascunhoLinha {
-  const p = permiteCampos(i);
-  const temTerraco =
-    i.contagem_caixa != null || i.contagem_pc_fd != null || i.contagem_kg_und != null;
-  if (temTerraco) {
-    return {
-      caixa: !p.caixa || i.contagem_caixa == null ? '' : String(i.contagem_caixa),
-      pc: !p.pc || i.contagem_pc_fd == null ? '' : String(i.contagem_pc_fd),
-      kg: !p.kg || i.contagem_kg_und == null ? '' : String(i.contagem_kg_und),
-    };
-  }
-  return {
-    caixa: '',
-    pc: '',
-    kg: p.kg && i.estoque_contado != null ? String(i.estoque_contado) : '',
-  };
+  return rascunhoDeItemContagem(i);
 }
 
 function rascunhoComZeros(
@@ -108,6 +97,7 @@ function rascunhoComZeros(
       caixa: p.caixa ? (String(line.caixa).trim() === '' ? '0' : line.caixa) : '',
       pc: p.pc ? (String(line.pc).trim() === '' ? '0' : line.pc) : '',
       kg: p.kg ? (String(line.kg).trim() === '' ? '0' : line.kg) : '',
+      modo: line.modo,
     };
   }
   return next;
@@ -282,11 +272,13 @@ export default function EstoqueMobileConferenciaPage() {
     return det.itens.map((i) => {
       const raw = draft[i.id_item] || { caixa: '', pc: '', kg: '' };
       const p = permiteCampos(i);
+      const modo = modoEntradaEfetivo(i, raw);
       return {
         id_item: i.id_item,
         contagem_caixa: p.caixa ? parseNumCampo(raw.caixa) : null,
         contagem_pc_fd: p.pc ? parseNumCampo(raw.pc) : null,
         contagem_kg_und: p.kg ? parseNumCampo(raw.kg) : null,
+        unidade_entrada: (modo === 'kg' ? 'KG' : 'UND') as 'UND' | 'KG',
       };
     });
   }, []);
@@ -380,7 +372,7 @@ export default function EstoqueMobileConferenciaPage() {
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const setCampo = (idItem: number, campo: keyof RascunhoLinha, valor: string) => {
+  const setCampo = (idItem: number, campo: 'caixa' | 'pc' | 'kg', valor: string) => {
     dirtyRef.current = true;
     setRascunho((prev) => ({
       ...prev,
@@ -388,7 +380,22 @@ export default function EstoqueMobileConferenciaPage() {
         caixa: prev[idItem]?.caixa ?? '',
         pc: prev[idItem]?.pc ?? '',
         kg: prev[idItem]?.kg ?? '',
+        modo: prev[idItem]?.modo,
         [campo]: valor,
+      },
+    }));
+    agendarAutosave();
+  };
+
+  const setModoEntrada = (idItem: number, modo: ModoEntradaFracionada) => {
+    dirtyRef.current = true;
+    setRascunho((prev) => ({
+      ...prev,
+      [idItem]: {
+        caixa: prev[idItem]?.caixa ?? '',
+        pc: prev[idItem]?.pc ?? '',
+        kg: '',
+        modo,
       },
     }));
     agendarAutosave();
@@ -539,10 +546,12 @@ export default function EstoqueMobileConferenciaPage() {
           {!loading && contagem && (
             <>
               {itensVisiveis.map((i) => {
-                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '' };
+                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: 'und' as const };
                 const permite = permiteCampos(i);
-                const rotuloFrac = rotuloCampoFracionado(unidadeFracionadaItem(i));
-                const inteiroFrac = fracionadaInteira(unidadeFracionadaItem(i));
+                const modo = modoEntradaEfetivo(i, raw);
+                const rotuloFrac = rotuloModoEntrada(modo);
+                const inteiroFrac = fracionadaInteira(modo === 'kg' ? 'KG' : 'UND');
+                const mostraAtalhoKg = editavel && permite.kg && podeInformarKg(i);
                 const contado = qtdPreviewSeguro(i, raw, permite);
                 const totalLinha = calcTotalLinha(contado, Number(i.valor_unidade) || 0);
                 const preenchido = temEntradaTerraco(raw, permite);
@@ -646,6 +655,15 @@ export default function EstoqueMobileConferenciaPage() {
                                 3,
                               )}
                             </div>
+                          )}
+                          {campo === 'kg' && mostraAtalhoKg && (
+                            <button
+                              type="button"
+                              className="ck-estoque__kg-hint"
+                              onClick={() => setModoEntrada(i.id_item, modo === 'kg' ? 'und' : 'kg')}
+                            >
+                              {modo === 'kg' ? 'voltar p/ und' : 'informar em kg?'}
+                            </button>
                           )}
                         </div>
                       ))}

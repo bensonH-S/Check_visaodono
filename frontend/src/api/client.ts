@@ -1140,6 +1140,8 @@ export const api = {
       contagem_caixa?: number | null;
       contagem_pc_fd?: number | null;
       contagem_kg_und?: number | null;
+      /** UND | KG — como o operador digitou o 3º campo. */
+      unidade_entrada?: 'UND' | 'KG' | null;
       estoque_contado?: number | null;
       estoque_sistema?: number;
     }>,
@@ -2832,6 +2834,8 @@ export interface EstoqueItem {
   contagem_caixa?: number | null;
   contagem_pc_fd?: number | null;
   contagem_kg_und?: number | null;
+  /** UND | KG — unidade em que o operador digitou o 3º campo. */
+  contagem_unidade_entrada?: string | null;
   /** QTD canônica (unidade_contagem), após conversão do campo KG/UND. */
   estoque_contado: number | null;
   diferenca: number | null;

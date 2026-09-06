@@ -11,6 +11,7 @@ import {
   flagsContagemDiaria,
   garantirSchemaUnidadeFracionada,
   mensagemErroConversao,
+  normalizarUnidadeEntrada,
   precisaFatorFracionada,
   recomputarEstoqueContadoContagem,
   resolverQtdContagem,
@@ -294,6 +295,7 @@ function mapItem(row) {
 
   // Preferência: recalcular QTD pelos 3 campos Terraço quando houver entrada
   let erro_conversao = row.erro_fator_fracionada || null;
+  const unidade_entrada = normalizarUnidadeEntrada(row.contagem_unidade_entrada);
   const qtdRes = resolverQtdContagem({
     contagem_caixa,
     contagem_pc_fd,
@@ -305,6 +307,7 @@ function mapItem(row) {
     permite_contagem_kg_und,
     unidade_contagem: row.unidade_contagem,
     unidade_fracionada: row.unidade_fracionada,
+    unidade_entrada,
     fator_fracionada: row.fator_fracionada,
     fator_fracionada_status: row.fator_fracionada_status,
     id_insumo: row.id_insumo ?? row.id_produto,
@@ -331,6 +334,7 @@ function mapItem(row) {
     descricao: row.descricao,
     unidade_contagem: unidadeMaiuscula(row.unidade_contagem),
     unidade_fracionada: unidadeFracionadaEfetiva(row.unidade_fracionada, row.unidade_contagem),
+    contagem_unidade_entrada: unidade_entrada,
     preco_caixa: num(row.preco_caixa),
     und_convertida,
     und_parcial,
@@ -604,6 +608,7 @@ async function carregarContagem(id) {
   const { rows: itens } = await pool.query(
     `SELECT i.id_item, i.id_insumo, i.estoque_sistema, i.estoque_contado,
             i.contagem_caixa, i.contagem_pc_fd, i.contagem_kg_und,
+            i.contagem_unidade_entrada,
             p.codigo, p.descricao, p.unidade_contagem,
             COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
             p.preco_caixa,
@@ -1705,7 +1710,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     if (!itens.length) return res.status(400).json({ error: 'Envie ao menos um item' });
 
     const { rows: fatoresRows } = await pool.query(
-      `SELECT i.id_item, i.id_insumo, p.codigo, p.unidade_contagem,
+      `SELECT i.id_item, i.id_insumo, i.contagem_unidade_entrada, p.codigo, p.unidade_contagem,
               COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
               p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial,
               COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
@@ -1716,27 +1721,45 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
        WHERE i.id_contagem = $1`,
       [id],
     );
-    await anexarFatoresFracionada(pool, fatoresRows);
-    const fatores = new Map(fatoresRows.map((r) => [Number(r.id_item), r]));
 
     const ids = [];
     const contados = [];
     const caixas = [];
     const pcs = [];
     const kgs = [];
+    const entradas = [];
     const sistemas = [];
     const errosConversao = [];
     let temSistema = false;
+
+    const preparados = [];
     for (const item of itens) {
       const idItem = Number(item.id_item);
       if (!idItem) continue;
-      const fat = fatores.get(idItem) || {
+      const fat = fatoresRows.find((r) => Number(r.id_item) === idItem) || {
         und_convertida: 1,
         und_parcial: 1,
         permite_contagem_caixa: true,
         permite_contagem_pc_fd: true,
         permite_contagem_kg_und: true,
       };
+      const unidade_entrada =
+        normalizarUnidadeEntrada(item.unidade_entrada) ||
+        normalizarUnidadeEntrada(item.contagem_unidade_entrada) ||
+        null;
+      preparados.push({ item, idItem, fat, unidade_entrada });
+    }
+
+    await anexarFatoresFracionada(
+      pool,
+      preparados.map(({ fat, unidade_entrada }) => {
+        fat.contagem_unidade_entrada = unidade_entrada;
+        fat.unidade_entrada = unidade_entrada;
+        return fat;
+      }),
+    );
+
+    for (const { item, idItem, fat, unidade_entrada } of preparados) {
       const permiteCaixa = flagBool(fat.permite_contagem_caixa, true);
       const permitePc = flagBool(fat.permite_contagem_pc_fd, true);
       const permiteKg = flagBool(fat.permite_contagem_kg_und, true);
@@ -1767,6 +1790,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
           : item.contagem_kg_und === null || item.contagem_kg_und === ''
             ? null
             : num(item.contagem_kg_und);
+
         const qtdRes = resolverQtdContagem({
           contagem_caixa: caixa,
           contagem_pc_fd: pc,
@@ -1778,6 +1802,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
           permite_contagem_kg_und: permiteKg,
           unidade_contagem: fat.unidade_contagem,
           unidade_fracionada: fat.unidade_fracionada,
+          unidade_entrada,
           fator_fracionada: fat.fator_fracionada,
           fator_fracionada_status: fat.fator_fracionada_status,
           id_insumo: fat.id_insumo,
@@ -1795,7 +1820,6 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
         }
         contado = qtdRes.qtd;
       } else if (item.estoque_contado !== undefined) {
-        // Compat: API antiga com um único campo QTD
         contado =
           item.estoque_contado === null || item.estoque_contado === ''
             ? null
@@ -1808,6 +1832,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       caixas.push(caixa);
       pcs.push(pc);
       kgs.push(kg);
+      entradas.push(unidade_entrada);
       if (item.estoque_sistema !== undefined) {
         temSistema = true;
         sistemas.push(num(item.estoque_sistema));
@@ -1834,12 +1859,13 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
              contagem_caixa = v.caixa,
              contagem_pc_fd = v.pc,
              contagem_kg_und = v.kg,
+             contagem_unidade_entrada = v.entrada,
              estoque_sistema = COALESCE(v.sistema, ei.estoque_sistema)
          FROM unnest(
-           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[]
-         ) AS v(id_item, contado, caixa, pc, kg, sistema)
-         WHERE ei.id_item = v.id_item AND ei.id_contagem = $7`,
-        [ids, contados, caixas, pcs, kgs, sistemas, id],
+           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[], $6::text[], $7::numeric[]
+         ) AS v(id_item, contado, caixa, pc, kg, entrada, sistema)
+         WHERE ei.id_item = v.id_item AND ei.id_contagem = $8`,
+        [ids, contados, caixas, pcs, kgs, entradas, sistemas, id],
       );
     } else {
       await pool.query(
@@ -1847,12 +1873,13 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
          SET estoque_contado = v.contado,
              contagem_caixa = v.caixa,
              contagem_pc_fd = v.pc,
-             contagem_kg_und = v.kg
+             contagem_kg_und = v.kg,
+             contagem_unidade_entrada = v.entrada
          FROM unnest(
-           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[]
-         ) AS v(id_item, contado, caixa, pc, kg)
-         WHERE ei.id_item = v.id_item AND ei.id_contagem = $6`,
-        [ids, contados, caixas, pcs, kgs, id],
+           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[], $6::text[]
+         ) AS v(id_item, contado, caixa, pc, kg, entrada)
+         WHERE ei.id_item = v.id_item AND ei.id_contagem = $7`,
+        [ids, contados, caixas, pcs, kgs, entradas, id],
       );
     }
 

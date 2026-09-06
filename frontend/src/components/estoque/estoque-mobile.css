@@ -1772,6 +1772,25 @@
   opacity: 0.45;
 }
 
+.ck-estoque .ck-estoque__kg-hint {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.ck-estoque .ck-estoque__kg-hint:active {
+  color: #0f1a45;
+}
+
 .ck-estoque--contagem .ck-estoque__field.is-blocked label {
   color: rgba(15, 26, 69, 0.35);
   font-weight: 600;

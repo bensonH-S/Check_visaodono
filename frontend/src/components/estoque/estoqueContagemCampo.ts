@@ -1,11 +1,18 @@
 /**
- * Terceiro campo da conferência: rótulo e entrada pela unidade_fracionada.
- * Preview só soma local quando fracionada = canônica. Caso contrário usa
- * estoque_contado do backend (nunca inventa fator).
+ * Terceiro campo da conferência: padrão UND; KG só sob demanda.
+ * Preview só soma local quando a entrada está na unidade do saldo.
  */
 import type { EstoqueItem } from '../../api/client';
 
-export type RascunhoContagem = { caixa: string; pc: string; kg: string };
+export type ModoEntradaFracionada = 'und' | 'kg';
+
+export type RascunhoContagem = {
+  caixa: string;
+  pc: string;
+  kg: string;
+  /** Como o operador está digitando o 3º campo. */
+  modo?: ModoEntradaFracionada;
+};
 
 export type CamposPermitidosContagem = {
   caixa: boolean;
@@ -28,13 +35,63 @@ export function unidadeFracionadaItem(item: Pick<EstoqueItem, 'unidade_fracionad
   return String(item.unidade_fracionada || item.unidade_contagem || 'UND').trim() || 'UND';
 }
 
+/** Saldo / preço canônico do item é em kg. */
+export function unidadeContagemEhKg(
+  item: Pick<EstoqueItem, 'unidade_contagem'>,
+): boolean {
+  return normUnidade(item.unidade_contagem) === 'kg';
+}
+
+/**
+ * Itens tipicamente pesados: saldo em KG (carnes, mix, etc.).
+ * Nesses o app oferece o atalho discreto “informar em kg?”.
+ */
+export function podeInformarKg(item: Pick<EstoqueItem, 'unidade_contagem' | 'permite_contagem_kg_und'>): boolean {
+  return item.permite_contagem_kg_und !== false && unidadeContagemEhKg(item);
+}
+
+export function modoEntradaInicial(
+  item: Pick<
+    EstoqueItem,
+    'unidade_fracionada' | 'unidade_contagem' | 'contagem_unidade_entrada' | 'contagem_kg_und' | 'estoque_contado'
+  >,
+): ModoEntradaFracionada {
+  const saved = normUnidade(item.contagem_unidade_entrada);
+  if (saved === 'kg') return 'kg';
+  if (saved === 'und') return 'und';
+  const temValor =
+    item.contagem_kg_und != null ||
+    (item.estoque_contado != null && Number.isFinite(Number(item.estoque_contado)));
+  // Legado sem modo salvo: respeita o cadastro se já houver número.
+  if (temValor && normUnidade(unidadeFracionadaItem(item)) === 'kg') return 'kg';
+  // Item só cadastrado em KG (sem peça): abre em kg pra não travar.
+  if (!temValor && normUnidade(unidadeFracionadaItem(item)) === 'kg') return 'kg';
+  return 'und';
+}
+
+export function modoEntradaEfetivo(
+  item: Pick<
+    EstoqueItem,
+    'unidade_fracionada' | 'unidade_contagem' | 'contagem_unidade_entrada' | 'contagem_kg_und' | 'estoque_contado'
+  >,
+  linha: RascunhoContagem | undefined,
+): ModoEntradaFracionada {
+  if (linha?.modo === 'kg' || linha?.modo === 'und') return linha.modo;
+  return modoEntradaInicial(item);
+}
+
 /** Identidade: o terceiro campo já está na unidade do saldo. */
 export function fracionadaIdentidade(
-  item: Pick<EstoqueItem, 'unidade_fracionada' | 'unidade_contagem'>,
+  item: Pick<
+    EstoqueItem,
+    'unidade_fracionada' | 'unidade_contagem' | 'contagem_unidade_entrada' | 'contagem_kg_und' | 'estoque_contado'
+  >,
+  linha?: RascunhoContagem,
 ): boolean {
   const dest = String(item.unidade_contagem || '').trim();
-  const orig = String(item.unidade_fracionada || dest || '').trim();
-  if (!orig || !dest) return true;
+  if (!dest) return true;
+  const modo = modoEntradaEfetivo(item, linha);
+  const orig = modo === 'kg' ? 'KG' : modo === 'und' ? 'UND' : unidadeFracionadaItem(item);
   return normUnidade(orig) === normUnidade(dest);
 }
 
@@ -47,6 +104,10 @@ export function rotuloCampoFracionado(
   if (n === 'l' || n === 'lt') return 'L';
   const raw = String(unidade || '').trim().toUpperCase();
   return raw || 'UNIDADES';
+}
+
+export function rotuloModoEntrada(modo: ModoEntradaFracionada): string {
+  return modo === 'kg' ? 'KG' : 'UNIDADES';
 }
 
 /** Rótulo curto para o operador (UND / KG / L). */
@@ -150,10 +211,13 @@ function numEq(a: number | null | undefined, raw: string, liberado: boolean): bo
 export function rascunhoIgualSalvo(item: EstoqueItem, linha: RascunhoContagem | undefined): boolean {
   const p = permiteCamposItem(item);
   const raw = linha || { caixa: '', pc: '', kg: '' };
+  const modoSalvo = modoEntradaInicial(item);
+  const modoLinha = modoEntradaEfetivo(item, linha);
   return (
     numEq(item.contagem_caixa, raw.caixa, p.caixa) &&
     numEq(item.contagem_pc_fd, raw.pc, p.pc) &&
-    numEq(item.contagem_kg_und, raw.kg, p.kg)
+    numEq(item.contagem_kg_und, raw.kg, p.kg) &&
+    modoSalvo === modoLinha
   );
 }
 
@@ -168,7 +232,7 @@ export function qtdPreviewSeguro(
 ): number | null {
   const p = permite || permiteCamposItem(item);
   if (!temEntradaTerraco(linha, p)) return null;
-  if (fracionadaIdentidade(item)) {
+  if (fracionadaIdentidade(item, linha)) {
     return qtdIdentidade(
       linha || { caixa: '', pc: '', kg: '' },
       Number(item.und_convertida) || 1,
@@ -180,4 +244,25 @@ export function qtdPreviewSeguro(
     return Number(item.estoque_contado);
   }
   return null;
+}
+
+export function rascunhoDeItemContagem(i: EstoqueItem): RascunhoContagem {
+  const p = permiteCamposItem(i);
+  const modo = modoEntradaInicial(i);
+  const temTerraco =
+    i.contagem_caixa != null || i.contagem_pc_fd != null || i.contagem_kg_und != null;
+  if (temTerraco) {
+    return {
+      caixa: !p.caixa || i.contagem_caixa == null ? '' : String(i.contagem_caixa),
+      pc: !p.pc || i.contagem_pc_fd == null ? '' : String(i.contagem_pc_fd),
+      kg: !p.kg || i.contagem_kg_und == null ? '' : String(i.contagem_kg_und),
+      modo,
+    };
+  }
+  return {
+    caixa: '',
+    pc: '',
+    kg: p.kg && i.estoque_contado != null ? String(i.estoque_contado) : '',
+    modo,
+  };
 }

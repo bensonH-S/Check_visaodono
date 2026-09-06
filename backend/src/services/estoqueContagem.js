@@ -440,10 +440,26 @@ export async function garantirSchemaUnidadeFracionada(client) {
       ALTER TABLE insumos
         ADD COLUMN IF NOT EXISTS participa_contagem BOOLEAN NOT NULL DEFAULT TRUE
     `);
+    await client.query(`
+      ALTER TABLE estoque_itens
+        ADD COLUMN IF NOT EXISTS contagem_unidade_entrada TEXT
+    `);
     schemaFracionadaOk = true;
   } catch (e) {
     if (e.code !== '42P01') throw e;
   }
+}
+
+/** Normaliza UND|KG enviados pelo app na digitação da contagem. */
+export function normalizarUnidadeEntrada(raw) {
+  const x = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (['kg', 'kilo', 'kilos', 'kilograma', 'kilogramas'].includes(x)) return 'KG';
+  if (['und', 'un', 'unid', 'unidade', 'unidades'].includes(x)) return 'UND';
+  return null;
 }
 
 /**
@@ -464,6 +480,8 @@ export function resolverQtdContagem({
   permite_contagem_kg_und = true,
   unidade_contagem = null,
   unidade_fracionada = null,
+  /** Override do app: operador escolheu digitar UND ou KG neste item. */
+  unidade_entrada = null,
   fator_fracionada = null,
   fator_fracionada_status = null,
   id_insumo = null,
@@ -491,7 +509,8 @@ export function resolverQtdContagem({
   let qtdFracionada = 0;
   if (temKg) {
     const dest = unidade_contagem || unidadeFracionadaEfetiva(unidade_fracionada, unidade_contagem);
-    const orig = unidadeFracionadaEfetiva(unidade_fracionada, dest);
+    const entrada = normalizarUnidadeEntrada(unidade_entrada);
+    const orig = entrada || unidadeFracionadaEfetiva(unidade_fracionada, dest);
     const conv = aplicarConversaoUnidades({
       quantidade: contagem_kg_und,
       unidadeOrigem: orig,
@@ -565,20 +584,23 @@ export async function carregarFatorFracionada(client, {
   };
 }
 
-/** Anexa fator_fracionada em cada row (cache por id_insumo). */
+/** Anexa fator_fracionada em cada row (cache por id_insumo + unidade de entrada). */
 export async function anexarFatoresFracionada(client, rows) {
   const cache = new Map();
   for (const row of rows || []) {
-    const key = Number(row.id_insumo);
-    if (!Number.isFinite(key) || key <= 0) continue;
+    const id = Number(row.id_insumo);
+    if (!Number.isFinite(id) || id <= 0) continue;
+    const entrada = normalizarUnidadeEntrada(row.contagem_unidade_entrada || row.unidade_entrada);
+    const fracionada = entrada || row.unidade_fracionada;
+    const key = `${id}|${unidadeFracionadaEfetiva(fracionada, row.unidade_contagem)}`;
     if (!cache.has(key)) {
       cache.set(
         key,
         await carregarFatorFracionada(client, {
-          id_insumo: key,
+          id_insumo: id,
           codigo: row.codigo,
           unidade_contagem: row.unidade_contagem,
-          unidade_fracionada: row.unidade_fracionada,
+          unidade_fracionada: fracionada,
         }),
       );
     }
@@ -618,7 +640,7 @@ export async function recomputarEstoqueContadoContagem(client, idContagem) {
   await garantirSchemaUnidadeFracionada(client);
   const { rows } = await client.query(
     `SELECT i.id_item, i.id_insumo, i.contagem_caixa, i.contagem_pc_fd, i.contagem_kg_und,
-            i.estoque_contado,
+            i.contagem_unidade_entrada, i.estoque_contado,
             p.codigo, p.unidade_contagem,
             COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
             p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial,
@@ -647,6 +669,7 @@ export async function recomputarEstoqueContadoContagem(client, idContagem) {
       permite_contagem_kg_und: row.permite_contagem_kg_und,
       unidade_contagem: row.unidade_contagem,
       unidade_fracionada: row.unidade_fracionada,
+      unidade_entrada: row.contagem_unidade_entrada,
       fator_fracionada: row.fator_fracionada,
       fator_fracionada_status: row.fator_fracionada_status,
       id_insumo: row.id_insumo,

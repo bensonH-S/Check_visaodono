@@ -70,6 +70,35 @@ describe('resolverQtdContagem — UND avulsa → KG canônico', () => {
     assert.notEqual(r.qtd, 2 * 17.2 + 37);
   });
 
+  it('unidade_entrada=KG ignora fracionada UND (32 kg = 32)', () => {
+    const r = resolverQtdContagem({
+      contagem_kg_und: 32,
+      und_convertida: 12,
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'UND',
+      unidade_entrada: 'KG',
+      fator_fracionada: 0.09836066,
+      fator_fracionada_status: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, 32);
+  });
+
+  it('unidade_entrada=UND converte peça → kg', () => {
+    const fator = 0.09836066;
+    const r = resolverQtdContagem({
+      contagem_kg_und: 32,
+      und_convertida: 12,
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      unidade_entrada: 'UND',
+      fator_fracionada: fator,
+      fator_fracionada_status: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, Math.round(32 * fator * 10000) / 10000);
+  });
+
   it('sem fator validado não assume 1 UND = 1 KG', () => {
     const r = resolverQtdContagem({
       contagem_caixa: 2,

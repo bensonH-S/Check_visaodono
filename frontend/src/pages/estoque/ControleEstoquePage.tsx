@@ -67,6 +67,10 @@ import {
 } from '../../components/estoque/estoqueContagemTipo';
 import { gerarPdfContagemDiaria } from '../../utils/gerarPdfContagemDiaria';
 import {
+  modoEntradaEfetivo,
+  rascunhoDeItemContagem,
+} from '../../components/estoque/estoqueContagemCampo';
+import {
   qtdPreviewSeguro,
   temEntradaTerraco,
 } from '../../components/estoque/estoqueContagemCampo';
@@ -227,7 +231,7 @@ type ProdutoForm = typeof emptyProdutoForm;
 
 const tdCenter = { textAlign: 'center' } as const;
 
-type RascunhoLinha = { caixa: string; pc: string; kg: string };
+type RascunhoLinha = { caixa: string; pc: string; kg: string; modo?: 'und' | 'kg' };
 
 function parseNumCampo(raw: string): number | null {
   if (raw === undefined || raw === null || String(raw).trim() === '') return null;
@@ -236,21 +240,7 @@ function parseNumCampo(raw: string): number | null {
 }
 
 function rascunhoDeItem(i: EstoqueItem): RascunhoLinha {
-  const temTerraco =
-    i.contagem_caixa != null || i.contagem_pc_fd != null || i.contagem_kg_und != null;
-  if (temTerraco) {
-    return {
-      caixa: i.contagem_caixa == null ? '' : String(i.contagem_caixa),
-      pc: i.contagem_pc_fd == null ? '' : String(i.contagem_pc_fd),
-      kg: i.contagem_kg_und == null ? '' : String(i.contagem_kg_und),
-    };
-  }
-  // legado: só QTD → joga em KG/UND
-  return {
-    caixa: '',
-    pc: '',
-    kg: i.estoque_contado == null ? '' : String(i.estoque_contado),
-  };
+  return rascunhoDeItemContagem(i);
 }
 
 function aplicarContagem(
@@ -579,11 +569,13 @@ export default function ControleEstoquePage() {
     try {
       const itens = contagem.itens.map((i) => {
         const raw = rascunhoItens[i.id_item] || { caixa: '', pc: '', kg: '' };
+        const modo = modoEntradaEfetivo(i, raw);
         return {
           id_item: i.id_item,
           contagem_caixa: parseNumCampo(raw.caixa),
           contagem_pc_fd: parseNumCampo(raw.pc),
           contagem_kg_und: parseNumCampo(raw.kg),
+          unidade_entrada: (modo === 'kg' ? 'KG' : 'UND') as 'UND' | 'KG',
         };
       });
       const det = await api.estoqueSalvarItens(contagem.id_contagem, itens);

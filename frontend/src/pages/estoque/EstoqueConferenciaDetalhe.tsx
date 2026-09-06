@@ -25,18 +25,22 @@ import { rotuloTipoContagem } from '../../components/estoque/estoqueContagemTipo
 import { rankSecaoPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
 import {
   fracionadaInteira,
+  modoEntradaEfetivo,
+  podeInformarKg,
   qtdPreviewSeguro,
-  rotuloCampoFracionado,
+  rascunhoDeItemContagem,
+  rotuloModoEntrada,
   sanitizarEntradaFracionada,
   sanitizarEntradaNaoNegativa,
   temEntradaTerraco,
-  unidadeFracionadaItem,
+  type ModoEntradaFracionada,
+  type RascunhoContagem,
 } from '../../components/estoque/estoqueContagemCampo';
 import { colors } from '../../theme/tokens';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 
-type RascunhoLinha = { caixa: string; pc: string; kg: string };
-type CampoContagem = keyof RascunhoLinha;
+type RascunhoLinha = RascunhoContagem;
+type CampoContagem = 'caixa' | 'pc' | 'kg';
 
 type ResumoLive = {
   total_valor: number;
@@ -449,7 +453,7 @@ export default function EstoqueConferenciaDetalhe({
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 64 }}>Sist.</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 76 }}>Caixa</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 76 }}>Pc/fd</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 84 }}>UND/KG</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 84 }}>UND</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 64 }}>Qtd</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'right', width: 92 }}>Valor</TableCell>
                 <TableCell sx={{ ...thSx, textAlign: 'center', width: 72, color: '#991b1b' }}>Dif.</TableCell>
@@ -457,12 +461,14 @@ export default function EstoqueConferenciaDetalhe({
             </TableHead>
             <TableBody>
               {visiveis.map((i, idx) => {
-                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '' };
+                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: 'und' as const };
                 const permiteCx = i.permite_contagem_caixa !== false;
                 const permitePc = i.permite_contagem_pc_fd !== false;
                 const permiteKg = i.permite_contagem_kg_und !== false;
-                const rotuloFrac = rotuloCampoFracionado(unidadeFracionadaItem(i));
-                const inteiroFrac = fracionadaInteira(unidadeFracionadaItem(i));
+                const modo = modoEntradaEfetivo(i, raw);
+                const rotuloFrac = rotuloModoEntrada(modo);
+                const inteiroFrac = fracionadaInteira(modo === 'kg' ? 'KG' : 'UND');
+                const mostraAtalhoKg = editavel && permiteKg && podeInformarKg(i);
                 const contado = editavel ? qtdPreviewSeguro(i, raw) : i.estoque_contado;
                 const preenchido = editavel ? temEntradaTerraco(raw) : contado != null && Number.isFinite(Number(contado));
                 const valorLinha =
@@ -479,7 +485,19 @@ export default function EstoqueConferenciaDetalhe({
                       caixa: prev[i.id_item]?.caixa ?? '',
                       pc: prev[i.id_item]?.pc ?? '',
                       kg: prev[i.id_item]?.kg ?? '',
+                      modo: prev[i.id_item]?.modo ?? modo,
                       [campo]: valor,
+                    },
+                  }));
+                };
+                const setModo = (next: ModoEntradaFracionada) => {
+                  setRascunho((prev) => ({
+                    ...prev,
+                    [i.id_item]: {
+                      caixa: prev[i.id_item]?.caixa ?? '',
+                      pc: prev[i.id_item]?.pc ?? '',
+                      kg: '',
+                      modo: next,
                     },
                   }));
                 };
@@ -623,10 +641,31 @@ export default function EstoqueConferenciaDetalhe({
                         {campo('pc', permitePc, i.contagem_pc_fd)}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', py: 0.55 }}>
-                        {campo('kg', permiteKg, i.contagem_kg_und, {
-                          rotulo: rotuloFrac,
-                          inteiro: inteiroFrac,
-                        })}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.15 }}>
+                          {campo('kg', permiteKg, i.contagem_kg_und, {
+                            rotulo: rotuloFrac,
+                            inteiro: inteiroFrac,
+                          })}
+                          {mostraAtalhoKg && (
+                            <Button
+                              type="button"
+                              size="small"
+                              onClick={() => setModo(modo === 'kg' ? 'und' : 'kg')}
+                              sx={{
+                                minWidth: 0,
+                                p: 0,
+                                lineHeight: 1.2,
+                                fontSize: '0.58rem',
+                                fontWeight: 600,
+                                textTransform: 'none',
+                                color: colors.textMuted,
+                                '&:hover': { bgcolor: 'transparent', color: colors.navy },
+                              }}
+                            >
+                              {modo === 'kg' ? 'voltar p/ und' : 'informar em kg?'}
+                            </Button>
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', fontWeight: 700, color: colors.textPrimary, py: 0.55 }}>
                         {contado == null ? '—' : fmtNum(contado, 3)}
