@@ -59,9 +59,10 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
       slotProps={{
         paper: {
           sx: {
-            bgcolor: colors.surface,
+            bgcolor: escuro ? '#1E293B' : colors.surface,
             backgroundImage: 'none',
-            border: `1px solid ${colors.border}`,
+            border: `1px solid ${escuro ? 'rgba(255, 255, 255, 0.12)' : colors.border}`,
+            borderRadius: 2.5,
           },
         },
       }}
@@ -74,18 +75,19 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          bgcolor: escuro ? '#1E293B' : colors.surface,
         }}
       >
         <InfoOutlinedIcon sx={{ fontSize: 22, color: acento }} />
         Sobre o sistema
       </DialogTitle>
-      <DialogContent dividers sx={{ pt: 2, bgcolor: colors.surface, borderColor: colors.border }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '1.2rem', mb: 0.25, lineHeight: 1.15, color: escuro ? colors.textPrimary : ORANGE }}>
+      <DialogContent dividers sx={{ pt: 2, bgcolor: escuro ? '#1E293B' : colors.surface, borderColor: escuro ? 'rgba(255, 255, 255, 0.08)' : colors.border }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1.2rem', mb: 0.25, lineHeight: 1.15, color: escuro ? '#F8FAFC' : ORANGE }}>
           {APP_NAME}
         </Typography>
         <Typography
           variant="body2"
-          sx={{ mb: 1.25, color: colors.textSecondary, fontWeight: 500, fontSize: '0.78rem', lineHeight: 1.35 }}
+          sx={{ mb: 1.25, color: escuro ? '#94A3B8' : colors.textSecondary, fontWeight: 500, fontSize: '0.78rem', lineHeight: 1.35 }}
         >
           {APP_TAGLINE}
         </Typography>
@@ -99,8 +101,8 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
             py: 0.45,
             mb: 1.5,
             borderRadius: 1.25,
-            bgcolor: acentoSoft,
-            border: `1px solid ${acentoBorder}`,
+            bgcolor: escuro ? '#334155' : acentoSoft,
+            border: `1px solid ${escuro ? 'rgba(255, 255, 255, 0.1)' : acentoBorder}`,
           }}
         >
           <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary, fontSize: '0.8125rem' }}>
@@ -125,7 +127,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
         <Typography
           sx={{
             fontSize: '0.8rem',
-            color: colors.textSecondary,
+            color: escuro ? '#CBD5E1' : colors.textSecondary,
             fontWeight: 400,
             lineHeight: 1.45,
             mb: 1.5,
@@ -142,7 +144,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
             fontWeight: 800,
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
-            color: colors.textMuted,
+            color: escuro ? '#94A3B8' : colors.textMuted,
           }}
         >
           Módulos
@@ -167,8 +169,8 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
                   px: 1,
                   py: 0.4,
                   borderRadius: 1.25,
-                  bgcolor: acentoSoft,
-                  border: `1px solid ${acentoBorder}`,
+                  bgcolor: escuro ? '#334155' : acentoSoft,
+                  border: `1px solid ${escuro ? 'rgba(255, 255, 255, 0.1)' : acentoBorder}`,
                 }}
               >
                 <Icon sx={{ fontSize: 14, color: acento }} />
@@ -180,13 +182,13 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
           })}
         </Box>
 
-        <Divider sx={{ my: 1.5, borderColor: colors.border }} />
+        <Divider sx={{ my: 1.5, borderColor: escuro ? 'rgba(255, 255, 255, 0.08)' : colors.border }} />
 
         <Typography
           sx={{
             display: 'block',
             fontSize: '0.68rem',
-            color: colors.textMuted,
+            color: escuro ? '#94A3B8' : colors.textMuted,
             fontWeight: 500,
             lineHeight: 1.35,
           }}
@@ -226,7 +228,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
           </Box>
         )}
       </DialogContent>
-      <DialogActions sx={{ bgcolor: colors.surface }}>
+      <DialogActions sx={{ bgcolor: escuro ? '#1E293B' : colors.surface }}>
         <Button onClick={onClose} sx={{ fontWeight: 700, color: acento }}>
           Fechar
         </Button>

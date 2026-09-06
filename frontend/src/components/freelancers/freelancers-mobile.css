@@ -150,8 +150,8 @@
   margin: 0;
   border: 0;
   border-radius: 14px;
-  background: var(--ck-orange, #e8520a);
-  color: #fff;
+  background: #1B2A6B !important;
+  color: #fff !important;
   font-family: inherit;
   font-size: 0.86rem;
   font-weight: 800;
@@ -160,7 +160,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 6px 16px rgba(232, 82, 10, 0.28);
+  box-shadow: 0 6px 16px rgba(27, 42, 107, 0.28);
 }
 
 .ck-freela .ck-freela__registrar:active {
@@ -924,4 +924,110 @@
   margin-bottom: 4px;
   font-weight: 800;
   color: var(--ck-ink);
+}
+
+/* ================================================================
+   FREELANCERS DARK MODE
+   ================================================================ */
+html.dark .ck-freela .ck-freela__registrar {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 16px rgba(255, 122, 61, 0.35) !important;
+}
+
+html.dark .ck-freela .ck-freela__buscar {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-freela .ck-freela__buscar.is-on {
+  background: var(--ga-orange) !important;
+  border-color: var(--ga-orange) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.35) !important;
+}
+
+html.dark .ck-freela .ck-freela__filtro-btn {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-freela .ck-freela__filtro-btn.is-on {
+  border-color: var(--ga-orange) !important;
+  color: var(--ga-orange) !important;
+  background: rgba(255, 122, 61, 0.12) !important;
+}
+
+html.dark .ck-freela .ck-freela__loja-tag {
+  color: var(--ga-text-secondary) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--ga-border) !important;
+}
+
+html.dark .ck-freela .ck-freela__grupo {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+html.dark .ck-freela .ck-freela__grupo-head {
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-freela .ck-freela__grupo-title strong {
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-freela .ck-freela__grupo-title small {
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-freela .ck-freela__count {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-freela .ck-freela__item {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-top-color: var(--ga-border) !important;
+}
+
+html.dark .ck-freela .ck-freela__item-top strong {
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-freela .ck-freela__meta {
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-freela .ck-freela__date input,
+html.dark .ck-freela .ck-freela__date select {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-freela .ck-freela__date span {
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-freela .ck-freela__dh-block {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: var(--ga-border) !important;
+}
+
+html.dark .ck-freela .ck-freela__dh-block legend {
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-freela .ck-freela__empty {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-freela .ck-freela__empty strong {
+  color: var(--ga-text-primary) !important;
 }

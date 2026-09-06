@@ -229,18 +229,32 @@ export default function MapaTecnicosListaLojas() {
                 <label className="ck-mapa__consulta-field ck-mapa__consulta-time">
                   <span className="ck-mapa__consulta-label">De</span>
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="08:00"
+                    maxLength={5}
                     value={horaTrajetoInicio}
-                    onChange={(e) => selecionarHorarioTrajeto(e.target.value, horaTrajetoFim)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      const formatted = raw.length <= 2 ? raw : `${raw.slice(0, 2)}:${raw.slice(2)}`;
+                      selecionarHorarioTrajeto(formatted, horaTrajetoFim);
+                    }}
                     aria-label="Horário inicial"
                   />
                 </label>
                 <label className="ck-mapa__consulta-field ck-mapa__consulta-time">
                   <span className="ck-mapa__consulta-label">Até</span>
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="18:00"
+                    maxLength={5}
                     value={horaTrajetoFim}
-                    onChange={(e) => selecionarHorarioTrajeto(horaTrajetoInicio, e.target.value)}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      const formatted = raw.length <= 2 ? raw : `${raw.slice(0, 2)}:${raw.slice(2)}`;
+                      selecionarHorarioTrajeto(horaTrajetoInicio, formatted);
+                    }}
                     aria-label="Horário final"
                   />
                 </label>

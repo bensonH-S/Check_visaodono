@@ -114,7 +114,7 @@ export default function DashboardPage() {
   const atividades = data?.atividades;
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 1920, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
       <CcKpiRow
         loading={loading && !data}
         mediaGeral={m?.media_geral ?? 0}

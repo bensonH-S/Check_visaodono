@@ -17,6 +17,15 @@
     <link rel="apple-touch-icon" href="Logo_Alvim_Icone.png" sizes="192x192" />
     <!-- manifest.webmanifest: injetado pelo Vite PWA só no build de produção -->
     <title>Meridian</title>
+    <!-- Aplica tema escuro imediatamente para evitar flash (antes do React) -->
+    <script>
+      (function() {
+        try {
+          var m = localStorage.getItem('app-theme-mode');
+          if (m === 'dark') document.documentElement.classList.add('dark');
+        } catch(e) {}
+      })();
+    </script>
     <style>
       #pwa-splash {
         position: fixed;

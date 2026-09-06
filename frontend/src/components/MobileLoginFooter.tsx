@@ -3,15 +3,14 @@ import Typography from '@mui/material/Typography';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { formatMobileVersionNumber } from './MobileVersionBadge';
 import { safeAreaX } from '../theme/safeArea';
+import { colors } from '../theme/tokens';
 
 const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
-const PAGE_BG = '#f5f5f3';
 
 const captionSx = {
   display: 'block',
-  fontSize: '0.625rem',
+  fontSize: '0.55rem',
   lineHeight: 1.45,
-  color: 'text.secondary',
 } as const;
 
 /** Rodapé da tela de login mobile: copyright e versão. */
@@ -28,11 +27,11 @@ export default function MobileLoginFooter() {
         pt: 1.25,
         pb: 'env(safe-area-inset-bottom, 0px)',
         ...safeAreaX(16),
-        borderTop: '1px solid rgba(27, 42, 107, 0.08)',
-        bgcolor: PAGE_BG,
+        borderTop: `1px solid ${colors.border}`,
+        bgcolor: colors.canvas,
       }}
     >
-      <Typography variant="caption" sx={{ ...captionSx, whiteSpace: 'normal' }}>
+      <Typography variant="caption" sx={{ ...captionSx, whiteSpace: 'normal', color: colors.textMuted }}>
         {COPYRIGHT}
         {versao ? ` · ${versao}` : ''}
       </Typography>

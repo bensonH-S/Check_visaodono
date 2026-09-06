@@ -772,7 +772,7 @@ export default function FreelancersAprovacaoMobilePage() {
       </div>
 
       <Dialog open={filtroLojaAberto} onClose={() => setFiltroLojaAberto(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: (theme) => theme.palette.mode === 'dark' ? '#F8FAFC' : NAVY, pb: 1 }}>
           Filtrar por unidade
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1 }}>

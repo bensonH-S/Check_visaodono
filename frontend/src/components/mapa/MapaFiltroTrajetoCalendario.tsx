@@ -119,7 +119,13 @@ export default function MapaFiltroTrajetoCalendario({
         >
           <span className="ck-mapa__consulta-label">{somenteDia ? 'Dia' : 'Período'}</span>
           <span className="ck-mapa__consulta-value">
-            <CalendarMonthOutlinedIcon sx={{ fontSize: 18, color: colors.navy, flexShrink: 0 }} />
+            <CalendarMonthOutlinedIcon
+              sx={{
+                fontSize: 18,
+                color: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navy),
+                flexShrink: 0,
+              }}
+            />
             {rotulo}
           </span>
         </button>

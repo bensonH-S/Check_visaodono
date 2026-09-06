@@ -794,3 +794,209 @@
   border-radius: 999px;
   background: rgba(232, 82, 10, 0.1);
 }
+
+/* ================================================================
+   MAPA DARK MODE
+   ================================================================ */
+/* KPIs bar (lista branca abaixo do stage) */
+html.dark .ck-mapa__kpis {
+  background: var(--ga-surface);
+  border-bottom-color: var(--ga-border);
+}
+
+html.dark .ck-mapa__kpi {
+  border-right-color: var(--ga-border);
+}
+
+html.dark .ck-mapa__kpi-label {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-mapa__kpi-valor {
+  color: var(--ga-text-primary);
+}
+
+/* Ficha lateral / painel técnico */
+html.dark .ck-mapa__ficha {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+html.dark .ck-mapa__ficha-handle {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+html.dark .ck-mapa__ficha-acao {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-mapa__ficha-acao-ico {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-mapa__ficha-acao.is-on {
+  background: var(--ga-orange);
+  color: #fff;
+}
+
+html.dark .ck-mapa__ficha-acao.is-on .ck-mapa__ficha-acao-ico {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+html.dark .ck-mapa__ficha-kpis {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+html.dark .ck-mapa__ficha-kpis small {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-mapa__ficha-kpis strong {
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-mapa__ficha-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--ga-border);
+}
+
+html.dark .ck-mapa__ficha-card-top strong {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-mapa__ficha-card-title {
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-mapa__ficha-card-meta {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-mapa__ficha-card-valor {
+  color: var(--ga-text-primary);
+}
+
+/* Resumo / historico bar */
+html.dark .ck-mapa__historico-bar {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+html.dark .ck-mapa__historico-bar-id strong {
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-mapa__historico-bar-id span {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-mapa__historico-bar-stats span {
+  color: var(--ga-text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html.dark .ck-mapa__historico-bar-stats span.is-alerta {
+  color: var(--ga-orange);
+  background: rgba(255, 122, 61, 0.15);
+}
+
+html.dark .ck-mapa__historico-lojas span {
+  color: var(--ga-orange);
+  background: rgba(255, 122, 61, 0.12);
+}
+
+html.dark .ck-mapa__resumo-sec-title {
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-mapa__resumo-linha {
+  border-top-color: var(--ga-border);
+}
+
+html.dark .ck-mapa__resumo-loja {
+  border-top-color: var(--ga-border);
+}
+
+/* Legenda sobreposta ao mapa */
+html.dark .ck-mapa__legenda {
+  background: rgba(20, 30, 55, 0.96);
+  border-color: var(--ga-border);
+}
+
+html.dark .ck-mapa__legenda-item {
+  color: var(--ga-text-primary);
+}
+
+/* Stage & Container */
+html.dark .ck-mapa {
+  background: #090D1A !important;
+}
+
+html.dark .ck-mapa__stage {
+  background: linear-gradient(155deg, #090D1A 0%, #111827 60%, #1E293B 100%) !important;
+}
+
+/* Chips & Tabs */
+html.dark .ck-mapa__chip {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(248, 250, 252, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark .ck-mapa__chip.is-on {
+  background: #FF7A3D !important;
+  border-color: #FF7A3D !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.35) !important;
+}
+
+html.dark .ck-mapa__chip-static {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #F8FAFC !important;
+  border-left: 3px solid #FF7A3D !important;
+}
+
+/* Consulta fields (ao vivo e histórico) */
+html.dark .ck-mapa__consulta-field {
+  background: #182234 !important;
+  color: #F8FAFC !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark .ck-mapa__consulta-label {
+  color: rgba(248, 250, 252, 0.6) !important;
+}
+
+html.dark .ck-mapa__consulta-value {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-mapa__consulta-value svg {
+  color: #FF7A3D !important;
+}
+
+html.dark .ck-mapa__modos .ck-mapa__chip.is-on {
+  background: #FF7A3D !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.35) !important;
+}
+
+html.dark .ck-mapa__consulta-time input {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-mapa__ficha-acao.is-on {
+  background: #FF7A3D !important;
+  color: #fff !important;
+}
+
+html.dark .ck-mapa__ficha-acao.is-on .ck-mapa__ficha-acao-ico {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #fff !important;
+}
+

@@ -233,3 +233,42 @@
 .ck-frota .ck-frota__veiculo-stage {
   margin-top: 14px;
 }
+
+/* ─── Dark Mode ─────────────────────────────────────────── */
+html.dark .ck-frota .ck-frota__tile {
+  background: #182234;
+  color: #F8FAFC;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .ck-frota .ck-frota__tile-mono {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FF7A3D;
+}
+
+html.dark .ck-frota .ck-frota__tile-copy strong {
+  color: #F8FAFC;
+}
+
+html.dark .ck-frota .ck-frota__tile-copy small {
+  color: rgba(248, 250, 252, 0.6);
+}
+
+html.dark .ck-frota .ck-frota__form-card {
+  background: #182234;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color: #F8FAFC;
+}
+
+html.dark .ck-frota .ck-frota__cta.Mui-disabled {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(248, 250, 252, 0.35) !important;
+  box-shadow: none !important;
+}
+
+html.dark .ck-frota .ck-frota__termo-box {
+  background: #182234;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #F8FAFC;
+}

@@ -4,6 +4,43 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Container de Cabeçalho (.ck-estoque__sheet-head): Claro no tema claro */
+.ck-energia .ck-estoque__sheet-head {
+  padding: 14px;
+  border-radius: 16px;
+  background: #F1F5F9 !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  margin-bottom: 16px;
+}
+
+/* Botões, seletores e dropdowns dentro do cabeçalho no tema claro */
+.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-btn,
+.ck-energia .ck-estoque__sheet-head .ck-estoque__voltar {
+  background: #FFFFFF !important;
+  color: #0F172A !important;
+  border: 1px solid rgba(27, 42, 107, 0.15) !important;
+}
+
+.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-btn span {
+  color: #0F172A !important;
+  font-weight: 700 !important;
+}
+
+.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix {
+  background: #FFFFFF !important;
+  color: #0F172A !important;
+  border-radius: 12px;
+}
+
+.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix-text strong {
+  color: #0F172A !important;
+}
+
+.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix-text small {
+  color: #475569 !important;
+}
+
 .ck-energia .ck-estoque__status.is-andamento {
   background: rgba(37, 99, 235, 0.12);
   color: #1d4ed8;
@@ -75,6 +112,38 @@
   margin-top: 4px;
 }
 
+.ck-energia .ck-energia__loja-seletor {
+  margin-left: 0;
+}
+
+.ck-energia .ck-energia__data-hora {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.ck-energia .ck-energia__data-hora .ck-estoque__field {
+  margin: 0;
+}
+
+/* Campos de entrada do formulário em tema claro */
+.ck-energia .MuiOutlinedInput-root,
+.ck-energia .MuiPickersOutlinedInput-root {
+  background: #FFFFFF !important;
+}
+
+/* Registro de energia: AZUL no tema claro */
+.ck-energia .ck-energia__registrar-btn {
+  background: #1B2A6B !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(27, 42, 107, 0.3) !important;
+}
+
+.ck-energia .ck-energia__registrar-btn:hover:not(:disabled) {
+  background: #142054 !important;
+}
+
 .ck-energia .ck-energia__acoes {
   display: flex;
   flex-direction: column;
@@ -85,4 +154,155 @@
 .ck-energia .ck-energia__acoes .ck-estoque__btn {
   width: 100%;
   flex: none;
+}
+
+/* Botão Registrar Protocolo em AZUL no tema claro */
+.ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo,
+.ck-energia__btn-novo {
+  background: #F8FAFC !important;
+  border: 1.5px solid #E2E8F0 !important;
+  color: #1B2A6B !important;
+}
+
+.ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo strong,
+.ck-energia__btn-novo strong {
+  color: #1B2A6B !important;
+}
+
+.ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo small,
+.ck-energia__btn-novo small {
+  color: #2D4379 !important;
+}
+
+.ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo span:last-child {
+  color: #1B2A6B !important;
+}
+
+/* Empty state visível com texto legível em ambos os temas */
+.ck-energia .ck-estoque__empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569 !important;
+  background: var(--ga-surface, #fff) !important;
+  border: 1px dashed rgba(27, 42, 107, 0.18) !important;
+  border-radius: 16px;
+  margin: 12px 0;
+}
+
+/* ================================================================
+   ENERGIA DARK MODE
+   ================================================================ */
+html.dark .ck-energia .ck-estoque__sheet-head {
+  background: #0B0F19 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-btn,
+html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__voltar {
+  background: #1E293B !important;
+  color: #F8FAFC !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-btn span {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix {
+  background: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix-text strong {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix-text small {
+  color: #94A3B8 !important;
+}
+
+html.dark .ck-energia .ck-estoque__status.is-andamento {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+html.dark .ck-energia .ck-estoque__status.is-cancelado {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-energia .ck-estoque__card--lista.is-andamento {
+  border-color: rgba(59, 130, 246, 0.4);
+  border-left: 4px solid #3b82f6 !important;
+}
+
+html.dark .ck-energia .ck-energia__dl dt {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-energia .ck-energia__dl dd {
+  color: var(--ga-text-primary);
+}
+
+/* Campos de entrada do formulário em tema escuro: fundo escuro */
+html.dark .ck-energia .MuiOutlinedInput-root,
+html.dark .ck-energia .MuiPickersOutlinedInput-root,
+html.dark .ck-energia input,
+html.dark .ck-energia select,
+html.dark .ck-energia textarea {
+  background: #0B0F19 !important;
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-energia .MuiOutlinedInput-notchedOutline,
+html.dark .ck-energia .MuiPickersOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+html.dark .ck-energia .ck-estoque__break-form textarea {
+  background: #0B0F19 !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: var(--ga-text-primary);
+}
+
+/* Registrar protocolo: LARANJA no tema escuro */
+html.dark .ck-energia .ck-energia__registrar-btn {
+  background: #FF7A3D !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.35) !important;
+}
+
+html.dark .ck-energia .ck-energia__registrar-btn:hover:not(:disabled) {
+  background: #ea6526 !important;
+}
+
+/* Botão Registrar Protocolo em LARANJA no tema escuro */
+html.dark .ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo,
+html.dark .ck-energia__btn-novo {
+  background: rgba(255, 122, 61, 0.14) !important;
+  border-color: rgba(255, 122, 61, 0.4) !important;
+  color: #FF7A3D !important;
+}
+
+html.dark .ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo strong,
+html.dark .ck-energia__btn-novo strong {
+  color: #FF7A3D !important;
+}
+
+html.dark .ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo small,
+html.dark .ck-energia__btn-novo small {
+  color: #ff9866 !important;
+}
+
+html.dark .ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo span:last-child {
+  color: #FF7A3D !important;
+}
+
+html.dark .ck-energia .ck-estoque__empty {
+  color: #94A3B8 !important;
+  background: var(--ga-surface, #111827) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
 }

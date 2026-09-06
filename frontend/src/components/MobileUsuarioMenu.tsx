@@ -17,6 +17,7 @@ import { getFotoPerfil } from '../utils/fotoPerfil';
 import { api, type IntegrationStatusGroup } from '../api/client';
 import SobreSistemaDialog from './SobreSistemaDialog';
 import IntegrationsStatusDialog from './IntegrationsStatusDialog';
+import { useAppTheme } from '../context/ThemeContext';
 
 const NAVY = '#1B2A6B';
 
@@ -51,6 +52,9 @@ export default function MobileUsuarioMenu({
 }: Props) {
   const location = useLocation();
   const contexto = contextoDaRota(location.pathname);
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const itemColor = escuro ? '#F8FAFC' : NAVY;
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const [sobreAberto, setSobreAberto] = useState(false);
   const [statusAberto, setStatusAberto] = useState(false);
@@ -144,7 +148,9 @@ export default function MobileUsuarioMenu({
               minWidth: 220,
               borderRadius: 2.5,
               mt: 0.75,
-              boxShadow: '0 12px 32px rgba(27, 42, 107, 0.16)',
+              bgcolor: escuro ? '#1E293B' : '#FFFFFF',
+              border: escuro ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+              boxShadow: escuro ? '0 12px 32px rgba(0, 0, 0, 0.5)' : '0 12px 32px rgba(27, 42, 107, 0.16)',
             },
           },
         }}
@@ -156,23 +162,23 @@ export default function MobileUsuarioMenu({
           }}
         >
           <ListItemIcon>
-            <InfoOutlinedIcon fontSize="small" sx={{ color: NAVY }} />
+            <InfoOutlinedIcon fontSize="small" sx={{ color: itemColor }} />
           </ListItemIcon>
           <ListItemText
             primary="Sobre"
-            slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600, color: NAVY } } }}
+            slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600, color: itemColor } } }}
           />
         </MenuItem>
         <MenuItem onClick={abrirStatusApi}>
           <ListItemIcon sx={{ minWidth: 36 }}>
-            <Activity size={18} strokeWidth={2} color={NAVY} aria-hidden />
+            <Activity size={18} strokeWidth={2} color={itemColor} aria-hidden />
           </ListItemIcon>
           <ListItemText
             primary="Status API"
-            slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600, color: NAVY } } }}
+            slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600, color: itemColor } } }}
           />
         </MenuItem>
-        <Divider sx={{ my: 0.5 }} />
+        <Divider sx={{ my: 0.5, borderColor: escuro ? 'rgba(255, 255, 255, 0.08)' : undefined }} />
         <MenuItem
           onClick={() => {
             fecharMenu();

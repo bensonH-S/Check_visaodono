@@ -1791,3 +1791,185 @@
 .checklist-ionic-fill:has(.ck-go) {
   background: #f3f1ec;
 }
+
+/* ================================================================
+   DARK MODE — Checklist Ionic (scoped)
+   ================================================================ */
+html.dark .checklist-ionic-app,
+html.dark .checklist-ionic-page,
+html.dark .checklist-ionic-fill,
+html.dark .checklist-ionic-fill:has(.ck-start--fixed),
+html.dark .checklist-ionic-fill:has(.ck-fluxo),
+html.dark .checklist-ionic-fill:has(.ck-go),
+html.dark .checklist-ionic-app ion-content,
+html.dark .checklist-ionic-app ion-content:has(.ck-start),
+html.dark .checklist-ionic-app ion-content:has(.ck-fluxo) {
+  --background: #0B0F19 !important;
+  --ion-background-color: #0B0F19 !important;
+  --ion-toolbar-background: #0B0F19 !important;
+  --ion-item-background: #111827 !important;
+  --ion-card-background: #111827 !important;
+  --ion-text-color: #F8FAFC !important;
+  background: #0B0F19 !important;
+  color: #F8FAFC !important;
+}
+
+/* Stage / Header escuro (Azul cinza mais claro) */
+html.dark .ck-start__stage,
+html.dark .ck-go__stage,
+html.dark .ck-fluxo__top {
+  background: linear-gradient(155deg, #182337 0%, #202f4a 52%, #26395b 100%) !important;
+  background-image: linear-gradient(155deg, #182337 0%, #202f4a 52%, #26395b 100%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.dark .ck-start,
+html.dark .ck-start__sheet,
+html.dark .ck-start__sheet--fill,
+html.dark .ck-start__scroll,
+html.dark .ck-start__dock,
+html.dark .ck-go,
+html.dark .ck-go__sheet,
+html.dark .ck-fluxo,
+html.dark .ck-fluxo__scroll,
+html.dark .ck-fluxo__dock {
+  background: #0B0F19 !important;
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-start__sheet {
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.dark .ck-start__destino {
+  background: linear-gradient(155deg, #182337 0%, #202f4a 52%, #26395b 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.dark .ck-start__destino-nome {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-start__auditor {
+  background: #111827 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-start__auditor strong {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-start__tipo {
+  background: #111827 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-start__tipo-mono {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #94A3B8 !important;
+}
+
+html.dark .ck-start__tipo.is-on {
+  border-color: #E8520A !important;
+  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.22) !important;
+}
+
+html.dark .ck-start__tipo.is-on .ck-start__tipo-mono {
+  background: #E8520A !important;
+  color: #fff !important;
+}
+
+html.dark .ck-start__tipo-copy strong {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-start__tipo-copy small {
+  color: #94A3B8 !important;
+}
+
+html.dark .ck-start__tipo-check.is-on {
+  border-color: #E8520A !important;
+  background: #E8520A !important;
+  color: #fff !important;
+}
+
+html.dark .ck-start__meta {
+  background: #111827 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-start__dock {
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .ck-start__cta.is-ready {
+  background: #E8520A !important;
+  box-shadow: 0 12px 28px rgba(232, 82, 10, 0.38) !important;
+}
+
+html.dark .ck-fluxo__top {
+  background: #0B0F19 !important;
+}
+
+html.dark .ck-fluxo__back {
+  background: #111827 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-fluxo__chip {
+  background: #111827 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #94A3B8 !important;
+}
+
+html.dark .ck-fluxo__chip.is-on {
+  background: #E8520A !important;
+  border-color: #E8520A !important;
+  color: #fff !important;
+}
+
+html.dark .ck-fluxo__dock {
+  background: #0B0F19 !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .ck-fluxo__btn--navy,
+html.dark .ck-fluxo__btn--orange {
+  background: #E8520A !important;
+  color: #fff !important;
+}
+
+html.dark .ck-q {
+  background: #111827 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .ck-q__title {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-q textarea,
+html.dark .ck-q input {
+  background: #0B0F19 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #F8FAFC !important;
+}
+
+/* Light mode CTA / abas em azul */
+:root:not(.dark) .ck-start__cta.is-ready {
+  background: #1B2A6B !important;
+}
+:root:not(.dark) .ck-fluxo__chip.is-on {
+  background: #1B2A6B !important;
+  border-color: #1B2A6B !important;
+}
+:root:not(.dark) .ck-fluxo__btn--navy {
+  background: #1B2A6B !important;
+}
+

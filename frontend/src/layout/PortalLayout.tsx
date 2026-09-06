@@ -26,7 +26,6 @@ import StoreIcon from '@mui/icons-material/Store';
 import PeopleIcon from '@mui/icons-material/People';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import TimelineIcon from '@mui/icons-material/Timeline';
 import DescriptionIcon from '@mui/icons-material/Description';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -296,8 +295,7 @@ function PortalLayoutInner() {
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
     
     // OPERAÇÃO
-    { to: '/visao-geral', label: 'Visão Geral', icon: <TimelineIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'OPERAÇÃO' },
-    { to: '/checklist', label: 'Auditorias', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), section: 'OPERAÇÃO' },
+    { to: '/checklist', label: 'AutoREV', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), section: 'OPERAÇÃO' },
     { to: '/nao-conformidades', label: 'Não Conformidades', icon: <WarningAmberIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'OPERAÇÃO' },
     { to: '/metas', label: 'Metas', icon: <TrackChangesIcon fontSize="small" />, show: podeVerMetas(user), section: 'OPERAÇÃO' },
     { to: '/chamados', label: 'Chamados', icon: <BuildIcon fontSize="small" />, show: temPermissao('chamados.ver', user), section: 'OPERAÇÃO' },
@@ -350,7 +348,7 @@ function PortalLayoutInner() {
         <PortalSidebar nav={sidebarNav} user={user} iniciais={iniciais} onLogout={handleLogout} />
       )}
 
-      <Box className="flex-1 flex flex-col min-w-0 min-h-0" sx={{ bgcolor: colors.surface }}>
+      <Box className="flex-1 flex flex-col min-w-0 min-h-0" sx={{ bgcolor: colors.canvas }}>
         {/* Topbar desktop */}
         {!hideSidebar && (
           <Box
@@ -360,14 +358,15 @@ function PortalLayoutInner() {
               alignItems: 'center',
               justifyContent: 'space-between',
               px: 3,
-              height: 56,
+              height: isDashboard ? 64 : 56,
               flexShrink: 0,
-              borderBottom: '1px solid',
+              borderBottom: isDashboard ? 'none' : '1px solid',
               borderColor: colors.border,
+              bgcolor: colors.canvas,
             }}
           >
             <PageHeaderTitle {...pageTitle} variant="desktop" />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {dashboardFilters}
               <IconButton size="small" aria-label="Alternar Tema" onClick={toggleTheme} sx={{ color: colors.textSecondary }}>
                 {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 20 }} /> : <DarkModeIcon sx={{ fontSize: 20 }} />}
@@ -391,6 +390,7 @@ function PortalLayoutInner() {
             flexShrink: 0,
             borderBottom: '1px solid',
             borderColor: colors.border,
+            bgcolor: colors.canvas,
             gap: 1,
           }}
         >
@@ -415,23 +415,25 @@ function PortalLayoutInner() {
           component="main"
           className={`flex-1 min-h-0 flex flex-col ${scrollInterno ? 'overflow-hidden' : 'overflow-y-auto'}`}
           sx={{
-            pl: { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: paginaEscalaVisitas ? 1.5 : 2, xl: paginaEscalaVisitas ? 1.5 : 2.5 },
-            pr: { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: paginaEscalaVisitas ? 1.5 : 2, xl: paginaEscalaVisitas ? 1.5 : 2.5 },
+            pl: { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: paginaEscalaVisitas ? 1.5 : 3, xl: paginaEscalaVisitas ? 1.5 : 3 },
+            pr: { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: paginaEscalaVisitas ? 1.5 : 3, xl: paginaEscalaVisitas ? 1.5 : 3 },
             py: paginaEscalaVisitas
               ? { xs: 1, md: 1 }
               : scrollInterno
                 ? { xs: 2, md: 2 }
-                : emConfiguracoes || emFrota
-                  ? { xs: 2, md: 2.5 }
-                  : { xs: 2.5, md: 3 },
+                : isDashboard
+                  ? { xs: 1.5, md: 2 }
+                  : emConfiguracoes || emFrota
+                    ? { xs: 2, md: 2.5 }
+                    : { xs: 2.5, md: 3 },
             pb:
               mobileTabsRodape.length > 0 && !isChamadoNovo
-                ? { xs: safeAreaBottomCalc(80), md: undefined }
-                : undefined,
+                ? { xs: safeAreaBottomCalc(80), md: 3 }
+                : 3,
             maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
             mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
             width: '100%',
-            bgcolor: hideSidebar ? colors.canvas : colors.surface,
+            bgcolor: colors.canvas,
           }}
         >
           <Outlet />

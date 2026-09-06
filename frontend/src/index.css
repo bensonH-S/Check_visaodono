@@ -37,40 +37,46 @@
 }
 
 :root.dark {
-  /* Dark Theme */
+  /* Dark Theme — Command Center Deep Navy */
   --ga-navy: #1B2A6B;
-    --ga-primary-btn: var(--ga-orange); /* Mantendo identidade visual primária */
+  --ga-primary-btn: var(--ga-orange); /* Mantendo identidade visual primária */
   --ga-navy-dark: #152056;
-  --ga-primary-hover: #c94508;
+  --ga-primary-hover: #FF8F5A;
   --ga-navy-muted: rgba(255, 255, 255, 0.04);
   --ga-navy-border: rgba(255, 255, 255, 0.08);
-  --ga-orange: #E8520A;
-  --ga-orange-hover: #F97316;
-  --ga-orange-light: rgba(232, 82, 10, 0.22);
-  --ga-surface: #1E293B; /* Superfície Graphite/Navy */
-  --ga-canvas: #0F172A; /* Fundo Navy quase preto */
-  --ga-canvas-alt: #0B1120;
-  --ga-picker-paper: #334155;
-  --ga-border: rgba(255, 255, 255, 0.15);
-  --ga-border-strong: rgba(255, 255, 255, 0.3);
+  --ga-orange: #FF7A3D; /* Laranja mais claro e vibrante para tema escuro */
+  --ga-orange-hover: #FF8F5A;
+  --ga-orange-light: rgba(255, 122, 61, 0.22);
+  --ga-surface: #111827; /* Superfície dos cards elevada e elegante */
+  --ga-canvas: #0B0F19; /* Fundo idêntico à sidebar */
+  --ga-canvas-alt: #080C14;
+  --ga-picker-paper: #1F2937;
+  --ga-border: rgba(255, 255, 255, 0.08);
+  --ga-border-strong: rgba(255, 255, 255, 0.18);
   --ga-text-primary: #F8FAFC;
   --ga-text-secondary: #94A3B8;
   --ga-text-muted: #64748B;
-  --ga-sidebar-bg: #0F172A;
-  --ga-sidebar-border: rgba(255, 255, 255, 0.12);
-  --ga-sidebar-active-bg: rgba(232, 82, 10, 0.16);
+  --ga-sidebar-bg: #0B0F19; /* Idêntico ao canvas */
+  --ga-sidebar-border: rgba(255, 255, 255, 0.08);
+  --ga-sidebar-active-bg: rgba(255, 122, 61, 0.16);
   --ga-sidebar-active-text: #F8FAFC;
-  --ga-sidebar-active-border: #E8520A;
-  --ga-sidebar-active-icon: #FB923C;
+  --ga-sidebar-active-border: #FF7A3D;
+  --ga-sidebar-active-icon: #FF925C;
   --ga-progress-track: rgba(232, 82, 10, 0.18);
   --ga-progress-bar: #E8520A;
 }
 
 html {
-  font-size: 14px !important;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   background-color: var(--ga-canvas);
+}
+
+/* Escala compacta no desktop correspondente a 80% de zoom conforme solicitado */
+@media (min-width: 768px) {
+  html {
+    zoom: 0.8;
+  }
 }
 
 html, body, #root {
@@ -97,7 +103,8 @@ html, body, #root {
 
 body {
   margin: 0;
-  background: #f5f5f3;
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -219,5 +226,1032 @@ body {
   padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
 }
 
+/* ================================================================
+   DARK MODE — Mobile CSS variables (global override)
+   Cobre: .ck-visitas, .ck-mapa, .ck-estoque, .ck-estoque-nfe,
+          .ck-chamados, .ck-nc, .ck-freela, .ck-frota, .ck-escala,
+          .ck-energia, e qualquer outro que use --ck-* vars
+   ================================================================ */
+html.dark .ck-visitas,
+html.dark .ck-chamados--page,
+html.dark .ck-frota--page,
+html.dark .ck-nc--page,
+html.dark .ck-escala--page,
+html.dark .ck-freela--page {
+  --ck-paper: var(--ga-canvas);
+  --ck-ink: var(--ga-text-primary);
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+}
 
+/* Variáveis herdadas por todos os sub-módulos via .ck-visitas */
+html.dark .ck-visitas {
+  --ck-navy: #3b82f6;
+}
+
+/* Fundo do sheet (área abaixo do hero/stage) */
+html.dark .ck-visitas__scroll,
+html.dark .ck-chamados__sheet--fill,
+html.dark .ck-frota__sheet--fill,
+html.dark .ck-escala__sheet-body,
+html.dark .ck-freela__sheet-body,
+html.dark .ck-nc .ck-visitas__scroll,
+html.dark .ck-escala .ck-visitas__scroll {
+  background: var(--ga-canvas);
+}
+
+/* Cards / itens */
+html.dark .ck-nc .ck-nc__visita,
+html.dark .ck-chamados .ck-chamados__filtro-btn,
+html.dark .ck-chamados .ck-chamados__lista-btn,
+html.dark .ck-freela .ck-freela__card {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-nc .ck-nc__visita-head {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--ga-border);
+}
+
+html.dark .ck-nc .ck-nc__visita-head strong {
+  color: var(--ga-text-primary);
+}
+
+/* Tabs / Segmentos */
+html.dark .ck-visitas__seg {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+}
+html.dark .ck-visitas__seg-btn {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-visitas__seg-btn.is-on {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.35) !important;
+}
+
+/* CTA de visitas mobile */
+html.dark .ck-visitas__cta {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 22px rgba(255, 122, 61, 0.35) !important;
+}
+
+/* Cards de visitas mobile */
+html.dark .ck-visitas__card,
+html.dark .ck-visitas__card.is-done,
+html.dark .ck-visitas__card.is-draft {
+  background: var(--ga-surface) !important;
+  border: 1px solid var(--ga-border) !important;
+  border-left: 4px solid #FF7A3D !important;
+  color: var(--ga-text-primary) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+html.dark .ck-visitas__card-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+}
+html.dark .ck-visitas__mono {
+  background: rgba(255, 122, 61, 0.18) !important;
+  color: #FF7A3D !important;
+  border: 1px solid rgba(255, 122, 61, 0.35) !important;
+}
+html.dark .ck-visitas__card.is-draft .ck-visitas__mono {
+  background: rgba(255, 122, 61, 0.18) !important;
+  color: #FF7A3D !important;
+  border: 1px solid rgba(255, 122, 61, 0.35) !important;
+}
+html.dark .ck-visitas__copy strong {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-visitas__copy small {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-visitas__section {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-visitas__empty {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-visitas__chip--ok {
+  color: #4ade80 !important;
+  background: rgba(34, 197, 94, 0.15) !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+}
+html.dark .ck-visitas__chip--warn {
+  color: var(--ga-orange) !important;
+  background: rgba(255, 122, 61, 0.15) !important;
+  border-color: rgba(255, 122, 61, 0.35) !important;
+}
+html.dark .ck-visitas__chip--navy {
+  color: #93c5fd !important;
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+html.dark .ck-visitas__action-btn--unlock {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #60A5FA !important;
+  border-left: 1px solid rgba(59, 130, 246, 0.3) !important;
+}
+html.dark .ck-visitas__action-btn--delete,
+html.dark .ck-visitas__del {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #F87171 !important;
+  border-left: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+html.dark .ck-visitas__action-btn--email {
+  background: rgba(255, 122, 61, 0.18) !important;
+  color: #FF7A3D !important;
+  border-left: 1px solid rgba(255, 122, 61, 0.3) !important;
+}
+
+/* Escala mobile em Dark Mode */
+html.dark .ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
+  background: var(--ga-orange) !important;
+  border-color: var(--ga-orange) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.35) !important;
+}
+html.dark .ck-escala .ck-escala__filtro-btn {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__filtro-btn.is-on {
+  border-color: var(--ga-orange) !important;
+  color: var(--ga-orange) !important;
+  background: rgba(255, 122, 61, 0.12) !important;
+}
+html.dark .ck-escala .ck-escala__hoje {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(255, 122, 61, 0.35) !important;
+}
+html.dark .ck-escala .ck-escala__week-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+}
+html.dark .ck-escala .ck-escala__card {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+html.dark .ck-escala .ck-escala__card-title {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-escala .ck-escala__dia {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-escala .ck-escala__dia strong {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-escala .ck-escala__dia small {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__dia-n {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__dia.is-today {
+  border-color: rgba(255, 122, 61, 0.5) !important;
+}
+html.dark .ck-escala .ck-escala__dia.is-on {
+  border-color: var(--ga-orange) !important;
+  background: rgba(255, 122, 61, 0.12) !important;
+  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.25) !important;
+}
+html.dark .ck-escala .ck-escala__dia.is-on .ck-escala__dia-n {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-escala .ck-escala__dia.is-on strong {
+  color: var(--ga-orange) !important;
+}
+html.dark .ck-escala .ck-escala__loja-semana {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+html.dark .ck-escala .ck-escala__loja-semana > strong {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-escala .ck-escala__loja-semana.is-delivery > strong {
+  color: var(--ga-orange) !important;
+}
+html.dark .ck-escala .ck-escala__loja-semana.is-delivery {
+  border-color: rgba(255, 122, 61, 0.35) !important;
+}
+html.dark .ck-escala .ck-escala__faixa-cell > span {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__faixa-pill {
+  color: var(--ga-text-primary) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+html.dark .ck-escala .ck-escala__faixa-pill.is-on {
+  background: rgba(255, 122, 61, 0.2) !important;
+  border-color: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-escala .ck-escala__card.is-delivery-on {
+  border-color: rgba(255, 122, 61, 0.45) !important;
+  background: rgba(255, 122, 61, 0.08) !important;
+}
+html.dark .ck-escala .ck-escala__card-meta.is-on {
+  color: var(--ga-orange) !important;
+}
+html.dark .ck-escala .ck-escala__card-meta.is-off {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__acoes {
+  background: var(--ga-surface) !important;
+  border-top-color: var(--ga-border) !important;
+}
+html.dark .ck-escala .ck-escala__editor-meta {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__voltar {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #93c5fd !important;
+}
+html.dark .ck-escala .ck-escala__regiao {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__section {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__pessoa {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-escala .ck-escala__status-chip {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-escala .ck-escala__status-chip strong {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-escala .ck-escala__status-chip span {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-escala .ck-escala__status-chip.is-on {
+  border-color: var(--ga-orange) !important;
+  background: rgba(255, 122, 61, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(255, 122, 61, 0.3) !important;
+}
+/* Escalas — Cards de Aprovação e Avisos */
+.ck-escala .ck-escala__aprovacao-card,
+.ck-escala .ck-escala__aprovacao-card--pendente_aprovacao,
+html.dark .ck-escala .ck-escala__aprovacao-card,
+html.dark .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao {
+  border-color: #fed7aa !important;
+  background: #fff0e8 !important;
+  border-left: 4px solid #FF7A3D !important;
+  box-shadow: 0 2px 8px rgba(255, 122, 61, 0.12) !important;
+}
+.ck-escala .ck-escala__aprovacao-card strong,
+.ck-escala .ck-escala__aprovacao-card--pendente_aprovacao strong,
+html.dark .ck-escala .ck-escala__aprovacao-card strong,
+html.dark .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao strong {
+  color: #7c2d12 !important;
+}
+.ck-escala .ck-escala__aprovacao-card strong em,
+.ck-escala .ck-escala__aprovacao-card--pendente_aprovacao strong em,
+html.dark .ck-escala .ck-escala__aprovacao-card strong em,
+html.dark .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao strong em {
+  color: #9a3412 !important;
+}
+.ck-escala .ck-escala__aprovacao-card span,
+.ck-escala .ck-escala__aprovacao-card--pendente_aprovacao span,
+html.dark .ck-escala .ck-escala__aprovacao-card span,
+html.dark .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao span {
+  color: #9a3412 !important;
+}
+.ck-escala .ck-escala__aprovacao-ver,
+.ck-escala .ck-escala__aprovacao-card .ck-escala__aprovacao-ver,
+.ck-escala .ck-escala__aprovacao-card--pendente_aprovacao .ck-escala__aprovacao-ver,
+html.dark .ck-escala .ck-escala__aprovacao-ver,
+html.dark .ck-escala .ck-escala__aprovacao-card .ck-escala__aprovacao-ver,
+html.dark .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao .ck-escala__aprovacao-ver {
+  color: #ea580c !important;
+}
+.ck-escala .ck-escala__empty--pendente,
+html.dark .ck-escala .ck-escala__empty--pendente {
+  background: #fff0e8 !important;
+  border: 1.5px solid #fed7aa !important;
+  border-left: 4px solid #FF7A3D !important;
+  color: #7c2d12 !important;
+}
+.ck-escala .ck-escala__empty--pendente strong,
+html.dark .ck-escala .ck-escala__empty--pendente strong {
+  color: #7c2d12 !important;
+}
+.ck-escala .ck-escala__empty--pendente p,
+html.dark .ck-escala .ck-escala__empty--pendente p {
+  color: #9a3412 !important;
+}
+.ck-escala .ck-escala__alerta,
+.ck-escala .ck-escala__alerta--pendente_aprovacao,
+.ck-escala .ck-escala__alerta--pendente,
+html.dark .ck-escala .ck-escala__alerta,
+html.dark .ck-escala .ck-escala__alerta--pendente_aprovacao,
+html.dark .ck-escala .ck-escala__alerta--pendente {
+  background: #fff0e8 !important;
+  border: 1.5px solid #fed7aa !important;
+  border-left: 4px solid #FF7A3D !important;
+  box-shadow: 0 2px 8px rgba(255, 122, 61, 0.12) !important;
+}
+.ck-escala .ck-escala__alerta strong,
+html.dark .ck-escala .ck-escala__alerta strong {
+  color: #7c2d12 !important;
+}
+.ck-escala .ck-escala__alerta p,
+html.dark .ck-escala .ck-escala__alerta p {
+  color: #9a3412 !important;
+}
+.ck-escala .ck-escala__alerta-ok,
+html.dark .ck-escala .ck-escala__alerta-ok {
+  color: #ea580c !important;
+  font-weight: 800 !important;
+}
+html.dark .ck-escala .ck-escala__empty {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+}
+html.dark .ck-escala .ck-escala__empty strong {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-escala .ck-escala__empty p {
+  color: var(--ga-text-secondary) !important;
+}
+
+/* Textos genéricos */
+html.dark .ck-visitas__sub,
+html.dark .ck-escala__compact-sub,
+html.dark .ck-nc .ck-nc__empty {
+  color: var(--ga-text-secondary);
+}
+
+/* Input de busca */
+html.dark .ck-visitas input,
+html.dark .ck-visitas__busca,
+html.dark .ck-nc input {
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+/* Frota */
+html.dark .ck-frota,
+html.dark .ck-frota--page {
+  --ck-paper: var(--ga-canvas);
+  --ck-ink: var(--ga-text-primary);
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-frota .ck-frota__tile {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+html.dark .ck-frota .ck-frota__tile:active:not(:disabled) {
+  background: #1a2234 !important;
+  border-color: var(--ga-orange) !important;
+}
+
+html.dark .ck-frota .ck-frota__tile-mono {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--ga-orange) !important;
+}
+
+html.dark .ck-frota .ck-frota__tile-copy strong {
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-frota .ck-frota__tile-copy small {
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-frota .ck-frota__tile-go {
+  color: var(--ga-text-muted) !important;
+}
+
+html.dark .ck-frota .ck-frota__sheet-label {
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-frota .ck-frota__form-card {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+html.dark .ck-frota .ck-frota__veiculo,
+html.dark .ck-frota .ck-frota__card {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-frota .ck-frota__tabs {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+}
+
+html.dark .ck-frota .ck-frota__tab {
+  color: var(--ga-text-secondary) !important;
+}
+
+html.dark .ck-frota .ck-frota__tab.is-on {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+}
+
+/* Light mode para tabs da Frota */
+:root:not(.dark) .ck-frota .ck-frota__tab.is-on {
+  background: var(--ga-navy) !important;
+  color: #fff !important;
+}
+
+/* Mapa */
+html.dark .ck-mapa {
+  --ck-paper: var(--ga-canvas);
+  --ck-ink: var(--ga-text-primary);
+}
+
+/* Estoque — corrigir variável --ga-primary-btn que já existe */
+html.dark .ck-estoque,
+html.dark .ck-estoque-nfe {
+  --ck-paper: var(--ga-canvas);
+  --ck-ink: var(--ga-text-primary);
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+}
+
+/* Portais mobile */
+html.dark .ck-portais {
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+}
+html.dark .ck-portais .ck-portais__card,
+html.dark .ck-portais .ck-portais__item {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-portais .ck-portais__chip,
+html.dark .ck-portais .ck-portais__badge {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--ga-text-secondary) !important;
+  border-color: var(--ga-border) !important;
+}
+html.dark .ck-portais strong {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-portais small,
+html.dark .ck-portais .ck-portais__meta {
+  color: var(--ga-text-secondary) !important;
+}
+
+/* ================================================================
+   DARK MODE — Headers / Stages (Azul Cinza Mais Claro)
+   ================================================================ */
+html.dark .ck-visitas__stage,
+html.dark .ck-start__stage,
+html.dark .ck-go__stage,
+html.dark .ck-mapa__stage,
+html.dark .ck-fluxo__top,
+html.dark .ck-login__stage,
+html.dark .ck-nc__stage,
+html.dark .ck-energia__stage,
+html.dark .ck-freela__stage,
+html.dark .mobile-app-header {
+  background: linear-gradient(155deg, #182337 0%, #202f4a 52%, #26395b 100%) !important;
+  background-image: linear-gradient(155deg, #182337 0%, #202f4a 52%, #26395b 100%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.dark .ck-visitas__glow,
+html.dark .ck-start__glow,
+html.dark .ck-mapa__glow {
+  opacity: 0.18 !important;
+}
+
+html.dark .ck-visitas__mesh,
+html.dark .ck-start__mesh {
+  opacity: 0.08 !important;
+}
+
+/* ================================================================
+   DARK MODE — Checklist Ionic (Tela Inicial, Perguntas e Sucesso)
+   ================================================================ */
+html.dark .checklist-ionic-app,
+html.dark .checklist-ionic-page,
+html.dark .checklist-ionic-fill,
+html.dark .checklist-ionic-fill:has(.ck-start--fixed),
+html.dark .checklist-ionic-fill:has(.ck-fluxo),
+html.dark .checklist-ionic-app ion-content,
+html.dark .checklist-ionic-app ion-content:has(.ck-start),
+html.dark .checklist-ionic-app ion-content:has(.ck-fluxo) {
+  --background: var(--ga-canvas) !important;
+  background: var(--ga-canvas) !important;
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-start,
+html.dark .ck-start__sheet,
+html.dark .ck-start__sheet--fill,
+html.dark .ck-start__scroll,
+html.dark .ck-start__dock,
+html.dark .ck-go,
+html.dark .ck-go__sheet,
+html.dark .ck-fluxo,
+html.dark .ck-fluxo__scroll,
+html.dark .ck-fluxo__dock {
+  --ck-paper: var(--ga-canvas) !important;
+  --ck-ink: var(--ga-text-primary) !important;
+  background: var(--ga-canvas) !important;
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-start__sheet {
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Cards na tela inicial do checklist */
+html.dark .ck-start__destino {
+  background: linear-gradient(155deg, #182337 0%, #202f4a 52%, #26395b 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+html.dark .ck-start__destino-nome {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-start__destino-kicker {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-start__auditor {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-start__auditor strong {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-start__auditor-tag {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-start__tipos-head h2,
+html.dark .ck-start__meta h2 {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-start__loading {
+  color: var(--ga-text-muted) !important;
+}
+html.dark .ck-start__tipo {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-start__tipo:hover,
+html.dark .ck-start__tipo:active {
+  background: #1a2234 !important;
+}
+html.dark .ck-start__tipo-mono {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-start__tipo.is-on {
+  border-color: var(--ga-orange) !important;
+  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.22) !important;
+}
+html.dark .ck-start__tipo.is-on .ck-start__tipo-mono {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-start__tipo-copy strong {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-start__tipo-copy small {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-start__tipo-check {
+  border-color: var(--ga-border-strong) !important;
+}
+html.dark .ck-start__tipo-check.is-on {
+  border-color: var(--ga-orange) !important;
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-start__meta {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-start__dock {
+  border-top-color: var(--ga-border) !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3) !important;
+}
+html.dark .ck-start__hint {
+  color: var(--ga-text-muted) !important;
+}
+html.dark .ck-start__btn-navy {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-start__btn-ghost {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-start__cta.is-ready {
+  background: var(--ga-orange) !important;
+  box-shadow: 0 12px 28px rgba(232, 82, 10, 0.38) !important;
+}
+
+/* Visita Iniciada */
+html.dark .ck-go {
+  background: var(--ga-canvas) !important;
+}
+html.dark .ck-go__sheet {
+  background: var(--ga-canvas) !important;
+}
+html.dark .ck-go__card {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-go__card strong,
+html.dark .ck-go__card span {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-go__card small {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-go__dock {
+  background: var(--ga-canvas) !important;
+  border-top-color: var(--ga-border) !important;
+}
+html.dark .ck-go__btn {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+}
+
+/* Fluxo Perguntas */
+html.dark .ck-fluxo__top {
+  background: #0B0F19 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+html.dark .ck-fluxo__back {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-fluxo__loja {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-fluxo__top-copy strong {
+  color: var(--ga-orange) !important;
+}
+html.dark .ck-fluxo__bar {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+html.dark .ck-fluxo__rail {
+  background: var(--ga-canvas) !important;
+  border-bottom-color: var(--ga-border) !important;
+}
+html.dark .ck-fluxo__chip {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-fluxo__chip.is-on {
+  background: var(--ga-orange) !important;
+  border-color: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-fluxo__chip.is-done:not(.is-on) {
+  border-color: rgba(52, 199, 89, 0.35) !important;
+  color: #34c759 !important;
+}
+html.dark .ck-fluxo__banner {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+}
+html.dark .ck-fluxo__banner h2 {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-fluxo__banner p,
+html.dark .ck-fluxo__banner span {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-fluxo__dock {
+  background: var(--ga-canvas) !important;
+  border-top-color: var(--ga-border) !important;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3) !important;
+}
+html.dark .ck-fluxo__btn--navy {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-fluxo__btn--orange {
+  background: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-fluxo__btn--ghost {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+
+/* Question cards */
+html.dark .ck-q {
+  background: var(--ga-surface) !important;
+  border-color: var(--ga-border) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+html.dark .ck-q.is-ok {
+  border-color: rgba(52, 199, 89, 0.4) !important;
+  background: rgba(52, 199, 89, 0.06) !important;
+}
+html.dark .ck-q.is-err {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  background: rgba(239, 68, 68, 0.06) !important;
+}
+html.dark .ck-q__title {
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-q__desc {
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-q__code {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-q__opt {
+  background: var(--ga-canvas) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-q__opt.is-selected {
+  background: var(--ga-orange) !important;
+  border-color: var(--ga-orange) !important;
+  color: #fff !important;
+}
+html.dark .ck-q textarea,
+html.dark .ck-q input {
+  background: var(--ga-canvas) !important;
+  border-color: var(--ga-border) !important;
+  color: var(--ga-text-primary) !important;
+}
+html.dark .ck-q__tag {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--ga-text-secondary) !important;
+}
+
+/* ================================================================
+   LIGHT MODE — Regra: Botões e Abas em Azul (#1B2A6B)
+   ================================================================ */
+:root:not(.dark) .ck-visitas__seg-btn.is-on {
+  background: var(--ga-navy) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(27, 42, 107, 0.3) !important;
+}
+:root:not(.dark) .ck-visitas__cta {
+  background: var(--ga-navy) !important;
+}
+:root:not(.dark) .ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
+  background: var(--ga-navy) !important;
+  border-color: var(--ga-navy) !important;
+  color: #fff !important;
+}
+:root:not(.dark) .ck-escala .ck-escala__hoje {
+  background: var(--ga-navy) !important;
+  color: #fff !important;
+}
+:root:not(.dark) .ck-escala .ck-escala__dia.is-on {
+  border-color: var(--ga-navy) !important;
+  background: rgba(27, 42, 107, 0.08) !important;
+}
+:root:not(.dark) .ck-escala .ck-escala__dia.is-on .ck-escala__dia-n {
+  background: var(--ga-navy) !important;
+  color: #fff !important;
+}
+:root:not(.dark) .ck-escala .ck-escala__dia.is-on strong {
+  color: var(--ga-navy) !important;
+}
+:root:not(.dark) .ck-escala .ck-escala__faixa-pill.is-on {
+  background: rgba(27, 42, 107, 0.12) !important;
+  border-color: var(--ga-navy) !important;
+  color: var(--ga-navy) !important;
+}
+:root:not(.dark) .ck-start__cta.is-ready {
+  background: var(--ga-navy) !important;
+  box-shadow: 0 12px 28px rgba(27, 42, 107, 0.38) !important;
+}
+:root:not(.dark) .ck-fluxo__chip.is-on {
+  background: var(--ga-navy) !important;
+  border-color: var(--ga-navy) !important;
+  color: #fff !important;
+}
+:root:not(.dark) .ck-fluxo__btn--navy {
+  background: var(--ga-navy) !important;
+  color: #fff !important;
+}
+:root:not(.dark) .ck-frota .ck-frota__tab.is-on {
+  background: var(--ga-navy) !important;
+  color: #fff !important;
+}
+
+/* ================================================================
+   MOBILE TAB BAR — Estilização e Cores por Tema
+   Item ativo: Azul (#1B2A6B) no tema claro, Laranja (#FF7A3D) no escuro
+   ================================================================ */
+/* Tab bar shell */
+.mobile-tab-bar {
+  background: var(--ga-surface, #FFFFFF);
+  border-top-color: var(--ga-border, #E2E8F0);
+}
+html.dark .mobile-tab-bar {
+  background: var(--ga-surface, #0F172A) !important;
+  border-top-color: var(--ga-border, #334155) !important;
+}
+
+/* Itens inativos - Tema Claro */
+:root:not(.dark) .mobile-tab-bar a:not(.active):not(.is-active),
+:root:not(.dark) .mobile-tab-bar button:not(.active):not(.is-active),
+:root:not(.dark) .mobile-tab-bar .mobile-tab-bar__item:not(.is-active),
+:root:not(.dark) .mobile-tab-bar .mobile-tab-bar__btn:not(.is-active) {
+  color: #64748B !important;
+}
+:root:not(.dark) .mobile-tab-bar a:not(.active):not(.is-active) .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar button:not(.active):not(.is-active) .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar .mobile-tab-bar__item:not(.is-active) .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar .mobile-tab-bar__btn:not(.is-active) .MuiSvgIcon-root {
+  color: #64748B !important;
+}
+
+/* Itens inativos - Tema Escuro */
+html.dark .mobile-tab-bar a:not(.active):not(.is-active),
+html.dark .mobile-tab-bar button:not(.active):not(.is-active),
+html.dark .mobile-tab-bar .mobile-tab-bar__item:not(.is-active),
+html.dark .mobile-tab-bar .mobile-tab-bar__btn:not(.is-active) {
+  color: #94A3B8 !important;
+}
+html.dark .mobile-tab-bar a:not(.active):not(.is-active) .MuiSvgIcon-root,
+html.dark .mobile-tab-bar button:not(.active):not(.is-active) .MuiSvgIcon-root,
+html.dark .mobile-tab-bar .mobile-tab-bar__item:not(.is-active) .MuiSvgIcon-root,
+html.dark .mobile-tab-bar .mobile-tab-bar__btn:not(.is-active) .MuiSvgIcon-root {
+  color: #94A3B8 !important;
+}
+
+/* Itens ativos - Tema Claro (#1B2A6B) */
+:root:not(.dark) .mobile-tab-bar a.active,
+:root:not(.dark) .mobile-tab-bar a.is-active,
+:root:not(.dark) .mobile-tab-bar a[aria-current="page"],
+:root:not(.dark) .mobile-tab-bar button.active,
+:root:not(.dark) .mobile-tab-bar button.is-active,
+:root:not(.dark) .mobile-tab-bar .mobile-tab-bar__item.is-active,
+:root:not(.dark) .mobile-tab-bar .mobile-tab-bar__btn.is-active {
+  color: #1B2A6B !important;
+}
+:root:not(.dark) .mobile-tab-bar a.active .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar a.is-active .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar a[aria-current="page"] .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar button.active .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar button.is-active .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar .mobile-tab-bar__item.is-active .MuiSvgIcon-root,
+:root:not(.dark) .mobile-tab-bar .mobile-tab-bar__btn.is-active .MuiSvgIcon-root {
+  color: #1B2A6B !important;
+}
+
+/* Itens ativos - Tema Escuro (#FF7A3D) */
+html.dark .mobile-tab-bar a.active,
+html.dark .mobile-tab-bar a.is-active,
+html.dark .mobile-tab-bar a[aria-current="page"],
+html.dark .mobile-tab-bar button.active,
+html.dark .mobile-tab-bar button.is-active,
+html.dark .mobile-tab-bar .mobile-tab-bar__item.is-active,
+html.dark .mobile-tab-bar .mobile-tab-bar__btn.is-active {
+  color: var(--ga-orange, #FF7A3D) !important;
+}
+html.dark .mobile-tab-bar a.active .MuiSvgIcon-root,
+html.dark .mobile-tab-bar a.is-active .MuiSvgIcon-root,
+html.dark .mobile-tab-bar a[aria-current="page"] .MuiSvgIcon-root,
+html.dark .mobile-tab-bar button.active .MuiSvgIcon-root,
+html.dark .mobile-tab-bar button.is-active .MuiSvgIcon-root,
+html.dark .mobile-tab-bar .mobile-tab-bar__item.is-active .MuiSvgIcon-root,
+html.dark .mobile-tab-bar .mobile-tab-bar__btn.is-active .MuiSvgIcon-root {
+  color: var(--ga-orange, #FF7A3D) !important;
+}
+
+/* Drawer "Mais" — painel inferior */
+html.dark .MuiDrawer-root .MuiPaper-root {
+  background: #1E293B !important;
+}
+
+/* ================================================================
+   FREELANCERS & MAPA — Regras de Cores por Tema
+   Botões azuis no tema claro (#1B2A6B) e laranja no tema escuro (#FF7A3D).
+   ================================================================ */
+/* Freelancers - Light Theme */
+:root:not(.dark) .ck-freela .ck-freela__buscar.is-on,
+:root:not(.dark) .ck-freela .ck-freela__registrar,
+:root:not(.dark) .ck-freela .ck-freela__btn--saida,
+:root:not(.dark) .ck-freela .ck-freela__dh-block .ck-freela__btn--saida {
+  background: var(--ga-navy, #1B2A6B) !important;
+  color: #fff !important;
+  border-color: var(--ga-navy, #1B2A6B) !important;
+  box-shadow: 0 4px 14px rgba(27, 42, 107, 0.28) !important;
+}
+
+:root:not(.dark) .ck-freela .ck-freela__card {
+  border-color: rgba(27, 42, 107, 0.15) !important;
+  border-left: 3px solid var(--ga-navy, #1B2A6B) !important;
+}
+
+/* Freelancers - Dark Theme */
+html.dark .ck-freela .ck-freela__buscar.is-on,
+html.dark .ck-freela .ck-freela__registrar,
+html.dark .ck-freela .ck-freela__btn--saida {
+  background: var(--ga-orange, #FF7A3D) !important;
+  color: #fff !important;
+  border-color: var(--ga-orange, #FF7A3D) !important;
+  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.35) !important;
+}
+
+/* Mapa - Light Theme */
+:root:not(.dark) .ck-mapa .ck-mapa__chip.is-on,
+:root:not(.dark) .ck-mapa .ck-mapa__btn--primary {
+  background: var(--ga-orange, #E8520A) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(232, 82, 10, 0.35) !important;
+}
+
+/* Mapa - Dark Theme */
+html.dark .ck-mapa .ck-mapa__chip.is-on,
+html.dark .ck-mapa .ck-mapa__btn--primary {
+  background: var(--ga-orange, #FF7A3D) !important;
+  border-color: #FF7A3D !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.35) !important;
+}
+
+
+/* ================================================================
+   SCROLLBAR INVISÍVEL — Universal Mobile
+   ================================================================ */
+.ck-visitas__scroll,
+.ck-chamados__sheet--fill,
+.ck-frota__sheet--fill,
+.ck-escala__sheet-body,
+.ck-freela__sheet-body,
+.ck-estoque,
+.ck-estoque *,
+.ck-nc .ck-visitas__scroll,
+.ck-start__scroll,
+.ck-start__sheet--fill,
+.ck-fluxo__scroll,
+.ck-fluxo__rail,
+.checklist-ionic,
+.checklist-ionic-fill,
+ion-content,
+.mobile-app-shell,
+.mobile-app-shell * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.ck-visitas__scroll::-webkit-scrollbar,
+.ck-chamados__sheet--fill::-webkit-scrollbar,
+.ck-frota__sheet--fill::-webkit-scrollbar,
+.ck-escala__sheet-body::-webkit-scrollbar,
+.ck-freela__sheet-body::-webkit-scrollbar,
+.ck-estoque::-webkit-scrollbar,
+.ck-start__scroll::-webkit-scrollbar,
+.ck-start__sheet--fill::-webkit-scrollbar,
+.ck-fluxo__scroll::-webkit-scrollbar,
+.ck-fluxo__rail::-webkit-scrollbar,
+.mobile-app-shell::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 

@@ -65,7 +65,7 @@ export function EnergiaLojaHead({
   const wrapClass = onVoltar ? 'ck-estoque__loja ck-estoque__loja--com-voltar' : 'ck-estoque__loja';
 
   const seletor = podeTrocarLoja && onChangeLoja ? (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0, marginLeft: onVoltar ? 52 : 0 }}>
+    <div className="ck-energia__loja-seletor" style={{ position: 'relative', flex: 1, minWidth: 0 }}>
       <button type="button" className="ck-estoque__loja-btn" onClick={() => setDlgLoja((v) => !v)}>
         <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
         <span aria-hidden>{dlgLoja ? '▴' : '▾'}</span>
@@ -95,8 +95,8 @@ export function EnergiaLojaHead({
         </>
       )}
     </div>
-  ) : lojaFixa || lojaAtual ? (
-    <div className="ck-estoque__loja-fix" aria-label="Loja">
+  ) : (lojaFixa || lojaAtual) ? (
+    <div className="ck-estoque__loja-fix" style={{ flex: 1, minWidth: 0, justifyContent: 'center' }} aria-label="Loja">
       <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
       <div className="ck-estoque__loja-fix-text">
         {(lojaFixa?.bk_number || lojaAtual?.bk_number) ? (
@@ -105,12 +105,34 @@ export function EnergiaLojaHead({
         <strong>{lojaFixa?.nome || (lojaAtual ? nomeLoja(lojaAtual) : 'Loja')}</strong>
       </div>
     </div>
-  ) : null;
+  ) : (
+    <div className="ck-estoque__loja-fix" style={{ flex: 1, minWidth: 0, justifyContent: 'center' }} aria-label="Loja">
+      <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
+      <div className="ck-estoque__loja-fix-text">
+        <strong>Selecione a loja</strong>
+      </div>
+    </div>
+  );
 
   return (
-    <div className={wrapClass} style={podeTrocarLoja && !onVoltar ? { position: 'relative' } : undefined}>
+    <div
+      className={wrapClass}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        minHeight: 44,
+        marginBottom: 14,
+      }}
+    >
       {onVoltar ? (
-        <button type="button" className="ck-estoque__voltar" onClick={onVoltar}>
+        <button
+          type="button"
+          className="ck-estoque__voltar"
+          onClick={onVoltar}
+          style={{ position: 'relative', left: 'auto', top: 'auto', transform: 'none', flexShrink: 0 }}
+          aria-label="Voltar"
+        >
           <span aria-hidden>‹</span>
         </button>
       ) : null}

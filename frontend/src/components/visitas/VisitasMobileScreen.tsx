@@ -9,7 +9,6 @@ import './visitas-mobile.css';
 
 type Filtro = '' | 'Rascunho' | 'Finalizada';
 
-
 type Props = {
   visitas: VisitaResumo[];
   visitasFiltradas: VisitaResumo[];
@@ -58,7 +57,7 @@ export default function VisitasMobileScreen({
   const rascunhos = baseContagem.filter((v) => v.status === 'Rascunho').length;
 
   return (
-    <div className="ck-visitas ck-visitas--lista">
+    <div className="ck-visitas ck-visitas--lista ck-visitas--history">
       <div className="ck-visitas__stage">
         <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
         <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
@@ -95,8 +94,6 @@ export default function VisitasMobileScreen({
       </div>
 
       <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-
-
         <div className="ck-visitas__seg" role="tablist">
           <button
             type="button"
@@ -140,7 +137,7 @@ export default function VisitasMobileScreen({
           ) : !visitasFiltradas.length ? (
             <div className="ck-visitas__empty">Nenhuma visita com este filtro.</div>
           ) : (
-            <div className="ck-visitas__list">
+            <div className="ck-visitas__cards ck-visitas__list">
               {visitasFiltradas.map((v) => {
                 const emRascunho = v.status === 'Rascunho';
                 const destino = emRascunho
@@ -182,12 +179,11 @@ export default function VisitasMobileScreen({
                       codigoTipo(v) === 'auditoria_operacional' && (
                         <button
                           type="button"
-                          className="ck-visitas__del"
+                          className="ck-visitas__action-btn ck-visitas__action-btn--email"
                           aria-label="Enviar relatório por e-mail"
                           title="Enviar e-mail"
                           disabled={enviandoEmailId === v.id_visita}
                           onClick={() => onEnviarEmail(v)}
-                          style={{ color: '#E8520A' }}
                         >
                           <EmailOutlinedIcon fontSize="small" />
                         </button>
@@ -195,11 +191,10 @@ export default function VisitasMobileScreen({
                     {podeReabrir && !emRascunho && onReabrir && (
                       <button
                         type="button"
-                        className="ck-visitas__del"
+                        className="ck-visitas__action-btn ck-visitas__action-btn--unlock"
                         aria-label="Reabrir visita"
                         title="Reabrir"
                         onClick={() => onReabrir(v)}
-                        style={{ color: '#0F1A45' }}
                       >
                         <LockOpenIcon fontSize="small" />
                       </button>
@@ -207,7 +202,7 @@ export default function VisitasMobileScreen({
                     {podeApagar && (
                       <button
                         type="button"
-                        className="ck-visitas__del"
+                        className="ck-visitas__action-btn ck-visitas__action-btn--delete"
                         aria-label="Apagar relatório"
                         onClick={() => onApagar(v)}
                       >

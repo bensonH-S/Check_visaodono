@@ -23,6 +23,9 @@ import { assetUrl, normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
 import { APP_NAME, APP_TAGLINE } from '../config/brand';
 
+import { ThemeProvider } from '@mui/material/styles';
+import { lightTheme } from '../theme';
+
 const FUNDO_LOGIN = `${assetUrl('Fundo_Principal.png')}?v=fill-ok`;
 const PAGE_BG = '#e8e8e8';
 const NAVY = '#1B2A6B';
@@ -30,12 +33,37 @@ const FEATURES = APP_TAGLINE.split(' · ');
 const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
 
 const loginFieldSx = {
-  '& .MuiOutlinedInput-root': { minHeight: { xs: 40, sm: 42 } },
-  '& .MuiOutlinedInput-input': { py: { xs: '9px', sm: '10px' } },
-  '& .MuiInputAdornment-root': { mr: 0.25 },
+  '& .MuiOutlinedInput-root': {
+    minHeight: { xs: 44, sm: 48 },
+    bgcolor: '#ffffff',
+    borderRadius: '8px',
+    '& fieldset': {
+      borderColor: 'rgba(27, 42, 107, 0.25)',
+    },
+    '&:hover fieldset': {
+      borderColor: 'rgba(27, 42, 107, 0.5)',
+    },
+    '&.Mui-focused fieldset': {
+      borderColor: '#1B2A6B',
+      borderWidth: 2,
+    },
+  },
+  '& .MuiOutlinedInput-input': {
+    py: { xs: '11px', sm: '12px' },
+    color: '#111827 !important',
+    fontSize: { xs: '0.875rem', sm: '0.925rem' },
+  },
+  '& .MuiInputLabel-root': {
+    color: 'rgba(27, 42, 107, 0.75)',
+    fontSize: { xs: '0.85rem', md: '0.88rem' },
+    '&.Mui-focused': {
+      color: '#1B2A6B',
+    },
+  },
+  '& .MuiInputAdornment-root': { mr: 0.5 },
 };
 
-const loginFieldsWidth = { xs: 272, sm: 292, md: 312 };
+const loginFieldsWidth = { xs: 280, sm: 310, md: 330 };
 
 const ERROS_CONHECIDOS = [
   'incorretos',
@@ -69,6 +97,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     logout();
+    document.documentElement.classList.remove('dark');
   }, []);
 
   useEffect(() => {
@@ -112,7 +141,8 @@ export default function LoginPage() {
   }
 
   return (
-    <Box
+    <ThemeProvider theme={lightTheme}>
+      <Box
       sx={{
         position: 'relative',
         width: '100%',
@@ -379,10 +409,15 @@ export default function LoginPage() {
                 sx={{
                   width: '100%',
                   maxWidth: loginFieldsWidth,
-                  mt: { xs: 1.1, sm: 1.35 },
-                  py: { xs: 0.85, md: 0.95 },
-                  fontSize: { xs: '0.82rem', md: '0.86rem' },
+                  mt: { xs: 1.3, sm: 1.6 },
+                  py: { xs: 1, md: 1.15 },
+                  fontSize: { xs: '0.875rem', md: '0.925rem' },
                   fontWeight: 600,
+                  bgcolor: '#1B2A6B',
+                  color: '#ffffff',
+                  '&:hover': {
+                    bgcolor: '#152056',
+                  },
                 }}
               >
                 {loading ? 'Entrando…' : 'Acessar'}
@@ -404,7 +439,7 @@ export default function LoginPage() {
           zIndex: 2,
           flexShrink: 0,
           px: 1.5,
-          py: 0.45,
+          py: 0.75,
           textAlign: 'center',
           bgcolor: 'transparent',
           pointerEvents: 'none',
@@ -412,16 +447,16 @@ export default function LoginPage() {
       >
         <Typography
           sx={{
-            fontSize: '0.58rem',
+            fontSize: { xs: '0.72rem', sm: '0.78rem' },
             fontWeight: 500,
-            color: 'rgba(27, 42, 107, 0.5)',
+            color: 'rgba(27, 42, 107, 0.7)',
             letterSpacing: '0.02em',
-            lineHeight: 1.3,
+            lineHeight: 1.4,
             textShadow: '0 0 8px rgba(243, 241, 248, 0.9)',
           }}
         >
           {COPYRIGHT}
-          <Box component="span" sx={{ mx: 0.6, opacity: 0.5 }}>
+          <Box component="span" sx={{ mx: 0.6, opacity: 0.6 }}>
             ·
           </Box>
           {versionLabel} · {environment}
@@ -444,5 +479,6 @@ export default function LoginPage() {
         </Alert>
       </Snackbar>
     </Box>
+  </ThemeProvider>
   );
 }

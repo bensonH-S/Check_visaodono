@@ -24,6 +24,7 @@ import {
   rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
+import { useAppTheme } from '../../context/ThemeContext';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
 
@@ -91,6 +92,8 @@ function travarScrollPagina(ativo: boolean) {
 }
 
 export default function EstoqueMobileListaPage() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
   const navigate = useNavigate();
   const user = getUsuario();
   const podeReabrir = podeReabrirContagemEstoque(user);
@@ -267,7 +270,9 @@ export default function EstoqueMobileListaPage() {
                 Controle e auditoria de contagens físicas e apuração de CMV.
               </p>
             </div>
-            <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
+            <div className="ck-estoque__hero-menu">
+              <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
+            </div>
           </div>
             <div className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
               <div className="ck-estoque__kpi">
@@ -307,7 +312,7 @@ export default function EstoqueMobileListaPage() {
       </div>
 
       <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-        <div className="ck-estoque__sheet-head">
+        <div className="ck-estoque__sheet-head ck-estoque__sheet-head--toolbar">
           {err && (
             <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
               {err}
@@ -503,7 +508,7 @@ export default function EstoqueMobileListaPage() {
                 <div className="ck-estoque__card-foot">
                   <div className="ck-estoque__card-meta-left">
                     <span className="ck-estoque__card-who" title="Responsável pela conferência">
-                      <PersonOutlinedIcon sx={{ fontSize: 16, color: 'var(--ck-navy)' }} />
+                      <PersonOutlinedIcon sx={{ fontSize: 16, color: 'var(--ga-orange)' }} />
                       <strong>{c.criado_por_nome || 'Não informado'}</strong>
                     </span>
                     {pendentes > 0 && (
@@ -549,10 +554,10 @@ export default function EstoqueMobileListaPage() {
             right: safeAreaRightCalc(20),
             bottom: 'calc(16px + var(--app-tabbar-offset, 58px))',
             zIndex: 40,
-            bgcolor: '#E8520A',
+            bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
             color: '#fff',
-            boxShadow: '0 6px 20px rgba(232, 82, 10, 0.42)',
-            '&:hover': { bgcolor: '#d14a09' },
+            boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
+            '&:hover': { bgcolor: escuro ? '#ea580c' : '#142048' },
           }}
         >
           <AddIcon />

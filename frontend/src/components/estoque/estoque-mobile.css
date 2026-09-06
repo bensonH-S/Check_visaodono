@@ -101,6 +101,81 @@
   flex-shrink: 0;
 }
 
+/* Cabeçalho da lista de estoque: painel azul profundo e abas azul-acinzentadas. */
+.ck-estoque .ck-estoque__hero-menu {
+  margin-right: 12px;
+}
+
+.ck-estoque .ck-estoque__sheet-head,
+.ck-estoque .ck-estoque__sheet-head--toolbar {
+  margin: -4px -4px 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #F1F5F9 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #E2E8F0 !important;
+}
+
+.ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-btn,
+.ck-estoque .ck-estoque__sheet-head .ck-estoque__voltar,
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__loja-btn,
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__voltar {
+  background: #FFFFFF;
+  color: #1B2A6B;
+  border: 1px solid rgba(27, 42, 107, 0.15);
+}
+
+.ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-btn span:first-child,
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__loja-btn span:first-child {
+  color: #1B2A6B;
+  font-weight: 700;
+}
+
+.ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-fix,
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__loja-fix {
+  background: #FFFFFF;
+  color: #1B2A6B;
+  border-radius: 12px;
+}
+
+.ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-fix-text strong,
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__loja-fix-text strong {
+  color: #1B2A6B;
+}
+
+.ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-fix-text small,
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__loja-fix-text small {
+  color: #475569;
+}
+
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-visitas__seg {
+  background: #E2E8F0;
+  border-color: rgba(27, 42, 107, 0.12);
+}
+
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-visitas__seg-btn {
+  color: #64748B;
+}
+
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-visitas__seg-btn.is-on {
+  background: #1B2A6B !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 2px 6px rgba(27, 42, 107, 0.3) !important;
+}
+
+.ck-estoque .ck-estoque__sheet-head .ck-estoque-nfe__atalho,
+.ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque-nfe__atalho {
+  background: #FFFFFF;
+  border: 1px solid rgba(27, 42, 107, 0.15);
+  color: #1B2A6B;
+}
+
+.ck-estoque .ck-estoque__btn-grid-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(27, 42, 107, 0.15);
+  color: #1B2A6B;
+}
+
 .ck-estoque.ck-visitas--lista .ck-visitas__sheet-body {
   padding-bottom: calc(88px + var(--app-tabbar-offset, 0px));
 }
@@ -291,7 +366,7 @@
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid rgba(27, 42, 107, 0.14);
-  background: var(--ga-surface);
+  background: rgba(27, 42, 107, 0.05); /* cinza azulado não selecionado */
   color: var(--ck-ink);
   font: inherit;
   cursor: pointer;
@@ -301,7 +376,7 @@
 
 .ck-estoque__modal-action-btn:active {
   transform: scale(0.98);
-  background: #f8fafc;
+  background: rgba(27, 42, 107, 0.09);
 }
 
 .ck-estoque__modal-action-btn strong {
@@ -318,16 +393,91 @@
 }
 
 .ck-estoque__modal-action-btn--pri {
-  background: linear-gradient(180deg, #fff7ed 0%, #ffedd5 100%);
-  border-color: #fdba74;
+  background: rgba(232, 82, 10, 0.1) !important;
+  border: 1.5px solid #e8520a !important;
 }
 
 .ck-estoque__modal-action-btn--pri strong {
-  color: #c2410c;
+  color: #c2410c !important;
 }
 
 .ck-estoque__modal-action-btn--pri small {
-  color: #9a3412;
+  color: #9a3412 !important;
+}
+
+.ck-estoque__atalhos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ck-estoque__btn-grid-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(27, 42, 107, 0.12);
+  background: var(--ga-surface, #fff);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(20, 32, 72, 0.04);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  text-align: center;
+  gap: 3px;
+}
+
+.ck-estoque__btn-grid-card:active {
+  transform: scale(0.97);
+}
+
+.ck-estoque__btn-grid-card svg {
+  font-size: 1.35rem !important;
+  color: #e8520a !important;
+}
+
+.ck-estoque__btn-grid-card strong {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--ga-text-primary, #111827);
+  line-height: 1.2;
+}
+
+.ck-estoque__btn-grid-card small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ga-text-secondary, #6B7280);
+  line-height: 1.1;
+}
+
+.ck-estoque .ck-visitas__seg-btn.is-on {
+  background: #e8520a !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(232, 82, 10, 0.3) !important;
+}
+
+html.dark .ck-estoque .ck-visitas__seg-btn.is-on {
+  background: #FF7A3D !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.35) !important;
+}
+
+html.dark .ck-estoque__btn-grid-card {
+  background: var(--ga-surface, #111827);
+  border-color: var(--ga-border, rgba(255, 255, 255, 0.08));
+}
+
+html.dark .ck-estoque__btn-grid-card svg {
+  color: #FF7A3D !important;
+}
+
+html.dark .ck-estoque__btn-grid-card strong {
+  color: var(--ga-text-primary, #F8FAFC);
+}
+
+html.dark .ck-estoque__btn-grid-card small {
+  color: var(--ga-text-secondary, #94A3B8);
 }
 
 /* Acima da tab bar mobile (+ folga); portal no body. */
@@ -965,7 +1115,7 @@
   padding: 10px 4px;
   border-radius: 14px;
   border: 1px solid rgba(27, 42, 107, 0.12);
-  background: linear-gradient(180deg, #fff 0%, #f9f8f6 100%);
+  background: var(--ga-surface, #fff);
   color: var(--ck-ink);
   font: inherit;
   cursor: pointer;
@@ -977,18 +1127,18 @@
 
 .ck-estoque__btn-grid-card:active {
   transform: scale(0.96);
-  background: #f1efe9;
+  background: rgba(232, 82, 10, 0.06);
 }
 
 .ck-estoque__btn-grid-card .MuiSvgIcon-root {
-  color: var(--ga-text-primary);
+  color: #e8520a !important;
   font-size: 1.55rem !important;
 }
 
 .ck-estoque__btn-grid-card strong {
   font-size: 0.82rem;
   font-weight: 800;
-  color: var(--ck-ink);
+  color: var(--ga-text-primary);
   line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
@@ -999,12 +1149,30 @@
 .ck-estoque__btn-grid-card small {
   font-size: 0.68rem;
   font-weight: 600;
-  color: rgba(20, 32, 72, 0.55);
+  color: var(--ga-text-secondary);
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+html.dark .ck-estoque__btn-grid-card {
+  background: var(--ga-surface, #111827) !important;
+  border-color: var(--ga-border, rgba(255, 255, 255, 0.08)) !important;
+  color: var(--ga-text-primary) !important;
+}
+
+html.dark .ck-estoque__btn-grid-card .MuiSvgIcon-root {
+  color: #FF7A3D !important;
+}
+
+html.dark .ck-estoque__btn-grid-card strong {
+  color: var(--ga-text-primary, #F8FAFC) !important;
+}
+
+html.dark .ck-estoque__btn-grid-card small {
+  color: var(--ga-text-secondary, #94A3B8) !important;
 }
 
 .ck-estoque .ck-estoque__chip {
@@ -1071,9 +1239,13 @@
 .ck-estoque .ck-estoque__empty {
   text-align: center;
   padding: 28px 12px;
-  color: rgba(20, 32, 72, 0.55);
+  color: #64748B;
   font-weight: 600;
   font-size: 0.88rem;
+}
+
+html.dark .ck-estoque .ck-estoque__empty {
+  color: #94A3B8 !important;
 }
 
 .ck-estoque .ck-estoque__item {
@@ -2489,4 +2661,498 @@
   background: var(--ga-canvas);
 }
 
+/* ================================================================
+   ESTOQUE DARK MODE — Cards, Status, Badges, Modais
+   ================================================================ */
+html.dark .ck-estoque .ck-estoque__card {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
 
+html.dark .ck-estoque .ck-estoque__card-top strong,
+html.dark .ck-estoque .ck-estoque__card-title strong {
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque .ck-estoque__card-tipo {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque .ck-estoque__card-foot {
+  border-top-color: var(--ga-border);
+}
+
+html.dark .ck-estoque .ck-estoque__card-valor span {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque .ck-estoque__meta {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque .ck-estoque__card-who {
+  color: var(--ga-text-primary);
+}
+
+/* Status chips */
+html.dark .ck-estoque .ck-estoque__status.is-aberta {
+  background: rgba(255, 122, 61, 0.15);
+  color: var(--ga-orange);
+}
+
+html.dark .ck-estoque .ck-estoque__status.is-ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+/* Badges de desvio/pendência */
+html.dark .ck-estoque .ck-estoque__badge-pend {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__badge-div {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__badge-ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__tipo-badge {
+  background: rgba(255, 122, 61, 0.12);
+  color: var(--ga-orange);
+  border-color: rgba(255, 122, 61, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__codigo-badge {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Grupo/seção labels */
+html.dark .ck-estoque .ck-estoque__grupo-pill {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque .ck-estoque__grupo-qtd {
+  background: var(--ga-canvas);
+  color: var(--ga-text-secondary);
+  border-color: var(--ga-border);
+}
+
+/* Saldo */
+html.dark .ck-estoque .ck-estoque__saldo-qtd span {
+  color: var(--ga-text-secondary);
+}
+
+/* Qty counter */
+html.dark .ck-estoque .ck-estoque__qty {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+}
+
+html.dark .ck-estoque .ck-estoque__qty-btn {
+  background: rgba(255, 255, 255, 0.06);
+}
+.dark .ck-estoque-nfe {
+  --ck-paper: var(--ga-canvas);
+  --ck-ink: var(--ga-text-primary);
+  --ck-navy: var(--ga-primary-btn);
+  --ck-navy-deep: #0b1120;
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+}
+
+:root.dark .ck-estoque .ck-estoque__busca-wrap input,
+.dark .ck-estoque .ck-estoque__busca-wrap input,
+:root.dark .ck-estoque-nfe input,
+.dark .ck-estoque-nfe input {
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__busca-wrap input::placeholder,
+.dark .ck-estoque .ck-estoque__busca-wrap input::placeholder {
+  color: var(--ga-text-muted);
+}
+
+:root.dark .ck-estoque .ck-estoque__item,
+.dark .ck-estoque .ck-estoque__item,
+:root.dark .ck-estoque-nfe__card,
+.dark .ck-estoque-nfe__card {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  color: var(--ga-text-primary);
+}
+
+:root.dark .ck-estoque .ck-estoque__desc,
+.dark .ck-estoque .ck-estoque__desc,
+:root.dark .ck-estoque-nfe__forn,
+.dark .ck-estoque-nfe__forn {
+  color: var(--ga-text-primary);
+}
+
+:root.dark .ck-estoque .ck-estoque__cod,
+.dark .ck-estoque .ck-estoque__cod,
+:root.dark .ck-estoque-nfe__meta,
+.dark .ck-estoque-nfe__meta {
+  color: var(--ga-text-secondary);
+}
+
+:root.dark .ck-estoque .ck-estoque__secao-banner,
+.dark .ck-estoque .ck-estoque__secao-banner {
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__vl,
+.dark .ck-estoque .ck-estoque__vl {
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__field input,
+.dark .ck-estoque .ck-estoque__field input {
+  background: var(--ga-canvas);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__dock-cta,
+.dark .ck-estoque .ck-estoque__dock-cta,
+:root.dark .ck-estoque-nfe__foot-btn,
+.dark .ck-estoque-nfe__foot-btn {
+  background: var(--ga-primary-btn);
+  color: #ffffff;
+}
+
+:root.dark .ck-estoque .ck-estoque__dock-side,
+.dark .ck-estoque .ck-estoque__dock-side {
+  background: var(--ga-surface);
+  color: var(--ga-text-primary);
+  border-color: var(--ga-border);
+}
+
+:root.dark .ck-estoque .ck-estoque__btn--save,
+.dark .ck-estoque .ck-estoque__btn--save {
+  background: var(--ga-primary-btn);
+  color: #ffffff;
+}
+
+:root.dark .ck-estoque-nfe__danfe-frame,
+.dark .ck-estoque-nfe__danfe-frame {
+  background: var(--ga-canvas);
+}
+
+/* ================================================================
+   ESTOQUE DARK MODE — Cards, Status, Badges, Modais
+   ================================================================ */
+html.dark .ck-estoque .ck-estoque__card {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+html.dark .ck-estoque .ck-estoque__card-top strong,
+html.dark .ck-estoque .ck-estoque__card-title strong {
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque .ck-estoque__card-tipo {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque .ck-estoque__card-foot {
+  border-top-color: var(--ga-border);
+}
+
+html.dark .ck-estoque .ck-estoque__card-valor span {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque .ck-estoque__meta {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque .ck-estoque__card-who {
+  color: var(--ga-text-primary);
+}
+
+/* Status chips */
+html.dark .ck-estoque .ck-estoque__status.is-aberta {
+  background: rgba(255, 122, 61, 0.15);
+  color: var(--ga-orange);
+}
+
+html.dark .ck-estoque .ck-estoque__status.is-ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+/* Badges de desvio/pendência */
+html.dark .ck-estoque .ck-estoque__badge-pend {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__badge-div {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__badge-ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__tipo-badge {
+  background: rgba(255, 122, 61, 0.12);
+  color: var(--ga-orange);
+  border-color: rgba(255, 122, 61, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__codigo-badge {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Grupo/seção labels */
+html.dark .ck-estoque .ck-estoque__grupo-pill {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque .ck-estoque__grupo-qtd {
+  background: var(--ga-canvas);
+  color: var(--ga-text-secondary);
+  border-color: var(--ga-border);
+}
+
+/* Saldo */
+html.dark .ck-estoque .ck-estoque__saldo-qtd span {
+  color: var(--ga-text-secondary);
+}
+
+/* Qty counter */
+html.dark .ck-estoque .ck-estoque__qty {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+}
+
+html.dark .ck-estoque .ck-estoque__qty-btn {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html.dark .ck-estoque .ck-estoque__qty-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Botão primário já usa #e8520a; no dark usa --ga-orange */
+html.dark .ck-estoque .ck-estoque__btn--primary {
+  background: var(--ga-orange);
+  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.3);
+}
+
+html.dark .ck-estoque .ck-estoque__btn--ghost {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  color: var(--ga-text-primary);
+}
+
+/* Botão de reabrir */
+html.dark .ck-estoque .ck-estoque__reabrir {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--ga-border);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque .ck-estoque__sheet-head,
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar {
+  background: #0B0F19 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.dark .ck-estoque .ck-estoque__sheet-head button,
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar button,
+html.dark .ck-estoque .ck-estoque__sheet-head .ck-estoque-nfe__atalho,
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque-nfe__atalho,
+html.dark .ck-estoque .ck-estoque__btn-grid-card,
+html.dark .ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-btn,
+html.dark .ck-estoque .ck-estoque__sheet-head .ck-estoque__voltar,
+html.dark .ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-fix {
+  background: #1E293B !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-btn span:first-child,
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__loja-btn span:first-child,
+html.dark .ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-fix-text strong,
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__loja-fix-text strong {
+  color: #F8FAFC !important;
+}
+
+html.dark .ck-estoque .ck-estoque__sheet-head .ck-estoque__loja-fix-text small,
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar .ck-estoque__loja-fix-text small {
+  color: #94A3B8 !important;
+}
+
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar .ck-visitas__seg {
+  background: #1E293B;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar .ck-visitas__seg-btn {
+  background: transparent;
+  color: #94A3B8;
+}
+
+html.dark .ck-estoque .ck-estoque__sheet-head--toolbar .ck-visitas__seg-btn.is-on {
+  background: #FF7A3D !important;
+  color: #FFFFFF !important;
+}
+
+html.dark .ck-estoque .ck-estoque__loja-panel-head {
+  border-bottom-color: var(--ga-border);
+}
+
+html.dark .ck-estoque .ck-estoque__loja-busca {
+  border-bottom-color: var(--ga-border);
+}
+
+html.dark .ck-estoque .ck-estoque__loja-busca input {
+  background: var(--ga-canvas);
+  border-color: var(--ga-border);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque .ck-estoque__loja-item {
+  color: var(--ga-text-secondary);
+  border-bottom-color: var(--ga-border);
+}
+
+html.dark .ck-estoque .ck-estoque__loja-item.is-on {
+  background: rgba(255, 122, 61, 0.1);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque .ck-estoque__loja-dropdown {
+  background: #1E293B;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+html.dark .ck-estoque .ck-estoque__loja-btn {
+  background: #1E293B;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque .ck-estoque__loja-btn > span:last-child {
+  color: var(--ga-text-secondary);
+}
+
+/* Break form */
+html.dark .ck-estoque .ck-estoque__break-form .ck-estoque__field > span {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque .ck-estoque__break-form input,
+html.dark .ck-estoque .ck-estoque__break-form select {
+  background: var(--ga-canvas);
+  border-color: var(--ga-border);
+  color: var(--ga-text-primary);
+}
+
+/* Modal panel / nova contagem - cinza mais claro no tema escuro (#1E293B) */
+html.dark .ck-estoque .ck-estoque__modal--center .ck-estoque__loja-panel,
+html.dark .ck-estoque .ck-estoque__confirm,
+html.dark .ck-estoque .ck-estoque__loja-panel {
+  background: #1E293B !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Modal action buttons */
+html.dark .ck-estoque__modal-action-btn {
+  background: #334155;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque__modal-action-btn strong {
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque__modal-action-btn small {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque__modal-action-btn--pri {
+  background: rgba(255, 122, 61, 0.16);
+  border-color: rgba(255, 122, 61, 0.45);
+}
+
+html.dark .ck-estoque__modal-action-btn--pri strong {
+  color: var(--ga-orange);
+}
+
+html.dark .ck-estoque__modal-action-btn--pri small {
+  color: rgba(255, 122, 61, 0.85);
+}
+
+/* O modal de nova contagem segue a tipografia clara do restante do tema escuro. */
+html.dark .ck-estoque .ck-estoque__modal--center .ck-estoque__confirm-text,
+html.dark .ck-estoque .ck-estoque__dlg p {
+  color: var(--ga-text-secondary);
+}
+
+html.dark .ck-estoque .ck-estoque__modal--center .ck-estoque__modal-action-btn--pri strong,
+html.dark .ck-estoque .ck-estoque__modal--center .ck-estoque__modal-action-btn--pri small {
+  color: var(--ga-text-primary);
+}
+
+html.dark .ck-estoque--detalhe .ck-estoque__busca-fix input {
+  background: var(--ga-surface);
+  border-color: var(--ga-border);
+  color: var(--ga-text-primary);
+}
+
+/* Break e Estoque mobile tabs scroll e ajuste de layout */
+.ck-estoque .ck-visitas__seg {
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 3px;
+  padding: 3px;
+}
+
+.ck-estoque .ck-visitas__seg::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-estoque .ck-visitas__seg .ck-visitas__seg-btn {
+  flex: 1 0 auto;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}

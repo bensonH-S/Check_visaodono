@@ -74,8 +74,8 @@ export default function IntegrationsStatusDialog({
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : '#1B2A6B';
-  const cardBg = escuro ? 'rgba(148, 163, 184, 0.08)' : colors.canvasAlt;
+  const acento = escuro ? '#FF7A3D' : '#1B2A6B';
+  const cardBg = escuro ? '#334155' : colors.canvasAlt;
   const tituloExibido =
     titulo || (contexto ? `Status API · ${groups[0]?.name || ''}`.replace(/\s·\s$/, '') : 'Status API');
 
@@ -89,9 +89,9 @@ export default function IntegrationsStatusDialog({
         paper: {
           sx: {
             borderRadius: 2.5,
-            bgcolor: colors.surface,
+            bgcolor: escuro ? '#1E293B' : colors.surface,
             backgroundImage: 'none',
-            border: `1px solid ${colors.border}`,
+            border: `1px solid ${escuro ? 'rgba(255, 255, 255, 0.12)' : colors.border}`,
             boxShadow: escuro ? '0 16px 48px rgba(0, 0, 0, 0.45)' : '0 16px 48px rgba(15, 23, 42, 0.12)',
             overflow: 'hidden',
           },
@@ -107,8 +107,8 @@ export default function IntegrationsStatusDialog({
           gap: 1,
           py: 1.5,
           px: 2,
-          borderBottom: `1px solid ${colors.border}`,
-          bgcolor: colors.surface,
+          borderBottom: `1px solid ${escuro ? 'rgba(255, 255, 255, 0.08)' : colors.border}`,
+          bgcolor: escuro ? '#1E293B' : colors.surface,
         }}
       >
         <Activity size={22} strokeWidth={2} color={acento} aria-hidden />
@@ -140,12 +140,12 @@ export default function IntegrationsStatusDialog({
             }
           />
         </IconButton>
-        <IconButton size="small" aria-label="Fechar" onClick={onClose} sx={{ color: colors.textSecondary }}>
+        <IconButton size="small" aria-label="Fechar" onClick={onClose} sx={{ color: escuro ? '#94A3B8' : colors.textSecondary }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: '20px !important', pb: 2.5, px: 2, minHeight: 160, bgcolor: colors.surface }}>
+      <DialogContent sx={{ pt: '20px !important', pb: 2.5, px: 2, minHeight: 160, bgcolor: escuro ? '#1E293B' : colors.surface }}>
         {loading ? (
           <Box
             sx={{

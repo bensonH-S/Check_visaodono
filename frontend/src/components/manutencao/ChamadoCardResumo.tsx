@@ -27,18 +27,6 @@ import {
 } from '../../lib/auth';
 import { colors } from '../../theme/tokens';
 
-function brandAcento() {
-  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-    ? '#E8520A'
-    : colors.navy;
-}
-
-function brandAcentoHover() {
-  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-    ? '#c94508'
-    : colors.navyDark;
-}
-
 function rotuloTecnicoCard(nome?: string | null) {
   if (!nome?.trim()) return null;
   return nome.trim().split(/\s+/)[0];
@@ -163,8 +151,10 @@ function ChamadoCardMobile({
             py: 0.65,
             px: 0.75,
             borderRadius: 1.75,
-            bgcolor: 'rgba(27, 42, 107, 0.045)',
-            border: '1px solid rgba(27, 42, 107, 0.08)',
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(27, 42, 107, 0.045)',
+            border: (theme) =>
+              `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(27, 42, 107, 0.08)'}`,
           }}
         >
           <Box
@@ -179,7 +169,7 @@ function ChamadoCardMobile({
               px: 0.75,
               py: 0.35,
               borderRadius: 1.25,
-              bgcolor: brandAcento(),
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
               color: '#fff',
               fontWeight: 800,
               fontSize: '0.72rem',
@@ -196,7 +186,8 @@ function ChamadoCardMobile({
               width: '1px',
               alignSelf: 'stretch',
               my: 0.35,
-              bgcolor: 'rgba(27, 42, 107, 0.14)',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(27, 42, 107, 0.14)',
               flexShrink: 0,
             }}
           />
@@ -392,11 +383,14 @@ function ChamadoCardMobile({
                     fontWeight: 700,
                     textTransform: 'none',
                     borderRadius: 1.5,
-                    bgcolor: brandAcento(),
+                    bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
                     boxShadow: 'none',
                     whiteSpace: 'nowrap',
                     color: '#fff',
-                    '&:hover': { bgcolor: brandAcentoHover(), boxShadow: 'none' },
+                    '&:hover': {
+                      bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#d04809' : '#152255'),
+                      boxShadow: 'none',
+                    },
                     '& .MuiButton-startIcon': {
                       mr: 0.25,
                       ml: 0,

@@ -178,7 +178,7 @@ export default function EnergiaMobileListaPage() {
           {idLoja && podeAbrir ? (
             <button
               type="button"
-              className="ck-estoque-nfe__atalho is-diario"
+              className="ck-estoque-nfe__atalho ck-energia__btn-novo"
               style={{ marginBottom: '16px' }}
               onClick={() => navigate('/energia/mobile/novo')}
             >

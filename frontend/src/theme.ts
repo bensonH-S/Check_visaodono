@@ -6,7 +6,7 @@ export { portalPanelSx, portalCardSx, portalIconBoxSx, sectionLabelSx } from './
 
 const baseThemeOptions = {
   typography: {
-    htmlFontSize: 14,
+    htmlFontSize: 16,
     fontSize: 14,
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     h6: { fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.01em' },
@@ -27,7 +27,7 @@ const baseThemeOptions = {
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
-        root: { borderRadius: radius.md, padding: '8px 16px', fontSize: '0.8125rem', fontWeight: 500 },
+        root: { borderRadius: radius.md, padding: '6px 14px', fontSize: '0.8125rem', fontWeight: 500 },
         contained: {
           '&.MuiButton-containedPrimary': {
             backgroundColor: 'var(--ga-primary-btn) !important',
@@ -63,12 +63,13 @@ const baseThemeOptions = {
             color: 'var(--ga-text-secondary)',
             backgroundColor: 'var(--ga-surface) !important',
             borderBottom: '1px solid var(--ga-border)',
+            padding: '8px 12px',
           },
         },
       },
     },
     MuiTableCell: {
-      styleOverrides: { root: { fontSize: '0.8125rem', borderColor: colors.border } },
+      styleOverrides: { root: { fontSize: '0.8125rem', borderColor: colors.border, padding: '8px 12px' } },
     },
     MuiTableRow: {
       styleOverrides: { root: { '&:hover': { bgcolor: colors.canvas } } },
@@ -140,9 +141,9 @@ export const darkTheme = createTheme({
     success: { main: '#34D399', contrastText: '#052e16' },
     warning: { main: '#FB923C', contrastText: '#431407' },
     error: { main: '#F87171', contrastText: '#450a0a' },
-    background: { default: '#0F172A', paper: '#1E293B' },
+    background: { default: '#0B0F19', paper: '#111827' },
     text: { primary: '#F8FAFC', secondary: '#94A3B8' },
-    divider: '#334155',
+    divider: 'rgba(255, 255, 255, 0.08)',
   },
 });
 

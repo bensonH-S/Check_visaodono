@@ -55,7 +55,7 @@ import {
 import '../visitas/visitas-mobile.css';
 import './escala-mobile.css';
 
-const ORANGE = '#E8520A';
+const ORANGE = '#FF7A3D';
 const NAVY = '#1B2A6B';
 
 function formatarHoraDigitada(raw: string): string {
@@ -997,9 +997,9 @@ export default function EscalaVisitasMobileView() {
       style={
         {
           ['--ck-accent' as string]: acento,
-          ['--ck-accent-soft' as string]: escuro ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.1)',
-          ['--ck-accent-border' as string]: escuro ? 'rgba(232, 82, 10, 0.45)' : 'rgba(27, 42, 107, 0.45)',
-          ['--ck-accent-shadow' as string]: escuro ? 'rgba(232, 82, 10, 0.18)' : 'rgba(27, 42, 107, 0.16)',
+          ['--ck-accent-soft' as string]: escuro ? 'rgba(255, 122, 61, 0.12)' : 'rgba(27, 42, 107, 0.1)',
+          ['--ck-accent-border' as string]: escuro ? 'rgba(255, 122, 61, 0.45)' : 'rgba(27, 42, 107, 0.45)',
+          ['--ck-accent-shadow' as string]: escuro ? 'rgba(255, 122, 61, 0.22)' : 'rgba(27, 42, 107, 0.16)',
         } as CSSProperties
       }
     >
@@ -1414,7 +1414,7 @@ export default function EscalaVisitasMobileView() {
                   </div>
                 )}
                 {podeEditarGrade && statusAtivo === 'pendente_aprovacao' && (
-                  <div className="ck-escala__empty" style={{ marginBottom: 12 }}>
+                  <div className="ck-escala__empty ck-escala__empty--pendente" style={{ marginBottom: 12 }}>
                     <strong>Enviada para aprovação</strong>
                     <p>O diretor já recebeu. Toque nas lojas para ajustar a sua escala e envie de novo se precisar.</p>
                   </div>
@@ -1877,7 +1877,14 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SaveIcon />}
                   disabled={salvando || pending.size === 0}
                   onClick={() => void salvar()}
-                  sx={{ flex: 1, bgcolor: NAVY, textTransform: 'none', fontWeight: 700 }}
+                  sx={{
+                    flex: 1,
+                    bgcolor: escuro ? ORANGE : NAVY,
+                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  }}
                 >
                   Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
                 </Button>
@@ -1889,7 +1896,14 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SaveIcon />}
                   disabled={salvando || (pendingManut.size === 0 && horariosManutLocal.size === 0)}
                   onClick={() => void salvarManutencaoAgenda()}
-                  sx={{ flex: 1, bgcolor: acento, textTransform: 'none', fontWeight: 700 }}
+                  sx={{
+                    flex: 1,
+                    bgcolor: acento,
+                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  }}
                 >
                   Salvar
                   {pendingManut.size > 0
@@ -1906,7 +1920,14 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SendIcon />}
                   disabled={salvando}
                   onClick={() => void enviarAprovacao()}
-                  sx={{ flex: 1, bgcolor: acento, textTransform: 'none', fontWeight: 700 }}
+                  sx={{
+                    flex: 1,
+                    bgcolor: acento,
+                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  }}
                 >
                   Enviar
                 </Button>
@@ -1918,7 +1939,14 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SendIcon />}
                   disabled={salvando}
                   onClick={() => void enviarDeliveryAprovacao()}
-                  sx={{ flex: 1, bgcolor: acento, textTransform: 'none', fontWeight: 700 }}
+                  sx={{
+                    flex: 1,
+                    bgcolor: acento,
+                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  }}
                 >
                   Enviar
                 </Button>
@@ -1927,8 +1955,22 @@ export default function EscalaVisitasMobileView() {
           ) : null}
       </div>
 
-      <Dialog open={Boolean(editor)} onClose={() => setEditor(null)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 0.5 }}>
+      <Dialog
+        open={Boolean(editor)}
+        onClose={() => setEditor(null)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: escuro ? '#111827' : '#fff',
+              color: escuro ? '#F8FAFC' : 'inherit',
+              backgroundImage: 'none',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: escuro ? '#F8FAFC' : NAVY, pb: 0.5 }}>
           Quem visita?
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
@@ -1962,8 +2004,8 @@ export default function EscalaVisitasMobileView() {
                     primary={primeiroNome(r.nome)}
                     secondary={r.nome}
                     slotProps={{
-                      primary: { sx: { fontWeight: 700, fontSize: '0.9rem' } },
-                      secondary: { sx: { fontSize: '0.72rem' } },
+                      primary: { sx: { fontWeight: 700, fontSize: '0.9rem', color: escuro ? '#F8FAFC' : 'inherit' } },
+                      secondary: { sx: { fontSize: '0.72rem', color: escuro ? '#94A3B8' : 'inherit' } },
                     }}
                   />
                 </ListItemButton>
@@ -1972,21 +2014,41 @@ export default function EscalaVisitasMobileView() {
           </List>
         </DialogContent>
         <DialogActions sx={{ px: 2, pb: 2 }}>
-          <Button onClick={() => setEditor(null)} sx={{ textTransform: 'none' }}>
+          <Button onClick={() => setEditor(null)} sx={{ textTransform: 'none', color: escuro ? '#94A3B8' : undefined }}>
             Cancelar
           </Button>
           <Button
             variant="contained"
             onClick={confirmarEditor}
-            sx={{ bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
+            sx={{
+              bgcolor: escuro ? ORANGE : NAVY,
+              '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+              color: '#fff',
+              textTransform: 'none',
+              fontWeight: 700,
+            }}
           >
             Aplicar
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={filtroRegiaoAberto} onClose={() => setFiltroRegiaoAberto(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+      <Dialog
+        open={filtroRegiaoAberto}
+        onClose={() => setFiltroRegiaoAberto(false)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: escuro ? '#111827' : '#fff',
+              color: escuro ? '#F8FAFC' : 'inherit',
+              backgroundImage: 'none',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: escuro ? '#F8FAFC' : NAVY, pb: 1 }}>
           Filtrar por região
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1 }}>
@@ -2003,7 +2065,7 @@ export default function EscalaVisitasMobileView() {
               </ListItemIcon>
               <ListItemText
                 primary="Todas as regiões"
-                slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem' } } }}
+                slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem', color: escuro ? '#F8FAFC' : 'inherit' } } }}
               />
             </ListItemButton>
           )}
@@ -2023,7 +2085,7 @@ export default function EscalaVisitasMobileView() {
                 </ListItemIcon>
                 <ListItemText
                   primary={r.nome}
-                  slotProps={{ primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' } } }}
+                  slotProps={{ primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem', color: escuro ? '#F8FAFC' : 'inherit' } } }}
                 />
               </ListItemButton>
             );

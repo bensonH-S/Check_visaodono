@@ -1356,7 +1356,7 @@ export default function FrotaLocalizacaoMap({
         elevation={mobile ? 0 : undefined}
         sx={{
           borderColor: mobile ? 'transparent' : mapaEscuroEfetivo ? 'transparent' : colors.border,
-          borderRadius: mobile ? 3 : 2,
+          borderRadius: mobile ? 0 : 2,
           overflow: 'hidden',
           position: 'relative',
           bgcolor: mobile ? 'transparent' : mapaEscuroEfetivo ? FROTA_MAPA_ESCURO_FUNDO : FROTA_MAPA_FUNDO,

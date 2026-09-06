@@ -35,6 +35,9 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import LanguageIcon from '@mui/icons-material/Language';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeVerEnergia, podeAbrirEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
+import { useAppTheme } from '../context/ThemeContext';
+import ThemeToggleButton from '../components/ThemeToggleButton';
+import { colors } from '../theme/tokens';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
@@ -52,8 +55,6 @@ import {
 } from '../context/ChecklistMobileUiContext';
 import ChecklistIonicRoot from '../components/checklist/ChecklistIonicRoot';
 
-const PAGE_BG = '#f5f5f3';
-const NAVY = '#1B2A6B';
 const ORANGE = '#E8520A';
 const TAB_NAV_H = 52;
 const ABAS_COM_SUBPAGINA = [
@@ -126,7 +127,7 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
 
   if (!lojas.length) {
     return (
-      <Typography variant="caption" sx={{ color: NAVY, fontWeight: 600 }}>
+      <Typography variant="caption" sx={{ color: colors.textPrimary, fontWeight: 600 }}>
         Unidade não informada
       </Typography>
     );
@@ -162,8 +163,8 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
           cursor: multiplas ? 'pointer' : 'default',
           borderRadius: 2,
           py: { xs: 0.25, sm: 0.25 },
-          bgcolor: multiplas && expandido ? 'rgba(27, 42, 107, 0.06)' : 'transparent',
-          '&:hover': multiplas ? { bgcolor: 'rgba(27, 42, 107, 0.06)' } : undefined,
+          bgcolor: multiplas && expandido ? colors.navyMuted : 'transparent',
+          '&:hover': multiplas ? { bgcolor: colors.navyMuted } : undefined,
         }}
       >
         <Box
@@ -182,7 +183,7 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
             variant="body2"
             component="span"
             sx={{
-              color: NAVY,
+              color: colors.textPrimary,
               fontWeight: 600,
               fontSize: { xs: '0.82rem', sm: '0.78rem' },
               lineHeight: 1.3,
@@ -203,8 +204,8 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
             mt: 0.75,
             zIndex: 70,
             borderRadius: 2,
-            border: '1px solid rgba(27, 42, 107, 0.15)',
-            bgcolor: '#fff',
+            border: `1px solid ${colors.navyBorder}`,
+            bgcolor: colors.surface,
             maxHeight: 'min(50dvh, 320px)',
             overflowY: 'auto',
             overscrollBehavior: 'contain',
@@ -249,9 +250,9 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
                   minHeight: { xs: 48, sm: 44 },
                   cursor: 'pointer',
                   bgcolor: ativa ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
-                  borderBottom: '1px solid rgba(27, 42, 107, 0.08)',
+                  borderBottom: `1px solid ${colors.border}`,
                   '&:last-child': { borderBottom: 'none' },
-                  '&:hover': { bgcolor: ativa ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.04)' },
+                  '&:hover': { bgcolor: ativa ? 'rgba(232, 82, 10, 0.12)' : colors.navyMuted },
                 }}
               >
                 <LocationOnOutlinedIcon
@@ -267,7 +268,7 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
                   sx={{
                     fontWeight: ativa ? 700 : 600,
                     fontSize: { xs: '0.875rem', sm: '0.8rem' },
-                    color: ativa ? NAVY : 'text.secondary',
+                    color: ativa ? colors.textPrimary : colors.textSecondary,
                     lineHeight: 1.4,
                     textAlign: 'left',
                     flex: 1,
@@ -288,6 +289,9 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
 }
 
 function ChamadosMobileLayoutInner() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? ORANGE : '#1B2A6B';
   const navigate = useNavigate();
   const location = useLocation();
   const appConfig = useAppConfig();
@@ -677,7 +681,7 @@ function ChamadosMobileLayoutInner() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        bgcolor: PAGE_BG,
+        bgcolor: colors.canvas,
         /* Tab bar é position:fixed — reserva a faixa no fluxo p/ o CTA não ficar por baixo */
         pb: isChecklistStart && mostrarTabs ? tabBarOffsetCss : 0,
         ['--app-tabbar-offset' as string]: tabBarOffsetCss,
@@ -685,7 +689,7 @@ function ChamadosMobileLayoutInner() {
     >
       <PwaInstallDialog />
       <PwaUpdateBanner />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
+      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && !isPortais && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -693,16 +697,17 @@ function ChamadosMobileLayoutInner() {
           position: 'relative',
           zIndex: 30,
           flexShrink: 0,
-          bgcolor: PAGE_BG,
+          bgcolor: colors.canvas,
+          borderBottom: `1px solid ${colors.border}`,
           ...safeAreaX(16),
           pt: safeAreaTopPadding(8),
-          pb: 0.25,
+          pb: 0.5,
           boxShadow: 'none',
           overflow: 'visible',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: 1 }}>
             {temBotaoVoltar && (
               <IconButton
                 type="button"
@@ -712,15 +717,20 @@ function ChamadosMobileLayoutInner() {
                   navigate(rotaVoltarMobile(), { replace: true });
                 }}
                 aria-label="Voltar"
-                sx={{ color: NAVY, ml: -0.5, flexShrink: 0 }}
+                sx={{ color: acento, ml: -0.5, flexShrink: 0 }}
               >
                 <ArrowBackIcon fontSize="small" />
               </IconButton>
             )}
             <BrandLogo
               variante="icone"
-              maxWidth={temBotaoVoltar ? 64 : 72}
+              maxWidth={temBotaoVoltar ? 60 : 68}
               sx={{ flexShrink: 0 }}
+            />
+            {/* Toggle de tema ao lado da logo */}
+            <ThemeToggleButton
+              size="small"
+              color={escuro ? '#f59e0b' : colors.textPrimary}
             />
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
@@ -756,8 +766,8 @@ function ChamadosMobileLayoutInner() {
               px: 1,
               py: 0.5,
               borderRadius: 1.5,
-              bgcolor: 'rgba(27, 42, 107, 0.04)',
-              border: '1px solid rgba(27, 42, 107, 0.08)',
+              bgcolor: escuro ? 'rgba(232, 82, 10, 0.08)' : 'rgba(27, 42, 107, 0.04)',
+              border: `1px solid ${colors.navyBorder}`,
             }}
           >
             <SeletorLocalizacao user={user} />
@@ -803,7 +813,7 @@ function ChamadosMobileLayoutInner() {
           },
         }}
       >
-        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && (
+        {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && !isPortais && (
         <Box
           sx={{
             position: 'relative',
@@ -839,7 +849,8 @@ function ChamadosMobileLayoutInner() {
             isEstoqueImmersive ||
             isFreelancersImmersive ||
             isChamadosImmersive ||
-            isMapa
+            isMapa ||
+            isPortais
               ? MOBILE_PAGE_COLUMN
               : MOBILE_SCROLL_AREA),
             ...(isVisitas ||
@@ -851,7 +862,8 @@ function ChamadosMobileLayoutInner() {
             isEstoqueImmersive ||
             isFreelancersImmersive ||
             isChamadosImmersive ||
-            isMapa
+            isMapa ||
+            isPortais
               ? { px: 0 }
               : safeAreaX(16)),
             pb:
@@ -864,7 +876,8 @@ function ChamadosMobileLayoutInner() {
               isEstoqueImmersive ||
               isFreelancersImmersive ||
               isChamadosImmersive ||
-              isMapa
+              isMapa ||
+              isPortais
                 ? 0
                 : safeAreaBottomCalc(rodapeTotalH + 16),
           }}
@@ -885,7 +898,7 @@ function ChamadosMobileLayoutInner() {
       </Box>
       )}
 
-      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && !isFreelancersAprovacao && !isEstoque && !isNc && !isEnergia && (
+      {podeAbrir && !isSubPage && !isChecklist && !isFrota && !isVisitas && !isEscalaVisitas && !isRelatorio && !isMapa && !isFreelancersAprovacao && !isEstoque && !isNc && !isEnergia && !isPortais && (
         <Fab
           aria-label="Abrir novo chamado"
           onClick={() => navigate('/chamados/mobile/novo')}
@@ -894,10 +907,10 @@ function ChamadosMobileLayoutInner() {
             right: safeAreaRightCalc(20),
             bottom: safeAreaBottomCalc(rodapeTotalH + 16),
             zIndex: 40,
-            bgcolor: '#E8520A',
+            bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
             color: '#fff',
-            boxShadow: '0 6px 20px rgba(232, 82, 10, 0.42)',
-            '&:hover': { bgcolor: '#d14a09' },
+            boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
+            '&:hover': { bgcolor: escuro ? '#d14a09' : '#152255' },
           }}
         >
           <AddIcon />
@@ -913,10 +926,10 @@ function ChamadosMobileLayoutInner() {
             right: safeAreaRightCalc(20),
             bottom: safeAreaBottomCalc(rodapeTotalH + 16),
             zIndex: 40,
-            bgcolor: '#E8520A',
+            bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
             color: '#fff',
-            boxShadow: '0 6px 20px rgba(232, 82, 10, 0.42)',
-            '&:hover': { bgcolor: '#d14a09' },
+            boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
+            '&:hover': { bgcolor: escuro ? '#d14a09' : '#152255' },
           }}
         >
           <AddIcon />
@@ -948,7 +961,7 @@ function ChamadosMobileLayoutInner() {
                 ? ['/escalas/visitas/mobile', '/checklist/mobile', '/visitas/mobile']
                 : ['/checklist/mobile', '/chamados/mobile', '/frota/mobile']
           }
-          accent={ORANGE}
+          accent={acento}
           tabHeight={TAB_NAV_H}
           fontSize={modoRestrito ? '0.7rem' : '0.625rem'}
           iconSize={modoRestrito ? 24 : 22}

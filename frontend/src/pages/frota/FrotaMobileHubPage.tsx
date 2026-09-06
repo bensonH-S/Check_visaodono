@@ -153,10 +153,10 @@ export default function FrotaMobileHubPage() {
           style={{
             borderStyle: 'dashed',
             borderColor: 'rgba(232, 82, 10, 0.4)',
-            background: 'rgba(232, 82, 10, 0.04)',
+            background: 'rgba(232, 82, 10, 0.05)',
           }}
         >
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(20, 32, 72, 0.65)', lineHeight: 1.4 }}>
+          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--ga-text-secondary)', lineHeight: 1.4 }}>
             {msgSemVeiculo}
           </p>
         </div>
@@ -222,7 +222,7 @@ export default function FrotaMobileHubPage() {
               style={{
                 margin: '0 0 6px',
                 fontSize: '0.8rem',
-                color: 'rgba(20, 32, 72, 0.55)',
+                color: 'var(--ga-text-secondary)',
                 fontWeight: 500,
               }}
             >

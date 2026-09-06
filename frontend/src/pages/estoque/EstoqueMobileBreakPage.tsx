@@ -21,6 +21,7 @@ import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
 import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
+import { useAppTheme } from '../../context/ThemeContext';
 import {
   fracionadaInteira,
   rotuloCampoFracionado,
@@ -176,6 +177,8 @@ function preferenciaLojaInicial(rows: Loja[]): number | null {
 }
 
 export default function EstoqueMobileBreakPage() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
   const user = getUsuario();
   const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
@@ -1278,10 +1281,10 @@ export default function EstoqueMobileBreakPage() {
             right: safeAreaRightCalc(20),
             bottom: 'calc(16px + var(--app-tabbar-offset, 58px))',
             zIndex: 40,
-            bgcolor: '#E8520A',
+            bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
             color: '#fff',
-            boxShadow: '0 6px 20px rgba(232, 82, 10, 0.42)',
-            '&:hover': { bgcolor: '#d14a09' },
+            boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
+            '&:hover': { bgcolor: escuro ? '#ea580c' : '#142048' },
           }}
         >
           <AddIcon />
