@@ -42,6 +42,10 @@ backend/scripts/_op_*.mjs
 !backend/scripts/_op_alinhar_mensal_setembro.mjs
 !backend/scripts/_op_alinhar_mensal_sem_codigo.mjs
 backend/scripts/_recon_*.mjs
+backend/scripts/_out_*/
+backend/scripts/_out_*.json
+backend/scripts/_q_*.mjs
+backend/_q_*.mjs
 backend/scripts/diag-*.mjs
 backend/scripts/dump-*.mjs
 backend/scripts/aplicar-*.mjs
