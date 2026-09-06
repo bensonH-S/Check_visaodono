@@ -1418,6 +1418,15 @@ export async function ajustarSaldoPorContagem(client, idContagem, criado_por = n
 let schemaBreakCadernoOk = false;
 
 export async function garantirSchemaBreakCaderno(client) {
+  // Sempre tenta a coluna de avisos (deploy quente / flag antiga em memória).
+  try {
+    await client.query(`
+      ALTER TABLE estoque_break
+        ADD COLUMN IF NOT EXISTS avisos_baixa TEXT
+    `);
+  } catch {
+    /* ok */
+  }
   if (schemaBreakCadernoOk) return;
   try {
     await client.query(`
@@ -1427,7 +1436,8 @@ export async function garantirSchemaBreakCaderno(client) {
         ADD COLUMN IF NOT EXISTS motivo_codigo TEXT,
         ADD COLUMN IF NOT EXISTS recebimento_status TEXT,
         ADD COLUMN IF NOT EXISTS recebido_por INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
-        ADD COLUMN IF NOT EXISTS recebido_em TIMESTAMPTZ
+        ADD COLUMN IF NOT EXISTS recebido_em TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS avisos_baixa TEXT
     `);
     await client.query(`
       ALTER TABLE estoque_break_itens
@@ -1714,7 +1724,8 @@ export async function lancarBreak(
     );
     const idBreak = br[0].id_break;
     const baixas = [];
-    const erros = [];
+    const avisos = [];
+    let itensLancados = 0;
 
     for (const raw of itens) {
       const qtde = num(raw.quantidade);
@@ -1770,6 +1781,7 @@ export async function lancarBreak(
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [idBreak, idInsumo, codigo, descricao, qtdeBaixa, calc.cx, calc.pc, calc.kg],
         );
+        itensLancados += 1;
         const mov = await aplicarMovimento(client, {
           id_loja,
           id_insumo: idInsumo,
@@ -1810,6 +1822,8 @@ export async function lancarBreak(
            VALUES ($1,$2,$3,$4,$5)`,
           [idBreak, pv.id_produto, codigoVenda, pv.descricao, qtde],
         );
+        itensLancados += 1;
+        // Não bloqueia o caderno: baixa o que der, grava pendência/aviso do que falhar.
         const result = await baixarPorProdutoVenda(client, {
           id_loja,
           codigo_venda: codigoVenda,
@@ -1819,27 +1833,41 @@ export async function lancarBreak(
           referencia_id: idBreak,
           observacao: motivo || `Break #${idBreak} — ${codigoVenda}`,
           criado_por,
-          rigido: true,
+          rigido: false,
         });
         if (result.sem_ficha) {
-          throw Object.assign(new Error(`Sem ficha para ${codigoVenda}`), {
-            status: 400,
-            codigo: codigoVenda,
-          });
+          avisos.push(`Sem ficha para ${codigoVenda} — lançado; estoque desse item fica pendente`);
+        } else if (result.erros?.length) {
+          for (const err of result.erros) {
+            avisos.push(`${codigoVenda}: ${err}`);
+          }
         }
-        if (result.erros.length) {
-          throw Object.assign(new Error(result.erros.join('; ')), { status: 400 });
-        }
-        baixas.push(...result.baixas);
+        if (result.baixas?.length) baixas.push(...result.baixas);
       }
     }
 
-    if (!baixas.length) {
+    if (!itensLancados) {
       throw Object.assign(new Error('Informe ao menos um item para o break'), { status: 400 });
     }
 
+    let breakRow = br[0];
+    if (avisos.length) {
+      const texto = avisos.join('\n');
+      const { rows: upd } = await client.query(
+        `UPDATE estoque_break SET avisos_baixa = $1 WHERE id_break = $2 RETURNING *`,
+        [texto, idBreak],
+      );
+      breakRow = upd[0] || { ...br[0], avisos_baixa: texto };
+    }
+
     if (ownClient) await client.query('COMMIT');
-    return { break: br[0], baixas, erros };
+    return {
+      break: breakRow,
+      baixas,
+      erros: avisos,
+      avisos,
+      parcial: avisos.length > 0,
+    };
   } catch (e) {
     if (ownClient) await client.query('ROLLBACK').catch(() => {});
     throw e;

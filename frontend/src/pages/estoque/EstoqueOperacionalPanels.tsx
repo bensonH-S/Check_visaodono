@@ -3732,7 +3732,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     setSalvando(true);
     try {
       const motivoNome = motivos.find((m) => m.codigo === motivoCodigo)?.nome;
-      await api.estoqueLancarBreak({
+      const result = await api.estoqueLancarBreak({
         id_loja: idLoja,
         data_break: dataBreak,
         tipo: kind,
@@ -3756,12 +3756,21 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             : { codigo_venda: codigo.trim(), quantidade },
         ],
       });
-      showToast(
-        kind === 'emprestimo'
-          ? 'Empréstimo enviado — a outra loja confirma o recebimento'
-          : `${labelTipoBreak(kind)} lançado — estoque baixado`,
-        'success',
-      );
+      const avisos = result.avisos?.length ? result.avisos : result.erros || [];
+      if (avisos.length) {
+        showToast(
+          `Lançado. Pendência de estoque: ${avisos[0]}${avisos.length > 1 ? ` (+${avisos.length - 1})` : ''}`,
+          'warning',
+          { autoClose: 6000 },
+        );
+      } else {
+        showToast(
+          kind === 'emprestimo'
+            ? 'Empréstimo enviado — a outra loja confirma o recebimento'
+            : `${labelTipoBreak(kind)} lançado — estoque baixado`,
+          'success',
+        );
+      }
       setOpen(false);
       resetForm();
       await carregar();
@@ -3801,7 +3810,8 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             Break
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, maxWidth: 560 }}>
-            Break e desperdício baixam na hora. Empréstimo sai da origem na hora e só entra no estoque da outra loja depois do OK.
+            Break e desperdício baixam o que der na hora. Se faltar ficha ou conversão, o lançamento
+            segue e a pendência fica registrada para corrigir depois.
           </Typography>
         </Box>
         <Button
@@ -3872,6 +3882,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                 <TableCell>Turno</TableCell>
                 <TableCell>Colaborador / destino</TableCell>
                 <TableCell>Motivo</TableCell>
+                <TableCell>Estoque</TableCell>
                 <TableCell align="right">Itens</TableCell>
                 <TableCell>Lançado por</TableCell>
               </TableRow>
@@ -3898,13 +3909,22 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                       : b.colaborador_nome || '—'}
                   </TableCell>
                   <TableCell>{b.motivo || '—'}</TableCell>
+                  <TableCell sx={{ maxWidth: 220, fontSize: '0.75rem' }}>
+                    {b.avisos_baixa ? (
+                      <Typography component="span" sx={{ color: '#B42318', fontWeight: 700, fontSize: '0.75rem' }}>
+                        Parcial: {String(b.avisos_baixa).split('\n')[0]}
+                      </Typography>
+                    ) : (
+                      'OK'
+                    )}
+                  </TableCell>
                   <TableCell align="right">{b.itens ?? 0}</TableCell>
                   <TableCell>{b.criado_por_nome || '—'}</TableCell>
                 </TableRow>
               ))}
               {!lista.length && (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={8}>
                     <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
                       Nenhum break lançado
                     </Typography>

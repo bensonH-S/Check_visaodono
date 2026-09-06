@@ -566,7 +566,7 @@ export default function EstoqueMobileBreakPage() {
     setSalvando(true);
     try {
       const motivoNome = motivos.find((m) => m.codigo === motivoCodigo)?.nome || undefined;
-      await api.estoqueLancarBreak({
+      const result = await api.estoqueLancarBreak({
         id_loja: idLoja,
         data_break: dataBreak,
         tipo: kind,
@@ -595,14 +595,23 @@ export default function EstoqueMobileBreakPage() {
           };
         }),
       });
-      showToast(
-        kind === 'emprestimo'
-          ? 'Empréstimo enviado — a outra loja confirma o recebimento'
-          : kind === 'refeicao'
-            ? `Break lançado — ${itens.length} item(ns) baixados`
-            : `${labelTipo(kind)} lançado`,
-        'success',
-      );
+      const avisos = result.avisos?.length ? result.avisos : result.erros || [];
+      if (avisos.length) {
+        showToast(
+          `Lançado. Pendência de estoque: ${avisos[0]}${avisos.length > 1 ? ` (+${avisos.length - 1})` : ''}`,
+          'warning',
+          { autoClose: 6000 },
+        );
+      } else {
+        showToast(
+          kind === 'emprestimo'
+            ? 'Empréstimo enviado — a outra loja confirma o recebimento'
+            : kind === 'refeicao'
+              ? `Break lançado — ${itens.length} item(ns) baixados`
+              : `${labelTipo(kind)} lançado`,
+          'success',
+        );
+      }
       fecharForm();
       await carregar(idLoja);
     } catch (e) {
@@ -1260,7 +1269,17 @@ export default function EstoqueMobileBreakPage() {
                       {b.criado_em ? (
                         <span className="ck-estoque__chip">{fmtDataHora(b.criado_em)}</span>
                       ) : null}
+                      {b.avisos_baixa ? (
+                        <span className="ck-estoque__chip" style={{ color: '#B42318', fontWeight: 700 }}>
+                          Estoque parcial — ver aba Baixa
+                        </span>
+                      ) : null}
                     </div>
+                    {b.avisos_baixa ? (
+                      <div className="ck-estoque__meta" style={{ color: '#B42318', marginTop: 4 }}>
+                        {String(b.avisos_baixa).split('\n')[0]}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
             </>

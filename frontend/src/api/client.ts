@@ -1350,7 +1350,13 @@ export const api = {
       contagem_kg_und?: number | null;
     }>;
   }) =>
-    request<{ break: EstoqueBreakResumo; baixas: unknown[]; erros: string[] }>('/estoque/break', {
+    request<{
+      break: EstoqueBreakResumo;
+      baixas: unknown[];
+      erros: string[];
+      avisos?: string[];
+      parcial?: boolean;
+    }>('/estoque/break', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -3444,6 +3450,8 @@ export interface EstoqueBreakResumo {
   recebido_em?: string | null;
   criado_por_nome?: string | null;
   criado_em?: string;
+  /** Pendências de estoque (ficha/conversão/cadastro) — lançamento foi aceito. */
+  avisos_baixa?: string | null;
 }
 
 export interface EstoqueEmprestimoItem {
