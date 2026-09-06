@@ -1418,11 +1418,25 @@ export async function ajustarSaldoPorContagem(client, idContagem, criado_por = n
 let schemaBreakCadernoOk = false;
 
 export async function garantirSchemaBreakCaderno(client) {
-  // Sempre tenta a coluna de avisos (deploy quente / flag antiga em memória).
+  // Sempre tenta colunas novas (deploy quente / flag antiga em memória).
   try {
     await client.query(`
       ALTER TABLE estoque_break
-        ADD COLUMN IF NOT EXISTS avisos_baixa TEXT
+        ADD COLUMN IF NOT EXISTS avisos_baixa TEXT,
+        ADD COLUMN IF NOT EXISTS devolvido_por INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS devolvido_em TIMESTAMPTZ
+    `);
+  } catch {
+    /* ok */
+  }
+  try {
+    await client.query(
+      `ALTER TABLE estoque_break DROP CONSTRAINT IF EXISTS estoque_break_recebimento_status_check`,
+    );
+    await client.query(`
+      ALTER TABLE estoque_break
+        ADD CONSTRAINT estoque_break_recebimento_status_check
+        CHECK (recebimento_status IS NULL OR recebimento_status IN ('pendente', 'recebido', 'devolvido', 'cancelado'))
     `);
   } catch {
     /* ok */
@@ -1460,12 +1474,22 @@ export async function garantirSchemaBreakCaderno(client) {
     await client.query(`
       ALTER TABLE estoque_break
         ADD CONSTRAINT estoque_break_recebimento_status_check
-        CHECK (recebimento_status IS NULL OR recebimento_status IN ('pendente', 'recebido'))
+        CHECK (recebimento_status IS NULL OR recebimento_status IN ('pendente', 'recebido', 'devolvido', 'cancelado'))
+    `);
+    await client.query(`
+      ALTER TABLE estoque_break
+        ADD COLUMN IF NOT EXISTS devolvido_por INTEGER REFERENCES usuarios(id_usuario) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS devolvido_em TIMESTAMPTZ
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_estoque_break_receber
         ON estoque_break (id_loja_destino, recebimento_status)
         WHERE tipo = 'emprestimo' AND recebimento_status = 'pendente'
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_estoque_break_devolver
+        ON estoque_break (id_loja_destino, recebimento_status)
+        WHERE tipo = 'emprestimo' AND recebimento_status = 'recebido'
     `);
   } catch {
     /* coluna/constraint já existem */
@@ -1919,6 +1943,50 @@ export async function listarEmprestimosAReceber(idLojaDestino) {
   }));
 }
 
+/** Empréstimos já recebidos nesta loja e ainda não devolvidos. */
+export async function listarEmprestimosADevolver(idLojaDestino) {
+  await garantirSchemaBreakCaderno(pool);
+  const { rows } = await pool.query(
+    `SELECT b.id_break, b.data_break, b.criado_em, b.recebido_em, b.recebimento_status,
+            b.id_loja AS id_loja_origem,
+            lo.name AS loja_origem_nome,
+            lo.bk_number AS loja_origem_bk,
+            u.nome AS criado_por_nome,
+            COALESCE(
+              json_agg(
+                json_build_object(
+                  'codigo', i.codigo,
+                  'descricao', i.descricao,
+                  'quantidade', i.quantidade,
+                  'contagem_caixa', i.contagem_caixa,
+                  'contagem_pc_fd', i.contagem_pc_fd,
+                  'contagem_kg_und', i.contagem_kg_und
+                ) ORDER BY i.id_item
+              ) FILTER (WHERE i.id_item IS NOT NULL),
+              '[]'::json
+            ) AS itens
+     FROM estoque_break b
+     JOIN lojas lo ON lo.id_loja = b.id_loja
+     LEFT JOIN usuarios u ON u.id_usuario = b.criado_por
+     LEFT JOIN estoque_break_itens i ON i.id_break = b.id_break
+     WHERE b.tipo = 'emprestimo'
+       AND b.id_loja_destino = $1
+       AND b.recebimento_status = 'recebido'
+     GROUP BY b.id_break, lo.name, lo.bk_number, u.nome
+     ORDER BY COALESCE(b.recebido_em, b.criado_em) DESC
+     LIMIT 50`,
+    [idLojaDestino],
+  );
+  return rows.map((row) => ({
+    ...row,
+    itens: Array.isArray(row.itens)
+      ? row.itens
+      : typeof row.itens === 'string'
+        ? JSON.parse(row.itens)
+        : [],
+  }));
+}
+
 export async function confirmarRecebimentoEmprestimo({
   id_break,
   id_loja_destino,
@@ -2027,6 +2095,149 @@ export async function confirmarRecebimentoEmprestimo({
 
     await client.query('COMMIT');
     return { break: upd[0], entradas };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Devolve empréstimo já recebido: sai do estoque da loja destino e volta para a origem.
+ */
+export async function devolverEmprestimo({
+  id_break,
+  id_loja_destino,
+  devolvido_por = null,
+}) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await garantirSchemaBreakCaderno(client);
+
+    const { rows: br } = await client.query(
+      `SELECT * FROM estoque_break WHERE id_break = $1 FOR UPDATE`,
+      [id_break],
+    );
+    const emp = br[0];
+    if (!emp || emp.tipo !== 'emprestimo') {
+      throw Object.assign(new Error('Empréstimo não encontrado'), { status: 404 });
+    }
+    if (Number(emp.id_loja_destino) !== Number(id_loja_destino)) {
+      throw Object.assign(new Error('Só a loja que recebeu pode devolver'), { status: 403 });
+    }
+    if (emp.recebimento_status === 'devolvido') {
+      throw Object.assign(new Error('Este empréstimo já foi devolvido'), { status: 409 });
+    }
+    if (emp.recebimento_status !== 'recebido') {
+      throw Object.assign(
+        new Error('Só dá para devolver depois de confirmar o recebimento'),
+        { status: 400 },
+      );
+    }
+
+    const { rows: lojas } = await client.query(
+      `SELECT id_loja, name, bk_number FROM lojas WHERE id_loja IN ($1, $2)`,
+      [emp.id_loja, id_loja_destino],
+    );
+    const rotulo = (id) => {
+      const l = lojas.find((x) => Number(x.id_loja) === Number(id));
+      return l ? `${l.bk_number ? `${l.bk_number} · ` : ''}${l.name}` : `loja ${id}`;
+    };
+
+    const { rows: itens } = await client.query(
+      `SELECT * FROM estoque_break_itens WHERE id_break = $1 ORDER BY id_item`,
+      [id_break],
+    );
+    if (!itens.length) {
+      throw Object.assign(new Error('Empréstimo sem itens'), { status: 400 });
+    }
+
+    const movimentos = [];
+    for (const item of itens) {
+      const codigo = item.codigo;
+      const dest = codigo
+        ? await resolverInsumoPorCodigo(client, id_loja_destino, codigo)
+        : null;
+      const orig = codigo ? await resolverInsumoPorCodigo(client, emp.id_loja, codigo) : null;
+      if (!dest) {
+        throw Object.assign(
+          new Error(`SKU ${codigo || '—'} não cadastrado nesta loja para devolver.`),
+          { status: 400 },
+        );
+      }
+      if (!orig) {
+        throw Object.assign(
+          new Error(`SKU ${codigo || '—'} não cadastrado na loja de origem para receber a devolução.`),
+          { status: 400 },
+        );
+      }
+
+      const fatDest = await carregarFatoresInsumo(client, dest.id_insumo);
+      if (!fatDest) {
+        throw Object.assign(
+          new Error(`SKU ${codigo || '—'} sem cadastro de fatores nesta loja.`),
+          { status: 400, codigo },
+        );
+      }
+      let qtde;
+      if (temCamposFisicosBreak(item)) {
+        const calc = await resolverQtdOperacionalInsumo(client, fatDest, {
+          contagem_caixa: item.contagem_caixa,
+          contagem_pc_fd: item.contagem_pc_fd,
+          contagem_kg_und: item.contagem_kg_und,
+        });
+        qtde = calc.qtd;
+      } else {
+        qtde = num(item.quantidade);
+      }
+      if (!(qtde > 0)) continue;
+
+      const sai = await aplicarMovimento(client, {
+        id_loja: id_loja_destino,
+        id_insumo: dest.id_insumo,
+        tipo: 'ajuste',
+        quantidade: -qtde,
+        referencia_tipo: 'estoque_break',
+        referencia_id: id_break,
+        observacao: `Devolução empréstimo #${id_break} → ${rotulo(emp.id_loja)}`,
+        criado_por: devolvido_por,
+      });
+      const volta = await aplicarMovimento(client, {
+        id_loja: emp.id_loja,
+        id_insumo: orig.id_insumo,
+        tipo: 'ajuste',
+        quantidade: qtde,
+        referencia_tipo: 'estoque_break',
+        referencia_id: id_break,
+        observacao: `Devolução empréstimo #${id_break} de ${rotulo(id_loja_destino)}`,
+        criado_por: devolvido_por,
+      });
+      movimentos.push({
+        codigo,
+        quantidade: qtde,
+        saldo_destino: sai.saldo_apos,
+        saldo_origem: volta.saldo_apos,
+      });
+    }
+
+    if (!movimentos.length) {
+      throw Object.assign(new Error('Empréstimo sem quantidade para devolver'), { status: 400 });
+    }
+
+    const { rows: upd } = await client.query(
+      `UPDATE estoque_break
+       SET recebimento_status = 'devolvido',
+           devolvido_por = $2,
+           devolvido_em = NOW()
+       WHERE id_break = $1
+       RETURNING *`,
+      [id_break, devolvido_por],
+    );
+
+    await client.query('COMMIT');
+    return { break: upd[0], movimentos };
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     throw e;

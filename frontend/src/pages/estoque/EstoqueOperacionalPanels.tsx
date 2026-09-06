@@ -3606,6 +3606,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const [pcEmp, setPcEmp] = useState('');
   const [kgEmp, setKgEmp] = useState('');
   const [aReceber, setAReceber] = useState<EstoqueEmprestimoAReceber[]>([]);
+  const [aDevolver, setADevolver] = useState<EstoqueEmprestimoAReceber[]>([]);
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
   const usaInsumo = kind === 'desperdicio_incompleto' || kind === 'emprestimo';
   const exigeColab = kind === 'refeicao';
@@ -3624,17 +3625,19 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const [breaks, cols, cat, lojasRows, pendentes] = await Promise.all([
+      const [breaks, cols, cat, lojasRows, pendentes, devolver] = await Promise.all([
         api.estoqueBreaks(idLoja),
         api.estoqueBreakColaboradores(idLoja),
         api.estoqueBreakCatalogo(idLoja, 'refeicao'),
         api.estoqueLojasDestinoEmprestimo().catch(() => [] as Loja[]),
         api.estoqueEmprestimosAReceber(idLoja).catch(() => [] as EstoqueEmprestimoAReceber[]),
+        api.estoqueEmprestimosADevolver(idLoja).catch(() => [] as EstoqueEmprestimoAReceber[]),
       ]);
       setLista(breaks);
       setColaboradores(cols);
       setLojasDestino(lojasRows);
       setAReceber(pendentes);
+      setADevolver(devolver);
       setProdutosVenda((cat.produtos || []).filter((p) => p.ativo !== false));
       setInsumos((cat.insumos || []).filter((p) => p.ativo !== false));
       setMotivos(cat.motivos || []);
@@ -3794,6 +3797,19 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     }
   };
 
+  const confirmarDevolucao = async (idBreak: number) => {
+    setConfirmandoId(idBreak);
+    try {
+      await api.estoqueDevolverEmprestimo(idBreak, idLoja);
+      showToast('Devolução ok — saiu daqui e voltou pra loja de origem');
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível devolver', 'error');
+    } finally {
+      setConfirmandoId(null);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -3872,6 +3888,54 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
         </Paper>
       )}
 
+      {aDevolver.length > 0 && (
+        <Paper sx={{ ...tablePaperSx, p: 2, border: '1px solid #0f1a45' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: colors.navy }}>
+            Empréstimos para devolver
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            Itens que esta loja pegou emprestado e ainda não devolveu.
+          </Typography>
+          {aDevolver.map((emp) => (
+            <Box
+              key={emp.id_break}
+              sx={{
+                display: 'flex',
+                gap: 1.5,
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                py: 1,
+                borderTop: '1px solid rgba(15,26,69,0.08)',
+              }}
+            >
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Devolver para {emp.loja_origem_bk ? `${emp.loja_origem_bk} · ` : ''}
+                  {emp.loja_origem_nome || 'loja de origem'}
+                </Typography>
+                {(emp.itens || []).map((it, idx) => (
+                  <Typography key={idx} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    {it.codigo} · {it.descricao}
+                    {it.contagem_pc_fd != null ? ` · ${it.contagem_pc_fd} pct` : ''}
+                    {it.contagem_caixa != null ? ` · ${it.contagem_caixa} cx` : ''}
+                    {it.contagem_kg_und != null ? ` · ${it.contagem_kg_und} kg/und` : ''}
+                  </Typography>
+                ))}
+              </Box>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={confirmandoId === emp.id_break}
+                onClick={() => void confirmarDevolucao(emp.id_break)}
+                sx={{ bgcolor: colors.navy, '&:hover': { bgcolor: '#152056' }, flexShrink: 0 }}
+              >
+                {confirmandoId === emp.id_break ? '…' : 'Devolver'}
+              </Button>
+            </Box>
+          ))}
+        </Paper>
+      )}
+
       <Paper sx={tablePaperSx}>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>
@@ -3904,7 +3968,9 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                             ? ' · aguardando'
                             : b.recebimento_status === 'recebido'
                               ? ' · recebido'
-                              : ''
+                              : b.recebimento_status === 'devolvido'
+                                ? ' · devolvido'
+                                : ''
                         }`
                       : b.colaborador_nome || '—'}
                   </TableCell>

@@ -1315,8 +1315,15 @@ export const api = {
     request<Loja[]>('/estoque/break/lojas-destino'),
   estoqueEmprestimosAReceber: (idLoja: number) =>
     request<EstoqueEmprestimoAReceber[]>(`/estoque/break/a-receber?id_loja=${idLoja}`),
+  estoqueEmprestimosADevolver: (idLoja: number) =>
+    request<EstoqueEmprestimoAReceber[]>(`/estoque/break/a-devolver?id_loja=${idLoja}`),
   estoqueConfirmarRecebimentoEmprestimo: (idBreak: number, idLoja: number) =>
     request<{ break: EstoqueBreakResumo; entradas: unknown[] }>(`/estoque/break/${idBreak}/receber`, {
+      method: 'POST',
+      body: JSON.stringify({ id_loja: idLoja }),
+    }),
+  estoqueDevolverEmprestimo: (idBreak: number, idLoja: number) =>
+    request<{ break: EstoqueBreakResumo; movimentos: unknown[] }>(`/estoque/break/${idBreak}/devolver`, {
       method: 'POST',
       body: JSON.stringify({ id_loja: idLoja }),
     }),
@@ -3461,6 +3468,7 @@ export interface EstoqueBreakResumo {
   loja_destino_bk?: string | null;
   recebimento_status?: string | null;
   recebido_em?: string | null;
+  devolvido_em?: string | null;
   criado_por_nome?: string | null;
   criado_em?: string;
   /** Pendências de estoque (ficha/conversão/cadastro) — lançamento foi aceito. */
@@ -3480,6 +3488,7 @@ export interface EstoqueEmprestimoAReceber {
   id_break: number;
   data_break: string;
   criado_em?: string;
+  recebido_em?: string;
   recebimento_status?: string | null;
   id_loja_origem: number;
   loja_origem_nome?: string | null;

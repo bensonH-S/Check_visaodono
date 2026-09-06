@@ -195,6 +195,7 @@ export default function EstoqueMobileBreakPage() {
   );
   const [lista, setLista] = useState<EstoqueBreakResumo[]>([]);
   const [aReceber, setAReceber] = useState<EstoqueEmprestimoAReceber[]>([]);
+  const [aDevolver, setADevolver] = useState<EstoqueEmprestimoAReceber[]>([]);
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -297,15 +298,17 @@ export default function EstoqueMobileBreakPage() {
     setLoading(true);
     setErr('');
     try {
-      const [breaks, cols, resumo, pendentes] = await Promise.all([
+      const [breaks, cols, resumo, pendentes, devolver] = await Promise.all([
         api.estoqueBreaks(lojaId),
         api.estoqueBreakColaboradores(lojaId),
         api.estoqueResumoMes(lojaId).catch(() => null),
         api.estoqueEmprestimosAReceber(lojaId).catch(() => [] as EstoqueEmprestimoAReceber[]),
+        api.estoqueEmprestimosADevolver(lojaId).catch(() => [] as EstoqueEmprestimoAReceber[]),
       ]);
       setLista(breaks);
       setColaboradores(cols);
       setAReceber(pendentes);
+      setADevolver(devolver);
       setResumoMes(
         resumo
           ? { valor_break_mes: resumo.valor_break_mes, valor_desperdicio_mes: resumo.valor_desperdicio_mes }
@@ -524,6 +527,20 @@ export default function EstoqueMobileBreakPage() {
       await carregar(idLoja);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Não foi possível confirmar', 'error');
+    } finally {
+      setConfirmandoId(null);
+    }
+  };
+
+  const confirmarDevolucao = async (idBreak: number) => {
+    if (!idLoja) return;
+    setConfirmandoId(idBreak);
+    try {
+      await api.estoqueDevolverEmprestimo(idBreak, idLoja);
+      showToast('Devolvido — saiu daqui e voltou pra origem');
+      await carregar(idLoja);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível devolver', 'error');
     } finally {
       setConfirmandoId(null);
     }
@@ -1224,6 +1241,43 @@ export default function EstoqueMobileBreakPage() {
                   ))}
                 </div>
               )}
+
+              {!loading && aDevolver.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+                  {aDevolver.map((emp) => (
+                    <div key={emp.id_break} className="ck-estoque__card" style={{ borderColor: '#0f1a45' }}>
+                      <div className="ck-estoque__card-top">
+                        <strong>
+                          Devolver para{' '}
+                          {emp.loja_origem_bk
+                            ? `${emp.loja_origem_bk} · ${emp.loja_origem_nome}`
+                            : emp.loja_origem_nome || 'origem'}
+                        </strong>
+                        <span className="ck-estoque__chip">{(emp.itens || []).length} itens</span>
+                      </div>
+                      <div className="ck-estoque__meta">
+                        {fmtDataBR(emp.data_break)}
+                        {emp.recebido_em ? ` · recebido ${fmtDataBR(emp.recebido_em)}` : ''}
+                      </div>
+                      {(emp.itens || []).map((it, idx) => (
+                        <div key={`dev-${emp.id_break}-${idx}`} className="ck-estoque__desc" style={{ marginTop: 6 }}>
+                          {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className="ck-estoque__dock-cta"
+                        style={{ marginTop: 10, width: '100%', position: 'static' }}
+                        disabled={confirmandoId === emp.id_break}
+                        onClick={() => void confirmarDevolucao(emp.id_break)}
+                      >
+                        {confirmandoId === emp.id_break ? 'Devolvendo…' : 'Devolver agora'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {!loading && !listaFiltrada.length && (
                 <div className="ck-estoque__empty">
                   {busca.trim()
@@ -1259,8 +1313,10 @@ export default function EstoqueMobileBreakPage() {
                       {b.tipo === 'emprestimo' && b.recebimento_status === 'pendente'
                         ? ' · Aguardando a loja confirmar'
                         : b.tipo === 'emprestimo' && b.recebimento_status === 'recebido'
-                          ? ' · Recebido'
-                          : ''}
+                          ? ' · Recebido (pode devolver na loja destino)'
+                          : b.tipo === 'emprestimo' && b.recebimento_status === 'devolvido'
+                            ? ' · Devolvido'
+                            : ''}
                     </div>
                     <div className="ck-estoque__chips">
                       <span className="ck-estoque__chip">

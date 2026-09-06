@@ -41,6 +41,7 @@ backend/scripts/_op_*.mjs
 !backend/scripts/_op_desativar_gerentes.mjs
 !backend/scripts/_op_alinhar_mensal_setembro.mjs
 !backend/scripts/_op_alinhar_mensal_sem_codigo.mjs
+!backend/scripts/_op_reset_contagens_manter_breaks.mjs
 backend/scripts/_recon_*.mjs
 backend/scripts/_out_*/
 backend/scripts/_out_*.json

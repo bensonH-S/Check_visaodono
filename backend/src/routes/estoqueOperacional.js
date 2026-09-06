@@ -10,7 +10,9 @@ import {
   lancarBreak,
   listarLojasDestinoEmprestimo,
   listarEmprestimosAReceber,
+  listarEmprestimosADevolver,
   confirmarRecebimentoEmprestimo,
+  devolverEmprestimo,
   garantirSchemaBreakCaderno,
   upsertProdutoVenda,
   registrarEntradas,
@@ -1103,6 +1105,18 @@ router.get('/break/a-receber', permBreak, async (req, res, next) => {
   }
 });
 
+router.get('/break/a-devolver', permBreak, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    const rows = await listarEmprestimosADevolver(idLoja);
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/break/:id/receber', permBreak, async (req, res, next) => {
   try {
     const idBreak = Number(req.params.id);
@@ -1124,6 +1138,35 @@ router.post('/break/:id/receber', permBreak, async (req, res, next) => {
       entidade: 'estoque_break',
       idReferencia: idBreak,
       descricao: `Empréstimo #${idBreak} recebido na loja ${idLoja}`,
+    });
+    res.json(result);
+  } catch (e) {
+    if (respostaErroOperacional(res, e)) return;
+    next(e);
+  }
+});
+
+router.post('/break/:id/devolver', permBreak, async (req, res, next) => {
+  try {
+    const idBreak = Number(req.params.id);
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    if (!Number.isFinite(idBreak) || idBreak <= 0) {
+      return res.status(400).json({ error: 'Empréstimo inválido' });
+    }
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await devolverEmprestimo({
+      id_break: idBreak,
+      id_loja_destino: idLoja,
+      devolvido_por: userId(req),
+    });
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'devolver',
+      entidade: 'estoque_break',
+      idReferencia: idBreak,
+      descricao: `Empréstimo #${idBreak} devolvido pela loja ${idLoja}`,
     });
     res.json(result);
   } catch (e) {
