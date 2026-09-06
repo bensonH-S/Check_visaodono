@@ -42,6 +42,8 @@ backend/scripts/_op_*.mjs
 !backend/scripts/_op_alinhar_mensal_setembro.mjs
 !backend/scripts/_op_alinhar_mensal_sem_codigo.mjs
 !backend/scripts/_op_reset_contagens_manter_breaks.mjs
+!backend/scripts/_op_popeyes_import_diaria.mjs
+!backend/scripts/_op_piloto_off_todas.mjs
 backend/scripts/_recon_*.mjs
 backend/scripts/_out_*/
 backend/scripts/_out_*.json
