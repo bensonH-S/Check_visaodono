@@ -40,6 +40,10 @@ import {
   listarAuditoriaPiloto,
   linhasExcelAuditoriaPiloto,
 } from '../services/estoqueConsumo.js';
+import {
+  montarSaudeBaixa,
+  linhasExcelSaudeBaixa,
+} from '../services/estoqueSaudeBaixa.js';
 import { garantirSchemaUnidadeFracionada } from '../services/estoqueContagem.js';
 import XLSX from 'xlsx';
 import {
@@ -352,6 +356,43 @@ router.get('/baixa-pendencias', permOp, async (req, res, next) => {
       [idLoja, limite],
     );
     res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Saúde da baixa — relatório operacional (tela + Excel). */
+router.get('/saude-baixa', permOp, async (req, res, next) => {
+  try {
+    const escopo = String(req.query.escopo || 'loja').toLowerCase() === 'rede' ? 'rede' : 'loja';
+    let idLoja = null;
+    if (escopo === 'loja') {
+      idLoja = parseIdLoja(req.query.id_loja);
+      const bloqueio = acessoLoja(req, idLoja);
+      if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    }
+    await garantirSchemaPilotoBaixa(pool);
+    const data = await montarSaudeBaixa({ id_loja: idLoja, escopo });
+    const formato = String(req.query.formato || 'json').toLowerCase();
+    if (formato !== 'xlsx') return res.json(data);
+
+    const sheets = linhasExcelSaudeBaixa(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.resumo), 'Resumo');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.problemas), 'O que resolver');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.vendas), 'Vendas com problema');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
+      new Date(),
+    );
+    const tag = escopo === 'rede' ? 'rede' : `loja-${idLoja}`;
+    const filename = `saude-baixa-${tag}-${hoje}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buf);
   } catch (e) {
     next(e);
   }

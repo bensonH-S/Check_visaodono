@@ -205,7 +205,7 @@ const ROTULO_ABA: Record<AbaEstoque, string> = {
   cmv: 'CMV',
   vendas: 'Vendas',
   rede: 'Rede',
-  piloto: 'Piloto',
+  piloto: 'Baixa',
   saldo: 'Saldo',
   conferencia: 'Conferência',
   break: 'Break',
@@ -917,7 +917,7 @@ export default function ControleEstoquePage() {
             <Tab value="rede" label="Rede" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
-            <Tab value="piloto" label="Piloto" disabled={!idLoja || bloqueiaOutrasAbas} />
+            <Tab value="piloto" label="Baixa" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeBreak && (
             <Tab value="break" label="Break" disabled={!idLoja || bloqueiaOutrasAbas} />

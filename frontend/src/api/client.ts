@@ -1096,6 +1096,37 @@ export const api = {
       `/estoque/piloto-auditoria?${q}`,
     );
   },
+  estoqueSaudeBaixa: (opts: { idLoja?: number; escopo?: 'loja' | 'rede' }) => {
+    const q = new URLSearchParams({ escopo: opts.escopo || 'loja' });
+    if (opts.escopo !== 'rede' && opts.idLoja != null) q.set('id_loja', String(opts.idLoja));
+    return request<EstoqueSaudeBaixa>(`/estoque/saude-baixa?${q}`);
+  },
+  estoqueBaixarSaudeBaixa: async (opts: { idLoja?: number; escopo?: 'loja' | 'rede' }) => {
+    const q = new URLSearchParams({
+      escopo: opts.escopo || 'loja',
+      formato: 'xlsx',
+    });
+    if (opts.escopo !== 'rede' && opts.idLoja != null) q.set('id_loja', String(opts.idLoja));
+    const res = await fetch(`${BASE}/estoque/saude-baixa?${q}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao gerar relatório');
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="([^"]+)"/);
+    const filename = match?.[1] || 'saude-baixa.xlsx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   estoqueBaixarPilotoAuditoria: async (idLoja: number, opts?: { status?: string; codigo_insumo?: string }) => {
     const q = new URLSearchParams({ id_loja: String(idLoja), formato: 'xlsx', limit: '2000' });
     if (opts?.status) q.set('status', opts.status);
@@ -2907,6 +2938,50 @@ export interface EstoquePilotoAuditoriaItem {
   status: 'MOVIMENTO_GERADO' | 'FORA_DO_PILOTO' | 'CONVERSAO_NAO_VALIDADA' | string;
   observacao?: string | null;
   criado_em?: string | null;
+}
+
+export interface EstoqueSaudeBaixaProblema {
+  codigo: string;
+  nome: string;
+  motivo: string;
+  problema: string;
+  o_que_fazer: string;
+  vezes: number;
+  lojas: number;
+  unidade_receita?: string | null;
+  unidade_estoque?: string | null;
+  ultima_vez?: string | null;
+}
+
+export interface EstoqueSaudeBaixa {
+  escopo: 'loja' | 'rede';
+  id_loja: number | null;
+  gerado_em: string;
+  janela: {
+    desde: string;
+    previsto_fim?: string | null;
+    observacao?: string | null;
+  };
+  piloto_desligado: boolean;
+  resumo: {
+    total: number;
+    processada: number;
+    parcial: number;
+    erro: number;
+    pendente: number;
+    taxa_processada_pct: number | null;
+    sem_ficha: number;
+    pendencias: number;
+  };
+  motivos: Array<{ motivo: string; problema: string; n: number; skus: number }>;
+  problemas: EstoqueSaudeBaixaProblema[];
+  vendas_com_problema: Array<{
+    id_venda: number;
+    id_loja: number;
+    data_venda: string;
+    status: string;
+    erros?: string | null;
+  }>;
 }
 
 export interface EstoqueCmvTeorico {
