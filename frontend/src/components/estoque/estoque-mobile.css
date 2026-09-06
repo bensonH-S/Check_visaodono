@@ -1563,16 +1563,190 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.ck-estoque--contagem .ck-estoque__bottom-stack {
+  flex-shrink: 0;
+  z-index: 30;
+  background: #fff;
+  box-shadow: 0 -8px 24px rgba(15, 26, 69, 0.1);
+  border-top: 1px solid rgba(15, 26, 69, 0.1);
+  padding-bottom: var(--app-tabbar-offset, 0px);
+}
+
 .ck-estoque--contagem .ck-estoque__secao-dock {
   flex-shrink: 0;
   display: grid;
   grid-template-columns: 48px 1fr 48px;
   align-items: center;
   gap: 10px;
-  padding: 10px var(--ck-pad-x, 16px) calc(10px + var(--app-tabbar-offset, 0px));
+  padding: 10px var(--ck-pad-x, 16px);
   background: #fff;
   border-top: 1px solid rgba(15, 26, 69, 0.1);
-  box-shadow: 0 -6px 20px rgba(15, 26, 69, 0.06);
+  box-shadow: none;
+}
+
+.ck-estoque--contagem.is-numpad .ck-visitas__scroll {
+  padding-bottom: 8px;
+}
+
+.ck-estoque--contagem .ck-estoque__item--planilha.is-digitando {
+  outline: 2px solid rgba(232, 82, 10, 0.55);
+  outline-offset: 1px;
+  position: relative;
+  z-index: 1;
+}
+
+.ck-estoque--contagem .ck-estoque__tap {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(15, 26, 69, 0.16);
+  background: #fff;
+  color: #0f1a45;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-align: center;
+  padding: 8px 6px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+}
+
+.ck-estoque--contagem .ck-estoque__tap.is-empty {
+  color: #9aa3b8;
+  font-weight: 600;
+}
+
+.ck-estoque--contagem .ck-estoque__tap.is-active {
+  border-color: #e8520a;
+  background: #fff7f2;
+  box-shadow: 0 0 0 3px rgba(232, 82, 10, 0.18);
+}
+
+.ck-estoque--contagem .ck-estoque__tap:active {
+  transform: scale(0.98);
+}
+
+.ck-estoque--contagem .ck-estoque__numpad {
+  padding: 10px var(--ck-pad-x, 16px) 8px;
+  background: #f3f5f9;
+  border-bottom: 1px solid rgba(15, 26, 69, 0.08);
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-head {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-meta strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #e8520a;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-meta span {
+  font-size: 0.72rem;
+  color: #5b657a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-valor {
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(15, 26, 69, 0.14);
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-align: right;
+  color: #0f1a45;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-valor.is-sel {
+  background: #fff7f2;
+  border-color: #e8520a;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-x {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: #e8ecf4;
+  color: #0f1a45;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-key {
+  height: 48px;
+  border: none;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f1a45;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 800;
+  box-shadow: 0 1px 0 rgba(15, 26, 69, 0.08);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-key.is-muted {
+  background: #e8ecf4;
+  font-size: 1.05rem;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-key:active {
+  transform: scale(0.96);
+  background: #e8ecf4;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-act {
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: #dfe5f0;
+  color: #0f1a45;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-act.is-primary {
+  background: #0f1a45;
+  color: #fff;
+}
+
+.ck-estoque--contagem .ck-estoque__numpad-act:active {
+  transform: scale(0.98);
 }
 
 .ck-estoque--contagem .ck-estoque__dock-side {
