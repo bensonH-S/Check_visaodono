@@ -22,7 +22,11 @@
       (function() {
         try {
           var m = localStorage.getItem('app-theme-mode');
-          if (m === 'dark') document.documentElement.classList.add('dark');
+          if (m === 'light') {
+            document.documentElement.classList.remove('dark');
+          } else {
+            document.documentElement.classList.add('dark');
+          }
         } catch(e) {}
       })();
     </script>

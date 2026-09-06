@@ -97,7 +97,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     logout();
-    document.documentElement.classList.remove('dark');
   }, []);
 
   useEffect(() => {
@@ -143,342 +142,342 @@ export default function LoginPage() {
   return (
     <ThemeProvider theme={lightTheme}>
       <Box
-      sx={{
-        position: 'relative',
-        width: '100%',
-        minHeight: '100svh',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        bgcolor: PAGE_BG,
-        px: { xs: 1, sm: 1.5 },
-        py: { xs: 1.5, sm: 2 },
-      }}
-    >
-      <Box
-        component="img"
-        src={FUNDO_LOGIN}
-        alt=""
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'fill',
-          pointerEvents: 'none',
-          userSelect: 'none',
-          display: 'block',
-        }}
-      />
-      <Box
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 0,
-          bgcolor: 'rgba(27, 42, 107, 0.12)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      <Box
         sx={{
           position: 'relative',
-          zIndex: 1,
           width: '100%',
+          minHeight: '100svh',
+          height: '100%',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          pb: { xs: 2.5, sm: 3 },
+          overflow: 'hidden',
+          bgcolor: PAGE_BG,
+          px: { xs: 1, sm: 1.5 },
+          py: { xs: 1.5, sm: 2 },
         }}
       >
-        <Paper
-          elevation={0}
+        <Box
+          component="img"
+          src={FUNDO_LOGIN}
+          alt=""
+          aria-hidden
           sx={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 0,
             width: '100%',
-            maxWidth: { xs: 340, sm: 360, md: 380 },
-            border: '1px solid',
-            borderColor: 'rgba(27, 42, 107, 0.12)',
-            borderRadius: { xs: 1.5, sm: 2 },
-            textAlign: 'center',
-            overflow: 'hidden',
-            bgcolor: 'rgba(255, 255, 255, 0.94)',
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 18px 48px rgba(27, 42, 107, 0.12)',
+            height: '100%',
+            objectFit: 'fill',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            display: 'block',
+          }}
+        />
+        <Box
+          aria-hidden
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 0,
+            bgcolor: 'rgba(27, 42, 107, 0.12)',
+            pointerEvents: 'none',
+          }}
+        />
+
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pb: { xs: 2.5, sm: 3 },
           }}
         >
-          <Box
+          <Paper
+            elevation={0}
             sx={{
-              height: 4,
-              bgcolor: NAVY,
-              boxShadow: '0 3px 10px rgba(27, 42, 107, 0.3)',
+              width: '100%',
+              maxWidth: { xs: 340, sm: 360, md: 380 },
+              border: '1px solid',
+              borderColor: 'rgba(27, 42, 107, 0.12)',
+              borderRadius: { xs: 1.5, sm: 2 },
+              textAlign: 'center',
+              overflow: 'hidden',
+              bgcolor: 'rgba(255, 255, 255, 0.94)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 18px 48px rgba(27, 42, 107, 0.12)',
             }}
-          />
-          <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: { xs: 1.5, sm: 2 }, pb: { xs: 2.25, sm: 2.75 } }}>
-            <BrandLogo maxWidth={{ xs: 96, sm: 110, md: 120 }} sx={{ mx: 'auto', mb: 0.5 }} />
-
-            <Typography
-              sx={{
-                fontWeight: 800,
-                color: '#E8520A',
-                fontSize: { xs: '1.05rem', sm: '1.15rem', md: '1.2rem' },
-                lineHeight: 1.2,
-                mb: { xs: 1.25, sm: 1.5 },
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {APP_NAME}
-            </Typography>
-
+          >
             <Box
               sx={{
-                display: 'inline-flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: { xs: 0.45, sm: 0.6 },
-                mt: { xs: 0.25, sm: 0.5 },
-                mb: { xs: 0.5, sm: 0.65 },
-                py: { xs: 0.45, sm: 0.55 },
-                px: { xs: 0.75, sm: 0.9 },
-                mx: 'auto',
-                borderRadius: 1,
-                bgcolor: 'rgba(27, 42, 107, 0.06)',
-                border: '1px solid rgba(27, 42, 107, 0.08)',
-                maxWidth: '100%',
+                height: 4,
+                bgcolor: NAVY,
+                boxShadow: '0 3px 10px rgba(27, 42, 107, 0.3)',
               }}
-            >
-              {FEATURES.map((label, index) => (
-                <Box
-                  key={label}
-                  component="span"
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: { xs: 0.45, sm: 0.6 } }}
-                >
-                  {index > 0 && (
+            />
+            <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: { xs: 1.5, sm: 2 }, pb: { xs: 2.25, sm: 2.75 } }}>
+              <BrandLogo maxWidth={{ xs: 96, sm: 110, md: 120 }} sx={{ mx: 'auto', mb: 0.5 }} />
+
+              <Typography
+                sx={{
+                  fontWeight: 800,
+                  color: '#E8520A',
+                  fontSize: { xs: '1.05rem', sm: '1.15rem', md: '1.2rem' },
+                  lineHeight: 1.2,
+                  mb: { xs: 1.25, sm: 1.5 },
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {APP_NAME}
+              </Typography>
+
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: { xs: 0.45, sm: 0.6 },
+                  mt: { xs: 0.25, sm: 0.5 },
+                  mb: { xs: 0.5, sm: 0.65 },
+                  py: { xs: 0.45, sm: 0.55 },
+                  px: { xs: 0.75, sm: 0.9 },
+                  mx: 'auto',
+                  borderRadius: 1,
+                  bgcolor: 'rgba(27, 42, 107, 0.06)',
+                  border: '1px solid rgba(27, 42, 107, 0.08)',
+                  maxWidth: '100%',
+                }}
+              >
+                {FEATURES.map((label, index) => (
+                  <Box
+                    key={label}
+                    component="span"
+                    sx={{ display: 'inline-flex', alignItems: 'center', gap: { xs: 0.45, sm: 0.6 } }}
+                  >
+                    {index > 0 && (
+                      <Typography
+                        component="span"
+                        sx={{
+                          color: '#E8520A',
+                          fontSize: { xs: '0.6rem', sm: '0.64rem', md: '0.66rem' },
+                          fontWeight: 600,
+                          lineHeight: 1,
+                          opacity: 0.8,
+                        }}
+                      >
+                        |
+                      </Typography>
+                    )}
                     <Typography
                       component="span"
                       sx={{
-                        color: '#E8520A',
-                        fontSize: { xs: '0.6rem', sm: '0.64rem', md: '0.66rem' },
+                        color: NAVY,
+                        lineHeight: 1.2,
+                        fontSize: { xs: '0.68rem', sm: '0.72rem', md: '0.76rem' },
                         fontWeight: 600,
-                        lineHeight: 1,
-                        opacity: 0.8,
+                        letterSpacing: '0.01em',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      |
+                      {label}
                     </Typography>
-                  )}
-                  <Typography
-                    component="span"
-                    sx={{
-                      color: NAVY,
-                      lineHeight: 1.2,
-                      fontSize: { xs: '0.68rem', sm: '0.72rem', md: '0.76rem' },
-                      fontWeight: 600,
-                      letterSpacing: '0.01em',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {label}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-
-            <Typography
-              sx={{
-                lineHeight: 1.4,
-                fontSize: { xs: '0.78rem', sm: '0.82rem', md: '0.85rem' },
-                fontWeight: 500,
-                color: NAVY,
-                opacity: 0.8,
-                mt: 0,
-                mb: { xs: 2, sm: 2.25 },
-                px: 0.5,
-              }}
-            >
-              Visão operacional das unidades do Grupo.
-            </Typography>
-
-            <Box
-              component="form"
-              noValidate
-              onSubmit={handleSubmit}
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: { xs: 1, sm: 1.1 },
-              }}
-            >
-              <Box
-                sx={{
-                  width: '100%',
-                  maxWidth: loginFieldsWidth,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: { xs: 2.5, sm: 3 },
-                }}
-              >
-                <TextField
-                  label="E-mail"
-                  type="email"
-                  size="small"
-                  margin="none"
-                  fullWidth
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nome@grupoalvim.com.br"
-                  sx={loginFieldSx}
-                  slotProps={{
-                    inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
-                    input: {
-                      sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <EmailOutlinedIcon sx={{ fontSize: 16 }} color="action" />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-
-                <TextField
-                  label="Senha"
-                  type={mostrarSenha ? 'text' : 'password'}
-                  size="small"
-                  margin="none"
-                  fullWidth
-                  autoComplete="current-password"
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  placeholder={senha ? undefined : '••••••••'}
-                  sx={loginFieldSx}
-                  slotProps={{
-                    inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
-                    input: {
-                      sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LockOutlinedIcon sx={{ fontSize: 16 }} color="action" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            type="button"
-                            aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
-                            onClick={() => setMostrarSenha((v) => !v)}
-                            edge="end"
-                            size="small"
-                          >
-                            {mostrarSenha ? (
-                              <VisibilityOffOutlinedIcon sx={{ fontSize: 16 }} />
-                            ) : (
-                              <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
+                  </Box>
+                ))}
               </Box>
 
-              {erro && (
-                <Alert
-                  severity="error"
-                  variant="filled"
-                  sx={{ py: 0.25, fontSize: '0.78rem', width: '100%', maxWidth: loginFieldsWidth }}
-                >
-                  {erro}
-                </Alert>
-              )}
-
-              <Button
-                type="submit"
-                variant="contained"
-                size="medium"
-                disabled={loading}
+              <Typography
                 sx={{
-                  width: '100%',
-                  maxWidth: loginFieldsWidth,
-                  mt: { xs: 1.3, sm: 1.6 },
-                  py: { xs: 1, md: 1.15 },
-                  fontSize: { xs: '0.875rem', md: '0.925rem' },
-                  fontWeight: 600,
-                  bgcolor: '#1B2A6B',
-                  color: '#ffffff',
-                  '&:hover': {
-                    bgcolor: '#152056',
-                  },
+                  lineHeight: 1.4,
+                  fontSize: { xs: '0.78rem', sm: '0.82rem', md: '0.85rem' },
+                  fontWeight: 500,
+                  color: NAVY,
+                  opacity: 0.8,
+                  mt: 0,
+                  mb: { xs: 2, sm: 2.25 },
+                  px: 0.5,
                 }}
               >
-                {loading ? 'Entrando…' : 'Acessar'}
-              </Button>
+                Visão operacional das unidades do Grupo.
+              </Typography>
+
+              <Box
+                component="form"
+                noValidate
+                onSubmit={handleSubmit}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: { xs: 1, sm: 1.1 },
+                }}
+              >
+                <Box
+                  sx={{
+                    width: '100%',
+                    maxWidth: loginFieldsWidth,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: { xs: 2.5, sm: 3 },
+                  }}
+                >
+                  <TextField
+                    label="E-mail"
+                    type="email"
+                    size="small"
+                    margin="none"
+                    fullWidth
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="nome@grupoalvim.com.br"
+                    sx={loginFieldSx}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
+                      input: {
+                        sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailOutlinedIcon sx={{ fontSize: 16 }} color="action" />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+
+                  <TextField
+                    label="Senha"
+                    type={mostrarSenha ? 'text' : 'password'}
+                    size="small"
+                    margin="none"
+                    fullWidth
+                    autoComplete="current-password"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    placeholder={senha ? undefined : '••••••••'}
+                    sx={loginFieldSx}
+                    slotProps={{
+                      inputLabel: { sx: { fontSize: { xs: '0.78rem', md: '0.82rem' } } },
+                      input: {
+                        sx: { fontSize: { xs: '0.82rem', md: '0.86rem' } },
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <LockOutlinedIcon sx={{ fontSize: 16 }} color="action" />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              type="button"
+                              aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                              onClick={() => setMostrarSenha((v) => !v)}
+                              edge="end"
+                              size="small"
+                            >
+                              {mostrarSenha ? (
+                                <VisibilityOffOutlinedIcon sx={{ fontSize: 16 }} />
+                              ) : (
+                                <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                </Box>
+
+                {erro && (
+                  <Alert
+                    severity="error"
+                    variant="filled"
+                    sx={{ py: 0.25, fontSize: '0.78rem', width: '100%', maxWidth: loginFieldsWidth }}
+                  >
+                    {erro}
+                  </Alert>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="contained"
+                  size="medium"
+                  disabled={loading}
+                  sx={{
+                    width: '100%',
+                    maxWidth: loginFieldsWidth,
+                    mt: { xs: 1.3, sm: 1.6 },
+                    py: { xs: 1, md: 1.15 },
+                    fontSize: { xs: '0.875rem', md: '0.925rem' },
+                    fontWeight: 600,
+                    bgcolor: '#1B2A6B',
+                    color: '#ffffff',
+                    '&:hover': {
+                      bgcolor: '#152056',
+                    },
+                  }}
+                >
+                  {loading ? 'Entrando…' : 'Acessar'}
+                </Button>
+              </Box>
+
+              <SupportContact compact />
             </Box>
+          </Paper>
+        </Box>
 
-            <SupportContact compact />
-          </Box>
-        </Paper>
-      </Box>
-
-      <Box
-        component="footer"
-        sx={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 2,
-          flexShrink: 0,
-          px: 1.5,
-          py: 0.75,
-          textAlign: 'center',
-          bgcolor: 'transparent',
-          pointerEvents: 'none',
-        }}
-      >
-        <Typography
+        <Box
+          component="footer"
           sx={{
-            fontSize: { xs: '0.72rem', sm: '0.78rem' },
-            fontWeight: 500,
-            color: 'rgba(27, 42, 107, 0.7)',
-            letterSpacing: '0.02em',
-            lineHeight: 1.4,
-            textShadow: '0 0 8px rgba(243, 241, 248, 0.9)',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 2,
+            flexShrink: 0,
+            px: 1.5,
+            py: 0.75,
+            textAlign: 'center',
+            bgcolor: 'transparent',
+            pointerEvents: 'none',
           }}
         >
-          {COPYRIGHT}
-          <Box component="span" sx={{ mx: 0.6, opacity: 0.6 }}>
-            ·
-          </Box>
-          {versionLabel} · {environment}
-        </Typography>
-      </Box>
+          <Typography
+            sx={{
+              fontSize: { xs: '0.72rem', sm: '0.78rem' },
+              fontWeight: 500,
+              color: 'rgba(27, 42, 107, 0.7)',
+              letterSpacing: '0.02em',
+              lineHeight: 1.4,
+              textShadow: '0 0 8px rgba(243, 241, 248, 0.9)',
+            }}
+          >
+            {COPYRIGHT}
+            <Box component="span" sx={{ mx: 0.6, opacity: 0.6 }}>
+              ·
+            </Box>
+            {versionLabel} · {environment}
+          </Typography>
+        </Box>
 
-      <Snackbar
-        open={!!toast}
-        autoHideDuration={2000}
-        onClose={() => setToast('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert
-          severity="warning"
-          variant="filled"
+        <Snackbar
+          open={!!toast}
+          autoHideDuration={2000}
           onClose={() => setToast('')}
-          sx={{ width: '100%', minWidth: 280 }}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         >
-          {toast}
-        </Alert>
-      </Snackbar>
-    </Box>
-  </ThemeProvider>
+          <Alert
+            severity="warning"
+            variant="filled"
+            onClose={() => setToast('')}
+            sx={{ width: '100%', minWidth: 280 }}
+          >
+            {toast}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </ThemeProvider>
   );
 }
