@@ -1,5 +1,5 @@
 /**
- * Reset operacional: zera saldos + cancela contagens abertas.
+ * Reset operacional: apaga TODAS as contagens + zera saldos.
  * MANTÉM break / desperdício / empréstimo.
  *
  * Uso:
@@ -23,8 +23,12 @@ const { pool } = await import('../src/db.js');
 const client = await pool.connect();
 
 try {
-  const { rows: abertas } = await client.query(`
-    SELECT COUNT(*)::int AS n FROM estoque_contagens WHERE status = 'aberta'
+  const { rows: cont } = await client.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE status = 'aberta')::int AS abertas,
+      COUNT(*) FILTER (WHERE status = 'finalizada')::int AS finalizadas
+    FROM estoque_contagens
   `);
   const { rows: saldos } = await client.query(`
     SELECT COUNT(*)::int AS n, COALESCE(SUM(ABS(quantidade)),0)::float AS abs_qtd
@@ -35,21 +39,20 @@ try {
     WHERE tipo = 'emprestimo' AND recebimento_status = 'pendente'
   `);
   const { rows: breaks } = await client.query(`
-    SELECT COUNT(*)::int AS n FROM estoque_break
+    SELECT tipo, COUNT(*)::int AS n FROM estoque_break GROUP BY tipo ORDER BY 1
   `);
 
   console.log(
     JSON.stringify(
       {
         modo: apply ? 'APPLY' : 'DRY-RUN',
-        mantem: 'estoque_break (+ itens) — break, desperdício, empréstimo',
-        contagens_abertas: abertas[0].n,
+        mantem: 'estoque_break (+ itens)',
+        contagens: cont[0],
         saldos_linhas: saldos[0].n,
         saldos_abs_qtd: saldos[0].abs_qtd,
-        breaks_total: breaks[0].n,
+        breaks_por_tipo: breaks,
         emprestimos_pendentes_receber: pendEmp[0].n,
-        aviso:
-          'Depois do apply: abrir contagem COMPLETA em cada loja e finalizar. Empréstimos pendentes: cancelar ou confirmar com cuidado.',
+        acao: 'Apaga TODAS contagens (aberta+finalizada), zera saldos, cancela emp. pendente, limpa pendências baixa',
       },
       null,
       2,
@@ -63,21 +66,16 @@ try {
 
   await client.query('BEGIN');
 
-  // Cancela abertas (remove itens + cabeçalho) — não mexe em finalizadas históricas
-  const delItens = await client.query(`
-    DELETE FROM estoque_itens
-    WHERE id_contagem IN (SELECT id_contagem FROM estoque_contagens WHERE status = 'aberta')
-  `);
-  const delCont = await client.query(`
-    DELETE FROM estoque_contagens WHERE status = 'aberta'
-  `);
+  // Movimentos de contagem ficam órfãos de referência — ok para auditoria.
+  // Apaga itens e todas as contagens.
+  const delItens = await client.query(`DELETE FROM estoque_itens`);
+  const delCont = await client.query(`DELETE FROM estoque_contagens`);
 
   const zeroSaldo = await client.query(`
     UPDATE estoque_saldos SET quantidade = 0, atualizado_em = NOW()
-    WHERE ABS(quantidade) > 0
+    WHERE quantidade IS DISTINCT FROM 0
   `);
 
-  // Empréstimos ainda pendentes de recebimento da era bugada → cancelados
   await client.query(`
     ALTER TABLE estoque_break DROP CONSTRAINT IF EXISTS estoque_break_recebimento_status_check
   `).catch(() => {});
@@ -97,16 +95,24 @@ try {
 
   await client.query('COMMIT');
 
+  const { rows: check } = await client.query(`
+    SELECT
+      (SELECT COUNT(*)::int FROM estoque_contagens) AS contagens,
+      (SELECT COUNT(*)::int FROM estoque_itens) AS itens,
+      (SELECT COUNT(*)::int FROM estoque_saldos WHERE quantidade IS DISTINCT FROM 0) AS saldos_nao_zero,
+      (SELECT COUNT(*)::int FROM estoque_break) AS breaks
+  `);
+
   console.log(
     JSON.stringify(
       {
         ok: true,
-        itens_contagem_apagados: delItens.rowCount,
-        contagens_abertas_apagadas: delCont.rowCount,
+        itens_apagados: delItens.rowCount,
+        contagens_apagadas: delCont.rowCount,
         saldos_zerados: zeroSaldo.rowCount,
         emprestimos_pendentes_cancelados: cancelEmp.rowCount,
-        breaks_preservados: true,
-        proximo: 'Contagem completa por loja → finalizar → liberar operação',
+        pos: check[0],
+        proximo: 'Contagem COMPLETA por loja → finalizar → liberar operação',
       },
       null,
       2,
@@ -114,7 +120,7 @@ try {
   );
 } catch (e) {
   await client.query('ROLLBACK').catch(() => {});
-  console.error(JSON.stringify({ ok: false, error: e.message }));
+  console.error(JSON.stringify({ ok: false, error: e.message, detail: e.detail || null }));
   process.exitCode = 1;
 } finally {
   client.release();
