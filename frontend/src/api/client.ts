@@ -2978,6 +2978,7 @@ export interface EstoqueSaudeBaixa {
     taxa_processada_pct: number | null;
     sem_ficha: number;
     pendencias: number;
+    breaks_com_aviso?: number;
   };
   motivos: Array<{ motivo: string; problema: string; n: number; skus: number }>;
   problemas: EstoqueSaudeBaixaProblema[];
@@ -2987,6 +2988,18 @@ export interface EstoqueSaudeBaixa {
     data_venda: string;
     status: string;
     erros?: string | null;
+  }>;
+  breaks_com_aviso?: Array<{
+    id_break: number;
+    id_loja: number;
+    data_break: string;
+    tipo: string;
+    turno?: string | null;
+    colaborador?: string | null;
+    itens?: number;
+    avisos: string[];
+    avisos_texto?: string | null;
+    criado_em?: string | null;
   }>;
 }
 

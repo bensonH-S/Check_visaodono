@@ -239,6 +239,12 @@ export default function EstoquePilotoAuditoriaPanel({
           detalhe="desde o início da janela"
           tom={(r?.pendencias ?? 0) > 0 ? 'ruim' : 'ok'}
         />
+        <Kpi
+          titulo="Break com aviso"
+          valor={r?.breaks_com_aviso ?? data?.breaks_com_aviso?.length ?? 0}
+          detalhe="lançou, estoque parcial"
+          tom={(r?.breaks_com_aviso ?? data?.breaks_com_aviso?.length ?? 0) > 0 ? 'ruim' : 'ok'}
+        />
       </Box>
 
       <Box>
@@ -246,7 +252,7 @@ export default function EstoquePilotoAuditoriaPanel({
           O que resolver (prioridade)
         </Typography>
         <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mb: 1 }}>
-          Cada linha = um insumo que a venda pediu e o sistema não conseguiu tirar do estoque.
+          Cada linha = insumo que venda ou break pediu e o sistema não conseguiu tirar do estoque.
         </Typography>
         {!data?.problemas?.length ? (
           <Typography sx={{ color: colors.textMuted, fontSize: '0.85rem', py: 2 }}>
@@ -281,6 +287,53 @@ export default function EstoquePilotoAuditoriaPanel({
                     {escopo === 'rede' ? (
                       <TableCell sx={{ fontSize: '0.8rem' }}>{p.lojas}</TableCell>
                     ) : null}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
+
+      <Box>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, mb: 0.75 }}>
+          Break / desperdício lançado com pendência
+        </Typography>
+        <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mb: 1 }}>
+          Operação foi aceita. Aviso = o que faltou baixar do estoque (corrigir depois).
+        </Typography>
+        {!data?.breaks_com_aviso?.length ? (
+          <Typography sx={{ color: colors.textMuted, fontSize: '0.85rem', py: 1 }}>
+            Nenhum nesta janela.
+          </Typography>
+        ) : (
+          <TableContainer sx={{ ...tableContainerSx, ...tablePaperSx, maxHeight: 280, mb: 1.5 }}>
+            <Table stickyHeader size="small" sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  {['Data', 'Break', escopo === 'rede' ? 'Loja' : null, 'Tipo', 'Colaborador', 'Aviso']
+                    .filter(Boolean)
+                    .map((h) => (
+                      <TableCell key={h!} sx={{ fontWeight: 700, fontSize: '0.68rem', color: colors.textSecondary }}>
+                        {h}
+                      </TableCell>
+                    ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.breaks_com_aviso.map((b) => (
+                  <TableRow key={b.id_break} hover>
+                    <TableCell sx={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{b.data_break}</TableCell>
+                    <TableCell sx={{ fontSize: '0.78rem' }}>#{b.id_break}</TableCell>
+                    {escopo === 'rede' ? (
+                      <TableCell sx={{ fontSize: '0.78rem' }}>{b.id_loja}</TableCell>
+                    ) : null}
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{b.tipo}</TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{b.colaborador || '—'}</TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem', color: '#B42318', fontWeight: 600, maxWidth: 360 }}>
+                      {(b.avisos && b.avisos[0]) || b.avisos_texto || '—'}
+                      {b.avisos && b.avisos.length > 1 ? ` (+${b.avisos.length - 1})` : ''}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

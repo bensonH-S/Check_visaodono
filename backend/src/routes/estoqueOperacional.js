@@ -381,6 +381,11 @@ router.get('/saude-baixa', permOp, async (req, res, next) => {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.resumo), 'Resumo');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.problemas), 'O que resolver');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.vendas), 'Vendas com problema');
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(sheets.breaks?.length ? sheets.breaks : [{ Info: 'Nenhum break com aviso' }]),
+      'Breaks com aviso',
+    );
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
       new Date(),

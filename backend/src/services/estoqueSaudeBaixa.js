@@ -159,6 +159,39 @@ export async function montarSaudeBaixa(opts = {}) {
     paramsVenda,
   );
 
+  const filtroLojaBreak = escopo === 'loja' ? 'AND b.id_loja = $2' : '';
+  let breaksComAviso = [];
+  try {
+    const { rows } = await pool.query(
+      `
+      SELECT
+        b.id_break,
+        b.id_loja,
+        b.data_break,
+        b.tipo,
+        b.turno,
+        COALESCE(b.colaborador_nome, u.nome) AS colaborador,
+        b.avisos_baixa,
+        b.criado_em,
+        (
+          SELECT COUNT(*)::int FROM estoque_break_itens i WHERE i.id_break = b.id_break
+        ) AS itens
+      FROM estoque_break b
+      LEFT JOIN usuarios u ON u.id_usuario = b.id_colaborador
+      WHERE b.avisos_baixa IS NOT NULL
+        AND BTRIM(b.avisos_baixa) <> ''
+        AND COALESCE(b.criado_em, b.data_break::timestamptz) >= $1
+        ${filtroLojaBreak}
+      ORDER BY COALESCE(b.criado_em, b.data_break::timestamptz) DESC, b.id_break DESC
+      LIMIT 50
+    `,
+      paramsVenda,
+    );
+    breaksComAviso = rows;
+  } catch (e) {
+    if (e.code !== '42P01' && e.code !== '42703') throw e;
+  }
+
   let pilotoOff = true;
   if (escopo === 'loja') {
     const { rows } = await pool.query(
@@ -219,6 +252,7 @@ export async function montarSaudeBaixa(opts = {}) {
       taxa_processada_pct: taxa,
       sem_ficha: semFichaRows[0]?.n || 0,
       pendencias: motivos.reduce((s, m) => s + Number(m.n), 0),
+      breaks_com_aviso: breaksComAviso.length,
     },
     motivos: motivos.map((m) => ({
       motivo: m.motivo,
@@ -228,6 +262,21 @@ export async function montarSaudeBaixa(opts = {}) {
     })),
     problemas,
     vendas_com_problema: vendasProblema,
+    breaks_com_aviso: breaksComAviso.map((b) => ({
+      id_break: b.id_break,
+      id_loja: b.id_loja,
+      data_break: b.data_break,
+      tipo: b.tipo,
+      turno: b.turno,
+      colaborador: b.colaborador,
+      itens: b.itens,
+      avisos: String(b.avisos_baixa || '')
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      avisos_texto: b.avisos_baixa,
+      criado_em: b.criado_em,
+    })),
   };
 }
 
@@ -244,6 +293,10 @@ export function linhasExcelSaudeBaixa(data) {
     { Campo: 'Taxa OK %', Valor: data.resumo.taxa_processada_pct },
     { Campo: 'Itens sem ficha', Valor: data.resumo.sem_ficha },
     { Campo: 'Pendências (falhas)', Valor: data.resumo.pendencias },
+    {
+      Campo: 'Breaks/desperdícios com aviso',
+      Valor: data.resumo.breaks_com_aviso ?? (data.breaks_com_aviso || []).length,
+    },
   ];
 
   const problemas = (data.problemas || []).map((p) => ({
@@ -266,5 +319,17 @@ export function linhasExcelSaudeBaixa(data) {
     Erros: v.erros || '',
   }));
 
-  return { resumo, problemas, vendas };
+  const breaks = (data.breaks_com_aviso || []).map((b) => ({
+    'ID break': b.id_break,
+    Loja: b.id_loja,
+    Data: b.data_break,
+    Tipo: b.tipo,
+    Turno: b.turno || '',
+    Colaborador: b.colaborador || '',
+    Itens: b.itens,
+    Avisos: (b.avisos || []).join(' | ') || b.avisos_texto || '',
+    'Criado em': b.criado_em,
+  }));
+
+  return { resumo, problemas, vendas, breaks };
 }
