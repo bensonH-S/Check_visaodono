@@ -239,7 +239,7 @@ export default function EstoqueMobileBreakPage() {
       ? colaboradores.find((c) => c.id_usuario === idColaborador)?.nome
       : null) || nomeColaborador.trim();
 
-  const podeTrocarLoja = !lojaTravada && lojas.length > 1;
+  const podeTrocarLoja = !lojaTravada && lojas.length > 0;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
   const lojasFiltradas = useMemo(() => {
     const q = buscaLoja.trim().toLowerCase();
@@ -394,6 +394,12 @@ export default function EstoqueMobileBreakPage() {
   };
 
   const abrirForm = (tipo?: KindLanc) => {
+    if (podeTrocarLoja && !idLoja) {
+      if (tipo) setKind(tipo);
+      setDlgLoja(true);
+      showToast('Escolha a loja para lançar', 'info');
+      return;
+    }
     if (tipo) setKind(tipo);
     setDataBreak(dataHojeIso());
     limparForm();

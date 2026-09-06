@@ -224,6 +224,8 @@ export function lojaEstoqueTravadaMobile(usuario?: UsuarioSessao | null): boolea
   const u = usuario ?? getUsuario();
   if (!u) return true;
   if (temPermissao('lojas.todas', u) || u.acesso_todas_lojas) return false;
+  // Regional/supervisor escolhe a loja da região no break/empréstimo.
+  if (ehSupervisorRegiaoMobile(u)) return false;
   if (ehGestorLojaMobile(u)) return true;
   return (u.lojas?.length ?? 0) === 1;
 }

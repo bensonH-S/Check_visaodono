@@ -67,8 +67,7 @@ export function nomesMontadaPorRegiao(st: {
   nome_submetido_por?: string | null;
   nome_ultimo_envio?: string | null;
 }): string | null {
-  const daGrade = [...new Set((st.pessoas ?? []).map((p) => primeiroNome(p.nome)).filter(Boolean))];
-  if (daGrade.length) return daGrade.join(', ');
+  // Só quem enviou/montou a escala — não quem tem visita na grade.
   if (st.nome_submetido_por) return primeiroNome(st.nome_submetido_por);
   if (st.nome_ultimo_envio) return primeiroNome(st.nome_ultimo_envio);
   return null;
@@ -106,6 +105,10 @@ export type CardAprovacaoEscala = {
   nome_regiao?: string | null;
 };
 
+/**
+ * Cards de aprovação: um por quem montou/enviou.
+ * Igor (rede toda) só ganha card quando ele próprio submeteu — não porque tem visita na região do Fagno/Plinio.
+ */
 export function montarCardsAprovacaoEscala(
   statusPorRegiao: Array<{
     id_regiao: number;
@@ -134,28 +137,20 @@ export function montarCardsAprovacaoEscala(
   const filtrado =
     idUsuarioFiltro == null
       ? statusPorRegiao
-      : statusPorRegiao.filter(
-          (st) =>
-            (st.pessoas ?? []).some((p) => Number(p.id_usuario) === Number(idUsuarioFiltro)) ||
-            Number(st.submetido_por) === Number(idUsuarioFiltro),
-        );
+      : statusPorRegiao.filter((st) => Number(st.submetido_por) === Number(idUsuarioFiltro));
 
   for (const st of filtrado) {
-    const pessoas = st.pessoas ?? [];
-    const regionaisNaRegiao = pessoas.filter((p) => !idsTodas.has(Number(p.id_usuario)));
-    const globaisNaRegiao = pessoas.filter((p) => idsTodas.has(Number(p.id_usuario)));
+    const submitterId = st.submetido_por != null ? Number(st.submetido_por) : null;
+    const submitterGlobal = submitterId != null && idsTodas.has(submitterId);
     const pendenteOuAprovado = st.status === 'pendente_aprovacao' || st.status === 'aprovado';
+    const montadaPor = nomesMontadaPorRegiao(st);
 
-    const idsGlobaisCard =
-      globaisNaRegiao.length > 0
-        ? globaisNaRegiao.map((p) => Number(p.id_usuario))
-        : st.submetido_por != null && idsTodas.has(Number(st.submetido_por)) && regionaisNaRegiao.length === 0
-          ? [Number(st.submetido_por)]
-          : [];
-
-    for (const id of idsGlobaisCard) {
-      const nome = globaisNaRegiao.find((p) => Number(p.id_usuario) === id)?.nome || nomePorId.get(id) || 'Escala';
-      const atual = globais.get(id) || {
+    if (submitterGlobal && submitterId != null) {
+      const nome =
+        st.nome_submetido_por ||
+        nomePorId.get(submitterId) ||
+        'Escala';
+      const atual = globais.get(submitterId) || {
         nome,
         ids: [],
         idsAprovar: [],
@@ -163,20 +158,23 @@ export function montarCardsAprovacaoEscala(
         id_envio: st.id_envio ?? null,
       };
       if (!atual.ids.includes(st.id_regiao)) atual.ids.push(st.id_regiao);
-      if (pendenteOuAprovado && regionaisNaRegiao.length === 0 && !atual.idsAprovar.includes(st.id_regiao)) {
+      if (pendenteOuAprovado && !atual.idsAprovar.includes(st.id_regiao)) {
         atual.idsAprovar.push(st.id_regiao);
       }
       if (st.status === 'pendente_aprovacao') atual.status = 'pendente_aprovacao';
       else if (atual.status !== 'pendente_aprovacao' && st.status === 'aprovado') atual.status = 'aprovado';
-      globais.set(id, atual);
+      if (st.id_envio != null) atual.id_envio = st.id_envio;
+      globais.set(submitterId, atual);
+      continue;
     }
 
-    if (regionaisNaRegiao.length > 0 || (st.submetido_por != null && !idsTodas.has(Number(st.submetido_por)))) {
+    // Região montada por regional (Fagno/Plinio/Barbara) ou ainda em rascunho.
+    if (submitterId != null || st.status === 'rascunho' || pendenteOuAprovado) {
       regioes.push({
         key: `regiao-${st.id_regiao}`,
         tipo: 'regiao',
         titulo: st.nome_regiao,
-        montadaPor: nomesMontadaPorRegiao(st),
+        montadaPor,
         status: st.status,
         ids_regiao: [st.id_regiao],
         ids_regiao_aprovar: st.status === 'pendente_aprovacao' ? [st.id_regiao] : [],
@@ -190,16 +188,16 @@ export function montarCardsAprovacaoEscala(
   const cardsPessoa: CardAprovacaoEscala[] = [...globais.entries()]
     .filter(([, g]) => g.status === 'pendente_aprovacao' || g.status === 'aprovado')
     .map(([id, g]) => ({
-    key: `pessoa-${id}`,
-    tipo: 'pessoa',
-    titulo: primeiroNome(g.nome),
-    montadaPor: primeiroNome(g.nome),
-    status: g.status,
-    ids_regiao: g.ids,
-    ids_regiao_aprovar: g.idsAprovar,
-    id_usuario: id,
-    id_envio: g.id_envio,
-  }));
+      key: `pessoa-${id}`,
+      tipo: 'pessoa',
+      titulo: primeiroNome(g.nome),
+      montadaPor: primeiroNome(g.nome),
+      status: g.status,
+      ids_regiao: g.ids,
+      ids_regiao_aprovar: g.idsAprovar,
+      id_usuario: id,
+      id_envio: g.id_envio,
+    }));
 
   return [...cardsPessoa, ...regioes];
 }
