@@ -28,7 +28,6 @@ import {
   modoEntradaEfetivo,
   podeInformarKg,
   qtdPreviewSeguro,
-  rascunhoDeItemContagem,
   rotuloModoEntrada,
   sanitizarEntradaFracionada,
   sanitizarEntradaNaoNegativa,

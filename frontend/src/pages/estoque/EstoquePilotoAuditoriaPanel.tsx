@@ -175,7 +175,7 @@ export default function EstoquePilotoAuditoriaPanel({
         </Button>
       </Box>
 
-      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+      <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: 'wrap' }}>
         <Chip
           size="small"
           label="Esta loja"
