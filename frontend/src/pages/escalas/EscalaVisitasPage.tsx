@@ -244,8 +244,8 @@ export default function EscalaVisitasPage() {
     try {
       const q = new URLSearchParams({ semana_inicio: semanaInicio });
       if (idRegiao !== '') q.set('id_regiao', String(idRegiao));
+      // Só id_envio = cópia histórica (somente leitura). Filtro de pessoa é client-side na grade viva.
       if (idEnvio) q.set('id_envio', String(idEnvio));
-      else if (idUsuarioFiltro != null) q.set('id_usuario_envio', String(idUsuarioFiltro));
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
@@ -258,7 +258,7 @@ export default function EscalaVisitasPage() {
     } finally {
       setLoading(false);
     }
-  }, [semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional]);
+  }, [semanaInicio, idRegiao, idEnvio, ehRegional]);
 
   const carregarGestores = useCallback(async () => {
     if (ehDeliveryOnly) return;
@@ -571,11 +571,20 @@ export default function EscalaVisitasPage() {
     setIdEnvio(null);
   }
 
-  function visualizarEscalaRegiao(id: number, idUsuario?: number | null, idEnvioArg?: number | null) {
+  /** Abre a grade viva da região para editar/salvar (não a cópia do envio). */
+  function editarEscalaRegiao(id: number, idUsuario?: number | null) {
     setAba('visitas');
     setIdRegiao(id);
     setIdUsuarioFiltro(idUsuario != null ? Number(idUsuario) : null);
-    setIdEnvio(idEnvioArg != null ? Number(idEnvioArg) : null);
+    setIdEnvio(null);
+  }
+
+  /** Cópia histórica enviada — somente leitura. */
+  function verCopiaEnvio(id: number, idEnvioArg: number) {
+    setAba('visitas');
+    setIdRegiao(id);
+    setIdUsuarioFiltro(null);
+    setIdEnvio(Number(idEnvioArg));
   }
 
   function alternarFiltroPessoa(idUsuario: number) {
@@ -1080,9 +1089,13 @@ export default function EscalaVisitasPage() {
                           onClick={() =>
                             card.tipo === 'pessoa' && card.id_usuario
                               ? visualizarEscalaPessoa(card.id_usuario)
-                              : visualizarEscalaRegiao(card.id_regiao!, null, card.id_envio)
+                              : editarEscalaRegiao(card.id_regiao!)
                           }
-                          title={card.tipo === 'pessoa' ? 'Ver a escala desta pessoa' : 'Clique para ver só esta região'}
+                          title={
+                            card.tipo === 'pessoa'
+                              ? 'Abrir a escala desta pessoa para editar'
+                              : 'Abrir a escala desta região para editar'
+                          }
                           sx={{
                             all: 'unset',
                             cursor: 'pointer',
@@ -1169,27 +1182,46 @@ export default function EscalaVisitasPage() {
                               : '—'}
                       </Typography>
                       {(card.id_envio || card.status !== 'rascunho' || card.tipo === 'pessoa') && (
-                      <Typography
-                        component="button"
-                        type="button"
-                        variant="caption"
-                        onClick={() =>
-                          card.tipo === 'pessoa' && card.id_usuario
-                            ? visualizarEscalaPessoa(card.id_usuario)
-                            : visualizarEscalaRegiao(card.id_regiao!, null, card.id_envio)
-                        }
-                        sx={{
-                          all: 'unset',
-                          cursor: 'pointer',
-                          color: colors.navy,
-                          fontWeight: 700,
-                          px: 0.25,
-                          textDecoration: 'underline',
-                          fontSize: '0.7rem',
-                        }}
-                      >
-                        Visualizar escala
-                      </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, px: 0.25, flexWrap: 'wrap' }}>
+                          <Typography
+                            component="button"
+                            type="button"
+                            variant="caption"
+                            onClick={() =>
+                              card.tipo === 'pessoa' && card.id_usuario
+                                ? visualizarEscalaPessoa(card.id_usuario)
+                                : editarEscalaRegiao(card.id_regiao!)
+                            }
+                            sx={{
+                              all: 'unset',
+                              cursor: 'pointer',
+                              color: colors.navy,
+                              fontWeight: 700,
+                              textDecoration: 'underline',
+                              fontSize: '0.7rem',
+                            }}
+                          >
+                            Editar escala
+                          </Typography>
+                          {ehDiretor && card.tipo === 'regiao' && card.id_envio ? (
+                            <Typography
+                              component="button"
+                              type="button"
+                              variant="caption"
+                              onClick={() => verCopiaEnvio(card.id_regiao!, card.id_envio!)}
+                              sx={{
+                                all: 'unset',
+                                cursor: 'pointer',
+                                color: 'text.secondary',
+                                fontWeight: 600,
+                                textDecoration: 'underline',
+                                fontSize: '0.7rem',
+                              }}
+                            >
+                              Ver envio
+                            </Typography>
+                          ) : null}
+                        </Box>
                       )}
                     </Box>
                   );
@@ -1998,9 +2030,16 @@ export default function EscalaVisitasPage() {
 
       {!podeEditarGrade && !podeEditarDelivery && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
-          {ehRegional
-            ? 'Modo leitura — escala pendente ou já aprovada. Aguarde devolução do diretor para editar.'
-            : 'Modo leitura — supervisores montam a região; o diretor aprova.'}
+          {grade?.somente_leitura
+            ? 'Cópia do envio (somente leitura). Use “Editar escala” para alterar a grade atual e salvar.'
+            : ehRegional
+              ? 'Modo leitura — escala pendente ou já aprovada. Aguarde devolução do diretor para editar.'
+              : 'Modo leitura — sem permissão para editar esta grade.'}
+        </Typography>
+      )}
+      {ehDiretor && podeEditarGrade && (
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
+          Você pode editar a escala montada pela equipe e salvar a qualquer momento.
         </Typography>
       )}
       {ehDeliveryOnly && (

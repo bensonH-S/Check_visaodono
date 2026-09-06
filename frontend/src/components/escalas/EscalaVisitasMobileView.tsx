@@ -293,7 +293,7 @@ export default function EscalaVisitasMobileView() {
       { id: 'manutencao', label: 'Manutenção' },
     ];
     if (ehDiretor || grade?.pode_editar_regiao || grade?.pode_editar) {
-      base.unshift({ id: 'montar', label: 'Montar' });
+      base.unshift({ id: 'montar', label: ehDiretor ? 'Editar' : 'Montar' });
     }
     return base;
   }, [ehRegional, ehDiretor, ehDeliveryOnly, grade?.pode_editar_regiao, grade?.pode_editar]);
@@ -305,9 +305,9 @@ export default function EscalaVisitasMobileView() {
       const q = new URLSearchParams({ semana_inicio: semanaInicio });
       // Regional não filtra por região — senão some a escala pessoal (ex.: Igor sem frota).
       if (!ehRegional && idRegiao !== '') q.set('id_regiao', String(idRegiao));
-      const verCopia = modo !== 'montar' && modo !== 'delivery';
-      if (verCopia && idEnvio) q.set('id_envio', String(idEnvio));
-      else if (verCopia && idUsuarioFiltro != null) q.set('id_usuario_envio', String(idUsuarioFiltro));
+      // Cópia histórica só fora do modo de edição. Filtro de pessoa é client-side na grade viva.
+      const verCopia = modo !== 'montar' && modo !== 'delivery' && idEnvio != null;
+      if (verCopia) q.set('id_envio', String(idEnvio));
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
@@ -316,7 +316,7 @@ export default function EscalaVisitasMobileView() {
     } finally {
       setLoading(false);
     }
-  }, [podeVer, semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional, modo]);
+  }, [podeVer, semanaInicio, idRegiao, idEnvio, ehRegional, modo]);
 
   const carregarGestores = useCallback(async () => {
     if (!podeVer || ehDeliveryOnly) return;
@@ -656,13 +656,6 @@ export default function EscalaVisitasMobileView() {
     }
   }
 
-  function visualizarEscalaPessoa(idUsuario: number) {
-    setIdRegiao('');
-    setIdUsuarioFiltro(Number(idUsuario));
-    setIdEnvio(null);
-    setModo('dia');
-  }
-
   async function aprovarRegioes(ids: number[]) {
     if (!ids.length) return;
     setSalvando(true);
@@ -764,11 +757,19 @@ export default function EscalaVisitasMobileView() {
     setIdEnvio(null);
   }
 
-  function visualizarEscalaRegiao(id: number, idUsuario?: number | null, idEnvioArg?: number | null) {
+  /** Abre a grade viva da região para editar (não a cópia do envio). */
+  function editarEscalaRegiao(id: number, idUsuario?: number | null) {
     setIdRegiao(id);
     setIdUsuarioFiltro(idUsuario != null ? Number(idUsuario) : null);
-    setIdEnvio(idEnvioArg != null ? Number(idEnvioArg) : null);
-    setModo('dia');
+    setIdEnvio(null);
+    setModo('montar');
+  }
+
+  function visualizarEscalaPessoa(idUsuario: number) {
+    setIdRegiao('');
+    setIdUsuarioFiltro(Number(idUsuario));
+    setIdEnvio(null);
+    setModo(ehDiretor ? 'montar' : 'dia');
   }
 
   function alternarFiltroPessoa(idUsuario: number) {
@@ -996,7 +997,7 @@ export default function EscalaVisitasMobileView() {
               <div className="ck-escala__compact-top">
                 <div>
                   <h1 className="ck-escala__compact-title">
-                    {ehDeliveryOnly ? 'Escala delivery' : 'Montar escala'}
+                    {ehDeliveryOnly ? 'Escala delivery' : ehDiretor ? 'Editar escala' : 'Montar escala'}
                   </h1>
                   <p className="ck-escala__compact-sub">
                     {ehDeliveryOnly || modo === 'delivery'
@@ -1011,7 +1012,9 @@ export default function EscalaVisitasMobileView() {
                             ? 'Ajuste as lojas e envie de novo para o diretor'
                             : 'Escolha o dia, toque nas lojas e envie para aprovação'
                           : 'Escala em só leitura — use Minhas para ver sua rota'
-                        : 'Toque nos dias e envie para aprovação'}
+                        : podeEditarGrade
+                          ? 'Altere a escala montada pela equipe e salve'
+                          : 'Só leitura — abra Editar numa região para alterar a grade viva'}
                   </p>
                 </div>
                 <CkMarkLogoMenu size={44} className="ck-visitas__mark-icon" />
@@ -1165,9 +1168,11 @@ export default function EscalaVisitasMobileView() {
                     setModo(id);
                     if (id === 'montar' || id === 'delivery') {
                       setIdEnvio(null);
-                      setIdUsuarioFiltro(null);
+                      // Mantém a semana/região em tela — diretor edita a escala já montada.
+                      if (!ehDiretor) {
+                        setIdUsuarioFiltro(null);
+                      }
                     }
-                    setSemanaInicio(segundaFeiraAtual());
                   }}
                 >
                   {label}
@@ -1298,7 +1303,7 @@ export default function EscalaVisitasMobileView() {
                       onClick={() =>
                         card.tipo === 'pessoa' && card.id_usuario
                           ? visualizarEscalaPessoa(card.id_usuario)
-                          : visualizarEscalaRegiao(card.id_regiao!, null, card.id_envio)
+                          : editarEscalaRegiao(card.id_regiao!)
                       }
                     >
                       <strong>
@@ -1312,7 +1317,7 @@ export default function EscalaVisitasMobileView() {
                             ? `Montada por ${card.montadaPor}`
                             : 'Aguardando envio'}
                       </span>
-                      <span className="ck-escala__aprovacao-ver">Toque para ver a escala →</span>
+                      <span className="ck-escala__aprovacao-ver">Toque para editar a escala →</span>
                     </button>
                     <div className="ck-escala__aprovacao-acoes">
                       <button
@@ -1466,7 +1471,7 @@ export default function EscalaVisitasMobileView() {
                   <CardLojaSemana
                     key={linha.id_loja}
                     linha={linha}
-                    editavel
+                    editavel={podeEditarGrade}
                     mapNome={mapNomeRegional}
                     mapCor={mapCorRegional}
                     idsPorDia={linha.dias.map((d) => valorCelulaRegional(linha.id_loja, d.dia, d))}
