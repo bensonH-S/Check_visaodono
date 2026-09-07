@@ -1029,14 +1029,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
-  estoqueConfiguracaoContagem: (idLoja: number) =>
-    request<{ id_loja: number; itens: InsumoConfigContagem[] }>(
-      `/estoque/configuracao-contagem?id_loja=${idLoja}`,
-    ),
+  estoqueConfiguracaoContagem: () =>
+    request<{ escopo: 'rede'; itens: InsumoConfigContagem[] }>('/estoque/configuracao-contagem'),
   estoqueSalvarConfiguracaoContagem: (body: {
-    id_loja: number;
     itens: Array<
-      Pick<InsumoConfigContagem, 'id_insumo'> &
+      Pick<InsumoConfigContagem, 'id_insumo' | 'codigo'> &
         Partial<
           Pick<
             InsumoConfigContagem,
@@ -1051,7 +1048,7 @@ export const api = {
         >
     >;
   }) =>
-    request<{ id_loja: number; resumo: ConfigContagemResumo; itens: InsumoConfigContagem[] }>(
+    request<{ escopo: 'rede'; resumo: ConfigContagemResumo; itens: InsumoConfigContagem[] }>(
       '/estoque/configuracao-contagem',
       { method: 'PUT', body: JSON.stringify(body) },
     ),
@@ -2897,6 +2894,8 @@ export interface InsumoConfigContagem {
   unidade_contagem: string;
   unidade_fracionada: string;
   conversao_status: ConversaoContagemStatus;
+  lojas?: number;
+  divergente?: boolean;
 }
 
 export interface ConfigContagemResumo {
@@ -2909,6 +2908,7 @@ export interface ConfigContagemResumo {
   diaria: number;
   critica: number;
   fracionada: number;
+  replicados?: number;
 }
 
 export interface EstoqueContagemResumo {

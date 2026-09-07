@@ -8,8 +8,6 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
@@ -28,7 +26,6 @@ import {
   type ConfigContagemResumo,
   type ConversaoContagemStatus,
   type InsumoConfigContagem,
-  type Loja,
 } from '../../api/client';
 import { CONTAGEM_SEMANAL_ATIVA } from '../../components/estoque/estoqueContagemTipo';
 import { showToast } from '../../utils/toast';
@@ -40,7 +37,6 @@ import {
 } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 
-const LOJA_STORAGE_KEY = 'estoque.id_loja';
 const UNIDADES = ['KG', 'UND', 'L'] as const;
 
 type FiltroMatriz =
@@ -49,7 +45,8 @@ type FiltroMatriz =
   | 'fora'
   | 'diaria'
   | 'critica'
-  | 'conversao_pendente';
+  | 'conversao_pendente'
+  | 'divergente';
 
 type Draft = Pick<
   InsumoConfigContagem,
@@ -69,6 +66,7 @@ const FILTROS: Array<{ id: FiltroMatriz; label: string }> = [
   { id: 'diaria', label: 'Diária' },
   ...(CONTAGEM_SEMANAL_ATIVA ? [{ id: 'critica' as const, label: 'Crítica' }] : []),
   { id: 'conversao_pendente', label: 'Conversão pendente' },
+  { id: 'divergente', label: 'Fora do padrão' },
 ];
 
 function rotuloConversao(status: ConversaoContagemStatus) {
@@ -132,11 +130,6 @@ function resumoLocal(originais: InsumoConfigContagem[], drafts: Record<number, D
 }
 
 export default function ConfiguracaoContagemPage() {
-  const [lojas, setLojas] = useState<Loja[]>([]);
-  const [idLoja, setIdLoja] = useState<number | ''>(() => {
-    const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
-    return Number.isFinite(saved) && saved > 0 ? saved : '';
-  });
   const [itens, setItens] = useState<InsumoConfigContagem[]>([]);
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const [busca, setBusca] = useState('');
@@ -146,15 +139,15 @@ export default function ConfiguracaoContagemPage() {
   const [erro, setErro] = useState('');
   const [dlgResumo, setDlgResumo] = useState(false);
 
-  const carregar = useCallback(async (loja: number) => {
+  const carregar = useCallback(async () => {
     setLoading(true);
     setErro('');
     try {
-      const resp = await api.estoqueConfiguracaoContagem(loja);
+      const resp = await api.estoqueConfiguracaoContagem();
       setItens(resp.itens || []);
       setDrafts({});
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Falha ao carregar a configuração');
+      setErro(e instanceof Error ? e.message : 'Falha ao carregar o padrão da rede');
       setItens([]);
     } finally {
       setLoading(false);
@@ -162,36 +155,8 @@ export default function ConfiguracaoContagemPage() {
   }, []);
 
   useEffect(() => {
-    let cancel = false;
-    (async () => {
-      try {
-        const rows = await api.estoqueLojas({ ativas: true, operacionais: true });
-        if (cancel) return;
-        setLojas(rows);
-        const atual = typeof idLoja === 'number' ? idLoja : 0;
-        const ok = rows.some((l) => l.id_loja === atual);
-        const escolhida = ok ? atual : rows[0]?.id_loja;
-        if (escolhida) {
-          if (escolhida !== atual) {
-            setIdLoja(escolhida);
-            localStorage.setItem(LOJA_STORAGE_KEY, String(escolhida));
-          }
-        }
-      } catch (e) {
-        if (!cancel) setErro(e instanceof Error ? e.message : 'Falha ao listar lojas');
-      }
-    })();
-    return () => {
-      cancel = true;
-    };
-    // só na montagem
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (typeof idLoja !== 'number') return;
-    void carregar(idLoja);
-  }, [idLoja, carregar]);
+    void carregar();
+  }, [carregar]);
 
   const atualDe = useCallback(
     (row: InsumoConfigContagem): Draft => drafts[row.id_insumo] || draftDe(row),
@@ -237,26 +202,26 @@ export default function ConfiguracaoContagemPage() {
       if (filtro === 'conversao_pendente') {
         return row.conversao_status === 'pendente' || row.conversao_status === 'bloqueada';
       }
+      if (filtro === 'divergente') return row.divergente === true;
       return true;
     });
   }, [itens, busca, filtro, atualDe]);
 
   const confirmarSalvar = async () => {
-    if (typeof idLoja !== 'number' || !sujo) return;
+    if (!sujo) return;
     setSalvando(true);
     setErro('');
     try {
       const payload = itens
         .filter((row) => drafts[row.id_insumo] && !linhaIgual(draftDe(row), drafts[row.id_insumo]))
-        .map((row) => ({ id_insumo: row.id_insumo, ...drafts[row.id_insumo] }));
-      const resp = await api.estoqueSalvarConfiguracaoContagem({ id_loja: idLoja, itens: payload });
-      setItens((prev) => {
-        const byId = new Map(resp.itens.map((r) => [r.id_insumo, r]));
-        return prev.map((r) => byId.get(r.id_insumo) || r);
-      });
-      setDrafts({});
+        .map((row) => ({ id_insumo: row.id_insumo, codigo: row.codigo, ...drafts[row.id_insumo] }));
+      const resp = await api.estoqueSalvarConfiguracaoContagem({ itens: payload });
+      await carregar();
       setDlgResumo(false);
-      showToast(`${resp.resumo.alterados} produto(s) atualizado(s)`);
+      const extra = resp.resumo.replicados
+        ? ` em ${resp.resumo.alterados + resp.resumo.replicados} cadastros`
+        : '';
+      showToast(`${resp.resumo.alterados} SKU(s) padronizado(s)${extra}`);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Falha ao salvar');
     } finally {
@@ -267,24 +232,6 @@ export default function ConfiguracaoContagemPage() {
   return (
     <Box sx={tablePageLayoutSx}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-        <FormControl size="small" sx={{ minWidth: 260 }}>
-          <InputLabel>Loja</InputLabel>
-          <Select
-            label="Loja"
-            value={idLoja === '' ? '' : idLoja}
-            onChange={(e) => {
-              const id = Number(e.target.value);
-              setIdLoja(id);
-              localStorage.setItem(LOJA_STORAGE_KEY, String(id));
-            }}
-          >
-            {lojas.map((l) => (
-              <MenuItem key={l.id_loja} value={l.id_loja}>
-                {l.bk_number ? `${l.bk_number} — ${l.name}` : l.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
         <TextField
           size="small"
           label="Busca"
@@ -317,9 +264,10 @@ export default function ConfiguracaoContagemPage() {
       </Box>
 
       <Typography variant="caption" sx={{ color: colors.textSecondary }}>
-        {visiveis.length} de {itens.length} produtos ativos nesta loja.
-        {sujo ? ` ${resumo.alterados} alteração(ões) não salva(s).` : ''} Participa da contagem é
-        independente de ativo no cadastro.
+        Padrão BK: um SKU vale para todas as lojas, menos a Popeyes. Preço e saldo continuam por
+        loja.
+        {` ${visiveis.length} de ${itens.length} produtos.`}
+        {sujo ? ` ${resumo.alterados} alteração(ões) não salva(s).` : ''}
       </Typography>
 
       {erro && <Alert severity="error">{erro}</Alert>}
@@ -353,7 +301,18 @@ export default function ConfiguracaoContagemPage() {
                     <TableCell sx={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
                       {row.codigo}
                     </TableCell>
-                    <TableCell>{row.descricao}</TableCell>
+                    <TableCell>
+                      {row.descricao}
+                      {row.divergente ? (
+                        <Chip
+                          size="small"
+                          label="fora do padrão"
+                          color="warning"
+                          variant="outlined"
+                          sx={{ ml: 1, height: 20 }}
+                        />
+                      ) : null}
+                    </TableCell>
                     <TableCell align="center" padding="checkbox">
                       <Switch
                         size="small"
@@ -441,9 +400,11 @@ export default function ConfiguracaoContagemPage() {
       </Box>
 
       <Dialog open={dlgResumo} onClose={() => !salvando && setDlgResumo(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Salvar alterações</DialogTitle>
+        <DialogTitle>Salvar padrão da rede</DialogTitle>
         <DialogContent>
-          <Typography sx={{ mb: 1.5 }}>{resumo.alterados} produtos alterados</Typography>
+          <Typography sx={{ mb: 1.5 }}>
+            {resumo.alterados} SKU(s) — vale para todas as lojas com o mesmo código.
+          </Typography>
           <Typography variant="body2">{resumo.entrando_contagem} entrando na contagem</Typography>
           <Typography variant="body2">{resumo.saindo_contagem} saindo da contagem</Typography>
           <Typography variant="body2">{resumo.caixa} mudanças em CAIXA</Typography>

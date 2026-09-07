@@ -113,7 +113,7 @@ const CONFIG_NAV: ConfigNavSection[] = [
     items: [
       {
         to: '/configuracoes/contagem',
-        label: 'Configuração da Contagem',
+        label: 'Padrão da Contagem',
         icon: <Inventory2Icon fontSize="small" />,
         permissoes: ['estoque.produtos'],
       },

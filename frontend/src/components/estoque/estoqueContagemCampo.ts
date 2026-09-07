@@ -57,7 +57,7 @@ export function modoEntradaInicial(
   >,
 ): ModoEntradaFracionada {
   const saved = normUnidade(item.contagem_unidade_entrada);
-  if (saved === 'kg') return 'kg';
+  if (saved === 'kg' && unidadeContagemEhKg(item)) return 'kg';
   if (saved === 'und') return 'und';
   const temValor =
     item.contagem_kg_und != null ||
@@ -76,7 +76,8 @@ export function modoEntradaEfetivo(
   >,
   linha: RascunhoContagem | undefined,
 ): ModoEntradaFracionada {
-  if (linha?.modo === 'kg' || linha?.modo === 'und') return linha.modo;
+  if (linha?.modo === 'kg' && unidadeContagemEhKg(item)) return 'kg';
+  if (linha?.modo === 'und') return 'und';
   return modoEntradaInicial(item);
 }
 

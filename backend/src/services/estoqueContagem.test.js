@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calcularQtdContagem,
+  chaveCodigoRede,
   resolverQtdContagem,
   sqlFiltroItensContagem,
   statusConversaoFracionada,
@@ -17,6 +18,14 @@ import {
   aplicarConversaoUnidades,
   converterQuantidade,
 } from './estoqueConsumo.js';
+
+describe('chaveCodigoRede', () => {
+  it('034754 e 34754 são o mesmo SKU na rede', () => {
+    assert.equal(chaveCodigoRede('034754'), '34754');
+    assert.equal(chaveCodigoRede('34754'), '34754');
+    assert.equal(chaveCodigoRede('RCNT-BALDEPAPEL900MLBKC'), 'RCNT-BALDEPAPEL900MLBKC');
+  });
+});
 
 describe('unidadeFracionadaEfetiva', () => {
   it('herda unidade_contagem quando fracionada está vazia', () => {
@@ -97,6 +106,20 @@ describe('resolverQtdContagem — UND avulsa → KG canônico', () => {
     });
     assert.equal(r.ok, true);
     assert.equal(r.qtd, Math.round(32 * fator * 10000) / 10000);
+  });
+
+  it('cadastro UND com rascunho legado KG conta como peça', () => {
+    const r = resolverQtdContagem({
+      contagem_caixa: 3,
+      contagem_kg_und: 4,
+      und_convertida: 12,
+      unidade_contagem: 'UND',
+      unidade_fracionada: 'UND',
+      unidade_entrada: 'KG',
+      codigo: '35046',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, 40);
   });
 
   it('sem fator validado não assume 1 UND = 1 KG', () => {

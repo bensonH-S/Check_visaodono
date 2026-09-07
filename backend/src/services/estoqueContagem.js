@@ -471,6 +471,86 @@ export function normalizarUnidadeEntrada(raw) {
   return null;
 }
 
+/** Peça (UND) com rascunho legado em KG: o número digitado é unidade, não quilo. */
+export function unidadeOrigemContagem(unidadeEntrada, unidadeFracionada, unidadeContagem) {
+  const dest = normalizarUnidade(unidadeContagem || unidadeFracionada);
+  const entrada = normalizarUnidadeEntrada(unidadeEntrada);
+  if (dest === 'und' && entrada === 'KG') return 'UND';
+  return entrada || unidadeFracionadaEfetiva(unidadeFracionada, unidadeContagem);
+}
+
+export function nucleoCodigoOuNull(codigo) {
+  const t = String(codigo || '').trim();
+  if (!/^\d+$/.test(t)) return null;
+  return t.replace(/^0+/, '') || '0';
+}
+
+/** Mesmo SKU na rede: 034754 e 34754 são a mesma chave. */
+export function chaveCodigoRede(codigo) {
+  return nucleoCodigoOuNull(codigo) || String(codigo || '').trim().toUpperCase();
+}
+
+/** Popeyes tem catálogo e preço próprios — fora do padrão BK. */
+export const BK_NUMBER_POPEYES = '15022';
+
+export const SQL_LOJA_BK_REDE = `TRIM(COALESCE(l.bk_number, '')) <> '${BK_NUMBER_POPEYES}'`;
+
+/**
+ * Grava o padrão de contagem em todas as lojas BK com o mesmo código.
+ * Preço e saldo continuam por loja. Popeyes não entra.
+ */
+export async function aplicarPadraoContagemRede(client, {
+  codigo,
+  participa_contagem,
+  contagem_diaria,
+  grupo_diario,
+  contagem_critica,
+  grupo_critico,
+  permite_contagem_caixa,
+  permite_contagem_pc_fd,
+  permite_contagem_kg_und,
+  unidade_fracionada,
+} = {}) {
+  const nucleo = nucleoCodigoOuNull(codigo);
+  const r = await client.query(
+    `UPDATE insumos dest
+     SET participa_contagem = $1,
+         contagem_diaria = $2, grupo_diario = $3,
+         contagem_critica = $4, grupo_critico = $5,
+         permite_contagem_caixa = $6, permite_contagem_pc_fd = $7, permite_contagem_kg_und = $8,
+         unidade_fracionada = $9,
+         atualizado_em = NOW()
+     FROM lojas l
+     WHERE dest.id_loja = l.id_loja
+       AND dest.ativo = TRUE
+       AND TRIM(COALESCE(l.bk_number, '')) <> $12
+       AND (
+         UPPER(BTRIM(dest.codigo)) = UPPER(BTRIM($10::text))
+         OR (
+           $11::text IS NOT NULL
+           AND dest.codigo ~ '^[0-9]+$'
+           AND TRIM(LEADING '0' FROM dest.codigo) = $11
+         )
+       )
+     RETURNING dest.id_insumo, dest.id_loja, dest.codigo`,
+    [
+      participa_contagem,
+      contagem_diaria,
+      grupo_diario,
+      contagem_critica,
+      grupo_critico,
+      permite_contagem_caixa,
+      permite_contagem_pc_fd,
+      permite_contagem_kg_und,
+      unidade_fracionada,
+      codigo,
+      nucleo,
+      BK_NUMBER_POPEYES,
+    ],
+  );
+  return r.rows;
+}
+
 /**
  * Resolve QTD canônica a partir dos três campos Terraço.
  * CAIXA e PC/FD seguem und_convertida / und_parcial.
@@ -518,8 +598,7 @@ export function resolverQtdContagem({
   let qtdFracionada = 0;
   if (temKg) {
     const dest = unidade_contagem || unidadeFracionadaEfetiva(unidade_fracionada, unidade_contagem);
-    const entrada = normalizarUnidadeEntrada(unidade_entrada);
-    const orig = entrada || unidadeFracionadaEfetiva(unidade_fracionada, dest);
+    const orig = unidadeOrigemContagem(unidade_entrada, unidade_fracionada, dest);
     const conv = aplicarConversaoUnidades({
       quantidade: contagem_kg_und,
       unidadeOrigem: orig,
@@ -599,8 +678,11 @@ export async function anexarFatoresFracionada(client, rows) {
   for (const row of rows || []) {
     const id = Number(row.id_insumo);
     if (!Number.isFinite(id) || id <= 0) continue;
-    const entrada = normalizarUnidadeEntrada(row.contagem_unidade_entrada || row.unidade_entrada);
-    const fracionada = entrada || row.unidade_fracionada;
+    const fracionada = unidadeOrigemContagem(
+      row.contagem_unidade_entrada || row.unidade_entrada,
+      row.unidade_fracionada,
+      row.unidade_contagem,
+    );
     const key = `${id}|${unidadeFracionadaEfetiva(fracionada, row.unidade_contagem)}`;
     if (!cache.has(key)) {
       cache.set(
