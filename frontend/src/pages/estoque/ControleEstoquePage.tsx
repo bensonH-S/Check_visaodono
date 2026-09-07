@@ -835,7 +835,15 @@ export default function ControleEstoquePage() {
                 }}
                 MenuProps={{
                   slotProps: {
-                    paper: { sx: { maxHeight: 360, overflowY: 'auto' } },
+                    paper: {
+                      sx: {
+                        maxHeight: 360,
+                        overflowY: 'auto',
+                        bgcolor: colors.surface,
+                        backgroundImage: 'none',
+                        border: `1px solid ${colors.border}`,
+                      },
+                    },
                   },
                 }}
                 sx={{
@@ -866,7 +874,7 @@ export default function ControleEstoquePage() {
                   </MenuItem>
                 )}
                 {lojas.map((l) => (
-                  <MenuItem key={l.id_loja} value={l.id_loja}>
+                  <MenuItem key={l.id_loja} value={l.id_loja} sx={{ color: colors.textPrimary }}>
                     {rotuloLoja(l)}
                   </MenuItem>
                 ))}

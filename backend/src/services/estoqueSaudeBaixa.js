@@ -193,19 +193,23 @@ export async function montarSaudeBaixa(opts = {}) {
   }
 
   let pilotoOff = true;
-  if (escopo === 'loja') {
-    const { rows } = await pool.query(
-      `SELECT COALESCE(piloto_baixa, TRUE) AS piloto FROM lojas_estoque_perfil WHERE id_loja = $1`,
-      [idLoja],
-    );
-    pilotoOff = rows[0] ? rows[0].piloto === false : false;
-  } else {
-    const { rows } = await pool.query(`
-      SELECT COUNT(*) FILTER (WHERE piloto_baixa = FALSE)::int AS off,
-             COUNT(*)::int AS total
-      FROM lojas_estoque_perfil
-    `);
-    pilotoOff = rows[0]?.off === rows[0]?.total;
+  try {
+    if (escopo === 'loja') {
+      const { rows } = await pool.query(
+        `SELECT COALESCE(piloto_baixa, TRUE) AS piloto FROM lojas_estoque_perfil WHERE id_loja = $1`,
+        [idLoja],
+      );
+      pilotoOff = rows[0] ? rows[0].piloto === false : false;
+    } else {
+      const { rows } = await pool.query(`
+        SELECT COUNT(*) FILTER (WHERE piloto_baixa = FALSE)::int AS off,
+               COUNT(*)::int AS total
+        FROM lojas_estoque_perfil
+      `);
+      pilotoOff = rows[0]?.off === rows[0]?.total;
+    }
+  } catch (e) {
+    if (e.code !== '42P01' && e.code !== '42703') throw e;
   }
 
   const v = vendasRows[0] || {

@@ -1168,7 +1168,9 @@ function PainelSyncRede({
                         hover
                         onClick={onSelectLoja ? () => onSelectLoja(l.id_loja) : undefined}
                         sx={{
-                          bgcolor: destaque ? 'rgba(27, 42, 107, 0.05)' : undefined,
+                          bgcolor: destaque
+                            ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(232, 82, 10, 0.16)' : 'rgba(27, 42, 107, 0.08)')
+                            : undefined,
                           cursor: onSelectLoja ? 'pointer' : 'default',
                         }}
                       >
@@ -1284,7 +1286,9 @@ function PainelSyncRede({
                       hover
                       onClick={onSelectLoja ? () => onSelectLoja(l.id_loja) : undefined}
                       sx={{
-                        bgcolor: destaque ? 'rgba(27, 42, 107, 0.05)' : undefined,
+                        bgcolor: destaque
+                          ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(232, 82, 10, 0.16)' : 'rgba(27, 42, 107, 0.08)')
+                          : undefined,
                         cursor: onSelectLoja ? 'pointer' : 'default',
                       }}
                     >

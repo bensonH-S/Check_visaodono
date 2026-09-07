@@ -2986,6 +2986,15 @@ export interface EstoqueItem {
 export interface EstoqueContagemDetalhe extends EstoqueContagemResumo {
   total_diferenca?: number;
   itens: EstoqueItem[];
+  /** PUT de rascunho: item sem fator (não bloqueia a troca de seção). */
+  aviso?: string;
+  avisos_conversao?: Array<{
+    id_insumo?: number | null;
+    codigo?: string | null;
+    unidade_origem?: string;
+    unidade_destino?: string;
+    motivo?: string;
+  }>;
   meta?: {
     sabado?: string;
     hoje?: string;

@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarChecklistPerguntas, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
@@ -22,11 +22,7 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
-import StoreIcon from '@mui/icons-material/Store';
-import PeopleIcon from '@mui/icons-material/People';
-import BadgeIcon from '@mui/icons-material/Badge';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import DescriptionIcon from '@mui/icons-material/Description';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -65,6 +61,7 @@ import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import Popover from '@mui/material/Popover';
 import { datePickerPtBR } from '../utils/datePickerLocale';
 import { dataHojeBrasilia } from '../utils/dateBr';
+import { getConfigNavSections } from '../pages/configuracoes/configNav';
 
 dayjs.locale('pt-br');
 
@@ -308,14 +305,18 @@ function PortalLayoutInner() {
 
     // GESTÃO
     { to: '/estoque', label: 'Estoque & CMV', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), section: 'GESTÃO' },
-    { to: '/visitas', label: 'Relatórios', icon: <DescriptionIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user), section: 'GESTÃO' },
     { to: '/ranking', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'GESTÃO' },
 
-    // CONFIGURAÇÃO
-    { to: '/lojas', label: 'Unidades', icon: <StoreIcon fontSize="small" />, show: temPermissao('portal.lojas.ver', user) || temPermissao('configuracoes.ver', user), section: 'CONFIGURAÇÃO' },
-    { to: '/usuarios', label: 'Usuários', icon: <PeopleIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user), section: 'CONFIGURAÇÃO' },
-    { to: '/cargos', label: 'Permissões', icon: <BadgeIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user) || temPermissao('configuracoes.ver', user), section: 'CONFIGURAÇÃO' },
-    { to: '/configuracoes', label: 'Configurações', icon: <SettingsIcon fontSize="small" />, show: temPermissao('configuracoes.ver', user) || podeGerenciarChecklistPerguntas(user), end: false, section: 'CONFIGURAÇÃO' },
+    // CONFIGURAÇÃO — cadastros e módulos ficam no menu interno de /configuracoes
+    {
+      to: '/configuracoes',
+      label: 'Configurações',
+      icon: <SettingsIcon fontSize="small" />,
+      show: getConfigNavSections(user).length > 0,
+      end: false,
+      section: 'CONFIGURAÇÃO',
+      isActive: (pathname: string) => pathname === '/configuracoes' || pathname.startsWith('/configuracoes/'),
+    },
   ].filter((n) => n.show);
 
   const sidebarNav = nav.filter((n) => !n.mobileOnly);

@@ -245,6 +245,18 @@ let schemaPilotoOk = false;
 
 export async function garantirSchemaPilotoBaixa(client) {
   if (schemaPilotoOk) return;
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS lojas_estoque_perfil (
+      id_loja INTEGER PRIMARY KEY REFERENCES lojas(id_loja) ON DELETE CASCADE,
+      modo_ciclo TEXT NOT NULL DEFAULT 'antes_abertura'
+        CHECK (modo_ciclo IN ('antes_abertura', 'corte_24h')),
+      hora_corte TIME NOT NULL DEFAULT '06:00',
+      janela_minutos INTEGER NOT NULL DEFAULT 30
+        CHECK (janela_minutos >= 0 AND janela_minutos <= 180),
+      piloto_baixa BOOLEAN NOT NULL DEFAULT TRUE,
+      atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
   try {
     await client.query(`
       ALTER TABLE lojas_estoque_perfil

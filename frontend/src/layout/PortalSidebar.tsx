@@ -135,7 +135,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
           const sections = Array.from(new Set(nav.filter((n) => n.section).map((n) => n.section as string)));
 
           const renderItem = (item: SidebarNavItem) => (
-            <NavLink key={item.to} to={item.to} end={item.end} style={{ textDecoration: 'none' }}>
+            <NavLink key={`${item.section ?? ''}:${item.to}:${item.label}`} to={item.to} end={item.end} style={{ textDecoration: 'none' }}>
               {({ isActive: navActive }) => {
                 const isActive = item.isActive ? item.isActive(appPath) : navActive;
                 return (

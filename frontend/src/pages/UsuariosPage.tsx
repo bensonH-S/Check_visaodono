@@ -637,7 +637,7 @@ export default function UsuariosPage() {
                     Vale para todos os usuários com o perfil{' '}
                     <strong>{cargoSelecionado(form.cargo_aprovacao)?.nome || form.cargo_aprovacao}</strong>.
                     Também em{' '}
-                    <RouterLink to="/cargos" style={{ color: colors.navy }}>
+                    <RouterLink to="/configuracoes/cargos" style={{ color: colors.navy }}>
                       Permissões
                     </RouterLink>
                     .

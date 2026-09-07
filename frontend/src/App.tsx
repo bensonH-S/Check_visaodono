@@ -444,14 +444,6 @@ export default function App() {
               }
             />
             <Route
-              path="lojas"
-              element={
-                <RotaPermissao permissoes={['portal.lojas.ver', 'configuracoes.ver']}>
-                  <LojasPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
               path="nao-conformidades"
               element={
                 <RotaPermissao permissoes={['portal.dashboard.ver']}>
@@ -526,23 +518,10 @@ export default function App() {
             <Route path="manutencao" element={<Navigate to="/chamados" replace />} />
             <Route path="manutencao/novo" element={<Navigate to="/chamados/novo" replace />} />
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
-            <Route
-              path="usuarios"
-              element={
-                <RotaPermissao permissoes={['usuarios.gerenciar']}>
-                  <UsuariosPage />
-                </RotaPermissao>
-              }
-            />
-            <Route
-              path="cargos"
-              element={
-                <RotaPermissao permissoes={['usuarios.gerenciar', 'configuracoes.ver']}>
-                  <CargosPage />
-                </RotaPermissao>
-              }
-            />
-            <Route path="permissoes" element={<Navigate to="/cargos" replace />} />
+            <Route path="lojas" element={<Navigate to="/configuracoes/lojas" replace />} />
+            <Route path="usuarios" element={<Navigate to="/configuracoes/usuarios" replace />} />
+            <Route path="cargos" element={<Navigate to="/configuracoes/cargos" replace />} />
+            <Route path="permissoes" element={<Navigate to="/configuracoes/cargos" replace />} />
             <Route
               path="configuracoes"
               element={
@@ -552,9 +531,30 @@ export default function App() {
               }
             >
               <Route index element={<ConfiguracoesPage />} />
-              <Route path="lojas" element={<Navigate to="/lojas" replace />} />
-              <Route path="usuarios" element={<Navigate to="/usuarios" replace />} />
-              <Route path="cargos" element={<Navigate to="/cargos" replace />} />
+              <Route
+                path="lojas"
+                element={
+                  <RotaPermissao permissoes={['portal.lojas.ver', 'configuracoes.ver']}>
+                    <LojasPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="usuarios"
+                element={
+                  <RotaPermissao permissoes={['usuarios.gerenciar']}>
+                    <UsuariosPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="cargos"
+                element={
+                  <RotaPermissao permissoes={['usuarios.gerenciar', 'configuracoes.ver']}>
+                    <CargosPage />
+                  </RotaPermissao>
+                }
+              />
               <Route
                 path="perguntas"
                 element={

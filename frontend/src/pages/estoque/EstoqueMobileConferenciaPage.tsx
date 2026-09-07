@@ -159,6 +159,8 @@ export default function EstoqueMobileConferenciaPage() {
   const dirtyRef = useRef(false);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const salvandoRef = useRef(false);
+  const persistirEmVoo = useRef<Promise<EstoqueContagemDetalhe | null> | null>(null);
+  const trocandoSecao = useRef(false);
 
   useEffect(() => {
     rascunhoRef.current = rascunho;
@@ -299,20 +301,44 @@ export default function EstoqueMobileConferenciaPage() {
       const det = contagemRef.current;
       if (!det?.id_contagem || det.status !== 'aberta') return null;
       if (!opts?.forcar && !dirtyRef.current) return det;
-      if (salvandoRef.current) return null;
+
+      if (persistirEmVoo.current) {
+        try {
+          await persistirEmVoo.current;
+        } catch {
+          /* tenta de novo se o rascunho ainda estiver sujo */
+        }
+        if (!opts?.forcar && !dirtyRef.current) return contagemRef.current;
+      }
 
       salvandoRef.current = true;
       if (silencioso) setAutoSalvando(true);
       else setSalvando(true);
 
       const draftSnap = rascunhoRef.current;
-      try {
-        const itens = montarPayload(det, draftSnap);
-        const saved = await api.estoqueSalvarItens(det.id_contagem, itens);
-        if (!dirtyRef.current || opts?.forcar) {
-          setContagem(saved);
-          if (!silencioso || opts?.forcar) {
-            setRascunho(aplicarDraft(saved));
+      const job = (async () => {
+        try {
+          const itens = montarPayload(det, draftSnap);
+          const saved = await api.estoqueSalvarItens(det.id_contagem, itens);
+          if (saved.aviso && opts?.forcar) {
+            showToast(saved.aviso, 'warning');
+          }
+          if (!dirtyRef.current || opts?.forcar) {
+            setContagem(saved);
+            if (!silencioso || opts?.forcar) {
+              setRascunho(aplicarDraft(saved));
+            } else {
+              setContagem((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      total_valor: saved.total_valor,
+                      valor_atual: saved.valor_atual,
+                    }
+                  : saved,
+              );
+            }
+            dirtyRef.current = false;
           } else {
             setContagem((prev) =>
               prev
@@ -324,29 +350,24 @@ export default function EstoqueMobileConferenciaPage() {
                 : saved,
             );
           }
-          dirtyRef.current = false;
-        } else {
-          setContagem((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  total_valor: saved.total_valor,
-                  valor_atual: saved.valor_atual,
-                }
-              : saved,
-          );
+          if (!silencioso) showToast('Rascunho salvo');
+          return saved;
+        } catch (e) {
+          if (!silencioso) {
+            showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
+          }
+          throw e;
+        } finally {
+          salvandoRef.current = false;
+          setSalvando(false);
+          setAutoSalvando(false);
         }
-        if (!silencioso) showToast('Rascunho salvo');
-        return saved;
-      } catch (e) {
-        if (!silencioso) {
-          showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
-        }
-        throw e;
+      })();
+      persistirEmVoo.current = job;
+      try {
+        return await job;
       } finally {
-        salvandoRef.current = false;
-        setSalvando(false);
-        setAutoSalvando(false);
+        if (persistirEmVoo.current === job) persistirEmVoo.current = null;
       }
     },
     [montarPayload],
@@ -521,18 +542,26 @@ export default function EstoqueMobileConferenciaPage() {
 
   const irSecao = async (novoIndice: number) => {
     if (novoIndice < 0 || novoIndice >= secoes.length || novoIndice === indiceSecao) return;
-    if (editavel && dirtyRef.current) {
-      try {
-        if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-        await persistir({ silencioso: true, forcar: true });
-      } catch {
-        showToast('Não foi possível salvar antes de trocar de seção', 'error');
-        return;
+    if (trocandoSecao.current) return;
+    trocandoSecao.current = true;
+    try {
+      if (editavel && dirtyRef.current) {
+        try {
+          if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+          await persistir({ silencioso: true, forcar: true });
+        } catch (e) {
+          showToast(
+            e instanceof Error ? e.message : 'Não deu pra salvar agora — a seção muda mesmo assim',
+            'error',
+          );
+        }
       }
+      setBusca('');
+      setIndiceSecao(novoIndice);
+      scrollTopo();
+    } finally {
+      trocandoSecao.current = false;
     }
-    setBusca('');
-    setIndiceSecao(novoIndice);
-    scrollTopo();
   };
 
   const finalizar = async () => {

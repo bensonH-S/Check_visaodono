@@ -1818,9 +1818,11 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
             unidade_destino: qtdRes.erro.unidade_destino,
             motivo: qtdRes.erro.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
           });
-          continue;
+          // Rascunho: grava Terraço mesmo sem fator. QTD canônica fica pendente.
+          contado = null;
+        } else {
+          contado = qtdRes.qtd;
         }
-        contado = qtdRes.qtd;
       } else if (item.estoque_contado !== undefined) {
         contado =
           item.estoque_contado === null || item.estoque_contado === ''
@@ -1841,15 +1843,6 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       } else {
         sistemas.push(null);
       }
-    }
-
-    if (errosConversao.length) {
-      const motivo = errosConversao[0]?.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA;
-      return res.status(400).json({
-        error: mensagemErroConversao(errosConversao),
-        motivo,
-        itens: errosConversao,
-      });
     }
 
     if (!ids.length) return res.status(400).json({ error: 'Nenhum item válido' });
@@ -1885,7 +1878,12 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       );
     }
 
-    res.json(await carregarContagem(id));
+    const detalhe = await carregarContagem(id);
+    if (errosConversao.length && detalhe) {
+      detalhe.aviso = mensagemErroConversao(errosConversao);
+      detalhe.avisos_conversao = errosConversao;
+    }
+    res.json(detalhe);
   } catch (e) {
     next(e);
   }

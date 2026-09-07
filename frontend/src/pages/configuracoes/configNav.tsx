@@ -7,6 +7,9 @@ import HistoryIcon from '@mui/icons-material/History';
 import EmailIcon from '@mui/icons-material/Email';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import StoreIcon from '@mui/icons-material/Store';
+import PeopleIcon from '@mui/icons-material/People';
+import BadgeIcon from '@mui/icons-material/Badge';
 import { getUsuario, temPermissao } from '../../lib/auth';
 import type { UsuarioSessao } from '../../lib/auth';
 
@@ -25,6 +28,29 @@ export type ConfigNavSection = {
 };
 
 const CONFIG_NAV: ConfigNavSection[] = [
+  {
+    title: 'Cadastros',
+    items: [
+      {
+        to: '/configuracoes/lojas',
+        label: 'Unidades',
+        icon: <StoreIcon fontSize="small" />,
+        permissoes: ['portal.lojas.ver', 'configuracoes.ver'],
+      },
+      {
+        to: '/configuracoes/usuarios',
+        label: 'Usuários',
+        icon: <PeopleIcon fontSize="small" />,
+        permissoes: ['usuarios.gerenciar'],
+      },
+      {
+        to: '/configuracoes/cargos',
+        label: 'Permissões',
+        icon: <BadgeIcon fontSize="small" />,
+        permissoes: ['usuarios.gerenciar', 'configuracoes.ver'],
+      },
+    ],
+  },
   {
     title: 'Checklist',
     items: [
