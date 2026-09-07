@@ -698,6 +698,22 @@ async function garantirSchemaEnvio() {
       await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_escala_visitas_envio_celula_envio
           ON escala_visitas_envio_celula (id_envio, id_loja, dia)`);
+      await pool.query(`
+        ALTER TABLE escala_visitas_envio
+          ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pendente_aprovacao'`);
+      await pool.query(`
+        ALTER TABLE escala_visitas_envio
+          ADD COLUMN IF NOT EXISTS revisado_por INT REFERENCES usuarios(id_usuario) ON DELETE SET NULL`);
+      await pool.query(`
+        ALTER TABLE escala_visitas_envio
+          ADD COLUMN IF NOT EXISTS revisado_em TIMESTAMPTZ`);
+      await pool.query(`
+        ALTER TABLE escala_visitas_envio
+          ADD COLUMN IF NOT EXISTS comentario TEXT`);
+      await pool.query(`
+        UPDATE escala_visitas_envio
+        SET status = 'pendente_aprovacao'
+        WHERE status IS NULL OR TRIM(status) = ''`);
     })().catch((e) => {
       schemaEnvioPromise = null;
       throw e;
@@ -721,6 +737,8 @@ async function listarEnviosSemana(idSemana) {
     const { rows } = await pool.query(
       `SELECT e.id_envio, e.tipo, e.id_regiao, r.nome AS nome_regiao,
               e.submetido_por, us.nome AS nome_submetido_por, e.submetido_em,
+              COALESCE(e.status, 'pendente_aprovacao') AS status,
+              e.revisado_por, e.revisado_em, e.comentario,
               COALESCE(
                 ARRAY_AGG(DISTINCT c.id_regional) FILTER (WHERE c.id_regional IS NOT NULL),
                 ARRAY[]::int[]
@@ -730,7 +748,8 @@ async function listarEnviosSemana(idSemana) {
        LEFT JOIN usuarios us ON us.id_usuario = e.submetido_por
        LEFT JOIN escala_visitas_envio_celula c ON c.id_envio = e.id_envio
        WHERE e.id_semana = $1
-       GROUP BY e.id_envio, e.tipo, e.id_regiao, e.submetido_por, e.submetido_em, r.nome, us.nome
+       GROUP BY e.id_envio, e.tipo, e.id_regiao, e.submetido_por, e.submetido_em,
+                e.status, e.revisado_por, e.revisado_em, e.comentario, r.nome, us.nome
        ORDER BY e.submetido_em DESC, e.id_envio DESC`,
       [idSemana],
     );
@@ -742,6 +761,10 @@ async function listarEnviosSemana(idSemana) {
       submetido_por: row.submetido_por != null ? Number(row.submetido_por) : null,
       nome_submetido_por: row.nome_submetido_por ?? null,
       submetido_em: row.submetido_em ?? null,
+      status: row.status || STATUS_PENDENTE,
+      revisado_por: row.revisado_por != null ? Number(row.revisado_por) : null,
+      revisado_em: row.revisado_em ?? null,
+      comentario: row.comentario ?? null,
       ids_usuario: idsUsuarioDoEnvio(row),
     }));
   } catch (e) {
@@ -750,10 +773,23 @@ async function listarEnviosSemana(idSemana) {
   }
 }
 
+/** Último envio por região/delivery (qualquer pessoa) — útil para metadados. */
 function envioMaisRecentePorChave(envios) {
   const latest = new Map();
   for (const envio of envios) {
     const chave = envio.tipo === 'delivery' ? 'delivery' : `r-${envio.id_regiao}`;
+    if (!latest.has(chave)) latest.set(chave, envio);
+  }
+  return latest;
+}
+
+/** Último envio por (pessoa, região|delivery). */
+function envioMaisRecentePorPessoaChave(envios) {
+  const latest = new Map();
+  for (const envio of envios) {
+    if (envio.submetido_por == null) continue;
+    const base = envio.tipo === 'delivery' ? 'delivery' : `r-${envio.id_regiao}`;
+    const chave = `${Number(envio.submetido_por)}:${base}`;
     if (!latest.has(chave)) latest.set(chave, envio);
   }
   return latest;
@@ -764,6 +800,112 @@ function enviosParaUsuario(envios, idUsuario) {
   if (!id) return [];
   const proprios = envios.filter((e) => e.submetido_por === id);
   return [...envioMaisRecentePorChave(proprios).values()];
+}
+
+async function marcarEnvioStatus(db, { idEnvio, status, idRevisor, comentario }) {
+  await db.query(
+    `UPDATE escala_visitas_envio
+     SET status = $2,
+         revisado_por = $3,
+         revisado_em = NOW(),
+         comentario = $4
+     WHERE id_envio = $1`,
+    [idEnvio, status, idRevisor, comentario],
+  );
+}
+
+/** Último envio da pessoa na região; se sem pessoa, o mais recente (opcionalmente só pendente). */
+async function obterUltimoEnvioRegiaoPessoa(idSemana, idRegiao, idUsuario = null, { soPendente = false } = {}) {
+  await garantirSchemaEnvio();
+  const params = [idSemana, idRegiao];
+  const filtros = [
+    'e.id_semana = $1',
+    'e.id_regiao = $2',
+    `COALESCE(e.tipo, 'regiao') <> 'delivery'`,
+  ];
+  if (idUsuario != null && Number(idUsuario)) {
+    params.push(Number(idUsuario));
+    filtros.push(`e.submetido_por = $${params.length}`);
+  }
+  if (soPendente) {
+    params.push(STATUS_PENDENTE);
+    filtros.push(`COALESCE(e.status, '${STATUS_PENDENTE}') = $${params.length}`);
+  }
+  const { rows } = await pool.query(
+    `SELECT e.id_envio, e.submetido_por, e.status, e.submetido_em
+     FROM escala_visitas_envio e
+     WHERE ${filtros.join(' AND ')}
+     ORDER BY e.submetido_em DESC, e.id_envio DESC
+     LIMIT 1`,
+    params,
+  );
+  return rows[0] || null;
+}
+
+async function haEnvioPendenteNaRegiao(idSemana, idRegiao, excetoIdUsuario = null) {
+  await garantirSchemaEnvio();
+  const params = [idSemana, idRegiao, STATUS_PENDENTE];
+  let filtro = '';
+  if (excetoIdUsuario != null && Number(excetoIdUsuario)) {
+    filtro = ' AND e.submetido_por IS DISTINCT FROM $4';
+    params.push(Number(excetoIdUsuario));
+  }
+  // Considera só o último envio de cada pessoa.
+  const { rows } = await pool.query(
+    `SELECT 1
+     FROM (
+       SELECT DISTINCT ON (e.submetido_por)
+              e.submetido_por, e.status
+       FROM escala_visitas_envio e
+       WHERE e.id_semana = $1
+         AND e.id_regiao = $2
+         AND COALESCE(e.tipo, 'regiao') <> 'delivery'
+         AND e.submetido_por IS NOT NULL
+         ${filtro}
+       ORDER BY e.submetido_por, e.submetido_em DESC, e.id_envio DESC
+     ) ult
+     WHERE ult.status = $3
+     LIMIT 1`,
+    params,
+  );
+  return rows.length > 0;
+}
+
+async function sincronizarStatusRegiaoAposEnvios(db, idSemana, idRegiao) {
+  const pendente = await haEnvioPendenteNaRegiao(idSemana, idRegiao);
+  if (pendente) {
+    await db.query(
+      `UPDATE escala_visitas_regiao_status
+       SET status = $3
+       WHERE id_semana = $1 AND id_regiao = $2`,
+      [idSemana, idRegiao, STATUS_PENDENTE],
+    );
+    return STATUS_PENDENTE;
+  }
+  // Sem pendente: se houver algum aprovado recente de alguém, região aprovada; senão rascunho.
+  await garantirSchemaEnvio();
+  const { rows } = await db.query(
+    `SELECT status FROM (
+       SELECT DISTINCT ON (e.submetido_por) e.status
+       FROM escala_visitas_envio e
+       WHERE e.id_semana = $1
+         AND e.id_regiao = $2
+         AND COALESCE(e.tipo, 'regiao') <> 'delivery'
+         AND e.submetido_por IS NOT NULL
+       ORDER BY e.submetido_por, e.submetido_em DESC, e.id_envio DESC
+     ) ult
+     WHERE ult.status = $3
+     LIMIT 1`,
+    [idSemana, idRegiao, STATUS_APROVADO],
+  );
+  const novo = rows.length ? STATUS_APROVADO : STATUS_RASCUNHO;
+  await db.query(
+    `UPDATE escala_visitas_regiao_status
+     SET status = $3
+     WHERE id_semana = $1 AND id_regiao = $2`,
+    [idSemana, idRegiao, novo],
+  );
+  return novo;
 }
 
 async function pessoasPorRegiaoSemana(idSemana, idsRegiao) {
@@ -1093,7 +1235,8 @@ export async function carregarGradeVisitas(user, {
         statusAlvo.push(st?.status || STATUS_RASCUNHO);
       }
       podeEditarRegiao = statusAlvo.some((s) => statusPermiteEdicaoRegional(s));
-      podeSubmeter = statusAlvo.some((s) => (s || STATUS_RASCUNHO) === STATUS_RASCUNHO);
+      // Pode enviar mesmo se outro já deixou a região pendente; bloqueia só se aprovada.
+      podeSubmeter = statusAlvo.some((s) => (s || STATUS_RASCUNHO) !== STATUS_APROVADO);
       statusRegiaoFiltro =
         idsAlvo.length === 1 ? statusAlvo[0] || STATUS_RASCUNHO : consolidarStatusRegioes(statusAlvo);
     }
@@ -1107,10 +1250,20 @@ export async function carregarGradeVisitas(user, {
     temPermissao(user, 'escalas.visitas.editar_delivery') &&
     statusDeliveryCodigo === STATUS_RASCUNHO;
 
+  const enviosPessoaChave = [...envioMaisRecentePorPessoaChave(envios).values()];
+  const temPendenteEnvio = enviosPessoaChave.some(
+    (e) => e.tipo !== 'delivery' && (e.status || STATUS_PENDENTE) === STATUS_PENDENTE,
+  );
+  const temAprovadoEnvio = enviosPessoaChave.some(
+    (e) => e.tipo !== 'delivery' && e.status === STATUS_APROVADO,
+  );
+
   const temPendente =
+    temPendenteEnvio ||
     statusPorRegiao.some((s) => s.status === STATUS_PENDENTE) ||
     statusDeliveryCodigo === STATUS_PENDENTE;
   const temAprovado =
+    temAprovadoEnvio ||
     statusPorRegiao.some((s) => s.status === STATUS_APROVADO) ||
     statusDeliveryCodigo === STATUS_APROVADO;
 
@@ -1324,55 +1477,73 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
   if (!idInformado && idsAlvo.length > 1) {
     idsParaEnviar = await idsRegioesComVisitaDoUsuario(semana.id_semana, user.sub, idsAlvo);
     if (!idsParaEnviar.length) {
-      throw new Error('Não há visitas suas em rascunho para enviar. Monte a sua escala e envie.');
+      throw new Error('Não há visitas suas para enviar. Monte a sua escala e envie.');
     }
   }
   const nomeAutor = (await nomeUsuarioPorId(user.sub)) || 'Regional';
   const idsDiretores = await idsDiretoresEscala();
   const submetidas = [];
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    for (const idRegiao of idsParaEnviar) {
-      const st = await obterStatusRegiao(semana.id_semana, idRegiao);
-      if ((st.status || STATUS_RASCUNHO) !== STATUS_RASCUNHO) continue;
+  await garantirSchemaEnvio();
 
-      await client.query(
-        `UPDATE escala_visitas_regiao_status
-         SET status = $3,
-             submetido_por = $4,
-             submetido_em = NOW(),
-             revisado_por = NULL,
-             revisado_em = NULL,
-             comentario = NULL
-         WHERE id_semana = $1 AND id_regiao = $2`,
-        [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
+  for (const idRegiao of idsParaEnviar) {
+    const st = await obterStatusRegiao(semana.id_semana, idRegiao);
+    // Não bloqueia se outro já enviou; só impede se a região já está aprovada fechada.
+    if ((st.status || STATUS_RASCUNHO) === STATUS_APROVADO) continue;
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await garantirStatusRegiao(client, semana.id_semana, idRegiao);
+
+      const outroPendente = await haEnvioPendenteNaRegiao(
+        semana.id_semana,
+        idRegiao,
+        user.sub,
       );
-
-      submetidas.push(idRegiao);
+      // Não sobrescreve submetido_por se outra pessoa já tem envio pendente.
+      if (outroPendente && st.submetido_por != null && Number(st.submetido_por) !== Number(user.sub)) {
+        await client.query(
+          `UPDATE escala_visitas_regiao_status
+           SET status = $3,
+               revisado_por = NULL,
+               revisado_em = NULL,
+               comentario = NULL
+           WHERE id_semana = $1 AND id_regiao = $2`,
+          [semana.id_semana, idRegiao, STATUS_PENDENTE],
+        );
+      } else {
+        await client.query(
+          `UPDATE escala_visitas_regiao_status
+           SET status = $3,
+               submetido_por = $4,
+               submetido_em = NOW(),
+               revisado_por = NULL,
+               revisado_em = NULL,
+               comentario = NULL
+           WHERE id_semana = $1 AND id_regiao = $2`,
+          [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
     }
-    await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
-  }
 
-  // Cópia FORA da transação: no Postgres um INSERT falho aborta o COMMIT
-  // e o envio voltava a rascunho com toast de sucesso.
-  try {
-    await garantirSchemaEnvio();
-    for (const idRegiao of submetidas) {
+    try {
       await registrarEnvioEscalaRegiao(pool, {
         idSemana: semana.id_semana,
         idRegiao,
         idUsuario: user.sub,
       });
+    } catch (e) {
+      console.error('[escalaVisitas] Falha ao guardar cópia do envio', e);
     }
-  } catch (e) {
-    console.error('[escalaVisitas] Falha ao guardar cópia do envio', e);
+
+    submetidas.push(idRegiao);
   }
 
   for (const idRegiao of submetidas) {
@@ -1389,7 +1560,7 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
   }
 
   if (!submetidas.length) {
-    throw new Error('Não há escala em rascunho para enviar');
+    throw new Error('Não há escala para enviar (região já aprovada ou sem visitas)');
   }
 
   return carregarGradeVisitas(user, {
@@ -1398,32 +1569,54 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
   });
 }
 
-export async function aprovarEscalaRegiao(user, { semana_inicio, id_regiao, comentario = null }) {
+export async function aprovarEscalaRegiao(user, { semana_inicio, id_regiao, id_usuario = null, comentario = null }) {
   if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para aprovar');
   const idRegiao = Number(id_regiao);
   if (!idRegiao) throw new Error('Informe a região');
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
   const semana = await obterOuCriarSemana(semanaInicio, user.sub);
-  const st = await obterStatusRegiao(semana.id_semana, idRegiao);
-  if ((st.status || STATUS_RASCUNHO) !== STATUS_PENDENTE) {
+  const idMontador = id_usuario != null && id_usuario !== '' ? Number(id_usuario) : null;
+
+  await garantirSchemaEnvio();
+  const envio = await obterUltimoEnvioRegiaoPessoa(semana.id_semana, idRegiao, idMontador, {
+    soPendente: true,
+  });
+  if (!envio) {
+    throw new Error('Não há envio para aprovar');
+  }
+  if ((envio.status || STATUS_PENDENTE) !== STATUS_PENDENTE) {
     throw new Error('Só é possível aprovar escala pendente');
   }
 
   const comentarioTxt = comentario != null ? String(comentario).trim() || null : null;
-  await pool.query(
-    `UPDATE escala_visitas_regiao_status
-     SET status = $3,
-         revisado_por = $4,
-         revisado_em = NOW(),
-         comentario = $5
-     WHERE id_semana = $1 AND id_regiao = $2`,
-    [semana.id_semana, idRegiao, STATUS_APROVADO, user.sub, comentarioTxt],
-  );
+  const idNotificar = envio.submetido_por != null ? Number(envio.submetido_por) : idMontador;
+
+  await marcarEnvioStatus(pool, {
+    idEnvio: Number(envio.id_envio),
+    status: STATUS_APROVADO,
+    idRevisor: user.sub,
+    comentario: comentarioTxt,
+  });
+
+  await sincronizarStatusRegiaoAposEnvios(pool, semana.id_semana, idRegiao);
+
+  // Se ainda há pendentes de outros, mantém revisado limpo na região; se fechou, registra revisor.
+  const aindaPendente = await haEnvioPendenteNaRegiao(semana.id_semana, idRegiao);
+  if (!aindaPendente) {
+    await pool.query(
+      `UPDATE escala_visitas_regiao_status
+       SET revisado_por = $3,
+           revisado_em = NOW(),
+           comentario = $4
+       WHERE id_semana = $1 AND id_regiao = $2`,
+      [semana.id_semana, idRegiao, user.sub, comentarioTxt],
+    );
+  }
 
   const nomeRegiao = await nomeRegiaoPorId(idRegiao);
   await notificarEscalaUsuarios({
-    idsUsuario: await idsDestinatariosRegionalEscala(st.submetido_por, idRegiao),
+    idsUsuario: await idsDestinatariosRegionalEscala(idNotificar, idRegiao),
     excluirId: user.sub,
     tipo: 'aprovado',
     mensagem: `Sua escala de ${nomeRegiao} (${formatarDataBr(semanaInicio)}) foi aprovada.`,
@@ -1435,32 +1628,48 @@ export async function aprovarEscalaRegiao(user, { semana_inicio, id_regiao, come
   return carregarGradeVisitas(user, { semana_inicio: semanaInicio, id_regiao: null });
 }
 
-export async function devolverEscalaRegiao(user, { semana_inicio, id_regiao, comentario = null }) {
+export async function devolverEscalaRegiao(user, { semana_inicio, id_regiao, id_usuario = null, comentario = null }) {
   if (!podeGerenciarEscalaVisitas(user)) throw new Error('Sem permissão para devolver');
   const idRegiao = Number(id_regiao);
   if (!idRegiao) throw new Error('Informe a região');
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
   const semana = await obterOuCriarSemana(semanaInicio, user.sub);
-  const st = await obterStatusRegiao(semana.id_semana, idRegiao);
-  if (![STATUS_PENDENTE, STATUS_APROVADO].includes(st.status || STATUS_RASCUNHO)) {
+  const idMontador = id_usuario != null && id_usuario !== '' ? Number(id_usuario) : null;
+
+  await garantirSchemaEnvio();
+  const envio = await obterUltimoEnvioRegiaoPessoa(semana.id_semana, idRegiao, idMontador);
+  if (!envio) {
+    throw new Error('Não há envio para devolver');
+  }
+  if (![STATUS_PENDENTE, STATUS_APROVADO].includes(envio.status || STATUS_PENDENTE)) {
     throw new Error('Só é possível devolver escala pendente ou aprovada');
   }
 
   const comentarioTxt = comentario != null ? String(comentario).trim() || null : null;
+  const idNotificar = envio.submetido_por != null ? Number(envio.submetido_por) : idMontador;
+
+  await marcarEnvioStatus(pool, {
+    idEnvio: Number(envio.id_envio),
+    status: 'devolvido',
+    idRevisor: user.sub,
+    comentario: comentarioTxt,
+  });
+
+  await sincronizarStatusRegiaoAposEnvios(pool, semana.id_semana, idRegiao);
+
   await pool.query(
     `UPDATE escala_visitas_regiao_status
-     SET status = $3,
-         revisado_por = $4,
+     SET revisado_por = $3,
          revisado_em = NOW(),
-         comentario = $5
+         comentario = $4
      WHERE id_semana = $1 AND id_regiao = $2`,
-    [semana.id_semana, idRegiao, STATUS_RASCUNHO, user.sub, comentarioTxt],
+    [semana.id_semana, idRegiao, user.sub, comentarioTxt],
   );
 
   const nomeRegiao = await nomeRegiaoPorId(idRegiao);
   await notificarEscalaUsuarios({
-    idsUsuario: await idsDestinatariosRegionalEscala(st.submetido_por, idRegiao),
+    idsUsuario: await idsDestinatariosRegionalEscala(idNotificar, idRegiao),
     excluirId: user.sub,
     tipo: 'recusado',
     mensagem: `Sua escala de ${nomeRegiao} (${formatarDataBr(semanaInicio)}) foi recusada. Monte novamente e envie para aprovação.`,

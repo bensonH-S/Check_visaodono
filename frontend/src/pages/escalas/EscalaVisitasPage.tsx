@@ -571,20 +571,28 @@ export default function EscalaVisitasPage() {
     setIdEnvio(null);
   }
 
-  /** Abre a grade viva da região para editar/salvar (não a cópia do envio). */
-  function editarEscalaRegiao(id: number, idUsuario?: number | null) {
+  /** Abre só a escala de quem montou o card (não a grade inteira / cópia de todos). */
+  function abrirEscalaDoCard(card: {
+    tipo: 'regiao' | 'pessoa';
+    id_regiao?: number | null;
+    id_usuario?: number | null;
+  }) {
     setAba('visitas');
-    setIdRegiao(id);
-    setIdUsuarioFiltro(idUsuario != null ? Number(idUsuario) : null);
     setIdEnvio(null);
-  }
-
-  /** Cópia histórica enviada — somente leitura. */
-  function verCopiaEnvio(id: number, idEnvioArg: number) {
-    setAba('visitas');
-    setIdRegiao(id);
-    setIdUsuarioFiltro(null);
-    setIdEnvio(Number(idEnvioArg));
+    if (card.tipo === 'pessoa' && card.id_usuario != null) {
+      setIdRegiao('');
+      setIdUsuarioFiltro(Number(card.id_usuario));
+      return;
+    }
+    if (card.id_usuario != null) {
+      setIdUsuarioFiltro(Number(card.id_usuario));
+      setIdRegiao(card.id_regiao != null ? Number(card.id_regiao) : '');
+      return;
+    }
+    if (card.id_regiao != null) {
+      setIdUsuarioFiltro(null);
+      setIdRegiao(Number(card.id_regiao));
+    }
   }
 
   function alternarFiltroPessoa(idUsuario: number) {
@@ -629,20 +637,17 @@ export default function EscalaVisitasPage() {
     }
   }
 
-  function visualizarEscalaPessoa(idUsuario: number) {
-    setAba('visitas');
-    setIdRegiao('');
-    setIdUsuarioFiltro(Number(idUsuario));
-    setIdEnvio(null);
-  }
-
-  async function aprovarRegioes(ids: number[]) {
+  async function aprovarRegioes(ids: number[], idUsuario?: number | null) {
     if (!ids.length) return;
     setSalvando(true);
     try {
       let data = grade;
       for (const id of ids) {
-        data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
+        data = await api.escalaVisitasAprovar({
+          semana_inicio: semanaInicio,
+          id_regiao: id,
+          id_usuario: idUsuario ?? null,
+        });
       }
       if (data) setGrade(data);
       showToast(ids.length > 1 ? 'Escala aprovada' : 'Região aprovada', 'success');
@@ -653,13 +658,17 @@ export default function EscalaVisitasPage() {
     }
   }
 
-  async function devolverRegioes(ids: number[]) {
+  async function devolverRegioes(ids: number[], idUsuario?: number | null) {
     if (!ids.length) return;
     setSalvando(true);
     try {
       let data = grade;
       for (const id of ids) {
-        data = await api.escalaVisitasDevolver({ semana_inicio: semanaInicio, id_regiao: id });
+        data = await api.escalaVisitasDevolver({
+          semana_inicio: semanaInicio,
+          id_regiao: id,
+          id_usuario: idUsuario ?? null,
+        });
       }
       if (data) setGrade(data);
       showToast('Escala devolvida', 'success');
@@ -833,8 +842,14 @@ export default function EscalaVisitasPage() {
   }, [manutencao, idTecnicoManut, pendingManut]);
 
   const cardsAprovacao = useMemo(
-    () => montarCardsAprovacaoEscala(grade?.status_por_regiao ?? [], grade?.regionais ?? [], idUsuarioFiltro),
-    [grade?.status_por_regiao, grade?.regionais, idUsuarioFiltro],
+    () =>
+      montarCardsAprovacaoEscala(
+        grade?.status_por_regiao ?? [],
+        grade?.regionais ?? [],
+        idUsuarioFiltro,
+        grade?.envios ?? [],
+      ),
+    [grade?.status_por_regiao, grade?.regionais, grade?.envios, idUsuarioFiltro],
   );
 
   const regionaisAgrupados = useMemo(
@@ -1042,6 +1057,37 @@ export default function EscalaVisitasPage() {
                   Escalas aguardando aprovação
                 </Typography>
               )}
+            {filtrandoEscala && aba === 'visitas' && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  flexWrap: 'wrap',
+                  px: 1,
+                  py: 0.65,
+                  borderRadius: 1.5,
+                  bgcolor: 'rgba(27, 42, 107, 0.06)',
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
+                <Button
+                  size="small"
+                  startIcon={<ArrowBackIcon />}
+                  onClick={voltarVisaoGeral}
+                  sx={{ textTransform: 'none', fontWeight: 800, color: colors.navy }}
+                >
+                  Voltar para todas
+                </Button>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+                  {nomeFiltroPessoa
+                    ? `Vendo só a escala de ${nomeFiltroPessoa}`
+                    : idRegiao !== ''
+                      ? `Vendo ${grade?.regioes.find((r) => r.id_regiao === idRegiao)?.nome ?? 'região'}`
+                      : 'Filtro ativo'}
+                </Typography>
+              </Box>
+            )}
             <Box
               sx={{
                 display: 'flex',
@@ -1086,16 +1132,8 @@ export default function EscalaVisitasPage() {
                           component="button"
                           type="button"
                           variant="caption"
-                          onClick={() =>
-                            card.tipo === 'pessoa' && card.id_usuario
-                              ? visualizarEscalaPessoa(card.id_usuario)
-                              : editarEscalaRegiao(card.id_regiao!)
-                          }
-                          title={
-                            card.tipo === 'pessoa'
-                              ? 'Abrir a escala desta pessoa para editar'
-                              : 'Abrir a escala desta região para editar'
-                          }
+                          onClick={() => abrirEscalaDoCard(card)}
+                          title="Ver só a escala de quem montou"
                           sx={{
                             all: 'unset',
                             cursor: 'pointer',
@@ -1116,7 +1154,7 @@ export default function EscalaVisitasPage() {
                             variant="contained"
                             startIcon={<CheckIcon />}
                             disabled={salvando}
-                            onClick={() => void aprovarRegioes(card.ids_regiao_aprovar)}
+                            onClick={() => void aprovarRegioes(card.ids_regiao_aprovar, card.id_usuario)}
                             sx={{
                               textTransform: 'none',
                               minWidth: 0,
@@ -1129,13 +1167,20 @@ export default function EscalaVisitasPage() {
                           </Button>
                         )}
                         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                          {grade?.pode_devolver && (pendente || card.status === 'aprovado') && (
+                          {grade?.pode_devolver &&
+                            (card.ids_regiao_aprovar.length > 0 ||
+                              (card.status === 'aprovado' && card.ids_regiao.length > 0)) && (
                             <Tooltip title="Recusar" arrow>
                               <span>
                                 <IconButton
                                   size="small"
                                   disabled={salvando}
-                                  onClick={() => void devolverRegioes(card.ids_regiao_aprovar.length ? card.ids_regiao_aprovar : card.ids_regiao)}
+                                  onClick={() =>
+                                    void devolverRegioes(
+                                      card.ids_regiao_aprovar.length ? card.ids_regiao_aprovar : card.ids_regiao,
+                                      card.id_usuario,
+                                    )
+                                  }
                                   sx={{
                                     p: 0.5,
                                     color: colors.textSecondary,
@@ -1147,7 +1192,9 @@ export default function EscalaVisitasPage() {
                               </span>
                             </Tooltip>
                           )}
-                          {grade?.pode_excluir && (
+                          {grade?.pode_excluir &&
+                            (card.ids_regiao_aprovar.length > 0 ||
+                              (card.status === 'aprovado' && card.ids_regiao.length > 0)) && (
                             <Tooltip title="Excluir" arrow>
                               <span>
                                 <IconButton
@@ -1174,7 +1221,9 @@ export default function EscalaVisitasPage() {
                       </Box>
                       <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
                         {card.tipo === 'pessoa'
-                          ? `${pendente ? 'Aguardando aprovação' : card.status === 'aprovado' ? 'Aprovada' : 'Rascunho'} · todas as lojas`
+                          ? card.ids_regiao_aprovar.length > 0
+                            ? `${pendente ? 'Aguardando aprovação' : card.status === 'aprovado' ? 'Aprovada' : 'Rascunho'} · todas as lojas`
+                            : 'Enviada nesta semana · toque para ver só as visitas dele'
                           : montadaPor
                             ? `Montada por ${montadaPor}${
                                 pendente
@@ -1189,47 +1238,24 @@ export default function EscalaVisitasPage() {
                                 ? 'Aprovada'
                                 : '—'}
                       </Typography>
-                      {(card.id_envio || card.status !== 'rascunho' || card.tipo === 'pessoa') && (
-                        <Box sx={{ display: 'flex', gap: 1, px: 0.25, flexWrap: 'wrap' }}>
-                          <Typography
-                            component="button"
-                            type="button"
-                            variant="caption"
-                            onClick={() =>
-                              card.tipo === 'pessoa' && card.id_usuario
-                                ? visualizarEscalaPessoa(card.id_usuario)
-                                : editarEscalaRegiao(card.id_regiao!)
-                            }
-                            sx={{
-                              all: 'unset',
-                              cursor: 'pointer',
-                              color: colors.navy,
-                              fontWeight: 700,
-                              textDecoration: 'underline',
-                              fontSize: '0.7rem',
-                            }}
-                          >
-                            Editar escala
-                          </Typography>
-                          {ehDiretor && card.tipo === 'regiao' && card.id_envio ? (
-                            <Typography
-                              component="button"
-                              type="button"
-                              variant="caption"
-                              onClick={() => verCopiaEnvio(card.id_regiao!, card.id_envio!)}
-                              sx={{
-                                all: 'unset',
-                                cursor: 'pointer',
-                                color: 'text.secondary',
-                                fontWeight: 600,
-                                textDecoration: 'underline',
-                                fontSize: '0.7rem',
-                              }}
-                            >
-                              Ver envio
-                            </Typography>
-                          ) : null}
-                        </Box>
+                      {(card.id_usuario || card.id_regiao || card.tipo === 'pessoa') && (
+                        <Typography
+                          component="button"
+                          type="button"
+                          variant="caption"
+                          onClick={() => abrirEscalaDoCard(card)}
+                          sx={{
+                            all: 'unset',
+                            cursor: 'pointer',
+                            color: colors.navy,
+                            fontWeight: 700,
+                            px: 0.25,
+                            textDecoration: 'underline',
+                            fontSize: '0.7rem',
+                          }}
+                        >
+                          Ver escala
+                        </Typography>
                       )}
                     </Box>
                   );

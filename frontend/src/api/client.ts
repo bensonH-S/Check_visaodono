@@ -834,12 +834,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  escalaVisitasAprovar: (body: { semana_inicio: string; id_regiao: number; comentario?: string | null }) =>
+  escalaVisitasAprovar: (body: {
+    semana_inicio: string;
+    id_regiao: number;
+    id_usuario?: number | null;
+    comentario?: string | null;
+  }) =>
     request<EscalaVisitasGrade>('/escalas/visitas/semana/aprovar', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  escalaVisitasDevolver: (body: { semana_inicio: string; id_regiao: number; comentario?: string | null }) =>
+  escalaVisitasDevolver: (body: {
+    semana_inicio: string;
+    id_regiao: number;
+    id_usuario?: number | null;
+    comentario?: string | null;
+  }) =>
     request<EscalaVisitasGrade>('/escalas/visitas/semana/devolver', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -2535,6 +2545,10 @@ export interface EscalaVisitasEnvio {
   submetido_por?: number | null;
   nome_submetido_por?: string | null;
   submetido_em?: string | null;
+  status?: 'pendente_aprovacao' | 'aprovado' | 'devolvido' | string | null;
+  revisado_por?: number | null;
+  revisado_em?: string | null;
+  comentario?: string | null;
   ids_usuario?: number[];
 }
 
