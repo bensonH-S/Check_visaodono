@@ -761,7 +761,10 @@ export default function FrotaLocalizacaoMap({
     if (!mapaPronto || !tecnicosLayer.current || !veiculosLayer.current || !lojasLayer.current || !linhaLayer.current || !trajetoriaLayer.current || !mapInstance.current) return;
 
     const mapa = mapInstance.current;
-    mapa.closePopup();
+    // Mantém o popup do veículo selecionado (localizar + dados, como no Fleet).
+    if (veiculoDestaqueId == null) {
+      mapa.closePopup();
+    }
 
     const comGps = posicoes.filter(temCoordenadaTecnico);
     const comVeiculos = veiculos.filter(temCoordenadaVeiculo);
@@ -1013,6 +1016,9 @@ export default function FrotaLocalizacaoMap({
         !exibirPopupVeiculo,
       );
       marker.addTo(veiculosLayer.current);
+      if (destacado && exibirPopupVeiculo && !esconderAvisos) {
+        marker.openPopup();
+      }
     }
 
     if (
@@ -1051,7 +1057,7 @@ export default function FrotaLocalizacaoMap({
       aplicarVistaInicialMapa(mapInstance.current, pontosEnquadre, mobile);
       vistaInicialAplicada.current = true;
     }
-  }, [posicoes, lojas, veiculos, mapaPronto, mobile, exibirPopupVeiculo, tecnicoDestaqueId, veiculoDestaqueId, lojaDestaqueId, visivel, consultaHistorico, trajetoDiaAtual]);
+  }, [posicoes, lojas, veiculos, mapaPronto, mobile, exibirPopupVeiculo, tecnicoDestaqueId, veiculoDestaqueId, lojaDestaqueId, visivel, consultaHistorico, trajetoDiaAtual, esconderAvisos]);
 
   useEffect(() => {
     if (!mapaPronto || !trajetoriaLayer.current) return;
@@ -1118,6 +1124,7 @@ export default function FrotaLocalizacaoMap({
       const idVeiculo = veiculoDestaqueId ?? rotaDiaVeiculo?.veiculo.id_veiculo;
       if (idVeiculo != null && veiculoRotaAnterior.current !== idVeiculo) {
         veiculoRotaAnterior.current = idVeiculo;
+        // Dia atual: o efeito de foco localiza o veículo ao vivo (como no Fleet original).
         if (trajetoDiaAtual) {
           return;
         }
@@ -1153,13 +1160,21 @@ export default function FrotaLocalizacaoMap({
     }
   }, [historicoVeiculo, rotaDiaVeiculo, mapaPronto, veiculoDestaqueId, trajetoDiaAtual, veiculoAoVivoTrajeto, consultaHistorico, mapaEscuroEfetivo]);
 
+  // Selecionar veículo → localizar no mapa (Fleet original: setView no veículo + dados no painel/popup).
   useEffect(() => {
-    if (!mobile || !mapaPronto || !mapInstance.current) return;
+    if (!mapaPronto || !mapInstance.current) return;
     if (veiculoDestaqueId == null) {
       veiculoFocoAnterior.current = null;
       return;
     }
     if (veiculoFocoAnterior.current === veiculoDestaqueId) return;
+
+    // Com histórico/rota do dia já enquadrados, prioriza fitBounds (mesmo comportamento do Fleet).
+    const pontosRota = rotaDiaVeiculo?.pontos?.length ?? 0;
+    const temTrajetoParaEnquadrar =
+      !trajetoDiaAtual && (historicoVeiculo.length >= 2 || pontosRota >= 2);
+    if (temTrajetoParaEnquadrar || consultaHistorico) return;
+
     const v =
       veiculoAoVivoTrajeto?.id_veiculo === veiculoDestaqueId
         ? veiculoAoVivoTrajeto
@@ -1167,9 +1182,35 @@ export default function FrotaLocalizacaoMap({
     const lat = Number(v?.latitude);
     const lng = Number(v?.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
     veiculoFocoAnterior.current = veiculoDestaqueId;
-    mapInstance.current.flyTo([lat, lng], 16, { duration: 0.45 });
-  }, [veiculoDestaqueId, veiculos, veiculoAoVivoTrajeto, mapaPronto, mobile]);
+    mapInstance.current.flyTo([lat, lng], mobile ? 16 : 15, { duration: 0.45 });
+
+    // Gestão (ex.: regiões): abre o popup com os dados. Command Center já tem painel próprio.
+    if (exibirPopupVeiculo && !esconderAvisos) {
+      const abrirPopup = (layer: L.Layer) => {
+        if (!(layer instanceof L.Marker)) return;
+        const ll = layer.getLatLng();
+        if (Math.abs(ll.lat - lat) < 1e-5 && Math.abs(ll.lng - lng) < 1e-5) {
+          layer.openPopup();
+        }
+      };
+      veiculosLayer.current?.eachLayer(abrirPopup);
+      trajetoriaLayer.current?.eachLayer(abrirPopup);
+    }
+  }, [
+    veiculoDestaqueId,
+    veiculos,
+    veiculoAoVivoTrajeto,
+    mapaPronto,
+    mobile,
+    trajetoDiaAtual,
+    historicoVeiculo,
+    rotaDiaVeiculo,
+    consultaHistorico,
+    exibirPopupVeiculo,
+    esconderAvisos,
+  ]);
 
   useEffect(() => {
     if (!mobile || !mapaPronto || !mapInstance.current) return;

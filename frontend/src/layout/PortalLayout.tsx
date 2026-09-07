@@ -402,9 +402,7 @@ function PortalLayoutInner() {
           </Box>
           <SobreSistemaButton variante="portal" />
           <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
-          <IconButton size="small" aria-label="Alternar Tema" onClick={toggleTheme} sx={{ color: colors.textSecondary }}>
-            {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 20 }} /> : <DarkModeIcon sx={{ fontSize: 20 }} />}
-          </IconButton>
+          {/* Tema escuro oculto no mobile por enquanto — só claro. */}
           {isMobileLayout ? notificacoes : null}
           <IconButton size="small" aria-label="Sair" onClick={handleLogout} sx={{ color: colors.textSecondary }}>
             <LogoutIcon sx={{ fontSize: 18 }} />

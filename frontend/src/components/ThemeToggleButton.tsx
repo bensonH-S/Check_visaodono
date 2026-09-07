@@ -9,10 +9,18 @@ type Props = {
   size?: 'small' | 'medium';
 };
 
-/** Botão de alternância de tema claro/escuro para usar em headers mobile. */
+/** Temporário: tema escuro oculto no mobile (app força claro). */
+const TEMA_ESCURO_MOBILE_VISIVEL = false;
+
+/**
+ * Botão de alternância de tema claro/escuro para headers mobile.
+ * Mantido no código; oculto enquanto o mobile fica só no tema claro.
+ */
 export default function ThemeToggleButton({ color, size = 'small' }: Props) {
   const { mode, toggleTheme } = useAppTheme();
   const escuro = mode === 'dark';
+
+  if (!TEMA_ESCURO_MOBILE_VISIVEL) return null;
 
   return (
     <IconButton
