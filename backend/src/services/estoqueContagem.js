@@ -333,6 +333,15 @@ export function precisaFatorFracionada(unidadeFracionada, unidadeContagem) {
   return true;
 }
 
+/** Mix/latas de segunda. Desligada: só diária e completa. */
+export const CONTAGEM_SEMANAL_ATIVA = false;
+
+export function assertTipoContagemAtivo(tipoContagem) {
+  if (tipoContagem === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
+    throw Object.assign(new Error('Contagem semanal está desativada'), { status: 400 });
+  }
+}
+
 /**
  * Filtro SQL (alias p) para montar novas contagens.
  * Mensal: participa. Diária/semanal: participa + flag do tipo.

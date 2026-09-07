@@ -30,6 +30,7 @@ import {
   type InsumoConfigContagem,
   type Loja,
 } from '../../api/client';
+import { CONTAGEM_SEMANAL_ATIVA } from '../../components/estoque/estoqueContagemTipo';
 import { showToast } from '../../utils/toast';
 import {
   tableContainerSx,
@@ -66,7 +67,7 @@ const FILTROS: Array<{ id: FiltroMatriz; label: string }> = [
   { id: 'participam', label: 'Participam' },
   { id: 'fora', label: 'Fora da contagem' },
   { id: 'diaria', label: 'Diária' },
-  { id: 'critica', label: 'Crítica' },
+  ...(CONTAGEM_SEMANAL_ATIVA ? [{ id: 'critica' as const, label: 'Crítica' }] : []),
   { id: 'conversao_pendente', label: 'Conversão pendente' },
 ];
 
@@ -333,7 +334,7 @@ export default function ConfiguracaoContagemPage() {
                 <TableCell>Produto</TableCell>
                 <TableCell align="center">Participa</TableCell>
                 <TableCell align="center">Diária</TableCell>
-                <TableCell align="center">Crítica</TableCell>
+                {CONTAGEM_SEMANAL_ATIVA && <TableCell align="center">Crítica</TableCell>}
                 <TableCell align="center">Caixa</TableCell>
                 <TableCell align="center">PC/FD</TableCell>
                 <TableCell align="center">Fracionado</TableCell>
@@ -367,6 +368,7 @@ export default function ConfiguracaoContagemPage() {
                         onChange={(e) => patchLinha(row, 'contagem_diaria', e.target.checked)}
                       />
                     </TableCell>
+                    {CONTAGEM_SEMANAL_ATIVA && (
                     <TableCell align="center" padding="checkbox">
                       <Switch
                         size="small"
@@ -374,6 +376,7 @@ export default function ConfiguracaoContagemPage() {
                         onChange={(e) => patchLinha(row, 'contagem_critica', e.target.checked)}
                       />
                     </TableCell>
+                    )}
                     <TableCell align="center" padding="checkbox">
                       <Checkbox
                         size="small"

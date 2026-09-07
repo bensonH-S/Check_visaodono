@@ -6,6 +6,7 @@
  * Conferência na loja continua na data de entrega — só mexe no saldo.
  */
 import { pool } from '../db.js';
+import { CONTAGEM_SEMANAL_ATIVA } from './estoqueContagem.js';
 import {
   calcularCmvTeorico,
   registrarEntradas,
@@ -887,7 +888,7 @@ export async function statusDisciplinaEstoque(idLoja, { hoje = null } = {}) {
         'Contagem diária de hoje ainda não foi feita (produtos de giro do estoque da loja).',
     });
   }
-  if (diasCritica == null || diasCritica > 10) {
+  if (CONTAGEM_SEMANAL_ATIVA && (diasCritica == null || diasCritica > 10)) {
     alertas.push({
       tipo: 'contagem_critica_atrasada',
       severidade: 'media',

@@ -8,6 +8,7 @@ import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
 import { MOTIVO_CONVERSAO } from '../services/estoqueConsumo.js';
 import {
   anexarFatoresFracionada,
+  assertTipoContagemAtivo,
   flagsContagemDiaria,
   garantirSchemaUnidadeFracionada,
   mensagemErroConversao,
@@ -137,6 +138,7 @@ async function criarContagemComItens(
 ) {
   if (!id_loja) throw Object.assign(new Error('Loja obrigatória'), { status: 400 });
   const tipoContagem = normalizarTipoContagem(tipo);
+  assertTipoContagemAtivo(tipoContagem);
   const filtroItens = filtroItensPorTipo(tipoContagem);
   const erroVazio = erroSemItensTipo(tipoContagem);
 
@@ -1630,7 +1632,7 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
 
     const hoje = hojeISOBrasil();
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
-    const tipo = normalizarTipoContagem(req.body?.tipo || 'critica_semanal');
+    const tipo = normalizarTipoContagem(req.body?.tipo || 'diaria');
     const metaBase = { hoje, id_loja: idLoja, tipo };
 
     if (tipo === 'diaria') {

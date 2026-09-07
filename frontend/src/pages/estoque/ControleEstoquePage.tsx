@@ -62,6 +62,7 @@ import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
 import EstoqueConferenciaDetalhe from './EstoqueConferenciaDetalhe';
 import {
+  CONTAGEM_SEMANAL_ATIVA,
   rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
@@ -480,8 +481,12 @@ export default function ControleEstoquePage() {
     }
   }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
 
-  const iniciarSabado = async (tipo: TipoContagemEstoque = 'critica_semanal') => {
+  const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
     if (!podeEditarConferencia || !idLoja) return;
+    if (tipo === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
+      showToast('Contagem semanal está desativada', 'error');
+      return;
+    }
     setIniciando(true);
     try {
       const det = await api.estoqueIniciarSabado({ id_loja: idLoja, tipo });
@@ -978,6 +983,7 @@ export default function ControleEstoquePage() {
                               >
                                 Diária
                               </Button>
+                              {CONTAGEM_SEMANAL_ATIVA && (
                               <Button
                                 variant="outlined"
                                 startIcon={<PlayArrowIcon />}
@@ -986,6 +992,7 @@ export default function ControleEstoquePage() {
                               >
                                 Semanal (segunda)
                               </Button>
+                              )}
                               <Button
                                 variant="outlined"
                                 startIcon={<PlayArrowIcon />}
@@ -1463,7 +1470,9 @@ export default function ControleEstoquePage() {
               sx={toggleRelatorioSx}
             >
               <ToggleButton value="diaria">Diário</ToggleButton>
-              <ToggleButton value="critica_semanal">Semanal</ToggleButton>
+              {CONTAGEM_SEMANAL_ATIVA && (
+                <ToggleButton value="critica_semanal">Semanal</ToggleButton>
+              )}
               <ToggleButton value="completa">Mensal</ToggleButton>
             </ToggleButtonGroup>
           </Box>
