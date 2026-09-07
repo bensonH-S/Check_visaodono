@@ -2,6 +2,7 @@ import IconButton from '@mui/material/IconButton';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { useAppTheme } from '../context/ThemeContext';
+import { deveForcarTemaClaroMobile } from '../utils/device';
 
 type Props = {
   /** Cor do ícone. Padrão: colors.textSecondary */
@@ -12,6 +13,7 @@ type Props = {
 /** Botão de alternância de tema claro/escuro para usar em headers mobile. */
 export default function ThemeToggleButton({ color, size = 'small' }: Props) {
   const { mode, toggleTheme } = useAppTheme();
+  if (deveForcarTemaClaroMobile()) return null;
   const escuro = mode === 'dark';
 
   return (

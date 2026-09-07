@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { lightTheme, darkTheme } from '../theme';
+import { deveForcarTemaClaroMobile } from '../utils/device';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -15,21 +16,31 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function CustomThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(() => {
+    if (deveForcarTemaClaroMobile()) return 'light';
     const saved = localStorage.getItem('app-theme-mode');
     return saved === 'light' ? 'light' : 'dark';
   });
 
   const setMode = (newMode: ThemeMode) => {
+    if (deveForcarTemaClaroMobile()) {
+      setModeState('light');
+      return;
+    }
     setModeState(newMode);
     localStorage.setItem('app-theme-mode', newMode);
   };
 
   const toggleTheme = () => {
+    if (deveForcarTemaClaroMobile()) return;
     setMode(mode === 'light' ? 'dark' : 'light');
   };
 
   useEffect(() => {
-    // Add class to body for tailwind or raw css usage if needed
+    if (deveForcarTemaClaroMobile()) {
+      setModeState('light');
+      document.documentElement.classList.remove('dark');
+      return;
+    }
     if (mode === 'dark') {
       document.documentElement.classList.add('dark');
     } else {

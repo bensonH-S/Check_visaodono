@@ -5,3 +5,10 @@ export function isMobileDevice(): boolean {
     navigator.userAgent
   );
 }
+
+/** App no telefone: layout antigo (claro). Tema escuro fica no desktop. */
+export function deveForcarTemaClaroMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (isMobileDevice()) return true;
+  return window.matchMedia('(max-width: 899.95px)').matches;
+}
