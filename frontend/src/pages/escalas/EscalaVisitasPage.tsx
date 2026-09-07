@@ -1406,7 +1406,6 @@ export default function EscalaVisitasPage() {
                 const st = grade.status_delivery;
                 const pendente = st.status === 'pendente_aprovacao';
                 const montadaPor = st.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
-                const revisadaPor = st.nome_revisado_por ? primeiroNome(st.nome_revisado_por) : null;
                 if (st.status === 'aprovado') {
                   return (
                     <Box
@@ -1525,7 +1524,7 @@ export default function EscalaVisitasPage() {
                       )}
                       {/* Recusar + Excluir agrupados à direita */}
                       <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                        {grade.pode_devolver && (pendente || st.status === 'aprovado') && (
+                        {grade.pode_devolver && pendente && (
                           <Tooltip title="Recusar" arrow>
                             <span>
                               <IconButton
@@ -1565,9 +1564,7 @@ export default function EscalaVisitasPage() {
                     </Box>
                     <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
                       {montadaPor
-                        ? `Montada por ${montadaPor}${
-                            st.status === 'aprovado' && revisadaPor ? ` · Aprovada por ${revisadaPor}` : ''
-                          }${pendente ? ' · aguardando aprovação' : ''}`
+                        ? `Montada por ${montadaPor}${pendente ? ' · aguardando aprovação' : ''}`
                         : st.status === 'rascunho'
                           ? (linhaDelivery?.total_visitas ?? 0) > 0
                             ? `Rota com ${linhaDelivery?.total_visitas} loja(s) · ainda não enviada para aprovação`
