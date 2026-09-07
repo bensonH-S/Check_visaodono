@@ -15,6 +15,7 @@ import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlan
 import {
   fracionadaInteira,
   modoEntradaEfetivo,
+  modoEntradaInicial,
   parseNumCampoContagem,
   permiteCamposItem,
   podeInformarKg,
@@ -422,7 +423,7 @@ export default function EstoqueMobileConferenciaPage() {
     if (!editavel) return [] as Array<{ idItem: number; campo: CampoContagem; inteiro: boolean }>;
     const out: Array<{ idItem: number; campo: CampoContagem; inteiro: boolean }> = [];
     for (const i of itensVisiveis) {
-      const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: 'und' as const };
+      const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: modoEntradaInicial(i) };
       const permite = permiteCampos(i);
       const modo = modoEntradaEfetivo(i, raw);
       const inteiroFrac = fracionadaInteira(modo === 'kg' ? 'KG' : 'UND');
@@ -522,7 +523,7 @@ export default function EstoqueMobileConferenciaPage() {
     if (campo === 'caixa') return 'CAIXA';
     if (campo === 'pc') return 'PC / FD';
     if (!item) return 'UND';
-    const raw = rascunho[item.id_item] ?? { caixa: '', pc: '', kg: '', modo: 'und' as const };
+    const raw = rascunho[item.id_item] ?? { caixa: '', pc: '', kg: '', modo: modoEntradaInicial(item) };
     return rotuloModoEntrada(modoEntradaEfetivo(item, raw));
   };
 
@@ -697,7 +698,7 @@ export default function EstoqueMobileConferenciaPage() {
           {!loading && contagem && (
             <>
               {itensVisiveis.map((i) => {
-                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: 'und' as const };
+                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: modoEntradaInicial(i) };
                 const permite = permiteCampos(i);
                 const modo = modoEntradaEfetivo(i, raw);
                 const rotuloFrac = rotuloModoEntrada(modo);

@@ -26,6 +26,7 @@ import { rankSecaoPlanilha } from '../../components/estoque/estoqueOrdemPlanilha
 import {
   fracionadaInteira,
   modoEntradaEfetivo,
+  modoEntradaInicial,
   podeInformarKg,
   qtdPreviewSeguro,
   rotuloModoEntrada,
@@ -498,7 +499,7 @@ export default function EstoqueConferenciaDetalhe({
             </TableHead>
             <TableBody>
               {visiveis.map((i, idx) => {
-                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: 'und' as const };
+                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: modoEntradaInicial(i) };
                 const permiteCx = i.permite_contagem_caixa !== false;
                 const permitePc = i.permite_contagem_pc_fd !== false;
                 const permiteKg = i.permite_contagem_kg_und !== false;
