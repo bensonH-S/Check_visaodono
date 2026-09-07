@@ -327,6 +327,23 @@ export default function EscalaVisitasPage() {
     });
   }
 
+  /** Com filtro de pessoa: só liga/desliga essa pessoa, sem apagar os outros da célula. */
+  function alterarCelulaRegionalRespeitandoFiltro(
+    idLoja: number,
+    dia: number,
+    idsSelecionados: number[],
+    idsBaseCompletos: number[],
+  ) {
+    if (idUsuarioFiltro == null) {
+      alterarCelulaRegional(idLoja, dia, idsSelecionados);
+      return;
+    }
+    const filtro = Number(idUsuarioFiltro);
+    const outros = idsBaseCompletos.filter((id) => Number(id) !== filtro);
+    const inclui = idsSelecionados.some((id) => Number(id) === filtro);
+    alterarCelulaRegional(idLoja, dia, inclui ? [...outros, filtro] : outros);
+  }
+
   function toggleCelulaRegionalEquipe(idLoja: number, dia: number, _idRegiao: number | null | undefined, idsAtuais: number[]) {
     if (!idEu) return;
     const meuId = Number(idEu);
@@ -1086,6 +1103,11 @@ export default function EscalaVisitasPage() {
                       ? `Vendo ${grade?.regioes.find((r) => r.id_regiao === idRegiao)?.nome ?? 'região'}`
                       : 'Filtro ativo'}
                 </Typography>
+                {podeEditarGrade && nomeFiltroPessoa && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    Clique nas células para editar · Salvar no rodapé
+                  </Typography>
+                )}
               </Box>
             )}
             <Box
@@ -1874,6 +1896,11 @@ export default function EscalaVisitasPage() {
                   ? ` · ${grade?.regioes.find((r) => r.id_regiao === idRegiao)?.nome ?? ''}`
                   : ''}
               </Typography>
+              {podeEditarGrade && (
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Edite nas células e salve abaixo
+                </Typography>
+              )}
               {rotuloEnvio && grade?.somente_leitura && (
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   {rotuloEnvio} — não se perde se a grade for editada ou excluída.
@@ -1924,6 +1951,19 @@ export default function EscalaVisitasPage() {
                     </TableCell>
                     {linha.dias.map((d) => {
                       const idsReg = 'ids_regional_efetivo' in d ? d.ids_regional_efetivo : [];
+                      const linhaBase = linhasComTotais.find((l) => l.id_loja === linha.id_loja);
+                      const idsCompletos =
+                        linhaBase && 'dias' in linhaBase
+                          ? (('ids_regional_efetivo' in linhaBase.dias[d.dia]
+                              ? linhaBase.dias[d.dia].ids_regional_efetivo
+                              : []) as number[])
+                          : idsReg;
+                      const regionaisOpcoes =
+                        idUsuarioFiltro != null
+                          ? (grade?.regionais ?? []).filter(
+                              (r) => Number(r.id_usuario) === Number(idUsuarioFiltro),
+                            )
+                          : (grade?.regionais ?? []);
                       const nomes = idsReg
                         .map((id) => mapNomeRegional.get(id))
                         .filter(Boolean)
@@ -1936,7 +1976,7 @@ export default function EscalaVisitasPage() {
                             <Button
                               size="small"
                               onClick={() =>
-                                toggleCelulaRegionalEquipe(linha.id_loja, d.dia, linha.id_regiao, idsReg)
+                                toggleCelulaRegionalEquipe(linha.id_loja, d.dia, linha.id_regiao, idsCompletos)
                               }
                               sx={{
                                 ...SELECT_CELULA_SX,
@@ -1970,8 +2010,14 @@ export default function EscalaVisitasPage() {
                               input={<OutlinedInput />}
                               onChange={(e) => {
                                 const v = e.target.value;
-                                const lista = typeof v === 'string' ? v.split(',').map(Number) : (v as number[]);
-                                alterarCelulaRegional(linha.id_loja, d.dia, lista);
+                                const lista =
+                                  typeof v === 'string' ? v.split(',').map(Number) : (v as number[]);
+                                alterarCelulaRegionalRespeitandoFiltro(
+                                  linha.id_loja,
+                                  d.dia,
+                                  lista,
+                                  idsCompletos,
+                                );
                               }}
                               renderValue={(selected) => {
                                 const ids = selected as number[];
@@ -1990,7 +2036,7 @@ export default function EscalaVisitasPage() {
                                     : undefined,
                               }}
                             >
-                              {(grade?.regionais ?? []).map((r) => (
+                              {regionaisOpcoes.map((r) => (
                                 <MenuItem key={r.id_usuario} value={r.id_usuario} sx={{ py: 0.35 }}>
                                   <Checkbox
                                     size="small"

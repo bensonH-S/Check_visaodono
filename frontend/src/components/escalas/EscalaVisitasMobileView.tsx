@@ -1227,6 +1227,7 @@ export default function EscalaVisitasMobileView() {
                   {nomeFiltroPessoa ? `Escala de ${nomeFiltroPessoa}` : 'Exibindo'}
                   {regiaoAtiva ? ` · ${regiaoAtiva.nome}` : ''}
                   {rotuloEnvio && grade?.somente_leitura ? ` · ${rotuloEnvio}` : ''}
+                  {podeEditarGrade && nomeFiltroPessoa ? ' · toque na célula para editar' : ''}
                 </p>
               </div>
             )}
@@ -1911,7 +1912,14 @@ export default function EscalaVisitasMobileView() {
 
       <Dialog open={Boolean(editor)} onClose={() => setEditor(null)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 0.5 }}>
-          Quem visita?
+          {idUsuarioFiltro != null
+            ? `Editar visita de ${
+                primeiroNome(
+                  grade?.regionais.find((r) => Number(r.id_usuario) === Number(idUsuarioFiltro))?.nome ||
+                    'colaborador',
+                )
+              }`
+            : 'Quem visita?'}
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <p className="ck-escala__editor-meta">
@@ -1922,7 +1930,12 @@ export default function EscalaVisitasMobileView() {
               : ''}
           </p>
           <List dense sx={{ pt: 0 }}>
-            {(grade?.regionais ?? []).map((r) => {
+            {(idUsuarioFiltro != null
+              ? (grade?.regionais ?? []).filter(
+                  (r) => Number(r.id_usuario) === Number(idUsuarioFiltro),
+                )
+              : (grade?.regionais ?? [])
+            ).map((r) => {
               const marcado = editor?.ids.includes(r.id_usuario) ?? false;
               return (
                 <ListItemButton
