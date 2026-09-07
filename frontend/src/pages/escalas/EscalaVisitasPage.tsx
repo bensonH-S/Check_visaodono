@@ -1951,13 +1951,9 @@ export default function EscalaVisitasPage() {
                     </TableCell>
                     {linha.dias.map((d) => {
                       const idsReg = 'ids_regional_efetivo' in d ? d.ids_regional_efetivo : [];
-                      const linhaBase = linhasComTotais.find((l) => l.id_loja === linha.id_loja);
+                      const diaBase = linhasComTotais.find((l) => l.id_loja === linha.id_loja)?.dias[d.dia];
                       const idsCompletos =
-                        linhaBase && 'dias' in linhaBase
-                          ? (('ids_regional_efetivo' in linhaBase.dias[d.dia]
-                              ? linhaBase.dias[d.dia].ids_regional_efetivo
-                              : []) as number[])
-                          : idsReg;
+                        diaBase && 'ids_regional_efetivo' in diaBase ? diaBase.ids_regional_efetivo : idsReg;
                       const regionaisOpcoes =
                         idUsuarioFiltro != null
                           ? (grade?.regionais ?? []).filter(
