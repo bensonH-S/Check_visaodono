@@ -168,6 +168,18 @@ export function aplicarConversaoUnidades({
     };
   }
 
+  // 0 de qualquer unidade é 0 no destino. Sem isso, finalizar com UNIDADES=0
+  // em item canônico L (bag/óleo) explode mesmo sem sobra para converter.
+  if (permitirZero && q === 0) {
+    return {
+      ok: true,
+      quantidade: 0,
+      origemConversao: 'zero',
+      fatorAplicado: null,
+      ...meta,
+    };
+  }
+
   const status = String(fatorStatus || '').toLowerCase();
   if (status === 'bloqueado') {
     return {
@@ -458,6 +470,17 @@ async function semearPilotoBaixa(client) {
     ON CONFLICT (id_loja, codigo_ficha) DO UPDATE
       SET id_insumo = EXCLUDED.id_insumo,
           observacao = EXCLUDED.observacao
+  `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, 'und', 'l', ROUND(i.und_convertida::numeric, 8),
+           'contagem: 1 UND (bag/galão) = und_convertida L',
+           'validado', NOW()
+    FROM insumos i
+    WHERE i.ativo = TRUE
+      AND UPPER(TRIM(i.unidade_contagem)) IN ('L', 'LT', 'LITRO', 'LITROS')
+      AND COALESCE(i.und_convertida, 0) > 0
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
   `);
 }
 

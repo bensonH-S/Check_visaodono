@@ -141,6 +141,66 @@ describe('aplicarConversaoUnidades', () => {
     assert.equal(r.ok, true);
     assert.equal(r.quantidade, 0);
   });
+
+  it('0 UND → L na contagem não exige fator (finalizar com sobra zerada)', () => {
+    const r = aplicarConversaoUnidades({
+      quantidade: 0,
+      unidadeOrigem: 'UND',
+      unidadeDestino: 'L',
+      permitirZero: true,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidade, 0);
+    assert.equal(r.origemConversao, 'zero');
+  });
+});
+
+describe('resolverQtdContagem — bag em litros', () => {
+  it('2 caixas + 0 UND sem fator = só as caixas', () => {
+    const r = resolverQtdContagem({
+      contagem_caixa: 2,
+      contagem_kg_und: 0,
+      und_convertida: 10,
+      unidade_contagem: 'L',
+      unidade_fracionada: 'L',
+      unidade_entrada: 'UND',
+      codigo: 'BK-COCA-ZERO-BAG-18',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, 20);
+  });
+
+  it('1 bag avulso UND → L com fator da caixa', () => {
+    const r = resolverQtdContagem({
+      contagem_caixa: 2,
+      contagem_kg_und: 1,
+      und_convertida: 10,
+      unidade_contagem: 'L',
+      unidade_fracionada: 'L',
+      unidade_entrada: 'UND',
+      fator_fracionada: 10,
+      fator_fracionada_status: 'validado',
+      codigo: 'BK-COCA-ZERO-BAG-18',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, 30);
+  });
+
+  it('bag avulso sem fator continua bloqueado', () => {
+    const r = resolverQtdContagem({
+      contagem_caixa: 2,
+      contagem_kg_und: 1,
+      und_convertida: 10,
+      unidade_contagem: 'L',
+      unidade_fracionada: 'L',
+      unidade_entrada: 'UND',
+      codigo: 'BK-SEM-0014',
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.erro.motivo, MOTIVO_CONVERSAO.NAO_ENCONTRADA);
+    assert.equal(r.erro.unidade_origem, 'und');
+    assert.equal(r.erro.unidade_destino, 'l');
+  });
 });
 
 describe('converterQuantidade — lookup em estoque_conversoes', () => {
