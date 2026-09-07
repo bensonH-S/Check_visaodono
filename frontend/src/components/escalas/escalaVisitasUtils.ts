@@ -106,8 +106,10 @@ export type CardAprovacaoEscala = {
 };
 
 /**
- * Cards de aprovação: um por quem montou/enviou.
- * Igor (rede toda) só ganha card quando ele próprio submeteu — não porque tem visita na região do Fagno/Plinio.
+ * Cards de aprovação:
+ * - Regional (Fagno/Plinio/Barbara) → 1 card por região que ELE enviou
+ * - Rede toda (Igor/Renato) → 1 card só (“todas as lojas”), agregando as regiões em que ELE submeteu
+ * Nunca lista Igor no “Montada por” da região do Fagno só porque tem visita na grade.
  */
 export function montarCardsAprovacaoEscala(
   statusPorRegiao: Array<{

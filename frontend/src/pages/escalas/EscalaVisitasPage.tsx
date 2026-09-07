@@ -1176,10 +1176,18 @@ export default function EscalaVisitasPage() {
                         {card.tipo === 'pessoa'
                           ? `${pendente ? 'Aguardando aprovação' : card.status === 'aprovado' ? 'Aprovada' : 'Rascunho'} · todas as lojas`
                           : montadaPor
-                            ? `Montada por ${montadaPor}${pendente ? ' · aguardando aprovação' : ''}`
+                            ? `Montada por ${montadaPor}${
+                                pendente
+                                  ? ' · aguardando aprovação'
+                                  : card.status === 'aprovado'
+                                    ? ' · aprovada'
+                                    : ''
+                              }`
                             : card.status === 'rascunho'
                               ? 'Ainda não enviada'
-                              : '—'}
+                              : card.status === 'aprovado'
+                                ? 'Aprovada'
+                                : '—'}
                       </Typography>
                       {(card.id_envio || card.status !== 'rascunho' || card.tipo === 'pessoa') && (
                         <Box sx={{ display: 'flex', gap: 1, px: 0.25, flexWrap: 'wrap' }}>
