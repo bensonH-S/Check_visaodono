@@ -1114,8 +1114,8 @@ export default function EscalaVisitasPage() {
               sx={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: 1,
-                alignItems: 'stretch',
+                gap: 0.75,
+                alignItems: 'center',
                 pb: 0.5,
                 minWidth: 0,
               }}
@@ -1125,6 +1125,98 @@ export default function EscalaVisitasPage() {
                 cardsAprovacao.map((card) => {
                   const pendente = card.status === 'pendente_aprovacao';
                   const montadaPor = card.montadaPor;
+                  const acoesRecusar = grade?.pode_devolver &&
+                    (card.ids_regiao_aprovar.length > 0 ||
+                      (card.status === 'aprovado' && card.ids_regiao.length > 0));
+                  const acoesExcluir = grade?.pode_excluir &&
+                    (card.ids_regiao_aprovar.length > 0 ||
+                      (card.status === 'aprovado' && card.ids_regiao.length > 0));
+
+                  if (card.status === 'aprovado') {
+                    const rotulo = card.tipo === 'regiao' && montadaPor
+                      ? `${card.titulo} · ${montadaPor}`
+                      : card.titulo;
+                    return (
+                      <Box
+                        key={card.key}
+                        sx={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.15,
+                          px: 0.75,
+                          py: 0.15,
+                          borderRadius: 1,
+                          border: `1px solid ${colors.border}`,
+                          bgcolor: 'transparent',
+                          '& .escala-aprovada-acoes': { opacity: 0 },
+                          '&:hover .escala-aprovada-acoes': { opacity: 1 },
+                        }}
+                      >
+                        <Typography
+                          component="button"
+                          type="button"
+                          onClick={() => abrirEscalaDoCard(card)}
+                          title="Ver só esta escala"
+                          sx={{
+                            all: 'unset',
+                            cursor: 'pointer',
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            color: colors.textSecondary,
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {rotulo}
+                          <Box component="span" sx={{ ml: 0.5, color: '#15803D', fontWeight: 700, fontSize: '0.65rem' }}>
+                            aprovada
+                          </Box>
+                        </Typography>
+                        {(acoesRecusar || acoesExcluir) && (
+                          <Box className="escala-aprovada-acoes" sx={{ display: 'inline-flex', ml: 0.15 }}>
+                            {acoesRecusar && (
+                              <Tooltip title="Recusar" arrow>
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={salvando}
+                                    onClick={() =>
+                                      void devolverRegioes(
+                                        card.ids_regiao_aprovar.length ? card.ids_regiao_aprovar : card.ids_regiao,
+                                        card.id_usuario,
+                                      )
+                                    }
+                                    sx={{ p: 0.2, color: colors.textSecondary }}
+                                  >
+                                    <UndoIcon sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
+                            {acoesExcluir && (
+                              <Tooltip title="Excluir" arrow>
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={salvando}
+                                    onClick={() =>
+                                      void excluirRegioes(
+                                        card.ids_regiao_aprovar.length ? card.ids_regiao_aprovar : card.ids_regiao,
+                                        card.titulo,
+                                      )
+                                    }
+                                    sx={{ p: 0.2, color: colors.textSecondary }}
+                                  >
+                                    <DeleteIcon sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    );
+                  }
+
                   return (
                     <Box
                       key={card.key}
@@ -1137,16 +1229,10 @@ export default function EscalaVisitasPage() {
                         minWidth: 200,
                         flex: '0 0 auto',
                         borderRadius: 1.5,
-                        bgcolor: pendente
-                          ? 'rgba(232, 82, 10, 0.08)'
-                          : card.status === 'aprovado'
-                            ? 'rgba(22, 163, 74, 0.08)'
-                            : colors.canvasAlt,
+                        bgcolor: pendente ? 'rgba(232, 82, 10, 0.08)' : colors.canvasAlt,
                         border: pendente
                           ? '1px solid rgba(232, 82, 10, 0.28)'
-                          : card.status === 'aprovado'
-                            ? '1px solid rgba(22, 163, 74, 0.28)'
-                            : `1px solid ${colors.border}`,
+                          : `1px solid ${colors.border}`,
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
@@ -1189,9 +1275,7 @@ export default function EscalaVisitasPage() {
                           </Button>
                         )}
                         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                          {grade?.pode_devolver &&
-                            (card.ids_regiao_aprovar.length > 0 ||
-                              (card.status === 'aprovado' && card.ids_regiao.length > 0)) && (
+                          {acoesRecusar && (
                             <Tooltip title="Recusar" arrow>
                               <span>
                                 <IconButton
@@ -1214,9 +1298,7 @@ export default function EscalaVisitasPage() {
                               </span>
                             </Tooltip>
                           )}
-                          {grade?.pode_excluir &&
-                            (card.ids_regiao_aprovar.length > 0 ||
-                              (card.status === 'aprovado' && card.ids_regiao.length > 0)) && (
+                          {acoesExcluir && (
                             <Tooltip title="Excluir" arrow>
                               <span>
                                 <IconButton
@@ -1244,21 +1326,13 @@ export default function EscalaVisitasPage() {
                       <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.25, px: 0.25 }}>
                         {card.tipo === 'pessoa'
                           ? card.ids_regiao_aprovar.length > 0
-                            ? `${pendente ? 'Aguardando aprovação' : card.status === 'aprovado' ? 'Aprovada' : 'Rascunho'} · todas as lojas`
+                            ? 'Aguardando aprovação · todas as lojas'
                             : 'Enviada nesta semana · toque para ver só as visitas dele'
                           : montadaPor
-                            ? `Montada por ${montadaPor}${
-                                pendente
-                                  ? ' · aguardando aprovação'
-                                  : card.status === 'aprovado'
-                                    ? ' · aprovada'
-                                    : ''
-                              }`
+                            ? `Montada por ${montadaPor}${pendente ? ' · aguardando aprovação' : ''}`
                             : card.status === 'rascunho'
                               ? 'Ainda não enviada'
-                              : card.status === 'aprovado'
-                                ? 'Aprovada'
-                                : '—'}
+                              : '—'}
                       </Typography>
                       {(card.id_usuario || card.id_regiao || card.tipo === 'pessoa') && (
                         <Typography
@@ -1287,6 +1361,75 @@ export default function EscalaVisitasPage() {
                 const pendente = st.status === 'pendente_aprovacao';
                 const montadaPor = st.nome_submetido_por ? primeiroNome(st.nome_submetido_por) : null;
                 const revisadaPor = st.nome_revisado_por ? primeiroNome(st.nome_revisado_por) : null;
+                if (st.status === 'aprovado') {
+                  return (
+                    <Box
+                      key="delivery"
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.15,
+                        px: 0.75,
+                        py: 0.15,
+                        borderRadius: 1,
+                        border: `1px solid ${colors.border}`,
+                        bgcolor: 'transparent',
+                        '& .escala-aprovada-acoes': { opacity: 0 },
+                        '&:hover .escala-aprovada-acoes': { opacity: 1 },
+                      }}
+                    >
+                      <Typography
+                        component="button"
+                        type="button"
+                        onClick={() => abrirAba('delivery')}
+                        title="Ver escala de delivery"
+                        sx={{
+                          all: 'unset',
+                          cursor: 'pointer',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          color: colors.textSecondary,
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        Delivery{montadaPor ? ` · ${montadaPor}` : ''}
+                        <Box component="span" sx={{ ml: 0.5, color: '#15803D', fontWeight: 700, fontSize: '0.65rem' }}>
+                          aprovada
+                        </Box>
+                      </Typography>
+                      <Box className="escala-aprovada-acoes" sx={{ display: 'inline-flex', ml: 0.15 }}>
+                        {grade.pode_devolver && (
+                          <Tooltip title="Recusar" arrow>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={salvando}
+                                onClick={() => void devolverDelivery()}
+                                sx={{ p: 0.2, color: colors.textSecondary }}
+                              >
+                                <UndoIcon sx={{ fontSize: 14 }} />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
+                        {grade.pode_excluir && (
+                          <Tooltip title="Excluir" arrow>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={salvando}
+                                onClick={() => void excluirEscalaDelivery()}
+                                sx={{ p: 0.2, color: colors.textSecondary }}
+                              >
+                                <DeleteIcon sx={{ fontSize: 14 }} />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                }
                 return (
                   <Box
                     key="delivery"
@@ -1297,18 +1440,12 @@ export default function EscalaVisitasPage() {
                       px: 1,
                       py: 0.65,
                       minWidth: 200,
-                        flex: '0 0 auto',
+                      flex: '0 0 auto',
                       borderRadius: 1.5,
-                      bgcolor: pendente
-                        ? 'rgba(232, 82, 10, 0.08)'
-                        : st.status === 'aprovado'
-                          ? 'rgba(22, 163, 74, 0.08)'
-                          : colors.canvasAlt,
+                      bgcolor: pendente ? 'rgba(232, 82, 10, 0.08)' : colors.canvasAlt,
                       border: pendente
                         ? '1px solid rgba(232, 82, 10, 0.28)'
-                        : st.status === 'aprovado'
-                          ? '1px solid rgba(22, 163, 74, 0.28)'
-                          : `1px solid ${colors.border}`,
+                        : `1px solid ${colors.border}`,
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>

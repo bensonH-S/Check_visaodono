@@ -119,9 +119,10 @@ export type EnvioAprovacaoEscala = {
 /**
  * Cards a partir do último envio por (pessoa, região) — sem sobrescrever.
  * Igor/Renato → 1 card; regional → 1 card da região dele.
+ * Envios velhos de semana já montada (região ainda em rascunho) não entram.
  */
 export function montarCardsAprovacaoEscala(
-  _statusPorRegiao: Array<{
+  statusPorRegiao: Array<{
     id_regiao: number;
     nome_regiao: string;
     status: 'rascunho' | 'pendente_aprovacao' | 'aprovado';
@@ -139,6 +140,11 @@ export function montarCardsAprovacaoEscala(
     regionais.filter((r) => pessoaVisitaTodasLojas(r.nome, r.todas_lojas)).map((r) => Number(r.id_usuario)),
   );
   const nomePorId = new Map(regionais.map((r) => [Number(r.id_usuario), r.nome]));
+  const regioesEmFluxo = new Set(
+    statusPorRegiao
+      .filter((s) => s.status === 'pendente_aprovacao' || s.status === 'aprovado')
+      .map((s) => Number(s.id_regiao)),
+  );
 
   const latest = new Map<string, EnvioAprovacaoEscala>();
   const ordenados = [...envios]
@@ -158,6 +164,8 @@ export function montarCardsAprovacaoEscala(
     const st = String(e.status || 'pendente_aprovacao');
     if (st === 'devolvido' || st === 'rascunho') return false;
     if (st !== 'pendente_aprovacao' && st !== 'aprovado') return false;
+    // Semana já montada / em uso: região ficou rascunho e o envio velho não pede aprovação.
+    if (!regioesEmFluxo.has(Number(e.id_regiao))) return false;
     if (idUsuarioFiltro != null && Number(e.submetido_por) !== Number(idUsuarioFiltro)) return false;
     return true;
   });
