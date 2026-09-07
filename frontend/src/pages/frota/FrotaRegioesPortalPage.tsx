@@ -107,7 +107,7 @@ function ChipContagem({
         height: compacto ? 22 : 24,
         fontSize: compacto ? '0.65rem' : '0.72rem',
         borderColor: colors.border,
-        bgcolor: 'rgba(27, 42, 107, 0.03)',
+        bgcolor: 'rgba(232, 82, 10, 0.08)',
         maxWidth: compacto ? '100%' : undefined,
         '& .MuiChip-label': compacto ? { px: 0.75 } : undefined,
         '& .MuiChip-icon': { fontSize: compacto ? '0.8rem' : '0.9rem', ml: compacto ? 0.35 : 0.5 },
@@ -141,7 +141,7 @@ function LojaLinhaMenu({ loja, compacto = false }: { loja: FrotaRegiaoLoja; comp
           px: compacto ? 0.75 : 1,
           py: compacto ? 0.5 : 0.75,
           borderRadius: 1,
-          bgcolor: 'rgba(27, 42, 107, 0.06)',
+          bgcolor: 'rgba(232, 82, 10, 0.08)',
           textAlign: 'center',
           flexShrink: 0,
         }}
@@ -397,7 +397,7 @@ function SupervisorRegionalBloco({
 }) {
   const iconSize = compact ? '0.95rem' : '1rem';
   const corRotulo = varianteLista ? 'text.disabled' : 'text.secondary';
-  const corNome = varianteLista ? 'text.secondary' : colors.navy;
+  const corNome = varianteLista ? 'text.secondary' : colors.textPrimary;
   const pesoNome = varianteLista ? 500 : 700;
   return (
     <Box sx={{ minWidth: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 0.4, alignItems: 'flex-start', textAlign: 'left' }}>
@@ -405,7 +405,7 @@ function SupervisorRegionalBloco({
         <PersonIcon
           sx={{
             fontSize: iconSize,
-            color: varianteLista ? 'text.disabled' : compact ? 'text.secondary' : colors.navy,
+            color: varianteLista ? 'text.disabled' : compact ? 'text.secondary' : colors.textPrimary,
             mt: '2px',
             flexShrink: 0,
           }}
@@ -499,7 +499,7 @@ function VeiculoLinhaMenu({
           px: mini ? 0.75 : 1,
           py: mini ? 0.5 : 0.75,
           borderRadius: 1,
-          bgcolor: 'rgba(27, 42, 107, 0.06)',
+          bgcolor: 'rgba(232, 82, 10, 0.08)',
           textAlign: 'center',
           flexShrink: 0,
           display: 'flex',
@@ -702,7 +702,7 @@ function SelecaoTecnicosRegiao({
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <MyLocationIcon sx={{ fontSize: 18, color: colors.navy }} />
+        <MyLocationIcon sx={{ fontSize: 18, color: colors.textPrimary }} />
         <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
           Ative o GPS no celular de cada técnico vinculado. Desligado, o app não envia localização.
         </Typography>
@@ -731,8 +731,8 @@ function SelecaoTecnicosRegiao({
                     width: 28,
                     height: 28,
                     borderRadius: '50%',
-                    bgcolor: 'rgba(27, 42, 107, 0.08)',
-                    color: colors.navy,
+                    bgcolor: 'rgba(232, 82, 10, 0.08)',
+                    color: colors.textPrimary,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -826,8 +826,8 @@ function SelecaoRegionaisRegiao({
                   width: 28,
                   height: 28,
                   borderRadius: '50%',
-                  bgcolor: 'rgba(27, 42, 107, 0.08)',
-                  color: colors.navy,
+                  bgcolor: 'rgba(232, 82, 10, 0.08)',
+                  color: colors.textPrimary,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -978,7 +978,7 @@ function RegiaoCabecalhoEditavel({
     py: 0.25,
     mx: -0.75,
     transition: 'background-color 0.15s',
-    '&:hover': { bgcolor: 'rgba(27, 42, 107, 0.05)' },
+    '&:hover': { bgcolor: 'rgba(148, 163, 184, 0.08)' },
   };
 
   return (
@@ -1006,7 +1006,7 @@ function RegiaoCabecalhoEditavel({
           sx={{
             mt: 0.5,
             mb: 0.75,
-            '& .MuiInputBase-input': { fontWeight: 800, fontSize: '1.35rem', color: colors.navy },
+            '& .MuiInputBase-input': { fontWeight: 800, fontSize: '1.35rem', color: colors.textPrimary },
           }}
         />
       ) : (
@@ -1016,7 +1016,7 @@ function RegiaoCabecalhoEditavel({
           title="Clique para editar o nome"
           sx={{
             fontWeight: 800,
-            color: colors.navy,
+            color: colors.textPrimary,
             mt: 0.25,
             mb: 0.5,
             lineHeight: 1.25,
@@ -1453,12 +1453,12 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                     borderBottom: '1px solid',
                     borderColor: 'divider',
                     '&.Mui-selected': {
-                      bgcolor: 'rgba(27, 42, 107, 0.07)',
-                      borderLeft: `3px solid ${colors.navy}`,
+                      bgcolor: 'rgba(232, 82, 10, 0.1)',
+                      borderLeft: `3px solid #E8520A`,
                       pl: '13px',
                     },
                     '&.Mui-selected:hover': {
-                      bgcolor: 'rgba(27, 42, 107, 0.1)',
+                      bgcolor: 'rgba(232, 82, 10, 0.16)',
                     },
                   }}
                 >
@@ -1468,7 +1468,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.35 }}>
                         <Typography
                           variant="subtitle2"
-                          sx={{ fontWeight: 700, lineHeight: 1.35, color: colors.navy, fontSize: '0.875rem' }}
+                          sx={{ fontWeight: 700, lineHeight: 1.35, color: colors.textPrimary, fontSize: '0.875rem' }}
                         >
                           {r.nome}
                         </Typography>
@@ -1555,7 +1555,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
             sx={{
               border: '1px solid',
               borderColor: colors.border,
-              borderLeft: { md: `4px solid ${colors.navy}` },
+              borderLeft: { md: `4px solid #E8520A` },
               borderRadius: 2,
               minHeight: { xs: 400, md: 0 },
               maxHeight: { md: '100%' },
@@ -1663,7 +1663,15 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                     flexShrink: 0,
                     borderBottom: 1,
                     borderColor: 'divider',
-                    '& .MuiTab-root': { minHeight: 36, py: 0.5, px: 1.25 },
+                    '& .MuiTab-root': {
+                      minHeight: 36,
+                      py: 0.5,
+                      px: 1.25,
+                      textTransform: 'none',
+                      color: colors.textSecondary,
+                    },
+                    '& .Mui-selected': { color: '#E8520A !important' },
+                    '& .MuiTabs-indicator': { bgcolor: '#E8520A', height: 2.5 },
                   }}
                   variant="scrollable"
                   scrollButtons="auto"

@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import LinearProgress from '@mui/material/LinearProgress';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
+import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFrota';
+import { labelFixo, campoAlturaFrotaSx } from '../../constants/frotaVeiculo';
 import { api, type Loja } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile, podeAbrirEnergia } from '../../lib/auth';
 import { extensaoMidia } from '../../utils/mediaFile';
@@ -31,7 +36,9 @@ export default function EnergiaMobileNovoPage() {
   const [concessionaria, setConcessionaria] = useState('Concessionária de energia');
   const [concessionariaOutra, setConcessionariaOutra] = useState('');
   const [tipo, setTipo] = useState('falta_energia');
-  const [ocorrido, setOcorrido] = useState(agoraDatetimeLocal);
+  const [ocorrido] = useState(agoraDatetimeLocal);
+  const [dataOcorrido, setDataOcorrido] = useState(() => ocorrido.slice(0, 10));
+  const [horaOcorrido, setHoraOcorrido] = useState(() => ocorrido.slice(11, 16));
   const [descricao, setDescricao] = useState('');
   const [fotos, setFotos] = useState<string[]>([]);
   const [err, setErr] = useState('');
@@ -104,7 +111,7 @@ export default function EnergiaMobileNovoPage() {
         concessionaria: nomeConcessionaria,
         tipo_ocorrencia: tipo,
         descricao: descricao.trim(),
-        ocorrido_em: datetimeLocalParaIso(ocorrido),
+        ocorrido_em: datetimeLocalParaIso(`${dataOcorrido}T${horaOcorrido}`),
       });
       const fd = new FormData();
       fotos.forEach((url, i) => {
@@ -150,92 +157,128 @@ export default function EnergiaMobileNovoPage() {
         <div className="ck-visitas__sheet-body">
           {salvando && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
 
-          <div className="ck-estoque__break-form">
-            <label className="ck-estoque__field">
-              <span>Protocolo da ligação</span>
-              <input
-                type="text"
-                required
-                value={protocolo}
-                onChange={(e) => setProtocolo(e.target.value)}
-                placeholder="Número gerado pela concessionária"
-                autoComplete="off"
-                disabled={salvando}
-              />
-            </label>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
+            <TextField
+              fullWidth
+              required
+              label="Protocolo da ligação"
+              placeholder="Número gerado pela concessionária"
+              value={protocolo}
+              onChange={(e) => setProtocolo(e.target.value)}
+              disabled={salvando}
+              autoComplete="off"
+              sx={campoAlturaFrotaSx}
+              slotProps={{ inputLabel: labelFixo.inputLabel }}
+            />
 
-            <label className="ck-estoque__field">
-              <span>Concessionária</span>
-              <select
-                value={concessionaria}
-                onChange={(e) => setConcessionaria(e.target.value)}
-                disabled={salvando}
-              >
-                {CONCESSIONARIAS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <TextField
+              fullWidth
+              select
+              label="Concessionária"
+              value={concessionaria}
+              onChange={(e) => setConcessionaria(e.target.value)}
+              disabled={salvando}
+              sx={campoAlturaFrotaSx}
+              slotProps={{ inputLabel: labelFixo.inputLabel }}
+            >
+              {CONCESSIONARIAS.map((c) => (
+                <MenuItem key={c.value} value={c.value}>
+                  {c.label}
+                </MenuItem>
+              ))}
+            </TextField>
 
             {concessionaria === 'Outra' && (
-              <label className="ck-estoque__field">
-                <span>Nome da concessionária</span>
-                <input
-                  type="text"
-                  value={concessionariaOutra}
-                  onChange={(e) => setConcessionariaOutra(e.target.value)}
-                  placeholder="Qual concessionária"
-                  autoComplete="off"
-                  disabled={salvando}
-                />
-              </label>
+              <TextField
+                fullWidth
+                label="Nome da concessionária"
+                placeholder="Qual concessionária"
+                value={concessionariaOutra}
+                onChange={(e) => setConcessionariaOutra(e.target.value)}
+                disabled={salvando}
+                autoComplete="off"
+                sx={campoAlturaFrotaSx}
+                slotProps={{ inputLabel: labelFixo.inputLabel }}
+              />
             )}
 
-            <label className="ck-estoque__field">
-              <span>O que aconteceu</span>
-              <select value={tipo} onChange={(e) => setTipo(e.target.value)} disabled={salvando}>
-                {TIPOS_OCORRENCIA.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <TextField
+              fullWidth
+              select
+              label="O que aconteceu"
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+              disabled={salvando}
+              sx={campoAlturaFrotaSx}
+              slotProps={{ inputLabel: labelFixo.inputLabel }}
+            >
+              {TIPOS_OCORRENCIA.map((t) => (
+                <MenuItem key={t.value} value={t.value}>
+                  {t.label}
+                </MenuItem>
+              ))}
+            </TextField>
 
-            <label className="ck-estoque__field">
-              <span>Data e hora</span>
-              <input
-                type="datetime-local"
-                required
-                value={ocorrido}
-                onChange={(e) => setOcorrido(e.target.value)}
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 1.5 }}>
+              <CampoDataFrota
+                label="Data"
+                value={dataOcorrido}
+                onChange={setDataOcorrido}
+                max={dataHojeIso()}
                 disabled={salvando}
+                sx={campoAlturaFrotaSx}
               />
-            </label>
+              <TextField
+                fullWidth
+                type="text"
+                inputMode="numeric"
+                label="Hora"
+                placeholder="14:30"
+                value={horaOcorrido}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  if (raw.length <= 2) {
+                    setHoraOcorrido(raw);
+                  } else {
+                    setHoraOcorrido(`${raw.slice(0, 2)}:${raw.slice(2)}`);
+                  }
+                }}
+                disabled={salvando}
+                sx={campoAlturaFrotaSx}
+                slotProps={{
+                  inputLabel: labelFixo.inputLabel,
+                  htmlInput: {
+                    maxLength: 5,
+                  },
+                }}
+              />
+            </Box>
 
-            <label className="ck-estoque__field">
-              <span>Detalhes (opcional)</span>
-              <textarea
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                placeholder="Ex.: queda de energia, oscilação, equipamento queimou…"
-                disabled={salvando}
-              />
-            </label>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Detalhes (opcional)"
+              placeholder="Ex.: queda de energia, oscilação, equipamento queimou…"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              disabled={salvando}
+              sx={{ mb: 1 }}
+              slotProps={{ inputLabel: labelFixo.inputLabel }}
+            />
 
             <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={10} obrigatoria inlineActions hideCaption />
 
             <button
               type="button"
-              className="ck-estoque__btn ck-estoque__btn--primary ck-estoque__btn--break-cta"
+              className="ck-estoque__btn ck-estoque__btn--primary ck-estoque__btn--break-cta ck-energia__registrar-btn"
               onClick={() => void salvar()}
               disabled={salvando}
+              style={{ marginTop: 8 }}
             >
               {salvando ? 'Salvando…' : 'Registrar protocolo'}
             </button>
-          </div>
+          </Box>
         </div>
       </div>
     </EnergiaMobileChrome>

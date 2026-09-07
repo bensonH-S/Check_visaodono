@@ -8,6 +8,7 @@ import {
   type ErroPerguntaCampo,
   type RespostaLocal,
 } from './ChecklistPerguntaCard';
+import ThemeToggleButton from '../ThemeToggleButton';
 
 type Props = {
   loja?: Loja;
@@ -87,13 +88,16 @@ export default function ChecklistIonicFluxo({
                 {respondidas}/{totalPerguntas} · {progressoGeral}%
               </strong>
             </div>
-            <img
-              src={assetUrl(LOGO_ALVIM_ICONE)}
-              alt="Grupo Alvim"
-              className="ck-fluxo__logo"
-              width={44}
-              height={44}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              <ThemeToggleButton size="small" />
+              <img
+                src={assetUrl(LOGO_ALVIM_ICONE)}
+                alt="Grupo Alvim"
+                className="ck-fluxo__logo"
+                width={40}
+                height={40}
+              />
+            </div>
           </div>
           <div className="ck-fluxo__bar" aria-hidden>
             <span style={{ width: `${Math.min(100, Math.max(0, progressoGeral))}%` }} />

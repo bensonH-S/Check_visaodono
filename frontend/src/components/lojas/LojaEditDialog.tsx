@@ -12,6 +12,7 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputAdornment from '@mui/material/InputAdornment';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import SearchIcon from '@mui/icons-material/Search';
 import { api, type Loja } from '../../api/client';
 import DialogTitleWithIcon from '../DialogTitleWithIcon';
 import LojaMiniMap from './LojaMiniMap';
@@ -390,10 +391,19 @@ export default function LojaEditDialog({ open, loja, onClose, onSalvo }: Props) 
                   Clique no mapa ou arraste o pin para definir a localização
                 </Typography>
                 <Button
+                  variant="outlined"
                   size="small"
                   onClick={() => void localizarPeloEndereco(form)}
                   disabled={buscandoMapa}
-                  startIcon={buscandoMapa ? <CircularProgress size={14} /> : undefined}
+                  startIcon={buscandoMapa ? <CircularProgress size={14} /> : <SearchIcon fontSize="small" />}
+                  sx={{
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    whiteSpace: 'nowrap',
+                    px: 1.75,
+                    py: 0.5,
+                    borderRadius: 1.5,
+                  }}
                 >
                   Buscar pelo endereço
                 </Button>

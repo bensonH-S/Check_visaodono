@@ -1,7 +1,6 @@
 const OSRM_BASE = String(process.env.OSRM_API_URL || 'https://router.project-osrm.org').replace(/\/$/, '');
 const TAMANHO_CHUNK = 80;
 const SOBREPOSICAO_CHUNK = 2;
-const RAIO_SNAP_METROS = 100;
 const MAX_PONTOS_SEGMENTO = 32;
 const CONCORRENCIA_SEGMENTOS = 10;
 
@@ -51,6 +50,7 @@ function dividirEmChunks(coords) {
   return chunks;
 }
 
+/** Heurística: geometria encaixada nas ruas costuma ser bem mais densa que o GPS. */
 function geometriaNasRuas(ajustada, entrada) {
   return ajustada.length > entrada.length + 2;
 }
@@ -62,30 +62,30 @@ function coordsDaGeometria(geometry) {
     .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
 }
 
-function coordsParaOsrm(coords) {
-  return coords.map(([lat, lng]) => [lng, lat]);
-}
-
-async function osrmPost(servico, coords) {
-  const coordinates = coordsParaOsrm(coords);
+/**
+ * OSRM público (router.project-osrm.org) só aceita GET com coordenadas no path.
+ * POST `/driving?geometries=...` retorna InvalidUrl — sem isso o match falha e
+ * coords_rua vira cópia do GPS (retas atravessando quarteirões).
+ */
+async function osrmGet(servico, coords) {
+  if (coords.length < 2) return null;
+  const coordStr = coords
+    .map(([lat, lng]) => `${Number(lng).toFixed(6)},${Number(lat).toFixed(6)}`)
+    .join(';');
   const params = new URLSearchParams({
     geometries: 'geojson',
     overview: 'full',
   });
-  const body = { coordinates };
   if (servico === 'match') {
     params.set('tidy', 'true');
     params.set('gaps', 'ignore');
-    body.radiuses = coordinates.map(() => RAIO_SNAP_METROS);
   }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
-    const res = await fetch(`${OSRM_BASE}/${servico}/v1/driving?${params.toString()}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+    const res = await fetch(`${OSRM_BASE}/${servico}/v1/driving/${coordStr}?${params.toString()}`, {
+      method: 'GET',
       signal: controller.signal,
     });
     if (!res.ok) return null;
@@ -99,7 +99,7 @@ async function osrmPost(servico, coords) {
 
 async function matchChunkOsrm(coords) {
   if (coords.length < 2) return coords;
-  const data = await osrmPost('match', coords);
+  const data = await osrmGet('match', coords);
   if (data?.code !== 'Ok' || !data.matchings?.length) return coords;
 
   const ajustadas = [];
@@ -111,7 +111,7 @@ async function matchChunkOsrm(coords) {
 
 async function routeChunkOsrm(coords) {
   if (coords.length < 2) return coords;
-  const data = await osrmPost('route', coords);
+  const data = await osrmGet('route', coords);
   if (data?.code !== 'Ok' || !data.routes?.[0]?.geometry) return coords;
   const ajustadas = coordsDaGeometria(data.routes[0].geometry);
   return ajustadas.length >= 2 ? ajustadas : coords;
@@ -171,4 +171,18 @@ export async function ajustarRotaOsrm(coords = []) {
   } catch {
     return normalizadas;
   }
+}
+
+/**
+ * Estima duração de rota (segundos) entre dois pontos [lat, lng] via OSRM.
+ * Retorna null se falhar.
+ */
+export async function estimarDuracaoOsrm(origem, destino) {
+  const o = normalizarCoords([origem])[0];
+  const d = normalizarCoords([destino])[0];
+  if (!o || !d) return null;
+  const data = await osrmGet('route', [o, d]);
+  if (data?.code !== 'Ok' || data.routes?.[0]?.duration == null) return null;
+  const sec = Number(data.routes[0].duration);
+  return Number.isFinite(sec) && sec >= 0 ? sec : null;
 }

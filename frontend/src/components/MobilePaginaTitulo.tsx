@@ -1,19 +1,18 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
-
-const NAVY = '#1B2A6B';
-const ORANGE = '#E8520A';
+import { useAppTheme } from '../context/ThemeContext';
+import { colors } from '../theme/tokens';
 
 type Props = {
   titulo: string;
   nomeUsuario?: string | null;
-  /** Tag de região/loja à direita do “Olá” */
+  /** Tag de região/loja à direita do "Olá" */
   tagRegiao?: string | null;
   tagRegiaoTitulo?: string | null;
   /** Gerente/coordenador: mostra o nome completo da loja */
   tagExpandida?: boolean;
-  /** Oculta só a tag de loja/região ao lado do “Olá” */
+  /** Oculta só a tag de loja/região ao lado do "Olá" */
   ocultarTagLoja?: boolean;
   /** Layout enxuto — páginas com muito conteúdo rolável (ex.: escala) */
   compacto?: boolean;
@@ -32,6 +31,10 @@ export default function MobilePaginaTitulo({
   ocultarTagLoja = false,
   compacto = false,
 }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : '#1B2A6B';
+
   return (
     <Box sx={{ mb: compacto ? 0.75 : 2, pt: 0, pl: 0.5 }}>
       <Typography
@@ -40,7 +43,7 @@ export default function MobilePaginaTitulo({
           fontWeight: 900,
           fontSize: compacto ? '1.35rem' : '1.95rem',
           lineHeight: 1.1,
-          color: NAVY,
+          color: colors.textPrimary,
           letterSpacing: '-0.03em',
           mb: compacto ? 0 : 1.25,
         }}
@@ -62,7 +65,7 @@ export default function MobilePaginaTitulo({
             fontWeight: 400,
             fontSize: '0.95rem',
             lineHeight: 1.3,
-            color: NAVY,
+            color: colors.textPrimary,
             flex: 1,
             minWidth: 0,
             overflow: 'hidden',
@@ -78,40 +81,38 @@ export default function MobilePaginaTitulo({
         {!ocultarTagLoja && tagRegiao && (
           <Box
             component="span"
+            title={tagRegiaoTitulo ?? tagRegiao}
             sx={{
-              flex: '0 0 auto',
-              flexShrink: tagExpandida ? 1 : 0,
               display: 'inline-flex',
               alignItems: 'center',
               gap: 0.35,
-              px: 1,
-              py: 0.35,
-              borderRadius: 999,
-              bgcolor: 'rgba(27, 42, 107, 0.07)',
-              border: '1px solid rgba(27, 42, 107, 0.1)',
-              fontSize: '0.68rem',
-              fontWeight: 700,
-              color: NAVY,
-              letterSpacing: '0.02em',
-              width: tagExpandida ? 'max-content' : undefined,
-              maxWidth: tagExpandida ? 'calc(100% - 7.5rem)' : 140,
-              minWidth: 0,
+              px: tagExpandida ? 1 : 0.75,
+              py: 0.25,
+              borderRadius: 1,
+              bgcolor: escuro ? 'rgba(232, 82, 10, 0.16)' : 'rgba(27, 42, 107, 0.07)',
+              border: `1px solid ${escuro ? 'rgba(232, 82, 10, 0.28)' : 'rgba(27, 42, 107, 0.14)'}`,
+              flexShrink: 0,
+              maxWidth: tagExpandida ? '100%' : 120,
               overflow: 'hidden',
             }}
-            title={tagRegiaoTitulo ?? tagRegiao}
           >
-            <LocationOnOutlinedIcon sx={{ fontSize: 14, color: ORANGE, flexShrink: 0 }} />
-            <Box
+            <LocationOnOutlinedIcon
+              sx={{ fontSize: 11, color: acento, flexShrink: 0 }}
+            />
+            <Typography
               component="span"
               sx={{
+                fontSize: tagExpandida ? '0.72rem' : '0.68rem',
+                fontWeight: 700,
+                color: acento,
+                lineHeight: 1.3,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                lineHeight: 1.25,
               }}
             >
               {tagRegiao}
-            </Box>
+            </Typography>
           </Box>
         )}
       </Box>

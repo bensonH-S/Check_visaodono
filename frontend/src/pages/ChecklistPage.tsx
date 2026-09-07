@@ -32,7 +32,9 @@ import ChecklistStartScreen from '../components/checklist/ChecklistStartScreen';
 import ChecklistIonicFluxo from '../components/checklist/ChecklistIonicFluxo';
 import VisitaIniciadaScreen from '../components/checklist/VisitaIniciadaScreen';
 import TimeCampoMetaForm from '../components/checklist/TimeCampoMetaForm';
+import PageLoading from '../components/PageLoading';
 import { useChecklistMobileUi } from '../context/ChecklistMobileUiContext';
+import { useAppTheme } from '../context/ThemeContext';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { selectMenuScrollProps } from '../utils/selectMenuScroll';
 import { showToast } from '../utils/toast';
@@ -48,6 +50,7 @@ import {
 import { getUsuario, temPermissao } from '../lib/auth';
 import { useChamadosMobileLojaOpcional } from '../context/ChamadosMobileLojaContext';
 import { dataHojeBrasilia, normalizarDataVisita, calcularDuracaoVisitaMinutos } from '../utils/dateBr';
+import { colors } from '../theme/tokens';
 import {
   exibeFoto,
   exibeObservacao,
@@ -62,6 +65,25 @@ import {
 } from '../utils/checklistRules';
 
 const BRAND_ORANGE = '#E8520A';
+const BRAND_ORANGE_HOVER = '#C74709';
+const BRAND_NAVY = '#1B2A6B';
+const BRAND_NAVY_HOVER = '#152056';
+
+/** Escuro = laranja; claro = azul da marca. */
+function btnAcaoSx(escuro: boolean) {
+  const bg = escuro ? BRAND_ORANGE : BRAND_NAVY;
+  const hover = escuro ? BRAND_ORANGE_HOVER : BRAND_NAVY_HOVER;
+  return {
+    bgcolor: `${bg} !important`,
+    color: '#fff !important',
+    '&:hover': { bgcolor: `${hover} !important` },
+    '&.Mui-disabled': {
+      bgcolor: escuro ? 'rgba(232, 82, 10, 0.35) !important' : 'rgba(27, 42, 107, 0.35) !important',
+      color: 'rgba(255,255,255,0.75) !important',
+    },
+  } as const;
+}
+
 function BannerResumoChecklist({
   titulo,
   totalPerguntas,
@@ -73,37 +95,76 @@ function BannerResumoChecklist({
   totalSecoes: number;
   carregando?: boolean;
 }) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
   return (
     <Paper
       sx={{
-        p: { xs: 2, sm: 2.5 },
-        mb: 2,
+        p: { xs: 1.5, md: 2 },
         borderRadius: 2,
-        background: 'linear-gradient(135deg, #1B2A6B 0%, #2a3d8f 100%)',
-        color: 'white',
+        bgcolor: escuro ? 'rgba(232, 82, 10, 0.16)' : 'rgba(232, 82, 10, 0.14)',
+        border: '1px solid',
+        borderColor: escuro ? 'rgba(232, 82, 10, 0.4)' : 'rgba(232, 82, 10, 0.35)',
+        width: '100%',
       }}
     >
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.05rem', sm: '1.25rem' } }}>
-        {titulo}
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
-        <Chip
-          label={carregando ? 'Carregando…' : `${totalPerguntas} perguntas`}
-          size="small"
-          sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
-        />
-        <Chip
-          label={carregando ? '…' : `${totalSecoes} seções`}
-          size="small"
-          sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
-        />
-      </Box>
-      <Typography
-        variant="body2"
-        sx={{ opacity: 0.92, fontSize: { xs: '0.78rem', sm: '0.875rem' }, lineHeight: 1.45 }}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { md: 'center' },
+          justifyContent: 'space-between',
+          gap: { xs: 1.25, md: 2 },
+        }}
       >
-        Responda uma seção por vez durante a visita na loja.
-      </Typography>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: '1rem', md: '1.1rem' },
+              color: BRAND_ORANGE,
+            }}
+          >
+            {titulo}
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              color: colors.textSecondary,
+              fontSize: { xs: '0.78rem', sm: '0.875rem' },
+              lineHeight: 1.45,
+              mt: 0.35,
+            }}
+          >
+            Responda uma seção por vez durante a visita na loja.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
+          <Chip
+            label={carregando ? 'Carregando…' : `${totalPerguntas} perguntas`}
+            size="small"
+            sx={{
+              bgcolor: 'rgba(232, 82, 10, 0.16)',
+              color: BRAND_ORANGE,
+              fontWeight: 600,
+              height: 26,
+              border: '1px solid rgba(232, 82, 10, 0.3)',
+            }}
+          />
+          <Chip
+            label={carregando ? '…' : `${totalSecoes} seções`}
+            size="small"
+            sx={{
+              bgcolor: escuro ? 'rgba(148, 163, 184, 0.12)' : 'rgba(27, 42, 107, 0.12)',
+              color: escuro ? colors.textSecondary : 'primary.main',
+              fontWeight: 600,
+              height: 26,
+              border: escuro ? '1px solid rgba(148, 163, 184, 0.25)' : '1px solid rgba(27, 42, 107, 0.22)',
+            }}
+          />
+        </Box>
+      </Box>
     </Paper>
   );
 }
@@ -244,6 +305,8 @@ export default function ChecklistPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
   const paths = { ...checklistPaths(location.pathname), mobile: false };
   const retomadaIniciada = useRef(false);
   const [lojas, setLojas] = useState<Loja[]>([]);
@@ -885,26 +948,17 @@ export default function ChecklistPage() {
   };
 
   if (loading || retomando) {
+    const label = retomando ? 'Retomando checklist…' : 'Carregando…';
     if (paths.mobile) {
       return (
         <ChecklistIonicShell>
-          <div className="checklist-ionic" style={{ padding: 24, textAlign: 'center' }}>
-            <LinearProgress sx={{ borderRadius: 1, mb: 1.5 }} />
-            <Typography variant="body2" color="text.secondary">
-              {retomando ? 'Retomando checklist…' : 'Carregando…'}
-            </Typography>
+          <div className="checklist-ionic" style={{ padding: 0 }}>
+            <PageLoading label={label} />
           </div>
         </ChecklistIonicShell>
       );
     }
-    return (
-      <Box sx={{ p: 2 }}>
-        <LinearProgress sx={{ borderRadius: 1 }} />
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
-          {retomando ? 'Retomando checklist…' : 'Carregando…'}
-        </Typography>
-      </Box>
-    );
+    return <PageLoading label={label} />;
   }
 
   if (somenteVisualizacao) {
@@ -960,10 +1014,9 @@ export default function ChecklistPage() {
     }
 
     return (
-      <Box sx={{ px: 2, pb: 4, pt: 0, flex: 1 }}>
-
+      <Box sx={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {msg && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMsg('')}>
+          <Alert severity="error" onClose={() => setMsg('')}>
             {msg}
           </Alert>
         )}
@@ -971,12 +1024,20 @@ export default function ChecklistPage() {
         {sessaoLocal && (
           <Alert
             severity="warning"
-            sx={{ mb: 2 }}
+            sx={{
+              ...(escuro
+                ? {
+                    bgcolor: 'rgba(232, 82, 10, 0.16)',
+                    color: colors.textPrimary,
+                    border: '1px solid rgba(232, 82, 10, 0.4)',
+                    '& .MuiAlert-icon': { color: BRAND_ORANGE },
+                  }
+                : {}),
+            }}
             action={
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 0.5, alignItems: 'flex-end' }}>
                 <Button
                   size="small"
-                  color="warning"
                   variant="contained"
                   startIcon={<PlayArrowIcon />}
                   disabled={saving || retomando}
@@ -986,17 +1047,31 @@ export default function ChecklistPage() {
                       fase: sessaoLocal.fase,
                     })
                   }
+                  sx={btnAcaoSx(escuro)}
                 >
                   Continuar
                 </Button>
                 <Button
                   size="small"
-                  color="inherit"
+                  variant="outlined"
                   disabled={saving || retomando}
                   onClick={() => {
                     const user = getUsuario();
                     if (user) limparSessaoChecklist(user.id_usuario);
                     setSessaoLocal(null);
+                  }}
+                  sx={{
+                    borderColor: colors.borderStrong,
+                    color: colors.textSecondary,
+                    bgcolor: colors.surface,
+                    minHeight: 30,
+                    px: 1.25,
+                    fontWeight: 600,
+                    '&:hover': {
+                      borderColor: colors.borderStrong,
+                      bgcolor: colors.canvasAlt,
+                      color: colors.textPrimary,
+                    },
                   }}
                 >
                   Esquecer
@@ -1004,21 +1079,36 @@ export default function ChecklistPage() {
               </Box>
             }
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Checklist interrompido neste aparelho
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: escuro ? colors.textPrimary : undefined }}>
+              Checklist interrompido neste perfil
             </Typography>
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: escuro ? colors.textSecondary : undefined }}>
               Visita #{sessaoLocal.visitaId} — retome de onde parou para concluir.
             </Typography>
           </Alert>
         )}
 
         {rascunhosOrdenados.length > 0 && (
-          <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 1.5, md: 2 },
+              borderRadius: 2,
+              bgcolor: colors.surface,
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: colors.textPrimary }}>
               Visitas em andamento ({rascunhosOrdenados.length})
             </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', xl: '1fr 1fr 1fr' },
+                gap: 1.25,
+              }}
+            >
               {rascunhosOrdenados.map((r) => (
                 <Box
                   key={r.id_visita}
@@ -1026,20 +1116,20 @@ export default function ChecklistPage() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: 1,
-                    p: 1.25,
+                    gap: 1.5,
+                    p: 1.5,
                     borderRadius: 1.5,
-                    bgcolor: 'rgba(27, 42, 107, 0.03)',
+                    bgcolor: colors.surface,
                     border: '1px solid',
                     borderColor: 'divider',
                   }}
                 >
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: colors.textPrimary }} noWrap>
                       {r.name}
                       {r.bk_number ? ` · BKN ${r.bk_number}` : ''}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: colors.textSecondary }}>
                       Visita #{r.id_visita} · {r.tipo_checklist_nome ?? 'Checklist'} ·{' '}
                       {fmtData(r.data_visita)}
                     </Typography>
@@ -1057,7 +1147,7 @@ export default function ChecklistPage() {
                           sessaoLocal?.visitaId === r.id_visita ? sessaoLocal.fase : undefined,
                       })
                     }
-                    sx={{ flexShrink: 0 }}
+                    sx={{ flexShrink: 0, ...btnAcaoSx(escuro) }}
                   >
                     Continuar
                   </Button>
@@ -1066,6 +1156,7 @@ export default function ChecklistPage() {
             </Box>
           </Paper>
         )}
+
         <BannerResumoChecklist
           titulo={tipoSelecionado?.nome ?? 'Nova visita'}
           totalPerguntas={totalPerguntas}
@@ -1073,121 +1164,196 @@ export default function ChecklistPage() {
           carregando={carregandoTipo}
         />
 
-        {tiposChecklist.length > 1 && (
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Tipo de checklist</InputLabel>
-            <Select
-              label="Tipo de checklist"
-              value={tipoSelecionado?.codigo ?? ''}
-              onChange={(e) => void selecionarTipo(String(e.target.value))}
-              {...selectMenuScrollProps}
-            >
-              {tiposChecklist.map((t) => (
-                <MenuItem key={t.codigo} value={t.codigo}>
-                  {t.nome}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
-
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Loja</InputLabel>
-          <Select
-            label="Loja"
-            value={idLoja}
-            onChange={(e) => setIdLoja(Number(e.target.value))}
-            renderValue={(value) => {
-              const loja = lojas.find((l) => l.id_loja === value);
-              if (!loja) return '';
-              return (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-                  <LocationOnOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0 }} />
-                  <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-                    {loja.name}
-                    {loja.bk_number ? ` · BKN ${loja.bk_number}` : ''}
-                  </Typography>
-                </Box>
-              );
-            }}
-            {...selectMenuScrollProps}
-          >
-            {lojas.map((l) => (
-              <MenuItem key={l.id_loja} value={l.id_loja} sx={{ py: 1, alignItems: 'flex-start' }}>
-                <LocationOnOutlinedIcon
-                  sx={{ fontSize: 18, color: 'text.secondary', mr: 1, mt: 0.2, flexShrink: 0 }}
-                />
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{ fontSize: '0.78rem', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'normal' }}
-                  >
-                    {l.name}
-                  </Typography>
-                  {l.bk_number && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ fontSize: '0.68rem', display: 'block', mt: 0.25 }}
-                    >
-                      BKN {l.bk_number}
-                    </Typography>
-                  )}
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        {usuarios.length > 1 ? (
-          <FormControl fullWidth sx={{ mb: 3 }}>
-            <InputLabel>Auditor</InputLabel>
-            <Select
-              label="Auditor"
-              value={idUsuario}
-              onChange={(e) => setIdUsuario(Number(e.target.value))}
-              renderValue={(value) => {
-                const auditor = usuarios.find((u) => u.id_usuario === value);
-                return auditor?.nome ?? '';
-              }}
-              {...selectMenuScrollProps}
-            >
-              {usuarios.map((u) => (
-                <MenuItem key={u.id_usuario} value={u.id_usuario}>
-                  {u.nome}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        ) : (
-          <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-            <Typography variant="caption" color="text.secondary">
-              Auditor
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {usuarios[0]?.nome ?? getUsuario()?.nome}
-            </Typography>
-          </Paper>
-        )}
-
-        {tipoSelecionado?.codigo === 'time_de_campo' && (
-          <TimeCampoMetaForm
-            value={metaVisita}
-            onChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
-          />
-        )}
-
-        <Button
-          fullWidth
-          variant="contained"
-          size="large"
-          disabled={saving || carregandoTipo || !podeIniciarChecklist}
-          onClick={iniciarVisita}
-          sx={{ minHeight: 56, fontSize: '1.05rem', fontWeight: 700 }}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, md: 2.5 },
+            borderRadius: 2,
+            bgcolor: colors.surface,
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
         >
-          Iniciar checklist
-        </Button>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                md: tiposChecklist.length > 1 ? 'repeat(3, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))',
+              },
+              gap: 2,
+              mb: tipoSelecionado?.codigo === 'time_de_campo' ? 2 : 0,
+              alignItems: 'center',
+              '& .MuiOutlinedInput-root': {
+                bgcolor: colors.surface,
+                minHeight: 40,
+                alignItems: 'center',
+                color: colors.textPrimary,
+              },
+              '& .MuiInputLabel-root': { color: colors.textSecondary },
+              '& .MuiSelect-icon': { color: colors.textSecondary },
+              '& .MuiSelect-select': {
+                display: 'flex !important',
+                alignItems: 'center',
+                py: '8.5px !important',
+                color: colors.textPrimary,
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                lineHeight: 1.2,
+              },
+            }}
+          >
+            {tiposChecklist.length > 1 && (
+              <FormControl fullWidth size="small">
+                <InputLabel>Tipo de checklist</InputLabel>
+                <Select
+                  label="Tipo de checklist"
+                  value={tipoSelecionado?.codigo ?? ''}
+                  onChange={(e) => void selecionarTipo(String(e.target.value))}
+                  renderValue={(codigo) => {
+                    const tipo = tiposChecklist.find((t) => t.codigo === codigo);
+                    return (
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 500, fontSize: '0.8125rem', lineHeight: 1.2, color: colors.textPrimary }}>
+                        {tipo?.nome ?? codigo}
+                      </Typography>
+                    );
+                  }}
+                  {...selectMenuScrollProps}
+                >
+                  {tiposChecklist.map((t) => (
+                    <MenuItem key={t.codigo} value={t.codigo} dense>
+                      <Typography variant="body2" sx={{ fontSize: '0.8125rem', fontWeight: 500 }}>
+                        {t.nome}
+                      </Typography>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
+            <FormControl fullWidth size="small">
+              <InputLabel>Loja</InputLabel>
+              <Select
+                label="Loja"
+                value={idLoja}
+                onChange={(e) => setIdLoja(Number(e.target.value))}
+                renderValue={(value) => {
+                  const loja = lojas.find((l) => l.id_loja === value);
+                  if (!loja) return '';
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, width: '100%' }}>
+                      <LocationOnOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 500, fontSize: '0.8125rem', lineHeight: 1.2, color: colors.textPrimary }}>
+                        {loja.name}
+                        {loja.bk_number ? ` · BKN ${loja.bk_number}` : ''}
+                      </Typography>
+                    </Box>
+                  );
+                }}
+                {...selectMenuScrollProps}
+              >
+                {lojas.map((l) => (
+                  <MenuItem key={l.id_loja} value={l.id_loja} dense sx={{ py: 0.75, alignItems: 'center' }}>
+                    <LocationOnOutlinedIcon
+                      sx={{ fontSize: 16, color: 'text.secondary', mr: 1, flexShrink: 0 }}
+                    />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{ fontSize: '0.78rem', fontWeight: 500, lineHeight: 1.3 }}
+                      >
+                        {l.name}
+                        {l.bk_number ? ` · BKN ${l.bk_number}` : ''}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {usuarios.length > 1 ? (
+              <FormControl fullWidth size="small">
+                <InputLabel>Auditor</InputLabel>
+                <Select
+                  label="Auditor"
+                  value={idUsuario}
+                  onChange={(e) => setIdUsuario(Number(e.target.value))}
+                  renderValue={(value) => {
+                    const auditor = usuarios.find((u) => u.id_usuario === value);
+                    return (
+                      <Typography variant="body2" noWrap sx={{ fontWeight: 500, fontSize: '0.8125rem', lineHeight: 1.2, color: colors.textPrimary }}>
+                        {auditor?.nome ?? ''}
+                      </Typography>
+                    );
+                  }}
+                  {...selectMenuScrollProps}
+                >
+                  {usuarios.map((u) => (
+                    <MenuItem key={u.id_usuario} value={u.id_usuario} dense>
+                      {u.nome}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            ) : (
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 0.75,
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: colors.surface,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  minHeight: 40,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+                  Auditor
+                </Typography>
+                <Typography variant="body2" noWrap sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                  {usuarios[0]?.nome ?? getUsuario()?.nome}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {tipoSelecionado?.codigo === 'time_de_campo' && (
+            <TimeCampoMetaForm
+              value={metaVisita}
+              onChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
+            />
+          )}
+
+          <Box
+            sx={{
+              mt: 2,
+              display: 'flex',
+              justifyContent: { xs: 'stretch', md: 'flex-end' },
+            }}
+          >
+            <Button
+              variant="contained"
+              size="small"
+              disabled={saving || carregandoTipo || !podeIniciarChecklist}
+              onClick={iniciarVisita}
+              sx={{
+                minHeight: 36,
+                px: 2.5,
+                fontWeight: 700,
+                fontSize: '0.8125rem',
+                width: { xs: '100%', md: 'auto' },
+                minWidth: { md: 160 },
+                ...btnAcaoSx(escuro),
+              }}
+            >
+              Iniciar checklist
+            </Button>
+          </Box>
+        </Paper>
       </Box>
     );
   }
@@ -1252,93 +1418,190 @@ export default function ChecklistPage() {
   ).length;
 
   const telaPerguntas = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, width: '100%' }}>
-      <Box sx={{ px: 2, pt: 1.5, pb: 1, bgcolor: 'white', borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          {lojaSel?.name}
-          {visitaId ? ` · Visita #${visitaId}` : ''}
-        </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            Progresso geral
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, width: '100%', gap: 1.5 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { md: 'center' },
+          justifyContent: 'space-between',
+          gap: 1.5,
+        }}
+      >
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="body2"
+            noWrap
+            sx={{ display: 'block', fontWeight: 600, color: colors.textSecondary }}
+          >
+            {lojaSel?.name}
+            {lojaSel?.bk_number ? ` · BKN ${lojaSel.bk_number}` : ''}
+            {visitaId ? ` · Visita #${visitaId}` : ''}
           </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
-            {respondidas}/{totalPerguntas} ({progressoGeral}%)
-          </Typography>
-        </Box>
-        <LinearProgress
-          variant="determinate"
-          value={progressoGeral}
-          sx={{ height: 8, borderRadius: 4, mt: 0.75, mb: 1.5 }}
-        />
-
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 0.75,
-            overflowX: 'auto',
-            pb: 0.5,
-            mx: -0.5,
-            px: 0.5,
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}
-        >
-          {checklist.map((cat, idx) => {
-            const completa = secaoCompleta(cat);
-            const ativa = idx === indiceSecao;
-            return (
-              <Chip
-                key={cat.id_categoria}
-                label={`${idx + 1}. ${cat.nome.split(' ')[0]}`}
-                size="small"
-                onClick={() => void irParaSecao(idx)}
-                icon={completa ? <CheckCircleIcon /> : undefined}
-                color={ativa ? undefined : completa ? 'success' : 'default'}
-                variant={ativa ? 'filled' : 'outlined'}
-                sx={{
-                  flexShrink: 0,
-                  fontWeight: ativa ? 700 : 500,
-                  ...(ativa && {
-                    bgcolor: BRAND_ORANGE,
-                    color: 'white',
-                    '&:hover': { bgcolor: '#C74709' },
-                    '& .MuiChip-icon': { color: 'white' },
-                  }),
-                }}
-              />
-            );
-          })}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.75 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, flexShrink: 0, color: colors.textPrimary }}>
+              Progresso
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={progressoGeral}
+              sx={{
+                height: 8,
+                borderRadius: 4,
+                flex: 1,
+                maxWidth: 420,
+                bgcolor: escuro ? 'rgba(232, 82, 10, 0.18)' : 'rgba(232, 82, 10, 0.12)',
+                '& .MuiLinearProgress-bar': {
+                  bgcolor: BRAND_ORANGE,
+                },
+              }}
+            />
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 700,
+                color: BRAND_ORANGE,
+                flexShrink: 0,
+              }}
+            >
+              {respondidas}/{totalPerguntas} ({progressoGeral}%)
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
       <Box
         sx={{
-          px: 2,
-          py: 1.5,
-          bgcolor: BRAND_ORANGE,
-          color: 'white',
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 0.75,
+          width: '100%',
         }}
       >
-        <Typography variant="overline" sx={{ opacity: 0.9, lineHeight: 1.2 }}>
-          Seção {indiceSecao + 1} de {totalSecoes}
-        </Typography>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-          {secaoAtual.nome}
-        </Typography>
-        <Typography variant="caption" sx={{ opacity: 0.95 }}>
+        {checklist.map((cat, idx) => {
+          const completa = secaoCompleta(cat);
+          const ativa = idx === indiceSecao;
+          return (
+            <Chip
+              key={cat.id_categoria}
+              label={`${idx + 1}. ${cat.nome}`}
+              size="small"
+              onClick={() => void irParaSecao(idx)}
+              icon={completa ? <CheckCircleIcon /> : undefined}
+              variant="outlined"
+              sx={{
+                fontWeight: ativa ? 700 : 500,
+                maxWidth: '100%',
+                height: 'auto',
+                py: 0.5,
+                bgcolor: ativa
+                  ? BRAND_ORANGE
+                  : completa
+                    ? escuro
+                      ? 'rgba(52, 211, 153, 0.18)'
+                      : 'rgba(5, 150, 105, 0.1)'
+                    : escuro
+                      ? 'rgba(148, 163, 184, 0.12)'
+                      : colors.surface,
+                color: ativa
+                  ? '#fff'
+                  : completa
+                    ? escuro
+                      ? '#6EE7B7'
+                      : '#047857'
+                    : colors.textPrimary,
+                border: '1px solid',
+                borderColor: ativa
+                  ? BRAND_ORANGE
+                  : completa
+                    ? escuro
+                      ? 'rgba(52, 211, 153, 0.5)'
+                      : 'rgba(5, 150, 105, 0.4)'
+                    : escuro
+                      ? 'rgba(148, 163, 184, 0.35)'
+                      : colors.border,
+                ...(ativa && {
+                  '&:hover': { bgcolor: '#C74709', borderColor: '#C74709' },
+                  '& .MuiChip-icon': { color: 'white' },
+                }),
+                ...(!ativa &&
+                  completa && {
+                    '& .MuiChip-icon': { color: escuro ? '#6EE7B7' : '#059669' },
+                  }),
+                '& .MuiChip-label': {
+                  whiteSpace: 'normal',
+                  overflow: 'visible',
+                  textOverflow: 'clip',
+                  display: 'block',
+                  lineHeight: 1.25,
+                  py: 0.25,
+                },
+              }}
+            />
+          );
+        })}
+      </Box>
+
+      <Box
+        sx={{
+          px: { xs: 1.5, md: 2 },
+          py: 1.25,
+          borderRadius: 2,
+          bgcolor: 'rgba(232, 82, 10, 0.14)',
+          border: '1px solid',
+          borderColor: 'rgba(232, 82, 10, 0.35)',
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { sm: 'center' },
+          justifyContent: 'space-between',
+          gap: 0.75,
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="overline" sx={{ color: BRAND_ORANGE, lineHeight: 1.2, fontWeight: 700 }}>
+            Seção {indiceSecao + 1} de {totalSecoes}
+          </Typography>
+          <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700, color: colors.textPrimary }}>
+            {secaoAtual.nome}
+          </Typography>
+        </Box>
+        <Typography variant="caption" sx={{ color: colors.textSecondary, flexShrink: 0 }}>
           {respondidasSecao}/{secaoAtual.perguntas.length} respondidas nesta seção
         </Typography>
       </Box>
 
-      <Box sx={{ flex: 1, overflow: 'auto', px: 2, py: 2 }}>
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1.5,
+          pr: 0.5,
+        }}
+      >
         {msg && (
-          <Alert severity="warning" sx={{ mb: 2 }} onClose={limparMsg}>
+          <Alert
+            severity="warning"
+            onClose={limparMsg}
+            sx={{
+              bgcolor: 'rgba(232, 82, 10, 0.16)',
+              color: colors.textPrimary,
+              border: '1px solid rgba(232, 82, 10, 0.4)',
+              '& .MuiAlert-icon': { color: BRAND_ORANGE },
+              '& .MuiAlert-message': { color: colors.textPrimary },
+              '& .MuiIconButton-root': { color: colors.textSecondary },
+            }}
+          >
             {msgTitulo && (
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.25 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.25, color: BRAND_ORANGE }}>
                 {msgTitulo}
               </Typography>
             )}
-            {msg}
+            <Box component="span" sx={{ color: colors.textSecondary }}>
+              {msg}
+            </Box>
           </Alert>
         )}
 
@@ -1356,91 +1619,95 @@ export default function ChecklistPage() {
 
       <Box
         sx={{
-          px: 2,
-          py: 1.5,
-          pb: 'max(12px, env(safe-area-inset-bottom))',
-          bgcolor: 'white',
+          pt: 1.5,
           borderTop: '1px solid',
           borderColor: 'divider',
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { sm: 'center' },
+          justifyContent: 'space-between',
+          gap: 1,
         }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {indiceSecao > 0 && (
-            <Button
-              variant="text"
-              startIcon={<NavigateBeforeIcon />}
-              disabled={saving}
-              onClick={() => void irSecaoAnterior()}
-              sx={{ alignSelf: 'flex-start', minHeight: 40, fontWeight: 600 }}
-            >
-              Seção anterior
-            </Button>
-          )}
+        {indiceSecao > 0 ? (
+          <Button
+            variant="text"
+            startIcon={<NavigateBeforeIcon />}
+            disabled={saving}
+            onClick={() => void irSecaoAnterior()}
+            sx={{
+              alignSelf: { xs: 'flex-start', sm: 'center' },
+              minHeight: 40,
+              fontWeight: 600,
+              color: escuro ? colors.textSecondary : undefined,
+              '&:hover': escuro ? { color: BRAND_ORANGE, bgcolor: 'rgba(232, 82, 10, 0.1)' } : undefined,
+            }}
+          >
+            Seção anterior
+          </Button>
+        ) : (
+          <Box />
+        )}
 
-          <Box sx={{ display: 'flex', gap: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+          <Button
+            variant="outlined"
+            startIcon={<SaveIcon />}
+            disabled={saving}
+            onClick={() => salvarSecaoAtual(false)}
+            sx={{
+              flex: { xs: 1, sm: 'none' },
+              minWidth: { sm: 140 },
+              minHeight: 44,
+              fontWeight: 600,
+              borderColor: colors.borderStrong,
+              color: colors.textSecondary,
+              bgcolor: colors.surface,
+              '&:hover': {
+                borderColor: colors.borderStrong,
+                bgcolor: colors.canvasAlt,
+                color: colors.textPrimary,
+              },
+            }}
+          >
+            Salvar
+          </Button>
+
+          {ehUltimaSecao ? (
             <Button
-              variant="outlined"
-              size="small"
-              startIcon={<SaveIcon sx={{ fontSize: 18 }} />}
+              variant="contained"
+              color="success"
+              endIcon={<CheckIcon />}
               disabled={saving}
-              onClick={() => salvarSecaoAtual(false)}
+              onClick={finalizar}
               sx={{
-                flex: 1,
-                minWidth: 0,
-                minHeight: 40,
+                flex: { xs: 1, sm: 'none' },
+                minWidth: { sm: 160 },
+                minHeight: 44,
                 fontWeight: 600,
-                fontSize: '0.8rem',
-                whiteSpace: 'nowrap',
-                px: 1,
               }}
             >
-              Salvar
+              Finalizar
             </Button>
-
-            {ehUltimaSecao ? (
-              <Button
-                variant="contained"
-                color="success"
-                size="small"
-                endIcon={<CheckIcon sx={{ fontSize: 18 }} />}
-                disabled={saving}
-                onClick={finalizar}
-                sx={{
-                  flex: 1,
-                  minWidth: 0,
-                  minHeight: 40,
-                  fontWeight: 600,
-                  fontSize: '0.8rem',
-                  whiteSpace: 'nowrap',
-                  px: 1,
-                }}
-              >
-                Finalizar
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                size="small"
-                endIcon={<NavigateNextIcon sx={{ fontSize: 18 }} />}
-                disabled={saving}
-                onClick={() => void irProximaSecao()}
-                sx={{
-                  flex: 1,
-                  minWidth: 0,
-                  minHeight: 40,
-                  fontWeight: 600,
-                  fontSize: '0.8rem',
-                  whiteSpace: 'nowrap',
-                  px: 1,
-                }}
-              >
-                Próxima seção
-              </Button>
-            )}
-          </Box>
+          ) : (
+            <Button
+              variant="contained"
+              endIcon={<NavigateNextIcon />}
+              disabled={saving}
+              onClick={() => void irProximaSecao()}
+              sx={{
+                flex: { xs: 1, sm: 'none' },
+                minWidth: { sm: 160 },
+                minHeight: 44,
+                fontWeight: 600,
+                ...btnAcaoSx(escuro),
+              }}
+            >
+              Próxima seção
+            </Button>
+          )}
         </Box>
       </Box>
-
     </Box>
   );
 

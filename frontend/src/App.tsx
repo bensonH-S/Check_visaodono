@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+// Removed ThemeProvider and CssBaseline since they are inside CustomThemeProvider
 import { appBasePath } from './config/paths';
-import { theme } from './theme';
+import { CustomThemeProvider } from './context/ThemeContext';
 import RequireAuth from './components/RequireAuth';
 import PortalLayout from './layout/PortalLayout';
 import ChamadosMobileLayout from './layout/ChamadosMobileLayout';
@@ -74,6 +74,7 @@ import ChecklistPerguntasPage from './pages/configuracoes/ChecklistPerguntasPage
 import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
 import NotificacoesPage from './pages/configuracoes/NotificacoesPage';
 import AuditoriaPage from './pages/configuracoes/AuditoriaPage';
+import SmtpPage from './pages/configuracoes/SmtpPage';
 import EstoqueSyncNfPage from './pages/configuracoes/EstoqueSyncNfPage';
 import ConfiguracaoContagemPage from './pages/configuracoes/ConfiguracaoContagemPage';
 import RotaAuditoria from './components/RotaAuditoria';
@@ -87,8 +88,7 @@ import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
 export default function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <CustomThemeProvider>
       <AppToastContainer />
       <ZoomWarning />
       <BrowserRouter basename={appBasePath}>
@@ -290,7 +290,7 @@ export default function App() {
               }
             />
             <Route path="portais/mobile" element={<PortaisPage />} />
-            <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
+            <Route path="relatorio/mobile/visita/:id" element={<RelatorioPage />} />
           </Route>
           <Route
             element={
@@ -385,6 +385,7 @@ export default function App() {
                 </RotaPermissao>
               }
             />
+            <Route path="indicadores" element={<Navigate to="/ranking" replace />} />
             <Route
               path="checklist"
               element={
@@ -409,6 +410,10 @@ export default function App() {
                 </RotaPermissao>
               }
             />
+            <Route path="relatorios" element={<Navigate to="/visitas" replace />} />
+            <Route path="relatorios/:id" element={<RelatorioPage />} />
+            <Route path="relatorio/:id" element={<RelatorioPage />} />
+            <Route path="visitas/:id" element={<RelatorioPage />} />
             <Route path="portais" element={<PortaisPage />} />
             <Route
               path="escalas/visitas"
@@ -440,7 +445,11 @@ export default function App() {
             />
             <Route
               path="lojas"
-              element={<Navigate to="/configuracoes/lojas" replace />}
+              element={
+                <RotaPermissao permissoes={['portal.lojas.ver', 'configuracoes.ver']}>
+                  <LojasPage />
+                </RotaPermissao>
+              }
             />
             <Route
               path="nao-conformidades"
@@ -519,8 +528,21 @@ export default function App() {
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
             <Route
               path="usuarios"
-              element={<Navigate to="/configuracoes/usuarios" replace />}
+              element={
+                <RotaPermissao permissoes={['usuarios.gerenciar']}>
+                  <UsuariosPage />
+                </RotaPermissao>
+              }
             />
+            <Route
+              path="cargos"
+              element={
+                <RotaPermissao permissoes={['usuarios.gerenciar', 'configuracoes.ver']}>
+                  <CargosPage />
+                </RotaPermissao>
+              }
+            />
+            <Route path="permissoes" element={<Navigate to="/cargos" replace />} />
             <Route
               path="configuracoes"
               element={
@@ -530,27 +552,14 @@ export default function App() {
               }
             >
               <Route index element={<ConfiguracoesPage />} />
+              <Route path="lojas" element={<Navigate to="/lojas" replace />} />
+              <Route path="usuarios" element={<Navigate to="/usuarios" replace />} />
+              <Route path="cargos" element={<Navigate to="/cargos" replace />} />
               <Route
                 path="perguntas"
                 element={
                   <RotaPermissao permissoes={['configuracoes.perguntas', 'checklist.gerenciar']}>
                     <ChecklistPerguntasPage />
-                  </RotaPermissao>
-                }
-              />
-              <Route
-                path="usuarios"
-                element={
-                  <RotaPermissao permissoes={['usuarios.gerenciar']}>
-                    <UsuariosPage />
-                  </RotaPermissao>
-                }
-              />
-              <Route
-                path="lojas"
-                element={
-                  <RotaPermissao permissoes={['portal.lojas.ver']}>
-                    <LojasPage />
                   </RotaPermissao>
                 }
               />
@@ -571,14 +580,6 @@ export default function App() {
                 }
               />
               <Route
-                path="cargos"
-                element={
-                  <RotaPermissao permissoes={['configuracoes.ver']}>
-                    <CargosPage />
-                  </RotaPermissao>
-                }
-              />
-              <Route
                 path="notificacoes"
                 element={
                   <RotaPermissao permissoes={['configuracoes.notificacoes']}>
@@ -591,6 +592,14 @@ export default function App() {
                 element={
                   <RotaPermissao permissoes={['configuracoes.ver']}>
                     <WhatsAppPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="smtp"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver', 'usuarios.gerenciar']}>
+                    <SmtpPage />
                   </RotaPermissao>
                 }
               />
@@ -623,6 +632,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
-    </ThemeProvider>
+    </CustomThemeProvider>
   );
 }

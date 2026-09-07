@@ -8,6 +8,8 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import { labelFixo, campoAlturaFrotaSx } from '../../constants/frotaVeiculo';
 import { datePickerPtBR } from '../../utils/datePickerLocale';
 import { dataHojeBrasilia, parseIsoDateLocal } from '../../utils/dateBr';
+import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 
 dayjs.locale('pt-br');
 
@@ -36,9 +38,61 @@ function dayjsParaIso(d: Dayjs | null): string {
 }
 
 export default function CampoDataFrota({ label, value, onChange, disabled, max, min, sx }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  /** Claro = azul; escuro = laranja (hex para vencer o primary do MUI). */
+  const acento = escuro ? '#E8520A' : '#1B2A6B';
+  const acentoHover = escuro ? 'rgba(232, 82, 10, 0.22)' : 'rgba(27, 42, 107, 0.1)';
   const [aberto, setAberto] = useState(false);
   const maxDate = isoParaDayjs(max ?? dataHojeIso()) ?? dayjs();
   const minDate = min ? isoParaDayjs(min) ?? undefined : undefined;
+
+  const daySx = {
+    '&.MuiPickersDay-today': {
+      border: `1px solid ${acento} !important`,
+    },
+    '&.Mui-selected': {
+      bgcolor: `${acento} !important`,
+      color: '#fff !important',
+      '&:hover, &:focus': {
+        bgcolor: `${acento} !important`,
+      },
+    },
+    '&:not(.Mui-selected):hover': {
+      bgcolor: acentoHover,
+    },
+  };
+
+  const pickerPaperSx = {
+    bgcolor: 'var(--ga-picker-paper)',
+    backgroundImage: 'none',
+    border: `1px solid ${colors.borderStrong}`,
+    borderRadius: 2,
+    boxShadow: '0 10px 28px rgba(0, 0, 0, 0.28)',
+    color: colors.textPrimary,
+    '& .MuiPickersDay-root': {
+      color: colors.textPrimary,
+    },
+    '& .MuiPickersDay-root.Mui-selected': {
+      bgcolor: `${acento} !important`,
+      color: '#fff',
+    },
+    '& .MuiPickersDay-root.Mui-selected:hover, & .MuiPickersDay-root.Mui-selected:focus': {
+      bgcolor: `${acento} !important`,
+    },
+    '& .MuiPickersDay-root:not(.Mui-selected):hover': {
+      bgcolor: acentoHover,
+    },
+    '& .MuiPickersDay-today': {
+      borderColor: `${acento} !important`,
+    },
+    '& .MuiDayCalendar-weekDayLabel': {
+      color: colors.textSecondary,
+    },
+    '& .MuiPickersCalendarHeader-label, & .MuiPickersArrowSwitcher-button': {
+      color: colors.textPrimary,
+    },
+  };
 
   function abrirCalendario() {
     if (!disabled) setAberto(true);
@@ -76,6 +130,14 @@ export default function CampoDataFrota({ label, value, onChange, disabled, max, 
               inputLabel: { ...labelFixo.inputLabel, shrink: true },
               input: { readOnly: true },
               htmlInput: { placeholder: 'Selecionar data' },
+            },
+          },
+          day: { sx: daySx },
+          desktopPaper: { sx: pickerPaperSx },
+          mobilePaper: { sx: pickerPaperSx },
+          popper: {
+            sx: {
+              '& .MuiPaper-root': pickerPaperSx,
             },
           },
         }}

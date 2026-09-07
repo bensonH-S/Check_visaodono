@@ -23,7 +23,7 @@ export function mobilePaginaCabecalhoFixo(pathname: string): boolean {
     p === '/frota/mobile' ||
     p === '/portais/mobile' ||
     p === '/checklist/mobile' ||
-    p.startsWith('/relatorio/visita/')
+    p.startsWith('/relatorio/mobile/visita/')
   );
 }
 
@@ -42,9 +42,14 @@ export function isMobileAppPath(pathname: string): boolean {
     p.startsWith('/estoque/mobile') ||
     p.startsWith('/freelancers/aprovacao/mobile') ||
     p.startsWith('/portais/mobile') ||
-    p.startsWith('/relatorio/visita/') ||
+    p.startsWith('/relatorio/mobile/visita/') ||
     p === '/login/mobile'
   );
+}
+
+/** Link do relatório: mobile e desktop em rotas distintas. */
+export function relatorioVisitaPath(id: number | string, mobile = false) {
+  return mobile ? `/relatorio/mobile/visita/${id}` : `/relatorio/visita/${id}`;
 }
 
 export function checklistPaths(pathname: string) {

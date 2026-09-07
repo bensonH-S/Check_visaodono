@@ -10,7 +10,8 @@ type Props = {
 
 export default function RotaPermissao({ permissoes, children }: Props) {
   const user = getUsuario();
-  const permitido = permissoes.some((p) => temPermissao(p, user));
+  const isAdmin = user?.perfil === 'administrador' || user?.cargo_aprovacao === 'administrador';
+  const permitido = isAdmin || permissoes.some((p) => temPermissao(p, user));
   if (!permitido) return <Navigate to={primeiraRotaPermitida(user)} replace />;
   return <>{children}</>;
 }

@@ -18,6 +18,7 @@ import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
 import { showToast } from '../../utils/toast';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import { FrotaDocumentoModal } from './FrotaDocumentoModal';
 
@@ -59,6 +60,8 @@ function nomeArquivo(d: FrotaDocumento) {
 }
 
 function DocumentoIconePequeno({ mime }: { mime?: string | null }) {
+  const { mode } = useAppTheme();
+  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
   const isPdf = mime === 'application/pdf';
   return (
     <Box
@@ -67,9 +70,13 @@ function DocumentoIconePequeno({ mime }: { mime?: string | null }) {
         height: 40,
         mx: 'auto',
         borderRadius: 1,
-        bgcolor: isPdf ? 'rgba(220, 38, 38, 0.08)' : 'rgba(27, 42, 107, 0.08)',
+        bgcolor: isPdf ? 'rgba(220, 38, 38, 0.08)' : mode === 'dark' ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.08)',
         border: '1px solid',
-        borderColor: isPdf ? 'rgba(220, 38, 38, 0.2)' : 'rgba(27, 42, 107, 0.12)',
+        borderColor: isPdf
+          ? 'rgba(220, 38, 38, 0.2)'
+          : mode === 'dark'
+            ? 'rgba(232, 82, 10, 0.28)'
+            : 'rgba(27, 42, 107, 0.12)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -78,7 +85,7 @@ function DocumentoIconePequeno({ mime }: { mime?: string | null }) {
       {isPdf ? (
         <PictureAsPdfOutlinedIcon sx={{ fontSize: 22, color: '#DC2626' }} />
       ) : (
-        <ImageOutlinedIcon sx={{ fontSize: 22, color: colors.navy }} />
+        <ImageOutlinedIcon sx={{ fontSize: 22, color: acento }} />
       )}
     </Box>
   );
@@ -102,6 +109,12 @@ export default function FrotaVeiculoDocumentosPanel({
   onSalvandoChange,
   onPodeAnexarChange,
 }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoHover = escuro ? '#c94508' : colors.navyDark;
+  const acentoMuted = escuro ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.04)';
+  const acentoBorder = escuro ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.2)';
   const [documentos, setDocumentos] = useState<FrotaDocumento[]>([]);
   const [loading, setLoading] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -395,15 +408,15 @@ export default function FrotaVeiculoDocumentosPanel({
             gap: 2,
             p: 2,
             border: '2px dashed',
-            borderColor: arquivosDoc.length ? colors.navy : 'rgba(27, 42, 107, 0.2)',
+            borderColor: arquivosDoc.length ? acento : acentoBorder,
             borderRadius: 2,
-            bgcolor: arquivosDoc.length ? 'rgba(27, 42, 107, 0.04)' : 'rgba(27, 42, 107, 0.02)',
+            bgcolor: arquivosDoc.length ? acentoMuted : escuro ? 'rgba(232, 82, 10, 0.04)' : 'rgba(27, 42, 107, 0.02)',
             cursor: 'pointer',
             transition: 'border-color 0.2s, background-color 0.2s, box-shadow 0.2s',
             '&:hover': {
-              borderColor: colors.navy,
-              bgcolor: 'rgba(27, 42, 107, 0.06)',
-              boxShadow: '0 4px 16px rgba(27, 42, 107, 0.08)',
+              borderColor: acento,
+              bgcolor: acentoMuted,
+              boxShadow: escuro ? '0 4px 16px rgba(232, 82, 10, 0.12)' : '0 4px 16px rgba(27, 42, 107, 0.08)',
             },
           }}
         >
@@ -420,8 +433,8 @@ export default function FrotaVeiculoDocumentosPanel({
               width: 52,
               height: 52,
               borderRadius: 1.5,
-              bgcolor: '#fff',
-              border: '1px solid rgba(27, 42, 107, 0.1)',
+              bgcolor: colors.surface,
+              border: `1px solid ${acentoBorder}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -430,16 +443,16 @@ export default function FrotaVeiculoDocumentosPanel({
           >
             {arquivosDoc.length ? (
               arquivosDoc[0].type === 'application/pdf' ? (
-                <InsertDriveFileOutlinedIcon sx={{ fontSize: 32, color: colors.navy }} />
+                <InsertDriveFileOutlinedIcon sx={{ fontSize: 32, color: acento }} />
               ) : (
-                <ImageOutlinedIcon sx={{ fontSize: 32, color: colors.navy }} />
+                <ImageOutlinedIcon sx={{ fontSize: 32, color: acento }} />
               )
             ) : (
-              <CloudUploadOutlinedIcon sx={{ fontSize: 28, color: colors.navy }} />
+              <CloudUploadOutlinedIcon sx={{ fontSize: 28, color: acento }} />
             )}
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: colors.navy }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: acento }}>
               {arquivosDoc.length
                 ? `${arquivosDoc.length} arquivo${arquivosDoc.length > 1 ? 's' : ''} selecionado${arquivosDoc.length > 1 ? 's' : ''}`
                 : 'Selecionar arquivos ou imagens'}
@@ -463,14 +476,14 @@ export default function FrotaVeiculoDocumentosPanel({
                   px: 1.25,
                   py: 0.75,
                   borderRadius: 1,
-                  bgcolor: 'rgba(27, 42, 107, 0.04)',
-                  border: '1px solid rgba(27, 42, 107, 0.08)',
+                  bgcolor: acentoMuted,
+                  border: `1px solid ${acentoBorder}`,
                 }}
               >
                 {arq.type === 'application/pdf' ? (
-                  <InsertDriveFileOutlinedIcon sx={{ fontSize: 18, color: colors.navy }} />
+                  <InsertDriveFileOutlinedIcon sx={{ fontSize: 18, color: acento }} />
                 ) : (
-                  <ImageOutlinedIcon sx={{ fontSize: 18, color: colors.navy }} />
+                  <ImageOutlinedIcon sx={{ fontSize: 18, color: acento }} />
                 )}
                 <Typography variant="caption" sx={{ flex: 1, minWidth: 0 }} noWrap title={arq.name}>
                   {arq.name}
@@ -485,7 +498,13 @@ export default function FrotaVeiculoDocumentosPanel({
 
         {!anexarNoRodape && (
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button type="submit" variant="contained" size="small" disabled={salvando || !podeAnexar}>
+            <Button
+              type="submit"
+              variant="contained"
+              size="small"
+              disabled={salvando || !podeAnexar}
+              sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
+            >
               {salvando
                 ? 'Enviando…'
                 : arquivosDoc.length > 1

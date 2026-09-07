@@ -25,8 +25,7 @@ import {
   chamadoPodeAssumirMobile,
   getUsuario,
 } from '../../lib/auth';
-
-const NAVY = '#1B2A6B';
+import { colors } from '../../theme/tokens';
 
 function rotuloTecnicoCard(nome?: string | null) {
   if (!nome?.trim()) return null;
@@ -121,16 +120,16 @@ function ChamadoCardMobile({
       sx={{
         display: 'flex',
         borderRadius: 2.5,
-        border: '1px solid rgba(27, 42, 107, 0.09)',
-        bgcolor: '#fff',
-        boxShadow: '0 2px 12px rgba(27, 42, 107, 0.06)',
+        border: `1px solid ${colors.border}`,
+        bgcolor: colors.surface,
+        boxShadow: 'none',
         cursor: onClick ? 'pointer' : 'default',
         overflow: 'hidden',
-        transition: 'box-shadow 0.15s ease, border-color 0.15s ease',
+        transition: 'border-color 0.15s ease',
         '&:hover': onClick
-          ? { boxShadow: '0 4px 18px rgba(27, 42, 107, 0.11)', borderColor: 'rgba(27, 42, 107, 0.16)' }
+          ? { borderColor: colors.borderStrong }
           : undefined,
-        '&:active': onClick ? { boxShadow: '0 1px 6px rgba(27, 42, 107, 0.08)' } : undefined,
+        '&:active': onClick ? { borderColor: colors.borderStrong } : undefined,
       }}
     >
       <Box aria-hidden sx={{ width: 3, flexShrink: 0, bgcolor: accent }} />
@@ -152,8 +151,10 @@ function ChamadoCardMobile({
             py: 0.65,
             px: 0.75,
             borderRadius: 1.75,
-            bgcolor: 'rgba(27, 42, 107, 0.045)',
-            border: '1px solid rgba(27, 42, 107, 0.08)',
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(27, 42, 107, 0.045)',
+            border: (theme) =>
+              `1px solid ${theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(27, 42, 107, 0.08)'}`,
           }}
         >
           <Box
@@ -168,13 +169,13 @@ function ChamadoCardMobile({
               px: 0.75,
               py: 0.35,
               borderRadius: 1.25,
-              bgcolor: NAVY,
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
               color: '#fff',
               fontWeight: 800,
               fontSize: '0.72rem',
               lineHeight: 1.2,
               letterSpacing: '-0.02em',
-              boxShadow: '0 2px 8px rgba(27, 42, 107, 0.22)',
+              boxShadow: 'none',
             }}
           >
             #{chamado.numero}
@@ -185,7 +186,8 @@ function ChamadoCardMobile({
               width: '1px',
               alignSelf: 'stretch',
               my: 0.35,
-              bgcolor: 'rgba(27, 42, 107, 0.14)',
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(27, 42, 107, 0.14)',
               flexShrink: 0,
             }}
           />
@@ -243,7 +245,7 @@ function ChamadoCardMobile({
                       fontSize: '0.72rem',
                       lineHeight: 1.4,
                       fontWeight: 600,
-                      color: NAVY,
+                      color: colors.textPrimary,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -381,10 +383,14 @@ function ChamadoCardMobile({
                     fontWeight: 700,
                     textTransform: 'none',
                     borderRadius: 1.5,
-                    bgcolor: NAVY,
+                    bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
                     boxShadow: 'none',
                     whiteSpace: 'nowrap',
-                    '&:hover': { bgcolor: '#152258', boxShadow: 'none' },
+                    color: '#fff',
+                    '&:hover': {
+                      bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#d04809' : '#152255'),
+                      boxShadow: 'none',
+                    },
                     '& .MuiButton-startIcon': {
                       mr: 0.25,
                       ml: 0,
@@ -440,7 +446,7 @@ function ChamadoLinhaMobile({
         alignItems: 'stretch',
         minHeight: 56,
         cursor: onClick ? 'pointer' : 'default',
-        bgcolor: '#fff',
+        bgcolor: colors.surface,
         borderBottom: isLast ? 'none' : '1px solid rgba(27, 42, 107, 0.08)',
         '&:active': { bgcolor: 'rgba(27, 42, 107, 0.03)' },
       }}
@@ -453,7 +459,7 @@ function ChamadoLinhaMobile({
             flexShrink: 0,
             fontWeight: 800,
             fontSize: '0.72rem',
-            color: NAVY,
+            color: colors.textPrimary,
             minWidth: 36,
           }}
         >
@@ -576,7 +582,7 @@ export default function ChamadoCardResumo({
         display: 'flex',
         borderRadius: 2,
         border: '1px solid rgba(27, 42, 107, 0.1)',
-        bgcolor: '#fff',
+        bgcolor: colors.surface,
         boxShadow: compact
           ? '0 1px 4px rgba(27, 42, 107, 0.06)'
           : '0 2px 10px rgba(27, 42, 107, 0.08)',
@@ -611,7 +617,7 @@ export default function ChamadoCardResumo({
             <Box
               sx={{
                 bgcolor: 'rgba(27, 42, 107, 0.08)',
-                color: NAVY,
+                color: colors.textPrimary,
                 fontWeight: 800,
                 fontSize: compact ? '0.75rem' : '0.8125rem',
                 px: 0.875,
@@ -660,7 +666,7 @@ export default function ChamadoCardResumo({
               variant="caption"
               sx={{
                 fontWeight: 600,
-                color: NAVY,
+                color: colors.textPrimary,
                 lineHeight: 1.35,
                 whiteSpace: 'normal',
                 wordBreak: 'break-word',
@@ -699,7 +705,7 @@ export default function ChamadoCardResumo({
           {chamado.tecnico ? (
             <Chip
               icon={
-                <AssignmentIndOutlinedIcon sx={{ fontSize: '12px !important', color: `${NAVY} !important` }} />
+                <AssignmentIndOutlinedIcon sx={{ fontSize: '12px !important', color: `${colors.textPrimary} !important` }} />
               }
               label={rotuloTecnicoCard(chamado.tecnico)}
               size="small"
@@ -710,7 +716,7 @@ export default function ChamadoCardResumo({
                 maxWidth: 'min(140px, 42%)',
                 fontSize: '0.68rem',
                 fontWeight: 600,
-                color: NAVY,
+                color: colors.textPrimary,
                 borderColor: 'rgba(27, 42, 107, 0.18)',
                 '& .MuiChip-icon': { ml: 0.5 },
                 '& .MuiChip-label': {
@@ -724,7 +730,7 @@ export default function ChamadoCardResumo({
           ) : null}
           {!compact && (
             <Chip
-              icon={<ScheduleOutlinedIcon sx={{ fontSize: '12px !important', color: `${NAVY} !important` }} />}
+              icon={<ScheduleOutlinedIcon sx={{ fontSize: '12px !important', color: `${colors.textPrimary} !important` }} />}
               label={formatDataHoraBrasilia(chamado.aberto_em || chamado.prazo_sla)}
               size="small"
               variant="outlined"
@@ -732,7 +738,7 @@ export default function ChamadoCardResumo({
                 height: 22,
                 fontSize: '0.68rem',
                 fontWeight: 600,
-                color: NAVY,
+                color: colors.textPrimary,
                 borderColor: 'rgba(27, 42, 107, 0.2)',
                 '& .MuiChip-icon': { ml: 0.5 },
               }}
@@ -740,7 +746,7 @@ export default function ChamadoCardResumo({
           )}
           {showDataEncerramento && chamado.fechado_em && (
             <Chip
-              icon={<ScheduleOutlinedIcon sx={{ fontSize: '12px !important', color: `${NAVY} !important` }} />}
+              icon={<ScheduleOutlinedIcon sx={{ fontSize: '12px !important', color: `${colors.textPrimary} !important` }} />}
               label={`Encerrado ${formatDataHoraBrasilia(chamado.fechado_em)}`}
               size="small"
               variant="outlined"
@@ -756,8 +762,8 @@ export default function ChamadoCardResumo({
           )}
           {compact && !showDataEncerramento && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <ScheduleOutlinedIcon sx={{ fontSize: 14, color: NAVY, flexShrink: 0 }} />
-              <Typography variant="caption" sx={{ fontWeight: 600, color: NAVY, fontSize: '0.68rem', lineHeight: 1.35 }}>
+              <ScheduleOutlinedIcon sx={{ fontSize: 14, color: colors.textPrimary, flexShrink: 0 }} />
+              <Typography variant="caption" sx={{ fontWeight: 600, color: colors.textPrimary, fontSize: '0.68rem', lineHeight: 1.35 }}>
                 {formatDataHoraBrasilia(chamado.aberto_em || chamado.prazo_sla)}
               </Typography>
             </Box>

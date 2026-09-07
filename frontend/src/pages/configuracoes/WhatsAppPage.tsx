@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -16,6 +17,8 @@ import { useToast } from '../../hooks/useToast';
 import { portalPanelSx } from '../../theme/tokens';
 
 export default function WhatsAppPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [status, setStatus] = useState<WppStatus | null>(null);
   const [qrcode, setQrcode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +120,19 @@ export default function WhatsAppPage() {
 
       {loading && <LinearProgress />}
       {erro && (
-        <Alert severity="error">
+        <Alert
+          severity="error"
+          sx={
+            isDark
+              ? {
+                  bgcolor: 'rgba(239, 68, 68, 0.12)',
+                  color: '#FCA5A5',
+                  border: '1px solid rgba(239, 68, 68, 0.28)',
+                  '& .MuiAlert-icon': { color: '#F87171' },
+                }
+              : undefined
+          }
+        >
           {erro}
         </Alert>
       )}
@@ -133,7 +148,27 @@ export default function WhatsAppPage() {
         </Box>
 
         {status?.servicoIndisponivel ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert
+            severity="error"
+            sx={{
+              mb: 2,
+              ...(isDark
+                ? {
+                    bgcolor: 'rgba(239, 68, 68, 0.12)',
+                    color: '#FCA5A5',
+                    border: '1px solid rgba(239, 68, 68, 0.28)',
+                    '& .MuiAlert-icon': { color: '#F87171' },
+                    '& code': {
+                      color: '#FECACA',
+                      bgcolor: 'rgba(255, 255, 255, 0.08)',
+                      px: 0.6,
+                      py: 0.2,
+                      borderRadius: 1,
+                    },
+                  }
+                : {}),
+            }}
+          >
             {status.message || 'Serviço wppconnect indisponível.'}{' '}
             No servidor, confira <code>docker ps | grep vision-check</code> e rode{' '}
             <code>./fix-wpp.sh</code> (ou <code>docker-compose up -d --force-recreate wppconnect</code>).
@@ -158,7 +193,22 @@ export default function WhatsAppPage() {
 
         {status?.enabled && !status.conectado && (
           <Box sx={{ textAlign: 'center' }}>
-            <Alert severity="info" sx={{ mb: 2, textAlign: 'left' }}>
+            <Alert
+              severity="info"
+              sx={{
+                mb: 2,
+                textAlign: 'left',
+                ...(isDark
+                  ? {
+                      bgcolor: 'rgba(59, 130, 246, 0.12)',
+                      color: '#93C5FD',
+                      border: '1px solid rgba(59, 130, 246, 0.28)',
+                      '& .MuiAlert-icon': { color: '#60A5FA' },
+                      '& strong': { color: '#BFDBFE' },
+                    }
+                  : {}),
+              }}
+            >
               No celular: <strong>WhatsApp → ⋮ → Aparelhos conectados → Conectar aparelho</strong>.
               A página atualiza sozinha a cada 5s até conectar.
             </Alert>

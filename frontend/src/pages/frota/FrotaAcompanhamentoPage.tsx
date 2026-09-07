@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
-import LinearProgress from '@mui/material/LinearProgress';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -30,6 +30,7 @@ import {
 import FrotaVeiculoAutocomplete from '../../components/frota/FrotaVeiculoAutocomplete';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import FrotaVeiculosKmSemanaPanel from '../../components/frota/FrotaVeiculosKmSemanaPanel';
+import PageLoading from '../../components/PageLoading';
 import { tablePageLayoutSx } from '../../utils/tablePageLayout';
 import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
 import { dataHojeBrasilia, formatDataHoraBrasilia, formatarDuracaoMs } from '../../utils/dateBr';
@@ -142,7 +143,7 @@ function LinhaExcesso({
         py: 1.1,
         borderBottom: '1px solid',
         borderColor: colors.border,
-        '&:hover': { bgcolor: colors.navyMuted },
+        '&:hover': { bgcolor: colors.canvasAlt },
         '&:last-of-type': { borderBottom: 'none' },
       }}
     >
@@ -187,6 +188,23 @@ export default function FrotaAcompanhamentoPage() {
   const hoje = dataHojeBrasilia();
   const [veiculos, setVeiculos] = useState<FrotaVeiculo[]>([]);
   const [veiculoSel, setVeiculoSel] = useState<FrotaVeiculo | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const veiculoQuery = searchParams.get('veiculo');
+  const placaQuery = searchParams.get('placa');
+
+  useEffect(() => {
+    if (!veiculos.length) return;
+    const alvo = (veiculoQuery || placaQuery || '').trim();
+    if (!alvo) return;
+    const v = veiculos.find(
+      (item) =>
+        String(item.id_veiculo) === alvo ||
+        item.placa?.toUpperCase() === alvo.toUpperCase(),
+    );
+    if (v) {
+      setVeiculoSel(v);
+    }
+  }, [veiculos, veiculoQuery, placaQuery]);
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
   const [rota, setRota] = useState<FrotaVeiculoRotaDiaRelatorio | null>(null);
@@ -259,6 +277,12 @@ export default function FrotaAcompanhamentoPage() {
   }, [veiculoSel, dataInicio, dataFim]);
 
   useEffect(() => {
+    if (veiculoSel && (veiculoQuery || placaQuery) && !consultou && !loading) {
+      buscar();
+    }
+  }, [veiculoSel, veiculoQuery, placaQuery, consultou, loading, buscar]);
+
+  useEffect(() => {
     if (!periodoSoHoje) {
       setVeiculosMapa([]);
       return;
@@ -311,11 +335,11 @@ export default function FrotaAcompanhamentoPage() {
     [passagensLoja],
   );
 
-  const kpiKm = consultou ? `${kmGps.toLocaleString('pt-BR')} km` : '—';
-  const kpiExcessos = consultou ? String(qtdExcessos) : '—';
-  const kpiMax = consultou ? `${velocidadeMaxima.toLocaleString('pt-BR')} km/h` : '—';
-  const kpiParado = consultou ? formatarDuracaoMs(tempoParadoMs) : '—';
-  const kpiLojas = consultou ? String(passagensLoja.length) : '—';
+  const kpiKm = consultou ? `${kmGps.toLocaleString('pt-BR')} km` : '0 km';
+  const kpiExcessos = consultou ? String(qtdExcessos) : '0';
+  const kpiMax = consultou ? `${velocidadeMaxima.toLocaleString('pt-BR')} km/h` : '0 km/h';
+  const kpiParado = consultou ? formatarDuracaoMs(tempoParadoMs) : formatarDuracaoMs(0);
+  const kpiLojas = consultou ? String(passagensLoja.length) : '0';
 
   return (
     <Box sx={{ ...tablePageLayoutSx, gap: 1.25 }}>
@@ -325,7 +349,7 @@ export default function FrotaAcompanhamentoPage() {
           p: 1.5,
           flexShrink: 0,
           border: '1px solid',
-          borderColor: colors.navyBorder,
+          borderColor: colors.border,
           borderRadius: `${radius.lg}px`,
           bgcolor: colors.surface,
           boxShadow: shadows.sm,
@@ -338,7 +362,21 @@ export default function FrotaAcompanhamentoPage() {
         <FrotaVeiculoAutocomplete
           options={veiculosOrdenados}
           value={veiculoSel}
-          onChange={setVeiculoSel}
+          onChange={(v) => {
+            setVeiculoSel(v);
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                if (v) next.set('veiculo', String(v.id_veiculo));
+                else {
+                  next.delete('veiculo');
+                  next.delete('placa');
+                }
+                return next;
+              },
+              { replace: true },
+            );
+          }}
           sx={{ minWidth: 260, flex: '1 1 260px', maxWidth: 400 }}
         />
         <FiltroIntervaloDatasFrota
@@ -375,7 +413,7 @@ export default function FrotaAcompanhamentoPage() {
         </Alert>
       )}
 
-      {loading && <LinearProgress sx={{ flexShrink: 0, borderRadius: 1 }} />}
+      {loading && <PageLoading />}
 
       <Paper
         elevation={0}
@@ -439,7 +477,7 @@ export default function FrotaAcompanhamentoPage() {
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, px: 0.25 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.navy }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.textPrimary }}>
               Trajeto
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'right' }}>
@@ -492,9 +530,9 @@ export default function FrotaAcompanhamentoPage() {
                 top: 10,
                 left: 10,
                 zIndex: 1000,
-                bgcolor: 'rgba(255,255,255,0.96)',
+                bgcolor: colors.surface,
                 border: '1px solid',
-                borderColor: colors.border,
+                borderColor: colors.borderStrong,
                 borderRadius: 1.5,
                 px: 1.25,
                 py: 0.85,
@@ -532,7 +570,7 @@ export default function FrotaAcompanhamentoPage() {
                       }}
                     />
                   )}
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: colors.navy, lineHeight: 1.2 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: colors.textPrimary, lineHeight: 1.2 }}>
                     {item.rotulo}
                   </Typography>
                 </Box>
@@ -553,7 +591,7 @@ export default function FrotaAcompanhamentoPage() {
                       boxShadow: '0 0 0 1px rgba(0,0,0,.08)',
                     }}
                   />
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: colors.navy, lineHeight: 1.2 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: colors.textPrimary, lineHeight: 1.2 }}>
                     Loja
                   </Typography>
                 </Box>
@@ -598,7 +636,7 @@ export default function FrotaAcompanhamentoPage() {
                 flexShrink: 0,
               }}
             >
-              <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.navy }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.textPrimary }}>
                 Excessos
                 {consultou ? ` · ${excessos.length}` : ''}
               </Typography>
@@ -655,7 +693,7 @@ export default function FrotaAcompanhamentoPage() {
                 flexShrink: 0,
               }}
             >
-              <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.navy }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.textPrimary }}>
                 Passagens nas lojas
                 {consultou ? ` · ${passagensLoja.length}` : ''}
               </Typography>
@@ -679,7 +717,7 @@ export default function FrotaAcompanhamentoPage() {
                       py: 1.05,
                       borderBottom: '1px solid',
                       borderColor: colors.border,
-                      '&:hover': { bgcolor: colors.navyMuted },
+                      '&:hover': { bgcolor: colors.canvasAlt },
                       '&:last-of-type': { borderBottom: 'none' },
                     }}
                   >
@@ -715,7 +753,7 @@ export default function FrotaAcompanhamentoPage() {
                       sx={{
                         fontWeight: 800,
                         fontVariantNumeric: 'tabular-nums',
-                        color: colors.navy,
+                        color: colors.textPrimary,
                         fontSize: '1.05rem',
                         lineHeight: 1,
                       }}
@@ -766,7 +804,7 @@ export default function FrotaAcompanhamentoPage() {
         }}
       >
         <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 44, px: 1.75 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.navy }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: colors.textPrimary }}>
             KM apontado
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5, alignSelf: 'center' }}>

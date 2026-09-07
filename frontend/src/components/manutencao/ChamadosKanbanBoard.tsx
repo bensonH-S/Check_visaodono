@@ -8,6 +8,7 @@ import ScheduleOutlinedIcon from '@mui/icons-material/ScheduleOutlined';
 import type { ManutChamado } from '../../api/client';
 import { KANBAN_COLUNAS } from '../../utils/manutencaoUi';
 import ChamadoCardResumo from './ChamadoCardResumo';
+import { colors } from '../../theme/tokens';
 import {
   kanbanBoardLayout,
   kanbanColumnBodySx,
@@ -49,7 +50,7 @@ export default function ChamadosKanbanBoard({ chamados }: Props) {
                 <Typography
                   sx={{
                     fontWeight: 800,
-                    color: '#1B2A6B',
+                    color: colors.textPrimary,
                     fontSize: '0.85rem',
                     lineHeight: 1.2,
                     whiteSpace: 'nowrap',
@@ -91,8 +92,13 @@ export default function ChamadosKanbanBoard({ chamados }: Props) {
 
               {!cards.length && (
                 <Typography
-                  color="text.secondary"
-                  sx={{ textAlign: 'center', py: 4, px: 1, fontSize: '0.78rem' }}
+                  sx={{
+                    textAlign: 'center',
+                    py: 4,
+                    px: 1,
+                    fontSize: '0.78rem',
+                    color: colors.textSecondary,
+                  }}
                 >
                   Nenhum chamado nesta etapa
                 </Typography>

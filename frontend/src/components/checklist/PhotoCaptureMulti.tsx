@@ -25,6 +25,7 @@ import { compressImage } from '../../utils/compressImage';
 import { fileToDataUrl, isVideoDataUrl } from '../../utils/mediaFile';
 
 import { urlFoto } from '../../utils/checklistRules';
+import { useAppTheme } from '../../context/ThemeContext';
 
 
 
@@ -387,6 +388,10 @@ export default function PhotoCaptureMulti({
   comErro = false,
 
 }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const btnFotoBg = escuro ? 'rgba(232, 82, 10, 0.72)' : 'rgba(27, 42, 107, 0.88)';
+  const btnFotoHover = escuro ? 'rgba(232, 82, 10, 0.88)' : 'rgba(21, 32, 86, 0.95)';
 
   const galleryRef = useRef<HTMLInputElement>(null);
   const fotosRef = useRef(fotos);
@@ -554,75 +559,59 @@ export default function PhotoCaptureMulti({
         !disabled && (
 
           <Box
-
             sx={{
-
-              display: 'flex',
-
-              flexDirection: inlineActions ? 'row' : 'column',
-
-              gap: 1.5,
-
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 1,
+              width: '100%',
             }}
-
           >
-
             <Button
-
               type="button"
-
               fullWidth
-
               variant="contained"
-
               size="small"
-
               startIcon={<CameraAltIcon sx={{ fontSize: 18 }} />}
-
               onClick={abrirCamera}
-
-              sx={{
-                minHeight: inlineActions ? 40 : 52,
-                flex: inlineActions ? 1 : undefined,
-                fontSize: inlineActions ? '0.8rem' : undefined,
-                fontWeight: inlineActions ? 600 : undefined,
-                px: inlineActions ? 1 : undefined,
-              }}
-
-            >
-
-              {inlineActions ? 'Tirar foto' : 'Câmera'}
-
-            </Button>
-
-            <Button
-
-              type="button"
-
-              fullWidth
-
-              variant="outlined"
-
-              size="small"
-
-              startIcon={<PhotoLibraryIcon sx={{ fontSize: 18 }} />}
-
-              onClick={() => galleryRef.current?.click()}
-
               sx={{
                 minHeight: 40,
-                flex: inlineActions ? 1 : undefined,
-                fontSize: inlineActions ? '0.8rem' : undefined,
-                fontWeight: inlineActions ? 600 : undefined,
-                px: inlineActions ? 1 : undefined,
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                px: 1,
+                bgcolor: btnFotoBg,
+                color: '#fff',
+                boxShadow: 'none',
+                '&:hover': {
+                  bgcolor: btnFotoHover,
+                  boxShadow: 'none',
+                },
               }}
-
             >
-
-              {inlineActions ? 'Galeria' : 'Galeria'}
-
+              {inlineActions ? 'Tirar foto' : 'Câmera'}
             </Button>
-
+            <Button
+              type="button"
+              fullWidth
+              variant="outlined"
+              size="small"
+              startIcon={<PhotoLibraryIcon sx={{ fontSize: 18 }} />}
+              onClick={() => galleryRef.current?.click()}
+              sx={{
+                minHeight: 40,
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                px: 1,
+                borderColor: 'rgba(148, 163, 184, 0.55)',
+                color: 'var(--ga-text-secondary)',
+                bgcolor: 'transparent',
+                '&:hover': {
+                  borderColor: 'rgba(148, 163, 184, 0.85)',
+                  bgcolor: 'rgba(148, 163, 184, 0.1)',
+                },
+              }}
+            >
+              Galeria
+            </Button>
           </Box>
 
         )

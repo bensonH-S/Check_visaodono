@@ -19,7 +19,7 @@ export function formatMobileVersionNumber(version: string): string {
 }
 
 const textSx = {
-  fontSize: '0.625rem',
+  fontSize: '0.5rem',
   lineHeight: 1.2,
   color: 'text.disabled',
   opacity: 0.85,

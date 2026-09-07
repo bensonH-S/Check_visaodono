@@ -277,7 +277,14 @@ export default function ChamadosMobileHistoricoPage() {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/chamados/mobile/novo')}
-                sx={{ fontWeight: 800, bgcolor: ORANGE, '&:hover': { bgcolor: '#d04809' } }}
+                sx={{
+                  fontWeight: 800,
+                  bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
+                  color: '#fff',
+                  '&:hover': {
+                    bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#d04809' : '#152255'),
+                  },
+                }}
               >
                 Abrir chamado
               </Button>

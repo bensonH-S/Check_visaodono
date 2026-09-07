@@ -20,6 +20,7 @@ import { periodoSemanaAtualKm } from './FrotaVeiculosKmSemanaPanel';
 import { formParaBody, formVeiculoVazio, veiculoParaForm, type FormVeiculoFrota } from '../../constants/frotaVeiculo';
 import { colors } from '../../theme/tokens';
 import { showToast } from '../../utils/toast';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type Props = {
   open: boolean;
@@ -30,6 +31,10 @@ type Props = {
 };
 
 export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, onExcluido }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const editando = veiculo != null;
   const [aba, setAba] = useState(0);
   const [form, setForm] = useState<FormVeiculoFrota>(formVeiculoVazio());
@@ -119,8 +124,8 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
   return (
     <>
       <Dialog open={open} onClose={fechar} fullWidth maxWidth="md" scroll="paper">
-        <DialogTitle sx={{ pb: editando ? 0 : 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TituloIcon sx={{ color: colors.navy, fontSize: 22 }} />
+        <DialogTitle sx={{ pb: editando ? 0 : 1, display: 'flex', alignItems: 'center', gap: 1, color: acento }}>
+          <TituloIcon sx={{ color: acento, fontSize: 22 }} />
           {titulo}
         </DialogTitle>
 
@@ -198,12 +203,18 @@ export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, on
               form={FROTA_DOC_FORM_ID}
               variant="contained"
               disabled={salvandoDoc || !podeAnexarDoc}
+              sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
             >
               {salvandoDoc ? 'Enviando…' : 'Anexar documento'}
             </Button>
           ) : (
             (!editando || aba === 0) && (
-              <Button variant="contained" onClick={() => void salvarDados()} disabled={salvando}>
+              <Button
+                variant="contained"
+                onClick={() => void salvarDados()}
+                disabled={salvando}
+                sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
+              >
                 {salvando ? 'Salvando…' : 'Salvar'}
               </Button>
             )

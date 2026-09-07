@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -106,6 +107,8 @@ function SwitchRow({ children }: { children: React.ReactNode }) {
 }
 
 export default function ChecklistPerguntasPage() {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [secoes, setSecoes] = useState<CategoriaChecklist[]>([]);
   const [tiposChecklist, setTiposChecklist] = useState<TipoChecklist[]>([]);
   const [tipoGestao, setTipoGestao] = useState('auditoria_operacional');
@@ -270,8 +273,10 @@ export default function ChecklistPerguntasPage() {
           p: { xs: 2, sm: 2.5 },
           borderRadius: 2,
           border: '1px solid',
-          borderColor: 'divider',
-          background: `linear-gradient(135deg, ${NAVY} 0%, #2a3d8f 100%)`,
+          borderColor: isDark ? 'rgba(232, 82, 10, 0.35)' : 'divider',
+          background: isDark
+            ? 'linear-gradient(135deg, rgba(232, 82, 10, 0.28) 0%, rgba(249, 115, 22, 0.16) 100%)'
+            : `linear-gradient(135deg, ${NAVY} 0%, #2a3d8f 100%)`,
           color: 'white',
         }}
       >
@@ -291,7 +296,8 @@ export default function ChecklistPerguntasPage() {
                 width: 44,
                 height: 44,
                 borderRadius: 2,
-                bgcolor: 'rgba(255,255,255,0.15)',
+                bgcolor: isDark ? 'rgba(232, 82, 10, 0.25)' : 'rgba(255,255,255,0.15)',
+                color: isDark ? '#FB923C' : 'white',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -308,17 +314,17 @@ export default function ChecklistPerguntasPage() {
                 <Chip
                   label={`${totalPerguntas} perguntas`}
                   size="small"
-                  sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
+                  sx={{ bgcolor: isDark ? 'rgba(232, 82, 10, 0.25)' : 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
                 />
                 <Chip
                   label={`${secoes.length} seções`}
                   size="small"
-                  sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
+                  sx={{ bgcolor: isDark ? 'rgba(232, 82, 10, 0.25)' : 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
                 />
                 <Chip
                   label={`${perguntas.length} exibidas`}
                   size="small"
-                  sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.95)', height: 24 }}
+                  sx={{ bgcolor: isDark ? 'rgba(232, 82, 10, 0.18)' : 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.95)', height: 24 }}
                 />
               </Box>
             </Box>
@@ -331,7 +337,11 @@ export default function ChecklistPerguntasPage() {
                 setNomeSecao('');
                 setDialogSecao(true);
               }}
-              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.45)', '&:hover': { borderColor: 'white' } }}
+              sx={{
+                color: 'white',
+                borderColor: isDark ? 'rgba(251, 146, 60, 0.5)' : 'rgba(255,255,255,0.45)',
+                '&:hover': { borderColor: 'white', bgcolor: isDark ? 'rgba(232, 82, 10, 0.15)' : 'rgba(255,255,255,0.08)' }
+              }}
             >
               Nova seção
             </Button>
@@ -340,7 +350,12 @@ export default function ChecklistPerguntasPage() {
               size="small"
               startIcon={<AddIcon />}
               onClick={abrirNova}
-              sx={{ bgcolor: 'white', color: NAVY, '&:hover': { bgcolor: '#f0f2fa' } }}
+              sx={{
+                bgcolor: isDark ? '#E8520A' : 'white',
+                color: isDark ? 'white' : NAVY,
+                fontWeight: 700,
+                '&:hover': { bgcolor: isDark ? '#D04505' : '#f0f2fa' }
+              }}
             >
               Nova pergunta
             </Button>

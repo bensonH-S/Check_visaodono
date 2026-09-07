@@ -1,6 +1,8 @@
+import Box from '@mui/material/Box';
 import { useNavigate } from 'react-router-dom';
 import { getUsuario, logout } from '../lib/auth';
 import MobileUsuarioMenu from './MobileUsuarioMenu';
+import ThemeToggleButton from './ThemeToggleButton';
 
 type Props = {
   /** Tamanho do ícone (px), alinhado ao mark-icon das telas immersive. */
@@ -14,15 +16,18 @@ export default function CkMarkLogoMenu({ size = 72, className }: Props) {
   const user = getUsuario();
 
   return (
-    <MobileUsuarioMenu
-      triggerLogo
-      logoSize={size}
-      logoClassName={className}
-      user={user}
-      onLogout={() => {
-        logout();
-        navigate('/login/mobile');
-      }}
-    />
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <ThemeToggleButton />
+      <MobileUsuarioMenu
+        triggerLogo
+        logoSize={size}
+        logoClassName={className}
+        user={user}
+        onLogout={() => {
+          logout();
+          navigate('/login/mobile');
+        }}
+      />
+    </Box>
   );
 }

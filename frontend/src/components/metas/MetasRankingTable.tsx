@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import type { MetasRankingGrupo, MetasRankingLinha } from '../../api/client';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 import {
   formatValorNotaExibicao,
   formatValorPercentualExibicao,
@@ -40,10 +41,17 @@ const inputSx = {
   '& .MuiInputBase-input': { py: 0.65, px: 0.75, fontSize: '0.8rem', textAlign: 'right' },
 } as const;
 
-const rowDemandaSx = {
-  bgcolor: 'rgba(220, 38, 38, 0.1)',
-  '& td': { color: '#991b1b', borderColor: 'rgba(220, 38, 38, 0.2)' },
-} as const;
+function rowDemandaSx(escuro: boolean) {
+  return {
+    bgcolor: escuro ? 'rgba(248, 113, 113, 0.16)' : 'rgba(220, 38, 38, 0.1)',
+    '& td': {
+      color: escuro ? '#FCA5A5' : '#991b1b',
+      borderColor: escuro ? 'rgba(248, 113, 113, 0.3)' : 'rgba(220, 38, 38, 0.2)',
+    },
+  } as const;
+}
+
+const demandaTextColor = (escuro: boolean) => (escuro ? '#FCA5A5' : '#991b1b');
 
 type RankingPatch = {
   valor_numero?: number | null;
@@ -67,6 +75,8 @@ function RankingLinhaValor({
   demanda: boolean;
   onSalvar: (patch: Pick<RankingPatch, 'valor_numero' | 'valor_texto'>) => void;
 }) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
   const percentual = rankingValorPercentual(codigo);
   const nota = rankingValorNota(codigo);
   const decimais = rankingDecimaisValor(codigo);
@@ -84,7 +94,11 @@ function RankingLinhaValor({
 
   if (demanda) {
     return (
-      <Typography component="span" variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#991b1b' }}>
+      <Typography
+        component="span"
+        variant="body2"
+        sx={{ fontSize: '0.8rem', fontWeight: 700, color: demandaTextColor(escuro) }}
+      >
         DEMANDA
       </Typography>
     );
@@ -159,6 +173,8 @@ function RankingLinhaPontos({
   demanda: boolean;
   onSalvar: (pontos: number | null) => void;
 }) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
   const [local, setLocal] = useState(linha.pontos != null ? String(linha.pontos) : '');
 
   useEffect(() => {
@@ -166,7 +182,11 @@ function RankingLinhaPontos({
   }, [linha.pontos]);
 
   if (demanda) {
-    return <Typography component="span" sx={{ fontWeight: 700, color: '#991b1b' }}>—</Typography>;
+    return (
+      <Typography component="span" sx={{ fontWeight: 700, color: demandaTextColor(escuro) }}>
+        —
+      </Typography>
+    );
   }
 
   if (!podeEditar) {
@@ -276,6 +296,8 @@ export default function MetasRankingTable({
   const valorNota = rankingValorNota(grupo.codigo);
   const isRev = rankingColunaRevRec(grupo.codigo);
   const colunas = isRev ? 8 : 6;
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
 
   const linhasExibidas = useMemo(
     () => (isRev ? ordenarLinhasPorCriticoAsc(grupo.linhas) : grupo.linhas),
@@ -292,11 +314,11 @@ export default function MetasRankingTable({
   return (
     <Paper sx={{ ...tablePaperSx, mb: 2 }}>
       <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${colors.border}` }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
           {grupo.nome}
         </Typography>
         {grupo.meta_minima != null && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+          <Typography variant="caption" sx={{ color: colors.textSecondary, display: 'block' }}>
             Meta mínima:{' '}
             {valorNota
               ? formatValorNotaExibicao(grupo.meta_minima, null, rankingDecimaisValor(grupo.codigo))
@@ -304,7 +326,7 @@ export default function MetasRankingTable({
           </Typography>
         )}
         {podeEditar && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+          <Typography variant="caption" sx={{ color: colors.textSecondary, display: 'block', mt: 0.25 }}>
             As alterações são salvas automaticamente: ao sair do campo (Tab/clique fora), ao pressionar
             Enter ou ao escolher um valor na lista.
             {isRev && ' Loja com DEMANDA fica reprovada no R.E.V. e não contabiliza no Resumo.'}
@@ -339,7 +361,7 @@ export default function MetasRankingTable({
             {linhasExibidas.map((linha) => {
               const demanda = isRev && linhaRevDemanda(linha);
               return (
-                <TableRow key={linha.id_ranking} hover sx={demanda ? rowDemandaSx : undefined}>
+                <TableRow key={linha.id_ranking} hover sx={demanda ? rowDemandaSx(escuro) : undefined}>
                   <TableCell>{linha.posicao ?? '—'}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{linha.nome_loja || linha.valor_texto || '—'}</TableCell>
                   <TableCell>{linha.bk_number || '—'}</TableCell>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -32,6 +32,7 @@ import {
   podeVerEscalaVisitas,
 } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
+import { useAppTheme } from '../../context/ThemeContext';
 import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import {
   DIAS_ABREV,
@@ -54,8 +55,14 @@ import {
 import '../visitas/visitas-mobile.css';
 import './escala-mobile.css';
 
-const ORANGE = '#E8520A';
+const ORANGE = '#FF7A3D';
 const NAVY = '#1B2A6B';
+
+function formatarHoraDigitada(raw: string): string {
+  const digitos = raw.replace(/\D/g, '').slice(0, 4);
+  if (digitos.length <= 2) return digitos;
+  return `${digitos.slice(0, 2)}:${digitos.slice(2)}`;
+}
 
 type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery' | 'gestores' | 'manutencao' | 'montar';
 type PendingMap = Map<
@@ -148,7 +155,7 @@ function FaixaSemanaLoja({
               }))
             : atribuicoesDoDia(d);
         const temVisita = attrs.length > 0;
-        const cor = ehDelivery ? ORANGE : attrs[0]?.cor || 'rgba(27,42,107,0.2)';
+        const cor = ehDelivery ? 'var(--ck-accent, #E8520A)' : attrs[0]?.cor || 'rgba(27,42,107,0.2)';
         const rotulo = ehDelivery
           ? attrs.length > 1
             ? String(attrs.length)
@@ -225,6 +232,9 @@ function CardLojaSemana({
 }
 
 export default function EscalaVisitasMobileView() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? ORANGE : NAVY;
   const user = getUsuario();
   const idEu = user?.id_usuario;
   const podeVer = podeVerEscalaVisitas(user);
@@ -935,7 +945,7 @@ export default function EscalaVisitasMobileView() {
             nome: a.nome_loja_destino || 'Loja',
             bk: a.bk_loja_destino,
             regionais: [] as Array<{ nome: string; cor?: string | null }>,
-            cor: ORANGE,
+            cor: acento,
           })),
         };
       }).filter((d) => d.itens.length > 0);
@@ -951,7 +961,7 @@ export default function EscalaVisitasMobileView() {
         }),
       }))
       .filter((d) => d.itens.length > 0);
-  }, [visitasPorDia, idEu, grade, ehDeliveryOnly, linhaDelivery]);
+  }, [visitasPorDia, idEu, grade, ehDeliveryOnly, linhaDelivery, acento]);
 
   const totalVisitas = useMemo(() => {
     if (!grade) return 0;
@@ -1008,6 +1018,14 @@ export default function EscalaVisitasMobileView() {
   return (
     <div
       className={`ck-visitas ck-escala ck-escala--page${modoTrabalho ? ' ck-escala--compact' : ''}`}
+      style={
+        {
+          ['--ck-accent' as string]: acento,
+          ['--ck-accent-soft' as string]: escuro ? 'rgba(255, 122, 61, 0.12)' : 'rgba(27, 42, 107, 0.1)',
+          ['--ck-accent-border' as string]: escuro ? 'rgba(255, 122, 61, 0.45)' : 'rgba(27, 42, 107, 0.45)',
+          ['--ck-accent-shadow' as string]: escuro ? 'rgba(255, 122, 61, 0.22)' : 'rgba(27, 42, 107, 0.16)',
+        } as CSSProperties
+      }
     >
       <div className="ck-visitas__stage">
         <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
@@ -1423,7 +1441,7 @@ export default function EscalaVisitasMobileView() {
                   </div>
                 )}
                 {podeEditarGrade && statusAtivo === 'pendente_aprovacao' && (
-                  <div className="ck-escala__empty" style={{ marginBottom: 12 }}>
+                  <div className="ck-escala__empty ck-escala__empty--pendente" style={{ marginBottom: 12 }}>
                     <strong>Enviada para aprovação</strong>
                     <p>O diretor já recebeu. Toque nas lojas para ajustar a sua escala e envie de novo se precisar.</p>
                   </div>
@@ -1453,7 +1471,7 @@ export default function EscalaVisitasMobileView() {
                         <div
                           className="ck-escala__card-stripe"
                           style={{
-                            background: loja.temVisita ? ORANGE : 'rgba(27,42,107,0.2)',
+                            background: loja.temVisita ? acento : 'rgba(27,42,107,0.2)',
                           }}
                           aria-hidden
                         />
@@ -1586,7 +1604,7 @@ export default function EscalaVisitasMobileView() {
                             fontSize: 13,
                           } as const;
                           const persistirHora = (el: HTMLInputElement) => {
-                            const inputs = el.parentElement?.querySelectorAll('input[type="time"]');
+                            const inputs = el.parentElement?.querySelectorAll('input[data-hora]');
                             const a = (inputs?.[0] as HTMLInputElement | undefined)?.value || '';
                             const b = (inputs?.[1] as HTMLInputElement | undefined)?.value || '';
                             void salvarHorarioGestor(linha.id_gestor, a, b);
@@ -1595,24 +1613,42 @@ export default function EscalaVisitasMobileView() {
                             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                               <span style={{ fontSize: 11, fontWeight: 800, color: '#64748B' }}>Horário</span>
                               <input
-                                type="time"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                maxLength={5}
+                                placeholder="08:00"
+                                data-hora="inicio"
                                 aria-label={`Início ${linha.nome}`}
                                 value={inicio}
                                 disabled={!gestores.pode_editar || salvando}
                                 onChange={(e) =>
-                                  alterarHorarioGestorLocal(linha.id_gestor, 'hora_inicio', e.target.value)
+                                  alterarHorarioGestorLocal(
+                                    linha.id_gestor,
+                                    'hora_inicio',
+                                    formatarHoraDigitada(e.target.value),
+                                  )
                                 }
                                 onBlur={(e) => persistirHora(e.currentTarget)}
                                 style={estiloHora}
                               />
                               <span style={{ fontSize: 11, color: '#94A3B8' }}>até</span>
                               <input
-                                type="time"
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                maxLength={5}
+                                placeholder="18:00"
+                                data-hora="fim"
                                 aria-label={`Fim ${linha.nome}`}
                                 value={fim}
                                 disabled={!gestores.pode_editar || salvando}
                                 onChange={(e) =>
-                                  alterarHorarioGestorLocal(linha.id_gestor, 'hora_fim', e.target.value)
+                                  alterarHorarioGestorLocal(
+                                    linha.id_gestor,
+                                    'hora_fim',
+                                    formatarHoraDigitada(e.target.value),
+                                  )
                                 }
                                 onBlur={(e) => persistirHora(e.currentTarget)}
                                 style={estiloHora}
@@ -1640,11 +1676,15 @@ export default function EscalaVisitasMobileView() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <span style={{ fontSize: 12, fontWeight: 800, color: '#64748B' }}>Horário</span>
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={5}
+                    placeholder="08:00"
                     aria-label="Início do expediente"
                     value={hr.hora_inicio}
                     disabled={!manutencao?.pode_editar || idTecnicoManut == null}
-                    onChange={(e) => alterarHorarioManut('hora_inicio', e.target.value)}
+                    onChange={(e) => alterarHorarioManut('hora_inicio', formatarHoraDigitada(e.target.value))}
                     style={{
                       flex: 1,
                       border: '1px solid rgba(27,42,107,0.16)',
@@ -1656,11 +1696,15 @@ export default function EscalaVisitasMobileView() {
                   />
                   <span style={{ fontSize: 12, color: '#94A3B8' }}>até</span>
                   <input
-                    type="time"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={5}
+                    placeholder="18:00"
                     aria-label="Fim do expediente"
                     value={hr.hora_fim}
                     disabled={!manutencao?.pode_editar || idTecnicoManut == null}
-                    onChange={(e) => alterarHorarioManut('hora_fim', e.target.value)}
+                    onChange={(e) => alterarHorarioManut('hora_fim', formatarHoraDigitada(e.target.value))}
                     style={{
                       flex: 1,
                       border: '1px solid rgba(27,42,107,0.16)',
@@ -1707,7 +1751,7 @@ export default function EscalaVisitasMobileView() {
                 >
                   <div
                     className="ck-escala__card-stripe"
-                    style={{ background: loja.marcada ? '#B45309' : 'rgba(27,42,107,0.2)' }}
+                    style={{ background: loja.marcada ? acento : 'rgba(27,42,107,0.2)' }}
                     aria-hidden
                   />
                   <div className="ck-escala__card-body">
@@ -1798,7 +1842,7 @@ export default function EscalaVisitasMobileView() {
                 >
                   <div
                     className="ck-escala__card-stripe"
-                    style={{ background: loja.marcada ? ORANGE : 'rgba(27,42,107,0.2)' }}
+                    style={{ background: loja.marcada ? acento : 'rgba(27,42,107,0.2)' }}
                     aria-hidden
                   />
                   <div className="ck-escala__card-body">
@@ -1860,7 +1904,14 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SaveIcon />}
                   disabled={salvando || pending.size === 0}
                   onClick={() => void salvar()}
-                  sx={{ flex: 1, bgcolor: NAVY, textTransform: 'none', fontWeight: 700 }}
+                  sx={{
+                    flex: 1,
+                    bgcolor: escuro ? ORANGE : NAVY,
+                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  }}
                 >
                   Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
                 </Button>
@@ -1872,7 +1923,14 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SaveIcon />}
                   disabled={salvando || (pendingManut.size === 0 && horariosManutLocal.size === 0)}
                   onClick={() => void salvarManutencaoAgenda()}
-                  sx={{ flex: 1, bgcolor: '#B45309', textTransform: 'none', fontWeight: 700 }}
+                  sx={{
+                    flex: 1,
+                    bgcolor: acento,
+                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  }}
                 >
                   Salvar
                   {pendingManut.size > 0
@@ -1889,7 +1947,14 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SendIcon />}
                   disabled={salvando}
                   onClick={() => void enviarAprovacao()}
-                  sx={{ flex: 1, bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
+                  sx={{
+                    flex: 1,
+                    bgcolor: acento,
+                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  }}
                 >
                   Enviar
                 </Button>
@@ -1901,7 +1966,14 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SendIcon />}
                   disabled={salvando}
                   onClick={() => void enviarDeliveryAprovacao()}
-                  sx={{ flex: 1, bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
+                  sx={{
+                    flex: 1,
+                    bgcolor: acento,
+                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    color: '#fff',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  }}
                 >
                   Enviar
                 </Button>
@@ -1910,8 +1982,22 @@ export default function EscalaVisitasMobileView() {
           ) : null}
       </div>
 
-      <Dialog open={Boolean(editor)} onClose={() => setEditor(null)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 0.5 }}>
+      <Dialog
+        open={Boolean(editor)}
+        onClose={() => setEditor(null)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: escuro ? '#111827' : '#fff',
+              color: escuro ? '#F8FAFC' : 'inherit',
+              backgroundImage: 'none',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: escuro ? '#F8FAFC' : NAVY, pb: 0.5 }}>
           {idUsuarioFiltro != null
             ? `Editar visita de ${
                 primeiroNome(
@@ -1957,8 +2043,8 @@ export default function EscalaVisitasMobileView() {
                     primary={primeiroNome(r.nome)}
                     secondary={r.nome}
                     slotProps={{
-                      primary: { sx: { fontWeight: 700, fontSize: '0.9rem' } },
-                      secondary: { sx: { fontSize: '0.72rem' } },
+                      primary: { sx: { fontWeight: 700, fontSize: '0.9rem', color: escuro ? '#F8FAFC' : 'inherit' } },
+                      secondary: { sx: { fontSize: '0.72rem', color: escuro ? '#94A3B8' : 'inherit' } },
                     }}
                   />
                 </ListItemButton>
@@ -1967,21 +2053,41 @@ export default function EscalaVisitasMobileView() {
           </List>
         </DialogContent>
         <DialogActions sx={{ px: 2, pb: 2 }}>
-          <Button onClick={() => setEditor(null)} sx={{ textTransform: 'none' }}>
+          <Button onClick={() => setEditor(null)} sx={{ textTransform: 'none', color: escuro ? '#94A3B8' : undefined }}>
             Cancelar
           </Button>
           <Button
             variant="contained"
             onClick={confirmarEditor}
-            sx={{ bgcolor: ORANGE, textTransform: 'none', fontWeight: 700 }}
+            sx={{
+              bgcolor: escuro ? ORANGE : NAVY,
+              '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+              color: '#fff',
+              textTransform: 'none',
+              fontWeight: 700,
+            }}
           >
             Aplicar
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={filtroRegiaoAberto} onClose={() => setFiltroRegiaoAberto(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+      <Dialog
+        open={filtroRegiaoAberto}
+        onClose={() => setFiltroRegiaoAberto(false)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{
+          paper: {
+            sx: {
+              bgcolor: escuro ? '#111827' : '#fff',
+              color: escuro ? '#F8FAFC' : 'inherit',
+              backgroundImage: 'none',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: escuro ? '#F8FAFC' : NAVY, pb: 1 }}>
           Filtrar por região
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1 }}>
@@ -1998,7 +2104,7 @@ export default function EscalaVisitasMobileView() {
               </ListItemIcon>
               <ListItemText
                 primary="Todas as regiões"
-                slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem' } } }}
+                slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem', color: escuro ? '#F8FAFC' : 'inherit' } } }}
               />
             </ListItemButton>
           )}
@@ -2018,7 +2124,7 @@ export default function EscalaVisitasMobileView() {
                 </ListItemIcon>
                 <ListItemText
                   primary={r.nome}
-                  slotProps={{ primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' } } }}
+                  slotProps={{ primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem', color: escuro ? '#F8FAFC' : 'inherit' } } }}
                 />
               </ListItemButton>
             );

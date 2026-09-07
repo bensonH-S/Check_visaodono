@@ -12,6 +12,10 @@
   font-size: clamp(2.45rem, 10.5vw, 3.25rem);
 }
 
+.ck-chamados .ck-chamados__title--novo {
+  font-size: clamp(1.75rem, 7.5vw, 2.35rem) !important;
+}
+
 .ck-chamados__hero-end {
   display: flex;
   align-items: center;
@@ -116,4 +120,28 @@
   background: #fef2f2;
   color: #991b1b;
   border: 1px solid rgba(185, 28, 28, 0.28);
+}
+
+/* ─── Dark mode ──────────────────────────────────────────── */
+html.dark .ck-chamados .ck-chamados__filtro-btn,
+html.dark .ck-chamados .ck-chamados__lista-btn {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+  color: #F8FAFC;
+}
+
+html.dark .ck-chamados .ck-chamados__empty {
+  border-color: rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: rgba(248,250,252,0.5);
+}
+
+html.dark .ck-chamados .ck-chamados__empty strong {
+  color: #F8FAFC;
+}
+
+html.dark .ck-chamados .ck-visitas__erro {
+  background: rgba(185, 28, 28, 0.18);
+  color: #fca5a5;
+  border-color: rgba(185, 28, 28, 0.35);
 }

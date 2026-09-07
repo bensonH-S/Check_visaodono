@@ -14,6 +14,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { fetchMediaAutenticada, type FrotaDocumento } from '../../api/client';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type TipoMidia = 'imagem' | 'pdf' | 'arquivo';
 
@@ -79,6 +80,8 @@ function nomeArquivoDocumento(d: FrotaDocumento) {
 }
 
 export function FrotaDocumentoModal({ documento, open, onClose }: ModalProps) {
+  const { mode } = useAppTheme();
+  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
   const tipo = tipoMidia(documento?.tipo_mime);
   const { src, erro } = useMidiaUrl(open ? documento?.media_url : null);
 
@@ -91,7 +94,7 @@ export function FrotaDocumentoModal({ documento, open, onClose }: ModalProps) {
           justifyContent: 'space-between',
           gap: 1,
           fontWeight: 700,
-          color: colors.navy,
+          color: acento,
           pr: 1,
         }}
       >
@@ -153,7 +156,7 @@ export function FrotaDocumentoModal({ documento, open, onClose }: ModalProps) {
 
         {documento?.media_url && !erro && src && tipo === 'arquivo' && (
           <Box sx={{ width: '100%', textAlign: 'center', py: 2 }}>
-            <InsertDriveFileIcon sx={{ fontSize: 64, color: colors.navy, mb: 2 }} />
+            <InsertDriveFileIcon sx={{ fontSize: 64, color: acento, mb: 2 }} />
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Arquivo anexado ao veículo
             </Typography>
@@ -210,7 +213,7 @@ export function FrotaDocumentoMiniatura({
         <Box component="img" src={src} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       )}
       {!erro && src && tipo === 'pdf' && <PictureAsPdfIcon sx={{ fontSize: 32, color: '#DC2626' }} />}
-      {!erro && src && tipo === 'arquivo' && <InsertDriveFileIcon sx={{ fontSize: 32, color: colors.navy }} />}
+      {!erro && src && tipo === 'arquivo' && <InsertDriveFileIcon sx={{ fontSize: 32, color: 'primary.main' }} />}
     </Box>
   );
 }

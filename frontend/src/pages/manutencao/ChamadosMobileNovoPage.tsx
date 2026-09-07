@@ -83,8 +83,14 @@ function IndicadorEtapasNovoChamado({ etapaAtiva }: { etapaAtiva: 0 | 1 }) {
                 width: 10,
                 height: 10,
                 borderRadius: '50%',
-                bgcolor: etapaAtiva === i || etapaAtiva > i ? ORANGE : 'rgba(27, 42, 107, 0.2)',
-                boxShadow: etapaAtiva === i ? '0 0 0 3px rgba(232, 82, 10, 0.22)' : 'none',
+                bgcolor: (theme) =>
+                  etapaAtiva === i || etapaAtiva > i
+                    ? (theme.palette.mode === 'dark' ? '#FF7A3D' : ORANGE)
+                    : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(27, 42, 107, 0.2)'),
+                boxShadow: (theme) =>
+                  etapaAtiva === i
+                    ? (theme.palette.mode === 'dark' ? '0 0 0 3px rgba(255, 122, 61, 0.25)' : '0 0 0 3px rgba(232, 82, 10, 0.22)')
+                    : 'none',
                 transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
               }}
             />
@@ -93,7 +99,12 @@ function IndicadorEtapasNovoChamado({ etapaAtiva }: { etapaAtiva: 0 | 1 }) {
               sx={{
                 fontSize: '0.68rem',
                 fontWeight: etapaAtiva === i ? 700 : 500,
-                color: etapaAtiva === i ? NAVY : etapaAtiva > i ? ORANGE : 'text.secondary',
+                color: (theme) =>
+                  etapaAtiva === i
+                    ? (theme.palette.mode === 'dark' ? '#F8FAFC' : NAVY)
+                    : etapaAtiva > i
+                      ? (theme.palette.mode === 'dark' ? '#FF7A3D' : ORANGE)
+                      : 'text.secondary',
                 lineHeight: 1.2,
               }}
             >
@@ -108,7 +119,10 @@ function IndicadorEtapasNovoChamado({ etapaAtiva }: { etapaAtiva: 0 | 1 }) {
                 mx: 0.5,
                 mt: 0.45,
                 borderRadius: 1,
-                bgcolor: etapaAtiva > i ? ORANGE : 'rgba(27, 42, 107, 0.12)',
+                bgcolor: (theme) =>
+                  etapaAtiva > i
+                    ? (theme.palette.mode === 'dark' ? '#FF7A3D' : ORANGE)
+                    : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(27, 42, 107, 0.12)'),
               }}
             />
           )}
@@ -183,7 +197,7 @@ function SeletorLojaNovoChamado({
           <Box
             component="span"
             sx={{
-              color: lojaAtual ? NAVY : 'text.secondary',
+              color: lojaAtual ? 'text.primary' : 'text.secondary',
               fontWeight: lojaAtual ? 700 : 500,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -196,7 +210,7 @@ function SeletorLojaNovoChamado({
       </Box>
 
       <Dialog open={dialogAberto} onClose={() => setDialogAberto(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: (theme) => theme.palette.mode === 'dark' ? '#F8FAFC' : NAVY, pb: 1 }}>
           Escolher loja
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1 }}>
@@ -224,7 +238,7 @@ function SeletorLojaNovoChamado({
                     primary: {
                       sx: {
                         fontWeight: ativa ? 700 : 600,
-                        color: ativa ? NAVY : 'text.primary',
+                        color: ativa ? (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : NAVY) : 'text.primary',
                         fontSize: '0.9rem',
                       },
                     },
@@ -417,7 +431,7 @@ export default function ChamadosMobileNovoPage() {
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
             <div>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title ck-chamados__title">Novo chamado</h1>
+              <h1 className="ck-visitas__title ck-chamados__title ck-chamados__title--novo">Novo chamado</h1>
             </div>
             <div className="ck-chamados__hero-end">
               <button
@@ -450,7 +464,9 @@ export default function ChamadosMobileNovoPage() {
             p: 1.75,
             mb: 1.5,
             borderRadius: 3,
-            border: '1px solid rgba(27, 42, 107, 0.1)',
+            bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#182234' : '#fff'),
+            border: (theme) =>
+              theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(27, 42, 107, 0.1)',
             boxShadow: '0 1px 0 rgba(20, 32, 72, 0.04)',
           }}
         >
@@ -468,8 +484,8 @@ export default function ChamadosMobileNovoPage() {
               <PersonOutlineOutlinedIcon
                 sx={{
                   fontSize: 20,
-                  color: NAVY,
-                  opacity: 0.75,
+                  color: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : NAVY),
+                  opacity: 0.85,
                   flexShrink: 0,
                   display: 'block',
                 }}
@@ -491,7 +507,7 @@ export default function ChamadosMobileNovoPage() {
                 <Box
                   component="span"
                   sx={{
-                    color: NAVY,
+                    color: 'text.primary',
                     fontWeight: 700,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -522,7 +538,9 @@ export default function ChamadosMobileNovoPage() {
             p: 1.75,
             mb: 1.5,
             borderRadius: 3,
-            border: '1px solid rgba(27, 42, 107, 0.1)',
+            bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#182234' : '#fff'),
+            border: (theme) =>
+              theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(27, 42, 107, 0.1)',
             boxShadow: '0 1px 0 rgba(20, 32, 72, 0.04)',
             display: 'flex',
             flexDirection: 'column',
@@ -614,7 +632,7 @@ export default function ChamadosMobileNovoPage() {
 
           {podeAnexarFotos && (
             <Box ref={fotosRef} sx={{ pt: 0.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: 'text.primary' }}>
                 Fotos e vídeos do problema *
               </Typography>
               <PhotoCaptureMulti
@@ -643,7 +661,15 @@ export default function ChamadosMobileNovoPage() {
             variant="outlined"
             disabled={salvando}
             onClick={() => navigate(ROTA_LISTA)}
-            sx={{ fontWeight: 700, borderColor: 'rgba(27,42,107,0.28)', color: NAVY }}
+            sx={{
+              fontWeight: 700,
+              borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(27, 42, 107, 0.28)'),
+              color: (theme) => (theme.palette.mode === 'dark' ? '#F8FAFC' : NAVY),
+              '&:hover': {
+                borderColor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.35)' : NAVY),
+                bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(27, 42, 107, 0.04)'),
+              },
+            }}
           >
             Cancelar
           </Button>
@@ -652,7 +678,14 @@ export default function ChamadosMobileNovoPage() {
             type="submit"
             variant="contained"
             disabled={salvando || !podeEnviar}
-            sx={{ fontWeight: 800, bgcolor: ORANGE, '&:hover': { bgcolor: '#d04809' } }}
+            sx={{
+              fontWeight: 800,
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
+              color: '#fff',
+              '&:hover': {
+                bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#d04809' : '#152255'),
+              },
+            }}
           >
             {salvando ? 'Enviando...' : 'Abrir chamado'}
           </Button>

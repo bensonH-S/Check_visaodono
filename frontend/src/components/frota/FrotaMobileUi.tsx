@@ -20,20 +20,20 @@ export const FROTA_ORANGE = '#E8520A';
 export const frotaCardSx = {
   p: 2,
   borderRadius: 2.5,
-  border: '1px solid rgba(27, 42, 107, 0.1)',
-  boxShadow: '0 6px 20px rgba(27, 42, 107, 0.07)',
-  bgcolor: '#fff',
+  border: (theme: any) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(27, 42, 107, 0.1)',
+  boxShadow: (theme: any) => theme.palette.mode === 'dark' ? '0 6px 20px rgba(0, 0, 0, 0.35)' : '0 6px 20px rgba(27, 42, 107, 0.07)',
+  bgcolor: (theme: any) => theme.palette.mode === 'dark' ? '#111827' : '#fff',
 } as const;
 
 export const frotaCtaSx = {
   minHeight: 52,
   borderRadius: 2.5,
-  bgcolor: FROTA_ORANGE,
+  bgcolor: (theme: any) => theme.palette.mode === 'dark' ? FROTA_ORANGE : FROTA_NAVY,
   fontWeight: 800,
   fontSize: '1rem',
   textTransform: 'none' as const,
-  boxShadow: '0 8px 20px rgba(232, 82, 10, 0.35)',
-  '&:hover': { bgcolor: '#c94709' },
+  boxShadow: (theme: any) => theme.palette.mode === 'dark' ? '0 8px 20px rgba(232, 82, 10, 0.35)' : '0 8px 20px rgba(27, 42, 107, 0.3)',
+  '&:hover': { bgcolor: (theme: any) => theme.palette.mode === 'dark' ? '#c94709' : '#152056' },
   '&.Mui-disabled': {
     bgcolor: 'rgba(27, 42, 107, 0.12)',
     color: 'rgba(27, 42, 107, 0.4)',
@@ -56,8 +56,8 @@ export function FrotaSegControl<T extends string>({
         p: 0.5,
         mb: 1.5,
         borderRadius: 2.5,
-        bgcolor: 'rgba(27, 42, 107, 0.06)',
-        border: '1px solid rgba(27, 42, 107, 0.08)',
+        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#111827' : 'rgba(27, 42, 107, 0.06)',
+        border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(27, 42, 107, 0.08)',
       }}
     >
       {itens.map((item) => {
@@ -75,11 +75,17 @@ export function FrotaSegControl<T extends string>({
               textTransform: 'none',
               fontWeight: 700,
               fontSize: '0.85rem',
-              color: ativa ? '#fff' : FROTA_NAVY,
-              bgcolor: ativa ? FROTA_ORANGE : 'transparent',
-              boxShadow: ativa ? '0 4px 12px rgba(232, 82, 10, 0.3)' : 'none',
+              color: ativa ? '#fff' : (theme) => theme.palette.mode === 'dark' ? '#94A3B8' : FROTA_NAVY,
+              bgcolor: ativa
+                ? (theme) => theme.palette.mode === 'dark' ? FROTA_ORANGE : FROTA_NAVY
+                : 'transparent',
+              boxShadow: ativa
+                ? (theme) => theme.palette.mode === 'dark' ? '0 4px 12px rgba(232, 82, 10, 0.3)' : '0 4px 12px rgba(27, 42, 107, 0.3)'
+                : 'none',
               '&:hover': {
-                bgcolor: ativa ? '#c94709' : 'rgba(27, 42, 107, 0.06)',
+                bgcolor: ativa
+                  ? (theme) => theme.palette.mode === 'dark' ? '#c94709' : '#152056'
+                  : 'rgba(27, 42, 107, 0.06)',
               },
               '& .MuiButton-startIcon': { mr: item.icon ? 0.75 : 0 },
             }}
@@ -156,10 +162,10 @@ export function FrotaVeiculoFaixa({
         p: 1.5,
         mb: 1.5,
         borderRadius: 2.5,
-        border: '1px solid rgba(27, 42, 107, 0.1)',
+        border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(27, 42, 107, 0.1)',
         borderLeft: `4px solid ${accent}`,
-        bgcolor: '#fff',
-        boxShadow: '0 4px 14px rgba(27, 42, 107, 0.06)',
+        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#111827' : '#fff',
+        boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 4px 14px rgba(0, 0, 0, 0.35)' : '0 4px 14px rgba(27, 42, 107, 0.06)',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
@@ -168,7 +174,7 @@ export function FrotaVeiculoFaixa({
             width: 42,
             height: 42,
             borderRadius: 2,
-            bgcolor: 'rgba(27, 42, 107, 0.08)',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(27, 42, 107, 0.08)',
             color: accent,
             display: 'flex',
             alignItems: 'center',
@@ -179,7 +185,7 @@ export function FrotaVeiculoFaixa({
           <DirectionsCarIcon />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 800, color: FROTA_NAVY, lineHeight: 1.25, fontSize: '0.95rem' }}>
+          <Typography sx={{ fontWeight: 800, color: (theme) => theme.palette.mode === 'dark' ? '#F8FAFC' : FROTA_NAVY, lineHeight: 1.25, fontSize: '0.95rem' }}>
             {rotuloVeiculoLista(veiculo)}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6, mt: 0.6 }}>
@@ -198,8 +204,8 @@ export function FrotaVeiculoFaixa({
                   height: 22,
                   fontWeight: 600,
                   fontSize: '0.7rem',
-                  bgcolor: 'rgba(27, 42, 107, 0.06)',
-                  color: FROTA_NAVY,
+                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(27, 42, 107, 0.06)',
+                  color: (theme) => theme.palette.mode === 'dark' ? '#94A3B8' : FROTA_NAVY,
                 }}
               />
             )}
@@ -372,8 +378,8 @@ export function FrotaResumoHistorico({
         p: 1.75,
         mb: 1.5,
         borderRadius: 2.5,
-        border: '1px solid rgba(27, 42, 107, 0.1)',
-        bgcolor: '#fff',
+        border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(27, 42, 107, 0.1)',
+        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#111827' : '#fff',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -384,7 +390,7 @@ export function FrotaResumoHistorico({
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
           {titulo}
         </Typography>
-        <Typography sx={{ fontWeight: 800, color: FROTA_NAVY, fontSize: '1.05rem' }}>
+        <Typography sx={{ fontWeight: 800, color: (theme) => theme.palette.mode === 'dark' ? '#F8FAFC' : FROTA_NAVY, fontSize: '1.05rem' }}>
           {quantidade} registro{quantidade === 1 ? '' : 's'}
         </Typography>
       </Box>
@@ -414,12 +420,12 @@ export function FrotaEmptyHistorico({
         p: 3,
         textAlign: 'center',
         borderRadius: 3,
-        border: '1px dashed rgba(27, 42, 107, 0.2)',
-        bgcolor: 'rgba(27, 42, 107, 0.03)',
+        border: (theme) => theme.palette.mode === 'dark' ? '1px dashed rgba(255, 255, 255, 0.2)' : '1px dashed rgba(27, 42, 107, 0.2)',
+        bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(27, 42, 107, 0.03)',
       }}
     >
-      <HistoryIcon sx={{ fontSize: 40, color: 'rgba(27, 42, 107, 0.35)', mb: 1 }} />
-      <Typography sx={{ fontWeight: 800, color: FROTA_NAVY, mb: 0.5 }}>Nada por aqui ainda</Typography>
+      <HistoryIcon sx={{ fontSize: 40, color: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.35)' : 'rgba(27, 42, 107, 0.35)', mb: 1 }} />
+      <Typography sx={{ fontWeight: 800, color: (theme) => theme.palette.mode === 'dark' ? '#F8FAFC' : FROTA_NAVY, mb: 0.5 }}>Nada por aqui ainda</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {mensagem}
       </Typography>
@@ -463,15 +469,15 @@ export function FrotaHistoricoItem({
         p: 1.75,
         mb: 1.25,
         borderRadius: 2.5,
-        border: '1px solid rgba(27, 42, 107, 0.1)',
+        border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(27, 42, 107, 0.1)',
         borderLeft: `4px solid ${FROTA_ORANGE}`,
-        bgcolor: '#fff',
-        boxShadow: '0 4px 14px rgba(27, 42, 107, 0.06)',
+        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#111827' : '#fff',
+        boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 4px 14px rgba(0, 0, 0, 0.35)' : '0 4px 14px rgba(27, 42, 107, 0.06)',
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 800, color: FROTA_NAVY, lineHeight: 1.25 }}>{titulo}</Typography>
+          <Typography sx={{ fontWeight: 800, color: (theme) => theme.palette.mode === 'dark' ? '#F8FAFC' : FROTA_NAVY, lineHeight: 1.25 }}>{titulo}</Typography>
           <Typography
             variant="caption"
             color="text.secondary"
@@ -491,8 +497,8 @@ export function FrotaHistoricoItem({
                 variant="caption"
                 sx={{
                   fontWeight: c.destaque ? 800 : 700,
-                  color: c.destaque ? FROTA_ORANGE : FROTA_NAVY,
-                  bgcolor: c.destaque ? 'rgba(232, 82, 10, 0.08)' : 'rgba(27, 42, 107, 0.06)',
+                  color: c.destaque ? FROTA_ORANGE : (theme) => theme.palette.mode === 'dark' ? '#94A3B8' : FROTA_NAVY,
+                  bgcolor: c.destaque ? 'rgba(232, 82, 10, 0.12)' : (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(27, 42, 107, 0.06)',
                   px: 1,
                   py: 0.35,
                   borderRadius: 1,

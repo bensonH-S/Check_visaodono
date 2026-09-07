@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
+import Box from '@mui/material/Box';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { api, fmtData, fmtNota, scoreColor } from '../../api/client';
 import type { NcItem } from '../../api/client';
@@ -64,11 +65,13 @@ export default function NcMobileListaPage() {
                 conformidades
               </h1>
             </div>
-            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+            <Box sx={{ mr: { xs: 5, sm: 6 } }}>
+              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+            </Box>
           </div>
 
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Pendências do checklist na sua região — abra para registrar a correção.
+            Pendências do checklist na sua região. Toque para registrar a correção.
           </p>
 
           <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
@@ -155,52 +158,54 @@ export default function NcMobileListaPage() {
                     </div>
                   </div>
 
-                  {lista.map((nc) => {
-                    const { codigo, texto } = parseNcDescricao(nc.descricao);
-                    const tone = gravTone(nc.gravidade);
-                    const clicavel = aba === 'abertas';
-                    return (
-                      <button
-                        key={nc.id_nc}
-                        type="button"
-                        className="ck-nc__item"
-                        disabled={!clicavel}
-                        onClick={() => clicavel && navigate(`/nc/mobile/${nc.id_nc}`)}
-                      >
-                        <span className="ck-nc__item-icon" aria-hidden>
-                          <WarningAmberIcon
-                            fontSize="small"
-                            sx={{ color: tone === 'crit' ? '#d32f2f' : '#ed6c02' }}
-                          />
-                        </span>
-                        <span className="ck-nc__item-copy">
-                          {nc.area === 'Resultado geral' ? (
-                            <span>{nc.descricao}</span>
+                  <div className="ck-nc__visita-items">
+                    {lista.map((nc) => {
+                      const { codigo, texto } = parseNcDescricao(nc.descricao);
+                      const tone = gravTone(nc.gravidade);
+                      const clicavel = aba === 'abertas';
+                      return (
+                        <button
+                          key={nc.id_nc}
+                          type="button"
+                          className="ck-nc__item"
+                          disabled={!clicavel}
+                          onClick={() => clicavel && navigate(`/nc/mobile/${nc.id_nc}`)}
+                        >
+                          <span className="ck-nc__item-icon" aria-hidden>
+                            <WarningAmberIcon
+                              fontSize="small"
+                              sx={{ color: tone === 'crit' ? '#d32f2f' : '#ed6c02' }}
+                            />
+                          </span>
+                          <span className="ck-nc__item-copy">
+                            {nc.area === 'Resultado geral' ? (
+                              <span>{nc.descricao}</span>
+                            ) : (
+                              <>
+                                <small>
+                                  {nc.area}
+                                  {codigo ? ` · ${codigo}` : ''}
+                                </small>
+                                <span>{texto}</span>
+                              </>
+                            )}
+                            {nc.area === 'Resultado geral' && (
+                              <small style={{ marginTop: 4 }}>{nc.gravidade}</small>
+                            )}
+                          </span>
+                          {aba === 'abertas' ? (
+                            <span className="ck-nc__item-go" aria-hidden>
+                              ›
+                            </span>
                           ) : (
-                            <>
-                              <small>
-                                {nc.area}
-                                {codigo ? ` · ${codigo}` : ''}
-                              </small>
-                              <span>{texto}</span>
-                            </>
+                            <span className="ck-nc__chip" style={{ borderColor: 'rgba(46,125,50,0.35)', color: '#2e7d32' }}>
+                              Resolvida
+                            </span>
                           )}
-                          {nc.area === 'Resultado geral' && (
-                            <small style={{ marginTop: 4 }}>{nc.gravidade}</small>
-                          )}
-                        </span>
-                        {aba === 'abertas' ? (
-                          <span className="ck-nc__item-go" aria-hidden>
-                            ›
-                          </span>
-                        ) : (
-                          <span className="ck-nc__chip" style={{ borderColor: 'rgba(46,125,50,0.35)', color: '#2e7d32' }}>
-                            Resolvida
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })

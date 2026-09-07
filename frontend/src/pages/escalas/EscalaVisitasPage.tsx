@@ -2,7 +2,6 @@ import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } f
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
 import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
@@ -46,6 +45,8 @@ import { getUsuario, podeEditarEscalaDelivery, podeEditarEscalaRegiao, podeGeren
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
+import PageLoading from '../../components/PageLoading';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
 import {
   addDaysIso,
@@ -63,11 +64,26 @@ const STATUS_LABEL: Record<EscalaVisitasRegiaoStatusCodigo, string> = {
   aprovado: 'Aprovado',
 };
 
-const STATUS_CHIP_SX: Record<EscalaVisitasRegiaoStatusCodigo, object> = {
-  rascunho: { bgcolor: colors.canvasAlt, color: colors.textSecondary },
-  pendente_aprovacao: { bgcolor: 'rgba(232, 82, 10, 0.12)', color: '#C2410C', fontWeight: 700 },
-  aprovado: { bgcolor: 'rgba(22, 163, 74, 0.12)', color: '#15803D', fontWeight: 700 },
-};
+function statusChipSx(status: EscalaVisitasRegiaoStatusCodigo, escuro: boolean) {
+  if (status === 'pendente_aprovacao') {
+    return {
+      bgcolor: escuro ? 'rgba(232, 82, 10, 0.2)' : 'rgba(27, 42, 107, 0.12)',
+      color: escuro ? '#FDBA74' : '#1B2A6B',
+      fontWeight: 700,
+    };
+  }
+  if (status === 'aprovado') {
+    return {
+      bgcolor: escuro ? 'rgba(52, 211, 153, 0.18)' : 'rgba(22, 163, 74, 0.12)',
+      color: escuro ? '#6EE7B7' : '#15803D',
+      fontWeight: 700,
+    };
+  }
+  return {
+    bgcolor: escuro ? 'rgba(148, 163, 184, 0.14)' : colors.canvasAlt,
+    color: escuro ? '#CBD5E1' : colors.textSecondary,
+  };
+}
 
 const TIPO_GESTOR_LABEL: Record<string, string> = {
   folga: 'Folga',
@@ -76,15 +92,36 @@ const TIPO_GESTOR_LABEL: Record<string, string> = {
   ausencia: 'Ausência',
 };
 
-const TIPO_GESTOR_SX: Record<string, object> = {
-  folga: { bgcolor: 'rgba(234, 88, 12, 0.16)', color: '#C2410C', fontWeight: 800 },
-  ferias: { bgcolor: 'rgba(37, 99, 235, 0.14)', color: '#1D4ED8', fontWeight: 800 },
-  falta: { bgcolor: 'rgba(220, 38, 38, 0.14)', color: '#B91C1C', fontWeight: 800 },
-  ausencia: { bgcolor: 'rgba(100, 116, 139, 0.16)', color: '#475569', fontWeight: 800 },
-};
+function tipoGestorSx(tipo: string, escuro: boolean) {
+  if (tipo === 'folga') {
+    return {
+      bgcolor: escuro ? 'rgba(251, 146, 60, 0.22)' : 'rgba(234, 88, 12, 0.16)',
+      color: escuro ? '#FDBA74' : '#C2410C',
+      fontWeight: 800,
+    };
+  }
+  if (tipo === 'ferias') {
+    return {
+      bgcolor: escuro ? 'rgba(96, 165, 250, 0.2)' : 'rgba(37, 99, 235, 0.14)',
+      color: escuro ? '#93C5FD' : '#1D4ED8',
+      fontWeight: 800,
+    };
+  }
+  if (tipo === 'falta') {
+    return {
+      bgcolor: escuro ? 'rgba(248, 113, 113, 0.2)' : 'rgba(220, 38, 38, 0.14)',
+      color: escuro ? '#FCA5A5' : '#B91C1C',
+      fontWeight: 800,
+    };
+  }
+  return {
+    bgcolor: escuro ? 'rgba(148, 163, 184, 0.18)' : 'rgba(100, 116, 139, 0.16)',
+    color: escuro ? '#CBD5E1' : '#475569',
+    fontWeight: 800,
+  };
+}
 
 const TIPO_GESTOR_CICLO = [null, 'folga', 'ferias'] as const;
-const COR_MANUT = '#B45309';
 const COR_GESTORES = '#0F766E';
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 
@@ -105,15 +142,23 @@ const SELECT_CELULA_SX = {
 } as const;
 
 const estiloInputHora = {
-  width: 78,
+  width: 64,
   border: `1px solid ${colors.border}`,
   borderRadius: 6,
-  fontSize: 11,
+  fontSize: 12,
   fontWeight: 700,
-  padding: '2px 4px',
-  color: colors.navy,
-  background: '#fff',
+  padding: '4px 6px',
+  color: colors.textPrimary,
+  background: colors.surface,
+  outline: 'none',
 } as const;
+
+/** Digita só números; insere `:` após 2 dígitos → HH:mm */
+function formatarHoraDigitada(raw: string): string {
+  const digitos = raw.replace(/\D/g, '').slice(0, 4);
+  if (digitos.length <= 2) return digitos;
+  return `${digitos.slice(0, 2)}:${digitos.slice(2)}`;
+}
 
 function InputsHorario({
   inicio,
@@ -134,33 +179,35 @@ function InputsHorario({
   onChangeFim: (valor: string) => void;
   onBlur?: (inicio: string, fim: string) => void;
 }) {
-  function persistir(el: HTMLInputElement) {
-    const inputs = el.parentElement?.querySelectorAll('input[type="time"]');
-    const a = (inputs?.[0] as HTMLInputElement | undefined)?.value || '';
-    const b = (inputs?.[1] as HTMLInputElement | undefined)?.value || '';
-    onBlur?.(a, b);
-  }
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-start' }}>
       <input
-        type="time"
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={5}
+        placeholder="08:00"
         aria-label={ariaInicio}
         value={inicio}
         disabled={disabled}
-        onChange={(e) => onChangeInicio(e.target.value)}
-        onBlur={(e) => persistir(e.currentTarget)}
+        onChange={(e) => onChangeInicio(formatarHoraDigitada(e.target.value))}
+        onBlur={() => onBlur?.(inicio, fim)}
         style={{ ...estiloInputHora, opacity: disabled ? 0.45 : 1 }}
       />
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, lineHeight: 1 }}>
         –
       </Typography>
       <input
-        type="time"
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        maxLength={5}
+        placeholder="18:00"
         aria-label={ariaFim}
         value={fim}
         disabled={disabled}
-        onChange={(e) => onChangeFim(e.target.value)}
-        onBlur={(e) => persistir(e.currentTarget)}
+        onChange={(e) => onChangeFim(formatarHoraDigitada(e.target.value))}
+        onBlur={() => onBlur?.(inicio, fim)}
         style={{ ...estiloInputHora, opacity: disabled ? 0.45 : 1 }}
       />
     </Box>
@@ -183,6 +230,12 @@ function chaveCelula(idLoja: number, dia: number) {
 }
 
 export default function EscalaVisitasPage() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : '#1B2A6B';
+  const acentoHover = escuro ? '#c94508' : '#152056';
+  const acentoSoft = escuro ? 'rgba(232, 82, 10, 0.14)' : 'rgba(27, 42, 107, 0.08)';
+  const acentoBorder = escuro ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.28)';
   const user = getUsuario();
   const idEu = user?.id_usuario;
   const ehDiretor = podeGerenciarEscalaVisitas();
@@ -909,7 +962,7 @@ export default function EscalaVisitasPage() {
         overflow: 'hidden',
       }}
     >
-      <Paper sx={{ px: 1.25, py: 1, borderRadius: 2, border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+      <Paper sx={{ px: 1.25, py: 1, borderRadius: 2, border: `1px solid ${colors.border}`, bgcolor: colors.surface, flexShrink: 0 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
             <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))} aria-label="Semana anterior">
@@ -940,25 +993,16 @@ export default function EscalaVisitasPage() {
                   textTransform: 'none',
                   border: 'none',
                   fontSize: '0.82rem',
+                  color: colors.textSecondary,
                 },
                 '& .Mui-selected': {
-                  bgcolor:
-                    aba === 'delivery'
-                      ? 'rgba(232, 82, 10, 0.14)'
-                      : aba === 'gestores'
-                        ? 'rgba(13, 148, 136, 0.14)'
-                        : aba === 'manutencao'
-                          ? 'rgba(180, 83, 9, 0.14)'
-                          : '#fff',
-                  color:
-                    aba === 'delivery'
-                      ? colors.orange
-                      : aba === 'gestores'
-                        ? COR_GESTORES
-                        : aba === 'manutencao'
-                          ? COR_MANUT
-                          : colors.navy,
-                  boxShadow: '0 1px 4px rgba(27, 42, 107, 0.12)',
+                  bgcolor: `${acento} !important`,
+                  color: '#fff !important',
+                  boxShadow: escuro ? '0 1px 4px rgba(0, 0, 0, 0.35)' : '0 1px 4px rgba(27, 42, 107, 0.22)',
+                },
+                '& .Mui-selected:hover': {
+                  bgcolor: `${acentoHover} !important`,
+                  color: '#fff !important',
                 },
               }}
             >
@@ -1011,6 +1055,7 @@ export default function EscalaVisitasPage() {
                 startIcon={<SaveIcon />}
                 disabled={salvando || pending.size === 0}
                 onClick={() => void salvar()}
+                sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
               >
                 Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
               </Button>
@@ -1022,7 +1067,7 @@ export default function EscalaVisitasPage() {
                 startIcon={<SaveIcon />}
                 disabled={salvando || (pendingManut.size === 0 && horariosManutLocal.size === 0)}
                 onClick={() => void salvarManutencaoAgenda()}
-                sx={{ bgcolor: COR_MANUT, '&:hover': { bgcolor: '#9A3412' } }}
+                sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
               >
                 Salvar
                 {pendingManut.size > 0
@@ -1039,7 +1084,7 @@ export default function EscalaVisitasPage() {
                 startIcon={<SendIcon />}
                 disabled={salvando}
                 onClick={() => void enviarAprovacao()}
-                sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
+                sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
               >
                 Enviar para aprovação
               </Button>
@@ -1051,7 +1096,7 @@ export default function EscalaVisitasPage() {
                 startIcon={<SendIcon />}
                 disabled={salvando}
                 onClick={() => void enviarDeliveryAprovacao()}
-                sx={{ bgcolor: colors.orange, '&:hover': { bgcolor: colors.orangeHover } }}
+                sx={{ bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
               >
                 Enviar para aprovação
               </Button>
@@ -1070,7 +1115,7 @@ export default function EscalaVisitasPage() {
             {ehDiretor &&
               ((aba === 'visitas' && cardsAprovacao.some((c) => c.status === 'pendente_aprovacao')) ||
                 (aba === 'delivery' && grade?.status_delivery?.status === 'pendente_aprovacao')) && (
-                <Typography variant="caption" sx={{ fontWeight: 800, color: colors.orange, letterSpacing: 0.04 }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: acento, letterSpacing: 0.04 }}>
                   Escalas aguardando aprovação
                 </Typography>
               )}
@@ -1229,10 +1274,11 @@ export default function EscalaVisitasPage() {
                         minWidth: 200,
                         flex: '0 0 auto',
                         borderRadius: 1.5,
-                        bgcolor: pendente ? 'rgba(232, 82, 10, 0.08)' : colors.canvasAlt,
+                        bgcolor: pendente ? acentoSoft : colors.canvasAlt,
                         border: pendente
-                          ? '1px solid rgba(232, 82, 10, 0.28)'
+                          ? `1px solid ${acentoBorder}`
                           : `1px solid ${colors.border}`,
+                        borderLeft: pendente ? `3px solid ${acento}` : undefined,
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
@@ -1246,13 +1292,13 @@ export default function EscalaVisitasPage() {
                             all: 'unset',
                             cursor: 'pointer',
                             fontWeight: 800,
-                            color: colors.navy,
+                            color: colors.textPrimary,
                             fontSize: '0.8rem',
                             mr: 0.25,
                           }}
                         >
                           {card.tipo === 'regiao' && (
-                            <PlaceIcon fontSize="small" sx={{ mr: 0.5, color: colors.textSecondary }} />
+                            <PlaceIcon fontSize="small" sx={{ mr: 0.5, color: acento }} />
                           )}
                           {card.titulo}
                         </Typography>
@@ -1343,7 +1389,7 @@ export default function EscalaVisitasPage() {
                           sx={{
                             all: 'unset',
                             cursor: 'pointer',
-                            color: colors.navy,
+                            color: acento,
                             fontWeight: 700,
                             px: 0.25,
                             textDecoration: 'underline',
@@ -1442,20 +1488,21 @@ export default function EscalaVisitasPage() {
                       minWidth: 200,
                       flex: '0 0 auto',
                       borderRadius: 1.5,
-                      bgcolor: pendente ? 'rgba(232, 82, 10, 0.08)' : colors.canvasAlt,
+                      bgcolor: pendente ? acentoSoft : colors.canvasAlt,
                       border: pendente
-                        ? '1px solid rgba(232, 82, 10, 0.28)'
+                        ? `1px solid ${acentoBorder}`
                         : `1px solid ${colors.border}`,
+                      borderLeft: pendente ? `3px solid ${acento}` : undefined,
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                      <TwoWheelerIcon fontSize="small" sx={{ color: colors.textSecondary }} />
+                      <TwoWheelerIcon fontSize="small" sx={{ color: acento }} />
                       <Chip
                         size="small"
                         clickable={!ehDeliveryOnly}
                         onClick={() => abrirAba('delivery')}
                         label={`Delivery: ${STATUS_LABEL[st.status] || st.status}`}
-                        sx={STATUS_CHIP_SX[st.status] || STATUS_CHIP_SX.rascunho}
+                        sx={statusChipSx(st.status, escuro)}
                         title="Ver escala de delivery"
                       />
                       {grade.pode_aprovar && pendente && (
@@ -1546,7 +1593,7 @@ export default function EscalaVisitasPage() {
                     sx={{
                       width: '1px',
                       height: 18,
-                      bgcolor: 'rgba(27, 42, 107, 0.16)',
+                      bgcolor: escuro ? 'rgba(148, 163, 184, 0.35)' : 'rgba(27, 42, 107, 0.16)',
                       alignSelf: 'center',
                       mx: 0.25,
                       flexShrink: 0,
@@ -1580,12 +1627,10 @@ export default function EscalaVisitasPage() {
         )}
       </Paper>
 
-      {(loading || salvando) && <LinearProgress />}
+      {(salvando || (loading && !!grade)) && <LinearProgress />}
 
       {loading && !grade && aba !== 'gestores' && aba !== 'manutencao' ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6, flex: 1 }}>
-          <CircularProgress />
-        </Box>
+        <PageLoading />
       ) : aba === 'gestores' ? (
         <Paper
           sx={{
@@ -1605,10 +1650,10 @@ export default function EscalaVisitasPage() {
               <Table size="small" stickyHeader sx={tableSx}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                    <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: 0, zIndex: 3 }}>
                       BKN
                     </TableCell>
-                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
+                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
                       Gestor
                     </TableCell>
                     <TableCell sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
@@ -1639,13 +1684,17 @@ export default function EscalaVisitasPage() {
                               sx={{
                                 bgcolor:
                                   linha.grupo === 'campo'
-                                    ? 'rgba(27, 42, 107, 0.06)'
-                                    : 'rgba(13, 148, 136, 0.08)',
+                                    ? escuro
+                                      ? 'rgba(232, 82, 10, 0.12)'
+                                      : 'rgba(27, 42, 107, 0.06)'
+                                    : escuro
+                                      ? 'rgba(13, 148, 136, 0.16)'
+                                      : 'rgba(13, 148, 136, 0.08)',
                                 fontWeight: 800,
                                 fontSize: '0.72rem',
                                 letterSpacing: '0.04em',
                                 textTransform: 'uppercase',
-                                color: colors.navy,
+                                color: linha.grupo === 'campo' ? acento : COR_GESTORES,
                                 py: 0.75,
                               }}
                             >
@@ -1659,7 +1708,7 @@ export default function EscalaVisitasPage() {
                               position: 'sticky',
                               left: 0,
                               zIndex: 1,
-                              bgcolor: '#fff',
+                              bgcolor: colors.surface,
                               fontWeight: 700,
                               fontSize: '0.75rem',
                             }}
@@ -1671,7 +1720,7 @@ export default function EscalaVisitasPage() {
                               position: 'sticky',
                               left: COL_BKN_WIDTH,
                               zIndex: 1,
-                              bgcolor: '#fff',
+                              bgcolor: colors.surface,
                             }}
                           >
                             <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>
@@ -1717,7 +1766,9 @@ export default function EscalaVisitasPage() {
                                   }
                                   sx={{
                                     minWidth: 64,
-                                    ...(tipo ? TIPO_GESTOR_SX[tipo] : { bgcolor: colors.canvasAlt, color: colors.textSecondary }),
+                                    ...(tipo
+                                      ? tipoGestorSx(tipo, escuro)
+                                      : { bgcolor: colors.canvasAlt, color: colors.textSecondary }),
                                     cursor: gestores.pode_editar ? 'pointer' : 'default',
                                   }}
                                 />
@@ -1768,14 +1819,14 @@ export default function EscalaVisitasPage() {
                     onClick={() => setIdTecnicoManut(t.id_usuario)}
                     sx={{
                       fontWeight: 700,
-                      bgcolor: idTecnicoManut === t.id_usuario ? 'rgba(180, 83, 9, 0.16)' : colors.canvasAlt,
-                      color: idTecnicoManut === t.id_usuario ? COR_MANUT : colors.textSecondary,
+                      bgcolor: idTecnicoManut === t.id_usuario ? (escuro ? 'rgba(232, 82, 10, 0.18)' : 'rgba(27, 42, 107, 0.12)') : colors.canvasAlt,
+                      color: idTecnicoManut === t.id_usuario ? acento : colors.textSecondary,
                     }}
                   />
                 ))}
                 {idTecnicoManut != null && (
                   <Box sx={{ ml: { sm: 'auto' }, display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: COR_MANUT }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: acento }}>
                       Horário
                     </Typography>
                     {(() => {
@@ -1799,10 +1850,10 @@ export default function EscalaVisitasPage() {
                 <Table size="small" stickyHeader sx={tableSx}>
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                      <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: 0, zIndex: 3 }}>
                         BKN
                       </TableCell>
-                      <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
+                      <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
                         Loja
                       </TableCell>
                       {DIAS.map((label, dia) => {
@@ -1811,7 +1862,7 @@ export default function EscalaVisitasPage() {
                         const todas = lojas.length > 0 && idsDia.length === lojas.length;
                         return (
                           <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: COR_MANUT }}>
+                            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: acento }}>
                               {label}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -1829,7 +1880,7 @@ export default function EscalaVisitasPage() {
                                   fontSize: '0.65rem',
                                   fontWeight: 700,
                                   textTransform: 'none',
-                                  color: todas ? COR_MANUT : 'text.secondary',
+                                  color: todas ? acento : 'text.secondary',
                                 }}
                               >
                                 {todas ? 'Limpar' : 'Todas'}
@@ -1846,10 +1897,10 @@ export default function EscalaVisitasPage() {
                   <TableBody>
                     {manutLinhas.map((linha) => (
                       <TableRow key={linha.id_loja} hover>
-                        <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
+                        <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: colors.surface, zIndex: 1 }}>
                           {linha.bk_number || '—'}
                         </TableCell>
-                        <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: '#fff', zIndex: 1 }}>
+                        <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: colors.surface, zIndex: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
                             {linha.nome}
                           </Typography>
@@ -1863,8 +1914,8 @@ export default function EscalaVisitasPage() {
                               onChange={() => toggleLojaManut(d.dia, linha.id_loja)}
                               sx={{
                                 p: 0.5,
-                                color: COR_MANUT,
-                                '&.Mui-checked': { color: COR_MANUT },
+                                color: acento,
+                                '&.Mui-checked': { color: acento },
                               }}
                             />
                           </TableCell>
@@ -1906,10 +1957,10 @@ export default function EscalaVisitasPage() {
               <Table size="small" stickyHeader sx={tableSx}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                    <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: 0, zIndex: 3 }}>
                       BKN
                     </TableCell>
-                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
+                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
                       Loja
                     </TableCell>
                     {DIAS.map((label, dia) => {
@@ -1917,7 +1968,7 @@ export default function EscalaVisitasPage() {
                       const todas = lojasDelivery.length > 0 && idsDia.length === lojasDelivery.length;
                       return (
                         <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                          <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: colors.orange }}>
+                          <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: acento }}>
                             {label}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -1935,7 +1986,7 @@ export default function EscalaVisitasPage() {
                                 fontSize: '0.65rem',
                                 fontWeight: 700,
                                 textTransform: 'none',
-                                color: todas ? colors.orange : 'text.secondary',
+                                color: todas ? acento : 'text.secondary',
                               }}
                             >
                               {todas ? 'Limpar' : 'Todas'}
@@ -1952,10 +2003,10 @@ export default function EscalaVisitasPage() {
                 <TableBody>
                   {deliveryLinhas.map((linha) => (
                     <TableRow key={linha.id_loja} hover>
-                      <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
+                      <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: colors.surface, zIndex: 1 }}>
                         {linha.bk_number || '—'}
                       </TableCell>
-                      <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: '#fff', zIndex: 1 }}>
+                      <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: colors.surface, zIndex: 1 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
                           {linha.nome}
                         </Typography>
@@ -1969,8 +2020,8 @@ export default function EscalaVisitasPage() {
                             onChange={() => toggleLojaDelivery(d.dia, linha.id_loja)}
                             sx={{
                               p: 0.5,
-                              color: colors.orange,
-                              '&.Mui-checked': { color: colors.orange },
+                              color: acento,
+                              '&.Mui-checked': { color: acento },
                             }}
                           />
                         </TableCell>
@@ -2019,11 +2070,11 @@ export default function EscalaVisitasPage() {
                 size="small"
                 startIcon={<ArrowBackIcon />}
                 onClick={voltarVisaoGeral}
-                sx={{ textTransform: 'none', fontWeight: 700, color: colors.navy }}
+                sx={{ textTransform: 'none', fontWeight: 700, color: acento }}
               >
                 Voltar
               </Button>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: colors.navy }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: acento }}>
                 {nomeFiltroPessoa
                   ? `Escala de ${nomeFiltroPessoa}`
                   : idRegiao !== ''
@@ -2049,10 +2100,10 @@ export default function EscalaVisitasPage() {
             <Table size="small" stickyHeader sx={tableSx}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: 0, zIndex: 3 }}>
+                  <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: 0, zIndex: 3 }}>
                     BKN
                   </TableCell>
-                  <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: '#fff', position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
+                  <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
                     Loja
                   </TableCell>
                   {DIAS.map((label, i) => (
@@ -2073,10 +2124,10 @@ export default function EscalaVisitasPage() {
               <TableBody>
                 {linhasVisitasComTotais.map((linha) => (
                   <TableRow key={linha.id_loja} hover>
-                    <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: '#fff', zIndex: 1 }}>
+                    <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: colors.surface, zIndex: 1 }}>
                       {linha.bk_number || '—'}
                     </TableCell>
-                    <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: '#fff', zIndex: 1 }}>
+                    <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: colors.surface, zIndex: 1 }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
                         {linha.nome}
                       </Typography>
@@ -2118,7 +2169,7 @@ export default function EscalaVisitasPage() {
                                 fontWeight: 700,
                                 color: colors.textPrimary,
                                 border: idsReg.length
-                                  ? `1px solid ${cor ?? colors.navy}`
+                                  ? `1px solid ${cor ?? acento}`
                                   : '1px dashed #e5e7eb',
                                 bgcolor: cor
                                   ? `${cor}33`
@@ -2241,7 +2292,7 @@ export default function EscalaVisitasPage() {
         </Paper>
       )}
 
-      {!podeEditarGrade && !podeEditarDelivery && (
+      {!loading && !podeEditarGrade && !podeEditarDelivery && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           {grade?.somente_leitura
             ? 'Cópia do envio (somente leitura). Use “Editar escala” para alterar a grade atual e salvar.'
@@ -2255,12 +2306,12 @@ export default function EscalaVisitasPage() {
           Você pode editar a escala montada pela equipe e salvar a qualquer momento.
         </Typography>
       )}
-      {ehDeliveryOnly && (
+      {!loading && ehDeliveryOnly && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           Você preenche apenas a escala de delivery.
         </Typography>
       )}
-      {ehRegional && podeEditarGrade && (
+      {!loading && ehRegional && podeEditarGrade && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           Toque na célula para marcar sua visita. Só entram diretor, regionais e marketing.
         </Typography>

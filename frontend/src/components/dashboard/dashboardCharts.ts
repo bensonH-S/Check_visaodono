@@ -7,8 +7,9 @@ export const ORANGE = colors.orange;
 
 export const GRAVIDADE_CORES: Record<string, string> = {
   Crítica: '#DC2626',
-  Moderada: colors.orange,
+  Moderada: '#F97316',
   Baixa: '#EAB308',
+  Leve: '#EAB308',
 };
 
 export const dashboardPanelSx: SxProps<Theme> = {

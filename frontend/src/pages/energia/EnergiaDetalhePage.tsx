@@ -17,6 +17,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import ChamadoAnexosGaleria from '../../components/manutencao/ChamadoAnexosGaleria';
+import PageLoading from '../../components/PageLoading';
 import { api, type EnergiaChamadoDetalhe, type ManutAnexo } from '../../api/client';
 import { getUsuario, podeAbrirEnergia } from '../../lib/auth';
 import { formatDataHoraBalaoMapa } from '../../utils/dateBr';
@@ -24,6 +25,7 @@ import { extensaoMidia } from '../../utils/mediaFile';
 import { gerarPdfEnergia } from '../../utils/gerarPdfEnergia';
 import { showToast } from '../../utils/toast';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 import {
   STATUS_ABERTOS,
   STATUS_ENERGIA,
@@ -35,6 +37,10 @@ import {
 export default function EnergiaDetalhePage() {
   const { idChamado } = useParams();
   const navigate = useNavigate();
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const acento = escuro ? '#E8520A' : colors.navy;
+  const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const podeAbrir = podeAbrirEnergia(getUsuario());
   const [item, setItem] = useState<EnergiaChamadoDetalhe | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,7 +142,7 @@ export default function EnergiaDetalhePage() {
     }
   }
 
-  if (loading) return <LinearProgress />;
+  if (loading) return <PageLoading />;
   if (!item) {
     return (
       <Alert severity="error" action={<Button onClick={() => navigate('/energia')}>Voltar</Button>}>
@@ -146,12 +152,16 @@ export default function EnergiaDetalhePage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 760, mx: 'auto', py: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ width: '100%', py: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/energia')}>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/energia')}
+          sx={{ textTransform: 'none', color: colors.textSecondary }}
+        >
           Voltar
         </Button>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: colors.navy, flex: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, color: colors.textPrimary, flex: 1 }}>
           Energia #{item.numero}
         </Typography>
         <Chip size="small" label={st?.label ?? item.status} color={st?.color ?? 'default'} />
@@ -160,7 +170,10 @@ export default function EnergiaDetalhePage() {
       {err && <Alert severity="error">{err}</Alert>}
       {(enviandoFotos || gerandoPdf) && <LinearProgress />}
 
-      <Paper variant="outlined" sx={{ p: 2.5, display: 'grid', gap: 1.25 }}>
+      <Paper
+        variant="outlined"
+        sx={{ p: 2.5, display: 'grid', gap: 1.25, bgcolor: colors.surface, borderColor: colors.border }}
+      >
         <Linha label="Loja" valor={`${item.nome_loja}${item.bk_number ? ` · BKN ${item.bk_number}` : ''}`} />
         <Linha label="Protocolo" valor={item.protocolo} mono />
         <Linha label="Concessionária" valor={item.concessionaria} />
@@ -178,7 +191,18 @@ export default function EnergiaDetalhePage() {
       </Paper>
 
       {podeAbrir && aberto && (
-        <Paper variant="outlined" sx={{ p: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            display: 'flex',
+            gap: 1.5,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            bgcolor: colors.surface,
+            borderColor: colors.border,
+          }}
+        >
           <TextField
             select
             size="small"
@@ -206,13 +230,20 @@ export default function EnergiaDetalhePage() {
           startIcon={<PictureAsPdfIcon />}
           onClick={() => void baixarRelatorio()}
           disabled={gerandoPdf}
+          sx={{
+            textTransform: 'none',
+            fontWeight: 700,
+            bgcolor: '#E8520A',
+            alignSelf: 'flex-start',
+            '&:hover': { bgcolor: '#c94508' },
+          }}
         >
           {gerandoPdf ? 'Gerando PDF…' : 'Baixar relatório'}
         </Button>
       )}
 
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle2" sx={{ mb: 1.5, color: colors.navy }}>
+      <Paper variant="outlined" sx={{ p: 2, bgcolor: colors.surface, borderColor: colors.border }}>
+        <Typography variant="subtitle2" sx={{ mb: 1.5, color: colors.textPrimary, fontWeight: 700 }}>
           Fotos ({item.anexos.length})
         </Typography>
         <ChamadoAnexosGaleria
@@ -224,7 +255,21 @@ export default function EnergiaDetalhePage() {
           <Box sx={{ mt: 2 }}>
             <PhotoCaptureMulti fotos={fotosNovas} onChange={setFotosNovas} max={10} inlineActions compactThumbs />
             {fotosNovas.length > 0 && (
-              <Button sx={{ mt: 1 }} variant="outlined" onClick={() => void enviarFotos()} disabled={enviandoFotos}>
+              <Button
+                sx={{
+                  mt: 1,
+                  textTransform: 'none',
+                  borderColor: acento,
+                  color: acento,
+                  '&:hover': {
+                    borderColor: acentoHover,
+                    bgcolor: escuro ? 'rgba(232, 82, 10, 0.1)' : colors.navyMuted,
+                  },
+                }}
+                variant="outlined"
+                onClick={() => void enviarFotos()}
+                disabled={enviandoFotos}
+              >
                 Anexar fotos
               </Button>
             )}
@@ -247,11 +292,25 @@ export default function EnergiaDetalhePage() {
             onChange={(e) => setObservacaoFinal(e.target.value)}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setFinalizarAberto(false)} disabled={finalizando}>
+        <DialogActions sx={{ gap: 1, px: 3, pb: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setFinalizarAberto(false)}
+            disabled={finalizando}
+            sx={{
+              textTransform: 'none',
+              color: colors.textSecondary,
+              borderColor: colors.borderStrong,
+            }}
+          >
             Cancelar
           </Button>
-          <Button variant="contained" onClick={() => void finalizar()} disabled={finalizando || !item.anexos.length}>
+          <Button
+            variant="contained"
+            onClick={() => void finalizar()}
+            disabled={finalizando || !item.anexos.length}
+            sx={{ textTransform: 'none', fontWeight: 700, bgcolor: acento, '&:hover': { bgcolor: acentoHover } }}
+          >
             {finalizando ? 'Finalizando…' : 'Finalizar e baixar PDF'}
           </Button>
         </DialogActions>
@@ -263,12 +322,12 @@ export default function EnergiaDetalhePage() {
 function Linha({ label, valor, mono }: { label: string; valor: string; mono?: boolean }) {
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 0.4 }}>
+      <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.4, color: colors.textMuted }}>
         {label.toUpperCase()}
       </Typography>
       <Typography
         variant="body2"
-        sx={{ fontWeight: 600, color: colors.navy, fontFamily: mono ? 'ui-monospace, monospace' : undefined }}
+        sx={{ fontWeight: 600, color: colors.textPrimary, fontFamily: mono ? 'ui-monospace, monospace' : undefined }}
       >
         {valor}
       </Typography>

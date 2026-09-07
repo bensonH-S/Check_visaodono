@@ -36,6 +36,7 @@ import {
   relatorioVelocidadeVeiculoPeriodo,
 } from '../services/fulltrackFleet.js';
 import { ajustarRotaAsRuas } from '../services/routeMatching.js';
+import { estimarDuracaoOsrm } from '../services/osrmRouting.js';
 import {
   enriquecerRegistrosVelocidade,
   enriquecerRotasComTecnicoExcesso,
@@ -867,8 +868,14 @@ router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => 
   try {
     const idsRegiao = await idsRegioesVisiveisMapaFrota(req.user);
     if (!idsRegiao.length) {
-      return res.json({ tecnicos: [], lojas: [], regioes: [] });
+      return res.json({ tecnicos: [], lojas: [], regioes: [], veiculos: [] });
     }
+
+    const idRegiaoFiltro = Number(req.query.id_regiao);
+    const filtroRegiao =
+      Number.isFinite(idRegiaoFiltro) && idRegiaoFiltro > 0 && idsRegiao.includes(idRegiaoFiltro)
+        ? [idRegiaoFiltro]
+        : idsRegiao;
 
     const { rows: tecnicos } = await pool.query(
       `SELECT u.id_usuario, u.nome, u.email,
@@ -881,7 +888,7 @@ router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => 
        LEFT JOIN frota_tecnico_posicao p ON p.id_usuario = u.id_usuario
        WHERE rt.id_regiao = ANY($1::int[])
        ORDER BY r.nome, u.nome`,
-      [idsRegiao],
+      [filtroRegiao],
     );
 
     const { rows: lojas } = await pool.query(
@@ -892,21 +899,21 @@ router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => 
        JOIN lojas l ON l.id_loja = rl.id_loja
        WHERE rl.id_regiao = ANY($1::int[]) AND l.is_active = TRUE
        ORDER BY r.nome, l.name`,
-      [idsRegiao],
+      [filtroRegiao],
     );
 
     const { rows: regioes } = await pool.query(
       `SELECT id_regiao, nome FROM frota_regioes
        WHERE id_regiao = ANY($1::int[]) AND ativo = TRUE
        ORDER BY nome`,
-      [idsRegiao],
+      [filtroRegiao],
     );
 
     const veTodas =
       acessoTodasLojas(req.user) || temPermissao(req.user, 'frota.gerenciar');
     const { rows: veiculosDb } = await pool.query(
-      veTodas ? SQL_VEICULOS_MAPA_TODOS : SQL_VEICULOS_REGIOES,
-      veTodas ? [] : [idsRegiao],
+      veTodas && filtroRegiao.length === idsRegiao.length ? SQL_VEICULOS_MAPA_TODOS : SQL_VEICULOS_REGIOES,
+      veTodas && filtroRegiao.length === idsRegiao.length ? [] : [filtroRegiao],
     );
 
     let veiculos = await combinarVeiculosComRastreamento(veiculosDb);
@@ -1196,6 +1203,140 @@ router.get('/rastreamento/veiculos/:id/rota-dia', requirePermMapaTecnicos, async
       ...relatorio,
       rotas,
       rastreamento_ativo: fulltrackRastreamentoAtivo(),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Próxima visita da escala do responsável + ETA OSRM a partir da posição atual. */
+router.get('/rastreamento/veiculos/:id/proxima-visita', requirePermMapaTecnicos, async (req, res, next) => {
+  try {
+    const idVeiculo = Number(req.params.id);
+    if (!Number.isFinite(idVeiculo) || idVeiculo <= 0) {
+      return res.status(400).json({ error: 'Veículo inválido' });
+    }
+
+    const dataRefRaw = String(req.query.data || '').trim();
+    const dataRef = /^\d{4}-\d{2}-\d{2}$/.test(dataRefRaw)
+      ? dataRefRaw
+      : null;
+
+    const { rows } = await pool.query(
+      `SELECT v.id_veiculo, v.placa, v.id_usuario_responsavel, v.id_regiao,
+              COALESCE(v.id_regiao, rt.id_regiao) AS id_regiao_efetiva
+       FROM frota_veiculos v
+       LEFT JOIN frota_regiao_tecnicos rt ON rt.id_usuario = v.id_usuario_responsavel
+       WHERE v.id_veiculo = $1 AND v.ativo = TRUE
+       LIMIT 1`,
+      [idVeiculo],
+    );
+    const veiculo = rows[0];
+    if (!veiculo) return res.status(404).json({ error: 'Veículo não encontrado' });
+
+    const idRegiao = veiculo.id_regiao_efetiva ?? veiculo.id_regiao;
+    if (idRegiao != null && !(await usuarioPodeVerRegiaoMapa(req.user, idRegiao))) {
+      return res.status(403).json({ error: 'Sem permissão para ver este veículo' });
+    }
+
+    const idUsuario = veiculo.id_usuario_responsavel;
+    const dataExpr = dataRef ? '$2::date' : `(timezone('America/Sao_Paulo', now()))::date`;
+
+    let visita = null;
+    if (idUsuario) {
+      const q1 = await pool.query(
+        `SELECT c.id_celula, c.id_loja, l.name AS nome_loja, l.bk_number,
+                l.latitude, l.longitude,
+                (s.semana_inicio + c.dia)::date AS data_visita
+         FROM escala_visitas_celula c
+         JOIN escala_visitas_semana s ON s.id_semana = c.id_semana
+         JOIN lojas l ON l.id_loja = c.id_loja AND l.is_active = TRUE
+         WHERE c.id_regional = $1
+           AND (s.semana_inicio + c.dia)::date >= ${dataExpr}
+         ORDER BY (s.semana_inicio + c.dia)::date ASC, c.id_celula
+         LIMIT 1`,
+        dataRef ? [idUsuario, dataRef] : [idUsuario],
+      );
+      visita = q1.rows[0] || null;
+    }
+
+    if (!visita && idRegiao != null) {
+      const params = dataRef ? [idRegiao, dataRef] : [idRegiao];
+      const q2 = await pool.query(
+        `SELECT c.id_celula, c.id_loja, l.name AS nome_loja, l.bk_number,
+                l.latitude, l.longitude,
+                (s.semana_inicio + c.dia)::date AS data_visita
+         FROM escala_visitas_celula c
+         JOIN escala_visitas_semana s ON s.id_semana = c.id_semana
+         JOIN lojas l ON l.id_loja = c.id_loja AND l.is_active = TRUE
+         JOIN frota_regiao_lojas rl ON rl.id_loja = l.id_loja AND rl.id_regiao = $1
+         WHERE (s.semana_inicio + c.dia)::date >= ${dataRef ? '$2::date' : `(timezone('America/Sao_Paulo', now()))::date`}
+         ORDER BY (s.semana_inicio + c.dia)::date ASC, c.id_celula
+         LIMIT 1`,
+        params,
+      );
+      visita = q2.rows[0] || null;
+    }
+
+    if (!visita) {
+      return res.json({
+        id_veiculo: idVeiculo,
+        proxima_visita: null,
+        eta_minutos: null,
+        eta_horario: null,
+      });
+    }
+
+    const rotulo =
+      visita.bk_number != null && String(visita.bk_number).trim()
+        ? `BK - ${String(visita.nome_loja || '')
+            .replace(/^BURGER KING\s*-?\s*/i, '')
+            .trim() || visita.bk_number}`
+        : visita.nome_loja || '—';
+
+    let etaMinutos = null;
+    let etaHorario = null;
+
+    const [comRastreamento] = await combinarVeiculosComRastreamento([
+      { id_veiculo: idVeiculo, placa: veiculo.placa },
+    ]);
+    const latV = Number(comRastreamento?.latitude);
+    const lngV = Number(comRastreamento?.longitude);
+    const latL = Number(visita.latitude);
+    const lngL = Number(visita.longitude);
+
+    if (
+      Number.isFinite(latV) &&
+      Number.isFinite(lngV) &&
+      Number.isFinite(latL) &&
+      Number.isFinite(lngL)
+    ) {
+      const duracaoSec = await estimarDuracaoOsrm([latV, lngV], [latL, lngL]);
+      if (duracaoSec != null) {
+        etaMinutos = Math.max(1, Math.round(duracaoSec / 60));
+        const chegada = new Date(Date.now() + duracaoSec * 1000);
+        etaHorario = new Intl.DateTimeFormat('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).format(chegada);
+      }
+    }
+
+    res.json({
+      id_veiculo: idVeiculo,
+      proxima_visita: {
+        id_loja: visita.id_loja,
+        nome: visita.nome_loja,
+        bk_number: visita.bk_number,
+        rotulo,
+        data_visita: visita.data_visita,
+        latitude: visita.latitude != null ? Number(visita.latitude) : null,
+        longitude: visita.longitude != null ? Number(visita.longitude) : null,
+      },
+      eta_minutos: etaMinutos,
+      eta_horario: etaHorario,
     });
   } catch (e) {
     next(e);

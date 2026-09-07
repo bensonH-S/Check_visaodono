@@ -1,45 +1,61 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import CircularProgress from '@mui/material/CircularProgress';
 import { getToken, getUsuario, setSessao } from '../lib/auth';
 import { api } from '../api/client';
 import { normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
+import PageLoading from './PageLoading';
+import Box from '@mui/material/Box';
+import { colors } from '../theme/tokens';
+
+function sessaoLocalOk() {
+  return Boolean(getToken() && getUsuario());
+}
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const [ok, setOk] = useState<boolean | null>(null);
+  const [ok, setOk] = useState<boolean | null>(() => {
+    if (sessaoLocalOk()) return true;
+    if (!getToken()) return false;
+    return null;
+  });
+  const jaAutenticado = useRef(sessaoLocalOk());
 
   useEffect(() => {
     const token = getToken();
     if (!token) {
+      jaAutenticado.current = false;
       setOk(false);
       return;
     }
 
     let ativo = true;
-    setOk(null);
+    if (!jaAutenticado.current && !getUsuario()) {
+      setOk(null);
+    }
 
     api
       .me()
       .then((usuario) => {
         if (!ativo) return;
         setSessao(token, usuario);
+        jaAutenticado.current = true;
         setOk(true);
       })
       .catch((err) => {
         if (!ativo) return;
         const msg = err instanceof Error ? err.message : '';
         if (msg === 'Sessão expirada') {
+          jaAutenticado.current = false;
           setOk(false);
           return;
         }
-        // Ao reabrir o app (PWA), rede lenta não deve deslogar quem já tem sessão local.
-        if (getToken() && getUsuario()) {
+        if (sessaoLocalOk()) {
+          jaAutenticado.current = true;
           setOk(true);
           return;
         }
+        jaAutenticado.current = false;
         setOk(false);
       });
 
@@ -50,8 +66,16 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
   if (ok === null) {
     return (
-      <Box className="flex items-center justify-center min-h-screen bg-[#f5f5f3]">
-        <CircularProgress />
+      <Box
+        sx={{
+          minHeight: '100vh',
+          width: '100%',
+          bgcolor: colors.canvas,
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <PageLoading />
       </Box>
     );
   }

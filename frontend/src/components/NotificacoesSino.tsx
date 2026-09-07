@@ -121,7 +121,7 @@ function PainelNotificacoes({
     <>
       <Box sx={{ px: 2, py: 1.25, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.navy }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
             {tituloMenu}
           </Typography>
           <NotificacaoBadge count={naoLidas} />
@@ -313,7 +313,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
           carregar();
         }}
         sx={{
-          color: colors.navy,
+          color: colors.textSecondary,
           position: 'relative',
           ...(menuMobile && { p: 1 }),
         }}

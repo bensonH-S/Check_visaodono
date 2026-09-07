@@ -116,11 +116,13 @@ function ListaVeiculos({
               mb: 0.5,
               borderRadius: 2,
               border: '1px solid',
-              borderColor: selecionado ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.08)',
-              bgcolor: selecionado ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
+              borderColor: selecionado
+                ? 'rgba(255, 122, 61, 0.35)'
+                : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(27, 42, 107, 0.08)'),
+              bgcolor: selecionado ? 'rgba(255, 122, 61, 0.12)' : 'transparent',
               '&.Mui-selected': {
-                bgcolor: 'rgba(232, 82, 10, 0.1)',
-                '&:hover': { bgcolor: 'rgba(232, 82, 10, 0.14)' },
+                bgcolor: 'rgba(255, 122, 61, 0.16)',
+                '&:hover': { bgcolor: 'rgba(255, 122, 61, 0.22)' },
               },
             }}
           >
@@ -130,8 +132,12 @@ function ListaVeiculos({
                   width: 38,
                   height: 38,
                   borderRadius: 1.5,
-                  bgcolor: selecionado ? colors.orange : 'rgba(27, 42, 107, 0.07)',
-                  color: selecionado ? '#fff' : colors.navy,
+                  bgcolor: selecionado
+                    ? '#FF7A3D'
+                    : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(27, 42, 107, 0.07)'),
+                  color: selecionado
+                    ? '#fff'
+                    : (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navy),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -141,7 +147,7 @@ function ListaVeiculos({
                 <DirectionsCarFilledOutlinedIcon sx={{ fontSize: 19 }} />
               </Box>
               <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 800, color: colors.navy, lineHeight: 1.2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
                   {v.placa}
                   {!conectadoFulltrack(v, aoVivo) && (
                     <Typography
@@ -163,7 +169,9 @@ function ListaVeiculos({
                       display: 'block',
                       mt: 0.2,
                       fontWeight: 700,
-                      color: temGps ? colors.navy : colors.textMuted,
+                      color: temGps
+                        ? (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navy)
+                        : colors.textMuted,
                     }}
                   >
                     {temGps && status ? status : 'Sem sinal no mapa'}
@@ -171,7 +179,7 @@ function ListaVeiculos({
                 )}
                 {v.nome_regiao && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.35 }}>
-                    <LocationOnOutlinedIcon sx={{ fontSize: 13, color: colors.orange, opacity: 0.9 }} />
+                    <LocationOnOutlinedIcon sx={{ fontSize: 13, color: '#FF7A3D', opacity: 0.9 }} />
                     <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
                       {v.nome_regiao}
                     </Typography>
@@ -302,7 +310,10 @@ export default function MapaFiltroTrajetoVeiculo({
           }}
         />
       )}
-      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: colors.navy }}>
+      <Typography
+        variant="subtitle2"
+        sx={{ fontWeight: 800, color: (theme) => (theme.palette.mode === 'dark' ? '#F8FAFC' : '#1B2A6B') }}
+      >
         Escolher veículo
       </Typography>
       <Typography variant="caption" color="text.secondary">

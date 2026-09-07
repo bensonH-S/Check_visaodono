@@ -2,8 +2,8 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import type { ReactNode } from 'react';
-
-const NAVY = '#1B2A6B';
+import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type Props = {
   titulo: string;
@@ -15,23 +15,21 @@ type Props = {
   semPadding?: boolean;
 };
 
-const DESTAQUE_BORDA = {
-  default: 'rgba(27, 42, 107, 0.12)',
-  sucesso: '#22C55E',
-  alerta: '#F59E0B',
-};
-
 export default function DetalheSecao({ titulo, icone, children, destaque = 'default', semPadding }: Props) {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const bordaTopo =
+    destaque === 'sucesso' ? '#22C55E' : destaque === 'alerta' ? '#F59E0B' : escuro ? '#E8520A' : colors.navy;
+
   return (
     <Paper
       elevation={0}
       sx={{
         borderRadius: 2,
-        border: '1px solid rgba(27, 42, 107, 0.1)',
-        borderTop: `3px solid ${DESTAQUE_BORDA[destaque]}`,
+        border: `1px solid ${colors.border}`,
+        borderTop: `3px solid ${bordaTopo}`,
         overflow: 'hidden',
-        bgcolor: '#fff',
-        boxShadow: '0 1px 6px rgba(27, 42, 107, 0.06)',
+        bgcolor: colors.surface,
       }}
     >
       <Box
@@ -41,12 +39,15 @@ export default function DetalheSecao({ titulo, icone, children, destaque = 'defa
           display: 'flex',
           alignItems: 'center',
           gap: 1,
-          bgcolor: 'rgba(27, 42, 107, 0.03)',
-          borderBottom: '1px solid rgba(27, 42, 107, 0.08)',
+          bgcolor: escuro ? 'rgba(148, 163, 184, 0.08)' : 'rgba(27, 42, 107, 0.03)',
+          borderBottom: `1px solid ${colors.border}`,
         }}
       >
         {icone}
-        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: NAVY, letterSpacing: '-0.01em' }}>
+        <Typography
+          variant="subtitle2"
+          sx={{ fontWeight: 800, color: colors.textPrimary, letterSpacing: '-0.01em' }}
+        >
           {titulo}
         </Typography>
       </Box>

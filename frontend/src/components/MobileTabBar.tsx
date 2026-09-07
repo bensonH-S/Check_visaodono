@@ -7,6 +7,7 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { toAppPath } from '../config/paths';
 import { colors, radius } from '../theme/tokens';
 import { mobileTabBarItemSx, mobileTabBarNavSx, mobileTabBarShellSx } from '../theme/safeArea';
+import { useAppTheme } from '../context/ThemeContext';
 
 export type MobileTabItem = {
   to: string;
@@ -59,7 +60,7 @@ export default function MobileTabBar({
   items,
   pinnedTos = [],
   maxVisible = 4,
-  accent = colors.navy,
+  accent,
   tabHeight = 52,
   fontSize = '0.625rem',
   iconSize = 20,
@@ -68,6 +69,12 @@ export default function MobileTabBar({
   const navigate = useNavigate();
   const path = toAppPath(useLocation().pathname);
   const [maisAberto, setMaisAberto] = useState(false);
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+
+  const defaultAccent = escuro ? '#FF7A3D' : '#1B2A6B';
+  const effectiveAccent = accent || defaultAccent;
+
   const { primary, more } = splitMobileTabs(items, pinnedTos, maxVisible);
   const maisAtivo = more.some((item) => tabItemAtivo(item, path));
 
@@ -80,14 +87,14 @@ export default function MobileTabBar({
 
   const itemSx = (ativo: boolean) => ({
     ...mobileTabBarItemSx(tabHeight),
-    color: ativo ? accent : colors.textMuted,
+    color: ativo ? effectiveAccent : (escuro ? '#94A3B8' : colors.textMuted),
     fontSize,
     fontWeight: ativo ? 600 : 500,
     border: 0,
     background: 'none',
     cursor: 'pointer',
     fontFamily: 'inherit',
-    '& .MuiSvgIcon-root': { fontSize: iconSize, mb: 0.25, color: ativo ? accent : 'inherit' },
+    '& .MuiSvgIcon-root': { fontSize: iconSize, mb: 0.25, color: ativo ? effectiveAccent : 'inherit' },
   });
 
   return (
@@ -102,30 +109,35 @@ export default function MobileTabBar({
         }}
       >
         <Box component="nav" sx={{ ...mobileTabBarNavSx(tabHeight), display: 'flex' }}>
-          {primary.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              style={{ textDecoration: 'none', flex: 1 }}
-            >
-              {() => {
-                const ativo = tabItemAtivo(item, path);
-                return (
-                  <Box sx={itemSx(ativo)}>
-                    {item.icon}
-                    {item.label}
-                  </Box>
-                );
-              }}
-            </NavLink>
-          ))}
+          {primary.map((item) => {
+            const ativo = tabItemAtivo(item, path);
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  `mobile-tab-bar__link${ativo || isActive ? ' active is-active' : ''}`
+                }
+                style={{ textDecoration: 'none', flex: 1 }}
+              >
+                <Box
+                  className={`mobile-tab-bar__item${ativo ? ' is-active' : ''}`}
+                  sx={itemSx(ativo)}
+                >
+                  {item.icon}
+                  {item.label}
+                </Box>
+              </NavLink>
+            );
+          })}
           {more.length > 0 && (
             <Box
               component="button"
               type="button"
               aria-label="Mais módulos"
               aria-expanded={maisAberto}
+              className={`mobile-tab-bar__btn mobile-tab-bar__btn--more${maisAtivo ? ' is-active active' : ''}`}
               onClick={() => setMaisAberto(true)}
               sx={{ ...itemSx(maisAtivo), flex: 1 }}
             >
@@ -143,8 +155,10 @@ export default function MobileTabBar({
         slotProps={{
           paper: {
             sx: {
+              bgcolor: escuro ? '#1E293B' : '#FFFFFF',
               borderTopLeftRadius: radius.xl,
               borderTopRightRadius: radius.xl,
+              border: escuro ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
               maxHeight: '72vh',
               pb: 'env(safe-area-inset-bottom, 0px)',
             },
@@ -157,12 +171,12 @@ export default function MobileTabBar({
               width: 36,
               height: 4,
               borderRadius: 2,
-              bgcolor: colors.borderStrong,
+              bgcolor: escuro ? 'rgba(255, 255, 255, 0.2)' : colors.borderStrong,
               mx: 'auto',
               mb: 1.5,
             }}
           />
-          <Typography sx={{ fontWeight: 700, color: colors.navy, fontSize: '0.9375rem', mb: 1.25 }}>
+          <Typography sx={{ fontWeight: 700, color: escuro ? '#F8FAFC' : colors.navy, fontSize: '0.9375rem', mb: 1.25 }}>
             Mais
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -184,16 +198,26 @@ export default function MobileTabBar({
                     py: 1.1,
                     border: 0,
                     borderRadius: `${radius.md}px`,
-                    bgcolor: ativo ? colors.navyMuted : 'transparent',
-                    color: ativo ? colors.navy : colors.textPrimary,
+                    bgcolor: ativo
+                      ? (escuro ? 'rgba(255, 122, 61, 0.16)' : colors.navyMuted)
+                      : 'transparent',
+                    color: ativo
+                      ? (escuro ? '#FF7A3D' : colors.navy)
+                      : (escuro ? '#F8FAFC' : colors.textPrimary),
                     fontWeight: ativo ? 600 : 500,
                     fontSize: '0.875rem',
                     fontFamily: 'inherit',
                     cursor: 'pointer',
-                    '&:hover': { bgcolor: ativo ? colors.navyMuted : colors.canvasAlt },
+                    '&:hover': {
+                      bgcolor: ativo
+                        ? (escuro ? 'rgba(255, 122, 61, 0.22)' : colors.navyMuted)
+                        : (escuro ? 'rgba(255, 255, 255, 0.06)' : colors.canvasAlt),
+                    },
                     '& .MuiSvgIcon-root': {
                       fontSize: 22,
-                      color: ativo ? accent : colors.textSecondary,
+                      color: ativo
+                        ? effectiveAccent
+                        : (escuro ? '#94A3B8' : colors.textSecondary),
                     },
                   }}
                 >

@@ -12,6 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { api, fetchMediaAutenticada, type FrotaTermoPortalDetalhe } from '../../api/client';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { colors } from '../../theme/tokens';
+import { useAppTheme } from '../../context/ThemeContext';
 
 function mediaUrlCompleta(mediaUrl: string) {
   return mediaUrl.startsWith('http') ? mediaUrl : `${window.location.origin}${mediaUrl}`;
@@ -83,6 +84,8 @@ type Props = {
 };
 
 export default function FrotaTermoAssinadoModal({ idTermo, open, onClose }: Props) {
+  const { mode } = useAppTheme();
+  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
   const [termo, setTermo] = useState<FrotaTermoPortalDetalhe | null>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
@@ -115,12 +118,12 @@ export default function FrotaTermoAssinadoModal({ idTermo, open, onClose }: Prop
           justifyContent: 'space-between',
           gap: 1,
           fontWeight: 700,
-          color: colors.navy,
+          color: acento,
           pr: 1,
         }}
       >
         <Box sx={{ minWidth: 0 }}>
-          <Typography component="span" variant="subtitle1" sx={{ fontWeight: 700, display: 'block' }}>
+          <Typography component="span" variant="subtitle1" sx={{ fontWeight: 700, display: 'block', color: acento }}>
             Termo de ferramentas
           </Typography>
           <Typography variant="caption" color="text.secondary">

@@ -17,12 +17,12 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
-import LinearProgress from '@mui/material/LinearProgress';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import Divider from '@mui/material/Divider';
+import PageLoading from '../components/PageLoading';
 import Switch from '@mui/material/Switch';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -79,6 +79,7 @@ export default function UsuariosPage() {
   const { showToast, ToastSnackbar } = useToast();
 
   const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const sessao = getUsuario();
   const podeEditarChecklistsCargo =
@@ -317,11 +318,7 @@ export default function UsuariosPage() {
 
 
   if (loading) {
-    return (
-      <Box sx={{ width: '100%' }}>
-        <LinearProgress />
-      </Box>
-    );
+    return <PageLoading />;
   }
 
   return (
@@ -431,7 +428,7 @@ export default function UsuariosPage() {
                   sx={{
                     ...tableCellWrapSx,
                     fontWeight: 600,
-                    color: colors.navy,
+                    color: (theme: any) => (theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy),
                     '&:hover': { textDecoration: 'underline' },
                   }}
                 >
@@ -440,7 +437,7 @@ export default function UsuariosPage() {
                 <TableCell>{u.email}</TableCell>
                 <TableCell>
                   {(() => {
-                    const estilo = estiloChipPerfil(u.cargo_aprovacao);
+                    const estilo = estiloChipPerfil(u.cargo_aprovacao, isDark);
                     return (
                       <Chip
                         label={nomePerfilUsuario(u)}
@@ -603,7 +600,7 @@ export default function UsuariosPage() {
               }}
             >
               {cargos.map((c) => {
-                const estilo = estiloChipPerfil(c.codigo);
+                const estilo = estiloChipPerfil(c.codigo, isDark);
                 return (
                   <MenuItem
                     key={c.codigo}
@@ -640,8 +637,8 @@ export default function UsuariosPage() {
                     Vale para todos os usuários com o perfil{' '}
                     <strong>{cargoSelecionado(form.cargo_aprovacao)?.nome || form.cargo_aprovacao}</strong>.
                     Também em{' '}
-                    <RouterLink to="/configuracoes/cargos" style={{ color: colors.navy }}>
-                      Configurações → Cargos
+                    <RouterLink to="/cargos" style={{ color: colors.navy }}>
+                      Permissões
                     </RouterLink>
                     .
                   </Typography>

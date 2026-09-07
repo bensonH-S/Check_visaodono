@@ -65,10 +65,10 @@ export default function FrotaVeiculoControleCard({
         p: 2,
         mb: 2,
         borderRadius: 2.5,
-        border: '1px solid rgba(27, 42, 107, 0.12)',
-        borderLeft: `4px solid ${NAVY}`,
-        bgcolor: '#fff',
-        boxShadow: '0 6px 20px rgba(27, 42, 107, 0.08)',
+        border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(27, 42, 107, 0.12)',
+        borderLeft: (theme) => `4px solid ${theme.palette.mode === 'dark' ? ORANGE : NAVY}`,
+        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#111827' : '#fff',
+        boxShadow: (theme) => theme.palette.mode === 'dark' ? '0 8px 24px rgba(0, 0, 0, 0.4)' : '0 6px 20px rgba(27, 42, 107, 0.08)',
         overflow: 'hidden',
         position: 'relative',
       }}
@@ -91,7 +91,7 @@ export default function FrotaVeiculoControleCard({
             width: 48,
             height: 48,
             borderRadius: 2,
-            bgcolor: 'rgba(27, 42, 107, 0.08)',
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(27, 42, 107, 0.08)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -109,7 +109,7 @@ export default function FrotaVeiculoControleCard({
           >
             {exibeDevolucao ? 'Veículo sob seu controle' : 'Seu veículo'}
           </Typography>
-          <Typography sx={{ fontWeight: 800, color: NAVY, fontSize: '1.05rem', lineHeight: 1.3, mt: 0.25 }}>
+          <Typography sx={{ fontWeight: 800, color: (theme) => theme.palette.mode === 'dark' ? '#F8FAFC' : NAVY, fontSize: '1.05rem', lineHeight: 1.3, mt: 0.25 }}>
             {rotuloVeiculoLista(veiculo)}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
@@ -119,10 +119,10 @@ export default function FrotaVeiculoControleCard({
                 label={`KM ${veiculo.km_atual.toLocaleString('pt-BR')}`}
                 size="small"
                 sx={{
-                  bgcolor: 'rgba(27, 42, 107, 0.06)',
-                  color: NAVY,
+                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(27, 42, 107, 0.06)',
+                  color: (theme) => theme.palette.mode === 'dark' ? '#94A3B8' : NAVY,
                   fontWeight: 600,
-                  border: '1px solid rgba(27, 42, 107, 0.1)',
+                  border: (theme) => theme.palette.mode === 'dark' ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(27, 42, 107, 0.1)',
                 }}
               />
             )}

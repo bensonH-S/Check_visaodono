@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LinearProgress from '@mui/material/LinearProgress';
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
+import PageLoading from '../../components/PageLoading';
 import { api, type EnergiaChamado, type Loja } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile, podeAbrirEnergia } from '../../lib/auth';
 import { EnergiaLojaHead, EnergiaMobileChrome, EnergiaMobileStage } from './EnergiaMobileShell';
@@ -178,7 +178,7 @@ export default function EnergiaMobileListaPage() {
           {idLoja && podeAbrir ? (
             <button
               type="button"
-              className="ck-estoque-nfe__atalho is-diario"
+              className="ck-estoque-nfe__atalho ck-energia__btn-novo"
               style={{ marginBottom: '16px' }}
               onClick={() => navigate('/energia/mobile/novo')}
             >
@@ -192,7 +192,7 @@ export default function EnergiaMobileListaPage() {
         </div>
 
         <div className="ck-visitas__sheet-body">
-          {loading && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
+          {loading && <PageLoading />}
 
           {!loading && !filtrada.length && (
             <div className="ck-estoque__empty">

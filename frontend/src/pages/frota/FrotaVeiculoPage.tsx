@@ -209,7 +209,7 @@ export default function FrotaVeiculoPage() {
         />
       ) : (
         <div className="ck-frota__form-card">
-          <Typography sx={{ fontWeight: 800, color: '#142048', mb: 0.5, fontSize: '1rem' }}>
+          <Typography sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5, fontSize: '1rem' }}>
             Assumir controle do carro
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.82rem' }}>
@@ -277,7 +277,7 @@ export default function FrotaVeiculoPage() {
 
           {dadosPreenchidos && !cnhPreenchida && (
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#142048' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.primary' }}>
                 Foto da CNH
               </Typography>
               <PhotoCaptureMulti
@@ -295,7 +295,7 @@ export default function FrotaVeiculoPage() {
               <Alert severity="success" variant="outlined" sx={{ mb: 2 }}>
                 CNH anexada. Agora tire ao menos uma foto do veículo.
               </Alert>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5, color: '#142048' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5, color: 'text.primary' }}>
                 Fotos do veículo
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
