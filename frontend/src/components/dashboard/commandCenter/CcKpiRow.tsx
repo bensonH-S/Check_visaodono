@@ -6,17 +6,17 @@ import StoreIcon from '@mui/icons-material/Store';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import { shadows } from '../../../theme/tokens';
 import { fmtDelta, fmtInt, fmtPct } from './ccFormat';
-import { CC_RADIUS, CcSkeleton } from './CcPanel';
+import { CC_BORDER, CC_GAP, CC_RADIUS, CC_SURFACE } from './ccTheme';
+import { CcSkeleton } from './CcPanel';
 
 function Sparkline({ values }: { values: number[] }) {
   if (!values.length) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = Math.max(1, max - min);
-  const w = 72;
-  const h = 28;
+  const w = 64;
+  const h = 24;
   const pts = values
     .map((v, i) => {
       const x = (i / Math.max(1, values.length - 1)) * w;
@@ -54,17 +54,17 @@ function KpiCard({
   return (
     <Box
       sx={{
-        bgcolor: 'var(--ga-surface)',
-        border: '1px solid var(--ga-border)',
+        bgcolor: CC_SURFACE,
+        border: `1px solid ${CC_BORDER}`,
         borderRadius: `${CC_RADIUS}px`,
-        px: { xs: 1.25, sm: 1.5, md: 2, xl: 2.25 },
-        py: { xs: 1.5, md: 2.25 },
-        boxShadow: shadows.sm,
+        px: { xs: 1.25, md: 1.75 },
+        py: 1.25,
+        boxShadow: 'none',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         height: '100%',
-        minHeight: { xs: 88, md: 108 },
+        minHeight: 86,
         minWidth: 0,
         flex: '1 1 0',
         overflow: 'hidden',
@@ -73,10 +73,10 @@ function KpiCard({
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography
           sx={{
-            fontSize: { xs: '0.55rem', sm: '0.575rem', md: '0.625rem' },
+            fontSize: '0.625rem',
             fontWeight: 700,
             color: 'var(--ga-text-muted)',
-            mb: { xs: 0.65, md: 1 },
+            mb: 0.55,
             letterSpacing: '0.05em',
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
@@ -88,11 +88,11 @@ function KpiCard({
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: '1.15rem', sm: '1.35rem', md: '1.55rem', xl: '1.75rem' },
+            fontSize: { xs: '1.25rem', md: '1.5rem' },
             fontWeight: 700,
             color: 'var(--ga-text-primary)',
             lineHeight: 1,
-            mb: { xs: 0.65, md: 1 },
+            mb: 0.5,
             whiteSpace: 'nowrap',
           }}
         >
@@ -102,7 +102,7 @@ function KpiCard({
           <Typography
             component="div"
             sx={{
-              fontSize: { xs: '0.65rem', md: '0.75rem' },
+              fontSize: '0.6875rem',
               color: 'var(--ga-text-secondary)',
               display: 'flex',
               alignItems: 'center',
@@ -123,9 +123,9 @@ function KpiCard({
       {icon && (
         <Box
           sx={{
-            width: { xs: 36, md: 44, xl: 48 },
-            height: { xs: 36, md: 44, xl: 48 },
-            borderRadius: `${CC_RADIUS}px`,
+            width: 36,
+            height: 36,
+            borderRadius: '8px',
             display: { xs: 'none', sm: 'flex' },
             alignItems: 'center',
             justifyContent: 'center',
@@ -170,7 +170,7 @@ export default function CcKpiRow({
   const rowSx = {
     display: 'flex',
     flexWrap: 'nowrap' as const,
-    gap: { xs: 1, sm: 1.25, md: 2 },
+    gap: CC_GAP,
     width: '100%',
     minWidth: 0,
   };
@@ -180,7 +180,7 @@ export default function CcKpiRow({
       <Box sx={rowSx}>
         {Array.from({ length: 5 }).map((_, i) => (
           <Box key={i} sx={{ flex: '1 1 0', minWidth: 0 }}>
-            <CcSkeleton height={108} />
+            <CcSkeleton height={86} />
           </Box>
         ))}
       </Box>

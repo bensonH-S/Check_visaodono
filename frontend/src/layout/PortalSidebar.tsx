@@ -20,7 +20,7 @@ import SobreSistemaDialog from '../components/SobreSistemaDialog';
 import IntegrationsStatusDialog from '../components/IntegrationsStatusDialog';
 import { nomeExibicaoUsuario } from '../lib/auth';
 import type { UsuarioSessao } from '../lib/auth';
-import { toAppPath } from '../config/paths';
+import { assetUrl, LOGO_GRUPO_ALVIM_OFICIAL, toAppPath } from '../config/paths';
 import { colors, layout, radius, sectionLabelSx } from '../theme/tokens';
 import { APP_NAME } from '../config/brand';
 import { useAppConfig } from '../hooks/useAppConfig';
@@ -41,9 +41,10 @@ type Props = {
   user: UsuarioSessao | null;
   iniciais: string;
   onLogout: () => void;
+  logoOficial?: boolean;
 };
 
-export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) {
+export default function PortalSidebar({ nav, user, iniciais, onLogout, logoOficial }: Props) {
   const { version, environment } = useAppConfig();
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
@@ -95,9 +96,9 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
     >
       <Box
         sx={{
-          px: 1.75,
-          pt: 2,
-          pb: 1.5,
+          px: logoOficial ? 1 : 1.75,
+          pt: logoOficial ? 1.25 : 2,
+          pb: logoOficial ? 1 : 1.5,
           borderBottom: '1px solid',
           borderColor: colors.border,
           display: 'flex',
@@ -105,14 +106,31 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
           alignItems: 'center',
         }}
       >
-        <BrandLogo
-          maxWidth={118}
-          sx={{
-            display: 'block',
-            // Compensa padding transparente do PNG
-            mb: '-14px',
-          }}
-        />
+        {logoOficial ? (
+          <Box
+            component="img"
+            src={`${assetUrl(LOGO_GRUPO_ALVIM_OFICIAL)}?v=2`}
+            alt="Grupo Alvim"
+            sx={{
+              width: '100%',
+              maxWidth: 208,
+              maxHeight: 176,
+              height: 'auto',
+              display: 'block',
+              objectFit: 'contain',
+              background: 'transparent',
+              mb: -0.5,
+            }}
+          />
+        ) : (
+          <BrandLogo
+            maxWidth={118}
+            sx={{
+              display: 'block',
+              mb: '-14px',
+            }}
+          />
+        )}
         <Typography
           sx={{
             mt: 0.25,

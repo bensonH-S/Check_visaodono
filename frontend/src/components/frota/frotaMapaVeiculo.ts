@@ -483,6 +483,7 @@ export function desenharMarcadorVeiculoAoVivo(
   veiculo: FrotaVeiculoPosicao,
   bounds: L.LatLngBounds,
   pane = 'paneVeiculoHistorico',
+  opcoes?: { semPopup?: boolean; onClicar?: (veiculo: FrotaVeiculoPosicao) => void },
 ) {
   layer.clearLayers();
   const lat = Number(veiculo.latitude);
@@ -495,6 +496,12 @@ export function desenharMarcadorVeiculoAoVivo(
     icon: marcadorVeiculo(veiculo, true, true, veiculo.rastreamento_disponivel !== false),
     zIndexOffset: 900,
   });
-  vincularPopupVeiculo(marker, veiculo, undefined, veiculo.rastreamento_disponivel !== false);
+  vincularPopupVeiculo(
+    marker,
+    veiculo,
+    opcoes?.onClicar,
+    veiculo.rastreamento_disponivel !== false,
+    Boolean(opcoes?.semPopup),
+  );
   marker.addTo(layer);
 }

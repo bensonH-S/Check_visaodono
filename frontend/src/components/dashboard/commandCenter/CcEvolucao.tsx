@@ -41,7 +41,7 @@ export default function CcEvolucao({
     <CcPanel
       title="Evolução da performance"
       subtitle="Últimos 6 meses"
-      minHeight={260}
+      minHeight={0}
     >
       {loading ? (
         <CcSkeleton height={200} />
@@ -69,7 +69,7 @@ export default function CcEvolucao({
             )}
           </Box>
 
-          <Box sx={{ flex: 1, minHeight: 160 }}>
+          <Box sx={{ flex: 1, minHeight: 110 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dados} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                 <defs>

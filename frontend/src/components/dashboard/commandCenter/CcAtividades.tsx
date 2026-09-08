@@ -77,7 +77,7 @@ export default function CcAtividades({
   ];
 
   return (
-    <CcPanel title="Atividades pendentes" action="Ver todas" actionTo="/nao-conformidades" minHeight={260}>
+    <CcPanel title="Atividades pendentes" action="Ver todas" actionTo="/nao-conformidades" minHeight={0}>
       {loading ? (
         <CcSkeleton height={200} />
       ) : (
@@ -92,7 +92,7 @@ export default function CcAtividades({
                 alignItems: 'center',
                 gap: 1.5,
                 px: 0.5,
-                py: 1.15,
+                py: 0.7,
                 textDecoration: 'none',
                 color: 'inherit',
                 borderRadius: 1,

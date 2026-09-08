@@ -1,0 +1,36 @@
+/* Escopo: só a rota /dashboard (classe .cc-page no PortalLayout). */
+.cc-page {
+  --ga-canvas: #070708;
+  --ga-surface: #111113;
+  --ga-canvas-alt: #18181b;
+  --ga-picker-paper: #111113;
+  --ga-border: rgba(255, 255, 255, 0.08);
+  --ga-border-strong: rgba(255, 255, 255, 0.14);
+  --ga-text-primary: #f5f5f5;
+  --ga-text-secondary: #a1a1aa;
+  --ga-text-muted: #71717a;
+  --ga-sidebar-bg: #070708;
+  --ga-sidebar-border: rgba(255, 255, 255, 0.08);
+  --ga-sidebar-active-bg: rgba(232, 82, 10, 0.14);
+  --ga-sidebar-active-text: #f5f5f5;
+  --ga-sidebar-active-border: transparent;
+  --ga-sidebar-active-icon: #e8520a;
+  --ga-orange: #e8520a;
+  --ga-orange-hover: #cf4909;
+  background-color: #070708;
+  color: #f5f5f5;
+}
+
+.cc-page aside {
+  width: 228px;
+  background: #070708;
+}
+
+.cc-page aside nav a > div {
+  border-left-width: 0 !important;
+}
+
+.cc-page .cc-page-main {
+  height: 100%;
+  min-height: 0;
+}

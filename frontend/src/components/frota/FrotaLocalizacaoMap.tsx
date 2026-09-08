@@ -871,7 +871,10 @@ export default function FrotaLocalizacaoMap({
           vincularPopupVeiculo(
             marker,
             v,
-            (veiculo) => onVeiculoClickRef.current?.(veiculo),
+            (veiculo) => {
+              ignorarProximoClickMapaRef.current = true;
+              onVeiculoClickRef.current?.(veiculo);
+            },
             v.rastreamento_disponivel !== false,
             !exibirPopupVeiculo,
           );
@@ -884,7 +887,10 @@ export default function FrotaLocalizacaoMap({
           vincularPopupVeiculo(
             marker,
             v,
-            (veiculo) => onVeiculoClickRef.current?.(veiculo),
+            (veiculo) => {
+              ignorarProximoClickMapaRef.current = true;
+              onVeiculoClickRef.current?.(veiculo);
+            },
             v.rastreamento_disponivel !== false,
             !exibirPopupVeiculo,
           );
@@ -1008,7 +1014,10 @@ export default function FrotaLocalizacaoMap({
       vincularPopupVeiculo(
         marker,
         v,
-        (veiculo) => onVeiculoClickRef.current?.(veiculo),
+        (veiculo) => {
+          ignorarProximoClickMapaRef.current = true;
+          onVeiculoClickRef.current?.(veiculo);
+        },
         v.rastreamento_disponivel !== false,
         !exibirPopupVeiculo,
       );
@@ -1090,6 +1099,13 @@ export default function FrotaLocalizacaoMap({
           veiculoAoVivoTrajeto,
           boundsVeiculo,
           'paneVeiculoTrajetoMobile',
+          {
+            semPopup: !exibirPopupVeiculo,
+            onClicar: (veiculo) => {
+              ignorarProximoClickMapaRef.current = true;
+              onVeiculoClickRef.current?.(veiculo);
+            },
+          },
         );
         if (!bounds?.isValid()) {
           const lat = Number(veiculoAoVivoTrajeto.latitude);

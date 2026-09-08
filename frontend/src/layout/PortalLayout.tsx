@@ -39,6 +39,8 @@ import SobreSistemaButton from '../components/SobreSistemaButton';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import { colors } from '../theme/tokens';
+import { CC_BG } from '../components/dashboard/commandCenter/ccTheme';
+import '../components/dashboard/commandCenter/commandCenter.css';
 import { isPaginaScrollInterno } from '../utils/pageFillLayout';
 import { podeAcessarModuloFrota } from '../pages/frota/frotaNav';
 import {
@@ -342,14 +344,20 @@ function PortalLayoutInner() {
 
   return (
     <Box
-      className={`flex h-full ${colunaEstreita ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}`}
+      className={`flex h-full ${colunaEstreita ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}${isDashboard ? ' cc-page' : ''}`}
       sx={{ bgcolor: colors.canvas }}
     >
       {!hideSidebar && (
-        <PortalSidebar nav={sidebarNav} user={user} iniciais={iniciais} onLogout={handleLogout} />
+        <PortalSidebar
+          nav={sidebarNav}
+          user={user}
+          iniciais={iniciais}
+          onLogout={handleLogout}
+          logoOficial={isDashboard}
+        />
       )}
 
-      <Box className="flex-1 flex flex-col min-w-0 min-h-0" sx={{ bgcolor: colors.canvas }}>
+      <Box className="flex-1 flex flex-col min-w-0 min-h-0" sx={{ bgcolor: isDashboard ? CC_BG : colors.canvas }}>
         {/* Topbar desktop */}
         {!hideSidebar && (
           <Box
@@ -359,11 +367,11 @@ function PortalLayoutInner() {
               alignItems: 'center',
               justifyContent: 'space-between',
               px: 3,
-              height: isDashboard ? 64 : 56,
+              height: isDashboard ? 58 : 56,
               flexShrink: 0,
               borderBottom: isDashboard ? 'none' : '1px solid',
               borderColor: colors.border,
-              bgcolor: colors.canvas,
+              bgcolor: isDashboard ? CC_BG : colors.canvas,
             }}
           >
             <PageHeaderTitle {...pageTitle} variant="desktop" />
@@ -423,18 +431,26 @@ function PortalLayoutInner() {
               : scrollInterno
                 ? { xs: 2, md: 2 }
                 : isDashboard
-                  ? { xs: 1.5, md: 2 }
+                  ? { xs: 1.25, md: 1.5 }
                   : emConfiguracoes || emFrota
                     ? { xs: 2, md: 2.5 }
                     : { xs: 2.5, md: 3 },
             pb:
               mobileTabsRodape.length > 0 && !isChamadoNovo
                 ? { xs: safeAreaBottomCalc(80), md: 3 }
-                : 3,
+                : isDashboard
+                  ? { xs: 1.25, md: 1.5 }
+                  : 3,
             maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
             mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
             width: '100%',
-            bgcolor: colors.canvas,
+            bgcolor: isDashboard ? CC_BG : colors.canvas,
+            ...(isDashboard
+              ? {
+                  flex: 1,
+                  minHeight: 0,
+                }
+              : null),
           }}
         >
           <Outlet />

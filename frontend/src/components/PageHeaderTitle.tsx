@@ -11,8 +11,8 @@ export default function PageHeaderTitle({ title, subtitle, icon, variant = 'mobi
   const typographySx =
     variant === 'desktop'
       ? {
-          fontWeight: 600,
-          fontSize: '1.125rem',
+          fontWeight: title === 'Command Center' ? 700 : 600,
+          fontSize: title === 'Command Center' ? '1.375rem' : '1.125rem',
           color: colors.textPrimary,
           letterSpacing: '-0.015em',
           lineHeight: 1.2,

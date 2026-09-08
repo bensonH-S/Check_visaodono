@@ -1229,6 +1229,19 @@ export const api = {
   estoqueExcluirContagem: (id: number) =>
     request<void>(`/estoque/contagens/${id}`, { method: 'DELETE' }),
 
+  estoqueSaldosRedeBaixo: () =>
+    request<{
+      total: number;
+      itens: Array<{
+        id_loja: number;
+        loja: string;
+        codigo: string;
+        descricao: string;
+        unidade?: string | null;
+        grupo?: string | null;
+        quantidade: number;
+      }>;
+    }>('/estoque/saldos/rede-baixo'),
   estoqueSaldos: (idLoja: number, q?: string, opts?: { diaria?: boolean }) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (q) params.set('q', q);

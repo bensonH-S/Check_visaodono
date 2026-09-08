@@ -264,6 +264,55 @@ router.get('/saldos', permSaldo, async (req, res, next) => {
   }
 });
 
+/** Command Center: itens da diária zerados/baixos na rede. */
+router.get('/saldos/rede-baixo', permSaldo, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const { rows } = await pool.query(
+      `
+      SELECT
+        p.id_loja,
+        l.name AS loja,
+        p.codigo,
+        p.descricao,
+        p.unidade_contagem,
+        p.grupo_diario,
+        COALESCE(s.quantidade, 0)::numeric AS quantidade
+      FROM insumos p
+      JOIN lojas l ON l.id_loja = p.id_loja
+      LEFT JOIN estoque_saldos s
+        ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
+      WHERE p.ativo = TRUE
+        AND COALESCE(p.contagem_diaria, FALSE) = TRUE
+        AND COALESCE(s.quantidade, 0) <= 0.001
+        AND l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
+        AND ($1::int[] IS NULL OR p.id_loja = ANY($1::int[]))
+      ORDER BY quantidade ASC, l.name, p.descricao
+      LIMIT 40
+      `,
+      [ids],
+    );
+    res.json({
+      total: rows.length,
+      itens: rows.map((r) => ({
+        id_loja: r.id_loja,
+        loja: r.loja,
+        codigo: r.codigo,
+        descricao: r.descricao,
+        unidade: r.unidade_contagem,
+        grupo: r.grupo_diario || null,
+        quantidade: num(r.quantidade),
+      })),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/movimentos', permOp, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);

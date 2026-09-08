@@ -1,0 +1,21 @@
+/** Tokens só do Command Center — não alteram o restante do portal. */
+export const CC_BG = '#070708';
+export const CC_SIDEBAR = '#070708';
+export const CC_SURFACE = '#111113';
+export const CC_SURFACE_2 = '#18181B';
+export const CC_BORDER = 'rgba(255, 255, 255, 0.08)';
+export const CC_TEXT = '#F5F5F5';
+export const CC_TEXT_2 = '#A1A1AA';
+export const CC_MUTED = '#71717A';
+export const CC_ORANGE = '#E8520A';
+export const CC_ORANGE_HOVER = '#CF4909';
+export const CC_CRITICO = '#F43F5E';
+export const CC_OK = '#22C55E';
+export const CC_WARN = '#C4A574';
+export const CC_INFO = '#8A8A93';
+export const CC_PARADO = '#94A3B8';
+export const CC_EXCESSO = '#EF4444';
+export const CC_RADIUS = 10;
+export const CC_GAP = 2;
+export const CC_MIDDLE_H = 420;
+export const CC_BOTTOM_H = 220;
