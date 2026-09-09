@@ -20,6 +20,7 @@ import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
 import {
+  CONTAGEM_SEMANAL_ATIVA,
   ehContagemParcial,
   rotuloTipoContagem,
   type TipoContagemEstoque,
@@ -205,6 +206,10 @@ export default function EstoqueMobileListaPage() {
 
   const iniciar = async (tipo: TipoContagemEstoque) => {
     if (!idLoja) return;
+    if (tipo === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
+      showToast('Contagem semanal está desativada', 'error');
+      return;
+    }
     if (tipo === 'diaria' && diariaHoje?.id_contagem) {
       setDlgTipo(false);
       navigate(`/estoque/mobile/${diariaHoje.id_contagem}`);
@@ -605,6 +610,7 @@ export default function EstoqueMobileListaPage() {
                     <strong>Contagem diária</strong>
                     <small>Carne, frango, queijo, bacon, pão, batata, copos e mix</small>
                   </button>
+                  {CONTAGEM_SEMANAL_ATIVA && (
                   <button
                     type="button"
                     className="ck-estoque__modal-action-btn"
@@ -614,6 +620,7 @@ export default function EstoqueMobileListaPage() {
                     <strong>Contagem semanal (segunda)</strong>
                     <small>Contagem específica de mix (Coca 18L, outros 10L) e latas</small>
                   </button>
+                  )}
                   <button
                     type="button"
                     className="ck-estoque__modal-action-btn"

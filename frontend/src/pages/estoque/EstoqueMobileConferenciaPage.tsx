@@ -14,14 +14,18 @@ import '../../components/estoque/estoque-mobile.css';
 import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
 import {
   fracionadaInteira,
+  modoEntradaEfetivo,
+  modoEntradaInicial,
   parseNumCampoContagem,
   permiteCamposItem,
+  podeInformarKg,
   qtdPreviewSeguro,
-  rotuloCampoFracionado,
+  rascunhoDeItemContagem,
+  rotuloModoEntrada,
   sanitizarEntradaFracionada,
   sanitizarEntradaNaoNegativa,
   temEntradaTerraco,
-  unidadeFracionadaItem,
+  type ModoEntradaFracionada,
   type RascunhoContagem,
 } from '../../components/estoque/estoqueContagemCampo';
 
@@ -78,21 +82,7 @@ function calcTotalLinha(qtd: number | null | undefined, valorUnidade: number): n
 }
 
 function rascunhoDeItem(i: EstoqueItem): RascunhoLinha {
-  const p = permiteCampos(i);
-  const temTerraco =
-    i.contagem_caixa != null || i.contagem_pc_fd != null || i.contagem_kg_und != null;
-  if (temTerraco) {
-    return {
-      caixa: !p.caixa || i.contagem_caixa == null ? '' : String(i.contagem_caixa),
-      pc: !p.pc || i.contagem_pc_fd == null ? '' : String(i.contagem_pc_fd),
-      kg: !p.kg || i.contagem_kg_und == null ? '' : String(i.contagem_kg_und),
-    };
-  }
-  return {
-    caixa: '',
-    pc: '',
-    kg: p.kg && i.estoque_contado != null ? String(i.estoque_contado) : '',
-  };
+  return rascunhoDeItemContagem(i);
 }
 
 function rascunhoComZeros(
@@ -108,6 +98,7 @@ function rascunhoComZeros(
       caixa: p.caixa ? (String(line.caixa).trim() === '' ? '0' : line.caixa) : '',
       pc: p.pc ? (String(line.pc).trim() === '' ? '0' : line.pc) : '',
       kg: p.kg ? (String(line.kg).trim() === '' ? '0' : line.kg) : '',
+      modo: line.modo,
     };
   }
   return next;
@@ -125,6 +116,15 @@ function nomeSecao(i: EstoqueItem) {
   const s = String(i.secao_contagem || '').trim();
   return s || SECAO_OUTROS;
 }
+
+type CampoContagem = 'caixa' | 'pc' | 'kg';
+
+type TecladoAtivo = {
+  idItem: number;
+  campo: CampoContagem;
+  inteiro: boolean;
+  substituir: boolean;
+};
 
 type LocationState = { contagemPreload?: EstoqueContagemDetalhe };
 
@@ -150,6 +150,7 @@ export default function EstoqueMobileConferenciaPage() {
   const [reabrindo, setReabrindo] = useState(false);
   const [dlgReabrir, setDlgReabrir] = useState(false);
   const [dlgFinalizar, setDlgFinalizar] = useState(false);
+  const [teclado, setTeclado] = useState<TecladoAtivo | null>(null);
   const [busca, setBusca] = useState('');
   const [indiceSecao, setIndiceSecao] = useState(0);
   const [err, setErr] = useState('');
@@ -159,6 +160,8 @@ export default function EstoqueMobileConferenciaPage() {
   const dirtyRef = useRef(false);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const salvandoRef = useRef(false);
+  const persistirEmVoo = useRef<Promise<EstoqueContagemDetalhe | null> | null>(null);
+  const trocandoSecao = useRef(false);
 
   useEffect(() => {
     rascunhoRef.current = rascunho;
@@ -282,11 +285,13 @@ export default function EstoqueMobileConferenciaPage() {
     return det.itens.map((i) => {
       const raw = draft[i.id_item] || { caixa: '', pc: '', kg: '' };
       const p = permiteCampos(i);
+      const modo = modoEntradaEfetivo(i, raw);
       return {
         id_item: i.id_item,
         contagem_caixa: p.caixa ? parseNumCampo(raw.caixa) : null,
         contagem_pc_fd: p.pc ? parseNumCampo(raw.pc) : null,
         contagem_kg_und: p.kg ? parseNumCampo(raw.kg) : null,
+        unidade_entrada: (modo === 'kg' ? 'KG' : 'UND') as 'UND' | 'KG',
       };
     });
   }, []);
@@ -297,20 +302,44 @@ export default function EstoqueMobileConferenciaPage() {
       const det = contagemRef.current;
       if (!det?.id_contagem || det.status !== 'aberta') return null;
       if (!opts?.forcar && !dirtyRef.current) return det;
-      if (salvandoRef.current) return null;
+
+      if (persistirEmVoo.current) {
+        try {
+          await persistirEmVoo.current;
+        } catch {
+          /* tenta de novo se o rascunho ainda estiver sujo */
+        }
+        if (!opts?.forcar && !dirtyRef.current) return contagemRef.current;
+      }
 
       salvandoRef.current = true;
       if (silencioso) setAutoSalvando(true);
       else setSalvando(true);
 
       const draftSnap = rascunhoRef.current;
-      try {
-        const itens = montarPayload(det, draftSnap);
-        const saved = await api.estoqueSalvarItens(det.id_contagem, itens);
-        if (!dirtyRef.current || opts?.forcar) {
-          setContagem(saved);
-          if (!silencioso || opts?.forcar) {
-            setRascunho(aplicarDraft(saved));
+      const job = (async () => {
+        try {
+          const itens = montarPayload(det, draftSnap);
+          const saved = await api.estoqueSalvarItens(det.id_contagem, itens);
+          if (saved.aviso && opts?.forcar) {
+            showToast(saved.aviso, 'warning');
+          }
+          if (!dirtyRef.current || opts?.forcar) {
+            setContagem(saved);
+            if (!silencioso || opts?.forcar) {
+              setRascunho(aplicarDraft(saved));
+            } else {
+              setContagem((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      total_valor: saved.total_valor,
+                      valor_atual: saved.valor_atual,
+                    }
+                  : saved,
+              );
+            }
+            dirtyRef.current = false;
           } else {
             setContagem((prev) =>
               prev
@@ -322,29 +351,24 @@ export default function EstoqueMobileConferenciaPage() {
                 : saved,
             );
           }
-          dirtyRef.current = false;
-        } else {
-          setContagem((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  total_valor: saved.total_valor,
-                  valor_atual: saved.valor_atual,
-                }
-              : saved,
-          );
+          if (!silencioso) showToast('Rascunho salvo');
+          return saved;
+        } catch (e) {
+          if (!silencioso) {
+            showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
+          }
+          throw e;
+        } finally {
+          salvandoRef.current = false;
+          setSalvando(false);
+          setAutoSalvando(false);
         }
-        if (!silencioso) showToast('Rascunho salvo');
-        return saved;
-      } catch (e) {
-        if (!silencioso) {
-          showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
-        }
-        throw e;
+      })();
+      persistirEmVoo.current = job;
+      try {
+        return await job;
       } finally {
-        salvandoRef.current = false;
-        setSalvando(false);
-        setAutoSalvando(false);
+        if (persistirEmVoo.current === job) persistirEmVoo.current = null;
       }
     },
     [montarPayload],
@@ -380,7 +404,7 @@ export default function EstoqueMobileConferenciaPage() {
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const setCampo = (idItem: number, campo: keyof RascunhoLinha, valor: string) => {
+  const setCampo = (idItem: number, campo: CampoContagem, valor: string) => {
     dirtyRef.current = true;
     setRascunho((prev) => ({
       ...prev,
@@ -388,7 +412,130 @@ export default function EstoqueMobileConferenciaPage() {
         caixa: prev[idItem]?.caixa ?? '',
         pc: prev[idItem]?.pc ?? '',
         kg: prev[idItem]?.kg ?? '',
+        modo: prev[idItem]?.modo,
         [campo]: valor,
+      },
+    }));
+    agendarAutosave();
+  };
+
+  const camposEditaveisVisiveis = useMemo(() => {
+    if (!editavel) return [] as Array<{ idItem: number; campo: CampoContagem; inteiro: boolean }>;
+    const out: Array<{ idItem: number; campo: CampoContagem; inteiro: boolean }> = [];
+    for (const i of itensVisiveis) {
+      const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: modoEntradaInicial(i) };
+      const permite = permiteCampos(i);
+      const modo = modoEntradaEfetivo(i, raw);
+      const inteiroFrac = fracionadaInteira(modo === 'kg' ? 'KG' : 'UND');
+      if (permite.caixa) out.push({ idItem: i.id_item, campo: 'caixa', inteiro: true });
+      if (permite.pc) out.push({ idItem: i.id_item, campo: 'pc', inteiro: true });
+      if (permite.kg) out.push({ idItem: i.id_item, campo: 'kg', inteiro: inteiroFrac });
+    }
+    return out;
+  }, [editavel, itensVisiveis, rascunho]);
+
+  const abrirTeclado = (idItem: number, campo: CampoContagem, inteiro: boolean) => {
+    setTeclado({ idItem, campo, inteiro, substituir: true });
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>(`[data-estoque-item="${idItem}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  };
+
+  const fecharTeclado = () => {
+    setTeclado(null);
+    if (dirtyRef.current) {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      void persistir({ silencioso: true }).catch(() => {});
+    }
+  };
+
+  const irCampoVizinho = (delta: number) => {
+    if (!teclado) return;
+    const idx = camposEditaveisVisiveis.findIndex(
+      (c) => c.idItem === teclado.idItem && c.campo === teclado.campo,
+    );
+    const next = idx >= 0 ? camposEditaveisVisiveis[idx + delta] : null;
+    if (!next) {
+      fecharTeclado();
+      return;
+    }
+    setTeclado({
+      idItem: next.idItem,
+      campo: next.campo,
+      inteiro: next.inteiro,
+      substituir: true,
+    });
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>(`[data-estoque-item="${next.idItem}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  };
+
+  const valorTecladoAtual = () => {
+    if (!teclado) return '';
+    const line = rascunho[teclado.idItem];
+    return String(line?.[teclado.campo] ?? '');
+  };
+
+  const aplicarTeclado = (proximo: string) => {
+    if (!teclado) return;
+    const limpo =
+      teclado.campo === 'kg'
+        ? sanitizarEntradaFracionada(proximo, teclado.inteiro)
+        : sanitizarEntradaNaoNegativa(proximo);
+    setCampo(teclado.idItem, teclado.campo, limpo);
+    setTeclado((t) => (t ? { ...t, substituir: false } : t));
+  };
+
+  const onTecla = (tecla: string) => {
+    if (!teclado) return;
+    const atual = valorTecladoAtual();
+    if (tecla === 'back') {
+      if (teclado.substituir || !atual) {
+        aplicarTeclado('');
+        setTeclado((t) => (t ? { ...t, substituir: false } : t));
+        return;
+      }
+      aplicarTeclado(atual.slice(0, -1));
+      return;
+    }
+    if (tecla === 'clear') {
+      aplicarTeclado('');
+      setTeclado((t) => (t ? { ...t, substituir: true } : t));
+      return;
+    }
+    if (tecla === ',' || tecla === '.') {
+      if (teclado.inteiro) return;
+      const base = teclado.substituir ? '' : atual;
+      if (base.includes(',') || base.includes('.')) return;
+      aplicarTeclado(`${base || '0'},`);
+      return;
+    }
+    if (!/^\d$/.test(tecla)) return;
+    const base = teclado.substituir ? '' : atual;
+    aplicarTeclado(`${base}${tecla}`);
+  };
+
+  const rotuloCampo = (campo: CampoContagem, item: EstoqueItem | undefined) => {
+    if (campo === 'caixa') return 'CAIXA';
+    if (campo === 'pc') return 'PC / FD';
+    if (!item) return 'UND';
+    const raw = rascunho[item.id_item] ?? { caixa: '', pc: '', kg: '', modo: modoEntradaInicial(item) };
+    return rotuloModoEntrada(modoEntradaEfetivo(item, raw));
+  };
+
+  const setModoEntrada = (idItem: number, modo: ModoEntradaFracionada) => {
+    dirtyRef.current = true;
+    setRascunho((prev) => ({
+      ...prev,
+      [idItem]: {
+        caixa: prev[idItem]?.caixa ?? '',
+        pc: prev[idItem]?.pc ?? '',
+        kg: '',
+        modo,
       },
     }));
     agendarAutosave();
@@ -396,18 +543,26 @@ export default function EstoqueMobileConferenciaPage() {
 
   const irSecao = async (novoIndice: number) => {
     if (novoIndice < 0 || novoIndice >= secoes.length || novoIndice === indiceSecao) return;
-    if (editavel && dirtyRef.current) {
-      try {
-        if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-        await persistir({ silencioso: true, forcar: true });
-      } catch {
-        showToast('Não foi possível salvar antes de trocar de seção', 'error');
-        return;
+    if (trocandoSecao.current) return;
+    trocandoSecao.current = true;
+    try {
+      if (editavel && dirtyRef.current) {
+        try {
+          if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+          await persistir({ silencioso: true, forcar: true });
+        } catch (e) {
+          showToast(
+            e instanceof Error ? e.message : 'Não deu pra salvar agora — a seção muda mesmo assim',
+            'error',
+          );
+        }
       }
+      setBusca('');
+      setIndiceSecao(novoIndice);
+      scrollTopo();
+    } finally {
+      trocandoSecao.current = false;
     }
-    setBusca('');
-    setIndiceSecao(novoIndice);
-    scrollTopo();
   };
 
   const finalizar = async () => {
@@ -469,7 +624,11 @@ export default function EstoqueMobileConferenciaPage() {
   };
 
   return (
-    <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque--contagem">
+    <div
+      className={`ck-visitas ck-visitas--lista ck-estoque ck-estoque--contagem${
+        teclado ? ' is-numpad' : ''
+      }`}
+    >
       <div className="ck-estoque__contagem-sticky">
         <div className="ck-estoque__contagem-banner" aria-live="polite">
           <button
@@ -539,10 +698,12 @@ export default function EstoqueMobileConferenciaPage() {
           {!loading && contagem && (
             <>
               {itensVisiveis.map((i) => {
-                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '' };
+                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: modoEntradaInicial(i) };
                 const permite = permiteCampos(i);
-                const rotuloFrac = rotuloCampoFracionado(unidadeFracionadaItem(i));
-                const inteiroFrac = fracionadaInteira(unidadeFracionadaItem(i));
+                const modo = modoEntradaEfetivo(i, raw);
+                const rotuloFrac = rotuloModoEntrada(modo);
+                const inteiroFrac = fracionadaInteira(modo === 'kg' ? 'KG' : 'UND');
+                const mostraAtalhoKg = editavel && permite.kg && podeInformarKg(i);
                 const contado = qtdPreviewSeguro(i, raw, permite);
                 const totalLinha = calcTotalLinha(contado, Number(i.valor_unidade) || 0);
                 const preenchido = temEntradaTerraco(raw, permite);
@@ -550,9 +711,12 @@ export default function EstoqueMobileConferenciaPage() {
                 return (
                   <div
                     key={i.id_item}
+                    data-estoque-item={i.id_item}
                     className={`ck-estoque__item ck-estoque__item--planilha${
                       preenchido ? ' is-ok' : ' is-pend'
-                    }${foraCmv ? ' is-fora-cmv' : ''}`}
+                    }${foraCmv ? ' is-fora-cmv' : ''}${
+                      teclado?.idItem === i.id_item ? ' is-digitando' : ''
+                    }`}
                   >
                     <div className="ck-estoque__item-head">
                       <span className="ck-estoque__cod">
@@ -593,48 +757,18 @@ export default function EstoqueMobileConferenciaPage() {
                               —
                             </div>
                           ) : editavel ? (
-                            <input
-                              type="text"
-                              inputMode={inteiro ? 'numeric' : 'decimal'}
-                              enterKeyHint="next"
-                              autoComplete="off"
-                              value={raw[campo]}
-                              placeholder="—"
+                            <button
+                              type="button"
+                              className={`ck-estoque__tap${
+                                teclado?.idItem === i.id_item && teclado.campo === campo
+                                  ? ' is-active'
+                                  : ''
+                              }${raw[campo] ? '' : ' is-empty'}`}
                               data-estoque-campo={campo}
-                              onChange={(e) => {
-                                const v =
-                                  campo === 'kg'
-                                    ? sanitizarEntradaFracionada(e.target.value, inteiro)
-                                    : sanitizarEntradaNaoNegativa(e.target.value);
-                                setCampo(i.id_item, campo, v);
-                              }}
-                              onFocus={(e) => {
-                                e.target.select();
-                                e.target.placeholder = '';
-                              }}
-                              onBlur={(e) => {
-                                e.target.placeholder = '—';
-                                if (dirtyRef.current) {
-                                  if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-                                  void persistir({ silencioso: true }).catch(() => {});
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key !== 'Enter') return;
-                                e.preventDefault();
-                                const inputs = Array.from(
-                                  document.querySelectorAll<HTMLInputElement>(
-                                    'input[data-estoque-campo]',
-                                  ),
-                                );
-                                const idx = inputs.indexOf(e.target as HTMLInputElement);
-                                const proximo = idx >= 0 ? inputs[idx + 1] : null;
-                                if (proximo) {
-                                  proximo.focus();
-                                  proximo.select();
-                                }
-                              }}
-                            />
+                              onClick={() => abrirTeclado(i.id_item, campo, inteiro)}
+                            >
+                              {raw[campo] || '—'}
+                            </button>
                           ) : (
                             <div className="ck-estoque__sistema">
                               {fmtNum(
@@ -646,6 +780,15 @@ export default function EstoqueMobileConferenciaPage() {
                                 3,
                               )}
                             </div>
+                          )}
+                          {campo === 'kg' && mostraAtalhoKg && (
+                            <button
+                              type="button"
+                              className="ck-estoque__kg-hint"
+                              onClick={() => setModoEntrada(i.id_item, modo === 'kg' ? 'und' : 'kg')}
+                            >
+                              {modo === 'kg' ? 'voltar p/ und' : 'informar em kg?'}
+                            </button>
                           )}
                         </div>
                       ))}
@@ -684,49 +827,119 @@ export default function EstoqueMobileConferenciaPage() {
         </div>
       </div>
 
-      {!loading && contagem && !buscando && secoes.length > 0 && (
-        <nav className="ck-estoque__secao-dock" aria-label="Navegação das seções">
-          <button
-            type="button"
-            className="ck-estoque__dock-side"
-            disabled={indiceSecao <= 0 || salvando || finalizando}
-            onClick={() => void irSecao(indiceSecao - 1)}
-            aria-label="Seção anterior"
-          >
-            ←
-          </button>
-          {editavel && ultimaSecao ? (
+      <div className="ck-estoque__bottom-stack">
+        {teclado &&
+          (() => {
+            const itemAtivo = (contagem?.itens || []).find((x) => x.id_item === teclado.idItem);
+            const valor = valorTecladoAtual();
+            const teclas = teclado.inteiro
+              ? (['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'] as const)
+              : (['1', '2', '3', '4', '5', '6', '7', '8', '9', ',', '0', 'back'] as const);
+            return (
+              <div className="ck-estoque__numpad" role="group" aria-label="Teclado de contagem">
+                <div className="ck-estoque__numpad-head">
+                  <div className="ck-estoque__numpad-meta">
+                    <strong>{rotuloCampo(teclado.campo, itemAtivo)}</strong>
+                    <span>{itemAtivo?.descricao || itemAtivo?.codigo || ''}</span>
+                  </div>
+                  <div className={`ck-estoque__numpad-valor${teclado.substituir ? ' is-sel' : ''}`}>
+                    {valor || '0'}
+                  </div>
+                  <button
+                    type="button"
+                    className="ck-estoque__numpad-x"
+                    onClick={fecharTeclado}
+                    aria-label="Fechar teclado"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="ck-estoque__numpad-grid">
+                  {teclas.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className={`ck-estoque__numpad-key${
+                        t === 'back' || t === 'clear' ? ' is-muted' : ''
+                      }`}
+                      onClick={() => onTecla(t === 'clear' ? 'clear' : t === 'back' ? 'back' : t)}
+                    >
+                      {t === 'back' ? '⌫' : t === 'clear' ? 'C' : t}
+                    </button>
+                  ))}
+                </div>
+                <div className="ck-estoque__numpad-actions">
+                  <button type="button" className="ck-estoque__numpad-act" onClick={fecharTeclado}>
+                    OK
+                  </button>
+                  <button
+                    type="button"
+                    className="ck-estoque__numpad-act is-primary"
+                    onClick={() => irCampoVizinho(1)}
+                  >
+                    Próximo campo
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
+        {!loading && contagem && !buscando && secoes.length > 0 && (
+          <nav className="ck-estoque__secao-dock" aria-label="Navegação das seções">
             <button
               type="button"
-              className="ck-estoque__dock-cta ck-estoque__dock-cta--ok"
-              disabled={salvando || finalizando || autoSalvando}
-              onClick={() => void finalizar()}
+              className="ck-estoque__dock-side"
+              disabled={indiceSecao <= 0 || salvando || finalizando}
+              onClick={() => {
+                setTeclado(null);
+                void irSecao(indiceSecao - 1);
+              }}
+              aria-label="Seção anterior"
             >
-              {finalizando ? 'Finalizando…' : 'Finalizar contagem'}
+              ←
             </button>
-          ) : (
+            {editavel && ultimaSecao ? (
+              <button
+                type="button"
+                className="ck-estoque__dock-cta ck-estoque__dock-cta--ok"
+                disabled={salvando || finalizando || autoSalvando}
+                onClick={() => {
+                  setTeclado(null);
+                  void finalizar();
+                }}
+              >
+                {finalizando ? 'Finalizando…' : 'Finalizar contagem'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="ck-estoque__dock-cta"
+                disabled={ultimaSecao || salvando || finalizando}
+                onClick={() => {
+                  setTeclado(null);
+                  void irSecao(indiceSecao + 1);
+                }}
+              >
+                {secoes[indiceSecao + 1]?.nome
+                  ? `Próxima · ${secoes[indiceSecao + 1].nome}`
+                  : 'Próxima'}
+              </button>
+            )}
             <button
               type="button"
-              className="ck-estoque__dock-cta"
+              className="ck-estoque__dock-side"
               disabled={ultimaSecao || salvando || finalizando}
-              onClick={() => void irSecao(indiceSecao + 1)}
+              onClick={() => {
+                setTeclado(null);
+                void irSecao(indiceSecao + 1);
+              }}
+              aria-label="Próxima seção"
             >
-              {secoes[indiceSecao + 1]?.nome
-                ? `Próxima · ${secoes[indiceSecao + 1].nome}`
-                : 'Próxima'}
+              →
             </button>
-          )}
-          <button
-            type="button"
-            className="ck-estoque__dock-side"
-            disabled={ultimaSecao || salvando || finalizando}
-            onClick={() => void irSecao(indiceSecao + 1)}
-            aria-label="Próxima seção"
-          >
-            →
-          </button>
-        </nav>
-      )}
+          </nav>
+        )}
+      </div>
 
       {dlgFinalizar && (
         <div className="ck-estoque__dlg-backdrop" role="presentation">

@@ -2,14 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { useNavigate } from 'react-router-dom';
 import IconButton from '@mui/material/IconButton';
 import Badge from '@mui/material/Badge';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import Popover from '@mui/material/Popover';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
+import ClickAwayListener from '@mui/material/ClickAwayListener';
 import { showToast } from '../utils/toast';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { api, type ContextoNotificacoesManut, type ManutNotificacao } from '../api/client';
@@ -266,6 +265,15 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
     setAnchor(null);
   }
 
+  function togglePainel(e: React.MouseEvent<HTMLElement>) {
+    if (anchor) {
+      setAnchor(null);
+      return;
+    }
+    setAnchor(e.currentTarget);
+    carregar();
+  }
+
   function irDestino(idChamado: number) {
     if (contexto === 'aprovacoes') {
       navigate(`/chamados/aprovacoes/${idChamado}`);
@@ -302,20 +310,17 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
     renderItem: () => null,
   };
 
-  return (
+  return menuMobile ? (
     <>
       <IconButton
-        size={menuMobile ? 'medium' : 'small'}
+        size="medium"
         aria-label={tituloMenu}
         aria-expanded={!!anchor}
-        onClick={(e) => {
-          setAnchor(e.currentTarget);
-          carregar();
-        }}
+        onClick={togglePainel}
         sx={{
           color: colors.textSecondary,
           position: 'relative',
-          ...(menuMobile && { p: 1 }),
+          p: 1,
         }}
       >
         <Badge
@@ -328,136 +333,186 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
               backgroundColor: '#DC2626',
               color: '#fff',
               fontWeight: 700,
-              fontSize: menuMobile ? '0.7rem' : '0.65rem',
-              minWidth: menuMobile ? 20 : 18,
-              height: menuMobile ? 20 : 18,
+              fontSize: '0.7rem',
+              minWidth: 20,
+              height: 20,
               border: '2px solid #f5f5f3',
             },
           }}
         >
-          <NotificationsNoneOutlinedIcon sx={{ fontSize: menuMobile ? 28 : 20 }} />
+          <NotificationsNoneOutlinedIcon sx={{ fontSize: 28 }} />
         </Badge>
       </IconButton>
 
-      {menuMobile ? (
-        <Popover
-          open={!!anchor}
-          anchorEl={anchor}
-          onClose={fecharPainel}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          disableScrollLock
-          marginThreshold={8}
-          slotProps={{
-            transition: { onEntered: alinharSetaBalao },
-            paper: {
-              sx: {
-                mt: 1,
-                bgcolor: 'transparent',
-                boxShadow: 'none',
-                overflow: 'visible',
-                width: 'calc(100vw - 24px)',
-                maxWidth: 380,
-              },
+      <Popover
+        open={!!anchor}
+        anchorEl={anchor}
+        onClose={fecharPainel}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        disableScrollLock
+        marginThreshold={8}
+        slotProps={{
+          transition: { onEntered: alinharSetaBalao },
+          paper: {
+            sx: {
+              mt: 1,
+              bgcolor: 'transparent',
+              boxShadow: 'none',
+              overflow: 'visible',
+              width: 'calc(100vw - 24px)',
+              maxWidth: 380,
             },
-          }}
-        >
-          <Box ref={balloonRef} sx={{ position: 'relative', width: '100%' }}>
-            <Box
-              aria-hidden
-              sx={{
-                position: 'absolute',
-                top: -6,
-                right: arrowRight,
-                width: ARROW_HALF * 2,
-                height: ARROW_HALF * 2,
-                bgcolor: '#fff',
-                transform: 'rotate(45deg)',
-                borderLeft: '1px solid rgba(27, 42, 107, 0.1)',
-                borderTop: '1px solid rgba(27, 42, 107, 0.1)',
-                zIndex: 2,
-                transition: 'right 0.05s ease-out',
-              }}
-            />
-            <Paper
-              elevation={0}
-              sx={{
-                borderRadius: 3,
-                border: '1px solid rgba(27, 42, 107, 0.1)',
-                boxShadow: '0 14px 40px rgba(27, 42, 107, 0.16)',
-                overflow: 'hidden',
-                bgcolor: '#fff',
-              }}
-            >
-              <PainelNotificacoes
-                {...painelProps}
-                renderItem={(n, conteudo) => (
-                  <Box
-                    key={n.id_notificacao}
-                    component="button"
-                    type="button"
-                    onClick={() => abrirNotificacao(n)}
-                    sx={{
-                      display: 'flex',
-                      width: '100%',
-                      border: 'none',
-                      borderBottom: '1px solid rgba(27, 42, 107, 0.06)',
-                      bgcolor: n.lida ? 'transparent' : 'rgba(27, 42, 107, 0.05)',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      py: 1.35,
-                      px: 1.5,
-                      font: 'inherit',
-                      color: 'inherit',
-                      '&:last-child': { borderBottom: 'none' },
-                    }}
-                  >
-                    {conteudo}
-                  </Box>
-                )}
-              />
-            </Paper>
-          </Box>
-        </Popover>
-      ) : (
-        <Menu
-          anchorEl={anchor}
-          open={!!anchor}
-          onClose={fecharPainel}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          slotProps={{
-            paper: {
-              sx: { width: larguraMenu, maxWidth: '95vw', maxHeight: 400 },
-            },
-          }}
-        >
-          <PainelNotificacoes
-            {...painelProps}
-            renderItem={(n, conteudo) => (
-              <MenuItem
-                key={n.id_notificacao}
-                onClick={() => abrirNotificacao(n)}
-                sx={{
-                  alignItems: 'flex-start',
-                  flexDirection: 'row',
-                  gap: 1,
-                  py: painelLargo ? 1.5 : 1.25,
-                  px: painelLargo ? 1.5 : 1,
-                  bgcolor: n.lida ? 'transparent' : 'rgba(27, 42, 107, 0.05)',
-                  whiteSpace: 'normal',
-                  overflow: 'visible',
-                  textOverflow: 'unset',
-                  height: 'auto',
-                  maxWidth: '100%',
-                }}
-              >
-                {conteudo}
-              </MenuItem>
-            )}
+          },
+        }}
+      >
+        <Box ref={balloonRef} sx={{ position: 'relative', width: '100%' }}>
+          <Box
+            aria-hidden
+            sx={{
+              position: 'absolute',
+              top: -6,
+              right: arrowRight,
+              width: ARROW_HALF * 2,
+              height: ARROW_HALF * 2,
+              bgcolor: '#fff',
+              transform: 'rotate(45deg)',
+              borderLeft: '1px solid rgba(27, 42, 107, 0.1)',
+              borderTop: '1px solid rgba(27, 42, 107, 0.1)',
+              zIndex: 2,
+              transition: 'right 0.05s ease-out',
+            }}
           />
-        </Menu>
-      )}
+          <Paper
+            elevation={0}
+            sx={{
+              borderRadius: 3,
+              border: '1px solid rgba(27, 42, 107, 0.1)',
+              boxShadow: '0 14px 40px rgba(27, 42, 107, 0.16)',
+              overflow: 'hidden',
+              bgcolor: '#fff',
+            }}
+          >
+            <PainelNotificacoes
+              {...painelProps}
+              renderItem={(n, conteudo) => (
+                <Box
+                  key={n.id_notificacao}
+                  component="button"
+                  type="button"
+                  onClick={() => abrirNotificacao(n)}
+                  sx={{
+                    display: 'flex',
+                    width: '100%',
+                    border: 'none',
+                    borderBottom: '1px solid rgba(27, 42, 107, 0.06)',
+                    bgcolor: n.lida ? 'transparent' : 'rgba(27, 42, 107, 0.05)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    py: 1.35,
+                    px: 1.5,
+                    font: 'inherit',
+                    color: 'inherit',
+                    '&:last-child': { borderBottom: 'none' },
+                  }}
+                >
+                  {conteudo}
+                </Box>
+              )}
+            />
+          </Paper>
+        </Box>
+      </Popover>
     </>
+  ) : (
+    <ClickAwayListener onClickAway={fecharPainel}>
+      <Box sx={{ position: 'relative', zIndex: anchor ? 10000 : 'auto' }}>
+        <IconButton
+          size="small"
+          aria-label={tituloMenu}
+          aria-expanded={!!anchor}
+          onClick={togglePainel}
+          sx={{
+            color: colors.textSecondary,
+            position: 'relative',
+          }}
+        >
+          <Badge
+            badgeContent={naoLidas > 0 ? naoLidas : null}
+            color="error"
+            max={99}
+            overlap="circular"
+            sx={{
+              '& .MuiBadge-badge': {
+                backgroundColor: '#DC2626',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '0.65rem',
+                minWidth: 18,
+                height: 18,
+                border: '2px solid #f5f5f3',
+              },
+            }}
+          >
+            <NotificationsNoneOutlinedIcon sx={{ fontSize: 20 }} />
+          </Badge>
+        </IconButton>
+
+        {anchor ? (
+          <Paper
+            elevation={0}
+            sx={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              mt: 0.75,
+              zIndex: 10000,
+              width: larguraMenu,
+              maxWidth: 'min(95vw, 460px)',
+              maxHeight: 400,
+              overflow: 'auto',
+              borderRadius: '14px',
+              border: `1px solid ${colors.border}`,
+              bgcolor: colors.surface,
+              backgroundImage: 'none',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+            }}
+          >
+            <PainelNotificacoes
+              {...painelProps}
+              renderItem={(n, conteudo) => (
+                <Box
+                  key={n.id_notificacao}
+                  component="button"
+                  type="button"
+                  onClick={() => abrirNotificacao(n)}
+                  sx={{
+                    display: 'flex',
+                    width: '100%',
+                    alignItems: 'flex-start',
+                    flexDirection: 'row',
+                    gap: 1,
+                    border: 'none',
+                    borderBottom: `1px solid ${colors.border}`,
+                    bgcolor: n.lida ? 'transparent' : 'rgba(232, 82, 10, 0.08)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    py: painelLargo ? 1.5 : 1.25,
+                    px: painelLargo ? 1.5 : 1,
+                    font: 'inherit',
+                    color: 'inherit',
+                    whiteSpace: 'normal',
+                    '&:last-child': { borderBottom: 'none' },
+                    '&:hover': { bgcolor: colors.canvasAlt },
+                  }}
+                >
+                  {conteudo}
+                </Box>
+              )}
+            />
+          </Paper>
+        ) : null}
+      </Box>
+    </ClickAwayListener>
   );
 }

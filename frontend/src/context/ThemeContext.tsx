@@ -56,7 +56,6 @@ export function CustomThemeProvider({ children }: { children: React.ReactNode })
   };
 
   useEffect(() => {
-    // Add class to body for tailwind or raw css usage if needed
     if (mode === 'dark') {
       document.documentElement.classList.add('dark');
     } else {

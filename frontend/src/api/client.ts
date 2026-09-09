@@ -301,6 +301,20 @@ export const api = {
     const suffix = q.toString() ? `?${q}` : '';
     return request<NcResponse>(`/nao-conformidades${suffix}`);
   },
+  freelancersGastosMes: (params?: { date_from?: string; date_to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.date_from) q.set('date_from', params.date_from);
+    if (params?.date_to) q.set('date_to', params.date_to);
+    const suffix = q.toString() ? `?${q}` : '';
+    return request<{
+      date_from: string;
+      date_to: string;
+      tem_valor: boolean;
+      totais: { freelancer: number; treinamento: number; horas: number };
+      top: Array<{ loja: string; freelancer: number; treinamento: number; total: number }>;
+      aviso?: string;
+    }>(`/freelancers-aprovacao/gastos-mes${suffix}`);
+  },
   freelancersAprovacao: (params?: {
     date_from?: string;
     date_to?: string;
@@ -868,12 +882,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  escalaVisitasAprovar: (body: { semana_inicio: string; id_regiao: number; comentario?: string | null }) =>
+  escalaVisitasAprovar: (body: {
+    semana_inicio: string;
+    id_regiao: number;
+    id_usuario?: number | null;
+    comentario?: string | null;
+  }) =>
     request<EscalaVisitasGrade>('/escalas/visitas/semana/aprovar', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  escalaVisitasDevolver: (body: { semana_inicio: string; id_regiao: number; comentario?: string | null }) =>
+  escalaVisitasDevolver: (body: {
+    semana_inicio: string;
+    id_regiao: number;
+    id_usuario?: number | null;
+    comentario?: string | null;
+  }) =>
     request<EscalaVisitasGrade>('/escalas/visitas/semana/devolver', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -1019,14 +1043,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
-  estoqueConfiguracaoContagem: (idLoja: number) =>
-    request<{ id_loja: number; itens: InsumoConfigContagem[] }>(
-      `/estoque/configuracao-contagem?id_loja=${idLoja}`,
-    ),
+  estoqueConfiguracaoContagem: () =>
+    request<{ escopo: 'rede'; itens: InsumoConfigContagem[] }>('/estoque/configuracao-contagem'),
   estoqueSalvarConfiguracaoContagem: (body: {
-    id_loja: number;
     itens: Array<
-      Pick<InsumoConfigContagem, 'id_insumo'> &
+      Pick<InsumoConfigContagem, 'id_insumo' | 'codigo'> &
         Partial<
           Pick<
             InsumoConfigContagem,
@@ -1041,7 +1062,7 @@ export const api = {
         >
     >;
   }) =>
-    request<{ id_loja: number; resumo: ConfigContagemResumo; itens: InsumoConfigContagem[] }>(
+    request<{ escopo: 'rede'; resumo: ConfigContagemResumo; itens: InsumoConfigContagem[] }>(
       '/estoque/configuracao-contagem',
       { method: 'PUT', body: JSON.stringify(body) },
     ),
@@ -1130,6 +1151,37 @@ export const api = {
       `/estoque/piloto-auditoria?${q}`,
     );
   },
+  estoqueSaudeBaixa: (opts: { idLoja?: number; escopo?: 'loja' | 'rede' }) => {
+    const q = new URLSearchParams({ escopo: opts.escopo || 'loja' });
+    if (opts.escopo !== 'rede' && opts.idLoja != null) q.set('id_loja', String(opts.idLoja));
+    return request<EstoqueSaudeBaixa>(`/estoque/saude-baixa?${q}`);
+  },
+  estoqueBaixarSaudeBaixa: async (opts: { idLoja?: number; escopo?: 'loja' | 'rede' }) => {
+    const q = new URLSearchParams({
+      escopo: opts.escopo || 'loja',
+      formato: 'xlsx',
+    });
+    if (opts.escopo !== 'rede' && opts.idLoja != null) q.set('id_loja', String(opts.idLoja));
+    const res = await fetch(`${BASE}/estoque/saude-baixa?${q}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao gerar relatório');
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="([^"]+)"/);
+    const filename = match?.[1] || 'saude-baixa.xlsx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   estoqueBaixarPilotoAuditoria: async (idLoja: number, opts?: { status?: string; codigo_insumo?: string }) => {
     const q = new URLSearchParams({ id_loja: String(idLoja), formato: 'xlsx', limit: '2000' });
     if (opts?.status) q.set('status', opts.status);
@@ -1174,6 +1226,8 @@ export const api = {
       contagem_caixa?: number | null;
       contagem_pc_fd?: number | null;
       contagem_kg_und?: number | null;
+      /** UND | KG — como o operador digitou o 3º campo. */
+      unidade_entrada?: 'UND' | 'KG' | null;
       estoque_contado?: number | null;
       estoque_sistema?: number;
     }>,
@@ -1189,6 +1243,20 @@ export const api = {
   estoqueExcluirContagem: (id: number) =>
     request<void>(`/estoque/contagens/${id}`, { method: 'DELETE' }),
 
+  estoqueSaldosRedeBaixo: () =>
+    request<{
+      total: number;
+      itens: Array<{
+        id_loja: number;
+        loja: string;
+        codigo: string;
+        descricao: string;
+        unidade?: string | null;
+        grupo?: string | null;
+        quantidade: number;
+      }>;
+    }>('/estoque/saldos/rede-baixo'),
+  estoqueSaldosRedeValor: () => request<{ valor_atual: number }>('/estoque/saldos/rede-valor'),
   estoqueSaldos: (idLoja: number, q?: string, opts?: { diaria?: boolean }) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (q) params.set('q', q);
@@ -1316,8 +1384,15 @@ export const api = {
     request<Loja[]>('/estoque/break/lojas-destino'),
   estoqueEmprestimosAReceber: (idLoja: number) =>
     request<EstoqueEmprestimoAReceber[]>(`/estoque/break/a-receber?id_loja=${idLoja}`),
+  estoqueEmprestimosADevolver: (idLoja: number) =>
+    request<EstoqueEmprestimoAReceber[]>(`/estoque/break/a-devolver?id_loja=${idLoja}`),
   estoqueConfirmarRecebimentoEmprestimo: (idBreak: number, idLoja: number) =>
     request<{ break: EstoqueBreakResumo; entradas: unknown[] }>(`/estoque/break/${idBreak}/receber`, {
+      method: 'POST',
+      body: JSON.stringify({ id_loja: idLoja }),
+    }),
+  estoqueDevolverEmprestimo: (idBreak: number, idLoja: number) =>
+    request<{ break: EstoqueBreakResumo; movimentos: unknown[] }>(`/estoque/break/${idBreak}/devolver`, {
       method: 'POST',
       body: JSON.stringify({ id_loja: idLoja }),
     }),
@@ -1351,7 +1426,13 @@ export const api = {
       contagem_kg_und?: number | null;
     }>;
   }) =>
-    request<{ break: EstoqueBreakResumo; baixas: unknown[]; erros: string[] }>('/estoque/break', {
+    request<{
+      break: EstoqueBreakResumo;
+      baixas: unknown[];
+      erros: string[];
+      avisos?: string[];
+      parcial?: boolean;
+    }>('/estoque/break', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -2565,6 +2646,10 @@ export interface EscalaVisitasEnvio {
   submetido_por?: number | null;
   nome_submetido_por?: string | null;
   submetido_em?: string | null;
+  status?: 'pendente_aprovacao' | 'aprovado' | 'devolvido' | string | null;
+  revisado_por?: number | null;
+  revisado_em?: string | null;
+  comentario?: string | null;
   ids_usuario?: number[];
 }
 
@@ -2837,6 +2922,8 @@ export interface InsumoConfigContagem {
   unidade_contagem: string;
   unidade_fracionada: string;
   conversao_status: ConversaoContagemStatus;
+  lojas?: number;
+  divergente?: boolean;
 }
 
 export interface ConfigContagemResumo {
@@ -2849,6 +2936,7 @@ export interface ConfigContagemResumo {
   diaria: number;
   critica: number;
   fracionada: number;
+  replicados?: number;
 }
 
 export interface EstoqueContagemResumo {
@@ -2908,6 +2996,8 @@ export interface EstoqueItem {
   contagem_caixa?: number | null;
   contagem_pc_fd?: number | null;
   contagem_kg_und?: number | null;
+  /** UND | KG — unidade em que o operador digitou o 3º campo. */
+  contagem_unidade_entrada?: string | null;
   /** QTD canônica (unidade_contagem), após conversão do campo KG/UND. */
   estoque_contado: number | null;
   diferenca: number | null;
@@ -2924,6 +3014,15 @@ export interface EstoqueItem {
 export interface EstoqueContagemDetalhe extends EstoqueContagemResumo {
   total_diferenca?: number;
   itens: EstoqueItem[];
+  /** PUT de rascunho: item sem fator (não bloqueia a troca de seção). */
+  aviso?: string;
+  avisos_conversao?: Array<{
+    id_insumo?: number | null;
+    codigo?: string | null;
+    unidade_origem?: string;
+    unidade_destino?: string;
+    motivo?: string;
+  }>;
   meta?: {
     sabado?: string;
     hoje?: string;
@@ -2979,6 +3078,63 @@ export interface EstoquePilotoAuditoriaItem {
   status: 'MOVIMENTO_GERADO' | 'FORA_DO_PILOTO' | 'CONVERSAO_NAO_VALIDADA' | string;
   observacao?: string | null;
   criado_em?: string | null;
+}
+
+export interface EstoqueSaudeBaixaProblema {
+  codigo: string;
+  nome: string;
+  motivo: string;
+  problema: string;
+  o_que_fazer: string;
+  vezes: number;
+  lojas: number;
+  unidade_receita?: string | null;
+  unidade_estoque?: string | null;
+  ultima_vez?: string | null;
+}
+
+export interface EstoqueSaudeBaixa {
+  escopo: 'loja' | 'rede';
+  id_loja: number | null;
+  gerado_em: string;
+  janela: {
+    desde: string;
+    previsto_fim?: string | null;
+    observacao?: string | null;
+  };
+  piloto_desligado: boolean;
+  resumo: {
+    total: number;
+    processada: number;
+    parcial: number;
+    erro: number;
+    pendente: number;
+    taxa_processada_pct: number | null;
+    sem_ficha: number;
+    pendencias: number;
+    breaks_com_aviso?: number;
+  };
+  motivos: Array<{ motivo: string; problema: string; n: number; skus: number }>;
+  problemas: EstoqueSaudeBaixaProblema[];
+  vendas_com_problema: Array<{
+    id_venda: number;
+    id_loja: number;
+    data_venda: string;
+    status: string;
+    erros?: string | null;
+  }>;
+  breaks_com_aviso?: Array<{
+    id_break: number;
+    id_loja: number;
+    data_break: string;
+    tipo: string;
+    turno?: string | null;
+    colaborador?: string | null;
+    itens?: number;
+    avisos: string[];
+    avisos_texto?: string | null;
+    criado_em?: string | null;
+  }>;
 }
 
 export interface EstoqueCmvTeorico {
@@ -3439,8 +3595,11 @@ export interface EstoqueBreakResumo {
   loja_destino_bk?: string | null;
   recebimento_status?: string | null;
   recebido_em?: string | null;
+  devolvido_em?: string | null;
   criado_por_nome?: string | null;
   criado_em?: string;
+  /** Pendências de estoque (ficha/conversão/cadastro) — lançamento foi aceito. */
+  avisos_baixa?: string | null;
 }
 
 export interface EstoqueEmprestimoItem {
@@ -3456,6 +3615,7 @@ export interface EstoqueEmprestimoAReceber {
   id_break: number;
   data_break: string;
   criado_em?: string;
+  recebido_em?: string;
   recebimento_status?: string | null;
   id_loja_origem: number;
   loja_origem_nome?: string | null;

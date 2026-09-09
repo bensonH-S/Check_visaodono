@@ -13,8 +13,8 @@ export const FROTA_MAPA_CLARO_FUNDO = '#F8FAFC';
 /** Fundo neutro enquanto os tiles carregam. */
 export const FROTA_MAPA_FUNDO = '#F8FAFC';
 
-/** Fundo do mapa escuro Command Center (azul-noite). */
-export const FROTA_MAPA_ESCURO_FUNDO = '#0F172A';
+/** Fundo do mapa escuro — carvão, não navy. */
+export const FROTA_MAPA_ESCURO_FUNDO = '#0E0E0E';
 
 /** @deprecated Fiord customizado via MapLibre; filtro CSS não é mais usado. */
 export const FROTA_MAPA_ESCURO_TILE_FILTER = 'none';
@@ -24,17 +24,18 @@ export const OPENFREEMAP_FIORD = 'https://tiles.openfreemap.org/styles/fiord';
 export const OPENFREEMAP_DARK = 'https://tiles.openfreemap.org/styles/dark';
 export const OPENFREEMAP_POSITRON = 'https://tiles.openfreemap.org/styles/positron';
 
-/** Cores do Command Center: fundo mais escuro + ruas branco-cinza. */
-const CC_MAPA_FUNDO = '#0F172A';
-const CC_MAPA_AGUA = '#0B1220';
-const CC_MAPA_PARQUE = '#132033';
-const CC_MAPA_RESIDENCIAL = '#15243A';
-const CC_MAPA_WOOD = '#122033';
-const CC_RUA_MENOR = '#5C6B7E';
-const CC_RUA_MEDIA = '#6E7F94';
-const CC_RUA_MAJOR = '#8494A8';
-const CC_RUA_MOTORWAY = '#9AABC0';
-const CC_RUA_CASING = '#1E293B';
+/** Mapa no preto da marca: carvão + vias cinza-quente. */
+const CC_MAPA_FUNDO = '#0E0E0E';
+const CC_MAPA_AGUA = '#0A0A0A';
+const CC_MAPA_PARQUE = '#161412';
+const CC_MAPA_RESIDENCIAL = '#141210';
+const CC_MAPA_WOOD = '#151310';
+const CC_MAPA_PREDIO = '#1A1917';
+const CC_RUA_MENOR = '#5C5852';
+const CC_RUA_MEDIA = '#736E67';
+const CC_RUA_MAJOR = '#8C877F';
+const CC_RUA_MOTORWAY = '#A39E96';
+const CC_RUA_CASING = '#1C1B19';
 
 type BasemapOpts = { mobile?: boolean; semRotulos?: boolean };
 
@@ -83,7 +84,7 @@ function setPaint(layer: Record<string, unknown>, key: string, value: unknown) {
   layer.paint = paint;
 }
 
-/** Fiord customizado: azul-noite escuro + vias claras (branco-cinza). */
+/** Fiord no carvão da marca: sem azul-noite. */
 function customizarEstiloFiord(style: StyleSpecification): StyleSpecification {
   const layers = (style.layers ?? []).map((raw) => {
     const layer = { ...raw } as Record<string, unknown>;
@@ -111,7 +112,7 @@ function customizarEstiloFiord(style: StyleSpecification): StyleSpecification {
       return layer as StyleSpecification['layers'][number];
     }
     if (id === 'building') {
-      setPaint(layer, 'fill-color', '#1A2740');
+      setPaint(layer, 'fill-color', CC_MAPA_PREDIO);
       return layer as StyleSpecification['layers'][number];
     }
 
@@ -285,11 +286,11 @@ export function criarCamadaBasemapOsm(opcoes?: BasemapOpts) {
   return criarCamadaBasemapEscuro(opcoes);
 }
 
-/** Cores de trajeto legíveis em mapa escuro (Command Center). */
-export const CORES_TRAJETO_FROTA_ESCURO = ['#3B82F6', '#60A5FA', '#2563EB', '#93C5FD'] as const;
-export const COR_TRAJETO_ESCURO = '#3B82F6';
-export const COR_EXCESSO_FROTA_ESCURO = '#EF4444';
-export const COR_PARADO_FROTA_ESCURO = '#94A3B8';
+/** Trajeto no mapa escuro: família da marca, não azul SaaS. */
+export const CORES_TRAJETO_FROTA_ESCURO = ['#FF5C00', '#FFB703', '#E8520A', '#FF8C38'] as const;
+export const COR_TRAJETO_ESCURO = '#E8520A';
+export const COR_EXCESSO_FROTA_ESCURO = '#C4452D';
+export const COR_PARADO_FROTA_ESCURO = '#8A8580';
 
 /** Paleta de traçado: um tom navy por rota (sem arco-íris por tipo de via). */
 export const CORES_TRAJETO_FROTA = ['#1B2A6B', '#3D52A8', '#152056', '#5B6DB0'] as const;

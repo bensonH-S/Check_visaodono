@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -30,6 +30,9 @@ import { dataHojeBrasilia, formatarDuracaoMs, formatDataHoraBrasilia } from '../
 import { ajustarRotaAsRuas, type LatLngPar } from '../../../utils/osrmMapMatch';
 import { LIMITE_VELOCIDADE_KMH } from './ccFormat';
 import { CC_RADIUS, CcEmpty } from './CcPanel';
+import { CC_BORDER, CC_CRITICO, CC_OK, CC_ORANGE, CC_PARADO, CC_SURFACE } from './ccTheme';
+
+const VEICULOS_VAZIOS: FrotaVeiculoPosicao[] = [];
 
 /** coords_rua “de verdade” é bem mais densa que o GPS; cópia do GPS = match falhou. */
 function coordsRuaPareceSnap(coordsRua: LatLngPar[] | undefined, gps: LatLngPar[]): boolean {
@@ -69,11 +72,11 @@ function emExcesso(v: FrotaVeiculoPosicao) {
 }
 
 function statusVeiculo(v: FrotaVeiculoPosicao) {
-  if (emExcesso(v)) return { label: 'Excesso', cor: '#EF4444' };
+  if (emExcesso(v)) return { label: 'Excesso', cor: CC_CRITICO };
   const st = statusVeiculoMapa(v, true);
-  if (st === 'em_rota') return { label: 'Em rota', cor: '#22C55E' };
-  if (st === 'parado') return { label: 'Parado', cor: '#94A3B8' };
-  if (st === 'disponivel') return { label: 'Disponível', cor: '#22C55E' };
+  if (st === 'em_rota') return { label: 'Em rota', cor: '#1B2A6B' };
+  if (st === 'disponivel') return { label: 'Disponível', cor: '#16A34A' };
+  if (st === 'parado') return { label: 'Parado', cor: '#64748B' };
   return { label: rotuloStatusVeiculoMapa(st), cor: '#94A3B8' };
 }
 
@@ -90,6 +93,7 @@ function PainelVeiculo({
   proximaVisita,
   carregandoRota,
   escuro,
+  cor,
   onFechar,
 }: {
   veiculo: FrotaVeiculoPosicao;
@@ -98,6 +102,7 @@ function PainelVeiculo({
   proximaVisita: FrotaVeiculoProximaVisita | null;
   carregandoRota?: boolean;
   escuro: boolean;
+  cor: string;
   onFechar: () => void;
 }) {
   const navigate = useNavigate();
@@ -152,63 +157,66 @@ function PainelVeiculo({
 
   return (
     <Box
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
       sx={{
         position: 'absolute',
-        top: 12,
-        right: 12,
-        bottom: 52,
+        top: 10,
+        right: 10,
         zIndex: 800,
-        width: { xs: 'min(260px, calc(100% - 24px))', sm: 268 },
+        width: { xs: 'min(200px, calc(100% - 20px))', sm: 208 },
+        maxHeight: 'calc(100% - 56px)',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: escuro ? 'rgba(17, 24, 39, 0.94)' : 'rgba(255, 255, 255, 0.96)',
-        border: escuro ? '1px solid rgba(148, 163, 184, 0.22)' : '1px solid var(--ga-border)',
+        bgcolor: escuro ? 'rgba(8, 8, 8, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+        border: escuro ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid var(--ga-border)',
         borderRadius: `${CC_RADIUS}px`,
-        p: 2,
-        minHeight: 0,
+        p: 1.25,
         overflow: 'auto',
+        pointerEvents: 'auto',
         backdropFilter: 'blur(10px)',
-        boxShadow: escuro ? '0 12px 32px rgba(0,0,0,0.45)' : shadows.card,
+        boxShadow: escuro ? '0 8px 24px rgba(0,0,0,0.4)' : shadows.card,
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.35 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-          <LocalShippingOutlinedIcon sx={{ fontSize: 18, color: escuro ? '#94A3B8' : 'var(--ga-text-muted)' }} />
+          <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: cor, flexShrink: 0 }} />
+          <LocalShippingOutlinedIcon sx={{ fontSize: 16, color: cor }} />
           <Typography
             sx={{
-              fontSize: '1.1rem',
+              fontSize: '0.9375rem',
               fontWeight: 750,
-              color: escuro ? '#fff' : 'var(--ga-text-primary)',
+              color: escuro ? '#F4F1EC' : 'var(--ga-text-primary)',
               letterSpacing: '-0.02em',
             }}
           >
             {veiculo.placa}
           </Typography>
         </Box>
-        <IconButton size="small" onClick={onFechar} sx={{ color: escuro ? '#64748B' : 'var(--ga-text-muted)', p: 0.35 }}>
+        <IconButton size="small" onClick={onFechar} sx={{ color: escuro ? CC_PARADO : 'var(--ga-text-muted)', p: 0.35 }}>
           <CloseIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Box>
 
-      <Typography sx={{ fontSize: '0.8rem', color: escuro ? '#94A3B8' : 'var(--ga-text-secondary)', mb: 0.85 }}>
+      <Typography sx={{ fontSize: '0.72rem', color: escuro ? CC_PARADO : 'var(--ga-text-secondary)', mb: 0.55 }}>
         {modelo}
       </Typography>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 2 }}>
-        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: st.cor, boxShadow: `0 0 8px ${st.cor}` }} />
-        <Typography sx={{ fontSize: '0.8rem', fontWeight: 650, color: st.cor }}>{st.label}</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.65, mb: 1.15 }}>
+        <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: st.cor, boxShadow: `0 0 8px ${st.cor}` }} />
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 650, color: st.cor }}>{st.label}</Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2, flex: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.7 }}>
         {linhas.map((l) => (
-          <Box key={l.label} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.5 }}>
-            <Typography sx={{ fontSize: '0.75rem', color: escuro ? '#94A3B8' : 'var(--ga-text-secondary)' }}>
+          <Box key={l.label} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+            <Typography sx={{ fontSize: '0.6875rem', color: escuro ? CC_PARADO : 'var(--ga-text-secondary)' }}>
               {l.label}
             </Typography>
             <Typography
               sx={{
-                fontSize: '0.75rem',
-                color: escuro ? '#F8FAFC' : 'var(--ga-text-primary)',
+                fontSize: '0.6875rem',
+                color: escuro ? '#F4F1EC' : 'var(--ga-text-primary)',
                 fontWeight: 600,
                 textAlign: 'right',
               }}
@@ -225,16 +233,16 @@ function PainelVeiculo({
         size="small"
         onClick={() => navigate(`/frota/operacao/cadastro?veiculo=${veiculo.id_veiculo}`)}
         sx={{
-          mt: 2,
+          mt: 1.15,
           borderRadius: `${CC_RADIUS}px`,
-          borderColor: escuro ? 'rgba(59, 130, 246, 0.4)' : 'var(--ga-border)',
-          color: escuro ? '#E2E8F0' : 'var(--ga-text-primary)',
+          borderColor: escuro ? 'rgba(232, 82, 10, 0.45)' : 'var(--ga-border)',
+          color: escuro ? '#F4F1EC' : 'var(--ga-text-primary)',
           textTransform: 'none',
           fontWeight: 650,
-          bgcolor: escuro ? 'rgba(15, 23, 42, 0.6)' : 'var(--ga-canvas-alt)',
+          bgcolor: escuro ? 'rgba(24, 24, 27, 0.7)' : 'var(--ga-canvas-alt)',
           '&:hover': {
-            borderColor: '#3B82F6',
-            bgcolor: escuro ? 'rgba(59, 130, 246, 0.12)' : 'var(--ga-canvas)',
+            borderColor: 'var(--ga-orange)',
+            bgcolor: escuro ? 'rgba(232, 82, 10, 0.12)' : 'var(--ga-canvas)',
           },
         }}
       >
@@ -245,15 +253,13 @@ function PainelVeiculo({
 }
 
 function Legenda({ escuro }: { escuro: boolean }) {
-  const texto = escuro ? '#F1F5F9' : 'var(--ga-text-primary)';
-  const linha = (cor: string, label: string) => (
-    <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexShrink: 0 }}>
-      <Box sx={{ width: 22, height: 3.5, borderRadius: 2, bgcolor: cor }} />
-      <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
-        {label}
-      </Typography>
-    </Box>
-  );
+  const texto = escuro ? '#F4F1EC' : 'var(--ga-text-primary)';
+  const itens = [
+    { label: 'Em rota', cor: '#1B2A6B' },
+    { label: 'Ligado / parado', cor: '#16A34A' },
+    { label: 'Desligado', cor: '#64748B' },
+    { label: 'Sem sinal', cor: '#94A3B8' },
+  ];
 
   return (
     <Box
@@ -267,10 +273,10 @@ function Legenda({ escuro }: { escuro: boolean }) {
         alignItems: 'center',
         justifyContent: 'flex-start',
         flexWrap: 'nowrap',
-        gap: { xs: 1.5, sm: 2.25 },
-        px: { xs: 1.5, sm: 2.25 },
-        py: 1.15,
-        bgcolor: escuro ? 'rgba(11, 18, 32, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+        gap: { xs: 1.15, sm: 1.75 },
+        px: { xs: 1.25, sm: 1.75 },
+        py: 0.7,
+        bgcolor: escuro ? 'rgba(8, 8, 8, 0.94)' : 'rgba(255, 255, 255, 0.96)',
         borderTop: escuro ? '1px solid rgba(148, 163, 184, 0.18)' : '1px solid var(--ga-border)',
         overflowX: 'auto',
         pointerEvents: 'none',
@@ -278,14 +284,27 @@ function Legenda({ escuro }: { escuro: boolean }) {
         '&::-webkit-scrollbar': { display: 'none' },
       }}
     >
-      {linha('#3B82F6', 'Em rota')}
-      {linha('#94A3B8', 'Parado')}
-      {linha('#EF4444', 'Excesso')}
+      {itens.map((item) => (
+        <Box key={item.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+          <Box
+            sx={{
+              width: 14,
+              height: 14,
+              borderRadius: '4px',
+              bgcolor: item.cor,
+              flexShrink: 0,
+            }}
+          />
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 650, color: texto, whiteSpace: 'nowrap' }}>
+            {item.label}
+          </Typography>
+        </Box>
+      ))}
 
       <Box
         sx={{
           width: '1px',
-          height: 18,
+          height: 16,
           bgcolor: escuro ? 'rgba(148, 163, 184, 0.4)' : 'var(--ga-border)',
           flexShrink: 0,
         }}
@@ -294,23 +313,22 @@ function Legenda({ escuro }: { escuro: boolean }) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexShrink: 0 }}>
         <Box
           sx={{
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
-            bgcolor: '#22C55E',
+            bgcolor: CC_OK,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 800,
             lineHeight: 1,
-            boxShadow: '0 0 0 2px rgba(34,197,94,0.25)',
           }}
         >
           ✓
         </Box>
-        <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
           Visita realizada
         </Typography>
       </Box>
@@ -318,22 +336,21 @@ function Legenda({ escuro }: { escuro: boolean }) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexShrink: 0 }}>
         <Box
           sx={{
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
-            bgcolor: '#3B82F6',
+            bgcolor: CC_ORANGE,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: 11,
+            fontSize: 10,
             lineHeight: 1,
-            boxShadow: '0 0 0 2px rgba(59,130,246,0.25)',
           }}
         >
           ★
         </Box>
-        <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
           Próxima visita
         </Typography>
       </Box>
@@ -359,12 +376,13 @@ export default function CcFrota({
   const mapaFundo = mapaEscuro ? FROTA_MAPA_ESCURO_FUNDO : '#F8FAFC';
 
   const [selecionadoId, setSelecionadoId] = useState<number | null>(null);
+  const ignorarFecharMapa = useRef(false);
   const [rota, setRota] = useState<FrotaVeiculoRotaDiaRelatorio | null>(null);
   const [velocidade, setVelocidade] = useState<FrotaVeiculoVelocidadeRelatorio | null>(null);
   const [proximaVisita, setProximaVisita] = useState<FrotaVeiculoProximaVisita | null>(null);
   const [carregandoRota, setCarregandoRota] = useState(false);
 
-  const veiculos = data?.veiculos ?? [];
+  const veiculos = data?.veiculos ?? VEICULOS_VAZIOS;
   const lojas = data?.lojas ?? [];
 
   const veiculoPainel = useMemo(() => {
@@ -411,26 +429,39 @@ export default function CcFrota({
   return (
     <Box
       sx={{
-        bgcolor: 'var(--ga-surface)',
+        bgcolor: CC_SURFACE,
         borderRadius: `${CC_RADIUS}px`,
-        border: '1px solid var(--ga-border)',
-        boxShadow: shadows.sm,
+        border: `1px solid ${CC_BORDER}`,
+        boxShadow: 'none',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        minHeight: 420,
+        minHeight: 0,
       }}
     >
-      <Box sx={{ px: 2.25, pt: 2.25, pb: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+      <Box sx={{ px: 1.5, pt: 1.15, pb: 0.6, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
         <Box>
-          <Typography sx={{ fontWeight: 650, fontSize: '0.9375rem', color: 'var(--ga-text-primary)' }}>
+          <Typography sx={{ fontWeight: 650, fontSize: '0.875rem', color: 'var(--ga-text-primary)' }}>
             Frota em tempo real
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.35 }}>
-            <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#22C55E', boxShadow: '0 0 6px #22C55E' }} />
-            <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)' }}>Atualizado agora</Typography>
-          </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.35 }}>
+              <Box
+                sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  bgcolor: '#22C55E',
+                  boxShadow: '0 0 8px rgba(34, 197, 94, 0.65)',
+                  animation: 'cc-pulse-live 1.4s ease-in-out infinite',
+                  '@keyframes cc-pulse-live': {
+                    '0%, 100%': { opacity: 1, transform: 'scale(1)', boxShadow: '0 0 6px rgba(34, 197, 94, 0.55)' },
+                    '50%': { opacity: 0.45, transform: 'scale(0.85)', boxShadow: '0 0 2px rgba(34, 197, 94, 0.2)' },
+                  },
+                }}
+              />
+              <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)' }}>Atualizado agora</Typography>
+            </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography
@@ -439,7 +470,7 @@ export default function CcFrota({
             sx={{
               fontSize: '0.75rem',
               fontWeight: 600,
-              color: '#3B82F6',
+              color: 'var(--ga-orange)',
               textDecoration: 'none',
               whiteSpace: 'nowrap',
               '&:hover': { textDecoration: 'underline' },
@@ -451,7 +482,7 @@ export default function CcFrota({
             component={RouterLink}
             to="/frota"
             size="small"
-            sx={{ color: '#3B82F6', p: 0.4 }}
+            sx={{ color: 'var(--ga-orange)', p: 0.4 }}
             aria-label="Abrir frota"
           >
             <OpenInFullIcon sx={{ fontSize: 16 }} />
@@ -463,9 +494,10 @@ export default function CcFrota({
         sx={{
           position: 'relative',
           flex: 1,
-          minHeight: 340,
-          mx: 1.25,
-          mb: 1.25,
+          height: '100%',
+          minHeight: 0,
+          mx: 1,
+          mb: 1,
           borderRadius: `${CC_RADIUS}px`,
           overflow: 'hidden',
           border: '1px solid var(--ga-border)',
@@ -474,23 +506,13 @@ export default function CcFrota({
             borderRadius: `${CC_RADIUS}px !important`,
             border: 'none !important',
             height: '100% !important',
-            minHeight: '340px !important',
+            minHeight: '0 !important',
             bgcolor: `${mapaFundo} !important`,
           },
           '& .leaflet-container': {
             borderRadius: `${CC_RADIUS}px`,
             background: `${mapaFundo} !important`,
           },
-          ...(mapaEscuro
-            ? {
-                '& .marker-veiculo-pin.is-em_rota .marker-veiculo-corpo': {
-                  background: '#3B82F6 !important',
-                },
-                '& .marker-veiculo-pin.is-em_rota .marker-veiculo-ponta': {
-                  borderTopColor: '#3B82F6 !important',
-                },
-              }
-            : null),
           '& .leaflet-control-zoom': {
             display: 'none !important',
           },
@@ -538,7 +560,8 @@ export default function CcFrota({
             posicoes={[]}
             lojas={lojas}
             veiculos={veiculos}
-            carregando={loading || carregandoRota}
+            carregando={loading}
+            mostrarPopupVeiculo={false}
             rastreamentoAtivo={data?.rastreamento_ativo !== false}
             onAtualizar={onRefresh}
             preencherAltura
@@ -552,12 +575,20 @@ export default function CcFrota({
             basemapClaroVector={!mapaEscuro}
             tilesGoogle={false}
             ocultarZoom
-            veiculoDestaqueId={veiculoPainel?.id_veiculo ?? null}
-            onVeiculoClick={(v) => setSelecionadoId(v.id_veiculo)}
-            onMapaClick={() => setSelecionadoId(null)}
+            onVeiculoClick={(v) => {
+              ignorarFecharMapa.current = true;
+              setSelecionadoId(v.id_veiculo);
+              window.setTimeout(() => {
+                ignorarFecharMapa.current = false;
+              }, 400);
+            }}
+            onMapaClick={() => {
+              if (ignorarFecharMapa.current) return;
+              setSelecionadoId(null);
+            }}
             rotaDiaVeiculo={rota}
+            corRotaSelecionada={veiculoPainel ? statusVeiculo(veiculoPainel).cor : undefined}
             trajetoDiaAtual
-            veiculoAoVivoTrajeto={veiculoPainel}
             autoRefreshIntervalMs={60_000}
           />
         )}
@@ -571,7 +602,7 @@ export default function CcFrota({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: mapaEscuro ? 'rgba(11,18,32,0.55)' : 'rgba(255,255,255,0.55)',
+              bgcolor: mapaEscuro ? 'rgba(5,5,5,0.55)' : 'rgba(255,255,255,0.55)',
             }}
           >
             <CircularProgress size={28} sx={{ color: 'var(--ga-orange)' }} />
@@ -588,7 +619,7 @@ export default function CcFrota({
               alignItems: 'center',
               justifyContent: 'center',
               pointerEvents: 'none',
-              bgcolor: mapaEscuro ? 'rgba(11,18,32,0.25)' : 'rgba(255,255,255,0.25)',
+              bgcolor: mapaEscuro ? 'rgba(5,5,5,0.25)' : 'rgba(255,255,255,0.25)',
             }}
           >
             <CcEmpty>Nenhum veículo ou loja com posição no mapa.</CcEmpty>
@@ -605,6 +636,7 @@ export default function CcFrota({
             proximaVisita={proximaVisita}
             carregandoRota={carregandoRota}
             escuro={mapaEscuro}
+            cor={statusVeiculo(veiculoPainel).cor}
             onFechar={() => setSelecionadoId(null)}
           />
         )}

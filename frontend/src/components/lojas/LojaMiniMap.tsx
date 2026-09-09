@@ -139,7 +139,8 @@ export default function LojaMiniMap({ latitude, longitude, onChange, height = 22
       camadaRef.current = mapaEscuro ? criarCamadaBasemapEscuro() : criarCamadaBasemapClaro();
       mapa.getContainer().style.background = mapaEscuro ? FROTA_MAPA_ESCURO_FUNDO : FROTA_MAPA_FUNDO;
     }
-    camadaRef.current.addTo(mapa);
+    const camada = camadaRef.current;
+    if (camada) camada.addTo(mapa);
   }, [tipoMapa, mapaEscuro]);
 
   useEffect(() => {

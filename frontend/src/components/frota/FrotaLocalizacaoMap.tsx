@@ -35,6 +35,7 @@ import {
   criarCamadaBasemapClaro,
   FROTA_MAPA_ESCURO_FUNDO,
   CORES_TRAJETO_FROTA_ESCURO,
+  COR_EXCESSO_FROTA_ESCURO,
   FROTA_MAPA_FUNDO,
 } from './frotaMapaBasemap';
 import {
@@ -42,6 +43,7 @@ import {
   vincularPopupVeiculo,
   desenharMarcadorVeiculoAoVivo,
   desenharMarcadoresIgnicaoDia,
+  grausDirecaoVeiculo,
 } from './frotaMapaVeiculo';
 import { iniciaisNomeMapa, mesmaRegiaoLojaTecnico, primeiroNomeMapa } from '../../utils/mapaGeo';
 
@@ -63,6 +65,12 @@ const DESLOCAMENTO_TECNICO_METROS = 58;
 const RAIO_TECNICO_NA_LOJA_METROS = 50;
 
 type TipoMapa = 'rua' | 'satelite';
+
+const ROTAS_DIA_EXTRAS_VAZIAS: Array<{
+  id_veiculo: number;
+  cor: string;
+  relatorio: FrotaVeiculoRotaDiaRelatorio;
+}> = [];
 
 function escapeHtml(texto: string) {
   return texto
@@ -115,6 +123,25 @@ function anexarBotoesCopiar(container: HTMLElement | null | undefined) {
 
 function temCoordenadaVeiculo(v: FrotaVeiculoPosicao) {
   return temCoordenadaLatLng(v.latitude, v.longitude);
+}
+
+function coordsPercursoRelatorio(relatorio: FrotaVeiculoRotaDiaRelatorio): L.LatLngExpression[] {
+  const pts: L.LatLngExpression[] = [];
+  const push = (lat: number, lng: number) => {
+    if (Number.isFinite(lat) && Number.isFinite(lng)) pts.push([lat, lng]);
+  };
+  for (const rota of relatorio.rotas ?? []) {
+    const rua = rota.coords_rua;
+    if (rua && rua.length >= 2) {
+      for (const par of rua) push(Number(par[0]), Number(par[1]));
+      continue;
+    }
+    for (const p of rota.pontos ?? []) push(Number(p.latitude), Number(p.longitude));
+  }
+  if (pts.length < 2) {
+    for (const p of relatorio.pontos ?? []) push(Number(p.latitude), Number(p.longitude));
+  }
+  return pts;
 }
 
 function pontosEnquadreInicial(
@@ -409,6 +436,12 @@ type Props = {
   historicoVeiculo?: FrotaVeiculoHistoricoPonto[];
   /** Trajeto completo do dia (rotas nas ruas + excessos), igual ao relatório de rotas. */
   rotaDiaVeiculo?: FrotaVeiculoRotaDiaRelatorio | null;
+  /** Percursos de outros veículos (cor estável por carro). */
+  rotasDiaExtras?: Array<{ id_veiculo: number; cor: string; relatorio: FrotaVeiculoRotaDiaRelatorio }>;
+  /** Cor do percurso do veículo selecionado. */
+  corRotaSelecionada?: string;
+  /** Cor de cada pin — quando informado, substitui a cor de status. */
+  corVeiculoPorId?: Record<number, string>;
   carregando?: boolean;
   gpsAtivo?: boolean;
   rastreamentoAtivo?: boolean;
@@ -483,6 +516,9 @@ export default function FrotaLocalizacaoMap({
   veiculos = [],
   historicoVeiculo = [],
   rotaDiaVeiculo = null,
+  rotasDiaExtras = ROTAS_DIA_EXTRAS_VAZIAS,
+  corRotaSelecionada,
+  corVeiculoPorId,
   carregando,
   gpsAtivo,
   rastreamentoAtivo = true,
@@ -522,6 +558,20 @@ export default function FrotaLocalizacaoMap({
   const exibirPopupVeiculo = mostrarPopupVeiculo ?? !mobile;
   const exibirAtualizar = mostrarBotaoAtualizar ?? !mobile;
   const exibirAlternarMapa = mostrarAlternarTipoMapa ?? !mobile;
+  const iconeDeVeiculo = (v: FrotaVeiculoPosicao, destacado: boolean, mobileFlag: boolean) =>
+    marcadorVeiculo(
+      v,
+      mobileFlag,
+      destacado,
+      v.rastreamento_disponivel !== false,
+      undefined,
+      corVeiculoPorId
+        ? {
+            corPin: corVeiculoPorId[v.id_veiculo],
+            rotacaoDeg: grausDirecaoVeiculo(v.direcao),
+          }
+        : undefined,
+    );
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<L.Map | null>(null);
   const tecnicosLayer = useRef<L.LayerGroup | null>(null);
@@ -868,13 +918,16 @@ export default function FrotaLocalizacaoMap({
         let marker = cache.veiculos.get(v.id_veiculo);
         if (!marker) {
           marker = L.marker([lat, lng], {
-            icon: marcadorVeiculo(v, true, destacado, v.rastreamento_disponivel !== false),
+            icon: iconeDeVeiculo(v, destacado, true),
             zIndexOffset: destacado ? 900 : 600,
           });
           vincularPopupVeiculo(
             marker,
             v,
-            (veiculo) => onVeiculoClickRef.current?.(veiculo),
+            (veiculo) => {
+              ignorarProximoClickMapaRef.current = true;
+              onVeiculoClickRef.current?.(veiculo);
+            },
             v.rastreamento_disponivel !== false,
             !exibirPopupVeiculo,
           );
@@ -882,12 +935,15 @@ export default function FrotaLocalizacaoMap({
           cache.veiculos.set(v.id_veiculo, marker);
         } else {
           marker.setLatLng([lat, lng]);
-          marker.setIcon(marcadorVeiculo(v, true, destacado, v.rastreamento_disponivel !== false));
+          marker.setIcon(iconeDeVeiculo(v, destacado, true));
           marker.setZIndexOffset(destacado ? 900 : 600);
           vincularPopupVeiculo(
             marker,
             v,
-            (veiculo) => onVeiculoClickRef.current?.(veiculo),
+            (veiculo) => {
+              ignorarProximoClickMapaRef.current = true;
+              onVeiculoClickRef.current?.(veiculo);
+            },
             v.rastreamento_disponivel !== false,
             !exibirPopupVeiculo,
           );
@@ -1005,13 +1061,16 @@ export default function FrotaLocalizacaoMap({
       const destacado = veiculoDestaqueId === v.id_veiculo;
       bounds.push([lat, lng]);
       const marker = L.marker([lat, lng], {
-        icon: marcadorVeiculo(v, mobile, destacado, v.rastreamento_disponivel !== false),
+        icon: iconeDeVeiculo(v, destacado, mobile),
         zIndexOffset: destacado ? 900 : 600,
       });
       vincularPopupVeiculo(
         marker,
         v,
-        (veiculo) => onVeiculoClickRef.current?.(veiculo),
+        (veiculo) => {
+          ignorarProximoClickMapaRef.current = true;
+          onVeiculoClickRef.current?.(veiculo);
+        },
         v.rastreamento_disponivel !== false,
         !exibirPopupVeiculo,
       );
@@ -1057,7 +1116,7 @@ export default function FrotaLocalizacaoMap({
       aplicarVistaInicialMapa(mapInstance.current, pontosEnquadre, mobile);
       vistaInicialAplicada.current = true;
     }
-  }, [posicoes, lojas, veiculos, mapaPronto, mobile, exibirPopupVeiculo, tecnicoDestaqueId, veiculoDestaqueId, lojaDestaqueId, visivel, consultaHistorico, trajetoDiaAtual, esconderAvisos]);
+  }, [posicoes, lojas, veiculos, mapaPronto, mobile, exibirPopupVeiculo, tecnicoDestaqueId, veiculoDestaqueId, lojaDestaqueId, visivel, consultaHistorico, trajetoDiaAtual, esconderAvisos, corVeiculoPorId]);
 
   useEffect(() => {
     if (!mapaPronto || !trajetoriaLayer.current) return;
@@ -1069,6 +1128,18 @@ export default function FrotaLocalizacaoMap({
     if (camadas) limparCamadasRotaDia(camadas);
     veiculoTrajeto?.clearLayers();
 
+    for (const extra of rotasDiaExtras) {
+      const pts = coordsPercursoRelatorio(extra.relatorio);
+      if (pts.length < 2) continue;
+      L.polyline(pts, {
+        color: extra.cor,
+        weight: 4,
+        opacity: 0.5,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(trajetoriaLayer.current);
+    }
+
     const temRotaDia =
       rotaDiaVeiculo &&
       ((rotaDiaVeiculo.rotas?.length ?? 0) > 0 || (rotaDiaVeiculo.pontos?.length ?? 0) >= 2);
@@ -1076,6 +1147,7 @@ export default function FrotaLocalizacaoMap({
     let bounds: L.LatLngBounds | null = null;
 
     if (temRotaDia && camadas && mapa) {
+      const cor = corRotaSelecionada;
       bounds = desenharRotaDiaNoMapa(
         mapa,
         camadas,
@@ -1083,7 +1155,11 @@ export default function FrotaLocalizacaoMap({
         rotaDiaVeiculo.pontos ?? [],
         rotaDiaVeiculo.excessos_mapa ?? [],
         rotaDiaVeiculo.limite_kmh ?? 80,
-        mapaEscuroEfetivo ? { coresRota: CORES_TRAJETO_FROTA_ESCURO, corExcesso: '#EF4444' } : undefined,
+        cor
+          ? { coresRota: [cor, cor, cor, cor], corExcesso: COR_EXCESSO_FROTA_ESCURO, peso: 7 }
+          : mapaEscuroEfetivo
+            ? { coresRota: CORES_TRAJETO_FROTA_ESCURO, corExcesso: COR_EXCESSO_FROTA_ESCURO }
+            : undefined,
       );
       trazerExcessosParaFrente(camadas);
     }
@@ -1096,6 +1172,13 @@ export default function FrotaLocalizacaoMap({
           veiculoAoVivoTrajeto,
           boundsVeiculo,
           'paneVeiculoTrajetoMobile',
+          {
+            semPopup: !exibirPopupVeiculo,
+            onClicar: (veiculo) => {
+              ignorarProximoClickMapaRef.current = true;
+              onVeiculoClickRef.current?.(veiculo);
+            },
+          },
         );
         if (!bounds?.isValid()) {
           const lat = Number(veiculoAoVivoTrajeto.latitude);
@@ -1158,7 +1241,7 @@ export default function FrotaLocalizacaoMap({
         mapa.flyToBounds(bounds, { padding: [72, 40], maxZoom: 16, duration: 0.5 });
       }
     }
-  }, [historicoVeiculo, rotaDiaVeiculo, mapaPronto, veiculoDestaqueId, trajetoDiaAtual, veiculoAoVivoTrajeto, consultaHistorico, mapaEscuroEfetivo]);
+  }, [historicoVeiculo, rotaDiaVeiculo, rotasDiaExtras, corRotaSelecionada, mapaPronto, veiculoDestaqueId, trajetoDiaAtual, veiculoAoVivoTrajeto, consultaHistorico, mapaEscuroEfetivo]);
 
   // Selecionar veículo → localizar no mapa (Fleet original: setView no veículo + dados no painel/popup).
   useEffect(() => {

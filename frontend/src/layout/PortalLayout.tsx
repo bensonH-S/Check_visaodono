@@ -4,11 +4,13 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeGerenciarChecklistPerguntas, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import MenuList from '@mui/material/MenuList';
+import Paper from '@mui/material/Paper';
+import ClickAwayListener from '@mui/material/ClickAwayListener';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -22,15 +24,13 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
-import StoreIcon from '@mui/icons-material/Store';
-import PeopleIcon from '@mui/icons-material/People';
-import BadgeIcon from '@mui/icons-material/Badge';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import DescriptionIcon from '@mui/icons-material/Description';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
+import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppTheme } from '../context/ThemeContext';
 import {
@@ -43,6 +43,8 @@ import SobreSistemaButton from '../components/SobreSistemaButton';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import { colors } from '../theme/tokens';
+import { CC_BG } from '../components/dashboard/commandCenter/ccTheme';
+import '../components/dashboard/commandCenter/commandCenter.css';
 import { isPaginaScrollInterno } from '../utils/pageFillLayout';
 import { podeAcessarModuloFrota } from '../pages/frota/frotaNav';
 import {
@@ -62,9 +64,9 @@ import 'dayjs/locale/pt-br';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
-import Popover from '@mui/material/Popover';
 import { datePickerPtBR } from '../utils/datePickerLocale';
 import { dataHojeBrasilia } from '../utils/dateBr';
+import { getConfigNavSections } from '../pages/configuracoes/configNav';
 
 dayjs.locale('pt-br');
 
@@ -144,8 +146,8 @@ function PortalLayoutInner() {
     </>
   );
 
-  const [anchorRegiao, setAnchorRegiao] = useState<null | HTMLElement>(null);
-  const [anchorData, setAnchorData] = useState<null | HTMLElement>(null);
+  const [regiaoAberto, setRegiaoAberto] = useState(false);
+  const [dataAberto, setDataAberto] = useState(false);
   const [regioesOpcoes, setRegioesOpcoes] = useState<{ id: number | null; nome: string }[]>([
     { id: null, nome: 'Todas as regiões' },
   ]);
@@ -176,111 +178,138 @@ function PortalLayoutInner() {
       cancelado = true;
     };
   }, [isDashboard]);
-  
+
+  // Dropdowns absolutos (não MUI Popover/Menu): o zoom 0.8 do html desloca Popover.
+  const painelAbsolutoSx = {
+    position: 'absolute' as const,
+    top: '100%',
+    left: 0,
+    mt: 0.75,
+    zIndex: 10000,
+    borderRadius: '14px',
+    border: '1px solid',
+    borderColor: colors.border,
+    bgcolor: colors.surface,
+    backgroundImage: 'none',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+    overflow: 'hidden',
+  };
+
   const dashboardFilters = isDashboard ? (
     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mr: { xs: 0, md: 1 } }}>
-      {/* Date Filter */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          px: 1.5,
-          height: 34,
-          borderRadius: '14px',
-          border: '1px solid',
-          borderColor: colors.border,
-          bgcolor: 'transparent',
-          color: colors.textPrimary,
-          fontSize: '0.75rem',
-          fontWeight: 500,
-          cursor: 'pointer',
-          '&:hover': { borderColor: colors.borderStrong },
-        }}
-        onClick={(e) => setAnchorData(e.currentTarget)}
-      >
-        <span style={{ textTransform: 'none' }}>{dataFiltroLabel}</span>
-        <CalendarMonthIcon sx={{ fontSize: 16, color: colors.textSecondary }} />
-      </Box>
-      <Popover
-        open={Boolean(anchorData)}
-        anchorEl={anchorData}
-        onClose={() => setAnchorData(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{
-          paper: {
-            sx: {
-              mt: 0.75,
+      <ClickAwayListener onClickAway={() => setDataAberto(false)}>
+        <Box sx={{ position: 'relative' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              height: 34,
               borderRadius: '14px',
               border: '1px solid',
               borderColor: colors.border,
-              bgcolor: colors.surface,
-              overflow: 'hidden',
-            },
-          },
-        }}
-      >
-        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br" localeText={datePickerPtBR}>
-          <DateCalendar
-            value={dayjs(dataFiltro)}
-            onChange={(d: Dayjs | null) => {
-              if (!d?.isValid()) return;
-              setDataFiltro(d.format('YYYY-MM-DD'));
-              setAnchorData(null);
+              bgcolor: 'transparent',
+              color: colors.textPrimary,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              '&:hover': { borderColor: colors.borderStrong },
             }}
-            maxDate={dayjs(dataHojeBrasilia())}
-            sx={{
-              '& .MuiPickersDay-root': { borderRadius: '14px' },
-              '& .MuiPickersDay-root.Mui-selected': { bgcolor: colors.orange },
+            onClick={() => {
+              setDataAberto((v) => !v);
+              setRegiaoAberto(false);
             }}
-          />
-        </LocalizationProvider>
-      </Popover>
-
-      {/* Region Filter */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          px: 1.5,
-          height: 34,
-          width: { xs: 130, md: 160 },
-          borderRadius: '14px',
-          border: '1px solid',
-          borderColor: colors.border,
-          bgcolor: 'transparent',
-          color: colors.textPrimary,
-          fontSize: '0.75rem',
-          fontWeight: 500,
-          cursor: 'pointer',
-          '&:hover': { borderColor: colors.borderStrong }
-        }}
-        onClick={(e) => setAnchorRegiao(e.currentTarget)}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{regiaoNome}</span>
-        <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, color: colors.textSecondary }}>
-          <ArrowDropDownIcon sx={{ fontSize: 18 }} />
-        </Box>
-      </Box>
-      <Menu
-        anchorEl={anchorRegiao}
-        open={Boolean(anchorRegiao)}
-        onClose={() => setAnchorRegiao(null)}
-        sx={{ '& .MuiPaper-root': { bgcolor: colors.surface, borderRadius: '14px', minWidth: 160 } }}
-      >
-        {regioesOpcoes.map((r) => (
-          <MenuItem 
-            key={r.id ?? 'todas'} 
-            selected={r.id === regiaoId}
-            onClick={() => { setRegiao(r.id, r.nome); setAnchorRegiao(null); }}
-            sx={{ fontSize: '0.8125rem', color: colors.textPrimary }}
           >
-            {r.nome}
-          </MenuItem>
-        ))}
-      </Menu>
+            <span style={{ textTransform: 'none' }}>{dataFiltroLabel}</span>
+            <CalendarMonthIcon sx={{ fontSize: 16, color: '#E8520A' }} />
+          </Box>
+          {dataAberto ? (
+            <Paper elevation={0} sx={painelAbsolutoSx}>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br" localeText={datePickerPtBR}>
+                <DateCalendar
+                  value={dayjs(dataFiltro)}
+                  onChange={(d: Dayjs | null) => {
+                    if (!d?.isValid()) return;
+                    setDataFiltro(d.format('YYYY-MM-DD'));
+                    setDataAberto(false);
+                  }}
+                  maxDate={dayjs(dataHojeBrasilia())}
+                  sx={{
+                    '& .MuiPickersDay-root': { borderRadius: '14px' },
+                    '& .MuiPickersDay-root.Mui-selected': { bgcolor: colors.orange },
+                  }}
+                />
+              </LocalizationProvider>
+            </Paper>
+          ) : null}
+        </Box>
+      </ClickAwayListener>
+
+      <ClickAwayListener onClickAway={() => setRegiaoAberto(false)}>
+        <Box sx={{ position: 'relative' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 1.5,
+              height: 34,
+              width: { xs: 130, md: 160 },
+              borderRadius: '14px',
+              border: '1px solid',
+              borderColor: colors.border,
+              bgcolor: 'transparent',
+              color: colors.textPrimary,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              '&:hover': { borderColor: colors.borderStrong },
+            }}
+            onClick={() => {
+              setRegiaoAberto((v) => !v);
+              setDataAberto(false);
+            }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{regiaoNome}</span>
+            <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, color: '#E8520A' }}>
+              <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+            </Box>
+          </Box>
+          {regiaoAberto ? (
+            <Paper elevation={0} sx={{ ...painelAbsolutoSx, width: 'max-content', minWidth: 200, maxWidth: 320 }}>
+              <MenuList dense disablePadding>
+                {regioesOpcoes.map((r) => (
+                  <MenuItem
+                    key={r.id ?? 'todas'}
+                    selected={r.id === regiaoId}
+                    onClick={() => {
+                      setRegiao(r.id, r.nome);
+                      setRegiaoAberto(false);
+                    }}
+                    sx={{
+                      fontSize: '0.8125rem',
+                      color: colors.textPrimary,
+                      gap: 1,
+                      whiteSpace: 'normal',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {r.id == null ? (
+                      <PublicOutlinedIcon sx={{ fontSize: 18, color: '#E8520A', flexShrink: 0 }} />
+                    ) : (
+                      <PlaceOutlinedIcon sx={{ fontSize: 18, color: '#E8520A', flexShrink: 0 }} />
+                    )}
+                    <Box component="span" sx={{ lineHeight: 1.35 }}>
+                      {r.nome}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Paper>
+          ) : null}
+        </Box>
+      </ClickAwayListener>
     </Box>
   ) : null;
 
@@ -308,14 +337,18 @@ function PortalLayoutInner() {
 
     // GESTÃO
     { to: '/estoque', label: 'Estoque & CMV', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), section: 'GESTÃO' },
-    { to: '/visitas', label: 'Relatórios', icon: <DescriptionIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user), section: 'GESTÃO' },
     { to: '/ranking', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'GESTÃO' },
 
-    // CONFIGURAÇÃO
-    { to: '/lojas', label: 'Unidades', icon: <StoreIcon fontSize="small" />, show: temPermissao('portal.lojas.ver', user) || temPermissao('configuracoes.ver', user), section: 'CONFIGURAÇÃO' },
-    { to: '/usuarios', label: 'Usuários', icon: <PeopleIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user), section: 'CONFIGURAÇÃO' },
-    { to: '/cargos', label: 'Permissões', icon: <BadgeIcon fontSize="small" />, show: temPermissao('usuarios.gerenciar', user) || temPermissao('configuracoes.ver', user), section: 'CONFIGURAÇÃO' },
-    { to: '/configuracoes', label: 'Configurações', icon: <SettingsIcon fontSize="small" />, show: temPermissao('configuracoes.ver', user) || podeGerenciarChecklistPerguntas(user), end: false, section: 'CONFIGURAÇÃO' },
+    // CONFIGURAÇÃO — cadastros e módulos ficam no menu interno de /configuracoes
+    {
+      to: '/configuracoes',
+      label: 'Configurações',
+      icon: <SettingsIcon fontSize="small" />,
+      show: getConfigNavSections(user).length > 0,
+      end: false,
+      section: 'CONFIGURAÇÃO',
+      isActive: (pathname: string) => pathname === '/configuracoes' || pathname.startsWith('/configuracoes/'),
+    },
   ].filter((n) => n.show);
 
   const sidebarNav = nav.filter((n) => !n.mobileOnly);
@@ -341,14 +374,19 @@ function PortalLayoutInner() {
 
   return (
     <Box
-      className={`flex h-full ${colunaEstreita ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}`}
+      className={`flex h-full ${colunaEstreita ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}${isDashboard ? ' cc-page' : ''}`}
       sx={{ bgcolor: colors.canvas }}
     >
       {!hideSidebar && (
-        <PortalSidebar nav={sidebarNav} user={user} iniciais={iniciais} onLogout={handleLogout} />
+        <PortalSidebar
+          nav={sidebarNav}
+          user={user}
+          iniciais={iniciais}
+          onLogout={handleLogout}
+        />
       )}
 
-      <Box className="flex-1 flex flex-col min-w-0 min-h-0" sx={{ bgcolor: colors.canvas }}>
+      <Box className="flex-1 flex flex-col min-w-0 min-h-0" sx={{ bgcolor: isDashboard ? CC_BG : colors.canvas }}>
         {/* Topbar desktop */}
         {!hideSidebar && (
           <Box
@@ -358,11 +396,14 @@ function PortalLayoutInner() {
               alignItems: 'center',
               justifyContent: 'space-between',
               px: 3,
-              height: isDashboard ? 64 : 56,
+              height: isDashboard ? 58 : 56,
               flexShrink: 0,
               borderBottom: isDashboard ? 'none' : '1px solid',
               borderColor: colors.border,
-              bgcolor: colors.canvas,
+              bgcolor: isDashboard ? CC_BG : colors.canvas,
+              overflow: 'visible',
+              position: 'relative',
+              zIndex: isDashboard ? 10000 : 1,
             }}
           >
             <PageHeaderTitle {...pageTitle} variant="desktop" />
@@ -420,18 +461,26 @@ function PortalLayoutInner() {
               : scrollInterno
                 ? { xs: 2, md: 2 }
                 : isDashboard
-                  ? { xs: 1.5, md: 2 }
+                  ? { xs: 1.25, md: 1.5 }
                   : emConfiguracoes || emFrota
                     ? { xs: 2, md: 2.5 }
                     : { xs: 2.5, md: 3 },
             pb:
               mobileTabsRodape.length > 0 && !isChamadoNovo
                 ? { xs: safeAreaBottomCalc(80), md: 3 }
-                : 3,
+                : isDashboard
+                  ? { xs: 1.25, md: 1.5 }
+                  : 3,
             maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
             mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
             width: '100%',
-            bgcolor: colors.canvas,
+            bgcolor: isDashboard ? CC_BG : colors.canvas,
+            ...(isDashboard
+              ? {
+                  flex: 1,
+                  minHeight: 0,
+                }
+              : null),
           }}
         >
           <Outlet />

@@ -333,6 +333,15 @@ export function precisaFatorFracionada(unidadeFracionada, unidadeContagem) {
   return true;
 }
 
+/** Mix/latas de segunda. Desligada: só diária e completa. */
+export const CONTAGEM_SEMANAL_ATIVA = false;
+
+export function assertTipoContagemAtivo(tipoContagem) {
+  if (tipoContagem === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
+    throw Object.assign(new Error('Contagem semanal está desativada'), { status: 400 });
+  }
+}
+
 /**
  * Filtro SQL (alias p) para montar novas contagens.
  * Mensal: participa. Diária/semanal: participa + flag do tipo.
@@ -440,10 +449,106 @@ export async function garantirSchemaUnidadeFracionada(client) {
       ALTER TABLE insumos
         ADD COLUMN IF NOT EXISTS participa_contagem BOOLEAN NOT NULL DEFAULT TRUE
     `);
+    await client.query(`
+      ALTER TABLE estoque_itens
+        ADD COLUMN IF NOT EXISTS contagem_unidade_entrada TEXT
+    `);
     schemaFracionadaOk = true;
   } catch (e) {
     if (e.code !== '42P01') throw e;
   }
+}
+
+/** Normaliza UND|KG enviados pelo app na digitação da contagem. */
+export function normalizarUnidadeEntrada(raw) {
+  const x = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (['kg', 'kilo', 'kilos', 'kilograma', 'kilogramas'].includes(x)) return 'KG';
+  if (['und', 'un', 'unid', 'unidade', 'unidades'].includes(x)) return 'UND';
+  return null;
+}
+
+/** Peça (UND) com rascunho legado em KG: o número digitado é unidade, não quilo. */
+export function unidadeOrigemContagem(unidadeEntrada, unidadeFracionada, unidadeContagem) {
+  const dest = normalizarUnidade(unidadeContagem || unidadeFracionada);
+  const entrada = normalizarUnidadeEntrada(unidadeEntrada);
+  if (dest === 'und' && entrada === 'KG') return 'UND';
+  return entrada || unidadeFracionadaEfetiva(unidadeFracionada, unidadeContagem);
+}
+
+export function nucleoCodigoOuNull(codigo) {
+  const t = String(codigo || '').trim();
+  if (!/^\d+$/.test(t)) return null;
+  return t.replace(/^0+/, '') || '0';
+}
+
+/** Mesmo SKU na rede: 034754 e 34754 são a mesma chave. */
+export function chaveCodigoRede(codigo) {
+  return nucleoCodigoOuNull(codigo) || String(codigo || '').trim().toUpperCase();
+}
+
+/** Popeyes tem catálogo e preço próprios — fora do padrão BK. */
+export const BK_NUMBER_POPEYES = '15022';
+
+export const SQL_LOJA_BK_REDE = `TRIM(COALESCE(l.bk_number, '')) <> '${BK_NUMBER_POPEYES}'`;
+
+/**
+ * Grava o padrão de contagem em todas as lojas BK com o mesmo código.
+ * Preço e saldo continuam por loja. Popeyes não entra.
+ */
+export async function aplicarPadraoContagemRede(client, {
+  codigo,
+  participa_contagem,
+  contagem_diaria,
+  grupo_diario,
+  contagem_critica,
+  grupo_critico,
+  permite_contagem_caixa,
+  permite_contagem_pc_fd,
+  permite_contagem_kg_und,
+  unidade_fracionada,
+} = {}) {
+  const nucleo = nucleoCodigoOuNull(codigo);
+  const r = await client.query(
+    `UPDATE insumos dest
+     SET participa_contagem = $1,
+         contagem_diaria = $2, grupo_diario = $3,
+         contagem_critica = $4, grupo_critico = $5,
+         permite_contagem_caixa = $6, permite_contagem_pc_fd = $7, permite_contagem_kg_und = $8,
+         unidade_fracionada = $9,
+         atualizado_em = NOW()
+     FROM lojas l
+     WHERE dest.id_loja = l.id_loja
+       AND dest.ativo = TRUE
+       AND TRIM(COALESCE(l.bk_number, '')) <> $12
+       AND (
+         UPPER(BTRIM(dest.codigo)) = UPPER(BTRIM($10::text))
+         OR (
+           $11::text IS NOT NULL
+           AND dest.codigo ~ '^[0-9]+$'
+           AND TRIM(LEADING '0' FROM dest.codigo) = $11
+         )
+       )
+     RETURNING dest.id_insumo, dest.id_loja, dest.codigo`,
+    [
+      participa_contagem,
+      contagem_diaria,
+      grupo_diario,
+      contagem_critica,
+      grupo_critico,
+      permite_contagem_caixa,
+      permite_contagem_pc_fd,
+      permite_contagem_kg_und,
+      unidade_fracionada,
+      codigo,
+      nucleo,
+      BK_NUMBER_POPEYES,
+    ],
+  );
+  return r.rows;
 }
 
 /**
@@ -464,6 +569,8 @@ export function resolverQtdContagem({
   permite_contagem_kg_und = true,
   unidade_contagem = null,
   unidade_fracionada = null,
+  /** Override do app: operador escolheu digitar UND ou KG neste item. */
+  unidade_entrada = null,
   fator_fracionada = null,
   fator_fracionada_status = null,
   id_insumo = null,
@@ -491,7 +598,7 @@ export function resolverQtdContagem({
   let qtdFracionada = 0;
   if (temKg) {
     const dest = unidade_contagem || unidadeFracionadaEfetiva(unidade_fracionada, unidade_contagem);
-    const orig = unidadeFracionadaEfetiva(unidade_fracionada, dest);
+    const orig = unidadeOrigemContagem(unidade_entrada, unidade_fracionada, dest);
     const conv = aplicarConversaoUnidades({
       quantidade: contagem_kg_und,
       unidadeOrigem: orig,
@@ -565,20 +672,26 @@ export async function carregarFatorFracionada(client, {
   };
 }
 
-/** Anexa fator_fracionada em cada row (cache por id_insumo). */
+/** Anexa fator_fracionada em cada row (cache por id_insumo + unidade de entrada). */
 export async function anexarFatoresFracionada(client, rows) {
   const cache = new Map();
   for (const row of rows || []) {
-    const key = Number(row.id_insumo);
-    if (!Number.isFinite(key) || key <= 0) continue;
+    const id = Number(row.id_insumo);
+    if (!Number.isFinite(id) || id <= 0) continue;
+    const fracionada = unidadeOrigemContagem(
+      row.contagem_unidade_entrada || row.unidade_entrada,
+      row.unidade_fracionada,
+      row.unidade_contagem,
+    );
+    const key = `${id}|${unidadeFracionadaEfetiva(fracionada, row.unidade_contagem)}`;
     if (!cache.has(key)) {
       cache.set(
         key,
         await carregarFatorFracionada(client, {
-          id_insumo: key,
+          id_insumo: id,
           codigo: row.codigo,
           unidade_contagem: row.unidade_contagem,
-          unidade_fracionada: row.unidade_fracionada,
+          unidade_fracionada: fracionada,
         }),
       );
     }
@@ -618,7 +731,7 @@ export async function recomputarEstoqueContadoContagem(client, idContagem) {
   await garantirSchemaUnidadeFracionada(client);
   const { rows } = await client.query(
     `SELECT i.id_item, i.id_insumo, i.contagem_caixa, i.contagem_pc_fd, i.contagem_kg_und,
-            i.estoque_contado,
+            i.contagem_unidade_entrada, i.estoque_contado,
             p.codigo, p.unidade_contagem,
             COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
             p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial,
@@ -647,6 +760,7 @@ export async function recomputarEstoqueContadoContagem(client, idContagem) {
       permite_contagem_kg_und: row.permite_contagem_kg_und,
       unidade_contagem: row.unidade_contagem,
       unidade_fracionada: row.unidade_fracionada,
+      unidade_entrada: row.contagem_unidade_entrada,
       fator_fracionada: row.fator_fracionada,
       fator_fracionada_status: row.fator_fracionada_status,
       id_insumo: row.id_insumo,

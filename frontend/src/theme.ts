@@ -104,7 +104,59 @@ const baseThemeOptions = {
     },
     MuiDialog: {
       styleOverrides: {
-        paper: { borderRadius: radius.lg, border: `1px solid ${colors.border}`, boxShadow: shadows.cardHover },
+        paper: {
+          borderRadius: radius.lg,
+          border: `1px solid ${colors.border}`,
+          boxShadow: shadows.cardHover,
+          bgcolor: colors.surface,
+          backgroundImage: 'none',
+          color: colors.textPrimary,
+        },
+      },
+    },
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: {
+          color: colors.textPrimary,
+          fontWeight: 700,
+        },
+      },
+    },
+    MuiDialogContent: {
+      styleOverrides: {
+        root: {
+          color: colors.textPrimary,
+          bgcolor: colors.surface,
+        },
+      },
+    },
+    MuiDialogActions: {
+      styleOverrides: {
+        root: {
+          bgcolor: colors.surface,
+        },
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          '&.MuiAlert-standardInfo': {
+            backgroundColor: 'var(--ga-canvas-alt)',
+            color: 'var(--ga-text-primary)',
+            border: '1px solid var(--ga-border)',
+            '& .MuiAlert-icon': { color: 'var(--ga-text-secondary)' },
+          },
+          '&.MuiAlert-outlinedInfo': {
+            borderColor: 'var(--ga-border)',
+            color: 'var(--ga-text-primary)',
+            '& .MuiAlert-icon': { color: 'var(--ga-text-secondary)' },
+          },
+          '&.MuiAlert-filledInfo': {
+            backgroundColor: 'var(--ga-canvas-alt)',
+            color: 'var(--ga-text-primary)',
+            '& .MuiAlert-icon': { color: 'var(--ga-text-secondary)' },
+          },
+        },
       },
     },
     MuiLinearProgress: {
@@ -141,8 +193,8 @@ export const darkTheme = createTheme({
     success: { main: '#34D399', contrastText: '#052e16' },
     warning: { main: '#FB923C', contrastText: '#431407' },
     error: { main: '#F87171', contrastText: '#450a0a' },
-    background: { default: '#0B0F19', paper: '#111827' },
-    text: { primary: '#F8FAFC', secondary: '#94A3B8' },
+    background: { default: '#050505', paper: '#111110' },
+    text: { primary: '#f4f1ec', secondary: '#9a958e' },
     divider: 'rgba(255, 255, 255, 0.08)',
   },
 });

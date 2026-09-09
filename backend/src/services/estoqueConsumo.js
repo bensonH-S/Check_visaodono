@@ -168,6 +168,18 @@ export function aplicarConversaoUnidades({
     };
   }
 
+  // 0 de qualquer unidade é 0 no destino. Sem isso, finalizar com UNIDADES=0
+  // em item canônico L (bag/óleo) explode mesmo sem sobra para converter.
+  if (permitirZero && q === 0) {
+    return {
+      ok: true,
+      quantidade: 0,
+      origemConversao: 'zero',
+      fatorAplicado: null,
+      ...meta,
+    };
+  }
+
   const status = String(fatorStatus || '').toLowerCase();
   if (status === 'bloqueado') {
     return {
@@ -233,6 +245,18 @@ let schemaPilotoOk = false;
 
 export async function garantirSchemaPilotoBaixa(client) {
   if (schemaPilotoOk) return;
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS lojas_estoque_perfil (
+      id_loja INTEGER PRIMARY KEY REFERENCES lojas(id_loja) ON DELETE CASCADE,
+      modo_ciclo TEXT NOT NULL DEFAULT 'antes_abertura'
+        CHECK (modo_ciclo IN ('antes_abertura', 'corte_24h')),
+      hora_corte TIME NOT NULL DEFAULT '06:00',
+      janela_minutos INTEGER NOT NULL DEFAULT 30
+        CHECK (janela_minutos >= 0 AND janela_minutos <= 180),
+      piloto_baixa BOOLEAN NOT NULL DEFAULT TRUE,
+      atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
   try {
     await client.query(`
       ALTER TABLE lojas_estoque_perfil
@@ -401,6 +425,75 @@ async function semearPilotoBaixa(client) {
     WHERE i.ativo = TRUE AND LTRIM(TRIM(i.codigo), '0') = '38178' AND i.descricao ~* 'REBEL'
     ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
   `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, u.origem, u.destino, u.fator,
+           'CX 11KG IMPT / und_convertida=15: 1 UND = 11/15 KG (não é o anel)',
+           'validado', NOW()
+    FROM insumos i
+    CROSS JOIN (VALUES
+      ('kg', 'und', ROUND((15.0 / 11)::numeric, 8)),
+      ('und', 'kg', ROUND((11.0 / 15)::numeric, 8)),
+      ('g', 'und', ROUND((15.0 / 11000)::numeric, 8))
+    ) AS u(origem, destino, fator)
+    WHERE i.ativo = TRUE
+      AND LTRIM(TRIM(i.codigo), '0') = '38810'
+      AND UPPER(TRIM(i.unidade_contagem)) IN ('UND', 'UN', 'UNID')
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, u.origem, u.destino, u.fator,
+           'rótulo CASQUINHA 300 UN / 3,3 kg: 1 UND = 0,011 KG',
+           'validado', NOW()
+    FROM insumos i
+    CROSS JOIN (VALUES
+      ('und', 'kg', 0.011::numeric),
+      ('kg', 'und', ROUND((1 / 0.011)::numeric, 8))
+    ) AS u(origem, destino, fator)
+    WHERE i.ativo = TRUE
+      AND LTRIM(TRIM(i.codigo), '0') = '36234'
+      AND UPPER(TRIM(i.unidade_contagem)) IN ('UND', 'UN', 'UNID')
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, u.origem, u.destino, u.fator,
+           'loja: 3,5 voltas = 112 g → 1 volta = 0,032 kg',
+           'validado', NOW()
+    FROM insumos i
+    CROSS JOIN (VALUES
+      ('volta', 'kg', 0.032::numeric),
+      ('kg', 'volta', ROUND((1 / 0.032)::numeric, 8))
+    ) AS u(origem, destino, fator)
+    WHERE i.ativo = TRUE
+      AND UPPER(TRIM(i.codigo)) IN ('28459', '028459', '41962')
+      AND UPPER(TRIM(i.unidade_contagem)) IN ('KG', 'KILO', 'KILOS')
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
+  await client.query(`
+    INSERT INTO estoque_insumo_aliases (id_loja, codigo_ficha, id_insumo, observacao)
+    SELECT i.id_loja, '33057', i.id_insumo,
+           'ficha usa 33057; canônico mix baunilha 28459'
+    FROM insumos i
+    WHERE i.ativo = TRUE
+      AND UPPER(TRIM(i.codigo)) = '28459'
+      AND i.descricao ~* 'BAUNILHA'
+    ON CONFLICT (id_loja, codigo_ficha) DO UPDATE
+      SET id_insumo = EXCLUDED.id_insumo,
+          observacao = EXCLUDED.observacao
+  `);
+  await client.query(`
+    INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
+    SELECT i.id_insumo, 'und', 'l', ROUND(i.und_convertida::numeric, 8),
+           'contagem: 1 UND (bag/galão) = und_convertida L',
+           'validado', NOW()
+    FROM insumos i
+    WHERE i.ativo = TRUE
+      AND UPPER(TRIM(i.unidade_contagem)) IN ('L', 'LT', 'LITRO', 'LITROS')
+      AND COALESCE(i.und_convertida, 0) > 0
+    ON CONFLICT (id_insumo, unidade_origem, unidade_destino) DO NOTHING
+  `);
 }
 
 export async function lojaEmPilotoBaixa(client, idLoja) {
@@ -464,10 +557,56 @@ export async function resolverInsumoCanonico(client, idLoja, codigo) {
      WHERE id_loja = $1
        AND ativo = TRUE
        AND codigo ~ '^[0-9]+$'
-       AND LTRIM(codigo, '0') = $2`,
+       AND LTRIM(codigo, '0') = $2
+     ORDER BY LENGTH(codigo) DESC`,
     [idLoja, nucleo],
   );
-  if (padded.length === 1) return padded[0];
+  if (padded.length >= 1) return padded[0];
+  return null;
+}
+
+const MASSAS = new Set(['g', 'kg']);
+
+/**
+ * Fator cadastrado, ou o mesmo fator atravessando g↔kg (SI).
+ * Não inventa massa↔peça: só reutiliza conversão já validada na outra unidade SI.
+ */
+export async function resolverFatorComPonteMassa(client, idInsumo, unidadeOrigem, unidadeDestino) {
+  const orig = normalizarUnidade(unidadeOrigem);
+  const dest = normalizarUnidade(unidadeDestino);
+  const direto = await buscarConversao(client, idInsumo, orig, dest);
+  if (direto) {
+    return { fator: Number(direto.fator), status: direto.status, origem: 'fator_validado' };
+  }
+
+  if (MASSAS.has(orig) && !MASSAS.has(dest)) {
+    for (const via of orig === 'g' ? ['kg', 'g'] : ['g', 'kg']) {
+      const preSi = orig === via ? 1 : fatorSi(orig, via);
+      if (preSi == null) continue;
+      const row = await buscarConversao(client, idInsumo, via, dest);
+      if (row) {
+        return {
+          fator: preSi * Number(row.fator),
+          status: row.status,
+          origem: 'si_mais_fator',
+        };
+      }
+    }
+  }
+  if (!MASSAS.has(orig) && MASSAS.has(dest)) {
+    for (const via of dest === 'g' ? ['g', 'kg'] : ['kg', 'g']) {
+      const postSi = dest === via ? 1 : fatorSi(via, dest);
+      if (postSi == null) continue;
+      const row = await buscarConversao(client, idInsumo, orig, via);
+      if (row) {
+        return {
+          fator: Number(row.fator) * postSi,
+          status: row.status,
+          origem: 'si_mais_fator',
+        };
+      }
+    }
+  }
   return null;
 }
 
@@ -520,10 +659,10 @@ export async function converterQuantidade(client, {
     if (!idInsumo) {
       return { ...erroBase, motivo: MOTIVO_CONVERSAO.NAO_ENCONTRADA, fatorAplicado: null };
     }
-    const row = await buscarConversao(client, idInsumo, orig, dest);
-    if (row) {
-      fatorConversao = row.fator;
-      fatorStatus = row.status;
+    const resolvido = await resolverFatorComPonteMassa(client, idInsumo, orig, dest);
+    if (resolvido) {
+      fatorConversao = resolvido.fator;
+      fatorStatus = resolvido.status;
     }
   }
 

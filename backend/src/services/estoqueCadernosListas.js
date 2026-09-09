@@ -1,3 +1,5 @@
+import { nucleoCodigoNumerico } from './estoqueConsumo.js';
+
 /**
  * Listas oficiais (códigos) — curadoria gestores Terraço 2026-08-29
  * + Break: RODEIO, CHEDDAR DUPLO CRISPY, CHEDDAR JR
@@ -232,6 +234,15 @@ export const CODIGOS_DI = [
   '42342',
   '028451',
   '019909',
+  '021403',
+  '21403',
+  '034840',
+  '34840',
+  '034754',
+  '34754',
+  '036252',
+  '36252',
+  'TRC-PAOBRIOCHEBKCX270U',
 ];
 
 export const CODIGOS_EMPRESTIMO = [
@@ -466,6 +477,13 @@ export function codigosDoTipo(tipo) {
 }
 
 export function filtrarPorCodigos(rows, tipo) {
-  const set = new Set(codigosDoTipo(tipo).map(normCod));
-  return (rows || []).filter((row) => set.has(normCod(row.codigo)));
+  const lista = codigosDoTipo(tipo);
+  const set = new Set(lista.map(normCod));
+  const nucleos = new Set(lista.map(nucleoCodigoNumerico).filter(Boolean));
+  return (rows || []).filter((row) => {
+    const n = normCod(row.codigo);
+    if (set.has(n)) return true;
+    const nucleo = nucleoCodigoNumerico(row.codigo);
+    return nucleo != null && nucleos.has(nucleo);
+  });
 }

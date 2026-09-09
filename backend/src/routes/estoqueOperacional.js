@@ -10,7 +10,9 @@ import {
   lancarBreak,
   listarLojasDestinoEmprestimo,
   listarEmprestimosAReceber,
+  listarEmprestimosADevolver,
   confirmarRecebimentoEmprestimo,
+  devolverEmprestimo,
   garantirSchemaBreakCaderno,
   upsertProdutoVenda,
   registrarEntradas,
@@ -40,6 +42,10 @@ import {
   listarAuditoriaPiloto,
   linhasExcelAuditoriaPiloto,
 } from '../services/estoqueConsumo.js';
+import {
+  montarSaudeBaixa,
+  linhasExcelSaudeBaixa,
+} from '../services/estoqueSaudeBaixa.js';
 import { garantirSchemaUnidadeFracionada } from '../services/estoqueContagem.js';
 import XLSX from 'xlsx';
 import {
@@ -258,6 +264,86 @@ router.get('/saldos', permSaldo, async (req, res, next) => {
   }
 });
 
+/** Command Center: itens da diária zerados/baixos na rede. */
+router.get('/saldos/rede-baixo', permSaldo, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const { rows } = await pool.query(
+      `
+      SELECT
+        p.id_loja,
+        l.name AS loja,
+        p.codigo,
+        p.descricao,
+        p.unidade_contagem,
+        p.grupo_diario,
+        COALESCE(s.quantidade, 0)::numeric AS quantidade
+      FROM insumos p
+      JOIN lojas l ON l.id_loja = p.id_loja
+      LEFT JOIN estoque_saldos s
+        ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
+      WHERE p.ativo = TRUE
+        AND COALESCE(p.contagem_diaria, FALSE) = TRUE
+        AND COALESCE(s.quantidade, 0) <= 0.001
+        AND l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
+        AND ($1::int[] IS NULL OR p.id_loja = ANY($1::int[]))
+      ORDER BY quantidade ASC, l.name, p.descricao
+      LIMIT 40
+      `,
+      [ids],
+    );
+    res.json({
+      total: rows.length,
+      itens: rows.map((r) => ({
+        id_loja: r.id_loja,
+        loja: r.loja,
+        codigo: r.codigo,
+        descricao: r.descricao,
+        unidade: r.unidade_contagem,
+        grupo: r.grupo_diario || null,
+        quantidade: num(r.quantidade),
+      })),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Command Center: valor atual da rede (saldo × custo CMV). */
+router.get('/saldos/rede-valor', permSaldo, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const { rows } = await pool.query(
+      `
+      SELECT
+        ROUND(SUM(
+          GREATEST(COALESCE(s.quantidade, 0), 0) * COALESCE(p.valor_unidade, 0)
+        )::numeric, 2) AS valor_atual
+      FROM insumos p
+      JOIN lojas l ON l.id_loja = p.id_loja
+      LEFT JOIN estoque_saldos s
+        ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
+      WHERE p.ativo = TRUE
+        AND COALESCE(p.entra_cmv, TRUE) = TRUE
+        AND l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
+        AND ($1::int[] IS NULL OR p.id_loja = ANY($1::int[]))
+      `,
+      [ids],
+    );
+    res.json({ valor_atual: num(rows[0]?.valor_atual) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/movimentos', permOp, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
@@ -352,6 +438,48 @@ router.get('/baixa-pendencias', permOp, async (req, res, next) => {
       [idLoja, limite],
     );
     res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Saúde da baixa — relatório operacional (tela + Excel). */
+router.get('/saude-baixa', permOp, async (req, res, next) => {
+  try {
+    const escopo = String(req.query.escopo || 'loja').toLowerCase() === 'rede' ? 'rede' : 'loja';
+    let idLoja = null;
+    if (escopo === 'loja') {
+      idLoja = parseIdLoja(req.query.id_loja);
+      const bloqueio = acessoLoja(req, idLoja);
+      if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    }
+    await garantirSchemaPilotoBaixa(pool);
+    const data = await montarSaudeBaixa({ id_loja: idLoja, escopo });
+    const formato = String(req.query.formato || 'json').toLowerCase();
+    if (formato !== 'xlsx') return res.json(data);
+
+    const sheets = linhasExcelSaudeBaixa(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.resumo), 'Resumo');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.problemas), 'O que resolver');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheets.vendas), 'Vendas com problema');
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(sheets.breaks?.length ? sheets.breaks : [{ Info: 'Nenhum break com aviso' }]),
+      'Breaks com aviso',
+    );
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
+      new Date(),
+    );
+    const tag = escopo === 'rede' ? 'rede' : `loja-${idLoja}`;
+    const filename = `saude-baixa-${tag}-${hoje}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buf);
   } catch (e) {
     next(e);
   }
@@ -1057,6 +1185,18 @@ router.get('/break/a-receber', permBreak, async (req, res, next) => {
   }
 });
 
+router.get('/break/a-devolver', permBreak, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    const rows = await listarEmprestimosADevolver(idLoja);
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/break/:id/receber', permBreak, async (req, res, next) => {
   try {
     const idBreak = Number(req.params.id);
@@ -1078,6 +1218,35 @@ router.post('/break/:id/receber', permBreak, async (req, res, next) => {
       entidade: 'estoque_break',
       idReferencia: idBreak,
       descricao: `Empréstimo #${idBreak} recebido na loja ${idLoja}`,
+    });
+    res.json(result);
+  } catch (e) {
+    if (respostaErroOperacional(res, e)) return;
+    next(e);
+  }
+});
+
+router.post('/break/:id/devolver', permBreak, async (req, res, next) => {
+  try {
+    const idBreak = Number(req.params.id);
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    if (!Number.isFinite(idBreak) || idBreak <= 0) {
+      return res.status(400).json({ error: 'Empréstimo inválido' });
+    }
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await devolverEmprestimo({
+      id_break: idBreak,
+      id_loja_destino: idLoja,
+      devolvido_por: userId(req),
+    });
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'devolver',
+      entidade: 'estoque_break',
+      idReferencia: idBreak,
+      descricao: `Empréstimo #${idBreak} devolvido pela loja ${idLoja}`,
     });
     res.json(result);
   } catch (e) {

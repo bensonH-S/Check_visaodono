@@ -6,6 +6,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { GRAVIDADE_CORES } from '../dashboardCharts';
 import { fmtInt, fmtPct } from './ccFormat';
 import { CcEmpty, CcPanel, CcSkeleton } from './CcPanel';
+import { CC_TOOLTIP_STYLE } from './ccTheme';
 
 type NcGravidade = { gravidade: string; total: number };
 
@@ -40,8 +41,7 @@ export default function CcNcsDonut({
       title="Não conformidades por criticidade"
       action="Ver todas as NCs"
       actionTo="/nao-conformidades"
-      minHeight={220}
-      sx={{ p: { xs: 1.25, md: 2.25 } }}
+      minHeight={0}
     >
       {loading ? (
         <CcSkeleton height={160} />
@@ -54,14 +54,14 @@ export default function CcNcsDonut({
             alignItems: 'center',
             gap: { xs: 1, md: 2 },
             flex: 1,
-            minHeight: { xs: 140, md: 180 },
+            minHeight: 0,
             minWidth: 0,
           }}
         >
           <Box
             sx={{
-              width: { xs: 88, sm: 110, md: 130, lg: 150 },
-              height: { xs: 88, sm: 110, md: 130, lg: 150 },
+              width: { xs: 88, md: 118 },
+              height: { xs: 88, md: 118 },
               position: 'relative',
               flexShrink: 0,
             }}
@@ -85,12 +85,7 @@ export default function CcNcsDonut({
                 </Pie>
                 <Tooltip
                   formatter={(value) => [fmtInt(Number(value)), 'NCs']}
-                  contentStyle={{
-                    background: 'var(--ga-surface)',
-                    border: '1px solid var(--ga-border)',
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
+                  {...CC_TOOLTIP_STYLE}
                 />
               </PieChart>
             </ResponsiveContainer>

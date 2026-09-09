@@ -196,8 +196,9 @@ export async function attachLojasUsuario(req, _res, next) {
 }
 
 /**
- * Estoque: regional (cargo ou vínculo na região) só vê lojas da própria região,
- * mesmo com lojas.todas. Diretoria/TI com lojas.todas e sem região continua vendo todas.
+ * Estoque: regional (cargo ou vínculo na região) vê lojas da própria região.
+ * Se não tiver frota (ex.: Igor com lojas.todas / supervisor geral), cai no escopo geral
+ * — senão o app de break/empréstimo fica sem loja para escolher.
  */
 export async function carregarLojasIdsEstoque(user) {
   if (ehGestorLoja(user)) {
@@ -205,7 +206,12 @@ export async function carregarLojasIdsEstoque(user) {
   }
   const comoRegional = ehCargoRegional(user) || (await usuarioVinculadoComoRegional(user.sub));
   if (comoRegional) {
-    return lojasRegiaoUsuario(user.sub);
+    const daRegiao = await lojasRegiaoUsuario(user.sub);
+    if (daRegiao.length) return daRegiao;
+    if (acessoTodasLojas(user)) return carregarLojasIds(user);
+    const base = await lojasUsuarioBase(user.sub);
+    if (base.length) return base;
+    return [];
   }
   return carregarLojasIds(user);
 }

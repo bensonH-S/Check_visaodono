@@ -7,27 +7,34 @@ type BrandLogoProps = {
   sx?: SxProps<Theme>;
   /** `full` = wordmark; `icone` = Logo_Alvim_Icone (mobile/PWA). */
   variante?: 'full' | 'icone';
+  /** Desliga o scale no hover (ex.: sidebar com crop). */
+  disableHover?: boolean;
 };
 
-export default function BrandLogo({ maxWidth = 200, sx, variante = 'full' }: BrandLogoProps) {
+export default function BrandLogo({
+  maxWidth = 200,
+  sx,
+  variante = 'full',
+  disableHover = false,
+}: BrandLogoProps) {
   const src = assetUrl(variante === 'icone' ? LOGO_ALVIM_ICONE : LOGO_GRUPO_ALVIM);
   return (
     <Box
       component="img"
       src={src}
       alt="Grupo Alvim"
-      sx={{
-        width: '100%',
-        maxWidth,
-        height: 'auto',
-        display: 'block',
-        objectFit: 'contain',
-        transition: 'transform 0.2s ease',
-        ...sx,
-        '&:hover': {
-          transform: 'scale(1.06)',
+      sx={[
+        {
+          width: '100%',
+          maxWidth,
+          height: 'auto',
+          display: 'block',
+          objectFit: 'contain',
+          transition: 'transform 0.2s ease',
+          ...(!disableHover ? { '&:hover': { transform: 'scale(1.06)' } } : null),
         },
-      }}
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+      ]}
     />
   );
 }

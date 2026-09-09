@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calcularQtdContagem,
+  chaveCodigoRede,
   resolverQtdContagem,
   sqlFiltroItensContagem,
   statusConversaoFracionada,
@@ -17,6 +18,14 @@ import {
   aplicarConversaoUnidades,
   converterQuantidade,
 } from './estoqueConsumo.js';
+
+describe('chaveCodigoRede', () => {
+  it('034754 e 34754 são o mesmo SKU na rede', () => {
+    assert.equal(chaveCodigoRede('034754'), '34754');
+    assert.equal(chaveCodigoRede('34754'), '34754');
+    assert.equal(chaveCodigoRede('RCNT-BALDEPAPEL900MLBKC'), 'RCNT-BALDEPAPEL900MLBKC');
+  });
+});
 
 describe('unidadeFracionadaEfetiva', () => {
   it('herda unidade_contagem quando fracionada está vazia', () => {
@@ -70,6 +79,49 @@ describe('resolverQtdContagem — UND avulsa → KG canônico', () => {
     assert.notEqual(r.qtd, 2 * 17.2 + 37);
   });
 
+  it('unidade_entrada=KG ignora fracionada UND (32 kg = 32)', () => {
+    const r = resolverQtdContagem({
+      contagem_kg_und: 32,
+      und_convertida: 12,
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'UND',
+      unidade_entrada: 'KG',
+      fator_fracionada: 0.09836066,
+      fator_fracionada_status: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, 32);
+  });
+
+  it('unidade_entrada=UND converte peça → kg', () => {
+    const fator = 0.09836066;
+    const r = resolverQtdContagem({
+      contagem_kg_und: 32,
+      und_convertida: 12,
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      unidade_entrada: 'UND',
+      fator_fracionada: fator,
+      fator_fracionada_status: 'validado',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, Math.round(32 * fator * 10000) / 10000);
+  });
+
+  it('cadastro UND com rascunho legado KG conta como peça', () => {
+    const r = resolverQtdContagem({
+      contagem_caixa: 3,
+      contagem_kg_und: 4,
+      und_convertida: 12,
+      unidade_contagem: 'UND',
+      unidade_fracionada: 'UND',
+      unidade_entrada: 'KG',
+      codigo: '35046',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, 40);
+  });
+
   it('sem fator validado não assume 1 UND = 1 KG', () => {
     const r = resolverQtdContagem({
       contagem_caixa: 2,
@@ -111,6 +163,66 @@ describe('aplicarConversaoUnidades', () => {
     });
     assert.equal(r.ok, true);
     assert.equal(r.quantidade, 0);
+  });
+
+  it('0 UND → L na contagem não exige fator (finalizar com sobra zerada)', () => {
+    const r = aplicarConversaoUnidades({
+      quantidade: 0,
+      unidadeOrigem: 'UND',
+      unidadeDestino: 'L',
+      permitirZero: true,
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.quantidade, 0);
+    assert.equal(r.origemConversao, 'zero');
+  });
+});
+
+describe('resolverQtdContagem — bag em litros', () => {
+  it('2 caixas + 0 UND sem fator = só as caixas', () => {
+    const r = resolverQtdContagem({
+      contagem_caixa: 2,
+      contagem_kg_und: 0,
+      und_convertida: 10,
+      unidade_contagem: 'L',
+      unidade_fracionada: 'L',
+      unidade_entrada: 'UND',
+      codigo: 'BK-COCA-ZERO-BAG-18',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, 20);
+  });
+
+  it('1 bag avulso UND → L com fator da caixa', () => {
+    const r = resolverQtdContagem({
+      contagem_caixa: 2,
+      contagem_kg_und: 1,
+      und_convertida: 10,
+      unidade_contagem: 'L',
+      unidade_fracionada: 'L',
+      unidade_entrada: 'UND',
+      fator_fracionada: 10,
+      fator_fracionada_status: 'validado',
+      codigo: 'BK-COCA-ZERO-BAG-18',
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.qtd, 30);
+  });
+
+  it('bag avulso sem fator continua bloqueado', () => {
+    const r = resolverQtdContagem({
+      contagem_caixa: 2,
+      contagem_kg_und: 1,
+      und_convertida: 10,
+      unidade_contagem: 'L',
+      unidade_fracionada: 'L',
+      unidade_entrada: 'UND',
+      codigo: 'BK-SEM-0014',
+    });
+    assert.equal(r.ok, false);
+    assert.equal(r.erro.motivo, MOTIVO_CONVERSAO.NAO_ENCONTRADA);
+    assert.equal(r.erro.unidade_origem, 'und');
+    assert.equal(r.erro.unidade_destino, 'l');
   });
 });
 

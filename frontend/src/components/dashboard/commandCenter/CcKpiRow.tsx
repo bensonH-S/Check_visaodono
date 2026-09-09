@@ -6,17 +6,17 @@ import StoreIcon from '@mui/icons-material/Store';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import { shadows } from '../../../theme/tokens';
 import { fmtDelta, fmtInt, fmtPct } from './ccFormat';
-import { CC_RADIUS, CcSkeleton } from './CcPanel';
+import { CC_BORDER, CC_CRITICO, CC_GAP, CC_OK, CC_BRAND_ORANGE, CC_BRAND_ORANGE_SOFT, CC_RADIUS, CC_SURFACE, CC_WARN } from './ccTheme';
+import { CcSkeleton } from './CcPanel';
 
 function Sparkline({ values }: { values: number[] }) {
   if (!values.length) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = Math.max(1, max - min);
-  const w = 72;
-  const h = 28;
+  const w = 64;
+  const h = 24;
   const pts = values
     .map((v, i) => {
       const x = (i / Math.max(1, values.length - 1)) * w;
@@ -29,7 +29,7 @@ function Sparkline({ values }: { values: number[] }) {
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
       <polygon points={area} fill="rgba(232, 82, 10, 0.18)" />
-      <polyline points={pts} fill="none" stroke="var(--ga-orange)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={pts} fill="none" stroke={CC_BRAND_ORANGE} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -54,17 +54,17 @@ function KpiCard({
   return (
     <Box
       sx={{
-        bgcolor: 'var(--ga-surface)',
-        border: '1px solid var(--ga-border)',
+        bgcolor: CC_SURFACE,
+        border: `1px solid ${CC_BORDER}`,
         borderRadius: `${CC_RADIUS}px`,
-        px: { xs: 1.25, sm: 1.5, md: 2, xl: 2.25 },
-        py: { xs: 1.5, md: 2.25 },
-        boxShadow: shadows.sm,
+        px: { xs: 1.25, md: 1.75 },
+        py: 1.25,
+        boxShadow: 'none',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         height: '100%',
-        minHeight: { xs: 88, md: 108 },
+        minHeight: 72,
         minWidth: 0,
         flex: '1 1 0',
         overflow: 'hidden',
@@ -73,10 +73,10 @@ function KpiCard({
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography
           sx={{
-            fontSize: { xs: '0.55rem', sm: '0.575rem', md: '0.625rem' },
+            fontSize: '0.625rem',
             fontWeight: 700,
             color: 'var(--ga-text-muted)',
-            mb: { xs: 0.65, md: 1 },
+            mb: 0.55,
             letterSpacing: '0.05em',
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
@@ -88,11 +88,11 @@ function KpiCard({
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: '1.15rem', sm: '1.35rem', md: '1.55rem', xl: '1.75rem' },
+            fontSize: { xs: '1.25rem', md: '1.5rem' },
             fontWeight: 700,
             color: 'var(--ga-text-primary)',
             lineHeight: 1,
-            mb: { xs: 0.65, md: 1 },
+            mb: 0.5,
             whiteSpace: 'nowrap',
           }}
         >
@@ -102,7 +102,7 @@ function KpiCard({
           <Typography
             component="div"
             sx={{
-              fontSize: { xs: '0.65rem', md: '0.75rem' },
+              fontSize: '0.6875rem',
               color: 'var(--ga-text-secondary)',
               display: 'flex',
               alignItems: 'center',
@@ -123,9 +123,9 @@ function KpiCard({
       {icon && (
         <Box
           sx={{
-            width: { xs: 36, md: 44, xl: 48 },
-            height: { xs: 36, md: 44, xl: 48 },
-            borderRadius: `${CC_RADIUS}px`,
+            width: 36,
+            height: 36,
+            borderRadius: '8px',
             display: { xs: 'none', sm: 'flex' },
             alignItems: 'center',
             justifyContent: 'center',
@@ -170,7 +170,7 @@ export default function CcKpiRow({
   const rowSx = {
     display: 'flex',
     flexWrap: 'nowrap' as const,
-    gap: { xs: 1, sm: 1.25, md: 2 },
+    gap: CC_GAP,
     width: '100%',
     minWidth: 0,
   };
@@ -180,7 +180,7 @@ export default function CcKpiRow({
       <Box sx={rowSx}>
         {Array.from({ length: 5 }).map((_, i) => (
           <Box key={i} sx={{ flex: '1 1 0', minWidth: 0 }}>
-            <CcSkeleton height={108} />
+            <CcSkeleton height={86} />
           </Box>
         ))}
       </Box>
@@ -199,11 +199,11 @@ export default function CcKpiRow({
           delta ? (
             <>
               {delta.positivo ? (
-                <ArrowDropUpIcon sx={{ fontSize: 16, color: '#16A34A', mr: 0.25 }} />
+                <ArrowDropUpIcon sx={{ fontSize: 16, color: CC_OK, mr: 0.25 }} />
               ) : (
-                <ArrowDropDownIcon sx={{ fontSize: 16, color: '#DC2626', mr: 0.25 }} />
+                <ArrowDropDownIcon sx={{ fontSize: 16, color: CC_CRITICO, mr: 0.25 }} />
               )}
-              <span style={{ color: delta.positivo ? '#16A34A' : '#DC2626', fontWeight: 600, marginRight: 4 }}>
+              <span style={{ color: delta.positivo ? CC_OK : CC_CRITICO, fontWeight: 600, marginRight: 4 }}>
                 {delta.valor}%
               </span>
               <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
@@ -222,8 +222,8 @@ export default function CcKpiRow({
         value={planejadas ? `${fmtInt(visitasMes)}` : fmtInt(visitasMes)}
         subtext={planejadas ? `de ${fmtInt(planejadas)} planejadas` : 'Registradas neste mês'}
         icon={<CalendarMonthIcon fontSize="medium" />}
-        iconColor="#3B82F6"
-        iconBg="rgba(59, 130, 246, 0.15)"
+        iconColor={CC_BRAND_ORANGE}
+        iconBg={CC_BRAND_ORANGE_SOFT}
       />
 
       <KpiCard
@@ -231,8 +231,8 @@ export default function CcKpiRow({
         value={fmtInt(ncsAbertas)}
         subtext={`${fmtInt(ncsCriticas)} críticas • ${fmtInt(ncsModeradas)} moderadas`}
         icon={<WarningAmberIcon fontSize="medium" />}
-        iconColor="#EF4444"
-        iconBg="rgba(239, 68, 68, 0.15)"
+        iconColor={CC_CRITICO}
+        iconBg="rgba(196, 69, 45, 0.14)"
       />
 
       <KpiCard
@@ -240,8 +240,8 @@ export default function CcKpiRow({
         value={fmtInt(lojasRisco)}
         subtext="Abaixo de 75%"
         icon={<StoreIcon fontSize="medium" />}
-        iconColor="#F59E0B"
-        iconBg="rgba(245, 158, 11, 0.15)"
+        iconColor={CC_WARN}
+        iconBg="rgba(196, 122, 42, 0.14)"
       />
 
       <KpiCard
@@ -249,8 +249,8 @@ export default function CcKpiRow({
         value={veiculosAlerta == null ? '—' : fmtInt(veiculosAlerta)}
         subtext={veiculosAlerta == null ? 'Sem acesso à frota' : 'Excesso de velocidade'}
         icon={<LocalShippingIcon fontSize="medium" />}
-        iconColor="#8B5CF6"
-        iconBg="rgba(139, 92, 246, 0.15)"
+        iconColor={CC_BRAND_ORANGE}
+        iconBg={CC_BRAND_ORANGE_SOFT}
       />
     </Box>
   );

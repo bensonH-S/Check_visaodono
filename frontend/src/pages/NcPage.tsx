@@ -44,10 +44,10 @@ function gravChipSx(g: string, escuro: boolean) {
     };
   }
   return {
-    bgcolor: escuro ? 'rgba(148, 163, 184, 0.14)' : 'rgba(107, 114, 128, 0.1)',
-    color: escuro ? '#CBD5E1' : '#374151',
+    bgcolor: escuro ? 'rgba(244, 241, 236, 0.08)' : 'rgba(107, 114, 128, 0.1)',
+    color: escuro ? '#E7E2DA' : '#374151',
     border: '1px solid',
-    borderColor: escuro ? 'rgba(148, 163, 184, 0.35)' : 'rgba(107, 114, 128, 0.25)',
+    borderColor: escuro ? 'rgba(244, 241, 236, 0.18)' : 'rgba(107, 114, 128, 0.25)',
     fontWeight: 600,
   };
 }
@@ -64,11 +64,11 @@ function NcItemLinha({ nc, escuro }: { nc: NcItem; escuro: boolean }) {
         borderRadius: 1,
         bgcolor: resolvida
           ? escuro
-            ? 'rgba(148, 163, 184, 0.08)'
+            ? 'rgba(244, 241, 236, 0.06)'
             : 'action.hover'
           : colors.surface,
         border: '1px solid',
-        borderColor: resolvida ? colors.border : escuro ? 'rgba(148, 163, 184, 0.28)' : colors.border,
+        borderColor: resolvida ? colors.border : colors.borderStrong,
         opacity: resolvida ? 0.78 : 1,
       }}
     >
@@ -145,7 +145,7 @@ export default function NcPage() {
     borderRadius: 2,
     bgcolor: colors.surface,
     border: '1px solid',
-    borderColor: escuro ? 'rgba(148, 163, 184, 0.28)' : colors.border,
+    borderColor: colors.border,
   } as const;
 
   return (
@@ -236,7 +236,7 @@ export default function NcPage() {
                   borderRadius: '12px !important',
                   overflow: 'hidden',
                   border: '1px solid',
-                  borderColor: escuro ? 'rgba(148, 163, 184, 0.28)' : colors.border,
+                  borderColor: colors.border,
                   bgcolor: colors.surface,
                   '&:before': { display: 'none' },
                 }}
@@ -273,10 +273,10 @@ export default function NcPage() {
                       size="small"
                       sx={{
                         fontWeight: 600,
-                        bgcolor: escuro ? 'rgba(148, 163, 184, 0.14)' : 'transparent',
+                        bgcolor: escuro ? 'rgba(244, 241, 236, 0.08)' : 'transparent',
                         color: colors.textPrimary,
                         border: '1px solid',
-                        borderColor: escuro ? 'rgba(148, 163, 184, 0.35)' : colors.border,
+                        borderColor: colors.border,
                       }}
                     />
                     {visita.criticas > 0 && (
@@ -301,12 +301,12 @@ export default function NcPage() {
                       onClick={(e) => e.stopPropagation()}
                       sx={{
                         ml: { md: 'auto' },
-                        borderColor: escuro ? 'rgba(148, 163, 184, 0.4)' : colors.border,
+                        borderColor: colors.border,
                         color: colors.textPrimary,
                         '&:hover': {
-                          borderColor: escuro ? 'rgba(248, 250, 252, 0.55)' : colors.borderStrong,
-                          bgcolor: escuro ? 'rgba(248, 250, 252, 0.1)' : 'rgba(27, 42, 107, 0.04)',
-                          color: escuro ? '#F8FAFC' : colors.textPrimary,
+                          borderColor: colors.borderStrong,
+                          bgcolor: escuro ? 'rgba(244, 241, 236, 0.08)' : 'rgba(27, 42, 107, 0.04)',
+                          color: colors.textPrimary,
                         },
                       }}
                     >
@@ -320,7 +320,7 @@ export default function NcPage() {
                     px: 2,
                     pb: 2,
                     pt: 0,
-                    bgcolor: escuro ? 'rgba(15, 23, 42, 0.45)' : colors.canvasAlt,
+                    bgcolor: colors.canvasAlt,
                   }}
                 >
                   {visita.resumoGeral && (

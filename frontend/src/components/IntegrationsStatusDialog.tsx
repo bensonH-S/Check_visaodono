@@ -74,8 +74,8 @@ export default function IntegrationsStatusDialog({
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#FF7A3D' : '#1B2A6B';
-  const cardBg = escuro ? '#334155' : colors.canvasAlt;
+  const acento = '#E8520A';
+  const cardBg = colors.canvasAlt;
   const tituloExibido =
     titulo || (contexto ? `Status API · ${groups[0]?.name || ''}`.replace(/\s·\s$/, '') : 'Status API');
 
@@ -89,9 +89,9 @@ export default function IntegrationsStatusDialog({
         paper: {
           sx: {
             borderRadius: 2.5,
-            bgcolor: escuro ? '#1E293B' : colors.surface,
+            bgcolor: colors.surface,
             backgroundImage: 'none',
-            border: `1px solid ${escuro ? 'rgba(255, 255, 255, 0.12)' : colors.border}`,
+            border: `1px solid ${colors.border}`,
             boxShadow: escuro ? '0 16px 48px rgba(0, 0, 0, 0.45)' : '0 16px 48px rgba(15, 23, 42, 0.12)',
             overflow: 'hidden',
           },
@@ -107,8 +107,8 @@ export default function IntegrationsStatusDialog({
           gap: 1,
           py: 1.5,
           px: 2,
-          borderBottom: `1px solid ${escuro ? 'rgba(255, 255, 255, 0.08)' : colors.border}`,
-          bgcolor: escuro ? '#1E293B' : colors.surface,
+          borderBottom: `1px solid ${colors.border}`,
+          bgcolor: colors.surface,
         }}
       >
         <Activity size={22} strokeWidth={2} color={acento} aria-hidden />
@@ -140,12 +140,12 @@ export default function IntegrationsStatusDialog({
             }
           />
         </IconButton>
-        <IconButton size="small" aria-label="Fechar" onClick={onClose} sx={{ color: escuro ? '#94A3B8' : colors.textSecondary }}>
+        <IconButton size="small" aria-label="Fechar" onClick={onClose} sx={{ color: colors.textSecondary }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: '20px !important', pb: 2.5, px: 2, minHeight: 160, bgcolor: escuro ? '#1E293B' : colors.surface }}>
+      <DialogContent sx={{ pt: '20px !important', pb: 2.5, px: 2, minHeight: 160, bgcolor: colors.surface }}>
         {loading ? (
           <Box
             sx={{
@@ -157,14 +157,14 @@ export default function IntegrationsStatusDialog({
             }}
           >
             <CircularProgress size={22} thickness={4} sx={{ color: acento }} />
-            <Typography sx={{ fontSize: '0.92rem', color: 'text.secondary', fontWeight: 500 }}>
+            <Typography sx={{ fontSize: '0.92rem', color: colors.textSecondary, fontWeight: 500 }}>
               A verificar APIs...
             </Typography>
           </Box>
         ) : erro ? (
-          <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary', py: 2 }}>{erro}</Typography>
+          <Typography sx={{ fontSize: '0.88rem', color: colors.textSecondary, py: 2 }}>{erro}</Typography>
         ) : groups.length === 0 || groups.every((g) => g.apis.length === 0) ? (
-          <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary', py: 2 }}>
+          <Typography sx={{ fontSize: '0.88rem', color: colors.textSecondary, py: 2 }}>
             {contexto ? 'Esta página não usa APIs externas.' : 'Nenhum status disponível.'}
           </Typography>
         ) : (
@@ -206,7 +206,7 @@ export default function IntegrationsStatusDialog({
                           {item.name}
                         </Typography>
                         <Typography
-                          sx={{ fontSize: '0.75rem', color: 'text.secondary', fontWeight: 600 }}
+                          sx={{ fontSize: '0.75rem', color: colors.textSecondary, fontWeight: 600 }}
                         >
                           {item.configured === false ? 'N/A' : item.detail}
                         </Typography>

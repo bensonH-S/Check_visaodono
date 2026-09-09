@@ -25,18 +25,22 @@ import { rotuloTipoContagem } from '../../components/estoque/estoqueContagemTipo
 import { rankSecaoPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
 import {
   fracionadaInteira,
+  modoEntradaEfetivo,
+  modoEntradaInicial,
+  podeInformarKg,
   qtdPreviewSeguro,
-  rotuloCampoFracionado,
+  rotuloModoEntrada,
   sanitizarEntradaFracionada,
   sanitizarEntradaNaoNegativa,
   temEntradaTerraco,
-  unidadeFracionadaItem,
+  type ModoEntradaFracionada,
+  type RascunhoContagem,
 } from '../../components/estoque/estoqueContagemCampo';
 import { colors } from '../../theme/tokens';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 
-type RascunhoLinha = { caixa: string; pc: string; kg: string };
-type CampoContagem = keyof RascunhoLinha;
+type RascunhoLinha = RascunhoContagem;
+type CampoContagem = 'caixa' | 'pc' | 'kg';
 
 type ResumoLive = {
   total_valor: number;
@@ -57,6 +61,18 @@ function fmtNum(v: number | null | undefined, digitos = 2) {
     minimumFractionDigits: 0,
     maximumFractionDigits: digitos,
   });
+}
+
+/** VL.CAIXA da planilha; se só houver unitário, reconstrói com und_convertida. */
+function vlCaixaItem(i: EstoqueItem) {
+  const caixa = Number(i.preco_caixa);
+  if (Number.isFinite(caixa) && caixa > 0) return caixa;
+  const unit = Number(i.valor_unidade);
+  const und = Number(i.und_convertida);
+  if (Number.isFinite(unit) && unit > 0 && Number.isFinite(und) && und > 0) {
+    return Math.round(unit * und * 100) / 100;
+  }
+  return null;
 }
 
 function fmtDataHora(iso: string | null | undefined) {
@@ -469,28 +485,34 @@ export default function EstoqueConferenciaDetalhe({
           <Table stickyHeader size="small" sx={{ ...tableSx, tableLayout: 'fixed' }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ ...thSx, width: '32%' }}>Item</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 68 }}>Sist.</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Caixa</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 80 }}>Pc/fd</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 88 }}>Sobra</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 72 }}>Qtd</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'right', width: 96 }}>Valor</TableCell>
-                <TableCell sx={{ ...thSx, textAlign: 'center', width: 76, color: '#991b1b' }}>Dif.</TableCell>
+                <TableCell sx={{ ...thSx, width: '26%' }}>Item</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'right', width: 88 }}>Vl. unit.</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'right', width: 88 }}>Vl. caixa</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 64 }}>Sist.</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 76 }}>Caixa</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 76 }}>Pc/fd</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 84 }}>UND</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 64 }}>Qtd</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'right', width: 92 }}>Valor</TableCell>
+                <TableCell sx={{ ...thSx, textAlign: 'center', width: 72, color: '#991b1b' }}>Dif.</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {visiveis.map((i, idx) => {
-                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '' };
+                const raw = rascunho[i.id_item] ?? { caixa: '', pc: '', kg: '', modo: modoEntradaInicial(i) };
                 const permiteCx = i.permite_contagem_caixa !== false;
                 const permitePc = i.permite_contagem_pc_fd !== false;
                 const permiteKg = i.permite_contagem_kg_und !== false;
-                const rotuloFrac = rotuloCampoFracionado(unidadeFracionadaItem(i));
-                const inteiroFrac = fracionadaInteira(unidadeFracionadaItem(i));
+                const modo = modoEntradaEfetivo(i, raw);
+                const rotuloFrac = rotuloModoEntrada(modo);
+                const inteiroFrac = fracionadaInteira(modo === 'kg' ? 'KG' : 'UND');
+                const mostraAtalhoKg = editavel && permiteKg && podeInformarKg(i);
                 const contado = editavel ? qtdPreviewSeguro(i, raw) : i.estoque_contado;
                 const preenchido = editavel ? temEntradaTerraco(raw) : contado != null && Number.isFinite(Number(contado));
                 const valorLinha =
                   contado == null ? null : Math.round(contado * (Number(i.valor_unidade) || 0) * 100) / 100;
+                const vlUnit = Number(i.valor_unidade) > 0 ? Number(i.valor_unidade) : null;
+                const vlCaixa = vlCaixaItem(i);
                 const dif = contado == null ? null : contado - i.estoque_sistema;
                 const secao = nomeSecao(i);
                 const secaoAnt = idx > 0 ? nomeSecao(visiveis[idx - 1]) : '';
@@ -501,7 +523,19 @@ export default function EstoqueConferenciaDetalhe({
                       caixa: prev[i.id_item]?.caixa ?? '',
                       pc: prev[i.id_item]?.pc ?? '',
                       kg: prev[i.id_item]?.kg ?? '',
+                      modo: prev[i.id_item]?.modo ?? modo,
                       [campo]: valor,
+                    },
+                  }));
+                };
+                const setModo = (next: ModoEntradaFracionada) => {
+                  setRascunho((prev) => ({
+                    ...prev,
+                    [i.id_item]: {
+                      caixa: prev[i.id_item]?.caixa ?? '',
+                      pc: prev[i.id_item]?.pc ?? '',
+                      kg: '',
+                      modo: next,
                     },
                   }));
                 };
@@ -564,7 +598,7 @@ export default function EstoqueConferenciaDetalhe({
                     {mostrarFaixa && secao !== secaoAnt && (
                       <TableRow>
                         <TableCell
-                          colSpan={8}
+                          colSpan={10}
                           sx={{
                             fontSize: '0.65rem',
                             fontWeight: 700,
@@ -605,8 +639,35 @@ export default function EstoqueConferenciaDetalhe({
                         <Typography sx={{ fontSize: '0.68rem', color: colors.textMuted }}>
                           {i.codigo}
                           {i.unidade_contagem ? ` · ${String(i.unidade_contagem).toUpperCase()}` : ''}
-                          {Number(i.valor_unidade) > 0 ? ` · ${fmtBrl(i.valor_unidade)}` : ''}
                         </Typography>
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textAlign: 'right',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          py: 0.55,
+                          pr: 1.25,
+                          color: vlUnit == null ? colors.textMuted : colors.textPrimary,
+                          fontVariantNumeric: 'tabular-nums',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {vlUnit == null ? '—' : fmtBrl(vlUnit)}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          textAlign: 'right',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          py: 0.55,
+                          pr: 1.25,
+                          color: vlCaixa == null ? colors.textMuted : colors.textPrimary,
+                          fontVariantNumeric: 'tabular-nums',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {vlCaixa == null ? '—' : fmtBrl(vlCaixa)}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', color: colors.textSecondary, fontSize: '0.8rem', py: 0.55 }}>
                         {fmtNum(i.estoque_sistema, 3)}
@@ -618,10 +679,31 @@ export default function EstoqueConferenciaDetalhe({
                         {campo('pc', permitePc, i.contagem_pc_fd)}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', py: 0.55 }}>
-                        {campo('kg', permiteKg, i.contagem_kg_und, {
-                          rotulo: rotuloFrac,
-                          inteiro: inteiroFrac,
-                        })}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.15 }}>
+                          {campo('kg', permiteKg, i.contagem_kg_und, {
+                            rotulo: rotuloFrac,
+                            inteiro: inteiroFrac,
+                          })}
+                          {mostraAtalhoKg && (
+                            <Button
+                              type="button"
+                              size="small"
+                              onClick={() => setModo(modo === 'kg' ? 'und' : 'kg')}
+                              sx={{
+                                minWidth: 0,
+                                p: 0,
+                                lineHeight: 1.2,
+                                fontSize: '0.58rem',
+                                fontWeight: 600,
+                                textTransform: 'none',
+                                color: colors.textMuted,
+                                '&:hover': { bgcolor: 'transparent', color: colors.navy },
+                              }}
+                            >
+                              {modo === 'kg' ? 'voltar p/ und' : 'informar em kg?'}
+                            </Button>
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center', fontWeight: 700, color: colors.textPrimary, py: 0.55 }}>
                         {contado == null ? '—' : fmtNum(contado, 3)}
@@ -655,7 +737,7 @@ export default function EstoqueConferenciaDetalhe({
               })}
               {!visiveis.length && (
                 <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 5, color: colors.textMuted }}>
+                    <TableCell colSpan={10} align="center" sx={{ py: 5, color: colors.textMuted }}>
                     Nenhum item nesta faixa
                   </TableCell>
                 </TableRow>

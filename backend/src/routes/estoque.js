@@ -8,10 +8,16 @@ import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
 import { MOTIVO_CONVERSAO } from '../services/estoqueConsumo.js';
 import {
   anexarFatoresFracionada,
+  assertTipoContagemAtivo,
   flagsContagemDiaria,
   garantirSchemaUnidadeFracionada,
   mensagemErroConversao,
+  normalizarUnidadeEntrada,
   precisaFatorFracionada,
+  unidadeOrigemContagem,
+  aplicarPadraoContagemRede,
+  BK_NUMBER_POPEYES,
+  nucleoCodigoOuNull,
   recomputarEstoqueContadoContagem,
   resolverQtdContagem,
   SQL_ORDEM_PLANILHA,
@@ -136,6 +142,7 @@ async function criarContagemComItens(
 ) {
   if (!id_loja) throw Object.assign(new Error('Loja obrigatória'), { status: 400 });
   const tipoContagem = normalizarTipoContagem(tipo);
+  assertTipoContagemAtivo(tipoContagem);
   const filtroItens = filtroItensPorTipo(tipoContagem);
   const erroVazio = erroSemItensTipo(tipoContagem);
 
@@ -294,6 +301,11 @@ function mapItem(row) {
 
   // Preferência: recalcular QTD pelos 3 campos Terraço quando houver entrada
   let erro_conversao = row.erro_fator_fracionada || null;
+  const unidade_entrada = unidadeOrigemContagem(
+    row.contagem_unidade_entrada,
+    row.unidade_fracionada,
+    row.unidade_contagem,
+  );
   const qtdRes = resolverQtdContagem({
     contagem_caixa,
     contagem_pc_fd,
@@ -305,6 +317,7 @@ function mapItem(row) {
     permite_contagem_kg_und,
     unidade_contagem: row.unidade_contagem,
     unidade_fracionada: row.unidade_fracionada,
+    unidade_entrada,
     fator_fracionada: row.fator_fracionada,
     fator_fracionada_status: row.fator_fracionada_status,
     id_insumo: row.id_insumo ?? row.id_produto,
@@ -331,6 +344,7 @@ function mapItem(row) {
     descricao: row.descricao,
     unidade_contagem: unidadeMaiuscula(row.unidade_contagem),
     unidade_fracionada: unidadeFracionadaEfetiva(row.unidade_fracionada, row.unidade_contagem),
+    contagem_unidade_entrada: unidade_entrada,
     preco_caixa: num(row.preco_caixa),
     und_convertida,
     und_parcial,
@@ -604,6 +618,7 @@ async function carregarContagem(id) {
   const { rows: itens } = await pool.query(
     `SELECT i.id_item, i.id_insumo, i.estoque_sistema, i.estoque_contado,
             i.contagem_caixa, i.contagem_pc_fd, i.contagem_kg_und,
+            i.contagem_unidade_entrada,
             p.codigo, p.descricao, p.unidade_contagem,
             COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
             p.preco_caixa,
@@ -1013,12 +1028,24 @@ async function atualizarInsumo(req, res, next) {
         prev.id_loja,
       ],
     );
+    const replicados = await aplicarPadraoContagemRede(pool, {
+      codigo,
+      participa_contagem,
+      contagem_diaria: diaria.contagem_diaria,
+      grupo_diario: diaria.grupo_diario,
+      contagem_critica: critica.contagem_critica,
+      grupo_critico: critica.grupo_critico,
+      permite_contagem_caixa,
+      permite_contagem_pc_fd,
+      permite_contagem_kg_und,
+      unidade_fracionada,
+    });
     await auditar(req, {
       modulo: 'estoque',
       acao: 'atualizar',
       entidade: 'insumo',
       idReferencia: id,
-      descricao: `Insumo atualizado (loja ${prev.id_loja}): ${codigo}`,
+      descricao: `Insumo atualizado (loja ${prev.id_loja} + rede): ${codigo} (${replicados.length} lojas)`,
     });
     res.json(mapProduto(rows[0]));
   } catch (e) {
@@ -1047,33 +1074,82 @@ function mapConfigContagem(row) {
     unidade_contagem: uc,
     unidade_fracionada: uf,
     conversao_status: statusConversaoFracionada(uf, uc, fatorOk),
+    lojas: Number(row.lojas) || 0,
+    divergente: row.divergente === true,
   };
 }
 
 async function listarConfiguracaoContagem(req, res, next) {
   try {
     await garantirSchemaUnidadeFracionada(pool);
-    const idLoja = parseIdLoja(req.query.id_loja);
-    const bloqueio = acessoLoja(req, idLoja);
-    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
-
     const { rows } = await pool.query(
-      `SELECT p.id_insumo, p.codigo, p.descricao, p.ativo,
-              COALESCE(p.participa_contagem, TRUE) AS participa_contagem,
-              COALESCE(p.contagem_diaria, FALSE) AS contagem_diaria,
-              COALESCE(p.contagem_critica, FALSE) AS contagem_critica,
-              COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
-              COALESCE(p.permite_contagem_pc_fd, TRUE) AS permite_contagem_pc_fd,
-              COALESCE(p.permite_contagem_kg_und, TRUE) AS permite_contagem_kg_und,
-              p.unidade_contagem,
-              COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada
-       FROM insumos p
-       WHERE p.id_loja = $1 AND p.ativo = TRUE
-       ORDER BY ${SQL_ORDEM_PLANILHA}`,
-      [idLoja],
+      `WITH base AS (
+         SELECT
+           p.*,
+           CASE
+             WHEN BTRIM(p.codigo) ~ '^[0-9]+$' THEN TRIM(LEADING '0' FROM BTRIM(p.codigo))
+             ELSE UPPER(BTRIM(p.codigo))
+           END AS chave_rede
+         FROM insumos p
+         JOIN lojas l ON l.id_loja = p.id_loja AND COALESCE(l.is_active, TRUE) = TRUE
+         WHERE p.ativo = TRUE
+           AND TRIM(COALESCE(l.bk_number, '')) <> '${BK_NUMBER_POPEYES.replace(/'/g, '')}'
+       )
+       SELECT
+         MIN(id_insumo) AS id_insumo,
+         (ARRAY_AGG(codigo ORDER BY LENGTH(BTRIM(codigo)) DESC, codigo))[1] AS codigo,
+         (ARRAY_AGG(descricao ORDER BY LENGTH(descricao) DESC))[1] AS descricao,
+         TRUE AS ativo,
+         (COUNT(*) FILTER (WHERE COALESCE(participa_contagem, TRUE)) * 2 >= COUNT(*)) AS participa_contagem,
+         (COUNT(*) FILTER (WHERE COALESCE(contagem_diaria, FALSE)) * 2 >= COUNT(*)) AS contagem_diaria,
+         (COUNT(*) FILTER (WHERE COALESCE(contagem_critica, FALSE)) * 2 >= COUNT(*)) AS contagem_critica,
+         (COUNT(*) FILTER (WHERE COALESCE(permite_contagem_caixa, TRUE)) * 2 >= COUNT(*)) AS permite_contagem_caixa,
+         (COUNT(*) FILTER (WHERE COALESCE(permite_contagem_pc_fd, TRUE)) * 2 >= COUNT(*)) AS permite_contagem_pc_fd,
+         (COUNT(*) FILTER (WHERE COALESCE(permite_contagem_kg_und, TRUE)) * 2 >= COUNT(*)) AS permite_contagem_kg_und,
+         (ARRAY_AGG(unidade_contagem ORDER BY id_insumo))[1] AS unidade_contagem,
+         MODE() WITHIN GROUP (
+           ORDER BY UPPER(BTRIM(COALESCE(NULLIF(BTRIM(unidade_fracionada), ''), unidade_contagem)))
+         ) AS unidade_fracionada,
+         (ARRAY_AGG(secao_contagem ORDER BY id_insumo))[1] AS secao_contagem,
+         (ARRAY_AGG(ordem_contagem ORDER BY id_insumo))[1] AS ordem_contagem,
+         COUNT(DISTINCT id_loja)::int AS lojas,
+         (
+           COUNT(DISTINCT COALESCE(participa_contagem, TRUE)) > 1
+           OR COUNT(DISTINCT COALESCE(contagem_diaria, FALSE)) > 1
+           OR COUNT(DISTINCT COALESCE(contagem_critica, FALSE)) > 1
+           OR COUNT(DISTINCT COALESCE(permite_contagem_caixa, TRUE)) > 1
+           OR COUNT(DISTINCT COALESCE(permite_contagem_pc_fd, TRUE)) > 1
+           OR COUNT(DISTINCT COALESCE(permite_contagem_kg_und, TRUE)) > 1
+           OR COUNT(DISTINCT UPPER(BTRIM(COALESCE(NULLIF(BTRIM(unidade_fracionada), ''), unidade_contagem)))) > 1
+         ) AS divergente
+       FROM base
+       GROUP BY chave_rede`,
     );
-    await anexarFatoresFracionada(pool, rows);
-    res.json({ id_loja: idLoja, itens: rows.map(mapConfigContagem) });
+    const ordered = rows.sort((a, b) => {
+      const fa = String(a.secao_contagem || '');
+      const fb = String(b.secao_contagem || '');
+      const rank = (s) => {
+        const u = s.toUpperCase();
+        if (u.startsWith('CONGELADOS')) return 1;
+        if (u.startsWith('RESFRIADOS')) return 2;
+        if (u.startsWith('MOLHOS')) return 3;
+        if (u.startsWith('SOBREMESA')) return 4;
+        if (u.startsWith('EMBALAGENS')) return 5;
+        if (u.startsWith('LIMPEZA')) return 6;
+        if (u.startsWith('REFRIGERANTES')) return 7;
+        if (u.startsWith('BRINDES')) return 8;
+        if (u.startsWith('LAN')) return 9;
+        return 99;
+      };
+      const d = rank(fa) - rank(fb);
+      if (d) return d;
+      const oa = a.ordem_contagem == null ? 1e9 : Number(a.ordem_contagem);
+      const ob = b.ordem_contagem == null ? 1e9 : Number(b.ordem_contagem);
+      if (oa !== ob) return oa - ob;
+      return String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt');
+    });
+    await anexarFatoresFracionada(pool, ordered);
+    res.json({ escopo: 'rede', itens: ordered.map(mapConfigContagem) });
   } catch (e) {
     next(e);
   }
@@ -1084,10 +1160,6 @@ async function salvarConfiguracaoContagem(req, res, next) {
   let committed = false;
   try {
     await garantirSchemaUnidadeFracionada(client);
-    const idLoja = parseIdLoja(req.body?.id_loja);
-    const bloqueio = acessoLoja(req, idLoja);
-    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
-
     const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
     if (!itens.length) {
       return res.status(400).json({ error: 'Nenhum produto para salvar' });
@@ -1107,22 +1179,29 @@ async function salvarConfiguracaoContagem(req, res, next) {
       diaria: 0,
       critica: 0,
       fracionada: 0,
+      replicados: 0,
     };
     const saida = [];
 
     for (const item of itens) {
       const idInsumo = Number(item?.id_insumo);
-      if (!Number.isFinite(idInsumo) || idInsumo <= 0) {
-        const err = new Error('Item sem id_insumo');
-        err.status = 400;
-        throw err;
-      }
+      const codigoBody = String(item?.codigo || '').trim();
+      const nucleo = nucleoCodigoOuNull(codigoBody);
       const { rows: atuais } = await client.query(
-        `SELECT * FROM insumos WHERE id_insumo = $1 AND id_loja = $2 FOR UPDATE`,
-        [idInsumo, idLoja],
+        `SELECT * FROM insumos
+         WHERE ativo = TRUE
+           AND (
+             ($1::int IS NOT NULL AND $1 > 0 AND id_insumo = $1)
+             OR ($2 <> '' AND UPPER(BTRIM(codigo)) = UPPER(BTRIM($2)))
+             OR ($3::text IS NOT NULL AND codigo ~ '^[0-9]+$' AND TRIM(LEADING '0' FROM codigo) = $3)
+           )
+         ORDER BY id_insumo
+         LIMIT 1
+         FOR UPDATE`,
+        [Number.isFinite(idInsumo) ? idInsumo : null, codigoBody, nucleo],
       );
       if (!atuais.length) {
-        const err = new Error(`Insumo ${idInsumo} não encontrado nesta loja`);
+        const err = new Error(`Insumo ${codigoBody || idInsumo} não encontrado`);
         err.status = 400;
         throw err;
       }
@@ -1152,7 +1231,7 @@ async function salvarConfiguracaoContagem(req, res, next) {
       if (unidade_fracionada !== ufPrev || precisaFatorFracionada(unidade_fracionada, prev.unidade_contagem)) {
         if (unidade_fracionada !== ufPrev) {
           const par = await validarUnidadeFracionadaCadastro(client, {
-            idInsumo,
+            idInsumo: prev.id_insumo,
             codigo: prev.codigo,
             unidadeFracionada: unidade_fracionada,
             unidadeContagem: prev.unidade_contagem,
@@ -1167,36 +1246,37 @@ async function salvarConfiguracaoContagem(req, res, next) {
         }
       }
 
-      const upd = await client.query(
-        `UPDATE insumos
-         SET participa_contagem = $1,
-             contagem_diaria = $2, grupo_diario = $3,
-             contagem_critica = $4, grupo_critico = $5,
-             permite_contagem_caixa = $6, permite_contagem_pc_fd = $7, permite_contagem_kg_und = $8,
-             unidade_fracionada = $9,
-             atualizado_em = NOW()
-         WHERE id_insumo = $10 AND id_loja = $11 AND ativo = TRUE
-         RETURNING *`,
-        [
-          participa_contagem,
-          diaria.contagem_diaria,
-          diaria.grupo_diario,
-          critica.contagem_critica,
-          critica.grupo_critico,
-          permite_contagem_caixa,
-          permite_contagem_pc_fd,
-          permite_contagem_kg_und,
-          unidade_fracionada,
-          idInsumo,
-          idLoja,
-        ],
-      );
-      if (upd.rowCount !== 1) {
+      const replicados = await aplicarPadraoContagemRede(client, {
+        codigo: prev.codigo,
+        participa_contagem,
+        contagem_diaria: diaria.contagem_diaria,
+        grupo_diario: diaria.grupo_diario,
+        contagem_critica: critica.contagem_critica,
+        grupo_critico: critica.grupo_critico,
+        permite_contagem_caixa,
+        permite_contagem_pc_fd,
+        permite_contagem_kg_und,
+        unidade_fracionada,
+      });
+      if (!replicados.length) {
         const err = new Error(`${prev.codigo}: não foi possível atualizar (produto inativo?)`);
         err.status = 400;
         throw err;
       }
-      const next = upd.rows[0];
+      const next = {
+        ...prev,
+        participa_contagem,
+        contagem_diaria: diaria.contagem_diaria,
+        grupo_diario: diaria.grupo_diario,
+        contagem_critica: critica.contagem_critica,
+        grupo_critico: critica.grupo_critico,
+        permite_contagem_caixa,
+        permite_contagem_pc_fd,
+        permite_contagem_kg_und,
+        unidade_fracionada,
+        lojas: new Set(replicados.map((r) => r.id_loja)).size,
+        divergente: false,
+      };
       if (!!prev.participa_contagem !== !!next.participa_contagem) {
         if (next.participa_contagem) resumo.entrando_contagem += 1;
         else resumo.saindo_contagem += 1;
@@ -1210,6 +1290,7 @@ async function salvarConfiguracaoContagem(req, res, next) {
         resumo.fracionada += 1;
       }
       resumo.alterados += 1;
+      resumo.replicados += Math.max(0, replicados.length - 1);
       saida.push(next);
     }
 
@@ -1220,11 +1301,11 @@ async function salvarConfiguracaoContagem(req, res, next) {
       modulo: 'estoque',
       acao: 'atualizar',
       entidade: 'configuracao_contagem',
-      idReferencia: idLoja,
-      descricao: `Configuração da contagem (loja ${idLoja}): ${resumo.alterados} insumos`,
+      idReferencia: null,
+      descricao: `Padrão da contagem (rede): ${resumo.alterados} SKU(s), ${resumo.replicados} réplicas`,
     });
     res.json({
-      id_loja: idLoja,
+      escopo: 'rede',
       resumo,
       itens: saida.map(mapConfigContagem),
     });
@@ -1625,7 +1706,7 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
 
     const hoje = hojeISOBrasil();
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
-    const tipo = normalizarTipoContagem(req.body?.tipo || 'critica_semanal');
+    const tipo = normalizarTipoContagem(req.body?.tipo || 'diaria');
     const metaBase = { hoje, id_loja: idLoja, tipo };
 
     if (tipo === 'diaria') {
@@ -1705,7 +1786,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
     if (!itens.length) return res.status(400).json({ error: 'Envie ao menos um item' });
 
     const { rows: fatoresRows } = await pool.query(
-      `SELECT i.id_item, i.id_insumo, p.codigo, p.unidade_contagem,
+      `SELECT i.id_item, i.id_insumo, i.contagem_unidade_entrada, p.codigo, p.unidade_contagem,
               COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
               p.und_convertida, COALESCE(p.und_parcial, 1) AS und_parcial,
               COALESCE(p.permite_contagem_caixa, TRUE) AS permite_contagem_caixa,
@@ -1716,27 +1797,47 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
        WHERE i.id_contagem = $1`,
       [id],
     );
-    await anexarFatoresFracionada(pool, fatoresRows);
-    const fatores = new Map(fatoresRows.map((r) => [Number(r.id_item), r]));
 
     const ids = [];
     const contados = [];
     const caixas = [];
     const pcs = [];
     const kgs = [];
+    const entradas = [];
     const sistemas = [];
     const errosConversao = [];
     let temSistema = false;
+
+    const preparados = [];
     for (const item of itens) {
       const idItem = Number(item.id_item);
       if (!idItem) continue;
-      const fat = fatores.get(idItem) || {
+      const fat = fatoresRows.find((r) => Number(r.id_item) === idItem) || {
         und_convertida: 1,
         und_parcial: 1,
         permite_contagem_caixa: true,
         permite_contagem_pc_fd: true,
         permite_contagem_kg_und: true,
       };
+      const unidade_entrada = unidadeOrigemContagem(
+        normalizarUnidadeEntrada(item.unidade_entrada) ||
+          normalizarUnidadeEntrada(item.contagem_unidade_entrada),
+        fat.unidade_fracionada,
+        fat.unidade_contagem,
+      );
+      preparados.push({ item, idItem, fat, unidade_entrada });
+    }
+
+    await anexarFatoresFracionada(
+      pool,
+      preparados.map(({ fat, unidade_entrada }) => {
+        fat.contagem_unidade_entrada = unidade_entrada;
+        fat.unidade_entrada = unidade_entrada;
+        return fat;
+      }),
+    );
+
+    for (const { item, idItem, fat, unidade_entrada } of preparados) {
       const permiteCaixa = flagBool(fat.permite_contagem_caixa, true);
       const permitePc = flagBool(fat.permite_contagem_pc_fd, true);
       const permiteKg = flagBool(fat.permite_contagem_kg_und, true);
@@ -1767,6 +1868,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
           : item.contagem_kg_und === null || item.contagem_kg_und === ''
             ? null
             : num(item.contagem_kg_und);
+
         const qtdRes = resolverQtdContagem({
           contagem_caixa: caixa,
           contagem_pc_fd: pc,
@@ -1778,6 +1880,7 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
           permite_contagem_kg_und: permiteKg,
           unidade_contagem: fat.unidade_contagem,
           unidade_fracionada: fat.unidade_fracionada,
+          unidade_entrada,
           fator_fracionada: fat.fator_fracionada,
           fator_fracionada_status: fat.fator_fracionada_status,
           id_insumo: fat.id_insumo,
@@ -1791,11 +1894,12 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
             unidade_destino: qtdRes.erro.unidade_destino,
             motivo: qtdRes.erro.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA,
           });
-          continue;
+          // Rascunho: grava Terraço mesmo sem fator. QTD canônica fica pendente.
+          contado = null;
+        } else {
+          contado = qtdRes.qtd;
         }
-        contado = qtdRes.qtd;
       } else if (item.estoque_contado !== undefined) {
-        // Compat: API antiga com um único campo QTD
         contado =
           item.estoque_contado === null || item.estoque_contado === ''
             ? null
@@ -1808,21 +1912,13 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       caixas.push(caixa);
       pcs.push(pc);
       kgs.push(kg);
+      entradas.push(unidade_entrada);
       if (item.estoque_sistema !== undefined) {
         temSistema = true;
         sistemas.push(num(item.estoque_sistema));
       } else {
         sistemas.push(null);
       }
-    }
-
-    if (errosConversao.length) {
-      const motivo = errosConversao[0]?.motivo || MOTIVO_CONVERSAO.NAO_ENCONTRADA;
-      return res.status(400).json({
-        error: mensagemErroConversao(errosConversao),
-        motivo,
-        itens: errosConversao,
-      });
     }
 
     if (!ids.length) return res.status(400).json({ error: 'Nenhum item válido' });
@@ -1834,12 +1930,13 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
              contagem_caixa = v.caixa,
              contagem_pc_fd = v.pc,
              contagem_kg_und = v.kg,
+             contagem_unidade_entrada = v.entrada,
              estoque_sistema = COALESCE(v.sistema, ei.estoque_sistema)
          FROM unnest(
-           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[], $6::numeric[]
-         ) AS v(id_item, contado, caixa, pc, kg, sistema)
-         WHERE ei.id_item = v.id_item AND ei.id_contagem = $7`,
-        [ids, contados, caixas, pcs, kgs, sistemas, id],
+           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[], $6::text[], $7::numeric[]
+         ) AS v(id_item, contado, caixa, pc, kg, entrada, sistema)
+         WHERE ei.id_item = v.id_item AND ei.id_contagem = $8`,
+        [ids, contados, caixas, pcs, kgs, entradas, sistemas, id],
       );
     } else {
       await pool.query(
@@ -1847,16 +1944,22 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
          SET estoque_contado = v.contado,
              contagem_caixa = v.caixa,
              contagem_pc_fd = v.pc,
-             contagem_kg_und = v.kg
+             contagem_kg_und = v.kg,
+             contagem_unidade_entrada = v.entrada
          FROM unnest(
-           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[]
-         ) AS v(id_item, contado, caixa, pc, kg)
-         WHERE ei.id_item = v.id_item AND ei.id_contagem = $6`,
-        [ids, contados, caixas, pcs, kgs, id],
+           $1::int[], $2::numeric[], $3::numeric[], $4::numeric[], $5::numeric[], $6::text[]
+         ) AS v(id_item, contado, caixa, pc, kg, entrada)
+         WHERE ei.id_item = v.id_item AND ei.id_contagem = $7`,
+        [ids, contados, caixas, pcs, kgs, entradas, id],
       );
     }
 
-    res.json(await carregarContagem(id));
+    const detalhe = await carregarContagem(id);
+    if (errosConversao.length && detalhe) {
+      detalhe.aviso = mensagemErroConversao(errosConversao);
+      detalhe.avisos_conversao = errosConversao;
+    }
+    res.json(detalhe);
   } catch (e) {
     next(e);
   }

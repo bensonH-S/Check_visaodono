@@ -7,13 +7,13 @@ import type { DashboardData, FrotaMapaPosicoes, RankingLoja } from '../api/clien
 import { podeVerMapaTecnicosMobile } from '../lib/auth';
 import { useCommandCenterFilters } from '../context/CommandCenterFiltersContext';
 import CcKpiRow from '../components/dashboard/commandCenter/CcKpiRow';
-import CcAtencao from '../components/dashboard/commandCenter/CcAtencao';
-import CcRanking from '../components/dashboard/commandCenter/CcRanking';
+import CcEsquerdo from '../components/dashboard/commandCenter/CcEsquerdo';
 import CcFrota from '../components/dashboard/commandCenter/CcFrota';
-import CcNcsDonut from '../components/dashboard/commandCenter/CcNcsDonut';
-import CcEvolucao from '../components/dashboard/commandCenter/CcEvolucao';
-import CcAtividades from '../components/dashboard/commandCenter/CcAtividades';
+import CcEstoque from '../components/dashboard/commandCenter/CcEstoque';
+import CcFreecontrolGastos from '../components/dashboard/commandCenter/CcFreecontrolGastos';
+import CcVisao from '../components/dashboard/commandCenter/CcVisao';
 import { LIMITE_VELOCIDADE_KMH } from '../components/dashboard/commandCenter/ccFormat';
+import { CC_BG, CC_GAP } from '../components/dashboard/commandCenter/ccTheme';
 
 export default function DashboardPage() {
   const { data: dataFiltro, regiaoId } = useCommandCenterFilters();
@@ -84,18 +84,6 @@ export default function DashboardPage() {
     }).length;
   }, [frota, podeFrota, loadingFrota]);
 
-  const ncsPorGravidade = useMemo(() => {
-    if (!data) return [];
-    if (data.ncs_por_gravidade?.length) return data.ncs_por_gravidade;
-    const m = data.metricas;
-    if (m.total_ncs_abertas <= 0) return [];
-    return [
-      { gravidade: 'Crítica', total: m.ncs_criticas },
-      { gravidade: 'Moderada', total: m.ncs_moderadas ?? Math.max(0, m.total_ncs_abertas - m.ncs_criticas) },
-      { gravidade: 'Baixa', total: m.ncs_leves ?? 0 },
-    ].filter((n) => n.total > 0);
-  }, [data]);
-
   if (err && !data) {
     return (
       <Box sx={{ py: 6, textAlign: 'center' }}>
@@ -110,11 +98,19 @@ export default function DashboardPage() {
   }
 
   const m = data?.metricas;
-  const atencao = data?.atencao;
-  const atividades = data?.atividades;
 
   return (
-    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: { xs: 'auto', lg: '100%' },
+        minHeight: 0,
+        display: 'grid',
+        gridTemplateRows: { xs: 'auto', lg: 'auto minmax(0, 1fr)' },
+        gap: CC_GAP,
+        bgcolor: CC_BG,
+      }}
+    >
       <CcKpiRow
         loading={loading && !data}
         mediaGeral={m?.media_geral ?? 0}
@@ -132,32 +128,14 @@ export default function DashboardPage() {
       <Box
         sx={{
           display: 'grid',
-          gap: 2,
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(320px, 0.95fr) minmax(420px, 1.35fr)' },
-          gridTemplateRows: { lg: 'auto 1fr' },
-          gridTemplateAreas: {
-            xs: `
-              "atencao"
-              "ranking"
-              "frota"
-              "ncs"
-              "evolucao"
-              "atividades"
-            `,
-            lg: `
-              "atencao frota"
-              "ranking frota"
-            `,
-          },
+          gap: CC_GAP,
+          minHeight: 0,
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(280px, 0.68fr) minmax(0, 1.32fr)' },
+          gridTemplateRows: { xs: 'auto', lg: 'minmax(0, 1fr) 200px' },
         }}
       >
-        <Box sx={{ gridArea: 'atencao' }}>
-          <CcAtencao loading={loading && !data} data={atencao} />
-        </Box>
-        <Box sx={{ gridArea: 'ranking' }}>
-          <CcRanking loading={loading && !ranking.length} ranking={ranking} />
-        </Box>
-        <Box sx={{ gridArea: 'frota', minHeight: { lg: 520 } }}>
+        <CcEsquerdo loading={loading && !data} ranking={ranking} />
+        <Box sx={{ minHeight: { xs: 440, lg: 0 }, height: '100%', minWidth: 0 }}>
           <CcFrota
             loading={loadingFrota && !frota}
             data={frota}
@@ -166,38 +144,20 @@ export default function DashboardPage() {
             dataRef={dataFiltro}
           />
         </Box>
-      </Box>
-
-      <Box
-        sx={{
-          display: 'grid',
-          gap: { xs: 1.25, md: 2 },
-          gridTemplateColumns: {
-            xs: 'minmax(0, 0.9fr) minmax(0, 1.05fr) minmax(0, 1fr)',
-            lg: 'minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 0.95fr)',
-          },
-          alignItems: 'stretch',
-          minWidth: 0,
-        }}
-      >
-        <CcNcsDonut
-          loading={loading && !data}
-          ncsPorGravidade={ncsPorGravidade}
-          totalAbertas={m?.total_ncs_abertas ?? 0}
-        />
-        <CcEvolucao
-          loading={loading && !data}
-          serie={data?.evolucao_performance ?? []}
-          mediaAtual={m?.media_geral ?? 0}
-          variacaoMes={m?.variacao_mes}
-        />
-        <CcAtividades
-          loading={loading && !data}
-          auditoriasHoje={atividades?.auditorias_hoje ?? 0}
-          ncsCriticas={atividades?.ncs_criticas ?? m?.ncs_criticas ?? 0}
-          lojasAbaixoMeta={atividades?.lojas_abaixo_meta ?? m?.lojas_abaixo_75 ?? 0}
-          veiculosAlerta={veiculosAlerta}
-        />
+        <CcEstoque />
+        <Box
+          sx={{
+            display: 'grid',
+            gap: CC_GAP,
+            minHeight: 0,
+            minWidth: 0,
+            height: '100%',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          }}
+        >
+          <CcFreecontrolGastos />
+          <CcVisao />
+        </Box>
       </Box>
     </Box>
   );

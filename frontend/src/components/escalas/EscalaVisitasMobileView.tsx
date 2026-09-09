@@ -270,8 +270,14 @@ export default function EscalaVisitasMobileView() {
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
   const cardsAprovacao = useMemo(
-    () => montarCardsAprovacaoEscala(grade?.status_por_regiao ?? [], grade?.regionais ?? [], idUsuarioFiltro),
-    [grade?.status_por_regiao, grade?.regionais, idUsuarioFiltro],
+    () =>
+      montarCardsAprovacaoEscala(
+        grade?.status_por_regiao ?? [],
+        grade?.regionais ?? [],
+        idUsuarioFiltro,
+        grade?.envios ?? [],
+      ),
+    [grade?.status_por_regiao, grade?.regionais, grade?.envios, idUsuarioFiltro],
   );
   const pendentesAprovacao = useMemo(() => {
     const regioes = cardsAprovacao.filter((c) => c.status === 'pendente_aprovacao');
@@ -303,7 +309,7 @@ export default function EscalaVisitasMobileView() {
       { id: 'manutencao', label: 'Manutenção' },
     ];
     if (ehDiretor || grade?.pode_editar_regiao || grade?.pode_editar) {
-      base.unshift({ id: 'montar', label: 'Montar' });
+      base.unshift({ id: 'montar', label: ehDiretor ? 'Editar' : 'Montar' });
     }
     return base;
   }, [ehRegional, ehDiretor, ehDeliveryOnly, grade?.pode_editar_regiao, grade?.pode_editar]);
@@ -315,9 +321,9 @@ export default function EscalaVisitasMobileView() {
       const q = new URLSearchParams({ semana_inicio: semanaInicio });
       // Regional não filtra por região — senão some a escala pessoal (ex.: Igor sem frota).
       if (!ehRegional && idRegiao !== '') q.set('id_regiao', String(idRegiao));
-      const verCopia = modo !== 'montar' && modo !== 'delivery';
-      if (verCopia && idEnvio) q.set('id_envio', String(idEnvio));
-      else if (verCopia && idUsuarioFiltro != null) q.set('id_usuario_envio', String(idUsuarioFiltro));
+      // Cópia histórica só fora do modo de edição. Filtro de pessoa é client-side na grade viva.
+      const verCopia = modo !== 'montar' && modo !== 'delivery' && idEnvio != null;
+      if (verCopia) q.set('id_envio', String(idEnvio));
       const data = await api.escalaVisitasSemana(q.toString());
       setGrade(data);
       setPending(new Map());
@@ -326,7 +332,7 @@ export default function EscalaVisitasMobileView() {
     } finally {
       setLoading(false);
     }
-  }, [podeVer, semanaInicio, idRegiao, idEnvio, idUsuarioFiltro, ehRegional, modo]);
+  }, [podeVer, semanaInicio, idRegiao, idEnvio, ehRegional, modo]);
 
   const carregarGestores = useCallback(async () => {
     if (!podeVer || ehDeliveryOnly) return;
@@ -666,20 +672,17 @@ export default function EscalaVisitasMobileView() {
     }
   }
 
-  function visualizarEscalaPessoa(idUsuario: number) {
-    setIdRegiao('');
-    setIdUsuarioFiltro(Number(idUsuario));
-    setIdEnvio(null);
-    setModo('dia');
-  }
-
-  async function aprovarRegioes(ids: number[]) {
+  async function aprovarRegioes(ids: number[], idUsuario?: number | null) {
     if (!ids.length) return;
     setSalvando(true);
     try {
       let data = grade;
       for (const id of ids) {
-        data = await api.escalaVisitasAprovar({ semana_inicio: semanaInicio, id_regiao: id });
+        data = await api.escalaVisitasAprovar({
+          semana_inicio: semanaInicio,
+          id_regiao: id,
+          id_usuario: idUsuario ?? null,
+        });
       }
       if (data) setGrade(data);
       showToast('Escala aprovada', 'success');
@@ -691,13 +694,17 @@ export default function EscalaVisitasMobileView() {
     }
   }
 
-  async function recusarRegioes(ids: number[]) {
+  async function recusarRegioes(ids: number[], idUsuario?: number | null) {
     if (!ids.length) return;
     setSalvando(true);
     try {
       let data = grade;
       for (const id of ids) {
-        data = await api.escalaVisitasDevolver({ semana_inicio: semanaInicio, id_regiao: id });
+        data = await api.escalaVisitasDevolver({
+          semana_inicio: semanaInicio,
+          id_regiao: id,
+          id_usuario: idUsuario ?? null,
+        });
       }
       if (data) setGrade(data);
       showToast('Escala recusada — regional pode montar de novo', 'success');
@@ -774,11 +781,28 @@ export default function EscalaVisitasMobileView() {
     setIdEnvio(null);
   }
 
-  function visualizarEscalaRegiao(id: number, idUsuario?: number | null, idEnvioArg?: number | null) {
-    setIdRegiao(id);
-    setIdUsuarioFiltro(idUsuario != null ? Number(idUsuario) : null);
-    setIdEnvio(idEnvioArg != null ? Number(idEnvioArg) : null);
-    setModo('dia');
+  /** Abre só a escala de quem montou o card. */
+  function abrirEscalaDoCard(card: {
+    tipo: 'regiao' | 'pessoa';
+    id_regiao?: number | null;
+    id_usuario?: number | null;
+  }) {
+    setIdEnvio(null);
+    setModo(ehDiretor ? 'montar' : 'dia');
+    if (card.tipo === 'pessoa' && card.id_usuario != null) {
+      setIdRegiao('');
+      setIdUsuarioFiltro(Number(card.id_usuario));
+      return;
+    }
+    if (card.id_usuario != null) {
+      setIdUsuarioFiltro(Number(card.id_usuario));
+      setIdRegiao(card.id_regiao != null ? Number(card.id_regiao) : '');
+      return;
+    }
+    if (card.id_regiao != null) {
+      setIdUsuarioFiltro(null);
+      setIdRegiao(Number(card.id_regiao));
+    }
   }
 
   function alternarFiltroPessoa(idUsuario: number) {
@@ -1014,7 +1038,7 @@ export default function EscalaVisitasMobileView() {
               <div className="ck-escala__compact-top">
                 <div>
                   <h1 className="ck-escala__compact-title">
-                    {ehDeliveryOnly ? 'Escala delivery' : 'Montar escala'}
+                    {ehDeliveryOnly ? 'Escala delivery' : ehDiretor ? 'Editar escala' : 'Montar escala'}
                   </h1>
                   <p className="ck-escala__compact-sub">
                     {ehDeliveryOnly || modo === 'delivery'
@@ -1029,7 +1053,9 @@ export default function EscalaVisitasMobileView() {
                             ? 'Ajuste as lojas e envie de novo para o diretor'
                             : 'Escolha o dia, toque nas lojas e envie para aprovação'
                           : 'Escala em só leitura — use Minhas para ver sua rota'
-                        : 'Toque nos dias e envie para aprovação'}
+                        : podeEditarGrade
+                          ? 'Altere a escala montada pela equipe e salve'
+                          : 'Só leitura — abra Editar numa região para alterar a grade viva'}
                   </p>
                 </div>
                 <CkMarkLogoMenu size={44} className="ck-visitas__mark-icon" />
@@ -1183,9 +1209,11 @@ export default function EscalaVisitasMobileView() {
                     setModo(id);
                     if (id === 'montar' || id === 'delivery') {
                       setIdEnvio(null);
-                      setIdUsuarioFiltro(null);
+                      // Mantém a semana/região em tela — diretor edita a escala já montada.
+                      if (!ehDiretor) {
+                        setIdUsuarioFiltro(null);
+                      }
                     }
-                    setSemanaInicio(segundaFeiraAtual());
                   }}
                 >
                   {label}
@@ -1210,13 +1238,14 @@ export default function EscalaVisitasMobileView() {
               <div className="ck-escala__voltar-row">
                 {filtrandoEscala && (
                   <button type="button" className="ck-escala__voltar" onClick={voltarVisaoGeral}>
-                    ← Voltar
+                    ← Voltar para todas
                   </button>
                 )}
                 <p className="ck-escala__regiao">
                   {nomeFiltroPessoa ? `Escala de ${nomeFiltroPessoa}` : 'Exibindo'}
                   {regiaoAtiva ? ` · ${regiaoAtiva.nome}` : ''}
                   {rotuloEnvio && grade?.somente_leitura ? ` · ${rotuloEnvio}` : ''}
+                  {podeEditarGrade && nomeFiltroPessoa ? ' · toque na célula para editar' : ''}
                 </p>
               </div>
             )}
@@ -1313,11 +1342,7 @@ export default function EscalaVisitasMobileView() {
                     <button
                       type="button"
                       className="ck-escala__aprovacao-info"
-                      onClick={() =>
-                        card.tipo === 'pessoa' && card.id_usuario
-                          ? visualizarEscalaPessoa(card.id_usuario)
-                          : visualizarEscalaRegiao(card.id_regiao!, null, card.id_envio)
-                      }
+                      onClick={() => abrirEscalaDoCard(card)}
                     >
                       <strong>
                         {card.titulo}
@@ -1325,33 +1350,35 @@ export default function EscalaVisitasMobileView() {
                       </strong>
                       <span>
                         {card.tipo === 'pessoa'
-                          ? 'Todas as lojas · aguardando aprovação'
+                          ? card.ids_regiao_aprovar.length > 0
+                            ? 'Todas as lojas · aguardando aprovação'
+                            : 'Enviada nesta semana · toque para ver só as visitas dele'
                           : card.montadaPor
                             ? `Montada por ${card.montadaPor}`
                             : 'Aguardando envio'}
                       </span>
-                      <span className="ck-escala__aprovacao-ver">Toque para ver a escala →</span>
+                      <span className="ck-escala__aprovacao-ver">Toque para ver só esta escala →</span>
                     </button>
-                    <div className="ck-escala__aprovacao-acoes">
-                      <button
-                        type="button"
-                        className="ck-escala__btn-aprovar"
-                        disabled={salvando || card.ids_regiao_aprovar.length === 0}
-                        onClick={() => void aprovarRegioes(card.ids_regiao_aprovar)}
-                      >
-                        Aprovar
-                      </button>
-                      <button
-                        type="button"
-                        className="ck-escala__btn-recusar"
-                        disabled={salvando}
-                        onClick={() =>
-                          void recusarRegioes(card.ids_regiao_aprovar.length ? card.ids_regiao_aprovar : card.ids_regiao)
-                        }
-                      >
-                        Recusar
-                      </button>
-                    </div>
+                    {card.ids_regiao_aprovar.length > 0 && (
+                      <div className="ck-escala__aprovacao-acoes">
+                        <button
+                          type="button"
+                          className="ck-escala__btn-aprovar"
+                          disabled={salvando}
+                          onClick={() => void aprovarRegioes(card.ids_regiao_aprovar, card.id_usuario)}
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          type="button"
+                          className="ck-escala__btn-recusar"
+                          disabled={salvando}
+                          onClick={() => void recusarRegioes(card.ids_regiao_aprovar, card.id_usuario)}
+                        >
+                          Recusar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               {grade?.status_delivery?.status === 'pendente_aprovacao' && (
@@ -1484,7 +1511,7 @@ export default function EscalaVisitasMobileView() {
                   <CardLojaSemana
                     key={linha.id_loja}
                     linha={linha}
-                    editavel
+                    editavel={podeEditarGrade}
                     mapNome={mapNomeRegional}
                     mapCor={mapCorRegional}
                     idsPorDia={linha.dias.map((d) => valorCelulaRegional(linha.id_loja, d.dia, d))}
@@ -1971,7 +1998,14 @@ export default function EscalaVisitasMobileView() {
         }}
       >
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: escuro ? '#F8FAFC' : NAVY, pb: 0.5 }}>
-          Quem visita?
+          {idUsuarioFiltro != null
+            ? `Editar visita de ${
+                primeiroNome(
+                  grade?.regionais.find((r) => Number(r.id_usuario) === Number(idUsuarioFiltro))?.nome ||
+                    'colaborador',
+                )
+              }`
+            : 'Quem visita?'}
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <p className="ck-escala__editor-meta">
@@ -1982,7 +2016,12 @@ export default function EscalaVisitasMobileView() {
               : ''}
           </p>
           <List dense sx={{ pt: 0 }}>
-            {(grade?.regionais ?? []).map((r) => {
+            {(idUsuarioFiltro != null
+              ? (grade?.regionais ?? []).filter(
+                  (r) => Number(r.id_usuario) === Number(idUsuarioFiltro),
+                )
+              : (grade?.regionais ?? [])
+            ).map((r) => {
               const marcado = editor?.ids.includes(r.id_usuario) ?? false;
               return (
                 <ListItemButton

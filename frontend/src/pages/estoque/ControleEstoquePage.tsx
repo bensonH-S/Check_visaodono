@@ -12,8 +12,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
+import MenuList from '@mui/material/MenuList';
 import Paper from '@mui/material/Paper';
-import Select from '@mui/material/Select';
+import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Table from '@mui/material/Table';
@@ -27,6 +28,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -63,10 +65,15 @@ import PageLoading from '../../components/PageLoading';
 import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
 import EstoqueConferenciaDetalhe from './EstoqueConferenciaDetalhe';
 import {
+  CONTAGEM_SEMANAL_ATIVA,
   rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
 import { gerarPdfContagemDiaria } from '../../utils/gerarPdfContagemDiaria';
+import {
+  modoEntradaEfetivo,
+  rascunhoDeItemContagem,
+} from '../../components/estoque/estoqueContagemCampo';
 import {
   qtdPreviewSeguro,
   temEntradaTerraco,
@@ -193,7 +200,7 @@ function rotuloLoja(l: Loja) {
 }
 
 function tituloLoja(l: Loja) {
-  return l.name.replace(/\s+-\s+/g, ' — ');
+  return l.name.replace(/\s+-\s+/g, ' · ');
 }
 
 function subtituloLoja(l: Loja) {
@@ -204,7 +211,7 @@ const ROTULO_ABA: Record<AbaEstoque, string> = {
   cmv: 'CMV',
   vendas: 'Vendas',
   rede: 'Rede',
-  piloto: 'Piloto',
+  piloto: 'Baixa',
   saldo: 'Saldo',
   conferencia: 'Conferência',
   break: 'Break',
@@ -230,7 +237,7 @@ type ProdutoForm = typeof emptyProdutoForm;
 
 const tdCenter = { textAlign: 'center' } as const;
 
-type RascunhoLinha = { caixa: string; pc: string; kg: string };
+type RascunhoLinha = { caixa: string; pc: string; kg: string; modo?: 'und' | 'kg' };
 
 function parseNumCampo(raw: string): number | null {
   if (raw === undefined || raw === null || String(raw).trim() === '') return null;
@@ -239,21 +246,7 @@ function parseNumCampo(raw: string): number | null {
 }
 
 function rascunhoDeItem(i: EstoqueItem): RascunhoLinha {
-  const temTerraco =
-    i.contagem_caixa != null || i.contagem_pc_fd != null || i.contagem_kg_und != null;
-  if (temTerraco) {
-    return {
-      caixa: i.contagem_caixa == null ? '' : String(i.contagem_caixa),
-      pc: i.contagem_pc_fd == null ? '' : String(i.contagem_pc_fd),
-      kg: i.contagem_kg_und == null ? '' : String(i.contagem_kg_und),
-    };
-  }
-  // legado: só QTD → joga em KG/UND
-  return {
-    caixa: '',
-    pc: '',
-    kg: i.estoque_contado == null ? '' : String(i.estoque_contado),
-  };
+  return rascunhoDeItemContagem(i);
 }
 
 function aplicarContagem(
@@ -305,6 +298,7 @@ export default function ControleEstoquePage() {
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
     return Number.isFinite(saved) && saved > 0 ? saved : '';
   });
+  const [lojaMenuAberto, setLojaMenuAberto] = useState(false);
   const [loadingLojas, setLoadingLojas] = useState(true);
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
@@ -493,8 +487,12 @@ export default function ControleEstoquePage() {
     }
   }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
 
-  const iniciarSabado = async (tipo: TipoContagemEstoque = 'critica_semanal') => {
+  const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
     if (!podeEditarConferencia || !idLoja) return;
+    if (tipo === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
+      showToast('Contagem semanal está desativada', 'error');
+      return;
+    }
     setIniciando(true);
     try {
       const det = await api.estoqueIniciarSabado({ id_loja: idLoja, tipo });
@@ -582,11 +580,13 @@ export default function ControleEstoquePage() {
     try {
       const itens = contagem.itens.map((i) => {
         const raw = rascunhoItens[i.id_item] || { caixa: '', pc: '', kg: '' };
+        const modo = modoEntradaEfetivo(i, raw);
         return {
           id_item: i.id_item,
           contagem_caixa: parseNumCampo(raw.caixa),
           contagem_pc_fd: parseNumCampo(raw.pc),
           contagem_kg_und: parseNumCampo(raw.kg),
+          unidade_entrada: (modo === 'kg' ? 'KG' : 'UND') as 'UND' | 'KG',
         };
       });
       const det = await api.estoqueSalvarItens(contagem.id_contagem, itens);
@@ -789,7 +789,7 @@ export default function ControleEstoquePage() {
         overflow: chromeCompacto ? 'hidden' : 'auto',
       }}
     >
-      <Box sx={{ flexShrink: 0, position: 'relative', zIndex: 10 }}>
+      <Box sx={{ flexShrink: 0, position: 'relative', zIndex: lojaMenuAberto ? 10000 : 10, overflow: 'visible' }}>
         <Box
           sx={{
             display: 'flex',
@@ -825,55 +825,108 @@ export default function ControleEstoquePage() {
                 {lojaAtual ? tituloLoja(lojaAtual) : '—'}
               </Typography>
             ) : (
-              <Select
-                variant="standard"
-                disableUnderline
-                displayEmpty
-                value={idLoja}
-                onChange={(e) => selecionarLoja(Number(e.target.value))}
-                IconComponent={KeyboardArrowDownIcon}
-                renderValue={(v) => {
-                  const l = lojas.find((x) => x.id_loja === Number(v));
-                  return l ? tituloLoja(l) : 'Selecione a loja';
-                }}
-                MenuProps={{
-                  slotProps: {
-                    paper: { sx: { maxHeight: 360, overflowY: 'auto' } },
-                  },
-                }}
-                sx={{
-                  mt: 0,
-                  maxWidth: '100%',
-                  fontWeight: 600,
-                  fontSize: { xs: '1.4rem', md: chromeCompacto ? '1.65rem' : '1.85rem' },
-                  letterSpacing: '-0.03em',
-                  color: colors.textPrimary,
-                  '& .MuiSelect-select': {
-                    py: 0,
-                    pr: lojas.length > 1 ? '1.6rem !important' : '0 !important',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: 'block',
-                  },
-                  '& .MuiSelect-icon': {
-                    display: lojas.length > 1 ? 'block' : 'none',
-                    color: colors.textMuted,
-                    right: 0,
-                    fontSize: 22,
-                  },
-                }}
-              >
-                {!idLoja && (
-                  <MenuItem value="" disabled>
-                    Selecione a loja
-                  </MenuItem>
-                )}
-                {lojas.map((l) => (
-                  <MenuItem key={l.id_loja} value={l.id_loja}>
-                    {rotuloLoja(l)}
-                  </MenuItem>
-                ))}
-              </Select>
+              <ClickAwayListener onClickAway={() => setLojaMenuAberto(false)}>
+                <Box sx={{ position: 'relative', maxWidth: '100%', zIndex: lojaMenuAberto ? 10000 : 'auto' }}>
+                  <Box
+                    role="button"
+                    tabIndex={0}
+                    aria-haspopup="listbox"
+                    aria-expanded={lojaMenuAberto}
+                    onClick={() => lojas.length > 1 && setLojaMenuAberto((v) => !v)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (lojas.length > 1) setLojaMenuAberto((v) => !v);
+                      }
+                    }}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.75,
+                      maxWidth: '100%',
+                      cursor: lojas.length > 1 ? 'pointer' : 'default',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: { xs: '1.4rem', md: chromeCompacto ? '1.65rem' : '1.85rem' },
+                        letterSpacing: '-0.03em',
+                        lineHeight: 1.15,
+                        color: colors.textPrimary,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        minWidth: 0,
+                      }}
+                    >
+                      {lojaAtual ? tituloLoja(lojaAtual) : 'Selecione a loja'}
+                    </Typography>
+                    {lojas.length > 1 ? (
+                      <KeyboardArrowDownIcon
+                        sx={{
+                          fontSize: 22,
+                          color: colors.textMuted,
+                          flexShrink: 0,
+                          transform: lojaMenuAberto ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 0.15s',
+                        }}
+                      />
+                    ) : null}
+                  </Box>
+                  {lojaMenuAberto && lojas.length > 1 ? (
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        mt: 0.5,
+                        zIndex: 10000,
+                        width: 'max-content',
+                        minWidth: 280,
+                        maxWidth: 'min(520px, 92vw)',
+                        maxHeight: 360,
+                        overflowY: 'auto',
+                        borderRadius: '12px',
+                        border: `1px solid ${colors.border}`,
+                        bgcolor: colors.surface,
+                        backgroundImage: 'none',
+                        boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+                      }}
+                    >
+                      <MenuList dense disablePadding>
+                        {lojas.map((l) => (
+                          <MenuItem
+                            key={l.id_loja}
+                            selected={l.id_loja === idLoja}
+                            onClick={() => {
+                              selecionarLoja(l.id_loja);
+                              setLojaMenuAberto(false);
+                            }}
+                            sx={{
+                              color: colors.textPrimary,
+                              fontSize: '0.8125rem',
+                              gap: 1,
+                              py: 1,
+                              whiteSpace: 'normal',
+                              alignItems: 'flex-start',
+                            }}
+                          >
+                            <StorefrontOutlinedIcon
+                              sx={{ fontSize: 18, color: '#E8520A', mt: '1px', flexShrink: 0 }}
+                            />
+                            <Box component="span" sx={{ lineHeight: 1.35 }}>
+                              {rotuloLoja(l)}
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </MenuList>
+                    </Paper>
+                  ) : null}
+                </Box>
+              </ClickAwayListener>
             )}
             {lojaAtual ? (
               <Typography sx={{ mt: chromeCompacto ? 0.3 : 0.45, fontSize: '0.8rem', color: colors.textMuted }}>
@@ -924,7 +977,7 @@ export default function ControleEstoquePage() {
             <Tab value="rede" label="Rede" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeOperacional && (
-            <Tab value="piloto" label="Piloto" disabled={!idLoja || bloqueiaOutrasAbas} />
+            <Tab value="piloto" label="Baixa" disabled={!idLoja || bloqueiaOutrasAbas} />
           )}
           {podeBreak && (
             <Tab value="break" label="Break" disabled={!idLoja || bloqueiaOutrasAbas} />
@@ -989,6 +1042,7 @@ export default function ControleEstoquePage() {
                           >
                             Diária
                           </Button>
+                          {CONTAGEM_SEMANAL_ATIVA && (
                           <Button
                             variant="outlined"
                             startIcon={<PlayArrowIcon />}
@@ -997,6 +1051,7 @@ export default function ControleEstoquePage() {
                           >
                             Semanal (segunda)
                           </Button>
+                          )}
                           <Button
                             variant="outlined"
                             startIcon={<PlayArrowIcon />}
@@ -1477,7 +1532,9 @@ export default function ControleEstoquePage() {
               sx={toggleRelatorioSx}
             >
               <ToggleButton value="diaria">Diário</ToggleButton>
-              <ToggleButton value="critica_semanal">Semanal</ToggleButton>
+              {CONTAGEM_SEMANAL_ATIVA && (
+                <ToggleButton value="critica_semanal">Semanal</ToggleButton>
+              )}
               <ToggleButton value="completa">Mensal</ToggleButton>
             </ToggleButtonGroup>
           </Box>
