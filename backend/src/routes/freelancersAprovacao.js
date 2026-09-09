@@ -150,6 +150,80 @@ function mapFreeControlError(e, res, next) {
   return next(e);
 }
 
+function ymdBrasil(d = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d);
+}
+
+function primeiroDiaMesBrasil() {
+  return `${ymdBrasil().slice(0, 8)}01`;
+}
+
+router.get('/gastos-mes', requireAprovarFreelancers, async (req, res, next) => {
+  try {
+    const lojas = await bkNumbersDoUsuario(req.user);
+    const bkNumbers = lojas.map((l) => l.bk_number);
+    const dateFrom = String(req.query.date_from || primeiroDiaMesBrasil()).slice(0, 10);
+    const dateTo = String(req.query.date_to || ymdBrasil()).slice(0, 10);
+    if (!bkNumbers.length) {
+      return res.json({
+        date_from: dateFrom,
+        date_to: dateTo,
+        tem_valor: true,
+        totais: { freelancer: 0, treinamento: 0, horas: 0 },
+        top: [],
+        aviso: 'Nenhuma unidade com código BKN no escopo da sua região.',
+      });
+    }
+
+    let data;
+    try {
+      data = await callFreeControl('/api/regional-approvals/gastos', {
+        query: {
+          bk_numbers: bkNumbers.join(','),
+          date_from: dateFrom,
+          date_to: dateTo,
+        },
+      });
+    } catch (e) {
+      logger.warn('freelancers-gastos-mes', e.message || e);
+      const aviso =
+        e.status === 404
+          ? 'Reinicie o FreeControl para habilitar o valor realizado (nova rota /gastos).'
+          : 'FreeControl indisponível no momento.';
+      return res.json({
+        date_from: dateFrom,
+        date_to: dateTo,
+        tem_valor: true,
+        totais: { freelancer: 0, treinamento: 0, horas: 0 },
+        top: [],
+        aviso,
+      });
+    }
+
+    const top = Array.isArray(data.top) ? data.top : [];
+    const totais = data.totais || {};
+    return res.json({
+      date_from: data.date_from || dateFrom,
+      date_to: data.date_to || dateTo,
+      tem_valor: data.tem_valor !== false,
+      totais: {
+        freelancer: Number(totais.freelancer) || 0,
+        treinamento: Number(totais.treinamento) || 0,
+        horas: Number(totais.horas) || 0,
+      },
+      top: top.map((l) => ({
+        loja: String(l.loja || 'Loja'),
+        freelancer: Number(l.freelancer) || 0,
+        treinamento: Number(l.treinamento) || 0,
+        total: Number(l.total) || 0,
+      })),
+      aviso: data.aviso || undefined,
+    });
+  } catch (e) {
+    return mapFreeControlError(e, res, next);
+  }
+});
+
 router.get('/employees', requireAprovarFreelancers, async (req, res, next) => {
   try {
     const lojas = await bkNumbersDoUsuario(req.user);

@@ -310,6 +310,52 @@
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
+.marker-veiculo-cor-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  pointer-events: auto;
+}
+
+.marker-veiculo-cor-corpo {
+  border-radius: 50%;
+  border: 2px solid #f4f1ec;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.marker-veiculo-cor-corpo svg {
+  width: 16px;
+  height: 16px;
+  fill: #fff;
+  display: block;
+  transform-origin: 50% 50%;
+}
+
+.marker-veiculo-cor-placa {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(5, 5, 5, 0.88);
+  color: #f4f1ec;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(244, 241, 236, 0.18);
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.marker-veiculo-cor-wrap.is-destaque .marker-veiculo-cor-corpo {
+  box-shadow: 0 0 0 2px rgba(232, 82, 10, 0.45), 0 4px 12px rgba(0, 0, 0, 0.55);
+}
+
 .leaflet-popup.popup-veiculo-mapa,
 .leaflet-popup.popup-rota-mapa,
 .leaflet-popup.popup-loja-mapa {

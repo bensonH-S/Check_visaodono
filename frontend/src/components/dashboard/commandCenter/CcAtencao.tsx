@@ -48,18 +48,19 @@ function Badge({ total }: { total: number }) {
   return (
     <Box
       sx={{
-        minWidth: 20,
-        height: 20,
-        px: 0.65,
+        minWidth: 22,
+        height: 22,
+        px: 0.7,
         borderRadius: 999,
         bgcolor: CC_CRITICO,
-        color: '#F5F5F5',
+        color: '#fff',
         fontSize: '0.65rem',
-        fontWeight: 700,
+        fontWeight: 800,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         lineHeight: 1,
+        boxShadow: 'none',
       }}
     >
       {fmtInt(Math.min(total, 99))}
@@ -99,32 +100,33 @@ function Tiles({
               minWidth: 0,
               textDecoration: 'none',
               borderRadius: `${CC_RADIUS}px`,
-              border: '1px solid rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.06)',
               borderLeft: `3px solid ${item.color}`,
               bgcolor: CC_SURFACE_2,
-              px: 1.15,
-              py: 1.1,
+              px: 1.1,
+              py: 1.05,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
-              gap: 0.5,
-              '&:hover': { bgcolor: '#1C1C20' },
+              gap: 0.45,
+              '&:hover': { bgcolor: '#221E1A' },
             }}
           >
             <Typography
               sx={{
-                fontSize: '1.35rem',
-                fontWeight: 750,
+                fontSize: '1.45rem',
+                fontWeight: 800,
                 color: item.color,
                 lineHeight: 1,
+                letterSpacing: '-0.03em',
               }}
             >
               {fmtInt(value)}
             </Typography>
             <Typography
               sx={{
-                fontSize: '0.6875rem',
-                color: 'var(--ga-text-secondary)',
+                fontSize: '0.65rem',
+                color: '#9E9E9E',
                 lineHeight: 1.25,
                 fontWeight: 500,
               }}

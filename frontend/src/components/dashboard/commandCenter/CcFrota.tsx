@@ -29,8 +29,11 @@ import {
 import { dataHojeBrasilia, formatarDuracaoMs, formatDataHoraBrasilia } from '../../../utils/dateBr';
 import { ajustarRotaAsRuas, type LatLngPar } from '../../../utils/osrmMapMatch';
 import { LIMITE_VELOCIDADE_KMH } from './ccFormat';
+import { corVeiculoId } from './ccVeiculoCor';
 import { CC_RADIUS, CcEmpty } from './CcPanel';
-import { CC_BORDER, CC_SURFACE } from './ccTheme';
+import { CC_BORDER, CC_CRITICO, CC_OK, CC_ORANGE, CC_PARADO, CC_SURFACE } from './ccTheme';
+
+const VEICULOS_VAZIOS: FrotaVeiculoPosicao[] = [];
 
 /** coords_rua “de verdade” é bem mais densa que o GPS; cópia do GPS = match falhou. */
 function coordsRuaPareceSnap(coordsRua: LatLngPar[] | undefined, gps: LatLngPar[]): boolean {
@@ -70,12 +73,12 @@ function emExcesso(v: FrotaVeiculoPosicao) {
 }
 
 function statusVeiculo(v: FrotaVeiculoPosicao) {
-  if (emExcesso(v)) return { label: 'Excesso', cor: '#EF4444' };
+  if (emExcesso(v)) return { label: 'Excesso', cor: CC_CRITICO };
   const st = statusVeiculoMapa(v, true);
-  if (st === 'em_rota') return { label: 'Em rota', cor: '#22C55E' };
-  if (st === 'parado') return { label: 'Parado', cor: '#94A3B8' };
-  if (st === 'disponivel') return { label: 'Disponível', cor: '#22C55E' };
-  return { label: rotuloStatusVeiculoMapa(st), cor: '#94A3B8' };
+  if (st === 'em_rota') return { label: 'Em rota', cor: CC_OK };
+  if (st === 'parado') return { label: 'Parado', cor: CC_PARADO };
+  if (st === 'disponivel') return { label: 'Disponível', cor: CC_OK };
+  return { label: rotuloStatusVeiculoMapa(st), cor: CC_PARADO };
 }
 
 function formatUltimaPosicao(iso: string | null | undefined) {
@@ -91,6 +94,7 @@ function PainelVeiculo({
   proximaVisita,
   carregandoRota,
   escuro,
+  cor,
   onFechar,
 }: {
   veiculo: FrotaVeiculoPosicao;
@@ -99,6 +103,7 @@ function PainelVeiculo({
   proximaVisita: FrotaVeiculoProximaVisita | null;
   carregandoRota?: boolean;
   escuro: boolean;
+  cor: string;
   onFechar: () => void;
 }) {
   const navigate = useNavigate();
@@ -164,7 +169,7 @@ function PainelVeiculo({
         maxHeight: 'calc(100% - 56px)',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: escuro ? 'rgba(12, 17, 24, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+        bgcolor: escuro ? 'rgba(8, 8, 8, 0.94)' : 'rgba(255, 255, 255, 0.96)',
         border: escuro ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid var(--ga-border)',
         borderRadius: `${CC_RADIUS}px`,
         p: 1.25,
@@ -176,24 +181,25 @@ function PainelVeiculo({
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.35 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-          <LocalShippingOutlinedIcon sx={{ fontSize: 16, color: escuro ? '#94A3B8' : 'var(--ga-text-muted)' }} />
+          <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: cor, flexShrink: 0 }} />
+          <LocalShippingOutlinedIcon sx={{ fontSize: 16, color: cor }} />
           <Typography
             sx={{
               fontSize: '0.9375rem',
               fontWeight: 750,
-              color: escuro ? '#fff' : 'var(--ga-text-primary)',
+              color: escuro ? '#F4F1EC' : 'var(--ga-text-primary)',
               letterSpacing: '-0.02em',
             }}
           >
             {veiculo.placa}
           </Typography>
         </Box>
-        <IconButton size="small" onClick={onFechar} sx={{ color: escuro ? '#64748B' : 'var(--ga-text-muted)', p: 0.35 }}>
+        <IconButton size="small" onClick={onFechar} sx={{ color: escuro ? CC_PARADO : 'var(--ga-text-muted)', p: 0.35 }}>
           <CloseIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Box>
 
-      <Typography sx={{ fontSize: '0.72rem', color: escuro ? '#94A3B8' : 'var(--ga-text-secondary)', mb: 0.55 }}>
+      <Typography sx={{ fontSize: '0.72rem', color: escuro ? CC_PARADO : 'var(--ga-text-secondary)', mb: 0.55 }}>
         {modelo}
       </Typography>
 
@@ -205,13 +211,13 @@ function PainelVeiculo({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.7 }}>
         {linhas.map((l) => (
           <Box key={l.label} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
-            <Typography sx={{ fontSize: '0.6875rem', color: escuro ? '#94A3B8' : 'var(--ga-text-secondary)' }}>
+            <Typography sx={{ fontSize: '0.6875rem', color: escuro ? CC_PARADO : 'var(--ga-text-secondary)' }}>
               {l.label}
             </Typography>
             <Typography
               sx={{
                 fontSize: '0.6875rem',
-                color: escuro ? '#F8FAFC' : 'var(--ga-text-primary)',
+                color: escuro ? '#F4F1EC' : 'var(--ga-text-primary)',
                 fontWeight: 600,
                 textAlign: 'right',
               }}
@@ -231,7 +237,7 @@ function PainelVeiculo({
           mt: 1.15,
           borderRadius: `${CC_RADIUS}px`,
           borderColor: escuro ? 'rgba(232, 82, 10, 0.45)' : 'var(--ga-border)',
-          color: escuro ? '#F5F5F5' : 'var(--ga-text-primary)',
+          color: escuro ? '#F4F1EC' : 'var(--ga-text-primary)',
           textTransform: 'none',
           fontWeight: 650,
           bgcolor: escuro ? 'rgba(24, 24, 27, 0.7)' : 'var(--ga-canvas-alt)',
@@ -247,16 +253,14 @@ function PainelVeiculo({
   );
 }
 
-function Legenda({ escuro }: { escuro: boolean }) {
-  const texto = escuro ? '#F1F5F9' : 'var(--ga-text-primary)';
-  const linha = (cor: string, label: string) => (
-    <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexShrink: 0 }}>
-      <Box sx={{ width: 22, height: 3.5, borderRadius: 2, bgcolor: cor }} />
-      <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
-        {label}
-      </Typography>
-    </Box>
-  );
+function Legenda({
+  escuro,
+  veiculos,
+}: {
+  escuro: boolean;
+  veiculos: FrotaVeiculoPosicao[];
+}) {
+  const texto = escuro ? '#F4F1EC' : 'var(--ga-text-primary)';
 
   return (
     <Box
@@ -270,10 +274,10 @@ function Legenda({ escuro }: { escuro: boolean }) {
         alignItems: 'center',
         justifyContent: 'flex-start',
         flexWrap: 'nowrap',
-        gap: { xs: 1.5, sm: 2.25 },
-        px: { xs: 1.5, sm: 2.25 },
-        py: 1.15,
-        bgcolor: escuro ? 'rgba(11, 18, 32, 0.94)' : 'rgba(255, 255, 255, 0.96)',
+        gap: { xs: 1.15, sm: 1.75 },
+        px: { xs: 1.25, sm: 1.75 },
+        py: 0.7,
+        bgcolor: escuro ? 'rgba(8, 8, 8, 0.94)' : 'rgba(255, 255, 255, 0.96)',
         borderTop: escuro ? '1px solid rgba(148, 163, 184, 0.18)' : '1px solid var(--ga-border)',
         overflowX: 'auto',
         pointerEvents: 'none',
@@ -281,14 +285,24 @@ function Legenda({ escuro }: { escuro: boolean }) {
         '&::-webkit-scrollbar': { display: 'none' },
       }}
     >
-      {linha('#3B82F6', 'Em rota')}
-      {linha('#94A3B8', 'Parado')}
-      {linha('#EF4444', 'Excesso')}
+      {veiculos.slice(0, 8).map((v) => (
+        <Box key={v.id_veiculo} sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+          <Box sx={{ width: 16, height: 3.5, borderRadius: 2, bgcolor: corVeiculoId(v.id_veiculo) }} />
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 650, color: texto, whiteSpace: 'nowrap' }}>
+            {v.placa}
+          </Typography>
+        </Box>
+      ))}
+      {veiculos.length > 8 && (
+        <Typography sx={{ fontSize: '0.7rem', color: texto, opacity: 0.7, flexShrink: 0 }}>
+          +{veiculos.length - 8}
+        </Typography>
+      )}
 
       <Box
         sx={{
           width: '1px',
-          height: 18,
+          height: 16,
           bgcolor: escuro ? 'rgba(148, 163, 184, 0.4)' : 'var(--ga-border)',
           flexShrink: 0,
         }}
@@ -297,23 +311,22 @@ function Legenda({ escuro }: { escuro: boolean }) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexShrink: 0 }}>
         <Box
           sx={{
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
-            bgcolor: '#22C55E',
+            bgcolor: CC_OK,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 800,
             lineHeight: 1,
-            boxShadow: '0 0 0 2px rgba(34,197,94,0.25)',
           }}
         >
           ✓
         </Box>
-        <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
           Visita realizada
         </Typography>
       </Box>
@@ -321,22 +334,21 @@ function Legenda({ escuro }: { escuro: boolean }) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85, flexShrink: 0 }}>
         <Box
           sx={{
-            width: 18,
-            height: 18,
+            width: 16,
+            height: 16,
             borderRadius: '50%',
-            bgcolor: '#3B82F6',
+            bgcolor: CC_ORANGE,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: 11,
+            fontSize: 10,
             lineHeight: 1,
-            boxShadow: '0 0 0 2px rgba(59,130,246,0.25)',
           }}
         >
           ★
         </Box>
-        <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 500, color: texto, whiteSpace: 'nowrap' }}>
           Próxima visita
         </Typography>
       </Box>
@@ -368,8 +380,14 @@ export default function CcFrota({
   const [proximaVisita, setProximaVisita] = useState<FrotaVeiculoProximaVisita | null>(null);
   const [carregandoRota, setCarregandoRota] = useState(false);
 
-  const veiculos = data?.veiculos ?? [];
+  const veiculos = data?.veiculos ?? VEICULOS_VAZIOS;
   const lojas = data?.lojas ?? [];
+
+  const coresPorId = useMemo(() => {
+    const o: Record<number, string> = {};
+    for (const v of veiculos) o[v.id_veiculo] = corVeiculoId(v.id_veiculo);
+    return o;
+  }, [veiculos]);
 
   const veiculoPainel = useMemo(() => {
     if (selecionadoId == null) return null;
@@ -426,13 +444,13 @@ export default function CcFrota({
         minHeight: 0,
       }}
     >
-      <Box sx={{ px: 1.75, pt: 1.5, pb: 0.85, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+      <Box sx={{ px: 1.5, pt: 1.15, pb: 0.6, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
         <Box>
           <Typography sx={{ fontWeight: 650, fontSize: '0.875rem', color: 'var(--ga-text-primary)' }}>
             Frota em tempo real
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.35 }}>
-            <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#22C55E', boxShadow: '0 0 6px #22C55E' }} />
+            <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: CC_OK }} />
             <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)' }}>Atualizado agora</Typography>
           </Box>
         </Box>
@@ -469,8 +487,8 @@ export default function CcFrota({
           flex: 1,
           height: '100%',
           minHeight: 0,
-          mx: 1.15,
-          mb: 1.15,
+          mx: 1,
+          mb: 1,
           borderRadius: `${CC_RADIUS}px`,
           overflow: 'hidden',
           border: '1px solid var(--ga-border)',
@@ -486,16 +504,6 @@ export default function CcFrota({
             borderRadius: `${CC_RADIUS}px`,
             background: `${mapaFundo} !important`,
           },
-          ...(mapaEscuro
-            ? {
-                '& .marker-veiculo-pin.is-em_rota .marker-veiculo-corpo': {
-                  background: '#3B82F6 !important',
-                },
-                '& .marker-veiculo-pin.is-em_rota .marker-veiculo-ponta': {
-                  borderTopColor: '#3B82F6 !important',
-                },
-              }
-            : null),
           '& .leaflet-control-zoom': {
             display: 'none !important',
           },
@@ -570,6 +578,8 @@ export default function CcFrota({
               setSelecionadoId(null);
             }}
             rotaDiaVeiculo={rota}
+            corRotaSelecionada={selecionadoId != null ? corVeiculoId(selecionadoId) : undefined}
+            corVeiculoPorId={coresPorId}
             trajetoDiaAtual
             autoRefreshIntervalMs={60_000}
           />
@@ -584,7 +594,7 @@ export default function CcFrota({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: mapaEscuro ? 'rgba(11,18,32,0.55)' : 'rgba(255,255,255,0.55)',
+              bgcolor: mapaEscuro ? 'rgba(5,5,5,0.55)' : 'rgba(255,255,255,0.55)',
             }}
           >
             <CircularProgress size={28} sx={{ color: 'var(--ga-orange)' }} />
@@ -601,14 +611,14 @@ export default function CcFrota({
               alignItems: 'center',
               justifyContent: 'center',
               pointerEvents: 'none',
-              bgcolor: mapaEscuro ? 'rgba(11,18,32,0.25)' : 'rgba(255,255,255,0.25)',
+              bgcolor: mapaEscuro ? 'rgba(5,5,5,0.25)' : 'rgba(255,255,255,0.25)',
             }}
           >
             <CcEmpty>Nenhum veículo ou loja com posição no mapa.</CcEmpty>
           </Box>
         )}
 
-        {!erro && <Legenda escuro={mapaEscuro} />}
+        {!erro && <Legenda escuro={mapaEscuro} veiculos={veiculos} />}
 
         {veiculoPainel && (
           <PainelVeiculo
@@ -618,6 +628,7 @@ export default function CcFrota({
             proximaVisita={proximaVisita}
             carregandoRota={carregandoRota}
             escuro={mapaEscuro}
+            cor={corVeiculoId(veiculoPainel.id_veiculo)}
             onFechar={() => setSelecionadoId(null)}
           />
         )}

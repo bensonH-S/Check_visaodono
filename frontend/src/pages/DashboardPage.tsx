@@ -10,6 +10,7 @@ import CcKpiRow from '../components/dashboard/commandCenter/CcKpiRow';
 import CcEsquerdo from '../components/dashboard/commandCenter/CcEsquerdo';
 import CcFrota from '../components/dashboard/commandCenter/CcFrota';
 import CcEstoque from '../components/dashboard/commandCenter/CcEstoque';
+import CcFreecontrolGastos from '../components/dashboard/commandCenter/CcFreecontrolGastos';
 import CcVisao from '../components/dashboard/commandCenter/CcVisao';
 import { LIMITE_VELOCIDADE_KMH } from '../components/dashboard/commandCenter/ccFormat';
 import { CC_BG, CC_GAP } from '../components/dashboard/commandCenter/ccTheme';
@@ -97,7 +98,6 @@ export default function DashboardPage() {
   }
 
   const m = data?.metricas;
-  const atencao = data?.atencao;
 
   return (
     <Box
@@ -106,7 +106,7 @@ export default function DashboardPage() {
         height: { xs: 'auto', lg: '100%' },
         minHeight: 0,
         display: 'grid',
-        gridTemplateRows: { xs: 'auto', lg: 'auto minmax(0, 1fr) 220px' },
+        gridTemplateRows: { xs: 'auto', lg: 'auto minmax(0, 1fr)' },
         gap: CC_GAP,
         bgcolor: CC_BG,
       }}
@@ -131,10 +131,11 @@ export default function DashboardPage() {
           gap: CC_GAP,
           minHeight: 0,
           gridTemplateColumns: { xs: '1fr', lg: 'minmax(280px, 0.68fr) minmax(0, 1.32fr)' },
+          gridTemplateRows: { xs: 'auto', lg: 'minmax(0, 1fr) 200px' },
         }}
       >
-        <CcEsquerdo loading={loading && !data} atencao={atencao} ranking={ranking} />
-        <Box sx={{ minHeight: { xs: 360, lg: 0 }, height: '100%' }}>
+        <CcEsquerdo loading={loading && !data} ranking={ranking} />
+        <Box sx={{ minHeight: { xs: 440, lg: 0 }, height: '100%', minWidth: 0 }}>
           <CcFrota
             loading={loadingFrota && !frota}
             data={frota}
@@ -143,18 +144,20 @@ export default function DashboardPage() {
             dataRef={dataFiltro}
           />
         </Box>
-      </Box>
-
-      <Box
-        sx={{
-          display: 'grid',
-          gap: CC_GAP,
-          minHeight: 0,
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-        }}
-      >
         <CcEstoque />
-        <CcVisao />
+        <Box
+          sx={{
+            display: 'grid',
+            gap: CC_GAP,
+            minHeight: 0,
+            minWidth: 0,
+            height: '100%',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          }}
+        >
+          <CcFreecontrolGastos />
+          <CcVisao />
+        </Box>
       </Box>
     </Box>
   );

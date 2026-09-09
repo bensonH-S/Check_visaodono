@@ -39,8 +39,8 @@ export default function CcEvolucao({
 
   return (
     <CcPanel
-      title="Evolução da performance"
-      subtitle="Últimos 6 meses"
+      title="EVOLUÇÃO"
+      subtitle="Performance dos últimos 6 meses"
       minHeight={0}
     >
       {loading ? (
@@ -61,7 +61,7 @@ export default function CcEvolucao({
                 sx={{
                   fontSize: '0.75rem',
                   fontWeight: 650,
-                  color: delta.positivo ? '#16A34A' : '#DC2626',
+                  color: delta.positivo ? '#2FA36B' : '#E24B45',
                 }}
               >
                 {delta.positivo ? '▲' : '▼'} {delta.valor}% vs. mês anterior
@@ -71,11 +71,11 @@ export default function CcEvolucao({
 
           <Box sx={{ flex: 1, minHeight: 110 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dados} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+              <AreaChart data={dados} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="ccPerfFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#E8520A" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#E8520A" stopOpacity={0.02} />
+                    <stop offset="0%" stopColor="#F05C14" stopOpacity={0.32} />
+                    <stop offset="100%" stopColor="#F05C14" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
@@ -85,13 +85,7 @@ export default function CcEvolucao({
                   axisLine={false}
                   tickLine={false}
                 />
-                <YAxis
-                  domain={['dataMin - 5', 'dataMax + 5']}
-                  tick={{ fill: 'var(--ga-text-muted)', fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={40}
-                />
+                <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
                 <Tooltip
                   formatter={(value) => [fmtPct(Number(value)), 'Performance']}
                   labelFormatter={(label, payload) => payload?.[0]?.payload?.rotulo || String(label)}
@@ -105,10 +99,10 @@ export default function CcEvolucao({
                 <Area
                   type="monotone"
                   dataKey="media"
-                  stroke="#E8520A"
+                  stroke="#F05C14"
                   strokeWidth={2.5}
                   fill="url(#ccPerfFill)"
-                  dot={{ r: 3, fill: '#E8520A', strokeWidth: 0 }}
+                  dot={{ r: 3, fill: '#F05C14', strokeWidth: 0 }}
                   activeDot={{ r: 5 }}
                 />
               </AreaChart>

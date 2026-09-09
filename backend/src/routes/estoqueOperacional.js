@@ -313,6 +313,37 @@ router.get('/saldos/rede-baixo', permSaldo, async (req, res, next) => {
   }
 });
 
+/** Command Center: valor atual da rede (saldo × custo CMV). */
+router.get('/saldos/rede-valor', permSaldo, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const { rows } = await pool.query(
+      `
+      SELECT
+        ROUND(SUM(
+          GREATEST(COALESCE(s.quantidade, 0), 0) * COALESCE(p.valor_unidade, 0)
+        )::numeric, 2) AS valor_atual
+      FROM insumos p
+      JOIN lojas l ON l.id_loja = p.id_loja
+      LEFT JOIN estoque_saldos s
+        ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
+      WHERE p.ativo = TRUE
+        AND COALESCE(p.entra_cmv, TRUE) = TRUE
+        AND l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
+        AND ($1::int[] IS NULL OR p.id_loja = ANY($1::int[]))
+      `,
+      [ids],
+    );
+    res.json({ valor_atual: num(rows[0]?.valor_atual) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/movimentos', permOp, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);

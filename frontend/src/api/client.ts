@@ -301,6 +301,20 @@ export const api = {
     const suffix = q.toString() ? `?${q}` : '';
     return request<NcResponse>(`/nao-conformidades${suffix}`);
   },
+  freelancersGastosMes: (params?: { date_from?: string; date_to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.date_from) q.set('date_from', params.date_from);
+    if (params?.date_to) q.set('date_to', params.date_to);
+    const suffix = q.toString() ? `?${q}` : '';
+    return request<{
+      date_from: string;
+      date_to: string;
+      tem_valor: boolean;
+      totais: { freelancer: number; treinamento: number; horas: number };
+      top: Array<{ loja: string; freelancer: number; treinamento: number; total: number }>;
+      aviso?: string;
+    }>(`/freelancers-aprovacao/gastos-mes${suffix}`);
+  },
   freelancersAprovacao: (params?: {
     date_from?: string;
     date_to?: string;
@@ -1242,6 +1256,7 @@ export const api = {
         quantidade: number;
       }>;
     }>('/estoque/saldos/rede-baixo'),
+  estoqueSaldosRedeValor: () => request<{ valor_atual: number }>('/estoque/saldos/rede-valor'),
   estoqueSaldos: (idLoja: number, q?: string, opts?: { diaria?: boolean }) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (q) params.set('q', q);

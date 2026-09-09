@@ -7,7 +7,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import { fmtDelta, fmtInt, fmtPct } from './ccFormat';
-import { CC_BORDER, CC_GAP, CC_RADIUS, CC_SURFACE } from './ccTheme';
+import { CC_BORDER, CC_CRITICO, CC_GAP, CC_OK, CC_ORANGE, CC_RADIUS, CC_SURFACE, CC_WARN } from './ccTheme';
 import { CcSkeleton } from './CcPanel';
 
 function Sparkline({ values }: { values: number[] }) {
@@ -64,7 +64,7 @@ function KpiCard({
         alignItems: 'center',
         justifyContent: 'space-between',
         height: '100%',
-        minHeight: 86,
+        minHeight: 72,
         minWidth: 0,
         flex: '1 1 0',
         overflow: 'hidden',
@@ -199,11 +199,11 @@ export default function CcKpiRow({
           delta ? (
             <>
               {delta.positivo ? (
-                <ArrowDropUpIcon sx={{ fontSize: 16, color: '#16A34A', mr: 0.25 }} />
+                <ArrowDropUpIcon sx={{ fontSize: 16, color: CC_OK, mr: 0.25 }} />
               ) : (
-                <ArrowDropDownIcon sx={{ fontSize: 16, color: '#DC2626', mr: 0.25 }} />
+                <ArrowDropDownIcon sx={{ fontSize: 16, color: CC_CRITICO, mr: 0.25 }} />
               )}
-              <span style={{ color: delta.positivo ? '#16A34A' : '#DC2626', fontWeight: 600, marginRight: 4 }}>
+              <span style={{ color: delta.positivo ? CC_OK : CC_CRITICO, fontWeight: 600, marginRight: 4 }}>
                 {delta.valor}%
               </span>
               <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
@@ -222,8 +222,8 @@ export default function CcKpiRow({
         value={planejadas ? `${fmtInt(visitasMes)}` : fmtInt(visitasMes)}
         subtext={planejadas ? `de ${fmtInt(planejadas)} planejadas` : 'Registradas neste mês'}
         icon={<CalendarMonthIcon fontSize="medium" />}
-        iconColor="#3B82F6"
-        iconBg="rgba(59, 130, 246, 0.15)"
+        iconColor={CC_ORANGE}
+        iconBg="rgba(232, 82, 10, 0.14)"
       />
 
       <KpiCard
@@ -231,8 +231,8 @@ export default function CcKpiRow({
         value={fmtInt(ncsAbertas)}
         subtext={`${fmtInt(ncsCriticas)} críticas • ${fmtInt(ncsModeradas)} moderadas`}
         icon={<WarningAmberIcon fontSize="medium" />}
-        iconColor="#EF4444"
-        iconBg="rgba(239, 68, 68, 0.15)"
+        iconColor={CC_CRITICO}
+        iconBg="rgba(196, 69, 45, 0.14)"
       />
 
       <KpiCard
@@ -240,8 +240,8 @@ export default function CcKpiRow({
         value={fmtInt(lojasRisco)}
         subtext="Abaixo de 75%"
         icon={<StoreIcon fontSize="medium" />}
-        iconColor="#F59E0B"
-        iconBg="rgba(245, 158, 11, 0.15)"
+        iconColor={CC_WARN}
+        iconBg="rgba(196, 122, 42, 0.14)"
       />
 
       <KpiCard
@@ -249,8 +249,8 @@ export default function CcKpiRow({
         value={veiculosAlerta == null ? '—' : fmtInt(veiculosAlerta)}
         subtext={veiculosAlerta == null ? 'Sem acesso à frota' : 'Excesso de velocidade'}
         icon={<LocalShippingIcon fontSize="medium" />}
-        iconColor="#8B5CF6"
-        iconBg="rgba(139, 92, 246, 0.15)"
+        iconColor={CC_ORANGE}
+        iconBg="rgba(232, 82, 10, 0.14)"
       />
     </Box>
   );

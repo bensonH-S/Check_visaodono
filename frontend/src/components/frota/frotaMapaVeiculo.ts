@@ -179,16 +179,88 @@ export function htmlInfoVeiculo(
   </div>`;
 }
 
+const CARDINAL_GRAUS: Record<string, number> = {
+  N: 0,
+  NNE: 22,
+  NE: 45,
+  ENE: 67,
+  E: 90,
+  ESE: 112,
+  SE: 135,
+  SSE: 157,
+  S: 180,
+  SSW: 202,
+  SW: 225,
+  WSW: 247,
+  W: 270,
+  WNW: 292,
+  NW: 315,
+  NNW: 337,
+};
+
+export function grausDirecaoVeiculo(direcao?: string | number | null): number | undefined {
+  if (direcao == null || direcao === '') return undefined;
+  const n = Number(direcao);
+  if (Number.isFinite(n)) return ((n % 360) + 360) % 360;
+  return CARDINAL_GRAUS[String(direcao).trim().toUpperCase()];
+}
+
+export type MarcadorVeiculoOpcoes = {
+  corPin?: string;
+  rotacaoDeg?: number;
+};
+
+function marcadorVeiculoCor(
+  veiculo: Pick<FrotaVeiculoPosicao, 'placa' | 'marca' | 'modelo' | 'nome_responsavel' | 'motorista' | 'direcao'>,
+  cor: string,
+  rotacaoDeg: number | undefined,
+  destacado: boolean,
+) {
+  const size = destacado ? 40 : 34;
+  const placa = String(veiculo.placa || '').replace(/\s+/g, '').toUpperCase() || rotuloMarcadorVeiculo(veiculo);
+  const rotulo = placa.length > 8 ? placa.slice(-7) : placa;
+  const deg = rotacaoDeg ?? grausDirecaoVeiculo(veiculo.direcao) ?? 0;
+  const totalW = Math.max(size + 16, rotulo.length * 7.2 + 10);
+  const totalH = size + 18;
+  const cls = ['marker-veiculo-cor-wrap', destacado ? 'is-destaque' : ''].filter(Boolean).join(' ');
+  return L.divIcon({
+    className: 'marcador-veiculo-pin marcador-veiculo-cor',
+    html: `<div class="${cls}" style="width:${totalW}px">
+      <div class="marker-veiculo-cor-corpo" style="width:${size}px;height:${size}px;background:${escapeHtml(cor)}">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate(${deg}deg)">
+          <path d="M5 11l1.5-4.5h11L19 11H5zm2.5 5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm9 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z"/>
+        </svg>
+      </div>
+      <div class="marker-veiculo-cor-placa" title="${escapeHtml(placa)}">${escapeHtml(rotulo)}</div>
+    </div>`,
+    iconSize: [totalW, totalH],
+    iconAnchor: [totalW / 2, size / 2],
+    popupAnchor: [0, -(size / 2 + 4)],
+  });
+}
+
 export function marcadorVeiculo(
   veiculo: Pick<
     FrotaVeiculoPosicao,
-    'marca' | 'modelo' | 'ignicao' | 'velocidade' | 'rastreamento_disponivel' | 'nome_responsavel' | 'motorista'
+    | 'marca'
+    | 'modelo'
+    | 'ignicao'
+    | 'velocidade'
+    | 'rastreamento_disponivel'
+    | 'nome_responsavel'
+    | 'motorista'
+    | 'placa'
+    | 'direcao'
   >,
   mobile = false,
   destacado = false,
   comGps = true,
   forcarStatus?: StatusVeiculoMapa,
+  opcoes?: MarcadorVeiculoOpcoes,
 ) {
+  if (opcoes?.corPin) {
+    return marcadorVeiculoCor(veiculo, opcoes.corPin, opcoes.rotacaoDeg, destacado);
+  }
   const w = mobile ? (destacado ? 40 : 34) : 32;
   const status = forcarStatus ?? statusVeiculoMapa(veiculo, comGps);
   const modelo = rotuloMarcadorVeiculo(veiculo);

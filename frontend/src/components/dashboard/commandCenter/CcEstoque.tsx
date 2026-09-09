@@ -2,114 +2,91 @@ import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Link as RouterLink } from 'react-router-dom';
-import { api, type EstoqueContagemRedeItem, type EstoqueSaudeBaixaProblema } from '../../../api/client';
+import { api, type EstoqueContagemRedeItem } from '../../../api/client';
 import { useCommandCenterFilters } from '../../../context/CommandCenterFiltersContext';
 import { fmtInt, lojaLabel } from './ccFormat';
-import { CC_BORDER, CC_CRITICO, CC_MUTED, CC_OK, CC_ORANGE, CC_RADIUS, CC_SURFACE } from './ccTheme';
+import { CC_BORDER, CC_CRITICO, CC_MUTED, CC_OK, CC_ORANGE, CC_RADIUS, CC_SURFACE, CC_TEXT, CC_WARN } from './ccTheme';
+import { CcEmpty, CcSkeleton } from './CcPanel';
 
-type Tab = 'contagem' | 'baixo' | 'pendencias';
+type FiltroStatus = EstoqueContagemRedeItem['status'] | 'todas';
 
-type ItemBaixo = {
-  id_loja: number;
-  loja: string;
-  codigo: string;
-  descricao: string;
-  quantidade: number;
-};
+function lojaCurta(name: string) {
+  return lojaLabel(name).replace(/^BURGER KING\s*[-–]\s*/i, '').trim() || name;
+}
 
-function statusOrdem(s: EstoqueContagemRedeItem['status']) {
+function statusCor(s: EstoqueContagemRedeItem['status']) {
+  if (s === 'faltou') return CC_CRITICO;
+  if (s === 'aberta') return CC_WARN;
+  return CC_OK;
+}
+
+function statusTag(s: EstoqueContagemRedeItem['status']) {
+  if (s === 'faltou') return 'FALTOU';
+  if (s === 'aberta') return 'ABERTA';
+  return 'FECHOU';
+}
+
+function statusPeso(s: EstoqueContagemRedeItem['status']) {
   if (s === 'faltou') return 0;
   if (s === 'aberta') return 1;
   return 2;
 }
 
-function statusCor(s: EstoqueContagemRedeItem['status']) {
-  if (s === 'faltou') return CC_CRITICO;
-  if (s === 'aberta') return CC_ORANGE;
-  return CC_OK;
-}
-
-function dataCurta(iso: string | null) {
-  if (!iso) return '—';
-  const p = iso.slice(0, 10).split('-');
-  if (p.length !== 3) return iso;
-  return `${p[2]}/${p[1]}`;
+function rotuloFiltro(f: FiltroStatus) {
+  if (f === 'faltou') return 'quem faltou';
+  if (f === 'aberta') return 'quem está aberta';
+  if (f === 'contou') return 'quem já fechou';
+  return 'todas as lojas';
 }
 
 export default function CcEstoque() {
   const { data: dataFiltro } = useCommandCenterFilters();
-  const [tab, setTab] = useState<Tab>('contagem');
   const [lojas, setLojas] = useState<EstoqueContagemRedeItem[]>([]);
-  const [baixos, setBaixos] = useState<ItemBaixo[]>([]);
-  const [problemas, setProblemas] = useState<EstoqueSaudeBaixaProblema[]>([]);
+  const [filtro, setFiltro] = useState<FiltroStatus>('todas');
   const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancel = false;
-    Promise.all([
-      api.estoqueContagensRede({ tipo: 'diaria', data: dataFiltro }).catch(() => null),
-      api.estoqueSaldosRedeBaixo().catch(() => null),
-      api.estoqueSaudeBaixa({ escopo: 'rede' }).catch(() => null),
-    ]).then(([rede, baixo, saude]) => {
-      if (cancel) return;
-      if (!rede) {
-        setErr('Sem acesso ao estoque da rede.');
+    setLoading(true);
+    api
+      .estoqueContagensRede({ tipo: 'diaria', data: dataFiltro })
+      .then((r) => {
+        if (cancel) return;
+        setErr('');
+        setLojas(r.lojas ?? []);
+        setLoading(false);
+      })
+      .catch((e) => {
+        if (cancel) return;
+        setErr(e?.message || 'Sem acesso às contagens da rede.');
         setLojas([]);
-        return;
-      }
-      setErr('');
-      setLojas(rede.lojas || []);
-      setBaixos(baixo?.itens || []);
-      setProblemas(saude?.problemas || []);
-    });
+        setLoading(false);
+      });
     return () => {
       cancel = true;
     };
   }, [dataFiltro]);
 
-  const totais = useMemo(() => {
-    const faltou = lojas.filter((l) => l.status === 'faltou').length;
-    const aberta = lojas.filter((l) => l.status === 'aberta').length;
+  const resumo = useMemo(() => {
     const contou = lojas.filter((l) => l.status === 'contou').length;
-    return { faltou, aberta, contou, total: lojas.length };
+    const aberta = lojas.filter((l) => l.status === 'aberta').length;
+    const faltou = lojas.filter((l) => l.status === 'faltou').length;
+    return { contou, aberta, faltou, total: lojas.length };
   }, [lojas]);
 
-  const listaContagem = useMemo(
-    () =>
-      [...lojas]
-        .sort((a, b) => {
-          const d = statusOrdem(a.status) - statusOrdem(b.status);
-          if (d !== 0) return d;
-          return (a.name || '').localeCompare(b.name || '', 'pt-BR');
-        })
-        .slice(0, 5),
-    [lojas],
-  );
+  const lista = useMemo(() => {
+    const base = filtro === 'todas' ? lojas : lojas.filter((l) => l.status === filtro);
+    return [...base].sort(
+      (a, b) =>
+        statusPeso(a.status) - statusPeso(b.status) ||
+        lojaCurta(a.name).localeCompare(lojaCurta(b.name), 'pt-BR'),
+    );
+  }, [lojas, filtro]);
 
-  const listaBaixo = useMemo(() => baixos.slice(0, 5), [baixos]);
-  const listaPend = useMemo(
-    () => [...problemas].sort((a, b) => (b.vezes || 0) - (a.vezes || 0)).slice(0, 5),
-    [problemas],
-  );
-
-  const tabs: { id: Tab; label: string; count: number }[] = [
-    { id: 'contagem', label: 'Contagem', count: totais.faltou + totais.aberta },
-    { id: 'baixo', label: 'Zerados', count: baixos.length },
-    { id: 'pendencias', label: 'Baixa', count: problemas.length },
-  ];
-
-  const subtitulo =
-    tab === 'contagem'
-      ? totais.total
-        ? `${fmtInt(totais.contou)} de ${fmtInt(totais.total)} já contaram`
-        : 'Contagem diária'
-      : tab === 'baixo'
-        ? baixos.length
-          ? `${fmtInt(baixos.length)} itens da diária em zero`
-          : 'Itens da diária zerados'
-        : problemas.length
-          ? `${fmtInt(problemas.length)} SKUs com problema na baixa`
-          : 'Pendências da baixa automática';
+  const escolher = (proximo: FiltroStatus) => {
+    setFiltro((atual) => (atual === proximo ? 'todas' : proximo));
+  };
 
   return (
     <Box
@@ -125,13 +102,13 @@ export default function CcEstoque() {
         overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.85 }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 750, letterSpacing: '0.06em', color: 'var(--ga-text-primary)' }}>
-            ESTOQUE DA REDE
+          <Typography sx={{ fontSize: '0.72rem', fontWeight: 750, letterSpacing: '0.06em', color: CC_TEXT }}>
+            CONTAGEM
           </Typography>
           <Typography sx={{ fontSize: '0.6875rem', color: 'var(--ga-text-secondary)', mt: 0.15 }}>
-            {subtitulo}
+            Diária de hoje · {rotuloFiltro(filtro)}
           </Typography>
         </Box>
         <Typography
@@ -150,153 +127,90 @@ export default function CcEstoque() {
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 1.75, mb: 1, borderBottom: `1px solid ${CC_BORDER}` }}>
-        {tabs.map((t) => {
-          const ativo = tab === t.id;
-          return (
-            <Box
-              key={t.id}
-              component="button"
-              type="button"
-              onClick={() => setTab(t.id)}
-              sx={{
-                border: 0,
-                cursor: 'pointer',
-                bgcolor: 'transparent',
-                px: 0,
-                pb: 0.65,
-                mb: '-1px',
-                fontSize: '0.72rem',
-                fontWeight: ativo ? 650 : 500,
-                color: ativo ? CC_ORANGE : CC_MUTED,
-                borderBottom: '2px solid',
-                borderColor: ativo ? CC_ORANGE : 'transparent',
-                whiteSpace: 'nowrap',
-                fontFamily: 'inherit',
-                '&:hover': { color: ativo ? CC_ORANGE : 'var(--ga-text-primary)' },
-              }}
-            >
-              {t.label}
-              {t.count > 0 ? ` ${t.count}` : ''}
-            </Box>
-          );
-        })}
-      </Box>
-
-      {err ? (
-        <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)', py: 2 }}>{err}</Typography>
-      ) : tab === 'contagem' ? (
-        !listaContagem.length ? (
-          <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)', py: 1.5 }}>
-            Nenhuma loja na rede de estoque.
-          </Typography>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.55, flex: 1, minHeight: 0 }}>
-            {listaContagem.map((l, i) => (
-              <Box key={l.id_loja} sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                <Typography sx={{ width: 14, fontSize: '0.75rem', fontWeight: 750, color: statusCor(l.status), flexShrink: 0 }}>
-                  {i + 1}
-                </Typography>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1 }}>
-                    <Typography
-                      sx={{
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        color: 'var(--ga-text-primary)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {lojaLabel(l.name)}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.6875rem', fontWeight: 700, color: statusCor(l.status), flexShrink: 0 }}>
-                      {l.status_label}
-                    </Typography>
-                  </Box>
-                  <Typography sx={{ fontSize: '0.62rem', color: 'var(--ga-text-muted)' }}>
-                    Última: {dataCurta(l.ultima_data)}
-                  </Typography>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        )
-      ) : tab === 'baixo' ? (
-        !listaBaixo.length ? (
-          <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)', py: 1.5 }}>
-            Nenhum item da diária zerado.
-          </Typography>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.55, flex: 1, minHeight: 0 }}>
-            {listaBaixo.map((item, i) => (
-              <Box key={`${item.id_loja}-${item.codigo}-${i}`} sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                <Typography sx={{ width: 14, fontSize: '0.75rem', fontWeight: 750, color: CC_CRITICO, flexShrink: 0 }}>
-                  {i + 1}
-                </Typography>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1 }}>
-                    <Typography
-                      sx={{
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        color: 'var(--ga-text-primary)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {item.descricao}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.6875rem', fontWeight: 700, color: CC_CRITICO, flexShrink: 0 }}>
-                      {Number(item.quantidade).toLocaleString('pt-BR')}
-                    </Typography>
-                  </Box>
-                  <Typography sx={{ fontSize: '0.62rem', color: 'var(--ga-text-muted)' }}>
-                    {lojaLabel(item.loja)} · {item.codigo}
-                  </Typography>
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        )
-      ) : !listaPend.length ? (
-        <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)', py: 1.5 }}>
-          Nenhuma pendência na baixa.
-        </Typography>
+      {loading ? (
+        <CcSkeleton height={120} />
+      ) : err ? (
+        <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)', py: 1.5 }}>{err}</Typography>
+      ) : !lojas.length ? (
+        <CcEmpty>Nenhuma loja no escopo da diária.</CcEmpty>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.55, flex: 1, minHeight: 0 }}>
-          {listaPend.map((p, i) => (
-            <Box key={`${p.codigo}-${i}`} sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-              <Typography sx={{ width: 14, fontSize: '0.75rem', fontWeight: 750, color: CC_ORANGE, flexShrink: 0 }}>
-                {i + 1}
-              </Typography>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1 }}>
+        <>
+          <Box sx={{ display: 'flex', gap: 1.25, mb: 0.85, flexShrink: 0 }}>
+            {(
+              [
+                { id: 'faltou' as const, n: resumo.faltou, label: 'faltou', cor: CC_CRITICO },
+                { id: 'aberta' as const, n: resumo.aberta, label: 'aberta', cor: CC_WARN },
+                { id: 'contou' as const, n: resumo.contou, label: `fechou · ${fmtInt(resumo.total)}`, cor: CC_OK },
+              ] as const
+            ).map((k, i) => (
+              <Box key={k.id} sx={{ display: 'flex', gap: 1.25, minWidth: 0 }}>
+                {i > 0 ? <Box sx={{ width: '1px', bgcolor: CC_BORDER, my: 0.15, flexShrink: 0 }} /> : null}
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={() => escolher(k.id)}
+                  sx={{
+                    all: 'unset',
+                    cursor: 'pointer',
+                    minWidth: 0,
+                    pb: 0.15,
+                    borderBottom: filtro === k.id ? `1.5px solid ${k.cor}` : '1.5px solid transparent',
+                    '&:hover .cc-contagem-n': { opacity: 0.85 },
+                  }}
+                >
                   <Typography
-                    sx={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      color: 'var(--ga-text-primary)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
+                    className="cc-contagem-n"
+                    sx={{ fontSize: '1.05rem', fontWeight: 800, color: k.n ? k.cor : CC_TEXT, lineHeight: 1 }}
                   >
-                    {p.nome || p.codigo}
+                    {fmtInt(k.n)}
                   </Typography>
-                  <Typography sx={{ fontSize: '0.6875rem', fontWeight: 700, color: CC_ORANGE, flexShrink: 0 }}>
-                    {fmtInt(p.vezes)}x
+                  <Typography sx={{ fontSize: '0.55rem', color: CC_MUTED, fontWeight: 600, mt: 0.2 }}>
+                    {k.label}
                   </Typography>
                 </Box>
-                <Typography sx={{ fontSize: '0.62rem', color: 'var(--ga-text-muted)' }}>
-                  {p.problema || p.motivo} · {fmtInt(p.lojas)} lojas
+              </Box>
+            ))}
+          </Box>
+          {!lista.length ? (
+            <CcEmpty>Nenhuma loja nesse status.</CcEmpty>
+          ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0, overflow: 'auto' }}>
+            {lista.map((l) => (
+              <Box key={l.id_loja} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                <Box
+                  sx={{
+                    px: 0.5,
+                    height: 16,
+                    borderRadius: 0.5,
+                    bgcolor: `${statusCor(l.status)}22`,
+                    color: statusCor(l.status),
+                    fontSize: '0.52rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.04em',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  {statusTag(l.status)}
+                </Box>
+                <Typography
+                  sx={{
+                    fontSize: '0.7rem',
+                    fontWeight: 650,
+                    color: CC_TEXT,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {lojaCurta(l.name)}
                 </Typography>
               </Box>
-            </Box>
-          ))}
-        </Box>
+            ))}
+          </Box>
+          )}
+        </>
       )}
     </Box>
   );

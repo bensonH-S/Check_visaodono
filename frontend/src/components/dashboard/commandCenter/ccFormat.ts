@@ -6,6 +6,16 @@ export function fmtPct(n: number | null | undefined, digits = 1) {
   })}%`;
 }
 
+export function fmtBrl(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(Number(n))) return '—';
+  const v = Number(n);
+  return v.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: Math.abs(v) >= 1000 ? 0 : 2,
+  });
+}
+
 export function fmtInt(n: number | null | undefined) {
   if (n == null || !Number.isFinite(Number(n))) return '—';
   return Number(n).toLocaleString('pt-BR');

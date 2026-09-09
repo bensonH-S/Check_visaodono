@@ -2,12 +2,9 @@ import { useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
-import Button from '@mui/material/Button';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import { Link as RouterLink } from 'react-router-dom';
 import type { RankingLoja } from '../../../api/client';
 import { fmtPct, lojaLabel } from './ccFormat';
-import { CC_CRITICO, CC_OK, CC_ORANGE, CC_RADIUS, CC_SURFACE_2 } from './ccTheme';
+import { CC_CRITICO, CC_OK, CC_ORANGE, CC_SURFACE_2 } from './ccTheme';
 import { CcEmpty, CcPanel, CcSectionTitle, CcSkeleton } from './CcPanel';
 
 type Tab = 'melhores' | 'risco' | 'evolucao';
@@ -38,19 +35,19 @@ function RankingBody({
   const lista = useMemo(() => {
     const base = [...ranking];
     if (tab === 'melhores') {
-      return base.sort((a, b) => a.posicao_ranking - b.posicao_ranking).slice(0, 5);
+      return base.sort((a, b) => a.posicao_ranking - b.posicao_ranking).slice(0, 3);
     }
     if (tab === 'risco') {
       return base
         .filter((r) => Number(r.nota_atual) < 75)
         .sort((a, b) => Number(a.nota_atual) - Number(b.nota_atual))
-        .slice(0, 5);
+        .slice(0, 3);
     }
     return base
       .map((r) => ({ r, d: deltaNota(r) }))
       .filter((x) => x.d != null)
       .sort((a, b) => (b.d ?? 0) - (a.d ?? 0))
-      .slice(0, 5)
+      .slice(0, 3)
       .map((x) => x.r);
   }, [ranking, tab]);
 
@@ -66,7 +63,7 @@ function RankingBody({
         sx={{
           display: 'flex',
           gap: 2,
-          mb: 1.25,
+          mb: 1.15,
           borderBottom: '1px solid var(--ga-border)',
           minWidth: 0,
         }}
@@ -87,13 +84,13 @@ function RankingBody({
                 pb: 0.75,
                 mb: '-1px',
                 fontSize: '0.75rem',
-                fontWeight: ativo ? 650 : 500,
-                color: ativo ? 'var(--ga-orange)' : 'var(--ga-text-secondary)',
+                fontWeight: ativo ? 700 : 500,
+                color: ativo ? CC_ORANGE : '#9E9E9E',
                 borderBottom: '2px solid',
-                borderColor: ativo ? 'var(--ga-orange)' : 'transparent',
+                borderColor: ativo ? CC_ORANGE : 'transparent',
                 whiteSpace: 'nowrap',
                 fontFamily: 'inherit',
-                '&:hover': { color: ativo ? 'var(--ga-orange)' : 'var(--ga-text-primary)' },
+                '&:hover': { color: ativo ? CC_ORANGE : '#F5F5F5' },
               }}
             >
               {t.label}
@@ -113,62 +110,57 @@ function RankingBody({
               : 'Nenhuma loja com nota registrada.'}
         </CcEmpty>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.1, flex: 1, minHeight: 0 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.85, flex: 1, minHeight: 0 }}>
           {lista.map((r, idx) => {
             const nota = Number(r.nota_atual);
             const d = deltaNota(r);
             const pos = tab === 'melhores' ? r.posicao_ranking : idx + 1;
-            const top3 = tab === 'melhores' ? pos <= 3 : idx < 3;
-            const barColor =
-              tab === 'melhores'
-                ? idx < 4
-                  ? CC_OK
-                  : CC_ORANGE
-                : barraNota(nota);
+            const barColor = tab === 'risco' ? barraNota(nota) : CC_ORANGE;
 
             return (
               <Box key={r.id_loja} sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                 <Box
                   sx={{
-                    width: 24,
-                    height: 24,
+                    width: 22,
+                    height: 22,
                     borderRadius: '50%',
                     flexShrink: 0,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    bgcolor: top3 ? CC_SURFACE_2 : 'transparent',
-                    color: top3 ? CC_ORANGE : 'var(--ga-text-secondary)',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    fontSize: '0.65rem',
+                    fontWeight: 800,
+                    bgcolor: CC_SURFACE_2,
+                    color: CC_ORANGE,
+                    border: '1px solid rgba(232, 82, 10, 0.28)',
                   }}
                 >
                   {pos}
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.3 }}>
                     <Typography
                       sx={{
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        color: 'var(--ga-text-primary)',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        color: '#F5F5F5',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        textTransform: 'uppercase',
                       }}
                     >
                       {lojaLabel(r.name)}
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.65, flexShrink: 0 }}>
-                      <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--ga-text-primary)' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: '#F5F5F5' }}>
                         {fmtPct(nota, 0)}
                       </Typography>
                       {d != null && (
                         <Typography
                           sx={{
-                            fontSize: '0.6875rem',
-                            fontWeight: 650,
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
                             color: d >= 0 ? CC_OK : CC_CRITICO,
                             whiteSpace: 'nowrap',
                           }}
@@ -183,7 +175,7 @@ function RankingBody({
                     variant="determinate"
                     value={Math.min(100, Math.max(0, nota))}
                     sx={{
-                      height: 4,
+                      height: 3,
                       borderRadius: 4,
                       bgcolor: 'rgba(255, 255, 255, 0.06)',
                       '& .MuiLinearProgress-bar': { borderRadius: 4, bgcolor: barColor },
@@ -195,31 +187,6 @@ function RankingBody({
           })}
         </Box>
       )}
-
-      <Button
-        component={RouterLink}
-        to="/ranking"
-        fullWidth
-        variant="outlined"
-        startIcon={<TrendingUpIcon sx={{ fontSize: 16 }} />}
-        sx={{
-          mt: 1.25,
-          borderRadius: `${CC_RADIUS}px`,
-          borderColor: 'var(--ga-orange)',
-          color: 'var(--ga-orange)',
-          textTransform: 'none',
-          fontWeight: 650,
-          fontSize: '0.75rem',
-          py: 0.7,
-          bgcolor: 'transparent',
-          '&:hover': {
-            borderColor: 'var(--ga-orange)',
-            bgcolor: 'rgba(232, 82, 10, 0.1)',
-          },
-        }}
-      >
-        Ver ranking completo
-      </Button>
     </>
   );
 }
@@ -236,7 +203,7 @@ export default function CcRanking({
   if (embedded) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, mt: 0.25 }}>
-        <CcSectionTitle title="Ranking de lojas" />
+        <CcSectionTitle title="Ranking de lojas" action="Ver ranking" actionTo="/ranking" />
         <RankingBody loading={loading} ranking={ranking} />
       </Box>
     );

@@ -506,7 +506,12 @@ export function desenharRotaDiaNoMapa(
   pontos: FrotaVeiculoHistoricoPonto[],
   excessosMapa: FrotaExcessoMapaItem[],
   limiteKmh: number,
-  opcoes?: { coresRota?: readonly string[]; corExcesso?: string },
+  opcoes?: {
+    coresRota?: readonly string[];
+    corExcesso?: string;
+    peso?: number;
+    opacity?: number;
+  },
 ): L.LatLngBounds | null {
   limparCamadasRotaDia(camadas);
 
@@ -516,7 +521,8 @@ export function desenharRotaDiaNoMapa(
   let bounds = L.latLngBounds([]);
   const cores = opcoes?.coresRota?.length ? opcoes.coresRota : CORES_ROTAS;
   const corExcesso = opcoes?.corExcesso ?? COR_EXCESSO;
-  const pesoRota = opcoes?.coresRota?.length ? 6 : 5;
+  const pesoRota = opcoes?.peso ?? (opcoes?.coresRota?.length ? 6 : 5);
+  const opacityRota = opcoes?.opacity ?? 0.95;
 
   for (const excesso of excessosMapa) {
     desenharExcesso(excesso, limiteKmh, camadas.excessoMarcador, camadas.excessoLinha, bounds, corExcesso);
@@ -535,7 +541,7 @@ export function desenharRotaDiaNoMapa(
       pane: PANE_ROTA,
       color: cor,
       weight: pesoRota,
-      opacity: 0.95,
+      opacity: opacityRota,
       lineCap: 'round',
       lineJoin: 'round',
     }).addTo(camadas.rota);
