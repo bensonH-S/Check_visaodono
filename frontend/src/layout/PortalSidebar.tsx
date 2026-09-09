@@ -41,10 +41,9 @@ type Props = {
   user: UsuarioSessao | null;
   iniciais: string;
   onLogout: () => void;
-  logoOficial?: boolean;
 };
 
-export default function PortalSidebar({ nav, user, iniciais, onLogout, logoOficial }: Props) {
+export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) {
   const { version, environment } = useAppConfig();
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
@@ -96,51 +95,85 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout, logoOfici
     >
       <Box
         sx={{
-          px: logoOficial ? 1 : 1.75,
-          pt: logoOficial ? 1.25 : 2,
-          pb: logoOficial ? 1 : 1.5,
+          px: 1.25,
+          pt: 1.5,
+          pb: 1.25,
           borderBottom: '1px solid',
           borderColor: colors.border,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          gap: 0,
         }}
       >
-        {logoOficial ? (
+        {escuro ? (
           <Box
-            component="img"
-            src={`${assetUrl(LOGO_GRUPO_ALVIM_OFICIAL)}?v=2`}
-            alt="Grupo Alvim"
             sx={{
-              width: '100%',
-              maxWidth: 208,
-              maxHeight: 176,
-              height: 'auto',
-              display: 'block',
-              objectFit: 'contain',
-              background: 'transparent',
-              mb: -0.5,
+              width: 128,
+              height: 98,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
             }}
-          />
+          >
+            <Box
+              component="img"
+              src={`${assetUrl(LOGO_GRUPO_ALVIM_OFICIAL)}?v=2`}
+              alt="Grupo Alvim"
+              sx={{
+                width: 128,
+                height: 98,
+                display: 'block',
+                objectFit: 'contain',
+                objectPosition: 'center',
+                background: 'transparent',
+              }}
+            />
+          </Box>
         ) : (
-          <BrandLogo
-            maxWidth={118}
+          // PNG 1024² tem padding transparente embaixo — corta só isso, sem cortar o "g".
+          <Box
             sx={{
-              display: 'block',
-              mb: '-14px',
+              width: 128,
+              height: 98,
+              overflow: 'hidden',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'flex-start',
+              position: 'relative',
+              zIndex: 2,
             }}
-          />
+          >
+            <BrandLogo
+              disableHover
+              maxWidth={128}
+              sx={{
+                width: 128,
+                height: 128,
+                maxWidth: 128,
+                maxHeight: 128,
+                display: 'block',
+                objectFit: 'contain',
+                objectPosition: 'center top',
+                mb: 0,
+                position: 'relative',
+                zIndex: 2,
+              }}
+            />
+          </Box>
         )}
         <Typography
           sx={{
-            mt: 0.25,
+            mt: '12px',
             textAlign: 'center',
             fontSize: '0.78rem',
             fontWeight: 700,
-            letterSpacing: '0.06em',
+            letterSpacing: '0.02em',
             textTransform: 'uppercase',
             lineHeight: 1.15,
-            color: escuro ? colors.textPrimary : '#E8520A',
+            color: escuro ? colors.textPrimary : '#1B2A6B',
+            position: 'relative',
+            zIndex: 0,
           }}
         >
           {APP_NAME}
@@ -168,7 +201,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout, logoOfici
                       borderRadius: `${radius.md}px`,
                       fontSize: '0.8125rem',
                       fontWeight: isActive ? 600 : 450,
-                      color: isActive ? 'var(--ga-sidebar-active-text)' : colors.textSecondary,
+                      color: isActive ? 'var(--ga-sidebar-active-text)' : colors.textPrimary,
                       bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : 'transparent',
                       borderLeft: '3px solid',
                       borderColor: isActive ? 'var(--ga-sidebar-active-border)' : 'transparent',
@@ -179,7 +212,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout, logoOfici
                       },
                       '& .MuiSvgIcon-root': {
                         fontSize: 17,
-                        color: isActive ? 'var(--ga-sidebar-active-icon)' : colors.textMuted,
+                        color: isActive ? 'var(--ga-sidebar-active-icon)' : colors.textPrimary,
                       },
                     }}
                   >

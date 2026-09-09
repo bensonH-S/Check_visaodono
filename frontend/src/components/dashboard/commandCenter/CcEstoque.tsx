@@ -5,7 +5,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { api, type EstoqueContagemRedeItem } from '../../../api/client';
 import { useCommandCenterFilters } from '../../../context/CommandCenterFiltersContext';
 import { fmtInt, lojaLabel } from './ccFormat';
-import { CC_BORDER, CC_CRITICO, CC_MUTED, CC_OK, CC_ORANGE, CC_RADIUS, CC_SURFACE, CC_TEXT, CC_WARN } from './ccTheme';
+import { CC_BORDER, CC_CRITICO, CC_MUTED, CC_OK, CC_BRAND_ORANGE, CC_RADIUS, CC_SURFACE, CC_TEXT, CC_WARN } from './ccTheme';
 import { CcEmpty, CcSkeleton } from './CcPanel';
 
 type FiltroStatus = EstoqueContagemRedeItem['status'] | 'todas';
@@ -117,7 +117,7 @@ export default function CcEstoque() {
           sx={{
             fontSize: '0.6875rem',
             fontWeight: 600,
-            color: CC_ORANGE,
+            color: CC_BRAND_ORANGE,
             textDecoration: 'none',
             whiteSpace: 'nowrap',
             '&:hover': { textDecoration: 'underline' },

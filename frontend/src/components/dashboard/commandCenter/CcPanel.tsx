@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Link as RouterLink } from 'react-router-dom';
-import { CC_BORDER, CC_RADIUS, CC_SURFACE } from './ccTheme';
+import { CC_BORDER, CC_BRAND_ORANGE, CC_RADIUS, CC_SURFACE } from './ccTheme';
 
 export { CC_RADIUS } from './ccTheme';
 
@@ -75,7 +75,7 @@ export function CcPanel({
               sx={{
                 fontSize: '0.6875rem',
                 fontWeight: 600,
-                color: 'var(--ga-orange)',
+                color: CC_BRAND_ORANGE,
                 textDecoration: 'none',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
@@ -152,7 +152,7 @@ export function CcSectionTitle({
           sx={{
             fontSize: '0.6875rem',
             fontWeight: 600,
-            color: 'var(--ga-orange)',
+            color: CC_BRAND_ORANGE,
             textDecoration: 'none',
             whiteSpace: 'nowrap',
             '&:hover': { textDecoration: 'underline' },

@@ -6,6 +6,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { GRAVIDADE_CORES } from '../dashboardCharts';
 import { fmtInt, fmtPct } from './ccFormat';
 import { CcEmpty, CcPanel, CcSkeleton } from './CcPanel';
+import { CC_TOOLTIP_STYLE } from './ccTheme';
 
 type NcGravidade = { gravidade: string; total: number };
 
@@ -84,12 +85,7 @@ export default function CcNcsDonut({
                 </Pie>
                 <Tooltip
                   formatter={(value) => [fmtInt(Number(value)), 'NCs']}
-                  contentStyle={{
-                    background: 'var(--ga-surface)',
-                    border: '1px solid var(--ga-border)',
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
+                  {...CC_TOOLTIP_STYLE}
                 />
               </PieChart>
             </ResponsiveContainer>

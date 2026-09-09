@@ -29,7 +29,6 @@ import {
 import { dataHojeBrasilia, formatarDuracaoMs, formatDataHoraBrasilia } from '../../../utils/dateBr';
 import { ajustarRotaAsRuas, type LatLngPar } from '../../../utils/osrmMapMatch';
 import { LIMITE_VELOCIDADE_KMH } from './ccFormat';
-import { corVeiculoId } from './ccVeiculoCor';
 import { CC_RADIUS, CcEmpty } from './CcPanel';
 import { CC_BORDER, CC_CRITICO, CC_OK, CC_ORANGE, CC_PARADO, CC_SURFACE } from './ccTheme';
 
@@ -75,10 +74,10 @@ function emExcesso(v: FrotaVeiculoPosicao) {
 function statusVeiculo(v: FrotaVeiculoPosicao) {
   if (emExcesso(v)) return { label: 'Excesso', cor: CC_CRITICO };
   const st = statusVeiculoMapa(v, true);
-  if (st === 'em_rota') return { label: 'Em rota', cor: CC_OK };
-  if (st === 'parado') return { label: 'Parado', cor: CC_PARADO };
-  if (st === 'disponivel') return { label: 'Disponível', cor: CC_OK };
-  return { label: rotuloStatusVeiculoMapa(st), cor: CC_PARADO };
+  if (st === 'em_rota') return { label: 'Em rota', cor: '#1B2A6B' };
+  if (st === 'disponivel') return { label: 'Disponível', cor: '#16A34A' };
+  if (st === 'parado') return { label: 'Parado', cor: '#64748B' };
+  return { label: rotuloStatusVeiculoMapa(st), cor: '#94A3B8' };
 }
 
 function formatUltimaPosicao(iso: string | null | undefined) {
@@ -253,14 +252,14 @@ function PainelVeiculo({
   );
 }
 
-function Legenda({
-  escuro,
-  veiculos,
-}: {
-  escuro: boolean;
-  veiculos: FrotaVeiculoPosicao[];
-}) {
+function Legenda({ escuro }: { escuro: boolean }) {
   const texto = escuro ? '#F4F1EC' : 'var(--ga-text-primary)';
+  const itens = [
+    { label: 'Em rota', cor: '#1B2A6B' },
+    { label: 'Ligado / parado', cor: '#16A34A' },
+    { label: 'Desligado', cor: '#64748B' },
+    { label: 'Sem sinal', cor: '#94A3B8' },
+  ];
 
   return (
     <Box
@@ -285,19 +284,22 @@ function Legenda({
         '&::-webkit-scrollbar': { display: 'none' },
       }}
     >
-      {veiculos.slice(0, 8).map((v) => (
-        <Box key={v.id_veiculo} sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
-          <Box sx={{ width: 16, height: 3.5, borderRadius: 2, bgcolor: corVeiculoId(v.id_veiculo) }} />
+      {itens.map((item) => (
+        <Box key={item.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+          <Box
+            sx={{
+              width: 14,
+              height: 14,
+              borderRadius: '4px',
+              bgcolor: item.cor,
+              flexShrink: 0,
+            }}
+          />
           <Typography sx={{ fontSize: '0.7rem', fontWeight: 650, color: texto, whiteSpace: 'nowrap' }}>
-            {v.placa}
+            {item.label}
           </Typography>
         </Box>
       ))}
-      {veiculos.length > 8 && (
-        <Typography sx={{ fontSize: '0.7rem', color: texto, opacity: 0.7, flexShrink: 0 }}>
-          +{veiculos.length - 8}
-        </Typography>
-      )}
 
       <Box
         sx={{
@@ -383,12 +385,6 @@ export default function CcFrota({
   const veiculos = data?.veiculos ?? VEICULOS_VAZIOS;
   const lojas = data?.lojas ?? [];
 
-  const coresPorId = useMemo(() => {
-    const o: Record<number, string> = {};
-    for (const v of veiculos) o[v.id_veiculo] = corVeiculoId(v.id_veiculo);
-    return o;
-  }, [veiculos]);
-
   const veiculoPainel = useMemo(() => {
     if (selecionadoId == null) return null;
     return veiculos.find((v) => v.id_veiculo === selecionadoId) || null;
@@ -449,10 +445,23 @@ export default function CcFrota({
           <Typography sx={{ fontWeight: 650, fontSize: '0.875rem', color: 'var(--ga-text-primary)' }}>
             Frota em tempo real
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.35 }}>
-            <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: CC_OK }} />
-            <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)' }}>Atualizado agora</Typography>
-          </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.35 }}>
+              <Box
+                sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  bgcolor: '#22C55E',
+                  boxShadow: '0 0 8px rgba(34, 197, 94, 0.65)',
+                  animation: 'cc-pulse-live 1.4s ease-in-out infinite',
+                  '@keyframes cc-pulse-live': {
+                    '0%, 100%': { opacity: 1, transform: 'scale(1)', boxShadow: '0 0 6px rgba(34, 197, 94, 0.55)' },
+                    '50%': { opacity: 0.45, transform: 'scale(0.85)', boxShadow: '0 0 2px rgba(34, 197, 94, 0.2)' },
+                  },
+                }}
+              />
+              <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)' }}>Atualizado agora</Typography>
+            </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography
@@ -578,8 +587,7 @@ export default function CcFrota({
               setSelecionadoId(null);
             }}
             rotaDiaVeiculo={rota}
-            corRotaSelecionada={selecionadoId != null ? corVeiculoId(selecionadoId) : undefined}
-            corVeiculoPorId={coresPorId}
+            corRotaSelecionada={veiculoPainel ? statusVeiculo(veiculoPainel).cor : undefined}
             trajetoDiaAtual
             autoRefreshIntervalMs={60_000}
           />
@@ -618,7 +626,7 @@ export default function CcFrota({
           </Box>
         )}
 
-        {!erro && <Legenda escuro={mapaEscuro} veiculos={veiculos} />}
+        {!erro && <Legenda escuro={mapaEscuro} />}
 
         {veiculoPainel && (
           <PainelVeiculo
@@ -628,7 +636,7 @@ export default function CcFrota({
             proximaVisita={proximaVisita}
             carregandoRota={carregandoRota}
             escuro={mapaEscuro}
-            cor={corVeiculoId(veiculoPainel.id_veiculo)}
+            cor={statusVeiculo(veiculoPainel).cor}
             onFechar={() => setSelecionadoId(null)}
           />
         )}

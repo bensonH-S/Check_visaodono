@@ -1,5 +1,47 @@
 /* Escopo: só a rota /dashboard (classe .cc-page no PortalLayout). */
+
+/* Tema claro: accent azul + texto secundário mais escuro (legibilidade). */
 .cc-page {
+  --ga-orange: #1b2a6b;
+  --ga-orange-hover: #152056;
+  --ga-primary-btn: #1b2a6b;
+  --ga-primary-hover: #152056;
+  --ga-sidebar-active-bg: rgba(27, 42, 107, 0.08);
+  --ga-sidebar-active-text: #1b2a6b;
+  --ga-sidebar-active-border: #1b2a6b;
+  --ga-sidebar-active-icon: #1b2a6b;
+  --ga-progress-bar: #1b2a6b;
+  --ga-text-secondary: #374151;
+  --ga-text-muted: #4b5563;
+  background-color: var(--ga-canvas);
+  color: var(--ga-text-primary);
+}
+
+.cc-page aside {
+  width: 228px;
+  background: var(--ga-sidebar-bg);
+}
+
+.cc-page aside nav a > div {
+  border-left-width: 0 !important;
+}
+
+.cc-page .cc-page-main {
+  height: 100%;
+  min-height: 0;
+}
+
+/* Tooltips Recharts: texto segue o tema (evita letra preta no escuro). */
+.cc-page .recharts-default-tooltip,
+.cc-page .recharts-default-tooltip .recharts-tooltip-label,
+.cc-page .recharts-default-tooltip .recharts-tooltip-item,
+.cc-page .recharts-default-tooltip .recharts-tooltip-item-name,
+.cc-page .recharts-default-tooltip .recharts-tooltip-item-value {
+  color: var(--ga-text-primary) !important;
+}
+
+/* Tema escuro: paleta original do Command Center (laranja da marca). */
+:root.dark .cc-page {
   --ga-canvas: #050505;
   --ga-surface: #111110;
   --ga-canvas-alt: #1a1918;
@@ -17,20 +59,13 @@
   --ga-sidebar-active-icon: #e8520a;
   --ga-orange: #e8520a;
   --ga-orange-hover: #cf4909;
+  --ga-primary-btn: #e8520a;
+  --ga-primary-hover: #cf4909;
+  --ga-progress-bar: #e8520a;
   background-color: #050505;
   color: #f4f1ec;
 }
 
-.cc-page aside {
-  width: 228px;
+:root.dark .cc-page aside {
   background: #050505;
-}
-
-.cc-page aside nav a > div {
-  border-left-width: 0 !important;
-}
-
-.cc-page .cc-page-main {
-  height: 100%;
-  min-height: 0;
 }

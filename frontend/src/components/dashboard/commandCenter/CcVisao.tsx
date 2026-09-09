@@ -15,6 +15,7 @@ import {
   CC_RADIUS,
   CC_SURFACE,
   CC_SURFACE_2,
+  CC_TEXT,
 } from './ccTheme';
 
 type Prioridade = 'critica' | 'alta' | 'media';
@@ -46,7 +47,7 @@ const PILOTO = {
 const EVENTOS: EventoVisao[] = [
   {
     id: 'desvio-01',
-    titulo: 'Possível desvio — revisão necessária',
+    titulo: 'Possível desvio · revisão necessária',
     camera: 'Estoque 02',
     horario: '22:37:14',
     duracao: '00:28',
@@ -83,6 +84,58 @@ const EVENTOS: EventoVisao[] = [
     resumo: 'Porta da câmara fria permaneceu aberta além de 45s. Sem pessoa na zona nos últimos 22s do evento.',
     cadeia: ['Porta crítica', 'Fria'],
     detectores: ['03'],
+  },
+  {
+    id: 'caixa-01',
+    titulo: 'Acesso prolongado ao caixa',
+    camera: 'Caixa 01',
+    horario: '18:41:22',
+    duracao: '00:47',
+    confianca: 78,
+    prioridade: 'media',
+    caminho: 'Salão → caixa',
+    resumo: 'Pessoa #12 permaneceu na zona do caixa fora do fluxo padrão por mais de 40s.',
+    cadeia: ['Salão', 'Caixa'],
+    detectores: ['05'],
+  },
+  {
+    id: 'estoque-02',
+    titulo: 'Movimentação fora de horário',
+    camera: 'Estoque 01',
+    horario: '17:05:09',
+    duracao: '00:33',
+    confianca: 88,
+    prioridade: 'alta',
+    caminho: 'Corredor → estoque',
+    resumo: 'Entrada no estoque fora da janela operacional cadastrada. Objeto removido da prateleira 3.',
+    cadeia: ['Corredor', 'Estoque'],
+    detectores: ['01', '04'],
+  },
+  {
+    id: 'drive-01',
+    titulo: 'Permanência anormal no drive',
+    camera: 'Drive-thru',
+    horario: '15:22:51',
+    duracao: '01:14',
+    confianca: 73,
+    prioridade: 'media',
+    caminho: 'Fila → janela',
+    resumo: 'Veículo ficou parado na janela além do tempo médio sem interação de entrega.',
+    cadeia: ['Fila', 'Janela'],
+    detectores: ['06'],
+  },
+  {
+    id: 'fundos-02',
+    titulo: 'Porta dos fundos sem badge',
+    camera: 'Porta dos fundos',
+    horario: '13:08:37',
+    duracao: '00:12',
+    confianca: 92,
+    prioridade: 'critica',
+    caminho: 'Interno → fundos',
+    resumo: 'Abertura da porta dos fundos sem identificação de crachá no intervalo registrado.',
+    cadeia: ['Interno', 'Fundos'],
+    detectores: ['02', '07'],
   },
 ];
 
@@ -132,7 +185,7 @@ function ThumbCamera({ duracao }: { duracao: string }) {
         flexShrink: 0,
         borderRadius: 1.25,
         overflow: 'hidden',
-        bgcolor: '#0A0A0C',
+        bgcolor: CC_SURFACE_2,
         border: `1px solid ${CC_BORDER}`,
       }}
     >
@@ -209,7 +262,7 @@ export default function CcVisao() {
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1 }}>
         <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 750, letterSpacing: '0.06em', color: '#F5F5F5' }}>
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 750, letterSpacing: '0.06em', color: CC_TEXT }}>
               VISÃO
             </Typography>
             <Box
@@ -217,7 +270,7 @@ export default function CcVisao() {
                 px: 0.65,
                 height: 16,
                 borderRadius: 999,
-                bgcolor: 'rgba(232, 82, 10, 0.16)',
+                bgcolor: 'rgba(27, 42, 107, 0.12)',
                 color: CC_ORANGE,
                 fontSize: '0.58rem',
                 fontWeight: 750,
@@ -234,7 +287,18 @@ export default function CcVisao() {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.7, flex: 1, minHeight: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.7,
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          pr: 0.25,
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         {EVENTOS.map((ev) => {
           const cor = corPrioridade(ev.prioridade);
           return (
@@ -253,7 +317,8 @@ export default function CcVisao() {
                 bgcolor: CC_SURFACE_2,
                 borderLeft: `3px solid ${cor}`,
                 cursor: 'pointer',
-                '&:hover': { bgcolor: '#1C1C20' },
+                flexShrink: 0,
+                '&:hover': { bgcolor: 'var(--ga-border)' },
               }}
             >
               <ThumbCamera duracao={ev.duracao} />
@@ -262,7 +327,7 @@ export default function CcVisao() {
                   sx={{
                     fontSize: '0.72rem',
                     fontWeight: 700,
-                    color: '#F5F5F5',
+                    color: CC_TEXT,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -298,7 +363,7 @@ export default function CcVisao() {
           paper: {
             sx: {
               bgcolor: CC_SURFACE,
-              color: '#F5F5F5',
+              color: CC_TEXT,
               border: `1px solid ${CC_BORDER}`,
               borderRadius: `${CC_RADIUS}px`,
               backgroundImage: 'none',
@@ -329,8 +394,7 @@ export default function CcVisao() {
                 borderRadius: `${CC_RADIUS - 2}px`,
                 overflow: 'hidden',
                 border: `1px solid ${CC_BORDER}`,
-                bgcolor: '#000',
-                mb: 1.25,
+                bgcolor: CC_SURFACE_2,
               }}
             >
               <Box
@@ -340,7 +404,7 @@ export default function CcVisao() {
                 controls
                 autoPlay
                 playsInline
-                sx={{ width: '100%', display: 'block', maxHeight: 360, background: '#000' }}
+                sx={{ width: '100%', display: 'block', maxHeight: 360, background: 'var(--ga-canvas-alt)' }}
               />
               <Box
                 sx={{

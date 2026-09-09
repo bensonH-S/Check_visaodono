@@ -7,7 +7,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import { fmtDelta, fmtInt, fmtPct } from './ccFormat';
-import { CC_BORDER, CC_CRITICO, CC_GAP, CC_OK, CC_ORANGE, CC_RADIUS, CC_SURFACE, CC_WARN } from './ccTheme';
+import { CC_BORDER, CC_CRITICO, CC_GAP, CC_OK, CC_BRAND_ORANGE, CC_BRAND_ORANGE_SOFT, CC_RADIUS, CC_SURFACE, CC_WARN } from './ccTheme';
 import { CcSkeleton } from './CcPanel';
 
 function Sparkline({ values }: { values: number[] }) {
@@ -29,7 +29,7 @@ function Sparkline({ values }: { values: number[] }) {
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
       <polygon points={area} fill="rgba(232, 82, 10, 0.18)" />
-      <polyline points={pts} fill="none" stroke="var(--ga-orange)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={pts} fill="none" stroke={CC_BRAND_ORANGE} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -222,8 +222,8 @@ export default function CcKpiRow({
         value={planejadas ? `${fmtInt(visitasMes)}` : fmtInt(visitasMes)}
         subtext={planejadas ? `de ${fmtInt(planejadas)} planejadas` : 'Registradas neste mês'}
         icon={<CalendarMonthIcon fontSize="medium" />}
-        iconColor={CC_ORANGE}
-        iconBg="rgba(232, 82, 10, 0.14)"
+        iconColor={CC_BRAND_ORANGE}
+        iconBg={CC_BRAND_ORANGE_SOFT}
       />
 
       <KpiCard
@@ -249,8 +249,8 @@ export default function CcKpiRow({
         value={veiculosAlerta == null ? '—' : fmtInt(veiculosAlerta)}
         subtext={veiculosAlerta == null ? 'Sem acesso à frota' : 'Excesso de velocidade'}
         icon={<LocalShippingIcon fontSize="medium" />}
-        iconColor={CC_ORANGE}
-        iconBg="rgba(232, 82, 10, 0.14)"
+        iconColor={CC_BRAND_ORANGE}
+        iconBg={CC_BRAND_ORANGE_SOFT}
       />
     </Box>
   );

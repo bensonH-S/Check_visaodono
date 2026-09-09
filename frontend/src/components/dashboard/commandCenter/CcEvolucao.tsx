@@ -13,6 +13,7 @@ import {
 import type { DashboardEvolucaoPonto } from '../../../api/client';
 import { fmtDelta, fmtPct } from './ccFormat';
 import { CcEmpty, CcPanel, CcSkeleton } from './CcPanel';
+import { CC_TOOLTIP_STYLE } from './ccTheme';
 
 export default function CcEvolucao({
   loading,
@@ -89,12 +90,7 @@ export default function CcEvolucao({
                 <Tooltip
                   formatter={(value) => [fmtPct(Number(value)), 'Performance']}
                   labelFormatter={(label, payload) => payload?.[0]?.payload?.rotulo || String(label)}
-                  contentStyle={{
-                    background: 'var(--ga-surface)',
-                    border: '1px solid var(--ga-border)',
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
+                  {...CC_TOOLTIP_STYLE}
                 />
                 <Area
                   type="monotone"

@@ -4,14 +4,14 @@ import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import type { RankingLoja } from '../../../api/client';
 import { fmtPct, lojaLabel } from './ccFormat';
-import { CC_CRITICO, CC_OK, CC_ORANGE, CC_SURFACE_2 } from './ccTheme';
+import { CC_BRAND_ORANGE, CC_CRITICO, CC_OK, CC_SURFACE_2, CC_TEXT } from './ccTheme';
 import { CcEmpty, CcPanel, CcSectionTitle, CcSkeleton } from './CcPanel';
 
 type Tab = 'melhores' | 'risco' | 'evolucao';
 
 function barraNota(nota: number) {
   if (nota >= 85) return CC_OK;
-  if (nota >= 75) return CC_ORANGE;
+  if (nota >= 75) return CC_BRAND_ORANGE;
   return CC_CRITICO;
 }
 
@@ -85,12 +85,12 @@ function RankingBody({
                 mb: '-1px',
                 fontSize: '0.75rem',
                 fontWeight: ativo ? 700 : 500,
-                color: ativo ? CC_ORANGE : '#9E9E9E',
+                color: ativo ? CC_BRAND_ORANGE : 'var(--ga-text-muted)',
                 borderBottom: '2px solid',
-                borderColor: ativo ? CC_ORANGE : 'transparent',
+                borderColor: ativo ? CC_BRAND_ORANGE : 'transparent',
                 whiteSpace: 'nowrap',
                 fontFamily: 'inherit',
-                '&:hover': { color: ativo ? CC_ORANGE : '#F5F5F5' },
+                '&:hover': { color: ativo ? CC_BRAND_ORANGE : 'var(--ga-text-secondary)' },
               }}
             >
               {t.label}
@@ -115,7 +115,7 @@ function RankingBody({
             const nota = Number(r.nota_atual);
             const d = deltaNota(r);
             const pos = tab === 'melhores' ? r.posicao_ranking : idx + 1;
-            const barColor = tab === 'risco' ? barraNota(nota) : CC_ORANGE;
+            const barColor = tab === 'risco' ? barraNota(nota) : CC_BRAND_ORANGE;
 
             return (
               <Box key={r.id_loja} sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
@@ -131,7 +131,7 @@ function RankingBody({
                     fontSize: '0.65rem',
                     fontWeight: 800,
                     bgcolor: CC_SURFACE_2,
-                    color: CC_ORANGE,
+                    color: CC_BRAND_ORANGE,
                     border: '1px solid rgba(232, 82, 10, 0.28)',
                   }}
                 >
@@ -143,7 +143,7 @@ function RankingBody({
                       sx={{
                         fontSize: '0.72rem',
                         fontWeight: 700,
-                        color: '#F5F5F5',
+                        color: CC_TEXT,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -153,7 +153,7 @@ function RankingBody({
                       {lojaLabel(r.name)}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
-                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: '#F5F5F5' }}>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: CC_TEXT }}>
                         {fmtPct(nota, 0)}
                       </Typography>
                       {d != null && (
@@ -177,7 +177,7 @@ function RankingBody({
                     sx={{
                       height: 3,
                       borderRadius: 4,
-                      bgcolor: 'rgba(255, 255, 255, 0.06)',
+                      bgcolor: 'var(--ga-canvas-alt)',
                       '& .MuiLinearProgress-bar': { borderRadius: 4, bgcolor: barColor },
                     }}
                   />

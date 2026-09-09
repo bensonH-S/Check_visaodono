@@ -7,8 +7,10 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
-import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import MenuList from '@mui/material/MenuList';
+import Paper from '@mui/material/Paper';
+import ClickAwayListener from '@mui/material/ClickAwayListener';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -27,6 +29,8 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
+import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppTheme } from '../context/ThemeContext';
 import {
@@ -60,7 +64,6 @@ import 'dayjs/locale/pt-br';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
-import Popover from '@mui/material/Popover';
 import { datePickerPtBR } from '../utils/datePickerLocale';
 import { dataHojeBrasilia } from '../utils/dateBr';
 import { getConfigNavSections } from '../pages/configuracoes/configNav';
@@ -143,8 +146,8 @@ function PortalLayoutInner() {
     </>
   );
 
-  const [anchorRegiao, setAnchorRegiao] = useState<null | HTMLElement>(null);
-  const [anchorData, setAnchorData] = useState<null | HTMLElement>(null);
+  const [regiaoAberto, setRegiaoAberto] = useState(false);
+  const [dataAberto, setDataAberto] = useState(false);
   const [regioesOpcoes, setRegioesOpcoes] = useState<{ id: number | null; nome: string }[]>([
     { id: null, nome: 'Todas as regiões' },
   ]);
@@ -175,111 +178,138 @@ function PortalLayoutInner() {
       cancelado = true;
     };
   }, [isDashboard]);
-  
+
+  // Dropdowns absolutos (não MUI Popover/Menu): o zoom 0.8 do html desloca Popover.
+  const painelAbsolutoSx = {
+    position: 'absolute' as const,
+    top: '100%',
+    left: 0,
+    mt: 0.75,
+    zIndex: 10000,
+    borderRadius: '14px',
+    border: '1px solid',
+    borderColor: colors.border,
+    bgcolor: colors.surface,
+    backgroundImage: 'none',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.45)',
+    overflow: 'hidden',
+  };
+
   const dashboardFilters = isDashboard ? (
     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mr: { xs: 0, md: 1 } }}>
-      {/* Date Filter */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          px: 1.5,
-          height: 34,
-          borderRadius: '14px',
-          border: '1px solid',
-          borderColor: colors.border,
-          bgcolor: 'transparent',
-          color: colors.textPrimary,
-          fontSize: '0.75rem',
-          fontWeight: 500,
-          cursor: 'pointer',
-          '&:hover': { borderColor: colors.borderStrong },
-        }}
-        onClick={(e) => setAnchorData(e.currentTarget)}
-      >
-        <span style={{ textTransform: 'none' }}>{dataFiltroLabel}</span>
-        <CalendarMonthIcon sx={{ fontSize: 16, color: colors.textSecondary }} />
-      </Box>
-      <Popover
-        open={Boolean(anchorData)}
-        anchorEl={anchorData}
-        onClose={() => setAnchorData(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{
-          paper: {
-            sx: {
-              mt: 0.75,
+      <ClickAwayListener onClickAway={() => setDataAberto(false)}>
+        <Box sx={{ position: 'relative' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              height: 34,
               borderRadius: '14px',
               border: '1px solid',
               borderColor: colors.border,
-              bgcolor: colors.surface,
-              overflow: 'hidden',
-            },
-          },
-        }}
-      >
-        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br" localeText={datePickerPtBR}>
-          <DateCalendar
-            value={dayjs(dataFiltro)}
-            onChange={(d: Dayjs | null) => {
-              if (!d?.isValid()) return;
-              setDataFiltro(d.format('YYYY-MM-DD'));
-              setAnchorData(null);
+              bgcolor: 'transparent',
+              color: colors.textPrimary,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              '&:hover': { borderColor: colors.borderStrong },
             }}
-            maxDate={dayjs(dataHojeBrasilia())}
-            sx={{
-              '& .MuiPickersDay-root': { borderRadius: '14px' },
-              '& .MuiPickersDay-root.Mui-selected': { bgcolor: colors.orange },
+            onClick={() => {
+              setDataAberto((v) => !v);
+              setRegiaoAberto(false);
             }}
-          />
-        </LocalizationProvider>
-      </Popover>
-
-      {/* Region Filter */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          px: 1.5,
-          height: 34,
-          width: { xs: 130, md: 160 },
-          borderRadius: '14px',
-          border: '1px solid',
-          borderColor: colors.border,
-          bgcolor: 'transparent',
-          color: colors.textPrimary,
-          fontSize: '0.75rem',
-          fontWeight: 500,
-          cursor: 'pointer',
-          '&:hover': { borderColor: colors.borderStrong }
-        }}
-        onClick={(e) => setAnchorRegiao(e.currentTarget)}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{regiaoNome}</span>
-        <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, color: colors.textSecondary }}>
-          <ArrowDropDownIcon sx={{ fontSize: 18 }} />
-        </Box>
-      </Box>
-      <Menu
-        anchorEl={anchorRegiao}
-        open={Boolean(anchorRegiao)}
-        onClose={() => setAnchorRegiao(null)}
-        sx={{ '& .MuiPaper-root': { bgcolor: colors.surface, borderRadius: '14px', minWidth: 160 } }}
-      >
-        {regioesOpcoes.map((r) => (
-          <MenuItem 
-            key={r.id ?? 'todas'} 
-            selected={r.id === regiaoId}
-            onClick={() => { setRegiao(r.id, r.nome); setAnchorRegiao(null); }}
-            sx={{ fontSize: '0.8125rem', color: colors.textPrimary }}
           >
-            {r.nome}
-          </MenuItem>
-        ))}
-      </Menu>
+            <span style={{ textTransform: 'none' }}>{dataFiltroLabel}</span>
+            <CalendarMonthIcon sx={{ fontSize: 16, color: '#E8520A' }} />
+          </Box>
+          {dataAberto ? (
+            <Paper elevation={0} sx={painelAbsolutoSx}>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br" localeText={datePickerPtBR}>
+                <DateCalendar
+                  value={dayjs(dataFiltro)}
+                  onChange={(d: Dayjs | null) => {
+                    if (!d?.isValid()) return;
+                    setDataFiltro(d.format('YYYY-MM-DD'));
+                    setDataAberto(false);
+                  }}
+                  maxDate={dayjs(dataHojeBrasilia())}
+                  sx={{
+                    '& .MuiPickersDay-root': { borderRadius: '14px' },
+                    '& .MuiPickersDay-root.Mui-selected': { bgcolor: colors.orange },
+                  }}
+                />
+              </LocalizationProvider>
+            </Paper>
+          ) : null}
+        </Box>
+      </ClickAwayListener>
+
+      <ClickAwayListener onClickAway={() => setRegiaoAberto(false)}>
+        <Box sx={{ position: 'relative' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 1.5,
+              height: 34,
+              width: { xs: 130, md: 160 },
+              borderRadius: '14px',
+              border: '1px solid',
+              borderColor: colors.border,
+              bgcolor: 'transparent',
+              color: colors.textPrimary,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              '&:hover': { borderColor: colors.borderStrong },
+            }}
+            onClick={() => {
+              setRegiaoAberto((v) => !v);
+              setDataAberto(false);
+            }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{regiaoNome}</span>
+            <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, color: '#E8520A' }}>
+              <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+            </Box>
+          </Box>
+          {regiaoAberto ? (
+            <Paper elevation={0} sx={{ ...painelAbsolutoSx, width: 'max-content', minWidth: 200, maxWidth: 320 }}>
+              <MenuList dense disablePadding>
+                {regioesOpcoes.map((r) => (
+                  <MenuItem
+                    key={r.id ?? 'todas'}
+                    selected={r.id === regiaoId}
+                    onClick={() => {
+                      setRegiao(r.id, r.nome);
+                      setRegiaoAberto(false);
+                    }}
+                    sx={{
+                      fontSize: '0.8125rem',
+                      color: colors.textPrimary,
+                      gap: 1,
+                      whiteSpace: 'normal',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {r.id == null ? (
+                      <PublicOutlinedIcon sx={{ fontSize: 18, color: '#E8520A', flexShrink: 0 }} />
+                    ) : (
+                      <PlaceOutlinedIcon sx={{ fontSize: 18, color: '#E8520A', flexShrink: 0 }} />
+                    )}
+                    <Box component="span" sx={{ lineHeight: 1.35 }}>
+                      {r.nome}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Paper>
+          ) : null}
+        </Box>
+      </ClickAwayListener>
     </Box>
   ) : null;
 
@@ -353,7 +383,6 @@ function PortalLayoutInner() {
           user={user}
           iniciais={iniciais}
           onLogout={handleLogout}
-          logoOficial={isDashboard}
         />
       )}
 
@@ -372,6 +401,9 @@ function PortalLayoutInner() {
               borderBottom: isDashboard ? 'none' : '1px solid',
               borderColor: colors.border,
               bgcolor: isDashboard ? CC_BG : colors.canvas,
+              overflow: 'visible',
+              position: 'relative',
+              zIndex: isDashboard ? 10000 : 1,
             }}
           >
             <PageHeaderTitle {...pageTitle} variant="desktop" />

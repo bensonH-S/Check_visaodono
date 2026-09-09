@@ -6,7 +6,7 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import { fmtInt } from './ccFormat';
-import { CC_BORDER, CC_CRITICO, CC_MUTED, CC_ORANGE, CC_PARADO, CC_RADIUS, CC_SURFACE, CC_WARN } from './ccTheme';
+import { CC_BORDER, CC_CRITICO, CC_MUTED, CC_ORANGE, CC_PARADO, CC_RADIUS, CC_SURFACE, CC_TEXT, CC_WARN } from './ccTheme';
 import { CcEmpty, CcSkeleton } from './CcPanel';
 
 type Item = {
@@ -82,7 +82,7 @@ export default function CcAtividades({
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1 }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 750, letterSpacing: '0.06em', color: '#F4F1EC' }}>
+          <Typography sx={{ fontSize: '0.72rem', fontWeight: 750, letterSpacing: '0.06em', color: CC_TEXT }}>
             PENDÊNCIAS
           </Typography>
           <Typography sx={{ fontSize: '0.6875rem', color: 'var(--ga-text-secondary)', mt: 0.15 }}>
@@ -141,7 +141,7 @@ export default function CcAtividades({
               >
                 {item.label}
               </Typography>
-              <Typography sx={{ fontSize: '0.8rem', fontWeight: 750, color: '#F4F1EC', flexShrink: 0 }}>
+              <Typography sx={{ fontSize: '0.8rem', fontWeight: 750, color: CC_TEXT, flexShrink: 0 }}>
                 {fmtInt(item.count ?? 0)}
               </Typography>
             </Box>
