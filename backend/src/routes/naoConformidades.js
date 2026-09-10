@@ -51,8 +51,8 @@ router.get(
       if (!usuarioPodeLoja(req.user, rows[0].id_loja)) {
         return res.status(403).json({ error: 'Acesso negado' });
       }
-      const { buffer, mime } = decryptAnexo(rows[0].arquivo_url);
-      res.setHeader('Content-Type', rows[0].tipo_mime || mime);
+      const buffer = decryptAnexo(rows[0].arquivo_url);
+      res.setHeader('Content-Type', rows[0].tipo_mime || 'application/octet-stream');
       res.setHeader('Cache-Control', 'private, max-age=3600');
       res.send(buffer);
     } catch (e) {
@@ -178,10 +178,14 @@ router.post(
             return res.status(400).json({ error: 'Envie apenas imagens (foto da correção).' });
           }
           const criptografado = encryptAnexo(file.buffer);
+          const nomeArquivo = String(file.originalname || 'foto.jpg')
+            .normalize('NFC')
+            .replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '_')
+            .slice(0, 255);
           await client.query(
             `INSERT INTO nc_anexos (id_nc, id_usuario, nome_arquivo, arquivo_url, tipo_mime)
              VALUES ($1, $2, $3, $4, $5)`,
-            [idNc, req.user.sub, file.originalname || 'foto.jpg', criptografado, file.mimetype],
+            [idNc, req.user.sub, nomeArquivo || 'foto.jpg', criptografado, file.mimetype],
           );
         }
 
