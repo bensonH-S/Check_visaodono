@@ -110,6 +110,7 @@ function PortalLayoutInner() {
   const emAprovacoes = path.startsWith('/chamados/aprovacoes');
   const isDashboard = path === '/dashboard';
   const emChamados = path.startsWith('/chamados') && !emAprovacoes;
+  const emEscala = path === '/escalas/visitas' || path.startsWith('/escalas/visitas');
 
   const podeChamados = temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user);
   const podeAprovar = temPermissao('chamados.aprovar', user);
@@ -131,12 +132,13 @@ function PortalLayoutInner() {
   /** Dashboard: um sino só (chamados). Aprovações só na rota de aprovações. */
   const notificacoes = (
     <>
-      {veSinoChamados && (emChamados || isDashboard) && (
+      {(veSinoChamados && (emChamados || isDashboard || emEscala)) ||
+      (podeVerEscalaVisitas(user) && emEscala) ? (
         <>
-          {administraChamados && (emChamados || isDashboard) && <AtivarPushHeaderButton />}
+          {administraChamados && (emChamados || isDashboard || emEscala) && <AtivarPushHeaderButton />}
           <NotificacoesSino variante="portal" contexto="chamados" menuLargo />
         </>
-      )}
+      ) : null}
       {podeAprovar && emAprovacoes && (
         <NotificacoesSino variante="portal" contexto="aprovacoes" menuLargo />
       )}
@@ -286,7 +288,7 @@ function PortalLayoutInner() {
   /** Novo chamado: coluna estreita sem sidebar. Checklist desktop fica no portal completo. */
   const colunaEstreita = isChamadoNovo;
   const scrollInterno = isPaginaScrollInterno(path);
-  const paginaEscalaVisitas = path === '/escalas/visitas';
+  const paginaEscalaVisitas = emEscala;
   const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
   const emFrota = path === '/frota' || (path.startsWith('/frota/') && !path.startsWith('/frota/mobile'));
 

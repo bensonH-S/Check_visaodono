@@ -85,6 +85,7 @@ export function tituloNotificacaoChamado(
     case 'reabertura':
       return `Chamado #${num} - Reaberto`;
     default:
+      if (tipo.startsWith('escala_')) return n.mensagem?.trim() || 'Escala';
       return contexto === 'aprovacoes' ? limparMensagemAprovacao(n.mensagem, num) : n.mensagem;
   }
 }

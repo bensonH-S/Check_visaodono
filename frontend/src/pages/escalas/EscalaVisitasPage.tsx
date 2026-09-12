@@ -7,9 +7,7 @@ import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import Checkbox from '@mui/material/Checkbox';
-import ListItemText from '@mui/material/ListItemText';
 import MenuItem from '@mui/material/MenuItem';
-import OutlinedInput from '@mui/material/OutlinedInput';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -27,6 +25,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SaveIcon from '@mui/icons-material/Save';
 import SendIcon from '@mui/icons-material/Send';
+import IosShareIcon from '@mui/icons-material/IosShare';
 import CheckIcon from '@mui/icons-material/Check';
 import UndoIcon from '@mui/icons-material/Undo';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -43,11 +42,17 @@ import {
 } from '../../api/client';
 import { getUsuario, podeEditarEscalaDelivery, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
+import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors } from '../../theme/tokens';
 import { useAppTheme } from '../../context/ThemeContext';
 import PageLoading from '../../components/PageLoading';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
+import { montarAgendaPorPessoa } from '../../components/escalas/escalaAgendaModel';
+import EscalaAgendaPessoas from '../../components/escalas/EscalaAgendaPessoas';
+import EscalaCelulaGrade from '../../components/escalas/EscalaCelulaGrade';
+import LojaBkMarca from '../../components/escalas/LojaBkMarca';
+import { gerarPngEscala } from '../../utils/gerarPngEscala';
 import {
   addDaysIso,
   agruparRegionaisEscala,
@@ -132,7 +137,7 @@ function proximoTipoGestor(atual: string | null) {
 /** Roxo da planilha Time de Campo para célula multi (ex.: I/R). */
 const COR_ESCALA_MULTI = '#7030A0';
 const COL_DIA_MIN_WIDTH = 108;
-const COL_LOJA_MIN_WIDTH = 200;
+const COL_LOJA_MIN_WIDTH = 228;
 const COL_BKN_WIDTH = 72;
 const SELECT_CELULA_SX = {
   width: '100%',
@@ -248,10 +253,12 @@ export default function EscalaVisitasPage() {
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [exportandoPdf, setExportandoPdf] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
   const [aba, setAba] = useState<'visitas' | 'delivery' | 'gestores' | 'manutencao'>(
     ehDeliveryOnly ? 'delivery' : 'visitas',
   );
+  const [visaoVisitas, setVisaoVisitas] = useState<'agenda' | 'grade'>(ehDiretor ? 'agenda' : 'grade');
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
   const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
@@ -700,6 +707,7 @@ export default function EscalaVisitasPage() {
       });
       setGrade(data);
       showToast('Escala enviada para aprovação', 'success');
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
     } finally {
@@ -721,6 +729,7 @@ export default function EscalaVisitasPage() {
       }
       if (data) setGrade(data);
       showToast(ids.length > 1 ? 'Escala aprovada' : 'Região aprovada', 'success');
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
     } finally {
@@ -742,6 +751,7 @@ export default function EscalaVisitasPage() {
       }
       if (data) setGrade(data);
       showToast('Escala devolvida', 'success');
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao devolver', 'error');
     } finally {
@@ -763,6 +773,7 @@ export default function EscalaVisitasPage() {
       const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
       setGrade(data);
       showToast('Delivery enviado para aprovação', 'success');
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
     } finally {
@@ -776,6 +787,7 @@ export default function EscalaVisitasPage() {
       const data = await api.escalaVisitasDeliveryAprovar({ semana_inicio: semanaInicio });
       setGrade(data);
       showToast('Delivery aprovado', 'success');
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
     } finally {
@@ -789,6 +801,7 @@ export default function EscalaVisitasPage() {
       const data = await api.escalaVisitasDeliveryDevolver({ semana_inicio: semanaInicio });
       setGrade(data);
       showToast('Delivery devolvido', 'success');
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao devolver', 'error');
     } finally {
@@ -813,6 +826,7 @@ export default function EscalaVisitasPage() {
       if (data) setGrade(data);
       setPending(new Map());
       showToast(`Escala de ${nome} excluída`, 'success');
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao excluir', 'error');
     } finally {
@@ -834,6 +848,7 @@ export default function EscalaVisitasPage() {
       setGrade(data);
       setPending(new Map());
       showToast('Escala de delivery excluída', 'success');
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao excluir', 'error');
     } finally {
@@ -879,6 +894,18 @@ export default function EscalaVisitasPage() {
       })
       .filter((linha) => linha.total_visitas_efetivo > 0);
   }, [linhasComTotais, idUsuarioFiltro]);
+
+  const agendaPessoas = useMemo(() => {
+    const pessoas = montarAgendaPorPessoa({
+      linhas: linhasComTotais,
+      regionais: grade?.regionais ?? [],
+      mapNome: mapNomeRegional,
+      mapCor: mapCorRegional,
+      idUsuario: idUsuarioFiltro,
+    });
+    if (idUsuarioFiltro != null) return pessoas;
+    return pessoas.filter((p) => p.total > 0);
+  }, [linhasComTotais, grade?.regionais, mapNomeRegional, mapCorRegional, idUsuarioFiltro]);
 
   const linhaDelivery = useMemo(() => linhaDeliveryDaGrade(grade?.linhas), [grade?.linhas]);
 
@@ -1011,6 +1038,36 @@ export default function EscalaVisitasPage() {
               {!ehDeliveryOnly && <ToggleButton value="gestores">Gestores</ToggleButton>}
               {!ehDeliveryOnly && <ToggleButton value="manutencao">Manutenção</ToggleButton>}
             </ToggleButtonGroup>
+            {aba === 'visitas' && !ehDeliveryOnly && (
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={visaoVisitas}
+                onChange={(_, v: 'agenda' | 'grade' | null) => {
+                  if (v) setVisaoVisitas(v);
+                }}
+                sx={{
+                  bgcolor: colors.canvasAlt,
+                  '& .MuiToggleButton-root': {
+                    px: 1.4,
+                    py: 0.4,
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    color: colors.textSecondary,
+                  },
+                  '& .Mui-selected': {
+                    bgcolor: `${colors.surface} !important`,
+                    color: `${colors.textPrimary} !important`,
+                    boxShadow: escuro ? '0 1px 3px rgba(0,0,0,0.35)' : '0 1px 3px rgba(27,42,107,0.12)',
+                  },
+                }}
+              >
+                <ToggleButton value="agenda">Semana</ToggleButton>
+                <ToggleButton value="grade">Por loja</ToggleButton>
+              </ToggleButtonGroup>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
@@ -1036,6 +1093,33 @@ export default function EscalaVisitasPage() {
                   ))}
                 </Select>
               </FormControl>
+            )}
+            {aba === 'visitas' && !ehDeliveryOnly && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<IosShareIcon />}
+                disabled={exportandoPdf || loading || !agendaPessoas.some((p) => p.total > 0)}
+                onClick={() => {
+                  void (async () => {
+                    setExportandoPdf(true);
+                    try {
+                      await gerarPngEscala({
+                        pessoas: agendaPessoas,
+                        semanaInicio,
+                        semanaLabel: grade?.semana_label,
+                        asShare: false,
+                      });
+                    } catch (e) {
+                      showToast(e instanceof Error ? e.message : 'Erro ao gerar imagem', 'error');
+                    } finally {
+                      setExportandoPdf(false);
+                    }
+                  })();
+                }}
+              >
+                {exportandoPdf ? 'Gerando…' : 'PNG'}
+              </Button>
             )}
             {grade?.pode_editar && !abaFolga && aba !== 'manutencao' && (
               <Button
@@ -1724,7 +1808,11 @@ export default function EscalaVisitasPage() {
                               {linha.nome}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              {linha.nome_loja || linha.folga_padrao || '—'}
+                              {linha.nome_loja ? (
+                                <LojaBkMarca bk={linha.bk_number} nome={linha.nome_loja} size={14} />
+                              ) : (
+                                linha.folga_padrao || '—'
+                              )}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -1898,9 +1986,7 @@ export default function EscalaVisitasPage() {
                           {linha.bk_number || '—'}
                         </TableCell>
                         <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: colors.surface, zIndex: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
-                            {linha.nome}
-                          </Typography>
+                          <LojaBkMarca bk={linha.bk_number} nome={linha.nome} />
                         </TableCell>
                         {linha.dias.map((d) => (
                           <TableCell key={d.dia} align="center" sx={{ p: 0.5 }}>
@@ -2004,9 +2090,7 @@ export default function EscalaVisitasPage() {
                         {linha.bk_number || '—'}
                       </TableCell>
                       <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: colors.surface, zIndex: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
-                          {linha.nome}
-                        </Typography>
+                        <LojaBkMarca bk={linha.bk_number} nome={linha.nome} />
                       </TableCell>
                       {linha.dias.map((d) => (
                         <TableCell key={d.dia} align="center" sx={{ p: 0.5 }}>
@@ -2081,7 +2165,7 @@ export default function EscalaVisitasPage() {
                   ? ` · ${grade?.regioes.find((r) => r.id_regiao === idRegiao)?.nome ?? ''}`
                   : ''}
               </Typography>
-              {podeEditarGrade && (
+              {podeEditarGrade && visaoVisitas === 'grade' && (
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   Edite nas células e salve abaixo
                 </Typography>
@@ -2093,6 +2177,16 @@ export default function EscalaVisitasPage() {
               )}
             </Box>
           )}
+          {visaoVisitas === 'agenda' ? (
+            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <EscalaAgendaPessoas
+                variant="desktop"
+                pessoas={agendaPessoas}
+                semanaInicio={semanaInicio}
+                onPessoaClick={ehDiretor ? (id) => alternarFiltroPessoa(id) : undefined}
+              />
+            </Box>
+          ) : (
           <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
             <Table size="small" stickyHeader sx={tableSx}>
               <TableHead>
@@ -2125,9 +2219,7 @@ export default function EscalaVisitasPage() {
                       {linha.bk_number || '—'}
                     </TableCell>
                     <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: colors.surface, zIndex: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={linha.nome}>
-                        {linha.nome}
-                      </Typography>
+                      <LojaBkMarca bk={linha.bk_number} nome={linha.nome} />
                       {linha.nome_regiao && (
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                           {linha.nome_regiao}
@@ -2145,11 +2237,6 @@ export default function EscalaVisitasPage() {
                               (r) => Number(r.id_usuario) === Number(idUsuarioFiltro),
                             )
                           : (grade?.regionais ?? []);
-                      const nomes = idsReg
-                        .map((id) => mapNomeRegional.get(id))
-                        .filter(Boolean)
-                        .map((n) => primeiroNome(n!));
-                      const tooltip = nomes.length ? nomes.join(', ') : 'Sem visita';
                       const cor = idsReg.length === 1 ? mapCorRegional.get(idsReg[0]) || '#64748B' : undefined;
                       return (
                         <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
@@ -2182,91 +2269,22 @@ export default function EscalaVisitasPage() {
                                     .join(', ') || 'Equipe'
                                 : '+'}
                             </Button>
-                          ) : podeEditarGrade ? (
-                            <Select
-                              multiple
-                              size="small"
-                              displayEmpty
-                              value={idsReg}
-                              input={<OutlinedInput />}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                const lista =
-                                  typeof v === 'string' ? v.split(',').map(Number) : (v as number[]);
+                          ) : (
+                            <EscalaCelulaGrade
+                              ids={idsReg}
+                              mapNome={mapNomeRegional}
+                              mapCor={mapCorRegional}
+                              opcoes={regionaisOpcoes}
+                              editavel={podeEditarGrade}
+                              onChange={(lista) =>
                                 alterarCelulaRegionalRespeitandoFiltro(
                                   linha.id_loja,
                                   d.dia,
                                   lista,
                                   idsCompletos,
-                                );
-                              }}
-                              renderValue={(selected) => {
-                                const ids = selected as number[];
-                                if (!ids.length) return '—';
-                                return ids
-                                  .map((id) => primeiroNome(mapNomeRegional.get(id) ?? ''))
-                                  .filter(Boolean)
-                                  .join(', ');
-                              }}
-                              sx={{
-                                ...SELECT_CELULA_SX,
-                                bgcolor: cor
-                                  ? `${cor}33`
-                                  : idsReg.length > 1
-                                    ? `${COR_ESCALA_MULTI}33`
-                                    : undefined,
-                              }}
-                            >
-                              {regionaisOpcoes.map((r) => (
-                                <MenuItem key={r.id_usuario} value={r.id_usuario} sx={{ py: 0.35 }}>
-                                  <Checkbox
-                                    size="small"
-                                    checked={idsReg.includes(r.id_usuario)}
-                                    sx={{ py: 0, mr: 0.5 }}
-                                  />
-                                  <ListItemText
-                                    primary={r.nome}
-                                    slotProps={{ primary: { sx: { fontSize: '0.82rem' } } }}
-                                  />
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          ) : (
-                            <Tooltip title={tooltip}>
-                              <Box
-                                sx={{
-                                  py: 0.65,
-                                  px: 0.5,
-                                  borderRadius: 1,
-                                  bgcolor: cor
-                                    ? `${cor}44`
-                                    : idsReg.length
-                                      ? `${COR_ESCALA_MULTI}33`
-                                      : 'transparent',
-                                  border: idsReg.length
-                                    ? `1px solid ${cor ?? COR_ESCALA_MULTI}`
-                                    : '1px dashed #e5e7eb',
-                                  fontSize: '0.72rem',
-                                  fontWeight: 600,
-                                  minHeight: 32,
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: 0.25,
-                                }}
-                              >
-                                {nomes.length ? (
-                                  nomes.map((n) => (
-                                    <Box key={n} component="span" sx={{ lineHeight: 1.2 }}>
-                                      {n}
-                                    </Box>
-                                  ))
-                                ) : (
-                                  '—'
-                                )}
-                              </Box>
-                            </Tooltip>
+                                )
+                              }
+                            />
                           )}
                         </TableCell>
                       );
@@ -2286,6 +2304,7 @@ export default function EscalaVisitasPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          )}
         </Paper>
       )}
 
@@ -2300,7 +2319,9 @@ export default function EscalaVisitasPage() {
       )}
       {ehDiretor && podeEditarGrade && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
-          Você pode editar a escala montada pela equipe e salvar a qualquer momento.
+          {visaoVisitas === 'agenda'
+            ? 'Semana mostra quem visita cada loja. Use Por loja para editar a grade.'
+            : 'Clique na célula para atribuir. Salve quando terminar.'}
         </Typography>
       )}
       {!loading && ehDeliveryOnly && (

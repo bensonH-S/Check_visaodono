@@ -14,6 +14,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import LocationOnOutlinedIcon from '@mui/icons-material/LocationOnOutlined';
 import SaveIcon from '@mui/icons-material/Save';
 import SendIcon from '@mui/icons-material/Send';
+import ShareIcon from '@mui/icons-material/Share';
 import {
   api,
   type EscalaGestoresGrade,
@@ -22,7 +23,6 @@ import {
   type EscalaVisitasDia,
   type EscalaVisitasGrade,
   type EscalaVisitasLinha,
-  type EscalaVisitasNotificacao,
 } from '../../api/client';
 import {
   getUsuario,
@@ -32,6 +32,7 @@ import {
   podeVerEscalaVisitas,
 } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
+import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { useAppTheme } from '../../context/ThemeContext';
 import CkMarkLogoMenu from '../CkMarkLogoMenu';
 import {
@@ -52,6 +53,10 @@ import {
   idsRegionaisDoDia,
   linhaDeliveryDaGrade,
 } from './escalaVisitasModel';
+import { montarAgendaPorPessoa } from './escalaAgendaModel';
+import EscalaAgendaPessoas from './EscalaAgendaPessoas';
+import LojaBkMarca from './LojaBkMarca';
+import { gerarPngEscala } from '../../utils/gerarPngEscala';
 import '../visitas/visitas-mobile.css';
 import './escala-mobile.css';
 
@@ -101,8 +106,7 @@ function LojaVisitaCard({
       <div className="ck-escala__card-stripe" style={{ background: accent }} aria-hidden />
       <div className="ck-escala__card-body">
         <p className="ck-escala__card-title">
-          {bk ? `${bk} · ` : ''}
-          {nome}
+          <LojaBkMarca bk={bk} nome={nome} />
         </p>
         {!ocultarRegional && lista.length > 0 && (
           <div className="ck-escala__chips">
@@ -158,13 +162,16 @@ function FaixaSemanaLoja({
         const cor = ehDelivery ? 'var(--ck-accent, #E8520A)' : attrs[0]?.cor || 'rgba(27,42,107,0.2)';
         const rotulo = ehDelivery
           ? attrs.length > 1
-            ? String(attrs.length)
+            ? `${attrs.length}`
             : attrs[0]?.bk_loja_destino ||
-              (attrs[0]?.nome_loja_destino ? primeiroNome(attrs[0].nome_loja_destino).slice(0, 3) : '—')
+              (attrs[0]?.nome_loja_destino ? primeiroNome(attrs[0].nome_loja_destino) : '—')
           : attrs.length > 1
-            ? String(attrs.length)
+            ? attrs
+                .map((a) => primeiroNome(a.nome_regional ?? '').slice(0, 1))
+                .filter(Boolean)
+                .join('+')
             : attrs[0]?.nome_regional
-              ? primeiroNome(attrs[0].nome_regional).slice(0, 3)
+              ? primeiroNome(attrs[0].nome_regional)
               : '—';
         const titulo = ehDelivery
           ? attrs.map((a) => a.nome_loja_destino).filter(Boolean).join(', ') || 'Sem loja'
@@ -216,7 +223,7 @@ function CardLojaSemana({
   return (
     <div className={`ck-escala__loja-semana${ehDelivery ? ' is-delivery' : ''}${editavel ? ' is-edit' : ''}`}>
       <strong>
-        {ehDelivery ? linha.nome : `${linha.bk_number ? `${linha.bk_number} · ` : ''}${linha.nome}`}
+        {ehDelivery ? linha.nome : <LojaBkMarca bk={linha.bk_number} nome={linha.nome} />}
       </strong>
       <FaixaSemanaLoja
         dias={linha.dias}
@@ -247,7 +254,7 @@ export default function EscalaVisitasMobileView() {
   const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
   const [idEnvio, setIdEnvio] = useState<number | null>(null);
   const [modo, setModo] = useState<ModoVisualizacao>(
-    ehDeliveryOnly ? 'minhas' : ehRegional ? 'minhas' : ehDiretor ? 'dia' : 'minhas',
+    ehDeliveryOnly ? 'minhas' : ehRegional ? 'minhas' : ehDiretor ? 'lojas' : 'minhas',
   );
   const [diaSelecionado, setDiaSelecionado] = useState(() => diaIndexNaSemana(segundaFeiraAtual()) ?? 0);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
@@ -262,10 +269,10 @@ export default function EscalaVisitasMobileView() {
   >(() => new Map());
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [exportandoPdf, setExportandoPdf] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
   const [filtroRegiaoAberto, setFiltroRegiaoAberto] = useState(false);
   const [editor, setEditor] = useState<{ id_loja: number; dia: number; ids: number[] } | null>(null);
-  const [notifs, setNotifs] = useState<EscalaVisitasNotificacao[]>([]);
 
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
@@ -295,6 +302,7 @@ export default function EscalaVisitasMobileView() {
     if (ehRegional) {
       return [
         { id: 'minhas' as const, label: 'Minhas' },
+        { id: 'lojas' as const, label: 'Semana' },
         { id: 'gestores' as const, label: 'Gestores' },
         { id: 'manutencao' as const, label: 'Manutenção' },
         { id: 'montar' as const, label: 'Montar' },
@@ -302,8 +310,8 @@ export default function EscalaVisitasMobileView() {
     }
     const base: Array<{ id: ModoVisualizacao; label: string }> = [
       { id: 'minhas', label: 'Minhas' },
+      { id: 'lojas', label: 'Semana' },
       { id: 'dia', label: 'Por dia' },
-      { id: 'lojas', label: 'Por loja' },
       { id: 'delivery', label: 'Delivery' },
       { id: 'gestores', label: 'Gestores' },
       { id: 'manutencao', label: 'Manutenção' },
@@ -354,16 +362,6 @@ export default function EscalaVisitasMobileView() {
     }
   }, [podeVer, ehDeliveryOnly, semanaInicio]);
 
-  const carregarNotifs = useCallback(async () => {
-    if (!podeVer) return;
-    try {
-      const lista = await api.escalaVisitasNotificacoes(true);
-      setNotifs(lista);
-    } catch {
-      /* silencioso */
-    }
-  }, [podeVer]);
-
   useEffect(() => {
     void carregar();
   }, [carregar]);
@@ -386,10 +384,6 @@ export default function EscalaVisitasMobileView() {
     setPendingManut(new Map());
     setHorariosManutLocal(new Map());
   }, [manutencao?.tecnicos, semanaInicio]);
-
-  useEffect(() => {
-    void carregarNotifs();
-  }, [carregarNotifs, grade?.id_semana, grade?.status_por_regiao]);
 
   useEffect(() => {
     const hoje = diaIndexNaSemana(semanaInicio);
@@ -664,7 +658,7 @@ export default function EscalaVisitasMobileView() {
       });
       setGrade(data);
       showToast('Escala enviada para aprovação', 'success');
-      void carregarNotifs();
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
     } finally {
@@ -686,7 +680,7 @@ export default function EscalaVisitasMobileView() {
       }
       if (data) setGrade(data);
       showToast('Escala aprovada', 'success');
-      void carregarNotifs();
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
     } finally {
@@ -708,7 +702,7 @@ export default function EscalaVisitasMobileView() {
       }
       if (data) setGrade(data);
       showToast('Escala recusada — regional pode montar de novo', 'success');
-      void carregarNotifs();
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao recusar', 'error');
     } finally {
@@ -730,7 +724,7 @@ export default function EscalaVisitasMobileView() {
       const data = await api.escalaVisitasDeliverySubmeter({ semana_inicio: semanaInicio });
       setGrade(data);
       showToast('Delivery enviado para aprovação', 'success');
-      void carregarNotifs();
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao enviar', 'error');
     } finally {
@@ -744,7 +738,7 @@ export default function EscalaVisitasMobileView() {
       const data = await api.escalaVisitasDeliveryAprovar({ semana_inicio: semanaInicio });
       setGrade(data);
       showToast('Delivery aprovado', 'success');
-      void carregarNotifs();
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao aprovar', 'error');
     } finally {
@@ -758,20 +752,11 @@ export default function EscalaVisitasMobileView() {
       const data = await api.escalaVisitasDeliveryDevolver({ semana_inicio: semanaInicio });
       setGrade(data);
       showToast('Delivery recusado — pode montar de novo', 'success');
-      void carregarNotifs();
+      dispararAtualizacaoNotificacoes();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao recusar', 'error');
     } finally {
       setSalvando(false);
-    }
-  }
-
-  async function dispensarNotifs() {
-    try {
-      await api.escalaVisitasNotificacoesLidas();
-      setNotifs([]);
-    } catch {
-      /* ignore */
     }
   }
 
@@ -982,6 +967,19 @@ export default function EscalaVisitasMobileView() {
 
   const diaAtual = visitasPorDia[diaSelecionado];
 
+  const agendaPessoas = useMemo(() => {
+    const idFiltro = modo === 'minhas' ? (idEu ?? null) : idUsuarioFiltro;
+    const pessoas = montarAgendaPorPessoa({
+      linhas: grade?.linhas ?? [],
+      regionais: grade?.regionais ?? [],
+      mapNome: mapNomeRegional,
+      mapCor: mapCorRegional,
+      idUsuario: idFiltro,
+    });
+    if (idFiltro != null) return pessoas;
+    return pessoas.filter((p) => p.total > 0);
+  }, [grade?.linhas, grade?.regionais, mapNomeRegional, mapCorRegional, modo, idEu, idUsuarioFiltro]);
+
   if (!podeVer) return null;
 
   const labelSemanaCurta = grade
@@ -1011,9 +1009,29 @@ export default function EscalaVisitasMobileView() {
       }${grade.envio_atual.submetido_em ? ` · ${fmtEnvioQuando(grade.envio_atual.submetido_em)}` : ''}`
     : null;
   const modoMontarDelivery = ehDeliveryOnly && modo === 'montar';
-  const modoTrabalho = modo === 'montar' || modo === 'delivery';
+  const modoTrabalho = modo === 'montar' || modo === 'delivery' || modo === 'lojas' || modo === 'minhas';
   const semanaAlvo = segundaFeiraAtual();
   const semanaEhAtual = semanaInicio === semanaAlvo;
+
+  async function compartilharImagem() {
+    if (!agendaPessoas.some((p) => p.total > 0)) {
+      showToast('Nenhuma visita nesta semana para compartilhar', 'info');
+      return;
+    }
+    setExportandoPdf(true);
+    try {
+      await gerarPngEscala({
+        pessoas: agendaPessoas,
+        semanaInicio,
+        semanaLabel: grade?.semana_label ?? labelSemanaCurta,
+        asShare: true,
+      });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar imagem', 'error');
+    } finally {
+      setExportandoPdf(false);
+    }
+  }
 
   return (
     <div
@@ -1038,10 +1056,24 @@ export default function EscalaVisitasMobileView() {
               <div className="ck-escala__compact-top">
                 <div>
                   <h1 className="ck-escala__compact-title">
-                    {ehDeliveryOnly ? 'Escala delivery' : ehDiretor ? 'Editar escala' : 'Montar escala'}
+                    {modo === 'minhas'
+                      ? 'Minha semana'
+                      : modo === 'lojas'
+                        ? 'Escala da semana'
+                        : ehDeliveryOnly
+                          ? 'Escala delivery'
+                          : ehDiretor
+                            ? 'Editar escala'
+                            : 'Montar escala'}
                   </h1>
                   <p className="ck-escala__compact-sub">
-                    {ehDeliveryOnly || modo === 'delivery'
+                    {modo === 'minhas'
+                      ? visitasHojeMinhas
+                        ? `${visitasHojeMinhas} visita${visitasHojeMinhas !== 1 ? 's' : ''} hoje`
+                        : 'Suas lojas da semana'
+                      : modo === 'lojas'
+                        ? 'Quem visita cada loja'
+                      : ehDeliveryOnly || modo === 'delivery'
                       ? podeEditarDelivery
                         ? statusAtivo === 'pendente_aprovacao'
                           ? 'Ajuste as lojas e envie de novo para o diretor'
@@ -1058,7 +1090,22 @@ export default function EscalaVisitasMobileView() {
                           : 'Só leitura — abra Editar numa região para alterar a grade viva'}
                   </p>
                 </div>
-                <CkMarkLogoMenu size={44} className="ck-visitas__mark-icon" />
+                <div className="ck-escala__header-acoes">
+                  <button
+                    type="button"
+                    className="ck-visitas__pdf"
+                    aria-label="Compartilhar escala em imagem"
+                    disabled={exportandoPdf || loading}
+                    onClick={() => void compartilharImagem()}
+                  >
+                    {exportandoPdf ? (
+                      <CircularProgress size={18} sx={{ color: '#fff' }} />
+                    ) : (
+                      <ShareIcon fontSize="small" />
+                    )}
+                  </button>
+                  <CkMarkLogoMenu size={44} className="ck-visitas__mark-icon" />
+                </div>
               </div>
               <div className="ck-escala__week ck-escala__week--compact">
                 <button
@@ -1100,7 +1147,22 @@ export default function EscalaVisitasMobileView() {
                     {ehDeliveryOnly ? 'Escala delivery' : 'Escala visitas'}
                   </h1>
                 </div>
-                <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+                <div className="ck-escala__header-acoes">
+                  <button
+                    type="button"
+                    className="ck-visitas__pdf"
+                    aria-label="Compartilhar escala em imagem"
+                    disabled={exportandoPdf || loading}
+                    onClick={() => void compartilharImagem()}
+                  >
+                    {exportandoPdf ? (
+                      <CircularProgress size={18} sx={{ color: '#fff' }} />
+                    ) : (
+                      <ShareIcon fontSize="small" />
+                    )}
+                  </button>
+                  <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+                </div>
               </div>
 
               <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
@@ -1112,7 +1174,7 @@ export default function EscalaVisitasMobileView() {
                     ? 'Sua rota de delivery da semana.'
                     : ehRegional
                     ? 'Suas visitas da semana — só o que está marcado no seu nome.'
-                    : 'Veja suas visitas da semana, por dia, por loja ou delivery.'}
+                    : 'Veja suas visitas da semana, o time ou o delivery.'}
               </p>
 
               <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
@@ -1172,29 +1234,6 @@ export default function EscalaVisitasMobileView() {
       </div>
 
       <div className="ck-visitas__sheet ck-escala__sheet--fill ck-visitas__anim ck-visitas__anim--4">
-          {notifs.length > 0 && (
-            <div className="ck-escala__alertas">
-              {notifs.slice(0, 3).map((n) => (
-                <div
-                  key={n.id_notificacao}
-                  className={`ck-escala__alerta ck-escala__alerta--${n.tipo}`}
-                >
-                  <strong>
-                    {n.tipo === 'aprovado'
-                      ? 'Aprovada'
-                      : n.tipo === 'recusado'
-                        ? 'Recusada'
-                        : 'Para aprovar'}
-                  </strong>
-                  <p>{n.mensagem}</p>
-                </div>
-              ))}
-              <button type="button" className="ck-escala__alerta-ok" onClick={() => void dispensarNotifs()}>
-                Ok, entendi
-              </button>
-            </div>
-          )}
-
           {modos.length > 1 && (
           <div className="ck-escala__filtro-row">
             <div className="ck-visitas__seg" role="tablist">
@@ -1249,7 +1288,7 @@ export default function EscalaVisitasMobileView() {
                 </p>
               </div>
             )}
-            {ehDiretor && modo === 'dia' && (grade?.regionais ?? []).length > 0 && (
+            {ehDiretor && (modo === 'dia' || modo === 'lojas') && (grade?.regionais ?? []).length > 0 && (
               <div className="ck-escala__pessoas">
                 {(grade?.regionais ?? []).map((r) => (
                   <button
@@ -1477,8 +1516,7 @@ export default function EscalaVisitasMobileView() {
                         />
                         <div className="ck-escala__card-body">
                           <p className="ck-escala__card-title">
-                            {loja.bk_number ? `${loja.bk_number} · ` : ''}
-                            {loja.nome}
+                            <LojaBkMarca bk={loja.bk_number} nome={loja.nome} />
                           </p>
                           <p className={`ck-escala__card-meta${loja.temVisita ? ' is-on' : ' is-off'}`}>
                             {loja.temVisita
@@ -1538,11 +1576,14 @@ export default function EscalaVisitasMobileView() {
                     <div className="ck-escala__card" style={{ marginBottom: 8 }}>
                       <div className="ck-escala__card-body">
                         <p className="ck-escala__card-title">
-                          {linha.bk_number ? `${linha.bk_number} · ` : ''}
                           {linha.nome}
                         </p>
                         <p className="ck-escala__card-meta">
-                          {linha.nome_loja || linha.folga_padrao || ''}
+                          {linha.nome_loja ? (
+                            <LojaBkMarca bk={linha.bk_number} nome={linha.nome_loja} size={16} />
+                          ) : (
+                            linha.folga_padrao || ''
+                          )}
                         </p>
                         <div className="ck-escala__turno" style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
                           {linha.dias.map((d) => {
@@ -1756,8 +1797,7 @@ export default function EscalaVisitasMobileView() {
                   />
                   <div className="ck-escala__card-body">
                     <p className="ck-escala__card-title">
-                      {loja.bk_number ? `${loja.bk_number} · ` : ''}
-                      {loja.nome}
+                      <LojaBkMarca bk={loja.bk_number} nome={loja.nome} />
                     </p>
                     <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
                       {loja.marcada
@@ -1778,7 +1818,7 @@ export default function EscalaVisitasMobileView() {
                 <strong>Nenhuma visita sua</strong>
                 <p>
                   {ehDiretor
-                    ? 'Use “Por dia” ou “Por loja” para ver o planejamento do time.'
+                    ? 'Use Semana ou Por dia para ver o planejamento do time.'
                     : ehDeliveryOnly
                       ? 'Nenhuma loja na sua rota nesta semana. Use Montar para agendar.'
                       : ehRegional
@@ -1787,23 +1827,11 @@ export default function EscalaVisitasMobileView() {
                 </p>
               </div>
             ) : (
-              minhasVisitas.map((d) => (
-                <div key={d.dia} style={{ marginBottom: 14 }}>
-                  <p className="ck-escala__section">
-                    {d.label} · {d.data}
-                  </p>
-                  {d.itens.map((item) => (
-                    <LojaVisitaCard
-                      key={`${d.dia}-${item.id_loja}`}
-                      nome={item.nome}
-                      bk={item.bk}
-                      regionais={item.regionais}
-                      cor={item.cor}
-                      ocultarRegional
-                    />
-                  ))}
-                </div>
-              ))
+              <EscalaAgendaPessoas
+                variant="mobile"
+                pessoas={agendaPessoas}
+                semanaInicio={semanaInicio}
+              />
             )
           ) : modo === 'delivery' || modoMontarDelivery ? (
             (() => {
@@ -1847,8 +1875,7 @@ export default function EscalaVisitasMobileView() {
                   />
                   <div className="ck-escala__card-body">
                     <p className="ck-escala__card-title">
-                      {loja.bk_number ? `${loja.bk_number} · ` : ''}
-                      {loja.nome}
+                      <LojaBkMarca bk={loja.bk_number} nome={loja.nome} />
                     </p>
                     <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
                       {loja.marcada
@@ -1884,9 +1911,12 @@ export default function EscalaVisitasMobileView() {
               <p>Nenhuma loja neste filtro.</p>
             </div>
           ) : (
-            grade?.linhas
-              .filter((linha) => linha.tipo !== 'delivery')
-              .map((linha) => <CardLojaSemana key={linha.id_loja} linha={linha} />)
+            <EscalaAgendaPessoas
+              variant="mobile"
+              pessoas={agendaPessoas}
+              semanaInicio={semanaInicio}
+              onPessoaClick={ehDiretor ? (id) => alternarFiltroPessoa(id) : undefined}
+            />
           )}
           </div>
 

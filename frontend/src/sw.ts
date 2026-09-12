@@ -32,6 +32,10 @@ const TIPOS_PUSH_SW = new Set([
   'aguardando_aprovacao',
   'aprovacao',
   'recusa_aprovacao',
+  'escala_visitas',
+  'pendente_aprovacao',
+  'aprovado',
+  'recusado',
 ]);
 
 type PushPayload = {
