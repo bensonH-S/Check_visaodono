@@ -244,8 +244,9 @@ export function montarCardsAprovacaoEscala(
     const st = String(e.status || 'pendente_aprovacao');
     if (st === 'devolvido' || st === 'rascunho') return false;
     if (st !== 'pendente_aprovacao' && st !== 'aprovado') return false;
-    // Semana já montada / em uso: região ficou rascunho e o envio velho não pede aprovação.
-    if (!regioesEmFluxo.has(Number(e.id_regiao))) return false;
+    const ehRede = idsTodas.has(Number(e.submetido_por));
+    // Igor/Renato têm card próprio — o status da região dos outros não esconde o envio deles.
+    if (!ehRede && !regioesEmFluxo.has(Number(e.id_regiao))) return false;
     if (idUsuarioFiltro != null && Number(e.submetido_por) !== Number(idUsuarioFiltro)) return false;
     return true;
   });

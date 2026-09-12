@@ -91,6 +91,22 @@ function nomeCorrespondeChave(nome, chave) {
   return n.startsWith(`${c} `);
 }
 
+/** Igor e Renato andam a rede toda — o envio deles não trava a região de ninguém. */
+const CHAVES_ESCALA_REDE = ['igor', 'renato'];
+
+export function usuarioEscalaRedePorNome(nome) {
+  return CHAVES_ESCALA_REDE.some((chave) => nomeCorrespondeChave(nome, chave));
+}
+
+async function idsUsuariosEscalaRede() {
+  const { rows } = await pool.query(
+    `SELECT id_usuario, nome FROM usuarios WHERE ativo = TRUE`,
+  );
+  return new Set(
+    rows.filter((u) => usuarioEscalaRedePorNome(u.nome)).map((u) => Number(u.id_usuario)),
+  );
+}
+
 /** Cor de marcação do regional conforme a planilha Time de Campo. */
 export function corEscalaPorNome(nome, indexFallback = 0) {
   for (const item of CORES_ESCALA_POR_NOME) {
@@ -844,13 +860,19 @@ async function obterUltimoEnvioRegiaoPessoa(idSemana, idRegiao, idUsuario = null
 
 async function haEnvioPendenteNaRegiao(idSemana, idRegiao, excetoIdUsuario = null) {
   await garantirSchemaEnvio();
+  const idsRede = await idsUsuariosEscalaRede();
   const params = [idSemana, idRegiao, STATUS_PENDENTE];
-  let filtro = '';
+  const extras = [];
   if (excetoIdUsuario != null && Number(excetoIdUsuario)) {
-    filtro = ' AND e.submetido_por IS DISTINCT FROM $4';
+    extras.push(`e.submetido_por IS DISTINCT FROM $${params.length + 1}`);
     params.push(Number(excetoIdUsuario));
   }
-  // Considera só o último envio de cada pessoa.
+  if (idsRede.size) {
+    extras.push(`e.submetido_por <> ALL($${params.length + 1}::int[])`);
+    params.push([...idsRede]);
+  }
+  const filtro = extras.length ? `AND ${extras.join(' AND ')}` : '';
+  // Considera só o último envio de cada pessoa da região (Igor/Renato não entram).
   const { rows } = await pool.query(
     `SELECT 1
      FROM (
@@ -882,8 +904,14 @@ async function sincronizarStatusRegiaoAposEnvios(db, idSemana, idRegiao) {
     );
     return STATUS_PENDENTE;
   }
-  // Sem pendente: se houver algum aprovado recente de alguém, região aprovada; senão rascunho.
+  // Sem pendente: aprovado só se o regional da região enviou. Igor/Renato não fecham a região.
   await garantirSchemaEnvio();
+  const idsRede = await idsUsuariosEscalaRede();
+  const params = [idSemana, idRegiao, STATUS_APROVADO];
+  const filtroRede = idsRede.size
+    ? `AND e.submetido_por <> ALL($4::int[])`
+    : '';
+  if (idsRede.size) params.push([...idsRede]);
   const { rows } = await db.query(
     `SELECT status FROM (
        SELECT DISTINCT ON (e.submetido_por) e.status
@@ -892,11 +920,12 @@ async function sincronizarStatusRegiaoAposEnvios(db, idSemana, idRegiao) {
          AND e.id_regiao = $2
          AND COALESCE(e.tipo, 'regiao') <> 'delivery'
          AND e.submetido_por IS NOT NULL
+         ${filtroRede}
        ORDER BY e.submetido_por, e.submetido_em DESC, e.id_envio DESC
      ) ult
      WHERE ult.status = $3
      LIMIT 1`,
-    [idSemana, idRegiao, STATUS_APROVADO],
+    params,
   );
   const novo = rows.length ? STATUS_APROVADO : STATUS_RASCUNHO;
   await db.query(
@@ -906,6 +935,20 @@ async function sincronizarStatusRegiaoAposEnvios(db, idSemana, idRegiao) {
     [idSemana, idRegiao, novo],
   );
   return novo;
+}
+
+export async function sincronizarStatusRegioesDaSemana(semanaInicio) {
+  const semana = await obterOuCriarSemana(segundaFeiraDaSemana(semanaInicio), null);
+  const { rows } = await pool.query(
+    `SELECT DISTINCT id_regiao FROM escala_visitas_regiao_status WHERE id_semana = $1`,
+    [semana.id_semana],
+  );
+  const out = [];
+  for (const r of rows) {
+    const status = await sincronizarStatusRegiaoAposEnvios(pool, semana.id_semana, r.id_regiao);
+    out.push({ id_regiao: Number(r.id_regiao), status });
+  }
+  return out;
 }
 
 async function pessoasPorRegiaoSemana(idSemana, idsRegiao) {
@@ -1224,21 +1267,39 @@ export async function carregarGradeVisitas(user, {
   let podeSubmeter = false;
   let statusRegiaoFiltro = null;
   if (editarRegiaoPerm) {
+    const idsRede = await idsUsuariosEscalaRede();
+    const ehRede = idsRede.has(Number(user.sub));
+    const meusEnvios = enviosParaUsuario(envios, user.sub).filter((e) => e.tipo !== 'delivery');
+    const meuAprovado = meusEnvios.some((e) => e.status === STATUS_APROVADO);
     const idsAlvo =
       id_regiao && idsRegiaoUsuario.includes(Number(id_regiao))
         ? [Number(id_regiao)]
         : idsRegiaoUsuario;
-    if (idsAlvo.length) {
+    if (ehRede) {
+      podeEditarRegiao = !meuAprovado;
+      podeSubmeter = !meuAprovado;
+      statusRegiaoFiltro = meuAprovado
+        ? STATUS_APROVADO
+        : meusEnvios[0]?.status || STATUS_RASCUNHO;
+    } else if (idsAlvo.length) {
       const statusAlvo = [];
       for (const id of idsAlvo) {
         const st = statusPorRegiao.find((s) => Number(s.id_regiao) === Number(id));
         statusAlvo.push(st?.status || STATUS_RASCUNHO);
       }
-      podeEditarRegiao = statusAlvo.some((s) => statusPermiteEdicaoRegional(s));
-      // Pode enviar mesmo se outro já deixou a região pendente; bloqueia só se aprovada.
-      podeSubmeter = statusAlvo.some((s) => (s || STATUS_RASCUNHO) !== STATUS_APROVADO);
-      statusRegiaoFiltro =
-        idsAlvo.length === 1 ? statusAlvo[0] || STATUS_RASCUNHO : consolidarStatusRegioes(statusAlvo);
+      // Envio do Igor/Renato não trava o regional da casa.
+      if (!meuAprovado) {
+        podeEditarRegiao = true;
+        podeSubmeter = true;
+        statusRegiaoFiltro =
+          idsAlvo.length === 1
+            ? (statusAlvo[0] === STATUS_APROVADO ? STATUS_RASCUNHO : statusAlvo[0] || STATUS_RASCUNHO)
+            : consolidarStatusRegioes(statusAlvo.map((s) => (s === STATUS_APROVADO ? STATUS_RASCUNHO : s)));
+      } else {
+        podeEditarRegiao = false;
+        podeSubmeter = false;
+        statusRegiaoFiltro = STATUS_APROVADO;
+      }
     }
   }
 
@@ -1340,6 +1401,8 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
       }
     }
   } else if (!gerenciar) {
+    const idsRede = await idsUsuariosEscalaRede();
+    const ehRede = idsRede.has(Number(user.sub));
     for (const item of lista) {
       const idLoja = Number(item.id_loja);
       if (lojaDelivery && idLoja === lojaDelivery.id_loja) {
@@ -1349,9 +1412,13 @@ export async function salvarGradeVisitas(user, { semana_inicio, celulas, id_regi
       if (!idRegiaoLoja || !idsRegiaoUsuario.includes(idRegiaoLoja)) {
         throw new Error('Só é possível editar lojas da sua região');
       }
-      const st = await obterStatusRegiao(semana.id_semana, idRegiaoLoja);
-      if (!statusPermiteEdicaoRegional(st.status)) {
-        throw new Error('Região aprovada — peça devolução ao diretor para editar');
+      const meuEnvio = await obterUltimoEnvioRegiaoPessoa(semana.id_semana, idRegiaoLoja, user.sub);
+      if (meuEnvio && (meuEnvio.status || '') === STATUS_APROVADO) {
+        throw new Error(
+          ehRede
+            ? 'Sua escala já foi aprovada — peça devolução ao diretor para editar'
+            : 'Região aprovada — peça devolução ao diretor para editar',
+        );
       }
     }
   }
@@ -1473,6 +1540,8 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
 
   const semanaInicio = segundaFeiraDaSemana(semana_inicio || new Date());
   const semana = await obterOuCriarSemana(semanaInicio, user.sub);
+  const idsRede = await idsUsuariosEscalaRede();
+  const envioDaRede = idsRede.has(Number(user.sub));
   let idsParaEnviar = idsAlvo;
   if (!idInformado && idsAlvo.length > 1) {
     idsParaEnviar = await idsRegioesComVisitaDoUsuario(semana.id_semana, user.sub, idsAlvo);
@@ -1488,49 +1557,51 @@ export async function submeterEscalaRegiao(user, { semana_inicio, id_regiao }) {
 
   for (const idRegiao of idsParaEnviar) {
     const st = await obterStatusRegiao(semana.id_semana, idRegiao);
-    // Não bloqueia se outro já enviou; só impede se a região já está aprovada fechada.
-    if ((st.status || STATUS_RASCUNHO) === STATUS_APROVADO) continue;
+    // Igor/Renato não fecham nem dependem do status da região.
+    if (!envioDaRede && (st.status || STATUS_RASCUNHO) === STATUS_APROVADO) continue;
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await garantirStatusRegiao(client, semana.id_semana, idRegiao);
+    if (!envioDaRede) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await garantirStatusRegiao(client, semana.id_semana, idRegiao);
 
-      const outroPendente = await haEnvioPendenteNaRegiao(
-        semana.id_semana,
-        idRegiao,
-        user.sub,
-      );
-      // Não sobrescreve submetido_por se outra pessoa já tem envio pendente.
-      if (outroPendente && st.submetido_por != null && Number(st.submetido_por) !== Number(user.sub)) {
-        await client.query(
-          `UPDATE escala_visitas_regiao_status
-           SET status = $3,
-               revisado_por = NULL,
-               revisado_em = NULL,
-               comentario = NULL
-           WHERE id_semana = $1 AND id_regiao = $2`,
-          [semana.id_semana, idRegiao, STATUS_PENDENTE],
+        const outroPendente = await haEnvioPendenteNaRegiao(
+          semana.id_semana,
+          idRegiao,
+          user.sub,
         );
-      } else {
-        await client.query(
-          `UPDATE escala_visitas_regiao_status
-           SET status = $3,
-               submetido_por = $4,
-               submetido_em = NOW(),
-               revisado_por = NULL,
-               revisado_em = NULL,
-               comentario = NULL
-           WHERE id_semana = $1 AND id_regiao = $2`,
-          [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
-        );
+        // Não sobrescreve submetido_por se outra pessoa já tem envio pendente.
+        if (outroPendente && st.submetido_por != null && Number(st.submetido_por) !== Number(user.sub)) {
+          await client.query(
+            `UPDATE escala_visitas_regiao_status
+             SET status = $3,
+                 revisado_por = NULL,
+                 revisado_em = NULL,
+                 comentario = NULL
+             WHERE id_semana = $1 AND id_regiao = $2`,
+            [semana.id_semana, idRegiao, STATUS_PENDENTE],
+          );
+        } else {
+          await client.query(
+            `UPDATE escala_visitas_regiao_status
+             SET status = $3,
+                 submetido_por = $4,
+                 submetido_em = NOW(),
+                 revisado_por = NULL,
+                 revisado_em = NULL,
+                 comentario = NULL
+             WHERE id_semana = $1 AND id_regiao = $2`,
+            [semana.id_semana, idRegiao, STATUS_PENDENTE, user.sub],
+          );
+        }
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
       }
-      await client.query('COMMIT');
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
     }
 
     try {
