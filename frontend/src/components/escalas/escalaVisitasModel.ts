@@ -1,4 +1,5 @@
 import type { EscalaVisitasAtribuicao, EscalaVisitasDia } from '../../api/client';
+import { rotuloBkLoja } from './escalaVisitasUtils';
 
 /** Normaliza dia da API (legado ou com várias atribuições). */
 export function atribuicoesDoDia(d: EscalaVisitasDia): EscalaVisitasAtribuicao[] {
@@ -51,9 +52,7 @@ export function rotuloLojaDestino(
 ): string {
   const loja = mapa?.get(id);
   if (!loja) return String(id);
-  if (loja.bk_number) return loja.bk_number;
-  const nome = loja.nome.split(' - ').pop() ?? loja.nome;
-  return nome.length > 12 ? `${nome.slice(0, 11)}…` : nome;
+  return rotuloBkLoja(loja.bk_number, loja.nome);
 }
 
 export function linhaDeliveryDaGrade<T extends { tipo?: string }>(

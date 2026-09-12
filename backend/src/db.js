@@ -12,7 +12,7 @@ export function resolveDbName({
   env = process.env,
   argv = process.argv,
 } = {}) {
-  const isProd = argv.includes('--production') || env.NODE_ENV === 'production';
+  const isProd = argv.includes('--production') || env.NODE_ENV === 'production' || env.DB_USE_PROD === '1';
   if (!isProd) return 'vision_check_dev';
   return String(env.DB_NAME || '').trim() || 'vision_check';
 }

@@ -1,0 +1,309 @@
+.ck-escala-cal {
+  --cal-line: rgba(27, 42, 107, 0.1);
+  --cal-muted: rgba(20, 32, 72, 0.48);
+  --cal-ink: var(--ga-text-primary, #142048);
+  --cal-paper: var(--ga-surface, #fff);
+  --cal-today: rgba(232, 82, 10, 0.08);
+  min-width: 0;
+  color: var(--cal-ink);
+}
+
+.ck-escala-cal--desktop {
+  overflow: auto;
+  height: 100%;
+}
+
+.ck-escala-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(132px, 1fr));
+  min-height: 0;
+  border-top: 1px solid var(--cal-line);
+}
+
+.ck-escala-cal__col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--cal-line);
+}
+
+.ck-escala-cal__col:last-child {
+  border-right: 0;
+}
+
+.ck-escala-cal__col.is-today {
+  background: var(--cal-today);
+}
+
+.ck-escala-cal__col-h {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  padding: 6px 4px;
+  background: var(--cal-paper);
+  border-bottom: 1px solid var(--cal-line);
+}
+
+.ck-escala-cal__col.is-today .ck-escala-cal__col-h {
+  background: var(--cal-today);
+}
+
+.ck-escala-cal__col-h span {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+}
+
+.ck-escala-cal__col-h b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ck-escala-cal__col-h b.is-today {
+  background: #e8520a;
+  color: #fff;
+}
+
+.ck-escala-cal__col-h small {
+  display: none;
+}
+
+.ck-escala-cal__col-b {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 8px 14px;
+}
+
+.ck-escala-cal__ev {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 10px 10px 12px;
+  border-radius: 10px;
+  border: 1px solid;
+  border-left-width: 3px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--cal-ink);
+}
+
+.ck-escala-cal__ev:disabled {
+  cursor: default;
+}
+
+.ck-escala-cal__ev i {
+  display: none;
+}
+
+.ck-escala-cal__ev strong {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.ck-escala-cal__ev .ck-loja-bk {
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.25;
+  opacity: 0.95;
+}
+
+.ck-escala-cal__ev .ck-loja-bk img {
+  width: 16px;
+  height: 16px;
+}
+
+.ck-escala-cal__vazio {
+  color: var(--cal-muted);
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.ck-escala-cal__empty {
+  padding: 32px 18px;
+  text-align: center;
+  color: var(--cal-muted);
+  font-size: 0.9rem;
+}
+
+.ck-escala-cal__dias {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.ck-escala-cal__dias::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-escala-cal__dia {
+  flex: 1 0 0;
+  min-width: 40px;
+  padding: 6px 2px 5px;
+  border: 1px solid var(--cal-line);
+  border-radius: 10px;
+  background: var(--cal-paper);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.ck-escala-cal__dia span {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--cal-muted);
+}
+
+.ck-escala-cal__dia b {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.ck-escala-cal__dia em {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 0.58rem;
+  font-weight: 800;
+  background: rgba(27, 42, 107, 0.1);
+  color: var(--cal-ink);
+}
+
+.ck-escala-cal__dia.is-today {
+  border-color: rgba(232, 82, 10, 0.45);
+}
+
+.ck-escala-cal__dia.is-on {
+  border-color: #e8520a;
+  background: rgba(232, 82, 10, 0.1);
+}
+
+.ck-escala-cal__dia.is-on em {
+  background: #e8520a;
+  color: #fff;
+}
+
+html.dark .ck-escala-cal__dia {
+  background: var(--cal-paper);
+  border-color: var(--cal-line);
+}
+
+html.dark .ck-escala-cal__dia.is-on {
+  background: rgba(255, 122, 61, 0.12);
+  border-color: #ff7a3d;
+}
+
+html.dark .ck-escala-cal__dia.is-on em {
+  background: #ff7a3d;
+}
+
+.ck-escala-cal__bloco {
+  margin-bottom: 16px;
+}
+
+.ck-escala-cal__data {
+  margin: 0 0 8px;
+}
+
+.ck-escala-cal__data em {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #e8520a;
+  color: #fff;
+}
+
+.ck-escala-cal__data strong {
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: capitalize;
+  color: var(--cal-ink);
+}
+
+.ck-escala-cal__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ck-escala-cal--mobile .ck-escala-cal__ev {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.ck-escala-cal--mobile .ck-escala-cal__ev i {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ck-escala-cal--mobile .ck-escala-cal__ev strong {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  min-width: 56px;
+}
+
+.ck-escala-cal--mobile .ck-escala-cal__ev .ck-loja-bk {
+  font-size: 0.8rem;
+}
+
+html.dark .ck-escala-cal {
+  --cal-line: rgba(255, 255, 255, 0.08);
+  --cal-muted: #94a3b8;
+  --cal-ink: var(--ga-text-primary, #f8fafc);
+  --cal-paper: var(--ga-surface, #111827);
+  --cal-today: rgba(255, 122, 61, 0.1);
+}
+
+html.dark .ck-escala-cal__ev {
+  background: rgba(255, 255, 255, 0.04);
+}

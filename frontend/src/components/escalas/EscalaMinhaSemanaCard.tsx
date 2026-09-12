@@ -16,10 +16,10 @@ import {
   addDaysIso,
   diaIndexNaSemana,
   fmtDataCurta,
-  primeiroNome,
   segundaFeiraAtual,
 } from './escalaVisitasUtils';
 import { atribuicoesDoDia, diaTemRegional } from './escalaVisitasModel';
+import LojaBkMarca from './LojaBkMarca';
 
 type Props = {
   linkGrade?: string;
@@ -162,8 +162,7 @@ export default function EscalaMinhaSemanaCard({ linkGrade = '/escalas/visitas/mo
                     }}
                   >
                     <Typography variant="body2" sx={{ fontWeight: 600, color: colors.navy, lineHeight: 1.35 }}>
-                      {l.bk ? `${l.bk} · ` : ''}
-                      {primeiroNome(l.nome)}
+                      <LojaBkMarca bk={l.bk} nome={l.nome} size={16} />
                     </Typography>
                   </Box>
                 ))}

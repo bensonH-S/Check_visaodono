@@ -11,17 +11,38 @@ import Button from '@mui/material/Button';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 import { showToast } from '../utils/toast';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
-import { api, type ContextoNotificacoesManut, type ManutNotificacao } from '../api/client';
+import { api, type ContextoNotificacoesManut, type EscalaVisitasNotificacao, type ManutNotificacao } from '../api/client';
 import { formatDataHoraBrasilia } from '../utils/dateBr';
 import { NOTIFICACOES_REFRESH } from '../utils/notificacoesEvent';
 import { tituloNotificacaoChamado } from '../utils/notificacoesTexto';
+import { tituloNotificacaoEscala } from './escalas/escalaVisitasUtils';
 import NotificacaoBadge from './NotificacaoBadge';
 import { colors } from '../theme/tokens';
 import {
   filtrarNotificacoesVisiveisChamados,
   tipoAlertaChamadoOps,
 } from '../constants/notificacoesChamados';
-import { podeReceberPainelDiretorChamados } from '../lib/auth';
+import { podeReceberPainelDiretorChamados, podeVerEscalaVisitas } from '../lib/auth';
+
+const ESCALA_ID_BASE = 1_000_000;
+
+function mapaEscalaParaSino(n: EscalaVisitasNotificacao): ManutNotificacao {
+  return {
+    id_notificacao: ESCALA_ID_BASE + n.id_notificacao,
+    id_chamado: 0,
+    id_loja: n.id_regiao ?? 0,
+    numero: 0,
+    tipo: `escala_${n.tipo}`,
+    mensagem: tituloNotificacaoEscala(n),
+    loja: n.nome_regiao ?? undefined,
+    lida: n.lida,
+    created_at: n.created_at,
+  };
+}
+
+function ehNotificacaoEscala(n: ManutNotificacao) {
+  return String(n.tipo || '').startsWith('escala_');
+}
 
 const POLL_MS = 3000;
 
@@ -37,6 +58,7 @@ function filtrarListaContexto(notifs: ManutNotificacao[], contexto: ContextoNoti
 }
 
 function tipoPermiteToast(n: ManutNotificacao, contexto: ContextoNotificacoesManut): boolean {
+  if (ehNotificacaoEscala(n)) return true;
   if (contexto === 'aprovacoes') return true;
   if (contextoChamados(contexto)) {
     if (podeReceberPainelDiretorChamados()) return true;
@@ -170,7 +192,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
   const [lista, setLista] = useState<ManutNotificacao[]>([]);
   const [naoLidas, setNaoLidas] = useState(0);
   const [arrowRight, setArrowRight] = useState(14);
-  const ultimoIdVisto = useRef(0);
+  const ultimoTsVisto = useRef(0);
   const baselineOk = useRef(false);
   const balloonRef = useRef<HTMLDivElement>(null);
 
@@ -199,31 +221,41 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
   }, [anchor, menuMobile, alinharSetaBalao, lista.length]);
 
   const carregar = useCallback(() => {
+    const incluirEscala = contexto !== 'aprovacoes' && podeVerEscalaVisitas();
     Promise.all([
-      api.manutNotificacoes(contexto),
-      api.manutNotificacoesNaoLidas({ idLoja, contexto }),
+      api.manutNotificacoes(contexto).catch(() => [] as ManutNotificacao[]),
+      api.manutNotificacoesNaoLidas({ idLoja, contexto }).catch(() => ({ total: 0 })),
+      incluirEscala
+        ? api.escalaVisitasNotificacoes().catch(() => [] as EscalaVisitasNotificacao[])
+        : Promise.resolve([] as EscalaVisitasNotificacao[]),
     ])
-      .then(([notifs, contagem]) => {
-        const filtradas = filtrarListaContexto(filtrarPorLoja(notifs, idLoja), contexto);
-        setLista(filtradas);
-        const total = contextoChamados(contexto)
-          ? filtradas.filter((n) => !n.lida).length
-          : contagem.total;
-        const maxIdNaoLida = filtradas.filter((n) => !n.lida).reduce(
-          (max, n) => Math.max(max, n.id_notificacao),
-          0,
+      .then(([notifs, contagem, escala]) => {
+        const chamados = filtrarListaContexto(filtrarPorLoja(notifs, idLoja), contexto);
+        const escalaSino = escala.map(mapaEscalaParaSino);
+        const filtradas = [...chamados, ...escalaSino].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
+        setLista(filtradas);
+        const naoLidasEscala = escalaSino.filter((n) => !n.lida).length;
+        const total = contextoChamados(contexto)
+          ? chamados.filter((n) => !n.lida).length + naoLidasEscala
+          : Number(contagem.total || 0) + naoLidasEscala;
+        const maxTsNaoLida = filtradas
+          .filter((n) => !n.lida)
+          .reduce((max, n) => Math.max(max, new Date(n.created_at).getTime() || 0), 0);
 
         if (!baselineOk.current) {
-          ultimoIdVisto.current = maxIdNaoLida;
+          ultimoTsVisto.current = maxTsNaoLida;
           baselineOk.current = true;
-        } else if (maxIdNaoLida > ultimoIdVisto.current) {
-          const nova = filtradas.find((n) => n.id_notificacao === maxIdNaoLida);
+        } else if (maxTsNaoLida > ultimoTsVisto.current) {
+          const nova = filtradas.find(
+            (n) => !n.lida && (new Date(n.created_at).getTime() || 0) === maxTsNaoLida,
+          );
           if (nova && tipoPermiteToast(nova, contexto)) {
             const titulo = tituloNotificacaoChamado(nova, { contexto });
-            showToast(titulo, 'info', { toastId: `notif:${nova.id_notificacao}` });
+            showToast(titulo, 'info', { toastId: `notif:${nova.tipo}:${nova.id_notificacao}` });
           }
-          ultimoIdVisto.current = maxIdNaoLida;
+          ultimoTsVisto.current = maxTsNaoLida;
         }
 
         setNaoLidas(total);
@@ -286,6 +318,16 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
   }
 
   async function abrirNotificacao(n: ManutNotificacao) {
+    if (ehNotificacaoEscala(n)) {
+      const id = n.id_notificacao - ESCALA_ID_BASE;
+      if (!n.lida) {
+        await api.escalaVisitasNotificacoesLidas({ id_notificacao: id }).catch(() => {});
+        setNaoLidas((v) => Math.max(0, v - 1));
+      }
+      navigate(variante === 'mobile' ? '/escalas/visitas/mobile' : '/escalas/visitas');
+      fecharPainel();
+      return;
+    }
     if (!n.lida) {
       await api.manutNotificacaoMarcarLida(n.id_notificacao).catch(() => {});
       setNaoLidas((v) => Math.max(0, v - 1));
@@ -294,7 +336,12 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
   }
 
   async function marcarTodas() {
-    await api.manutNotificacoesMarcarTodasLidas({ idLoja, contexto }).catch(() => {});
+    await Promise.all([
+      api.manutNotificacoesMarcarTodasLidas({ idLoja, contexto }).catch(() => {}),
+      podeVerEscalaVisitas() && contexto !== 'aprovacoes'
+        ? api.escalaVisitasNotificacoesLidas().catch(() => {})
+        : Promise.resolve(),
+    ]);
     setNaoLidas(0);
     setLista((prev) => prev.map((n) => ({ ...n, lida: true })));
   }

@@ -38,6 +38,49 @@ export function fmtDataCurta(iso: string) {
   return `${dd}/${m}`;
 }
 
+const MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+/** “segunda-feira, 8 de setembro” */
+export function fmtDataAgenda(iso: string) {
+  const d = new Date(`${iso}T12:00:00`);
+  return d.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'America/Sao_Paulo',
+  });
+}
+
+export function fmtDiaCalendario(iso: string) {
+  const [, m, dd] = iso.split('-');
+  return {
+    dia: String(Number(dd)),
+    mes: MESES_ABREV[Number(m) - 1] || m,
+  };
+}
+
+export function fmtSemanaCurta(semanaInicio: string) {
+  return `${fmtDataCurta(semanaInicio)}–${fmtDataCurta(addDaysIso(semanaInicio, 6))}`;
+}
+
+export function tituloNotificacaoEscala(n: {
+  tipo: string;
+  mensagem: string;
+  nome_regiao?: string | null;
+  semana_inicio?: string | null;
+}) {
+  const semana = n.semana_inicio ? fmtSemanaCurta(n.semana_inicio) : '';
+  const regiao = n.nome_regiao ? ` · ${n.nome_regiao}` : '';
+  const periodo = semana ? ` · ${semana}` : '';
+  if (n.tipo === 'aprovado') return `Escala aprovada${regiao}${periodo}`;
+  if (n.tipo === 'recusado') {
+    if (/excluíd/i.test(n.mensagem)) return `Escala excluída${regiao}${periodo}`;
+    return `Escala recusada${regiao}${periodo}`;
+  }
+  if (n.tipo === 'pendente_aprovacao') return `Escala para aprovar${regiao}${periodo}`;
+  return n.mensagem;
+}
+
 export function fmtEnvioQuando(iso?: string | null) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -60,6 +103,43 @@ export function diaIndexNaSemana(semanaInicio: string, iso = new Date().toISOStr
 
 export function primeiroNome(nome: string) {
   return nome.trim().split(/\s+/)[0] || nome;
+}
+
+/** Parte comercial depois de "BURGER KING": "408 SUL", "201 NORTE", "LAGO SUL". */
+export function nomeLocalLojaBk(nome?: string | null) {
+  return String(nome || '')
+    .replace(/^BURGER\s*KING\s*/i, '')
+    .replace(/^BK\s+/i, '')
+    .replace(/^[-–·:|]+\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+}
+
+export function ehLojaDeliveryNome(nome?: string | null) {
+  return /^deliv/i.test(String(nome || '').trim());
+}
+
+export function ehLojaPopeyes(nome?: string | null) {
+  return /POPEYES|POPYES/i.test(String(nome || ''));
+}
+
+/** Rótulo interno da operação: "BK 408 SUL", "BK 201 NORTE". */
+export function rotuloBkLoja(
+  bk?: string | null,
+  nome?: string | null,
+  opts?: { delivery?: boolean },
+) {
+  const raw = String(nome || '').trim();
+  if (opts?.delivery || ehLojaDeliveryNome(raw)) return raw || 'DELIVERY';
+  if (ehLojaPopeyes(raw)) {
+    const local = raw.replace(/^POPEYES\s*/i, '').replace(/^[-–·:|]+\s*/, '').trim();
+    return local ? `POP ${local.toUpperCase()}` : 'POPEYES';
+  }
+  const local = nomeLocalLojaBk(raw);
+  if (local) return local.startsWith('BK ') ? local : `BK ${local}`;
+  const num = String(bk || '').trim();
+  return num ? `BK ${num}` : raw || 'Loja';
 }
 
 export function nomesMontadaPorRegiao(st: {

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { getUsuario, logout } from '../lib/auth';
 import MobileUsuarioMenu from './MobileUsuarioMenu';
 import ThemeToggleButton from './ThemeToggleButton';
+import NotificacoesSino from './NotificacoesSino';
+import AtivarPushHeaderButton from './AtivarPushHeaderButton';
 
 type Props = {
   /** Tamanho do ícone (px), alinhado ao mark-icon das telas immersive. */
@@ -16,7 +18,9 @@ export default function CkMarkLogoMenu({ size = 72, className }: Props) {
   const user = getUsuario();
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      <AtivarPushHeaderButton />
+      <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
       <ThemeToggleButton />
       <MobileUsuarioMenu
         triggerLogo
