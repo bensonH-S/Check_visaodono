@@ -1,5 +1,9 @@
 import { assetUrl } from '../config/paths';
-import type { EscalaAgendaPessoa } from '../components/escalas/escalaAgendaModel';
+import {
+  agruparAgendaPorRegional,
+  chaveGrupoRegional,
+  type EscalaAgendaPessoa,
+} from '../components/escalas/escalaAgendaModel';
 import {
   addDaysIso,
   DIAS_ABREV,
@@ -20,6 +24,7 @@ const CHIP_GAP = 18;
 const CARD_PAD = 22;
 const PERSON_GAP = 36;
 const FOOTER_H = 72;
+const GROUP_H = 70;
 const RAIL = 14;
 
 const NAVY = '#0b1a3b';
@@ -125,6 +130,7 @@ async function compartilharOuBaixar(
 
 type LojaLinha = { rotulo: string; marca: boolean };
 type PessoaLinha = { p: EscalaAgendaPessoa; porDia: LojaLinha[][]; rowH: number };
+type GrupoLinha = { titulo: string; subtitulo: string | null; linhas: PessoaLinha[] };
 
 function montarLinhas(pessoas: EscalaAgendaPessoa[]) {
   const ativas = pessoas.filter((p) => p.total > 0);
@@ -149,9 +155,27 @@ function montarLinhas(pessoas: EscalaAgendaPessoa[]) {
   return { ativas, linhas, totalVisitas, lojasUnicas };
 }
 
+function montarBlocos(pessoas: EscalaAgendaPessoa[]) {
+  const base = montarLinhas(pessoas);
+  const temRegional = base.ativas.some((p) => p.id_regiao != null || p.nome_regional);
+  if (!temRegional) {
+    return { ...base, blocos: [{ titulo: '', subtitulo: null, linhas: base.linhas }] };
+  }
+  const grupos = agruparAgendaPorRegional(base.ativas);
+  const blocos: GrupoLinha[] = grupos.map((g) => ({
+    titulo: g.nome_regiao.toUpperCase(),
+    subtitulo: g.nome_regional ? `REGIONAL ${g.nome_regional.toUpperCase()}` : null,
+    linhas: base.linhas.filter((l) => chaveGrupoRegional(l.p) === g.chave),
+  }));
+  return { ...base, blocos };
+}
+
 export function alturaPngEscala(pessoas: EscalaAgendaPessoa[]) {
-  const { linhas } = montarLinhas(pessoas);
-  const gradeH = linhas.reduce((acc, r) => acc + r.rowH + PERSON_GAP, 0);
+  const { blocos } = montarBlocos(pessoas);
+  const gradeH = blocos.reduce((acc, b) => {
+    const pessoasH = b.linhas.reduce((s, r) => s + r.rowH + PERSON_GAP, 0);
+    return acc + (b.titulo && b.linhas.length ? GROUP_H : 0) + pessoasH;
+  }, 0);
   return HEADER_H + 36 + KPI_H + 40 + gradeH + FOOTER_H;
 }
 
@@ -176,7 +200,7 @@ export async function gerarPngEscala({
   arquivoPrefix?: string;
   hintPessoas?: string;
 }) {
-  const { ativas, linhas, totalVisitas, lojasUnicas } = montarLinhas(pessoas);
+  const { ativas, blocos, totalVisitas, lojasUnicas } = montarBlocos(pessoas);
   const [logo, logoBk] = await Promise.all([
     loadImage(assetUrl('Logo_Alvim_Icone.png')),
     loadImage(assetUrl('BK_logo.png')),
@@ -200,7 +224,7 @@ export async function gerarPngEscala({
   desenharEscala(ctx, {
     logo,
     logoBk,
-    linhas,
+    blocos,
     ativas,
     totalVisitas,
     lojas: lojasUnicas.size,
@@ -233,7 +257,7 @@ function desenharEscala(
   {
     logo,
     logoBk,
-    linhas,
+    blocos,
     ativas,
     totalVisitas,
     lojas,
@@ -249,7 +273,7 @@ function desenharEscala(
   }: {
     logo: CanvasImageSource | null;
     logoBk: CanvasImageSource | null;
-    linhas: PessoaLinha[];
+    blocos: GrupoLinha[];
     ativas: EscalaAgendaPessoa[];
     totalVisitas: number;
     lojas: number;
@@ -353,7 +377,28 @@ function desenharEscala(
     ctx.fillText('Nenhuma visita lançada nesta semana.', MARGIN + 16, y + 48);
   }
 
-  linhas.forEach((linha) => {
+  blocos.forEach((bloco) => {
+    if (bloco.titulo && bloco.linhas.length) {
+      ctx.fillStyle = NAVY;
+      roundRect(ctx, MARGIN, y, contentW, GROUP_H - 16, 14);
+      ctx.fill();
+      ctx.fillStyle = ACCENT;
+      ctx.fillRect(MARGIN, y, 10, GROUP_H - 16);
+      ctx.fillStyle = PAPER;
+      ctx.font = '800 28px "Segoe UI", Arial, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(fitText(ctx, bloco.titulo, contentW * 0.45), MARGIN + 28, y + (GROUP_H - 16) / 2);
+      if (bloco.subtitulo) {
+        ctx.textAlign = 'right';
+        ctx.fillStyle = GRUPO;
+        ctx.font = '700 22px "Segoe UI", Arial, sans-serif';
+        ctx.fillText(bloco.subtitulo, W - MARGIN - 28, y + (GROUP_H - 16) / 2);
+        ctx.textAlign = 'left';
+      }
+      y += GROUP_H;
+    }
+
+    bloco.linhas.forEach((linha) => {
     const { p, porDia, rowH } = linha;
     const cor = hexRgb(p.cor);
 
@@ -457,6 +502,7 @@ function desenharEscala(
     }
 
     y += rowH + PERSON_GAP;
+    });
   });
 
   const footerY = ctx.canvas.height - 36;

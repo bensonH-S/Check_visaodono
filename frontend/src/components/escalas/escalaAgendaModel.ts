@@ -19,9 +19,48 @@ export type EscalaAgendaPessoa = {
   primeiroNome: string;
   cor: string;
   grupo_nome?: string | null;
+  id_regiao?: number | null;
+  nome_regiao?: string | null;
+  nome_regional?: string | null;
   dias: EscalaAgendaDia[];
   total: number;
 };
+
+export type EscalaAgendaGrupoRegional = {
+  chave: string;
+  id_regiao: number | null;
+  nome_regiao: string;
+  nome_regional: string | null;
+  pessoas: EscalaAgendaPessoa[];
+};
+
+export function chaveGrupoRegional(p: Pick<EscalaAgendaPessoa, 'id_regiao'>) {
+  return p.id_regiao != null ? `r-${p.id_regiao}` : 'sem';
+}
+
+export function agruparAgendaPorRegional(pessoas: EscalaAgendaPessoa[]): EscalaAgendaGrupoRegional[] {
+  const map = new Map<string, EscalaAgendaGrupoRegional>();
+  for (const p of pessoas) {
+    const chave = chaveGrupoRegional(p);
+    let grupo = map.get(chave);
+    if (!grupo) {
+      grupo = {
+        chave,
+        id_regiao: p.id_regiao ?? null,
+        nome_regiao: p.nome_regiao || p.grupo_nome || 'Sem região',
+        nome_regional: p.nome_regional || null,
+        pessoas: [],
+      };
+      map.set(chave, grupo);
+    }
+    grupo.pessoas.push(p);
+  }
+  return [...map.values()].sort((a, b) => {
+    if (a.id_regiao == null) return 1;
+    if (b.id_regiao == null) return -1;
+    return Number(a.id_regiao) - Number(b.id_regiao);
+  });
+}
 
 type DiaComIds = EscalaVisitasDia & { ids_regional_efetivo?: number[] };
 
@@ -131,7 +170,9 @@ type TecnicoAgenda = {
   id_usuario: number;
   nome: string;
   grupo?: string | null;
+  id_regiao?: number | null;
   nome_regiao?: string | null;
+  nome_regional?: string | null;
   cor?: string | null;
 };
 
@@ -181,6 +222,9 @@ export function montarAgendaManutencao({
       primeiroNome: primeiroNome(t.nome),
       cor: t.cor || corTecnicoEscala(t.id_usuario, i),
       grupo_nome: t.nome_regiao || t.grupo || null,
+      id_regiao: t.id_regiao ?? null,
+      nome_regiao: t.nome_regiao || t.grupo || null,
+      nome_regional: t.nome_regional || null,
       dias,
       total: dias.reduce((n, d) => n + d.lojas.length, 0),
     };

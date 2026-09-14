@@ -45,7 +45,7 @@ import {
   montarCardsAprovacaoEscala,
   primeiroNome,
   segundaFeiraAtual,
-  mensagemShareEscalaTecnicos,
+  mensagemShareEscalaTecnicosPorGrupos,
 } from './escalaVisitasUtils';
 import {
   atribuicoesDoDia,
@@ -54,8 +54,9 @@ import {
   idsRegionaisDoDia,
   linhaDeliveryDaGrade,
 } from './escalaVisitasModel';
-import { montarAgendaPorPessoa, montarAgendaManutencao } from './escalaAgendaModel';
+import { agruparAgendaPorRegional, montarAgendaPorPessoa, montarAgendaManutencao } from './escalaAgendaModel';
 import EscalaAgendaPessoas from './EscalaAgendaPessoas';
+import EscalaAgendaPorRegional from './EscalaAgendaPorRegional';
 import LojaBkMarca from './LojaBkMarca';
 import { gerarPngEscala } from '../../utils/gerarPngEscala';
 import '../visitas/visitas-mobile.css';
@@ -262,6 +263,7 @@ export default function EscalaVisitasMobileView() {
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
   const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
+  const [idRegiaoManut, setIdRegiaoManut] = useState<number | 'sem' | null>(null);
   const [visaoManut, setVisaoManut] = useState<'agenda' | 'montar'>('agenda');
   const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
     new Map(),
@@ -870,6 +872,21 @@ export default function EscalaVisitasMobileView() {
     });
   }, [manutencao, idTecnicoManut, pendingManut]);
 
+  const regioesManut = useMemo(() => {
+    const seen = new Map<string, { id: number | 'sem'; nome: string; regional: string | null }>();
+    for (const t of manutencao?.tecnicos ?? []) {
+      const id = t.id_regiao != null ? t.id_regiao : 'sem';
+      const key = String(id);
+      if (seen.has(key)) continue;
+      seen.set(key, {
+        id,
+        nome: t.nome_regiao || t.grupo || 'Sem região',
+        regional: t.nome_regional || null,
+      });
+    }
+    return [...seen.values()];
+  }, [manutencao?.tecnicos]);
+
   const agendaManutencao = useMemo(
     () =>
       montarAgendaManutencao({
@@ -877,21 +894,15 @@ export default function EscalaVisitasMobileView() {
         lojas: manutencao?.lojas ?? [],
         visitas: manutencao?.visitas ?? [],
         pending: pendingManut,
-        idTecnico: visaoManut === 'agenda' ? idTecnicoManut : null,
+      }).filter((p) => {
+        if (idRegiaoManut == null) return true;
+        if (idRegiaoManut === 'sem') return p.id_regiao == null;
+        return Number(p.id_regiao) === Number(idRegiaoManut);
       }),
-    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut, visaoManut, idTecnicoManut],
+    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut, idRegiaoManut],
   );
 
-  const agendaManutencaoShare = useMemo(
-    () =>
-      montarAgendaManutencao({
-        tecnicos: manutencao?.tecnicos ?? [],
-        lojas: manutencao?.lojas ?? [],
-        visitas: manutencao?.visitas ?? [],
-        pending: pendingManut,
-      }),
-    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut],
-  );
+  const agendaManutencaoShare = agendaManutencao;
 
   /** Montar regional no padrão delivery: dia → lista de lojas. */
   const montarPorDia = useMemo(() => {
@@ -1066,9 +1077,8 @@ export default function EscalaVisitasMobileView() {
       }
       setExportandoPdf(true);
       try {
-        const texto = mensagemShareEscalaTecnicos(
-          manutencao?.tecnicos ?? [],
-          manutencao?.regional_responsavel?.nome || (ehRegional ? user?.nome : null),
+        const texto = mensagemShareEscalaTecnicosPorGrupos(
+          agruparAgendaPorRegional(agendaManutencaoShare),
         );
         await gerarPngEscala({
           pessoas: agendaManutencaoShare,
@@ -1410,22 +1420,29 @@ export default function EscalaVisitasMobileView() {
                   </button>
                 </div>
                 <div className="ck-escala__pessoas">
-                  {(manutencao?.tecnicos ?? []).map((t) => (
-                    <button
-                      key={t.id_usuario}
-                      type="button"
-                      className={`ck-escala__pessoa${idTecnicoManut === t.id_usuario ? ' is-on' : ''}`}
-                      onClick={() => {
-                        if (visaoManut === 'montar') {
-                          setIdTecnicoManut(t.id_usuario);
-                          return;
-                        }
-                        setIdTecnicoManut((atual) => (atual === t.id_usuario ? null : t.id_usuario));
-                      }}
-                    >
-                      {primeiroNome(t.nome)}
-                    </button>
-                  ))}
+                  {visaoManut === 'agenda'
+                    ? regioesManut.map((r) => (
+                        <button
+                          key={String(r.id)}
+                          type="button"
+                          className={`ck-escala__pessoa${idRegiaoManut === r.id ? ' is-on' : ''}`}
+                          onClick={() =>
+                            setIdRegiaoManut((atual) => (atual === r.id ? null : r.id))
+                          }
+                        >
+                          {r.regional ? primeiroNome(r.regional) : r.nome}
+                        </button>
+                      ))
+                    : (manutencao?.tecnicos ?? []).map((t) => (
+                        <button
+                          key={t.id_usuario}
+                          type="button"
+                          className={`ck-escala__pessoa${idTecnicoManut === t.id_usuario ? ' is-on' : ''}`}
+                          onClick={() => setIdTecnicoManut(t.id_usuario)}
+                        >
+                          {primeiroNome(t.nome)}
+                        </button>
+                      ))}
                 </div>
               </>
             )}
@@ -1816,13 +1833,10 @@ export default function EscalaVisitasMobileView() {
               })
             )
           ) : modo === 'manutencao' && visaoManut === 'agenda' ? (
-            <EscalaAgendaPessoas
+            <EscalaAgendaPorRegional
               variant="mobile"
               pessoas={agendaManutencao}
               semanaInicio={semanaInicio}
-              onPessoaClick={(id) =>
-                setIdTecnicoManut((atual) => (atual === id ? null : id))
-              }
             />
           ) : modo === 'manutencao' ? (
             (() => {

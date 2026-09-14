@@ -48,8 +48,9 @@ import { colors } from '../../theme/tokens';
 import { useAppTheme } from '../../context/ThemeContext';
 import PageLoading from '../../components/PageLoading';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
-import { montarAgendaManutencao, montarAgendaPorPessoa } from '../../components/escalas/escalaAgendaModel';
+import { agruparAgendaPorRegional, montarAgendaManutencao, montarAgendaPorPessoa } from '../../components/escalas/escalaAgendaModel';
 import EscalaAgendaPessoas from '../../components/escalas/EscalaAgendaPessoas';
+import EscalaAgendaPorRegional from '../../components/escalas/EscalaAgendaPorRegional';
 import EscalaCelulaGrade from '../../components/escalas/EscalaCelulaGrade';
 import LojaBkMarca from '../../components/escalas/LojaBkMarca';
 import { gerarPngEscala } from '../../utils/gerarPngEscala';
@@ -59,7 +60,7 @@ import {
   fmtDataCurta,
   fmtEnvioQuando,
   montarCardsAprovacaoEscala,
-  mensagemShareEscalaTecnicos,
+  mensagemShareEscalaTecnicosPorGrupos,
   primeiroNome,
   segundaFeiraAtual,
 } from '../../components/escalas/escalaVisitasUtils';
@@ -263,6 +264,7 @@ export default function EscalaVisitasPage() {
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
   const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
+  const [idRegiaoManut, setIdRegiaoManut] = useState<number | 'sem' | null>(null);
   const [visaoManut, setVisaoManut] = useState<'agenda' | 'grade'>('agenda');
   const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
     new Map(),
@@ -959,6 +961,27 @@ export default function EscalaVisitasPage() {
     });
   }, [manutencao, idTecnicoManut, pendingManut]);
 
+  const regioesManut = useMemo(() => {
+    const seen = new Map<string, { id: number | 'sem'; nome: string; regional: string | null }>();
+    for (const t of manutencao?.tecnicos ?? []) {
+      const id = t.id_regiao != null ? t.id_regiao : 'sem';
+      const key = String(id);
+      if (seen.has(key)) continue;
+      seen.set(key, {
+        id,
+        nome: t.nome_regiao || t.grupo || 'Sem região',
+        regional: t.nome_regional || null,
+      });
+    }
+    return [...seen.values()];
+  }, [manutencao?.tecnicos]);
+
+  function mesmaRegiaoManut(idRegiao: number | null | undefined) {
+    if (idRegiaoManut == null) return true;
+    if (idRegiaoManut === 'sem') return idRegiao == null;
+    return Number(idRegiao) === Number(idRegiaoManut);
+  }
+
   const agendaManutencao = useMemo(
     () =>
       montarAgendaManutencao({
@@ -966,21 +989,11 @@ export default function EscalaVisitasPage() {
         lojas: manutencao?.lojas ?? [],
         visitas: manutencao?.visitas ?? [],
         pending: pendingManut,
-        idTecnico: visaoManut === 'agenda' ? idTecnicoManut : null,
-      }),
-    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut, visaoManut, idTecnicoManut],
+      }).filter((p) => mesmaRegiaoManut(p.id_regiao)),
+    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut, idRegiaoManut],
   );
 
-  const agendaManutencaoShare = useMemo(
-    () =>
-      montarAgendaManutencao({
-        tecnicos: manutencao?.tecnicos ?? [],
-        lojas: manutencao?.lojas ?? [],
-        visitas: manutencao?.visitas ?? [],
-        pending: pendingManut,
-      }),
-    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut],
-  );
+  const agendaManutencaoShare = agendaManutencao;
 
   const cardsAprovacao = useMemo(
     () =>
@@ -1214,9 +1227,8 @@ export default function EscalaVisitasPage() {
                   void (async () => {
                     setExportandoPdf(true);
                     try {
-                      const texto = mensagemShareEscalaTecnicos(
-                        manutencao?.tecnicos ?? [],
-                        manutencao?.regional_responsavel?.nome || (ehRegional ? user?.nome : null),
+                      const texto = mensagemShareEscalaTecnicosPorGrupos(
+                        agruparAgendaPorRegional(agendaManutencaoShare),
                       );
                       await gerarPngEscala({
                         pessoas: agendaManutencaoShare,
@@ -2019,25 +2031,35 @@ export default function EscalaVisitasPage() {
                   borderBottom: `1px solid ${colors.border}`,
                 }}
               >
-                {(manutencao.tecnicos ?? []).map((t) => (
-                  <Chip
-                    key={t.id_usuario}
-                    size="small"
-                    label={primeiroNome(t.nome)}
-                    onClick={() => {
-                      if (visaoManut === 'grade') {
-                        setIdTecnicoManut(t.id_usuario);
-                        return;
-                      }
-                      setIdTecnicoManut((atual) => (atual === t.id_usuario ? null : t.id_usuario));
-                    }}
-                    sx={{
-                      fontWeight: 700,
-                      bgcolor: idTecnicoManut === t.id_usuario ? (escuro ? 'rgba(232, 82, 10, 0.18)' : 'rgba(27, 42, 107, 0.12)') : colors.canvasAlt,
-                      color: idTecnicoManut === t.id_usuario ? acento : colors.textSecondary,
-                    }}
-                  />
-                ))}
+                {visaoManut === 'agenda'
+                  ? regioesManut.map((r) => (
+                      <Chip
+                        key={String(r.id)}
+                        size="small"
+                        label={r.regional ? primeiroNome(r.regional) : r.nome}
+                        onClick={() =>
+                          setIdRegiaoManut((atual) => (atual === r.id ? null : r.id))
+                        }
+                        sx={{
+                          fontWeight: 700,
+                          bgcolor: idRegiaoManut === r.id ? (escuro ? 'rgba(232, 82, 10, 0.18)' : 'rgba(27, 42, 107, 0.12)') : colors.canvasAlt,
+                          color: idRegiaoManut === r.id ? acento : colors.textSecondary,
+                        }}
+                      />
+                    ))
+                  : (manutencao.tecnicos ?? []).map((t) => (
+                      <Chip
+                        key={t.id_usuario}
+                        size="small"
+                        label={primeiroNome(t.nome)}
+                        onClick={() => setIdTecnicoManut(t.id_usuario)}
+                        sx={{
+                          fontWeight: 700,
+                          bgcolor: idTecnicoManut === t.id_usuario ? (escuro ? 'rgba(232, 82, 10, 0.18)' : 'rgba(27, 42, 107, 0.12)') : colors.canvasAlt,
+                          color: idTecnicoManut === t.id_usuario ? acento : colors.textSecondary,
+                        }}
+                      />
+                    ))}
                 {visaoManut === 'grade' && idTecnicoManut != null && (
                   <Box sx={{ ml: { sm: 'auto' }, display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
                     <Typography variant="caption" sx={{ fontWeight: 800, color: acento }}>
@@ -2062,13 +2084,10 @@ export default function EscalaVisitasPage() {
               </Box>
               {visaoManut === 'agenda' ? (
                 <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                  <EscalaAgendaPessoas
+                  <EscalaAgendaPorRegional
                     variant="desktop"
                     pessoas={agendaManutencao}
                     semanaInicio={semanaInicio}
-                    onPessoaClick={(id) =>
-                      setIdTecnicoManut((atual) => (atual === id ? null : id))
-                    }
                   />
                 </Box>
               ) : (

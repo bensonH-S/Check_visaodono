@@ -2723,6 +2723,7 @@ export interface EscalaManutencaoTecnico {
   nome: string;
   id_regiao: number | null;
   nome_regiao: string | null;
+  nome_regional?: string | null;
   grupo: string;
   cor?: string | null;
 }

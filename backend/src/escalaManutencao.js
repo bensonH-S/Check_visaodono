@@ -64,10 +64,12 @@ const SQL_LISTAR_TECNICOS_MANUT = `
            ARRAY_AGG(DISTINCT r.id_regiao) FILTER (WHERE r.id_regiao IS NOT NULL),
            '{}'
          ) AS ids_regiao,
-         MIN(r.nome) AS nome_regiao
+         MIN(r.nome) AS nome_regiao,
+         MIN(ur.nome) AS nome_regional
   FROM usuarios u
   LEFT JOIN frota_regiao_tecnicos rt ON rt.id_usuario = u.id_usuario
   LEFT JOIN frota_regioes r ON r.id_regiao = rt.id_regiao AND r.ativo = TRUE
+  LEFT JOIN usuarios ur ON ur.id_usuario = r.id_regional
   WHERE u.ativo = TRUE
     AND (
       u.perfil = 'tecnico'
@@ -111,6 +113,7 @@ function mapTecnicoRow(t) {
     id_regiao: idsRegiao[0] ?? null,
     ids_regiao: idsRegiao,
     nome_regiao: t.nome_regiao || null,
+    nome_regional: t.nome_regional || null,
     grupo: t.nome_regiao || 'Sem região',
     cor: corTecnico(idUsuario),
   };
@@ -122,9 +125,40 @@ function tecnicoPublico(t) {
     nome: t.nome,
     id_regiao: t.id_regiao,
     nome_regiao: t.nome_regiao,
+    nome_regional: t.nome_regional || null,
     grupo: t.grupo,
     cor: t.cor || corTecnico(t.id_usuario),
   };
+}
+
+async function completarRegiaoTecnicos(tecnicos) {
+  const sem = tecnicos.filter((t) => !t.id_regiao).map((t) => t.id_usuario);
+  if (!sem.length) return tecnicos;
+  const { rows } = await pool.query(
+    `SELECT ul.id_usuario,
+            MIN(rl.id_regiao) AS id_regiao,
+            MIN(r.nome) AS nome_regiao,
+            MIN(ur.nome) AS nome_regional
+     FROM usuario_lojas ul
+     JOIN frota_regiao_lojas rl ON rl.id_loja = ul.id_loja
+     JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
+     LEFT JOIN usuarios ur ON ur.id_usuario = r.id_regional
+     WHERE ul.id_usuario = ANY($1::int[])
+     GROUP BY ul.id_usuario`,
+    [sem],
+  );
+  const extra = new Map(rows.map((r) => [Number(r.id_usuario), r]));
+  return tecnicos.map((t) => {
+    const row = extra.get(t.id_usuario);
+    if (!row || t.id_regiao) return t;
+    return {
+      ...t,
+      id_regiao: Number(row.id_regiao),
+      nome_regiao: row.nome_regiao || t.nome_regiao,
+      nome_regional: row.nome_regional || t.nome_regional,
+      grupo: row.nome_regiao || t.grupo,
+    };
+  });
 }
 
 async function carregarUsuarioResumo(idUsuario) {
@@ -272,7 +306,16 @@ export async function carregarGradeManutencao(user, { semana_inicio } = {}) {
   const tecnicosTodos = tecnicosRows.map(mapTecnicoRow);
   const escopo = await resolverEscopoManutencao(user, tecnicosTodos);
   const idsTecnicos = new Set(escopo.idsTecnicos);
-  const tecnicos = tecnicosTodos.filter((t) => idsTecnicos.has(t.id_usuario)).map(tecnicoPublico);
+  const regionalResponsavel = await resolverRegionalResponsavel(user, escopo);
+  const tecnicos = await completarRegiaoTecnicos(
+    tecnicosTodos.filter((t) => idsTecnicos.has(t.id_usuario)).map((t) => {
+      const pub = tecnicoPublico(t);
+      if (!pub.nome_regional && regionalResponsavel?.nome) {
+        pub.nome_regional = regionalResponsavel.nome;
+      }
+      return pub;
+    }),
+  );
   const lojas = await listarLojasManutencao(escopo.idsRegiao);
   const idsLoja = new Set(lojas.map((l) => l.id_loja));
 
@@ -321,7 +364,6 @@ export async function carregarGradeManutencao(user, { semana_inicio } = {}) {
     .filter((h) => h.dia >= 0 && h.dia <= 6 && idsTecnicos.has(h.id_usuario));
 
   const idsEditaveis = escopo.tipo === 'nenhum' ? [] : escopo.idsTecnicos;
-  const regionalResponsavel = await resolverRegionalResponsavel(user, escopo);
   return {
     semana_inicio: inicio,
     semana_fim: fim,

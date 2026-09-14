@@ -126,6 +126,31 @@ export function mensagemShareEscalaTecnicos(
   return `${escala} - REGIONAL RESPONSÁVEL ${resp.toUpperCase()}`;
 }
 
+export function mensagemShareEscalaTecnicosPorGrupos(
+  grupos: Array<{
+    nome_regiao: string;
+    nome_regional: string | null;
+    pessoas: Array<{ nome: string; primeiroNome?: string }>;
+  }>,
+) {
+  const comVisita = grupos.filter((g) => g.pessoas.length > 0);
+  if (!comVisita.length) return 'Escala dos técnicos';
+  if (comVisita.length === 1) {
+    const g = comVisita[0];
+    return mensagemShareEscalaTecnicos(
+      g.pessoas.map((p) => ({ nome: p.nome })),
+      g.nome_regional,
+    );
+  }
+  return comVisita
+    .map((g) => {
+      const nomes = juntarNomesPt(g.pessoas.map((p) => p.primeiroNome || primeiroNome(p.nome)));
+      const resp = g.nome_regional ? ` — REGIONAL ${g.nome_regional.toUpperCase()}` : '';
+      return `${g.nome_regiao}: ${nomes}${resp}`;
+    })
+    .join('\n');
+}
+
 /** Parte comercial depois de "BURGER KING": "408 SUL", "201 NORTE", "LAGO SUL". */
 export function nomeLocalLojaBk(nome?: string | null) {
   return String(nome || '')
