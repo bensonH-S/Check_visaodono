@@ -25,9 +25,9 @@ import { showToast } from '../../utils/toast';
 import { portalPanelSx } from '../../theme/tokens';
 
 function fmtQuando(iso: string | null | undefined) {
-  if (!iso) return '—';
+  if (!iso) return '–';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '–';
   return d.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -140,7 +140,7 @@ export default function EstoqueSyncNfPage() {
     setRodandoId(id);
     try {
       await api.estoqueSyncFornecedorRodar(id);
-      showToast('Sync iniciado — aguarde o status');
+      showToast('Sync iniciado · aguarde o status');
       await carregar(true);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao iniciar sync', 'error');
@@ -158,7 +158,7 @@ export default function EstoqueSyncNfPage() {
     <Box sx={{ p: { xs: 2, md: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Sync NF — fornecedores
+          Sync NF · fornecedores
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Agenda diária (horário de Brasília) para baixar NF-e no portal e atualizar custo.
