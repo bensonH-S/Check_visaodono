@@ -48,7 +48,7 @@ import { colors } from '../../theme/tokens';
 import { useAppTheme } from '../../context/ThemeContext';
 import PageLoading from '../../components/PageLoading';
 import { atribuicoesDoDia, idsLojasDestinoDoDia, idsRegionaisDoDia, linhaDeliveryDaGrade } from '../../components/escalas/escalaVisitasModel';
-import { montarAgendaPorPessoa } from '../../components/escalas/escalaAgendaModel';
+import { montarAgendaManutencao, montarAgendaPorPessoa } from '../../components/escalas/escalaAgendaModel';
 import EscalaAgendaPessoas from '../../components/escalas/EscalaAgendaPessoas';
 import EscalaCelulaGrade from '../../components/escalas/EscalaCelulaGrade';
 import LojaBkMarca from '../../components/escalas/LojaBkMarca';
@@ -59,6 +59,7 @@ import {
   fmtDataCurta,
   fmtEnvioQuando,
   montarCardsAprovacaoEscala,
+  mensagemShareEscalaTecnicos,
   primeiroNome,
   segundaFeiraAtual,
 } from '../../components/escalas/escalaVisitasUtils';
@@ -262,6 +263,7 @@ export default function EscalaVisitasPage() {
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
   const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
+  const [visaoManut, setVisaoManut] = useState<'agenda' | 'grade'>('agenda');
   const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
     new Map(),
   );
@@ -272,6 +274,15 @@ export default function EscalaVisitasPage() {
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
   const podeEditarManut = Boolean(manutencao?.pode_editar);
+  const idsTecnicosEditaveis = useMemo(
+    () => new Set((manutencao?.ids_tecnicos_editaveis ?? []).map(Number)),
+    [manutencao?.ids_tecnicos_editaveis],
+  );
+  function podeEditarTecnicoManut(id: number | null) {
+    if (!podeEditarManut || id == null) return false;
+    if (!idsTecnicosEditaveis.size) return true;
+    return idsTecnicosEditaveis.has(Number(id));
+  }
 
   const mapCorRegional = useMemo(() => {
     const m = new Map<number, string>();
@@ -358,13 +369,22 @@ export default function EscalaVisitasPage() {
       setIdTecnicoManut(null);
       return;
     }
-    setIdTecnicoManut((atual) => (atual != null && ids.includes(atual) ? atual : ids[0]));
-  }, [manutencao?.tecnicos]);
+    setIdTecnicoManut((atual) => {
+      if (atual != null && ids.includes(atual)) return atual;
+      const editaveis = manutencao?.ids_tecnicos_editaveis ?? [];
+      const preferido = ids.find((id) => editaveis.includes(id));
+      return preferido ?? ids[0];
+    });
+  }, [manutencao?.tecnicos, manutencao?.ids_tecnicos_editaveis]);
 
   useEffect(() => {
     setPendingManut(new Map());
     setHorariosManutLocal(new Map());
   }, [semanaInicio]);
+
+  useEffect(() => {
+    setVisaoManut((manutencao?.visitas.length ?? 0) > 0 ? 'agenda' : 'grade');
+  }, [manutencao?.semana_inicio]);
 
   useEffect(() => {
     if (ehDeliveryOnly) setAba('delivery');
@@ -521,12 +541,12 @@ export default function EscalaVisitasPage() {
     const p = pendingManut.get(`${idUsuario}-${dia}`);
     if (p) return p.id_lojas;
     return (manutencao?.visitas ?? [])
-      .filter((v) => v.id_usuario === idUsuario && v.dia === dia)
-      .map((v) => v.id_loja);
+      .filter((v) => Number(v.id_usuario) === Number(idUsuario) && Number(v.dia) === Number(dia))
+      .map((v) => Number(v.id_loja));
   }
 
   function alterarCelulaManut(idUsuario: number, dia: number, idLojas: number[]) {
-    if (!podeEditarManut) return;
+    if (!podeEditarTecnicoManut(idUsuario)) return;
     setPendingManut((prev) => {
       const next = new Map(prev);
       next.set(`${idUsuario}-${dia}`, { id_usuario: idUsuario, dia, id_lojas: idLojas });
@@ -559,7 +579,7 @@ export default function EscalaVisitasPage() {
   }
 
   function alterarHorarioManut(campo: 'hora_inicio' | 'hora_fim', valor: string) {
-    if (idTecnicoManut == null || !podeEditarManut) return;
+    if (idTecnicoManut == null || !podeEditarTecnicoManut(idTecnicoManut)) return;
     setHorariosManutLocal((prev) => {
       const fromPrev = prev.get(idTecnicoManut);
       const fromServer = (manutencao?.horarios ?? []).find(
@@ -597,6 +617,7 @@ export default function EscalaVisitasPage() {
       setManutencao(data);
       setPendingManut(new Map());
       setHorariosManutLocal(new Map());
+      setVisaoManut('agenda');
       showToast('Escala de manutenção salva', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
@@ -938,6 +959,29 @@ export default function EscalaVisitasPage() {
     });
   }, [manutencao, idTecnicoManut, pendingManut]);
 
+  const agendaManutencao = useMemo(
+    () =>
+      montarAgendaManutencao({
+        tecnicos: manutencao?.tecnicos ?? [],
+        lojas: manutencao?.lojas ?? [],
+        visitas: manutencao?.visitas ?? [],
+        pending: pendingManut,
+        idTecnico: visaoManut === 'agenda' ? idTecnicoManut : null,
+      }),
+    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut, visaoManut, idTecnicoManut],
+  );
+
+  const agendaManutencaoShare = useMemo(
+    () =>
+      montarAgendaManutencao({
+        tecnicos: manutencao?.tecnicos ?? [],
+        lojas: manutencao?.lojas ?? [],
+        visitas: manutencao?.visitas ?? [],
+        pending: pendingManut,
+      }),
+    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut],
+  );
+
   const cardsAprovacao = useMemo(
     () =>
       montarCardsAprovacaoEscala(
@@ -1068,6 +1112,45 @@ export default function EscalaVisitasPage() {
                 <ToggleButton value="grade">Por loja</ToggleButton>
               </ToggleButtonGroup>
             )}
+            {aba === 'manutencao' && !ehDeliveryOnly && (
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={visaoManut}
+                onChange={(_, v: 'agenda' | 'grade' | null) => {
+                  if (!v) return;
+                  setVisaoManut(v);
+                  if (v === 'grade') {
+                    setIdTecnicoManut((atual) => {
+                      if (atual != null) return atual;
+                      const ids = (manutencao?.tecnicos ?? []).map((t) => t.id_usuario);
+                      const editaveis = manutencao?.ids_tecnicos_editaveis ?? [];
+                      return ids.find((id) => editaveis.includes(id)) ?? ids[0] ?? null;
+                    });
+                  }
+                }}
+                sx={{
+                  bgcolor: colors.canvasAlt,
+                  '& .MuiToggleButton-root': {
+                    px: 1.4,
+                    py: 0.4,
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    color: colors.textSecondary,
+                  },
+                  '& .Mui-selected': {
+                    bgcolor: `${colors.surface} !important`,
+                    color: `${colors.textPrimary} !important`,
+                    boxShadow: escuro ? '0 1px 3px rgba(0,0,0,0.35)' : '0 1px 3px rgba(27,42,107,0.12)',
+                  },
+                }}
+              >
+                <ToggleButton value="agenda">Semana</ToggleButton>
+                <ToggleButton value="grade">Por loja</ToggleButton>
+              </ToggleButtonGroup>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
@@ -1121,6 +1204,42 @@ export default function EscalaVisitasPage() {
                 {exportandoPdf ? 'Gerando…' : 'PNG'}
               </Button>
             )}
+            {aba === 'manutencao' && !ehDeliveryOnly && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<IosShareIcon />}
+                disabled={exportandoPdf || loading || !agendaManutencaoShare.some((p) => p.total > 0)}
+                onClick={() => {
+                  void (async () => {
+                    setExportandoPdf(true);
+                    try {
+                      const texto = mensagemShareEscalaTecnicos(
+                        manutencao?.tecnicos ?? [],
+                        manutencao?.regional_responsavel?.nome || (ehRegional ? user?.nome : null),
+                      );
+                      await gerarPngEscala({
+                        pessoas: agendaManutencaoShare,
+                        semanaInicio,
+                        semanaLabel: grade?.semana_label,
+                        asShare: true,
+                        titulo: 'Escala de manutenção',
+                        kicker: 'ESCALA DOS TÉCNICOS',
+                        textoShare: texto,
+                        arquivoPrefix: 'escala-tecnicos',
+                        hintPessoas: 'técnicos',
+                      });
+                    } catch (e) {
+                      showToast(e instanceof Error ? e.message : 'Erro ao gerar imagem', 'error');
+                    } finally {
+                      setExportandoPdf(false);
+                    }
+                  })();
+                }}
+              >
+                {exportandoPdf ? 'Gerando…' : 'PNG'}
+              </Button>
+            )}
             {grade?.pode_editar && !abaFolga && aba !== 'manutencao' && (
               <Button
                 variant="outlined"
@@ -1144,7 +1263,7 @@ export default function EscalaVisitasPage() {
                 Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
               </Button>
             )}
-            {aba === 'manutencao' && podeEditarManut && (
+            {aba === 'manutencao' && podeEditarTecnicoManut(idTecnicoManut) && (
               <Button
                 variant="contained"
                 size="small"
@@ -1881,7 +2000,11 @@ export default function EscalaVisitasPage() {
         >
           {!(manutencao?.tecnicos.length) ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">Nenhum técnico de manutenção cadastrado.</Typography>
+              <Typography color="text.secondary">
+                {manutencao?.escopo === 'regiao'
+                  ? 'Nenhum técnico de manutenção vinculado à sua região. Vincule o técnico na Frota para montar a escala.'
+                  : 'Nenhum técnico de manutenção cadastrado. Use o perfil Técnico em Usuários ou vincule o técnico à região na Frota.'}
+              </Typography>
             </Box>
           ) : (
             <>
@@ -1901,7 +2024,13 @@ export default function EscalaVisitasPage() {
                     key={t.id_usuario}
                     size="small"
                     label={primeiroNome(t.nome)}
-                    onClick={() => setIdTecnicoManut(t.id_usuario)}
+                    onClick={() => {
+                      if (visaoManut === 'grade') {
+                        setIdTecnicoManut(t.id_usuario);
+                        return;
+                      }
+                      setIdTecnicoManut((atual) => (atual === t.id_usuario ? null : t.id_usuario));
+                    }}
                     sx={{
                       fontWeight: 700,
                       bgcolor: idTecnicoManut === t.id_usuario ? (escuro ? 'rgba(232, 82, 10, 0.18)' : 'rgba(27, 42, 107, 0.12)') : colors.canvasAlt,
@@ -1909,7 +2038,7 @@ export default function EscalaVisitasPage() {
                     }}
                   />
                 ))}
-                {idTecnicoManut != null && (
+                {visaoManut === 'grade' && idTecnicoManut != null && (
                   <Box sx={{ ml: { sm: 'auto' }, display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
                     <Typography variant="caption" sx={{ fontWeight: 800, color: acento }}>
                       Horário
@@ -1920,7 +2049,7 @@ export default function EscalaVisitasPage() {
                         <InputsHorario
                           inicio={hr.hora_inicio}
                           fim={hr.hora_fim}
-                          disabled={!podeEditarManut}
+                          disabled={!podeEditarTecnicoManut(idTecnicoManut)}
                           ariaInicio="Início do expediente"
                           ariaFim="Fim do expediente"
                           onChangeInicio={(valor) => alterarHorarioManut('hora_inicio', valor)}
@@ -1931,6 +2060,18 @@ export default function EscalaVisitasPage() {
                   </Box>
                 )}
               </Box>
+              {visaoManut === 'agenda' ? (
+                <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                  <EscalaAgendaPessoas
+                    variant="desktop"
+                    pessoas={agendaManutencao}
+                    semanaInicio={semanaInicio}
+                    onPessoaClick={(id) =>
+                      setIdTecnicoManut((atual) => (atual === id ? null : id))
+                    }
+                  />
+                </Box>
+              ) : (
               <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
                 <Table size="small" stickyHeader sx={tableSx}>
                   <TableHead>
@@ -1953,7 +2094,7 @@ export default function EscalaVisitasPage() {
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                               {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                             </Typography>
-                            {podeEditarManut && lojas.length > 0 && (
+                            {podeEditarTecnicoManut(idTecnicoManut) && lojas.length > 0 && (
                               <Button
                                 size="small"
                                 onClick={() => toggleDiaManutInteiro(dia)}
@@ -1993,7 +2134,7 @@ export default function EscalaVisitasPage() {
                             <Checkbox
                               size="medium"
                               checked={d.marcada}
-                              disabled={!podeEditarManut}
+                              disabled={!podeEditarTecnicoManut(idTecnicoManut)}
                               onChange={() => toggleLojaManut(d.dia, linha.id_loja)}
                               sx={{
                                 p: 0.5,
@@ -2018,6 +2159,7 @@ export default function EscalaVisitasPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
+              )}
             </>
           )}
         </Paper>
@@ -2308,7 +2450,7 @@ export default function EscalaVisitasPage() {
         </Paper>
       )}
 
-      {!loading && !podeEditarGrade && !podeEditarDelivery && (
+      {!loading && aba !== 'manutencao' && aba !== 'gestores' && !podeEditarGrade && !podeEditarDelivery && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           {grade?.somente_leitura
             ? 'Cópia do envio (somente leitura). Use “Editar escala” para alterar a grade atual e salvar.'
@@ -2317,7 +2459,7 @@ export default function EscalaVisitasPage() {
               : 'Modo leitura — sem permissão para editar esta grade.'}
         </Typography>
       )}
-      {ehDiretor && podeEditarGrade && (
+      {ehDiretor && podeEditarGrade && aba === 'visitas' && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           {visaoVisitas === 'agenda'
             ? 'Semana mostra quem visita cada loja. Use Por loja para editar a grade.'
@@ -2329,9 +2471,25 @@ export default function EscalaVisitasPage() {
           Você preenche apenas a escala de delivery.
         </Typography>
       )}
-      {!loading && ehRegional && podeEditarGrade && (
+      {!loading && ehRegional && podeEditarGrade && aba === 'visitas' && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           Toque na célula para marcar sua visita. Só entram diretor, regionais e marketing.
+        </Typography>
+      )}
+      {!loading && aba === 'manutencao' && podeEditarTecnicoManut(idTecnicoManut) && (
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
+          {manutencao?.escopo === 'regiao'
+            ? visaoManut === 'agenda'
+              ? 'Semana dos técnicos da sua região. Toque no técnico para filtrar. PNG compartilha a foto com a mensagem do regional.'
+              : 'Você monta só a escala dos técnicos da sua região. Marque as lojas de cada dia e salve.'
+            : visaoManut === 'agenda'
+              ? 'Semana dos técnicos. Toque no nome para filtrar. PNG gera a foto para compartilhar.'
+              : 'Marque as lojas de cada dia na rota do técnico e salve a escala.'}
+        </Typography>
+      )}
+      {!loading && aba === 'manutencao' && !podeEditarTecnicoManut(idTecnicoManut) && (manutencao?.tecnicos.length ?? 0) > 0 && (
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
+          Sem permissão para montar a escala deste técnico.
         </Typography>
       )}
     </Box>

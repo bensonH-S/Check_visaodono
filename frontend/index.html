@@ -17,10 +17,17 @@
     <link rel="apple-touch-icon" href="Logo_Alvim_Icone.png" sizes="192x192" />
     <!-- manifest.webmanifest: injetado pelo Vite PWA só no build de produção -->
     <title>Meridian</title>
-    <!-- Aplica tema escuro imediatamente para evitar flash (antes do React) -->
+    <!-- Desktop: aplica o tema salvo. App (telefone): sempre claro, sem apagar a preferência do PC. -->
     <script>
       (function() {
         try {
+          var ua = navigator.userAgent || '';
+          var isApp = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+            || (window.matchMedia && window.matchMedia('(max-width: 899.95px)').matches);
+          if (isApp) {
+            document.documentElement.classList.remove('dark');
+            return;
+          }
           var m = localStorage.getItem('app-theme-mode');
           if (m === 'light') {
             document.documentElement.classList.remove('dark');

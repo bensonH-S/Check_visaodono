@@ -2724,6 +2724,7 @@ export interface EscalaManutencaoTecnico {
   id_regiao: number | null;
   nome_regiao: string | null;
   grupo: string;
+  cor?: string | null;
 }
 
 export interface EscalaManutencaoLoja {
@@ -2743,6 +2744,9 @@ export interface EscalaManutencaoGrade {
   semana_inicio: string;
   semana_fim: string;
   pode_editar: boolean;
+  ids_tecnicos_editaveis?: number[];
+  escopo?: 'rede' | 'regiao' | 'proprio' | 'nenhum';
+  regional_responsavel?: { id_usuario: number; nome: string } | null;
   tecnicos: EscalaManutencaoTecnico[];
   lojas: EscalaManutencaoLoja[];
   visitas: Array<{ id_usuario: number; dia: number; id_loja: number }>;

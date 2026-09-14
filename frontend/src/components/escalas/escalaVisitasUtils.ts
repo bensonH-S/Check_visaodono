@@ -105,6 +105,27 @@ export function primeiroNome(nome: string) {
   return nome.trim().split(/\s+/)[0] || nome;
 }
 
+export function juntarNomesPt(nomes: string[]) {
+  const limpos = nomes.map((n) => String(n || '').trim()).filter(Boolean);
+  if (!limpos.length) return '';
+  if (limpos.length === 1) return limpos[0];
+  if (limpos.length === 2) return `${limpos[0]} e ${limpos[1]}`;
+  return `${limpos.slice(0, -1).join(', ')} e ${limpos[limpos.length - 1]}`;
+}
+
+export function mensagemShareEscalaTecnicos(
+  tecnicos: Array<{ nome: string }>,
+  regionalNome?: string | null,
+) {
+  const nomes = tecnicos.map((t) => primeiroNome(t.nome)).filter(Boolean);
+  const lista = juntarNomesPt(nomes);
+  if (!lista) return 'Escala dos técnicos';
+  const escala = nomes.length === 1 ? `Escala do técnico ${lista}` : `Escala dos técnicos ${lista}`;
+  const resp = String(regionalNome || '').trim();
+  if (!resp) return escala;
+  return `${escala} - REGIONAL RESPONSÁVEL ${resp.toUpperCase()}`;
+}
+
 /** Parte comercial depois de "BURGER KING": "408 SUL", "201 NORTE", "LAGO SUL". */
 export function nomeLocalLojaBk(nome?: string | null) {
   return String(nome || '')

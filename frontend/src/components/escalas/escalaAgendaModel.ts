@@ -109,3 +109,86 @@ export function montarAgendaPorPessoa({
   }
   return pessoas;
 }
+
+const CORES_TECNICOS = [
+  '#1B2A6B',
+  '#E8520A',
+  '#0F766E',
+  '#6D28D9',
+  '#BE185D',
+  '#0369A1',
+  '#B45309',
+  '#334155',
+];
+
+export function corTecnicoEscala(idUsuario: number, index = 0) {
+  const id = Number(idUsuario);
+  if (Number.isFinite(id) && id > 0) return CORES_TECNICOS[id % CORES_TECNICOS.length];
+  return CORES_TECNICOS[index % CORES_TECNICOS.length];
+}
+
+type TecnicoAgenda = {
+  id_usuario: number;
+  nome: string;
+  grupo?: string | null;
+  nome_regiao?: string | null;
+  cor?: string | null;
+};
+
+type LojaAgendaManut = {
+  id_loja: number;
+  nome: string;
+  bk_number?: string | null;
+};
+
+/** Semana dos técnicos no mesmo eixo pessoa × dia da escala dos regionais. */
+export function montarAgendaManutencao({
+  tecnicos,
+  lojas,
+  visitas,
+  pending,
+  idTecnico = null,
+}: {
+  tecnicos: TecnicoAgenda[];
+  lojas: LojaAgendaManut[];
+  visitas: Array<{ id_usuario: number; dia: number; id_loja: number }>;
+  pending?: Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>;
+  idTecnico?: number | null;
+}): EscalaAgendaPessoa[] {
+  const lojaPorId = new Map(lojas.map((l) => [Number(l.id_loja), l]));
+
+  function idsLojas(idUsuario: number, dia: number) {
+    const p = pending?.get(`${idUsuario}-${dia}`);
+    if (p) return p.id_lojas.map(Number);
+    return visitas
+      .filter((v) => Number(v.id_usuario) === Number(idUsuario) && Number(v.dia) === Number(dia))
+      .map((v) => Number(v.id_loja));
+  }
+
+  const lista = tecnicos.map((t, i) => {
+    const dias: EscalaAgendaDia[] = Array.from({ length: 7 }, (_, dia) => ({
+      dia,
+      lojas: idsLojas(t.id_usuario, dia)
+        .map((id) => {
+          const loja = lojaPorId.get(id);
+          if (!loja) return null;
+          return { id_loja: id, bk: loja.bk_number, nome: loja.nome };
+        })
+        .filter((l): l is EscalaAgendaLoja => l != null),
+    }));
+    return {
+      id_usuario: t.id_usuario,
+      nome: t.nome,
+      primeiroNome: primeiroNome(t.nome),
+      cor: t.cor || corTecnicoEscala(t.id_usuario, i),
+      grupo_nome: t.nome_regiao || t.grupo || null,
+      dias,
+      total: dias.reduce((n, d) => n + d.lojas.length, 0),
+    };
+  });
+
+  if (idTecnico != null) {
+    return lista.filter((p) => Number(p.id_usuario) === Number(idTecnico));
+  }
+  return lista.filter((p) => p.total > 0);
+}

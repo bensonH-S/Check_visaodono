@@ -117,6 +117,9 @@ async function compartilharOuBaixar(
       if ((e as Error).name === 'AbortError') return;
     }
   }
+  if (text && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(text).catch(() => {});
+  }
   baixarBlob(blob, arquivo);
 }
 
@@ -157,11 +160,21 @@ export async function gerarPngEscala({
   semanaInicio,
   semanaLabel,
   asShare = false,
+  titulo = 'Escala de visitas',
+  kicker = 'ESCALA DA SEMANA',
+  textoShare,
+  arquivoPrefix = 'escala-visitas',
+  hintPessoas = 'em campo',
 }: {
   pessoas: EscalaAgendaPessoa[];
   semanaInicio: string;
   semanaLabel?: string | null;
   asShare?: boolean;
+  titulo?: string;
+  kicker?: string;
+  textoShare?: string;
+  arquivoPrefix?: string;
+  hintPessoas?: string;
 }) {
   const { ativas, linhas, totalVisitas, lojasUnicas } = montarLinhas(pessoas);
   const [logo, logoBk] = await Promise.all([
@@ -197,13 +210,22 @@ export async function gerarPngEscala({
     hojeIdx,
     contentW,
     colDia,
+    titulo,
+    kicker,
+    hintPessoas,
   });
 
-  const arquivo = `escala-visitas-${fmtDataCurta(semanaInicio).replace('/', '-')}.png`;
+  const arquivo = `${arquivoPrefix}-${fmtDataCurta(semanaInicio).replace('/', '-')}.png`;
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Falha ao gerar PNG'))), 'image/png');
   });
-  await compartilharOuBaixar(blob, arquivo, 'Escala de visitas', `Escala de visitas — ${periodo}`, asShare);
+  await compartilharOuBaixar(
+    blob,
+    arquivo,
+    titulo,
+    textoShare || `${titulo} — ${periodo}`,
+    asShare,
+  );
 }
 
 function desenharEscala(
@@ -221,6 +243,9 @@ function desenharEscala(
     hojeIdx,
     contentW,
     colDia,
+    titulo = 'Escala de visitas',
+    kicker = 'ESCALA DA SEMANA',
+    hintPessoas = 'em campo',
   }: {
     logo: CanvasImageSource | null;
     logoBk: CanvasImageSource | null;
@@ -234,6 +259,9 @@ function desenharEscala(
     hojeIdx: number;
     contentW: number;
     colDia: number;
+    titulo?: string;
+    kicker?: string;
+    hintPessoas?: string;
   },
 ) {
   ctx.fillStyle = PAPER;
@@ -257,10 +285,10 @@ function desenharEscala(
   ctx.textAlign = 'right';
   ctx.fillStyle = GRUPO;
   ctx.font = '700 20px "Segoe UI", Arial, sans-serif';
-  ctx.fillText('ESCALA DA SEMANA', W - MARGIN, 52);
+  ctx.fillText(kicker, W - MARGIN, 52);
   ctx.fillStyle = PAPER;
   ctx.font = '700 46px "Segoe UI", Arial, sans-serif';
-  ctx.fillText('Escala de visitas', W - MARGIN, 98);
+  ctx.fillText(titulo, W - MARGIN, 98);
   ctx.fillStyle = GRUPO;
   ctx.font = '500 24px "Segoe UI", Arial, sans-serif';
   ctx.fillText(periodo, W - MARGIN, 138);
@@ -268,7 +296,7 @@ function desenharEscala(
 
   const kpis = [
     { label: 'VISITAS', value: String(totalVisitas), hint: 'na semana', dark: true },
-    { label: 'PESSOAS', value: String(ativas.length), hint: 'em campo', dark: false },
+    { label: 'PESSOAS', value: String(ativas.length), hint: hintPessoas, dark: false },
     { label: 'LOJAS', value: String(lojas), hint: 'atendidas', dark: false },
     {
       label: 'MÉDIA / DIA',
@@ -450,7 +478,7 @@ function desenharEscala(
   ctx.font = '500 20px "Segoe UI", Arial, sans-serif';
   ctx.fillText('  ·  Vision Check', MARGIN + wGrupo + ctx.measureText('alvim').width, footerY);
   ctx.textAlign = 'center';
-  ctx.fillText(`Escala de visitas  ·  ${periodoCurto}`, W / 2, footerY);
+  ctx.fillText(`${titulo}  ·  ${periodoCurto}`, W / 2, footerY);
   ctx.textAlign = 'right';
   ctx.fillText(
     new Date().toLocaleString('pt-BR', {

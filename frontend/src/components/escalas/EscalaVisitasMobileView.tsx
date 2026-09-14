@@ -45,6 +45,7 @@ import {
   montarCardsAprovacaoEscala,
   primeiroNome,
   segundaFeiraAtual,
+  mensagemShareEscalaTecnicos,
 } from './escalaVisitasUtils';
 import {
   atribuicoesDoDia,
@@ -53,7 +54,7 @@ import {
   idsRegionaisDoDia,
   linhaDeliveryDaGrade,
 } from './escalaVisitasModel';
-import { montarAgendaPorPessoa } from './escalaAgendaModel';
+import { montarAgendaPorPessoa, montarAgendaManutencao } from './escalaAgendaModel';
 import EscalaAgendaPessoas from './EscalaAgendaPessoas';
 import LojaBkMarca from './LojaBkMarca';
 import { gerarPngEscala } from '../../utils/gerarPngEscala';
@@ -261,6 +262,7 @@ export default function EscalaVisitasMobileView() {
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
   const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
+  const [visaoManut, setVisaoManut] = useState<'agenda' | 'montar'>('agenda');
   const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
     new Map(),
   );
@@ -276,6 +278,15 @@ export default function EscalaVisitasMobileView() {
 
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
+  const idsTecnicosEditaveis = useMemo(
+    () => new Set((manutencao?.ids_tecnicos_editaveis ?? []).map(Number)),
+    [manutencao?.ids_tecnicos_editaveis],
+  );
+  function podeEditarTecnicoManut(id: number | null) {
+    if (!manutencao?.pode_editar || id == null) return false;
+    if (!idsTecnicosEditaveis.size) return true;
+    return idsTecnicosEditaveis.has(Number(id));
+  }
   const cardsAprovacao = useMemo(
     () =>
       montarCardsAprovacaoEscala(
@@ -380,10 +391,20 @@ export default function EscalaVisitasMobileView() {
       setIdTecnicoManut(null);
       return;
     }
-    setIdTecnicoManut((atual) => (atual != null && ids.includes(atual) ? atual : ids[0]));
+    setIdTecnicoManut((atual) => {
+      if (atual != null && ids.includes(atual)) return atual;
+      if (visaoManut === 'agenda') return null;
+      const editaveis = manutencao?.ids_tecnicos_editaveis ?? [];
+      const preferido = ids.find((id) => editaveis.includes(id));
+      return preferido ?? ids[0];
+    });
     setPendingManut(new Map());
     setHorariosManutLocal(new Map());
-  }, [manutencao?.tecnicos, semanaInicio]);
+  }, [manutencao?.tecnicos, manutencao?.ids_tecnicos_editaveis, semanaInicio]);
+
+  useEffect(() => {
+    setVisaoManut((manutencao?.visitas.length ?? 0) > 0 ? 'agenda' : 'montar');
+  }, [manutencao?.semana_inicio]);
 
   useEffect(() => {
     const hoje = diaIndexNaSemana(semanaInicio);
@@ -449,12 +470,12 @@ export default function EscalaVisitasMobileView() {
     const p = pendingManut.get(`${idUsuario}-${dia}`);
     if (p) return p.id_lojas;
     return (manutencao?.visitas ?? [])
-      .filter((v) => v.id_usuario === idUsuario && v.dia === dia)
-      .map((v) => v.id_loja);
+      .filter((v) => Number(v.id_usuario) === Number(idUsuario) && Number(v.dia) === Number(dia))
+      .map((v) => Number(v.id_loja));
   }
 
   function toggleManutLoja(dia: number, idLoja: number) {
-    if (!manutencao?.pode_editar || idTecnicoManut == null) return;
+    if (!podeEditarTecnicoManut(idTecnicoManut) || idTecnicoManut == null) return;
     const atual = idsLojasManut(idTecnicoManut, dia);
     const next = atual.includes(idLoja) ? atual.filter((id) => id !== idLoja) : [...atual, idLoja];
     setPendingManut((prev) => {
@@ -474,7 +495,7 @@ export default function EscalaVisitasMobileView() {
   }
 
   function alterarHorarioManut(campo: 'hora_inicio' | 'hora_fim', valor: string) {
-    if (idTecnicoManut == null || !manutencao?.pode_editar) return;
+    if (idTecnicoManut == null || !podeEditarTecnicoManut(idTecnicoManut)) return;
     setHorariosManutLocal((prev) => {
       const fromPrev = prev.get(idTecnicoManut);
       const fromServer = (manutencao?.horarios ?? []).find(
@@ -627,6 +648,7 @@ export default function EscalaVisitasMobileView() {
       setManutencao(data);
       setPendingManut(new Map());
       setHorariosManutLocal(new Map());
+      setVisaoManut('agenda');
       showToast('Escala de manutenção salva', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');
@@ -848,6 +870,29 @@ export default function EscalaVisitasMobileView() {
     });
   }, [manutencao, idTecnicoManut, pendingManut]);
 
+  const agendaManutencao = useMemo(
+    () =>
+      montarAgendaManutencao({
+        tecnicos: manutencao?.tecnicos ?? [],
+        lojas: manutencao?.lojas ?? [],
+        visitas: manutencao?.visitas ?? [],
+        pending: pendingManut,
+        idTecnico: visaoManut === 'agenda' ? idTecnicoManut : null,
+      }),
+    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut, visaoManut, idTecnicoManut],
+  );
+
+  const agendaManutencaoShare = useMemo(
+    () =>
+      montarAgendaManutencao({
+        tecnicos: manutencao?.tecnicos ?? [],
+        lojas: manutencao?.lojas ?? [],
+        visitas: manutencao?.visitas ?? [],
+        pending: pendingManut,
+      }),
+    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut],
+  );
+
   /** Montar regional no padrão delivery: dia → lista de lojas. */
   const montarPorDia = useMemo(() => {
     if (!grade) return [];
@@ -1014,6 +1059,35 @@ export default function EscalaVisitasMobileView() {
   const semanaEhAtual = semanaInicio === semanaAlvo;
 
   async function compartilharImagem() {
+    if (modo === 'manutencao') {
+      if (!agendaManutencaoShare.some((p) => p.total > 0)) {
+        showToast('Nenhuma visita de técnico nesta semana para compartilhar', 'info');
+        return;
+      }
+      setExportandoPdf(true);
+      try {
+        const texto = mensagemShareEscalaTecnicos(
+          manutencao?.tecnicos ?? [],
+          manutencao?.regional_responsavel?.nome || (ehRegional ? user?.nome : null),
+        );
+        await gerarPngEscala({
+          pessoas: agendaManutencaoShare,
+          semanaInicio,
+          semanaLabel: labelSemanaCurta,
+          asShare: true,
+          titulo: 'Escala de manutenção',
+          kicker: 'ESCALA DOS TÉCNICOS',
+          textoShare: texto,
+          arquivoPrefix: 'escala-tecnicos',
+          hintPessoas: 'técnicos',
+        });
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Erro ao gerar imagem', 'error');
+      } finally {
+        setExportandoPdf(false);
+      }
+      return;
+    }
     if (!agendaPessoas.some((p) => p.total > 0)) {
       showToast('Nenhuma visita nesta semana para compartilhar', 'info');
       return;
@@ -1144,7 +1218,7 @@ export default function EscalaVisitasMobileView() {
                 <div>
                   <p className="ck-visitas__mark-text">Grupo Alvim</p>
                   <h1 className="ck-visitas__title ck-visitas__title--oneline">
-                    {ehDeliveryOnly ? 'Escala delivery' : 'Escala visitas'}
+                    {ehDeliveryOnly ? 'Escala delivery' : modo === 'manutencao' ? 'Escala técnicos' : 'Escala visitas'}
                   </h1>
                 </div>
                 <div className="ck-escala__header-acoes">
@@ -1166,7 +1240,9 @@ export default function EscalaVisitasMobileView() {
               </div>
 
               <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-                {ehDiretor
+                {modo === 'manutencao'
+                  ? 'Semana dos técnicos. Toque em Semana para ver, Montar para editar, e no botão de compartilhar para enviar a foto.'
+                  : ehDiretor
                   ? pendentesAprovacao.length
                     ? 'Há escalas aguardando sua aprovação.'
                     : 'Veja a escala consolidada da semana.'
@@ -1304,21 +1380,57 @@ export default function EscalaVisitasMobileView() {
               </div>
             )}
             {modo === 'manutencao' && (manutencao?.tecnicos.length ?? 0) > 0 && (
-              <div className="ck-escala__pessoas">
-                {(manutencao?.tecnicos ?? []).map((t) => (
+              <>
+                <div className="ck-visitas__seg" role="tablist" aria-label="Visão da escala de técnicos" style={{ marginBottom: 8 }}>
                   <button
-                    key={t.id_usuario}
                     type="button"
-                    className={`ck-escala__pessoa${idTecnicoManut === t.id_usuario ? ' is-on' : ''}`}
-                    onClick={() => setIdTecnicoManut(t.id_usuario)}
+                    role="tab"
+                    aria-selected={visaoManut === 'agenda'}
+                    className={`ck-visitas__seg-btn${visaoManut === 'agenda' ? ' is-on' : ''}`}
+                    onClick={() => setVisaoManut('agenda')}
                   >
-                    {primeiroNome(t.nome)}
+                    Semana
                   </button>
-                ))}
-              </div>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={visaoManut === 'montar'}
+                    className={`ck-visitas__seg-btn${visaoManut === 'montar' ? ' is-on' : ''}`}
+                    onClick={() => {
+                      setVisaoManut('montar');
+                      setIdTecnicoManut((atual) => {
+                        if (atual != null) return atual;
+                        const ids = (manutencao?.tecnicos ?? []).map((t) => t.id_usuario);
+                        const editaveis = manutencao?.ids_tecnicos_editaveis ?? [];
+                        return ids.find((id) => editaveis.includes(id)) ?? ids[0] ?? null;
+                      });
+                    }}
+                  >
+                    Montar
+                  </button>
+                </div>
+                <div className="ck-escala__pessoas">
+                  {(manutencao?.tecnicos ?? []).map((t) => (
+                    <button
+                      key={t.id_usuario}
+                      type="button"
+                      className={`ck-escala__pessoa${idTecnicoManut === t.id_usuario ? ' is-on' : ''}`}
+                      onClick={() => {
+                        if (visaoManut === 'montar') {
+                          setIdTecnicoManut(t.id_usuario);
+                          return;
+                        }
+                        setIdTecnicoManut((atual) => (atual === t.id_usuario ? null : t.id_usuario));
+                      }}
+                    >
+                      {primeiroNome(t.nome)}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
             {(modo === 'delivery' ||
-              modo === 'manutencao' ||
+              (modo === 'manutencao' && visaoManut === 'montar') ||
               (modo === 'montar' && ehRegional) ||
               modoMontarDelivery) &&
               !loading && (
@@ -1703,10 +1815,20 @@ export default function EscalaVisitasMobileView() {
                 );
               })
             )
+          ) : modo === 'manutencao' && visaoManut === 'agenda' ? (
+            <EscalaAgendaPessoas
+              variant="mobile"
+              pessoas={agendaManutencao}
+              semanaInicio={semanaInicio}
+              onPessoaClick={(id) =>
+                setIdTecnicoManut((atual) => (atual === id ? null : id))
+              }
+            />
           ) : modo === 'manutencao' ? (
             (() => {
+              const podeEditarAtual = podeEditarTecnicoManut(idTecnicoManut);
               const diaManut = manutPorDia.find((d) => d.dia === diaSelecionado);
-              const lojasDia = manutencao?.pode_editar
+              const lojasDia = podeEditarAtual
                 ? (diaManut?.lojas ?? [])
                 : (diaManut?.lojas ?? []).filter((l) => l.marcada);
               const hr =
@@ -1724,7 +1846,7 @@ export default function EscalaVisitasMobileView() {
                     placeholder="08:00"
                     aria-label="Início do expediente"
                     value={hr.hora_inicio}
-                    disabled={!manutencao?.pode_editar || idTecnicoManut == null}
+                    disabled={!podeEditarAtual || idTecnicoManut == null}
                     onChange={(e) => alterarHorarioManut('hora_inicio', formatarHoraDigitada(e.target.value))}
                     style={{
                       flex: 1,
@@ -1744,7 +1866,7 @@ export default function EscalaVisitasMobileView() {
                     placeholder="18:00"
                     aria-label="Fim do expediente"
                     value={hr.hora_fim}
-                    disabled={!manutencao?.pode_editar || idTecnicoManut == null}
+                    disabled={!podeEditarAtual || idTecnicoManut == null}
                     onChange={(e) => alterarHorarioManut('hora_fim', formatarHoraDigitada(e.target.value))}
                     style={{
                       flex: 1,
@@ -1762,11 +1884,15 @@ export default function EscalaVisitasMobileView() {
                   <>
                     {horario}
                     <div className="ck-escala__empty">
-                    <strong>{manutencao?.pode_editar ? 'Nenhuma loja' : 'Sem visita neste dia'}</strong>
+                    <strong>{podeEditarAtual ? 'Nenhuma loja' : 'Sem visita neste dia'}</strong>
                     <p>
                       {manutencao?.tecnicos.length
-                        ? 'Toque nas lojas do dia e salve a rota do técnico.'
-                        : 'Nenhum técnico cadastrado.'}
+                        ? podeEditarAtual
+                          ? 'Toque nas lojas do dia e salve a rota do técnico.'
+                          : 'Sem permissão para montar a escala deste técnico.'
+                        : manutencao?.escopo === 'regiao'
+                          ? 'Nenhum técnico vinculado à sua região.'
+                          : 'Nenhum técnico cadastrado. Use o perfil Técnico em Usuários ou vincule à região na Frota.'}
                     </p>
                   </div>
                   </>
@@ -1780,14 +1906,14 @@ export default function EscalaVisitasMobileView() {
                   key={loja.id_loja}
                   type="button"
                   className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}${
-                    manutencao?.pode_editar ? ' is-edit' : ''
+                    podeEditarAtual ? ' is-edit' : ''
                   }`}
-                  disabled={!manutencao?.pode_editar || salvando}
+                  disabled={!podeEditarAtual || salvando}
                   onClick={() => toggleManutLoja(diaSelecionado, loja.id_loja)}
                   style={{
                     width: '100%',
                     textAlign: 'left',
-                    cursor: manutencao?.pode_editar ? 'pointer' : 'default',
+                    cursor: podeEditarAtual ? 'pointer' : 'default',
                   }}
                 >
                   <div
@@ -1801,7 +1927,7 @@ export default function EscalaVisitasMobileView() {
                     </p>
                     <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
                       {loja.marcada
-                        ? manutencao?.pode_editar
+                        ? podeEditarAtual
                           ? 'Agendado · toque para remover'
                           : 'Agendado'
                         : 'Toque para agendar'}
@@ -1923,7 +2049,7 @@ export default function EscalaVisitasMobileView() {
           {((podeEditarGrade || grade?.pode_submeter) && modo === 'montar' && !ehDeliveryOnly) ||
           ((podeEditarDelivery || grade?.pode_submeter_delivery) &&
             (modo === 'delivery' || modoMontarDelivery)) ||
-          (manutencao?.pode_editar && modo === 'manutencao') ? (
+          (podeEditarTecnicoManut(idTecnicoManut) && modo === 'manutencao') ? (
             <div className="ck-escala__acoes">
               {(podeEditarGrade ||
                 (podeEditarDelivery && (modo === 'delivery' || modoMontarDelivery))) &&
@@ -1946,7 +2072,7 @@ export default function EscalaVisitasMobileView() {
                   Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
                 </Button>
               )}
-              {modo === 'manutencao' && manutencao?.pode_editar && (
+              {modo === 'manutencao' && podeEditarTecnicoManut(idTecnicoManut) && (
                 <Button
                   variant="contained"
                   size="small"

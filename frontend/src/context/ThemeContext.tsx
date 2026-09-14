@@ -2,11 +2,9 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { lightTheme, darkTheme } from '../theme';
+import { deveForcarTemaClaroMobile } from '../utils/device';
 
 type ThemeMode = 'light' | 'dark';
-
-/** Alinhado ao breakpoint `md` do MUI / layout mobile do portal. */
-const MOBILE_VIEWPORT_MQ = '(max-width: 899.95px)';
 
 interface ThemeContextType {
   mode: ThemeMode;
@@ -16,34 +14,34 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-function readIsMobileViewport(): boolean {
+function readForceLightMobile(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.matchMedia(MOBILE_VIEWPORT_MQ).matches;
+  return deveForcarTemaClaroMobile();
 }
 
-function useIsMobileViewport(): boolean {
-  const [isMobile, setIsMobile] = useState(readIsMobileViewport);
+function useForceLightMobile(): boolean {
+  const [forceLight, setForceLight] = useState(readForceLightMobile);
 
   useEffect(() => {
-    const mq = window.matchMedia(MOBILE_VIEWPORT_MQ);
-    const onChange = () => setIsMobile(mq.matches);
+    const mq = window.matchMedia('(max-width: 899.95px)');
+    const onChange = () => setForceLight(deveForcarTemaClaroMobile());
     onChange();
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
-  return isMobile;
+  return forceLight;
 }
 
 export function CustomThemeProvider({ children }: { children: React.ReactNode }) {
-  const isMobileViewport = useIsMobileViewport();
+  const forceLightMobile = useForceLightMobile();
   const [preferredMode, setPreferredMode] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('app-theme-mode');
     return saved === 'light' ? 'light' : 'dark';
   });
 
-  // Mobile: força claro (preferência do usuário permanece para o desktop).
-  const mode: ThemeMode = isMobileViewport ? 'light' : preferredMode;
+  // App (telefone/tablet): sempre claro. Desktop guarda a preferência (sol/lua).
+  const mode: ThemeMode = forceLightMobile ? 'light' : preferredMode;
 
   const setMode = (newMode: ThemeMode) => {
     setPreferredMode(newMode);
@@ -51,7 +49,7 @@ export function CustomThemeProvider({ children }: { children: React.ReactNode })
   };
 
   const toggleTheme = () => {
-    if (isMobileViewport) return;
+    if (forceLightMobile) return;
     setMode(preferredMode === 'light' ? 'dark' : 'light');
   };
 
