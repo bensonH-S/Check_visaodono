@@ -91,6 +91,7 @@ export default function PortalLayout() {
 
 function PortalLayoutInner() {
   const { mode, toggleTheme } = useAppTheme();
+  const filtroAcento = mode === 'dark' ? '#E8520A' : '#1B2A6B';
   const { data: dataFiltro, setData: setDataFiltro, regiaoId, regiaoNome, setRegiao } =
     useCommandCenterFilters();
   const navigate = useNavigate();
@@ -224,7 +225,7 @@ function PortalLayoutInner() {
             }}
           >
             <span style={{ textTransform: 'none' }}>{dataFiltroLabel}</span>
-            <CalendarMonthIcon sx={{ fontSize: 16, color: '#E8520A' }} />
+            <CalendarMonthIcon sx={{ fontSize: 16, color: filtroAcento }} />
           </Box>
           {dataAberto ? (
             <Paper elevation={0} sx={painelAbsolutoSx}>
@@ -239,7 +240,7 @@ function PortalLayoutInner() {
                   maxDate={dayjs(dataHojeBrasilia())}
                   sx={{
                     '& .MuiPickersDay-root': { borderRadius: '14px' },
-                    '& .MuiPickersDay-root.Mui-selected': { bgcolor: colors.orange },
+                    '& .MuiPickersDay-root.Mui-selected': { bgcolor: filtroAcento },
                   }}
                 />
               </LocalizationProvider>
@@ -274,7 +275,7 @@ function PortalLayoutInner() {
             }}
           >
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{regiaoNome}</span>
-            <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, color: '#E8520A' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, color: filtroAcento }}>
               <ArrowDropDownIcon sx={{ fontSize: 18 }} />
             </Box>
           </Box>
@@ -298,9 +299,9 @@ function PortalLayoutInner() {
                     }}
                   >
                     {r.id == null ? (
-                      <PublicOutlinedIcon sx={{ fontSize: 18, color: '#E8520A', flexShrink: 0 }} />
+                      <PublicOutlinedIcon sx={{ fontSize: 18, color: filtroAcento, flexShrink: 0 }} />
                     ) : (
-                      <PlaceOutlinedIcon sx={{ fontSize: 18, color: '#E8520A', flexShrink: 0 }} />
+                      <PlaceOutlinedIcon sx={{ fontSize: 18, color: filtroAcento, flexShrink: 0 }} />
                     )}
                     <Box component="span" sx={{ lineHeight: 1.35 }}>
                       {r.nome}

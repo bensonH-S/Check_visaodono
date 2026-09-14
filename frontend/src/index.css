@@ -37,7 +37,7 @@
 }
 
 :root.dark {
-  /* Dark Theme — preto do Command Center (não azul-marinho) */
+  /* Dark Theme — azul-marinho (Deep Navy) */
   --ga-navy: #1B2A6B;
   --ga-primary-btn: #E8520A;
   --ga-navy-dark: #152056;
@@ -47,19 +47,19 @@
   --ga-orange: #E8520A;
   --ga-orange-hover: #CF4909;
   --ga-orange-light: rgba(232, 82, 10, 0.18);
-  --ga-surface: #111110;
-  --ga-canvas: #050505;
-  --ga-canvas-alt: #1a1918;
-  --ga-picker-paper: #111110;
+  --ga-surface: #111827;
+  --ga-canvas: #0B0F19;
+  --ga-canvas-alt: #0F172A;
+  --ga-picker-paper: #1E293B;
   --ga-border: rgba(255, 255, 255, 0.08);
-  --ga-border-strong: rgba(255, 255, 255, 0.13);
-  --ga-text-primary: #f4f1ec;
-  --ga-text-secondary: #9a958e;
-  --ga-text-muted: #6e6a64;
-  --ga-sidebar-bg: #050505;
+  --ga-border-strong: rgba(255, 255, 255, 0.18);
+  --ga-text-primary: #F8FAFC;
+  --ga-text-secondary: #94A3B8;
+  --ga-text-muted: #64748B;
+  --ga-sidebar-bg: #0B0F19;
   --ga-sidebar-border: rgba(255, 255, 255, 0.08);
   --ga-sidebar-active-bg: rgba(232, 82, 10, 0.14);
-  --ga-sidebar-active-text: #f4f1ec;
+  --ga-sidebar-active-text: #F8FAFC;
   --ga-sidebar-active-border: transparent;
   --ga-sidebar-active-icon: #E8520A;
   --ga-progress-track: rgba(232, 82, 10, 0.18);

@@ -1,7 +1,7 @@
 /**
  * Command Center tokens.
  * Cores de superfície/texto seguem o tema do app via CSS vars.
- * Em `.cc-page` (dark) o CSS força a paleta preta da marca; no claro herda `:root`.
+ * Em `.cc-page` (dark) o CSS força o Deep Navy; no claro herda `:root`.
  */
 export const CC_BG = 'var(--ga-canvas)';
 export const CC_SIDEBAR = 'var(--ga-sidebar-bg)';
@@ -14,7 +14,7 @@ export const CC_MUTED = 'var(--ga-text-muted)';
 /** Accent geral do CC (azul via CSS em .cc-page). */
 export const CC_ORANGE = 'var(--ga-orange)';
 export const CC_ORANGE_HOVER = 'var(--ga-orange-hover)';
-/** Laranja da marca — estoque, ranking e performance. */
+/** Laranja da marca (fixo em KPIs/gráficos). Accent de UI usa CC_ORANGE (azul no claro). */
 export const CC_BRAND_ORANGE = '#E8520A';
 export const CC_BRAND_ORANGE_SOFT = 'rgba(232, 82, 10, 0.14)';
 /** Tijolo para críticos. */

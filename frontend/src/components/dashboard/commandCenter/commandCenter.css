@@ -40,21 +40,21 @@
   color: var(--ga-text-primary) !important;
 }
 
-/* Tema escuro: paleta original do Command Center (laranja da marca). */
+/* Tema escuro: Deep Navy (mesmo azul do app). */
 :root.dark .cc-page {
-  --ga-canvas: #050505;
-  --ga-surface: #111110;
-  --ga-canvas-alt: #1a1918;
-  --ga-picker-paper: #111110;
+  --ga-canvas: #0B0F19;
+  --ga-surface: #111827;
+  --ga-canvas-alt: #0F172A;
+  --ga-picker-paper: #1E293B;
   --ga-border: rgba(255, 255, 255, 0.08);
-  --ga-border-strong: rgba(255, 255, 255, 0.13);
-  --ga-text-primary: #f4f1ec;
-  --ga-text-secondary: #9a958e;
-  --ga-text-muted: #6e6a64;
-  --ga-sidebar-bg: #050505;
+  --ga-border-strong: rgba(255, 255, 255, 0.18);
+  --ga-text-primary: #F8FAFC;
+  --ga-text-secondary: #94A3B8;
+  --ga-text-muted: #64748B;
+  --ga-sidebar-bg: #0B0F19;
   --ga-sidebar-border: rgba(255, 255, 255, 0.08);
   --ga-sidebar-active-bg: rgba(232, 82, 10, 0.14);
-  --ga-sidebar-active-text: #f4f1ec;
+  --ga-sidebar-active-text: #F8FAFC;
   --ga-sidebar-active-border: transparent;
   --ga-sidebar-active-icon: #e8520a;
   --ga-orange: #e8520a;
@@ -62,10 +62,10 @@
   --ga-primary-btn: #e8520a;
   --ga-primary-hover: #cf4909;
   --ga-progress-bar: #e8520a;
-  background-color: #050505;
-  color: #f4f1ec;
+  background-color: #0B0F19;
+  color: #F8FAFC;
 }
 
 :root.dark .cc-page aside {
-  background: #050505;
+  background: #0B0F19;
 }

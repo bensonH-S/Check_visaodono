@@ -30,7 +30,7 @@ import { dataHojeBrasilia, formatarDuracaoMs, formatDataHoraBrasilia } from '../
 import { ajustarRotaAsRuas, type LatLngPar } from '../../../utils/osrmMapMatch';
 import { LIMITE_VELOCIDADE_KMH } from './ccFormat';
 import { CC_RADIUS, CcEmpty } from './CcPanel';
-import { CC_BORDER, CC_CRITICO, CC_OK, CC_ORANGE, CC_PARADO, CC_SURFACE } from './ccTheme';
+import { CC_BORDER, CC_BRAND_ORANGE, CC_CRITICO, CC_OK, CC_ORANGE, CC_PARADO, CC_SURFACE } from './ccTheme';
 
 const VEICULOS_VAZIOS: FrotaVeiculoPosicao[] = [];
 
@@ -181,7 +181,7 @@ function PainelVeiculo({
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.35 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
           <Box sx={{ width: 10, height: 10, borderRadius: '3px', bgcolor: cor, flexShrink: 0 }} />
-          <LocalShippingOutlinedIcon sx={{ fontSize: 16, color: cor }} />
+          <LocalShippingOutlinedIcon sx={{ fontSize: 16, color: escuro ? CC_BRAND_ORANGE : cor }} />
           <Typography
             sx={{
               fontSize: '0.9375rem',

@@ -193,8 +193,8 @@ export const darkTheme = createTheme({
     success: { main: '#34D399', contrastText: '#052e16' },
     warning: { main: '#FB923C', contrastText: '#431407' },
     error: { main: '#F87171', contrastText: '#450a0a' },
-    background: { default: '#050505', paper: '#111110' },
-    text: { primary: '#f4f1ec', secondary: '#9a958e' },
+    background: { default: '#0B0F19', paper: '#111827' },
+    text: { primary: '#F8FAFC', secondary: '#94A3B8' },
     divider: 'rgba(255, 255, 255, 0.08)',
   },
 });

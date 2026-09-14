@@ -3,9 +3,16 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Bar, BarChart, Cell, Label, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../../../api/client';
+import { useAppTheme } from '../../../context/ThemeContext';
 import { fmtBrl, fmtInt, lojaLabel } from './ccFormat';
-import { CC_CRITICO, CC_BRAND_ORANGE, CC_TEXT, CC_TEXT_2, CC_TOOLTIP_STYLE } from './ccTheme';
+import { CC_BRAND_ORANGE, CC_TEXT, CC_TEXT_2, CC_TOOLTIP_STYLE } from './ccTheme';
 import { CcEmpty, CcSectionTitle, CcSkeleton } from './CcPanel';
+
+/** Claro: azul escuro → médio → bem claro. Escuro: laranja forte → médio → suave. */
+const COR_LISTA = {
+  light: { alto: '#1B2A6B', medio: '#5B6DB5', baixo: '#A8B4E0' },
+  dark: { alto: '#E8520A', medio: '#F08A4B', baixo: '#F5B892' },
+} as const;
 
 type ItemZerado = {
   id_loja: number;
@@ -17,7 +24,17 @@ function lojaCurta(name: string) {
   return lojaLabel(name).replace(/^BURGER KING\s*[-–]\s*/i, '').trim() || name;
 }
 
+function corBarraEstoque(n: number, maxBar: number, escuro: boolean) {
+  const pct = maxBar > 0 ? (n / maxBar) * 100 : 0;
+  const paleta = escuro ? COR_LISTA.dark : COR_LISTA.light;
+  if (pct >= 80) return paleta.alto;
+  if (pct >= 30) return paleta.medio;
+  return paleta.baixo;
+}
+
 export default function CcEstoqueGrafico() {
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
   const [zerados, setZerados] = useState<ItemZerado[]>([]);
   const [problemas, setProblemas] = useState(0);
   const [valorAtual, setValorAtual] = useState<number | null>(null);
@@ -61,12 +78,14 @@ export default function CcEstoqueGrafico() {
     return [...map.values()].sort((a, b) => b.n - a.n).slice(0, 6);
   }, [zerados]);
 
-  /** Donut só de zerados — sem fatia amarela de “baixa”. */
+  const corDonut = escuro ? CC_BRAND_ORANGE : COR_LISTA.light.alto;
+
+  /** Donut: azul no claro, laranja no escuro. */
   const fatias = useMemo(() => {
     const n = Math.max(zerados.length, 0);
     if (!n) return [];
-    return [{ name: 'Zerados', value: n, cor: CC_BRAND_ORANGE }];
-  }, [zerados.length]);
+    return [{ name: 'Zerados', value: n, cor: corDonut }];
+  }, [zerados.length, corDonut]);
 
   const maxBar = Math.max(1, ...porLoja.map((l) => l.n));
 
@@ -197,7 +216,7 @@ export default function CcEstoqueGrafico() {
                       />
                       <Bar dataKey="n" radius={[0, 4, 4, 0]} barSize={9}>
                         {porLoja.map((l) => (
-                          <Cell key={l.loja} fill={l.n >= 4 ? CC_CRITICO : CC_BRAND_ORANGE} />
+                          <Cell key={l.loja} fill={corBarraEstoque(l.n, maxBar, escuro)} />
                         ))}
                       </Bar>
                     </BarChart>

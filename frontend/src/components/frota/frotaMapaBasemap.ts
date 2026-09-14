@@ -13,8 +13,8 @@ export const FROTA_MAPA_CLARO_FUNDO = '#F8FAFC';
 /** Fundo neutro enquanto os tiles carregam. */
 export const FROTA_MAPA_FUNDO = '#F8FAFC';
 
-/** Fundo do mapa escuro — carvão, não navy. */
-export const FROTA_MAPA_ESCURO_FUNDO = '#0E0E0E';
+/** Fundo do mapa escuro — Deep Navy. */
+export const FROTA_MAPA_ESCURO_FUNDO = '#0B0F19';
 
 /** @deprecated Fiord customizado via MapLibre; filtro CSS não é mais usado. */
 export const FROTA_MAPA_ESCURO_TILE_FILTER = 'none';
@@ -24,18 +24,18 @@ export const OPENFREEMAP_FIORD = 'https://tiles.openfreemap.org/styles/fiord';
 export const OPENFREEMAP_DARK = 'https://tiles.openfreemap.org/styles/dark';
 export const OPENFREEMAP_POSITRON = 'https://tiles.openfreemap.org/styles/positron';
 
-/** Mapa no preto da marca: carvão + vias cinza-quente. */
-const CC_MAPA_FUNDO = '#0E0E0E';
-const CC_MAPA_AGUA = '#0A0A0A';
-const CC_MAPA_PARQUE = '#161412';
-const CC_MAPA_RESIDENCIAL = '#141210';
-const CC_MAPA_WOOD = '#151310';
-const CC_MAPA_PREDIO = '#1A1917';
-const CC_RUA_MENOR = '#5C5852';
-const CC_RUA_MEDIA = '#736E67';
-const CC_RUA_MAJOR = '#8C877F';
-const CC_RUA_MOTORWAY = '#A39E96';
-const CC_RUA_CASING = '#1C1B19';
+/** Mapa no Deep Navy: azul escuro + vias cinza-azuladas. */
+const CC_MAPA_FUNDO = '#0B0F19';
+const CC_MAPA_AGUA = '#080C14';
+const CC_MAPA_PARQUE = '#0F172A';
+const CC_MAPA_RESIDENCIAL = '#111827';
+const CC_MAPA_WOOD = '#0F172A';
+const CC_MAPA_PREDIO = '#1E293B';
+const CC_RUA_MENOR = '#475569';
+const CC_RUA_MEDIA = '#64748B';
+const CC_RUA_MAJOR = '#94A3B8';
+const CC_RUA_MOTORWAY = '#CBD5E1';
+const CC_RUA_CASING = '#0B0F19';
 
 type BasemapOpts = { mobile?: boolean; semRotulos?: boolean };
 
@@ -84,7 +84,7 @@ function setPaint(layer: Record<string, unknown>, key: string, value: unknown) {
   layer.paint = paint;
 }
 
-/** Fiord no carvão da marca: sem azul-noite. */
+/** Fiord no Deep Navy do tema escuro. */
 function customizarEstiloFiord(style: StyleSpecification): StyleSpecification {
   const layers = (style.layers ?? []).map((raw) => {
     const layer = { ...raw } as Record<string, unknown>;
