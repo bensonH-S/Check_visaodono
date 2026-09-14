@@ -166,16 +166,15 @@ export function montarAgendaManutencao({
   }
 
   const lista = tecnicos.map((t, i) => {
-    const dias: EscalaAgendaDia[] = Array.from({ length: 7 }, (_, dia) => ({
-      dia,
-      lojas: idsLojas(t.id_usuario, dia)
-        .map((id) => {
-          const loja = lojaPorId.get(id);
-          if (!loja) return null;
-          return { id_loja: id, bk: loja.bk_number, nome: loja.nome };
-        })
-        .filter((l): l is EscalaAgendaLoja => l != null),
-    }));
+    const dias: EscalaAgendaDia[] = Array.from({ length: 7 }, (_, dia) => {
+      const lojasDia: EscalaAgendaLoja[] = [];
+      for (const id of idsLojas(t.id_usuario, dia)) {
+        const loja = lojaPorId.get(id);
+        if (!loja) continue;
+        lojasDia.push({ id_loja: id, bk: loja.bk_number ?? null, nome: loja.nome });
+      }
+      return { dia, lojas: lojasDia };
+    });
     return {
       id_usuario: t.id_usuario,
       nome: t.nome,
