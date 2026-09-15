@@ -267,6 +267,92 @@ function aplicarContagem(
   setRascunho(draft);
 }
 
+function AbasControleEstoque({
+  value,
+  onChange,
+  bloqueiaOutrasAbas,
+  podeConferencia,
+  podeOperacional,
+  podeBreak,
+  idLoja,
+}: {
+  value: AbaEstoque | false;
+  onChange: (v: AbaEstoque) => void;
+  bloqueiaOutrasAbas: boolean;
+  podeConferencia: boolean;
+  podeOperacional: boolean;
+  podeBreak: boolean;
+  idLoja: number | '';
+}) {
+  const semLoja = !idLoja;
+
+  return (
+    <Tabs
+      value={value}
+      onChange={(_e, v: AbaEstoque) => {
+        if (bloqueiaOutrasAbas && v !== 'conferencia') return;
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        onChange(v);
+      }}
+      variant="scrollable"
+      scrollButtons="auto"
+      sx={{
+        minHeight: 40,
+        minWidth: 0,
+        borderBottom: `1px solid ${colors.border}`,
+        '& .MuiTabs-indicator': { display: 'none' },
+        '& .MuiTab-root': {
+          position: 'relative',
+          overflow: 'visible',
+          minHeight: 40,
+          minWidth: 0,
+          textTransform: 'uppercase',
+          letterSpacing: '0.12em',
+          fontWeight: 700,
+          fontSize: '0.72rem',
+          color: colors.textMuted,
+          px: { xs: 1.25, md: 1.75 },
+          '&.Mui-selected': {
+            color: `${colors.textPrimary} !important`,
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              left: { xs: 10, md: 14 },
+              right: { xs: 10, md: 14 },
+              bottom: 0,
+              height: 2,
+              bgcolor: colors.orange,
+              borderRadius: '2px 2px 0 0',
+            },
+          },
+        },
+      }}
+    >
+      {podeConferencia && (
+        <Tab disableRipple value="conferencia" label="Conferência" disabled={semLoja} />
+      )}
+      {podeOperacional && (
+        <Tab disableRipple value="vendas" label="Vendas" disabled={semLoja || bloqueiaOutrasAbas} />
+      )}
+      {podeOperacional && (
+        <Tab disableRipple value="rede" label="Rede" disabled={semLoja || bloqueiaOutrasAbas} />
+      )}
+      {podeOperacional && (
+        <Tab disableRipple value="piloto" label="Baixa" disabled={semLoja || bloqueiaOutrasAbas} />
+      )}
+      {podeBreak && (
+        <Tab disableRipple value="break" label="Break" disabled={semLoja || bloqueiaOutrasAbas} />
+      )}
+      {podeOperacional && (
+        <Tab disableRipple value="saldo" label="Saldo" disabled={semLoja || bloqueiaOutrasAbas} />
+      )}
+      {podeOperacional && (
+        <Tab disableRipple value="fichas" label="Cadastro" disabled={semLoja || bloqueiaOutrasAbas} />
+      )}
+    </Tabs>
+  );
+}
+
 export default function ControleEstoquePage() {
   usePageTitle('Estoque');
   const navigate = useNavigate();
@@ -940,55 +1026,17 @@ export default function ControleEstoquePage() {
             </Box>
           ) : null}
         </Box>
-        <Tabs
-          value={idLoja ? aba : false}
-          onChange={(_e, v: AbaEstoque) => {
-            if (bloqueiaOutrasAbas && v !== 'conferencia') return;
-            irParaAba(v);
-          }}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            mt: chromeCompacto ? 1.15 : 1.75,
-            minHeight: 40,
-            minWidth: 0,
-            borderBottom: `1px solid ${colors.border}`,
-            '& .MuiTab-root': {
-              minHeight: 40,
-              minWidth: 0,
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              fontWeight: 600,
-              fontSize: '0.72rem',
-              color: colors.textMuted,
-              px: { xs: 1.25, md: 1.75 },
-            },
-            '& .Mui-selected': { fontWeight: 700, color: `${colors.textPrimary} !important` },
-            '& .MuiTabs-indicator': { height: 2, bgcolor: colors.orange },
-          }}
-        >
-          {podeConferencia && (
-            <Tab value="conferencia" label="Conferência" disabled={!idLoja} />
-          )}
-          {podeOperacional && (
-            <Tab value="vendas" label="Vendas" disabled={!idLoja || bloqueiaOutrasAbas} />
-          )}
-          {podeOperacional && (
-            <Tab value="rede" label="Rede" disabled={!idLoja || bloqueiaOutrasAbas} />
-          )}
-          {podeOperacional && (
-            <Tab value="piloto" label="Baixa" disabled={!idLoja || bloqueiaOutrasAbas} />
-          )}
-          {podeBreak && (
-            <Tab value="break" label="Break" disabled={!idLoja || bloqueiaOutrasAbas} />
-          )}
-          {podeOperacional && (
-            <Tab value="saldo" label="Saldo" disabled={!idLoja || bloqueiaOutrasAbas} />
-          )}
-          {podeOperacional && (
-            <Tab value="fichas" label="Cadastro" disabled={!idLoja || bloqueiaOutrasAbas} />
-          )}
-        </Tabs>
+        <Box sx={{ mt: chromeCompacto ? 1.15 : 1.75 }}>
+          <AbasControleEstoque
+            value={idLoja ? aba : false}
+            onChange={irParaAba}
+            bloqueiaOutrasAbas={bloqueiaOutrasAbas}
+            podeConferencia={podeConferencia}
+            podeOperacional={podeOperacional}
+            podeBreak={podeBreak}
+            idLoja={idLoja}
+          />
+        </Box>
       </Box>
 
       {!idLoja ? (

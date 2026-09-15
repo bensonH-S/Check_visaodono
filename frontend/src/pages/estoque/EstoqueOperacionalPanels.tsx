@@ -458,7 +458,13 @@ export default function EstoqueOperacionalPanels({
     );
   }
   if (aba === 'piloto') {
-    return <EstoquePilotoAuditoriaPanel idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
+    return (
+      <EstoquePilotoAuditoriaPanel
+        idLoja={idLoja}
+        onSetHeaderActions={onSetHeaderActions}
+        onIrFichas={onIrFichas}
+      />
+    );
   }
   if (aba === 'saldo') {
     return <PainelSaldoKardex idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
