@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -8,6 +8,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import Drawer from '@mui/material/Drawer';
+import CloseIcon from '@mui/icons-material/Close';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -43,6 +45,8 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
 import {
   api,
+  type EstoqueBreakDetalhe,
+  type EstoqueBreakItem,
   type EstoqueBreakResumo,
   type EstoqueEmprestimoAReceber,
   type Loja,
@@ -3590,6 +3594,105 @@ function labelTurnoBreak(turno?: string | null) {
   return '—';
 }
 
+function tituloItemBreak(raw?: string | null) {
+  const s = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  const siglas = new Set(['bbq', 'bk', 'kg', 'cx', 'und', 'pct']);
+  return s
+    .toLowerCase()
+    .replace(/\b([a-z0-9][a-z0-9']*)/g, (word) => {
+      if (siglas.has(word)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    });
+}
+
+function nomeProdutoBreak(raw?: string | null, curto = false) {
+  const titled = tituloItemBreak(raw);
+  if (!titled) return '';
+  const limpo = titled
+    .replace(/\b(Estado Natural|Refricon)\b/gi, '')
+    .replace(/\bCx\s*\d+\w*/gi, '')
+    .replace(/\b\d+[kK][gG]\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const base = limpo || titled;
+  if (!curto) return base;
+  return base.split(' ').slice(0, 4).join(' ');
+}
+
+function tipoCurtoBreak(tipo?: string | null) {
+  if (String(tipo || '').startsWith('desperdicio')) return 'Desperdício';
+  if (tipo === 'emprestimo') return 'Empréstimo';
+  return 'Break';
+}
+
+function nomeLinhaBreak(b: EstoqueBreakResumo) {
+  if (b.tipo === 'emprestimo') {
+    const loja = b.loja_destino_nome
+      ? `${b.loja_destino_bk ? `${b.loja_destino_bk} · ` : ''}${b.loja_destino_nome}`
+      : 'Outra loja';
+    if (b.recebimento_status === 'pendente') return `${loja} · aguardando`;
+    if (b.recebimento_status === 'recebido') return `${loja} · recebido`;
+    if (b.recebimento_status === 'devolvido') return `${loja} · devolvido`;
+    return loja;
+  }
+  if (b.colaborador_nome) return b.colaborador_nome.trim();
+  return nomeProdutoBreak(b.primeiro_item, true) || 'Lançamento';
+}
+
+function resumoItemBreak(b: EstoqueBreakResumo) {
+  const produto = nomeProdutoBreak(b.primeiro_item, true);
+  const extra = b.itens && b.itens > 1 ? ` +${b.itens - 1}` : '';
+  if (String(b.tipo || '').startsWith('desperdicio')) {
+    return [produto, b.motivo].filter(Boolean).join(' · ') || 'Desperdício';
+  }
+  return produto ? `${produto}${extra}` : extra.trim() || '—';
+}
+
+function fmtQtdItemBreak(it: {
+  quantidade?: number | null;
+  contagem_caixa?: number | null;
+  contagem_pc_fd?: number | null;
+  contagem_kg_und?: number | null;
+  unidade?: string | null;
+}) {
+  const partes = [
+    it.contagem_caixa != null ? `${fmtNum(it.contagem_caixa, 0)} cx` : null,
+    it.contagem_pc_fd != null ? `${fmtNum(it.contagem_pc_fd, 0)} pct` : null,
+    it.contagem_kg_und != null ? `${fmtNum(it.contagem_kg_und)} ${it.unidade || 'kg'}` : null,
+  ].filter(Boolean);
+  if (partes.length) return partes.join(' · ');
+  if (it.quantidade != null) {
+    const n = Number(it.quantidade);
+    const q =
+      Number.isFinite(n) && Math.abs(n - Math.round(n)) < 0.001 ? String(Math.round(n)) : fmtNum(n);
+    return q;
+  }
+  return '—';
+}
+
+function rotuloDiaBreak(iso: string | null | undefined, longo = false) {
+  const s = String(iso || '').slice(0, 10);
+  if (!s) return '—';
+  const hoje = hojeISO();
+  const ontemDate = new Date(`${hoje}T12:00:00`);
+  ontemDate.setDate(ontemDate.getDate() - 1);
+  const ontem = ontemDate.toISOString().slice(0, 10);
+  if (s === hoje) return 'Hoje';
+  if (s === ontem) return 'Ontem';
+  try {
+    const txt = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: 'numeric',
+      month: longo ? 'long' : 'short',
+    }).format(new Date(`${s}T12:00:00`));
+    return txt.replace('.', '');
+  } catch {
+    const [y, m, d] = s.split('-');
+    return y && m && d ? `${d}/${m}` : s;
+  }
+}
+
 function PainelBreak({ idLoja }: { idLoja: number }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<EstoqueBreakResumo[]>([]);
@@ -3618,6 +3721,11 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const [aReceber, setAReceber] = useState<EstoqueEmprestimoAReceber[]>([]);
   const [aDevolver, setADevolver] = useState<EstoqueEmprestimoAReceber[]>([]);
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
+  const [filtro, setFiltro] = useState<'todos' | 'refeicao' | 'desperdicio' | 'emprestimo'>('todos');
+  const [busca, setBusca] = useState('');
+  const [aberto, setAberto] = useState<EstoqueBreakResumo | null>(null);
+  const [detalhe, setDetalhe] = useState<EstoqueBreakDetalhe | null>(null);
+  const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
   const usaInsumo = kind === 'desperdicio_incompleto' || kind === 'emprestimo';
   const exigeColab = kind === 'refeicao';
   const exigeTurno = kind !== 'emprestimo';
@@ -3820,6 +3928,68 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     }
   };
 
+  const qtdFiltro = useMemo(() => {
+    const n = { todos: lista.length, refeicao: 0, desperdicio: 0, emprestimo: 0 };
+    for (const b of lista) {
+      if (b.tipo === 'emprestimo') n.emprestimo += 1;
+      else if (String(b.tipo || '').startsWith('desperdicio')) n.desperdicio += 1;
+      else n.refeicao += 1;
+    }
+    return n;
+  }, [lista]);
+
+  const grupos = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    const filtrada = lista.filter((b) => {
+      if (filtro === 'refeicao' && b.tipo && b.tipo !== 'refeicao') return false;
+      if (filtro === 'desperdicio' && !String(b.tipo || '').startsWith('desperdicio')) return false;
+      if (filtro === 'emprestimo' && b.tipo !== 'emprestimo') return false;
+      if (!q) return true;
+      return [b.colaborador_nome, b.primeiro_item, b.motivo, b.loja_destino_nome]
+        .some((v) => String(v || '').toLowerCase().includes(q));
+    });
+    const mapa = new Map<string, EstoqueBreakResumo[]>();
+    for (const b of filtrada) {
+      const dia = String(b.data_break || '').slice(0, 10) || 'sem-data';
+      const arr = mapa.get(dia) || [];
+      arr.push(b);
+      mapa.set(dia, arr);
+    }
+    return [...mapa.entries()];
+  }, [lista, filtro, busca]);
+
+  useEffect(() => {
+    const flat = grupos.flatMap(([, rows]) => rows);
+    setAberto((atual) => {
+      if (atual && flat.some((x) => x.id_break === atual.id_break)) return atual;
+      return null;
+    });
+  }, [grupos]);
+
+  useEffect(() => {
+    if (!aberto) {
+      setDetalhe(null);
+      return;
+    }
+    let cancel = false;
+    setCarregandoDetalhe(true);
+    setDetalhe(null);
+    api
+      .estoqueBreakDetalhe(aberto.id_break, idLoja)
+      .then((d) => {
+        if (!cancel) setDetalhe(d);
+      })
+      .catch((e) => {
+        if (!cancel) showToast(e instanceof Error ? e.message : 'Não consegui abrir o lançamento', 'error');
+      })
+      .finally(() => {
+        if (!cancel) setCarregandoDetalhe(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [aberto?.id_break, idLoja]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -3828,18 +3998,85 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     );
   }
 
+  const filtrosBarra: Array<{ id: typeof filtro; label: string; qtd: number; hide?: boolean }> = [
+    { id: 'todos', label: 'Todos', qtd: qtdFiltro.todos },
+    { id: 'refeicao', label: 'Break', qtd: qtdFiltro.refeicao },
+    { id: 'desperdicio', label: 'Desperdício', qtd: qtdFiltro.desperdicio },
+    { id: 'emprestimo', label: 'Empréstimo', qtd: qtdFiltro.emprestimo, hide: !qtdFiltro.emprestimo },
+  ];
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy, letterSpacing: '-0.01em' }}>
-            Break
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, maxWidth: 560 }}>
-            Break e desperdício baixam o que der na hora. Se faltar ficha ou conversão, o lançamento
-            segue e a pendência fica registrada para corrigir depois.
-          </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexWrap: 'wrap',
+          flexShrink: 0,
+          pb: 0.25,
+          borderBottom: `1px solid ${colors.border}`,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
+          {filtrosBarra
+            .filter((f) => !f.hide)
+            .map((f) => {
+              const ativo = filtro === f.id;
+              return (
+                <Button
+                  key={f.id}
+                  disableRipple
+                  onClick={() => setFiltro(f.id)}
+                  sx={{
+                    textTransform: 'none',
+                    minWidth: 0,
+                    px: 1.1,
+                    py: 0.85,
+                    borderRadius: 0,
+                    fontWeight: ativo ? 700 : 600,
+                    fontSize: '0.8125rem',
+                    color: ativo ? colors.textPrimary : colors.textSecondary,
+                    borderBottom: ativo ? `2px solid ${colors.orange}` : '2px solid transparent',
+                    bgcolor: 'transparent',
+                    '&:hover': { bgcolor: 'transparent', color: colors.textPrimary },
+                  }}
+                >
+                  {f.label}
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 0.85,
+                      px: 0.65,
+                      minWidth: 20,
+                      height: 18,
+                      borderRadius: '9px',
+                      bgcolor: colors.canvasAlt,
+                      color: colors.textMuted,
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {f.qtd}
+                  </Box>
+                </Button>
+              );
+            })}
         </Box>
+        <TextField
+          size="small"
+          placeholder="Buscar"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          sx={{
+            ml: { sm: 'auto' },
+            width: { xs: '100%', sm: 220 },
+            '& .MuiOutlinedInput-root': { height: 36, bgcolor: colors.surface },
+          }}
+        />
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -3847,170 +4084,252 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             resetForm();
             setOpen(true);
           }}
-          sx={{ bgcolor: (theme: any) => theme.palette.mode === 'dark' ? colors.orange : colors.navy, color: (theme: any) => theme.palette.mode === 'dark' ? '#E5E7EB' : '#FFFFFF', '&:hover': { bgcolor: (theme: any) => theme.palette.mode === 'dark' ? colors.orangeHover : colors.navyDark } }}
+          sx={{
+            height: 36,
+            px: 1.75,
+            bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? colors.orange : colors.navy),
+            color: '#fff',
+            fontWeight: 700,
+            '&:hover': {
+              bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? colors.orangeHover : colors.navyDark),
+            },
+          }}
         >
           Lançar
         </Button>
       </Box>
 
       {aReceber.length > 0 && (
-        <Paper sx={{ ...tablePaperSx, p: 2, border: '1px solid #E8520A' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
-            Empréstimos para receber
+        <Box sx={{ ...portalPanelSx, p: 1.5, flexShrink: 0 }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: colors.textSecondary, mb: 0.75 }}>
+            Para receber
           </Typography>
           {aReceber.map((emp) => (
             <Box
               key={emp.id_break}
-              sx={{
-                display: 'flex',
-                gap: 1.5,
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                py: 1,
-                borderTop: '1px solid rgba(15,26,69,0.08)',
-              }}
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 0.6 }}
             >
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  De {emp.loja_origem_bk ? `${emp.loja_origem_bk} · ` : ''}
-                  {emp.loja_origem_nome || 'outra loja'}
-                </Typography>
-                {(emp.itens || []).map((it, idx) => (
-                  <Typography key={idx} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {it.codigo} · {it.descricao}
-                    {it.contagem_pc_fd != null ? ` · ${it.contagem_pc_fd} pct` : ''}
-                    {it.contagem_caixa != null ? ` · ${it.contagem_caixa} cx` : ''}
-                    {it.contagem_kg_und != null ? ` · ${it.contagem_kg_und} kg/und` : ''}
-                  </Typography>
-                ))}
-              </Box>
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.textPrimary }}>
+                {emp.loja_origem_nome || 'Outra loja'}
+                {(emp.itens || [])[0]
+                  ? ` · ${nomeProdutoBreak(emp.itens[0].descricao) || emp.itens[0].codigo}`
+                  : ''}
+              </Typography>
               <Button
                 size="small"
                 variant="contained"
                 disabled={confirmandoId === emp.id_break}
                 onClick={() => void confirmarRecebimento(emp.id_break)}
-                sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, flexShrink: 0 }}
+                sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, height: 28, fontWeight: 700 }}
               >
-                {confirmandoId === emp.id_break ? '…' : 'OK — recebi'}
+                {confirmandoId === emp.id_break ? '…' : 'Recebi'}
               </Button>
             </Box>
           ))}
-        </Paper>
+        </Box>
       )}
 
       {aDevolver.length > 0 && (
-        <Paper sx={{ ...tablePaperSx, p: 2, border: '1px solid #0f1a45' }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: colors.navy }}>
-            Empréstimos para devolver
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            Itens que esta loja pegou emprestado e ainda não devolveu.
+        <Box sx={{ ...portalPanelSx, p: 1.5, flexShrink: 0 }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: colors.textSecondary, mb: 0.75 }}>
+            Para devolver
           </Typography>
           {aDevolver.map((emp) => (
             <Box
               key={emp.id_break}
-              sx={{
-                display: 'flex',
-                gap: 1.5,
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                py: 1,
-                borderTop: '1px solid rgba(15,26,69,0.08)',
-              }}
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 0.6 }}
             >
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  Devolver para {emp.loja_origem_bk ? `${emp.loja_origem_bk} · ` : ''}
-                  {emp.loja_origem_nome || 'loja de origem'}
-                </Typography>
-                {(emp.itens || []).map((it, idx) => (
-                  <Typography key={idx} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {it.codigo} · {it.descricao}
-                    {it.contagem_pc_fd != null ? ` · ${it.contagem_pc_fd} pct` : ''}
-                    {it.contagem_caixa != null ? ` · ${it.contagem_caixa} cx` : ''}
-                    {it.contagem_kg_und != null ? ` · ${it.contagem_kg_und} kg/und` : ''}
-                  </Typography>
-                ))}
-              </Box>
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.textPrimary }}>
+                {emp.loja_origem_nome || 'Loja de origem'}
+                {(emp.itens || [])[0]
+                  ? ` · ${nomeProdutoBreak(emp.itens[0].descricao) || emp.itens[0].codigo}`
+                  : ''}
+              </Typography>
               <Button
                 size="small"
                 variant="contained"
                 disabled={confirmandoId === emp.id_break}
                 onClick={() => void confirmarDevolucao(emp.id_break)}
-                sx={{ bgcolor: colors.navy, '&:hover': { bgcolor: '#152056' }, flexShrink: 0 }}
+                sx={{ bgcolor: colors.navy, '&:hover': { bgcolor: colors.navyDark }, height: 28, fontWeight: 700 }}
               >
                 {confirmandoId === emp.id_break ? '…' : 'Devolver'}
               </Button>
             </Box>
           ))}
-        </Paper>
+        </Box>
       )}
 
-      <Paper sx={tablePaperSx}>
+      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
         <TableContainer sx={tableContainerSx}>
-          <Table size="small" stickyHeader sx={tableSx}>
+          <Table stickyHeader sx={tableSx} size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Data</TableCell>
-                <TableCell>Tipo</TableCell>
-                <TableCell>Turno</TableCell>
-                <TableCell>Colaborador / destino</TableCell>
-                <TableCell>Motivo</TableCell>
-                <TableCell>Estoque</TableCell>
-                <TableCell align="right">Itens</TableCell>
-                <TableCell>Lançado por</TableCell>
+                <TableCell sx={{ ...vendasThSx, pl: 2.5 }}>Colaborador</TableCell>
+                <TableCell sx={vendasThSx}>Pedido</TableCell>
+                <TableCell sx={vendasThSx} width={100}>
+                  Turno
+                </TableCell>
+                <TableCell sx={vendasThSx} width={130}>
+                  Tipo
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {lista.map((b) => (
-                <TableRow key={b.id_break} hover>
-                  <TableCell>{fmtDataBR(b.data_break)}</TableCell>
-                  <TableCell>{labelTipoBreak(b.tipo)}</TableCell>
-                  <TableCell>{labelTurnoBreak(b.turno)}</TableCell>
-                  <TableCell>
-                    {b.tipo === 'emprestimo'
-                      ? `${
-                          b.loja_destino_nome
-                            ? `${b.loja_destino_bk ? `${b.loja_destino_bk} · ` : ''}${b.loja_destino_nome}`
-                            : '—'
-                        }${
-                          b.recebimento_status === 'pendente'
-                            ? ' · aguardando'
-                            : b.recebimento_status === 'recebido'
-                              ? ' · recebido'
-                              : b.recebimento_status === 'devolvido'
-                                ? ' · devolvido'
-                                : ''
-                        }`
-                      : b.colaborador_nome || '—'}
-                  </TableCell>
-                  <TableCell>{b.motivo || '—'}</TableCell>
-                  <TableCell sx={{ maxWidth: 220, fontSize: '0.75rem' }}>
-                    {b.avisos_baixa ? (
-                      <Typography component="span" sx={{ color: '#B42318', fontWeight: 700, fontSize: '0.75rem' }}>
-                        Parcial: {String(b.avisos_baixa).split('\n')[0]}
-                      </Typography>
-                    ) : (
-                      'OK'
-                    )}
-                  </TableCell>
-                  <TableCell align="right">{b.itens ?? 0}</TableCell>
-                  <TableCell>{b.criado_por_nome || '—'}</TableCell>
-                </TableRow>
-              ))}
-              {!lista.length && (
+              {!grupos.length ? (
                 <TableRow>
-                  <TableCell colSpan={8}>
-                    <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
-                      Nenhum break lançado
-                    </Typography>
+                  <TableCell colSpan={4} sx={{ py: 5, color: colors.textMuted, borderBottom: 0 }}>
+                    Nenhum lançamento neste recorte.
                   </TableCell>
                 </TableRow>
+              ) : (
+                grupos.map(([dia, rows]) => (
+                  <Fragment key={dia}>
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        sx={{
+                          py: 1,
+                          pl: 2.5,
+                          bgcolor: colors.canvasAlt,
+                          borderBottom: `1px solid ${colors.border}`,
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        {rotuloDiaBreak(dia, true)}
+                      </TableCell>
+                    </TableRow>
+                    {rows.map((b) => {
+                      const ativo = aberto?.id_break === b.id_break;
+                      const turno = labelTurnoBreak(b.turno);
+                      return (
+                        <TableRow
+                          key={b.id_break}
+                          hover
+                          selected={ativo}
+                          onClick={() => setAberto(b)}
+                          sx={{
+                            cursor: 'pointer',
+                            '& td': { borderBottom: `1px solid ${colors.border}`, py: 1.15 },
+                            '&.Mui-selected': { bgcolor: 'rgba(15, 26, 69, 0.05)' },
+                            '&.Mui-selected:hover': { bgcolor: 'rgba(15, 26, 69, 0.07)' },
+                          }}
+                        >
+                          <TableCell sx={{ pl: 2.5, fontSize: '0.875rem', fontWeight: 600, color: colors.textPrimary }}>
+                            {nomeLinhaBreak(b)}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.8125rem', color: colors.textSecondary }}>
+                            {resumoItemBreak(b)}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.8125rem', color: colors.textSecondary }}>
+                            {turno !== '—' ? turno : '—'}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.8125rem', color: colors.textSecondary }}>
+                            {tipoCurtoBreak(b.tipo)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </Fragment>
+                ))
               )}
             </TableBody>
           </Table>
         </TableContainer>
       </Paper>
+
+      <Drawer
+        anchor="right"
+        open={!!aberto}
+        onClose={() => {
+          setAberto(null);
+          setDetalhe(null);
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: '100%', sm: 420 },
+              borderLeft: `1px solid ${colors.border}`,
+              boxShadow: '-8px 0 24px rgba(15, 26, 69, 0.06)',
+            },
+          },
+        }}
+      >
+        {aberto ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, px: 2.5, pt: 2.25, pb: 2, borderBottom: `1px solid ${colors.border}` }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.02em', color: colors.textPrimary, lineHeight: 1.25 }}>
+                  {aberto.colaborador_nome?.trim() || nomeLinhaBreak(aberto)}
+                </Typography>
+                <Typography sx={{ fontSize: '0.8125rem', color: colors.textSecondary, mt: 0.5 }}>
+                  {[
+                    tipoCurtoBreak(aberto.tipo),
+                    rotuloDiaBreak(aberto.data_break, true),
+                    labelTurnoBreak(aberto.turno) !== '—' ? labelTurnoBreak(aberto.turno) : null,
+                    aberto.motivo || null,
+                  ]
+                    .filter(Boolean)
+                    .join('  ·  ')}
+                </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                aria-label="Fechar"
+                onClick={() => {
+                  setAberto(null);
+                  setDetalhe(null);
+                }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+            <Box sx={{ flex: 1, overflow: 'auto', px: 2.5, py: 2 }}>
+              {carregandoDetalhe ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                  <CircularProgress size={22} />
+                </Box>
+              ) : detalhe?.itens?.length ? (
+                <>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', pb: 0.75, borderBottom: `1px solid ${colors.border}` }}>
+                    <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: colors.textMuted }}>
+                      Pedido
+                    </Typography>
+                    <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: colors.textMuted }}>
+                      Qtd
+                    </Typography>
+                  </Box>
+                  {(detalhe.itens as EstoqueBreakItem[]).map((it, idx) => (
+                    <Box
+                      key={`${it.codigo || 'item'}-${idx}`}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'baseline',
+                        gap: 2,
+                        py: 1.15,
+                        borderBottom: `1px solid ${colors.border}`,
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '0.9rem', color: colors.textPrimary }}>
+                        {nomeProdutoBreak(it.descricao) || tituloItemBreak(it.descricao) || it.codigo || 'Item'}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        {fmtQtdItemBreak(it)}
+                      </Typography>
+                    </Box>
+                  ))}
+                </>
+              ) : (
+                <Typography sx={{ color: colors.textMuted, fontSize: '0.8125rem' }}>
+                  Este lançamento não tem item gravado.
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        ) : null}
+      </Drawer>
 
       <Dialog
         open={open}

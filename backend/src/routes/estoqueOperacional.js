@@ -8,6 +8,7 @@ import {
   importarVendasLoja,
   processarVenda,
   lancarBreak,
+  buscarBreakDetalhe,
   listarLojasDestinoEmprestimo,
   listarEmprestimosAReceber,
   listarEmprestimosADevolver,
@@ -1268,7 +1269,8 @@ router.get('/break', permBreak, async (req, res, next) => {
               COALESCE(b.colaborador_nome, uc.nome) AS colaborador_nome,
               ld.name AS loja_destino_nome,
               ld.bk_number AS loja_destino_bk,
-              (SELECT COUNT(*)::int FROM estoque_break_itens i WHERE i.id_break = b.id_break) AS itens
+              (SELECT COUNT(*)::int FROM estoque_break_itens i WHERE i.id_break = b.id_break) AS itens,
+              (SELECT i.descricao FROM estoque_break_itens i WHERE i.id_break = b.id_break ORDER BY i.id_item LIMIT 1) AS primeiro_item
        FROM estoque_break b
        LEFT JOIN usuarios u ON u.id_usuario = b.criado_por
        LEFT JOIN usuarios uc ON uc.id_usuario = b.id_colaborador
@@ -1376,6 +1378,22 @@ router.get('/break/catalogo', permBreak, async (req, res, next) => {
       insumos,
     });
   } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/break/:id', permBreak, async (req, res, next) => {
+  try {
+    const idBreak = Number(req.params.id);
+    const idLoja = parseIdLoja(req.query.id_loja);
+    if (!Number.isFinite(idBreak) || idBreak <= 0) {
+      return res.status(400).json({ error: 'Lançamento inválido' });
+    }
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    res.json(await buscarBreakDetalhe({ id_break: idBreak, id_loja: idLoja }));
+  } catch (e) {
+    if (respostaErroOperacional(res, e)) return;
     next(e);
   }
 });

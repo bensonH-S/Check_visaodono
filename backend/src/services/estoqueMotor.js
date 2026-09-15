@@ -1900,6 +1900,60 @@ export async function lancarBreak(
   }
 }
 
+export async function buscarBreakDetalhe({ id_break, id_loja }) {
+  await garantirSchemaBreakCaderno(pool);
+  const { rows: br } = await pool.query(
+    `SELECT b.*, u.nome AS criado_por_nome,
+            COALESCE(b.colaborador_nome, uc.nome) AS colaborador_nome,
+            ld.name AS loja_destino_nome,
+            ld.bk_number AS loja_destino_bk
+     FROM estoque_break b
+     LEFT JOIN usuarios u ON u.id_usuario = b.criado_por
+     LEFT JOIN usuarios uc ON uc.id_usuario = b.id_colaborador
+     LEFT JOIN lojas ld ON ld.id_loja = b.id_loja_destino
+     WHERE b.id_break = $1 AND b.id_loja = $2`,
+    [id_break, id_loja],
+  );
+  const cabeca = br[0];
+  if (!cabeca) {
+    throw Object.assign(new Error('Lançamento não encontrado'), { status: 404 });
+  }
+
+  const { rows: itens } = await pool.query(
+    `SELECT id_item, codigo, descricao, quantidade,
+            contagem_caixa, contagem_pc_fd, contagem_kg_und
+     FROM estoque_break_itens
+     WHERE id_break = $1
+     ORDER BY id_item`,
+    [id_break],
+  );
+
+  const { rows: consumos } = await pool.query(
+    `SELECT m.quantidade,
+            i.codigo,
+            i.descricao,
+            COALESCE(NULLIF(BTRIM(i.unidade_fracionada), ''), i.unidade_contagem) AS unidade
+     FROM estoque_movimentos m
+     LEFT JOIN insumos i ON i.id_insumo = m.id_insumo
+     WHERE m.referencia_tipo = 'estoque_break'
+       AND m.referencia_id = $1
+       AND m.quantidade < 0
+     ORDER BY i.descricao NULLS LAST, m.id_movimento`,
+    [id_break],
+  );
+
+  return {
+    break: cabeca,
+    itens,
+    consumos: consumos.map((c) => ({
+      codigo: c.codigo,
+      descricao: c.descricao,
+      quantidade: Math.abs(num(c.quantidade)),
+      unidade: c.unidade || null,
+    })),
+  };
+}
+
 export async function listarEmprestimosAReceber(idLojaDestino) {
   await garantirSchemaBreakCaderno(pool);
   const { rows } = await pool.query(

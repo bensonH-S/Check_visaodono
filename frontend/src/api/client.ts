@@ -1381,6 +1381,8 @@ export const api = {
     }),
   estoqueBreaks: (idLoja: number) =>
     request<EstoqueBreakResumo[]>(`/estoque/break?id_loja=${idLoja}`),
+  estoqueBreakDetalhe: (idBreak: number, idLoja: number) =>
+    request<EstoqueBreakDetalhe>(`/estoque/break/${idBreak}?id_loja=${idLoja}`),
   estoqueLojasDestinoEmprestimo: () =>
     request<Loja[]>('/estoque/break/lojas-destino'),
   estoqueEmprestimosAReceber: (idLoja: number) =>
@@ -3584,6 +3586,27 @@ export interface EstoqueSyncResult {
   importResult: { dias: number; resultados: unknown[] };
 }
 
+export interface EstoqueBreakItem {
+  codigo?: string | null;
+  descricao?: string | null;
+  quantidade?: number | null;
+  contagem_caixa?: number | null;
+  contagem_pc_fd?: number | null;
+  contagem_kg_und?: number | null;
+  unidade?: string | null;
+}
+
+export interface EstoqueBreakDetalhe {
+  break: EstoqueBreakResumo;
+  itens: EstoqueBreakItem[];
+  consumos: Array<{
+    codigo?: string | null;
+    descricao?: string | null;
+    quantidade: number;
+    unidade?: string | null;
+  }>;
+}
+
 export interface EstoqueBreakResumo {
   id_break: number;
   id_loja: number;
@@ -3594,6 +3617,7 @@ export interface EstoqueBreakResumo {
   motivo_codigo?: string | null;
   status: string;
   itens?: number;
+  primeiro_item?: string | null;
   id_colaborador?: number | null;
   colaborador_nome?: string | null;
   id_loja_destino?: number | null;

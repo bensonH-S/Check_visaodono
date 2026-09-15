@@ -204,20 +204,15 @@ function tituloLoja(l: Loja) {
 }
 
 function subtituloLoja(l: Loja) {
-  return [l.bk_number, l.city].filter(Boolean).join(' · ');
+  const cidadeNoNome = l.city && l.name.toUpperCase().includes(l.city.toUpperCase());
+  return [l.bk_number, cidadeNoNome ? null : l.city].filter(Boolean).join(' · ');
 }
 
-const ROTULO_ABA: Record<AbaEstoque, string> = {
-  cmv: 'CMV',
-  vendas: 'Vendas',
-  rede: 'Rede',
-  piloto: 'Baixa',
-  saldo: 'Saldo',
-  conferencia: 'Conferência',
-  break: 'Break',
-  pedido: 'Pedido',
-  fichas: 'Cadastro',
-};
+const ABAS_VENDAS = ['vendas', 'rede', 'piloto'] as const;
+
+function abaDaBarra(aba: AbaEstoque): AbaEstoque {
+  return (ABAS_VENDAS as readonly string[]).includes(aba) ? 'vendas' : aba;
+}
 
 const UNIDADES_FRACIONADAS = ['KG', 'UND', 'L'] as const;
 
@@ -333,12 +328,6 @@ function AbasControleEstoque({
       )}
       {podeOperacional && (
         <Tab disableRipple value="vendas" label="Vendas" disabled={semLoja || bloqueiaOutrasAbas} />
-      )}
-      {podeOperacional && (
-        <Tab disableRipple value="rede" label="Rede" disabled={semLoja || bloqueiaOutrasAbas} />
-      )}
-      {podeOperacional && (
-        <Tab disableRipple value="piloto" label="Baixa" disabled={semLoja || bloqueiaOutrasAbas} />
       )}
       {podeBreak && (
         <Tab disableRipple value="break" label="Break" disabled={semLoja || bloqueiaOutrasAbas} />
@@ -858,7 +847,14 @@ export default function ControleEstoquePage() {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
-  const chromeCompacto = aba === 'saldo' || aba === 'conferencia' || aba === 'rede' || aba === 'piloto';
+  const chromeCompacto =
+    aba === 'saldo' ||
+    aba === 'conferencia' ||
+    aba === 'vendas' ||
+    aba === 'rede' ||
+    aba === 'piloto' ||
+    aba === 'break';
+  const noGrupoVendas = (ABAS_VENDAS as readonly string[]).includes(aba);
 
   if (loadingLojas) {
     return <PageLoading label="Carregando lojas…" />;
@@ -886,18 +882,6 @@ export default function ControleEstoquePage() {
           }}
         >
           <Box sx={{ minWidth: 0, flex: '1 1 240px' }}>
-            <Typography
-              sx={{
-                fontSize: '0.68rem',
-                fontWeight: 600,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase',
-                color: colors.textMuted,
-                mb: chromeCompacto ? 0.5 : 0.75,
-              }}
-            >
-              Estoque / {ROTULO_ABA[aba]}
-            </Typography>
             {bloqueiaOutrasAbas ? (
               <Typography
                 sx={{
@@ -1028,14 +1012,32 @@ export default function ControleEstoquePage() {
         </Box>
         <Box sx={{ mt: chromeCompacto ? 1.15 : 1.75 }}>
           <AbasControleEstoque
-            value={idLoja ? aba : false}
-            onChange={irParaAba}
+            value={idLoja ? abaDaBarra(aba) : false}
+            onChange={(proxima) => {
+              if (proxima === 'vendas' && noGrupoVendas) return;
+              irParaAba(proxima);
+            }}
             bloqueiaOutrasAbas={bloqueiaOutrasAbas}
             podeConferencia={podeConferencia}
             podeOperacional={podeOperacional}
             podeBreak={podeBreak}
             idLoja={idLoja}
           />
+          {idLoja && podeOperacional && noGrupoVendas && !bloqueiaOutrasAbas ? (
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={aba}
+              onChange={(_e, v: AbaEstoque | null) => {
+                if (v) irParaAba(v);
+              }}
+              sx={{ ...toggleRelatorioSx, mt: 1 }}
+            >
+              <ToggleButton value="vendas">Números</ToggleButton>
+              <ToggleButton value="rede">Sync</ToggleButton>
+              <ToggleButton value="piloto">Baixa</ToggleButton>
+            </ToggleButtonGroup>
+          ) : null}
         </Box>
       </Box>
 

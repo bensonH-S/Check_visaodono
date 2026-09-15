@@ -215,8 +215,8 @@ export default function EstoquePilotoAuditoriaPanel({
           }}
           sx={toggleSx}
         >
-          <ToggleButton value="loja">Esta loja</ToggleButton>
-          <ToggleButton value="rede">Rede</ToggleButton>
+          <ToggleButton value="loja">Só esta loja</ToggleButton>
+          <ToggleButton value="rede">Todas as lojas</ToggleButton>
         </ToggleButtonGroup>
         <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
           {fmtPeriodo(data?.janela?.desde)}
