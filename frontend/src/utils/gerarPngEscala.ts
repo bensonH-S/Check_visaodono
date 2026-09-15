@@ -17,7 +17,7 @@ const W = 3600;
 const MARGIN = 64;
 const HEADER_H = 168;
 const KPI_H = 108;
-const DAY_H = 54;
+const DAY_H = 64;
 const NAME_BAR = 88;
 const CHIP_H = 96;
 const CHIP_GAP = 18;
@@ -455,11 +455,11 @@ function desenharEscala(
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = hojeIdx === i ? ACCENT : MUTED;
-      ctx.font = '700 15px "Segoe UI", Arial, sans-serif';
+      ctx.font = '800 20px "Segoe UI", Arial, sans-serif';
       ctx.fillText(DIAS_ABREV[i].toUpperCase(), x + colDia / 2, dayY + 16);
       ctx.fillStyle = hojeIdx === i ? ACCENT : NAVY;
-      ctx.font = '700 22px "Segoe UI", Arial, sans-serif';
-      ctx.fillText(dias[i], x + colDia / 2, dayY + 38);
+      ctx.font = '800 28px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(dias[i], x + colDia / 2, dayY + 40);
     }
     ctx.textAlign = 'left';
 

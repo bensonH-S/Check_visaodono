@@ -113,7 +113,14 @@ export function juntarNomesPt(nomes: string[]) {
   return `${limpos.slice(0, -1).join(', ')} e ${limpos[limpos.length - 1]}`;
 }
 
-export function mensagemShareEscalaTecnicos(
+const AVISO_ROTA_TECNICOS =
+  'A rota (carro) de cada técnico precisa estar de acordo com esta escala. Carro em loja ou dia diferente do previsto, sem alinhamento, é B.O.';
+
+function fecharMensagemShareTecnicos(corpo: string) {
+  return ['*AGENTE ALVIM*', '', corpo, '', AVISO_ROTA_TECNICOS].join('\n');
+}
+
+function tituloShareEscalaTecnicos(
   tecnicos: Array<{ nome: string }>,
   regionalNome?: string | null,
 ) {
@@ -126,6 +133,13 @@ export function mensagemShareEscalaTecnicos(
   return `${escala} - REGIONAL RESPONSÁVEL ${resp.toUpperCase()}`;
 }
 
+export function mensagemShareEscalaTecnicos(
+  tecnicos: Array<{ nome: string }>,
+  regionalNome?: string | null,
+) {
+  return fecharMensagemShareTecnicos(tituloShareEscalaTecnicos(tecnicos, regionalNome));
+}
+
 export function mensagemShareEscalaTecnicosPorGrupos(
   grupos: Array<{
     nome_regiao: string;
@@ -134,7 +148,7 @@ export function mensagemShareEscalaTecnicosPorGrupos(
   }>,
 ) {
   const comVisita = grupos.filter((g) => g.pessoas.length > 0);
-  if (!comVisita.length) return 'Escala dos técnicos';
+  if (!comVisita.length) return fecharMensagemShareTecnicos('Escala dos técnicos');
   if (comVisita.length === 1) {
     const g = comVisita[0];
     return mensagemShareEscalaTecnicos(
@@ -142,13 +156,14 @@ export function mensagemShareEscalaTecnicosPorGrupos(
       g.nome_regional,
     );
   }
-  return comVisita
+  const corpo = comVisita
     .map((g) => {
       const nomes = juntarNomesPt(g.pessoas.map((p) => p.primeiroNome || primeiroNome(p.nome)));
       const resp = g.nome_regional ? ` — REGIONAL ${g.nome_regional.toUpperCase()}` : '';
       return `${g.nome_regiao}: ${nomes}${resp}`;
     })
     .join('\n');
+  return fecharMensagemShareTecnicos(corpo);
 }
 
 /** Parte comercial depois de "BURGER KING": "408 SUL", "201 NORTE", "LAGO SUL". */

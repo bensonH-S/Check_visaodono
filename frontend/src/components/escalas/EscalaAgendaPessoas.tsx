@@ -4,7 +4,7 @@ import {
   DIAS_ABREV,
   diaIndexNaSemana,
   fmtDataAgenda,
-  fmtDiaCalendario,
+  fmtDataCurta,
 } from './escalaVisitasUtils';
 import type { EscalaAgendaLoja, EscalaAgendaPessoa } from './escalaAgendaModel';
 import LojaBkMarca from './LojaBkMarca';
@@ -95,7 +95,6 @@ export default function EscalaAgendaPessoas({
       <div className="ck-escala-cal ck-escala-cal--mobile">
         <div className="ck-escala-cal__dias" role="tablist">
           {DIAS_ABREV.map((label, dia) => {
-            const cal = fmtDiaCalendario(addDaysIso(semanaInicio, dia));
             const n = porDia[dia].length;
             return (
               <button
@@ -107,7 +106,7 @@ export default function EscalaAgendaPessoas({
                 onClick={() => setDiaSel(dia)}
               >
                 <span>{label}</span>
-                <b>{cal.dia}</b>
+                <b>{fmtDataCurta(addDaysIso(semanaInicio, dia))}</b>
                 {n > 0 ? <em>{n}</em> : null}
               </button>
             );
@@ -135,15 +134,13 @@ export default function EscalaAgendaPessoas({
       <div className="ck-escala-cal__grid">
         {DIAS_ABREV.map((label, dia) => {
           const iso = addDaysIso(semanaInicio, dia);
-          const cal = fmtDiaCalendario(iso);
           const ehHoje = hoje === dia;
           const eventos = porDia[dia];
           return (
             <div key={label} className={`ck-escala-cal__col${ehHoje ? ' is-today' : ''}`}>
               <div className="ck-escala-cal__col-h">
                 <span>{label}</span>
-                <b className={ehHoje ? 'is-today' : undefined}>{cal.dia}</b>
-                <small>{cal.mes}</small>
+                <b className={ehHoje ? 'is-today' : undefined}>{fmtDataCurta(iso)}</b>
               </div>
               <div className="ck-escala-cal__col-b">
                 {eventos.length ? (

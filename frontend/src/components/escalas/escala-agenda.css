@@ -54,8 +54,8 @@
 }
 
 .ck-escala-cal__col-h span {
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--cal-muted);
@@ -65,10 +65,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  font-size: 0.78rem;
+  min-width: 52px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.92rem;
   font-weight: 800;
   line-height: 1;
 }
@@ -79,7 +80,10 @@
 }
 
 .ck-escala-cal__col-h small {
-  display: none;
+  display: inline;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--cal-ink);
 }
 
 .ck-escala-cal__col-b {
@@ -162,10 +166,10 @@
 
 .ck-escala-cal__dia {
   flex: 1 0 0;
-  min-width: 40px;
-  padding: 6px 2px 5px;
+  min-width: 46px;
+  padding: 8px 2px 7px;
   border: 1px solid var(--cal-line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--cal-paper);
   color: inherit;
   font: inherit;
@@ -175,8 +179,8 @@
 
 .ck-escala-cal__dia span {
   display: block;
-  font-size: 0.6rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--cal-muted);
@@ -184,8 +188,8 @@
 
 .ck-escala-cal__dia b {
   display: block;
-  margin-top: 1px;
-  font-size: 0.84rem;
+  margin-top: 2px;
+  font-size: 0.98rem;
   font-weight: 800;
   line-height: 1.15;
 }
@@ -257,7 +261,7 @@ html.dark .ck-escala-cal__dia.is-on em {
 }
 
 .ck-escala-cal__data strong {
-  font-size: 0.92rem;
+  font-size: 1.12rem;
   font-weight: 800;
   text-transform: capitalize;
   color: var(--cal-ink);
@@ -415,7 +419,7 @@ html.dark .ck-escala-cal__ev {
 .ck-escala-reg__dia > span {
   display: flex;
   flex-direction: column;
-  font-size: 0.62rem;
+  font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -427,8 +431,8 @@ html.dark .ck-escala-cal__ev {
 }
 
 .ck-escala-reg__dia > span small {
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 800;
   letter-spacing: 0;
   text-transform: none;
   color: var(--cal-ink);
@@ -464,7 +468,7 @@ html.dark .ck-escala-cal__ev {
 }
 
 .ck-escala-cal--mobile .ck-escala-reg__dia > span {
-  min-width: 52px;
+  min-width: 72px;
 }
 
 html.dark .ck-escala-reg__h {

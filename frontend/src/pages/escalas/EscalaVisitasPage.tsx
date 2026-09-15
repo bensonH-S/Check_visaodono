@@ -1873,10 +1873,10 @@ export default function EscalaVisitasPage() {
                     </TableCell>
                     {DIAS.map((label, dia) => (
                       <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: '#0F766E' }}>
+                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 800, fontSize: '0.82rem', color: '#0F766E' }}>
                           {label}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        <Typography sx={{ display: 'block', fontWeight: 800, fontSize: '0.95rem', lineHeight: 1.2 }}>
                           {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                         </Typography>
                       </TableCell>
@@ -2107,10 +2107,10 @@ export default function EscalaVisitasPage() {
                         const todas = lojas.length > 0 && idsDia.length === lojas.length;
                         return (
                           <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: acento }}>
+                            <Typography variant="caption" sx={{ display: 'block', fontWeight: 800, fontSize: '0.82rem', color: acento }}>
                               {label}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            <Typography sx={{ display: 'block', fontWeight: 800, fontSize: '0.95rem', lineHeight: 1.2 }}>
                               {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                             </Typography>
                             {podeEditarTecnicoManut(idTecnicoManut) && lojas.length > 0 && (
@@ -2212,10 +2212,10 @@ export default function EscalaVisitasPage() {
                       const todas = lojasDelivery.length > 0 && idsDia.length === lojasDelivery.length;
                       return (
                         <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                          <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, color: acento }}>
+                          <Typography variant="caption" sx={{ display: 'block', fontWeight: 800, fontSize: '0.82rem', color: acento }}>
                             {label}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          <Typography sx={{ display: 'block', fontWeight: 800, fontSize: '0.95rem', lineHeight: 1.2 }}>
                             {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                           </Typography>
                           {podeEditarDelivery && lojasDelivery.length > 0 && (
@@ -2360,10 +2360,10 @@ export default function EscalaVisitasPage() {
                   </TableCell>
                   {DIAS.map((label, i) => (
                     <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 700 }}>
+                      <Typography variant="caption" sx={{ display: 'block', fontWeight: 800, fontSize: '0.82rem' }}>
                         {label}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography sx={{ display: 'block', fontWeight: 800, fontSize: '0.95rem', lineHeight: 1.2 }}>
                         {fmtDataCurta(addDaysIso(semanaInicio, i))}
                       </Typography>
                     </TableCell>

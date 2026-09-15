@@ -74,17 +74,18 @@
 }
 
 .ck-escala--compact .ck-escala__dia {
-  min-width: 52px;
-  padding: 7px 6px;
+  min-width: 64px;
+  padding: 8px 6px;
   border-radius: 12px;
 }
 
 .ck-escala--compact .ck-escala__dia strong {
-  font-size: 0.72rem;
+  font-size: 0.84rem;
 }
 
 .ck-escala--compact .ck-escala__dia small {
-  font-size: 0.62rem;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .ck-escala--compact .ck-escala__dia-n {
@@ -128,6 +129,7 @@
   padding-bottom: 0;
 }
 
+.ck-escala__sheet--fill > .ck-escala__nav,
 .ck-escala__sheet--fill > .ck-escala__filtro-row,
 .ck-escala__sheet--fill > .ck-escala__sticky {
   flex-shrink: 0;
@@ -196,35 +198,41 @@
   flex-shrink: 0;
 }
 
+.ck-escala .ck-escala__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .ck-escala .ck-escala__filtro-row {
   display: flex;
   align-items: stretch;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .ck-escala .ck-escala__filtro-row .ck-visitas__seg {
   flex: 1;
   min-width: 0;
   margin-bottom: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   display: flex;
   gap: 4px;
 }
 
-.ck-escala .ck-escala__filtro-row .ck-visitas__seg::-webkit-scrollbar {
-  display: none;
+.ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 0.78rem;
+  padding: 0 4px;
+  min-height: 38px;
+  white-space: nowrap;
 }
 
-.ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn {
-  flex: 0 0 auto;
-  font-size: 0.72rem;
-  padding: 0 10px;
-  min-height: 36px;
-  white-space: nowrap;
+.ck-escala .ck-escala__filtro-row--sub .ck-visitas__seg-btn {
+  min-height: 34px;
+  font-size: 0.75rem;
 }
 
 .ck-escala .ck-escala__filtro-btn {
@@ -413,7 +421,7 @@
 .ck-escala .ck-escala__dia {
   flex-shrink: 0;
   scroll-snap-align: start;
-  min-width: 64px;
+  min-width: 74px;
   padding: 10px 8px;
   border-radius: 14px;
   text-align: center;
@@ -437,7 +445,7 @@
 
 .ck-escala .ck-escala__dia strong {
   display: block;
-  font-size: 0.78rem;
+  font-size: 0.92rem;
   font-weight: 800;
   color: var(--ck-navy);
 }
@@ -445,8 +453,9 @@
 .ck-escala .ck-escala__dia small {
   display: block;
   margin-top: 2px;
-  font-size: 0.68rem;
-  color: rgba(20, 32, 72, 0.5);
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: rgba(20, 32, 72, 0.7);
 }
 
 .ck-escala .ck-escala__dia-n {

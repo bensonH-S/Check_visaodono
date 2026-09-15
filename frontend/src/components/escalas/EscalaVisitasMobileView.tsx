@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -72,6 +72,14 @@ function formatarHoraDigitada(raw: string): string {
 }
 
 type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery' | 'gestores' | 'manutencao' | 'montar';
+type AbaModulo = 'escala' | 'delivery' | 'gestores' | 'tecnicos';
+
+function moduloDoModo(m: ModoVisualizacao): AbaModulo {
+  if (m === 'delivery') return 'delivery';
+  if (m === 'gestores') return 'gestores';
+  if (m === 'manutencao') return 'tecnicos';
+  return 'escala';
+}
 type PendingMap = Map<
   string,
   | { id_loja: number; dia: number; id_regionais: number[] }
@@ -258,6 +266,9 @@ export default function EscalaVisitasMobileView() {
   const [modo, setModo] = useState<ModoVisualizacao>(
     ehDeliveryOnly ? 'minhas' : ehRegional ? 'minhas' : ehDiretor ? 'lojas' : 'minhas',
   );
+  const ultimoModoEscala = useRef<ModoVisualizacao>(
+    ehDiretor && !ehDeliveryOnly ? 'lojas' : 'minhas',
+  );
   const [diaSelecionado, setDiaSelecionado] = useState(() => diaIndexNaSemana(segundaFeiraAtual()) ?? 0);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
@@ -304,36 +315,55 @@ export default function EscalaVisitasMobileView() {
     const deliveryPendente = grade?.status_delivery?.status === 'pendente_aprovacao';
     return { regioes, deliveryPendente, length: regioes.length + (deliveryPendente ? 1 : 0) };
   }, [cardsAprovacao, grade?.status_delivery]);
-  const modos = useMemo(() => {
-    if (ehDeliveryOnly) {
-      return [
-        { id: 'minhas' as const, label: 'Minhas' },
-        { id: 'montar' as const, label: 'Montar' },
-      ];
-    }
-    // Regional: Minhas (só o próprio nome) + Montar (quando tem permissão de região).
-    if (ehRegional) {
-      return [
-        { id: 'minhas' as const, label: 'Minhas' },
-        { id: 'lojas' as const, label: 'Semana' },
-        { id: 'gestores' as const, label: 'Gestores' },
-        { id: 'manutencao' as const, label: 'Manutenção' },
-        { id: 'montar' as const, label: 'Montar' },
-      ];
-    }
-    const base: Array<{ id: ModoVisualizacao; label: string }> = [
-      { id: 'minhas', label: 'Minhas' },
-      { id: 'lojas', label: 'Semana' },
-      { id: 'dia', label: 'Por dia' },
-      { id: 'delivery', label: 'Delivery' },
-      { id: 'gestores', label: 'Gestores' },
-      { id: 'manutencao', label: 'Manutenção' },
-    ];
-    if (ehDiretor || grade?.pode_editar_regiao || grade?.pode_editar) {
-      base.unshift({ id: 'montar', label: ehDiretor ? 'Editar' : 'Montar' });
-    }
+  const podeMontarEscala =
+    ehDiretor || Boolean(grade?.pode_editar_regiao || grade?.pode_editar);
+  const moduloAtivo = ehDeliveryOnly ? 'escala' : moduloDoModo(modo);
+  const subEscalaAtivo = modo === 'dia' ? 'lojas' : modo;
+  const modulos = useMemo(() => {
+    if (ehDeliveryOnly) return [] as Array<{ id: AbaModulo; label: string }>;
+    const base: Array<{ id: AbaModulo; label: string }> = [{ id: 'escala', label: 'Escala' }];
+    if (ehDiretor) base.push({ id: 'delivery', label: 'Delivery' });
+    base.push({ id: 'gestores', label: 'Gestores' }, { id: 'tecnicos', label: 'Técnicos' });
     return base;
-  }, [ehRegional, ehDiretor, ehDeliveryOnly, grade?.pode_editar_regiao, grade?.pode_editar]);
+  }, [ehDeliveryOnly, ehDiretor]);
+  const subsEscala = useMemo(() => {
+    if (!ehDeliveryOnly && moduloAtivo !== 'escala') return [];
+    const itens: Array<{ id: ModoVisualizacao; label: string }> = [
+      { id: 'minhas', label: 'Minhas' },
+    ];
+    if (!ehDeliveryOnly) itens.push({ id: 'lojas', label: 'Semana' });
+    if (ehDeliveryOnly || podeMontarEscala) {
+      itens.push({ id: 'montar', label: ehDiretor ? 'Editar' : 'Montar' });
+    }
+    return itens;
+  }, [ehDeliveryOnly, ehDiretor, moduloAtivo, podeMontarEscala]);
+
+  const aplicarModo = useCallback(
+    (id: ModoVisualizacao) => {
+      setModo(id);
+      if (!ehDeliveryOnly && (id === 'minhas' || id === 'lojas' || id === 'montar')) {
+        ultimoModoEscala.current = id;
+      }
+      if (id === 'montar' || id === 'delivery') {
+        setIdEnvio(null);
+        if (!ehDiretor) setIdUsuarioFiltro(null);
+      }
+    },
+    [ehDiretor, ehDeliveryOnly],
+  );
+
+  const irParaModulo = useCallback(
+    (id: AbaModulo) => {
+      if (id === 'escala') {
+        aplicarModo(ultimoModoEscala.current);
+        return;
+      }
+      if (id === 'delivery') aplicarModo('delivery');
+      else if (id === 'gestores') aplicarModo('gestores');
+      else aplicarModo('manutencao');
+    },
+    [aplicarModo],
+  );
 
   const carregar = useCallback(async () => {
     if (!podeVer) return;
@@ -1320,40 +1350,53 @@ export default function EscalaVisitasMobileView() {
       </div>
 
       <div className="ck-visitas__sheet ck-escala__sheet--fill ck-visitas__anim ck-visitas__anim--4">
-          {modos.length > 1 && (
-          <div className="ck-escala__filtro-row">
-            <div className="ck-visitas__seg" role="tablist">
-              {modos.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={modo === id}
-                  className={`ck-visitas__seg-btn${modo === id ? ' is-on' : ''}`}
-                  onClick={() => {
-                    setModo(id);
-                    if (id === 'montar' || id === 'delivery') {
-                      setIdEnvio(null);
-                      // Mantém a semana/região em tela — diretor edita a escala já montada.
-                      if (!ehDiretor) {
-                        setIdUsuarioFiltro(null);
-                      }
-                    }
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {temFiltroRegiao && !ehRegional && modo !== 'gestores' && modo !== 'manutencao' && (
-              <button
-                type="button"
-                className={`ck-escala__filtro-btn${idRegiao !== '' ? ' is-on' : ''}`}
-                aria-label="Filtrar região"
-                onClick={() => setFiltroRegiaoAberto(true)}
-              >
-                <FilterListIcon sx={{ fontSize: 20 }} />
-              </button>
+          {(modulos.length > 0 || subsEscala.length > 1) && (
+          <div className="ck-escala__nav">
+            {modulos.length > 0 && (
+              <div className="ck-escala__filtro-row">
+                <div className="ck-visitas__seg" role="tablist" aria-label="Módulo da escala">
+                  {modulos.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="tab"
+                      aria-selected={moduloAtivo === id}
+                      className={`ck-visitas__seg-btn${moduloAtivo === id ? ' is-on' : ''}`}
+                      onClick={() => irParaModulo(id)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {temFiltroRegiao && !ehRegional && modo !== 'gestores' && modo !== 'manutencao' && (
+                  <button
+                    type="button"
+                    className={`ck-escala__filtro-btn${idRegiao !== '' ? ' is-on' : ''}`}
+                    aria-label="Filtrar região"
+                    onClick={() => setFiltroRegiaoAberto(true)}
+                  >
+                    <FilterListIcon sx={{ fontSize: 20 }} />
+                  </button>
+                )}
+              </div>
+            )}
+            {subsEscala.length > 1 && (
+              <div className={`ck-escala__filtro-row${modulos.length > 0 ? ' ck-escala__filtro-row--sub' : ''}`}>
+                <div className="ck-visitas__seg" role="tablist" aria-label="Visão da escala">
+                  {subsEscala.map(({ id, label }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="tab"
+                      aria-selected={subEscalaAtivo === id}
+                      className={`ck-visitas__seg-btn${subEscalaAtivo === id ? ' is-on' : ''}`}
+                      onClick={() => aplicarModo(id)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
           )}
