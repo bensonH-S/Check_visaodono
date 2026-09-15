@@ -104,7 +104,7 @@ function baixarBlob(blob: Blob, nome: string) {
   URL.revokeObjectURL(url);
 }
 
-async function compartilharOuBaixar(
+export async function compartilharOuBaixar(
   blob: Blob,
   arquivo: string,
   title: string,

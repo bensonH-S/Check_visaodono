@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
@@ -137,7 +137,7 @@ function PortalLayoutInner() {
   const notificacoes = (
     <>
       {(veSinoChamados && (emChamados || isDashboard || emEscala)) ||
-      (podeVerEscalaVisitas(user) && emEscala) ? (
+      ((podeVerEscalaVisitas(user) || podeVerEscalaGestores(user)) && emEscala) ? (
         <>
           {administraChamados && (emChamados || isDashboard || emEscala) && <AtivarPushHeaderButton />}
           <NotificacoesSino variante="portal" contexto="chamados" menuLargo />
@@ -335,7 +335,7 @@ function PortalLayoutInner() {
 
     // CAMPO
     { to: '/frota', label: 'Frota', icon: <DirectionsCarIcon fontSize="small" />, show: podeAcessarModuloFrota(user), section: 'CAMPO' },
-    { to: '/escalas/visitas', label: 'Planejamento', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user), section: 'CAMPO' },
+    { to: '/escalas/visitas', label: 'Planejamento', icon: <CalendarMonthIcon fontSize="small" />, show: podeVerEscalaVisitas(user) || podeVerEscalaGestores(user), section: 'CAMPO' },
     { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user), section: 'CAMPO' },
 
     // GESTÃO

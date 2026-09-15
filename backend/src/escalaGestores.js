@@ -1,7 +1,38 @@
 import { pool } from './db.js';
-import { segundaFeiraDaSemana, podeVerEscalaVisitas, podeGerenciarEscalaVisitas } from './escalaVisitas.js';
+import { segundaFeiraDaSemana, podeVerEscalaGestores, podeGerenciarEscalaVisitas } from './escalaVisitas.js';
 
 const TIPOS = new Set(['folga', 'ferias', 'falta', 'ausencia']);
+
+const DIA_FOLGA_NOME = [
+  ['segunda', 0],
+  ['terca', 1],
+  ['terça', 1],
+  ['quarta', 2],
+  ['quinta', 3],
+  ['sexta', 4],
+  ['sabado', 5],
+  ['sábado', 5],
+  ['domingo', 6],
+];
+
+function normFolga(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+/** Dias da semana (0=seg) implícitos no texto. "ou" e "combinado" não forçam dia. */
+export function diasDaFolgaPadrao(texto) {
+  const n = normFolga(texto);
+  if (!n || n.includes('combinado') || n.includes(' ou ')) return [];
+  const dias = [];
+  for (const [nome, idx] of DIA_FOLGA_NOME) {
+    if (n.includes(normFolga(nome))) dias.push(idx);
+  }
+  return [...new Set(dias)];
+}
 
 let schemaOk = false;
 
@@ -68,7 +99,7 @@ function horaApi(v) {
 }
 
 export async function carregarGradeGestores(user, { semana_inicio } = {}) {
-  if (!podeVerEscalaVisitas(user)) {
+  if (!podeVerEscalaGestores(user)) {
     throw new Error('Sem permissão para ver a escala de gestores');
   }
   await garantirSchemaGestores();
@@ -155,9 +186,52 @@ export async function salvarGradeGestores(user, body) {
   await garantirSchemaGestores();
   const inicio = segundaFeiraDaSemana(body?.semana_inicio || new Date());
   const lista = Array.isArray(body?.celulas) ? body.celulas : [];
+  const gestoresFolga = Array.isArray(body?.gestores) ? body.gestores : [];
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    for (const g of gestoresFolga) {
+      const idGestor = Number(g.id_gestor);
+      if (!idGestor || !Object.prototype.hasOwnProperty.call(g, 'folga_padrao')) continue;
+      const folgaPadrao = String(g.folga_padrao || '').trim() || null;
+      await client.query(`UPDATE escala_gestores SET folga_padrao = $2 WHERE id_gestor = $1`, [
+        idGestor,
+        folgaPadrao,
+      ]);
+      const diasFolga = diasDaFolgaPadrao(folgaPadrao);
+      if (!diasFolga.length && !folgaPadrao) {
+        for (let dia = 0; dia < 7; dia += 1) {
+          const data = addDaysIso(inicio, dia);
+          await client.query(
+            `DELETE FROM escala_gestores_celula
+             WHERE id_gestor = $1 AND data = $2::date AND tipo = 'folga'`,
+            [idGestor, data],
+          );
+        }
+      } else if (diasFolga.length) {
+        for (let dia = 0; dia < 7; dia += 1) {
+          const data = addDaysIso(inicio, dia);
+          if (diasFolga.includes(dia)) {
+            await client.query(
+              `INSERT INTO escala_gestores_celula (id_gestor, data, tipo)
+               VALUES ($1, $2::date, 'folga')
+               ON CONFLICT (id_gestor, data) DO UPDATE SET tipo = 'folga'`,
+              [idGestor, data],
+            );
+            await client.query(
+              `DELETE FROM escala_gestores_horario WHERE id_gestor = $1 AND data = $2::date`,
+              [idGestor, data],
+            );
+          } else {
+            await client.query(
+              `DELETE FROM escala_gestores_celula
+               WHERE id_gestor = $1 AND data = $2::date AND tipo = 'folga'`,
+              [idGestor, data],
+            );
+          }
+        }
+      }
+    }
     for (const item of lista) {
       const idGestor = Number(item.id_gestor);
       const dia = Number(item.dia);
@@ -173,6 +247,10 @@ export async function salvarGradeGestores(user, body) {
           await client.query(
             `INSERT INTO escala_gestores_celula (id_gestor, data, tipo) VALUES ($1, $2::date, $3)`,
             [idGestor, data, tipo],
+          );
+          await client.query(
+            `DELETE FROM escala_gestores_horario WHERE id_gestor = $1 AND data = $2::date`,
+            [idGestor, data],
           );
         }
       }

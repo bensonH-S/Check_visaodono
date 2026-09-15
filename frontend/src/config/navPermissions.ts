@@ -1,4 +1,4 @@
-import { temPermissao, type UsuarioSessao } from '../lib/auth';
+import { podeVerEscalaGestores, temPermissao, type UsuarioSessao } from '../lib/auth';
 
 export type RotaNav = {
   path: string;
@@ -29,6 +29,7 @@ export function primeiraRotaPermitida(user: UsuarioSessao | null): string {
   for (const rota of ROTAS_NAV) {
     if (rota.permissoes.some((p) => temPermissao(p, user))) return rota.path;
   }
+  if (podeVerEscalaGestores(user)) return '/escalas/visitas';
   return '/login';
 }
 

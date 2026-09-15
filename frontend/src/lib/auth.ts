@@ -144,7 +144,7 @@ export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
   }
   if (podeUsarChecklist(usuario)) return '/checklist/mobile';
   if (podeVerVisitasMobile(usuario)) return '/visitas/mobile';
-  if (podeVerEscalaVisitas(usuario)) return '/escalas/visitas/mobile';
+  if (podeVerEscalaVisitas(usuario) || podeVerEscalaGestores(usuario)) return '/escalas/visitas/mobile';
   if (podeVerNcMobile(usuario)) return '/nc/mobile';
   if (podeVerEnergia(usuario)) return '/energia/mobile';
   if (podeUsarFrota(usuario)) return '/frota/mobile';
@@ -481,6 +481,16 @@ export function podeVerEscalaVisitas(usuario?: UsuarioSessao | null): boolean {
     podeEditarEscalaDelivery(usuario) ||
     temPermissao('escalas.visitas.ver', usuario)
   );
+}
+
+/** Gestor de loja acompanha horário/folga no app, mesmo sem montar visita. */
+export function podeVerEscalaGestores(usuario?: UsuarioSessao | null): boolean {
+  if (podeVerEscalaVisitas(usuario)) return true;
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (ehGestorLojaMobile(u)) return true;
+  const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  return cargo === 'gerente' || cargo === 'coordenador';
 }
 
 export function podeGerenciarMetas(usuario?: UsuarioSessao | null): boolean {

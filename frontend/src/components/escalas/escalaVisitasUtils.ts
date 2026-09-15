@@ -1,6 +1,59 @@
 export const DIAS_ABREV = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] as const;
 export const DIAS_LONGO = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'] as const;
 
+export function ehMinhaLinhaGestor(
+  linha: { id_loja: number | null; nome: string },
+  usuario: { nome?: string; lojas?: Array<{ id_loja: number }> } | null,
+) {
+  if (!usuario) return false;
+  const ids = new Set((usuario.lojas ?? []).map((l) => Number(l.id_loja)));
+  if (linha.id_loja != null && ids.has(Number(linha.id_loja))) return true;
+  const meu = primeiroNome(usuario.nome || '').toLowerCase();
+  return Boolean(meu && primeiroNome(linha.nome).toLowerCase() === meu);
+}
+
+export function linhasGestoresLoja<T extends { grupo?: string | null }>(linhas: T[] | null | undefined): T[] {
+  return (linhas ?? []).filter((l) => l.grupo !== 'campo');
+}
+
+export const FOLGA_GESTOR_OPCOES = [
+  'Domingo',
+  'Segunda',
+  'Terça',
+  'Quarta',
+  'Quinta',
+  'Sexta',
+  'Sábado',
+  'Sábado e Domingo',
+  'Quinta ou Domingo',
+] as const;
+
+export function diasDaFolgaPadrao(texto?: string | null) {
+  const n = String(texto || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+  if (!n || n.includes('combinado') || n.includes(' ou ')) return [] as number[];
+  const mapa: Array<[string, number]> = [
+    ['segunda', 0],
+    ['terca', 1],
+    ['quarta', 2],
+    ['quinta', 3],
+    ['sexta', 4],
+    ['sabado', 5],
+    ['domingo', 6],
+  ];
+  return [...new Set(mapa.filter(([nome]) => n.includes(nome)).map(([, i]) => i))];
+}
+
+export function rotuloFolgaDias(dias: number[]) {
+  const unicos = [...new Set(dias)].sort((a, b) => a - b);
+  if (!unicos.length) return '';
+  if (unicos.length === 2 && unicos[0] === 5 && unicos[1] === 6) return 'Sábado e Domingo';
+  return unicos.map((i) => DIAS_LONGO[i]).join(' e ');
+}
+
 export function addDaysIso(iso: string, days: number) {
   const d = new Date(`${iso}T12:00:00`);
   d.setDate(d.getDate() + days);

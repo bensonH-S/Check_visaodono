@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -40,7 +40,7 @@ import {
   type EscalaVisitasLinha,
   type EscalaVisitasRegiaoStatusCodigo,
 } from '../../api/client';
-import { getUsuario, podeEditarEscalaDelivery, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas } from '../../lib/auth';
+import { getUsuario, podeEditarEscalaDelivery, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas, podeVerEscalaGestores, podeVerEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
@@ -54,9 +54,13 @@ import EscalaAgendaPorRegional from '../../components/escalas/EscalaAgendaPorReg
 import EscalaCelulaGrade from '../../components/escalas/EscalaCelulaGrade';
 import LojaBkMarca from '../../components/escalas/LojaBkMarca';
 import { gerarPngEscala } from '../../utils/gerarPngEscala';
+import { gerarPngEscalaGestores } from '../../utils/gerarPngEscalaGestores';
 import {
   addDaysIso,
   agruparRegionaisEscala,
+  FOLGA_GESTOR_OPCOES,
+  ehMinhaLinhaGestor,
+  linhasGestoresLoja,
   fmtDataCurta,
   fmtEnvioQuando,
   montarCardsAprovacaoEscala,
@@ -128,14 +132,8 @@ function tipoGestorSx(tipo: string, escuro: boolean) {
   };
 }
 
-const TIPO_GESTOR_CICLO = [null, 'folga', 'ferias'] as const;
-const COR_GESTORES = '#0F766E';
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
-
-function proximoTipoGestor(atual: string | null) {
-  const i = TIPO_GESTOR_CICLO.findIndex((t) => t === atual);
-  return TIPO_GESTOR_CICLO[(i + 1) % TIPO_GESTOR_CICLO.length] || null;
-}
+const TIPOS_DIA_GESTOR = ['folga', 'ferias', 'ausencia', 'falta'] as const;
 /** Roxo da planilha Time de Campo para célula multi (ex.: I/R). */
 const COR_ESCALA_MULTI = '#7030A0';
 const COL_DIA_MIN_WIDTH = 108;
@@ -160,6 +158,21 @@ const estiloInputHora = {
   outline: 'none',
 } as const;
 
+const estiloInputHoraPlano = {
+  width: 46,
+  border: 'none',
+  borderBottom: '1px solid transparent',
+  borderRadius: 0,
+  fontSize: 13,
+  fontWeight: 700,
+  padding: '2px 0',
+  textAlign: 'center' as const,
+  color: colors.textPrimary,
+  background: 'transparent',
+  outline: 'none',
+  fontVariantNumeric: 'tabular-nums' as const,
+};
+
 /** Digita só números; insere `:` após 2 dígitos → HH:mm */
 function formatarHoraDigitada(raw: string): string {
   const digitos = raw.replace(/\D/g, '').slice(0, 4);
@@ -171,6 +184,7 @@ function InputsHorario({
   inicio,
   fim,
   disabled,
+  compact,
   ariaInicio,
   ariaFim,
   onChangeInicio,
@@ -180,14 +194,16 @@ function InputsHorario({
   inicio: string;
   fim: string;
   disabled?: boolean;
+  compact?: boolean;
   ariaInicio: string;
   ariaFim: string;
   onChangeInicio: (valor: string) => void;
   onChangeFim: (valor: string) => void;
   onBlur?: (inicio: string, fim: string) => void;
 }) {
+  const estilo = compact ? estiloInputHoraPlano : estiloInputHora;
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-start' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: compact ? 0.25 : 0.5, justifyContent: compact ? 'center' : 'flex-start' }}>
       <input
         type="text"
         inputMode="numeric"
@@ -198,10 +214,16 @@ function InputsHorario({
         value={inicio}
         disabled={disabled}
         onChange={(e) => onChangeInicio(formatarHoraDigitada(e.target.value))}
-        onBlur={() => onBlur?.(inicio, fim)}
-        style={{ ...estiloInputHora, opacity: disabled ? 0.45 : 1 }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderBottomColor = 'transparent';
+          onBlur?.(inicio, fim);
+        }}
+        onFocus={(e) => {
+          if (compact && !disabled) e.currentTarget.style.borderBottomColor = colors.navy;
+        }}
+        style={{ ...estilo, opacity: disabled ? 0.55 : 1 }}
       />
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, lineHeight: 1 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, lineHeight: 1, px: compact ? 0.15 : 0 }}>
         –
       </Typography>
       <input
@@ -214,16 +236,21 @@ function InputsHorario({
         value={fim}
         disabled={disabled}
         onChange={(e) => onChangeFim(formatarHoraDigitada(e.target.value))}
-        onBlur={() => onBlur?.(inicio, fim)}
-        style={{ ...estiloInputHora, opacity: disabled ? 0.45 : 1 }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderBottomColor = 'transparent';
+          onBlur?.(inicio, fim);
+        }}
+        onFocus={(e) => {
+          if (compact && !disabled) e.currentTarget.style.borderBottomColor = colors.navy;
+        }}
+        style={{ ...estilo, opacity: disabled ? 0.55 : 1 }}
       />
     </Box>
   );
 }
 
-function horarioDaPessoa(dias: Array<{ hora_inicio?: string | null; hora_fim?: string | null }>) {
-  const h = dias.find((d) => d.hora_inicio || d.hora_fim);
-  return { hora_inicio: h?.hora_inicio || '', hora_fim: h?.hora_fim || '' };
+function horarioDoDia(d: { hora_inicio?: string | null; hora_fim?: string | null }) {
+  return { hora_inicio: d.hora_inicio || '', hora_fim: d.hora_fim || '' };
 }
 
 type CelulaChave = string;
@@ -248,6 +275,9 @@ export default function EscalaVisitasPage() {
   const ehDiretor = podeGerenciarEscalaVisitas();
   const ehRegional = !ehDiretor && podeEditarEscalaRegiao();
   const ehDeliveryOnly = !ehDiretor && !ehRegional && podeEditarEscalaDelivery();
+  const podeVerVisitas = podeVerEscalaVisitas(user);
+  const podeVerGestoresTab = podeVerEscalaGestores(user);
+  const ehGestorOnly = !podeVerVisitas && podeVerGestoresTab;
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
@@ -258,7 +288,7 @@ export default function EscalaVisitasPage() {
   const [exportandoPdf, setExportandoPdf] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
   const [aba, setAba] = useState<'visitas' | 'delivery' | 'gestores' | 'manutencao'>(
-    ehDeliveryOnly ? 'delivery' : 'visitas',
+    ehGestorOnly ? 'gestores' : ehDeliveryOnly ? 'delivery' : 'visitas',
   );
   const [visaoVisitas, setVisaoVisitas] = useState<'agenda' | 'grade'>(ehDiretor ? 'agenda' : 'grade');
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
@@ -272,6 +302,7 @@ export default function EscalaVisitasPage() {
   const [horariosManutLocal, setHorariosManutLocal] = useState<
     Map<number, { hora_inicio: string; hora_fim: string }>
   >(() => new Map());
+  const linhasGestores = useMemo(() => linhasGestoresLoja(gestores?.linhas), [gestores?.linhas]);
   const abaFolga = aba === 'gestores';
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);
@@ -313,6 +344,10 @@ export default function EscalaVisitasPage() {
   }, [grade?.regionais, grade?.linhas]);
 
   const carregar = useCallback(async () => {
+    if (!podeVerVisitas) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const q = new URLSearchParams({ semana_inicio: semanaInicio });
@@ -331,27 +366,27 @@ export default function EscalaVisitasPage() {
     } finally {
       setLoading(false);
     }
-  }, [semanaInicio, idRegiao, idEnvio, ehRegional]);
+  }, [semanaInicio, idRegiao, idEnvio, ehRegional, podeVerVisitas]);
 
   const carregarGestores = useCallback(async () => {
-    if (ehDeliveryOnly) return;
+    if (ehDeliveryOnly || !podeVerGestoresTab) return;
     try {
       const data = await api.escalaGestoresSemana(semanaInicio);
       setGestores(data);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar gestores', 'error');
     }
-  }, [semanaInicio, ehDeliveryOnly]);
+  }, [semanaInicio, ehDeliveryOnly, podeVerGestoresTab]);
 
   const carregarManutencao = useCallback(async () => {
-    if (ehDeliveryOnly) return;
+    if (ehDeliveryOnly || !podeVerVisitas) return;
     try {
       const data = await api.escalaManutencaoSemana(semanaInicio);
       setManutencao(data);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar manutenção', 'error');
     }
-  }, [semanaInicio, ehDeliveryOnly]);
+  }, [semanaInicio, ehDeliveryOnly, podeVerVisitas]);
 
   useEffect(() => {
     void carregar();
@@ -480,14 +515,33 @@ export default function EscalaVisitasPage() {
     return idsLojasDestinoDoDia(original);
   }
 
-  async function cicloCelulaGestor(idGestor: number, dia: number, atual: string | null) {
+  async function salvarCelulaGestor(
+    idGestor: number,
+    dia: number,
+    patch: { tipo?: string | null; hora_inicio?: string | null; hora_fim?: string | null },
+  ) {
     if (!gestores?.pode_editar) return;
-    const proximo = proximoTipoGestor(atual);
     setSalvando(true);
     try {
       const data = await api.escalaGestoresSalvar({
         semana_inicio: semanaInicio,
-        celulas: [{ id_gestor: idGestor, dia, tipo: proximo }],
+        celulas: [{ id_gestor: idGestor, dia, ...patch }],
+      });
+      setGestores(data);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar escala', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function salvarFolgaPadraoGestor(idGestor: number, folgaPadrao: string) {
+    if (!gestores?.pode_editar) return;
+    setSalvando(true);
+    try {
+      const data = await api.escalaGestoresSalvar({
+        semana_inicio: semanaInicio,
+        gestores: [{ id_gestor: idGestor, folga_padrao: folgaPadrao || null }],
       });
       setGestores(data);
     } catch (e) {
@@ -499,6 +553,7 @@ export default function EscalaVisitasPage() {
 
   function alterarHorarioGestorLocal(
     idGestor: number,
+    dia: number,
     campo: 'hora_inicio' | 'hora_fim',
     valor: string,
   ) {
@@ -511,32 +566,20 @@ export default function EscalaVisitasPage() {
             ? linha
             : {
                 ...linha,
-                dias: linha.dias.map((d) => ({ ...d, [campo]: valor || null })),
+                dias: linha.dias.map((d) =>
+                  d.dia !== dia ? d : { ...d, [campo]: valor || null },
+                ),
               },
         ),
       };
     });
   }
 
-  async function salvarHorarioGestor(idGestor: number, horaInicio: string, horaFim: string) {
-    if (!gestores?.pode_editar) return;
-    setSalvando(true);
-    try {
-      const data = await api.escalaGestoresSalvar({
-        semana_inicio: semanaInicio,
-        celulas: Array.from({ length: 7 }, (_, dia) => ({
-          id_gestor: idGestor,
-          dia,
-          hora_inicio: horaInicio || null,
-          hora_fim: horaFim || null,
-        })),
-      });
-      setGestores(data);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao salvar horário', 'error');
-    } finally {
-      setSalvando(false);
-    }
+  async function salvarHorarioGestor(idGestor: number, dia: number, horaInicio: string, horaFim: string) {
+    await salvarCelulaGestor(idGestor, dia, {
+      hora_inicio: horaInicio || null,
+      hora_fim: horaFim || null,
+    });
   }
 
   function idsLojasManut(idUsuario: number, dia: number) {
@@ -1090,10 +1133,10 @@ export default function EscalaVisitasPage() {
                 },
               }}
             >
-              {!ehDeliveryOnly && <ToggleButton value="visitas">Visitas</ToggleButton>}
-              <ToggleButton value="delivery">Delivery</ToggleButton>
-              {!ehDeliveryOnly && <ToggleButton value="gestores">Gestores</ToggleButton>}
-              {!ehDeliveryOnly && <ToggleButton value="manutencao">Manutenção</ToggleButton>}
+              {podeVerVisitas && !ehDeliveryOnly && <ToggleButton value="visitas">Visitas</ToggleButton>}
+              {podeVerVisitas && <ToggleButton value="delivery">Delivery</ToggleButton>}
+              {!ehDeliveryOnly && podeVerGestoresTab && <ToggleButton value="gestores">Gestores</ToggleButton>}
+              {!ehDeliveryOnly && podeVerVisitas && <ToggleButton value="manutencao">Manutenção</ToggleButton>}
             </ToggleButtonGroup>
             {aba === 'visitas' && !ehDeliveryOnly && (
               <ToggleButtonGroup
@@ -1202,6 +1245,34 @@ export default function EscalaVisitasPage() {
                     try {
                       await gerarPngEscala({
                         pessoas: agendaPessoas,
+                        semanaInicio,
+                        semanaLabel: grade?.semana_label,
+                        asShare: false,
+                      });
+                    } catch (e) {
+                      showToast(e instanceof Error ? e.message : 'Erro ao gerar imagem', 'error');
+                    } finally {
+                      setExportandoPdf(false);
+                    }
+                  })();
+                }}
+              >
+                {exportandoPdf ? 'Gerando…' : 'PNG'}
+              </Button>
+            )}
+            {aba === 'gestores' && !ehDeliveryOnly && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<IosShareIcon />}
+                disabled={exportandoPdf || !linhasGestores.length}
+                onClick={() => {
+                  void (async () => {
+                    if (!linhasGestores.length) return;
+                    setExportandoPdf(true);
+                    try {
+                      await gerarPngEscalaGestores({
+                        linhas: linhasGestores,
                         semanaInicio,
                         semanaLabel: grade?.semana_label,
                         asShare: false,
@@ -1853,7 +1924,7 @@ export default function EscalaVisitasPage() {
             flexDirection: 'column',
           }}
         >
-          {!gestores?.linhas.length ? (
+          {!linhasGestores.length ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary">Nenhum gestor cadastrado nesta escala.</Typography>
             </Box>
@@ -1862,142 +1933,205 @@ export default function EscalaVisitasPage() {
               <Table size="small" stickyHeader sx={tableSx}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: 0, zIndex: 3 }}>
+                    <TableCell sx={{ minWidth: COL_BKN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: 0, zIndex: 3, borderBottom: `1px solid ${colors.border}` }}>
                       BKN
                     </TableCell>
-                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3 }}>
+                    <TableCell sx={{ minWidth: COL_LOJA_MIN_WIDTH, fontWeight: 700, bgcolor: colors.surface, position: 'sticky', left: COL_BKN_WIDTH, zIndex: 3, borderBottom: `1px solid ${colors.border}` }}>
                       Gestor
                     </TableCell>
-                    <TableCell sx={{ minWidth: 176, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                      Horário
-                    </TableCell>
                     {DIAS.map((label, dia) => (
-                      <TableCell key={label} align="center" sx={{ minWidth: COL_DIA_MIN_WIDTH, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 800, fontSize: '0.82rem', color: '#0F766E' }}>
+                      <TableCell key={label} align="center" sx={{ minWidth: 112, fontWeight: 700, whiteSpace: 'nowrap', borderBottom: `1px solid ${colors.border}` }}>
+                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, fontSize: '0.68rem', letterSpacing: '0.06em', color: colors.textSecondary }}>
                           {label}
                         </Typography>
-                        <Typography sx={{ display: 'block', fontWeight: 800, fontSize: '0.95rem', lineHeight: 1.2 }}>
+                        <Typography sx={{ display: 'block', fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.2 }}>
                           {fmtDataCurta(addDaysIso(semanaInicio, dia))}
                         </Typography>
                       </TableCell>
                     ))}
+                    <TableCell sx={{ minWidth: 120, fontWeight: 700, whiteSpace: 'nowrap', borderBottom: `1px solid ${colors.border}` }}>
+                      Folga
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {gestores.linhas.map((linha, idx) => {
-                    const mostraGrupo =
-                      idx === 0 || linha.grupo !== gestores.linhas[idx - 1].grupo;
-                    return (
-                      <Fragment key={linha.id_gestor}>
-                        {mostraGrupo && (
-                          <TableRow>
-                            <TableCell
-                              colSpan={10}
-                              sx={{
-                                bgcolor:
-                                  linha.grupo === 'campo'
-                                    ? escuro
-                                      ? 'rgba(232, 82, 10, 0.12)'
-                                      : 'rgba(27, 42, 107, 0.06)'
-                                    : escuro
-                                      ? 'rgba(13, 148, 136, 0.16)'
-                                      : 'rgba(13, 148, 136, 0.08)',
-                                fontWeight: 800,
-                                fontSize: '0.72rem',
-                                letterSpacing: '0.04em',
-                                textTransform: 'uppercase',
-                                color: linha.grupo === 'campo' ? acento : COR_GESTORES,
-                                py: 0.75,
-                              }}
-                            >
-                              {linha.grupo === 'campo' ? 'Time de campo' : 'Gestores'}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        <TableRow hover>
+                  {linhasGestores.map((linha, idx) => (
+                    <TableRow
+                      key={linha.id_gestor}
+                      hover
+                      sx={{
+                        bgcolor: ehMinhaLinhaGestor(linha, user)
+                          ? escuro
+                            ? 'rgba(232, 82, 10, 0.1)'
+                            : 'rgba(232, 82, 10, 0.06)'
+                          : idx % 2
+                            ? escuro
+                              ? 'rgba(255,255,255,0.02)'
+                              : colors.canvasAlt
+                            : colors.surface,
+                      }}
+                    >
+                      <TableCell
+                        sx={{
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 1,
+                          bgcolor: 'inherit',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          borderBottom: `1px solid ${colors.border}`,
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        {linha.bk_number || '—'}
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          position: 'sticky',
+                          left: COL_BKN_WIDTH,
+                          zIndex: 1,
+                          bgcolor: 'inherit',
+                          borderBottom: `1px solid ${colors.border}`,
+                        }}
+                      >
+                        <Typography sx={{ fontWeight: 700, fontSize: '0.84rem', lineHeight: 1.2 }}>
+                          {linha.nome}
+                        </Typography>
+                        {linha.nome_loja ? (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            <LojaBkMarca bk={linha.bk_number} nome={linha.nome_loja} size={14} />
+                          </Typography>
+                        ) : null}
+                      </TableCell>
+                      {linha.dias.map((d) => {
+                        const tipo = d.tipo;
+                        const hr = horarioDoDia(d);
+                        const corTipo = tipoGestorSx(tipo || '', escuro);
+                        return (
                           <TableCell
+                            key={d.dia}
+                            align="center"
+                            title={
+                              gestores.pode_editar && !tipo
+                                ? 'Clique duas vezes para marcar folga'
+                                : undefined
+                            }
+                            onDoubleClick={() => {
+                              if (!gestores.pode_editar || tipo) return;
+                              void salvarCelulaGestor(linha.id_gestor, d.dia, { tipo: 'folga' });
+                            }}
                             sx={{
-                              position: 'sticky',
-                              left: 0,
-                              zIndex: 1,
-                              bgcolor: colors.surface,
-                              fontWeight: 700,
-                              fontSize: '0.75rem',
+                              py: 0.85,
+                              px: 0.5,
+                              borderBottom: `1px solid ${colors.border}`,
+                              bgcolor: tipo
+                                ? escuro
+                                  ? 'rgba(234, 88, 12, 0.12)'
+                                  : 'rgba(234, 88, 12, 0.07)'
+                                : 'transparent',
                             }}
                           >
-                            {linha.bk_number || '—'}
-                          </TableCell>
-                          <TableCell
-                            sx={{
-                              position: 'sticky',
-                              left: COL_BKN_WIDTH,
-                              zIndex: 1,
-                              bgcolor: colors.surface,
-                            }}
-                          >
-                            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>
-                              {linha.nome}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              {linha.nome_loja ? (
-                                <LojaBkMarca bk={linha.bk_number} nome={linha.nome_loja} size={14} />
-                              ) : (
-                                linha.folga_padrao || '—'
-                              )}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            {(() => {
-                              const hr = horarioDaPessoa(linha.dias);
-                              return (
-                                <InputsHorario
-                                  inicio={hr.hora_inicio}
-                                  fim={hr.hora_fim}
-                                  disabled={!gestores.pode_editar}
-                                  ariaInicio={`Início ${linha.nome}`}
-                                  ariaFim={`Fim ${linha.nome}`}
-                                  onChangeInicio={(valor) =>
-                                    alterarHorarioGestorLocal(linha.id_gestor, 'hora_inicio', valor)
-                                  }
-                                  onChangeFim={(valor) =>
-                                    alterarHorarioGestorLocal(linha.id_gestor, 'hora_fim', valor)
-                                  }
-                                  onBlur={(inicio, fim) => void salvarHorarioGestor(linha.id_gestor, inicio, fim)}
-                                />
-                              );
-                            })()}
-                          </TableCell>
-                          {linha.dias.map((d) => {
-                            const tipo = d.tipo;
-                            const label = tipo ? TIPO_GESTOR_LABEL[tipo] || tipo : '';
-                            return (
-                              <TableCell key={d.dia} align="center">
-                                <Chip
-                                  size="small"
-                                  label={label || (gestores.pode_editar ? '—' : '')}
-                                  onClick={
-                                    gestores.pode_editar
-                                      ? () => void cicloCelulaGestor(linha.id_gestor, d.dia, tipo)
-                                      : undefined
-                                  }
-                                  sx={{
-                                    minWidth: 64,
-                                    ...(tipo
-                                      ? tipoGestorSx(tipo, escuro)
-                                      : { bgcolor: colors.canvasAlt, color: colors.textSecondary }),
-                                    cursor: gestores.pode_editar ? 'pointer' : 'default',
+                            {tipo ? (
+                              gestores.pode_editar ? (
+                                <Select
+                                  variant="standard"
+                                  disableUnderline
+                                  value={tipo}
+                                  onChange={(e) => {
+                                    const v = String(e.target.value);
+                                    void salvarCelulaGestor(linha.id_gestor, d.dia, {
+                                      tipo: v === 'trabalho' ? null : v,
+                                    });
                                   }}
-                                />
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      </Fragment>
-                    );
-                  })}
+                                  sx={{
+                                    minWidth: 72,
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700,
+                                    color: corTipo.color,
+                                    '& .MuiSelect-select': { py: 0, textAlign: 'center', pr: '18px !important' },
+                                    '& .MuiSelect-icon': { opacity: 0.45, right: -4 },
+                                  }}
+                                >
+                                  <MenuItem value="trabalho">Horário</MenuItem>
+                                  {TIPOS_DIA_GESTOR.map((t) => (
+                                    <MenuItem key={t} value={t}>
+                                      {TIPO_GESTOR_LABEL[t]}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              ) : (
+                                <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: corTipo.color }}>
+                                  {TIPO_GESTOR_LABEL[tipo] || tipo}
+                                </Typography>
+                              )
+                            ) : (
+                              <InputsHorario
+                                compact
+                                inicio={hr.hora_inicio}
+                                fim={hr.hora_fim}
+                                disabled={!gestores.pode_editar}
+                                ariaInicio={`Início ${linha.nome} ${DIAS[d.dia]}`}
+                                ariaFim={`Fim ${linha.nome} ${DIAS[d.dia]}`}
+                                onChangeInicio={(valor) =>
+                                  alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_inicio', valor)
+                                }
+                                onChangeFim={(valor) =>
+                                  alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_fim', valor)
+                                }
+                                onBlur={(inicio, fim) =>
+                                  void salvarHorarioGestor(linha.id_gestor, d.dia, inicio, fim)
+                                }
+                              />
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell sx={{ minWidth: 120, borderBottom: `1px solid ${colors.border}` }}>
+                        {gestores.pode_editar ? (
+                          <Select
+                            variant="standard"
+                            disableUnderline
+                            displayEmpty
+                            value={linha.folga_padrao || ''}
+                            onChange={(e) =>
+                              void salvarFolgaPadraoGestor(linha.id_gestor, String(e.target.value))
+                            }
+                            sx={{
+                              fontSize: '0.8rem',
+                              fontWeight: 700,
+                              color: colors.textPrimary,
+                              '& .MuiSelect-select': { py: 0.2 },
+                            }}
+                          >
+                            <MenuItem value="">—</MenuItem>
+                            {FOLGA_GESTOR_OPCOES.map((op) => (
+                              <MenuItem key={op} value={op}>
+                                {op}
+                              </MenuItem>
+                            ))}
+                            <MenuItem value="combinado com Camilla">combinado com Camilla</MenuItem>
+                            {linha.folga_padrao &&
+                              !(FOLGA_GESTOR_OPCOES as readonly string[]).includes(linha.folga_padrao) &&
+                              linha.folga_padrao !== 'combinado com Camilla' && (
+                                <MenuItem value={linha.folga_padrao}>{linha.folga_padrao}</MenuItem>
+                              )}
+                          </Select>
+                        ) : (
+                          <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                            {linha.folga_padrao || '—'}
+                          </Typography>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+          {gestores?.pode_editar && linhasGestores.length > 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
+              Clique duas vezes no horário para marcar folga.
+            </Typography>
           )}
         </Paper>
       ) : aba === 'manutencao' ? (

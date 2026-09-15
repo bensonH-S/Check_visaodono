@@ -867,6 +867,141 @@
   cursor: default;
 }
 
+.ck-escala-gestor {
+  margin-bottom: 10px;
+}
+
+.ck-escala-gestor.is-me {
+  outline: 2px solid var(--ck-accent, #e8520a);
+  box-shadow: 0 0 0 4px rgba(232, 82, 10, 0.12);
+}
+
+.ck-escala-gestor__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ck-escala-gestor__folga-tag {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #c2410c;
+  text-align: right;
+  line-height: 1.3;
+}
+
+.ck-escala-gestor__dias {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.ck-escala-gestor__dia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 6px 2px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+}
+
+.ck-escala-gestor__dia:disabled {
+  opacity: 1;
+}
+
+.ck-escala-gestor__dia.is-folga,
+.ck-escala-gestor__dia.is-off {
+  background: rgba(234, 88, 12, 0.1);
+}
+
+.ck-escala-gestor__dia strong {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ck-escala-gestor__dia small {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+}
+
+.ck-escala-gestor__dia em {
+  margin-top: 2px;
+  font-style: normal;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #c2410c;
+}
+
+.ck-escala-gestor__dia em.is-hora {
+  color: var(--ck-navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-escala-gestor__horas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.ck-escala-gestor__horas input {
+  width: 100%;
+  max-width: 52px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: center;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ck-navy);
+}
+
+.ck-escala-gestor__folga {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(27, 42, 107, 0.08);
+}
+
+.ck-escala-gestor__folga span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.ck-escala-gestor__folga select {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ck-ink);
+  border: 0;
+  border-bottom: 1px solid rgba(27, 42, 107, 0.16);
+  border-radius: 0;
+  padding: 4px 0;
+  background: transparent;
+}
+
 /* ================================================================
    DARK MODE OVERRIDES — Escala Mobile
    ================================================================ */
@@ -879,6 +1014,25 @@ html.dark .ck-escala {
   --ck-accent-soft: rgba(255, 122, 61, 0.12);
   --ck-accent-border: rgba(255, 122, 61, 0.45);
   --ck-accent-shadow: rgba(255, 122, 61, 0.22);
+}
+
+html.dark .ck-escala-gestor__dia {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html.dark .ck-escala-gestor__dia.is-folga,
+html.dark .ck-escala-gestor__dia.is-off {
+  background: rgba(255, 122, 61, 0.12);
+}
+
+html.dark .ck-escala-gestor__dia em.is-hora {
+  color: #e2e8f0;
+}
+
+html.dark .ck-escala-gestor__horas input,
+html.dark .ck-escala-gestor__folga select {
+  background: transparent;
+  color: #f8fafc;
 }
 
 html.dark .ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {

@@ -236,6 +236,12 @@ export function podeVerEscalaVisitas(user) {
   );
 }
 
+export function podeVerEscalaGestores(user) {
+  if (podeVerEscalaVisitas(user)) return true;
+  const cargo = String(user?.cargo_aprovacao || user?.perfil || '').toLowerCase();
+  return cargo === 'gerente' || cargo === 'coordenador';
+}
+
 const STATUS_RASCUNHO = 'rascunho';
 const STATUS_PENDENTE = 'pendente_aprovacao';
 const STATUS_APROVADO = 'aprovado';

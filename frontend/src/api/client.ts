@@ -942,13 +942,14 @@ export const api = {
     ),
   escalaGestoresSalvar: (body: {
     semana_inicio: string;
-    celulas: Array<{
+    celulas?: Array<{
       id_gestor: number;
       dia: number;
       tipo?: string | null;
       hora_inicio?: string | null;
       hora_fim?: string | null;
     }>;
+    gestores?: Array<{ id_gestor: number; folga_padrao?: string | null }>;
   }) =>
     request<EscalaGestoresGrade>('/escalas/visitas/gestores', {
       method: 'PUT',

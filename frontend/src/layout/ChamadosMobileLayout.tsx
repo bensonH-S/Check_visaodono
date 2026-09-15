@@ -34,7 +34,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import LanguageIcon from '@mui/icons-material/Language';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerNcMobile, podeVerEnergia, podeAbrirEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerNcMobile, podeVerEnergia, podeAbrirEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
 import { useAppTheme } from '../context/ThemeContext';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 import { colors } from '../theme/tokens';
@@ -376,7 +376,7 @@ function ChamadosMobileLayoutInner() {
   const podeFrota = user && podeUsarFrota(user);
   const podeMapa = user && podeVerMapaTecnicosMobile(user);
   const podeVisitas = user && !modoRestrito && podeVerVisitasMobile(user);
-  const podeEscalaVisitas = user && !modoRestrito && podeVerEscalaVisitas(user);
+  const podeEscalaVisitas = user && !modoRestrito && (podeVerEscalaVisitas(user) || podeVerEscalaGestores(user));
   const podeNc = user && !modoRestrito && podeVerNcMobile(user);
   const podeEnergia = user && !modoRestrito && podeVerEnergia(user);
   const podeAbrirEnergiaMobile = user && !modoRestrito && podeAbrirEnergia(user);
