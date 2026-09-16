@@ -1,5 +1,4 @@
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -25,8 +24,6 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -39,14 +36,14 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import RemoveIcon from '@mui/icons-material/Remove';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
-import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
 import {
   api,
   type EstoqueBreakDetalhe,
   type EstoqueBreakItem,
+  type EstoqueBreakRedeItem,
   type EstoqueBreakResumo,
   type EstoqueEmprestimoAReceber,
   type Loja,
@@ -62,7 +59,9 @@ import {
   type EstoqueMovimento,
   type EstoqueSaldoItem,
   type EstoqueSyncLojaStatus,
+  type EstoqueContagemDiffs,
   type EstoqueContagemRedeItem,
+  type EstoqueRegionalDiff,
   type FichaTecnicaDetalhe,
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
@@ -84,6 +83,7 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors, portalPanelSx } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import EstoquePilotoAuditoriaPanel from './EstoquePilotoAuditoriaPanel';
+import LojaBkMarca from '../../components/escalas/LojaBkMarca';
 
 type AbaOp = 'cmv' | 'vendas' | 'rede' | 'piloto' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
@@ -195,6 +195,20 @@ function fmtDelta(pct: number | null) {
   if (pct == null || Number.isNaN(pct)) return null;
   const sinal = pct > 0 ? '+' : '';
   return `${sinal}${pct.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`;
+}
+
+function weekdayCurto(iso: string | null | undefined) {
+  if (!iso) return '';
+  try {
+    return new Intl.DateTimeFormat('pt-BR', {
+      weekday: 'short',
+      timeZone: 'America/Sao_Paulo',
+    })
+      .format(new Date(`${String(iso).slice(0, 10)}T12:00:00`))
+      .replace('.', '');
+  } catch {
+    return '';
+  }
 }
 
 /** Dia 01 do mês corrente (America/Sao_Paulo). */
@@ -501,161 +515,92 @@ const vendasThSx = {
   bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? '#1e293b !important' : `${colors.canvasAlt} !important`),
   borderBottom: (theme: any) => `1px solid ${theme.palette.mode === 'dark' ? '#334155' : colors.border}`,
   fontWeight: 700,
-  fontSize: '0.68rem',
-  letterSpacing: '0.06em',
+  fontSize: '0.8rem',
+  letterSpacing: '0.04em',
   textTransform: 'uppercase' as const,
-  py: 1,
+  py: 1.15,
 } as const;
 
-function corSyncStatus(status: string) {
-  if (status === 'hoje') return { bg: 'rgba(18, 120, 70, 0.12)', fg: '#127846' };
-  if (status === 'ontem') return { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' };
-  return { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' };
-}
-
-function corContagemStatus(status: string) {
-  if (status === 'contou') return { bg: 'rgba(18, 120, 70, 0.12)', fg: '#127846' };
-  if (status === 'aberta') return { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' };
-  return { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' };
-}
-
-const REDE_VISTA_KEY = 'estoque-rede-vista';
-const toggleRedeSx = {
-  bgcolor: colors.canvasAlt,
-  borderRadius: 2,
-  p: 0.3,
-  '& .MuiToggleButtonGroup-grouped': {
-    border: 0,
-    borderRadius: '8px !important',
-    px: 1.4,
-    py: 0.45,
-    textTransform: 'none' as const,
-    fontWeight: 700,
-    fontSize: '0.78rem',
-    color: colors.textSecondary,
-    '&.Mui-selected': {
-      bgcolor: colors.surface,
-      color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy,
-      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-      '&:hover': { bgcolor: colors.surface },
-    },
+const syncTableSx = {
+  ...tableSx,
+  '& .MuiTableCell-root': {
+    fontSize: '0.95rem',
+    py: 1.2,
   },
 } as const;
 
-function VendasKpiCard({
+function FiltroSublinhado({
+  ativo,
   label,
-  value,
-  sub,
-  icon,
-  iconBg,
-  iconColor,
-  valueColor,
-  footer,
+  qtd,
+  onClick,
 }: {
+  ativo: boolean;
   label: string;
-  value: ReactNode;
-  sub?: string;
-  icon: ReactNode;
-  iconBg: any;
-  iconColor: any;
-  valueColor?: any;
-  footer?: ReactNode;
+  qtd?: number;
+  onClick: () => void;
 }) {
   return (
-    <Paper
-      elevation={0}
+    <Button
+      disableRipple
+      onClick={onClick}
       sx={{
-        ...portalPanelSx,
-        p: { xs: 1.75, md: 2 },
-        height: '100%',
-        minHeight: 118,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
+        textTransform: 'none',
+        minWidth: 0,
+        px: 1.1,
+        py: 0.85,
+        borderRadius: 0,
+        fontWeight: ativo ? 700 : 600,
+        fontSize: '0.95rem',
+        color: ativo ? colors.textPrimary : colors.textSecondary,
+        borderBottom: ativo ? `2px solid ${colors.orange}` : '2px solid transparent',
+        bgcolor: 'transparent',
+        '&:hover': { bgcolor: 'transparent', color: colors.textPrimary },
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography
-            sx={{
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase',
-              color: colors.textSecondary,
-            }}
-          >
-            {label}
-          </Typography>
-          <Typography
-            sx={{
-              fontWeight: 700,
-              mt: 0.6,
-              fontSize: { xs: '1.35rem', md: '1.65rem' },
-              lineHeight: 1.15,
-              letterSpacing: '-0.03em',
-              color: valueColor || ((theme: any) => (theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy)),
-            }}
-          >
-            {value}
-          </Typography>
-        </Box>
+      {label}
+      {qtd != null ? (
         <Box
+          component="span"
           sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 1.5,
-            bgcolor: iconBg,
-            color: iconColor,
-            display: 'flex',
+            ml: 0.85,
+            px: 0.65,
+            minWidth: 22,
+            height: 20,
+            borderRadius: '10px',
+            bgcolor: colors.canvasAlt,
+            color: colors.textMuted,
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0,
-            '& .MuiSvgIcon-root': { fontSize: 20 },
           }}
         >
-          {icon}
+          {qtd}
         </Box>
-      </Box>
-      {sub ? (
-        <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 1.1 }}>{sub}</Typography>
       ) : null}
-      {footer}
-    </Paper>
+    </Button>
   );
 }
 
 function PainelVendas({
   idLoja,
-  onIrRede,
   onSetHeaderActions,
 }: {
   idLoja: number;
   onIrRede?: () => void;
   onSetHeaderActions?: (node: React.ReactNode) => void;
 }) {
-  const navigate = useNavigate();
-  const abrirRede = useCallback(() => {
-    if (onIrRede) onIrRede();
-    else navigate('/estoque/rede');
-  }, [navigate, onIrRede]);
   const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState<EstoqueMetaVendas | null>(null);
-  const [kitAviso, setKitAviso] = useState<string | null>(null);
-  const [syncLojas, setSyncLojas] = useState<EstoqueSyncLojaStatus[]>([]);
+  const [vista, setVista] = useState<'dias' | 'produtos'>('dias');
 
   const carregar = useCallback(async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const [m, sync, painel] = await Promise.all([
-        api.estoqueMetaVendas(idLoja, { crescimento: 0.1 }),
-        api.estoqueSyncStatus().catch(() => null),
-        api.estoqueSyncLojas().catch(() => null),
-      ]);
+      const m = await api.estoqueMetaVendas(idLoja, { crescimento: 0.1 });
       setMeta(m);
-      const kit = (sync as { kit?: { stale?: boolean; aviso?: string | null } } | null)?.kit;
-      setKitAviso(kit?.stale && kit?.aviso ? kit.aviso : null);
-      setSyncLojas(painel?.lojas || []);
     } catch (e) {
       if (!silencioso) {
         showToast(e instanceof Error ? e.message : 'Erro ao carregar vendas', 'error');
@@ -674,89 +619,20 @@ function PainelVendas({
     return () => window.clearInterval(t);
   }, [carregar]);
 
-  const resumoSync = useMemo(() => {
-    const hojeN = syncLojas.filter((l) => l.status === 'hoje').length;
-    const ontemN = syncLojas.filter((l) => l.status === 'ontem').length;
-    const atrasadoN = syncLojas.filter((l) => l.status === 'atrasado' || l.status === 'sem_sync').length;
-    return { hoje: hojeN, ontem: ontemN, atrasado: atrasadoN, total: syncLojas.length };
-  }, [syncLojas]);
-
   useEffect(() => {
     onSetHeaderActions?.(
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {resumoSync.total ? (
-          <Box
-            component="button"
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              abrirRede();
-            }}
-            title="Abrir sync da rede"
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.6,
-              border: `1px solid ${colors.border}`,
-              bgcolor: colors.surface,
-              borderRadius: '8px',
-              px: 1,
-              py: 0.35,
-              cursor: 'pointer',
-              font: 'inherit',
-              '&:hover': { bgcolor: colors.canvas, borderColor: colors.borderStrong },
-              '& .MuiChip-root': { pointerEvents: 'none' },
-            }}
-          >
-            <Chip
-              size="small"
-              label={`${resumoSync.hoje} ok`}
-              sx={{
-                height: 20,
-                fontSize: '0.68rem',
-                fontWeight: 700,
-                bgcolor: 'rgba(18, 120, 70, 0.12)',
-                color: '#127846',
-              }}
-            />
-            {resumoSync.atrasado ? (
-              <Chip
-                size="small"
-                label={`${resumoSync.atrasado} atrasada${resumoSync.atrasado === 1 ? '' : 's'}`}
-                sx={{
-                  height: 20,
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  bgcolor: 'rgba(180, 35, 24, 0.1)',
-                  color: '#B42318',
-                }}
-              />
-            ) : null}
-            <ChevronRightIcon sx={{ fontSize: 18, color: colors.textMuted }} />
-          </Box>
-        ) : null}
-        <IconButton size="small" aria-label="Atualizar vendas" onClick={() => void carregar()}>
-          <RefreshIcon sx={{ fontSize: 18 }} />
-        </IconButton>
-      </Box>,
+      <IconButton size="small" aria-label="Atualizar vendas" onClick={() => void carregar()}>
+        <RefreshIcon sx={{ fontSize: 18 }} />
+      </IconButton>,
     );
     return () => {
       onSetHeaderActions?.(null);
     };
-    // deps primitivos + callbacks estáveis (pai deve memoizar onIrRede)
-  }, [
-    abrirRede,
-    carregar,
-    onSetHeaderActions,
-    resumoSync.atrasado,
-    resumoSync.hoje,
-    resumoSync.total,
-  ]);
+  }, [carregar, onSetHeaderActions]);
 
   const diasRecentes = useMemo(() => {
     const lista = meta?.dias || [];
-    return [...lista].reverse().slice(0, 14);
+    return [...lista].reverse().slice(0, 31);
   }, [meta?.dias]);
 
   const topProdutos = meta?.top_produtos || [];
@@ -771,84 +647,50 @@ function PainelVendas({
     );
   }
 
-  const vendaHoje = meta?.venda_hoje ?? 0;
-  const hojeProblema = Boolean(meta?.hoje_ausente || meta?.hoje_parcial);
-  const mesNome = meta?.mes_nome ? meta.mes_nome.charAt(0).toUpperCase() + meta.mes_nome.slice(1) : 'mês';
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', minWidth: 0, pb: 2 }}>
-      {kitAviso ? (
-        <Paper
-          sx={{
-            px: 2,
-            py: 1.25,
-            bgcolor: 'rgba(180, 35, 24, 0.08)',
-            border: '1px solid rgba(180, 35, 24, 0.25)',
-          }}
-        >
-          <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, color: '#B42318' }}>{kitAviso}</Typography>
-        </Paper>
-      ) : null}
-
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
-          gap: 1.5,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.25,
+          flexWrap: 'wrap',
           flexShrink: 0,
+          pb: 0.25,
+          borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <VendasKpiCard
-          label="Venda hoje"
-          value={fmtMoeda(vendaHoje)}
-          sub={`${textoFrescorVenda(meta)} · bruto`}
-          icon={<TodayOutlinedIcon />}
-          iconBg={hojeProblema ? 'rgba(232, 82, 10, 0.1)' : ((theme: any) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : colors.navyMuted)}
-          iconColor={hojeProblema ? colors.orange : ((theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy)}
-          valueColor={hojeProblema ? colors.orange : ((theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy)}
+        <FiltroSublinhado
+          ativo={vista === 'dias'}
+          label="Dias"
+          qtd={diasRecentes.length}
+          onClick={() => setVista('dias')}
         />
-        <VendasKpiCard
-          label={`Venda ${mesNome}`}
-          value={fmtMoeda(meta?.venda_mtd ?? 0)}
-          sub={`${meta?.dias_venda ?? 0} dias com venda · média ${fmtMoeda(meta?.media_dia)}`}
-          icon={<CalendarMonthOutlinedIcon />}
-          iconBg="rgba(59, 130, 246, 0.1)"
-          iconColor="#2563EB"
+        <FiltroSublinhado
+          ativo={vista === 'produtos'}
+          label="Produtos"
+          qtd={topProdutos.length}
+          onClick={() => setVista('produtos')}
         />
       </Box>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
-          gap: 2,
-          alignItems: 'start',
-          width: '100%',
-          minWidth: 0,
-        }}
-      >
-        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden', minWidth: 0, width: '100%' }}>
-          <Box sx={{ px: 2, py: 1.4, borderBottom: `1px solid ${colors.border}` }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
-              Vendas por dia
-            </Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 0.2 }}>
-              Bruto BK Office{temLy && anoLy ? ` · vs ${anoLy}` : ''}
-            </Typography>
-          </Box>
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small" sx={{ ...tableSx, tableLayout: 'fixed' }}>
+      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
+        <TableContainer sx={tableContainerSx}>
+          {vista === 'dias' ? (
+            <Table stickyHeader sx={syncTableSx}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ ...vendasThSx, width: 88 }}>Dia</TableCell>
+                  <TableCell sx={{ ...vendasThSx, pl: 2.5, width: 140 }}>Dia</TableCell>
                   <TableCell align="right" sx={vendasThSx}>
                     Venda
                   </TableCell>
                   {temLy ? (
-                    <TableCell align="right" sx={{ ...vendasThSx, width: 88 }}>
+                    <TableCell align="right" sx={{ ...vendasThSx, pr: 2.5, width: 110 }}>
                       vs {anoLy}
                     </TableCell>
-                  ) : null}
+                  ) : (
+                    <TableCell sx={{ ...vendasThSx, pr: 2.5, width: 24 }} />
+                  )}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -862,19 +704,21 @@ function PainelVendas({
                         hover
                         sx={hojeLinha ? { bgcolor: 'rgba(27, 42, 107, 0.04)' } : undefined}
                       >
-                        <TableCell sx={{ fontWeight: hojeLinha ? 700 : 500, whiteSpace: 'nowrap' }}>
+                        <TableCell sx={{ pl: 2.5, fontWeight: hojeLinha ? 700 : 600, whiteSpace: 'nowrap' }}>
                           {fmtDataCurta(d.data)}
-                          {hojeLinha ? (
-                            <Typography component="span" sx={{ ml: 0.75, fontSize: '0.68rem', color: colors.textMuted }}>
-                              hoje
-                            </Typography>
-                          ) : null}
+                          <Typography
+                            component="span"
+                            sx={{ ml: 0.85, fontSize: '0.75rem', fontWeight: 600, color: colors.textMuted, textTransform: 'capitalize' }}
+                          >
+                            {hojeLinha ? 'hoje' : weekdayCurto(d.data)}
+                          </Typography>
                         </TableCell>
                         <TableCell
                           align="right"
                           sx={{
                             fontWeight: hojeLinha ? 700 : 600,
                             whiteSpace: 'nowrap',
+                            fontVariantNumeric: 'tabular-nums',
                             color: d.sem_sync ? colors.textMuted : colors.textPrimary,
                           }}
                         >
@@ -884,45 +728,37 @@ function PainelVendas({
                           <TableCell
                             align="right"
                             sx={{
+                              pr: 2.5,
                               fontWeight: 700,
                               whiteSpace: 'nowrap',
+                              fontVariantNumeric: 'tabular-nums',
                               color: delta == null ? colors.textMuted : delta >= 0 ? '#127846' : '#B42318',
                             }}
                           >
                             {fmtDelta(delta) || '—'}
                           </TableCell>
-                        ) : null}
+                        ) : (
+                          <TableCell />
+                        )}
                       </TableRow>
                     );
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={temLy ? 3 : 2} sx={{ color: colors.textSecondary, py: 3 }}>
+                    <TableCell colSpan={3} sx={{ color: colors.textSecondary, py: 5, borderBottom: 0 }}>
                       Nenhuma venda no mês ainda.
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
-        </Paper>
-
-        <Paper sx={{ ...portalPanelSx, p: 0, overflow: 'hidden', minWidth: 0, width: '100%' }}>
-          <Box sx={{ px: 2, py: 1.4, borderBottom: `1px solid ${colors.border}` }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
-              Top produtos do mês
-            </Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 0.2 }}>
-              Maiores vendas brutas
-            </Typography>
-          </Box>
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table size="small" sx={{ ...tableSx, tableLayout: 'fixed' }}>
+          ) : (
+            <Table stickyHeader sx={syncTableSx}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ ...vendasThSx, width: 44 }}>#</TableCell>
+                  <TableCell sx={{ ...vendasThSx, width: 52, pl: 2.5 }}>#</TableCell>
                   <TableCell sx={vendasThSx}>Produto</TableCell>
-                  <TableCell align="right" sx={{ ...vendasThSx, width: 120 }}>
+                  <TableCell align="right" sx={{ ...vendasThSx, pr: 2.5, width: 140 }}>
                     Venda
                   </TableCell>
                 </TableRow>
@@ -931,37 +767,42 @@ function PainelVendas({
                 {topProdutos.length ? (
                   topProdutos.map((p, i) => (
                     <TableRow key={p.codigo} hover>
-                      <TableCell sx={{ fontWeight: 700, color: i < 3 ? colors.orange : colors.textSecondary }}>
+                      <TableCell sx={{ pl: 2.5, fontWeight: 700, color: i < 3 ? colors.orange : colors.textMuted }}>
                         {i + 1}
                       </TableCell>
-                      <TableCell sx={{ overflow: 'hidden' }}>
-                        <Typography noWrap title={p.descricao || p.codigo} sx={{ fontSize: '0.82rem', fontWeight: 600 }}>
-                          {p.descricao || p.codigo}
-                        </Typography>
-                        <Typography noWrap sx={{ fontSize: '0.68rem', color: colors.textMuted }}>
-                          {p.codigo}
-                          {p.qtde ? ` · ${fmtNum(p.qtde, 0)} un` : ''}
-                        </Typography>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                        {nomeProdutoBreak(p.descricao) || p.descricao || p.codigo}
                       </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap', color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }}>
+                      <TableCell
+                        align="right"
+                        sx={{ pr: 2.5, fontWeight: 700, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+                      >
                         {fmtMoeda(p.venda)}
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} sx={{ color: colors.textSecondary, py: 3 }}>
+                    <TableCell colSpan={3} sx={{ color: colors.textSecondary, py: 5, borderBottom: 0 }}>
                       Nenhuma venda no mês ainda.
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
-        </Paper>
-      </Box>
+          )}
+        </TableContainer>
+      </Paper>
     </Box>
   );
+}
+
+type VistaRede = 'vendas' | 'contou' | 'break' | 'completo' | 'incompleto' | 'emprestimo';
+
+function corSyncVenda(status: string) {
+  if (status === 'hoje') return '#127846';
+  if (status === 'ontem') return '#C2410C';
+  return '#B42318';
 }
 
 function tsSyncLoja(l: EstoqueSyncLojaStatus) {
@@ -975,6 +816,160 @@ function tsSyncLoja(l: EstoqueSyncLojaStatus) {
   return 0;
 }
 
+type LojaUsoRede = {
+  id_loja: number;
+  id_break?: number | null;
+  bk?: string | null;
+  nome?: string | null;
+  pessoa: string;
+  quando: string | null;
+  vezes: number;
+  destBk?: string | null;
+  destNome?: string | null;
+  dataEmprestimo?: string | null;
+  recebimento?: string | null;
+};
+
+function somarDiasISO(iso: string | null | undefined, dias: number) {
+  const s = String(iso || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + dias));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+
+function rotuloRecebimento(status?: string | null, prazo?: string | null) {
+  if (status === 'devolvido') return 'Devolvido';
+  if (prazo && prazo < hojeISO() && status !== 'devolvido') return 'Atrasado';
+  if (status === 'recebido') return 'Recebido';
+  if (status === 'pendente') return 'Aguardando';
+  return '—';
+}
+
+function pessoaLancamento(l: EstoqueBreakRedeItem) {
+  return (l.colaborador_nome || l.criado_por_nome || '').trim() || '—';
+}
+
+function tsQuando(iso: string | null | undefined) {
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function pesoEmprestimo(status?: string | null) {
+  if (status === 'pendente') return 0;
+  if (status === 'recebido') return 1;
+  if (status === 'devolvido') return 3;
+  return 2;
+}
+
+function agregarUsoPorLoja(lista: EstoqueBreakRedeItem[]): LojaUsoRede[] {
+  const mapa = new Map<number, LojaUsoRede>();
+  for (const l of lista) {
+    const atual = mapa.get(l.id_loja);
+    const linha: LojaUsoRede = {
+      id_loja: l.id_loja,
+      id_break: l.id_break,
+      bk: l.bk_number,
+      nome: l.loja_nome,
+      pessoa: pessoaLancamento(l),
+      quando: l.criado_em || l.data_break || null,
+      vezes: 1,
+      destBk: l.loja_destino_bk,
+      destNome: l.loja_destino_nome,
+      dataEmprestimo: l.data_break || null,
+      recebimento: l.recebimento_status || null,
+    };
+    if (!atual) {
+      mapa.set(l.id_loja, linha);
+      continue;
+    }
+    atual.vezes += 1;
+    const trocaPorUrgencia =
+      pesoEmprestimo(l.recebimento_status) < pesoEmprestimo(atual.recebimento) ||
+      (pesoEmprestimo(l.recebimento_status) === pesoEmprestimo(atual.recebimento) &&
+        String(l.data_break || '') < String(atual.dataEmprestimo || '9999'));
+    const maisNovo = tsQuando(l.criado_em || l.data_break) > tsQuando(atual.quando);
+    if (trocaPorUrgencia || (!atual.destNome && maisNovo)) {
+      atual.id_break = linha.id_break;
+      atual.pessoa = linha.pessoa;
+      atual.quando = linha.quando;
+      atual.destBk = linha.destBk;
+      atual.destNome = linha.destNome;
+      atual.dataEmprestimo = linha.dataEmprestimo;
+      atual.recebimento = linha.recebimento;
+    } else if (maisNovo) {
+      atual.quando = linha.quando;
+      atual.pessoa = linha.pessoa;
+    }
+  }
+  return [...mapa.values()].sort((a, b) => tsQuando(b.quando) - tsQuando(a.quando));
+}
+
+function completarUsoLojas(
+  todas: Array<{ id_loja: number; bk?: string | null; nome?: string | null }>,
+  uso: LojaUsoRede[],
+): LojaUsoRede[] {
+  const porId = new Map(uso.map((u) => [u.id_loja, u]));
+  return todas
+    .map(
+      (l) =>
+        porId.get(l.id_loja) || {
+          id_loja: l.id_loja,
+          id_break: null,
+          bk: l.bk,
+          nome: l.nome,
+          pessoa: '—',
+          quando: null,
+          vezes: 0,
+          destBk: null,
+          destNome: null,
+          dataEmprestimo: null,
+          recebimento: null,
+        },
+    )
+    .sort((a, b) => {
+      if ((a.vezes === 0) !== (b.vezes === 0)) return a.vezes === 0 ? -1 : 1;
+      const d = tsQuando(b.quando) - tsQuando(a.quando);
+      if (d !== 0) return d;
+      return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR');
+    });
+}
+
+function CampoDrawer({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Box>
+      <Typography
+        sx={{
+          fontSize: '0.68rem',
+          fontWeight: 700,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+          color: colors.textMuted,
+          mb: 0.5,
+        }}
+      >
+        {label}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+const TITULO_SYNC: Record<VistaRede, string> = {
+  vendas: 'Vendas',
+  contou: 'Contagem',
+  break: 'Break',
+  completo: 'Desperdício completo',
+  incompleto: 'Desperdício incompleto',
+  emprestimo: 'Empréstimo',
+};
+
+type SyncAberto =
+  | { kind: 'vendas'; loja: EstoqueSyncLojaStatus }
+  | { kind: 'contou'; loja: EstoqueContagemRedeItem }
+  | { kind: 'uso'; vista: Exclude<VistaRede, 'vendas' | 'contou'>; loja: LojaUsoRede };
+
 function PainelSyncRede({
   idLoja,
   onSelectLoja,
@@ -984,32 +979,34 @@ function PainelSyncRede({
   onSelectLoja?: (id: number) => void;
   onSetHeaderActions?: (node: React.ReactNode) => void;
 }) {
-  const [vista, setVista] = useState<'vendas' | 'contagens'>(() => {
-    try {
-      return localStorage.getItem(REDE_VISTA_KEY) === 'vendas' ? 'vendas' : 'contagens';
-    } catch {
-      return 'vendas';
-    }
-  });
-  const [filtroContagem, setFiltroContagem] = useState<'todas' | 'contou' | 'aberta' | 'faltou'>(
-    'todas',
-  );
+  const [vista, setVista] = useState<VistaRede>('vendas');
   const [loading, setLoading] = useState(true);
   const [syncLojas, setSyncLojas] = useState<EstoqueSyncLojaStatus[]>([]);
-  const [contagensRede, setContagensRede] = useState<EstoqueContagemRedeItem[]>([]);
+  const [contagens, setContagens] = useState<EstoqueContagemRedeItem[]>([]);
+  const [lancamentos, setLancamentos] = useState<EstoqueBreakRedeItem[]>([]);
+  const [aberto, setAberto] = useState<SyncAberto | null>(null);
+  const [detalheEmp, setDetalheEmp] = useState<EstoqueBreakDetalhe | null>(null);
+  const [carregandoEmp, setCarregandoEmp] = useState(false);
+  const [diffContou, setDiffContou] = useState<EstoqueContagemDiffs | null>(null);
+  const [carregandoDiff, setCarregandoDiff] = useState(false);
+  const [regionais, setRegionais] = useState<EstoqueRegionalDiff[]>([]);
+  const [filtroRegiao, setFiltroRegiao] = useState<number | 'todos'>('todos');
+  const [baixandoDiff, setBaixandoDiff] = useState(false);
 
   const carregar = useCallback(async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const [painel, contagens] = await Promise.all([
+      const [painel, cont, breaks] = await Promise.all([
         api.estoqueSyncLojas(),
         api.estoqueContagensRede({ tipo: 'diaria' }).catch(() => null),
+        api.estoqueBreaksRede().catch(() => null),
       ]);
       setSyncLojas(painel?.lojas || []);
-      setContagensRede(contagens?.lojas || []);
+      setContagens(cont?.lojas || []);
+      setLancamentos(breaks?.lancamentos || []);
     } catch (e) {
       if (!silencioso) {
-        showToast(e instanceof Error ? e.message : 'Erro ao carregar sync da rede', 'error');
+        showToast(e instanceof Error ? e.message : 'Erro ao carregar o sync', 'error');
       }
     } finally {
       setLoading(false);
@@ -1021,31 +1018,57 @@ function PainelSyncRede({
   }, [carregar]);
 
   useEffect(() => {
+    api
+      .estoqueRegionaisDiff()
+      .then((r) => setRegionais(r.regionais || []))
+      .catch(() => setRegionais([]));
+  }, []);
+
+  useEffect(() => {
     const t = window.setInterval(() => void carregar(true), 45000);
     return () => window.clearInterval(t);
   }, [carregar]);
 
+  const baixarDiffs = useCallback(async () => {
+    setBaixandoDiff(true);
+    try {
+      await api.estoqueBaixarDiffsRede({
+        id_regiao: filtroRegiao === 'todos' ? undefined : filtroRegiao,
+      });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar o relatório', 'error');
+    } finally {
+      setBaixandoDiff(false);
+    }
+  }, [filtroRegiao]);
+
   useEffect(() => {
     onSetHeaderActions?.(
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={vista}
-          onChange={(_e, v: 'vendas' | 'contagens' | null) => {
-            if (!v) return;
-            setVista(v);
-            try {
-              localStorage.setItem(REDE_VISTA_KEY, v);
-            } catch {
-              /* ignore */
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+        {vista === 'contou' ? (
+          <Tooltip
+            title={
+              filtroRegiao === 'todos'
+                ? 'Baixar diffs da rede'
+                : 'Baixar diffs do regional'
             }
-          }}
-          sx={toggleRedeSx}
-        >
-          <ToggleButton value="vendas">Vendas</ToggleButton>
-          <ToggleButton value="contagens">Quem contou</ToggleButton>
-        </ToggleButtonGroup>
+          >
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Baixar relatório de diffs"
+                disabled={baixandoDiff}
+                onClick={() => void baixarDiffs()}
+              >
+                {baixandoDiff ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <FileDownloadOutlinedIcon sx={{ fontSize: 18 }} />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+        ) : null}
         <IconButton size="small" aria-label="Atualizar rede" onClick={() => void carregar()}>
           <RefreshIcon sx={{ fontSize: 18 }} />
         </IconButton>
@@ -1054,9 +1077,140 @@ function PainelSyncRede({
     return () => {
       onSetHeaderActions?.(null);
     };
-  }, [carregar, onSetHeaderActions, vista]);
+  }, [baixarDiffs, baixandoDiff, carregar, filtroRegiao, onSetHeaderActions, vista]);
 
-  const lojasOrdenadas = useMemo(
+  useEffect(() => {
+    setAberto(null);
+    setDetalheEmp(null);
+    setDiffContou(null);
+  }, [vista]);
+
+  const idBreakAberto = aberto?.kind === 'uso' ? aberto.loja.id_break : null;
+  const idLojaAberto = aberto?.kind === 'uso' ? aberto.loja.id_loja : null;
+  const idContagemAberta =
+    aberto?.kind === 'contou'
+      ? aberto.loja.id_contagem || aberto.loja.ultima_id_contagem || null
+      : null;
+
+  useEffect(() => {
+    if (!idBreakAberto || !idLojaAberto) {
+      setDetalheEmp(null);
+      return;
+    }
+    let cancel = false;
+    setCarregandoEmp(true);
+    setDetalheEmp(null);
+    api
+      .estoqueBreakDetalhe(idBreakAberto, idLojaAberto)
+      .then((d) => {
+        if (!cancel) setDetalheEmp(d);
+      })
+      .catch(() => {
+        if (!cancel) setDetalheEmp(null);
+      })
+      .finally(() => {
+        if (!cancel) setCarregandoEmp(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [idBreakAberto, idLojaAberto]);
+
+  useEffect(() => {
+    if (!idContagemAberta) {
+      setDiffContou(null);
+      return;
+    }
+    let cancel = false;
+    setCarregandoDiff(true);
+    setDiffContou(null);
+    api
+      .estoqueContagemDiffs(idContagemAberta)
+      .then((d) => {
+        if (!cancel) setDiffContou(d);
+      })
+      .catch(() => {
+        if (!cancel) setDiffContou(null);
+      })
+      .finally(() => {
+        if (!cancel) setCarregandoDiff(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [idContagemAberta]);
+
+  const todasLojas = useMemo(() => {
+    const mapa = new Map<number, { id_loja: number; bk?: string | null; nome?: string | null }>();
+    for (const l of syncLojas) {
+      mapa.set(l.id_loja, { id_loja: l.id_loja, bk: l.bk_number, nome: l.name });
+    }
+    for (const l of contagens) {
+      if (!mapa.has(l.id_loja)) {
+        mapa.set(l.id_loja, { id_loja: l.id_loja, bk: l.bk_number, nome: l.name });
+      }
+    }
+    return [...mapa.values()];
+  }, [syncLojas, contagens]);
+
+  const porTipo = useMemo(() => {
+    const ehBreak = (t: string) => t === 'refeicao' || t === 'break';
+    return {
+      break: completarUsoLojas(
+        todasLojas,
+        agregarUsoPorLoja(lancamentos.filter((l) => ehBreak(String(l.tipo)))),
+      ),
+      completo: completarUsoLojas(
+        todasLojas,
+        agregarUsoPorLoja(lancamentos.filter((l) => l.tipo === 'desperdicio_completo')),
+      ),
+      incompleto: completarUsoLojas(
+        todasLojas,
+        agregarUsoPorLoja(lancamentos.filter((l) => l.tipo === 'desperdicio_incompleto')),
+      ),
+      emprestimo: completarUsoLojas(
+        todasLojas,
+        agregarUsoPorLoja(lancamentos.filter((l) => l.tipo === 'emprestimo')),
+      ),
+    };
+  }, [lancamentos, todasLojas]);
+
+  const lojasContagem = useMemo(() => {
+    const porId = new Map(contagens.map((c) => [c.id_loja, c]));
+    const lista: EstoqueContagemRedeItem[] = [...contagens];
+    for (const l of todasLojas) {
+      if (porId.has(l.id_loja)) continue;
+      lista.push({
+        id_loja: l.id_loja,
+        bk_number: l.bk || null,
+        name: l.nome || '',
+        id_contagem: null,
+        status: 'faltou',
+        status_label: 'Não contou',
+        titulo: null,
+        tipo: 'diaria',
+        data_contagem: null,
+        criado_em: null,
+        finalizado_em: null,
+        contado_em: null,
+        criado_por_nome: null,
+        ultima_data: null,
+        ultima_finalizado_em: null,
+        ultima_id_contagem: null,
+      });
+    }
+    const peso = (s: string) => (s === 'faltou' ? 0 : s === 'aberta' ? 1 : 2);
+    return lista.sort((a, b) => {
+      const d = peso(a.status) - peso(b.status);
+      if (d !== 0) return d;
+      const ta = tsQuando(a.ultima_data || a.ultima_finalizado_em);
+      const tb = tsQuando(b.ultima_data || b.ultima_finalizado_em);
+      if (ta !== tb) return ta - tb;
+      return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
+    });
+  }, [contagens, todasLojas]);
+
+  const lojasSync = useMemo(
     () =>
       [...syncLojas].sort((a, b) => {
         const diff = tsSyncLoja(b) - tsSyncLoja(a);
@@ -1066,39 +1220,32 @@ function PainelSyncRede({
     [syncLojas],
   );
 
-  const resumo = useMemo(() => {
-    const hoje = syncLojas.filter((l) => l.status === 'hoje').length;
-    const ontem = syncLojas.filter((l) => l.status === 'ontem').length;
-    const atrasado = syncLojas.filter((l) => l.status === 'atrasado' || l.status === 'sem_sync').length;
-    return { hoje, ontem, atrasado, total: syncLojas.length };
-  }, [syncLojas]);
+  const idsRegiao = useMemo(() => {
+    if (filtroRegiao === 'todos') return null;
+    return new Set(regionais.find((r) => r.id_regiao === filtroRegiao)?.ids_lojas || []);
+  }, [filtroRegiao, regionais]);
 
-  const resumoContagem = useMemo(() => {
-    const contou = contagensRede.filter((l) => l.status === 'contou').length;
-    const aberta = contagensRede.filter((l) => l.status === 'aberta').length;
-    const faltou = contagensRede.filter((l) => l.status === 'faltou').length;
-    return { contou, aberta, faltou, total: contagensRede.length };
-  }, [contagensRede]);
+  const naRegiao = (id: number) => !idsRegiao || idsRegiao.has(id);
 
-  const lojasContagem = useMemo(() => {
-    const peso = (s: string) => (s === 'faltou' ? 0 : s === 'aberta' ? 1 : 2);
-    const filtrada =
-      filtroContagem === 'todas'
-        ? contagensRede
-        : contagensRede.filter((l) => l.status === filtroContagem);
-    return [...filtrada].sort((a, b) => {
-      const d = peso(a.status) - peso(b.status);
-      if (d !== 0) return d;
-      if (a.status === 'contou') {
-        const ta = a.finalizado_em ? new Date(a.finalizado_em).getTime() : 0;
-        const tb = b.finalizado_em ? new Date(b.finalizado_em).getTime() : 0;
-        return tb - ta;
-      }
-      return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR');
-    });
-  }, [contagensRede, filtroContagem]);
+  const lojasSyncFiltradas = useMemo(
+    () => lojasSync.filter((l) => naRegiao(l.id_loja)),
+    [lojasSync, idsRegiao],
+  );
+  const lojasContagemFiltradas = useMemo(
+    () => lojasContagem.filter((l) => naRegiao(l.id_loja)),
+    [lojasContagem, idsRegiao],
+  );
 
-  if (loading && !syncLojas.length && !contagensRede.length) {
+  const contouHoje = contagens.filter((l) => l.status === 'contou').length;
+  const linhasUso = vista === 'vendas' || vista === 'contou' ? [] : porTipo[vista];
+  const linhasUsoFiltradas = linhasUso.filter((l) => naRegiao(l.id_loja));
+  const idAberto = aberto
+    ? aberto.kind === 'uso'
+      ? aberto.loja.id_loja
+      : aberto.loja.id_loja
+    : null;
+
+  if (loading && !syncLojas.length && !contagens.length && !lancamentos.length) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
         <CircularProgress size={28} />
@@ -1106,243 +1253,251 @@ function PainelSyncRede({
     );
   }
 
-  if (vista === 'contagens') {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-          <Typography sx={{ fontSize: '0.8rem', color: colors.textSecondary }}>
-            Diária de hoje · quem já contou · atualiza a cada 45s
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-            {(
-              [
-                ['todas', `${resumoContagem.total} lojas`],
-                ['contou', `${resumoContagem.contou} contaram`],
-                ['aberta', `${resumoContagem.aberta} em andamento`],
-                ['faltou', `${resumoContagem.faltou} faltam`],
-              ] as const
-            )
-              .filter(([key]) => key === 'todas' || resumoContagem[key] > 0 || filtroContagem === key)
-              .map(([key, label]) => {
-                const ativo = filtroContagem === key;
-                const tom =
-                  key === 'contou'
-                    ? { bg: 'rgba(18, 120, 70, 0.12)', fg: '#127846' }
-                    : key === 'aberta'
-                      ? { bg: 'rgba(232, 82, 10, 0.12)', fg: '#C2410C' }
-                      : key === 'faltou'
-                        ? { bg: 'rgba(180, 35, 24, 0.1)', fg: '#B42318' }
-                        : { bg: colors.canvasAlt, fg: colors.textSecondary };
-                return (
-                  <Chip
-                    key={key}
-                    size="small"
-                    clickable
-                    label={label}
-                    onClick={() => setFiltroContagem(key)}
-                    sx={{
-                      height: 22,
-                      fontSize: '0.7rem',
-                      fontWeight: ativo ? 700 : 600,
-                      bgcolor: tom.bg,
-                      color: tom.fg,
-                      outline: ativo ? `1px solid ${tom.fg}` : undefined,
-                    }}
-                  />
-                );
-              })}
-          </Box>
-        </Box>
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.25,
+          flexWrap: 'wrap',
+          flexShrink: 0,
+          pb: 0.25,
+          borderBottom: `1px solid ${colors.border}`,
+        }}
+      >
+        {(
+          [
+            { id: 'vendas' as const, label: 'Vendas', qtd: syncLojas.length },
+            { id: 'contou' as const, label: 'Contou', qtd: contouHoje },
+            { id: 'break' as const, label: 'Break', qtd: porTipo.break.filter((l) => l.vezes > 0).length },
+            { id: 'completo' as const, label: 'Completo', qtd: porTipo.completo.filter((l) => l.vezes > 0).length },
+            { id: 'incompleto' as const, label: 'Incompleto', qtd: porTipo.incompleto.filter((l) => l.vezes > 0).length },
+            { id: 'emprestimo' as const, label: 'Empréstimo', qtd: porTipo.emprestimo.filter((l) => l.vezes > 0).length },
+          ] as const
+        ).map((f) => (
+          <FiltroSublinhado
+            key={f.id}
+            ativo={vista === f.id}
+            label={f.label}
+            qtd={f.qtd}
+            onClick={() => setVista(f.id)}
+          />
+        ))}
+      </Box>
 
-        <Paper sx={tablePaperSx}>
-          <TableContainer sx={tableContainerSx}>
-            <Table size="small" stickyHeader sx={tableSx}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={vendasThSx}>Status</TableCell>
-                  <TableCell sx={vendasThSx}>BKN</TableCell>
-                  <TableCell sx={vendasThSx}>Loja</TableCell>
-                  <TableCell sx={vendasThSx}>Quem contou</TableCell>
-                  <TableCell sx={vendasThSx}>Iniciada</TableCell>
-                  <TableCell sx={vendasThSx}>Finalizada</TableCell>
-                  <TableCell sx={vendasThSx}>Última diária</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {lojasContagem.length ? (
-                  lojasContagem.map((l) => {
+      {vista === 'contou' && regionais.length > 0 ? (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.25,
+            flexWrap: 'wrap',
+            flexShrink: 0,
+          }}
+        >
+          <FiltroSublinhado
+            ativo={filtroRegiao === 'todos'}
+            label="Todos"
+            qtd={todasLojas.length}
+            onClick={() => setFiltroRegiao('todos')}
+          />
+          {regionais.map((r) => (
+            <FiltroSublinhado
+              key={r.id_regiao}
+              ativo={filtroRegiao === r.id_regiao}
+              label={r.nome_regional || r.nome}
+              qtd={r.ids_lojas.length}
+              onClick={() => setFiltroRegiao(r.id_regiao)}
+            />
+          ))}
+        </Box>
+      ) : null}
+
+      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
+        <TableContainer sx={tableContainerSx}>
+          <Table stickyHeader sx={syncTableSx}>
+            <TableHead>
+              <TableRow>
+                {vista === 'vendas' ? (
+                  <>
+                    <TableCell sx={{ ...vendasThSx, pl: 2.5 }}>Loja</TableCell>
+                    <TableCell sx={vendasThSx}>Status</TableCell>
+                    <TableCell sx={vendasThSx}>Último dia</TableCell>
+                    <TableCell sx={vendasThSx}>Sync</TableCell>
+                    <TableCell align="right" sx={vendasThSx}>
+                      Mês
+                    </TableCell>
+                    <TableCell align="right" sx={{ ...vendasThSx, pr: 2.5 }}>
+                      Hoje
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell sx={{ ...vendasThSx, pl: 2.5 }}>Loja</TableCell>
+                    <TableCell sx={vendasThSx}>{vista === 'contou' ? 'Última' : 'Último'}</TableCell>
+                    <TableCell sx={vendasThSx}>Quem</TableCell>
+                    <TableCell sx={{ ...vendasThSx, pr: 2.5 }} align="right">
+                      {vista === 'contou' ? 'Hoje' : 'Vezes'}
+                    </TableCell>
+                  </>
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {vista === 'vendas' ? (
+                lojasSyncFiltradas.length ? (
+                  lojasSyncFiltradas.map((l) => {
                     const destaque = l.id_loja === idLoja;
-                    const cor = corContagemStatus(l.status);
+                    const atrasada = l.status === 'atrasado' || l.status === 'sem_sync';
                     return (
                       <TableRow
                         key={l.id_loja}
                         hover
-                        onClick={onSelectLoja ? () => onSelectLoja(l.id_loja) : undefined}
+                        selected={idAberto === l.id_loja}
+                        onClick={() => setAberto({ kind: 'vendas', loja: l })}
                         sx={{
-                          bgcolor: destaque
-                            ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(232, 82, 10, 0.16)' : 'rgba(27, 42, 107, 0.08)')
-                            : undefined,
-                          cursor: onSelectLoja ? 'pointer' : 'default',
+                          cursor: 'pointer',
+                          bgcolor: destaque ? 'rgba(27, 42, 107, 0.06)' : undefined,
+                          '&.Mui-selected': { bgcolor: 'rgba(15, 26, 69, 0.05)' },
                         }}
                       >
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85 }}>
-                            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cor.fg, flexShrink: 0 }} />
-                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: cor.fg }}>
-                              {l.status_label}
-                            </Typography>
-                          </Box>
+                        <TableCell sx={{ pl: 2.5, fontWeight: destaque ? 700 : 600 }}>
+                          <LojaBkMarca bk={l.bk_number} nome={l.name} size={18} />
                         </TableCell>
-                        <TableCell sx={{ fontWeight: destaque ? 700 : 500 }}>{l.bk_number || '—'}</TableCell>
-                        <TableCell>
-                          <Typography
-                            noWrap
-                            title={l.name}
-                            sx={{ fontSize: '0.82rem', fontWeight: destaque ? 700 : 500, maxWidth: 280 }}
-                          >
-                            {l.name}
-                          </Typography>
+                        <TableCell sx={{ fontWeight: 700, color: corSyncVenda(l.status) }}>
+                          {l.status_label}
                         </TableCell>
-                        <TableCell sx={{ fontSize: '0.82rem' }}>
-                          {l.criado_por_nome || '—'}
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{fmtDataCurta(l.ultima_data_venda)}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap', color: atrasada ? '#B42318' : colors.textSecondary }}>
+                          {fmtHoraCurta(l.ultimo_sync_em) || '—'}
+                          {atrasada && l.minutos_sem_sync != null ? ` · ${l.minutos_sem_sync} min` : ''}
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
-                          {fmtHoraCurta(l.criado_em) || '—'}
+                        <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                          {fmtMoeda(l.venda_mes)}
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
-                          {fmtHoraCurta(l.finalizado_em) || '—'}
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
-                          {fmtDataCurta(l.ultima_data)}
+                        <TableCell
+                          align="right"
+                          sx={{ pr: 2.5, fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}
+                        >
+                          {fmtMoeda(l.venda_hoje)}
                         </TableCell>
                       </TableRow>
                     );
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} sx={{ color: colors.textSecondary, py: 4, textAlign: 'center' }}>
-                      Nenhuma loja neste recorte.
+                    <TableCell colSpan={6} sx={{ color: colors.textSecondary, py: 5, borderBottom: 0 }}>
+                      Nenhuma loja com sync de vendas.
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      </Box>
-    );
-  }
-
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        <Typography sx={{ fontSize: '0.8rem', color: colors.textSecondary }}>
-          Bruto do mês · da mais recente à mais atrasada · atualiza a cada 45s
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-          <Chip
-            size="small"
-            label={`${resumo.hoje} hoje`}
-            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(18, 120, 70, 0.12)', color: '#127846' }}
-          />
-          {resumo.ontem ? (
-            <Chip
-              size="small"
-              label={`${resumo.ontem} ontem`}
-              sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(232, 82, 10, 0.12)', color: '#C2410C' }}
-            />
-          ) : null}
-          {resumo.atrasado ? (
-            <Chip
-              size="small"
-              label={`${resumo.atrasado} atrasada${resumo.atrasado === 1 ? '' : 's'}`}
-              sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'rgba(180, 35, 24, 0.1)', color: '#B42318' }}
-            />
-          ) : null}
-          <Chip
-            size="small"
-            label={`${resumo.total} lojas`}
-            sx={{ height: 22, fontSize: '0.7rem', fontWeight: 600, bgcolor: colors.canvasAlt, color: colors.textSecondary }}
-          />
-        </Box>
-      </Box>
-
-      <Paper sx={tablePaperSx}>
-        <TableContainer sx={tableContainerSx}>
-          <Table size="small" stickyHeader sx={tableSx}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={vendasThSx}>Status</TableCell>
-                <TableCell sx={vendasThSx}>BKN</TableCell>
-                <TableCell sx={vendasThSx}>Loja</TableCell>
-                <TableCell sx={vendasThSx}>Último dia</TableCell>
-                <TableCell sx={vendasThSx}>Sync</TableCell>
-                <TableCell align="right" sx={vendasThSx}>
-                  Mês
-                </TableCell>
-                <TableCell align="right" sx={vendasThSx}>
-                  Hoje
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {lojasOrdenadas.length ? (
-                lojasOrdenadas.map((l) => {
+                )
+              ) : vista === 'contou' ? (
+                lojasContagemFiltradas.length ? (
+                  lojasContagemFiltradas.map((l) => {
+                    const destaque = l.id_loja === idLoja;
+                    const hojeOk = l.status === 'contou';
+                    const ultima = l.ultima_data;
+                    const quem = hojeOk
+                      ? l.criado_por_nome || l.ultima_por_nome
+                      : l.ultima_por_nome || l.criado_por_nome;
+                    return (
+                      <TableRow
+                        key={l.id_loja}
+                        hover
+                        selected={idAberto === l.id_loja}
+                        onClick={() => setAberto({ kind: 'contou', loja: l })}
+                        sx={{
+                          cursor: 'pointer',
+                          bgcolor: destaque ? 'rgba(27, 42, 107, 0.06)' : undefined,
+                          '&.Mui-selected': { bgcolor: 'rgba(15, 26, 69, 0.05)' },
+                        }}
+                      >
+                        <TableCell sx={{ pl: 2.5, fontWeight: destaque ? 700 : 600 }}>
+                          <LojaBkMarca bk={l.bk_number} nome={l.name} size={18} />
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                            color: hojeOk ? '#127846' : ultima ? colors.textPrimary : colors.textMuted,
+                          }}
+                        >
+                          {hojeOk ? 'Hoje' : ultima ? fmtDataCurta(ultima) : 'Nunca'}
+                        </TableCell>
+                        <TableCell sx={{ color: colors.textSecondary }}>{quem || '—'}</TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            pr: 2.5,
+                            fontWeight: 700,
+                            color: hojeOk ? '#127846' : l.status === 'aberta' ? '#C2410C' : colors.textMuted,
+                          }}
+                        >
+                          {hojeOk ? 'Contou' : l.status === 'aberta' ? 'Aberta' : 'Não'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} sx={{ color: colors.textSecondary, py: 5, borderBottom: 0 }}>
+                      Nenhuma loja neste regional.
+                    </TableCell>
+                  </TableRow>
+                )
+              ) : linhasUsoFiltradas.length ? (
+                linhasUsoFiltradas.map((l) => {
                   const destaque = l.id_loja === idLoja;
-                  const cor = corSyncStatus(l.status);
-                  const atrasada = l.status === 'atrasado' || l.status === 'sem_sync';
                   return (
                     <TableRow
                       key={l.id_loja}
                       hover
-                      onClick={onSelectLoja ? () => onSelectLoja(l.id_loja) : undefined}
+                      selected={idAberto === l.id_loja}
+                      onClick={() =>
+                        setAberto({
+                          kind: 'uso',
+                          vista: vista as Exclude<VistaRede, 'vendas' | 'contou'>,
+                          loja: l,
+                        })
+                      }
                       sx={{
-                        bgcolor: destaque
-                          ? (theme) => (theme.palette.mode === 'dark' ? 'rgba(232, 82, 10, 0.16)' : 'rgba(27, 42, 107, 0.08)')
-                          : undefined,
-                        cursor: onSelectLoja ? 'pointer' : 'default',
+                        cursor: 'pointer',
+                        bgcolor: destaque ? 'rgba(27, 42, 107, 0.06)' : undefined,
+                        '&.Mui-selected': { bgcolor: 'rgba(15, 26, 69, 0.05)' },
                       }}
                     >
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85 }}>
-                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cor.fg, flexShrink: 0 }} />
-                          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: cor.fg }}>
-                            {l.status_label}
-                          </Typography>
-                        </Box>
+                      <TableCell sx={{ pl: 2.5, fontWeight: destaque ? 700 : 600 }}>
+                        <LojaBkMarca bk={l.bk} nome={l.nome} size={18} />
                       </TableCell>
-                      <TableCell sx={{ fontWeight: destaque ? 700 : 500 }}>{l.bk_number || '—'}</TableCell>
-                      <TableCell>
-                        <Typography
-                          noWrap
-                          title={l.name}
-                          sx={{ fontSize: '0.82rem', fontWeight: destaque ? 700 : 500, maxWidth: 280 }}
-                        >
-                          {l.name}
-                        </Typography>
+                      <TableCell
+                        sx={{
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          color: l.vezes ? colors.textPrimary : colors.textMuted,
+                        }}
+                      >
+                        {fmtHoraCurta(l.quando) || '—'}
                       </TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{fmtDataCurta(l.ultima_data_venda)}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
-                        {fmtHoraCurta(l.ultimo_sync_em) || '—'}
-                        {atrasada && l.minutos_sem_sync != null ? (
-                          <Typography component="span" sx={{ ml: 0.75, fontSize: '0.7rem', color: '#B42318', fontWeight: 600 }}>
-                            · {l.minutos_sem_sync} min
-                          </Typography>
-                        ) : null}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {fmtMoeda(l.venda_mes)}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {fmtMoeda(l.venda_hoje)}
+                      <TableCell sx={{ color: colors.textSecondary }}>{l.pessoa}</TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          pr: 2.5,
+                          fontWeight: 700,
+                          fontVariantNumeric: 'tabular-nums',
+                          color: l.vezes ? colors.textPrimary : colors.textMuted,
+                        }}
+                      >
+                        {l.vezes || '—'}
                       </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} sx={{ color: colors.textSecondary, py: 4, textAlign: 'center' }}>
-                    Nenhuma loja com sync BK Office.
+                  <TableCell colSpan={4} sx={{ color: colors.textSecondary, py: 5, borderBottom: 0 }}>
+                    Nenhuma loja na rede.
                   </TableCell>
                 </TableRow>
               )}
@@ -1350,6 +1505,340 @@ function PainelSyncRede({
           </Table>
         </TableContainer>
       </Paper>
+
+      <Drawer
+        anchor="right"
+        open={!!aberto}
+        onClose={() => {
+          setAberto(null);
+          setDetalheEmp(null);
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: '100%', sm: 420 },
+              borderLeft: `1px solid ${colors.border}`,
+              boxShadow: '-8px 0 24px rgba(15, 26, 69, 0.06)',
+            },
+          },
+        }}
+      >
+        {aberto ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 1,
+                px: 2.5,
+                pt: 2.25,
+                pb: 2,
+                borderBottom: `1px solid ${colors.border}`,
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.02em', color: colors.textPrimary, lineHeight: 1.25 }}>
+                  {TITULO_SYNC[aberto.kind === 'uso' ? aberto.vista : aberto.kind]}
+                </Typography>
+                <Box sx={{ mt: 0.75 }}>
+                  {aberto.kind === 'uso' ? (
+                    <LojaBkMarca bk={aberto.loja.bk} nome={aberto.loja.nome} size={18} />
+                  ) : (
+                    <LojaBkMarca bk={aberto.loja.bk_number} nome={aberto.loja.name} size={18} />
+                  )}
+                </Box>
+              </Box>
+              <IconButton
+                size="small"
+                aria-label="Fechar"
+                onClick={() => {
+                  setAberto(null);
+                  setDetalheEmp(null);
+                }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+            <Box sx={{ flex: 1, overflow: 'auto', px: 2.5, py: 2, display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+              {aberto.kind === 'vendas' ? (
+                <>
+                  <CampoDrawer label="Status">
+                    <Typography sx={{ fontWeight: 700, color: corSyncVenda(aberto.loja.status) }}>
+                      {aberto.loja.status_label}
+                    </Typography>
+                  </CampoDrawer>
+                  <CampoDrawer label="Último dia">
+                    <Typography sx={{ fontWeight: 600 }}>{fmtDataCurta(aberto.loja.ultima_data_venda)}</Typography>
+                  </CampoDrawer>
+                  <CampoDrawer label="Sync">
+                    <Typography sx={{ fontWeight: 600 }}>
+                      {fmtHoraCurta(aberto.loja.ultimo_sync_em) || '—'}
+                      {aberto.loja.minutos_sem_sync != null &&
+                      (aberto.loja.status === 'atrasado' || aberto.loja.status === 'sem_sync')
+                        ? ` · ${aberto.loja.minutos_sem_sync} min`
+                        : ''}
+                    </Typography>
+                  </CampoDrawer>
+                  <CampoDrawer label="Mês">
+                    <Typography sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtMoeda(aberto.loja.venda_mes)}
+                    </Typography>
+                  </CampoDrawer>
+                  <CampoDrawer label="Hoje">
+                    <Typography sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtMoeda(aberto.loja.venda_hoje)}
+                    </Typography>
+                  </CampoDrawer>
+                </>
+              ) : null}
+
+              {aberto.kind === 'contou' ? (
+                <>
+                  <CampoDrawer label="Hoje">
+                    <Typography
+                      sx={{
+                        fontWeight: 700,
+                        color:
+                          aberto.loja.status === 'contou'
+                            ? '#127846'
+                            : aberto.loja.status === 'aberta'
+                              ? '#C2410C'
+                              : colors.textMuted,
+                      }}
+                    >
+                      {aberto.loja.status === 'contou'
+                        ? 'Contou'
+                        : aberto.loja.status === 'aberta'
+                          ? 'Aberta'
+                          : 'Não'}
+                    </Typography>
+                  </CampoDrawer>
+                  <CampoDrawer label="Última">
+                    <Typography sx={{ fontWeight: 600 }}>
+                      {aberto.loja.status === 'contou'
+                        ? 'Hoje'
+                        : aberto.loja.ultima_data
+                          ? fmtDataCurta(aberto.loja.ultima_data)
+                          : 'Nunca'}
+                    </Typography>
+                  </CampoDrawer>
+                  <CampoDrawer label="Quem">
+                    <Typography sx={{ fontWeight: 600 }}>
+                      {aberto.loja.status === 'contou'
+                        ? aberto.loja.criado_por_nome || aberto.loja.ultima_por_nome || '—'
+                        : aberto.loja.ultima_por_nome || aberto.loja.criado_por_nome || '—'}
+                    </Typography>
+                  </CampoDrawer>
+                  <CampoDrawer label="Iniciou">
+                    <Typography sx={{ fontWeight: 600 }}>{fmtHoraCurta(aberto.loja.criado_em) || '—'}</Typography>
+                  </CampoDrawer>
+                  <CampoDrawer label="Finalizou">
+                    <Typography sx={{ fontWeight: 600 }}>
+                      {fmtHoraCurta(aberto.loja.finalizado_em) || fmtHoraCurta(aberto.loja.ultima_finalizado_em) || '—'}
+                    </Typography>
+                  </CampoDrawer>
+                  {carregandoDiff ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                      <CircularProgress size={22} />
+                    </Box>
+                  ) : diffContou ? (
+                    <>
+                      <Box sx={{ display: 'flex', gap: 2.5 }}>
+                        <CampoDrawer label="Itens">
+                          <Typography sx={{ fontWeight: 700 }}>{diffContou.itens_total}</Typography>
+                        </CampoDrawer>
+                        <CampoDrawer label="Pendentes">
+                          <Typography sx={{ fontWeight: 700, color: diffContou.pendentes ? '#C2410C' : colors.textPrimary }}>
+                            {diffContou.pendentes}
+                          </Typography>
+                        </CampoDrawer>
+                        <CampoDrawer label="Diff">
+                          <Typography sx={{ fontWeight: 700, color: diffContou.divergencias ? '#B42318' : '#127846' }}>
+                            {diffContou.divergencias}
+                          </Typography>
+                        </CampoDrawer>
+                      </Box>
+                      {diffContou.diffs.length ? (
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', pb: 0.75, borderBottom: `1px solid ${colors.border}` }}>
+                            <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: colors.textMuted }}>
+                              Item
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: colors.textMuted }}>
+                              Diff
+                            </Typography>
+                          </Box>
+                          {diffContou.diffs.map((d, idx) => (
+                            <Box
+                              key={`${d.descricao || 'item'}-${idx}`}
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'baseline',
+                                gap: 2,
+                                py: 1.15,
+                                borderBottom: `1px solid ${colors.border}`,
+                              }}
+                            >
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontSize: '0.9rem', color: colors.textPrimary }}>
+                                  {nomeProdutoBreak(d.descricao) || d.descricao || 'Item'}
+                                </Typography>
+                                <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
+                                  sistema {fmtNum(d.sistema)} · contou {fmtNum(d.contado)}
+                                </Typography>
+                              </Box>
+                              <Typography
+                                sx={{
+                                  fontSize: '0.9rem',
+                                  fontWeight: 700,
+                                  fontVariantNumeric: 'tabular-nums',
+                                  color: d.diferenca > 0 ? '#127846' : '#B42318',
+                                }}
+                              >
+                                {d.diferenca > 0 ? '+' : ''}
+                                {fmtNum(d.diferenca)}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      ) : (
+                        <Typography sx={{ color: colors.textMuted, fontSize: '0.8125rem' }}>
+                          Nenhuma diferença nesta diária.
+                        </Typography>
+                      )}
+                    </>
+                  ) : (
+                    <Typography sx={{ color: colors.textMuted, fontSize: '0.8125rem' }}>
+                      Sem diária para abrir o detalhe.
+                    </Typography>
+                  )}
+                </>
+              ) : null}
+
+              {aberto.kind === 'uso' ? (
+                <>
+                  {aberto.vista === 'emprestimo' ? (
+                    <>
+                      <CampoDrawer label="De">
+                        <LojaBkMarca bk={aberto.loja.bk} nome={aberto.loja.nome} size={18} />
+                      </CampoDrawer>
+                      <CampoDrawer label="Para">
+                        {aberto.loja.destNome ? (
+                          <LojaBkMarca bk={aberto.loja.destBk} nome={aberto.loja.destNome} size={18} />
+                        ) : (
+                          <Typography sx={{ color: colors.textMuted }}>—</Typography>
+                        )}
+                      </CampoDrawer>
+                      {(() => {
+                        const prazo = somarDiasISO(aberto.loja.dataEmprestimo, 14);
+                        const situacao = aberto.loja.vezes
+                          ? rotuloRecebimento(aberto.loja.recebimento, prazo)
+                          : '—';
+                        return (
+                          <>
+                            <CampoDrawer label="Prazo">
+                              <Typography
+                                sx={{
+                                  fontWeight: 700,
+                                  color: situacao === 'Atrasado' ? '#B42318' : colors.textPrimary,
+                                }}
+                              >
+                                {prazo ? fmtDataCurta(prazo) : '—'}
+                                {prazo ? (
+                                  <Typography component="span" sx={{ ml: 0.75, fontWeight: 600, color: colors.textMuted }}>
+                                    14 dias
+                                  </Typography>
+                                ) : null}
+                              </Typography>
+                            </CampoDrawer>
+                            <CampoDrawer label="Situação">
+                              <Typography
+                                sx={{
+                                  fontWeight: 700,
+                                  color:
+                                    situacao === 'Atrasado'
+                                      ? '#B42318'
+                                      : situacao === 'Aguardando'
+                                        ? '#C2410C'
+                                        : situacao === 'Devolvido'
+                                          ? '#127846'
+                                          : colors.textSecondary,
+                                }}
+                              >
+                                {situacao}
+                              </Typography>
+                            </CampoDrawer>
+                          </>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <>
+                      <CampoDrawer label="Quem">
+                        <Typography sx={{ fontWeight: 600 }}>{aberto.loja.pessoa}</Typography>
+                      </CampoDrawer>
+                      <CampoDrawer label="Último">
+                        <Typography sx={{ fontWeight: 600 }}>{fmtHoraCurta(aberto.loja.quando) || '—'}</Typography>
+                      </CampoDrawer>
+                      <CampoDrawer label="Vezes">
+                        <Typography sx={{ fontWeight: 700 }}>{aberto.loja.vezes || '—'}</Typography>
+                      </CampoDrawer>
+                    </>
+                  )}
+                  {aberto.loja.vezes && aberto.loja.id_break ? (
+                    carregandoEmp ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                        <CircularProgress size={22} />
+                      </Box>
+                    ) : detalheEmp?.itens?.length ? (
+                      <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', pb: 0.75, borderBottom: `1px solid ${colors.border}` }}>
+                          <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: colors.textMuted }}>
+                            {aberto.vista === 'emprestimo' ? 'Mercadoria' : 'Pedido'}
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: colors.textMuted }}>
+                            Qtd
+                          </Typography>
+                        </Box>
+                        {(detalheEmp.itens as EstoqueBreakItem[]).map((it, idx) => (
+                          <Box
+                            key={`${it.codigo || 'item'}-${idx}`}
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'baseline',
+                              gap: 2,
+                              py: 1.15,
+                              borderBottom: `1px solid ${colors.border}`,
+                            }}
+                          >
+                            <Typography sx={{ fontSize: '0.9rem', color: colors.textPrimary }}>
+                              {nomeProdutoBreak(it.descricao) || tituloItemBreak(it.descricao) || it.codigo || 'Item'}
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                              {fmtQtdItemBreak(it)}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Typography sx={{ color: colors.textMuted, fontSize: '0.8125rem' }}>
+                        Sem item gravado.
+                      </Typography>
+                    )
+                  ) : (
+                    <Typography sx={{ color: colors.textMuted, fontSize: '0.8125rem' }}>
+                      Nenhum lançamento nesta loja.
+                    </Typography>
+                  )}
+                </>
+              ) : null}
+            </Box>
+          </Box>
+        ) : null}
+      </Drawer>
     </Box>
   );
 }

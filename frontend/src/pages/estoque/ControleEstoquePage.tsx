@@ -136,7 +136,7 @@ const toggleRelatorioSx = {
     py: 0.7,
     textTransform: 'none',
     fontWeight: 700,
-    fontSize: '0.8rem',
+    fontSize: '0.95rem',
     color: colors.textSecondary,
     '&.Mui-selected': {
       bgcolor: colors.surface,

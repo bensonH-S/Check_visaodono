@@ -1954,6 +1954,50 @@ export async function buscarBreakDetalhe({ id_break, id_loja }) {
   };
 }
 
+export async function listarBreaksRede({ idsPermitidos = null, tipo = null, data = null } = {}) {
+  await garantirSchemaBreakCaderno(pool);
+  const ate = data && /^\d{4}-\d{2}-\d{2}$/.test(String(data)) ? String(data).slice(0, 10) : hojeSpISO();
+  const ids =
+    Array.isArray(idsPermitidos) && idsPermitidos.length
+      ? idsPermitidos.map(Number).filter((n) => n > 0)
+      : null;
+  const tipoNorm = String(tipo || '').trim();
+  const params = [ate, ids];
+  let filtroTipo = '';
+  if (tipoNorm) {
+    params.push(tipoNorm);
+    filtroTipo = `AND b.tipo = $${params.length}`;
+  }
+  const { rows } = await pool.query(
+    `SELECT b.id_break, b.id_loja, b.data_break, b.tipo, b.turno, b.motivo,
+            b.criado_em,
+            b.id_loja_destino,
+            b.recebimento_status,
+            u.nome AS criado_por_nome,
+            COALESCE(b.colaborador_nome, uc.nome) AS colaborador_nome,
+            l.name AS loja_nome,
+            l.bk_number,
+            ld.name AS loja_destino_nome,
+            ld.bk_number AS loja_destino_bk,
+            (SELECT i.descricao FROM estoque_break_itens i WHERE i.id_break = b.id_break ORDER BY i.id_item LIMIT 1) AS primeiro_item,
+            (SELECT COUNT(*)::int FROM estoque_break_itens i WHERE i.id_break = b.id_break) AS itens
+     FROM estoque_break b
+     JOIN lojas l ON l.id_loja = b.id_loja
+     LEFT JOIN lojas ld ON ld.id_loja = b.id_loja_destino
+     LEFT JOIN usuarios u ON u.id_usuario = b.criado_por
+     LEFT JOIN usuarios uc ON uc.id_usuario = b.id_colaborador
+     WHERE b.data_break >= ($1::date - INTERVAL '13 days')
+       AND b.data_break <= $1::date
+       AND l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
+       AND ($2::int[] IS NULL OR b.id_loja = ANY($2::int[]))
+       ${filtroTipo}
+     ORDER BY b.criado_em DESC, b.id_break DESC
+     LIMIT 300`,
+    params,
+  );
+  return { ate, lancamentos: rows };
+}
+
 export async function listarEmprestimosAReceber(idLojaDestino) {
   await garantirSchemaBreakCaderno(pool);
   const { rows } = await pool.query(

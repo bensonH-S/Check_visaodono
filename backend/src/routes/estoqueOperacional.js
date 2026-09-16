@@ -9,6 +9,7 @@ import {
   processarVenda,
   lancarBreak,
   buscarBreakDetalhe,
+  listarBreaksRede,
   listarLojasDestinoEmprestimo,
   listarEmprestimosAReceber,
   listarEmprestimosADevolver,
@@ -61,7 +62,13 @@ import {
   obterSyncPorId,
   upsertSyncFornecedor,
 } from '../services/platlog/schedulerPlatlog.js';
-import { calcularCiclo, listarStatusContagemRede } from '../services/estoqueCiclo.js';
+import {
+  calcularCiclo,
+  listarStatusContagemRede,
+  buscarDiffsContagemRede,
+  listarRegionaisEstoque,
+  gerarBufferDiffsRede,
+} from '../services/estoqueCiclo.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 import fs from 'fs/promises';
 import { parseNfeXml, renderDanfeHtml } from '../services/nfeXml.js';
@@ -1122,6 +1129,58 @@ router.get('/contagens/rede', permOp, async (req, res, next) => {
   }
 });
 
+router.get('/contagens/rede/regionais', permOp, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const regionais = await listarRegionaisEstoque({ idsPermitidos: ids });
+    res.json({ regionais });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/contagens/rede/diffs', permOp, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const idRegiao = Number(req.query.id_regiao) > 0 ? Number(req.query.id_regiao) : null;
+    const data = String(req.query.data || '').slice(0, 10) || null;
+    const { buffer, filename } = await gerarBufferDiffsRede({
+      id_regiao: idRegiao,
+      idsPermitidos: ids,
+      data,
+    });
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/contagens/:id/diffs', permOp, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const detalhe = await buscarDiffsContagemRede(id);
+    if (!detalhe) return res.status(404).json({ error: 'Contagem não encontrada' });
+    const bloqueio = acessoLoja(req, detalhe.id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    res.json(detalhe);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/sync/vendas', permOp, async (req, res, next) => {
   try {
     const serverSync =
@@ -1382,6 +1441,21 @@ router.get('/break/catalogo', permBreak, async (req, res, next) => {
       produtos,
       insumos,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/break/rede', permOp, async (req, res, next) => {
+  try {
+    const idsEstoque = req.user?.lojas_ids_estoque;
+    const ids =
+      Array.isArray(idsEstoque) && idsEstoque.length
+        ? idsEstoque.map(Number).filter((n) => n > 0)
+        : null;
+    const tipo = String(req.query.tipo || '').trim() || null;
+    const data = String(req.query.data || '').slice(0, 10) || null;
+    res.json(await listarBreaksRede({ idsPermitidos: ids, tipo, data }));
   } catch (e) {
     next(e);
   }

@@ -2,6 +2,7 @@
  * Ciclo de estoque entre duas contagens finalizadas (timestamp real).
  * Intervalo aberto à esquerda: (inicio_em, fim_em].
  */
+import XLSX from 'xlsx';
 import { pool } from '../db.js';
 import { carregarFichaPorCodigoVenda } from './estoqueMotor.js';
 import {
@@ -513,7 +514,9 @@ export async function listarStatusContagemRede({
       COALESCE(c.contado_em, c.finalizado_em) AS contado_em,
       u.nome AS criado_por_nome,
       ult.data_contagem::text AS ultima_data,
-      ult.finalizado_em AS ultima_finalizado_em
+      ult.finalizado_em AS ultima_finalizado_em,
+      ult.id_contagem AS ultima_id_contagem,
+      uult.nome AS ultima_por_nome
     FROM lojas l
     LEFT JOIN LATERAL (
       SELECT *
@@ -526,7 +529,7 @@ export async function listarStatusContagemRede({
     ) c ON TRUE
     LEFT JOIN usuarios u ON u.id_usuario = c.criado_por
     LEFT JOIN LATERAL (
-      SELECT data_contagem, finalizado_em
+      SELECT y.id_contagem, y.data_contagem, y.finalizado_em, y.criado_por
       FROM estoque_contagens y
       WHERE y.id_loja = l.id_loja
         AND COALESCE(y.tipo, 'completa') = $2
@@ -535,6 +538,7 @@ export async function listarStatusContagemRede({
                y.id_contagem DESC
       LIMIT 1
     ) ult ON TRUE
+    LEFT JOIN usuarios uult ON uult.id_usuario = ult.criado_por
     WHERE l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
       AND ($3::int[] IS NULL OR l.id_loja = ANY($3::int[]))
     ORDER BY l.name
@@ -568,10 +572,252 @@ export async function listarStatusContagemRede({
       criado_por_nome: r.criado_por_nome || null,
       ultima_data: r.ultima_data || null,
       ultima_finalizado_em: r.ultima_finalizado_em || null,
+      ultima_id_contagem: r.ultima_id_contagem || null,
+      ultima_por_nome: r.ultima_por_nome || null,
     };
   });
 
   return { hoje, tipo: tipoNorm, lojas };
+}
+
+export async function buscarDiffsContagemRede(idContagem) {
+  const id = Number(idContagem);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const { rows: cab } = await pool.query(
+    `SELECT c.id_contagem, c.id_loja, c.data_contagem::text AS data_contagem, c.status,
+            u.nome AS criado_por_nome
+     FROM estoque_contagens c
+     LEFT JOIN usuarios u ON u.id_usuario = c.criado_por
+     WHERE c.id_contagem = $1`,
+    [id],
+  );
+  if (!cab[0]) return null;
+  const [{ rows: tot }, { rows: diffs }] = await Promise.all([
+    pool.query(
+      `SELECT
+         COUNT(*)::int AS itens,
+         COUNT(*) FILTER (WHERE estoque_contado IS NULL)::int AS pendentes,
+         COUNT(*) FILTER (
+           WHERE estoque_contado IS NOT NULL
+             AND estoque_contado IS DISTINCT FROM estoque_sistema
+         )::int AS divergencias
+       FROM estoque_itens
+       WHERE id_contagem = $1`,
+      [id],
+    ),
+    pool.query(
+      `SELECT p.descricao, p.unidade_contagem,
+              i.estoque_sistema, i.estoque_contado
+       FROM estoque_itens i
+       JOIN insumos p ON p.id_insumo = i.id_insumo
+       WHERE i.id_contagem = $1
+         AND i.estoque_contado IS NOT NULL
+         AND i.estoque_contado IS DISTINCT FROM i.estoque_sistema
+       ORDER BY ABS(i.estoque_contado - COALESCE(i.estoque_sistema, 0)) DESC
+       LIMIT 40`,
+      [id],
+    ),
+  ]);
+  return {
+    id_contagem: cab[0].id_contagem,
+    id_loja: cab[0].id_loja,
+    data_contagem: cab[0].data_contagem,
+    status: cab[0].status,
+    criado_por_nome: cab[0].criado_por_nome,
+    itens_total: tot[0]?.itens ?? 0,
+    pendentes: tot[0]?.pendentes ?? 0,
+    divergencias: tot[0]?.divergencias ?? 0,
+    diffs: diffs.map((r) => {
+      const sistema = num(r.estoque_sistema);
+      const contado = num(r.estoque_contado);
+      return {
+        descricao: r.descricao,
+        unidade: r.unidade_contagem,
+        sistema,
+        contado,
+        diferenca: Math.round((contado - sistema) * 1000) / 1000,
+      };
+    }),
+  };
+}
+
+export async function listarRegionaisEstoque({ idsPermitidos = null } = {}) {
+  const ids =
+    Array.isArray(idsPermitidos) && idsPermitidos.length
+      ? idsPermitidos.map(Number).filter((n) => n > 0)
+      : null;
+  const { rows } = await pool.query(
+    `SELECT r.id_regiao, r.nome,
+            COALESCE(u.id_usuario, ur.id_usuario) AS id_regional,
+            COALESCE(u.nome, ur.nome, r.nome) AS nome_regional,
+            COALESCE(
+              ARRAY_AGG(DISTINCT rl.id_loja) FILTER (WHERE rl.id_loja IS NOT NULL),
+              '{}'
+            ) AS ids_lojas
+     FROM frota_regioes r
+     LEFT JOIN usuarios u ON u.id_usuario = r.id_regional
+     LEFT JOIN LATERAL (
+       SELECT uu.id_usuario, uu.nome
+       FROM frota_regiao_regionais rr
+       JOIN usuarios uu ON uu.id_usuario = rr.id_usuario
+       WHERE rr.id_regiao = r.id_regiao
+       ORDER BY uu.nome
+       LIMIT 1
+     ) ur ON TRUE
+     LEFT JOIN frota_regiao_lojas rl ON rl.id_regiao = r.id_regiao
+     WHERE r.ativo = TRUE
+       AND ($1::int[] IS NULL OR rl.id_loja IS NULL OR rl.id_loja = ANY($1::int[]))
+     GROUP BY r.id_regiao, r.nome, u.id_usuario, u.nome, ur.id_usuario, ur.nome
+     ORDER BY COALESCE(u.nome, ur.nome, r.nome)`,
+    [ids],
+  );
+  return rows
+    .map((r) => ({
+      id_regiao: r.id_regiao,
+      nome: r.nome,
+      id_regional: r.id_regional || null,
+      nome_regional: r.nome_regional || null,
+      ids_lojas: (r.ids_lojas || []).map(Number).filter((n) => n > 0),
+    }))
+    .filter((r) => r.ids_lojas.length);
+}
+
+export async function gerarBufferDiffsRede({
+  id_regiao = null,
+  idsPermitidos = null,
+  data = null,
+} = {}) {
+  const idsPerm =
+    Array.isArray(idsPermitidos) && idsPermitidos.length
+      ? idsPermitidos.map(Number).filter((n) => n > 0)
+      : null;
+  const idRegiao = Number(id_regiao) > 0 ? Number(id_regiao) : null;
+  const dia = data && /^\d{4}-\d{2}-\d{2}$/.test(String(data)) ? String(data).slice(0, 10) : null;
+
+  const params = [];
+  let filtroLoja = `l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''`;
+  if (idRegiao) {
+    params.push(idRegiao);
+    filtroLoja += ` AND EXISTS (
+      SELECT 1 FROM frota_regiao_lojas rl
+      WHERE rl.id_loja = l.id_loja AND rl.id_regiao = $${params.length}
+    )`;
+  }
+  if (idsPerm) {
+    params.push(idsPerm);
+    filtroLoja += ` AND l.id_loja = ANY($${params.length}::int[])`;
+  }
+
+  const paramsUltima = [...params];
+  let filtroDia = '';
+  if (dia) {
+    paramsUltima.push(dia);
+    filtroDia = `AND c.data_contagem = $${paramsUltima.length}::date`;
+  }
+
+  const { rows: lojas } = await pool.query(
+    `SELECT l.id_loja, l.name, l.bk_number,
+            (
+              SELECT COALESCE(u.nome, r.nome)
+              FROM frota_regiao_lojas rl
+              JOIN frota_regioes r ON r.id_regiao = rl.id_regiao AND r.ativo = TRUE
+              LEFT JOIN usuarios u ON u.id_usuario = r.id_regional
+              WHERE rl.id_loja = l.id_loja
+              ORDER BY r.nome
+              LIMIT 1
+            ) AS regional
+     FROM lojas l
+     WHERE ${filtroLoja}
+     ORDER BY l.name`,
+    params,
+  );
+
+  const { rows: diffs } = await pool.query(
+    `WITH ultima AS (
+       SELECT DISTINCT ON (c.id_loja)
+              c.id_contagem, c.id_loja, c.data_contagem::text AS data_contagem,
+              u.nome AS criado_por_nome
+       FROM estoque_contagens c
+       JOIN lojas l ON l.id_loja = c.id_loja
+       LEFT JOIN usuarios u ON u.id_usuario = c.criado_por
+       WHERE COALESCE(c.tipo, 'completa') = 'diaria'
+         AND c.status = 'finalizada'
+         AND ${filtroLoja}
+         ${filtroDia}
+       ORDER BY c.id_loja,
+                COALESCE(c.contado_em, c.finalizado_em, c.data_contagem::timestamptz) DESC NULLS LAST,
+                c.id_contagem DESC
+     )
+     SELECT ultima.id_loja, ultima.data_contagem, ultima.criado_por_nome,
+            l.name AS loja_nome, l.bk_number,
+            p.descricao, p.unidade_contagem,
+            i.estoque_sistema, i.estoque_contado
+     FROM ultima
+     JOIN lojas l ON l.id_loja = ultima.id_loja
+     JOIN estoque_itens i ON i.id_contagem = ultima.id_contagem
+     JOIN insumos p ON p.id_insumo = i.id_insumo
+     WHERE i.estoque_contado IS NOT NULL
+       AND i.estoque_contado IS DISTINCT FROM i.estoque_sistema
+     ORDER BY l.name, ABS(i.estoque_contado - COALESCE(i.estoque_sistema, 0)) DESC`,
+    paramsUltima,
+  );
+
+  const porLoja = new Map();
+  const metaLoja = new Map();
+  const regionalPorLoja = new Map(lojas.map((l) => [l.id_loja, l.regional || '—']));
+  for (const r of diffs) {
+    porLoja.set(r.id_loja, (porLoja.get(r.id_loja) || 0) + 1);
+    if (!metaLoja.has(r.id_loja)) {
+      metaLoja.set(r.id_loja, { data: r.data_contagem, quem: r.criado_por_nome });
+    }
+  }
+
+  const resumo = lojas.map((l) => {
+    const meta = metaLoja.get(l.id_loja) || {};
+    return {
+      Loja: l.name,
+      Regional: l.regional || '—',
+      Data: meta.data || '—',
+      Quem: meta.quem || '—',
+      Diffs: porLoja.get(l.id_loja) || 0,
+    };
+  });
+
+  const detalhe = diffs.map((r) => {
+    const sistema = num(r.estoque_sistema);
+    const contado = num(r.estoque_contado);
+    return {
+      Loja: r.loja_nome,
+      Regional: regionalPorLoja.get(r.id_loja) || '—',
+      Data: r.data_contagem,
+      Quem: r.criado_por_nome || '—',
+      Item: r.descricao,
+      Unidade: r.unidade_contagem || '',
+      Sistema: sistema,
+      Contou: contado,
+      Diff: Math.round((contado - sistema) * 1000) / 1000,
+    };
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.json_to_sheet(detalhe.length ? detalhe : [{ Loja: 'Sem diferença' }]),
+    'Diff',
+  );
+  const ate = dia || hojeSpISO();
+  const slugRegiao = String(lojas[0]?.regional || (idRegiao ? `regiao-${idRegiao}` : 'rede'))
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase()
+    .slice(0, 40);
+  return {
+    buffer: XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }),
+    filename: `diff-diaria-${slugRegiao || 'rede'}-${ate}.xlsx`,
+  };
 }
 
 export { carregarPerfil, ancoraContagem };

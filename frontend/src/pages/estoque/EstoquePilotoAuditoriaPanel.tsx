@@ -1,68 +1,51 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { api, type EstoqueSaudeBaixa } from '../../api/client';
 import { showToast } from '../../utils/toast';
-import { colors, radius, shadows } from '../../theme/tokens';
-
-const OK = '#127846';
-const RUIM = '#B42318';
-const ALERTA = '#C2410C';
+import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
+import { colors } from '../../theme/tokens';
 
 type ListaAbaixo = 'insumos' | 'vendas' | 'desperdicio';
 
-const MOTIVO: Record<string, { titulo: string; texto: string }> = {
-  INSUMO_NAO_CADASTRADO: {
-    titulo: 'Não está no cadastro da loja',
-    texto: 'A receita pede este item, mas ele não existe ou está desligado aqui.',
-  },
-  CONVERSAO_NAO_VALIDADA: {
-    titulo: 'Receita e estoque usam unidade diferente',
-    texto: 'A ficha fala em unidade e o estoque conta em kg (ou o contrário). Sem essa conta o item não sai do saldo.',
-  },
-  CONVERSAO_BLOQUEADA: {
-    titulo: 'Conversão bloqueada',
-    texto: 'Alguém bloqueou de propósito a conta entre a receita e o estoque.',
-  },
-  QUANTIDADE_INVALIDA: {
-    titulo: 'Quantidade estranha na receita',
-    texto: 'A ficha ou a venda veio com quantidade que o sistema não consegue usar.',
-  },
-  FORA_PILOTO: {
-    titulo: 'Item ainda fora do teste',
-    texto: 'Este item ainda não entra na baixa automática.',
-  },
+const MOTIVO: Record<string, string> = {
+  INSUMO_NAO_CADASTRADO: 'Não está no cadastro da loja',
+  CONVERSAO_NAO_VALIDADA: 'Unidade da receita não bate com o estoque',
+  CONVERSAO_BLOQUEADA: 'Conversão bloqueada',
+  QUANTIDADE_INVALIDA: 'Quantidade estranha na receita',
+  FORA_PILOTO: 'Item ainda fora do teste',
 };
 
-const toggleSx = {
-  bgcolor: colors.canvasAlt,
-  borderRadius: 2,
-  p: 0.3,
-  '& .MuiToggleButtonGroup-grouped': {
-    border: 0,
-    borderRadius: '8px !important',
-    px: 1.2,
-    py: 0.4,
-    textTransform: 'none',
-    fontWeight: 700,
-    fontSize: '0.75rem',
-    color: colors.textSecondary,
-    '&.Mui-selected': {
-      bgcolor: colors.surface,
-      color: colors.textPrimary,
-      boxShadow: shadows.sm,
-      '&:hover': { bgcolor: colors.surface },
-    },
-  },
+const thSx = {
+  color: colors.textSecondary,
+  bgcolor: `${colors.canvasAlt} !important`,
+  borderBottom: `1px solid ${colors.border}`,
+  fontWeight: 700,
+  fontSize: '0.8rem',
+  letterSpacing: '0.04em',
+  textTransform: 'uppercase' as const,
+  py: 1.15,
 } as const;
+
+function tituloItemBaixa(raw?: string | null) {
+  const s = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  return s
+    .toLowerCase()
+    .replace(/\b([a-z0-9][a-z0-9']*)/g, (word) => word.charAt(0).toUpperCase() + word.slice(1));
+}
 
 function fmtPeriodo(v: string | null | undefined) {
   if (!v) return '—';
@@ -78,8 +61,7 @@ function fmtPeriodo(v: string | null | undefined) {
 }
 
 function fmtDia(v: string | null | undefined) {
-  if (!v) return '—';
-  const iso = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const iso = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[3]}/${iso[2]}`;
   return fmtPeriodo(v);
 }
@@ -94,23 +76,13 @@ function fraseErroVenda(texto: string | null | undefined) {
 
 function rotuloBreak(tipo: string | null | undefined) {
   const t = String(tipo || '');
-  if (t.includes('desperdicio')) return 'Desperdício';
-  if (t.includes('break')) return 'Break';
+  if (t.includes('desperdicio_completo')) return 'Desperdício completo';
+  if (t.includes('desperdicio')) return 'Desperdício incompleto';
+  if (t.includes('emprestimo')) return 'Empréstimo';
+  if (t.includes('refeicao') || t.includes('break')) return 'Break';
   return t || 'Lançamento';
 }
 
-function cardSx(destaque?: boolean) {
-  return {
-    border: `1px solid ${destaque ? 'rgba(180,35,24,0.28)' : colors.border}`,
-    borderRadius: `${radius.lg}px`,
-    bgcolor: colors.surface,
-    boxShadow: shadows.sm,
-  } as const;
-}
-
-/**
- * Aba Baixa: venda deveria tirar insumo do estoque. Aqui o gestor vê se isso aconteceu.
- */
 export default function EstoquePilotoAuditoriaPanel({
   idLoja,
   onSetHeaderActions,
@@ -175,20 +147,12 @@ export default function EstoquePilotoAuditoriaPanel({
   }, [carregar, baixar, baixando, onSetHeaderActions]);
 
   const r = data?.resumo;
-  const totalVendas = (r?.processada ?? 0) + (r?.parcial ?? 0) + (r?.erro ?? 0) + (r?.pendente ?? 0);
-  const incompletas = (r?.parcial ?? 0) + (r?.erro ?? 0);
-  const semReceita = r?.sem_ficha ?? 0;
   const problemas = data?.problemas ?? [];
   const vendasRuim = data?.vendas_com_problema ?? [];
   const breaksAviso = data?.breaks_com_aviso ?? [];
   const taxa = r?.taxa_processada_pct;
-
-  const fraseHero = useMemo(() => {
-    if (taxa == null || !totalVendas) return 'Ainda não tem venda nesta janela para julgar a baixa.';
-    if (taxa >= 80) return `Quase tudo certo: ${taxa}% das vendas já tiraram o insumo do estoque.`;
-    if (taxa >= 40) return `A baixa está pela metade: só ${taxa}% das vendas fecharam o estoque.`;
-    return `A venda está passando e o estoque quase não acompanha: só ${taxa}% baixou até o fim.`;
-  }, [taxa, totalVendas]);
+  const processada = r?.processada ?? 0;
+  const totalVendas = processada + (r?.parcial ?? 0) + (r?.erro ?? 0) + (r?.pendente ?? 0);
 
   useEffect(() => {
     if (lista === 'vendas' && !vendasRuim.length) setLista('insumos');
@@ -203,272 +167,201 @@ export default function EstoquePilotoAuditoriaPanel({
     );
   }
 
+  const filtros: Array<{ id: ListaAbaixo; label: string; qtd: number; hide?: boolean }> = [
+    { id: 'insumos', label: 'Corrigir', qtd: problemas.length },
+    { id: 'vendas', label: 'Vendas', qtd: vendasRuim.length, hide: !vendasRuim.length },
+    { id: 'desperdicio', label: 'Desperdício', qtd: breaksAviso.length, hide: !breaksAviso.length },
+  ];
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0 }}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={escopo}
-          onChange={(_e, v: 'loja' | 'rede' | null) => {
-            if (v) setEscopo(v);
-          }}
-          sx={toggleSx}
-        >
-          <ToggleButton value="loja">Só esta loja</ToggleButton>
-          <ToggleButton value="rede">Todas as lojas</ToggleButton>
-        </ToggleButtonGroup>
-        <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
-          {fmtPeriodo(data?.janela?.desde)}
-          {data?.janela?.previsto_fim ? ` a ${fmtPeriodo(data.janela.previsto_fim)}` : ''}
-          {escopo === 'loja' ? ' · quando a loja vende, o estoque deveria cair' : ' · mesma leitura em todas as lojas'}
-        </Typography>
-      </Box>
-
-      <Paper sx={{ ...cardSx(taxa != null && taxa < 40), flexShrink: 0, px: 2, py: 1.5 }}>
-        <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: colors.textPrimary, lineHeight: 1.35, maxWidth: 720 }}>
-          {fraseHero}
-        </Typography>
-        <Box sx={{ mt: 1, height: 6, bgcolor: colors.canvasAlt, borderRadius: 1, overflow: 'hidden', maxWidth: 420 }}>
-          <Box
-            sx={{
-              width: `${Math.max(0, Math.min(100, taxa ?? 0))}%`,
-              height: '100%',
-              bgcolor: taxa == null || taxa < 40 ? RUIM : taxa < 80 ? ALERTA : OK,
-            }}
-          />
-        </Box>
-        {!data?.piloto_desligado ? (
-          <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.85 }}>
-            Ainda em teste: nem todo item da loja entra nessa baixa.
-          </Typography>
-        ) : null}
-      </Paper>
-
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
       <Box
         sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' },
-          gap: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexWrap: 'wrap',
           flexShrink: 0,
+          pb: 0.25,
+          borderBottom: `1px solid ${colors.border}`,
         }}
       >
-        <ResumoCard
-          n={r?.processada ?? 0}
-          titulo="Estoque acompanhou a venda"
-          texto={totalVendas ? `de ${totalVendas} vendas` : 'vendas que baixaram tudo'}
-          tom="ok"
-        />
-        <ResumoCard
-          n={incompletas}
-          titulo="Baixou só uma parte"
-          texto="Tirou alguns insumos e deixou outros"
-          tom={incompletas > 0 ? 'ruim' : 'neutro'}
-        />
-        <ResumoCard
-          n={semReceita}
-          titulo="Vendeu sem receita"
-          texto="O sistema não sabe o que tirar do estoque"
-          tom={semReceita > 0 ? 'ruim' : 'neutro'}
-          acao={semReceita > 0 && onIrFichas ? { label: 'Abrir cadastro', onClick: onIrFichas } : undefined}
-        />
-      </Box>
-
-      <Paper sx={{ ...cardSx(), flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Box
-          sx={{
-            px: 1.5,
-            pt: 1.15,
-            pb: 1,
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 1,
-            flexShrink: 0,
-          }}
-        >
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={lista}
-            onChange={(_e, v: ListaAbaixo | null) => {
-              if (v) setLista(v);
-            }}
-            sx={toggleSx}
-          >
-            <ToggleButton value="insumos">O que corrigir ({problemas.length})</ToggleButton>
-            {vendasRuim.length ? (
-              <ToggleButton value="vendas">Vendas incompletas ({vendasRuim.length})</ToggleButton>
-            ) : null}
-            {breaksAviso.length ? (
-              <ToggleButton value="desperdicio">Desperdício sem baixa ({breaksAviso.length})</ToggleButton>
-            ) : null}
-          </ToggleButtonGroup>
-        </Box>
-
-        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: 1.5, pb: 1.5 }}>
-          {lista === 'insumos' && !problemas.length ? (
-            <Vazio>Nenhum insumo travando a baixa nesta janela.</Vazio>
-          ) : null}
-
-          {lista === 'insumos'
-            ? problemas.map((p) => {
-                const info = MOTIVO[p.motivo] || {
-                  titulo: p.problema,
-                  texto: p.o_que_fazer,
-                };
-                return (
+        {(
+          [
+            { id: 'loja' as const, label: 'Esta loja' },
+            { id: 'rede' as const, label: 'Rede' },
+          ] as const
+        ).map((f) => {
+          const ativo = escopo === f.id;
+          return (
+            <Button
+              key={f.id}
+              disableRipple
+              onClick={() => setEscopo(f.id)}
+              sx={{
+                textTransform: 'none',
+                minWidth: 0,
+                px: 1.1,
+                py: 0.85,
+                borderRadius: 0,
+                fontWeight: ativo ? 700 : 600,
+                fontSize: '0.8125rem',
+                color: ativo ? colors.textPrimary : colors.textSecondary,
+                borderBottom: ativo ? `2px solid ${colors.orange}` : '2px solid transparent',
+                bgcolor: 'transparent',
+                '&:hover': { bgcolor: 'transparent', color: colors.textPrimary },
+              }}
+            >
+              {f.label}
+            </Button>
+          );
+        })}
+        <Typography sx={{ fontSize: '0.78rem', color: colors.textSecondary, ml: { sm: 0.5 } }}>
+          {taxa != null && totalVendas
+            ? `${taxa}% das vendas baixaram o estoque`
+            : 'Sem venda nesta janela'}
+          {data?.janela?.desde ? ` · ${fmtPeriodo(data.janela.desde)}` : ''}
+          {data?.janela?.previsto_fim ? ` a ${fmtPeriodo(data.janela.previsto_fim)}` : ''}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, ml: { sm: 'auto' } }}>
+          {filtros
+            .filter((f) => !f.hide)
+            .map((f) => {
+              const ativo = lista === f.id;
+              return (
+                <Button
+                  key={f.id}
+                  disableRipple
+                  onClick={() => setLista(f.id)}
+                  sx={{
+                    textTransform: 'none',
+                    minWidth: 0,
+                    px: 1.1,
+                    py: 0.85,
+                    borderRadius: 0,
+                    fontWeight: ativo ? 700 : 600,
+                    fontSize: '0.8125rem',
+                    color: ativo ? colors.textPrimary : colors.textSecondary,
+                    borderBottom: ativo ? `2px solid ${colors.orange}` : '2px solid transparent',
+                    bgcolor: 'transparent',
+                    '&:hover': { bgcolor: 'transparent', color: colors.textPrimary },
+                  }}
+                >
+                  {f.label}
                   <Box
-                    key={`${p.codigo}-${p.motivo}`}
+                    component="span"
                     sx={{
-                      display: 'flex',
-                      gap: 1.5,
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      py: 1.15,
-                      borderBottom: `1px solid ${colors.border}`,
-                      '&:last-child': { borderBottom: 0 },
+                      ml: 0.85,
+                      px: 0.65,
+                      minWidth: 20,
+                      height: 18,
+                      borderRadius: '9px',
+                      bgcolor: colors.canvasAlt,
+                      color: colors.textMuted,
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontSize: '0.84rem', fontWeight: 800, color: colors.textPrimary }}>
-                        {p.nome}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, fontFamily: 'ui-monospace, monospace' }}>
-                        {p.codigo}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: RUIM, mt: 0.45 }}>
-                        {info.titulo}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary, mt: 0.2, maxWidth: 560 }}>
-                        {info.texto}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
-                      <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: colors.textPrimary, lineHeight: 1 }}>
-                        {p.vezes}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.68rem', color: colors.textMuted, fontWeight: 600 }}>
-                        {escopo === 'rede' ? `${p.lojas} lojas` : 'vezes'}
-                      </Typography>
-                      {onIrFichas ? (
-                        <Button
-                          size="small"
-                          onClick={onIrFichas}
-                          sx={{ mt: 0.75, textTransform: 'none', fontWeight: 700, fontSize: '0.72rem', px: 1 }}
-                        >
-                          Abrir cadastro
-                        </Button>
-                      ) : null}
-                    </Box>
+                    {f.qtd}
                   </Box>
-                );
-              })
-            : null}
-
-          {lista === 'vendas'
-            ? vendasRuim.map((v) => (
-                <Box
-                  key={`${v.id_loja}-${v.id_venda}`}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 1,
-                    py: 1,
-                    borderBottom: `1px solid ${colors.border}`,
-                    '&:last-child': { borderBottom: 0 },
-                  }}
-                >
-                  <Box>
-                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                      Venda #{v.id_venda}
-                      {escopo === 'rede' ? ` · loja ${v.id_loja}` : ''}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary }}>
-                      {fraseErroVenda(v.erros)}
-                    </Typography>
-                  </Box>
-                  <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, whiteSpace: 'nowrap' }}>
-                    {fmtDia(v.data_venda)}
-                  </Typography>
-                </Box>
-              ))
-            : null}
-
-          {lista === 'desperdicio'
-            ? breaksAviso.map((b) => (
-                <Box
-                  key={b.id_break}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 1,
-                    py: 1,
-                    borderBottom: `1px solid ${colors.border}`,
-                    '&:last-child': { borderBottom: 0 },
-                  }}
-                >
-                  <Box>
-                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                      {rotuloBreak(b.tipo)} #{b.id_break}
-                      {escopo === 'rede' ? ` · loja ${b.id_loja}` : ''}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.75rem', color: colors.textSecondary }}>
-                      {fraseErroVenda((b.avisos && b.avisos[0]) || b.avisos_texto)}
-                    </Typography>
-                  </Box>
-                  <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted, whiteSpace: 'nowrap' }}>
-                    {fmtDia(b.data_break)}
-                  </Typography>
-                </Box>
-              ))
-            : null}
+                </Button>
+              );
+            })}
         </Box>
+      </Box>
+
+      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
+        <TableContainer sx={tableContainerSx}>
+          <Table stickyHeader sx={{ ...tableSx, '& .MuiTableCell-root': { fontSize: '0.95rem', py: 1.2 } }}>
+            <TableHead>
+              <TableRow>
+                {lista === 'insumos' ? (
+                  <>
+                    <TableCell sx={{ ...thSx, pl: 2.5 }}>Item</TableCell>
+                    <TableCell sx={thSx}>Problema</TableCell>
+                    <TableCell sx={{ ...thSx, textAlign: 'right', pr: 2.5 }} width={90}>
+                      Vezes
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell sx={{ ...thSx, pl: 2.5 }}>{lista === 'vendas' ? 'Venda' : 'Lançamento'}</TableCell>
+                    <TableCell sx={thSx}>Problema</TableCell>
+                    <TableCell sx={{ ...thSx, pr: 2.5 }} width={100}>
+                      Data
+                    </TableCell>
+                  </>
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {lista === 'insumos' && !problemas.length ? (
+                <TableRow>
+                  <TableCell colSpan={3} sx={{ py: 5, color: colors.textMuted, borderBottom: 0 }}>
+                    Nada travando a baixa nesta janela.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+
+              {lista === 'insumos'
+                ? problemas.map((p) => (
+                    <TableRow
+                      key={`${p.codigo}-${p.motivo}`}
+                      hover
+                      onClick={onIrFichas}
+                      sx={{ cursor: onIrFichas ? 'pointer' : 'default' }}
+                    >
+                      <TableCell sx={{ pl: 2.5, fontWeight: 600, fontSize: '0.875rem' }}>
+                        {tituloItemBaixa(p.nome) || p.nome}
+                      </TableCell>
+                      <TableCell sx={{ color: colors.textSecondary, fontSize: '0.8125rem' }}>
+                        {MOTIVO[p.motivo] || p.problema}
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'right', pr: 2.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        {p.vezes}
+                        {escopo === 'rede' ? (
+                          <Typography component="span" sx={{ display: 'block', fontSize: '0.68rem', color: colors.textMuted, fontWeight: 600 }}>
+                            {p.lojas} lojas
+                          </Typography>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : null}
+
+              {lista === 'vendas'
+                ? vendasRuim.map((v) => (
+                    <TableRow key={`${v.id_loja}-${v.id_venda}`} hover>
+                      <TableCell sx={{ pl: 2.5, fontWeight: 600 }}>
+                        {escopo === 'rede' ? `Loja ${v.id_loja}` : 'Venda do dia'}
+                      </TableCell>
+                      <TableCell sx={{ color: colors.textSecondary }}>{fraseErroVenda(v.erros)}</TableCell>
+                      <TableCell sx={{ pr: 2.5, color: colors.textSecondary }}>{fmtDia(v.data_venda)}</TableCell>
+                    </TableRow>
+                  ))
+                : null}
+
+              {lista === 'desperdicio'
+                ? breaksAviso.map((b) => (
+                    <TableRow key={b.id_break} hover>
+                      <TableCell sx={{ pl: 2.5, fontWeight: 600 }}>
+                        {rotuloBreak(b.tipo)}
+                        {escopo === 'rede' ? ` · loja ${b.id_loja}` : ''}
+                      </TableCell>
+                      <TableCell sx={{ color: colors.textSecondary }}>
+                        {fraseErroVenda((b.avisos && b.avisos[0]) || b.avisos_texto)}
+                      </TableCell>
+                      <TableCell sx={{ color: colors.textSecondary }}>{fmtDia(b.data_break)}</TableCell>
+                    </TableRow>
+                  ))
+                : null}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
     </Box>
-  );
-}
-
-function ResumoCard({
-  n,
-  titulo,
-  texto,
-  tom,
-  acao,
-}: {
-  n: number;
-  titulo: string;
-  texto: string;
-  tom: 'ok' | 'ruim' | 'neutro';
-  acao?: { label: string; onClick: () => void };
-}) {
-  const cor = tom === 'ok' ? OK : tom === 'ruim' ? RUIM : colors.textPrimary;
-  return (
-    <Paper sx={{ ...cardSx(tom === 'ruim' && n > 0), px: 1.5, py: 1.25 }}>
-      <Typography sx={{ fontSize: '1.55rem', fontWeight: 800, color: cor, lineHeight: 1, letterSpacing: '-0.03em' }}>
-        {n}
-      </Typography>
-      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: colors.textPrimary, mt: 0.55 }}>
-        {titulo}
-      </Typography>
-      <Typography sx={{ fontSize: '0.72rem', color: colors.textMuted, mt: 0.2 }}>{texto}</Typography>
-      {acao ? (
-        <Button
-          size="small"
-          onClick={acao.onClick}
-          sx={{ mt: 0.75, textTransform: 'none', fontWeight: 700, fontSize: '0.72rem', px: 0 }}
-        >
-          {acao.label}
-        </Button>
-      ) : null}
-    </Paper>
-  );
-}
-
-function Vazio({ children }: { children: ReactNode }) {
-  return (
-    <Typography sx={{ color: colors.textMuted, fontSize: '0.8rem', py: 3, textAlign: 'center' }}>
-      {children}
-    </Typography>
   );
 }

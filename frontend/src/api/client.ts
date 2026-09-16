@@ -1104,6 +1104,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
   estoqueContagem: (id: number) => request<EstoqueContagemDetalhe>(`/estoque/contagens/${id}`),
+  estoqueContagemDiffs: (id: number) => request<EstoqueContagemDiffs>(`/estoque/contagens/${id}/diffs`),
   estoqueRelatorioContagem: (params: {
     id_loja: number;
     tipo: 'diaria' | 'critica_semanal' | 'completa';
@@ -1359,6 +1360,15 @@ export const api = {
       inicio_mes: string;
       lojas: EstoqueSyncLojaStatus[];
     }>('/estoque/sync/lojas'),
+  estoqueBreaksRede: (opts?: { tipo?: string; data?: string }) => {
+    const q = new URLSearchParams();
+    if (opts?.tipo) q.set('tipo', opts.tipo);
+    if (opts?.data) q.set('data', opts.data);
+    const qs = q.toString();
+    return request<{ ate: string; lancamentos: EstoqueBreakRedeItem[] }>(
+      `/estoque/break/rede${qs ? `?${qs}` : ''}`,
+    );
+  },
   estoqueContagensRede: (opts?: { tipo?: 'diaria' | 'critica_semanal' | 'completa'; data?: string }) => {
     const q = new URLSearchParams();
     if (opts?.tipo) q.set('tipo', opts.tipo);
@@ -1367,6 +1377,33 @@ export const api = {
     return request<{ hoje: string; tipo: string; lojas: EstoqueContagemRedeItem[] }>(
       `/estoque/contagens/rede${qs ? `?${qs}` : ''}`,
     );
+  },
+  estoqueRegionaisDiff: () =>
+    request<{ regionais: EstoqueRegionalDiff[] }>('/estoque/contagens/rede/regionais'),
+  estoqueBaixarDiffsRede: async (opts?: { id_regiao?: number; data?: string }) => {
+    const q = new URLSearchParams();
+    if (opts?.id_regiao) q.set('id_regiao', String(opts.id_regiao));
+    if (opts?.data) q.set('data', opts.data);
+    const qs = q.toString();
+    const res = await fetch(`${BASE}/estoque/contagens/rede/diffs${qs ? `?${qs}` : ''}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao gerar relatório');
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="([^"]+)"/);
+    const filename = match?.[1] || 'diff-diaria.xlsx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   },
   estoqueSyncVendas: (body: {
     id_loja: number;
@@ -3577,6 +3614,36 @@ export interface EstoqueContagemRedeItem {
   criado_por_nome: string | null;
   ultima_data: string | null;
   ultima_finalizado_em: string | null;
+  ultima_id_contagem?: number | null;
+  ultima_por_nome?: string | null;
+}
+
+export interface EstoqueContagemDiffItem {
+  descricao?: string | null;
+  unidade?: string | null;
+  sistema: number;
+  contado: number;
+  diferenca: number;
+}
+
+export interface EstoqueContagemDiffs {
+  id_contagem: number;
+  id_loja: number;
+  data_contagem?: string | null;
+  status?: string;
+  criado_por_nome?: string | null;
+  itens_total: number;
+  pendentes: number;
+  divergencias: number;
+  diffs: EstoqueContagemDiffItem[];
+}
+
+export interface EstoqueRegionalDiff {
+  id_regiao: number;
+  nome: string;
+  id_regional?: number | null;
+  nome_regional?: string | null;
+  ids_lojas: number[];
 }
 
 export interface EstoqueSyncResult {
@@ -3584,6 +3651,26 @@ export interface EstoqueSyncResult {
   arquivo: string;
   linhas: number;
   importResult: { dias: number; resultados: unknown[] };
+}
+
+export interface EstoqueBreakRedeItem {
+  id_break: number;
+  id_loja: number;
+  data_break: string;
+  tipo: string;
+  turno?: string | null;
+  motivo?: string | null;
+  criado_em?: string | null;
+  criado_por_nome?: string | null;
+  colaborador_nome?: string | null;
+  loja_nome?: string | null;
+  bk_number?: string | null;
+  primeiro_item?: string | null;
+  itens?: number;
+  id_loja_destino?: number | null;
+  loja_destino_nome?: string | null;
+  loja_destino_bk?: string | null;
+  recebimento_status?: string | null;
 }
 
 export interface EstoqueBreakItem {
