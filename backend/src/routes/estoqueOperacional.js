@@ -1157,10 +1157,7 @@ router.get('/contagens/rede/diffs', permOp, async (req, res, next) => {
       idsPermitidos: ids,
       data,
     });
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
   } catch (e) {

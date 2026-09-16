@@ -2,8 +2,8 @@
  * Ciclo de estoque entre duas contagens finalizadas (timestamp real).
  * Intervalo aberto à esquerda: (inicio_em, fim_em].
  */
-import XLSX from 'xlsx';
 import { pool } from '../db.js';
+import { gerarPdfDiffsEstoque } from './gerarPdfDiffsEstoque.js';
 import { carregarFichaPorCodigoVenda } from './estoqueMotor.js';
 import {
   garantirSchemaPilotoBaixa,
@@ -764,59 +764,69 @@ export async function gerarBufferDiffsRede({
 
   const porLoja = new Map();
   const metaLoja = new Map();
-  const regionalPorLoja = new Map(lojas.map((l) => [l.id_loja, l.regional || '—']));
+  const itensPorLoja = new Map();
   for (const r of diffs) {
     porLoja.set(r.id_loja, (porLoja.get(r.id_loja) || 0) + 1);
     if (!metaLoja.has(r.id_loja)) {
       metaLoja.set(r.id_loja, { data: r.data_contagem, quem: r.criado_por_nome });
     }
-  }
-
-  const resumo = lojas.map((l) => {
-    const meta = metaLoja.get(l.id_loja) || {};
-    return {
-      Loja: l.name,
-      Regional: l.regional || '—',
-      Data: meta.data || '—',
-      Quem: meta.quem || '—',
-      Diffs: porLoja.get(l.id_loja) || 0,
-    };
-  });
-
-  const detalhe = diffs.map((r) => {
     const sistema = num(r.estoque_sistema);
     const contado = num(r.estoque_contado);
+    const lista = itensPorLoja.get(r.id_loja) || [];
+    lista.push({
+      descricao: r.descricao,
+      unidade: r.unidade_contagem || '',
+      sistema,
+      contado,
+      diff: Math.round((contado - sistema) * 1000) / 1000,
+    });
+    itensPorLoja.set(r.id_loja, lista);
+  }
+
+  const lojasRelatorio = lojas.map((l) => {
+    const meta = metaLoja.get(l.id_loja) || {};
     return {
-      Loja: r.loja_nome,
-      Regional: regionalPorLoja.get(r.id_loja) || '—',
-      Data: r.data_contagem,
-      Quem: r.criado_por_nome || '—',
-      Item: r.descricao,
-      Unidade: r.unidade_contagem || '',
-      Sistema: sistema,
-      Contou: contado,
-      Diff: Math.round((contado - sistema) * 1000) / 1000,
+      id_loja: l.id_loja,
+      name: l.name,
+      bk_number: l.bk_number || null,
+      regional: l.regional || '—',
+      data: meta.data || null,
+      quem: meta.quem || null,
+      qtd_diffs: porLoja.get(l.id_loja) || 0,
+      itens: itensPorLoja.get(l.id_loja) || [],
     };
   });
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.json_to_sheet(detalhe.length ? detalhe : [{ Loja: 'Sem diferença' }]),
-    'Diff',
-  );
   const ate = dia || hojeSpISO();
-  const slugRegiao = String(lojas[0]?.regional || (idRegiao ? `regiao-${idRegiao}` : 'rede'))
+  const regional =
+    idRegiao
+      ? lojas[0]?.regional || `Região ${idRegiao}`
+      : [...new Set(lojas.map((l) => l.regional).filter(Boolean))].length === 1
+        ? lojas[0]?.regional
+        : 'Rede';
+  const qtdComDiff = lojasRelatorio.filter((l) => l.qtd_diffs > 0).length;
+  const qtdItens = diffs.length;
+  const slugRegiao = String(regional || 'rede')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase()
     .slice(0, 40);
+
+  const buffer = gerarPdfDiffsEstoque({
+    ate,
+    regional,
+    subtitulo: `${regional} · ${lojasRelatorio.length} loja${lojasRelatorio.length === 1 ? '' : 's'}`,
+    qtd_lojas: lojasRelatorio.length,
+    qtd_com_diff: qtdComDiff,
+    qtd_itens: qtdItens,
+    lojas: lojasRelatorio,
+  });
+
   return {
-    buffer: XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }),
-    filename: `diff-diaria-${slugRegiao || 'rede'}-${ate}.xlsx`,
+    buffer,
+    filename: `diff-diaria-${slugRegiao || 'rede'}-${ate}.pdf`,
   };
 }
 

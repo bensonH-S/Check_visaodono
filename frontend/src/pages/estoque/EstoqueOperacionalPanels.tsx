@@ -36,7 +36,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import RemoveIcon from '@mui/icons-material/Remove';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
-import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
@@ -1049,21 +1049,21 @@ function PainelSyncRede({
           <Tooltip
             title={
               filtroRegiao === 'todos'
-                ? 'Baixar diffs da rede'
-                : 'Baixar diffs do regional'
+                ? 'Baixar PDF da rede'
+                : 'Baixar PDF do regional'
             }
           >
             <span>
               <IconButton
                 size="small"
-                aria-label="Baixar relatório de diffs"
+                aria-label="Baixar relatório em PDF"
                 disabled={baixandoDiff}
                 onClick={() => void baixarDiffs()}
               >
                 {baixandoDiff ? (
                   <CircularProgress size={16} />
                 ) : (
-                  <FileDownloadOutlinedIcon sx={{ fontSize: 18 }} />
+                  <PictureAsPdfOutlinedIcon sx={{ fontSize: 18 }} />
                 )}
               </IconButton>
             </span>

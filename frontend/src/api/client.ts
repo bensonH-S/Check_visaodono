@@ -1395,7 +1395,7 @@ export const api = {
     const blob = await res.blob();
     const cd = res.headers.get('Content-Disposition') || '';
     const match = cd.match(/filename="([^"]+)"/);
-    const filename = match?.[1] || 'diff-diaria.xlsx';
+    const filename = match?.[1] || 'diff-diaria.pdf';
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
