@@ -42,8 +42,10 @@ function pdfTxt(valor) {
     .replace(/\u00a0/g, ' ');
 }
 
-function fmtNum(v, digitos = 3) {
+function fmtNum(v, unidade) {
   if (v == null || Number.isNaN(Number(v))) return '-';
+  const und = String(unidade || '').toUpperCase();
+  const digitos = und === 'UND' ? 0 : 3;
   return Number(v).toLocaleString('pt-BR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: digitos,
@@ -126,7 +128,7 @@ function cabecalho(doc, dados) {
   doc.setFontSize(7);
   setText(doc, MUTED);
   doc.text(
-    'Última contagem diária finalizada de cada loja. Diferença = contou - sistema.',
+    'Última diária finalizada. Números na unidade da contagem (peça, kg ou litro) — não no saldo.',
     MARGIN,
     y,
   );
@@ -315,7 +317,7 @@ function headerTabelaDiff(doc, y) {
   let x = MARGIN + 3;
   doc.text('ITEM', x, y + 4.1);
   x += COLS.item;
-  doc.text('UND', x, y + 4.1);
+  doc.text('UNID.', x, y + 4.1);
   x += COLS.und;
   doc.text('SISTEMA', x + COLS.sist - 2, y + 4.1, { align: 'right' });
   x += COLS.sist;
@@ -399,17 +401,20 @@ function desenharLoja(doc, dados, loja) {
     doc.text(pdfTxt(item.descricao).slice(0, 72), x, y + 4.1);
     x += COLS.item;
     setText(doc, SLATE);
-    doc.text(pdfTxt(item.unidade || '-').slice(0, 8), x, y + 4.1);
+    const unid = pdfTxt(item.unidade || '-').slice(0, 8);
+    doc.text(unid, x, y + 4.1);
     x += COLS.und;
-    doc.text(fmtNum(item.sistema), x + COLS.sist - 2, y + 4.1, { align: 'right' });
+    doc.text(fmtNum(item.sistema, item.unidade), x + COLS.sist - 2, y + 4.1, { align: 'right' });
     x += COLS.sist;
-    doc.text(fmtNum(item.contado), x + COLS.contou - 2, y + 4.1, { align: 'right' });
+    doc.text(fmtNum(item.contado, item.unidade), x + COLS.contou - 2, y + 4.1, { align: 'right' });
     x += COLS.contou;
     const dif = Number(item.diff) || 0;
     setText(doc, dif < 0 ? FAIL : dif > 0 ? ACCENT : SLATE);
     doc.setFont('helvetica', 'bold');
     const sinal = dif > 0 ? '+' : '';
-    doc.text(`${sinal}${fmtNum(dif)}`, x + COLS.dif - 2, y + 4.1, { align: 'right' });
+    doc.text(`${sinal}${fmtNum(dif, item.unidade)} ${unid}`.trim(), x + COLS.dif - 2, y + 4.1, {
+      align: 'right',
+    });
     y += rowH;
   });
 }

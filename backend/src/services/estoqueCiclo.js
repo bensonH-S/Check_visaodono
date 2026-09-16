@@ -7,9 +7,11 @@ import { gerarPdfDiffsEstoque } from './gerarPdfDiffsEstoque.js';
 import { carregarFichaPorCodigoVenda } from './estoqueMotor.js';
 import {
   garantirSchemaPilotoBaixa,
+  normalizarUnidade,
   resolverConsumoInsumo,
   resolverInsumoCanonico,
 } from './estoqueConsumo.js';
+import { linhaDiffNaUnidadeDaContagem } from './estoqueContagem.js';
 
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
@@ -19,6 +21,42 @@ function num(v, fallback = 0) {
 
 function round4(n) {
   return Math.round(num(n) * 10000) / 10000;
+}
+
+async function mapaFatorFracionada(ids) {
+  const uniq = [...new Set((ids || []).map(Number).filter((n) => n > 0))];
+  const map = new Map();
+  if (!uniq.length) return map;
+  const { rows } = await pool.query(
+    `SELECT id_insumo, unidade_origem, unidade_destino, fator
+     FROM estoque_conversoes
+     WHERE id_insumo = ANY($1::int[])
+       AND status = 'validado'`,
+    [uniq],
+  );
+  for (const r of rows) {
+    const key = `${r.id_insumo}|${normalizarUnidade(r.unidade_origem)}|${normalizarUnidade(r.unidade_destino)}`;
+    map.set(key, Number(r.fator));
+  }
+  return map;
+}
+
+function fatorLinhaDiff(map, r) {
+  const dest = normalizarUnidade(r.unidade_contagem);
+  const orig = normalizarUnidade(r.unidade_fracionada || r.unidade_contagem);
+  if (!orig || orig === dest) return null;
+  const n = map.get(`${r.id_insumo}|${orig}|${dest}`);
+  return n > 0 ? n : null;
+}
+
+function itemDiffGestor(r, fatores) {
+  return linhaDiffNaUnidadeDaContagem({
+    sistema: r.estoque_sistema,
+    contado: r.estoque_contado,
+    unidade_contagem: r.unidade_contagem,
+    unidade_fracionada: r.unidade_fracionada,
+    fator_fracionada: fatorLinhaDiff(fatores, r),
+  });
 }
 
 function ancoraContagem(c) {
@@ -606,7 +644,8 @@ export async function buscarDiffsContagemRede(idContagem) {
       [id],
     ),
     pool.query(
-      `SELECT p.descricao, p.unidade_contagem,
+      `SELECT p.id_insumo, p.descricao, p.unidade_contagem,
+              COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
               i.estoque_sistema, i.estoque_contado
        FROM estoque_itens i
        JOIN insumos p ON p.id_insumo = i.id_insumo
@@ -618,6 +657,7 @@ export async function buscarDiffsContagemRede(idContagem) {
       [id],
     ),
   ]);
+  const fatores = await mapaFatorFracionada(diffs.map((r) => r.id_insumo));
   return {
     id_contagem: cab[0].id_contagem,
     id_loja: cab[0].id_loja,
@@ -628,14 +668,13 @@ export async function buscarDiffsContagemRede(idContagem) {
     pendentes: tot[0]?.pendentes ?? 0,
     divergencias: tot[0]?.divergencias ?? 0,
     diffs: diffs.map((r) => {
-      const sistema = num(r.estoque_sistema);
-      const contado = num(r.estoque_contado);
+      const linha = itemDiffGestor(r, fatores);
       return {
         descricao: r.descricao,
-        unidade: r.unidade_contagem,
-        sistema,
-        contado,
-        diferenca: Math.round((contado - sistema) * 1000) / 1000,
+        unidade: linha.unidade,
+        sistema: linha.sistema,
+        contado: linha.contado,
+        diferenca: linha.diferenca,
       };
     }),
   };
@@ -750,7 +789,8 @@ export async function gerarBufferDiffsRede({
      )
      SELECT ultima.id_loja, ultima.data_contagem, ultima.criado_por_nome,
             l.name AS loja_nome, l.bk_number,
-            p.descricao, p.unidade_contagem,
+            p.id_insumo, p.descricao, p.unidade_contagem,
+            COALESCE(NULLIF(BTRIM(p.unidade_fracionada), ''), p.unidade_contagem) AS unidade_fracionada,
             i.estoque_sistema, i.estoque_contado
      FROM ultima
      JOIN lojas l ON l.id_loja = ultima.id_loja
@@ -762,6 +802,7 @@ export async function gerarBufferDiffsRede({
     paramsUltima,
   );
 
+  const fatores = await mapaFatorFracionada(diffs.map((r) => r.id_insumo));
   const porLoja = new Map();
   const metaLoja = new Map();
   const itensPorLoja = new Map();
@@ -770,15 +811,14 @@ export async function gerarBufferDiffsRede({
     if (!metaLoja.has(r.id_loja)) {
       metaLoja.set(r.id_loja, { data: r.data_contagem, quem: r.criado_por_nome });
     }
-    const sistema = num(r.estoque_sistema);
-    const contado = num(r.estoque_contado);
+    const linha = itemDiffGestor(r, fatores);
     const lista = itensPorLoja.get(r.id_loja) || [];
     lista.push({
       descricao: r.descricao,
-      unidade: r.unidade_contagem || '',
-      sistema,
-      contado,
-      diff: Math.round((contado - sistema) * 1000) / 1000,
+      unidade: linha.unidade,
+      sistema: linha.sistema,
+      contado: linha.contado,
+      diff: linha.diff,
     });
     itensPorLoja.set(r.id_loja, lista);
   }

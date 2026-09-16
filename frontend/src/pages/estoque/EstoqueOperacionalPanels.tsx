@@ -1684,7 +1684,9 @@ function PainelSyncRede({
                                   {nomeProdutoBreak(d.descricao) || d.descricao || 'Item'}
                                 </Typography>
                                 <Typography sx={{ fontSize: '0.75rem', color: colors.textMuted }}>
-                                  sistema {fmtNum(d.sistema)} · contou {fmtNum(d.contado)}
+                                  sistema {fmtNum(d.sistema, d.unidade === 'UND' ? 0 : 3)} · contou{' '}
+                                  {fmtNum(d.contado, d.unidade === 'UND' ? 0 : 3)}
+                                  {d.unidade ? ` ${d.unidade}` : ''}
                                 </Typography>
                               </Box>
                               <Typography
@@ -1696,7 +1698,8 @@ function PainelSyncRede({
                                 }}
                               >
                                 {d.diferenca > 0 ? '+' : ''}
-                                {fmtNum(d.diferenca)}
+                                {fmtNum(d.diferenca, d.unidade === 'UND' ? 0 : 3)}
+                                {d.unidade ? ` ${d.unidade}` : ''}
                               </Typography>
                             </Box>
                           ))}

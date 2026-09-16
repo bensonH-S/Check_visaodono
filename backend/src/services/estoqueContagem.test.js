@@ -7,9 +7,12 @@ import assert from 'node:assert/strict';
 import {
   calcularQtdContagem,
   chaveCodigoRede,
+  classificarCasoRevisaoUnidade,
+  classificarUnidadeContagem,
   resolverQtdContagem,
   sqlFiltroItensContagem,
   statusConversaoFracionada,
+  linhaDiffNaUnidadeDaContagem,
   unidadeFracionadaEfetiva,
   validarUnidadeFracionadaCadastro,
 } from './estoqueContagem.js';
@@ -27,11 +30,197 @@ describe('chaveCodigoRede', () => {
   });
 });
 
+describe('classificarUnidadeContagem', () => {
+  it('papel toalha com fator 6 não vira KG', () => {
+    assert.equal(classificarUnidadeContagem('PAPEL TOALHA BK CX 6X200M', 6), 'UND');
+  });
+  it('copo 550 é UND', () => {
+    assert.equal(classificarUnidadeContagem('COPO 550 ML BK DELIVERY CX C/1200UN', 1200), 'UND');
+  });
+  it('lacre é UND', () => {
+    assert.equal(classificarUnidadeContagem('ETIQ LACRE DE SEGURANCA BKC', 1), 'UND');
+  });
+  it('carne em caixa de kg continua KG', () => {
+    assert.equal(classificarUnidadeContagem('CARNE CONG MOIDA WHOPPER BK CX 17,2KG', 17.2), 'KG');
+  });
+  it('óleo a granel é L', () => {
+    assert.equal(classificarUnidadeContagem('OLEO ESPECIAL SUPREMA BK CX 18KG', 18), 'L');
+  });
+  it('saquinho de batata é UND, não KG', () => {
+    assert.equal(classificarUnidadeContagem('SAQUINHO DE BATATA BK 22X11FD 6000UND', 6000), 'UND');
+  });
+  it('saco in box de refrigerante é L, não UND', () => {
+    assert.equal(classificarUnidadeContagem('FANTA GUARANA SACO IN BOX 10000ML', 10), 'L');
+    assert.equal(classificarUnidadeContagem('SPRITE SEM ACUCAR SACO IN BOX 10000ML', 10), 'L');
+  });
+  it('bebida láctea bag é L', () => {
+    assert.equal(classificarUnidadeContagem('BEBIDA LACTEA DOCE DE LEITE UHT BK CX10X2UN', 20), 'L');
+    assert.equal(classificarUnidadeContagem('BEBIDA LACTEA UHT BAUNILHA BK 10 L X 2 UN', 20), 'L');
+  });
+  it('bebida láctea 22,2 KG dispenser continua KG', () => {
+    assert.equal(classificarUnidadeContagem('BEBIDA LACTEA BAUNILHA UHT 22,2 KG DIS', 22.2), 'KG');
+  });
+});
+
+describe('classificarCasoRevisaoUnidade', () => {
+  it('KG/KG de copo é peça óbvia', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'COPO 550 ML BK DELIVERY CX C/1200UN',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      und_convertida: 6,
+    });
+    assert.equal(r.caso, 'peca_obvia');
+  });
+  it('cartonagem batata KG/KG é peça óbvia', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'CART BATATA MEDIA DLV CX 500UN',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      und_convertida: 500,
+    });
+    assert.equal(r.caso, 'peca_obvia');
+  });
+  it('pazinha KG/KG é peça óbvia', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'PAZINHA SORVETE BK CX 3000UN BRANCA',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      und_convertida: 3000,
+    });
+    assert.equal(r.caso, 'peca_obvia');
+  });
+  it('água em fardo KG/KG é peça óbvia', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'AGUA GASEIFICADA H2OH LIMAO BK FD 12 X 500ML',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      und_convertida: 12,
+    });
+    assert.equal(r.caso, 'peca_obvia');
+  });
+  it('lápis de cera KG/KG é peça óbvia', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'LAPIS CERA CX 12 UNIDADES',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      und_convertida: 12,
+    });
+    assert.equal(r.caso, 'peca_obvia');
+  });
+  it('calda em balde não vira peça', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'CALDA DE PISTACHE BK Balde  1x4 kilos',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      und_convertida: 4,
+    });
+    assert.equal(r.caso, 'peso_ok');
+  });
+  it('saco in box KG/KG não aplica como peça', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'FANTA GUARANA SACO IN BOX 10000ML',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      und_convertida: 10,
+    });
+    assert.equal(r.caso, 'duvida');
+    assert.equal(r.sugerida, 'L');
+  });
+  it('cheddar fatia KG/UND não mexe', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'QUEIJO CHEDDAR CLEAN NAC BK CX 17,66 KG',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'UND',
+    });
+    assert.equal(r.caso, 'manter_kg_und');
+  });
+  it('filme PVC KG/KG fica em dúvida', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'FILME PELICULA PVC 1000MT 40CM WIDE',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+    });
+    assert.equal(r.caso, 'duvida');
+  });
+  it('bebida láctea KG/KG é litro óbvio', () => {
+    const r = classificarCasoRevisaoUnidade({
+      descricao: 'BEBIDA LACTEA UHT BAUNILHA BK 10 L X 2 UN',
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+      und_convertida: 20,
+    });
+    assert.equal(r.caso, 'litro_obvio');
+    assert.equal(r.sugerida, 'L');
+  });
+});
+
 describe('unidadeFracionadaEfetiva', () => {
   it('herda unidade_contagem quando fracionada está vazia', () => {
     assert.equal(unidadeFracionadaEfetiva(null, 'KG'), 'KG');
     assert.equal(unidadeFracionadaEfetiva('', 'UND'), 'UND');
     assert.equal(unidadeFracionadaEfetiva('UND', 'KG'), 'UND');
+  });
+});
+
+describe('linhaDiffNaUnidadeDaContagem', () => {
+  it('pão UND/UND permanece em peça', () => {
+    const r = linhaDiffNaUnidadeDaContagem({
+      sistema: 411,
+      contado: 480,
+      unidade_contagem: 'UND',
+      unidade_fracionada: 'UND',
+    });
+    assert.equal(r.unidade, 'UND');
+    assert.equal(r.sistema, 411);
+    assert.equal(r.contado, 480);
+    assert.equal(r.diff, 69);
+  });
+
+  it('cheddar KG/UND vira fatia, não 0,807 kg', () => {
+    const r = linhaDiffNaUnidadeDaContagem({
+      sistema: 22.887,
+      contado: 22.08,
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'UND',
+      fator_fracionada: 0.0115,
+    });
+    assert.equal(r.unidade, 'UND');
+    assert.equal(r.diff, -70);
+  });
+
+  it('Whopper KG/UND vira hambúrguer', () => {
+    const r = linhaDiffNaUnidadeDaContagem({
+      sistema: 39.843,
+      contado: 51.6,
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'UND',
+      fator_fracionada: 17.2 / 152,
+    });
+    assert.equal(r.unidade, 'UND');
+    assert.equal(r.diff, 104);
+  });
+
+  it('bacon KG/KG continua em quilo', () => {
+    const r = linhaDiffNaUnidadeDaContagem({
+      sistema: 16.772,
+      contado: 17,
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'KG',
+    });
+    assert.equal(r.unidade, 'KG');
+    assert.equal(r.diff, 0.228);
+  });
+
+  it('sem fator não inventa peça — mostra KG', () => {
+    const r = linhaDiffNaUnidadeDaContagem({
+      sistema: 22.887,
+      contado: 22.08,
+      unidade_contagem: 'KG',
+      unidade_fracionada: 'UND',
+    });
+    assert.equal(r.unidade, 'KG');
+    assert.equal(r.diff, -0.807);
   });
 });
 

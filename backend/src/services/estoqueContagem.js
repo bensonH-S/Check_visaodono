@@ -239,12 +239,96 @@ export function rotuloListaSugestao(descricao) {
 }
 
 /**
+ * Peça / embalagem: o gestor conta unidade, não quilo.
+ * Tem que vir ANTES da heurística und_convertida ≤ 30 → KG.
+ */
+const RE_PECA_CONTAGE = /\b(PAPEL|BOBINA|LACRE|COPO|GUARDANAPO|CANUDO|TAMPA|CARTON|CART BATATA|ETIQUETA|BANDEJA|FILME|SACOLA|SACO|SAQUINHO|LUVA|FILTRO|TEFLON|PANO|REDINHA|LAMINA|COROA|POTE|ZIPCLIP|CESTO|MANTA|ORINGS|PAZINHA|COLHER|GARFO|BRINDE|BALDE|CINTA|AVENTAL|PORTA COPOS|KIT GARFO|CAIXA ADULTO|LAPIS)\b/;
+
+/** Só estes KG/KG o script aplica sozinho no Terraço. O resto vai para dúvida. */
+const RE_PECA_APLICAR = /\b(PAPEL|BOBINA|LACRE|COPO|GUARDANAPO|CANUDO|TAMPA|CARTON|CART BATATA|ETIQUETA|FILTRO|BANDEJA|SAQUINHO|SACOLA|SACO|LUVA|REDINHA|LAMINA|COROA|POTE|ZIPCLIP|PAZINHA|COLHER|GARFO|BRINDE|CINTA|AVENTAL|PORTA COPOS|KIT GARFO|LAPIS)\b/;
+
+const RE_PESO_ALIMENTO = /\b(BACON|CARNE|QUEIJO|ALFACE|TOMATE|CEBOLA|PEPINO|PICLES|FRANGO|FILE|PEITO|PEDACO|MANTEIGA|MOLHO|MAIONESE|KETCHUP|CALDA|NUTELLA|SORVETE|FRANDINHA|LEITE EM PO|CHICKEN|NUGGET|COSTELA|CRUMBLE|FAROFA|SAUCE|PIMENTA|JALAPENO|RECHEIO|OVOMALTINE)\b/;
+
+const RE_BIB_LITRO = /\b(IN BOX|BIB|SACO IN BOX|BOLSA IN BOX|BAG IN BOX)\b/;
+
+export function parecePecaContagem(descricao) {
+  const d = normalizarDesc(descricao);
+  if (RE_BIB_LITRO.test(d)) return false;
+  if (/\bBALDE\b/.test(d) && /\b(CALDA|MOLHO|SORVETE)\b/.test(d) && !/\bTAMPA\b/.test(d)) {
+    return false;
+  }
+  return RE_PECA_CONTAGE.test(d);
+}
+
+function unidadeNormCadastro(u) {
+  const x = String(u || '')
+    .trim()
+    .toUpperCase();
+  if (x === 'UN' || x === 'UNID' || x === 'UNIDADE' || x === 'UNIDADES') return 'UND';
+  if (x === 'KILO' || x === 'KILOS') return 'KG';
+  if (x === 'LT' || x === 'LITRO' || x === 'LITROS') return 'L';
+  return x || 'UND';
+}
+
+/**
+ * Revisão Terraço: o que fazer com o cadastro.
+ * - peca_obvia: KG/KG que deveria ser UND/UND (aplicar)
+ * - litro_obvio: KG/KG que deveria ser L/L (bebida láctea bag)
+ * - peso_ok: alimento em KG (não mexer)
+ * - manter_kg_und: saldo KG, conta UND (cheddar fatia)
+ * - duvida: não aplicar sem conferência
+ * - ok: cadastro já bate com a sugestão
+ */
+export function classificarCasoRevisaoUnidade({
+  descricao,
+  unidade_contagem,
+  unidade_fracionada,
+  und_convertida = null,
+} = {}) {
+  const saldo = unidadeNormCadastro(unidade_contagem);
+  const frac = unidadeNormCadastro(unidade_fracionada || unidade_contagem);
+  const sugerida = classificarUnidadeContagem(descricao, und_convertida);
+  const d = normalizarDesc(descricao);
+  const peso =
+    RE_PESO_ALIMENTO.test(d) && !/\b(SACO|SAQUINHO|LAMINA|CARTON|TAMPA|FUNDO|EMBALAG)\b/.test(d);
+  if (saldo === 'KG' && frac === 'UND') {
+    return { caso: 'manter_kg_und', sugerida, saldo, frac };
+  }
+  if (saldo === 'KG' && frac === 'KG' && RE_PECA_APLICAR.test(d) && parecePecaContagem(descricao)) {
+    return { caso: 'peca_obvia', sugerida: 'UND', saldo, frac };
+  }
+  if (
+    saldo === 'KG' &&
+    frac === 'KG' &&
+    /\b(SUCO|AGUA)\b/.test(d) &&
+    /\b(UN|UND|FD)\b/.test(d) &&
+    !/\bKG\b/.test(d)
+  ) {
+    return { caso: 'peca_obvia', sugerida: 'UND', saldo, frac };
+  }
+  if (saldo === 'KG' && frac === 'KG' && sugerida === 'L' && /\bBEBIDA LACTEA\b/.test(d) && !/\bKG\b/.test(d)) {
+    return { caso: 'litro_obvio', sugerida: 'L', saldo, frac };
+  }
+  if (peso && saldo === 'KG') {
+    return { caso: 'peso_ok', sugerida, saldo, frac };
+  }
+  if (saldo === sugerida && frac === sugerida) {
+    return { caso: 'ok', sugerida, saldo, frac };
+  }
+  if (saldo === 'L' && sugerida === 'L') {
+    return { caso: 'ok', sugerida, saldo, frac };
+  }
+  return { caso: 'duvida', sugerida, saldo, frac };
+}
+
+/**
  * Unidade de contagem do insumo (kg | und | L).
  * Regras de negócio (piloto Terraço / CMV):
  * - Bacon, filé, manteiga, mini filé, pedaços, peito, picles, queijo → kg
  * - Molhos bag / mostarda bag → kg
  * - Molho blister / mostarda sachet / Coca lata → und
  * - Coca bag / óleo → L
+ * - Papel, copo, lacre, embalagem → und (não usar und_convertida ≤ 30 → kg)
  */
 export function classificarUnidadeContagem(descricao, undConvertida = null) {
   const d = normalizarDesc(descricao);
@@ -263,10 +347,13 @@ export function classificarUnidadeContagem(descricao, undConvertida = null) {
   // Óleo a granel (não kit medidor)
   if (/\bOLEO\b/.test(d) && !/\b(KIT|MEDIDOR)\b/.test(d)) return 'L';
 
-  // Refrigerante / chá em BAG ou litros → L
+  // Bebida láctea em bag/garrafão: litro. Pó/dispenser com KG no nome continua KG.
+  if (/\bBEBIDA LACTEA\b/.test(d)) return /\bKG\b/.test(d) ? 'KG' : 'L';
+
+  // Refrigerante / chá em BAG, BIB ou litros → L
   if (
-    /\bBAG\b/.test(d) &&
-    /\b(COCA|PEPSI|SPRITE|FANTA|GUARANA|SODA|CHA|LIPTON|REFRIG|\bLT\b|LITRO)\b/.test(d)
+    (/\bBAG\b/.test(d) || RE_BIB_LITRO.test(d)) &&
+    /\b(COCA|PEPSI|SPRITE|FANTA|GUARANA|SODA|CHA|LIPTON|REFRIG|\bLT\b|LITRO|\d+\s*ML)\b/.test(d)
   ) {
     return 'L';
   }
@@ -274,30 +361,25 @@ export function classificarUnidadeContagem(descricao, undConvertida = null) {
     return 'L';
   }
 
+  // Peça / embalagem antes de alimento e da heurística de fator
+  if (parecePecaContagem(d)) return 'UND';
+
   // Mostarda bag = kg; sache já caiu em UND
   if (/\bMOSTARDA\b/.test(d)) return 'KG';
 
-  // Insumos de peso (alimentos)
+  // Insumos de peso (alimentos). Embalagem de batata/carne já saiu em peça.
   if (
-    /\b(BACON|CARNE|QUEIJO|ALFACE|TOMATE|CEBOLA|PEPINO|PICLES|FRANGO|FILE|PEITO|PEDACO|MANTEIGA|MOLHO|MAIONESE|KETCHUP|CALDA|NUTELLA|SORVETE|LACTEA|FRANDINHA|LEITE EM PO)\b/.test(
-      d,
-    ) ||
-    (/\bBATATA\b/.test(d) && !/\b(CARTON|FUNDO)\b/.test(d))
+    RE_PESO_ALIMENTO.test(d) ||
+    (/\bBATATA\b/.test(d) && !/\b(CARTON|FUNDO|TAMPA|SAQUINHO|SACO |EMBALAG)\b/.test(d))
   ) {
     return 'KG';
   }
 
-  // Descarta utilidades / embalagens
-  if (
-    /\b(BRINDE|ETIQUETA|CANUDO|COPO|TAMPA|CARTON|PAZINHA|REDINHA|GUARDANAPO|COLHER|LAMINA|COROA|POTE|KIT|ZIPCLIP|BANDEJA|FUNDO DE|TEFLON|ORINGS|CESTO|PANO|MANTA)\b/.test(
-      d,
-    )
-  ) {
-    return 'UND';
-  }
+  if (/\bBRINDE\b/.test(d) || /\bKIT\b/.test(d)) return 'UND';
 
   if (und != null && und >= 40 && Number.isInteger(und)) return 'UND';
-  if (und != null && und > 0 && und <= 30) return 'KG';
+  // Peso explícito no nome (detergente 5 KG, sal 0,5KG). Sem isso, peça.
+  if (/\b\d+([.,]\d+)?\s*KG\b/.test(d)) return 'KG';
   return 'UND';
 }
 
@@ -323,6 +405,53 @@ export function unidadeFracionadaEfetiva(unidadeFracionada, unidadeContagem) {
   const frac = String(unidadeFracionada || '').trim();
   if (frac) return frac;
   return String(unidadeContagem || 'UND').trim() || 'UND';
+}
+
+/** Rótulo curto para relatório (UND / KG / L). */
+export function rotuloUnidadeDiff(u) {
+  const n = normalizarUnidade(u);
+  if (n === 'und' || n === 'fatia' || n === 'pc') return 'UND';
+  if (n === 'kg') return 'KG';
+  if (n === 'l' || n === 'lt') return 'L';
+  const raw = String(u || '').trim().toUpperCase();
+  return raw || 'UND';
+}
+
+function arredondarQtdDiff(n, unidade) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
+  if (unidade === 'UND') return Math.round(x);
+  return Math.round(x * 1000) / 1000;
+}
+
+/**
+ * Diff para o gestor: números na unidade que ele conta (3º campo), não no saldo.
+ * Cheddar KG/UND + fator → fatias. Sem fator, fica no saldo e o rótulo diz KG.
+ * fator = 1 unidade_fracionada → N unidade_contagem (ex.: 1 UND = 0,113 KG).
+ */
+export function linhaDiffNaUnidadeDaContagem({
+  sistema,
+  contado,
+  unidade_contagem,
+  unidade_fracionada,
+  fator_fracionada = null,
+} = {}) {
+  const dest = rotuloUnidadeDiff(unidade_contagem);
+  const orig = rotuloUnidadeDiff(unidadeFracionadaEfetiva(unidade_fracionada, unidade_contagem));
+  const sistCanon = num(sistema);
+  const contCanon = num(contado);
+  const fator = Number(fator_fracionada);
+  const converter = orig !== dest && Number.isFinite(fator) && fator > 0;
+  const unidade = converter ? orig : dest;
+  const sist = converter ? sistCanon / fator : sistCanon;
+  const cont = converter ? contCanon / fator : contCanon;
+  return {
+    unidade,
+    sistema: arredondarQtdDiff(sist, unidade),
+    contado: arredondarQtdDiff(cont, unidade),
+    diff: arredondarQtdDiff(cont - sist, unidade),
+    diferenca: arredondarQtdDiff(cont - sist, unidade),
+  };
 }
 
 export function precisaFatorFracionada(unidadeFracionada, unidadeContagem) {
