@@ -59,6 +59,7 @@ import {
   type EstoqueNfeResumo,
   type EstoquePedidoItem,
   type EstoquePedidoSugerido,
+  type EstoqueMovimento,
   type EstoqueSaldoItem,
   type EstoqueSyncLojaStatus,
   type EstoqueContagemRedeItem,
@@ -2135,6 +2136,37 @@ function PainelCmv({
   );
 }
 
+function rotuloGrupoSaldo(g: string | null | undefined) {
+  const mapa: Record<string, string> = {
+    carne: 'Carne',
+    frango: 'Frango',
+    queijo: 'Queijo',
+    bacon: 'Bacon',
+    pao: 'Pão',
+    batata: 'Batata',
+    oleo: 'Óleo',
+    refil: 'Copo / xarope',
+    vegetais: 'Vegetais',
+    mix_sobremesa: 'Mix',
+  };
+  return mapa[String(g || '')] || g || 'Outros';
+}
+
+function labelTipoMovimento(tipo?: string | null) {
+  const t = String(tipo || '').toLowerCase();
+  if (t === 'venda') return 'Venda';
+  if (t === 'entrada') return 'Entrada';
+  if (t === 'contagem') return 'Contagem';
+  if (t === 'break') return 'Break';
+  if (t === 'ajuste') return 'Ajuste';
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Movimento';
+}
+
+function fmtQtdSaldo(n: number | null | undefined, unidade?: string | null) {
+  const q = fmtNum(n, 2);
+  return unidade ? `${q} ${unidade}` : q;
+}
+
 function PainelSaldoKardex({
   idLoja,
   onSetHeaderActions,
@@ -2144,6 +2176,11 @@ function PainelSaldoKardex({
 }) {
   const [loading, setLoading] = useState(true);
   const [itens, setItens] = useState<EstoqueSaldoItem[]>([]);
+  const [busca, setBusca] = useState('');
+  const [filtro, setFiltro] = useState<'todos' | 'zerado'>('todos');
+  const [aberto, setAberto] = useState<EstoqueSaldoItem | null>(null);
+  const [movs, setMovs] = useState<EstoqueMovimento[]>([]);
+  const [carregandoMovs, setCarregandoMovs] = useState(false);
 
   const carregar = useCallback(
     async (silencioso = false) => {
@@ -2153,7 +2190,7 @@ function PainelSaldoKardex({
         setItens(rows);
       } catch (e) {
         if (!silencioso) {
-          showToast(e instanceof Error ? e.message : 'Erro ao carregar saldo da diária', 'error');
+          showToast(e instanceof Error ? e.message : 'Erro ao carregar o saldo', 'error');
         }
       } finally {
         setLoading(false);
@@ -2182,21 +2219,60 @@ function PainelSaldoKardex({
     };
   }, [carregar, onSetHeaderActions]);
 
-  const rotuloGrupo = (g: string | null | undefined) => {
-    const mapa: Record<string, string> = {
-      carne: 'Carne',
-      frango: 'Frango',
-      queijo: 'Queijo',
-      bacon: 'Bacon',
-      pao: 'Pão',
-      batata: 'Batata',
-      oleo: 'Óleo',
-      refil: 'Copo / xarope',
-      vegetais: 'Vegetais',
-      mix_sobremesa: 'Mix',
+  const qtdZerado = useMemo(() => itens.filter((i) => Number(i.quantidade) <= 0.001).length, [itens]);
+
+  const grupos = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    const filtrada = itens.filter((i) => {
+      if (filtro === 'zerado' && Number(i.quantidade) > 0.001) return false;
+      if (!q) return true;
+      return [i.descricao, i.codigo, rotuloGrupoSaldo(i.grupo_diario)]
+        .some((v) => String(v || '').toLowerCase().includes(q));
+    });
+    const mapa = new Map<string, EstoqueSaldoItem[]>();
+    for (const i of filtrada) {
+      const g = i.grupo_diario || 'outros';
+      const arr = mapa.get(g) || [];
+      arr.push(i);
+      mapa.set(g, arr);
+    }
+    return [...mapa.entries()];
+  }, [itens, busca, filtro]);
+
+  useEffect(() => {
+    const flat = grupos.flatMap(([, rows]) => rows);
+    setAberto((atual) => {
+      if (atual && flat.some((x) => (x.id_insumo || x.id_produto) === (atual.id_insumo || atual.id_produto))) {
+        return atual;
+      }
+      return null;
+    });
+  }, [grupos]);
+
+  useEffect(() => {
+    const id = aberto?.id_insumo || aberto?.id_produto;
+    if (!id) {
+      setMovs([]);
+      return;
+    }
+    let cancel = false;
+    setCarregandoMovs(true);
+    setMovs([]);
+    api
+      .estoqueMovimentos(idLoja, { id_insumo: id, limit: 40 })
+      .then((rows) => {
+        if (!cancel) setMovs(rows);
+      })
+      .catch((e) => {
+        if (!cancel) showToast(e instanceof Error ? e.message : 'Não consegui abrir o histórico', 'error');
+      })
+      .finally(() => {
+        if (!cancel) setCarregandoMovs(false);
+      });
+    return () => {
+      cancel = true;
     };
-    return mapa[String(g || '')] || g || '—';
-  };
+  }, [aberto?.id_insumo, aberto?.id_produto, idLoja]);
 
   if (loading && !itens.length) {
     return (
@@ -2207,51 +2283,301 @@ function PainelSaldoKardex({
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0 }}>
-      <Typography sx={{ fontSize: '0.8rem', color: colors.textMuted }}>
-        Só os insumos da diária. O saldo cai quando a venda do sync explode a ficha.
-      </Typography>
-      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
-          <Table stickyHeader size="small" sx={tableSx}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexWrap: 'wrap',
+          flexShrink: 0,
+          pb: 0.25,
+          borderBottom: `1px solid ${colors.border}`,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          {(
+            [
+              { id: 'todos' as const, label: 'Todos', qtd: itens.length },
+              { id: 'zerado' as const, label: 'Zerado', qtd: qtdZerado },
+            ] as const
+          ).map((f) => {
+            const ativo = filtro === f.id;
+            return (
+              <Button
+                key={f.id}
+                disableRipple
+                onClick={() => setFiltro(f.id)}
+                sx={{
+                  textTransform: 'none',
+                  minWidth: 0,
+                  px: 1.1,
+                  py: 0.85,
+                  borderRadius: 0,
+                  fontWeight: ativo ? 700 : 600,
+                  fontSize: '0.8125rem',
+                  color: ativo ? colors.textPrimary : colors.textSecondary,
+                  borderBottom: ativo ? `2px solid ${colors.orange}` : '2px solid transparent',
+                  bgcolor: 'transparent',
+                  '&:hover': { bgcolor: 'transparent', color: colors.textPrimary },
+                }}
+              >
+                {f.label}
+                <Box
+                  component="span"
+                  sx={{
+                    ml: 0.85,
+                    px: 0.65,
+                    minWidth: 20,
+                    height: 18,
+                    borderRadius: '9px',
+                    bgcolor: colors.canvasAlt,
+                    color: colors.textMuted,
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {f.qtd}
+                </Box>
+              </Button>
+            );
+          })}
+        </Box>
+        <TextField
+          size="small"
+          placeholder="Buscar"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          sx={{
+            ml: { sm: 'auto' },
+            width: { xs: '100%', sm: 220 },
+            '& .MuiOutlinedInput-root': { height: 36, bgcolor: colors.surface },
+          }}
+        />
+      </Box>
+
+      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
+        <TableContainer sx={tableContainerSx}>
+          <Table stickyHeader sx={tableSx} size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Grupo</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Código</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Insumo</TableCell>
-                <TableCell sx={{ fontWeight: 700, textAlign: 'right' }}>Saldo</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Atualizado</TableCell>
+                <TableCell sx={{ ...vendasThSx, pl: 2.5 }}>Insumo</TableCell>
+                <TableCell sx={{ ...vendasThSx, textAlign: 'right', pr: 2.5 }} width={160}>
+                  Saldo
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {itens.map((r) => (
-                <TableRow key={r.id_insumo || r.id_produto} hover>
-                  <TableCell sx={{ whiteSpace: 'nowrap', color: colors.textSecondary }}>
-                    {rotuloGrupo(r.grupo_diario)}
-                  </TableCell>
-                  <TableCell sx={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.8rem' }}>
-                    {r.codigo}
-                  </TableCell>
-                  <TableCell>{r.descricao}</TableCell>
-                  <TableCell sx={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    {fmtNum(r.quantidade, 2)} {r.unidade_contagem || ''}
-                  </TableCell>
-                  <TableCell sx={{ color: colors.textMuted, whiteSpace: 'nowrap' }}>
-                    {r.atualizado_em ? fmtHoraBR(r.atualizado_em) : '—'}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!itens.length ? (
+              {!grupos.length ? (
                 <TableRow>
-                  <TableCell colSpan={5} sx={{ color: colors.textMuted, py: 4, textAlign: 'center' }}>
-                    Nenhum insumo da diária nesta loja
+                  <TableCell colSpan={2} sx={{ py: 5, color: colors.textMuted, borderBottom: 0 }}>
+                    Nenhum item neste recorte.
                   </TableCell>
                 </TableRow>
-              ) : null}
+              ) : (
+                grupos.map(([grupo, rows]) => (
+                  <Fragment key={grupo}>
+                    <TableRow>
+                      <TableCell
+                        colSpan={2}
+                        sx={{
+                          py: 1,
+                          pl: 2.5,
+                          bgcolor: colors.canvasAlt,
+                          borderBottom: `1px solid ${colors.border}`,
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: colors.textSecondary,
+                        }}
+                      >
+                        {rotuloGrupoSaldo(grupo)}
+                      </TableCell>
+                    </TableRow>
+                    {rows.map((r) => {
+                      const id = r.id_insumo || r.id_produto;
+                      const ativo = (aberto?.id_insumo || aberto?.id_produto) === id;
+                      const zerado = Number(r.quantidade) <= 0.001;
+                      return (
+                        <TableRow
+                          key={id}
+                          hover
+                          selected={ativo}
+                          onClick={() => setAberto(r)}
+                          sx={{
+                            cursor: 'pointer',
+                            '& td': { borderBottom: `1px solid ${colors.border}`, py: 1.15 },
+                            '&.Mui-selected': { bgcolor: 'rgba(15, 26, 69, 0.05)' },
+                            '&.Mui-selected:hover': { bgcolor: 'rgba(15, 26, 69, 0.07)' },
+                          }}
+                        >
+                          <TableCell sx={{ pl: 2.5, fontSize: '0.875rem', fontWeight: 600, color: colors.textPrimary }}>
+                            {nomeProdutoBreak(r.descricao) || r.descricao}
+                          </TableCell>
+                          <TableCell
+                            sx={{
+                              pr: 2.5,
+                              textAlign: 'right',
+                              fontSize: '0.875rem',
+                              fontWeight: 700,
+                              fontVariantNumeric: 'tabular-nums',
+                              color: zerado ? '#B42318' : colors.textPrimary,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {fmtQtdSaldo(r.quantidade, r.unidade_contagem)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </Fragment>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
       </Paper>
+
+      <Drawer
+        anchor="right"
+        open={!!aberto}
+        onClose={() => {
+          setAberto(null);
+          setMovs([]);
+        }}
+        slotProps={{
+          paper: {
+            sx: {
+              width: { xs: '100%', sm: 420 },
+              borderLeft: `1px solid ${colors.border}`,
+              boxShadow: '-8px 0 24px rgba(15, 26, 69, 0.06)',
+            },
+          },
+        }}
+      >
+        {aberto ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 1,
+                px: 2.5,
+                pt: 2.25,
+                pb: 2,
+                borderBottom: `1px solid ${colors.border}`,
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.02em', color: colors.textPrimary, lineHeight: 1.25 }}>
+                  {nomeProdutoBreak(aberto.descricao) || aberto.descricao}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    mt: 0.7,
+                    color: Number(aberto.quantidade) <= 0.001 ? '#B42318' : colors.textPrimary,
+                  }}
+                >
+                  {fmtQtdSaldo(aberto.quantidade, aberto.unidade_contagem)}
+                </Typography>
+                <Typography sx={{ fontSize: '0.78rem', color: colors.textSecondary, mt: 0.35 }}>
+                  {[
+                    rotuloGrupoSaldo(aberto.grupo_diario),
+                    aberto.atualizado_em ? fmtHoraBR(aberto.atualizado_em) : null,
+                  ]
+                    .filter(Boolean)
+                    .join('  ·  ')}
+                </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                aria-label="Fechar"
+                onClick={() => {
+                  setAberto(null);
+                  setMovs([]);
+                }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
+            <Box sx={{ flex: 1, overflow: 'auto', px: 2.5, py: 2 }}>
+              {carregandoMovs ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                  <CircularProgress size={22} />
+                </Box>
+              ) : movs.length ? (
+                <>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 88px 72px 80px', gap: 1, pb: 0.75, borderBottom: `1px solid ${colors.border}` }}>
+                    {['Quando', 'Tipo', 'Qtd', 'Saldo'].map((h) => (
+                      <Typography
+                        key={h}
+                        sx={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          color: colors.textMuted,
+                          textAlign: h === 'Quando' || h === 'Tipo' ? 'left' : 'right',
+                        }}
+                      >
+                        {h}
+                      </Typography>
+                    ))}
+                  </Box>
+                  {movs.map((m) => {
+                    const qtd = Number(m.quantidade);
+                    const saida = qtd < 0;
+                    return (
+                      <Box
+                        key={m.id_movimento}
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 88px 72px 80px',
+                          gap: 1,
+                          alignItems: 'baseline',
+                          py: 1.05,
+                          borderBottom: `1px solid ${colors.border}`,
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '0.78rem', color: colors.textSecondary }}>
+                          {fmtHoraBR(m.data_movimento || m.criado_em) || '—'}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.78rem', color: colors.textPrimary }}>
+                          {labelTipoMovimento(m.tipo)}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: '0.78rem',
+                            fontWeight: 700,
+                            textAlign: 'right',
+                            fontVariantNumeric: 'tabular-nums',
+                            color: saida ? '#B42318' : '#127846',
+                          }}
+                        >
+                          {qtd > 0 ? '+' : ''}
+                          {fmtNum(qtd, 2)}
+                        </Typography>
+                        <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                          {m.saldo_apos != null ? fmtNum(m.saldo_apos, 2) : '—'}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </>
+              ) : (
+                <Typography sx={{ color: colors.textMuted, fontSize: '0.8125rem' }}>
+                  Ainda não tem movimento neste item.
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        ) : null}
+      </Drawer>
     </Box>
   );
 }

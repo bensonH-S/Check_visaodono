@@ -352,13 +352,18 @@ router.get('/movimentos', permOp, async (req, res, next) => {
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
     const tipo = String(req.query.tipo || '').trim();
+    const idInsumo = Number(req.query.id_insumo);
     const paginacao = parsePaginacaoOffset(req, { defaultPageSize: 100, maxPageSize: 500 });
 
     const params = [idLoja];
     let filtro = '';
     if (tipo) {
       params.push(tipo);
-      filtro = `AND m.tipo = $${params.length}`;
+      filtro += ` AND m.tipo = $${params.length}`;
+    }
+    if (Number.isFinite(idInsumo) && idInsumo > 0) {
+      params.push(idInsumo);
+      filtro += ` AND m.id_insumo = $${params.length}`;
     }
 
     // Sem paginate=1: mantém o comportamento antigo (limit via query, default 100, teto 500).
