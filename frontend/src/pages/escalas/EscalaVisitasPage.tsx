@@ -2012,12 +2012,12 @@ export default function EscalaVisitasPage() {
                             key={d.dia}
                             align="center"
                             title={
-                              gestores.pode_editar && !tipo
+                              gestores?.pode_editar && !tipo
                                 ? 'Clique duas vezes para marcar folga'
                                 : undefined
                             }
                             onDoubleClick={() => {
-                              if (!gestores.pode_editar || tipo) return;
+                              if (!gestores?.pode_editar || tipo) return;
                               void salvarCelulaGestor(linha.id_gestor, d.dia, { tipo: 'folga' });
                             }}
                             sx={{
@@ -2032,7 +2032,7 @@ export default function EscalaVisitasPage() {
                             }}
                           >
                             {tipo ? (
-                              gestores.pode_editar ? (
+                              gestores?.pode_editar ? (
                                 <Select
                                   variant="standard"
                                   disableUnderline
@@ -2069,7 +2069,7 @@ export default function EscalaVisitasPage() {
                                 compact
                                 inicio={hr.hora_inicio}
                                 fim={hr.hora_fim}
-                                disabled={!gestores.pode_editar}
+                                disabled={!gestores?.pode_editar}
                                 ariaInicio={`Início ${linha.nome} ${DIAS[d.dia]}`}
                                 ariaFim={`Fim ${linha.nome} ${DIAS[d.dia]}`}
                                 onChangeInicio={(valor) =>
@@ -2087,7 +2087,7 @@ export default function EscalaVisitasPage() {
                         );
                       })}
                       <TableCell sx={{ minWidth: 120, borderBottom: `1px solid ${colors.border}` }}>
-                        {gestores.pode_editar ? (
+                        {gestores?.pode_editar ? (
                           <Select
                             variant="standard"
                             disableUnderline

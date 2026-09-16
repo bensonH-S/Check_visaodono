@@ -330,7 +330,7 @@ export default function EscalaVisitasMobileView() {
   const subEscalaAtivo = modo === 'dia' ? 'lojas' : modo;
   const modulos = useMemo(() => {
     if (ehDeliveryOnly) return [] as Array<{ id: AbaModulo; label: string }>;
-    if (ehGestorOnly) return [{ id: 'gestores', label: 'Gestores' }];
+    if (ehGestorOnly) return [{ id: 'gestores' as const, label: 'Gestores' }];
     const base: Array<{ id: AbaModulo; label: string }> = [];
     if (podeVerVisitas) base.push({ id: 'escala', label: 'Escala' });
     if (ehDiretor) base.push({ id: 'delivery', label: 'Delivery' });
@@ -1845,10 +1845,10 @@ export default function EscalaVisitasMobileView() {
                             <div
                               key={d.dia}
                               className={`ck-escala-gestor__dia${d.tipo ? ' is-off' : ''}${d.tipo === 'folga' ? ' is-folga' : ''}`}
-                              role={gestores.pode_editar ? 'button' : undefined}
-                              tabIndex={gestores.pode_editar && d.tipo ? 0 : undefined}
+                              role={gestores?.pode_editar ? 'button' : undefined}
+                              tabIndex={gestores?.pode_editar && d.tipo ? 0 : undefined}
                               onClick={() => {
-                                if (!gestores.pode_editar || salvando) return;
+                                if (!gestores?.pode_editar || salvando) return;
                                 void salvarCelulaGestor(linha.id_gestor, d.dia, {
                                   tipo: d.tipo ? null : 'folga',
                                 });
@@ -1858,7 +1858,7 @@ export default function EscalaVisitasMobileView() {
                               <small>{fmtDataCurta(addDaysIso(semanaInicio, d.dia))}</small>
                               {d.tipo ? (
                                 <em>{tipoLabel(d.tipo)}</em>
-                              ) : gestores.pode_editar ? (
+                              ) : gestores?.pode_editar ? (
                                 <span
                                   className="ck-escala-gestor__horas"
                                   onClick={(e) => e.stopPropagation()}
@@ -1922,7 +1922,7 @@ export default function EscalaVisitasMobileView() {
                           );
                         })}
                       </div>
-                      {gestores.pode_editar ? (
+                      {gestores?.pode_editar ? (
                         <div className="ck-escala-gestor__folga">
                           <span>Folga da semana</span>
                           <select

@@ -38,7 +38,6 @@ import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   api,
   type EstoqueBreakDetalhe,
@@ -972,7 +971,6 @@ type SyncAberto =
 
 function PainelSyncRede({
   idLoja,
-  onSelectLoja,
   onSetHeaderActions,
 }: {
   idLoja: number;
