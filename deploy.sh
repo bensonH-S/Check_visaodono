@@ -23,7 +23,8 @@ trap 'rm -f "$DEPLOY_SCRIPT_BACKUP"' EXIT
 CONTAINER_NAME="${CONTAINER_NAME:-vision-check}"
 WPP_CONTAINER_NAME="${WPP_CONTAINER_NAME:-vision-check-wpp}"
 HOST_WPP="${WPP_HOST_DIR:-/var/www/app/wppconnect-server}"
-WPP_GIT_REPO="${WPP_GIT_REPO:-https://github.com/bensonH-S/wppconnect-server.git}"
+WPP_GIT_REPO="${WPP_GIT_REPO:-git@github.com:bensonH-S/wppconnect-server.git}"
+WPP_GIT_HTTPS="${WPP_GIT_HTTPS:-https://github.com/bensonH-S/wppconnect-server.git}"
 WPP_GIT_BRANCH="${WPP_GIT_BRANCH:-meridian}"
 APP_PORT="3007"
 
@@ -146,24 +147,39 @@ restaurar_dados_wpp() {
   done
 }
 
+wpp_eh_fork_meridian() {
+  [ -f "$HOST_WPP/src/util/createSessionUtil.ts" ] || return 1
+  grep -q 'resolverChromePath' "$HOST_WPP/src/util/createSessionUtil.ts" || return 1
+  git -C "$HOST_WPP" remote get-url origin 2>/dev/null | grep -q 'bensonH-S/wppconnect-server' || return 1
+}
+
+clonar_wpp_meridian() {
+  KEEP="$(mktemp -d /tmp/wpp-keep.XXXXXX)"
+  if [ -d "$HOST_WPP" ]; then
+    preservar_dados_wpp "$KEEP"
+    rm -rf "$HOST_WPP"
+  fi
+  if ! git clone --branch "$WPP_GIT_BRANCH" "$WPP_GIT_REPO" "$HOST_WPP"; then
+    git clone --branch "$WPP_GIT_BRANCH" "$WPP_GIT_HTTPS" "$HOST_WPP"
+  fi
+  restaurar_dados_wpp "$KEEP"
+  rm -rf "$KEEP"
+}
+
 sync_wpp_fonte() {
   echo "Sincronizando WPPConnect de $WPP_GIT_REPO ($WPP_GIT_BRANCH) → $HOST_WPP"
+  sudo systemctl stop wppconnect-meridian 2>/dev/null || true
+  sudo fuser -k 21465/tcp 2>/dev/null || true
 
-  if [ -d "$HOST_WPP/.git" ]; then
-    git -C "$HOST_WPP" remote set-url origin "$WPP_GIT_REPO"
+  if wpp_eh_fork_meridian; then
     git -C "$HOST_WPP" fetch origin
     git -C "$HOST_WPP" checkout "$WPP_GIT_BRANCH"
     git -C "$HOST_WPP" reset --hard "origin/$WPP_GIT_BRANCH"
   else
-    KEEP="$(mktemp -d /tmp/wpp-keep.XXXXXX)"
-    if [ -d "$HOST_WPP" ]; then
-      preservar_dados_wpp "$KEEP"
-      rm -rf "$HOST_WPP"
-    fi
-    git clone --branch "$WPP_GIT_BRANCH" "$WPP_GIT_REPO" "$HOST_WPP"
-    restaurar_dados_wpp "$KEEP"
-    rm -rf "$KEEP"
+    echo "Pasta atual é o WPP oficial (não o fork do PC). Reclonando..."
+    clonar_wpp_meridian
   fi
+  echo "HEAD: $(git -C "$HOST_WPP" log -1 --oneline)"
 
   echo "Instalando e compilando WPPConnect no host..."
   (
@@ -194,23 +210,20 @@ subir_wppconnect() {
 
   if [ -f "$SCRIPT_DIR/deploy/wppconnect.service" ]; then
     sudo cp "$SCRIPT_DIR/deploy/wppconnect.service" /etc/systemd/system/wppconnect-meridian.service
+    CHROME_BIN=""
+    for c in /usr/bin/google-chrome-stable /usr/bin/google-chrome /usr/bin/chromium-browser /usr/bin/chromium; do
+      [ -x "$c" ] && CHROME_BIN="$c" && break
+    done
+    if [ -n "$CHROME_BIN" ]; then
+      sudo mkdir -p /etc/systemd/system/wppconnect-meridian.service.d
+      printf '[Service]\nEnvironment=PUPPETEER_EXECUTABLE_PATH=%s\nEnvironment=CHROME_PATH=%s\n' \
+        "$CHROME_BIN" "$CHROME_BIN" | sudo tee /etc/systemd/system/wppconnect-meridian.service.d/chrome.conf >/dev/null
+    fi
     sudo systemctl daemon-reload
     sudo systemctl enable wppconnect-meridian >/dev/null 2>&1 || true
     sudo systemctl restart wppconnect-meridian
     echo "systemd wppconnect-meridian"
   fi
-
-  if wpp_host_no_ar; then
-    echo "wppconnect host já na porta 21465."
-    return 0
-  fi
-
-  echo "Iniciando wppconnect host ($HOST_WPP)..."
-  mkdir -p "$HOST_WPP/log"
-  (
-    cd "$HOST_WPP"
-    nohup npm start >> "$HOST_WPP/log/meridian-host.log" 2>&1 &
-  )
 
   i=0
   while [ "$i" -lt 20 ]; do
