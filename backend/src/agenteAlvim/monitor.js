@@ -133,6 +133,9 @@ export function iniciarMonitorAgenteAlvim() {
   void import('./ouvido.js').then((m) => m.iniciarOuvidoAlvim()).catch((e) => {
     logger.warn('agente-alvim', 'Ouvido não iniciou', { error: e.message });
   });
+  void import('./acompanhar.js').then((m) => m.iniciarAcompanhamentoAlvim()).catch((e) => {
+    logger.warn('agente-alvim', 'Acompanhamento não iniciou', { error: e.message });
+  });
   void import('./grupos.js').then(async (m) => {
     try {
       const r = await m.sincronizarGruposAlvim();

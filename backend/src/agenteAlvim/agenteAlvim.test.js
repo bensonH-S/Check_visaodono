@@ -14,18 +14,25 @@ import {
 } from './horario.js';
 import { agruparPorRegional } from './regiao.js';
 import {
+  fatosParaRedacao,
   fmtQtdZap,
+  juntarListaEmUmaBolha,
   juntarNomesPt,
   nomeItemCurto,
   nomeLojaCurto,
+  nomesItensUnicos,
   parseMsgsJson,
+  pareceFalaDePainel,
   primeiroNome,
+  qtdFalaEmprestimo,
+  resumoSemSaldo,
   templateContagemFaltou,
   templateEscalaSemana,
   templateEstoqueZero,
 } from './texto.js';
 import { destinosDoRecado } from './recado.js';
-import { chaveLoja, mesmoNomeLoja } from './operacao.js';
+import { chaveLoja, mesmoNomeLoja, parsePedidoSaldo } from './operacao.js';
+import { resumoEmprestimo } from './emprestimo.js';
 import { extractInboundFromWppWebhook } from './conversa.js';
 import { classificarNomeGrupo } from './grupos.js';
 import {
@@ -127,22 +134,92 @@ describe('texto Alvim', () => {
     assert.equal(nomeLojaCurto('BURGER KING - CALDAS NOVAS'), 'BK Caldas Novas');
     assert.equal(nomeLojaCurto('BK Ponte Alta'), 'BK Ponte Alta');
     assert.equal(nomeLojaCurto('Samambaia'), 'BK Samambaia');
+    assert.equal(pareceFalaDePainel('BK Samambaia — contagem diária: contou!'), true);
+    assert.equal(pareceFalaDePainel('Henrique, subi aqui. BK Samambaia fechou.'), false);
     assert.equal(mesmoNomeLoja('BK Samambaia', 'fiz a contagem de samambaia'), true);
     assert.equal(chaveLoja('BK 201 Norte'), '201norte');
     assert.equal(fmtQtdZap(-17.228, 'KG'), '-17 KG');
     assert.equal(fmtQtdZap(-13, 'UND'), '-13 UND');
     assert.equal(fmtQtdZap(-0.028, 'KG'), '0 KG');
+    assert.deepEqual(qtdFalaEmprestimo({ qtd: 48.849, unid: 'KG', und_convertida: 17.2, pediu_cx: true }), { qtd: 3, unid: 'cx' });
+    assert.deepEqual(qtdFalaEmprestimo({ qtd: 12, unid: 'UND', pediu_cx: false }), { qtd: 12, unid: 'und' });
   });
 
   it('encurta item sem caixa alta nem cx', () => {
     assert.equal(nomeItemCurto('PAO BK SUPREMO CLEAN LABEL CX COM 180 UND'), 'Pão Supremo');
     assert.equal(nomeItemCurto('CHICKEN NUGGETS CLEAN BK CX 12 KG'), 'Chicken Nuggets');
+    assert.equal(nomeItemCurto('CARNE CONG MOIDA WHOPPER'), 'Carne Moída Whopper');
+    assert.equal(nomeItemCurto('CARNE HB CONG BKC'), 'Carne HB');
+    assert.equal(nomeItemCurto('BEBIDA LACTEA BAUNILHA X'), 'Bebida Láctea Baunilha');
+    assert.equal(nomeItemCurto('BATATA CONG PRE FRITA MCCAIN NV'), 'Batata Pré Frita');
+    assert.equal(nomeItemCurto('QUEIJO CHEDDAR DAN VIGOR'), 'Queijo Cheddar');
+    assert.equal(nomeItemCurto('QUEIJO CHEDDAR 8X2'), 'Queijo Cheddar');
+    assert.equal(nomeItemCurto('PAO 5 CL CXG CONG 10500G UNB'), 'Pão 5');
+    assert.equal(nomeItemCurto('QUEIJO CHEDDAR KG'), 'Queijo Cheddar');
+    assert.equal(nomeItemCurto('BEBIDA LACTEA DOCE DE LEITE CX10X2UN'), 'Bebida Láctea Doce de Leite');
+    assert.equal(nomeItemCurto('QUEIJO CRISPY BURGUER DE'), 'Queijo Crispy Burguer');
+    assert.deepEqual(
+      nomesItensUnicos(['Bebida Láctea Baunilha X', 'Bebida Láctea Baunilha']),
+      ['Bebida Láctea Baunilha'],
+    );
+    assert.equal(resumoSemSaldo(Array.from({ length: 12 }, (_, i) => `Item ${i}`)).qtd, 12);
+    assert.equal(resumoSemSaldo(Array.from({ length: 12 }, (_, i) => `Item ${i}`)).itens.length, 12);
+    const fatos = fatosParaRedacao({
+      mensagem_da_pessoa: 'tem estoque crítico zerado na samambaia?',
+      consulta: {
+        lojas: [{
+          loja: 'BURGER KING - SAMAMBAIA',
+          itens_zerados: ['PAO 5 CL CXG CONG', 'CARNE HB CONG BKC', 'QUEIJO CHEDDAR DAN VIGOR'],
+        }],
+      },
+    });
+    assert.deepEqual(fatos.no_sistema[0].sem_saldo.itens, ['Pão 5', 'Carne HB', 'Queijo Cheddar']);
+    const emprestimo = parsePedidoSaldo(
+      'qual é a loja mais proxima da regional do plinio que tenha mais de 5 cx de carne hb para emprestar ?',
+    );
+    assert.equal(emprestimo.regional.toLowerCase(), 'plinio');
+    assert.equal(emprestimo.minimo, 5);
+    assert.equal(emprestimo.pediu_cx, true);
+    assert.deepEqual(emprestimo.item_tokens, ['carne', 'hb']);
+    assert.equal(parsePedidoSaldo('tem estoque zerado na samambaia ?'), null);
+    const fatosEmp = fatosParaRedacao({
+      mensagem_da_pessoa: 'loja do plinio com carne hb',
+      consulta: { lojas: [{ loja: 'BK Samambaia', itens_zerados: ['CARNE HB'] }] },
+      consulta_saldo: {
+        regional: 'Plínio',
+        item: 'Carne HB',
+        minimo: 5,
+        criterio: 'saldo na região, sem distância',
+        lojas: [{ loja: 'BK 201 Norte', qtd: 12, unid: 'CX' }],
+      },
+    });
+    assert.equal(fatosEmp.no_sistema[0].tipo, 'emprestimo');
+    assert.match(String(fatosEmp.no_sistema[0].tem_quantidade[0] || fatosEmp.no_sistema[0].mais_perto), /201 Norte/);
+    const resumo = resumoEmprestimo([
+      { loja: 'BK 706/7 Norte', qtd: 3, unid: 'cx', km: 8 },
+      { loja: 'BK Unaí', qtd: 10, unid: 'cx', km: 138 },
+    ], { minimo: 5 });
+    assert.equal(resumo.mais_perto.loja, 'BK 706/7 Norte');
+    assert.equal(resumo.com_minimo[0].loja, 'BK Unaí');
+    assert.equal(resumo.unica_longe, true);
+    assert.match(String(fatosEmp.no_sistema[0].tem_quantidade[0]), /12 cx/);
+    assert.equal(fatosEmp.no_sistema.some((l) => /samambaia/i.test(l.loja || '')), false);
   });
 
   it('parseia bolhas JSON do modelo', () => {
     const msgs = parseMsgsJson('{"msgs":["Barbara, tem item zerado","Caldas Novas — carne HB"]}');
     assert.equal(msgs.length, 2);
     assert.match(msgs[0], /Barbara/);
+    const uma = juntarListaEmUmaBolha([
+      'Na Samambaia, estão zerados os itens:',
+      '1. Pão 5',
+      '2. Carne Moída Whopper',
+      '3. Carne HB',
+    ]);
+    assert.equal(uma.length, 1);
+    assert.match(uma[0], /1\. Pão 5\n2\. Carne Moída Whopper\n3\. Carne HB/);
+    const duas = juntarListaEmUmaBolha(['Perto é 706/7, uns 3 cx', 'Mais de 5 só Unaí, uns 140 km']);
+    assert.equal(duas.length, 2);
   });
 });
 

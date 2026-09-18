@@ -32,7 +32,17 @@ export async function enviarRecadoAlvim({
     ultimoMotivo = r.motivo;
     if (r.ok) {
       okAlgum = true;
-      await salvarContextoAlvim({ destino: dest, telefone: r.telefone, fatos, bolhas });
+      const historico = [
+        ...(Array.isArray(fatos?.historico) ? fatos.historico : []),
+        fatos?.mensagem_da_pessoa ? { de: 'pessoa', texto: String(fatos.mensagem_da_pessoa).slice(0, 280) } : null,
+        ...bolhas.map((texto) => ({ de: 'alvim', texto: String(texto).slice(0, 280) })),
+      ].filter(Boolean).slice(-12);
+      await salvarContextoAlvim({
+        destino: dest,
+        telefone: r.telefone,
+        fatos: { ...fatos, historico },
+        bolhas,
+      });
       for (const id of fatos?.ids_usuario || []) {
         await salvarContextoAlvim({ destino: { id_usuario: id }, fatos, bolhas });
       }

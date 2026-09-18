@@ -1,12 +1,13 @@
 import { logger } from '../logger.js';
+import { pool } from '../db.js';
 import { listarMensagensChatWpp, marcarLidaWpp, wppEnabled } from '../services/wppClient.js';
 import { carregarCredenciaisWpp } from '../services/wppSession.js';
 import { enqueueInboundAlvim } from './conversa.js';
 
 const vistos = new Set();
-const ultimoTs = new Map();
 let timer = null;
-let primeiraVarredura = true;
+let varrendo = false;
+let ultimoTs = 0;
 
 const HOMOLOG_PHONE = '5561991094654';
 const HOMOLOG_CHAT = `${HOMOLOG_PHONE}@c.us`;
@@ -17,7 +18,7 @@ export function iniciarOuvidoAlvim() {
     logger.info('agente-alvim', 'Ouvido desligado (WPP_ENABLED=false)');
     return;
   }
-  logger.info('agente-alvim', 'Ouvido Zap ligado (lê o chat de homologação a cada 12s)');
+  logger.info('agente-alvim', 'Ouvido Zap ligado (só mensagem nova, sem replay)');
   timer = setInterval(() => void varrerNaoLidas(), 12000);
   void varrerNaoLidas();
 }
@@ -46,6 +47,41 @@ function idMsg(raw, texto) {
   return String(raw?.id?._serialized || raw?.id?.id || raw?.id || `${texto}:${tsMsg(raw)}`).slice(0, 180);
 }
 
+async function garantirCursor() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS agente_alvim_ouvido (
+      chat TEXT PRIMARY KEY,
+      ultimo_ts BIGINT NOT NULL DEFAULT 0,
+      atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+async function carregarCursor() {
+  await garantirCursor();
+  const { rows } = await pool.query(
+    'SELECT ultimo_ts FROM agente_alvim_ouvido WHERE chat = $1',
+    [HOMOLOG_CHAT],
+  );
+  const salvo = Number(rows[0]?.ultimo_ts || 0);
+  if (salvo > ultimoTs) ultimoTs = salvo;
+}
+
+async function salvarCursor(ts) {
+  if (!ts || ts <= 0) return;
+  await garantirCursor();
+  await pool.query(
+    `
+    INSERT INTO agente_alvim_ouvido (chat, ultimo_ts, atualizado_em)
+    VALUES ($1, $2, NOW())
+    ON CONFLICT (chat) DO UPDATE
+    SET ultimo_ts = GREATEST(agente_alvim_ouvido.ultimo_ts, EXCLUDED.ultimo_ts),
+        atualizado_em = NOW()
+    `,
+    [HOMOLOG_CHAT, ts],
+  );
+}
+
 function ingestir(raw) {
   const body = textoMsg(raw);
   if (!body) return false;
@@ -66,49 +102,49 @@ function ingestir(raw) {
 }
 
 async function varrerNaoLidas() {
+  if (varrendo) return;
+  varrendo = true;
   try {
     const cred = await carregarCredenciaisWpp();
     if (!cred?.token) return;
+    await carregarCursor();
 
-    const msgs = await listarMensagensChatWpp(cred.token, HOMOLOG_CHAT, { count: 40, isGroup: false });
+    const msgs = await listarMensagensChatWpp(cred.token, HOMOLOG_CHAT, { count: 20, isGroup: false });
     const ordenadas = [...(msgs || [])].sort((a, b) => tsMsg(a) - tsMsg(b));
-    const piso = primeiraVarredura
-      ? Date.now() - 8 * 60 * 1000
-      : (ultimoTs.get(HOMOLOG_CHAT) || Date.now() - 60000);
+    const piso = ultimoTs > 0 ? ultimoTs : Date.now() - 15000;
 
     const candidatas = ordenadas.filter((m) => {
       if (m?.fromMe === true) return false;
-      const texto = textoMsg(m);
-      if (!texto) return false;
+      if (!textoMsg(m)) return false;
       const ts = tsMsg(m);
-      return !ts || ts >= piso;
+      return ts > piso;
     });
 
     logger.info('agente-alvim', 'Ouvido varreu chat', {
       msgs: ordenadas.length,
       candidatas: candidatas.length,
-      primeira: primeiraVarredura,
     });
 
-    const fila = primeiraVarredura ? candidatas.slice(-1) : candidatas;
     let ouvidas = 0;
-    let maxTs = ultimoTs.get(HOMOLOG_CHAT) || 0;
-    for (const raw of fila) {
-      const ts = tsMsg(raw);
-      if (ts > maxTs) maxTs = ts;
-      if (ingestir(raw)) ouvidas += 1;
-    }
+    let maxTs = ultimoTs;
     for (const raw of ordenadas) {
       const ts = tsMsg(raw);
       if (ts > maxTs) maxTs = ts;
     }
-    if (maxTs) ultimoTs.set(HOMOLOG_CHAT, maxTs);
+    for (const raw of candidatas) {
+      if (ingestir(raw)) ouvidas += 1;
+    }
+    if (maxTs > ultimoTs) {
+      ultimoTs = maxTs;
+      await salvarCursor(maxTs);
+    }
     if (ouvidas) {
       logger.info('agente-alvim', 'Ouvido enfileirou respostas', { ouvidas });
       void marcarLidaWpp(cred.token, HOMOLOG_CHAT, false);
     }
-    primeiraVarredura = false;
   } catch (e) {
     logger.warn('agente-alvim', 'Ouvido Zap falhou', { error: e.message });
+  } finally {
+    varrendo = false;
   }
 }

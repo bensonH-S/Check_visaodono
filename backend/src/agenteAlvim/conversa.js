@@ -5,8 +5,10 @@ import { carregarConfigAlvim } from './persona.js';
 import { agruparPorRegional } from './regiao.js';
 import { destinoEhGrupo } from './whatsapp.js';
 import { papelDoChat } from './grupos.js';
-import { montarConsulta, pedidosAtivos, salvarPedidoMonitoramento, snapshotOperacao } from './operacao.js';
-import { conferirAfirmacao, marcarPediuAviso, resumoPendenciasParaFatos } from './pendencia.js';
+import { completarConsultaEstoque, completarConsultaSaldo, montarConsulta, pedidosAtivos, salvarPedidoMonitoramento, snapshotOperacao } from './operacao.js';
+import { conferirAfirmacao, reservarPedidoAviso, resumoPendenciasParaFatos } from './pendencia.js';
+
+const falandoAgora = new Set();
 
 let schemaOk = false;
 const inboundBuffers = new Map();
@@ -133,6 +135,31 @@ function lojasDoGrupo(itens) {
   return [...porLoja.values()];
 }
 
+function historicoDoCtx(ctx) {
+  const h = ctx?.fatos?.historico;
+  if (Array.isArray(h) && h.length) {
+    return h
+      .map((m) => ({
+        de: m.de === 'alvim' ? 'alvim' : 'pessoa',
+        texto: String(m.texto || '').slice(0, 280),
+      }))
+      .filter((m) => m.texto)
+      .slice(-10);
+  }
+  const bolhas = Array.isArray(ctx?.bolhas) ? ctx.bolhas : [];
+  return bolhas
+    .map((t) => ({ de: 'alvim', texto: String(t || '').slice(0, 280) }))
+    .filter((m) => m.texto)
+    .slice(-6);
+}
+
+function conversaFria(ctx, horas = 3) {
+  if (!ctx?.atualizado_em) return true;
+  const ts = new Date(ctx.atualizado_em).getTime();
+  if (!Number.isFinite(ts)) return true;
+  return Date.now() - ts > horas * 60 * 60 * 1000;
+}
+
 function lojasDoContexto(ctx, fatos) {
   const nomes = [];
   for (const l of [...(fatos?.lojas || []), ...(ctx?.fatos?.lojas || [])]) {
@@ -181,6 +208,22 @@ async function fatosAtualizados(ctx) {
 }
 
 export async function responderMensagemAlvim(fromPhone, bodyText, { chatId = null, nomePessoa = null } = {}) {
+  const lock = [
+    chatId && destinoEhGrupo(chatId) ? chatId : '',
+    String(fromPhone || '').replace(/\D/g, '') || String(fromPhone || ''),
+  ].filter(Boolean).join('|') || 'dm';
+  if (falandoAgora.has(lock)) {
+    return { handled: true, reason: 'em_andamento', msgs: 0 };
+  }
+  falandoAgora.add(lock);
+  try {
+    return await responderMensagemAlvimLocked(fromPhone, bodyText, { chatId, nomePessoa });
+  } finally {
+    falandoAgora.delete(lock);
+  }
+}
+
+async function responderMensagemAlvimLocked(fromPhone, bodyText, { chatId = null, nomePessoa = null } = {}) {
   const config = await carregarConfigAlvim();
   const papel = papelDoChat(chatId, config);
   const ctx = await carregarContexto(fromPhone, chatId);
@@ -210,29 +253,55 @@ export async function responderMensagemAlvim(fromPhone, bodyText, { chatId = nul
     nomePessoa,
     lojasContexto,
   });
-  const consulta = montarConsulta({
+  const consultaSaldo = await completarConsultaSaldo({
     texto: fatos.mensagem_da_pessoa,
-    snapshot,
-    pendencias: conferencia.pendencias,
-    lojasContexto,
+    lojasConhecidas: [
+      ...lojasContexto.map((n) => ({ loja: n })),
+      ...(snapshot?.contagem?.faltou || []),
+      ...(snapshot?.contagem?.aberta || []),
+      ...(snapshot?.contagem?.contou || []),
+    ],
   });
-  fatos.consulta = consulta;
+  if (consultaSaldo) {
+    fatos.consulta_saldo = consultaSaldo;
+    fatos.consulta = { hoje: snapshot?.hoje || null, lojas: [] };
+  } else {
+    const consulta = await completarConsultaEstoque(montarConsulta({
+      texto: fatos.mensagem_da_pessoa,
+      snapshot,
+      pendencias: conferencia.pendencias,
+      lojasContexto,
+    }));
+    fatos.consulta = consulta;
+  }
+  fatos.historico = historicoDoCtx(ctx);
+  fatos.conversa_fria = conversaFria(ctx);
   fatos.pendencias = resumoPendenciasParaFatos(conferencia.pendencias);
   fatos.afirmacao_resolucao = conferencia.afirmacao;
   fatos.todas_resolvidas = conferencia.todas_resolvidas === true;
   fatos.nada_mudou = conferencia.nada_mudou === true;
-  fatos.orientacao = conferencia.orientacao || (conferencia.todas_resolvidas ? 'comemorou' : null);
-
-  const pergunta = /\?|pode |consegue |me (passa|informa|manda)|quais |quem |monitora|e o estoque/i
+  const pergunta = /\?|pode |consegue |me (passa|informa|manda)|quais |quem |monitora|e o estoque|zerad|item/i
     .test(fatos.mensagem_da_pessoa);
+  fatos.orientacao = pergunta
+    ? null
+    : (conferencia.orientacao || (conferencia.todas_resolvidas ? 'comemorou' : null));
+
   if (conferencia.afirmacao && !conferencia.deve_falar && !pergunta) {
     logger.info('agente-alvim', 'Zap silencioso — consultei e nada mudou', {
-      lojas: consulta.lojas.map((l) => `${l.loja}:${l.contagem}`),
+      lojas: (fatos.consulta?.lojas || []).map((l) => `${l.loja}:${l.contagem}`),
     });
     return { handled: true, reason: 'nada_mudou', msgs: 0 };
   }
-  if (!conferencia.deve_falar && !pergunta && !consulta.lojas.length) {
+  if (!conferencia.deve_falar && !pergunta) {
     return { handled: true, reason: 'silencio', msgs: 0 };
+  }
+
+  if (conferencia.orientacao === 'ainda_nao_me_avisa') {
+    const reservou = await reservarPedidoAviso((conferencia.pendencias || []).map((p) => p.chave));
+    if (!reservou) {
+      logger.info('agente-alvim', 'Zap silencioso — aviso já reservado');
+      return { handled: true, reason: 'nada_mudou', msgs: 0 };
+    }
   }
 
   const destino = (chatId && destinoEhGrupo(chatId)) ? chatId : fromPhone;
@@ -248,10 +317,6 @@ export async function responderMensagemAlvim(fromPhone, bodyText, { chatId = nul
     msgs: r.bolhas?.length || 0,
   });
   if (r.silencioso) return { handled: true, reason: 'silencio', msgs: 0 };
-
-  if (conferencia.orientacao === 'ainda_nao_me_avisa') {
-    await marcarPediuAviso((conferencia.pendencias || []).map((p) => p.chave));
-  }
 
   const textoPedido = /monitorar|1\s*cx|uma\s*caixa/i.test(fatos.mensagem_da_pessoa)
     ? fatos.mensagem_da_pessoa

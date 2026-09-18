@@ -18,6 +18,12 @@ import LojaEditDialog from '../components/lojas/LojaEditDialog';
 import { colors } from '../theme/tokens';
 import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../utils/tablePageLayout';
 
+function temGps(loja: Loja) {
+  const lat = Number(loja.latitude);
+  const lng = Number(loja.longitude);
+  return Number.isFinite(lat) && Number.isFinite(lng);
+}
+
 function notaChip(nota: number) {
   if (!nota) return <Chip label="—" size="small" />;
   return <Chip label={fmtNota(nota)} size="small" sx={notaChipSx(nota)} />;
@@ -72,6 +78,7 @@ export default function LojasPage() {
                 <TableCell>Endereço</TableCell>
                 <TableCell>Cidade</TableCell>
                 <TableCell>Bairro</TableCell>
+                <TableCell>Mapa</TableCell>
                 <TableCell>Ativa</TableCell>
                 <TableCell>Nota</TableCell>
                 <TableCell />
@@ -96,6 +103,13 @@ export default function LojasPage() {
                   <TableCell sx={tableCellWrapSx}>{l.address}</TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatarCidadeUf(l.city, l.state)}</TableCell>
                   <TableCell>{l.neighborhood}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={temGps(l) ? 'GPS' : 'sem mapa'}
+                      size="small"
+                      color={temGps(l) ? 'success' : 'default'}
+                    />
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={l.is_active ? 'Sim' : 'Não'}

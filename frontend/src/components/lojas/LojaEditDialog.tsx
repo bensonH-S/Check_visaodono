@@ -27,6 +27,8 @@ type FormLoja = {
   state: string;
   neighborhood: string;
   bk_number: string;
+  cnpj: string;
+  corporate_name: string;
   latitude: string;
   longitude: string;
   is_active: boolean;
@@ -81,6 +83,8 @@ function lojaParaForm(loja: Loja): FormLoja {
     state: loja.state || '',
     neighborhood: loja.neighborhood || '',
     bk_number: loja.bk_number || '',
+    cnpj: loja.cnpj || '',
+    corporate_name: loja.corporate_name || '',
     latitude: loja.latitude != null && loja.latitude !== '' ? String(loja.latitude) : '',
     longitude: loja.longitude != null && loja.longitude !== '' ? String(loja.longitude) : '',
     is_active: loja.is_active !== false,
@@ -234,6 +238,8 @@ export default function LojaEditDialog({ open, loja, onClose, onSalvo }: Props) 
         state: form.state.trim() || null,
         neighborhood: form.neighborhood.trim() || null,
         bk_number: form.bk_number.trim() || null,
+        cnpj: form.cnpj.trim() || null,
+        corporate_name: form.corporate_name.trim() || null,
         is_active: form.is_active,
         latitude: latitude ?? null,
         longitude: longitude ?? null,
@@ -333,6 +339,18 @@ export default function LojaEditDialog({ open, loja, onClose, onSalvo }: Props) 
                 value={form.address}
                 onChange={(e) => atualizar('address', e.target.value)}
                 placeholder="Rua, número, complemento"
+              />
+              <TextField
+                label="Razão social"
+                {...lojaCampoProps}
+                value={form.corporate_name}
+                onChange={(e) => atualizar('corporate_name', e.target.value)}
+              />
+              <TextField
+                label="CNPJ"
+                {...lojaCampoProps}
+                value={form.cnpj}
+                onChange={(e) => atualizar('cnpj', e.target.value)}
               />
               <Grid container spacing={1}>
                 <Grid size={8}>

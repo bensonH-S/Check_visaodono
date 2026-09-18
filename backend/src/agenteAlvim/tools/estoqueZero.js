@@ -12,7 +12,13 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-export async function coletarEstoqueZero({ limite = 40 } = {}) {
+export async function coletarEstoqueZero({ limite = 40, id_loja = null } = {}) {
+  const params = [limite];
+  let filtroLoja = '';
+  if (id_loja) {
+    params.push(Number(id_loja));
+    filtroLoja = `AND p.id_loja = $${params.length}`;
+  }
   const { rows } = await pool.query(
     `
     SELECT
@@ -32,10 +38,11 @@ export async function coletarEstoqueZero({ limite = 40 } = {}) {
       AND COALESCE(p.contagem_diaria, FALSE) = TRUE
       AND COALESCE(s.quantidade, 0) <= 0.001
       AND l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
+      ${filtroLoja}
     ORDER BY quantidade ASC, l.name, p.descricao
     LIMIT $1
     `,
-    [limite],
+    params,
   );
   const itens = [];
   for (const r of rows) {

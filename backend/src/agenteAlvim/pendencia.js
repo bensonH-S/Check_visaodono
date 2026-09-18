@@ -23,7 +23,7 @@ const TRANSICOES = {
   AGUARDANDO: ['CONFERINDO', 'ATRASADA', 'RESOLVIDA', 'CANCELADA', 'COBRADA'],
   CONFERINDO: ['AGUARDANDO', 'RESOLVIDA', 'ATRASADA', 'CANCELADA'],
   ATRASADA: ['COBRADA', 'CONFERINDO', 'RESOLVIDA', 'CANCELADA', 'AGUARDANDO'],
-  RESOLVIDA: [],
+  RESOLVIDA: ['AGUARDANDO', 'CONFERINDO', 'DETECTADA'],
   CANCELADA: [],
 };
 
@@ -305,7 +305,7 @@ export async function conferirAfirmacao({
   const resultado = [];
   for (const p of abertas) {
     const sistemaAnterior = p.payload?.sistema || null;
-    const jaPediuAviso = p.payload?.ja_pediu_aviso === true;
+    const jaPediuAviso = p.payload?.ja_pediu_aviso === true || Boolean(p.payload?.afirmacao);
     const primeiraConferencia = sistemaAnterior == null;
     await transicionarPendencia(p.chave, ESTADOS.CONFERINDO, { afirmacao: texto });
     const sistema = lojaNoSnapshot(snapshot, p.loja, p.id_loja);
@@ -326,37 +326,122 @@ export async function conferirAfirmacao({
   }
 
   const algumaMudou = resultado.some((p) => p.mudou);
-  const algumaNova = resultado.some((p) => p.sistema_anterior == null);
   const aindaPendente = resultado.some((p) => !p.resolvida);
-  const jaPediuAviso = resultado.length > 0 && resultado.every((p) => p.ja_pediu_aviso);
-  const pediuAvisoAgora = aindaPendente && !jaPediuAviso;
+  const jaPediuAviso = resultado.some((p) => p.ja_pediu_aviso);
   const resolvidas = resultado.some((p) => p.resolvida);
+  const pediuAvisoAgora = aindaPendente && !jaPediuAviso && !resolvidas;
   return {
     afirmacao: true,
     pendencias: resultado,
-    deve_falar: resolvidas || pediuAvisoAgora || deveFalarDeNovo({
-      estado: resultado[0]?.estado,
-      afirmacao: true,
-      primeiraVez: algumaNova,
-      mudou: algumaMudou,
-    }),
-    nada_mudou: resultado.length > 0 && !algumaMudou && !pediuAvisoAgora,
+    deve_falar: resolvidas || pediuAvisoAgora,
+    nada_mudou: !resolvidas && (jaPediuAviso || !algumaMudou),
     todas_resolvidas: resultado.length > 0 && resultado.every((p) => p.resolvida),
     ainda_abertas: resultado.filter((p) => !p.resolvida),
     orientacao: resolvidas ? 'comemorou' : (pediuAvisoAgora ? 'ainda_nao_me_avisa' : 'silencio'),
   };
 }
 
-export async function marcarPediuAviso(chaves) {
+export async function pendenciasDoDia({ dia = null, tipo = null } = {}) {
+  await garantirSchemaPendencias();
+  const hoje = dia || dataHojeSp();
+  const params = [hoje];
+  let sql = 'SELECT * FROM agente_alvim_pendencias WHERE dia = $1::date';
+  if (tipo) {
+    params.push(tipo);
+    sql += ` AND tipo = $${params.length}`;
+  }
+  sql += ' ORDER BY atualizado_em DESC';
+  const { rows } = await pool.query(sql, params);
+  return rows.map(mapRow);
+}
+
+export async function reservarComemoracao(chave, idContagem = null) {
+  if (!chave) return false;
+  const { rows } = await pool.query(
+    `
+    UPDATE agente_alvim_pendencias
+    SET payload = payload
+          || jsonb_build_object(
+            'ja_comemorou', true,
+            'id_contagem_visto', to_jsonb($2::text)
+          ),
+        estado = 'RESOLVIDA',
+        resolvido_em = COALESCE(resolvido_em, NOW()),
+        atualizado_em = NOW()
+    WHERE chave = $1
+      AND (
+        COALESCE((payload->>'ja_comemorou')::boolean, false) IS NOT TRUE
+        OR COALESCE(payload->>'id_contagem_visto', '') IS DISTINCT FROM COALESCE($2::text, '')
+      )
+    RETURNING *
+    `,
+    [chave, idContagem != null ? String(idContagem) : ''],
+  );
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
+export async function reabrirPendencia(chave, extra = {}) {
+  if (!chave) return null;
+  const { rows } = await pool.query(
+    `
+    UPDATE agente_alvim_pendencias
+    SET estado = 'AGUARDANDO',
+        resolvido_em = NULL,
+        payload = (payload - 'ja_comemorou') || $2::jsonb,
+        atualizado_em = NOW()
+    WHERE chave = $1
+    RETURNING *
+    `,
+    [chave, JSON.stringify(extra)],
+  );
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
+export async function colherResolvidasNoSistema(snapshot) {
+  const doDia = (await pendenciasDoDia({ tipo: 'contagem' }));
+  const resolvidas = [];
+  for (const p of doDia) {
+    const live = statusLojaNoSnapshot(snapshot, { id_loja: p.id_loja, loja: p.loja });
+    const sistema = live?.status || lojaNoSnapshot(snapshot, p.loja, p.id_loja);
+    const idContagem = live?.id_contagem || null;
+    const visto = p.payload?.id_contagem_visto || null;
+
+    if (sistema === 'aberta' || sistema === 'faltou' || sistema === 'pendente') {
+      if (p.estado === ESTADOS.RESOLVIDA) {
+        await reabrirPendencia(p.chave, { sistema, id_contagem_visto: null });
+      }
+      continue;
+    }
+    if (sistema !== 'contou' && sistema !== 'ok') continue;
+    if (visto && idContagem && String(visto) === String(idContagem) && p.payload?.ja_comemorou) {
+      continue;
+    }
+    const depois = await reservarComemoracao(p.chave, idContagem);
+    if (!depois) continue;
+    resolvidas.push({
+      ...depois,
+      sistema: 'contou',
+      resolvida: true,
+    });
+  }
+  return resolvidas;
+}
+
+export async function reservarPedidoAviso(chaves) {
   const list = (chaves || []).filter(Boolean);
-  if (!list.length) return;
-  await pool.query(
-    `UPDATE agente_alvim_pendencias
-     SET payload = payload || '{"ja_pediu_aviso":true}'::jsonb,
-         atualizado_em = NOW()
-     WHERE chave = ANY($1::text[])`,
+  if (!list.length) return false;
+  const { rows } = await pool.query(
+    `
+    UPDATE agente_alvim_pendencias
+    SET payload = payload || '{"ja_pediu_aviso":true}'::jsonb,
+        atualizado_em = NOW()
+    WHERE chave = ANY($1::text[])
+      AND COALESCE((payload->>'ja_pediu_aviso')::boolean, false) IS NOT TRUE
+    RETURNING chave
+    `,
     [list],
   );
+  return rows.length > 0;
 }
 
 export function resumoPendenciasParaFatos(lista) {

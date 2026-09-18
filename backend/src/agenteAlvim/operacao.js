@@ -1,5 +1,6 @@
 import { listarStatusContagemRede } from '../services/estoqueCiclo.js';
-import { nomeItemCurto, nomeLojaCurto, primeiroNome } from './texto.js';
+import { logger } from '../logger.js';
+import { nomeItemCurto, nomeLojaCurto, nomesItensUnicos, primeiroNome } from './texto.js';
 import { agruparPorRegional, regionaisDaLoja } from './regiao.js';
 import { pool } from '../db.js';
 
@@ -23,6 +24,61 @@ export function mesmoNomeLoja(a, b) {
   return x === y || (x.length >= 4 && y.includes(x)) || (y.length >= 4 && x.includes(y));
 }
 
+const STOP_PEDIDO_SALDO = new Set([
+  'qual', 'quais', 'e', 'eh', 'a', 'o', 'as', 'os', 'da', 'do', 'de', 'das', 'dos',
+  'loja', 'lojas', 'mais', 'proxima', 'proximo', 'perto', 'regional', 'regiao',
+  'que', 'tenha', 'tem', 'tiver', 'cx', 'caixa', 'caixas', 'para', 'emprestar',
+  'empresta', 'emprestimo', 'com', 'na', 'no', 'num', 'uma', 'um', 'seja', 'quem',
+  'onde', 'alguma', 'algum', 'hoje', 'disponivel',
+]);
+
+export function parsePedidoSaldo(texto) {
+  const t = String(texto || '');
+  if (!/emprest|mais pr[oó]xim|tenha mais de|\bmais de\s+\d+|quem tem .{0,40}\bcx\b/i.test(t)) {
+    return null;
+  }
+  const minM = t.match(/mais de\s+(\d+)/i) || t.match(/(\d+)\s*cx/i);
+  const minimo = minM ? Number(minM[1]) : 0;
+  const regionalM = t.match(/regional(?:\s+d[oea])?\s+(\p{L}+)/iu)
+    || t.match(/regi[aã]o(?:\s+d[oea])?\s+(\p{L}+)/iu);
+  const regional = regionalM ? regionalM[1] : null;
+  const toks = String(t)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length >= 2 && !STOP_PEDIDO_SALDO.has(w) && !/^\d+$/.test(w));
+  const chaveReg = regional
+    ? String(regional).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+    : '';
+  const item_tokens = toks.filter((w) => w !== chaveReg);
+  return {
+    minimo: Number.isFinite(minimo) ? minimo : 0,
+    regional,
+    item_tokens,
+    quer_proxima: /pr[oó]xim|perto/i.test(t),
+    pediu_cx: /\bcx\b|caixa/i.test(t),
+  };
+}
+
+export async function completarConsultaSaldo({ texto, loja_origem = null, lojasConhecidas = [] } = {}) {
+  const pedido = parsePedidoSaldo(texto);
+  if (!pedido) return null;
+  const noTexto = lojasMencionadasNoTexto(texto, lojasConhecidas);
+  const origemNoPedido = noTexto[0]?.loja || noTexto[0]?.name || null;
+  const { coletarSaldoEmprestimo } = await import('./tools/saldoItem.js');
+  return coletarSaldoEmprestimo({
+    regional: pedido.regional,
+    item_tokens: pedido.item_tokens,
+    minimo: pedido.minimo,
+    loja_origem: origemNoPedido || null,
+    pediu_cx: pedido.pediu_cx === true,
+    quer_proxima: pedido.quer_proxima === true,
+  });
+}
+
 export function lojasMencionadasNoTexto(texto, lojas) {
   const t = chaveLoja(texto);
   if (!t) return [];
@@ -41,6 +97,7 @@ export async function snapshotOperacao({ idRegiao = null, limiteZero = 40 } = {}
     if (idRegiao && Number(principal.id_regiao) !== Number(idRegiao)) continue;
     comRegional.push({
       id_loja: loja.id_loja,
+      id_contagem: loja.id_contagem || null,
       loja: lojaCurta(loja),
       status: loja.status,
       status_label: loja.status_label,
@@ -85,6 +142,7 @@ export async function snapshotOperacao({ idRegiao = null, limiteZero = 40 } = {}
 function mapStatusLoja(l) {
   return {
     id_loja: l.id_loja,
+    id_contagem: l.id_contagem || null,
     loja: l.loja,
     regional: l.regional,
     status: l.status,
@@ -134,11 +192,25 @@ export function montarConsulta({ texto, snapshot, pendencias = [], lojasContexto
       loja: nomeLojaCurto(l.loja),
       id_loja: l.id_loja || null,
       contagem: l.status,
-      contagem_label: l.status_label || l.status,
       itens_zerados: zerados?.itens || [],
     };
   });
   return { hoje: snapshot?.hoje || null, lojas };
+}
+
+export async function completarConsultaEstoque(consulta) {
+  const { coletarEstoqueZero } = await import('./tools/estoqueZero.js');
+  for (const l of consulta?.lojas || []) {
+    if (!l.id_loja) continue;
+    const brutos = await coletarEstoqueZero({ id_loja: l.id_loja, limite: 80 });
+    l.itens_zerados = nomesItensUnicos(brutos.map((i) => nomeItemCurto(i.descricao || i.item)));
+    logger.info('agente-alvim', 'Estoque zerado da loja', {
+      loja: l.loja,
+      id_loja: l.id_loja,
+      zerados: l.itens_zerados.length,
+    });
+  }
+  return consulta;
 }
 
 function agruparItensLoja(itens) {
