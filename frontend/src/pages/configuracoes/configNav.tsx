@@ -10,6 +10,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import StoreIcon from '@mui/icons-material/Store';
 import PeopleIcon from '@mui/icons-material/People';
 import BadgeIcon from '@mui/icons-material/Badge';
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import { getUsuario, temPermissao } from '../../lib/auth';
 import type { UsuarioSessao } from '../../lib/auth';
 
@@ -98,6 +99,12 @@ const CONFIG_NAV: ConfigNavSection[] = [
         to: '/configuracoes/whatsapp',
         label: 'WhatsApp',
         icon: <WhatsAppIcon fontSize="small" sx={{ color: '#25D366' }} />,
+        permissoes: ['configuracoes.ver'],
+      },
+      {
+        to: '/configuracoes/agente-alvim',
+        label: 'Agente Alvim',
+        icon: <SmartToyOutlinedIcon fontSize="small" />,
         permissoes: ['configuracoes.ver'],
       },
       {

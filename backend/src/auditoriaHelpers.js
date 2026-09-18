@@ -93,6 +93,7 @@ export function inferirModulo(path) {
   if (p.includes('/manutencao/chamados')) return 'chamados';
   if (p.includes('/manutencao')) return 'configuracoes';
   if (p.includes('/wpp')) return 'configuracoes';
+  if (p.includes('/agente-alvim')) return 'configuracoes';
   if (p.includes('/auth')) return 'auth';
   if (p.includes('/nao-conformidades')) return 'checklist';
   if (p.includes('/energia')) return 'energia';
@@ -178,6 +179,7 @@ function descricaoRecurso(path, method, body) {
   if (p.includes('/manutencao') && p.includes('/sla')) return `${verbo} configuração de SLA${sufixo}`;
   if (p.includes('/manutencao') && p.includes('/categor')) return `${verbo} categoria de chamado${sufixo}`;
   if (p.includes('/wpp')) return `${verbo} configuração WhatsApp${sufixo}`;
+  if (p.includes('/agente-alvim')) return `${verbo} Agente Alvim${sufixo}`;
   if (p.includes('/push')) return `${verbo} inscrição de notificações`;
 
   const recurso = pathCurto(path).replace(/^\//, '') || 'recurso';

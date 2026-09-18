@@ -17,9 +17,17 @@ function normalizeAppVersion(raw) {
   return match ? match[1] : v;
 }
 
-dotenv.config({ path: path.join(__dirname, '.env'), override: false });
-// backend/.env prevalece (credenciais Fulltrack, DB, etc.)
-dotenv.config({ path: path.join(__dirname, 'backend', '.env'), override: true });
+dotenv.config({ path: path.join(__dirname, '.env'), override: true });
+// backend/.env só aplica chave não vazia (WPP_HOST local, flags). Não apaga DB_* da raiz.
+const backendEnvPath = path.join(__dirname, 'backend', '.env');
+if (fs.existsSync(backendEnvPath)) {
+  const local = dotenv.parse(fs.readFileSync(backendEnvPath));
+  for (const [key, value] of Object.entries(local)) {
+    if (value !== undefined && String(value).trim() !== '') {
+      process.env[key] = value;
+    }
+  }
+}
 
 function readVersionFromDist() {
   const distVersionFile = path.join(__dirname, 'frontend', 'dist', 'app-version.json');
@@ -157,6 +165,7 @@ const {
   obterIntegrationsStatus,
 } = await import('./backend/src/integrationsStatus.js');
 const wppRouter = (await import('./backend/src/routes/wpp.js')).default;
+const agenteAlvimRouter = (await import('./backend/src/routes/agenteAlvim.js')).default;
 const frotaRouter = (await import('./backend/src/routes/frota.js')).default;
 const escalaVisitasRouter = (await import('./backend/src/routes/escalaVisitas.js')).default;
 const metasRouter = (await import('./backend/src/routes/metas.js')).default;
@@ -331,6 +340,7 @@ api.use('/energia', energiaRouter);
 api.use('/sistema', sistemaRouter);
 api.use('/push', pushRouter);
 api.use('/wpp', wppRouter);
+api.use('/agente-alvim', agenteAlvimRouter);
 
 app.use(API_PREFIX, api);
 app.use('/api', api);
@@ -551,8 +561,8 @@ ${row()}
   if (String(process.env.WPP_ENABLED || '').toLowerCase() === 'true') {
     const { wppConfig } = await import('./backend/src/services/wppClient.js');
     const wpp = wppConfig();
-    console.log(`[server] WhatsApp WPP_HOST=${process.env.WPP_HOST} base=${wpp.base}`);
-    logger.info('server', 'WhatsApp habilitado', { host: process.env.WPP_HOST, base: wpp.base });
+    console.log(`[server] WhatsApp WPP_HOST=${wpp.host} base=${wpp.base}`);
+    logger.info('server', 'WhatsApp habilitado', { host: wpp.host, base: wpp.base });
   }
   if (!process.env.DB_PASS) {
     logger.warn('server', 'DB_PASS vazio no .env');
@@ -588,6 +598,12 @@ ${row()}
       iniciarSchedulerMultasDetran();
     } catch (e) {
       logger.warn('server', 'Scheduler multas DETRAN-DF não iniciado', { error: e.message });
+    }
+    try {
+      const { iniciarMonitorAgenteAlvim } = await import('./backend/src/agenteAlvim/monitor.js');
+      iniciarMonitorAgenteAlvim();
+    } catch (e) {
+      logger.warn('server', 'Monitor Agente Alvim não iniciado', { error: e.message });
     }
     if (!isProd) {
       try {

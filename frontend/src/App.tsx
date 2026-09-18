@@ -72,6 +72,7 @@ import SlaPage from './pages/configuracoes/SlaPage';
 import CargosPage from './pages/configuracoes/CargosPage';
 import ChecklistPerguntasPage from './pages/configuracoes/ChecklistPerguntasPage';
 import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
+import AgenteAlvimPage from './pages/configuracoes/AgenteAlvimPage';
 import NotificacoesPage from './pages/configuracoes/NotificacoesPage';
 import AuditoriaPage from './pages/configuracoes/AuditoriaPage';
 import SmtpPage from './pages/configuracoes/SmtpPage';
@@ -598,6 +599,14 @@ export default function App() {
                 element={
                   <RotaPermissao permissoes={['configuracoes.ver']}>
                     <WhatsAppPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="agente-alvim"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver']}>
+                    <AgenteAlvimPage />
                   </RotaPermissao>
                 }
               />

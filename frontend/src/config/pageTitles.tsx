@@ -16,6 +16,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import EmailIcon from '@mui/icons-material/Email';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
@@ -96,6 +97,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/permissoes': { title: 'Permissões & Cargos', icon: <BadgeIcon sx={iconSx} /> },
   '/configuracoes/cargos': { title: 'Permissões', icon: <BadgeIcon sx={iconSx} /> },
   '/configuracoes/whatsapp': { title: 'WhatsApp', icon: <WhatsAppIcon sx={{ fontSize: 22, color: '#25D366' }} /> },
+  '/configuracoes/agente-alvim': { title: 'Agente Alvim', icon: <SmartToyOutlinedIcon sx={iconSx} /> },
   '/configuracoes/smtp': { title: 'SMTP', icon: <EmailIcon sx={iconSx} /> },
   '/configuracoes/estoque-sync-nf': { title: 'Sync NF estoque', icon: <LocalShippingIcon sx={iconSx} /> },
   '/configuracoes/contagem': { title: 'Configuração da Contagem', icon: <Inventory2Icon sx={iconSx} /> },

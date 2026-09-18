@@ -110,7 +110,10 @@ export async function conectarSessaoWpp({ reiniciar = false } = {}) {
       reiniciar ||
       estadoAtual.status === 'CLOSED' ||
       !estadoAtual.status ||
-      estadoAtual.status === 'QRCODE';
+      estadoAtual.status === 'QRCODE' ||
+      estadoAtual.status === 'PHONECODE' ||
+      estadoAtual.status === 'notLogged' ||
+      estadoAtual.status === 'UNPAIRED';
 
     if (precisaIniciar) {
       await fecharSessaoWpp(cred.token);

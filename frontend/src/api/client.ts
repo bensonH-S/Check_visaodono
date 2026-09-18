@@ -168,6 +168,20 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  agenteAlvimStatus: () => request<AgenteAlvimStatus>('/agente-alvim/status'),
+  agenteAlvimSalvar: (body: AgenteAlvimConfigInput) =>
+    request<AgenteAlvimStatus>('/agente-alvim/config', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  agenteAlvimTeste: (body: { ferramenta?: string; telefone?: string }) =>
+    request<AgenteAlvimTesteResult>('/agente-alvim/teste', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  agenteAlvimSincronizarGrupos: () =>
+    request<AgenteAlvimGruposSync>('/agente-alvim/grupos/sincronizar', { method: 'POST' }),
+
   smtpObter: () => request<ConfiguracaoSmtp>('/sistema/smtp'),
   smtpSalvar: (body: Partial<ConfiguracaoSmtpInput>) =>
     request<ConfiguracaoSmtp>('/sistema/smtp', { method: 'POST', body: JSON.stringify(body) }),
@@ -1794,6 +1808,67 @@ export interface WppConectarResponse {
   qrcode?: string | null;
   message?: string;
 }
+
+export interface AgenteAlvimStatus {
+  nome: string;
+  ativo: boolean;
+  env_enabled: boolean;
+  wpp: boolean;
+  mesa_operacao: boolean;
+  mesa_financeiro: boolean;
+  grupo_whatsapp: string | null;
+  horario_inicio: string;
+  horario_fim: string;
+  hora_estoque: string;
+  hora_contagem: string;
+  hora_escala: string;
+  dias_ativos: number[];
+  tom: string;
+  ai_model: string;
+  ai_model_salvo?: string | null;
+  ai_provider: string;
+  ai_enabled: boolean;
+  ai_modelos: string[];
+  grupos?: AgenteAlvimGrupos;
+  hoje_sp?: string;
+}
+
+export type AgenteAlvimGrupo = {
+  id: string;
+  nome: string;
+  regional?: string | null;
+  id_regiao?: number | null;
+  nome_regional?: string | null;
+};
+
+export type AgenteAlvimGrupos = {
+  lideranca: AgenteAlvimGrupo | null;
+  gestores: AgenteAlvimGrupo | null;
+  regioes: AgenteAlvimGrupo[];
+};
+
+export type AgenteAlvimGruposSync = {
+  ok: boolean;
+  motivo?: string;
+  grupos?: AgenteAlvimGrupos;
+  descobertos?: Array<{ id: string; nome: string; tipo?: string }>;
+};
+
+export type AgenteAlvimConfigInput = {
+  nome?: string;
+  tom?: string;
+  ai_model?: string | null;
+  grupo_whatsapp?: string | null;
+  horario_inicio?: string;
+  horario_fim?: string;
+  grupos?: AgenteAlvimGrupos;
+};
+
+export type AgenteAlvimTesteResult = {
+  ok: boolean;
+  motivo?: string;
+  resultados?: Array<{ ferramenta?: string; enviados?: number; motivo?: string }>;
+};
 
 export interface TipoChecklist {
   id_tipo_checklist: number;

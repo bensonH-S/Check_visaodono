@@ -69,4 +69,30 @@ router.post('/teste', requirePermissao('configuracoes.ver'), async (req, res, ne
   }
 });
 
+router.post('/webhook', async (req, res) => {
+  try {
+    const expected = String(process.env.WPP_WEBHOOK_SECRET || '').trim();
+    if (expected) {
+      const got = String(req.query.secret || req.headers['x-wpp-secret'] || '').trim();
+      if (got !== expected) {
+        return res.status(401).json({ success: false, message: 'secret inválido' });
+      }
+    }
+    const { extractInboundFromWppWebhook, enqueueInboundAlvim } = await import(
+      '../agenteAlvim/conversa.js'
+    );
+    const inbound = extractInboundFromWppWebhook(req.body || {});
+    if (inbound.fromMe || !inbound.body) {
+      return res.json({ success: true, ignored: true });
+    }
+    void enqueueInboundAlvim(inbound.from, inbound.body, {
+      chatId: inbound.chatId,
+      nomePessoa: inbound.nomePessoa,
+    });
+    res.json({ success: true, queued: true });
+  } catch (e) {
+    res.status(500).json({ success: false, message: 'erro webhook' });
+  }
+});
+
 export default router;

@@ -1,4 +1,15 @@
+import { existsSync } from 'fs';
+
 const DEFAULT_SESSION = 'wpp_visao_check';
+
+function resolverWppHost(raw) {
+  const host = String(raw || 'http://localhost').replace(/\/$/, '');
+  const hostnameDocker = /\/\/wppconnect$/i.test(host);
+  if (hostnameDocker && !existsSync('/.dockerenv')) {
+    return 'http://localhost';
+  }
+  return host || 'http://localhost';
+}
 
 export function wppEnabled() {
   return String(process.env.WPP_ENABLED || '').toLowerCase() === 'true';
@@ -28,12 +39,12 @@ export function erroRedeWppParaStatus(err) {
     conectado: false,
     servicoIndisponivel: true,
     session: wppConfig().session,
-    message: `Serviço wppconnect indisponível (${detalhe}). Verifique se o container vision-check-wpp está rodando na mesma rede Docker.`,
+    message: `Serviço wppconnect indisponível (${detalhe}). No Docker: container vision-check-wpp. No PC: WPPConnect em localhost:21465.`,
   };
 }
 
 export function wppConfig() {
-  const host = (process.env.WPP_HOST || 'http://localhost').replace(/\/$/, '');
+  const host = resolverWppHost(process.env.WPP_HOST);
   const port = process.env.WPP_PORT || '21465';
   const session = process.env.WPP_SESSION || DEFAULT_SESSION;
   const secretKey = process.env.WPP_SECRET_KEY || 'THISISMYSECURETOKEN';
@@ -134,11 +145,20 @@ export function extrairQrcodeResposta(data) {
   return normalizarQrDataUrl(data.qrcode || data.urlcode);
 }
 
+export function webhookAlvimUrl() {
+  const explicit = String(process.env.WPP_WEBHOOK_URL || '').trim();
+  if (explicit) return explicit;
+  const port = process.argv.includes('--production')
+    ? Number(process.env.PORT) || 3007
+    : 5000;
+  return `http://127.0.0.1:${port}/auditoria/api/wpp/webhook`;
+}
+
 export async function iniciarSessaoWpp(token) {
   return wppRequest('/start-session', {
     method: 'POST',
     token,
-    body: { waitQrCode: true },
+    body: { waitQrCode: true, webhook: webhookAlvimUrl() },
     timeoutMs: 180000,
   });
 }
@@ -193,16 +213,115 @@ export async function resolverTelefoneWpp(token, telefone) {
   return telefone;
 }
 
-export async function enviarMensagemWpp(token, telefone, mensagem) {
-  const phone = await resolverTelefoneWpp(token, telefone);
+export async function enviarMensagemWpp(token, telefone, mensagem, opts = {}) {
+  const destino = String(telefone || '').trim();
+  const isGroup =
+    opts.isGroup === true ||
+    destino.toLowerCase().includes('@g.us') ||
+    /^\d{10,}-\d+/.test(destino);
+  const phone = isGroup ? destino : await resolverTelefoneWpp(token, telefone);
   const { ok, status, data } = await wppRequest('/send-message', {
     method: 'POST',
     token,
-    body: { phone, message: mensagem, isGroup: false },
+    body: { phone, message: mensagem, isGroup },
   });
   if (!ok) {
     const err = data?.message || data?._text || JSON.stringify(data);
     throw new Error(`WPP send-message (${status}): ${err}`);
   }
   return data;
+}
+
+function idChat(raw) {
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw.trim();
+  if (raw._serialized) return String(raw._serialized).trim();
+  if (raw.user && raw.server) return `${raw.user}@${raw.server}`;
+  return String(raw.id || raw.chatId || '').trim();
+}
+
+function nomeChat(chat) {
+  return String(
+    chat?.name ||
+    chat?.formattedTitle ||
+    chat?.contact?.name ||
+    chat?.contact?.formattedName ||
+    chat?.title ||
+    '',
+  ).trim();
+}
+
+export async function listarGruposWpp(token) {
+  const { ok, data } = await wppRequest('/list-chats', {
+    method: 'POST',
+    token,
+    body: { onlyGroups: true, count: 200 },
+    timeoutMs: 30000,
+  });
+  const lista = ok
+    ? (Array.isArray(data?.response) ? data.response : Array.isArray(data) ? data : [])
+    : [];
+  return lista
+    .map((chat) => ({
+      id: idChat(chat?.id || chat?.chatId || chat),
+      nome: nomeChat(chat),
+    }))
+    .filter((g) => g.id.includes('@g.us') && g.nome);
+}
+
+function achatarMsgs(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.flatMap(achatarMsgs);
+  if (Array.isArray(raw.messages)) return raw.messages.flatMap(achatarMsgs);
+  if (raw.body || raw.content || raw.message) return [raw];
+  return [];
+}
+
+export async function listarNaoLidasWpp(token) {
+  for (const path of ['/unread-messages', '/all-new-messages', '/all-unread-messages']) {
+    try {
+      const { ok, data } = await wppRequest(path, { token, timeoutMs: 15000 });
+      if (!ok) continue;
+      const lista = achatarMsgs(data?.response ?? data);
+      if (lista.length) return lista;
+    } catch {
+      /* tenta o próximo */
+    }
+  }
+  return [];
+}
+
+export async function listarMensagensChatWpp(token, phone, { count = 8, isGroup = false } = {}) {
+  const dest = String(phone || '').trim();
+  if (!dest) return [];
+  const qs = new URLSearchParams({ count: String(count) });
+  const extraChat = isGroup ? '&isGroup=true' : '';
+  const caminhos = [
+    `/get-messages/${encodeURIComponent(dest)}?${qs}`,
+    `/all-messages-in-chat/${encodeURIComponent(dest)}?includeMe=true&includeNotifications=false${extraChat}`,
+  ];
+  for (const path of caminhos) {
+    try {
+      const { ok, data } = await wppRequest(path, { token, timeoutMs: 20000 });
+      if (!ok) continue;
+      const lista = achatarMsgs(data?.response ?? data);
+      if (lista.length) return lista;
+    } catch {
+      /* tenta o próximo */
+    }
+  }
+  return [];
+}
+
+export async function marcarLidaWpp(token, phone, isGroup = false) {
+  try {
+    await wppRequest('/send-seen', {
+      method: 'POST',
+      token,
+      body: { phone, isGroup },
+      timeoutMs: 10000,
+    });
+  } catch {
+    /* ignore */
+  }
 }
