@@ -14,6 +14,7 @@ import {
 } from './wppClient.js';
 
 let _tabelaOk = false;
+let conexaoEmAndamento = null;
 
 async function ensureWppSessaoTable() {
   if (_tabelaOk) return;
@@ -88,6 +89,18 @@ export async function statusSessaoWpp() {
 }
 
 export async function conectarSessaoWpp({ reiniciar = false } = {}) {
+  if (!reiniciar && conexaoEmAndamento) return conexaoEmAndamento;
+
+  const rodando = executarConexaoWpp({ reiniciar });
+  conexaoEmAndamento = rodando;
+  try {
+    return await rodando;
+  } finally {
+    if (conexaoEmAndamento === rodando) conexaoEmAndamento = null;
+  }
+}
+
+async function executarConexaoWpp({ reiniciar = false } = {}) {
   let cred = await carregarCredenciaisWpp();
   if (!cred) throw new Error('WhatsApp não configurado');
 
@@ -167,8 +180,16 @@ export async function obterQrSessaoWpp() {
   const estado = await obterEstadoSessaoWpp(cred.token);
   if (estado.qrcode) return { conectado: false, qrcode: estado.qrcode };
 
-  // Só lê. Quem inicia sessão é o botão Gerar QR — poll a cada 5s
-  // reiniciando o Chromium impede o QR de nascer.
-  const qr = await obterQrCodeWpp(cred.token, { tentativas: 4, intervaloMs: 1500 });
+  const statusSessao = String(estado.status || '').toUpperCase();
+  const sessaoMorta =
+    !estado.status ||
+    ['CLOSED', 'NOTLOGGED', 'UNPAIRED', 'DISCONNECTED'].includes(statusSessao);
+  if (sessaoMorta) {
+    void conectarSessaoWpp({ reiniciar: false }).catch((err) => {
+      console.warn('[wpp] start-session em background:', err.message);
+    });
+  }
+
+  const qr = await obterQrCodeWpp(cred.token, { tentativas: 1, intervaloMs: 0 });
   return { conectado: false, qrcode: qr.qrcode };
 }

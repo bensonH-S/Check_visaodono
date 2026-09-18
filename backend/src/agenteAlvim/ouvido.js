@@ -1,6 +1,6 @@
 import { logger } from '../logger.js';
 import { pool } from '../db.js';
-import { listarMensagensChatWpp, marcarLidaWpp, wppEnabled } from '../services/wppClient.js';
+import { listarMensagensChatWpp, marcarLidaWpp, verificarConexaoWpp, wppEnabled } from '../services/wppClient.js';
 import { carregarCredenciaisWpp } from '../services/wppSession.js';
 import { enqueueInboundAlvim } from './conversa.js';
 
@@ -107,6 +107,8 @@ async function varrerNaoLidas() {
   try {
     const cred = await carregarCredenciaisWpp();
     if (!cred?.token) return;
+    const { conectado } = await verificarConexaoWpp(cred.token);
+    if (!conectado) return;
     await carregarCursor();
 
     const msgs = await listarMensagensChatWpp(cred.token, HOMOLOG_CHAT, { count: 20, isGroup: false });
