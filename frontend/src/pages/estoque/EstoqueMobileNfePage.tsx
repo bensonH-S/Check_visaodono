@@ -626,7 +626,7 @@ export default function EstoqueMobileNfePage() {
             <div className="ck-estoque__empty">
               {lista.length
                 ? 'Nenhuma NF neste filtro.'
-                : 'Nenhuma NF aguardando conferência nesta loja.'}
+                : 'Nenhuma NF aguardando conferência nesta loja. O sync precisa de ESUPRI_USER no .env da raiz do servidor.'}
             </div>
           )}
 

@@ -44,6 +44,7 @@ RUN npm ci --omit=dev --ignore-scripts \
 
 COPY server.js ./
 COPY backend/src ./backend/src
+COPY backend/config ./backend/config
 COPY backend/migrations ./backend/migrations
 COPY backend/scripts ./backend/scripts
 COPY --from=build /app/frontend/dist ./frontend/dist

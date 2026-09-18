@@ -19,6 +19,7 @@ services:
     volumes:
       - ./Logs:/app/Logs
       - ./uploads:/app/uploads
+      - ./backend/config:/app/backend/config
     restart: unless-stopped
 
   wppconnect:

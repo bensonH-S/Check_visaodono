@@ -2479,7 +2479,35 @@ function PainelCmv({
               ))}
             </Box>
           </Box>
-        ) : null}
+        ) : (
+          <Box
+            sx={{
+              ...portalPanelSx,
+              p: { xs: 1.75, md: 2.25 },
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              minHeight: 120,
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: colors.textMuted,
+                mb: 0.75,
+              }}
+            >
+              Recebimentos
+            </Typography>
+            <Typography sx={{ fontSize: '0.88rem', color: colors.textMuted }}>
+              Nenhuma NF aguardando conferência nesta loja. O sync Platlog precisa de ESUPRI_USER no
+              .env da raiz do VPS e de uma execução (05:00 ou Rodar agora).
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {ofensores.length > 0 && (

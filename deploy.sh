@@ -389,7 +389,19 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-mkdir -p Logs uploads
+if ! grep -qE '^ESUPRI_USER=.+' .env; then
+  echo ""
+  echo "AVISO: ESUPRI_USER ausente no .env da RAIZ (é este arquivo que o Docker lê)."
+  echo "       Sem isso as lojas não baixam NF Platlog. Acrescente:"
+  echo "         ESUPRI_USER=VERONICA"
+  echo "         ESUPRI_PASS=..."
+  echo "         ESUPRI_USE_CHROME=0"
+  echo "         ESUPRI_SYNC_NFE=1"
+  echo "       e recrie o container (docker compose up -d --force-recreate app)."
+  echo ""
+fi
+
+mkdir -p Logs uploads backend/config
 chmod 755 Logs uploads 2>/dev/null || true
 
 INICIO=$(date +%s)
@@ -401,6 +413,12 @@ echo ""
 
 subir_wppconnect
 subir_app
+
+echo ""
+echo "Migration sync NF (183)..."
+docker exec "$CONTAINER_NAME" node backend/scripts/run-sql.js \
+  migrations/183_estoque_sync_fornecedor_todas_lojas.sql --db=prod --yes \
+  || echo "AVISO: migration 183 não aplicada — rode no container se o painel de sync estiver vazio."
 
 echo ""
 echo "A reiniciar nginx..."
