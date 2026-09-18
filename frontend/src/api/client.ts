@@ -77,9 +77,12 @@ async function request<T>(
         window.location.href = `${base}login`;
         throw new Error('Sessão expirada');
       }
-      if (res.status >= 500 && tentativa < 2) {
+      if (res.status >= 500 && res.status !== 504 && res.status !== 502 && tentativa < 2) {
         await new Promise((r) => setTimeout(r, 600));
         return request<T>(path, options, tentativa + 1);
+      }
+      if (res.status === 504 || res.status === 502) {
+        throw new Error('O servidor ainda está gerando o QR. Aguarde e clique em Atualizar.');
       }
       throw new Error(msg);
     }
