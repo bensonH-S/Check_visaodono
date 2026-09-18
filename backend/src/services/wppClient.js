@@ -22,6 +22,8 @@ export function isErroRedeWpp(err) {
   const texto = `${msg} ${cause}`;
   return (
     (err.name === 'TypeError' && texto.includes('fetch failed')) ||
+    err.name === 'AbortError' ||
+    texto.includes('abort') ||
     texto.includes('econnrefused') ||
     texto.includes('enotfound') ||
     texto.includes('econnreset') ||
@@ -110,28 +112,36 @@ export async function gerarTokenWpp() {
 }
 
 export async function verificarConexaoWpp(token) {
-  const { data, ok } = await wppRequest('/check-connection-session', { token, timeoutMs: 10000 });
-  const conectado = ok && (data?.status === true || data?.message === 'Connected' || data?.connected === true);
-  return { conectado, raw: data };
+  try {
+    const { data, ok } = await wppRequest('/check-connection-session', { token, timeoutMs: 8000 });
+    const conectado = ok && (data?.status === true || data?.message === 'Connected' || data?.connected === true);
+    return { conectado, raw: data };
+  } catch (err) {
+    return { conectado: false, raw: { error: err.message } };
+  }
 }
 
 export async function fecharSessaoWpp(token) {
   try {
-    await wppRequest('/close-session', { method: 'POST', token, timeoutMs: 10000 });
+    await wppRequest('/close-session', { method: 'POST', token, timeoutMs: 8000 });
   } catch {
     /* sessão pode já estar fechada */
   }
 }
 
 export async function obterEstadoSessaoWpp(token) {
-  const { data, ok } = await wppRequest('/status-session', { token, timeoutMs: 10000 });
-  if (!ok) return { status: 'CLOSED', qrcode: null, raw: data };
-  const qr = data?.qrcode;
-  return {
-    status: data?.status || 'CLOSED',
-    qrcode: qr ? normalizarQrDataUrl(qr) : null,
-    raw: data,
-  };
+  try {
+    const { data, ok } = await wppRequest('/status-session', { token, timeoutMs: 8000 });
+    if (!ok) return { status: 'CLOSED', qrcode: null, raw: data };
+    const qr = data?.qrcode || data?.urlcode;
+    return {
+      status: data?.status || 'CLOSED',
+      qrcode: qr ? normalizarQrDataUrl(qr) : null,
+      raw: data,
+    };
+  } catch {
+    return { status: 'CLOSED', qrcode: null, raw: null };
+  }
 }
 
 function normalizarQrDataUrl(qr) {

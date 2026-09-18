@@ -79,12 +79,12 @@ export async function statusSessaoWpp() {
       enabled: true,
       conectado,
       session: cred.session,
+      qrcode: estado?.qrcode || null,
       message: raw?.message || (conectado ? 'Connected' : 'Disconnected'),
       sessionStatus: estado?.status || null,
     };
   } catch (err) {
-    if (isErroRedeWpp(err)) return erroRedeWppParaStatus(err);
-    throw err;
+    return erroRedeWppParaStatus(err);
   }
 }
 
@@ -195,25 +195,19 @@ async function executarConexaoWpp({ reiniciar = false } = {}) {
 }
 
 export async function obterQrSessaoWpp() {
-  const cred = await carregarCredenciaisWpp();
-  if (!cred) throw new Error('WhatsApp não configurado');
+  try {
+    const cred = await carregarCredenciaisWpp();
+    if (!cred) return { conectado: false, qrcode: null };
 
-  const status = await verificarConexaoWpp(cred.token);
-  if (status.conectado) return { conectado: true, qrcode: null };
+    const status = await verificarConexaoWpp(cred.token);
+    if (status.conectado) return { conectado: true, qrcode: null };
 
-  const estado = await obterEstadoSessaoWpp(cred.token);
-  if (estado.qrcode) return { conectado: false, qrcode: estado.qrcode };
+    const estado = await obterEstadoSessaoWpp(cred.token);
+    if (estado.qrcode) return { conectado: false, qrcode: estado.qrcode };
 
-  const statusSessao = String(estado.status || '').toUpperCase();
-  const sessaoMorta =
-    !estado.status ||
-    ['CLOSED', 'NOTLOGGED', 'UNPAIRED', 'DISCONNECTED'].includes(statusSessao);
-  if (sessaoMorta) {
-    void conectarSessaoWpp({ reiniciar: false }).catch((err) => {
-      console.warn('[wpp] start-session em background:', err.message);
-    });
+    const qr = await obterQrCodeWpp(cred.token, { tentativas: 1, intervaloMs: 0 });
+    return { conectado: false, qrcode: qr.qrcode };
+  } catch {
+    return { conectado: false, qrcode: null };
   }
-
-  const qr = await obterQrCodeWpp(cred.token, { tentativas: 1, intervaloMs: 0 });
-  return { conectado: false, qrcode: qr.qrcode };
 }

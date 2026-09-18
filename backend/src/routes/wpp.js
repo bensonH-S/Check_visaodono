@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requirePermissao } from '../permissoes.js';
-import { wppConfig, wppEnabled, isErroRedeWpp, erroRedeWppParaStatus } from '../services/wppClient.js';
+import { wppConfig, wppEnabled, erroRedeWppParaStatus } from '../services/wppClient.js';
 import {
   conectarSessaoWpp,
   obterQrSessaoWpp,
@@ -10,7 +10,7 @@ import { enviarWhatsAppTeste } from '../services/whatsappNotificacoes.js';
 
 const router = Router();
 
-router.get('/status', requirePermissao('configuracoes.ver'), async (_req, res, next) => {
+router.get('/status', requirePermissao('configuracoes.ver'), async (_req, res) => {
   try {
     const status = await statusSessaoWpp();
     res.json({
@@ -20,31 +20,28 @@ router.get('/status', requirePermissao('configuracoes.ver'), async (_req, res, n
       wppBase: wppEnabled() ? wppConfig().base : null,
     });
   } catch (e) {
-    if (isErroRedeWpp(e)) {
-      return res.json({
-        ...erroRedeWppParaStatus(e),
-        publicUrl: process.env.PUBLIC_APP_URL || null,
-        sessionConfig: wppConfig().session,
-        wppBase: wppConfig().base,
-      });
-    }
-    next(e);
+    res.json({
+      ...erroRedeWppParaStatus(e),
+      publicUrl: process.env.PUBLIC_APP_URL || null,
+      sessionConfig: wppConfig().session,
+      wppBase: wppConfig().base,
+    });
   }
 });
 
-router.get('/qrcode', requirePermissao('configuracoes.ver'), async (_req, res, next) => {
+router.get('/qrcode', requirePermissao('configuracoes.ver'), async (_req, res) => {
   try {
     if (!wppEnabled()) {
-      return res.status(400).json({ error: 'WhatsApp desabilitado. Defina WPP_ENABLED=true no .env' });
+      return res.json({ conectado: false, qrcode: null });
     }
     const data = await obterQrSessaoWpp();
     res.json(data);
-  } catch (e) {
-    next(e);
+  } catch {
+    res.json({ conectado: false, qrcode: null });
   }
 });
 
-router.post('/conectar', requirePermissao('configuracoes.ver'), async (req, res, next) => {
+router.post('/conectar', requirePermissao('configuracoes.ver'), async (req, res) => {
   try {
     if (!wppEnabled()) {
       return res.status(400).json({ error: 'WhatsApp desabilitado. Defina WPP_ENABLED=true no .env' });
@@ -53,7 +50,11 @@ router.post('/conectar', requirePermissao('configuracoes.ver'), async (req, res,
     const data = await conectarSessaoWpp({ reiniciar });
     res.json(data);
   } catch (e) {
-    next(e);
+    res.json({
+      conectado: false,
+      qrcode: null,
+      message: e instanceof Error ? e.message : 'Falha ao iniciar sessão',
+    });
   }
 });
 

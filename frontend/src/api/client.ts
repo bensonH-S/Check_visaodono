@@ -1797,6 +1797,8 @@ export interface WppStatus {
   servicoIndisponivel?: boolean;
   session?: string;
   message?: string;
+  sessionStatus?: string | null;
+  qrcode?: string | null;
   publicUrl?: string | null;
   sessionConfig?: string;
 }

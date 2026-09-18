@@ -45,10 +45,7 @@ export default function WhatsAppPage() {
         return;
       }
       estavaConectadoRef.current = false;
-      if (s.enabled && !s.conectado) {
-        const qr = await api.wppQrcode();
-        if (qr.qrcode) setQrcode(qr.qrcode);
-      }
+      if (s.qrcode) setQrcode(s.qrcode);
     } catch (e) {
       if (!silencioso) setErro(e instanceof Error ? e.message : 'Erro ao carregar status');
     } finally {
@@ -65,16 +62,16 @@ export default function WhatsAppPage() {
       window.clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
-    if (!status?.enabled || status.conectado) return undefined;
+    if (!status?.enabled || status.conectado || status.servicoIndisponivel) return undefined;
 
     pollingRef.current = window.setInterval(() => {
       void carregar(true);
-    }, 5000);
+    }, 8000);
 
     return () => {
       if (pollingRef.current) window.clearInterval(pollingRef.current);
     };
-  }, [status?.enabled, status?.conectado, carregar]);
+  }, [status?.enabled, status?.conectado, status?.servicoIndisponivel, carregar]);
 
   async function conectar(reiniciar = false) {
     setConectando(true);
