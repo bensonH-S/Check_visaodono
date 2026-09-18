@@ -239,7 +239,7 @@ export default function MapaTecnicosListaLojas() {
         anchor="bottom"
         open={regioesAbertas}
         onClose={() => setRegioesAbertas(false)}
-        PaperProps={{ className: 'ck-mapa__life-drawer' }}
+        slotProps={{ paper: { className: 'ck-mapa__life-drawer' } }}
       >
         <p className="ck-mapa__life-drawer-title">Região</p>
         <button
