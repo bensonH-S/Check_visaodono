@@ -1670,7 +1670,11 @@ export const api = {
     }),
 
   estoqueSyncFornecedorListar: () =>
-    request<{ itens: EstoqueSyncFornecedor[]; agora_sp: string }>('/estoque/sync-fornecedor'),
+    request<{
+      itens: EstoqueSyncFornecedor[];
+      agora_sp: string;
+      painel?: EstoqueSyncPainel;
+    }>('/estoque/sync-fornecedor'),
   estoqueSyncFornecedorSalvar: (body: {
     fornecedor: 'platlog' | 'coca';
     id_loja: number;
@@ -1686,6 +1690,11 @@ export const api = {
     request<{ ok: boolean; message: string; id_sync: number }>(
       `/estoque/sync-fornecedor/${id}/rodar`,
       { method: 'POST', body: JSON.stringify(body || {}) },
+    ),
+  estoqueSyncFornecedorRodarTodas: (body?: { fornecedor?: 'platlog' | 'coca'; forcar?: boolean }) =>
+    request<{ ok: boolean; message: string; fornecedor: string }>(
+      '/estoque/sync-fornecedor/rodar-todas',
+      { method: 'POST', body: JSON.stringify(body || { fornecedor: 'platlog' }) },
     ),
 };
 
@@ -3525,7 +3534,39 @@ export interface EstoqueSyncFornecedor {
   ultima_execucao_dia?: string | null;
   atualizado_em?: string;
   credenciais_ok?: boolean;
+  nfes_total?: number;
 }
+
+export type EstoqueSyncPainelFornecedor = {
+  fornecedor: string;
+  lojas: number;
+  ok: number;
+  erro: number;
+  parcial: number;
+  rodando: number;
+  nfes_total: number;
+  aplicadas_ultima: number;
+  ultima: string | null;
+  situacao: 'ok' | 'erro' | 'parcial' | 'rodando' | 'nunca';
+  texto: string;
+};
+
+export type EstoqueSyncPainel = {
+  platlog: EstoqueSyncPainelFornecedor;
+  coca: EstoqueSyncPainelFornecedor;
+  lote: {
+    rodando: boolean;
+    em_andamento?: boolean;
+    fornecedor: string | null;
+    inicio: string | null;
+    fim: string | null;
+    lojas_total: number;
+    lojas_ok: number;
+    lojas_erro: number;
+    loja_atual: number | null;
+    mensagem: string | null;
+  };
+};
 
 export interface EstoqueMovimento {
   id_movimento: number;

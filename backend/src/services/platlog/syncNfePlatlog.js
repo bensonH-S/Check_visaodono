@@ -52,6 +52,7 @@ export async function syncNfePlatlog({
   pular_existentes = true,
   baseUrl,
   esupriLojaCodigo,
+  downloads: downloadsProntos,
 } = {}) {
   const idLoja = Number(id_loja);
   if (!idLoja) throw new Error('id_loja obrigatório');
@@ -59,15 +60,17 @@ export async function syncNfePlatlog({
   const outDir = path.join(projectRoot, 'Logs', 'esupri-nfe', String(idLoja));
   fs.mkdirSync(outDir, { recursive: true });
 
-  const downloads = await baixarNfesFinanceiroEsupri({
-    user,
-    pass,
-    baseUrl,
-    headless,
-    limit,
-    esupriLojaCodigo,
-    onLog: log,
-  });
+  const downloads = Array.isArray(downloadsProntos)
+    ? downloadsProntos
+    : await baixarNfesFinanceiroEsupri({
+        user,
+        pass,
+        baseUrl,
+        headless,
+        limit,
+        esupriLojaCodigo,
+        onLog: log,
+      });
 
   const { rows: insumos } = await pool.query(
     `SELECT id_insumo, codigo, descricao, und_convertida, und_parcial, unidade_contagem

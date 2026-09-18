@@ -1,14 +1,12 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { pool } from '../db.js';
-import {
-  acessoTodasLojas,
-  temPermissao,
-  requirePermissao,
-} from '../permissoes.js';
+import { requirePermissao } from '../permissoes.js';
 import {
   idsRegioesVisiveisMapaFrota,
+  usuarioPodeAcessarMapaFrota,
   usuarioPodeVerRegiaoMapa,
+  veTodaRedeMapaFrota,
 } from '../lojasUsuario.js';
 import { gpsTecnicosAtivo, gpsCapturaHabilitadaUsuario } from '../gpsTecnicos.js';
 import { encryptAnexo, decryptAnexo } from '../fotos.js';
@@ -232,13 +230,14 @@ const SQL_VEICULOS_REGIAO_DETALHE = `
   ORDER BY v.placa`;
 
 const requirePermRegioes = requirePermissao('frota.gerenciar', 'frota.regioes');
-const requirePermMapaTecnicos = requirePermissao(
-  'frota.mapa.ver',
-  'lojas.todas',
-  'frota.gerenciar',
-  'frota.usar',
-  'frota.regioes',
-);
+async function requirePermMapaTecnicos(req, res, next) {
+  try {
+    if (await usuarioPodeAcessarMapaFrota(req.user)) return next();
+    return res.status(403).json({ error: 'Sem permissão para esta ação' });
+  } catch (e) {
+    next(e);
+  }
+}
 
 function parseRegionaisJson(val) {
   if (!val) return [];
@@ -911,8 +910,7 @@ router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => 
       [filtroRegiao],
     );
 
-    const veTodas =
-      acessoTodasLojas(req.user) || temPermissao(req.user, 'frota.gerenciar');
+    const veTodas = veTodaRedeMapaFrota(req.user);
     const { rows: veiculosDb } = await pool.query(
       veTodas && filtroRegiao.length === idsRegiao.length ? SQL_VEICULOS_MAPA_TODOS : SQL_VEICULOS_REGIOES,
       veTodas && filtroRegiao.length === idsRegiao.length

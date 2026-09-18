@@ -23,13 +23,7 @@ import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
 import { contarPassagensPorLoja } from '../../utils/frotaPassagensLoja';
 import { distanciaKm } from '../../utils/mapaGeo';
 import { posicaoParaVeiculoCatalogo } from '../../components/mapa/MapaFiltroTrajetoVeiculo';
-import {
-  COR_EXCESSO_FROTA,
-  COR_STATUS_DISPONIVEL,
-  COR_STATUS_EM_ROTA,
-  COR_STATUS_PARADO,
-  COR_TRAJETO,
-} from '../../components/frota/frotaMapaBasemap';
+import { COR_EXCESSO_FROTA, COR_TRAJETO } from '../../components/frota/frotaMapaBasemap';
 import { iconeMarcaLojaUrl } from '../../utils/marcaLojaMapa';
 
 function pontoNoIntervalo(atualizadoEm: string | null | undefined, inicioMs: number, fimMs: number) {
@@ -168,6 +162,7 @@ export default function MapaTecnicosMobilePage() {
     podeFiltrarDataTrajeto,
     consultaHistorico,
     carregandoTrajeto,
+    tipoMapa,
     regiaoFiltro,
     registrarLimparTrajetoAoVivo,
     registrarConsultarTrajeto,
@@ -441,6 +436,9 @@ export default function MapaTecnicosMobilePage() {
           modo="mobile"
           mostrarBotaoAtualizar={false}
           mostrarAlternarTipoMapa={false}
+          tilesGoogle
+          seguirTemaApp={false}
+          tipoMapaControlado={tipoMapa}
           mostrarPopupVeiculo={false}
           ocultarPlaceholder={consultaHistorico}
           consultaHistorico={consultaHistorico}
@@ -462,33 +460,6 @@ export default function MapaTecnicosMobilePage() {
           onVeiculoClick={consultaHistorico ? undefined : selecionarVeiculoMapa}
         />
 
-        {podeFiltrarDataTrajeto && !consultaHistorico && (
-          <div className="ck-mapa__legenda">
-            {(
-              [
-                { cor: COR_STATUS_EM_ROTA, rotulo: 'Em rota' },
-                { cor: COR_STATUS_DISPONIVEL, rotulo: 'Disponível' },
-                { cor: COR_STATUS_PARADO, rotulo: 'Parado' },
-                { cor: COR_TRAJETO, rotulo: 'Trajeto', linha: true },
-              ] as { cor: string; rotulo: string; linha?: boolean }[]
-            ).map((item) => (
-              <div key={item.rotulo} className="ck-mapa__legenda-item">
-                {item.linha ? (
-                  <span className="ck-mapa__legenda-line" style={{ background: item.cor }} />
-                ) : (
-                  <span className="ck-mapa__legenda-dot" style={{ background: item.cor }} />
-                )}
-                {item.rotulo}
-              </div>
-            ))}
-            {lojasComCoordenadas.length > 0 && (
-              <div className="ck-mapa__legenda-item">
-                <img className="ck-mapa__legenda-loja" src={iconeMarcaLojaUrl('burger-king')} alt="" />
-                Loja
-              </div>
-            )}
-          </div>
-        )}
         {consultaHistorico && consultou && (
           <div className="ck-mapa__legenda ck-mapa__legenda--mini">
             <div className="ck-mapa__legenda-item">
@@ -516,7 +487,7 @@ export default function MapaTecnicosMobilePage() {
               position: 'absolute',
               left: 0,
               right: 0,
-              bottom: 12,
+              bottom: 118,
               zIndex: 1200,
               pointerEvents: 'auto',
               px: 2,

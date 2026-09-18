@@ -708,6 +708,258 @@
   background: #e8e6e1;
 }
 
+.ck-mapa--life {
+  position: relative;
+  display: block;
+  background: #e2e8f0;
+}
+
+.ck-mapa--life .ck-mapa__map {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.ck-mapa--life .leaflet-control-attribution,
+.ck-mapa--life .leaflet-control-zoom {
+  display: none;
+}
+
+.ck-mapa--life .ck-mapa__ficha,
+.ck-mapa--life .ck-mapa__historico-bar {
+  bottom: 118px;
+}
+
+.ck-mapa--life .ck-mapa__ficha.is-aberto {
+  max-height: 42%;
+}
+
+.ck-mapa--life .ck-mapa__life .MuiAvatar-root {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 0.72rem !important;
+}
+
+.ck-mapa__life {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.ck-mapa__life > * {
+  pointer-events: auto;
+}
+
+.ck-mapa__life-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 0;
+}
+
+.ck-mapa__life-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ck-mapa__life-icon {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1b2a6b;
+  box-shadow: 0 6px 18px rgba(15, 26, 69, 0.16);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.ck-mapa__life-icon.is-on {
+  background: #1b2a6b;
+  color: #fff;
+}
+
+.ck-mapa__life-regiao {
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1b2a6b;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  box-shadow: 0 6px 18px rgba(15, 26, 69, 0.16);
+  max-width: 42vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-mapa__life-members {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 0 14px 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ck-mapa__life-members::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-mapa__life-person {
+  flex: 0 0 auto;
+  width: 72px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.ck-mapa__life-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #fff;
+  background: #64748b;
+  border: 3px solid #fff;
+  box-shadow: 0 8px 18px rgba(15, 26, 69, 0.2);
+}
+
+.ck-mapa__life-avatar.is-em_rota {
+  background: #2563eb;
+}
+
+.ck-mapa__life-avatar.is-disponivel {
+  background: #16a34a;
+}
+
+.ck-mapa__life-avatar.is-parado {
+  background: #64748b;
+}
+
+.ck-mapa__life-avatar.is-sem_sinal {
+  background: #94a3b8;
+}
+
+.ck-mapa__life-person.is-on .ck-mapa__life-avatar {
+  box-shadow: 0 0 0 3px #e8520a, 0 8px 18px rgba(15, 26, 69, 0.2);
+}
+
+.ck-mapa__life-name {
+  font-size: 0.68rem;
+  font-weight: 800;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f172a;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.7);
+}
+
+.ck-mapa__life-meta {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.7);
+}
+
+.ck-mapa__life.is-satelite .ck-mapa__life-name,
+.ck-mapa__life.is-satelite .ck-mapa__life-meta {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+}
+
+.ck-mapa__life-empty {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.ck-mapa__life-hist {
+  margin: 10px 12px 0;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 28px rgba(15, 26, 69, 0.18);
+}
+
+.ck-mapa__life-hist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ck-mapa__life-hist-head strong {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #1b2a6b;
+}
+
+.ck-mapa__life-hoje {
+  margin-top: 8px;
+  border: 0;
+  background: transparent;
+  color: #e8520a;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.ck-mapa__life-drawer {
+  border-radius: 18px 18px 0 0;
+  padding: 8px 8px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.ck-mapa__life-drawer-title {
+  margin: 8px 12px 4px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ck-mapa__life-drawer-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 12px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1b2a6b;
+}
+
+.ck-mapa__life-drawer-item.is-on {
+  background: rgba(27, 42, 107, 0.08);
+}
+
 .ck-mapa__historico-bar {
   position: absolute;
   left: 12px;
@@ -998,5 +1250,37 @@ html.dark .ck-mapa__ficha-acao.is-on {
 html.dark .ck-mapa__ficha-acao.is-on .ck-mapa__ficha-acao-ico {
   background: rgba(255, 255, 255, 0.25) !important;
   color: #fff !important;
+}
+
+html.dark .ck-mapa__life-icon,
+html.dark .ck-mapa__life-regiao {
+  background: rgba(15, 23, 42, 0.88);
+  color: #f8fafc;
+}
+
+html.dark .ck-mapa__life-icon.is-on {
+  background: #e8520a;
+  color: #fff;
+}
+
+html.dark .ck-mapa__life-hist {
+  background: rgba(15, 23, 42, 0.94);
+}
+
+html.dark .ck-mapa__life-hist-head strong {
+  color: #f8fafc;
+}
+
+html.dark .ck-mapa__life-empty {
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+}
+
+html.dark .ck-mapa__life-drawer {
+  background: #0f172a;
+}
+
+html.dark .ck-mapa__life-drawer-item {
+  color: #f8fafc;
 }
 

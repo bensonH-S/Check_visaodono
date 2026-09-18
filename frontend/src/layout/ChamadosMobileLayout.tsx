@@ -884,11 +884,11 @@ function ChamadosMobileLayoutInner() {
         >
           {isMapa ? (
             <MapaTecnicosMobileProvider>
-              <div className="ck-mapa">
-                <MapaTecnicosListaLojas />
+              <div className="ck-mapa ck-mapa--life">
                 <div className="ck-mapa__map">
                   <Outlet />
                 </div>
+                <MapaTecnicosListaLojas />
               </div>
             </MapaTecnicosMobileProvider>
           ) : (

@@ -61,6 +61,9 @@ import {
   listarSyncFornecedor,
   obterSyncPorId,
   upsertSyncFornecedor,
+  rodarFilaSyncFornecedor,
+  resumoPainelSync,
+  syncFornecedorEmAndamento,
 } from '../services/platlog/schedulerPlatlog.js';
 import {
   calcularCiclo,
@@ -1659,6 +1662,7 @@ router.get('/sync-fornecedor', permConfig, async (_req, res, next) => {
     const itens = await listarSyncFornecedor();
     res.json({
       itens,
+      painel: resumoPainelSync(itens),
       agora_sp: new Intl.DateTimeFormat('pt-BR', {
         timeZone: 'America/Sao_Paulo',
         dateStyle: 'short',
@@ -1693,8 +1697,51 @@ router.put('/sync-fornecedor', permConfig, async (req, res, next) => {
   }
 });
 
+router.post('/sync-fornecedor/rodar-todas', permConfig, async (req, res, next) => {
+  try {
+    if (syncFornecedorEmAndamento()) {
+      return res.status(409).json({ error: 'Sync já em andamento — aguarde terminar' });
+    }
+    const fornecedor = String(req.body?.fornecedor || 'platlog').toLowerCase();
+    if (!['platlog', 'coca'].includes(fornecedor)) {
+      return res.status(400).json({ error: 'Fornecedor inválido' });
+    }
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'criar',
+      entidade: 'estoque_sync_fornecedor',
+      descricao: `Puxão manual de NFs · todas as lojas (${fornecedor})`,
+    });
+
+    res.status(202).json({
+      ok: true,
+      message: 'Puxão de todas as lojas iniciado',
+      fornecedor,
+    });
+
+    void rodarFilaSyncFornecedor({
+      fornecedor,
+      soNfe: true,
+      forcar: !!req.body?.forcar,
+    })
+      .then((lote) => {
+        console.log(`[platlog] lote ${fornecedor} concluído: ${lote.mensagem}`);
+      })
+      .catch((err) => {
+        console.error(`[platlog] lote ${fornecedor} falhou:`, err.message);
+      });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
 router.post('/sync-fornecedor/:id/rodar', permConfig, async (req, res, next) => {
   try {
+    if (syncFornecedorEmAndamento()) {
+      return res.status(409).json({ error: 'Sync já em andamento — aguarde terminar' });
+    }
     const id = Number(req.params.id);
     const cfg = await obterSyncPorId(id);
     if (!cfg) return res.status(404).json({ error: 'Configuração não encontrada' });
@@ -1712,7 +1759,7 @@ router.post('/sync-fornecedor/:id/rodar', permConfig, async (req, res, next) => 
         id_loja: cfg.id_loja,
         limite: cfg.limite,
       },
-      { forcar: !!req.body?.forcar },
+      { forcar: !!req.body?.forcar, soNfe: true },
     )
       .then(() => {
         console.log(`[platlog] sync manual #${id} concluído`);

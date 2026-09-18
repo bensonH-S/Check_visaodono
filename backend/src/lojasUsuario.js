@@ -154,17 +154,33 @@ export async function carregarRegioesAtuacaoTecnico(idUsuario) {
   }));
 }
 
+const CARGOS_MAPA_REDE_TODA = new Set(['diretor', 'ceo', 'administrador', 'dono', 'ti']);
+
+/** Diretor, dono, TI e cargos equivalentes — frota inteira. */
+export function ehCargoRedeTodaMapa(user) {
+  const cargo = String(user?.cargo_aprovacao || user?.perfil || '').toLowerCase();
+  return CARGOS_MAPA_REDE_TODA.has(cargo);
+}
+
+export function veTodaRedeMapaFrota(user) {
+  return acessoTodasLojas(user) || temPermissao(user, 'frota.gerenciar') || ehCargoRedeTodaMapa(user);
+}
+
+export async function usuarioPodeAcessarMapaFrota(user) {
+  await anexarCargoAprovacao(user);
+  if (!user) return false;
+  if (veTodaRedeMapaFrota(user)) return true;
+  return (
+    temPermissao(user, 'frota.mapa.ver') ||
+    temPermissao(user, 'frota.usar') ||
+    temPermissao(user, 'frota.regioes')
+  );
+}
+
 /** IDs de regiões cujo mapa o usuário pode ver. Regional: só as regiões dele. */
 export async function idsRegioesVisiveisMapaFrota(user) {
   await anexarCargoAprovacao(user);
-  if (acessoTodasLojas(user) || temPermissao(user, 'frota.gerenciar')) {
-    const { rows } = await pool.query(
-      'SELECT id_regiao FROM frota_regioes WHERE ativo = TRUE ORDER BY nome',
-    );
-    return rows.map((r) => r.id_regiao);
-  }
-  const cargo = String(user?.cargo_aprovacao || user?.perfil || '').toLowerCase();
-  if (['diretor', 'ceo', 'administrador', 'dono', 'ti'].includes(cargo)) {
+  if (veTodaRedeMapaFrota(user)) {
     const { rows } = await pool.query(
       'SELECT id_regiao FROM frota_regioes WHERE ativo = TRUE ORDER BY nome',
     );

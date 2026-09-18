@@ -416,15 +416,19 @@ export function deveRastrearGpsTecnico(usuario?: UsuarioSessao | null): boolean 
   return true;
 }
 
-/** Diretor, administrador ou CEO — vê e filtra todas as regiões no mapa mobile. */
-export function podeFiltrarRegioesMapaMobile(usuario?: UsuarioSessao | null): boolean {
+/** Diretor, dono, CEO, TI — vê a frota inteira e filtra regiões. */
+export function podeVerMapaRedeToda(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;
-  return (
-    temPermissao('lojas.todas', u) ||
-    podeReceberPainelDiretorChamados(u) ||
-    temPermissao('frota.gerenciar', u)
-  );
+  if (temPermissao('lojas.todas', u) || temPermissao('frota.gerenciar', u)) return true;
+  if (podeReceberPainelDiretorChamados(u)) return true;
+  const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  return ['diretor', 'ceo', 'administrador', 'dono', 'ti'].includes(cargo);
+}
+
+/** Diretor, dono e TI filtram todas as regiões no mapa. Regional não. */
+export function podeFiltrarRegioesMapaMobile(usuario?: UsuarioSessao | null): boolean {
+  return podeVerMapaRedeToda(usuario);
 }
 
 /** Quem vê o mapa mobile também consulta histórico (dia e horário). */

@@ -66,6 +66,8 @@ type MapaTecnicosMobileContextValue = {
   limparTecnicoFoco: () => void;
   focarVeiculo: (veiculo: FrotaVeiculoPosicao) => void;
   limparVeiculoFoco: () => void;
+  tipoMapa: 'rua' | 'satelite';
+  alternarTipoMapa: () => void;
 };
 
 const MapaTecnicosMobileContext = createContext<MapaTecnicosMobileContextValue | null>(null);
@@ -91,10 +93,18 @@ function filtrarPosicoesPorRegiao(posicoes: FrotaTecnicoPosicao[], regiaoFiltro:
   return posicoes.filter((p) => p.id_regiao != null && Number(p.id_regiao) === id);
 }
 
-function filtrarVeiculosPorRegiao(veiculos: FrotaVeiculoPosicao[], regiaoFiltro: number | ''): FrotaVeiculoPosicao[] {
+function filtrarVeiculosPorRegiao(
+  veiculos: FrotaVeiculoPosicao[],
+  regiaoFiltro: number | '',
+  userId?: number,
+): FrotaVeiculoPosicao[] {
   if (regiaoFiltro === '') return veiculos;
   const id = Number(regiaoFiltro);
-  return veiculos.filter((v) => v.id_regiao != null && Number(v.id_regiao) === id);
+  return veiculos.filter(
+    (v) =>
+      (v.id_regiao != null && Number(v.id_regiao) === id) ||
+      (userId != null && Number(v.id_usuario_responsavel) === Number(userId)),
+  );
 }
 
 export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }) {
@@ -122,6 +132,7 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
   const [lojaSelecionada, setLojaSelecionada] = useState<FrotaRegiaoLoja | null>(null);
   const [tecnicoFoco, setTecnicoFoco] = useState<FrotaTecnicoPosicao | null>(null);
   const [veiculoFoco, setVeiculoFoco] = useState<FrotaVeiculoPosicao | null>(null);
+  const [tipoMapa, setTipoMapa] = useState<'rua' | 'satelite'>('rua');
   const carregouInicial = useRef(false);
   const regiaoInicializada = useRef(false);
   const limparTrajetoAoVivoRef = useRef<() => void>(() => {});
@@ -138,8 +149,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
   );
 
   const veiculosVisiveis = useMemo(
-    () => filtrarVeiculosPorRegiao(veiculos, regiaoFiltro),
-    [veiculos, regiaoFiltro],
+    () => filtrarVeiculosPorRegiao(veiculos, regiaoFiltro, userId),
+    [veiculos, regiaoFiltro, userId],
   );
 
   const lojasComCoordenadas = useMemo(
@@ -364,6 +375,10 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
     setVeiculoFoco(null);
   }
 
+  function alternarTipoMapa() {
+    setTipoMapa((atual) => (atual === 'rua' ? 'satelite' : 'rua'));
+  }
+
   const value = useMemo(
     () => ({
       posicoes: posicoesGpsHabilitados,
@@ -414,6 +429,8 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       limparTecnicoFoco,
       focarVeiculo,
       limparVeiculoFoco,
+      tipoMapa,
+      alternarTipoMapa,
     }),
     [
       posicoesGpsHabilitados,
@@ -445,6 +462,7 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       erro,
       erroConsulta,
       carregandoTrajeto,
+      tipoMapa,
     ],
   );
 

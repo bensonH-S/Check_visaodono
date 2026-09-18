@@ -302,6 +302,27 @@ export async function baixarNfesFinanceiroEsupri({
     );
   }
 
+  const { page, context, browser } = await abrirSessaoFinanceiroEsupri({
+    user,
+    pass,
+    baseUrl,
+    headless,
+    onLog,
+  });
+  try {
+    return await baixarNfesNaPagina(page, context, { lojaCodigo, limit, onLog });
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
+async function abrirSessaoFinanceiroEsupri({
+  user,
+  pass,
+  baseUrl = DEFAULT_BASE,
+  headless = true,
+  onLog = () => {},
+}) {
   const base = String(baseUrl || DEFAULT_BASE).replace(/\/$/, '');
   const browser = await launchBrowser({ headless, onLog });
   const context = await browser.newContext({
@@ -310,59 +331,108 @@ export async function baixarNfesFinanceiroEsupri({
     viewport: { width: 1400, height: 900 },
   });
   const page = await context.newPage();
+  await loginEsupri(page, { user, pass, base, onLog });
+  onLog('financeiro');
+  await page.goto(`${base}/esupri.php?Do=financeiro`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000,
+  });
+  await waitLoaderGone(page, 60000);
+  return { page, context, browser, base };
+}
+
+async function baixarNfesNaPagina(page, context, { lojaCodigo, limit, onLog = () => {} }) {
   const resultados = [];
+  onLog(`lista loja ${lojaCodigo}`);
+  const listaRes = await postForm(page, '/ajax/financeiro.lista.php', {
+    'cbLojas[]': lojaCodigo,
+  });
+  const titulos = Array.isArray(listaRes.json) ? listaRes.json : [];
+  onLog(`títulos eSupri=${titulos.length} (filtro ${lojaCodigo})`);
 
+  const alvo = Math.max(1, Number(limit) || 10);
+  const vistos = new Set();
+
+  for (const titulo of titulos) {
+    if (resultados.length >= alvo) break;
+    const notaLabel = String(titulo.MR_DOCUMENTO || '').trim();
+    const lojaLabel = String(titulo.CL_FANTA || '').trim();
+    const valorLabel = String(titulo.FMT_VALOR || '').trim();
+    const statusLabel = String(titulo.MR_SITUACAO || '').trim();
+    const chave = String(titulo.CHAVENFE || '').replace(/\D/g, '');
+    if (!notaLabel || !/NF/i.test(notaLabel)) continue;
+    const uniq = chave || `${notaLabel}|${valorLabel}`;
+    if (vistos.has(uniq)) continue;
+    vistos.add(uniq);
+
+    onLog(`pedido ${resultados.length + 1}/${alvo}: ${notaLabel} ${lojaLabel} ${valorLabel}`);
+    try {
+      const dl = await baixarZipNfe(page, context, { chave, notaLabel, onLog });
+      resultados.push({
+        notaLabel,
+        lojaLabel,
+        valorLabel,
+        statusLabel,
+        chave,
+        zipBuffer: dl.zipBuffer,
+        fileName: dl.fileName,
+      });
+    } catch (e) {
+      onLog(`falha ${notaLabel}: ${String(e.message || e).slice(0, 120)}`);
+    }
+  }
+
+  return resultados;
+}
+
+/**
+ * Um login VERONICA, várias lojas (cbLojas[]). Evita 20 aberturas de Chrome.
+ * @param {{ codigo: string, id_loja?: number, label?: string }[]} lojas
+ */
+export async function baixarNfesFinanceiroVariasLojasEsupri({
+  user,
+  pass,
+  lojas = [],
+  baseUrl = DEFAULT_BASE,
+  headless = true,
+  limit = 10,
+  onLog = () => {},
+  onLoja = null,
+} = {}) {
+  if (!user || !pass) {
+    throw Object.assign(new Error('Informe usuário e senha eSupri (ESUPRI_USER / ESUPRI_PASS)'), {
+      status: 400,
+    });
+  }
+  const alvos = (lojas || []).filter((l) => String(l.codigo || '').trim());
+  if (!alvos.length) return [];
+
+  const { page, context, browser } = await abrirSessaoFinanceiroEsupri({
+    user,
+    pass,
+    baseUrl,
+    headless,
+    onLog,
+  });
+  const porLoja = [];
   try {
-    await loginEsupri(page, { user, pass, base, onLog });
-
-    onLog(`financeiro loja ${lojaCodigo}`);
-    await page.goto(`${base}/esupri.php?Do=financeiro`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 60000,
-    });
-    await waitLoaderGone(page, 60000);
-
-    const listaRes = await postForm(page, '/ajax/financeiro.lista.php', {
-      'cbLojas[]': lojaCodigo,
-    });
-    const titulos = Array.isArray(listaRes.json) ? listaRes.json : [];
-    onLog(`títulos eSupri=${titulos.length} (filtro ${lojaCodigo})`);
-
-    const alvo = Math.max(1, Number(limit) || 10);
-    const vistos = new Set();
-
-    for (const titulo of titulos) {
-      if (resultados.length >= alvo) break;
-      const notaLabel = String(titulo.MR_DOCUMENTO || '').trim();
-      const lojaLabel = String(titulo.CL_FANTA || '').trim();
-      const valorLabel = String(titulo.FMT_VALOR || '').trim();
-      const statusLabel = String(titulo.MR_SITUACAO || '').trim();
-      const chave = String(titulo.CHAVENFE || '').replace(/\D/g, '');
-      if (!notaLabel || !/NF/i.test(notaLabel)) continue;
-      const uniq = chave || `${notaLabel}|${valorLabel}`;
-      if (vistos.has(uniq)) continue;
-      vistos.add(uniq);
-
-      onLog(`pedido ${resultados.length + 1}/${alvo}: ${notaLabel} ${lojaLabel} ${valorLabel}`);
-      try {
-        const dl = await baixarZipNfe(page, context, { chave, notaLabel, onLog });
-        resultados.push({
-          notaLabel,
-          lojaLabel,
-          valorLabel,
-          statusLabel,
-          chave,
-          zipBuffer: dl.zipBuffer,
-          fileName: dl.fileName,
-        });
-      } catch (e) {
-        onLog(`falha ${notaLabel}: ${String(e.message || e).slice(0, 120)}`);
+    for (const loja of alvos) {
+      const codigo = String(loja.codigo).trim();
+      onLog(`loja ${loja.label || codigo}`);
+      const downloads = await baixarNfesNaPagina(page, context, {
+        lojaCodigo: codigo,
+        limit,
+        onLog,
+      });
+      const item = { ...loja, codigo, downloads };
+      porLoja.push(item);
+      if (typeof onLoja === 'function') {
+        await onLoja(item);
       }
     }
-
-    return resultados;
+    return porLoja;
   } finally {
-    await browser.close();
+    await browser.close().catch(() => {});
   }
 }
 

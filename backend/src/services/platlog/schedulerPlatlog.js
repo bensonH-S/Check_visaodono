@@ -66,7 +66,7 @@ async function bkNumberDaLoja(idLoja) {
 /**
  * Executa um sync configurado (manual ou agendado).
  */
-export async function executarSyncFornecedor(row, { forcar = false } = {}) {
+export async function executarSyncFornecedor(row, { forcar = false, soNfe = false } = {}) {
   const idSync = row.id_sync;
   const fornecedor = row.fornecedor;
   if (!['platlog', 'coca'].includes(fornecedor)) {
@@ -163,7 +163,7 @@ export async function executarSyncFornecedor(row, { forcar = false } = {}) {
     }
 
     const syncNfe = process.env.ESUPRI_SYNC_NFE !== '0';
-    const syncCat = process.env.ESUPRI_SYNC_CATALOGO === '1';
+    const syncCat = !soNfe && process.env.ESUPRI_SYNC_CATALOGO === '1';
     const nfeResult = syncNfe
       ? await syncNfePlatlog({
           id_loja: row.id_loja,
@@ -237,6 +237,25 @@ export async function executarSyncFornecedor(row, { forcar = false } = {}) {
   }
 }
 
+function hmToMinutos(hm) {
+  const m = /^(\d{2}):(\d{2})$/.exec(String(hm || ''));
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** Já passou do horário de hoje e ainda não rodou — puxa a fila (não espera o minuto exato). */
+function syncPendenteHoje(row, { dia, hm }) {
+  if (row.ultimo_status === 'rodando') return false;
+  const jaHoje =
+    row.ultima_execucao_dia && String(row.ultima_execucao_dia).slice(0, 10) === dia;
+  if (jaHoje) return false;
+  const alvo = timeToHm(row.horario);
+  const alvoMin = hmToMinutos(alvo);
+  const agoraMin = hmToMinutos(hm);
+  if (alvoMin == null || agoraMin == null) return false;
+  return agoraMin >= alvoMin;
+}
+
 async function tick() {
   if (rodando) return;
   const { dia, hm } = agoraSP();
@@ -245,7 +264,8 @@ async function tick() {
   try {
     const r = await pool.query(
       `SELECT * FROM estoque_sync_fornecedor
-       WHERE ativo = TRUE AND fornecedor IN ('platlog', 'coca')`,
+       WHERE ativo = TRUE AND fornecedor IN ('platlog', 'coca')
+       ORDER BY horario, id_loja`,
     );
     rows = r.rows;
   } catch (e) {
@@ -255,39 +275,179 @@ async function tick() {
     return;
   }
 
-  for (const row of rows) {
-    const alvo = timeToHm(row.horario);
-    if (!alvo || alvo !== hm) continue;
-    if (row.ultimo_status === 'rodando') continue;
-    const jaHoje =
-      row.ultima_execucao_dia && String(row.ultima_execucao_dia).slice(0, 10) === dia;
-    if (jaHoje) continue;
+  const pendentes = rows.filter((row) => syncPendenteHoje(row, { dia, hm }));
+  if (!pendentes.length) return;
 
-    rodando = true;
-    console.log(`[platlog-sched] disparo loja ${row.id_loja} às ${hm}`);
-    try {
-      await executarSyncFornecedor(row);
-      console.log(`[platlog-sched] ok loja ${row.id_loja}`);
-    } catch (e) {
-      console.error(`[platlog-sched] erro loja ${row.id_loja}:`, e.message);
-    } finally {
-      rodando = false;
+  rodando = true;
+  try {
+    for (const row of pendentes) {
+      console.log(`[platlog-sched] disparo loja ${row.id_loja} (${row.fornecedor}) às ${hm}`);
+      try {
+        await executarSyncFornecedor(row, { soNfe: true });
+        console.log(`[platlog-sched] ok loja ${row.id_loja}`);
+      } catch (e) {
+        console.error(`[platlog-sched] erro loja ${row.id_loja}:`, e.message);
+      }
     }
+  } finally {
+    rodando = false;
   }
 }
 
 export function iniciarSchedulerPlatlog() {
   if (timer) return timer;
-  console.log('[platlog-sched] Monitor ativo (checa a cada 60s, fuso America/Sao_Paulo)');
+  console.log('[platlog-sched] Monitor ativo (checa a cada 60s, catch-up se o horário já passou)');
   // primeira checagem em 20s
   setTimeout(() => void tick(), 20000);
   timer = setInterval(() => void tick(), 60000);
   return timer;
 }
 
+let lote = {
+  rodando: false,
+  fornecedor: null,
+  inicio: null,
+  fim: null,
+  lojas_total: 0,
+  lojas_ok: 0,
+  lojas_erro: 0,
+  loja_atual: null,
+  mensagem: null,
+};
+
+export function statusLoteSync() {
+  return { ...lote, em_andamento: rodando || lote.rodando };
+}
+
+export function syncFornecedorEmAndamento() {
+  return rodando || lote.rodando;
+}
+
+/**
+ * Puxão manual de todas as lojas (mesmo papel do CLI --todas).
+ * Roda em sequência; o lock `rodando` impede o scheduler de cruzar.
+ */
+export async function rodarFilaSyncFornecedor({
+  fornecedor = 'platlog',
+  soNfe = true,
+  forcar = false,
+  somenteAtivos = true,
+} = {}) {
+  if (rodando || lote.rodando) {
+    throw Object.assign(new Error('Sync já em andamento — aguarde terminar'), { status: 409 });
+  }
+  const forn = String(fornecedor || 'platlog').toLowerCase();
+  if (!['platlog', 'coca'].includes(forn)) {
+    throw Object.assign(new Error('Fornecedor inválido'), { status: 400 });
+  }
+
+  const { rows } = await pool.query(
+    `SELECT * FROM estoque_sync_fornecedor
+     WHERE fornecedor = $1 ${somenteAtivos ? 'AND ativo = TRUE' : ''}
+     ORDER BY id_loja`,
+    [forn],
+  );
+  if (!rows.length) {
+    throw Object.assign(new Error('Nenhuma loja ativa para este fornecedor'), { status: 400 });
+  }
+
+  lote = {
+    rodando: true,
+    fornecedor: forn,
+    inicio: new Date().toISOString(),
+    fim: null,
+    lojas_total: rows.length,
+    lojas_ok: 0,
+    lojas_erro: 0,
+    loja_atual: rows[0]?.id_loja || null,
+    mensagem: `Puxando 1 de ${rows.length}`,
+  };
+  rodando = true;
+
+  try {
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      lote.loja_atual = row.id_loja;
+      lote.mensagem = `Puxando ${i + 1} de ${rows.length}`;
+      console.log(`[platlog-sched] lote ${forn} loja ${row.id_loja} (${i + 1}/${rows.length})`);
+      try {
+        await executarSyncFornecedor(row, { forcar, soNfe });
+        lote.lojas_ok += 1;
+      } catch (e) {
+        lote.lojas_erro += 1;
+        console.error(`[platlog-sched] lote erro loja ${row.id_loja}:`, e.message);
+      }
+    }
+    lote.mensagem =
+      lote.lojas_erro === 0
+        ? `Puxou corretamente: ${lote.lojas_ok} lojas`
+        : `Terminou com falha: ${lote.lojas_ok} ok, ${lote.lojas_erro} com erro`;
+  } finally {
+    lote.rodando = false;
+    lote.fim = new Date().toISOString();
+    lote.loja_atual = null;
+    rodando = false;
+  }
+
+  return { ...lote };
+}
+
+export function resumoPainelSync(itens) {
+  const porForn = (forn) => {
+    const lista = (itens || []).filter((i) => i.fornecedor === forn);
+    const ativas = lista.filter((i) => i.ativo);
+    const ok = ativas.filter((i) => i.ultimo_status === 'ok').length;
+    const erro = ativas.filter((i) => i.ultimo_status === 'erro').length;
+    const parcial = ativas.filter((i) => i.ultimo_status === 'parcial').length;
+    const emCurso = ativas.filter((i) => i.ultimo_status === 'rodando').length;
+    const nfes = ativas.reduce((s, i) => s + (Number(i.nfes_total) || 0), 0);
+    const aplicadas = ativas.reduce(
+      (s, i) => s + (Number(i.ultimo_resumo?.aplicadas) || 0),
+      0,
+    );
+    const fins = ativas.map((i) => i.ultimo_fim).filter(Boolean).sort();
+    const ultima = fins.length ? fins[fins.length - 1] : null;
+    const total = ativas.length;
+    let situacao = 'nunca';
+    let texto = total ? 'Ainda não puxou NFs destas lojas.' : 'Nenhuma loja ativa.';
+    if (emCurso || lote.rodando) {
+      situacao = 'rodando';
+      texto = lote.mensagem || 'Puxando notas…';
+    } else if (total && ok === total) {
+      situacao = 'ok';
+      texto = `Puxou corretamente: ${ok} lojas · ${nfes} NFs no app`;
+    } else if (erro || parcial) {
+      situacao = 'erro';
+      texto = `${ok}/${total} lojas ok · ${erro + parcial} com problema · ${nfes} NFs no app`;
+    } else if (ok) {
+      situacao = 'parcial';
+      texto = `${ok}/${total} lojas puxaram · ${nfes} NFs no app`;
+    }
+    return {
+      fornecedor: forn,
+      lojas: total,
+      ok,
+      erro,
+      parcial,
+      rodando: emCurso,
+      nfes_total: nfes,
+      aplicadas_ultima: aplicadas,
+      ultima,
+      situacao,
+      texto,
+    };
+  };
+  return {
+    platlog: porForn('platlog'),
+    coca: porForn('coca'),
+    lote: statusLoteSync(),
+  };
+}
+
 export async function listarSyncFornecedor() {
   const { rows } = await pool.query(
-    `SELECT s.*, l.name AS loja_nome, l.bk_number AS loja_codigo
+    `SELECT s.*, l.name AS loja_nome, l.bk_number AS loja_codigo,
+            (SELECT COUNT(*)::int FROM estoque_nfe n WHERE n.id_loja = s.id_loja) AS nfes_total
      FROM estoque_sync_fornecedor s
      JOIN lojas l ON l.id_loja = s.id_loja
      ORDER BY s.fornecedor, l.name`,
@@ -371,5 +531,6 @@ function mapRow(r) {
       : null,
     atualizado_em: r.atualizado_em,
     credenciais_ok: credenciaisOk(r.fornecedor, r.loja_codigo),
+    nfes_total: Number(r.nfes_total) || 0,
   };
 }

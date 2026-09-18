@@ -495,6 +495,8 @@ type Props = {
   posicaoZoom?: 'topleft' | 'bottomright';
   /** Oculta os controles +/- (ex.: Command Center). */
   ocultarZoom?: boolean;
+  /** Tipo do mapa controlado pelo overlay Life360. */
+  tipoMapaControlado?: 'rua' | 'satelite';
 };
 
 const btnMapaSx = {
@@ -549,6 +551,7 @@ export default function FrotaLocalizacaoMap({
   temaEscuro = false,
   posicaoZoom,
   ocultarZoom = false,
+  tipoMapaControlado,
 }: Props) {
   const mobile = modo === 'mobile';
   const { mode: temaApp } = useAppTheme();
@@ -604,7 +607,8 @@ export default function FrotaLocalizacaoMap({
   const visivelAnterior = useRef(false);
   const lojasComCoordAnterior = useRef(0);
   const [mapaPronto, setMapaPronto] = useState(false);
-  const [tipoMapa, setTipoMapa] = useState<TipoMapa>('rua');
+  const [tipoMapaInterno, setTipoMapa] = useState<TipoMapa>('rua');
+  const tipoMapa = tipoMapaControlado ?? tipoMapaInterno;
   const [trafegoAtivo, setTrafegoAtivo] = useState(false);
 
   useEffect(() => {
