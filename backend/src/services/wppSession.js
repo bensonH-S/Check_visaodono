@@ -106,17 +106,16 @@ export async function conectarSessaoWpp({ reiniciar = false } = {}) {
       };
     }
 
-    const precisaIniciar =
-      reiniciar ||
-      estadoAtual.status === 'CLOSED' ||
+    const statusSessao = String(estadoAtual.status || '').toUpperCase();
+    const sessaoMorta =
       !estadoAtual.status ||
-      estadoAtual.status === 'QRCODE' ||
-      estadoAtual.status === 'PHONECODE' ||
-      estadoAtual.status === 'notLogged' ||
-      estadoAtual.status === 'UNPAIRED';
+      ['CLOSED', 'NOTLOGGED', 'UNPAIRED', 'DISCONNECTED'].includes(statusSessao);
 
-    if (precisaIniciar) {
-      await fecharSessaoWpp(cred.token);
+    // QRCODE/PHONECODE = Chromium já subindo. Não chama start de novo.
+    if (sessaoMorta || reiniciar) {
+      if (reiniciar && !sessaoMorta) {
+        await fecharSessaoWpp(cred.token);
+      }
       let start = await iniciarSessaoWpp(cred.token);
       if (start.status === 401 || start.status === 403) {
         const token = await gerarTokenWpp();
@@ -168,10 +167,8 @@ export async function obterQrSessaoWpp() {
   const estado = await obterEstadoSessaoWpp(cred.token);
   if (estado.qrcode) return { conectado: false, qrcode: estado.qrcode };
 
-  if (estado.status === 'CLOSED' || !estado.status) {
-    return conectarSessaoWpp({ reiniciar: true });
-  }
-
+  // Só lê. Quem inicia sessão é o botão Gerar QR — poll a cada 5s
+  // reiniciando o Chromium impede o QR de nascer.
   const qr = await obterQrCodeWpp(cred.token, { tentativas: 4, intervaloMs: 1500 });
   return { conectado: false, qrcode: qr.qrcode };
 }

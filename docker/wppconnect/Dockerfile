@@ -1,5 +1,5 @@
 # Build do wppconnect-server (WhatsApp API) para o Vision Check.
-# Clona o oficial e aplica os patches do Alvim (QR/logout, pn-lid, lib 2.x).
+# Clona o oficial e aplica patches de sessão/QR. Não sobe a lib 2.x (quebra Chromium no Alpine).
 FROM node:22-alpine AS build
 WORKDIR /usr/src/wpp-server
 

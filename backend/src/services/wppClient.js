@@ -158,8 +158,8 @@ export async function iniciarSessaoWpp(token) {
   return wppRequest('/start-session', {
     method: 'POST',
     token,
-    body: { waitQrCode: true, webhook: webhookAlvimUrl() },
-    timeoutMs: 180000,
+    body: { waitQrCode: false, webhook: webhookAlvimUrl() },
+    timeoutMs: 20000,
   });
 }
 

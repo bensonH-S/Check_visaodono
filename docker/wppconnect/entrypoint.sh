@@ -12,4 +12,10 @@ fi
 export PORT=21465
 export NODE_ENV=production
 
+if [ -x /usr/bin/chromium-browser ]; then
+  export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+elif [ -x /usr/bin/chromium ]; then
+  export PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+fi
+
 exec node dist/server.js

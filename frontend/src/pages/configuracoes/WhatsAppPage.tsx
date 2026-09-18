@@ -236,7 +236,7 @@ export default function WhatsAppPage() {
               <Button
                 variant="contained"
                 startIcon={<QrCodeScannerIcon />}
-                onClick={() => void conectar(!qrcode)}
+                onClick={() => void conectar(Boolean(qrcode))}
                 disabled={conectando}
               >
                 {conectando ? 'Iniciando…' : qrcode ? 'Novo QR Code' : 'Gerar QR Code'}
