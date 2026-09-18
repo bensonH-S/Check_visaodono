@@ -119,7 +119,9 @@ parar_wpp_docker() {
 }
 
 wpp_host_no_ar() {
-  curl -sf -o /dev/null --max-time 3 http://127.0.0.1:21465/ || return 1
+  local code
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1:21465/ || true)"
+  [ -n "$code" ] && [ "$code" != "000" ]
 }
 
 subir_wppconnect() {
