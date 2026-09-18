@@ -22,6 +22,7 @@ trap 'rm -f "$DEPLOY_SCRIPT_BACKUP"' EXIT
 
 CONTAINER_NAME="${CONTAINER_NAME:-vision-check}"
 WPP_CONTAINER_NAME="${WPP_CONTAINER_NAME:-vision-check-wpp}"
+HOST_WPP="${WPP_HOST_DIR:-/var/www/app/wppconnect-server}"
 APP_PORT="3007"
 
 if [ -f .env ] && grep -qE '^PORT=' .env; then
@@ -106,37 +107,58 @@ compose_build_up() {
 }
 
 ########################################
-# WPPCONNECT
+# WPPCONNECT (host — igual o PC)
 ########################################
 
-garantir_wppconnect_rodando() {
-  if container_rodando "$WPP_CONTAINER_NAME"; then
-    echo "wppconnect já em execução."
-    return 0
-  fi
-
+parar_wpp_docker() {
   if container_existe "$WPP_CONTAINER_NAME"; then
-    echo "Iniciando wppconnect existente..."
-    docker start "$WPP_CONTAINER_NAME"
-    return 0
+    echo "Parando wppconnect Docker (Alpine não gera QR)..."
+    docker update --restart=no "$WPP_CONTAINER_NAME" 2>/dev/null || true
+    docker stop "$WPP_CONTAINER_NAME" 2>/dev/null || true
   fi
+}
 
-  echo "Limpando resíduos antigos..."
-  limpar_containers_residuals 'vision-check-wpp'
-
-  echo "A iniciar wppconnect..."
-  compose_build_up wppconnect
+wpp_host_no_ar() {
+  curl -sf -o /dev/null --max-time 3 http://127.0.0.1:21465/ || return 1
 }
 
 subir_wppconnect() {
-  if [ "${DEPLOY_REBUILD_WPP:-}" = "1" ]; then
-    echo "Rebuild forçado do wppconnect..."
-    limpar_containers_residuals 'vision-check-wpp'
-    compose_build_up wppconnect
-    return
+  parar_wpp_docker
+
+  if [ ! -d "$HOST_WPP" ]; then
+    echo "ERRO: $HOST_WPP não existe. É o mesmo WPPConnect do PC."
+    exit 1
   fi
 
-  garantir_wppconnect_rodando
+  if [ -f "$SCRIPT_DIR/deploy/wppconnect-host-config.js" ]; then
+    cp "$SCRIPT_DIR/deploy/wppconnect-host-config.js" "$HOST_WPP/dist/config.js"
+    echo "Config host copiada para $HOST_WPP/dist/config.js"
+  fi
+
+  if wpp_host_no_ar; then
+    echo "wppconnect host já na porta 21465."
+    return 0
+  fi
+
+  echo "Iniciando wppconnect host ($HOST_WPP)..."
+  mkdir -p "$HOST_WPP/log"
+  (
+    cd "$HOST_WPP"
+    nohup npm start >> "$HOST_WPP/log/meridian-host.log" 2>&1 &
+  )
+
+  i=0
+  while [ "$i" -lt 20 ]; do
+    sleep 2
+    if wpp_host_no_ar; then
+      echo "wppconnect host no ar."
+      return 0
+    fi
+    i=$((i + 1))
+  done
+
+  echo "AVISO: wppconnect host não respondeu na 21465."
+  echo "       Veja $HOST_WPP/log/meridian-host.log e $HOST_WPP/log/"
 }
 
 ########################################
@@ -314,3 +336,5 @@ echo "API: http://127.0.0.1:${APP_PORT}/auditoria/api/health"
 echo ""
 echo "Containers ativos:"
 docker ps --filter "name=vision-check" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+echo "WPP host (21465):"
+curl -sf -o /dev/null --max-time 3 http://127.0.0.1:21465/ && echo "  no ar" || echo "  fora do ar — veja /var/www/app/wppconnect-server/log/"

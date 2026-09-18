@@ -7,32 +7,32 @@ services:
         GIT_TAG: ${GIT_TAG:-}
     ports:
       - "3007:3007"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ./.env
     environment:
       - NODE_ENV=production
       - PORT=3007
       - TZ=America/Sao_Paulo
-      # Sempre rede interna Docker — NÃO use localhost no .env em produção
-      - WPP_HOST=http://wppconnect
+      # WPP do host (/var/www/app/wppconnect-server) — o mesmo do PC. Chromium Alpine do container não gera QR.
+      - WPP_HOST=http://host.docker.internal
       - WPP_PORT=21465
       - WPP_ENABLED=${WPP_ENABLED:-false}
-      - WPP_WEBHOOK_URL=http://app:3007/auditoria/api/wpp/webhook
+      - WPP_WEBHOOK_URL=http://127.0.0.1:3007/auditoria/api/wpp/webhook
     volumes:
       - ./Logs:/app/Logs
       - ./uploads:/app/uploads
     restart: unless-stopped
-    depends_on:
-      - wppconnect
     networks:
       - meridian
 
   wppconnect:
+    profiles: ["wpp-docker"]
     build:
       context: ./docker/wppconnect
     container_name: vision-check-wpp
     restart: unless-stopped
-    # NÃO monte env_file: .env aqui — PORT=3007 do app faz o WPP subir na porta errada
     environment:
       - TZ=America/Sao_Paulo
       - PORT=21465
@@ -43,20 +43,9 @@ services:
     volumes:
       - wppconnect_tokens:/usr/src/wpp-server/tokens
       - wppconnect_userdata:/usr/src/wpp-server/userDataDir
-    # Só rede interna Docker (app → wppconnect:21465). Não publicar no host.
     expose:
       - "21465"
     shm_size: "512mb"
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "node -e \"require('http').get('http://127.0.0.1:21465',(r)=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))\"",
-        ]
-      interval: 15s
-      timeout: 8s
-      retries: 12
-      start_period: 90s
     networks:
       - meridian
 
