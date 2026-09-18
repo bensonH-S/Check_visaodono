@@ -1,48 +1,55 @@
 # Platlog / eSupri — sync de preços e NF-e
 
-## Preços (ativo)
+## Conta da rede
 
-Fonte preferida de **preço de estoque** para Platlog:
+A conta **VERONICA** no eSupri enxerga as 22 lojas. O sync **sempre filtra** pelo código da loja (`cbLojas[]`) para não misturar NF.
 
-1. Login no eSupri (`ESUPRI_USER` / `ESUPRI_PASS`)
-2. Tela **Pedido** — catálogo com `CÓDIGO`, `DESCRIÇÃO`, `PREÇO R$`
-3. Casa com `insumos` da loja pelo código (ignora zeros à esquerda)
-4. Grava `preco_caixa` + `custo_fonte = 'catalogo'`
+Credenciais:
 
-- Serviço: `syncPrecosCatalogoPlatlog.js`
-- Cliente: `listarCatalogoPedidoEsupri` em `esupriClient.js`
-- Scheduler: `estoque_sync_fornecedor` com `fornecedor = 'platlog'` chama o catálogo (não a NF)
+- `ESUPRI_USER` / `ESUPRI_PASS` no `.env`, **ou**
+- `backend/config/credenciais-fornecedores.local.json` (gitignored; copie do `.example.json`)
+
+Mapeamento loja ↔ código eSupri: `backend/src/config/fornecedoresLojas.js`.
+
+## NF-e (entrada no app)
+
+Baixa XML no **Financeiro**, grava `estoque_nfe` e deixa pendente de conferência no mobile.
+
+- Cliente: `baixarNfesFinanceiroEsupri` (AJAX `financeiro.lista.php` + `findfile.php`)
+- Serviço: `syncNfePlatlog.js`
+- Scheduler: `estoque_sync_fornecedor` com `fornecedor = 'platlog'` (junto com o catálogo)
 
 CLI:
 
 ```bash
-node scripts/sync-platlog-catalogo.mjs --loja=21 --aplicar
+node backend/scripts/sync-platlog-nfe.mjs --loja=21 --limit=3
+node backend/scripts/sync-platlog-nfe.mjs --loja=21 --limit=3 --apply
 ```
 
-Sem `--aplicar` só gera relatório (casados / faltando).
+A loja confere a nota no app e só então lança estoque.
 
-### Por que catálogo e não NF?
+## Preços (catálogo Pedido)
 
-- A NF só traz itens **comprados** naquele pedido — vários insumos da contagem ficam de fora.
-- O catálogo Pedido tem o **preço de prateleira atual** de (quase) tudo que a Platlog vende.
-- Contagem aberta / CMV teórico usam o preço vivo do insumo; contagem finalizada já tem `total_valor` snapshot.
+Fonte preferida de **preço de estoque** para Platlog:
 
-## NF-e (legado / outro uso)
+1. Login VERONICA
+2. Tela **Pedido** — `CÓDIGO`, `DESCRIÇÃO`, `PREÇO R$`
+3. Casa com `insumos` da loja pelo código
+4. Grava `preco_caixa` + `custo_fonte = 'catalogo'`
 
-O fluxo antigo de baixar ZIP/XML no **Financeiro** continua no código, mas **não** alimenta mais o scheduler Platlog:
+O scheduler baixa a NF para conferência no app. Catálogo de preço: ligue `ESUPRI_SYNC_CATALOGO=1` no `.env` (já fica ligado no ambiente local).
 
-| Peça | Arquivo |
-|------|---------|
-| Download NF-e | `esupriClient.js` → `baixarNfesFinanceiroEsupri` |
-| Parse/match/custo NF | `syncNfePlatlog.js` + `../nfeXml.js` |
-| Tabelas | `estoque_nfe`, `estoque_nfe_itens` |
-| CLI legado | `scripts/sync-platlog-nfe.mjs` |
+```bash
+node backend/scripts/sync-platlog-catalogo.mjs --loja=21 --aplicar
+```
 
-Útil depois para: conferência de compra, entrada automática de estoque, auditoria de nota — **não** como fonte principal de preço da contagem.
+## Coca-Cola (Conecta Brasal)
+
+Login por loja no JSON (`brasal.user` / `brasal.pass`). A API Conecta aceitou **CNPJ + senha** nestas lojas: 706/7 Norte, Sudoeste, São Sebastião, Sobradinho. E-mail/CokeNet (422) ainda não entra neste sync.
 
 ## Credenciais
 
-Só no `.env` do backend (não na tabela):
+Não versionar senhas. Use:
 
-- `ESUPRI_USER`
-- `ESUPRI_PASS`
+1. `.env` — `ESUPRI_USER` / `ESUPRI_PASS` (conta rede)
+2. `backend/config/credenciais-fornecedores.local.json` — Brasal, Gimba, IdealWork, CokeNet por `bk_number`

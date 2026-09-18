@@ -1,10 +1,16 @@
 /**
- * Scheduler diário do sync de fornecedor (Platlog catálogo / Coca NF).
- * Platlog: preços pelo catálogo Pedido eSupri (não NF-e).
- * Lê estoque_sync_fornecedor e dispara no horário (America/Sao_Paulo).
+ * Scheduler diário do sync de fornecedor (Platlog NF-e + catálogo / Coca NF).
+ * Platlog: conta VERONICA no eSupri, filtro por loja. Coca: Conecta Brasal por loja.
  */
 import { pool } from '../../db.js';
+import {
+  credenciaisOk,
+  credencialBrasal,
+  credencialPlatlog,
+  findEsupriLojaByBk,
+} from '../../config/fornecedoresLojas.js';
 import { syncNfeCoca } from '../brasal/syncNfeCoca.js';
+import { syncNfePlatlog } from './syncNfePlatlog.js';
 import { syncPrecosCatalogoPlatlog } from './syncPrecosCatalogoPlatlog.js';
 
 let timer = null;
@@ -52,6 +58,11 @@ async function marcarStatus(idSync, patch) {
   );
 }
 
+async function bkNumberDaLoja(idLoja) {
+  const { rows } = await pool.query(`SELECT bk_number FROM lojas WHERE id_loja = $1`, [idLoja]);
+  return rows[0]?.bk_number ? String(rows[0].bk_number).replace(/\D/g, '') : '';
+}
+
 /**
  * Executa um sync configurado (manual ou agendado).
  */
@@ -64,19 +75,36 @@ export async function executarSyncFornecedor(row, { forcar = false } = {}) {
     });
   }
 
+  const bkNumber = await bkNumberDaLoja(row.id_loja);
   let user = '';
   let pass = '';
+  let esupriLojaCodigo = '';
   if (fornecedor === 'platlog') {
-    user = process.env.ESUPRI_USER || '';
-    pass = process.env.ESUPRI_PASS || '';
+    const cred = credencialPlatlog();
+    user = cred.user;
+    pass = cred.pass;
     if (!user || !pass) {
-      throw Object.assign(new Error('ESUPRI_USER / ESUPRI_PASS ausentes no .env'), { status: 400 });
+      throw Object.assign(new Error('Credencial eSupri ausente (.env ESUPRI_* ou JSON local)'), {
+        status: 400,
+      });
     }
+    const esupri = findEsupriLojaByBk(bkNumber);
+    if (!esupri?.esupri_codigo) {
+      throw Object.assign(
+        new Error(`Loja BK ${bkNumber || row.id_loja} sem código eSupri no mapeamento`),
+        { status: 400 },
+      );
+    }
+    esupriLojaCodigo = esupri.esupri_codigo;
   } else if (fornecedor === 'coca') {
-    user = process.env.BRASAL_USER || '';
-    pass = process.env.BRASAL_PASS || '';
+    const cred = credencialBrasal(bkNumber);
+    user = cred.user;
+    pass = cred.pass;
     if (!user || !pass) {
-      throw Object.assign(new Error('BRASAL_USER / BRASAL_PASS ausentes no .env'), { status: 400 });
+      throw Object.assign(
+        new Error(`Credencial Conecta Brasal ausente para a loja BK ${bkNumber || row.id_loja}`),
+        { status: 400 },
+      );
     }
   }
 
@@ -134,40 +162,71 @@ export async function executarSyncFornecedor(row, { forcar = false } = {}) {
       return { id_sync: idSync, status, result };
     }
 
-    // Platlog: catálogo Pedido → preços (NF-e documentada em README; fora do scheduler)
-    const result = await syncPrecosCatalogoPlatlog({
-      id_loja: row.id_loja,
-      user,
-      pass,
-      aplicar: true,
-      headless: true,
-    });
+    const syncNfe = process.env.ESUPRI_SYNC_NFE !== '0';
+    const syncCat = process.env.ESUPRI_SYNC_CATALOGO === '1';
+    const nfeResult = syncNfe
+      ? await syncNfePlatlog({
+          id_loja: row.id_loja,
+          user,
+          pass,
+          esupriLojaCodigo,
+          limit: row.limite || 20,
+          aplicar: true,
+          registrar_entrada: false,
+          pular_existentes: !forcar,
+          headless: true,
+        })
+      : { baixadas: 0, processadas: [] };
+    const catResult = syncCat
+      ? await syncPrecosCatalogoPlatlog({
+          id_loja: row.id_loja,
+          user,
+          pass,
+          aplicar: true,
+          headless: true,
+        }).catch((e) => ({
+          atualizados: [],
+          erros: [{ codigo: 'catalogo', erro: String(e.message || e) }],
+          casados: [],
+          faltando: [],
+          catalogo_total: 0,
+        }))
+      : { atualizados: [], erros: [], casados: [], faltando: [], catalogo_total: 0 };
 
-    const aplicadas = result.atualizados.length;
-    const erros = result.erros.length;
+    const aplicadasNfe = (nfeResult.processadas || []).filter((p) => p.aplicado).length;
+    const errosNfe = (nfeResult.processadas || []).filter((p) => !p.ok).length;
+    const aplicadasCat = catResult.atualizados?.length || 0;
+    const errosCat = catResult.erros?.length || 0;
+    const aplicadas = aplicadasNfe + aplicadasCat;
+    const erros = errosNfe + errosCat;
     const status = erros && aplicadas ? 'parcial' : erros ? 'erro' : 'ok';
 
     await marcarStatus(idSync, {
       ultimo_fim: new Date(),
       ultimo_status: status,
       ultimo_erro: erros
-        ? result.erros
-            .map((e) => `${e.codigo}: ${e.erro}`)
+        ? [
+            ...((nfeResult.processadas || []).filter((p) => !p.ok).map((p) => p.erro) || []),
+            ...(catResult.erros || []).map((e) => `${e.codigo}: ${e.erro}`),
+          ]
+            .filter(Boolean)
             .join('; ')
             .slice(0, 500)
         : null,
       ultimo_resumo: {
-        modo: 'catalogo_pedido',
-        catalogo: result.catalogo_total,
-        casados: result.casados.length,
-        atualizados: aplicadas,
-        faltando: result.faltando.length,
-        erros,
+        modo: [syncNfe ? 'nfe' : null, syncCat ? 'catalogo_pedido' : null].filter(Boolean).join('+'),
+        baixadas: nfeResult.baixadas || 0,
+        aplicadas: aplicadasNfe,
+        erros: errosNfe,
+        catalogo: catResult.catalogo_total || 0,
+        casados: catResult.casados?.length || 0,
+        atualizados: aplicadasCat,
+        faltando: catResult.faltando?.length || 0,
       },
       ultima_execucao_dia: dia,
     });
 
-    return { id_sync: idSync, status, result };
+    return { id_sync: idSync, status, nfe: nfeResult, catalogo: catResult };
   } catch (e) {
     await marcarStatus(idSync, {
       ultimo_fim: new Date(),
@@ -311,11 +370,6 @@ function mapRow(r) {
       ? String(r.ultima_execucao_dia).slice(0, 10)
       : null,
     atualizado_em: r.atualizado_em,
-    credenciais_ok:
-      r.fornecedor === 'platlog'
-        ? Boolean(process.env.ESUPRI_USER && process.env.ESUPRI_PASS)
-        : r.fornecedor === 'coca'
-          ? Boolean(process.env.BRASAL_USER && process.env.BRASAL_PASS)
-          : false,
+    credenciais_ok: credenciaisOk(r.fornecedor, r.loja_codigo),
   };
 }

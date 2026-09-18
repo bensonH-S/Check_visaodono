@@ -284,7 +284,7 @@ export default function EstoqueSyncNfPage() {
                 />
                 {chipStatus(i.ultimo_status)}
                 {!i.credenciais_ok && (
-                  <Chip size="small" label="Credenciais .env ausentes" color="error" variant="outlined" />
+                  <Chip size="small" label="Credenciais ausentes" color="error" variant="outlined" />
                 )}
               </Box>
               <Typography variant="body2" color="text.secondary">
@@ -313,7 +313,6 @@ export default function EstoqueSyncNfPage() {
                   variant="outlined"
                   startIcon={<PlayArrowIcon />}
                   disabled={
-                    i.fornecedor !== 'platlog' ||
                     !i.credenciais_ok ||
                     i.ultimo_status === 'rodando' ||
                     rodandoId === i.id_sync

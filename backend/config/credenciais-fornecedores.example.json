@@ -1,0 +1,16 @@
+{
+  "platlog": {
+    "user": "VERONICA",
+    "pass": "SENHA_ESUPRI_REDE"
+  },
+  "lojas": {
+    "19929": {
+      "nome": "201 NORTE",
+      "platlog_loja": { "user": "", "pass": "" },
+      "brasal": { "user": "CNPJ_OU_EMAIL", "pass": "" },
+      "cokenet": { "user": "", "pass": "" },
+      "gimba": { "user": "", "pass": "" },
+      "idealwork": { "user": "", "pass": "" }
+    }
+  }
+}

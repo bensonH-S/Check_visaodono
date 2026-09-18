@@ -16,6 +16,7 @@ visao/events_log/
 *.log
 Logs/*
 !Logs/.gitkeep
+backend/config/credenciais-fornecedores.local.json
 backend/Logs/
 _tmp-*
 **/_tmp-*

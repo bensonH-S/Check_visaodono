@@ -16,6 +16,9 @@ const repoRoot = path.join(backendRoot, '..');
 dotenv.config({ path: path.join(repoRoot, '.env'), override: false });
 dotenv.config({ path: path.join(backendRoot, '.env'), override: true });
 
+const { credencialPlatlog } = await import('../src/config/fornecedoresLojas.js');
+const cred = credencialPlatlog();
+
 const args = process.argv.slice(2);
 const get = (k, def) => {
   const hit = args.find((a) => a.startsWith(`${k}=`));
@@ -35,12 +38,12 @@ const { syncPrecosCatalogoPlatlog } = await import(
   '../src/services/platlog/syncPrecosCatalogoPlatlog.js'
 );
 
-console.log({ idLoja, aplicar, dbFlag, user: !!process.env.ESUPRI_USER });
+console.log({ idLoja, aplicar, dbFlag, user: !!cred.user });
 
 const result = await syncPrecosCatalogoPlatlog({
   id_loja: idLoja,
-  user: process.env.ESUPRI_USER,
-  pass: process.env.ESUPRI_PASS,
+  user: cred.user,
+  pass: cred.pass,
   aplicar,
   headless: process.env.ESUPRI_HEADLESS !== '0',
 });

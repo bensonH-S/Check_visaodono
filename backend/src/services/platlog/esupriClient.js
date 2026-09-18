@@ -1,7 +1,7 @@
 /**
  * Cliente Playwright do portal eSupri (Platlog).
- * - Catálogo Pedido: códigos + PREÇO R$ (fonte preferida de custo)
- * - Financeiro NF-e: ZIP/XML (módulo legado — ver README.md)
+ * - Financeiro NF-e: AJAX por loja (conta VERONICA) + ZIP/XML
+ * - Catálogo Pedido: códigos + PREÇO R$
  */
 import { chromium } from 'playwright';
 
@@ -32,6 +32,10 @@ async function launchBrowser({ headless = true, onLog = () => {} } = {}) {
   }
 }
 
+async function waitLoaderGone(page, timeout = 45000) {
+  await page.locator('.loader').waitFor({ state: 'hidden', timeout }).catch(() => {});
+}
+
 async function loginEsupri(page, { user, pass, base, onLog = () => {} }) {
   onLog('login');
   await page.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -47,6 +51,35 @@ async function loginEsupri(page, { user, pass, base, onLog = () => {} }) {
     waitUntil: 'domcontentloaded',
     timeout: 60000,
   });
+  await waitLoaderGone(page);
+  const body = await page.locator('body').innerText().catch(() => '');
+  if (/usu[aá]rio ou senha|inv[aá]lid|acesso negado/i.test(body) && /login/i.test(page.url())) {
+    throw Object.assign(new Error('Login eSupri falhou'), { status: 401 });
+  }
+}
+
+async function postForm(page, url, fields) {
+  return page.evaluate(
+    async ({ url: u, fields: f }) => {
+      const body = new URLSearchParams();
+      for (const [k, v] of Object.entries(f || {})) {
+        if (v == null || v === '') continue;
+        body.append(k, String(v));
+      }
+      const res = await fetch(u, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
+      const text = await res.text();
+      try {
+        return { ok: res.ok, status: res.status, json: JSON.parse(text), text };
+      } catch {
+        return { ok: res.ok, status: res.status, json: null, text };
+      }
+    },
+    { url, fields },
+  );
 }
 
 function parsePrecoBr(raw) {
@@ -234,7 +267,15 @@ export async function listarCatalogoPedidoEsupri({
 }
 
 /**
- * @param {{ user: string, pass: string, baseUrl?: string, headless?: boolean, limit?: number, onLog?: Function }} opts
+ * @param {{
+ *   user: string,
+ *   pass: string,
+ *   baseUrl?: string,
+ *   headless?: boolean,
+ *   limit?: number,
+ *   esupriLojaCodigo?: string,
+ *   onLog?: Function
+ * }} opts
  * @returns {Promise<Array<{ notaLabel: string, lojaLabel: string, valorLabel: string, statusLabel: string, zipBuffer: Buffer, fileName: string }>>}
  */
 export async function baixarNfesFinanceiroEsupri({
@@ -243,12 +284,22 @@ export async function baixarNfesFinanceiroEsupri({
   baseUrl = DEFAULT_BASE,
   headless = true,
   limit = 10,
+  esupriLojaCodigo = '',
   onLog = () => {},
 } = {}) {
   if (!user || !pass) {
     throw Object.assign(new Error('Informe usuário e senha eSupri (ESUPRI_USER / ESUPRI_PASS)'), {
       status: 400,
     });
+  }
+  const lojaCodigo = String(esupriLojaCodigo || '').trim();
+  if (!lojaCodigo) {
+    throw Object.assign(
+      new Error(
+        'Informe esupriLojaCodigo — a conta VERONICA vê todas as lojas; sem filtro as NFs se misturam',
+      ),
+      { status: 400 },
+    );
   }
 
   const base = String(baseUrl || DEFAULT_BASE).replace(/\/$/, '');
@@ -264,94 +315,48 @@ export async function baixarNfesFinanceiroEsupri({
   try {
     await loginEsupri(page, { user, pass, base, onLog });
 
-    onLog('financeiro');
-    await page.locator('#menu_financeiro > a').click();
-    await page.locator('#tbFinanceiro tbody tr').first().waitFor({ state: 'visible', timeout: 30000 });
+    onLog(`financeiro loja ${lojaCodigo}`);
+    await page.goto(`${base}/esupri.php?Do=financeiro`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    });
+    await waitLoaderGone(page, 60000);
 
-    const lengthSelect = page.locator('select[name="tbFinanceiro_length"], #tbFinanceiro_length select').first();
-    if (await lengthSelect.count()) {
-      await lengthSelect.selectOption({ label: /100|50|25/ }).catch(() =>
-        lengthSelect.selectOption('100').catch(() => {}),
-      );
-      await page.waitForTimeout(800);
-    }
+    const listaRes = await postForm(page, '/ajax/financeiro.lista.php', {
+      'cbLojas[]': lojaCodigo,
+    });
+    const titulos = Array.isArray(listaRes.json) ? listaRes.json : [];
+    onLog(`títulos eSupri=${titulos.length} (filtro ${lojaCodigo})`);
 
     const alvo = Math.max(1, Number(limit) || 10);
     const vistos = new Set();
-    let pagina = 1;
 
-    while (resultados.length < alvo) {
-      await page.locator('#tbFinanceiro tbody tr').first().waitFor({ state: 'visible', timeout: 30000 });
-      const total = await page.locator('#tbFinanceiro tbody tr').count();
-      onLog(`página ${pagina} linhas=${total} baixadas=${resultados.length}/${alvo}`);
-
-      for (let i = 0; i < total && resultados.length < alvo; i++) {
-        const row = page.locator('#tbFinanceiro tbody tr').nth(i);
-        if (!(await row.count())) break;
-        const cells = await row.locator('td').allTextContents().catch(() => []);
-        const notaLabel = (cells[0] || '').trim();
-        const lojaLabel = (cells[1] || '').trim();
-        const valorLabel = (cells[4] || '').trim();
-        const statusLabel = (cells[5] || '').trim();
-        if (!notaLabel || !/NF/i.test(notaLabel)) continue;
-        const chave = `${notaLabel}|${valorLabel}`;
-        if (vistos.has(chave)) continue;
-        vistos.add(chave);
-
-        onLog(`pedido ${resultados.length + 1}/${alvo}: ${notaLabel} ${valorLabel}`);
-        try {
-          await row.click({ timeout: 15000 });
-          await page.waitForTimeout(1200);
-
-          const nfeBtn = page.locator('aside button', { hasText: 'NF-e' }).first();
-          await nfeBtn.waitFor({ state: 'visible', timeout: 15000 });
-
-          const [download] = await Promise.all([
-            page.waitForEvent('download', { timeout: 45000 }),
-            nfeBtn.click(),
-          ]);
-
-          const fileName = download.suggestedFilename() || `nfe-${resultados.length + 1}.zip`;
-          const tmp = await download.path();
-          let zipBuffer;
-          if (tmp) {
-            const fs = await import('fs');
-            zipBuffer = fs.readFileSync(tmp);
-          } else {
-            zipBuffer = await streamToBuffer(download.createReadStream());
-          }
-
-          resultados.push({
-            notaLabel,
-            lojaLabel,
-            valorLabel,
-            statusLabel,
-            zipBuffer,
-            fileName,
-          });
-        } catch (e) {
-          onLog(`falha ${notaLabel}: ${String(e.message || e).slice(0, 120)}`);
-        }
-        await page.waitForTimeout(600);
-      }
-
+    for (const titulo of titulos) {
       if (resultados.length >= alvo) break;
+      const notaLabel = String(titulo.MR_DOCUMENTO || '').trim();
+      const lojaLabel = String(titulo.CL_FANTA || '').trim();
+      const valorLabel = String(titulo.FMT_VALOR || '').trim();
+      const statusLabel = String(titulo.MR_SITUACAO || '').trim();
+      const chave = String(titulo.CHAVENFE || '').replace(/\D/g, '');
+      if (!notaLabel || !/NF/i.test(notaLabel)) continue;
+      const uniq = chave || `${notaLabel}|${valorLabel}`;
+      if (vistos.has(uniq)) continue;
+      vistos.add(uniq);
 
-      const next = page.locator('#tbFinanceiro_next');
-      if (!(await next.count())) break;
-      const disabled =
-        (await next.getAttribute('class').catch(() => ''))?.includes('disabled') ||
-        (await next.getAttribute('aria-disabled').catch(() => '')) === 'true';
-      if (disabled) {
-        onLog('fim da paginação');
-        break;
-      }
-      await next.click();
-      await page.waitForTimeout(1200);
-      pagina += 1;
-      if (pagina > 30) {
-        onLog('limite de páginas atingido');
-        break;
+      onLog(`pedido ${resultados.length + 1}/${alvo}: ${notaLabel} ${lojaLabel} ${valorLabel}`);
+      try {
+        const dl = await baixarZipNfe(page, context, { chave, notaLabel, onLog });
+        resultados.push({
+          notaLabel,
+          lojaLabel,
+          valorLabel,
+          statusLabel,
+          chave,
+          zipBuffer: dl.zipBuffer,
+          fileName: dl.fileName,
+        });
+      } catch (e) {
+        onLog(`falha ${notaLabel}: ${String(e.message || e).slice(0, 120)}`);
       }
     }
 
@@ -359,6 +364,45 @@ export async function baixarNfesFinanceiroEsupri({
   } finally {
     await browser.close();
   }
+}
+
+async function baixarZipNfe(page, context, { chave, notaLabel, onLog }) {
+  if (chave) {
+    const found = await postForm(page, '/ajax/findfile.php', { Tipo: 'NFe', Chave: chave });
+    const loc = String(found.text || '').trim();
+    if (loc && loc !== 'NOTFOUND' && !/^<!DOCTYPE/i.test(loc) && loc.length < 500) {
+      const abs = loc.startsWith('http') ? loc : new URL(loc, page.url()).href;
+      const res = await context.request.get(abs);
+      if (res.ok()) {
+        const body = await res.body();
+        const nameFromUrl = abs.split('/').pop()?.split('?')[0];
+        return {
+          zipBuffer: Buffer.from(body),
+          fileName: nameFromUrl || `nfe-${chave}.zip`,
+        };
+      }
+      onLog(`findfile HTTP ${res.status()} ${notaLabel}`);
+    } else {
+      onLog(`findfile ${notaLabel}: ${(loc || String(found.status)).slice(0, 40)}`);
+    }
+  }
+
+  if (chave) {
+    await page.locator('#txtNFe').fill(chave).catch(() => {});
+  }
+  const nfeBtn = page.locator('aside button', { hasText: 'NF-e' }).first();
+  await nfeBtn.waitFor({ state: 'visible', timeout: 15000 });
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 45000 }),
+    nfeBtn.click(),
+  ]);
+  const fileName = download.suggestedFilename() || `nfe-${notaLabel || chave || 'download'}.zip`;
+  const tmp = await download.path();
+  if (tmp) {
+    const fs = await import('fs');
+    return { zipBuffer: fs.readFileSync(tmp), fileName };
+  }
+  return { zipBuffer: await streamToBuffer(download.createReadStream()), fileName };
 }
 
 function streamToBuffer(stream) {

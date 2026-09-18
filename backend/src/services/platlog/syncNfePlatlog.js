@@ -37,6 +37,7 @@ async function chaveJaExiste(idLoja, chave) {
  * @param {boolean} [opts.aplicar=false] — grava DB + custo
  * @param {boolean} [opts.registrar_entrada=false]
  * @param {boolean} [opts.headless=true]
+ * @param {string} [opts.esupriLojaCodigo] — CL_CODIGO no eSupri (obrigatório com VERONICA)
  * @param {boolean} [opts.pular_existentes=true]
  */
 export async function syncNfePlatlog({
@@ -50,6 +51,7 @@ export async function syncNfePlatlog({
   headless = true,
   pular_existentes = true,
   baseUrl,
+  esupriLojaCodigo,
 } = {}) {
   const idLoja = Number(id_loja);
   if (!idLoja) throw new Error('id_loja obrigatório');
@@ -63,6 +65,7 @@ export async function syncNfePlatlog({
     baseUrl,
     headless,
     limit,
+    esupriLojaCodigo,
     onLog: log,
   });
 

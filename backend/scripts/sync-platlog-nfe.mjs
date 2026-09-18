@@ -9,6 +9,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { credencialPlatlog, findEsupriLojaByBk } from '../src/config/fornecedoresLojas.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..', '..');
@@ -26,8 +27,9 @@ const limit = Number(getArg('--limit', '3'));
 const aplicar = args.includes('--apply');
 const registrarEntrada = args.includes('--entrada');
 const headed = args.includes('--headed');
-const user = process.env.ESUPRI_USER || '';
-const pass = process.env.ESUPRI_PASS || '';
+const cred = credencialPlatlog();
+const user = cred.user;
+const pass = cred.pass;
 
 const dbFlag = getArg('--db', '');
 if (dbFlag === 'dev') process.env.DB_NAME = process.env.DB_NAME_DEV || 'vision_check_dev';
@@ -35,6 +37,7 @@ if (dbFlag === 'prod') process.env.DB_NAME = process.env.DB_NAME_PROD || 'vision
 
 console.log({
   loja: idLoja,
+  esupri: '(depois do lookup)',
   limit,
   aplicar,
   registrar_entrada: registrarEntrada,
@@ -44,17 +47,29 @@ console.log({
 });
 
 if (!user || !pass) {
-  console.error('Defina ESUPRI_USER e ESUPRI_PASS no .env');
+  console.error('Defina ESUPRI_USER / ESUPRI_PASS no .env ou platlog no JSON local');
   process.exit(1);
 }
 
 // Import depois do dotenv — senão o pool sobe sem DB_HOST
+const { pool } = await import('../src/db.js');
 const { syncNfePlatlog } = await import('../src/services/platlog/syncNfePlatlog.js');
+
+const { rows: lojaRows } = await pool.query(`SELECT bk_number FROM lojas WHERE id_loja = $1`, [
+  idLoja,
+]);
+const bk = lojaRows[0]?.bk_number ? String(lojaRows[0].bk_number).replace(/\D/g, '') : '';
+const esupri = findEsupriLojaByBk(bk);
+if (!esupri?.esupri_codigo) {
+  console.error(`Loja ${idLoja} (BK ${bk || '?'}) sem código eSupri no mapeamento`);
+  process.exit(1);
+}
 
 const result = await syncNfePlatlog({
   id_loja: idLoja,
   user,
   pass,
+  esupriLojaCodigo: esupri.esupri_codigo,
   limit,
   aplicar,
   registrar_entrada: registrarEntrada,
