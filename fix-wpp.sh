@@ -56,7 +56,7 @@ clonar_wpp_meridian() {
 }
 
 achar_chrome() {
-  for c in /usr/bin/google-chrome-stable /usr/bin/google-chrome /usr/bin/chromium-browser /usr/bin/chromium; do
+  for c in /usr/bin/google-chrome-stable /usr/bin/google-chrome; do
     if [ -x "$c" ]; then
       echo "$c"
       return 0
@@ -71,7 +71,7 @@ sudo fuser -k 21465/tcp 2>/dev/null || true
 docker update --restart=no vision-check-wpp 2>/dev/null || true
 docker stop vision-check-wpp 2>/dev/null || true
 
-echo "0b) Libs + Chromium..."
+echo "0b) Libs + Google Chrome (Chromium/Snap o WhatsApp recusa no emparelhamento)..."
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   ca-certificates fonts-liberation wget \
@@ -83,9 +83,6 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libasound2t64 libcups2t64 >/dev/null 2>&1 \
   || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libasound2 libcups2 >/dev/null 2>&1 \
   || true
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium >/dev/null 2>&1 \
-  || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium-browser >/dev/null 2>&1 \
-  || true
 
 CHROME_BIN="$(achar_chrome || true)"
 if [ -z "$CHROME_BIN" ]; then
@@ -95,7 +92,7 @@ if [ -z "$CHROME_BIN" ]; then
   CHROME_BIN="$(achar_chrome || true)"
 fi
 if [ -z "$CHROME_BIN" ]; then
-  echo "ERRO: nenhum Chrome/Chromium instalado. Sem isso o QR não gera."
+  echo "ERRO: Google Chrome não instalou. Chromium do Ubuntu não emparelha o WhatsApp."
   exit 1
 fi
 echo "Chrome: $CHROME_BIN"
@@ -113,12 +110,14 @@ else
 fi
 echo "HEAD: $(git -C "$HOST_WPP" log -1 --oneline)"
 
+WPP_OWNER="${SUDO_USER:-alvim}"
+git config --global --add safe.directory "$HOST_WPP" 2>/dev/null || true
+sudo git config --global --add safe.directory "$HOST_WPP" 2>/dev/null || true
+sudo chown -R "$WPP_OWNER:$WPP_OWNER" "$HOST_WPP"
+echo "Dono da pasta: $WPP_OWNER"
+
 echo "1b) npm install + build..."
-(
-  cd "$HOST_WPP"
-  npm install
-  npm run build
-)
+sudo -u "$WPP_OWNER" bash -lc "cd '$HOST_WPP' && npm install && npm run build"
 
 if [ -f "$CFG_SRC" ]; then
   cp "$CFG_SRC" "$HOST_WPP/dist/config.js"
