@@ -25,6 +25,26 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   libxkbcommon0 libxrandr2 libxshmfence1 \
   >/dev/null
 
+CHROME_BIN=""
+for c in /usr/bin/google-chrome-stable /usr/bin/google-chrome /usr/bin/chromium-browser /usr/bin/chromium; do
+  if [ -x "$c" ]; then CHROME_BIN="$c"; break; fi
+done
+if [ -z "$CHROME_BIN" ]; then
+  echo "0b) Chrome não encontrado — instala chromium..."
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium-browser >/dev/null 2>&1 \
+    || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y chromium >/dev/null 2>&1 \
+    || true
+  for c in /usr/bin/google-chrome-stable /usr/bin/google-chrome /usr/bin/chromium-browser /usr/bin/chromium; do
+    if [ -x "$c" ]; then CHROME_BIN="$c"; break; fi
+  done
+fi
+if [ -n "$CHROME_BIN" ]; then
+  echo "Chrome: $CHROME_BIN"
+  export PUPPETEER_EXECUTABLE_PATH="$CHROME_BIN"
+else
+  echo "AVISO: nenhum Chrome/Chromium no PATH. O QR não gera sem o navegador."
+fi
+
 echo "1) Para o container Alpine..."
 docker update --restart=no vision-check-wpp 2>/dev/null || true
 docker stop vision-check-wpp 2>/dev/null || true

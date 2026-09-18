@@ -55,6 +55,19 @@ exports.default = {
   },
   createOptions: {
     autoClose: 0,
+    puppeteerOptions: {
+      headless: true,
+      executablePath:
+        process.env.PUPPETEER_EXECUTABLE_PATH ||
+        process.env.CHROME_PATH ||
+        '/usr/bin/google-chrome-stable',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
+    },
     browserArgs: [
       '--disable-web-security',
       '--no-sandbox',

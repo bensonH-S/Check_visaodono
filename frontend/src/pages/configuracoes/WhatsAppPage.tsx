@@ -68,7 +68,7 @@ export default function WhatsAppPage() {
 
     pollingRef.current = window.setInterval(() => {
       void carregar(true);
-    }, 8000);
+    }, 2500);
 
     return () => {
       if (pollingRef.current) window.clearInterval(pollingRef.current);
@@ -229,7 +229,7 @@ export default function WhatsAppPage() {
               }}
             >
               No celular: <strong>WhatsApp → ⋮ → Aparelhos conectados → Conectar aparelho</strong>.
-              A página atualiza sozinha a cada 5s até conectar.
+              A página atualiza sozinha a cada 2s até conectar.
             </Alert>
             {qrcode ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -265,7 +265,7 @@ export default function WhatsAppPage() {
               <Button
                 variant="contained"
                 startIcon={<QrCodeScannerIcon />}
-                onClick={() => void conectar(Boolean(qrcode))}
+                onClick={() => void conectar(true)}
                 disabled={conectando || desconectando}
               >
                 {conectando ? 'Iniciando…' : qrcode ? 'Novo QR Code' : 'Gerar QR Code'}

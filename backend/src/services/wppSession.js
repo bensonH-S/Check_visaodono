@@ -145,15 +145,24 @@ async function executarConexaoWpp({ reiniciar = false } = {}) {
     }
 
     const statusSessao = String(estadoAtual.status || '').toUpperCase();
+    const temQr = Boolean(estadoAtual.qrcode);
     const sessaoMorta =
-      !estadoAtual.status ||
-      ['CLOSED', 'NOTLOGGED', 'UNPAIRED', 'DISCONNECTED'].includes(statusSessao);
+      !temQr &&
+      (!estadoAtual.status ||
+        [
+          'CLOSED',
+          'NOTLOGGED',
+          'UNPAIRED',
+          'DISCONNECTED',
+          'INITIALIZING',
+          'TIMEOUT',
+          'ERROR',
+          'BROWSER',
+          'OPENING',
+        ].includes(statusSessao));
 
-    // QRCODE/PHONECODE = Chromium já subindo. Não chama start de novo.
     if (sessaoMorta || reiniciar) {
-      if (reiniciar && !sessaoMorta) {
-        await fecharSessaoWpp(cred.token);
-      }
+      await fecharSessaoWpp(cred.token);
       let start = await iniciarSessaoWpp(cred.token);
       if (start.status === 401 || start.status === 403) {
         const token = await gerarTokenWpp();
@@ -174,7 +183,7 @@ async function executarConexaoWpp({ reiniciar = false } = {}) {
       }
     }
 
-    const qr = await obterQrCodeWpp(cred.token, { tentativas: 4, intervaloMs: 1000 });
+    const qr = await obterQrCodeWpp(cred.token, { tentativas: 8, intervaloMs: 1500 });
     const pos = await verificarConexaoWpp(cred.token);
 
     return {

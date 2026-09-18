@@ -10,6 +10,8 @@ Environment=NODE_ENV=production
 Environment=PORT=21465
 Environment=TZ=America/Sao_Paulo
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/bin
+Environment=PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+Environment=CHROME_PATH=/usr/bin/google-chrome-stable
 ExecStart=/usr/bin/env node dist/server.js
 Restart=always
 RestartSec=4
