@@ -90,6 +90,7 @@
     "migrate:estoque-emprestimo-recebimento": "node scripts/run-sql.js migrations/167_estoque_emprestimo_recebimento.sql",
     "migrate:estoque-participa-contagem": "node scripts/run-sql.js migrations/169_insumos_participa_contagem.sql",
     "migrate:estoque-bag-litros": "node scripts/run-sql.js migrations/171_estoque_conversoes_bag_litros.sql",
+    "migrate:estoque-nfe-gestores-lideranca": "node scripts/run-sql.js migrations/184_estoque_nfe_gestores_lideranca.sql",
     "test:estoque-consumo": "node --test src/services/estoqueConsumo.test.js",
     "test:estoque-motor": "node --test src/services/estoqueMotor.test.js",
     "test:estoque": "node --test src/services/estoqueConsumo.test.js src/services/estoqueContagem.test.js src/services/estoqueMotor.test.js",

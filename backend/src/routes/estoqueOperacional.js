@@ -77,6 +77,8 @@ const router = Router();
 const permOp = requirePermissao('estoque.operacional');
 /** Saldo da diária: loja consulta no app com permissão de conferência. */
 const permSaldo = requirePermissao('estoque.operacional', 'estoque.conferencia');
+/** Receber NF: gestores, regionais, diretor, Felipe e TI entram com conferência. */
+const permNfe = permSaldo;
 const permBreak = requirePermissao('estoque.break', 'estoque.operacional');
 const permConfig = requirePermissao('configuracoes.ver', 'estoque.operacional');
 const upload = multer({
@@ -1765,7 +1767,7 @@ router.get('/cmv/variancia', permOp, async (req, res, next) => {
   }
 });
 
-router.get('/nfes', permOp, async (req, res, next) => {
+router.get('/nfes', permNfe, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
@@ -1782,7 +1784,7 @@ router.get('/nfes', permOp, async (req, res, next) => {
   }
 });
 
-router.get('/nfes/:id', permOp, async (req, res, next) => {
+router.get('/nfes/:id', permNfe, async (req, res, next) => {
   try {
     const det = await obterNfeDetalhe(Number(req.params.id));
     if (!det) return res.status(404).json({ error: 'NF não encontrada' });
@@ -1795,7 +1797,7 @@ router.get('/nfes/:id', permOp, async (req, res, next) => {
 });
 
 /** DANFE auxiliar (HTML) a partir do XML salvo no sync do fornecedor. */
-router.get('/nfes/:id/danfe', permOp, async (req, res, next) => {
+router.get('/nfes/:id/danfe', permNfe, async (req, res, next) => {
   try {
     const idNfe = Number(req.params.id);
     const { rows } = await pool.query(
@@ -1877,7 +1879,7 @@ router.get('/nfes/:id/danfe', permOp, async (req, res, next) => {
   }
 });
 
-router.post('/nfes/:id/conferir', permOp, async (req, res, next) => {
+router.post('/nfes/:id/conferir', permNfe, async (req, res, next) => {
   try {
     const idNfe = Number(req.params.id);
     const { rows } = await pool.query(`SELECT id_loja FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
@@ -1906,7 +1908,7 @@ router.post('/nfes/:id/conferir', permOp, async (req, res, next) => {
   }
 });
 
-router.post('/nfes/:id/entrar', permOp, async (req, res, next) => {
+router.post('/nfes/:id/entrar', permNfe, async (req, res, next) => {
   try {
     const idNfe = Number(req.params.id);
     const { rows } = await pool.query(`SELECT id_loja FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
