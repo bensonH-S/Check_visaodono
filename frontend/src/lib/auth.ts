@@ -446,7 +446,7 @@ export function ehEscalaDeliveryOnly(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
-/** Mapa de técnicos no app: diretoria e técnico de frota. Regional não vê. */
+/** Mapa no app: diretoria, técnico de frota e regional (só a região dele). */
 export function podeVerMapaTecnicosMobile(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;
@@ -455,7 +455,7 @@ export function podeVerMapaTecnicosMobile(usuario?: UsuarioSessao | null): boole
   const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
   if (['diretor', 'ceo', 'administrador', 'dono', 'ti'].includes(cargo)) return true;
   if (modoAppTecnicoFrotaRestrito(u)) return true;
-  if (ehSupervisorRegiaoMobile(u)) return false;
+  if (ehSupervisorRegiaoMobile(u)) return true;
   return temPermissao('frota.mapa.ver', u);
 }
 

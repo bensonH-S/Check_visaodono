@@ -217,6 +217,7 @@ const SQL_VEICULOS_REGIOES = `${SQL_VEICULOS_MAPA_BASE}
     AND (
       rt.id_regiao = ANY($1::int[])
       OR v.id_regiao = ANY($1::int[])
+      OR v.id_usuario_responsavel = $2
     )
   ORDER BY v.id_veiculo, COALESCE(v.id_regiao, rt.id_regiao) NULLS LAST`;
 
@@ -236,6 +237,7 @@ const requirePermMapaTecnicos = requirePermissao(
   'lojas.todas',
   'frota.gerenciar',
   'frota.usar',
+  'frota.regioes',
 );
 
 function parseRegionaisJson(val) {
@@ -913,7 +915,9 @@ router.get('/mapa/posicoes', requirePermMapaTecnicos, async (req, res, next) => 
       acessoTodasLojas(req.user) || temPermissao(req.user, 'frota.gerenciar');
     const { rows: veiculosDb } = await pool.query(
       veTodas && filtroRegiao.length === idsRegiao.length ? SQL_VEICULOS_MAPA_TODOS : SQL_VEICULOS_REGIOES,
-      veTodas && filtroRegiao.length === idsRegiao.length ? [] : [filtroRegiao],
+      veTodas && filtroRegiao.length === idsRegiao.length
+        ? []
+        : [filtroRegiao, Number(req.user.sub) || 0],
     );
 
     let veiculos = await combinarVeiculosComRastreamento(veiculosDb);
