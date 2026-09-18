@@ -92,9 +92,7 @@ export default function WhatsAppPage() {
             : res.message || 'Aguarde até 2 min e clique em Atualizar',
       );
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Erro ao conectar';
-      setErro(msg);
-      showToast(msg);
+      setErro(e instanceof Error ? e.message : 'Erro ao conectar');
       void carregar(true);
     } finally {
       setConectando(false);

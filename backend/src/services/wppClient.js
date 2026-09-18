@@ -39,7 +39,7 @@ export function erroRedeWppParaStatus(err) {
     conectado: false,
     servicoIndisponivel: true,
     session: wppConfig().session,
-    message: `Serviço wppconnect indisponível (${detalhe}). No Docker: container vision-check-wpp. No PC: WPPConnect em localhost:21465.`,
+    message: `WPPConnect fora do ar na porta 21465. No servidor rode: sudo bash /var/www/app/Check_visaodono/fix-wpp.sh`,
   };
 }
 

@@ -1,0 +1,19 @@
+[Unit]
+Description=WPPConnect Meridian (host, igual o PC)
+After=network.target
+
+[Service]
+Type=simple
+User=alvim
+WorkingDirectory=/var/www/app/wppconnect-server
+Environment=NODE_ENV=production
+Environment=PORT=21465
+Environment=TZ=America/Sao_Paulo
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/bin
+ExecStart=/usr/bin/env node dist/server.js
+Restart=always
+RestartSec=4
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

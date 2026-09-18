@@ -135,6 +135,14 @@ subir_wppconnect() {
     echo "Config host copiada para $HOST_WPP/dist/config.js"
   fi
 
+  if [ -f "$SCRIPT_DIR/deploy/wppconnect.service" ]; then
+    sudo cp "$SCRIPT_DIR/deploy/wppconnect.service" /etc/systemd/system/wppconnect-meridian.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable wppconnect-meridian >/dev/null 2>&1 || true
+    sudo systemctl restart wppconnect-meridian
+    echo "systemd wppconnect-meridian"
+  fi
+
   if wpp_host_no_ar; then
     echo "wppconnect host já na porta 21465."
     return 0
@@ -158,7 +166,8 @@ subir_wppconnect() {
   done
 
   echo "AVISO: wppconnect host não respondeu na 21465."
-  echo "       Veja $HOST_WPP/log/meridian-host.log e $HOST_WPP/log/"
+  echo "       journalctl -u wppconnect-meridian -n 40 --no-pager"
+  echo "       ou $HOST_WPP/log/meridian-host.log"
 }
 
 ########################################
