@@ -1,6 +1,7 @@
 import { pool } from '../db.js';
 import {
   erroRedeWppParaStatus,
+  deslogarSessaoWpp,
   fecharSessaoWpp,
   gerarTokenWpp,
   iniciarSessaoWpp,
@@ -192,6 +193,13 @@ async function executarConexaoWpp({ reiniciar = false } = {}) {
     }
     throw err;
   }
+}
+
+export async function desconectarSessaoWpp() {
+  const cred = await carregarCredenciaisWpp();
+  if (!cred) throw new Error('WhatsApp não configurado');
+  await deslogarSessaoWpp(cred.token);
+  return { conectado: false, qrcode: null, message: 'WhatsApp desconectado' };
 }
 
 export async function obterQrSessaoWpp() {

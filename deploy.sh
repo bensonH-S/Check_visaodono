@@ -23,6 +23,8 @@ trap 'rm -f "$DEPLOY_SCRIPT_BACKUP"' EXIT
 CONTAINER_NAME="${CONTAINER_NAME:-vision-check}"
 WPP_CONTAINER_NAME="${WPP_CONTAINER_NAME:-vision-check-wpp}"
 HOST_WPP="${WPP_HOST_DIR:-/var/www/app/wppconnect-server}"
+WPP_GIT_REPO="${WPP_GIT_REPO:-https://github.com/bensonH-S/wppconnect-server.git}"
+WPP_GIT_BRANCH="${WPP_GIT_BRANCH:-meridian}"
 APP_PORT="3007"
 
 if [ -f .env ] && grep -qE '^PORT=' .env; then
@@ -124,11 +126,64 @@ wpp_host_no_ar() {
   [ -n "$code" ] && [ "$code" != "000" ]
 }
 
+preservar_dados_wpp() {
+  local dest="$1"
+  mkdir -p "$dest"
+  for d in userDataDir tokens wppconnect_tokens log; do
+    if [ -d "$HOST_WPP/$d" ]; then
+      mv "$HOST_WPP/$d" "$dest/$d"
+    fi
+  done
+}
+
+restaurar_dados_wpp() {
+  local src="$1"
+  for d in userDataDir tokens wppconnect_tokens log; do
+    if [ -d "$src/$d" ]; then
+      rm -rf "$HOST_WPP/$d"
+      mv "$src/$d" "$HOST_WPP/$d"
+    fi
+  done
+}
+
+sync_wpp_fonte() {
+  echo "Sincronizando WPPConnect de $WPP_GIT_REPO ($WPP_GIT_BRANCH) → $HOST_WPP"
+
+  if [ -d "$HOST_WPP/.git" ]; then
+    git -C "$HOST_WPP" remote set-url origin "$WPP_GIT_REPO"
+    git -C "$HOST_WPP" fetch origin
+    git -C "$HOST_WPP" checkout "$WPP_GIT_BRANCH"
+    git -C "$HOST_WPP" reset --hard "origin/$WPP_GIT_BRANCH"
+  else
+    KEEP="$(mktemp -d /tmp/wpp-keep.XXXXXX)"
+    if [ -d "$HOST_WPP" ]; then
+      preservar_dados_wpp "$KEEP"
+      rm -rf "$HOST_WPP"
+    fi
+    git clone --branch "$WPP_GIT_BRANCH" "$WPP_GIT_REPO" "$HOST_WPP"
+    restaurar_dados_wpp "$KEEP"
+    rm -rf "$KEEP"
+  fi
+
+  echo "Instalando e compilando WPPConnect no host..."
+  (
+    cd "$HOST_WPP"
+    if command -v yarn >/dev/null 2>&1 && [ -f yarn.lock ]; then
+      yarn install
+      yarn build
+    else
+      npm install
+      npm run build
+    fi
+  )
+}
+
 subir_wppconnect() {
   parar_wpp_docker
+  sync_wpp_fonte
 
   if [ ! -d "$HOST_WPP" ]; then
-    echo "ERRO: $HOST_WPP não existe. É o mesmo WPPConnect do PC."
+    echo "ERRO: $HOST_WPP não existe após o clone."
     exit 1
   fi
 

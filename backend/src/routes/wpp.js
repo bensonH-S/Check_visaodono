@@ -3,6 +3,7 @@ import { requirePermissao } from '../permissoes.js';
 import { wppConfig, wppEnabled, erroRedeWppParaStatus } from '../services/wppClient.js';
 import {
   conectarSessaoWpp,
+  desconectarSessaoWpp,
   obterQrSessaoWpp,
   statusSessaoWpp,
 } from '../services/wppSession.js';
@@ -54,6 +55,22 @@ router.post('/conectar', requirePermissao('configuracoes.ver'), async (req, res)
       conectado: false,
       qrcode: null,
       message: e instanceof Error ? e.message : 'Falha ao iniciar sessão',
+    });
+  }
+});
+
+router.post('/desconectar', requirePermissao('configuracoes.ver'), async (_req, res) => {
+  try {
+    if (!wppEnabled()) {
+      return res.status(400).json({ error: 'WhatsApp desabilitado' });
+    }
+    const data = await desconectarSessaoWpp();
+    res.json(data);
+  } catch (e) {
+    res.json({
+      conectado: false,
+      qrcode: null,
+      message: e instanceof Error ? e.message : 'Falha ao desconectar',
     });
   }
 });

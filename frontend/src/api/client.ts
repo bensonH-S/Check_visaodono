@@ -165,6 +165,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ reiniciar }),
     }),
+  wppDesconectar: () =>
+    request<WppConectarResponse>('/wpp/desconectar', { method: 'POST' }),
   wppTeste: (body: { telefone: string; mensagem?: string }) =>
     request<{ ok: boolean; telefone: string }>('/wpp/teste', {
       method: 'POST',

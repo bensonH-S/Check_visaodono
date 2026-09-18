@@ -3,6 +3,8 @@
 set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST_WPP="${WPP_HOST_DIR:-/var/www/app/wppconnect-server}"
+WPP_GIT_REPO="${WPP_GIT_REPO:-https://github.com/bensonH-S/wppconnect-server.git}"
+WPP_GIT_BRANCH="${WPP_GIT_BRANCH:-meridian}"
 UNIT_SRC="$ROOT/deploy/wppconnect.service"
 CFG_SRC="$ROOT/deploy/wppconnect-host-config.js"
 
@@ -26,6 +28,35 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
 echo "1) Para o container Alpine..."
 docker update --restart=no vision-check-wpp 2>/dev/null || true
 docker stop vision-check-wpp 2>/dev/null || true
+
+echo "1b) Puxa o WPPConnect do GitHub (o mesmo do PC)..."
+if [ -d "$HOST_WPP/.git" ]; then
+  git -C "$HOST_WPP" remote set-url origin "$WPP_GIT_REPO"
+  git -C "$HOST_WPP" fetch origin
+  git -C "$HOST_WPP" checkout "$WPP_GIT_BRANCH"
+  git -C "$HOST_WPP" reset --hard "origin/$WPP_GIT_BRANCH"
+else
+  KEEP="$(mktemp -d /tmp/wpp-keep.XXXXXX)"
+  if [ -d "$HOST_WPP" ]; then
+    for d in userDataDir tokens wppconnect_tokens log; do
+      [ -d "$HOST_WPP/$d" ] && mv "$HOST_WPP/$d" "$KEEP/$d"
+    done
+    rm -rf "$HOST_WPP"
+  fi
+  git clone --branch "$WPP_GIT_BRANCH" "$WPP_GIT_REPO" "$HOST_WPP"
+  for d in userDataDir tokens wppconnect_tokens log; do
+    if [ -d "$KEEP/$d" ]; then
+      rm -rf "$HOST_WPP/$d"
+      mv "$KEEP/$d" "$HOST_WPP/$d"
+    fi
+  done
+  rm -rf "$KEEP"
+fi
+(
+  cd "$HOST_WPP"
+  npm install
+  npm run build
+)
 
 if [ ! -d "$HOST_WPP" ]; then
   echo "ERRO: não achei $HOST_WPP"

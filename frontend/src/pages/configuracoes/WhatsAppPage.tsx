@@ -10,6 +10,7 @@ import Chip from '@mui/material/Chip';
 import LinearProgress from '@mui/material/LinearProgress';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import SendIcon from '@mui/icons-material/Send';
 import { api } from '../../api/client';
 import type { WppStatus } from '../../api/client';
@@ -23,6 +24,7 @@ export default function WhatsAppPage() {
   const [qrcode, setQrcode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [conectando, setConectando] = useState(false);
+  const [desconectando, setDesconectando] = useState(false);
   const [telefoneTeste, setTelefoneTeste] = useState('');
   const [enviandoTeste, setEnviandoTeste] = useState(false);
   const [erro, setErro] = useState('');
@@ -93,6 +95,25 @@ export default function WhatsAppPage() {
       void carregar(true);
     } finally {
       setConectando(false);
+    }
+  }
+
+  async function desconectar() {
+    setDesconectando(true);
+    setErro('');
+    try {
+      const res = await api.wppDesconectar();
+      setQrcode(null);
+      estavaConectadoRef.current = false;
+      setStatus((prev) =>
+        prev ? { ...prev, conectado: false, qrcode: null, message: res.message } : prev,
+      );
+      showToast(res.message || 'WhatsApp desconectado');
+      await carregar(true);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao desconectar');
+    } finally {
+      setDesconectando(false);
     }
   }
 
@@ -211,12 +232,22 @@ export default function WhatsAppPage() {
               A página atualiza sozinha a cada 5s até conectar.
             </Alert>
             {qrcode ? (
-              <Box sx={{ mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
                 <Box
                   component="img"
                   src={qrcode}
                   alt="QR Code WhatsApp"
-                  sx={{ maxWidth: 280, width: '100%', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}
+                  sx={{
+                    display: 'block',
+                    width: 280,
+                    height: 280,
+                    maxWidth: '100%',
+                    mx: 'auto',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    objectFit: 'contain',
+                  }}
                 />
               </Box>
             ) : (
@@ -235,23 +266,49 @@ export default function WhatsAppPage() {
                 variant="contained"
                 startIcon={<QrCodeScannerIcon />}
                 onClick={() => void conectar(Boolean(qrcode))}
-                disabled={conectando}
+                disabled={conectando || desconectando}
               >
                 {conectando ? 'Iniciando…' : qrcode ? 'Novo QR Code' : 'Gerar QR Code'}
               </Button>
               {qrcode && (
-                <Button variant="outlined" onClick={() => void conectar(true)} disabled={conectando}>
+                <Button
+                  variant="outlined"
+                  onClick={() => void conectar(true)}
+                  disabled={conectando || desconectando}
+                >
                   Reiniciar sessão
                 </Button>
               )}
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<LinkOffIcon />}
+                onClick={() => void desconectar()}
+                disabled={conectando || desconectando}
+              >
+                {desconectando ? 'Desconectando…' : 'Desconectar'}
+              </Button>
             </Box>
           </Box>
         )}
 
         {status?.enabled && status.conectado && (
-          <Alert severity="success" sx={{ mt: 1 }}>
-            Sessão ativa. Notificações de chamados serão enviadas aos usuários com WhatsApp cadastrado.
-          </Alert>
+          <Box>
+            <Alert severity="success" sx={{ mt: 1, mb: 2 }}>
+              Sessão ativa. Notificações de chamados serão enviadas aos usuários com WhatsApp cadastrado.
+            </Alert>
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<LinkOffIcon />}
+                onClick={() => void desconectar()}
+                disabled={desconectando}
+              >
+                {desconectando ? 'Desconectando…' : 'Desconectar'}
+              </Button>
+            </Box>
+          </Box>
         )}
       </Paper>
 

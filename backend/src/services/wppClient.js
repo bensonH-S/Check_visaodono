@@ -129,6 +129,15 @@ export async function fecharSessaoWpp(token) {
   }
 }
 
+export async function deslogarSessaoWpp(token) {
+  try {
+    await wppRequest('/logout-session', { method: 'POST', token, timeoutMs: 15000 });
+  } catch {
+    /* sessão pode já estar fechada */
+  }
+  await fecharSessaoWpp(token);
+}
+
 export async function obterEstadoSessaoWpp(token) {
   try {
     const { data, ok } = await wppRequest('/status-session', { token, timeoutMs: 8000 });
