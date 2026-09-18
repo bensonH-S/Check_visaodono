@@ -1,0 +1,161 @@
+﻿diff --git a/src/controller/sessionController.ts b/src/controller/sessionController.ts
+index 7838de6..4a051cb 100644
+--- a/src/controller/sessionController.ts
++++ b/src/controller/sessionController.ts
+@@ -241,29 +241,43 @@ export async function closeSession(req: Request, res: Response): Promise<any> {
+    */
+   const session = req.session;
+   try {
+-    if ((clientsArray as any)[session].status === null) {
++    const entry = (clientsArray as any)[session];
++    if (!entry || entry.status === null) {
+       return await res
+         .status(200)
+         .json({ status: true, message: 'Session successfully closed' });
+-    } else {
+-      (clientsArray as any)[session] = { status: null };
++    }
+ 
+-      await req.client.close();
+-      req.io.emit('whatsapp-status', false);
+-      callWebHook(req.client, req, 'closesession', {
+-        message: `Session: ${session} disconnected`,
+-        connected: false,
+-      });
++    const client = req.client ?? entry;
++    (clientsArray as any)[session] = { status: null };
+ 
+-      return await res
+-        .status(200)
+-        .json({ status: true, message: 'Session successfully closed' });
++    try {
++      if (client && typeof client.close === 'function') {
++        await client.close();
++      } else if (client?.pupBrowser && typeof client.pupBrowser.close === 'function') {
++        await client.pupBrowser.close();
++      } else if (client?.browser && typeof client.browser.close === 'function') {
++        await client.browser.close();
++      }
++    } catch (closeErr) {
++      req.logger.warn(closeErr);
+     }
++
++    req.io.emit('whatsapp-status', false);
++    callWebHook(client, req, 'closesession', {
++      message: `Session: ${session} disconnected`,
++      connected: false,
++    });
++
++    return await res
++      .status(200)
++      .json({ status: true, message: 'Session successfully closed' });
+   } catch (error) {
+     req.logger.error(error);
++    (clientsArray as any)[session] = { status: null };
+     return await res
+-      .status(500)
+-      .json({ status: false, message: 'Error closing session', error });
++      .status(200)
++      .json({ status: true, message: 'Session closed with warnings' });
+   }
+ }
+ 
+@@ -282,48 +296,59 @@ export async function logOutSession(req: Request, res: Response): Promise<any> {
+    */
+   try {
+     const session = req.session;
+-    await req.client.logout();
++    const client = req.client;
++    try {
++      if (client && typeof client.logout === 'function') {
++        await client.logout();
++      }
++    } catch (logoutErr) {
++      req.logger.warn(logoutErr);
++    }
+     deleteSessionOnArray(req.session);
+ 
+     setTimeout(async () => {
+       const pathUserData = config.customUserDataDir + req.session;
+       const pathTokens = __dirname + `../../../tokens/${req.session}.data.json`;
+ 
+-      if (fs.existsSync(pathUserData)) {
+-        await fs.promises.rm(pathUserData, {
+-          recursive: true,
+-          maxRetries: 5,
+-          force: true,
+-          retryDelay: 1000,
+-        });
+-      }
+-      if (fs.existsSync(pathTokens)) {
+-        await fs.promises.rm(pathTokens, {
+-          recursive: true,
+-          maxRetries: 5,
+-          force: true,
+-          retryDelay: 1000,
+-        });
++      try {
++        if (fs.existsSync(pathUserData)) {
++          await fs.promises.rm(pathUserData, {
++            recursive: true,
++            maxRetries: 5,
++            force: true,
++            retryDelay: 1000,
++          });
++        }
++        if (fs.existsSync(pathTokens)) {
++          await fs.promises.rm(pathTokens, {
++            recursive: true,
++            maxRetries: 5,
++            force: true,
++            retryDelay: 1000,
++          });
++        }
++      } catch (rmErr) {
++        req.logger.warn(rmErr);
+       }
+ 
+       req.io.emit('whatsapp-status', false);
+-      callWebHook(req.client, req, 'logoutsession', {
+-        message: `Session: ${session} logged out`,
+-        connected: false,
+-      });
+-
+-      return await res
+-        .status(200)
+-        .json({ status: true, message: 'Session successfully closed' });
++      try {
++        callWebHook(client, req, 'logoutsession', {
++          message: `Session: ${session} logged out`,
++          connected: false,
++        });
++      } catch {
++        /* client pode estar inconsistente */
++      }
+     }, 500);
+-    /*try {
+-      await req.client.close();
+-    } catch (error) {}*/
++
++    return await res
++      .status(200)
++      .json({ status: true, message: 'Session logout started' });
+   } catch (error) {
+     req.logger.error(error);
+-    res
+-      .status(500)
+-      .json({ status: false, message: 'Error closing session', error });
++    deleteSessionOnArray(req.session);
++    res.status(200).json({ status: true, message: 'Session logout with warnings' });
+   }
+ }
+ 
+@@ -494,6 +519,8 @@ export async function getSessionState(req: Request, res: Response) {
+         status: client.status,
+         qrcode: qr,
+         urlcode: client.urlcode,
++        phoneCode: client.phoneCode ?? null,
++        phone: client.phone ?? null,
+         version: version,
+       });
+   } catch (ex) {

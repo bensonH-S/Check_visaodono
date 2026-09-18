@@ -1,0 +1,45 @@
+﻿diff --git a/src/controller/deviceController.ts b/src/controller/deviceController.ts
+index c80de7d..1d28761 100644
+--- a/src/controller/deviceController.ts
++++ b/src/controller/deviceController.ts
+@@ -1894,6 +1894,23 @@ export async function getContact(req: Request, res: Response) {
+   }
+ }
+ 
++export async function getPnLidEntry(req: Request, res: Response) {
++  const { phone = true } = req.params;
++  try {
++    let response;
++    for (const contato of contactToArray(phone as string, false)) {
++      response = await req.client.getPnLidEntry(contato);
++    }
++
++    res.status(200).json({ status: 'success', response: response });
++  } catch (error) {
++    req.logger.error(error);
++    res
++      .status(500)
++      .json({ status: 'error', message: 'Error on get pn-lid entry', error: error });
++  }
++}
++
+ export async function getAllContacts(req: Request, res: Response) {
+   /**
+    * #swagger.tags = ["Contact"]
+diff --git a/src/routes/index.ts b/src/routes/index.ts
+index edfaad4..cba3875 100644
+--- a/src/routes/index.ts
++++ b/src/routes/index.ts
+@@ -752,6 +752,12 @@ routes.get(
+   statusConnection,
+   DeviceController.getContact
+ );
++routes.get(
++  '/api/:session/pn-lid/:phone',
++  verifyToken,
++  statusConnection,
++  DeviceController.getPnLidEntry
++);
+ routes.get(
+   '/api/:session/profile/:phone',
+   verifyToken,

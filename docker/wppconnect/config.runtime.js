@@ -10,9 +10,10 @@ export default {
   maxListeners: 15,
   customUserDataDir: './userDataDir/',
   webhook: {
-    url: null,
+    url: 'http://app:3007/auditoria/api/wpp/webhook',
     autoDownload: false,
-    readMessage: false,
+    uploadS3: false,
+    readMessage: true,
     allUnreadOnStart: false,
     listenAcks: false,
     onPresenceChanged: false,
@@ -22,7 +23,17 @@ export default {
     onRevokedMessage: false,
     onLabelUpdated: false,
     onSelfMessage: false,
-    ignore: ['status@broadcast'],
+    ignore: [
+      'status@broadcast',
+      'onpresencechanged',
+      'onack',
+      'onrevokedmessage',
+      'status-find',
+      'onparticipantschanged',
+      'onreactionmessage',
+      'onpollresponse',
+      'onupdatelabel',
+    ],
   },
   websocket: {
     autoDownload: false,
@@ -32,6 +43,7 @@ export default {
     logger: ['console', 'file'],
   },
   createOptions: {
+    autoClose: 0,
     browserArgs: [
       '--no-sandbox',
       '--disable-setuid-sandbox',

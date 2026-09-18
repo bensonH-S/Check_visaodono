@@ -17,6 +17,7 @@ services:
       - WPP_HOST=http://wppconnect
       - WPP_PORT=21465
       - WPP_ENABLED=${WPP_ENABLED:-false}
+      - WPP_WEBHOOK_URL=http://app:3007/auditoria/api/wpp/webhook
     volumes:
       - ./Logs:/app/Logs
       - ./uploads:/app/uploads
