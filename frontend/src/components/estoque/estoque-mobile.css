@@ -974,7 +974,7 @@ html.dark .ck-estoque__btn-grid-card small {
   border-top: 1px solid rgba(27, 42, 107, 0.08);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 8px;
 }
 
@@ -983,6 +983,7 @@ html.dark .ck-estoque__btn-grid-card small {
   align-items: center;
   justify-content: center;
   justify-self: center;
+  padding-top: 1px;
 }
 
 .ck-estoque .ck-estoque__card-flags {
@@ -997,20 +998,27 @@ html.dark .ck-estoque__btn-grid-card small {
 
 .ck-estoque .ck-estoque__card-who {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 4px;
   min-width: 0;
+  max-width: 100%;
   justify-self: start;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--ga-text-primary);
-  line-height: 1.2;
+  line-height: 1.25;
+}
+
+.ck-estoque .ck-estoque__card-who .MuiSvgIcon-root {
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 
 .ck-estoque .ck-estoque__card-who strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .ck-estoque .ck-estoque__badge-pend,
