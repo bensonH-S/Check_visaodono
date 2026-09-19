@@ -1,3 +1,5 @@
+const RANKINGS_DELIVERY = new Set(['rank_delivery', 'rank_delivery_99']);
+
 /** Rankings cujo campo Valor é percentual (exibido com %). */
 const RANKINGS_PERCENTUAL = new Set([
   'rank_cmp',
@@ -5,6 +7,7 @@ const RANKINGS_PERCENTUAL = new Set([
   'rank_rev',
   'rank_misterioso',
   'rank_delivery',
+  'rank_delivery_99',
   'rank_ano_anterior',
   'rank_nps',
   'rank_checklist_360',
@@ -28,7 +31,7 @@ export function rankingColunaRevRec(codigo: string): boolean {
 export function rankingDecimaisValor(codigo: string): number {
   if (codigo === 'rank_google') return 1;
   if (codigo === 'rank_rev') return 2;
-  if (codigo === 'rank_delivery') return 2;
+  if (RANKINGS_DELIVERY.has(codigo)) return 2;
   if (codigo === 'rank_nps' || codigo === 'rank_ano_anterior') return 3;
   return 3;
 }

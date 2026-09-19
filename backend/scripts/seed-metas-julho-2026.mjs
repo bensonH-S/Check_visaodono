@@ -383,7 +383,7 @@ const RANKINGS = [
   { codigo: 'rank_saude', nome: 'SAÚDE', ordem: 20, row_start: 5, row_end: 24, col_pos: 5, col_loja: 6, col_valor: 7, col_pts: 8, col_classe: null },
   { codigo: 'rank_rev', nome: 'R.E.V.', ordem: 30, row_start: 5, row_end: 24, col_pos: 9, col_loja: 10, col_valor: 11, col_pts: 12, col_classe: 13 },
   { codigo: 'rank_misterioso', nome: 'Cliente Misterioso', ordem: 40, row_start: 38, row_end: 58, col_pos: 0, col_loja: 1, col_valor: 2, col_pts: 3, col_classe: null, meta_minima: 0.85 },
-  { codigo: 'rank_delivery', nome: 'Delivery', ordem: 50, row_start: 38, row_end: 58, col_pos: 5, col_loja: 6, col_valor: 7, col_pts: 8, col_classe: null, meta_minima: 4.8 },
+  { codigo: 'rank_delivery', nome: 'Delivery iFood', ordem: 50, row_start: 38, row_end: 58, col_pos: 5, col_loja: 6, col_valor: 7, col_pts: 8, col_classe: null, meta_minima: 4.8 },
   { codigo: 'rank_ano_anterior', nome: 'Ano - 1', ordem: 60, row_start: 38, row_end: 58, col_pos: 9, col_loja: 10, col_valor: 11, col_pts: 12, col_classe: null, meta_minima: 0.1 },
   { codigo: 'rank_nps', nome: 'NPS', ordem: 70, row_start: 71, row_end: 91, col_pos: 0, col_loja: 1, col_valor: 2, col_pts: 3, col_classe: null, meta_minima: 0.5 },
   { codigo: 'rank_google', nome: 'Google', ordem: 80, row_start: 71, row_end: 91, col_pos: 5, col_loja: 6, col_valor: 7, col_pts: 8, col_classe: null, meta_minima: 0.045 },

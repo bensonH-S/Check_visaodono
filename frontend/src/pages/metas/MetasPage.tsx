@@ -11,11 +11,13 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import AddIcon from '@mui/icons-material/Add';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
+import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
-import Tab from '@mui/material/Tab';
-import Tabs from '@mui/material/Tabs';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Tooltip from '@mui/material/Tooltip';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -84,6 +86,10 @@ function valorSelectResumo(valor_texto: string | null, atingiu: boolean | null):
 
 function rotuloPeriodo(p: MetasPeriodoResumo) {
   return p.titulo || `${MESES[p.mes]}/${p.ano}`;
+}
+
+function rotuloPeriodoCurto(p: MetasPeriodoResumo) {
+  return `${MESES[p.mes]}/${p.ano}`;
 }
 
 function fmtValorCelula(valor_texto: string | null, valor_numero: number | null, atingiu: boolean | null) {
@@ -514,87 +520,122 @@ export default function MetasPage() {
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 0, flex: 1 }}>
-      <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${colors.border}`, bgcolor: colors.surface }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.05rem', color: colors.textPrimary }}>
-              Metas
-            </Typography>
-            <Typography variant="caption" sx={{ color: colors.textSecondary, display: 'block' }}>
-              Indicadores da empresa, gestores e rankings (espelho da planilha de metas)
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-            {periodos.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Período</InputLabel>
-                <Select
-                  label="Período"
-                  value={idPeriodo === '' ? '' : idPeriodo}
-                  onChange={(e) => setIdPeriodo(Number(e.target.value))}
-                >
-                  {periodos.map((p) => (
-                    <MenuItem key={p.id_periodo} value={p.id_periodo}>
-                      {rotuloPeriodo(p)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-            {podeCriar && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={abrirDialogNovo}
-                disabled={!periodos.length}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  borderColor: acento,
-                  color: acento,
-                  '&:hover': {
-                    borderColor: acentoHover,
-                    bgcolor: escuro ? 'rgba(232, 82, 10, 0.12)' : colors.navyMuted,
-                  },
-                }}
-              >
-                Novo mês
-              </Button>
-            )}
-          </Box>
-        </Box>
-        <Tabs
-          value={aba}
-          onChange={(_, v) => {
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, minHeight: 0, flex: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1,
+        }}
+      >
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={String(aba)}
+          onChange={(_, v: string | null) => {
+            if (v == null) return;
             (document.activeElement as HTMLElement | null)?.blur?.();
-            setAba(v);
+            setAba(Number(v));
           }}
           sx={{
-            mt: 2,
-            minHeight: 40,
-            '& .MuiTab-root': {
-              color: colors.textSecondary,
+            bgcolor: colors.surface,
+            border: `1px solid ${colors.border}`,
+            '& .MuiToggleButton-root': {
+              px: 1.5,
+              py: 0.4,
+              minHeight: 32,
+              fontWeight: 700,
               textTransform: 'none',
-              fontWeight: 600,
-              '&.Mui-selected': {
-                color: acento,
-                fontWeight: 700,
-              },
+              border: 'none',
+              fontSize: '0.8rem',
+              color: colors.textSecondary,
             },
-            '& .MuiTabs-indicator': {
-              bgcolor: acento,
-              height: 3,
-              borderRadius: '3px 3px 0 0',
+            '& .Mui-selected': {
+              bgcolor: `${acento} !important`,
+              color: '#fff !important',
+              boxShadow: escuro ? '0 1px 4px rgba(0, 0, 0, 0.35)' : '0 1px 4px rgba(27, 42, 107, 0.22)',
+            },
+            '& .Mui-selected:hover': {
+              bgcolor: `${acentoHover} !important`,
             },
           }}
         >
-          <Tab label="Resumo" sx={{ minHeight: 40, py: 0 }} />
-          <Tab label="Rankings" sx={{ minHeight: 40, py: 0 }} />
-          <Tab label="Prêmios" sx={{ minHeight: 40, py: 0 }} />
-        </Tabs>
-      </Paper>
+          <ToggleButton value="0">Resumo</ToggleButton>
+          <ToggleButton value="1">Rankings</ToggleButton>
+          <ToggleButton value="2">Prêmios</ToggleButton>
+        </ToggleButtonGroup>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {periodos.length > 0 && (
+            <Select
+              size="small"
+              value={idPeriodo === '' ? '' : idPeriodo}
+              onChange={(e) => setIdPeriodo(Number(e.target.value))}
+              sx={{
+                minWidth: 108,
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                bgcolor: colors.surface,
+                '& .MuiSelect-select': { py: 0.65, px: 1.25 },
+              }}
+            >
+              {periodos.map((p) => (
+                <MenuItem key={p.id_periodo} value={p.id_periodo} sx={{ fontSize: '0.82rem' }}>
+                  {rotuloPeriodoCurto(p)}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+          {podeCriar && (
+            <Tooltip title="Novo mês">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={abrirDialogNovo}
+                  disabled={!periodos.length}
+                  aria-label="Novo mês"
+                  sx={{
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 1,
+                    color: acento,
+                    bgcolor: colors.surface,
+                    '&:hover': {
+                      borderColor: acento,
+                      bgcolor: escuro ? 'rgba(232, 82, 10, 0.12)' : colors.navyMuted,
+                    },
+                  }}
+                >
+                  <AddIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+          {aba === 0 && dados ? (
+            <Tooltip title={gerandoPdf ? 'Gerando…' : 'Gerar relatório PDF'}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => void gerarRelatorio()}
+                  disabled={gerandoPdf || !gruposResumo.length}
+                  aria-label="Gerar relatório PDF"
+                  sx={{
+                    border: '1px solid transparent',
+                    borderRadius: 1,
+                    color: '#fff',
+                    bgcolor: '#E8520A',
+                    '&:hover': { bgcolor: '#c94508' },
+                    '&.Mui-disabled': { bgcolor: 'rgba(232, 82, 10, 0.35)', color: '#fff' },
+                  }}
+                >
+                  {gerandoPdf ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfIcon sx={{ fontSize: 18 }} />}
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : null}
+        </Box>
+      </Box>
 
       {loading && !dados && <PageLoading />}
 
@@ -676,25 +717,7 @@ export default function MetasPage() {
       </Dialog>
 
       {!loading && dados && aba === 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={gerandoPdf ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfIcon />}
-              onClick={() => void gerarRelatorio()}
-              disabled={gerandoPdf || !gruposResumo.length}
-              sx={{
-                bgcolor: '#E8520A',
-                fontWeight: 700,
-                textTransform: 'none',
-                '&:hover': { bgcolor: '#c94508' },
-                '&.Mui-disabled': { bgcolor: 'rgba(232, 82, 10, 0.35)', color: '#fff' },
-              }}
-            >
-              {gerandoPdf ? 'Gerando…' : 'Gerar relatório'}
-            </Button>
-          </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {gruposResumo.map((grupo) => (
             <Box key={grupo.grupo}>
               {grupo.empresa && (
