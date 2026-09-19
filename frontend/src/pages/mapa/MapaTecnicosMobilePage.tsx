@@ -6,6 +6,7 @@ import TecnicoProximoPainel from '../../components/mapa/TecnicoProximoPainel';
 import TecnicoFocoPainel from '../../components/mapa/TecnicoFocoPainel';
 import MapaVeiculoConsultasPainel from '../../components/mapa/MapaVeiculoConsultasPainel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import dayjs from 'dayjs';
 import {
   api,
@@ -22,6 +23,7 @@ import { dataHojeBrasilia, dataHoraBrasiliaMs, formatarDuracaoMs, formatDataCamp
 import { calcularTempoParadoMs } from '../../utils/frotaTempoParado';
 import { contarPassagensPorLoja } from '../../utils/frotaPassagensLoja';
 import { distanciaKm } from '../../utils/mapaGeo';
+import { garantirRotaNasRuas } from '../../utils/osrmMapMatch';
 import { posicaoParaVeiculoCatalogo } from '../../components/mapa/MapaFiltroTrajetoVeiculo';
 import { COR_EXCESSO_FROTA, COR_TRAJETO } from '../../components/frota/frotaMapaBasemap';
 import { iconeMarcaLojaUrl } from '../../utils/marcaLojaMapa';
@@ -218,10 +220,14 @@ export default function MapaTecnicosMobilePage() {
         const vel = velResult.status === 'fulfilled' ? velResult.value : null;
         if (vel) setVelocidade(vel);
 
-        const rota =
+        const rotaFiltrada =
           rotaBruta && Number.isFinite(inicioMs) && Number.isFinite(fimMs)
             ? filtrarRotaPorIntervalo(rotaBruta, inicioMs, fimMs)
             : rotaBruta;
+
+        const rota = rotaFiltrada && temDadosRota(rotaFiltrada)
+          ? await garantirRotaNasRuas(rotaFiltrada)
+          : rotaFiltrada;
 
         if (rota && temDadosRota(rota)) {
           setRotaDiaVeiculo(rota);
@@ -403,6 +409,61 @@ export default function MapaTecnicosMobilePage() {
     },
   ];
 
+  const overlaysHost =
+    typeof document !== 'undefined' ? document.querySelector('.ck-mapa--life') : null;
+
+  const fichaOverlay =
+    mostrarFicha && veiculoTrajetoAtivo != null ? (
+      <MapaVeiculoConsultasPainel
+        titulo={tituloVeiculo}
+        subtitulo={
+          carregandoTrajeto
+            ? 'Carregando trajeto…'
+            : consultou
+              ? `Limite ${limiteKmh} km/h`
+              : 'Escolha o que consultar neste veículo'
+        }
+        veiculoAoVivo={veiculoAoVivoTrajeto}
+        idVeiculo={veiculoTrajetoAtivo}
+        excessos={excessos}
+        passagensLoja={passagensLoja}
+        limiteKmh={limiteKmh}
+        consultouTrajeto={consultou}
+        periodoLabel={periodoLabel}
+        kpis={kpis}
+        onAbrirHistorico={podeFiltrarDataTrajeto && !consultaHistorico ? abrirConsultaHistorico : undefined}
+        onClose={() => selecionarVeiculoTrajeto(null)}
+      />
+    ) : null;
+
+  const historicoOverlay =
+    consultaHistorico && consultou ? (
+      <div className="ck-mapa__historico-bar">
+        <div className="ck-mapa__historico-bar-id">
+          <strong>{tituloVeiculo}</strong>
+          <span>{periodoLabel}</span>
+        </div>
+        <div className="ck-mapa__historico-bar-stats">
+          <span>{kmGps.toLocaleString('pt-BR')} km</span>
+          <span>
+            {passagensLoja.length} {passagensLoja.length === 1 ? 'loja' : 'lojas'}
+          </span>
+          {qtdExcessos > 0 ? <span className="is-alerta">{qtdExcessos} excessos</span> : null}
+        </div>
+        {passagensLoja.length > 0 && (
+          <div className="ck-mapa__historico-lojas">
+            {passagensLoja.map((loja) => (
+              <span key={loja.id_loja}>
+                {loja.bk_number ? `${loja.bk_number} · ` : ''}
+                {loja.nome.replace(/^BURGER KING\s*[·\-–]?\s*/i, '')}
+                {loja.passagens > 1 ? ` (${loja.passagens}x)` : ''}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    ) : null;
+
   return (
     <Box
       sx={{
@@ -506,55 +567,19 @@ export default function MapaTecnicosMobilePage() {
           </Box>
         )}
 
-        {consultaHistorico && consultou && (
-          <div className="ck-mapa__historico-bar">
-            <div className="ck-mapa__historico-bar-id">
-              <strong>{tituloVeiculo}</strong>
-              <span>{periodoLabel}</span>
-            </div>
-            <div className="ck-mapa__historico-bar-stats">
-              <span>{kmGps.toLocaleString('pt-BR')} km</span>
-              <span>
-                {passagensLoja.length} {passagensLoja.length === 1 ? 'loja' : 'lojas'}
-              </span>
-              {qtdExcessos > 0 ? <span className="is-alerta">{qtdExcessos} excessos</span> : null}
-            </div>
-            {passagensLoja.length > 0 && (
-              <div className="ck-mapa__historico-lojas">
-                {passagensLoja.map((loja) => (
-                  <span key={loja.id_loja}>
-                    {loja.bk_number ? `${loja.bk_number} · ` : ''}
-                    {loja.nome.replace(/^BURGER KING\s*[·\-–]?\s*/i, '')}
-                    {loja.passagens > 1 ? ` (${loja.passagens}x)` : ''}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {consultaHistorico && consultou && !overlaysHost && historicoOverlay}
 
-        {mostrarFicha && veiculoTrajetoAtivo != null && (
-          <MapaVeiculoConsultasPainel
-            titulo={tituloVeiculo}
-            subtitulo={
-              carregandoTrajeto
-                ? 'Carregando trajeto…'
-                : consultou
-                  ? `Limite ${limiteKmh} km/h`
-                  : 'Escolha o que consultar neste veículo'
-            }
-            veiculoAoVivo={veiculoAoVivoTrajeto}
-            idVeiculo={veiculoTrajetoAtivo}
-            excessos={excessos}
-            passagensLoja={passagensLoja}
-            limiteKmh={limiteKmh}
-            consultouTrajeto={consultou}
-            periodoLabel={periodoLabel}
-            kpis={kpis}
-            onAbrirHistorico={podeFiltrarDataTrajeto && !consultaHistorico ? abrirConsultaHistorico : undefined}
-            onClose={() => selecionarVeiculoTrajeto(null)}
-          />
-        )}
+        {mostrarFicha && veiculoTrajetoAtivo != null && !overlaysHost && fichaOverlay}
+
+        {overlaysHost && (historicoOverlay || fichaOverlay)
+          ? createPortal(
+              <>
+                {historicoOverlay}
+                {fichaOverlay}
+              </>,
+              overlaysHost,
+            )
+          : null}
       </Box>
     </Box>
   );

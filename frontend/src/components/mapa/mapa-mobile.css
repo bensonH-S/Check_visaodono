@@ -661,7 +661,7 @@
     box-shadow: 0 0 0 0 rgba(var(--ck-pulse-rgb), 0.4), 0 8px 18px rgba(15, 26, 69, 0.2);
   }
   50% {
-    box-shadow: 0 0 0 7px rgba(var(--ck-pulse-rgb), 0), 0 8px 18px rgba(15, 26, 69, 0.2);
+    box-shadow: 0 0 0 5px rgba(var(--ck-pulse-rgb), 0), 0 8px 18px rgba(15, 26, 69, 0.2);
   }
 }
 
@@ -854,11 +854,13 @@
 
 .ck-mapa--life .ck-mapa__ficha,
 .ck-mapa--life .ck-mapa__historico-bar {
-  bottom: calc(92px + var(--app-tabbar-offset, 0px));
+  /* Sempre acima da faixa de bolinhas + tabbar */
+  bottom: calc(96px + var(--app-tabbar-offset, 58px));
+  z-index: 22;
 }
 
 .ck-mapa--life .ck-mapa__ficha.is-aberto {
-  max-height: 56%;
+  max-height: 52%;
 }
 
 .ck-mapa--life .ck-mapa__life .MuiAvatar-root {
@@ -870,19 +872,21 @@
 .ck-mapa__life {
   position: absolute;
   inset: 0;
-  z-index: 8;
+  z-index: 20;
   pointer-events: none;
 }
 
-.ck-mapa__life > * {
-  pointer-events: auto;
-}
-
 .ck-mapa__life-top {
+  position: relative;
+  z-index: 12;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 0;
+}
+
+.ck-mapa__life > * {
+  pointer-events: auto;
 }
 
 .ck-mapa__life-top-right {
@@ -932,13 +936,18 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(22px + var(--app-tabbar-offset, 58px) + env(safe-area-inset-bottom, 0px));
+  /* overlay absolute cobre o padding — sobe acima do tabbar */
+  bottom: calc(10px + var(--app-tabbar-offset, 58px));
   display: flex;
-  gap: 10px;
+  justify-content: safe center;
+  align-items: flex-end;
+  gap: 8px;
   overflow-x: auto;
-  padding: 0 14px 4px;
+  overflow-y: hidden;
+  /* espaço p/ anel/pulso não cortar o topo da bolinha */
+  padding: 12px 12px 4px;
   -webkit-overflow-scrolling: touch;
-  z-index: 9;
+  z-index: 30;
 }
 
 .ck-mapa__life-regiao-menu {
@@ -954,30 +963,32 @@
 
 .ck-mapa__life-person {
   flex: 0 0 auto;
-  width: 72px;
+  width: 56px;
   border: 0;
   background: transparent;
-  padding: 0;
+  padding: 4px 0 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   color: #0f172a;
   cursor: pointer;
+  overflow: visible;
 }
 
 .ck-mapa__life-avatar {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 800;
   color: #fff;
   background: #94a3b8;
   border: 3px solid #fff;
   box-shadow: 0 8px 18px rgba(15, 26, 69, 0.2);
+  overflow: visible;
 }
 
 .ck-mapa__life-avatar.is-em_rota {
@@ -1002,6 +1013,7 @@
 
 .ck-mapa__life-person.is-on .ck-mapa__life-avatar {
   box-shadow: 0 0 0 3px #e8520a, 0 8px 18px rgba(15, 26, 69, 0.2);
+  outline: none;
 }
 
 .ck-mapa__life-name {

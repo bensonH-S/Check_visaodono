@@ -7,13 +7,12 @@ import type {
 import { formatDataHoraBalaoMapa, formatarDuracaoMs } from '../../utils/dateBr';
 import { geocodificarReversa } from '../../utils/geocodificarReversa';
 import type { LatLngPar } from '../../utils/osrmMapMatch';
-import { rodapeAtualizadoBalaoHtml } from './frotaMapaVeiculo';
+import { marcadorParadaPonteiro, rodapeAtualizadoBalaoHtml } from './frotaMapaVeiculo';
 import {
   CORES_TRAJETO_FROTA,
   COR_EXCESSO_FROTA,
   COR_FIM_TRAJETO,
   COR_INICIO_TRAJETO,
-  COR_PARADO_FROTA,
 } from './frotaMapaBasemap';
 
 const CORES_ROTAS = [...CORES_TRAJETO_FROTA];
@@ -22,8 +21,9 @@ const PANE_PARADO = 'paneParadoLocalizacao';
 const PANE_EXCESSO = 'paneExcessoLocalizacao';
 const PANE_EXCESSO_LINHA = 'paneExcessoLinhaLocalizacao';
 const PANE_DESTAQUE = 'paneDestaqueLocalizacao';
+/** Lojas acima da linha do trajeto. */
+export const PANE_LOJA_LOCALIZACAO = 'paneLojaLocalizacao';
 const COR_EXCESSO = COR_EXCESSO_FROTA;
-const COR_PARADO = COR_PARADO_FROTA;
 const COR_INICIO_ROTA = COR_INICIO_TRAJETO;
 const COR_FIM_ROTA = COR_FIM_TRAJETO;
 const MIN_PARADO_MS = 2 * 60 * 1000;
@@ -450,32 +450,39 @@ function desenharEventoParado(evento: EventoParado, layer: L.LayerGroup, bounds:
   const inicioTxt = evento.inicio.atualizado_em ? formatDataHoraBalaoMapa(evento.inicio.atualizado_em) : '—';
   const fimTxt = evento.fim.atualizado_em ? formatDataHoraBalaoMapa(evento.fim.atualizado_em) : '—';
   const duracaoTxt = formatarDuracaoMs(evento.duracaoMs);
-  L.circleMarker(centro, {
+  const marker = L.marker(centro, {
     pane: PANE_PARADO,
-    radius: 8,
-    color: '#ffffff',
-    weight: 2,
-    fillColor: COR_PARADO,
-    fillOpacity: 0.95,
-  })
+    icon: marcadorParadaPonteiro(),
+    zIndexOffset: 820,
+  });
+  marker
     .bindPopup(
       `<strong>Parada</strong><br/>Tempo parado: <strong>${duracaoTxt}</strong><br/>Início: ${inicioTxt}<br/>Fim: ${fimTxt}`,
-      { maxWidth: 280 },
+      { maxWidth: 280, className: 'popup-veiculo-mapa' },
     )
     .bindTooltip(`Parado ${duracaoTxt}`, { direction: 'top' })
+    .on('click', (ev) => {
+      L.DomEvent.stopPropagation(ev);
+      marker.openPopup();
+    })
     .addTo(layer);
 }
 
 export function configurarPanesMapaRotaDia(mapa: L.Map) {
   for (const [nome, z] of [
+    // Linha do trajeto atrás dos ponteiros de loja
     [PANE_ROTA, '450'],
     [PANE_EXCESSO_LINHA, '480'],
+    [PANE_LOJA_LOCALIZACAO, '630'],
     [PANE_PARADO, '640'],
     [PANE_EXCESSO, '680'],
-    [PANE_DESTAQUE, '710'],
+    [PANE_DESTAQUE, '700'],
   ] as const) {
     if (!mapa.getPane(nome)) {
       mapa.createPane(nome);
+      const pane = mapa.getPane(nome);
+      if (pane) pane.style.zIndex = z;
+    } else {
       const pane = mapa.getPane(nome);
       if (pane) pane.style.zIndex = z;
     }
@@ -511,6 +518,8 @@ export function desenharRotaDiaNoMapa(
     corExcesso?: string;
     peso?: number;
     opacity?: number;
+    /** Paradas por tempo parado (default true). Desligar se já houver ponteiros de desligamento. */
+    mostrarParadas?: boolean;
   },
 ): L.LatLngBounds | null {
   limparCamadasRotaDia(camadas);
@@ -523,13 +532,16 @@ export function desenharRotaDiaNoMapa(
   const corExcesso = opcoes?.corExcesso ?? COR_EXCESSO;
   const pesoRota = opcoes?.peso ?? (opcoes?.coresRota?.length ? 6 : 5);
   const opacityRota = opcoes?.opacity ?? 0.95;
+  const mostrarParadas = opcoes?.mostrarParadas !== false;
 
   for (const excesso of excessosMapa) {
     desenharExcesso(excesso, limiteKmh, camadas.excessoMarcador, camadas.excessoLinha, bounds, corExcesso);
   }
 
-  for (const evento of agruparEventosParado(pontosTrajeto.length ? pontosTrajeto : pontos)) {
-    desenharEventoParado(evento, camadas.parado, bounds);
+  if (mostrarParadas) {
+    for (const evento of agruparEventosParado(pontosTrajeto.length ? pontosTrajeto : pontos)) {
+      desenharEventoParado(evento, camadas.parado, bounds);
+    }
   }
 
   for (const [idx, rota] of rotasDesenho.entries()) {

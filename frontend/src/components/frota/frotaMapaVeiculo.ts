@@ -264,8 +264,9 @@ export function marcadorVeiculo(
   const w = mobile ? (destacado ? 40 : 34) : 32;
   const status = forcarStatus ?? statusVeiculoMapa(veiculo, comGps);
   const modelo = rotuloMarcadorVeiculo(veiculo);
-  const labelW = Math.min(mobile ? 84 : 76, Math.max(44, modelo.length * 6.5 + 14));
-  const totalW = w + labelW + 6;
+  const mostrarNome = destacado || forcarStatus == null;
+  const labelW = mostrarNome ? Math.min(mobile ? 84 : 76, Math.max(44, modelo.length * 6.5 + 14)) : 0;
+  const totalW = w + (mostrarNome ? labelW + 6 : 0);
   const pinH = w + 10;
   const cls = ['marker-veiculo-pin', `is-${status}`, destacado ? 'is-destaque' : ''].filter(Boolean).join(' ');
   return L.divIcon({
@@ -279,11 +280,25 @@ export function marcadorVeiculo(
         </div>
         <div class="marker-veiculo-ponta"></div>
       </div>
-      <div class="marker-veiculo-modelo" title="${escapeHtml(modelo)}">${escapeHtml(modelo)}</div>
+      ${mostrarNome ? `<div class="marker-veiculo-modelo" title="${escapeHtml(modelo)}">${escapeHtml(modelo)}</div>` : ''}
     </div>`,
     iconSize: [totalW, pinH],
     iconAnchor: [w / 2, pinH - 1],
     popupAnchor: [0, -(pinH - 2)],
+  });
+}
+
+/** Ponteiro de mapa (estilo pin) para paradas / eventos do trajeto — sem nome do veículo. */
+export const COR_PARADA_PONTEIRO = '#DC2626';
+export const COR_INICIO_DIA_PONTEIRO = '#1B2A6B';
+
+export function marcadorParadaPonteiro(cor = COR_PARADA_PONTEIRO, size = 30) {
+  return L.divIcon({
+    className: 'marcador-rota-ponteiro',
+    html: `<svg class="marker-rota-pin-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="${cor}" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size],
+    popupAnchor: [0, -(size - 4)],
   });
 }
 
@@ -496,10 +511,9 @@ export function desenharMarcadoresIgnicaoDia(
     const coord = centroPontos([primeiraLigada]);
     if (coord) {
       bounds.extend(coord);
-      const v = pontoHistoricoParaVeiculo(primeiraLigada, veiculo);
       const marker = L.marker(coord, {
         pane,
-        icon: marcadorVeiculo(v, true, false, true, 'em_rota'),
+        icon: marcadorParadaPonteiro(COR_INICIO_DIA_PONTEIRO, 28),
         zIndexOffset: 850,
       });
       vincularPopupEventoHistorico(marker, 'Primeira ligada do dia', primeiraLigada, veiculo);
@@ -511,16 +525,15 @@ export function desenharMarcadoresIgnicaoDia(
   const ultimoPonto = ordenados[ordenados.length - 1];
   const ultimoEhDesligado = ultimoPonto?.ignicao === false;
 
-  for (const [idx, evento] of eventosDesligado.entries()) {
+  for (const evento of eventosDesligado) {
     const coord = centroPontos(evento.pontos);
     if (!coord) continue;
     bounds.extend(coord);
-    const v = pontoHistoricoParaVeiculo(evento.inicio, veiculo);
     const ehUltimo = ultimoEhDesligado && evento.fim.id === ultimoPonto.id;
     const titulo = ehUltimo ? 'Parada com desligamento · Último desligamento' : 'Parada com desligamento';
     const marker = L.marker(coord, {
       pane,
-      icon: marcadorVeiculo(v, true, ehUltimo, true, 'parado'),
+      icon: marcadorParadaPonteiro(COR_PARADA_PONTEIRO, ehUltimo ? 34 : 30),
       zIndexOffset: ehUltimo ? 860 : 840,
     });
     vincularPopupEventoHistorico(marker, titulo, evento.inicio, veiculo, {
@@ -528,7 +541,6 @@ export function desenharMarcadoresIgnicaoDia(
       religadoEm: evento.religadoEm,
     });
     marker.addTo(layer);
-    void idx;
   }
 
   if (ultimoEhDesligado) {
@@ -537,10 +549,9 @@ export function desenharMarcadoresIgnicaoDia(
       const coord = centroPontos([ultimoPonto]);
       if (coord) {
         bounds.extend(coord);
-        const v = pontoHistoricoParaVeiculo(ultimoPonto, veiculo);
         const marker = L.marker(coord, {
           pane,
-          icon: marcadorVeiculo(v, true, true, true, 'parado'),
+          icon: marcadorParadaPonteiro(COR_PARADA_PONTEIRO, 34),
           zIndexOffset: 860,
         });
         vincularPopupEventoHistorico(marker, 'Último desligamento do dia', ultimoPonto, veiculo);

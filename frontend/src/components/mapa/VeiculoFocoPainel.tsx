@@ -91,7 +91,7 @@ export default function VeiculoFocoPainel({
             </Typography>
             {!carregando && relatorio && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-                Vermelho = excesso · placas {limite} km/h · cinza = parada · toque na rota para detalhes
+                Vermelho = excesso · placas {limite} km/h · ponteiro vermelho = parada · toque para detalhes
               </Typography>
             )}
           </Box>

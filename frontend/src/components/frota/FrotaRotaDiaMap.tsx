@@ -17,8 +17,10 @@ import { geocodificarReversa } from '../../utils/geocodificarReversa';
 import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
 import { elevarPanesPopupMapa } from './frotaMapaRotaDiaDesenho';
 import {
+  COR_PARADA_PONTEIRO,
   desenharMarcadorVeiculoAoVivo,
   desenharMarcadoresIgnicaoDia,
+  marcadorParadaPonteiro,
   rodapeAtualizadoBalaoHtml,
 } from './frotaMapaVeiculo';
 import {
@@ -27,7 +29,6 @@ import {
   COR_EXCESSO_FROTA,
   COR_FIM_TRAJETO,
   COR_INICIO_TRAJETO,
-  COR_PARADO_FROTA,
   FROTA_MAPA_ESCURO_FUNDO,
   FROTA_MAPA_FUNDO,
   criarCamadaBasemapClaro,
@@ -48,7 +49,6 @@ const PANE_VEICULO = 'paneVeiculoHistorico';
 const COR_INICIO_ROTA = COR_INICIO_TRAJETO;
 const COR_FIM_ROTA = COR_FIM_TRAJETO;
 const COR_EXCESSO_VELOCIDADE = COR_EXCESSO_FROTA;
-const COR_PARADO = COR_PARADO_FROTA;
 const MIN_PARADO_MS = 2 * 60 * 1000;
 
 type Props = {
@@ -687,19 +687,21 @@ function desenharEventoParado(evento: EventoParado, layer: L.LayerGroup, bounds:
   const fimTxt = evento.fim.atualizado_em ? formatDataHoraBalaoMapa(evento.fim.atualizado_em) : '—';
   const duracaoTxt = formatarDuracaoMs(evento.duracaoMs);
 
-  L.circleMarker(centro, {
+  const marker = L.marker(centro, {
     pane: PANE_PARADO,
-    radius: 8,
-    color: '#ffffff',
-    weight: 2,
-    fillColor: COR_PARADO,
-    fillOpacity: 0.95,
-  })
+    icon: marcadorParadaPonteiro(),
+    zIndexOffset: 820,
+  });
+  marker
     .bindPopup(
       `<strong>Parada</strong><br/>Tempo parado: <strong>${duracaoTxt}</strong><br/>Início: ${inicioTxt}<br/>Fim: ${fimTxt}`,
-      { maxWidth: 280 },
+      { maxWidth: 280, className: 'popup-veiculo-mapa' },
     )
     .bindTooltip(`Parado ${duracaoTxt}`, { direction: 'top' })
+    .on('click', (ev) => {
+      L.DomEvent.stopPropagation(ev);
+      marker.openPopup();
+    })
     .addTo(layer);
 }
 
@@ -795,7 +797,8 @@ export default function FrotaRotaDiaMap({
       const rotasDesenho = prepararRotasDesenho(rotas, pontos);
       const pontosTrajeto =
         pontos.length >= 2 ? ordenarPontos(pontos) : rotasDesenho.flatMap((r) => r.pontos ?? []);
-      const eventosParado = mostrarParadas ? agruparEventosParado(pontosTrajeto) : [];
+      const eventosParado =
+        mostrarParadas && (diaAtual || !veiculoInfo) ? agruparEventosParado(pontosTrajeto) : [];
       const excessosDesenho =
         excessosMapa.length > 0 ? excessosMapa : [];
 
@@ -965,8 +968,8 @@ export default function FrotaRotaDiaMap({
 
   const qtdExcessosLegenda = excessosMapa.length || agruparEventosExcesso(pontosTrajeto, limiteKmh).length;
   const eventosParado = useMemo(
-    () => (mostrarParadas ? agruparEventosParado(pontosTrajeto) : []),
-    [pontosTrajeto, mostrarParadas],
+    () => (mostrarParadas && (diaAtual || !veiculoInfo) ? agruparEventosParado(pontosTrajeto) : []),
+    [pontosTrajeto, mostrarParadas, diaAtual, veiculoInfo],
   );
   const qtdLojas = lojas.filter(temCoordenadaLoja).length;
   const exibirLegenda =
@@ -1078,8 +1081,18 @@ export default function FrotaRotaDiaMap({
           )}
           {eventosParado.length > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: COR_PARADO, flexShrink: 0 }} />
-              <Typography variant="caption">Parada (clique p/ tempo)</Typography>
+              <Box
+                component="span"
+                sx={{
+                  width: 12,
+                  height: 12,
+                  flexShrink: 0,
+                  display: 'inline-block',
+                  clipPath: 'path("M6 0C3.79 0 2 1.79 2 4c0 2.5 4 8 4 8s4-5.5 4-8c0-2.21-1.79-4-4-4z")',
+                  bgcolor: COR_PARADA_PONTEIRO,
+                }}
+              />
+              <Typography variant="caption">Parada (toque p/ detalhes)</Typography>
             </Box>
           )}
         </Box>

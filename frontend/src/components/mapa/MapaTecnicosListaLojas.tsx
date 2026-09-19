@@ -249,9 +249,10 @@ export default function MapaTecnicosListaLojas() {
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         slotProps={{
+          root: { sx: { zIndex: 2000 } },
           paper: {
             className: 'ck-mapa__life-regiao-menu',
-            sx: { mt: -0.75, minWidth: 200, maxWidth: 280, borderRadius: 2, py: 0.5 },
+            sx: { mt: -0.75, minWidth: 200, maxWidth: 280, borderRadius: 2, py: 0.5, zIndex: 2001 },
           },
         }}
       >

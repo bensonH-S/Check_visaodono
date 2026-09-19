@@ -27,6 +27,7 @@ import {
   limparCamadasRotaDia,
   limparDestaqueTrechoRota,
   trazerExcessosParaFrente,
+  PANE_LOJA_LOCALIZACAO,
   type CamadasRotaDiaMapa,
 } from './frotaMapaRotaDiaDesenho';
 import {
@@ -852,6 +853,7 @@ export default function FrotaLocalizacaoMap({
         let marker = cache.lojas.get(l.id_loja);
         if (!marker) {
           marker = L.marker([lat, lng], {
+            pane: PANE_LOJA_LOCALIZACAO,
             icon: marcadorLoja(l, true, destacada),
             zIndexOffset: destacada ? 900 : 200,
           });
@@ -1004,6 +1006,7 @@ export default function FrotaLocalizacaoMap({
       bounds.push([lat, lng]);
       const destacada = mobile && lojaDestaqueId === l.id_loja;
       const marker = L.marker([lat, lng], {
+        pane: PANE_LOJA_LOCALIZACAO,
         icon: marcadorLoja(l, mobile, destacada),
         zIndexOffset: destacada ? 400 : 200,
       });
@@ -1152,6 +1155,12 @@ export default function FrotaLocalizacaoMap({
 
     if (temRotaDia && camadas && mapa) {
       const cor = corRotaSelecionada;
+      const desenhaIgnicaoHistorico = !trajetoDiaAtual && !consultaHistorico;
+      const estiloRota = cor
+        ? { coresRota: [cor, cor, cor, cor] as const, corExcesso: COR_EXCESSO_FROTA_ESCURO, peso: 7 }
+        : mapaEscuroEfetivo
+          ? { coresRota: CORES_TRAJETO_FROTA_ESCURO, corExcesso: COR_EXCESSO_FROTA_ESCURO }
+          : {};
       bounds = desenharRotaDiaNoMapa(
         mapa,
         camadas,
@@ -1159,11 +1168,11 @@ export default function FrotaLocalizacaoMap({
         rotaDiaVeiculo.pontos ?? [],
         rotaDiaVeiculo.excessos_mapa ?? [],
         rotaDiaVeiculo.limite_kmh ?? 80,
-        cor
-          ? { coresRota: [cor, cor, cor, cor], corExcesso: COR_EXCESSO_FROTA_ESCURO, peso: 7 }
-          : mapaEscuroEfetivo
-            ? { coresRota: CORES_TRAJETO_FROTA_ESCURO, corExcesso: COR_EXCESSO_FROTA_ESCURO }
-            : undefined,
+        {
+          ...estiloRota,
+          // Histórico: paradas = ponteiros vermelhos dos desligamentos (evita duplicar).
+          mostrarParadas: !desenhaIgnicaoHistorico,
+        },
       );
       trazerExcessosParaFrente(camadas);
     }
@@ -1501,9 +1510,35 @@ export default function FrotaLocalizacaoMap({
               ? { background: `${FROTA_MAPA_ESCURO_FUNDO} !important` }
               : { background: `${FROTA_MAPA_FUNDO} !important` }),
           },
-          /* MapLibre GL canvas fica atrás dos marcadores Leaflet */
           '& .leaflet-gl-layer, & .maplibregl-map': {
             zIndex: 0,
+          },
+          '& .leaflet-overlay-pane': {
+            zIndex: 400,
+          },
+          '& .leaflet-marker-pane': {
+            zIndex: 600,
+          },
+          '& .paneRotaLocalizacao': {
+            zIndex: '450 !important',
+          },
+          '& .paneExcessoLinhaLocalizacao': {
+            zIndex: '480 !important',
+          },
+          '& .paneLojaLocalizacao': {
+            zIndex: '630 !important',
+          },
+          '& .paneParadoLocalizacao': {
+            zIndex: '640 !important',
+          },
+          '& .paneExcessoLocalizacao': {
+            zIndex: '680 !important',
+          },
+          '& .paneDestaqueLocalizacao': {
+            zIndex: '700 !important',
+          },
+          '& .paneVeiculoTrajetoMobile': {
+            zIndex: '720 !important',
           },
           '& .leaflet-control-zoom': {
             border: 'none',
