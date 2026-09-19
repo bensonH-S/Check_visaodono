@@ -1682,6 +1682,8 @@ router.put('/sync-fornecedor', permConfig, async (req, res, next) => {
       ativo: req.body?.ativo,
       horario: req.body?.horario,
       limite: req.body?.limite,
+      usuario: req.body?.usuario,
+      senha: req.body?.senha,
     });
     await auditar(req, {
       modulo: 'estoque',
@@ -1703,7 +1705,7 @@ router.post('/sync-fornecedor/rodar-todas', permConfig, async (req, res, next) =
       return res.status(409).json({ error: 'Sync já em andamento — aguarde terminar' });
     }
     const fornecedor = String(req.body?.fornecedor || 'platlog').toLowerCase();
-    if (!['platlog', 'coca'].includes(fornecedor)) {
+    if (!['platlog', 'coca', 'idealwork', 'gimba'].includes(fornecedor)) {
       return res.status(400).json({ error: 'Fornecedor inválido' });
     }
 

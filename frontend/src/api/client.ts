@@ -1,6 +1,7 @@
 import { apiBasePath, appBasePath } from '../config/paths';
 import { getToken } from '../lib/auth';
 import type { UsuarioSessao, TipoChecklistResumo } from '../lib/auth';
+import type { ModulosCanalMapa } from '../config/modulosCanal';
 import { formatDataCampoData } from '../utils/dateBr';
 
 const BASE = apiBasePath;
@@ -19,6 +20,7 @@ export type AppPublicConfig = {
   gpsTecnicosIntervalMs?: number;
   hasIntegrations?: boolean;
   integrations?: Array<{ id: string; name: string }>;
+  modulos?: ModulosCanalMapa;
 };
 
 export type IntegrationStatusItem = {
@@ -186,6 +188,10 @@ export const api = {
     }),
   agenteAlvimSincronizarGrupos: () =>
     request<AgenteAlvimGruposSync>('/agente-alvim/grupos/sincronizar', { method: 'POST' }),
+
+  modulosCanalObter: () => request<ModulosCanalMapa>('/sistema/modulos-canal'),
+  modulosCanalSalvar: (body: Partial<ModulosCanalMapa>) =>
+    request<ModulosCanalMapa>('/sistema/modulos-canal', { method: 'PUT', body: JSON.stringify(body) }),
 
   smtpObter: () => request<ConfiguracaoSmtp>('/sistema/smtp'),
   smtpSalvar: (body: Partial<ConfiguracaoSmtpInput>) =>
@@ -1676,11 +1682,13 @@ export const api = {
       painel?: EstoqueSyncPainel;
     }>('/estoque/sync-fornecedor'),
   estoqueSyncFornecedorSalvar: (body: {
-    fornecedor: 'platlog' | 'coca';
+    fornecedor: 'platlog' | 'coca' | 'cokenet' | 'idealwork' | 'gimba';
     id_loja: number;
     ativo: boolean;
     horario: string;
     limite: number;
+    usuario?: string;
+    senha?: string;
   }) =>
     request<EstoqueSyncFornecedor>('/estoque/sync-fornecedor', {
       method: 'PUT',
@@ -1691,7 +1699,7 @@ export const api = {
       `/estoque/sync-fornecedor/${id}/rodar`,
       { method: 'POST', body: JSON.stringify(body || {}) },
     ),
-  estoqueSyncFornecedorRodarTodas: (body?: { fornecedor?: 'platlog' | 'coca'; forcar?: boolean }) =>
+  estoqueSyncFornecedorRodarTodas: (body?: { fornecedor?: 'platlog' | 'coca' | 'idealwork' | 'gimba'; forcar?: boolean }) =>
     request<{ ok: boolean; message: string; fornecedor: string }>(
       '/estoque/sync-fornecedor/rodar-todas',
       { method: 'POST', body: JSON.stringify(body || { fornecedor: 'platlog' }) },
@@ -3514,7 +3522,7 @@ export interface EstoquePedidoSugerido {
 
 export interface EstoqueSyncFornecedor {
   id_sync: number;
-  fornecedor: 'platlog' | 'coca' | string;
+  fornecedor: 'platlog' | 'coca' | 'idealwork' | 'gimba' | string;
   id_loja: number;
   loja_nome?: string;
   loja_codigo?: string | null;
@@ -3534,8 +3542,20 @@ export interface EstoqueSyncFornecedor {
   ultima_execucao_dia?: string | null;
   atualizado_em?: string;
   credenciais_ok?: boolean;
+  conexao_motivo?: string | null;
+  usuario?: string | null;
+  tem_senha?: boolean;
   nfes_total?: number;
+  so_pedido?: boolean;
 }
+
+export type EstoqueSyncConexao = {
+  ok: boolean;
+  usuario?: string | null;
+  portal: string;
+  lojas_com_login: number;
+  lojas_sem_login: number;
+};
 
 export type EstoqueSyncPainelFornecedor = {
   fornecedor: string;
@@ -3549,11 +3569,15 @@ export type EstoqueSyncPainelFornecedor = {
   ultima: string | null;
   situacao: 'ok' | 'erro' | 'parcial' | 'rodando' | 'nunca';
   texto: string;
+  conexao?: EstoqueSyncConexao;
 };
 
 export type EstoqueSyncPainel = {
   platlog: EstoqueSyncPainelFornecedor;
   coca: EstoqueSyncPainelFornecedor;
+  cokenet?: EstoqueSyncPainelFornecedor;
+  idealwork: EstoqueSyncPainelFornecedor;
+  gimba: EstoqueSyncPainelFornecedor;
   lote: {
     rodando: boolean;
     em_andamento?: boolean;

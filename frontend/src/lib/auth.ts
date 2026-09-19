@@ -1,3 +1,5 @@
+import { lerModulosCanalCache, moduloNoCanal } from '../config/modulosCanal';
+
 export type PerfilUsuario = 'administrador' | 'coordenador' | 'gerente' | 'tecnico';
 export type CargoAprovacao = string;
 
@@ -133,24 +135,35 @@ export function destinoPosLoginMobile(usuario: UsuarioSessao): string {
 
 /** Primeira aba do app mobile conforme permissões do usuário. */
 export function primeiraRotaMobileApp(usuario: UsuarioSessao): string {
-  if (modoAppTecnicoFrotaRestrito(usuario)) return '/mapa/mobile';
+  const modulos = lerModulosCanalCache();
+  const on = (codigo: Parameters<typeof moduloNoCanal>[1]) => moduloNoCanal(modulos, codigo, 'mobile');
+  if (modoAppTecnicoFrotaRestrito(usuario) && on('mapa')) return '/mapa/mobile';
   // Delivery: abre direto na escala (não em chamados).
-  if (ehEscalaDeliveryOnly(usuario)) return '/escalas/visitas/mobile';
-  if (podeUsarChecklist(usuario) && !temPermissao('chamados.ver', usuario) && !temPermissao('chamados.abrir', usuario)) {
+  if (ehEscalaDeliveryOnly(usuario) && on('escala')) return '/escalas/visitas/mobile';
+  if (
+    podeUsarChecklist(usuario) &&
+    on('checklist') &&
+    !temPermissao('chamados.ver', usuario) &&
+    !temPermissao('chamados.abrir', usuario)
+  ) {
     return '/checklist/mobile';
   }
-  if (temPermissao('chamados.ver', usuario) || temPermissao('chamados.abrir', usuario)) {
+  if (on('chamados') && (temPermissao('chamados.ver', usuario) || temPermissao('chamados.abrir', usuario))) {
     return '/chamados/mobile';
   }
-  if (podeUsarChecklist(usuario)) return '/checklist/mobile';
-  if (podeVerVisitasMobile(usuario)) return '/visitas/mobile';
-  if (podeVerEscalaVisitas(usuario) || podeVerEscalaGestores(usuario)) return '/escalas/visitas/mobile';
-  if (podeVerNcMobile(usuario)) return '/nc/mobile';
-  if (podeVerEnergia(usuario)) return '/energia/mobile';
-  if (podeUsarFrota(usuario)) return '/frota/mobile';
-  if (podeConferenciaEstoque(usuario)) return '/estoque/mobile';
-  if (podeBreakEstoque(usuario)) return '/estoque/mobile/break';
-  return '/chamados/mobile';
+  if (podeUsarChecklist(usuario) && on('checklist')) return '/checklist/mobile';
+  if (podeVerVisitasMobile(usuario) && on('visitas')) return '/visitas/mobile';
+  if ((podeVerEscalaVisitas(usuario) || podeVerEscalaGestores(usuario)) && on('escala')) {
+    return '/escalas/visitas/mobile';
+  }
+  if (podeVerNcMobile(usuario) && on('nc')) return '/nc/mobile';
+  if (podeVerEnergia(usuario) && on('energia')) return '/energia/mobile';
+  if (podeUsarFrota(usuario) && on('frota')) return '/frota/mobile';
+  if (podeConferenciaEstoque(usuario) && on('estoque')) return '/estoque/mobile';
+  if (podeBreakEstoque(usuario) && on('break')) return '/estoque/mobile/break';
+  if (podeVerMapaTecnicosMobile(usuario) && on('mapa')) return '/mapa/mobile';
+  if (podeAprovarFreelancers(usuario) && on('freelancers')) return '/freelancers/aprovacao/mobile';
+  return '/portais/mobile';
 }
 
 /** Acesso ao módulo checklist — somente permissões marcadas em Usuários. */

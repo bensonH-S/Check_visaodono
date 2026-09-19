@@ -6,12 +6,27 @@ import { pool } from '../../db.js';
 import {
   credenciaisOk,
   credencialBrasal,
+  credencialLoja,
   credencialPlatlog,
   findEsupriLojaByBk,
+  motivoConexao,
+  usuarioCredencial,
 } from '../../config/fornecedoresLojas.js';
+import { gravarCredencialLoja, JANELA_NF_DIAS } from '../estoqueFornecedorCredencial.js';
 import { syncNfeCoca } from '../brasal/syncNfeCoca.js';
+import { syncNfeGimba } from '../gimba/syncNfeGimba.js';
+import { syncNfeIdealWork } from '../idealwork/syncNfeIdealWork.js';
 import { syncNfePlatlog } from './syncNfePlatlog.js';
 import { syncPrecosCatalogoPlatlog } from './syncPrecosCatalogoPlatlog.js';
+
+const FORNECEDORES_NF = ['platlog', 'coca', 'idealwork', 'gimba'];
+const PORTAL_FORN = {
+  platlog: 'eSupri',
+  coca: 'Conecta Brasal',
+  cokenet: 'Coke.Net',
+  idealwork: 'Workexpress',
+  gimba: 'Gimba',
+};
 
 let timer = null;
 let rodando = false;
@@ -69,22 +84,21 @@ async function bkNumberDaLoja(idLoja) {
 export async function executarSyncFornecedor(row, { forcar = false, soNfe = false } = {}) {
   const idSync = row.id_sync;
   const fornecedor = row.fornecedor;
-  if (!['platlog', 'coca'].includes(fornecedor)) {
+  if (!FORNECEDORES_NF.includes(fornecedor)) {
     throw Object.assign(new Error(`Fornecedor ${fornecedor} ainda não implementado`), {
       status: 501,
     });
   }
-
   const bkNumber = await bkNumberDaLoja(row.id_loja);
   let user = '';
   let pass = '';
   let esupriLojaCodigo = '';
   if (fornecedor === 'platlog') {
-    const cred = credencialPlatlog();
+    const cred = credencialPlatlog(bkNumber);
     user = cred.user;
     pass = cred.pass;
     if (!user || !pass) {
-      throw Object.assign(new Error('Credencial eSupri ausente (.env ESUPRI_* ou JSON local)'), {
+      throw Object.assign(new Error('Credencial eSupri ausente no banco'), {
         status: 400,
       });
     }
@@ -101,8 +115,19 @@ export async function executarSyncFornecedor(row, { forcar = false, soNfe = fals
     user = cred.user;
     pass = cred.pass;
     if (!user || !pass) {
+      await marcarStatus(idSync, {
+        ultimo_status: null,
+        ultimo_erro: null,
+      });
+      return { id_sync: idSync, status: 'sem_credencial', skipped: true };
+    }
+  } else if (fornecedor === 'gimba' || fornecedor === 'idealwork') {
+    const cred = credencialLoja(bkNumber, fornecedor);
+    user = cred.user;
+    pass = cred.pass;
+    if (!user || !pass) {
       throw Object.assign(
-        new Error(`Credencial Conecta Brasal ausente para a loja BK ${bkNumber || row.id_loja}`),
+        new Error(`Credencial ${PORTAL_FORN[fornecedor]} ausente para a loja BK ${bkNumber || row.id_loja}`),
         { status: 400 },
       );
     }
@@ -122,7 +147,55 @@ export async function executarSyncFornecedor(row, { forcar = false, soNfe = fals
         id_loja: row.id_loja,
         user,
         pass,
-        limit: row.limite || 20,
+        limit: row.limite || 80,
+        dias: JANELA_NF_DIAS,
+        aplicar: true,
+        registrar_entrada: false,
+        pular_existentes: !forcar,
+      });
+
+      const aplicadas = result.processadas.filter((p) => p.aplicado).length;
+      const erros = result.processadas.filter((p) => !p.ok).length;
+      const status = erros && aplicadas ? 'parcial' : erros ? 'erro' : 'ok';
+
+      await marcarStatus(idSync, {
+        ultimo_fim: new Date(),
+        ultimo_status: status,
+        ultimo_erro: erros
+          ? result.processadas
+              .filter((p) => !p.ok)
+              .map((p) => p.erro)
+              .join('; ')
+              .slice(0, 500)
+          : null,
+        ultimo_resumo: {
+          baixadas: result.baixadas,
+          aplicadas,
+          erros,
+          processadas: result.processadas.map((p) => ({
+            nota: p.notaLabel,
+            numero: p.numero,
+            casados: p.casados,
+            itens: p.itens,
+            aplicado: p.aplicado,
+            pulada: p.pulada,
+            ok: p.ok,
+          })),
+        },
+        ultima_execucao_dia: dia,
+      });
+
+      return { id_sync: idSync, status, result };
+    }
+
+    if (fornecedor === 'gimba' || fornecedor === 'idealwork') {
+      const syncFn = fornecedor === 'gimba' ? syncNfeGimba : syncNfeIdealWork;
+      const result = await syncFn({
+        id_loja: row.id_loja,
+        user,
+        pass,
+        limit: row.limite || 80,
+        dias: JANELA_NF_DIAS,
         aplicar: true,
         registrar_entrada: false,
         pular_existentes: !forcar,
@@ -170,7 +243,8 @@ export async function executarSyncFornecedor(row, { forcar = false, soNfe = fals
           user,
           pass,
           esupriLojaCodigo,
-          limit: row.limite || 20,
+          limit: row.limite || 80,
+          meses: 3,
           aplicar: true,
           registrar_entrada: false,
           pular_existentes: !forcar,
@@ -337,7 +411,7 @@ export async function rodarFilaSyncFornecedor({
     throw Object.assign(new Error('Sync já em andamento — aguarde terminar'), { status: 409 });
   }
   const forn = String(fornecedor || 'platlog').toLowerCase();
-  if (!['platlog', 'coca'].includes(forn)) {
+  if (!FORNECEDORES_NF.includes(forn)) {
     throw Object.assign(new Error('Fornecedor inválido'), { status: 400 });
   }
 
@@ -371,7 +445,8 @@ export async function rodarFilaSyncFornecedor({
       lote.mensagem = `Puxando ${i + 1} de ${rows.length}`;
       console.log(`[platlog-sched] lote ${forn} loja ${row.id_loja} (${i + 1}/${rows.length})`);
       try {
-        await executarSyncFornecedor(row, { forcar, soNfe });
+        const r = await executarSyncFornecedor(row, { forcar, soNfe });
+        if (r?.skipped) continue;
         lote.lojas_ok += 1;
       } catch (e) {
         lote.lojas_erro += 1;
@@ -408,11 +483,13 @@ export function resumoPainelSync(itens) {
     const fins = ativas.map((i) => i.ultimo_fim).filter(Boolean).sort();
     const ultima = fins.length ? fins[fins.length - 1] : null;
     const total = ativas.length;
+    const esteLote = lote.rodando && lote.fornecedor === forn;
+    const comLogin = lista.filter((i) => i.credenciais_ok).length;
     let situacao = 'nunca';
     let texto = total ? 'Ainda não puxou NFs destas lojas.' : 'Nenhuma loja ativa.';
-    if (emCurso || lote.rodando) {
+    if (emCurso || esteLote) {
       situacao = 'rodando';
-      texto = lote.mensagem || 'Puxando notas…';
+      texto = esteLote ? lote.mensagem || 'Puxando notas…' : 'Puxando notas…';
     } else if (total && ok === total) {
       situacao = 'ok';
       texto = `Puxou corretamente: ${ok} lojas · ${nfes} NFs no app`;
@@ -429,30 +506,50 @@ export function resumoPainelSync(itens) {
       ok,
       erro,
       parcial,
-      rodando: emCurso,
+      rodando: emCurso || esteLote,
       nfes_total: nfes,
       aplicadas_ultima: aplicadas,
       ultima,
       situacao,
       texto,
+      conexao: conexaoPainel(forn, lista, comLogin),
     };
   };
   return {
     platlog: porForn('platlog'),
     coca: porForn('coca'),
+    cokenet: porForn('cokenet'),
+    idealwork: porForn('idealwork'),
+    gimba: porForn('gimba'),
     lote: statusLoteSync(),
   };
 }
 
 export async function listarSyncFornecedor() {
+  const { recarregarCredenciaisFornecedor } = await import('../estoqueFornecedorCredencial.js');
+  await recarregarCredenciaisFornecedor();
   const { rows } = await pool.query(
     `SELECT s.*, l.name AS loja_nome, l.bk_number AS loja_codigo,
-            (SELECT COUNT(*)::int FROM estoque_nfe n WHERE n.id_loja = s.id_loja) AS nfes_total
+            (SELECT COUNT(*)::int FROM estoque_nfe n
+              WHERE n.id_loja = s.id_loja AND n.fornecedor = s.fornecedor) AS nfes_total
      FROM estoque_sync_fornecedor s
      JOIN lojas l ON l.id_loja = s.id_loja
+     WHERE COALESCE(l.is_active, TRUE) = TRUE
+       AND TRIM(COALESCE(l.bk_number, '')) <> '15022'
+       AND l.name !~* 'popeyes|popyes'
      ORDER BY s.fornecedor, l.name`,
   );
-  return rows.map(mapRow);
+  const itens = rows.map(mapRow);
+  const { rows: lojas } = await pool.query(
+    `SELECT id_loja, name AS loja_nome, bk_number AS loja_codigo
+     FROM lojas
+     WHERE COALESCE(is_active, TRUE) = TRUE
+       AND TRIM(COALESCE(bk_number, '')) <> '15022'
+       AND name !~* 'popeyes|popyes'
+     ORDER BY name`,
+  );
+  for (const l of lojas) itens.push(mapCokeNetVirtual(l));
+  return itens;
 }
 
 export async function upsertSyncFornecedor({
@@ -461,13 +558,34 @@ export async function upsertSyncFornecedor({
   ativo,
   horario,
   limite,
+  usuario,
+  senha,
 }) {
   const forn = String(fornecedor || '').toLowerCase();
-  if (!['platlog', 'coca'].includes(forn)) {
-    throw Object.assign(new Error('Fornecedor inválido'), { status: 400 });
-  }
   const idLoja = Number(id_loja);
   if (!idLoja) throw Object.assign(new Error('Loja obrigatória'), { status: 400 });
+  if (forn === 'cokenet') {
+    const user = String(usuario || '').trim();
+    const pass = String(senha || '').trim();
+    if (user || pass) {
+      await gravarCredencialLoja({
+        fornecedor: 'cokenet',
+        id_loja: idLoja,
+        usuario: user,
+        senha: pass,
+      });
+    }
+    const { rows: loja } = await pool.query(
+      `SELECT id_loja, name AS loja_nome, bk_number AS loja_codigo
+       FROM lojas WHERE id_loja = $1`,
+      [idLoja],
+    );
+    if (!loja[0]) throw Object.assign(new Error('Loja não encontrada'), { status: 404 });
+    return mapCokeNetVirtual(loja[0]);
+  }
+  if (!FORNECEDORES_NF.includes(forn)) {
+    throw Object.assign(new Error('Fornecedor inválido'), { status: 400 });
+  }
 
   let hm = String(horario || '06:00').trim();
   if (/^\d{1}:\d{2}$/.test(hm)) hm = `0${hm}`;
@@ -475,8 +593,8 @@ export async function upsertSyncFornecedor({
     throw Object.assign(new Error('Horário inválido (use HH:MM)'), { status: 400 });
   }
   const lim = Number(limite);
-  if (!Number.isFinite(lim) || lim < 1 || lim > 200) {
-    throw Object.assign(new Error('Limite deve ser entre 1 e 200'), { status: 400 });
+  if (!Number.isFinite(lim) || lim < 1 || lim > 500) {
+    throw Object.assign(new Error('Limite deve ser entre 1 e 500'), { status: 400 });
   }
 
   const { rows } = await pool.query(
@@ -490,6 +608,14 @@ export async function upsertSyncFornecedor({
      RETURNING *`,
     [forn, idLoja, !!ativo, hm, lim],
   );
+  if (String(senha || '').trim()) {
+    await gravarCredencialLoja({
+      fornecedor: forn,
+      id_loja: idLoja,
+      usuario,
+      senha,
+    });
+  }
   const { rows: joined } = await pool.query(
     `SELECT s.*, l.name AS loja_nome, l.bk_number AS loja_codigo
      FROM estoque_sync_fornecedor s
@@ -512,6 +638,8 @@ export async function obterSyncPorId(idSync) {
 }
 
 function mapRow(r) {
+  const ok = credenciaisOk(r.fornecedor, r.loja_codigo);
+  const rodando = r.ultimo_status === 'rodando';
   return {
     id_sync: r.id_sync,
     fornecedor: r.fornecedor,
@@ -523,14 +651,55 @@ function mapRow(r) {
     limite: Number(r.limite) || 20,
     ultimo_inicio: r.ultimo_inicio,
     ultimo_fim: r.ultimo_fim,
-    ultimo_status: r.ultimo_status,
+    ultimo_status: ok || rodando ? r.ultimo_status : null,
     ultimo_resumo: r.ultimo_resumo,
-    ultimo_erro: r.ultimo_erro,
+    ultimo_erro: ok ? r.ultimo_erro : null,
     ultima_execucao_dia: r.ultima_execucao_dia
       ? String(r.ultima_execucao_dia).slice(0, 10)
       : null,
     atualizado_em: r.atualizado_em,
-    credenciais_ok: credenciaisOk(r.fornecedor, r.loja_codigo),
+    credenciais_ok: ok,
+    conexao_motivo: motivoConexao(r.fornecedor, r.loja_codigo),
+    usuario: usuarioCredencial(r.fornecedor, r.loja_codigo) || null,
+    tem_senha: ok,
     nfes_total: Number(r.nfes_total) || 0,
+    so_pedido: false,
+  };
+}
+
+function mapCokeNetVirtual(l) {
+  const ok = credenciaisOk('cokenet', l.loja_codigo);
+  return {
+    id_sync: 0,
+    fornecedor: 'cokenet',
+    id_loja: l.id_loja,
+    loja_nome: l.loja_nome,
+    loja_codigo: l.loja_codigo,
+    ativo: false,
+    horario: '06:00',
+    limite: 0,
+    ultimo_inicio: null,
+    ultimo_fim: null,
+    ultimo_status: null,
+    ultimo_resumo: null,
+    ultimo_erro: null,
+    ultima_execucao_dia: null,
+    atualizado_em: null,
+    credenciais_ok: ok,
+    conexao_motivo: motivoConexao('cokenet', l.loja_codigo),
+    usuario: usuarioCredencial('cokenet', l.loja_codigo) || null,
+    tem_senha: ok,
+    nfes_total: 0,
+    so_pedido: true,
+  };
+}
+
+function conexaoPainel(forn, lista, comLogin) {
+  return {
+    ok: comLogin > 0,
+    usuario: null,
+    portal: PORTAL_FORN[forn] || forn,
+    lojas_com_login: comLogin,
+    lojas_sem_login: Math.max(0, lista.length - comLogin),
   };
 }

@@ -14,6 +14,7 @@ import {
 } from '../services/dbBackup.js';
 import { obterConfiguracaoSmtp, salvarConfiguracaoSmtp } from '../services/smtpConfig.js';
 import { testarEnvioSmtp } from '../services/mailer.js';
+import { carregarModulosCanal, salvarModulosCanal } from '../services/appModulosCanal.js';
 
 const router = Router();
 
@@ -130,6 +131,30 @@ function requireConfigVer(req, res, next) {
   }
   return res.status(403).json({ error: 'Permissão negada para configurações' });
 }
+
+router.get('/modulos-canal', requireConfigVer, async (_req, res, next) => {
+  try {
+    res.json(await carregarModulosCanal());
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.put('/modulos-canal', requireConfigVer, async (req, res, next) => {
+  try {
+    const config = await salvarModulosCanal(req.body || {});
+    await auditar(req, {
+      modulo: 'configuracoes',
+      acao: 'alteracao',
+      entidade: 'modulos_canal',
+      descricao: `Atualizou canais AutoREV/Chamados (portal/app)`,
+      detalhes: config,
+    });
+    res.json(config);
+  } catch (e) {
+    next(e);
+  }
+});
 
 router.get('/smtp', requireConfigVer, async (_req, res, next) => {
   try {

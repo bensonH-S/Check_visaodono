@@ -1,4 +1,4 @@
-import { Outlet, useNavigate, useLocation, useMatch } from 'react-router-dom';
+import { Navigate, Outlet, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -40,6 +40,7 @@ import ThemeToggleButton from '../components/ThemeToggleButton';
 import { colors } from '../theme/tokens';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
+import { codigoModuloMobile, moduloNoCanal, type ModuloCanalCodigo, type ModulosCanalMapa } from '../config/modulosCanal';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
@@ -54,6 +55,10 @@ import {
   useChecklistMobileUi,
 } from '../context/ChecklistMobileUiContext';
 import ChecklistIonicRoot from '../components/checklist/ChecklistIonicRoot';
+
+function canalMobile(modulos: ModulosCanalMapa | undefined, codigo: ModuloCanalCodigo) {
+  return moduloNoCanal(modulos, codigo, 'mobile');
+}
 
 const ORANGE = '#E8520A';
 const TAB_NAV_H = 52;
@@ -369,20 +374,32 @@ function ChamadosMobileLayoutInner() {
     isChecklistConcluido;
   const isSubPage = isChamadosSubPage || isFrotaSub || isRelatorio || isNcResolver || isEnergiaNovo || isEnergiaDetalhe || isEstoqueDetalhe;
   const podeAbrir = user && !modoRestrito && temPermissao('chamados.abrir', user);
-  const podeChecklist = user && !modoRestrito && podeUsarChecklist(user);
+  const podeChecklist =
+    user &&
+    !modoRestrito &&
+    podeUsarChecklist(user) &&
+    canalMobile(appConfig.modulos, 'checklist');
   const podeChamados =
-    user && !modoRestrito && (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
+    user &&
+    !modoRestrito &&
+    canalMobile(appConfig.modulos, 'chamados') &&
+    (temPermissao('chamados.ver', user) || temPermissao('chamados.abrir', user));
   const veSinoChamados = !!podeChamados || (user != null && !modoRestrito && podeReceberPainelDiretorChamados(user));
-  const podeFrota = user && podeUsarFrota(user);
-  const podeMapa = user && podeVerMapaTecnicosMobile(user);
-  const podeVisitas = user && !modoRestrito && podeVerVisitasMobile(user);
-  const podeEscalaVisitas = user && !modoRestrito && (podeVerEscalaVisitas(user) || podeVerEscalaGestores(user));
-  const podeNc = user && !modoRestrito && podeVerNcMobile(user);
-  const podeEnergia = user && !modoRestrito && podeVerEnergia(user);
+  const podeFrota = user && podeUsarFrota(user) && canalMobile(appConfig.modulos, 'frota');
+  const podeMapa = user && podeVerMapaTecnicosMobile(user) && canalMobile(appConfig.modulos, 'mapa');
+  const podeVisitas = user && !modoRestrito && podeVerVisitasMobile(user) && canalMobile(appConfig.modulos, 'visitas');
+  const podeEscalaVisitas =
+    user &&
+    !modoRestrito &&
+    canalMobile(appConfig.modulos, 'escala') &&
+    (podeVerEscalaVisitas(user) || podeVerEscalaGestores(user));
+  const podeNc = user && !modoRestrito && podeVerNcMobile(user) && canalMobile(appConfig.modulos, 'nc');
+  const podeEnergia = user && !modoRestrito && podeVerEnergia(user) && canalMobile(appConfig.modulos, 'energia');
   const podeAbrirEnergiaMobile = user && !modoRestrito && podeAbrirEnergia(user);
-  const podeEstoque = user && !modoRestrito && podeConferenciaEstoque(user);
-  const podeBreak = user && !modoRestrito && podeBreakEstoque(user);
-  const podeFreelancers = user && !modoRestrito && podeAprovarFreelancers(user);
+  const podeEstoque = user && !modoRestrito && podeConferenciaEstoque(user) && canalMobile(appConfig.modulos, 'estoque');
+  const podeBreak = user && !modoRestrito && podeBreakEstoque(user) && canalMobile(appConfig.modulos, 'break');
+  const podeFreelancers = user && !modoRestrito && podeAprovarFreelancers(user) && canalMobile(appConfig.modulos, 'freelancers');
+  const podePortais = canalMobile(appConfig.modulos, 'portais');
   const modoCabecalho = modoCabecalhoContextoMobile(user);
   const multiplasLojasHeader = (user?.lojas?.length ?? 0) > 1;
 
@@ -408,7 +425,7 @@ function ChamadosMobileLayoutInner() {
             to: '/mapa/mobile',
             label: 'Mapa',
             icon: <MapOutlinedIcon fontSize="small" />,
-            show: true,
+            show: !!podeMapa,
           },
           {
             to: '/frota/mobile/abastecimento',
@@ -426,7 +443,7 @@ function ChamadosMobileLayoutInner() {
             to: '/portais/mobile',
             label: 'Portais',
             icon: <LanguageIcon fontSize="small" />,
-            show: true,
+            show: !!podePortais,
           },
         ]
       : [
@@ -506,7 +523,7 @@ function ChamadosMobileLayoutInner() {
             to: '/portais/mobile',
             label: 'Portais',
             icon: <LanguageIcon fontSize="small" />,
-            show: true,
+            show: !!podePortais,
           },
         ]
   ).filter((t) => t.show);
@@ -632,17 +649,17 @@ function ChamadosMobileLayoutInner() {
       path.startsWith('/frota/mobile/abastecimento') ||
       path.startsWith('/frota/mobile/manutencao') ||
       path.startsWith('/portais/mobile');
-    if (!permitido) {
-      navigate('/mapa/mobile', { replace: true });
+    if (!permitido && user) {
+      navigate(primeiraRotaMobileApp(user), { replace: true });
     }
-  }, [modoRestrito, path, navigate]);
+  }, [modoRestrito, path, navigate, user]);
 
   useEffect(() => {
     if (!deliveryOnly) return;
-    if (path === '/chamados/mobile' || path.startsWith('/chamados/mobile/')) {
-      navigate('/escalas/visitas/mobile', { replace: true });
+    if (user && (path === '/chamados/mobile' || path.startsWith('/chamados/mobile/'))) {
+      navigate(primeiraRotaMobileApp(user), { replace: true });
     }
-  }, [deliveryOnly, path, navigate]);
+  }, [deliveryOnly, path, navigate, user]);
 
   useEffect(() => {
     if (!user || podeMapa) return;
@@ -660,6 +677,14 @@ function ChamadosMobileLayoutInner() {
     showWelcomeToast(nome);
     navigate(location.pathname + location.search + location.hash, { replace: true, state: {} });
   }, [location.state, location.pathname, location.search, location.hash, navigate]);
+
+  const codigoPagina = codigoModuloMobile(path);
+  if (user && codigoPagina && !moduloNoCanal(appConfig.modulos, codigoPagina, 'mobile')) {
+    const destino = primeiraRotaMobileApp(user);
+    if (destino !== path) {
+      return <Navigate to={destino} replace />;
+    }
+  }
 
   function rotaVoltarMobile() {
     if (isNcResolver) return '/nc/mobile';

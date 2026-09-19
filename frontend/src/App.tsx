@@ -76,11 +76,13 @@ import AgenteAlvimPage from './pages/configuracoes/AgenteAlvimPage';
 import NotificacoesPage from './pages/configuracoes/NotificacoesPage';
 import AuditoriaPage from './pages/configuracoes/AuditoriaPage';
 import SmtpPage from './pages/configuracoes/SmtpPage';
+import ModulosCanalPage from './pages/configuracoes/ModulosCanalPage';
 import EstoqueSyncNfPage from './pages/configuracoes/EstoqueSyncNfPage';
 import ConfiguracaoContagemPage from './pages/configuracoes/ConfiguracaoContagemPage';
 import RotaAuditoria from './components/RotaAuditoria';
 import RotaConfiguracoes from './components/RotaConfiguracoes';
 import RotaPermissao from './components/RotaPermissao';
+import RotaModuloCanal from './components/RotaModuloCanal';
 import RotaChecklist from './components/RotaChecklist';
 import RotaVisitasMobile from './components/RotaVisitasMobile';
 import RotaFrota from './components/RotaFrota';
@@ -103,9 +105,30 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route path="chamados/mobile/novo" element={<ChamadosMobileNovoPage />} />
-            <Route path="chamados/mobile/:idChamado" element={<ChamadosMobileDetalhePage />} />
-            <Route path="chamados/mobile" element={<ChamadosMobileHistoricoPage />} />
+            <Route
+              path="chamados/mobile/novo"
+              element={
+                <RotaModuloCanal codigo="chamados" canal="mobile">
+                  <ChamadosMobileNovoPage />
+                </RotaModuloCanal>
+              }
+            />
+            <Route
+              path="chamados/mobile/:idChamado"
+              element={
+                <RotaModuloCanal codigo="chamados" canal="mobile">
+                  <ChamadosMobileDetalhePage />
+                </RotaModuloCanal>
+              }
+            />
+            <Route
+              path="chamados/mobile"
+              element={
+                <RotaModuloCanal codigo="chamados" canal="mobile">
+                  <ChamadosMobileHistoricoPage />
+                </RotaModuloCanal>
+              }
+            />
             <Route
               path="checklist/mobile/concluido/:id"
               element={
@@ -501,25 +524,31 @@ export default function App() {
             <Route
               path="chamados"
               element={
-                <RotaPermissao permissoes={['chamados.ver']}>
-                  <ManutencaoChamadosPage />
-                </RotaPermissao>
+                <RotaModuloCanal codigo="chamados" canal="portal">
+                  <RotaPermissao permissoes={['chamados.ver']}>
+                    <ManutencaoChamadosPage />
+                  </RotaPermissao>
+                </RotaModuloCanal>
               }
             />
             <Route
               path="chamados/novo"
               element={
-                <RotaPermissao permissoes={['chamados.abrir']}>
-                  <ManutencaoNovoPage />
-                </RotaPermissao>
+                <RotaModuloCanal codigo="chamados" canal="portal">
+                  <RotaPermissao permissoes={['chamados.abrir']}>
+                    <ManutencaoNovoPage />
+                  </RotaPermissao>
+                </RotaModuloCanal>
               }
             />
             <Route
               path="chamados/:idChamado"
               element={
-                <RotaPermissao permissoes={['chamados.ver', 'chamados.abrir']}>
-                  <ManutencaoDetalhePage />
-                </RotaPermissao>
+                <RotaModuloCanal codigo="chamados" canal="portal">
+                  <RotaPermissao permissoes={['chamados.ver', 'chamados.abrir']}>
+                    <ManutencaoDetalhePage />
+                  </RotaPermissao>
+                </RotaModuloCanal>
               }
             />
             <Route path="manutencao" element={<Navigate to="/chamados" replace />} />
@@ -607,6 +636,14 @@ export default function App() {
                 element={
                   <RotaPermissao permissoes={['configuracoes.ver']}>
                     <AgenteAlvimPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="canais"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver', 'usuarios.gerenciar']}>
+                    <ModulosCanalPage />
                   </RotaPermissao>
                 }
               />

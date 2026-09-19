@@ -1,4 +1,5 @@
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import TuneIcon from '@mui/icons-material/Tune';
 import CategoryIcon from '@mui/icons-material/Category';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
@@ -66,6 +67,12 @@ const CONFIG_NAV: ConfigNavSection[] = [
   {
     title: 'Sistema',
     items: [
+      {
+        to: '/configuracoes/canais',
+        label: 'Canais do app',
+        icon: <TuneIcon fontSize="small" />,
+        permissoes: ['configuracoes.ver', 'usuarios.gerenciar'],
+      },
       {
         to: '/configuracoes/auditoria',
         label: 'Auditoria',

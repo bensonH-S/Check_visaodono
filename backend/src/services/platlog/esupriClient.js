@@ -285,6 +285,7 @@ export async function baixarNfesFinanceiroEsupri({
   headless = true,
   limit = 10,
   esupriLojaCodigo = '',
+  meses = 3,
   onLog = () => {},
 } = {}) {
   if (!user || !pass) {
@@ -310,7 +311,7 @@ export async function baixarNfesFinanceiroEsupri({
     onLog,
   });
   try {
-    return await baixarNfesNaPagina(page, context, { lojaCodigo, limit, onLog });
+    return await baixarNfesNaPagina(page, context, { lojaCodigo, limit, meses, onLog });
   } finally {
     await browser.close().catch(() => {});
   }
@@ -341,7 +342,21 @@ async function abrirSessaoFinanceiroEsupri({
   return { page, context, browser, base };
 }
 
-async function baixarNfesNaPagina(page, context, { lojaCodigo, limit, onLog = () => {} }) {
+function chaveDentroDaJanela(chave, meses = 3) {
+  const c = String(chave || '').replace(/\D/g, '');
+  if (c.length !== 44) return true;
+  const yy = Number(c.slice(2, 4));
+  const mm = Number(c.slice(4, 6));
+  if (!yy || mm < 1 || mm > 12) return true;
+  const emis = new Date(2000 + yy, mm - 1, 1);
+  const corte = new Date();
+  corte.setMonth(corte.getMonth() - Number(meses || 3));
+  corte.setDate(1);
+  corte.setHours(0, 0, 0, 0);
+  return emis >= corte;
+}
+
+async function baixarNfesNaPagina(page, context, { lojaCodigo, limit, meses = 3, onLog = () => {} }) {
   const resultados = [];
   onLog(`lista loja ${lojaCodigo}`);
   const listaRes = await postForm(page, '/ajax/financeiro.lista.php', {
@@ -361,6 +376,7 @@ async function baixarNfesNaPagina(page, context, { lojaCodigo, limit, onLog = ()
     const statusLabel = String(titulo.MR_SITUACAO || '').trim();
     const chave = String(titulo.CHAVENFE || '').replace(/\D/g, '');
     if (!notaLabel || !/NF/i.test(notaLabel)) continue;
+    if (!chaveDentroDaJanela(chave, meses)) continue;
     const uniq = chave || `${notaLabel}|${valorLabel}`;
     if (vistos.has(uniq)) continue;
     vistos.add(uniq);

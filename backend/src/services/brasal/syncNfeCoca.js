@@ -43,7 +43,7 @@ export async function syncNfeCoca({
   user,
   pass,
   limit = 5,
-  dias = 45,
+  dias = 90,
   aplicar = false,
   registrar_entrada = false,
   /** Só entra no saldo se houver data_entrega — nunca usa emissão. */

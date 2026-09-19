@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { api, type AppPublicConfig } from '../api/client';
 import { buildVersion } from '../config/buildVersion';
+import {
+  gravarModulosCanalCache,
+  lerModulosCanalCache,
+  MODULOS_CANAL_EVENT,
+  MODULOS_CANAL_PADRAO,
+  normalizarModulosCanal,
+} from '../config/modulosCanal';
 
 const BUNDLED_VERSION = buildVersion();
 
@@ -16,21 +23,36 @@ const DEFAULT_CONFIG: AppPublicConfig = {
   gpsTecnicosIntervalMs: 120_000,
   hasIntegrations: true,
   integrations: [],
+  modulos: MODULOS_CANAL_PADRAO,
 };
 
 export function useAppConfig() {
-  const [config, setConfig] = useState<AppPublicConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<AppPublicConfig>(() => ({
+    ...DEFAULT_CONFIG,
+    modulos: lerModulosCanalCache(),
+  }));
 
   useEffect(() => {
     api
       .publicConfig()
-      .then((cfg) =>
+      .then((cfg) => {
+        const modulos = gravarModulosCanalCache(cfg.modulos);
         setConfig({
           ...cfg,
           version: cfg.version !== 'dev' ? cfg.version : BUNDLED_VERSION,
-        })
-      )
-      .catch(() => setConfig(DEFAULT_CONFIG));
+          modulos,
+        });
+      })
+      .catch(() => setConfig({ ...DEFAULT_CONFIG, modulos: lerModulosCanalCache() }));
+  }, []);
+
+  useEffect(() => {
+    function onUpdate(ev: Event) {
+      const detail = (ev as CustomEvent).detail;
+      setConfig((prev) => ({ ...prev, modulos: normalizarModulosCanal(detail || lerModulosCanalCache()) }));
+    }
+    window.addEventListener(MODULOS_CANAL_EVENT, onUpdate);
+    return () => window.removeEventListener(MODULOS_CANAL_EVENT, onUpdate);
   }, []);
 
   return config;

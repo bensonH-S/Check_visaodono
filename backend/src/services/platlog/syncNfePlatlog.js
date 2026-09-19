@@ -52,6 +52,7 @@ export async function syncNfePlatlog({
   pular_existentes = true,
   baseUrl,
   esupriLojaCodigo,
+  meses = 3,
   downloads: downloadsProntos,
 } = {}) {
   const idLoja = Number(id_loja);
@@ -69,6 +70,7 @@ export async function syncNfePlatlog({
         headless,
         limit,
         esupriLojaCodigo,
+        meses,
         onLog: log,
       });
 

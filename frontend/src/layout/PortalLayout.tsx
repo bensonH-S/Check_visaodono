@@ -1,10 +1,11 @@
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { assetUrl, toAppPath, LOGO_GRUPO_ALVIM } from '../config/paths';
 import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
+import { primeiraRotaPermitida } from '../config/navPermissions';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
@@ -54,6 +55,7 @@ import {
   usuarioAdministraChamados,
 } from '../utils/pushNotifications';
 import { useAppConfig } from '../hooks/useAppConfig';
+import { codigoModuloPortal, moduloNoCanal } from '../config/modulosCanal';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { safeAreaBottomCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
@@ -316,8 +318,13 @@ function PortalLayoutInner() {
     </Box>
   ) : null;
 
-  /** Novo chamado: coluna estreita sem sidebar. Checklist desktop fica no portal completo. */
+  /** Novo chamado: coluna estreita sem sidebar. AutoREV/Chamados no menu seguem Configurações → Canais. */
   const colunaEstreita = isChamadoNovo;
+  const canalLigado = (path: string, canal: 'portal' | 'mobile') => {
+    const codigo = codigoModuloPortal(path);
+    if (!codigo) return true;
+    return moduloNoCanal(appConfig.modulos, codigo, canal);
+  };
   const scrollInterno = isPaginaScrollInterno(path);
   const paginaEscalaVisitas = emEscala;
   const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
@@ -354,8 +361,8 @@ function PortalLayoutInner() {
     },
   ].filter((n) => n.show);
 
-  const sidebarNav = nav.filter((n) => !n.mobileOnly);
-  const mobileTabsRodape = nav;
+  const sidebarNav = nav.filter((n) => !n.mobileOnly && canalLigado(n.to, 'portal'));
+  const mobileTabsRodape = nav.filter((n) => canalLigado(n.to, 'portal'));
 
   const pageTitle = resolvePageTitle(path);
   usePageTitle(pageTitle.title);
@@ -372,6 +379,14 @@ function PortalLayoutInner() {
 
   const theme = useTheme();
   const isMobileLayout = useMediaQuery(theme.breakpoints.down('md'));
+
+  const codigoPagina = codigoModuloPortal(path);
+  if (codigoPagina && !moduloNoCanal(appConfig.modulos, codigoPagina, 'portal')) {
+    const destino = primeiraRotaPermitida(user);
+    if (destino !== path) {
+      return <Navigate to={destino} replace />;
+    }
+  }
 
   const hideSidebar = colunaEstreita;
 

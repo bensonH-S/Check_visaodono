@@ -24,6 +24,7 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import MapIcon from '@mui/icons-material/Map';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import TuneIcon from '@mui/icons-material/Tune';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
 import TimelineIcon from '@mui/icons-material/Timeline';
@@ -88,6 +89,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/estoque/mobile/break': { title: 'Estoque. Break', icon: <Inventory2Icon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
+  '/configuracoes/canais': { title: 'Canais do app', icon: <TuneIcon sx={iconSx} /> },
   '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },
   '/configuracoes/usuarios': { title: 'Usuários', icon: <PeopleIcon sx={iconSx} /> },
   '/configuracoes/lojas': { title: 'Unidades', icon: <StoreIcon sx={iconSx} /> },

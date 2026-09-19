@@ -43,6 +43,12 @@ const porFantasia = new Map(
 );
 
 let cacheLocal = null;
+/** Preenchido pelo banco (estoque_fornecedor_credencial). JSON/env só como fallback. */
+let cacheBanco = { rede: {}, lojas: {} };
+
+export function hidratarCredenciaisDoBanco({ rede = {}, lojas = {} } = {}) {
+  cacheBanco = { rede, lojas };
+}
 
 function readLocalJson() {
   if (cacheLocal) return cacheLocal;
@@ -71,7 +77,15 @@ export function findEsupriLojaByFantasia(fantasia) {
   return porFantasia.get(key) || null;
 }
 
-export function credencialPlatlog() {
+export function credencialPlatlog(bkNumber) {
+  const bk = String(bkNumber || '').replace(/\D/g, '');
+  const lojaDb = bk ? cacheBanco.lojas?.[bk]?.platlog_loja : null;
+  if (lojaDb?.user && lojaDb?.pass) return { user: lojaDb.user, pass: lojaDb.pass };
+  const lojaJson = bk ? pickPortal(readLocalJson().lojas?.[bk], 'platlog_loja') : { user: '', pass: '' };
+  if (lojaJson.user && lojaJson.pass) return lojaJson;
+
+  const redeDb = cacheBanco.rede?.platlog?.rede || cacheBanco.rede?.platlog?.esupri;
+  if (redeDb?.user && redeDb?.pass) return redeDb;
   const local = readLocalJson();
   return {
     user: String(process.env.ESUPRI_USER || local.platlog?.user || '').trim(),
@@ -89,25 +103,100 @@ function pickPortal(lojaCfg, portal) {
 }
 
 export function credencialLoja(bkNumber, portal) {
+  const bk = String(bkNumber || '').replace(/\D/g, '');
+  const fromDb = cacheBanco.lojas?.[bk]?.[portal];
+  if (fromDb?.user && fromDb?.pass) return { user: fromDb.user, pass: fromDb.pass };
   const local = readLocalJson();
-  const lojaCfg = local.lojas?.[String(bkNumber || '').replace(/\D/g, '')] || {};
-  return pickPortal(lojaCfg, portal);
+  return pickPortal(local.lojas?.[bk] || {}, portal);
+}
+
+/** Conecta Brasal aceita só CNPJ. E-mail é Coke.Net (pedido). */
+export function ehCnpjConecta(user) {
+  const raw = String(user || '').trim();
+  if (!raw || /@/.test(raw)) return false;
+  return raw.replace(/\D/g, '').length === 14;
 }
 
 export function credencialBrasal(bkNumber) {
-  const perLoja = credencialLoja(bkNumber, 'brasal');
-  if (perLoja.user && perLoja.pass) return perLoja;
-  return { user: '', pass: '' };
+  const c = credencialLoja(bkNumber, 'brasal');
+  if (!ehCnpjConecta(c.user)) return { user: '', pass: '' };
+  return c;
+}
+
+/** Coke.Net — portal de pedido. Não serve para puxar NF. */
+export function credencialCokeNet(bkNumber) {
+  return credencialLoja(bkNumber, 'cokenet');
+}
+
+export function credencialCoca(bkNumber) {
+  return credencialBrasal(bkNumber);
 }
 
 export function credenciaisOk(fornecedor, bkNumber) {
   if (fornecedor === 'platlog') {
-    const p = credencialPlatlog();
+    const p = credencialPlatlog(bkNumber);
+    const loja = credencialLoja(bkNumber, 'platlog_loja');
+    if (loja.user && loja.pass) return true;
     return Boolean(p.user && p.pass && findEsupriLojaByBk(bkNumber));
   }
   if (fornecedor === 'coca') {
     const b = credencialBrasal(bkNumber);
     return Boolean(b.user && b.pass);
   }
+  if (fornecedor === 'cokenet') {
+    const c = credencialCokeNet(bkNumber);
+    return Boolean(c.user && c.pass);
+  }
+  if (fornecedor === 'gimba') {
+    const g = credencialLoja(bkNumber, 'gimba');
+    return Boolean(g.user && g.pass);
+  }
+  if (fornecedor === 'idealwork') {
+    const i = credencialLoja(bkNumber, 'idealwork');
+    return Boolean(i.user && i.pass);
+  }
   return false;
+}
+
+export function usuarioCredencial(fornecedor, bkNumber) {
+  if (fornecedor === 'platlog') return credencialPlatlog(bkNumber).user || '';
+  if (fornecedor === 'coca') return credencialBrasal(bkNumber).user || '';
+  if (fornecedor === 'cokenet') return credencialCokeNet(bkNumber).user || '';
+  if (fornecedor === 'gimba') return credencialLoja(bkNumber, 'gimba').user || '';
+  if (fornecedor === 'idealwork') return credencialLoja(bkNumber, 'idealwork').user || '';
+  return '';
+}
+
+export function portalDaCredencial(fornecedor, usuario) {
+  if (fornecedor === 'cokenet') return 'cokenet';
+  if (fornecedor === 'coca') return /@/.test(String(usuario || '')) ? 'cokenet' : 'brasal';
+  return '';
+}
+
+export function motivoConexao(fornecedor, bkNumber) {
+  if (fornecedor === 'platlog') {
+    const loja = credencialLoja(bkNumber, 'platlog_loja');
+    if (loja.user && loja.pass) return null;
+    const p = credencialPlatlog(bkNumber);
+    if (!p.user || !p.pass) return 'Sem login eSupri';
+    if (!findEsupriLojaByBk(bkNumber)) return 'Loja sem código eSupri';
+    return null;
+  }
+  if (fornecedor === 'coca') {
+    const b = credencialBrasal(bkNumber);
+    return b.user && b.pass ? null : 'Sem CNPJ/senha do Conecta Brasal';
+  }
+  if (fornecedor === 'cokenet') {
+    const c = credencialCokeNet(bkNumber);
+    return c.user && c.pass ? null : 'Sem login Coke.Net';
+  }
+  if (fornecedor === 'gimba') {
+    const g = credencialLoja(bkNumber, 'gimba');
+    return g.user && g.pass ? null : 'Sem login Gimba';
+  }
+  if (fornecedor === 'idealwork') {
+    const i = credencialLoja(bkNumber, 'idealwork');
+    return i.user && i.pass ? null : 'Sem login Ideal Work';
+  }
+  return 'Fornecedor desconhecido';
 }

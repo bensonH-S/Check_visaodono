@@ -233,11 +233,13 @@ api.get('/health', async (_req, res) => {
   }
 });
 
-api.get('/public/config', (_req, res) => {
+api.get('/public/config', async (_req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   // Em dev a tag pode mudar sem reiniciar o processo; resolve a cada request.
   const version = isProd ? APP_VERSION_AT_BOOT : resolveAppVersion();
   const buildId = isProd ? APP_BUILD_ID_AT_BOOT : resolveAppBuildId();
+  const { carregarModulosCanal } = await import('./backend/src/services/appModulosCanal.js');
+  const modulos = await carregarModulosCanal();
   res.json({
     version,
     buildId,
@@ -251,6 +253,7 @@ api.get('/public/config', (_req, res) => {
     push: obterSaudeVapidPublica(),
     ...gpsTecnicosConfigPublica(),
     ...integrationsConfiguradasPublico(),
+    modulos,
   });
 });
 
@@ -471,6 +474,14 @@ app.listen(PORT, async () => {
     await pool.query('SELECT 1');
     dbStatus = '✅ Online';
     logger.info('server', 'Conexão PostgreSQL OK');
+    try {
+      const { recarregarCredenciaisFornecedor } = await import(
+        './backend/src/services/estoqueFornecedorCredencial.js'
+      );
+      await recarregarCredenciaisFornecedor();
+    } catch (e) {
+      logger.warn('server', 'Credenciais de fornecedor não carregadas', { error: e.message });
+    }
   } catch (e) {
     logger.error('server', 'Falha ao conectar PostgreSQL', { error: e.message });
   }
