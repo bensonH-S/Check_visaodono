@@ -18,7 +18,15 @@ export default function CkMarkLogoMenu({ size = 72, className }: Props) {
   const user = getUsuario();
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+    <Box
+      className="ck-mark-logo-menu"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.25,
+        flexShrink: 0,
+      }}
+    >
       <AtivarPushHeaderButton />
       <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
       <ThemeToggleButton />

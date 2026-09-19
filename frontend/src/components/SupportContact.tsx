@@ -36,30 +36,39 @@ export default function SupportContact({ compact }: SupportContactProps) {
   const [aberto, setAberto] = useState(false);
 
   return (
-    <Box sx={{ mt: compact ? 1.5 : 3 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontSize: compact ? '0.72rem' : undefined }}>
-        Problemas de acesso?{' '}
-        <Typography
-          component="button"
-          type="button"
-          ref={anchorRef}
-          variant="caption"
-          onClick={() => setAberto((v) => !v)}
-          sx={{
-            border: 'none',
-            bgcolor: 'transparent',
-            cursor: 'pointer',
-            color: 'secondary.main',
-            font: 'inherit',
-            fontWeight: 600,
-            p: 0,
-            textDecoration: 'underline',
-            textUnderlineOffset: 2,
-            '&:hover': { color: 'secondary.dark' },
-          }}
-        >
-          Contate o suporte de TI.
-        </Typography>
+    <Box sx={{ mt: compact ? 1.5 : 3, textAlign: 'center' }}>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        display="block"
+        sx={{ fontSize: compact ? '0.72rem' : undefined, lineHeight: 1.35 }}
+      >
+        Problemas de acesso?
+      </Typography>
+      <Typography
+        component="button"
+        type="button"
+        ref={anchorRef}
+        variant="caption"
+        onClick={() => setAberto((v) => !v)}
+        sx={{
+          display: 'block',
+          mx: 'auto',
+          mt: 0.25,
+          border: 'none',
+          bgcolor: 'transparent',
+          cursor: 'pointer',
+          color: 'secondary.main',
+          font: 'inherit',
+          fontSize: compact ? '0.72rem' : undefined,
+          fontWeight: 600,
+          p: 0,
+          textDecoration: 'underline',
+          textUnderlineOffset: 2,
+          '&:hover': { color: 'secondary.dark' },
+        }}
+      >
+        Contate o suporte de TI.
       </Typography>
 
       <Popover

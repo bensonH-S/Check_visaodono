@@ -187,29 +187,6 @@
   margin: 0 0 10px;
 }
 
-.ck-login__about {
-  display: block;
-  width: 100%;
-  margin: 0 0 8px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  text-align: center;
-  font-family: Manrope, system-ui, sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #1b2a6b;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.ck-login__about:hover,
-.ck-login__about:focus-visible {
-  color: #e8520a;
-  outline: none;
-}
-
 .ck-login__footer {
   flex-shrink: 0;
   text-align: center;

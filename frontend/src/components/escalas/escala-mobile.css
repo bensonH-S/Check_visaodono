@@ -31,6 +31,17 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  margin-right: 52px;
+}
+
+.ck-escala__header-acoes .ck-visitas__mark-icon {
+  width: 88px !important;
+  height: 88px !important;
+}
+
+.ck-escala--compact .ck-escala__header-acoes .ck-visitas__mark-icon {
+  width: 64px !important;
+  height: 64px !important;
 }
 
 .ck-escala__compact-title {

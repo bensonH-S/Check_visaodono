@@ -3,6 +3,28 @@
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Título + logo: título não esmaga a palavra "conformidades" */
+.ck-nc .ck-visitas__hero-row > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ck-nc .ck-visitas__hero-row > .ck-mark-logo-menu {
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.ck-nc .ck-nc__title {
+  font-size: clamp(1.85rem, 8vw, 2.75rem);
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.ck-nc .ck-nc__title-line {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 .ck-nc .ck-nc__visita {
   margin-bottom: 12px;
   border-radius: 16px;

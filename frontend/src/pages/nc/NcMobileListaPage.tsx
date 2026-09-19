@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
-import Box from '@mui/material/Box';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { api, fmtData, fmtNota, scoreColor } from '../../api/client';
 import type { NcItem } from '../../api/client';
@@ -59,15 +58,13 @@ export default function NcMobileListaPage() {
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
             <div>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title">
+              <h1 className="ck-visitas__title ck-nc__title">
                 Não
                 <br />
-                conformidades
+                <span className="ck-nc__title-line">conformidades</span>
               </h1>
             </div>
-            <Box sx={{ mr: { xs: 5, sm: 6 } }}>
-              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-            </Box>
+            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
           </div>
 
           <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">

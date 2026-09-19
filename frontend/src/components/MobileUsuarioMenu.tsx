@@ -101,6 +101,14 @@ export default function MobileUsuarioMenu({
           ml: triggerLogo ? 0 : 0.35,
           flexShrink: 0,
           alignSelf: triggerLogo ? 'flex-start' : undefined,
+          ...(triggerLogo
+            ? {
+                width: logoSize,
+                height: logoSize,
+                overflow: 'hidden',
+                borderRadius: 0,
+              }
+            : null),
         }}
       >
         {triggerLogo ? (
@@ -112,6 +120,8 @@ export default function MobileUsuarioMenu({
             sx={{
               width: logoSize,
               height: logoSize,
+              maxWidth: '100%',
+              maxHeight: '100%',
               objectFit: 'contain',
               display: 'block',
               margin: 0,

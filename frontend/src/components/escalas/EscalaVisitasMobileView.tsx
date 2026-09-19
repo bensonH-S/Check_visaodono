@@ -1281,7 +1281,7 @@ export default function EscalaVisitasMobileView() {
                       <ShareIcon fontSize="small" />
                     )}
                   </button>
-                  <CkMarkLogoMenu size={44} className="ck-visitas__mark-icon" />
+                  <CkMarkLogoMenu size={64} className="ck-visitas__mark-icon" />
                 </div>
               </div>
               <div className="ck-escala__week ck-escala__week--compact">
@@ -1344,7 +1344,7 @@ export default function EscalaVisitasMobileView() {
                       <ShareIcon fontSize="small" />
                     )}
                   </button>
-                  <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
+                  <CkMarkLogoMenu size={88} className="ck-visitas__mark-icon" />
                 </div>
               </div>
 
