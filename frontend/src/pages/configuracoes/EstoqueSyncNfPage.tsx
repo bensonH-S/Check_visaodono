@@ -289,7 +289,7 @@ export default function EstoqueSyncNfPage() {
     }
   };
 
-  const puxarTodas = async (codigo: FornecedorCodigo) => {
+  const puxarTodas = async (codigo: Exclude<FornecedorCodigo, 'cokenet'>) => {
     setPuxandoForn(codigo);
     try {
       await api.estoqueSyncFornecedorRodarTodas({ fornecedor: codigo });
@@ -370,7 +370,7 @@ export default function EstoqueSyncNfPage() {
                           <IconButton
                             size="small"
                             disabled={loading || algumRodando || !temAtiva}
-                            onClick={() => void puxarTodas(cat.codigo)}
+                            onClick={() => void puxarTodas(cat.codigo as Exclude<FornecedorCodigo, 'cokenet'>)}
                             title={`Puxar ${cat.nome}`}
                           >
                             <CloudDownloadIcon fontSize="small" />

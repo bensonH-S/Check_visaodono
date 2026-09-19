@@ -108,11 +108,11 @@
 
 .ck-estoque .ck-estoque__sheet-head,
 .ck-estoque .ck-estoque__sheet-head--toolbar {
-  margin: -4px -4px 14px;
-  padding: 14px;
-  border-radius: 16px;
+  margin: 0 0 6px;
+  padding: 10px 10px 4px;
+  border-radius: 14px;
   background: #F1F5F9 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: none !important;
   border: 1px solid #E2E8F0 !important;
 }
 
@@ -178,6 +178,68 @@
 
 .ck-estoque.ck-visitas--lista .ck-visitas__sheet-body {
   padding-bottom: calc(88px + var(--app-tabbar-offset, 0px));
+}
+
+.ck-estoque__lista-diaria-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  margin: 2px 0 0;
+  padding: 2px 2px 0;
+  border: 0;
+  background: transparent;
+  color: #1b2a6b;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-estoque__lista-diaria-link strong {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  line-height: 1.2;
+}
+
+.ck-estoque__lista-diaria-link small {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.ck-estoque__lista-diaria-link.is-diario {
+  color: #e8520a;
+}
+
+.ck-estoque__lista-diaria-link.is-diario small {
+  color: #c2410c;
+}
+
+.ck-estoque__lista-diaria-link:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+html.dark .ck-estoque__lista-diaria-link {
+  color: #93c5fd;
+}
+
+html.dark .ck-estoque__lista-diaria-link small {
+  color: #94a3b8;
+}
+
+html.dark .ck-estoque__lista-diaria-link.is-diario {
+  color: #ff7a3d;
+}
+
+html.dark .ck-estoque__lista-diaria-link.is-diario small {
+  color: #fdba74;
 }
 
 .ck-estoque .ck-estoque__voltar {
@@ -321,6 +383,57 @@
   background: #eff6ff;
   border: 1px solid #dbeafe;
   width: fit-content;
+  flex-shrink: 0;
+}
+
+.ck-estoque .ck-estoque__card--saldo {
+  overflow: hidden;
+  border-left: 4px solid #ea580c !important;
+}
+
+.ck-estoque__saldo-nome {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.ck-estoque__saldo-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  min-width: 0;
+}
+
+.ck-estoque__saldo-meta-right {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.ck-estoque__saldo-qtd-inline {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ga-text-primary);
+  line-height: 1.1;
+}
+
+.ck-estoque__saldo-unidade {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(20, 32, 72, 0.55);
 }
 
 .ck-estoque__saldo-qtd {
@@ -344,16 +457,12 @@
 }
 
 .ck-estoque__saldo-qtd span {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  color: rgba(20, 32, 72, 0.55);
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: rgba(20, 32, 72, 0.5);
   text-align: center;
-}
-
-.ck-estoque .ck-estoque__card--saldo {
-  border-left: 4px solid #ea580c !important;
 }
 
 .ck-estoque__modal-action-btn {
@@ -409,7 +518,39 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
+}
+
+.ck-estoque__atalhos-grid--compact {
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.ck-estoque__atalhos-grid--compact .ck-estoque__btn-grid-card {
+  padding: 8px 4px;
+  border-radius: 12px;
+  gap: 2px;
+}
+
+.ck-estoque__atalhos-grid--compact .ck-estoque__btn-grid-card svg {
+  font-size: 1.15rem !important;
+}
+
+.ck-estoque__atalhos-grid--compact .ck-estoque__btn-grid-card strong {
+  font-size: 0.72rem;
+}
+
+.ck-estoque__atalhos-grid--compact .ck-estoque__btn-grid-card small {
+  font-size: 0.62rem;
+}
+
+.ck-estoque-nfe__atalho--compact {
+  margin: 8px 0 6px;
+  padding: 10px 12px;
+}
+
+.ck-estoque-nfe__atalho--compact .ck-estoque-nfe__atalho-main strong {
+  font-size: 0.84rem;
 }
 
 .ck-estoque__btn-grid-card {
@@ -730,11 +871,11 @@ html.dark .ck-estoque__btn-grid-card small {
   display: block;
   width: 100%;
   text-align: left;
-  margin: 0 0 12px;
-  padding: 16px 16px 14px;
-  border-radius: 16px;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
   border: 1px solid rgba(27, 42, 107, 0.1);
-  border-left: 4px solid #e8520a !important;
+  border-left: 3px solid #e8520a !important;
   background: var(--ga-surface);
   box-shadow: 0 1px 0 rgba(20, 32, 72, 0.04);
   cursor: pointer;
@@ -744,44 +885,45 @@ html.dark .ck-estoque__btn-grid-card small {
 
 .ck-estoque .ck-estoque__card--lista.is-aberta {
   border-color: rgba(232, 82, 10, 0.35);
-  border-left: 4px solid #e8520a !important;
+  border-left: 3px solid #e8520a !important;
   box-shadow: 0 0 0 1px rgba(232, 82, 10, 0.08);
 }
 
-.ck-estoque .ck-estoque__card-top {
-  display: flex;
+.ck-estoque .ck-estoque__card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .ck-estoque .ck-estoque__card-title {
   min-width: 0;
-  flex: 1 1 auto;
+  justify-self: start;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: baseline;
+  gap: 6px;
 }
 
-.ck-estoque .ck-estoque__card-top strong,
 .ck-estoque .ck-estoque__card-title strong {
-  font-size: 1.02rem;
+  font-size: 0.86rem;
   font-weight: 800;
   color: var(--ck-ink);
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
-.ck-estoque .ck-estoque__card-tipo {
-  font-size: 0.78rem;
+.ck-estoque .ck-estoque__card-data {
+  font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(20, 32, 72, 0.55);
+  color: #64748b;
+  white-space: nowrap;
 }
 
 .ck-estoque .ck-estoque__status {
+  justify-self: end;
   flex-shrink: 0;
-  padding: 5px 10px;
+  padding: 3px 8px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -796,65 +938,86 @@ html.dark .ck-estoque__btn-grid-card small {
   color: #15803d;
 }
 
-.ck-estoque .ck-estoque__card-valor {
+.ck-estoque .ck-estoque__card-valor--inline {
+  justify-self: center;
+  flex-shrink: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 2px;
+  gap: 0;
 }
 
-.ck-estoque .ck-estoque__card-top .ck-estoque__card-valor {
-  margin-top: 0;
-  flex-shrink: 0;
-}
-
-.ck-estoque .ck-estoque__card-valor strong {
-  font-size: 1.28rem;
+.ck-estoque .ck-estoque__card-valor--inline strong {
+  font-size: 1.12rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--ga-text-primary);
-  line-height: 1.15;
-  text-align: center;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
-.ck-estoque .ck-estoque__card-valor span {
-  font-size: 0.72rem;
+.ck-estoque .ck-estoque__card-valor--inline span {
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: rgba(20, 32, 72, 0.48);
+  line-height: 1.1;
   text-align: center;
 }
 
 .ck-estoque .ck-estoque__card-foot {
-  margin-top: 12px;
-  padding-top: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid rgba(27, 42, 107, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.ck-estoque .ck-estoque__card-meta-left {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-  min-width: 0;
-  flex: 1 1 auto;
+}
+
+.ck-estoque .ck-estoque__card-meta-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+}
+
+.ck-estoque .ck-estoque__card-flags {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  justify-self: end;
 }
 
 .ck-estoque .ck-estoque__card-who {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.84rem;
+  gap: 4px;
+  min-width: 0;
+  justify-self: start;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--ga-text-primary);
   line-height: 1.2;
+}
+
+.ck-estoque .ck-estoque__card-who strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-estoque .ck-estoque__badge-pend,
+.ck-estoque .ck-estoque__badge-div,
+.ck-estoque .ck-estoque__badge-ok {
+  padding: 2px 6px;
+  font-size: 0.66rem;
 }
 
 .ck-estoque .ck-estoque__badge-pend {
@@ -912,19 +1075,23 @@ html.dark .ck-estoque__btn-grid-card small {
 }
 
 .ck-estoque .ck-estoque__reabrir {
-  margin-left: auto;
+  margin-left: 0;
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(15, 26, 69, 0.18);
-  border-radius: 10px;
-  background: rgba(15, 26, 69, 0.08);
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(15, 26, 69, 0.16);
+  border-radius: 7px;
+  background: rgba(15, 26, 69, 0.06);
   color: #0f1a45;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   padding: 0;
+}
+
+.ck-estoque .ck-estoque__reabrir .MuiSvgIcon-root {
+  font-size: 14px !important;
 }
 
 .ck-estoque .ck-estoque__reabrir:disabled {
@@ -1447,17 +1614,70 @@ html.dark .ck-estoque .ck-estoque__empty {
 .ck-estoque .ck-estoque__kpis {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: 10px;
+  gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+}
+
+.ck-estoque .ck-estoque__kpis-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
+  margin-bottom: 2px;
+  padding: 6px 2px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.82);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ck-estoque .ck-estoque__kpis-toggle:active {
+  opacity: 0.75;
+}
+
+.ck-estoque .ck-estoque__seg-row {
+  position: relative;
+  width: 100%;
+}
+
+.ck-estoque .ck-estoque__seg-loja {
+  flex: 0 0 auto !important;
+  min-width: 40px !important;
+  padding: 0 8px !important;
+}
+
+.ck-estoque .ck-estoque__seg-loja .MuiSvgIcon-root {
+  display: block;
+}
+
+.ck-estoque .ck-estoque__loja-dropdown--seg {
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  width: auto;
+}
+
+.ck-estoque .ck-estoque__loja-fix--compact {
+  margin-top: 8px;
 }
 
 .ck-estoque .ck-estoque__kpi {
   min-width: 0;
-  padding: 7px 6px 6px;
+  min-height: 60px;
+  padding: 11px 9px 10px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .ck-estoque .ck-estoque__kpi--accent {
@@ -1467,17 +1687,20 @@ html.dark .ck-estoque .ck-estoque__empty {
 
 .ck-estoque .ck-estoque__kpi strong {
   display: block;
-  font-size: clamp(0.62rem, 2.6vw, 0.78rem);
+  font-size: clamp(0.58rem, 2.5vw, 0.74rem);
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.2;
   color: #fff;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
 }
 
 .ck-estoque .ck-estoque__kpi span {
   display: block;
-  margin-top: 2px;
-  font-size: 0.55rem;
+  margin-top: 3px;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -1486,7 +1709,7 @@ html.dark .ck-estoque .ck-estoque__empty {
 }
 
 .ck-estoque.ck-visitas--lista .ck-visitas__stage {
-  padding: calc(8px + env(safe-area-inset-top, 0px)) var(--ck-pad-x) 26px;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) var(--ck-pad-x) 20px;
 }
 
 .ck-estoque.ck-visitas--lista .ck-visitas__title {
@@ -1499,15 +1722,15 @@ html.dark .ck-estoque .ck-estoque__empty {
 }
 
 .ck-estoque.ck-visitas--lista .ck-visitas__mark-icon {
-  width: clamp(72px, 20vw, 84px);
-  height: clamp(72px, 20vw, 84px);
+  width: 72px !important;
+  height: 72px !important;
 }
 
 .ck-estoque.ck-visitas--lista .ck-visitas__sub {
   margin-top: 4px;
-  max-width: none;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  max-width: 28ch;
+  font-size: 0.78rem;
+  line-height: 1.3;
   color: rgba(255, 255, 255, 0.82);
   font-weight: 500;
 }

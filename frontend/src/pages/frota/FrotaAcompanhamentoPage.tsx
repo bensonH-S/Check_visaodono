@@ -546,8 +546,8 @@ export default function FrotaAcompanhamentoPage() {
               {(
                 [
                   { cor: COR_STATUS_EM_ROTA, rotulo: 'Em rota' },
-                  { cor: COR_STATUS_DISPONIVEL, rotulo: 'Disponível' },
-                  { cor: COR_STATUS_PARADO, rotulo: 'Parado' },
+                  { cor: COR_STATUS_DISPONIVEL, rotulo: 'Parado' },
+                  { cor: COR_STATUS_PARADO, rotulo: 'Desligado' },
                   { cor: COR_TRAJETO, rotulo: 'Trajeto', linha: true },
                   ...(qtdExcessos > 0
                     ? [{ cor: COR_EXCESSO_FROTA, rotulo: 'Excesso', linha: true as const }]

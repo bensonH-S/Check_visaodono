@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import CircularProgress from '@mui/material/CircularProgress';
-import Drawer from '@mui/material/Drawer';
+import Popover from '@mui/material/Popover';
 import HistoryIcon from '@mui/icons-material/History';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import LayersIcon from '@mui/icons-material/Layers';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useNavigate } from 'react-router-dom';
 import { useMapaTecnicosMobile } from '../../pages/mapa/MapaTecnicosMobileContext';
 import MapaFiltroTrajetoCalendario from './MapaFiltroTrajetoCalendario';
@@ -68,6 +69,7 @@ export default function MapaTecnicosListaLojas() {
     alternarTipoMapa,
   } = useMapaTecnicosMobile();
 
+  const regiaoBtnRef = useRef<HTMLButtonElement>(null);
   const [regioesAbertas, setRegioesAbertas] = useState(false);
   const hoje = dataHojeBrasilia();
   const lista = useMemo(
@@ -95,10 +97,14 @@ export default function MapaTecnicosListaLojas() {
           {podeFiltrarRegioes && regioes.length > 1 && !consultaHistorico && (
             <button
               type="button"
+              ref={regiaoBtnRef}
               className="ck-mapa__life-regiao"
-              onClick={() => setRegioesAbertas(true)}
+              aria-haspopup="listbox"
+              aria-expanded={regioesAbertas}
+              onClick={() => setRegioesAbertas((v) => !v)}
             >
               {regiaoFiltro === '' ? 'Todas' : regiaoAtiva?.nome.replace(/^Região\s+/i, '') || 'Região'}
+              <KeyboardArrowUpIcon sx={{ fontSize: 18, ml: 0.25, opacity: 0.75 }} />
             </button>
           )}
           <button
@@ -207,39 +213,47 @@ export default function MapaTecnicosListaLojas() {
 
       {!consultaHistorico && (
         <div className="ck-mapa__life-members" role="list">
-          {lista.map((v) => {
-            const meu = Number(v.id_usuario_responsavel) === Number(user?.id_usuario);
-            const ocupante = nomeOcupanteVeiculo(v);
-            const nome = ocupante ? primeiroNomeOcupante(ocupante) : rotuloMarcadorVeiculo(v);
-            const status = statusVeiculoMapa(v);
-            const ativo = veiculoTrajetoId === v.id_veiculo;
-            return (
-              <button
-                key={v.id_veiculo}
-                type="button"
-                role="listitem"
-                className={`ck-mapa__life-person${ativo ? ' is-on' : ''}`}
-                onClick={() => selecionarVeiculoTrajeto(posicaoParaVeiculoCatalogo(v))}
-              >
-                <span className={`ck-mapa__life-avatar is-${status}`} aria-hidden>
-                  {iniciais(ocupante || v.placa || nome)}
-                </span>
-                <span className="ck-mapa__life-name">{meu ? 'Você' : nome}</span>
-                <span className="ck-mapa__life-meta">{rotuloStatusVeiculoMapa(status)}</span>
-              </button>
-            );
-          })}
-          {!lista.length && (
-            <p className="ck-mapa__life-empty">Nenhum carro da sua região no mapa agora.</p>
+          {lista
+            .filter((v) => Boolean(nomeOcupanteVeiculo(v)))
+            .map((v) => {
+              const meu = Number(v.id_usuario_responsavel) === Number(user?.id_usuario);
+              const ocupante = nomeOcupanteVeiculo(v)!;
+              const nome = primeiroNomeOcupante(ocupante);
+              const status = statusVeiculoMapa(v);
+              const ativo = veiculoTrajetoId === v.id_veiculo;
+              return (
+                <button
+                  key={v.id_veiculo}
+                  type="button"
+                  role="listitem"
+                  className={`ck-mapa__life-person${ativo ? ' is-on' : ''}`}
+                  aria-label={`${meu ? 'Você' : nome} · ${rotuloStatusVeiculoMapa(status)}`}
+                  onClick={() => selecionarVeiculoTrajeto(posicaoParaVeiculoCatalogo(v))}
+                >
+                  <span className={`ck-mapa__life-avatar is-${status}`} aria-hidden>
+                    {iniciais(ocupante)}
+                  </span>
+                </button>
+              );
+            })}
+          {!lista.some((v) => Boolean(nomeOcupanteVeiculo(v))) && (
+            <p className="ck-mapa__life-empty">Nenhum carro associado no mapa agora.</p>
           )}
         </div>
       )}
 
-      <Drawer
-        anchor="bottom"
+      <Popover
         open={regioesAbertas}
+        anchorEl={regiaoBtnRef.current}
         onClose={() => setRegioesAbertas(false)}
-        slotProps={{ paper: { className: 'ck-mapa__life-drawer' } }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            className: 'ck-mapa__life-regiao-menu',
+            sx: { mt: -0.75, minWidth: 200, maxWidth: 280, borderRadius: 2, py: 0.5 },
+          },
+        }}
       >
         <p className="ck-mapa__life-drawer-title">Região</p>
         <button
@@ -265,7 +279,7 @@ export default function MapaTecnicosListaLojas() {
             {r.nome}
           </button>
         ))}
-      </Drawer>
+      </Popover>
     </div>
   );
 }

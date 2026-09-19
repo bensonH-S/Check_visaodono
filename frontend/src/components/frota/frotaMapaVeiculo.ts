@@ -7,7 +7,7 @@ import { geocodificarReversa } from '../../utils/geocodificarReversa';
 export const VELOCIDADE_MINIMA_MOVIMENTO_KMH = 3;
 const MIN_PARADO_MS = 2 * 60 * 1000;
 
-/** em_rota=azul · disponivel=verde · parado=cinza · sem_sinal=cinza claro */
+/** em_rota=verde · disponivel=vermelho (parado c/ motor) · parado=cinza (desligado) · sem_sinal=cinza claro */
 export type StatusVeiculoMapa = 'em_rota' | 'disponivel' | 'parado' | 'sem_sinal';
 
 function escapeHtml(texto: string) {
@@ -95,8 +95,8 @@ export function statusVeiculoMapa(
 
 export function rotuloStatusVeiculoMapa(status: StatusVeiculoMapa): string {
   if (status === 'em_rota') return 'Em rota';
-  if (status === 'disponivel') return 'Disponível';
-  if (status === 'parado') return 'Parado';
+  if (status === 'disponivel') return 'Parado';
+  if (status === 'parado') return 'Desligado';
   return 'Sem sinal';
 }
 

@@ -9,6 +9,8 @@ import LocalGasStationOutlinedIcon from '@mui/icons-material/LocalGasStationOutl
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import AltRouteOutlinedIcon from '@mui/icons-material/AltRouteOutlined';
 import HistoryIcon from '@mui/icons-material/History';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import DirectionsCarFilledOutlinedIcon from '@mui/icons-material/DirectionsCarFilledOutlined';
 import {
   api,
@@ -85,9 +87,10 @@ export default function MapaVeiculoConsultasPainel({
   const [abastecimentos, setAbastecimentos] = useState<FrotaAbastecimentoPortal[]>([]);
   const [manutencoes, setManutencoes] = useState<FrotaManutencaoPortal[]>([]);
 
-  const statusAoVivo = veiculoAoVivo
-    ? rotuloStatusVeiculoMapa(statusVeiculoMapa(veiculoAoVivo, veiculoAoVivo.rastreamento_disponivel !== false))
+  const statusKey = veiculoAoVivo
+    ? statusVeiculoMapa(veiculoAoVivo, veiculoAoVivo.rastreamento_disponivel !== false)
     : null;
+  const statusAoVivo = statusKey ? rotuloStatusVeiculoMapa(statusKey) : null;
   const ocupante = veiculoAoVivo ? nomeOcupanteVeiculo(veiculoAoVivo) : null;
   const [agoraTick, setAgoraTick] = useState(0);
   const atualizadoLabel = agoraTick >= 0 && veiculoAoVivo?.atualizado_em
@@ -155,9 +158,25 @@ export default function MapaVeiculoConsultasPainel({
     [podeOperacao],
   );
 
+  const expandido = Boolean(aba);
+  const alternarExpandir = () => setAba((atual) => (atual ? null : 'trajeto'));
+
   return (
-    <div className={`ck-mapa__ficha${aba ? ' is-aberto' : ''}`}>
-      <div className="ck-mapa__ficha-handle" aria-hidden />
+    <div className={`ck-mapa__ficha${expandido ? ' is-aberto' : ''}`}>
+      <button
+        type="button"
+        className="ck-mapa__ficha-expand"
+        onClick={alternarExpandir}
+        aria-expanded={expandido}
+        aria-label={expandido ? 'Recolher detalhes' : 'Expandir detalhes'}
+      >
+        <span className="ck-mapa__ficha-handle" aria-hidden />
+        {expandido ? (
+          <KeyboardArrowDownIcon sx={{ fontSize: 20, color: colors.navy, opacity: 0.55 }} />
+        ) : (
+          <KeyboardArrowUpIcon sx={{ fontSize: 20, color: colors.navy, opacity: 0.55 }} />
+        )}
+      </button>
       <div className="ck-mapa__ficha-head">
         <div className="ck-mapa__ficha-avatar" aria-hidden>
           <DirectionsCarFilledOutlinedIcon />
@@ -174,14 +193,24 @@ export default function MapaVeiculoConsultasPainel({
               Com {primeiroNomeOcupante(ocupante)}
             </Typography>
           )}
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            {[
-              statusAoVivo,
-              veiculoAoVivo?.velocidade != null ? `${veiculoAoVivo.velocidade} km/h` : null,
-              atualizadoLabel,
-            ]
-              .filter(Boolean)
-              .join(' · ') || subtitulo}
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}
+          >
+            {statusKey && statusAoVivo ? (
+              <span className="ck-mapa__status-live">
+                <span className={`ck-mapa__status-dot is-${statusKey}`} aria-hidden />
+                {statusAoVivo}
+              </span>
+            ) : null}
+            {statusAoVivo && (veiculoAoVivo?.velocidade != null || atualizadoLabel) ? (
+              <span aria-hidden>·</span>
+            ) : null}
+            {veiculoAoVivo?.velocidade != null ? <span>{veiculoAoVivo.velocidade} km/h</span> : null}
+            {veiculoAoVivo?.velocidade != null && atualizadoLabel ? <span aria-hidden>·</span> : null}
+            {atualizadoLabel ? <span>{atualizadoLabel}</span> : null}
+            {!statusAoVivo && !atualizadoLabel ? subtitulo : null}
           </Typography>
         </Box>
         {onAbrirHistorico && (
@@ -325,27 +354,51 @@ function ListaMultas({ itens }: { itens: FrotaMultaDetran[] }) {
   if (!itens.length) return <Vazio texto="Nenhuma multa no cache DETRAN para este veículo." />;
   return (
     <>
-      {itens.map((m) => {
-        const tom = corStatusMulta(m.status);
-        return (
-          <Cartao key={m.id_multa_detran}>
-            <div className="ck-mapa__ficha-card-top">
-              <strong>{fmtData(m.data_multa)}</strong>
-              <span className="ck-mapa__ficha-badge" style={{ background: tom.bg, color: tom.fg }}>
-                {m.status}
-              </span>
-            </div>
-            <p className="ck-mapa__ficha-card-title">{m.descricao || m.auto || 'Infração'}</p>
-            <p className="ck-mapa__ficha-card-meta">
-              {[m.local_infracao, m.pontos != null ? `${m.pontos} pts` : null, m.natureza]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-            <p className="ck-mapa__ficha-card-valor">{fmtBRL(m.valor)}</p>
-          </Cartao>
-        );
-      })}
+      {itens.map((m) => (
+        <CartaoMulta key={m.id_multa_detran} multa={m} />
+      ))}
     </>
+  );
+}
+
+function CartaoMulta({ multa: m }: { multa: FrotaMultaDetran }) {
+  const [aberto, setAberto] = useState(false);
+  const tom = corStatusMulta(m.status);
+  const metaSecundaria = [m.pontos != null ? `${m.pontos} pts` : null, m.natureza].filter(Boolean).join(' · ');
+  const temEndereco = Boolean(m.local_infracao?.trim());
+
+  return (
+    <Cartao>
+      <div className="ck-mapa__ficha-card-top">
+        <strong>{fmtData(m.data_multa)}</strong>
+        <span className="ck-mapa__ficha-badge" style={{ background: tom.bg, color: tom.fg }}>
+          {m.status}
+        </span>
+      </div>
+      <p className="ck-mapa__ficha-card-title">{m.descricao || m.auto || 'Infração'}</p>
+      <div className="ck-mapa__ficha-card-linha">
+        <p className="ck-mapa__ficha-card-meta">{metaSecundaria || '—'}</p>
+        <p className="ck-mapa__ficha-card-valor">{fmtBRL(m.valor)}</p>
+      </div>
+      {temEndereco && (
+        <div className="ck-mapa__ficha-card-extra">
+          <button
+            type="button"
+            className={`ck-mapa__ficha-card-toggle${aberto ? ' is-on' : ''}`}
+            onClick={() => setAberto((v) => !v)}
+            aria-expanded={aberto}
+          >
+            {aberto ? 'Ocultar endereço' : 'Ver endereço'}
+            {aberto ? (
+              <KeyboardArrowUpIcon sx={{ fontSize: 18 }} />
+            ) : (
+              <KeyboardArrowDownIcon sx={{ fontSize: 18 }} />
+            )}
+          </button>
+          {aberto && <p className="ck-mapa__ficha-card-endereco">{m.local_infracao}</p>}
+        </div>
+      )}
+    </Cartao>
   );
 }
 

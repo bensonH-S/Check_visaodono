@@ -103,9 +103,10 @@ function ListaVeiculos({
           aoVivo != null &&
           Number.isFinite(Number(aoVivo.latitude)) &&
           Number.isFinite(Number(aoVivo.longitude));
-        const status = aoVivo
-          ? rotuloStatusVeiculoMapa(statusVeiculoMapa(aoVivo, aoVivo.rastreamento_disponivel !== false))
+        const statusKey = aoVivo
+          ? statusVeiculoMapa(aoVivo, aoVivo.rastreamento_disponivel !== false)
           : null;
+        const status = statusKey ? rotuloStatusVeiculoMapa(statusKey) : null;
         return (
           <ListItemButton
             key={v.id_veiculo}
@@ -174,7 +175,14 @@ function ListaVeiculos({
                         : colors.textMuted,
                     }}
                   >
-                    {temGps && status ? status : 'Sem sinal no mapa'}
+                    {temGps && status && statusKey ? (
+                      <span className="ck-mapa__status-live">
+                        <span className={`ck-mapa__status-dot is-${statusKey}`} aria-hidden />
+                        {status}
+                      </span>
+                    ) : (
+                      'Sem sinal no mapa'
+                    )}
                   </Typography>
                 )}
                 {v.nome_regiao && (

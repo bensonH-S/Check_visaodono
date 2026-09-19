@@ -1,0 +1,10 @@
+* [33md73d434[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mMeridian-v3[m[33m)[m FIX: Ajuste no UI/UX do mobile
+* [33m854b2e6[m[33m ([m[1;33mtag: [m[1;33mv3.0.33[m[33m, [m[1;31morigin/Meridian-v3[m[33m)[m feat(estoque): sync de NF por loja e fornecedor com login no banco
+* [33m24f8a23[m[33m ([m[1;33mtag: [m[1;33mv3.0.32[m[33m)[m feat(metas): rankings de agosto e toolbar compacta
+* [33mae73ac6[m[33m ([m[1;33mtag: [m[1;33mv3.0.31[m[33m)[m fix(frota): Drawer do mapa usa slotProps no MUI 9
+* [33m1cd6cc7[m[33m ([m[1;33mtag: [m[1;33mv3.0.30[m[33m)[m feat(frota): mapa no padrao Life360 e visao por cargo
+* [33m47b072a[m[33m ([m[1;33mtag: [m[1;33mv3.0.29[m[33m)[m feat(frota): regionais veem o mapa da propria regiao
+* [33mec67ea1[m[33m ([m[1;33mtag: [m[1;33mv3.0.28[m[33m)[m fix(estoque): gestores, regionais e lideranca podem receber NF
+* [33md4655f8[m[33m ([m[1;33mtag: [m[1;33mv3.0.27[m[33m)[m fix(estoque): NF Platlog some no VPS sem ESUPRI no .env da raiz
+* [33mce7e45c[m fix(deploy): scripts .sh executaveis no Linux e Chrome Stable no fix-wpp
+* [33md58e318[m[33m ([m[1;33mtag: [m[1;33mv3.0.26[m[33m)[m feat(estoque): sync de NF Platlog para todas as lojas

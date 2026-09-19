@@ -74,9 +74,9 @@ function emExcesso(v: FrotaVeiculoPosicao) {
 function statusVeiculo(v: FrotaVeiculoPosicao) {
   if (emExcesso(v)) return { label: 'Excesso', cor: CC_CRITICO };
   const st = statusVeiculoMapa(v, true);
-  if (st === 'em_rota') return { label: 'Em rota', cor: '#1B2A6B' };
-  if (st === 'disponivel') return { label: 'Disponível', cor: '#16A34A' };
-  if (st === 'parado') return { label: 'Parado', cor: '#64748B' };
+  if (st === 'em_rota') return { label: 'Em rota', cor: '#16A34A' };
+  if (st === 'disponivel') return { label: 'Parado', cor: '#DC2626' };
+  if (st === 'parado') return { label: 'Desligado', cor: '#64748B' };
   return { label: rotuloStatusVeiculoMapa(st), cor: '#94A3B8' };
 }
 
@@ -255,8 +255,8 @@ function PainelVeiculo({
 function Legenda({ escuro }: { escuro: boolean }) {
   const texto = escuro ? '#F4F1EC' : 'var(--ga-text-primary)';
   const itens = [
-    { label: 'Em rota', cor: '#1B2A6B' },
-    { label: 'Ligado / parado', cor: '#16A34A' },
+    { label: 'Em rota', cor: '#16A34A' },
+    { label: 'Parado', cor: '#DC2626' },
     { label: 'Desligado', cor: '#64748B' },
     { label: 'Sem sinal', cor: '#94A3B8' },
   ];

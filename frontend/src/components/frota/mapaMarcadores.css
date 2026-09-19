@@ -253,19 +253,19 @@
 }
 
 .marker-veiculo-pin.is-em_rota .marker-veiculo-corpo {
-  background: #1b2a6b;
-}
-
-.marker-veiculo-pin.is-em_rota .marker-veiculo-ponta {
-  border-top-color: #1b2a6b;
-}
-
-.marker-veiculo-pin.is-disponivel .marker-veiculo-corpo {
   background: #16a34a;
 }
 
-.marker-veiculo-pin.is-disponivel .marker-veiculo-ponta {
+.marker-veiculo-pin.is-em_rota .marker-veiculo-ponta {
   border-top-color: #16a34a;
+}
+
+.marker-veiculo-pin.is-disponivel .marker-veiculo-corpo {
+  background: #dc2626;
+}
+
+.marker-veiculo-pin.is-disponivel .marker-veiculo-ponta {
+  border-top-color: #dc2626;
 }
 
 .marker-veiculo-pin.is-parado .marker-veiculo-corpo {
@@ -374,13 +374,13 @@
 }
 
 .leaflet-popup.popup-veiculo-mapa--em_rota .leaflet-popup-content-wrapper {
-  border-color: #1b2a6b;
-  box-shadow: 0 10px 28px rgba(27, 42, 107, 0.2);
+  border-color: #16a34a;
+  box-shadow: 0 10px 28px rgba(22, 163, 74, 0.2);
 }
 
 .leaflet-popup.popup-veiculo-mapa--disponivel .leaflet-popup-content-wrapper {
-  border-color: #16a34a;
-  box-shadow: 0 10px 28px rgba(22, 163, 74, 0.2);
+  border-color: #dc2626;
+  box-shadow: 0 10px 28px rgba(220, 38, 38, 0.2);
 }
 
 .leaflet-popup.popup-veiculo-mapa--parado .leaflet-popup-content-wrapper {
@@ -399,13 +399,13 @@
 }
 
 .leaflet-popup.popup-veiculo-mapa--em_rota .leaflet-popup-tip {
-  border: 2px solid #1b2a6b;
+  border: 2px solid #16a34a;
   border-top: none;
   border-left: none;
 }
 
 .leaflet-popup.popup-veiculo-mapa--disponivel .leaflet-popup-tip {
-  border: 2px solid #16a34a;
+  border: 2px solid #dc2626;
   border-top: none;
   border-left: none;
 }
@@ -476,13 +476,13 @@
 .info-veiculo-mapa--em_rota .info-veiculo-titulo,
 .info-veiculo-mapa--em_rota .info-veiculo-rotulo,
 .info-veiculo-mapa--em_rota .info-veiculo-icone {
-  color: #1b2a6b;
+  color: #16a34a;
 }
 
 .info-veiculo-mapa--disponivel .info-veiculo-titulo,
 .info-veiculo-mapa--disponivel .info-veiculo-rotulo,
 .info-veiculo-mapa--disponivel .info-veiculo-icone {
-  color: #16a34a;
+  color: #dc2626;
 }
 
 .info-veiculo-mapa--parado .info-veiculo-titulo,
@@ -558,11 +558,11 @@
 }
 
 .info-veiculo-mapa--em_rota .info-balao-rodape-rotulo {
-  color: #1b2a6b;
+  color: #16a34a;
 }
 
 .info-veiculo-mapa--disponivel .info-balao-rodape-rotulo {
-  color: #16a34a;
+  color: #dc2626;
 }
 
 .info-veiculo-mapa--parado .info-balao-rodape-rotulo {

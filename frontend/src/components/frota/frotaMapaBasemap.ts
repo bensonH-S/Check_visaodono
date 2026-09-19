@@ -302,7 +302,7 @@ export const COR_INICIO_TRAJETO = '#1B2A6B';
 export const COR_FIM_TRAJETO = '#64748B';
 
 /** Status de veículo no mapa (identidade do produto). */
-export const COR_STATUS_EM_ROTA = '#1B2A6B';
-export const COR_STATUS_DISPONIVEL = '#16A34A';
+export const COR_STATUS_EM_ROTA = '#16A34A';
+export const COR_STATUS_DISPONIVEL = '#DC2626';
 export const COR_STATUS_PARADO = '#64748B';
 export const COR_STATUS_SEM_SINAL = '#94A3B8';

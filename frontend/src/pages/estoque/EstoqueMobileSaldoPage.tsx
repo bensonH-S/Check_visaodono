@@ -225,19 +225,13 @@ export default function EstoqueMobileSaldoPage() {
                 </div>
                 {rows.map((r) => (
                   <div key={r.id_insumo || r.id_produto} className="ck-estoque__card ck-estoque__card--lista ck-estoque__card--saldo">
-                    <div className="ck-estoque__card-top" style={{ alignItems: 'center' }}>
-                      <div className="ck-estoque__card-title">
-                        <strong>{r.descricao}</strong>
-                        <div style={{ marginTop: 4 }}>
-                          <span className="ck-estoque__codigo-badge">{r.codigo}</span>
-                        </div>
-                      </div>
-                      <div className="ck-estoque__saldo-qtd">
-                        <strong>
-                          {fmtNum(r.quantidade, 2)}
-                        </strong>
-                        <span>{r.unidade_contagem || 'un'}</span>
-                      </div>
+                    <strong className="ck-estoque__saldo-nome">{r.descricao}</strong>
+                    <div className="ck-estoque__saldo-meta">
+                      <span className="ck-estoque__codigo-badge">{r.codigo}</span>
+                      <span className="ck-estoque__saldo-meta-right">
+                        <strong className="ck-estoque__saldo-qtd-inline">{fmtNum(r.quantidade, 2)}</strong>
+                        <span className="ck-estoque__saldo-unidade">{r.unidade_contagem || 'un'}</span>
+                      </span>
                     </div>
                   </div>
                 ))}

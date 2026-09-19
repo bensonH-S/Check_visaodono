@@ -187,9 +187,9 @@ export default function MapaTecnicosMobilePage() {
   const trajetoDiaAtual = trajetoReferenteHoje || !modoHistoricoTrajeto;
 
   const veiculoAoVivoTrajeto = useMemo(() => {
-    if (!veiculoTrajetoAtivo || modoHistoricoTrajeto) return null;
+    if (!veiculoTrajetoAtivo) return null;
     return veiculos.find((v) => v.id_veiculo === veiculoTrajetoAtivo) ?? null;
-  }, [veiculoTrajetoAtivo, modoHistoricoTrajeto, veiculos]);
+  }, [veiculoTrajetoAtivo, veiculos]);
 
   const carregarTrajetoVeiculo = useCallback(
     async (idVeiculo: number, opts?: { silencioso?: boolean }) => {

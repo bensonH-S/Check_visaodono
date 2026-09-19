@@ -40,8 +40,7 @@ export default function SupportContact({ compact }: SupportContactProps) {
       <Typography
         variant="caption"
         color="text.secondary"
-        display="block"
-        sx={{ fontSize: compact ? '0.72rem' : undefined, lineHeight: 1.35 }}
+        sx={{ display: 'block', fontSize: compact ? '0.72rem' : undefined, lineHeight: 1.35 }}
       >
         Problemas de acesso?
       </Typography>

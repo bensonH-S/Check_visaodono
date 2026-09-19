@@ -6,6 +6,9 @@ import LinearProgress from '@mui/material/LinearProgress';
 import AddIcon from '@mui/icons-material/Add';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
@@ -17,7 +20,6 @@ import {
 } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile, podeReabrirContagemEstoque } from '../../lib/auth';
 import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
-import { safeAreaRightCalc } from '../../theme/safeArea';
 import { showToast } from '../../utils/toast';
 import {
   CONTAGEM_SEMANAL_ATIVA,
@@ -116,6 +118,7 @@ export default function EstoqueMobileListaPage() {
   const [dlgLoja, setDlgLoja] = useState(false);
   const [dlgTipo, setDlgTipo] = useState(false);
   const [reabrirAlvo, setReabrirAlvo] = useState<EstoqueContagemResumo | null>(null);
+  const [kpisAbertos, setKpisAbertos] = useState(false);
 
   const carregarLista = useCallback(async (lojaId: number) => {
     const rows = await api.estoqueContagens(lojaId);
@@ -169,8 +172,6 @@ export default function EstoqueMobileListaPage() {
     if (filtro === 'todas') return lista;
     return lista.filter((c) => c.status === filtro);
   }, [lista, filtro]);
-  const valorInicialMes = lista[0]?.valor_inicial_mes ?? null;
-  const dataInicialMes = lista[0]?.data_inicial_mes ?? null;
   const valorAtualLoja = useMemo(() => {
     if (lista[0]?.valor_atual_loja != null) return lista[0].valor_atual_loja;
     const abertaCompleta = lista.find(
@@ -187,6 +188,8 @@ export default function EstoqueMobileListaPage() {
     return lista.find((c) => c.tipo === 'diaria' && String(c.data_contagem || '').slice(0, 10) === hoje) || null;
   }, [lista]);
   const faltaDiariaHoje = Boolean(idLoja && (!diariaHoje || diariaHoje.status !== 'finalizada'));
+  const valorInicialMes = lista[0]?.valor_inicial_mes ?? null;
+  const dataInicialMes = lista[0]?.data_inicial_mes ?? null;
   const valorBreakMes = lista[0]?.valor_break_mes ?? null;
   const valorDesperdicioMes = lista[0]?.valor_desperdicio_mes ?? null;
   const valorComprasMes = lista[0]?.valor_compras_mes ?? null;
@@ -268,17 +271,30 @@ export default function EstoqueMobileListaPage() {
           <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
             <div style={{ flex: '1 1 auto', minWidth: 0 }}>
               <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title">
-                Conferência
-              </h1>
+              <h1 className="ck-visitas__title ck-visitas__title--oneline">Conferência</h1>
               <p className="ck-visitas__sub">
                 Controle e auditoria de contagens físicas e apuração de CMV.
               </p>
             </div>
             <div className="ck-estoque__hero-menu">
-              <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
+              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
             </div>
           </div>
+          <button
+            type="button"
+            className="ck-estoque__kpis-toggle"
+            aria-expanded={kpisAbertos}
+            aria-label={kpisAbertos ? 'Ocultar indicadores' : 'Mostrar indicadores'}
+            onClick={() => setKpisAbertos((v) => !v)}
+          >
+            <span>{kpisAbertos ? 'Ocultar indicadores' : 'Mostrar indicadores'}</span>
+            {kpisAbertos ? (
+              <KeyboardArrowUpIcon sx={{ fontSize: 18 }} />
+            ) : (
+              <KeyboardArrowDownIcon sx={{ fontSize: 18 }} />
+            )}
+          </button>
+          {kpisAbertos ? (
             <div className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
               <div className="ck-estoque__kpi">
                 <strong>{loading ? '—' : fmtBrl(valorInicialMes ?? 0)}</strong>
@@ -313,6 +329,7 @@ export default function EstoqueMobileListaPage() {
                 <span>Compras do mês</span>
               </div>
             </div>
+          ) : null}
         </div>
       </div>
 
@@ -324,99 +341,82 @@ export default function EstoqueMobileListaPage() {
             </p>
           )}
 
-          {podeTrocarLoja ? (
-            <div className="ck-estoque__loja" style={{ position: 'relative' }}>
+          <div className="ck-estoque__seg-row" style={{ position: 'relative' }}>
+            <div className="ck-visitas__seg" role="tablist">
+              {(
+                [
+                  ['todas', 'Todas'],
+                  ['aberta', 'Abertas'],
+                  ['finalizada', 'Finalizadas'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={filtro === value}
+                  className={`ck-visitas__seg-btn${filtro === value ? ' is-on' : ''}`}
+                  onClick={() => setFiltro(value)}
+                >
+                  {label}
+                </button>
+              ))}
               <button
                 type="button"
-                className="ck-estoque__loja-btn"
-                onClick={() => setDlgLoja((v) => !v)}
+                className={`ck-visitas__seg-btn ck-estoque__seg-loja${dlgLoja ? ' is-on' : ''}`}
+                aria-label={lojaAtual ? `Loja ${rotuloLoja(lojaAtual)}` : 'Selecionar loja'}
+                aria-haspopup="listbox"
+                aria-expanded={dlgLoja}
+                disabled={!podeTrocarLoja && !lojaAtual}
+                onClick={() => {
+                  if (podeTrocarLoja) setDlgLoja((v) => !v);
+                }}
+                title={lojaAtual ? rotuloLoja(lojaAtual) : 'Loja'}
               >
-                <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
-                <span aria-hidden>{dlgLoja ? '▴' : '▾'}</span>
+                <PlaceOutlinedIcon sx={{ fontSize: 18 }} />
               </button>
-              {dlgLoja && (
-                <>
-                  <div
-                    className="ck-estoque__dropdown-backdrop"
-                    onClick={() => setDlgLoja(false)}
-                  />
-                  <div className="ck-estoque__loja-dropdown">
-                    {lojas.map((l) => {
-                      const ativa = l.id_loja === idLoja;
-                      return (
-                        <button
-                          key={l.id_loja}
-                          type="button"
-                          className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
-                          onClick={() => {
-                            setIdLoja(l.id_loja);
-                            localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
-                            setDlgLoja(false);
-                          }}
-                        >
-                          {rotuloLoja(l)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
             </div>
-          ) : lojaAtual ? (
-            <div className="ck-estoque__loja">
-              <div className="ck-estoque__loja-fix" aria-label="Loja">
-                <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
-                <div className="ck-estoque__loja-fix-text">
-                  {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
-                  <strong>{nomeLoja(lojaAtual)}</strong>
+            {dlgLoja && podeTrocarLoja && (
+              <>
+                <div
+                  className="ck-estoque__dropdown-backdrop"
+                  onClick={() => setDlgLoja(false)}
+                />
+                <div className="ck-estoque__loja-dropdown ck-estoque__loja-dropdown--seg">
+                  {lojas.map((l) => {
+                    const ativa = l.id_loja === idLoja;
+                    return (
+                      <button
+                        key={l.id_loja}
+                        type="button"
+                        className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
+                        onClick={() => {
+                          setIdLoja(l.id_loja);
+                          localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
+                          setDlgLoja(false);
+                        }}
+                      >
+                        {rotuloLoja(l)}
+                      </button>
+                    );
+                  })}
                 </div>
+              </>
+            )}
+          </div>
+
+          {!podeTrocarLoja && lojaAtual ? (
+            <div className="ck-estoque__loja-fix ck-estoque__loja-fix--compact" aria-label="Loja">
+              <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
+              <div className="ck-estoque__loja-fix-text">
+                {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
+                <strong>{nomeLoja(lojaAtual)}</strong>
               </div>
             </div>
           ) : null}
-
-          <div className="ck-visitas__seg" role="tablist">
-            {(
-              [
-                ['todas', 'Todas'],
-                ['aberta', 'Abertas'],
-                ['finalizada', 'Finalizadas'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={filtro === value}
-                className={`ck-visitas__seg-btn${filtro === value ? ' is-on' : ''}`}
-                onClick={() => setFiltro(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
           {idLoja ? (
             <>
-              <button
-                type="button"
-                className={`ck-estoque-nfe__atalho${faltaDiariaHoje ? ' is-diario' : ''}`}
-                style={{ marginBottom: '16px' }}
-                disabled={iniciando}
-                onClick={() => void iniciar('diaria')}
-              >
-                <span className="ck-estoque-nfe__atalho-main">
-                  <strong>
-                    {diariaHoje?.status === 'aberta'
-                      ? 'Continuar contagem diária de hoje'
-                      : diariaHoje?.status === 'finalizada'
-                        ? 'Diária de hoje · consultar'
-                        : 'Contagem diária de hoje'}
-                  </strong>
-                  <small>Rotina diária de insumos</small>
-                </span>
-                <span aria-hidden>›</span>
-              </button>
-              <div className="ck-estoque__atalhos-grid">
+              <div className="ck-estoque__atalhos-grid ck-estoque__atalhos-grid--compact">
                 <button
                   type="button"
                   className="ck-estoque__btn-grid-card"
@@ -445,6 +445,21 @@ export default function EstoqueMobileListaPage() {
                   <small>Conferência</small>
                 </button>
               </div>
+              <button
+                type="button"
+                className={`ck-estoque__lista-diaria-link${faltaDiariaHoje ? ' is-diario' : ''}`}
+                disabled={iniciando}
+                onClick={() => void iniciar('diaria')}
+              >
+                <strong>
+                  {diariaHoje?.status === 'aberta'
+                    ? 'Continuar diária de hoje'
+                    : diariaHoje?.status === 'finalizada'
+                      ? 'Diária de hoje · consultar'
+                      : 'Contagem diária de hoje'}
+                </strong>
+                <small>Rotina diária de insumos</small>
+              </button>
             </>
           ) : null}
         </div>
@@ -490,58 +505,54 @@ export default function EstoqueMobileListaPage() {
                   }
                 }}
               >
-                <div className="ck-estoque__card-top">
+                <div className="ck-estoque__card-head">
                   <div className="ck-estoque__card-title">
-                    <strong>{c.titulo || `Conferência #${c.id_contagem}`}</strong>
-                    <span className="ck-estoque__card-tipo">
-                      {rotuloTipoContagem(c.tipo)}
-                      {dataCurta ? ` · ${dataCurta}` : ''}
-                    </span>
+                    <strong>{rotuloTipoContagem(c.tipo)}</strong>
+                    {dataCurta ? <span className="ck-estoque__card-data">{dataCurta}</span> : null}
                   </div>
-                  <span
-                    className={`ck-estoque__status ${aberta ? 'is-aberta' : 'is-ok'}`}
-                  >
+                  <div className="ck-estoque__card-valor ck-estoque__card-valor--inline">
+                    <strong>{valorPrincipal}</strong>
+                    <span>{parcial ? 'Parcial' : 'Total'}</span>
+                  </div>
+                  <span className={`ck-estoque__status ${aberta ? 'is-aberta' : 'is-ok'}`}>
                     {aberta ? 'Aberta' : 'Finalizada'}
                   </span>
                 </div>
 
-                <div className="ck-estoque__card-valor">
-                  <strong>{valorPrincipal}</strong>
-                  <span>{parcial ? 'Valor parcial' : 'Valor da contagem'}</span>
-                </div>
-
                 <div className="ck-estoque__card-foot">
-                  <div className="ck-estoque__card-meta-left">
-                    <span className="ck-estoque__card-who" title="Responsável pela conferência">
-                      <PersonOutlinedIcon sx={{ fontSize: 16, color: 'var(--ga-orange)' }} />
-                      <strong>{c.criado_por_nome || 'Não informado'}</strong>
-                    </span>
+                  <span className="ck-estoque__card-who" title="Responsável pela conferência">
+                    <PersonOutlinedIcon sx={{ fontSize: 15, color: 'var(--ga-orange)' }} />
+                    <strong>{c.criado_por_nome || 'Não informado'}</strong>
+                  </span>
+                  <div className="ck-estoque__card-meta-center">
+                    {!aberta && pendentes === 0 ? (
+                      <span className="ck-estoque__badge-ok">Conferido</span>
+                    ) : null}
+                  </div>
+                  <div className="ck-estoque__card-flags">
                     {pendentes > 0 && (
-                      <span className="ck-estoque__badge-pend">{pendentes} pendente{pendentes !== 1 ? 's' : ''}</span>
+                      <span className="ck-estoque__badge-pend">{pendentes} pend.</span>
                     )}
                     {divergencias > 0 && (
-                      <span className="ck-estoque__badge-div">{divergencias} divergência{divergencias !== 1 ? 's' : ''}</span>
+                      <span className="ck-estoque__badge-div">{divergencias} div.</span>
                     )}
-                    {!aberta && pendentes === 0 && (
-                      <span className="ck-estoque__badge-ok">Conferido</span>
+                    {mostrarReabrir && (
+                      <button
+                        type="button"
+                        className="ck-estoque__reabrir"
+                        title="Reabrir"
+                        aria-label="Reabrir conferência"
+                        disabled={reabrindoId === c.id_contagem}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setReabrirAlvo(c);
+                        }}
+                      >
+                        <LockOpenIcon fontSize="small" />
+                      </button>
                     )}
                   </div>
-                  {mostrarReabrir && (
-                    <button
-                      type="button"
-                      className="ck-estoque__reabrir"
-                      title="Reabrir"
-                      aria-label="Reabrir conferência"
-                      disabled={reabrindoId === c.id_contagem}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setReabrirAlvo(c);
-                      }}
-                    >
-                      <LockOpenIcon fontSize="small" />
-                    </button>
-                  )}
                 </div>
               </div>
             );
@@ -556,9 +567,11 @@ export default function EstoqueMobileListaPage() {
           disabled={iniciando}
           sx={{
             position: 'fixed',
-            right: safeAreaRightCalc(20),
-            bottom: 'calc(16px + var(--app-tabbar-offset, 58px))',
+            right: 14,
+            bottom: 'calc(16px + var(--app-tabbar-offset, 58px) + env(safe-area-inset-bottom, 0px))',
             zIndex: 40,
+            width: 52,
+            height: 52,
             bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
             color: '#fff',
             boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
