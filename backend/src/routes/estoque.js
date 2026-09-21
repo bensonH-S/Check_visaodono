@@ -18,6 +18,7 @@ import {
   aplicarPadraoContagemRede,
   BK_NUMBER_POPEYES,
   nucleoCodigoOuNull,
+  sqlChaveCodigoRede,
   recomputarEstoqueContadoContagem,
   resolverQtdContagem,
   SQL_ORDEM_PLANILHA,
@@ -1086,10 +1087,7 @@ async function listarConfiguracaoContagem(req, res, next) {
       `WITH base AS (
          SELECT
            p.*,
-           CASE
-             WHEN BTRIM(p.codigo) ~ '^[0-9]+$' THEN TRIM(LEADING '0' FROM BTRIM(p.codigo))
-             ELSE UPPER(BTRIM(p.codigo))
-           END AS chave_rede
+           ${sqlChaveCodigoRede('p')} AS chave_rede
          FROM insumos p
          JOIN lojas l ON l.id_loja = p.id_loja AND COALESCE(l.is_active, TRUE) = TRUE
          WHERE p.ativo = TRUE

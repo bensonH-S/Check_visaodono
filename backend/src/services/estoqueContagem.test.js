@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import {
   calcularQtdContagem,
   chaveCodigoRede,
+  sqlMatchCodigoSku,
   classificarCasoRevisaoUnidade,
   classificarUnidadeContagem,
   resolverQtdContagem,
@@ -27,6 +28,14 @@ describe('chaveCodigoRede', () => {
     assert.equal(chaveCodigoRede('034754'), '34754');
     assert.equal(chaveCodigoRede('34754'), '34754');
     assert.equal(chaveCodigoRede('RCNT-BALDEPAPEL900MLBKC'), 'RCNT-BALDEPAPEL900MLBKC');
+  });
+});
+
+describe('sqlMatchCodigoSku', () => {
+  it('não junta 010947 com 10947 pelo zero à esquerda', () => {
+    const sql = sqlMatchCodigoSku('dest', '$10', '$11');
+    assert.match(sql, /NOT EXISTS/);
+    assert.match(sql, /colisao/);
   });
 });
 

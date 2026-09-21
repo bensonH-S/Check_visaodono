@@ -619,6 +619,50 @@ export function chaveCodigoRede(codigo) {
   return nucleoCodigoOuNull(codigo) || String(codigo || '').trim().toUpperCase();
 }
 
+/**
+ * Chave SQL por loja: tira zero à esquerda, mas não junta SKUs diferentes
+ * que compartilham o núcleo (010947 sal ≠ 10947 sachê).
+ */
+export function sqlChaveCodigoRede(alias = 'p') {
+  return `
+CASE
+  WHEN BTRIM(${alias}.codigo) ~ '^[0-9]+$'
+       AND EXISTS (
+         SELECT 1
+         FROM insumos colisao
+         WHERE colisao.ativo IS DISTINCT FROM FALSE
+           AND colisao.codigo ~ '^[0-9]+$'
+           AND TRIM(LEADING '0' FROM BTRIM(colisao.codigo))
+             = TRIM(LEADING '0' FROM BTRIM(${alias}.codigo))
+           AND UPPER(BTRIM(colisao.codigo)) <> UPPER(BTRIM(${alias}.codigo))
+       )
+    THEN UPPER(BTRIM(${alias}.codigo))
+  WHEN BTRIM(${alias}.codigo) ~ '^[0-9]+$'
+    THEN TRIM(LEADING '0' FROM BTRIM(${alias}.codigo))
+  ELSE UPPER(BTRIM(${alias}.codigo))
+END`;
+}
+
+/** Match de código na rede sem misturar 010947 com 10947. $codigo e $nucleo = params. */
+export function sqlMatchCodigoSku(destAlias, pCodigo, pNucleo) {
+  return `(
+    UPPER(BTRIM(${destAlias}.codigo)) = UPPER(BTRIM(${pCodigo}::text))
+    OR (
+      ${pNucleo}::text IS NOT NULL
+      AND ${destAlias}.codigo ~ '^[0-9]+$'
+      AND TRIM(LEADING '0' FROM ${destAlias}.codigo) = ${pNucleo}
+      AND NOT EXISTS (
+        SELECT 1 FROM insumos colisao
+        WHERE colisao.id_loja = ${destAlias}.id_loja
+          AND colisao.ativo IS DISTINCT FROM FALSE
+          AND colisao.codigo ~ '^[0-9]+$'
+          AND TRIM(LEADING '0' FROM colisao.codigo) = TRIM(LEADING '0' FROM ${destAlias}.codigo)
+          AND UPPER(BTRIM(colisao.codigo)) <> UPPER(BTRIM(${destAlias}.codigo))
+      )
+    )
+  )`;
+}
+
 /** Popeyes tem catálogo e preço próprios — fora do padrão BK. */
 export const BK_NUMBER_POPEYES = '15022';
 
@@ -653,14 +697,7 @@ export async function aplicarPadraoContagemRede(client, {
      WHERE dest.id_loja = l.id_loja
        AND dest.ativo = TRUE
        AND TRIM(COALESCE(l.bk_number, '')) <> $12
-       AND (
-         UPPER(BTRIM(dest.codigo)) = UPPER(BTRIM($10::text))
-         OR (
-           $11::text IS NOT NULL
-           AND dest.codigo ~ '^[0-9]+$'
-           AND TRIM(LEADING '0' FROM dest.codigo) = $11
-         )
-       )
+       AND ${sqlMatchCodigoSku('dest', '$10', '$11')}
      RETURNING dest.id_insumo, dest.id_loja, dest.codigo`,
     [
       participa_contagem,
