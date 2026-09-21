@@ -26,6 +26,11 @@
   gap: 10px;
 }
 
+.ck-escala__compact-lead {
+  min-width: 0;
+  flex: 1;
+}
+
 .ck-escala__header-acoes {
   display: flex;
   align-items: center;
@@ -61,7 +66,7 @@
 }
 
 .ck-escala__week--compact {
-  margin-top: 8px !important;
+  margin-top: 4px !important;
 }
 
 .ck-escala--compact .ck-escala__week-btn {
@@ -78,20 +83,25 @@
   padding-top: 12px;
 }
 
+.ck-escala--compact .ck-visitas__mark-icon {
+  width: 40px;
+  height: 40px;
+}
+
 .ck-escala--compact .ck-escala__dias {
-  gap: 6px;
+  gap: 4px;
   padding-bottom: 8px;
   margin-bottom: 0;
 }
 
 .ck-escala--compact .ck-escala__dia {
-  min-width: 64px;
-  padding: 8px 6px;
+  min-width: 0;
+  padding: 7px 0 6px;
   border-radius: 12px;
 }
 
 .ck-escala--compact .ck-escala__dia strong {
-  font-size: 0.84rem;
+  font-size: 0.68rem;
 }
 
 .ck-escala--compact .ck-escala__dia small {
@@ -212,8 +222,8 @@
 .ck-escala .ck-escala__nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .ck-escala .ck-escala__filtro-row {
@@ -295,12 +305,20 @@
 
 .ck-escala .ck-escala__pessoas {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.ck-escala .ck-escala__pessoas::-webkit-scrollbar {
+  display: none;
 }
 
 .ck-escala .ck-escala__pessoa {
+  flex-shrink: 0;
   border: 1px solid;
   font: inherit;
   font-size: 0.72rem;
@@ -415,26 +433,17 @@
 }
 
 .ck-escala .ck-escala__dias {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
   padding-bottom: 12px;
-  margin: 0 -2px;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.ck-escala .ck-escala__dias::-webkit-scrollbar {
-  display: none;
+  margin: 0;
 }
 
 .ck-escala .ck-escala__dia {
-  flex-shrink: 0;
-  scroll-snap-align: start;
-  min-width: 74px;
-  padding: 10px 8px;
-  border-radius: 14px;
+  min-width: 0;
+  padding: 8px 0 7px;
+  border-radius: 12px;
   text-align: center;
   cursor: pointer;
   border: 1.5px solid rgba(27, 42, 107, 0.1);
@@ -456,9 +465,12 @@
 
 .ck-escala .ck-escala__dia strong {
   display: block;
-  font-size: 0.92rem;
+  font-size: 0.68rem;
   font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
   color: var(--ck-navy);
+  white-space: nowrap;
 }
 
 .ck-escala .ck-escala__dia small {
@@ -467,6 +479,8 @@
   font-size: 0.9rem;
   font-weight: 800;
   color: rgba(20, 32, 72, 0.7);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .ck-escala .ck-escala__dia-n {

@@ -45,6 +45,7 @@ import {
   addDaysIso,
   diaIndexNaSemana,
   fmtDataCurta,
+  fmtDiaCalendario,
   fmtEnvioQuando,
   montarCardsAprovacaoEscala,
   primeiroNome,
@@ -1112,7 +1113,7 @@ export default function EscalaVisitasMobileView() {
   if (!podeVer) return null;
 
   const labelSemanaCurta = grade
-    ? `${fmtDataCurta(grade.semana_inicio)} – ${fmtDataCurta(grade.semana_fim)}`
+    ? `${fmtDataCurta(grade.semana_inicio)}–${fmtDataCurta(grade.semana_fim)}`
     : '…';
 
   const temFiltroRegiao = !ehDeliveryOnly && grade != null && grade.regioes.length > 1;
@@ -1231,41 +1232,46 @@ export default function EscalaVisitasMobileView() {
           {modoTrabalho ? (
             <>
               <div className="ck-escala__compact-top">
-                <div>
+                <div className="ck-escala__compact-lead">
                   <h1 className="ck-escala__compact-title">
                     {modo === 'minhas'
                       ? 'Minha semana'
                       : modo === 'lojas'
-                        ? 'Escala da semana'
+                        ? 'Escala'
                         : ehDeliveryOnly
-                          ? 'Escala delivery'
+                          ? 'Delivery'
                           : ehDiretor
-                            ? 'Editar escala'
-                            : 'Montar escala'}
+                            ? 'Editar'
+                            : 'Montar'}
                   </h1>
-                  <p className="ck-escala__compact-sub">
-                    {modo === 'minhas'
-                      ? visitasHojeMinhas
-                        ? `${visitasHojeMinhas} visita${visitasHojeMinhas !== 1 ? 's' : ''} hoje`
-                        : 'Suas lojas da semana'
-                      : modo === 'lojas'
-                        ? 'Quem visita cada loja'
-                      : ehDeliveryOnly || modo === 'delivery'
-                      ? podeEditarDelivery
-                        ? statusAtivo === 'pendente_aprovacao'
-                          ? 'Ajuste as lojas e envie de novo para o diretor'
-                          : 'Toque nas lojas do dia, salve e envie para o diretor aprovar'
-                        : 'Rota de delivery da semana (só leitura)'
-                      : ehRegional
-                        ? podeEditarGrade
-                          ? statusAtivo === 'pendente_aprovacao'
-                            ? 'Ajuste as lojas e envie de novo para o diretor'
-                            : 'Escolha o dia, toque nas lojas e envie para aprovação'
-                          : 'Escala em só leitura — use Minhas para ver sua rota'
-                        : podeEditarGrade
-                          ? 'Altere a escala montada pela equipe e salve'
-                          : 'Só leitura — abra Editar numa região para alterar a grade viva'}
-                  </p>
+                  <div className="ck-escala__week ck-escala__week--compact">
+                    <button
+                      type="button"
+                      className="ck-escala__week-btn"
+                      aria-label="Semana anterior"
+                      onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
+                    >
+                      ‹
+                    </button>
+                    <span className="ck-escala__week-label">{labelSemanaCurta}</span>
+                    {!semanaEhAtual ? (
+                      <button
+                        type="button"
+                        className="ck-escala__hoje"
+                        onClick={() => setSemanaInicio(semanaAlvo)}
+                      >
+                        Hoje
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="ck-escala__week-btn"
+                      aria-label="Próxima semana"
+                      onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
+                    >
+                      ›
+                    </button>
+                  </div>
                 </div>
                 <div className="ck-escala__header-acoes">
                   <button
@@ -1283,36 +1289,6 @@ export default function EscalaVisitasMobileView() {
                   </button>
                   <CkMarkLogoMenu size={64} className="ck-visitas__mark-icon" />
                 </div>
-              </div>
-              <div className="ck-escala__week ck-escala__week--compact">
-                <button
-                  type="button"
-                  className="ck-escala__week-btn"
-                  aria-label="Semana anterior"
-                  onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
-                >
-                  ‹
-                </button>
-                <span className="ck-escala__week-label">{labelSemanaCurta}</span>
-                {!semanaEhAtual ? (
-                  <button
-                    type="button"
-                    className="ck-escala__hoje"
-                    onClick={() => setSemanaInicio(semanaAlvo)}
-                  >
-                    Hoje
-                  </button>
-                ) : (
-                  <span className="ck-escala__hoje-spacer" aria-hidden />
-                )}
-                <button
-                  type="button"
-                  className="ck-escala__week-btn"
-                  aria-label="Próxima semana"
-                  onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
-                >
-                  ›
-                </button>
               </div>
             </>
           ) : (
@@ -1580,7 +1556,7 @@ export default function EscalaVisitasMobileView() {
                       onClick={() => setDiaSelecionado(d.dia)}
                     >
                       <strong>{DIAS_ABREV[d.dia]}</strong>
-                      <small>{d.data}</small>
+                      <small>{fmtDiaCalendario(addDaysIso(semanaInicio, d.dia)).dia}</small>
                       <span className="ck-escala__dia-n">{d.totalMarcadas}</span>
                     </button>
                   );
@@ -1600,7 +1576,7 @@ export default function EscalaVisitasMobileView() {
                       onClick={() => setDiaSelecionado(d.dia)}
                     >
                       <strong>{DIAS_ABREV[d.dia]}</strong>
-                      <small>{d.data}</small>
+                      <small>{fmtDiaCalendario(addDaysIso(semanaInicio, d.dia)).dia}</small>
                       {d.itens.length > 0 && <span className="ck-escala__dia-n">{d.itens.length}</span>}
                     </button>
                   );

@@ -152,22 +152,15 @@
 }
 
 .ck-escala-cal__dias {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
   margin: 0 0 12px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.ck-escala-cal__dias::-webkit-scrollbar {
-  display: none;
 }
 
 .ck-escala-cal__dia {
-  flex: 1 0 0;
-  min-width: 46px;
-  padding: 8px 2px 7px;
+  min-width: 0;
+  padding: 7px 0 6px;
   border: 1px solid var(--cal-line);
   border-radius: 12px;
   background: var(--cal-paper);
@@ -179,11 +172,12 @@
 
 .ck-escala-cal__dia span {
   display: block;
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
   color: var(--cal-muted);
+  white-space: nowrap;
 }
 
 .ck-escala-cal__dia b {
@@ -191,7 +185,9 @@
   margin-top: 2px;
   font-size: 0.98rem;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .ck-escala-cal__dia em {

@@ -5,6 +5,7 @@ import {
   diaIndexNaSemana,
   fmtDataAgenda,
   fmtDataCurta,
+  fmtDiaCalendario,
 } from './escalaVisitasUtils';
 import type { EscalaAgendaLoja, EscalaAgendaPessoa } from './escalaAgendaModel';
 import LojaBkMarca from './LojaBkMarca';
@@ -106,7 +107,7 @@ export default function EscalaAgendaPessoas({
                 onClick={() => setDiaSel(dia)}
               >
                 <span>{label}</span>
-                <b>{fmtDataCurta(addDaysIso(semanaInicio, dia))}</b>
+                <b>{fmtDiaCalendario(addDaysIso(semanaInicio, dia)).dia}</b>
                 {n > 0 ? <em>{n}</em> : null}
               </button>
             );
