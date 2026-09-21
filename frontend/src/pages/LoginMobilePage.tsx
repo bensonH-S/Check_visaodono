@@ -16,7 +16,6 @@ import { api } from '../api/client';
 import { destinoPosLoginMobile, getToken, logout, setSessao } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
-import PwaInstallDialog from '../components/PwaInstallDialog';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { formatMobileVersionNumber } from '../components/MobileVersionBadge';
 import { assetUrl, LOGO_ALVIM_ICONE } from '../config/paths';
@@ -250,8 +249,6 @@ export default function LoginMobilePage() {
           </div>
         </div>
       </div>
-
-      <PwaInstallDialog />
 
       <Snackbar
         open={!!toast}

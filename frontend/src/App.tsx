@@ -89,12 +89,14 @@ import RotaFrota from './components/RotaFrota';
 import RotaMapaTecnicos from './components/RotaMapaTecnicos';
 import ZoomWarning from './components/ZoomWarning';
 import AppToastContainer from './components/AppToastContainer';
+import PwaInstallDialog from './components/PwaInstallDialog';
 export default function App() {
   return (
     <CustomThemeProvider>
       <AppToastContainer />
       <ZoomWarning />
       <BrowserRouter basename={appBasePath}>
+        <PwaInstallDialog />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/login/mobile" element={<LoginMobilePage />} />

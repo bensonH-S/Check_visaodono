@@ -76,9 +76,9 @@ export const MOBILE_SPLASH_LOGO = {
 
 /**
  * Altura da área de ícones da tab bar (sem safe-area).
- * Nav: TAB 52px + pt 6px → 58px; safe-area entra no CSS abaixo.
+ * Nav: TAB 56px + pt 8px → 64px; safe-area entra no CSS abaixo.
  */
-export const MOBILE_TAB_BAR_INNER_H = 58;
+export const MOBILE_TAB_BAR_INNER_H = 64;
 
 /** Offset total da tab bar fixed (ícones + home indicator). */
 export function mobileTabBarOffsetCss(innerH = MOBILE_TAB_BAR_INNER_H) {
@@ -108,9 +108,9 @@ export function mobileTabBarNavSx(tabHeightPx: number) {
     display: 'flex',
     alignItems: 'flex-end',
     boxSizing: 'border-box' as const,
-    pt: '6px',
-    pb: 'max(4px, env(safe-area-inset-bottom, 0px))',
-    minHeight: `calc(${tabHeightPx}px + 6px + env(safe-area-inset-bottom, 0px))`,
+    pt: '8px',
+    pb: 'max(6px, env(safe-area-inset-bottom, 0px))',
+    minHeight: `calc(${tabHeightPx}px + 8px + env(safe-area-inset-bottom, 0px))`,
   } as const;
 }
 

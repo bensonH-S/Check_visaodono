@@ -35,6 +35,7 @@ backend/uploads/
 .DS_Store
 VERSION
 frontend/public/app-version.json
+.preview-phone-profile/
 
 # Scripts e patches operacionais one-off (não versionar).
 # _op_desativar_gerentes.mjs já está no git e continua tracked.

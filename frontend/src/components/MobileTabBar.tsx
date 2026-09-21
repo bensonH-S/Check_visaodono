@@ -62,7 +62,7 @@ export default function MobileTabBar({
   maxVisible = 4,
   accent,
   tabHeight = 52,
-  fontSize = '0.625rem',
+  fontSize = '0.7rem',
   iconSize = 20,
   hiddenOnDesktop = false,
 }: Props) {
@@ -89,12 +89,23 @@ export default function MobileTabBar({
     ...mobileTabBarItemSx(tabHeight),
     color: ativo ? effectiveAccent : (escuro ? '#94A3B8' : colors.textMuted),
     fontSize,
-    fontWeight: ativo ? 600 : 500,
+    fontWeight: ativo ? 700 : 600,
+    letterSpacing: '-0.01em',
     border: 0,
     background: 'none',
     cursor: 'pointer',
     fontFamily: 'inherit',
-    '& .MuiSvgIcon-root': { fontSize: iconSize, mb: 0.25, color: ativo ? effectiveAccent : 'inherit' },
+    '& .MuiSvgIcon-root': {
+      fontSize: iconSize,
+      mb: 0.35,
+      p: '5px',
+      boxSizing: 'content-box',
+      borderRadius: '12px',
+      color: ativo ? effectiveAccent : 'inherit',
+      bgcolor: ativo
+        ? (escuro ? 'rgba(255, 122, 61, 0.16)' : 'rgba(27, 42, 107, 0.08)')
+        : 'transparent',
+    },
   });
 
   return (

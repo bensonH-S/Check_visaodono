@@ -21,7 +21,6 @@ import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
 import MobilePaginaTitulo from '../components/MobilePaginaTitulo';
 import PwaInstallBanner from '../components/PwaInstallBanner';
 import PwaUpdateBanner from '../components/PwaUpdateBanner';
-import PwaInstallDialog from '../components/PwaInstallDialog';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import { assetUrl, FAVICON_ICON, toAppPath } from '../config/paths';
 import { mobilePaginaCabecalhoFixo } from '../config/mobileRoutes';
@@ -61,7 +60,7 @@ function canalMobile(modulos: ModulosCanalMapa | undefined, codigo: ModuloCanalC
 }
 
 const ORANGE = '#E8520A';
-const TAB_NAV_H = 52;
+const TAB_NAV_H = 56;
 const ABAS_COM_SUBPAGINA = [
   '/checklist/mobile',
   '/chamados/mobile',
@@ -712,7 +711,6 @@ function ChamadosMobileLayoutInner() {
         ['--app-tabbar-offset' as string]: tabBarOffsetCss,
       }}
     >
-      <PwaInstallDialog />
       <PwaUpdateBanner />
       {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && !isPortais && (
       <Box
@@ -723,10 +721,10 @@ function ChamadosMobileLayoutInner() {
           zIndex: 30,
           flexShrink: 0,
           bgcolor: colors.canvas,
-          borderBottom: `1px solid ${colors.border}`,
+          borderBottom: `1px solid ${escuro ? 'rgba(255,255,255,0.06)' : 'rgba(27, 42, 107, 0.06)'}`,
           ...safeAreaX(16),
-          pt: safeAreaTopPadding(8),
-          pb: 0.5,
+          pt: safeAreaTopPadding(10),
+          pb: 1,
           boxShadow: 'none',
           overflow: 'visible',
         }}
@@ -749,7 +747,7 @@ function ChamadosMobileLayoutInner() {
             )}
             <BrandLogo
               variante="icone"
-              maxWidth={temBotaoVoltar ? 60 : 68}
+              maxWidth={temBotaoVoltar ? 64 : 72}
               sx={{ flexShrink: 0 }}
             />
             {/* Toggle de tema ao lado da logo */}
@@ -845,6 +843,7 @@ function ChamadosMobileLayoutInner() {
             zIndex: 1,
             flexShrink: 0,
             ...safeAreaX(16),
+            pt: 0.5,
           }}
         >
           <Box sx={{ maxWidth: 480, mx: 'auto', width: '100%' }}>
@@ -988,8 +987,8 @@ function ChamadosMobileLayoutInner() {
           }
           accent={acento}
           tabHeight={TAB_NAV_H}
-          fontSize={modoRestrito ? '0.7rem' : '0.625rem'}
-          iconSize={modoRestrito ? 24 : 22}
+          fontSize="0.7rem"
+          iconSize={24}
         />
       )}
     </Box>

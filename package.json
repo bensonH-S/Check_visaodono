@@ -9,6 +9,8 @@
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "node --watch server.js",
     "dev:web": "npx --yes wait-on tcp:127.0.0.1:5000 -t 45000 && npm run dev --prefix frontend",
+    "preview:phone": "node scripts/preview-phone.mjs",
+    "dev:phone": "concurrently -n app,phone -c cyan,green \"npm run dev\" \"npx --yes wait-on tcp:127.0.0.1:5173 -t 90000 && node scripts/preview-phone.mjs\"",
     "tunnel": "ngrok http 5173",
     "sql": "npm run sql --prefix backend",
     "migrate": "npm run migrate --prefix backend",

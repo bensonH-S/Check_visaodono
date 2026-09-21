@@ -1,21 +1,20 @@
 import type { ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
 import GetAppIcon from '@mui/icons-material/GetApp';
 import IosShareIcon from '@mui/icons-material/IosShare';
 import AddBoxOutlinedIcon from '@mui/icons-material/AddBoxOutlined';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import BrandLogo from './BrandLogo';
-import { usePwaInstallPrompt } from '../hooks/usePwaInstallPrompt';
+import { useLocation } from 'react-router-dom';
+import { isIosChrome, usePwaInstallPrompt } from '../hooks/usePwaInstallPrompt';
+import { APP_NAME } from '../config/brand';
 
 const NAVY = '#1B2A6B';
-const ORANGE = '#E8520A';
+const ORANGE = '#FF7A3D';
 
-function PassoInstalacao({
+function Passo({
   numero,
   icone,
   titulo,
@@ -33,10 +32,10 @@ function PassoInstalacao({
           width: 28,
           height: 28,
           borderRadius: '50%',
-          bgcolor: 'rgba(27, 42, 107, 0.08)',
-          color: NAVY,
-          fontWeight: 700,
-          fontSize: '0.875rem',
+          bgcolor: 'rgba(255,255,255,0.14)',
+          color: '#fff',
+          fontWeight: 800,
+          fontSize: '0.82rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -48,11 +47,9 @@ function PassoInstalacao({
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25 }}>
           {icone}
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: NAVY }}>
-            {titulo}
-          </Typography>
+          <Typography sx={{ fontWeight: 800, color: '#fff', fontSize: '0.95rem' }}>{titulo}</Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+        <Typography sx={{ fontSize: '0.84rem', color: 'rgba(255,255,255,0.72)', lineHeight: 1.45 }}>
           {descricao}
         </Typography>
       </Box>
@@ -61,165 +58,200 @@ function PassoInstalacao({
 }
 
 export default function PwaInstallDialog() {
-  const { aberto, modo, instalando, dispensar, instalarAndroid } = usePwaInstallPrompt();
+  const { pathname } = useLocation();
+  const { aberto, modo, instalando, instalarAndroid } = usePwaInstallPrompt(pathname);
+  if (!aberto) return null;
 
-  const titulo =
-    modo === 'ios'
-      ? 'Adicione à Tela de Início'
-      : 'Instale o app na tela inicial';
-
-  const subtitulo =
-    modo === 'ios'
-      ? 'No iPhone, o Safari não permite instalar com um toque — siga estes 2 passos rápidos:'
-      : modo === 'android'
-        ? 'Toque em Instalar agora. O celular mostra o atalho na tela inicial — sem abrir configurações.'
-        : 'Toque no menu do navegador e escolha instalar o aplicativo.';
+  const chromeIos = isIosChrome();
 
   return (
-    <Dialog
-      open={aberto}
-      onClose={dispensar}
-      fullWidth
-      maxWidth="xs"
+    <Box
+      role="dialog"
+      aria-modal="true"
       aria-labelledby="pwa-install-title"
-      slotProps={{
-        paper: {
-          sx: {
-            m: 2,
-            borderRadius: 3,
-            overflow: 'visible',
-          },
-        },
+      sx={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 4000,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'auto',
+        px: 2.5,
+        pt: 'calc(28px + env(safe-area-inset-top, 0px))',
+        pb: 'calc(28px + env(safe-area-inset-bottom, 0px))',
+        background: 'linear-gradient(160deg, #0E1848 0%, #1B2A6B 48%, #243987 100%)',
+        color: '#fff',
       }}
     >
-      <DialogContent sx={{ pt: 3, pb: 1.5, px: 2.5 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ maxWidth: 420, mx: 'auto', width: '100%' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3, textAlign: 'center' }}>
           <Box
             sx={{
-              width: 64,
-              height: 64,
-              borderRadius: 2.5,
+              width: 76,
+              height: 76,
+              borderRadius: 3,
               bgcolor: '#fff',
-              boxShadow: '0 8px 24px rgba(27, 42, 107, 0.12)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mb: 1.5,
+              boxShadow: '0 12px 32px rgba(0,0,0,0.28)',
+              display: 'grid',
+              placeItems: 'center',
+              mb: 2,
             }}
           >
-            <BrandLogo variante="icone" maxWidth={72} />
+            <BrandLogo variante="icone" maxWidth={80} />
           </Box>
-          <Typography id="pwa-install-title" variant="h6" sx={{ fontWeight: 700, color: NAVY, textAlign: 'center' }}>
-            {titulo}
+          <Typography id="pwa-install-title" sx={{ fontWeight: 800, fontSize: '1.45rem', lineHeight: 1.2 }}>
+            {modo === 'computador' ? 'O app é só no celular' : 'Instale o app antes de usar'}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, textAlign: 'center', lineHeight: 1.5 }}>
-            {subtitulo}
+          <Typography sx={{ mt: 1, fontSize: '0.92rem', color: 'rgba(255,255,255,0.74)', lineHeight: 1.45 }}>
+            {modo === 'computador'
+              ? 'Notebook e computador não entram. Abra no iPhone ou Android e instale na tela inicial.'
+              : `Instale o ${APP_NAME} na tela inicial. Sem o ícone, não dá para usar — nem recusando a instalação.`}
           </Typography>
         </Box>
 
-        {modo === 'ios' && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <PassoInstalacao
-              numero={1}
-              icone={<IosShareIcon sx={{ fontSize: 18, color: ORANGE }} />}
-              titulo="Compartilhar"
-              descricao={
-                <>
-                  Toque no ícone{' '}
-                  <IosShareIcon sx={{ fontSize: 16, verticalAlign: 'text-bottom' }} /> na barra inferior do
-                  Safari.
-                </>
-              }
-            />
-            <PassoInstalacao
-              numero={2}
-              icone={<AddBoxOutlinedIcon sx={{ fontSize: 18, color: ORANGE }} />}
-              titulo="Adicionar à Tela de Início"
-              descricao="Role o menu e toque em Adicionar à Tela de Início. Depois abra sempre pelo ícone Meridian."
-            />
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                p: 1.25,
-                borderRadius: 2,
-                bgcolor: 'rgba(27, 42, 107, 0.05)',
-              }}
-            >
-              <PhoneIphoneIcon sx={{ color: NAVY, fontSize: 20 }} />
-              <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.45 }}>
-                Assim você recebe notificações dos chamados mesmo com o app fechado.
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            p: 2,
+            borderRadius: 3,
+            bgcolor: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.12)',
+          }}
+        >
+          {modo === 'computador' && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PhoneIphoneIcon sx={{ color: ORANGE, fontSize: 22 }} />
+              <Typography sx={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.78)', lineHeight: 1.45 }}>
+                No telefone: Safari (iPhone) ou Chrome (Android) → instalar / adicionar à tela inicial → abrir o
+                ícone.
               </Typography>
             </Box>
-            {aberto && (
-              <Box
-                aria-hidden
-                sx={{
-                  position: 'fixed',
-                  bottom: 12,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  color: ORANGE,
-                  fontSize: '2rem',
-                  lineHeight: 1,
-                  animation: 'pwa-bounce 1.2s ease-in-out infinite',
-                  '@keyframes pwa-bounce': {
-                    '0%, 100%': { transform: 'translateX(-50%) translateY(0)' },
-                    '50%': { transform: 'translateX(-50%) translateY(6px)' },
-                  },
-                  pointerEvents: 'none',
-                  zIndex: 1400,
-                }}
-              >
-                ↓
-              </Box>
-            )}
-          </Box>
-        )}
+          )}
 
-        {modo === 'android-manual' && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <PassoInstalacao
+          {modo === 'ios' && chromeIos && (
+            <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: ORANGE, lineHeight: 1.4 }}>
+              No iPhone isso só funciona no Safari. Feche o Chrome e abra este mesmo endereço no Safari.
+            </Typography>
+          )}
+
+          {modo === 'ios' && (
+            <>
+              <Passo
+                numero={1}
+                icone={<IosShareIcon sx={{ fontSize: 18, color: ORANGE }} />}
+                titulo="Compartilhar"
+                descricao={
+                  <>
+                    Toque em{' '}
+                    <IosShareIcon sx={{ fontSize: 16, verticalAlign: 'text-bottom' }} /> na barra de baixo do
+                    Safari.
+                  </>
+                }
+              />
+              <Passo
+                numero={2}
+                icone={<AddBoxOutlinedIcon sx={{ fontSize: 18, color: ORANGE }} />}
+                titulo="Adicionar à Tela de Início"
+                descricao={`Role o menu, toque nisso e confirme. Depois abra sempre o ícone ${APP_NAME}.`}
+              />
+            </>
+          )}
+
+          {modo === 'android' && (
+            <Passo
               numero={1}
-              icone={<Typography sx={{ fontWeight: 700, fontSize: '1rem', color: ORANGE }}>⋮</Typography>}
-              titulo="Menu do Chrome"
-              descricao="Toque nos três pontos no canto superior direito do navegador."
-            />
-            <PassoInstalacao
-              numero={2}
               icone={<GetAppIcon sx={{ fontSize: 18, color: ORANGE }} />}
-              titulo="Instalar aplicativo"
-              descricao='Selecione "Instalar aplicativo" ou "Adicionar à tela inicial".'
+              titulo="Instalar agora"
+              descricao="Toque no botão abaixo. O Chrome coloca o atalho na tela inicial."
             />
-          </Box>
-        )}
-      </DialogContent>
+          )}
 
-      <DialogActions sx={{ px: 2.5, pb: 2.5, pt: 0, flexDirection: 'column', gap: 1 }}>
+          {modo === 'android-manual' && (
+            <>
+              <Passo
+                numero={1}
+                icone={<Typography sx={{ fontWeight: 800, fontSize: '1rem', color: ORANGE }}>⋮</Typography>}
+                titulo="Menu do Chrome"
+                descricao="Toque nos três pontos no canto de cima."
+              />
+              <Passo
+                numero={2}
+                icone={<GetAppIcon sx={{ fontSize: 18, color: ORANGE }} />}
+                titulo="Instalar aplicativo"
+                descricao='Escolha "Instalar aplicativo" ou "Adicionar à tela inicial".'
+              />
+            </>
+          )}
+
+          {modo !== 'computador' && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: 0.5 }}>
+              <PhoneIphoneIcon sx={{ color: ORANGE, fontSize: 20 }} />
+              <Typography sx={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.68)', lineHeight: 1.4 }}>
+                Sem instalar, o app não abre. Recusar não libera o uso no navegador.
+              </Typography>
+            </Box>
+          )}
+        </Box>
+
         {modo === 'android' && (
           <Button
             fullWidth
             variant="contained"
             size="large"
             startIcon={<GetAppIcon />}
-            onClick={instalarAndroid}
+            onClick={() => void instalarAndroid()}
             disabled={instalando}
-            sx={{ fontWeight: 700, py: 1.25 }}
+            sx={{
+              mt: 2.5,
+              py: 1.4,
+              fontWeight: 800,
+              bgcolor: ORANGE,
+              '&:hover': { bgcolor: '#e8520a' },
+            }}
           >
             {instalando ? 'Abrindo instalação…' : 'Instalar agora'}
           </Button>
         )}
-        <Button
-          fullWidth
-          variant={modo === 'android' ? 'text' : 'contained'}
-          size={modo === 'android' ? 'medium' : 'large'}
-          onClick={dispensar}
-          sx={{ fontWeight: modo === 'android' ? 500 : 700 }}
+
+        {modo === 'ios' && (
+          <Typography
+            sx={{
+              mt: 3,
+              textAlign: 'center',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              color: 'rgba(255,255,255,0.55)',
+            }}
+          >
+            Depois de adicionar, abra o ícone — esta página some.
+          </Typography>
+        )}
+      </Box>
+
+      {modo === 'ios' && !chromeIos && (
+        <Box
+          aria-hidden
+          sx={{
+            position: 'fixed',
+            bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            color: ORANGE,
+            fontSize: '2rem',
+            lineHeight: 1,
+            animation: 'pwa-bounce 1.2s ease-in-out infinite',
+            '@keyframes pwa-bounce': {
+              '0%, 100%': { transform: 'translateX(-50%) translateY(0)' },
+              '50%': { transform: 'translateX(-50%) translateY(6px)' },
+            },
+            pointerEvents: 'none',
+          }}
         >
-          {modo === 'ios' || modo === 'android-manual' ? 'Entendi' : 'Agora não'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+          ↓
+        </Box>
+      )}
+    </Box>
   );
 }

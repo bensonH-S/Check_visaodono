@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -209,10 +209,15 @@ body {
   padding: 10px 14px !important;
 }
 
+.mobile-app-shell {
+  font-family: Manrope, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
 /* Header mobile: conteúdo abaixo do notch / Dynamic Island (iPhone PWA) */
 .mobile-app-header {
-  padding-top: calc(8px + constant(safe-area-inset-top));
-  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  padding-top: calc(10px + constant(safe-area-inset-top));
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
 }
 
 /* Barra de abas mobile: ícones descem até a safe area (home indicator no iPhone) */

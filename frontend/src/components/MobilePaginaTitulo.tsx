@@ -36,20 +36,7 @@ export default function MobilePaginaTitulo({
   const acento = escuro ? '#E8520A' : '#1B2A6B';
 
   return (
-    <Box sx={{ mb: compacto ? 0.75 : 2, pt: 0, pl: 0.5 }}>
-      <Typography
-        component="h1"
-        sx={{
-          fontWeight: 900,
-          fontSize: compacto ? '1.35rem' : '1.95rem',
-          lineHeight: 1.1,
-          color: colors.textPrimary,
-          letterSpacing: '-0.03em',
-          mb: compacto ? 0 : 1.25,
-        }}
-      >
-        {titulo}
-      </Typography>
+    <Box sx={{ mb: compacto ? 0.75 : 1.75, pt: 0.25, pl: 0.25 }}>
       {!compacto && (
       <Box
         sx={{
@@ -58,14 +45,15 @@ export default function MobilePaginaTitulo({
           justifyContent: 'space-between',
           gap: 1,
           minWidth: 0,
+          mb: 0.75,
         }}
       >
         <Typography
           sx={{
-            fontWeight: 400,
-            fontSize: '0.95rem',
+            fontWeight: 500,
+            fontSize: '0.84rem',
             lineHeight: 1.3,
-            color: colors.textPrimary,
+            color: colors.textSecondary,
             flex: 1,
             minWidth: 0,
             overflow: 'hidden',
@@ -74,7 +62,7 @@ export default function MobilePaginaTitulo({
           }}
         >
           Olá,{' '}
-          <Box component="span" sx={{ fontWeight: 700 }}>
+          <Box component="span" sx={{ fontWeight: 700, color: colors.textPrimary }}>
             {nomeSaudacao(nomeUsuario)}
           </Box>
         </Typography>
@@ -117,6 +105,18 @@ export default function MobilePaginaTitulo({
         )}
       </Box>
       )}
+      <Typography
+        component="h1"
+        sx={{
+          fontWeight: 800,
+          fontSize: compacto ? '1.28rem' : '1.42rem',
+          lineHeight: 1.15,
+          color: colors.textPrimary,
+          letterSpacing: '-0.03em',
+        }}
+      >
+        {titulo}
+      </Typography>
     </Box>
   );
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { toAppPath } from '../config/paths';
+import { isMobileAppPath } from '../config/mobileRoutes';
 import { appInstalada, isIos } from '../utils/pushNotifications';
 
 export type BeforeInstallPromptEvent = Event & {
@@ -7,56 +7,72 @@ export type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 };
 
-const INSTALL_DISMISS_KEY = 'vision-check:pwa-install-dismiss';
+/** iPhone / Android telefone. Notebook, iPad e desktop não entram. */
+export function ehTelefone(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  if (/iPad/i.test(ua)) return false;
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !/iPhone|iPod/i.test(ua)) {
+    return false;
+  }
+  return /iPhone|iPod/i.test(ua) || /Android.+Mobile/i.test(ua);
+}
 
 export function ehNavegadorMobile(): boolean {
-  if (typeof window === 'undefined') return false;
-  return (
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    window.matchMedia('(max-width: 767px)').matches
-  );
+  return ehTelefone();
 }
 
 export function ehRotaPromptInstalar(): boolean {
-  if (typeof window === 'undefined') return false;
-  const appPath = toAppPath(window.location.pathname);
+  return ehNavegadorMobile();
+}
+
+/** Vite / IP da rede: não trava, senão some o preview no celular. */
+export function ehAmbientePreviewLocal(): boolean {
+  if (typeof window === 'undefined') return true;
+  if (import.meta.env.DEV) return true;
+  const host = window.location.hostname;
   return (
-    appPath === '/login/mobile' ||
-    appPath === '/chamados/mobile' ||
-    appPath.startsWith('/chamados/mobile/')
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
   );
 }
 
-function promptInstalarDispensado(): boolean {
-  try {
-    return sessionStorage.getItem(INSTALL_DISMISS_KEY) === '1';
-  } catch {
-    return false;
-  }
+export function isIosChrome(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return isIos() && /CriOS/i.test(navigator.userAgent);
 }
 
-export function dispensarPromptInstalar() {
-  try {
-    sessionStorage.setItem(INSTALL_DISMISS_KEY, '1');
-  } catch {
-    /* ignore */
-  }
+export function deveExigirAppInstalado(): boolean {
+  if (ehAmbientePreviewLocal()) return false;
+  if (!ehTelefone()) return false;
+  return !appInstalada();
 }
 
-export type ModoInstalacaoPwa = 'android' | 'android-manual' | 'ios';
+export function deveBloquearComputadorNoApp(): boolean {
+  if (ehAmbientePreviewLocal()) return false;
+  if (ehTelefone()) return false;
+  if (typeof window === 'undefined') return false;
+  return isMobileAppPath(window.location.pathname);
+}
 
-export function usePwaInstallPrompt() {
+export type ModoInstalacaoPwa = 'android' | 'android-manual' | 'ios' | 'computador';
+
+export function usePwaInstallPrompt(rotaAtual?: string) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [aberto, setAberto] = useState(false);
   const [modo, setModo] = useState<ModoInstalacaoPwa>('ios');
   const [instalando, setInstalando] = useState(false);
 
   const avaliar = useCallback(() => {
-    if (!ehNavegadorMobile() || !ehRotaPromptInstalar()) {
-      setAberto(false);
+    if (deveBloquearComputadorNoApp()) {
+      setModo('computador');
+      setAberto(true);
       return;
     }
-    if (appInstalada() || promptInstalarDispensado()) {
+
+    if (!deveExigirAppInstalado()) {
       setAberto(false);
       return;
     }
@@ -73,10 +89,9 @@ export function usePwaInstallPrompt() {
       return;
     }
 
-    // Android sem evento nativo (critérios PWA ainda não atendidos ou browser limitado)
     setModo('android-manual');
     setAberto(true);
-  }, [deferredPrompt]);
+  }, [deferredPrompt, rotaAtual]);
 
   useEffect(() => {
     function onBeforeInstall(e: Event) {
@@ -85,10 +100,15 @@ export function usePwaInstallPrompt() {
     }
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    const t = window.setTimeout(avaliar, 800);
+    window.addEventListener('popstate', avaliar);
+    const mq = window.matchMedia('(display-mode: standalone)');
+    mq.addEventListener('change', avaliar);
+    const t = window.setTimeout(avaliar, 400);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('popstate', avaliar);
+      mq.removeEventListener('change', avaliar);
       window.clearTimeout(t);
     };
   }, [avaliar]);
@@ -97,21 +117,14 @@ export function usePwaInstallPrompt() {
     avaliar();
   }, [avaliar]);
 
-  const dispensar = useCallback(() => {
-    dispensarPromptInstalar();
-    setAberto(false);
-  }, []);
-
   const instalarAndroid = useCallback(async () => {
     if (!deferredPrompt) return;
     setInstalando(true);
     try {
       await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+      await deferredPrompt.userChoice;
       setDeferredPrompt(null);
-      if (outcome === 'accepted') {
-        setAberto(false);
-      }
+      // Recusou ou aceitou: só some quando o app estiver de fato na tela inicial.
     } finally {
       setInstalando(false);
     }
@@ -122,7 +135,6 @@ export function usePwaInstallPrompt() {
     modo,
     instalando,
     podeInstalarNativo: Boolean(deferredPrompt),
-    dispensar,
     instalarAndroid,
   };
 }
