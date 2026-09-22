@@ -243,6 +243,8 @@ router.get('/saldos', permSaldo, async (req, res, next) => {
     const { rows } = await pool.query(
       `SELECT p.id_insumo, p.codigo, p.descricao, p.unidade_contagem, p.grupo_diario,
               p.valor_unidade, COALESCE(s.quantidade, 0) AS quantidade,
+              COALESCE(p.contagem_diaria, FALSE) AS contagem_diaria,
+              COALESCE(p.contagem_critica, FALSE) AS contagem_critica,
               s.atualizado_em
        FROM insumos p
        LEFT JOIN estoque_saldos s
@@ -268,6 +270,8 @@ router.get('/saldos', permSaldo, async (req, res, next) => {
         grupo_diario: r.grupo_diario || null,
         valor_unidade: num(r.valor_unidade),
         quantidade: num(r.quantidade),
+        contagem_diaria: Boolean(r.contagem_diaria),
+        contagem_critica: Boolean(r.contagem_critica),
         atualizado_em: r.atualizado_em,
         valor_total: Math.round(num(r.quantidade) * num(r.valor_unidade) * 100) / 100,
       })),

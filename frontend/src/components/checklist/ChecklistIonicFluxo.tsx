@@ -1,4 +1,3 @@
-import { assetUrl, LOGO_ALVIM_ICONE } from '../../config/paths';
 import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import type { CategoriaChecklist, Loja, Pergunta } from '../../api/client';
 import ChecklistIonicPerguntaCard from './ChecklistIonicPerguntaCard';
@@ -8,7 +7,6 @@ import {
   type ErroPerguntaCampo,
   type RespostaLocal,
 } from './ChecklistPerguntaCard';
-import ThemeToggleButton from '../ThemeToggleButton';
 
 type Props = {
   loja?: Loja;
@@ -87,16 +85,6 @@ export default function ChecklistIonicFluxo({
               <strong>
                 {respondidas}/{totalPerguntas} · {progressoGeral}%
               </strong>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-              <ThemeToggleButton size="small" />
-              <img
-                src={assetUrl(LOGO_ALVIM_ICONE)}
-                alt="Grupo Alvim"
-                className="ck-fluxo__logo"
-                width={40}
-                height={40}
-              />
             </div>
           </div>
           <div className="ck-fluxo__bar" aria-hidden>

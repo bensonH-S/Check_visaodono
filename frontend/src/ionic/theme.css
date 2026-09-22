@@ -552,6 +552,28 @@
   color: #fff;
 }
 
+.ck-start__stage--slim {
+  padding: calc(10px + env(safe-area-inset-top, 0px)) var(--ck-pad-x) 18px;
+}
+
+.ck-start__account {
+  flex-shrink: 0;
+  margin-right: -6px;
+}
+
+.ck-start__account .MuiIconButton-root {
+  padding: 2px;
+}
+
+.ck-start__account .MuiAvatar-root {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 0.75rem !important;
+  background: #fff !important;
+  color: #1b2a6b !important;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+}
+
 .ck-start__glow {
   position: absolute;
   border-radius: 50%;
@@ -634,8 +656,20 @@
 
 .ck-start__title--oneline {
   white-space: nowrap;
-  font-size: clamp(2.45rem, 10.5vw, 3.25rem);
-  line-height: 1.05;
+  font-size: clamp(1.7rem, 7vw, 2.05rem);
+  line-height: 1.1;
+}
+
+.ck-start__stage--slim .ck-start__title {
+  font-size: clamp(1.7rem, 7vw, 2.05rem);
+}
+
+.ck-start__stage--slim .ck-start__sub {
+  margin-top: 8px;
+}
+
+.ck-start__stage--slim .ck-start__metrics {
+  margin-top: 12px;
 }
 
 .ck-start__sub {

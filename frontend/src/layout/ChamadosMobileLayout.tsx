@@ -337,6 +337,7 @@ function ChamadosMobileLayoutInner() {
   const isEstoqueSaldo = path === '/estoque/mobile/saldo';
   const isEstoqueNfe = path === '/estoque/mobile/nfes' || path.startsWith('/estoque/mobile/nfes/');
   const isEstoque = path === '/estoque/mobile' || path.startsWith('/estoque/mobile/');
+  const isEstoqueHub = path === '/estoque/mobile';
   /** `:idContagem` também casa com break / saldo / nfes — excluir. */
   const isEstoqueDetalhe =
     Boolean(useMatch('/estoque/mobile/:idContagem')) &&
@@ -528,7 +529,11 @@ function ChamadosMobileLayoutInner() {
   ).filter((t) => t.show);
 
   const mostrarTabs =
-    mobileTabs.length >= 1 && !isSubPage && !isChecklistConcluido && !isChecklistEmAndamento;
+    mobileTabs.length >= 1 &&
+    !isSubPage &&
+    !isChecklistConcluido &&
+    !isChecklistEmAndamento &&
+    !isEstoqueHub;
   const rodapeTotalH = mostrarTabs ? TAB_NAV_H : 0;
   /** Reserva espaço da tab bar fixed (iPhone / Android / PWA). */
   const tabBarOffsetCss = mostrarTabs ? mobileTabBarOffsetCss() : '0px';

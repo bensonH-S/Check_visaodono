@@ -1,35 +1,52 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import Fab from '@mui/material/Fab';
 import LinearProgress from '@mui/material/LinearProgress';
 import AddIcon from '@mui/icons-material/Add';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
-import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
+import SearchIcon from '@mui/icons-material/Search';
+import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
-import TrendingUpOutlinedIcon from '@mui/icons-material/TrendingUpOutlined';
-import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
+import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
+import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import SyncAltOutlinedIcon from '@mui/icons-material/SyncAltOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import TuneIcon from '@mui/icons-material/Tune';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   api,
   type EstoqueContagemResumo,
+  type EstoqueMovimento,
+  type EstoqueNfeResumo,
+  type EstoqueSaldoItem,
   type Loja,
 } from '../../api/client';
-import { getUsuario, lojaEstoqueTravadaMobile, podeReabrirContagemEstoque } from '../../lib/auth';
-import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
+import { getUsuario, lojaEstoqueTravadaMobile, logout, primeiraRotaMobileApp } from '../../lib/auth';
+import { assetUrl, LOGO_GA_MARK } from '../../config/paths';
+import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
+import NotificacoesSino from '../../components/NotificacoesSino';
 import { showToast } from '../../utils/toast';
 import {
   CONTAGEM_SEMANAL_ATIVA,
-  ehContagemParcial,
-  rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
-import { useAppTheme } from '../../context/ThemeContext';
-import '../../components/visitas/visitas-mobile.css';
+import {
+  type AbaEstoqueHub,
+  type FiltroInsumoHub,
+  buscaInsumo,
+  ehInsumoDiario,
+  fmtQtdHub,
+  nomeInsumoCurto,
+  nomeLojaCurta,
+  passaFiltroInsumo,
+  rotuloStatusSaldo,
+  statusSaldo,
+  thumbInsumo,
+} from '../../components/estoque/estoqueHub';
 import '../../components/estoque/estoque-mobile.css';
+import '../../components/estoque/estoque-hub.css';
 
 function hojeIsoSp() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
@@ -43,15 +60,18 @@ function labelIniciar(tipo: TipoContagemEstoque) {
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
-function fmtBrl(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
-  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
+const ABAS: { id: AbaEstoqueHub; label: string; icon: typeof VisibilityOutlinedIcon }[] = [
+  { id: 'visao', label: 'Visão', icon: VisibilityOutlinedIcon },
+  { id: 'insumos', label: 'Insumos', icon: Inventory2OutlinedIcon },
+  { id: 'nf', label: 'NF', icon: DescriptionOutlinedIcon },
+  { id: 'movimentos', label: 'Movimentações', icon: SyncAltOutlinedIcon },
+];
 
-function fmtPct(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
-  return `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
-}
+const CHIPS: { id: FiltroInsumoHub; label: string }[] = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'zerados', label: 'Zerados' },
+  { id: 'abaixo', label: 'Abaixo do mínimo' },
+];
 
 function nomeLoja(l: Loja) {
   return String(l.name || '').trim() || 'Loja';
@@ -81,25 +101,36 @@ function preferenciaLojaInicial(rows: Loja[]): number | null {
   return rows[0].id_loja;
 }
 
-function travarScrollPagina(ativo: boolean) {
-  const scrollEl = document.querySelector('.ck-visitas__scroll') as HTMLElement | null;
-  if (!ativo) {
-    document.body.style.overflow = '';
-    document.documentElement.style.overflow = '';
-    if (scrollEl) scrollEl.style.overflow = '';
-    return;
-  }
-  document.body.style.overflow = 'hidden';
-  document.documentElement.style.overflow = 'hidden';
-  if (scrollEl) scrollEl.style.overflow = 'hidden';
+function InsumoRow({
+  item,
+  onClick,
+}: {
+  item: EstoqueSaldoItem;
+  onClick?: () => void;
+}) {
+  const st = statusSaldo(item);
+  return (
+    <button type="button" className="ck-estoque-hub__row" onClick={onClick} title={item.descricao}>
+      <span className="ck-estoque-hub__item">
+        <img className="ck-estoque-hub__thumb" src={assetUrl(thumbInsumo(item))} alt="" />
+        <span className="ck-estoque-hub__copy">
+          <strong>{nomeInsumoCurto(item.descricao)}</strong>
+          <small>{item.codigo}</small>
+        </span>
+      </span>
+      <span className="ck-estoque-hub__qtd">{fmtQtdHub(item.quantidade, item.unidade_contagem)}</span>
+      <span className={`ck-estoque-hub__status is-${st}`}>
+        <i />
+        {rotuloStatusSaldo(st)}
+      </span>
+      <ChevronRightIcon className="ck-estoque-hub__chev" sx={{ fontSize: 16 }} />
+    </button>
+  );
 }
 
 export default function EstoqueMobileListaPage() {
-  const { mode } = useAppTheme();
-  const escuro = mode === 'dark';
   const navigate = useNavigate();
   const user = getUsuario();
-  const podeReabrir = podeReabrirContagemEstoque(user);
   const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>(() => {
@@ -110,15 +141,18 @@ export default function EstoqueMobileListaPage() {
     return Number.isFinite(saved) && saved > 0 ? saved : '';
   });
   const [lista, setLista] = useState<EstoqueContagemResumo[]>([]);
-  const [filtro, setFiltro] = useState<'todas' | 'aberta' | 'finalizada'>('todas');
   const [loading, setLoading] = useState(true);
   const [iniciando, setIniciando] = useState(false);
-  const [reabrindoId, setReabrindoId] = useState<number | null>(null);
   const [err, setErr] = useState('');
   const [dlgLoja, setDlgLoja] = useState(false);
   const [dlgTipo, setDlgTipo] = useState(false);
-  const [reabrirAlvo, setReabrirAlvo] = useState<EstoqueContagemResumo | null>(null);
-  const [kpisAbertos, setKpisAbertos] = useState(false);
+  const [aba, setAba] = useState<AbaEstoqueHub>('visao');
+  const [filtroInsumo, setFiltroInsumo] = useState<FiltroInsumoHub>('todos');
+  const [busca, setBusca] = useState('');
+  const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
+  const [nfes, setNfes] = useState<EstoqueNfeResumo[]>([]);
+  const [movimentos, setMovimentos] = useState<EstoqueMovimento[]>([]);
+  const buscaRef = useRef<HTMLInputElement>(null);
 
   const carregarLista = useCallback(async (lojaId: number) => {
     const rows = await api.estoqueContagens(lojaId);
@@ -168,44 +202,59 @@ export default function EstoqueMobileListaPage() {
     };
   }, [idLoja, carregarLista]);
 
-  const filtrada = useMemo(() => {
-    if (filtro === 'todas') return lista;
-    return lista.filter((c) => c.status === filtro);
-  }, [lista, filtro]);
-  const valorAtualLoja = useMemo(() => {
-    if (lista[0]?.valor_atual_loja != null) return lista[0].valor_atual_loja;
-    const abertaCompleta = lista.find(
-      (c) => c.status === 'aberta' && !ehContagemParcial(c.tipo),
-    );
-    if (abertaCompleta?.total_valor != null) return abertaCompleta.total_valor;
-    const ultimaCompleta = lista.find(
-      (c) => c.status === 'finalizada' && !ehContagemParcial(c.tipo),
-    );
-    return ultimaCompleta?.total_valor ?? null;
-  }, [lista]);
+  useEffect(() => {
+    if (!idLoja) return;
+    let cancel = false;
+    (async () => {
+      try {
+        const [saldoRows, nfeRows] = await Promise.all([
+          api.estoqueSaldos(idLoja),
+          api.estoqueNfes(idLoja, { pendentes: true, limit: 40 }),
+        ]);
+        if (cancel) return;
+        setSaldos(saldoRows);
+        setNfes(nfeRows);
+      } catch (e) {
+        if (!cancel) showToast(e instanceof Error ? e.message : 'Erro ao carregar estoque', 'error');
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [idLoja]);
+
+  useEffect(() => {
+    if (!idLoja || aba !== 'movimentos') return;
+    let cancel = false;
+    api
+      .estoqueMovimentos(idLoja, { limit: 40 })
+      .then((rows) => {
+        if (!cancel) setMovimentos(rows);
+      })
+      .catch(() => {
+        if (!cancel) setMovimentos([]);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [idLoja, aba]);
+
   const diariaHoje = useMemo(() => {
     const hoje = hojeIsoSp();
     return lista.find((c) => c.tipo === 'diaria' && String(c.data_contagem || '').slice(0, 10) === hoje) || null;
   }, [lista]);
-  const faltaDiariaHoje = Boolean(idLoja && (!diariaHoje || diariaHoje.status !== 'finalizada'));
-  const valorInicialMes = lista[0]?.valor_inicial_mes ?? null;
-  const dataInicialMes = lista[0]?.data_inicial_mes ?? null;
-  const valorBreakMes = lista[0]?.valor_break_mes ?? null;
-  const valorDesperdicioMes = lista[0]?.valor_desperdicio_mes ?? null;
-  const valorComprasMes = lista[0]?.valor_compras_mes ?? null;
-  const cmvMes = lista[0]?.cmv_teorico_pct ?? null;
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
-
-
-  useEffect(() => {
-    if (!dlgLoja && !reabrirAlvo && !dlgTipo) {
-      travarScrollPagina(false);
-      return;
-    }
-    travarScrollPagina(true);
-    return () => travarScrollPagina(false);
-  }, [dlgLoja, reabrirAlvo, dlgTipo]);
+  const saldosDiarios = useMemo(() => saldos.filter(ehInsumoDiario), [saldos]);
+  const zerados = useMemo(() => saldosDiarios.filter((i) => statusSaldo(i) === 'zerado'), [saldosDiarios]);
+  const abaixo = useMemo(() => saldosDiarios.filter((i) => statusSaldo(i) === 'abaixo'), [saldosDiarios]);
+  const insumosFiltrados = useMemo(
+    () => saldosDiarios.filter((i) => buscaInsumo(i, busca) && passaFiltroInsumo(i, filtroInsumo)),
+    [saldosDiarios, busca, filtroInsumo],
+  );
+  const rotuloLojaCurta = lojaAtual
+    ? nomeLojaCurta(nomeLoja(lojaAtual), lojaAtual.bk_number)
+    : 'Selecionar loja';
 
   const iniciar = async (tipo: TipoContagemEstoque) => {
     if (!idLoja) return;
@@ -244,343 +293,319 @@ export default function EstoqueMobileListaPage() {
     }
   };
 
-  const confirmarReabrir = async () => {
-    if (!reabrirAlvo) return;
-    setReabrindoId(reabrirAlvo.id_contagem);
-    try {
-      const det = await api.estoqueReabrirContagem(reabrirAlvo.id_contagem);
-      setReabrirAlvo(null);
-      showToast('Conferência reaberta para edição', 'success');
-      navigate(`/estoque/mobile/${det.id_contagem}`, {
-        state: { contagemPreload: det },
-      });
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Não foi possível reabrir', 'error');
-    } finally {
-      setReabrindoId(null);
-    }
-  };
+  function irParaInsumos(filtro?: FiltroInsumoHub) {
+    if (filtro) setFiltroInsumo(filtro);
+    setAba('insumos');
+    window.setTimeout(() => buscaRef.current?.focus(), 50);
+  }
+
+  function abrirBusca() {
+    setAba('insumos');
+    window.setTimeout(() => buscaRef.current?.focus(), 50);
+  }
+
+  const listaInsumos = insumosFiltrados;
 
   return (
-    <div className="ck-visitas ck-visitas--lista ck-estoque">
-      <div className="ck-visitas__stage">
-        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-        <div className="ck-visitas__mesh" aria-hidden />
-        <div className="ck-visitas__stage-inner">
-          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-              <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title ck-visitas__title--oneline">Conferência</h1>
-              <p className="ck-visitas__sub">
-                Controle e auditoria de contagens físicas e apuração de CMV.
-              </p>
-            </div>
-            <div className="ck-estoque__hero-menu">
-              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-            </div>
+    <div className="ck-estoque-hub">
+      <div className="ck-estoque-hub__scroll">
+      <header className="ck-estoque-hub__top">
+        <div className="ck-estoque-hub__brand-row">
+          <div className="ck-estoque-hub__brand">
+            <img src={assetUrl(LOGO_GA_MARK)} alt="Grupo Alvim" />
+            <span>
+              grupo<span>alvim</span>
+            </span>
           </div>
-          <button
-            type="button"
-            className="ck-estoque__kpis-toggle"
-            aria-expanded={kpisAbertos}
-            aria-label={kpisAbertos ? 'Ocultar indicadores' : 'Mostrar indicadores'}
-            onClick={() => setKpisAbertos((v) => !v)}
-          >
-            <span>{kpisAbertos ? 'Ocultar indicadores' : 'Mostrar indicadores'}</span>
-            {kpisAbertos ? (
-              <KeyboardArrowUpIcon sx={{ fontSize: 18 }} />
-            ) : (
-              <KeyboardArrowDownIcon sx={{ fontSize: 18 }} />
-            )}
-          </button>
-          {kpisAbertos ? (
-            <div className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-              <div className="ck-estoque__kpi">
-                <strong>{loading ? '—' : fmtBrl(valorInicialMes ?? 0)}</strong>
-                <span>
-                  Início
-                  {dataInicialMes
-                    ? ` ${new Date(dataInicialMes + 'T12:00:00').toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                      })}`
-                    : ''}
-                </span>
-              </div>
-              <div className="ck-estoque__kpi ck-estoque__kpi--accent">
-                <strong>{loading ? '—' : fmtBrl(valorAtualLoja ?? 0)}</strong>
-                <span>Valor atual</span>
-              </div>
-              <div className="ck-estoque__kpi">
-                <strong>{loading ? '—' : fmtPct(cmvMes ?? 0)}</strong>
-                <span>CMV do mês</span>
-              </div>
-              <div className="ck-estoque__kpi">
-                <strong>{loading ? '—' : fmtBrl(valorBreakMes ?? 0)}</strong>
-                <span>Break do mês</span>
-              </div>
-              <div className="ck-estoque__kpi">
-                <strong>{loading ? '—' : fmtBrl(valorDesperdicioMes ?? 0)}</strong>
-                <span>Desperdício</span>
-              </div>
-              <div className="ck-estoque__kpi">
-                <strong>{loading ? '—' : fmtBrl(valorComprasMes ?? 0)}</strong>
-                <span>Compras do mês</span>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-        <div className="ck-estoque__sheet-head ck-estoque__sheet-head--toolbar">
-          {err && (
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
-              {err}
-            </p>
-          )}
-
-          <div className="ck-estoque__seg-row" style={{ position: 'relative' }}>
-            <div className="ck-visitas__seg" role="tablist">
-              {(
-                [
-                  ['todas', 'Todas'],
-                  ['aberta', 'Abertas'],
-                  ['finalizada', 'Finalizadas'],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  aria-selected={filtro === value}
-                  className={`ck-visitas__seg-btn${filtro === value ? ' is-on' : ''}`}
-                  onClick={() => setFiltro(value)}
-                >
-                  {label}
-                </button>
-              ))}
-              <button
-                type="button"
-                className={`ck-visitas__seg-btn ck-estoque__seg-loja${dlgLoja ? ' is-on' : ''}`}
-                aria-label={lojaAtual ? `Loja ${rotuloLoja(lojaAtual)}` : 'Selecionar loja'}
-                aria-haspopup="listbox"
-                aria-expanded={dlgLoja}
-                disabled={!podeTrocarLoja && !lojaAtual}
-                onClick={() => {
-                  if (podeTrocarLoja) setDlgLoja((v) => !v);
-                }}
-                title={lojaAtual ? rotuloLoja(lojaAtual) : 'Loja'}
-              >
-                <PlaceOutlinedIcon sx={{ fontSize: 18 }} />
-              </button>
-            </div>
-            {dlgLoja && podeTrocarLoja && (
-              <>
-                <div
-                  className="ck-estoque__dropdown-backdrop"
-                  onClick={() => setDlgLoja(false)}
-                />
-                <div className="ck-estoque__loja-dropdown ck-estoque__loja-dropdown--seg">
-                  {lojas.map((l) => {
-                    const ativa = l.id_loja === idLoja;
-                    return (
-                      <button
-                        key={l.id_loja}
-                        type="button"
-                        className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
-                        onClick={() => {
-                          setIdLoja(l.id_loja);
-                          localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
-                          setDlgLoja(false);
-                        }}
-                      >
-                        {rotuloLoja(l)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+          <div className="ck-estoque-hub__actions">
+            <button type="button" className="ck-estoque-hub__icon-btn" aria-label="Buscar" onClick={abrirBusca}>
+              <SearchIcon sx={{ fontSize: 22 }} />
+            </button>
+            <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                navigate('/login/mobile');
+              }}
+            />
           </div>
-
-          {!podeTrocarLoja && lojaAtual ? (
-            <div className="ck-estoque__loja-fix ck-estoque__loja-fix--compact" aria-label="Loja">
-              <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
-              <div className="ck-estoque__loja-fix-text">
-                {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
-                <strong>{nomeLoja(lojaAtual)}</strong>
-              </div>
-            </div>
-          ) : null}
-          {idLoja ? (
-            <>
-              <div className="ck-estoque__atalhos-grid ck-estoque__atalhos-grid--compact">
-                <button
-                  type="button"
-                  className="ck-estoque__btn-grid-card"
-                  onClick={() => navigate('/estoque/mobile/vendas')}
-                >
-                  <TrendingUpOutlinedIcon />
-                  <strong>Vendas</strong>
-                  <small>Tempo real</small>
-                </button>
-                <button
-                  type="button"
-                  className="ck-estoque__btn-grid-card"
-                  onClick={() => navigate('/estoque/mobile/saldo')}
-                >
-                  <Inventory2OutlinedIcon />
-                  <strong>Saldo</strong>
-                  <small>Quantidades</small>
-                </button>
-                <button
-                  type="button"
-                  className="ck-estoque__btn-grid-card"
-                  onClick={() => navigate('/estoque/mobile/nfes')}
-                >
-                  <LocalShippingOutlinedIcon />
-                  <strong>Receber NF</strong>
-                  <small>Conferência</small>
-                </button>
-              </div>
-              <button
-                type="button"
-                className={`ck-estoque__lista-diaria-link${faltaDiariaHoje ? ' is-diario' : ''}`}
-                disabled={iniciando}
-                onClick={() => void iniciar('diaria')}
-              >
-                <strong>
-                  {diariaHoje?.status === 'aberta'
-                    ? 'Continuar diária de hoje'
-                    : diariaHoje?.status === 'finalizada'
-                      ? 'Diária de hoje · consultar'
-                      : 'Contagem diária de hoje'}
-                </strong>
-                <small>Rotina diária de insumos</small>
-              </button>
-            </>
-          ) : null}
         </div>
 
-        <div className="ck-visitas__sheet-body">
-          {loading && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
+        <div className="ck-estoque-hub__title-row">
+          <h1>Estoque</h1>
+        </div>
 
-          {!loading && !filtrada.length && (
-            <div className="ck-estoque__empty">
-              {lojaAtual
-                ? filtro !== 'todas' && lista.length > 0
-                  ? 'Nenhuma conferência neste filtro.'
-                  : 'Nenhuma conferência nesta loja. Toque em contagem diária para começar.'
-                : 'Selecione a loja para começar.'}
-            </div>
-          )}
+        <div className="ck-estoque-hub__store-row">
+          <div className="ck-estoque-hub__loja-drop">
+            <button
+              type="button"
+              className="ck-estoque-hub__store"
+              disabled={!podeTrocarLoja}
+              onClick={() => podeTrocarLoja && setDlgLoja((v) => !v)}
+            >
+              <span className="ck-estoque-hub__store-name">{rotuloLojaCurta}</span>
+              {podeTrocarLoja ? <ExpandMoreIcon sx={{ fontSize: 18, color: '#8d8d8d' }} /> : null}
+            </button>
+            {dlgLoja && podeTrocarLoja ? (
+              <div className="ck-estoque-hub__loja-list" role="listbox">
+                {lojas.map((l) => (
+                  <button
+                    key={l.id_loja}
+                    type="button"
+                    className={`ck-estoque-hub__loja-item${l.id_loja === idLoja ? ' is-on' : ''}`}
+                    onClick={() => {
+                      setIdLoja(l.id_loja);
+                      localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
+                      setDlgLoja(false);
+                    }}
+                  >
+                    {rotuloLoja(l)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <span className="ck-estoque-hub__online">
+            <i className="ck-estoque-hub__dot" />
+            Online
+          </span>
+        </div>
 
-          {filtrada.map((c) => {
-            const aberta = c.status === 'aberta';
-            const parcial = ehContagemParcial(c.tipo);
-            const divergencias = c.divergencias ?? 0;
-            const pendentes = c.pendentes ?? 0;
-            const mostrarReabrir = podeReabrir && !aberta;
-            const valorPrincipal = fmtBrl(c.valor_atual ?? c.total_valor ?? 0);
-            const dataCurta = (() => {
-              const iso = aberta ? c.criado_em : c.finalizado_em || c.criado_em;
-              if (!iso) return '';
-              const d = new Date(iso);
-              if (Number.isNaN(d.getTime())) return '';
-              return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-            })();
+        <nav className="ck-estoque-hub__tabs" aria-label="Estoque">
+          {ABAS.map((tab) => {
+            const Icon = tab.icon;
             return (
-              <div
-                key={c.id_contagem}
-                className={`ck-estoque__card ck-estoque__card--lista${aberta ? ' is-aberta' : ''}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => navigate(`/estoque/mobile/${c.id_contagem}`)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigate(`/estoque/mobile/${c.id_contagem}`);
-                  }
-                }}
+              <button
+                key={tab.id}
+                type="button"
+                className={`ck-estoque-hub__tab${aba === tab.id ? ' is-on' : ''}`}
+                onClick={() => setAba(tab.id)}
               >
-                <div className="ck-estoque__card-head">
-                  <div className="ck-estoque__card-title">
-                    <strong>{rotuloTipoContagem(c.tipo)}</strong>
-                    {dataCurta ? <span className="ck-estoque__card-data">{dataCurta}</span> : null}
-                  </div>
-                  <div className="ck-estoque__card-valor ck-estoque__card-valor--inline">
-                    <strong>{valorPrincipal}</strong>
-                    <span>{parcial ? 'Parcial' : 'Total'}</span>
-                  </div>
-                  <span className={`ck-estoque__status ${aberta ? 'is-aberta' : 'is-ok'}`}>
-                    {aberta ? 'Aberta' : 'Finalizada'}
-                  </span>
-                </div>
-
-                <div className="ck-estoque__card-foot">
-                  <span className="ck-estoque__card-who" title="Responsável pela conferência">
-                    <PersonOutlinedIcon sx={{ fontSize: 15, color: 'var(--ga-orange)' }} />
-                    <strong>{c.criado_por_nome || 'Não informado'}</strong>
-                  </span>
-                  <div className="ck-estoque__card-meta-center">
-                    {!aberta && pendentes === 0 ? (
-                      <span className="ck-estoque__badge-ok">Conferido</span>
-                    ) : null}
-                  </div>
-                  <div className="ck-estoque__card-flags">
-                    {pendentes > 0 && (
-                      <span className="ck-estoque__badge-pend">{pendentes} pend.</span>
-                    )}
-                    {divergencias > 0 && (
-                      <span className="ck-estoque__badge-div">{divergencias} div.</span>
-                    )}
-                    {mostrarReabrir && (
-                      <button
-                        type="button"
-                        className="ck-estoque__reabrir"
-                        title="Reabrir"
-                        aria-label="Reabrir conferência"
-                        disabled={reabrindoId === c.id_contagem}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setReabrirAlvo(c);
-                        }}
-                      >
-                        <LockOpenIcon fontSize="small" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+                <Icon sx={{ fontSize: 16 }} />
+                {tab.label}
+              </button>
             );
           })}
-        </div>
+        </nav>
+      </header>
+
+      <div className="ck-estoque-hub__body">
+        {err ? <p className="ck-estoque-hub__err">{err}</p> : null}
+        {loading ? <LinearProgress sx={{ mb: 2, borderRadius: 1, bgcolor: '#222' }} /> : null}
+
+        {aba === 'visao' || aba === 'insumos' ? (
+          <>
+            {aba === 'visao' ? (
+              <div className="ck-estoque-hub__atencao">
+                <div className="ck-estoque-hub__sec-head">
+                  <div>
+                    <h2>Atenção agora</h2>
+                    <p>Principais pendências da loja.</p>
+                  </div>
+                  <button type="button" onClick={() => irParaInsumos()}>
+                    Ver todos →
+                  </button>
+                </div>
+                <div className="ck-estoque-hub__kpis">
+                  <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--zero" onClick={() => irParaInsumos('zerados')}>
+                    <span className="ck-estoque-hub__kpi-top">
+                      <Inventory2OutlinedIcon />
+                      <strong>{zerados.length}</strong>
+                      <ChevronRightIcon />
+                    </span>
+                    <span>Itens zerados</span>
+                  </button>
+                  <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--low" onClick={() => irParaInsumos('abaixo')}>
+                    <span className="ck-estoque-hub__kpi-top">
+                      <WarningAmberOutlinedIcon />
+                      <strong>{abaixo.length}</strong>
+                      <ChevronRightIcon />
+                    </span>
+                    <span>Abaixo do mínimo</span>
+                  </button>
+                  <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--nf" onClick={() => setAba('nf')}>
+                    <span className="ck-estoque-hub__kpi-top">
+                      <DescriptionOutlinedIcon />
+                      <strong>{nfes.length}</strong>
+                      <ChevronRightIcon />
+                    </span>
+                    <span>NF pendente</span>
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="ck-estoque-hub__lock">
+              <div className="ck-estoque-hub__sec-head">
+                <div>
+                  <h2>Insumos</h2>
+                  <p>Contagem diária da loja.</p>
+                </div>
+              </div>
+              <label className="ck-estoque-hub__search">
+                <SearchIcon sx={{ fontSize: 18, color: '#6b6b6b' }} />
+                <input
+                  ref={buscaRef}
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar insumo, código ou marca..."
+                />
+                <TuneIcon sx={{ fontSize: 18, color: '#6b6b6b' }} />
+              </label>
+              <div className="ck-estoque-hub__chips">
+                {CHIPS.map((chip) => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    className={`ck-estoque-hub__chip${filtroInsumo === chip.id ? ' is-on' : ''}`}
+                    onClick={() => setFiltroInsumo(chip.id)}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+              <div className="ck-estoque-hub__cols">
+                <span>Insumo</span>
+                <span>Saldo</span>
+                <span>Status</span>
+              </div>
+            </div>
+            <div className="ck-estoque-hub__lista">
+              {!loading && !listaInsumos.length ? (
+                <p className="ck-estoque-hub__empty">Nenhum insumo neste filtro.</p>
+              ) : (
+                listaInsumos.map((item) => (
+                  <InsumoRow
+                    key={item.id_insumo || item.id_produto}
+                    item={item}
+                    onClick={() => navigate('/estoque/mobile/saldo')}
+                  />
+                ))
+              )}
+            </div>
+          </>
+        ) : null}
+
+        {aba === 'nf' ? (
+          <>
+            <div className="ck-estoque-hub__lock">
+              <div className="ck-estoque-hub__sec-head">
+                <div>
+                  <h2>Notas fiscais</h2>
+                  <p>Pendentes de conferência.</p>
+                </div>
+              </div>
+            </div>
+            <div className="ck-estoque-hub__lista">
+              {!nfes.length ? (
+                <p className="ck-estoque-hub__empty">Nenhuma NF pendente nesta loja.</p>
+              ) : (
+                nfes.map((n) => (
+                  <button
+                    key={n.id_nfe}
+                    type="button"
+                    className="ck-estoque-hub__row"
+                    onClick={() => navigate(`/estoque/mobile/nfes/${n.id_nfe}`)}
+                  >
+                    <span className="ck-estoque-hub__item">
+                      <span className="ck-estoque-hub__thumb">NF</span>
+                      <span>
+                        <strong>{n.emitente_nome || n.fornecedor}</strong>
+                        <small>
+                          {n.numero ? `Nº ${n.numero}` : `NF ${n.id_nfe}`}
+                          {n.emissao ? ` · ${String(n.emissao).slice(0, 10)}` : ''}
+                        </small>
+                      </span>
+                    </span>
+                    <span className="ck-estoque-hub__qtd">{n.itens ?? '—'}</span>
+                    <span className="ck-estoque-hub__status is-abaixo">
+                      <i />
+                      Pendente
+                    </span>
+                    <span className="ck-estoque-hub__chev" aria-hidden>
+                      ›
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        ) : null}
+
+        {aba === 'movimentos' ? (
+          <>
+            <div className="ck-estoque-hub__lock">
+              <div className="ck-estoque-hub__sec-head">
+                <div>
+                  <h2>Movimentações</h2>
+                  <p>Últimas entradas e saídas.</p>
+                </div>
+              </div>
+            </div>
+            <div className="ck-estoque-hub__lista">
+              {!movimentos.length ? (
+                <p className="ck-estoque-hub__empty">Nenhuma movimentação recente.</p>
+              ) : (
+                movimentos.map((m) => (
+                  <div key={m.id_movimento} className="ck-estoque-hub__move">
+                    <div>
+                      <strong>{m.descricao}</strong>
+                      <small>
+                        {m.tipo}
+                        {m.criado_em
+                          ? ` · ${new Date(m.criado_em).toLocaleString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}`
+                          : ''}
+                      </small>
+                    </div>
+                    <strong>{fmtQtdHub(m.quantidade)}</strong>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        ) : null}
+      </div>
       </div>
 
-      {idLoja ? (
-        <Fab
-          aria-label="Nova contagem"
-          onClick={() => setDlgTipo(true)}
-          disabled={iniciando}
-          sx={{
-            position: 'fixed',
-            right: 14,
-            bottom: 'calc(16px + var(--app-tabbar-offset, 58px) + env(safe-area-inset-bottom, 0px))',
-            zIndex: 40,
-            width: 52,
-            height: 52,
-            bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
-            color: '#fff',
-            boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
-            '&:hover': { bgcolor: escuro ? '#ea580c' : '#142048' },
+      <nav className="ck-estoque-hub__dock" aria-label="Estoque">
+        <button
+          type="button"
+          onClick={() => {
+            const dest = user ? primeiraRotaMobileApp(user) : '/checklist/mobile';
+            navigate(dest.startsWith('/estoque') ? '/checklist/mobile' : dest);
           }}
         >
+          <HomeOutlinedIcon />
+          Início
+        </button>
+        <button type="button" className="is-on" onClick={() => setAba('visao')}>
+          <Inventory2OutlinedIcon />
+          Estoque
+        </button>
+        <button
+          type="button"
+          className="ck-estoque-hub__dock-plus"
+          aria-label="Nova contagem"
+          disabled={!idLoja || iniciando}
+          onClick={() => setDlgTipo(true)}
+        >
           <AddIcon />
-        </Fab>
-      ) : null}
+        </button>
+        <button type="button" onClick={() => setAba('nf')}>
+          <ShoppingCartOutlinedIcon />
+          Pedidos
+        </button>
+        <button type="button" onClick={() => setAba('movimentos')}>
+          <BarChartOutlinedIcon />
+          Relatórios
+        </button>
+      </nav>
 
       {dlgTipo &&
         createPortal(
@@ -610,9 +635,7 @@ export default function EstoqueMobileListaPage() {
                     Fechar
                   </button>
                 </div>
-                <p className="ck-estoque__confirm-text">
-                  Selecione o tipo de contagem que deseja realizar:
-                </p>
+                <p className="ck-estoque__confirm-text">Selecione o tipo de contagem:</p>
                 <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column', gap: 10 }}>
                   <button
                     type="button"
@@ -624,15 +647,15 @@ export default function EstoqueMobileListaPage() {
                     <small>Carne, frango, queijo, bacon, pão, batata, copos e mix</small>
                   </button>
                   {CONTAGEM_SEMANAL_ATIVA && (
-                  <button
-                    type="button"
-                    className="ck-estoque__modal-action-btn"
-                    disabled={iniciando}
-                    onClick={() => void iniciar('critica_semanal')}
-                  >
-                    <strong>Contagem semanal (segunda)</strong>
-                    <small>Contagem específica de mix (Coca 18L, outros 10L) e latas</small>
-                  </button>
+                    <button
+                      type="button"
+                      className="ck-estoque__modal-action-btn"
+                      disabled={iniciando}
+                      onClick={() => void iniciar('critica_semanal')}
+                    >
+                      <strong>Contagem semanal (segunda)</strong>
+                      <small>Mix e latas</small>
+                    </button>
                   )}
                   <button
                     type="button"
@@ -641,66 +664,7 @@ export default function EstoqueMobileListaPage() {
                     onClick={() => void iniciar('completa')}
                   >
                     <strong>Contagem completa</strong>
-                    <small>Inventário geral de todos os insumos cadastrados da loja</small>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
-
-
-
-      {reabrirAlvo &&
-        createPortal(
-          <div className="ck-estoque">
-            <div
-              className="ck-estoque__loja-modal ck-estoque__modal--center"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Reabrir conferência"
-            >
-              <button
-                type="button"
-                className="ck-estoque__loja-backdrop"
-                aria-label="Fechar"
-                disabled={reabrindoId != null}
-                onClick={() => setReabrirAlvo(null)}
-              />
-              <div className="ck-estoque__loja-panel ck-estoque__confirm">
-                <div className="ck-estoque__loja-panel-head">
-                  <strong>Reabrir conferência</strong>
-                  <button
-                    type="button"
-                    className="ck-estoque__loja-fechar"
-                    disabled={reabrindoId != null}
-                    onClick={() => setReabrirAlvo(null)}
-                  >
-                    Fechar
-                  </button>
-                </div>
-                <p className="ck-estoque__confirm-text">
-                  A conferência{' '}
-                  <strong>{reabrirAlvo.titulo || `#${reabrirAlvo.id_contagem}`}</strong> voltará para
-                  aberta e poderá ser editada.
-                </p>
-                <div className="ck-estoque__confirm-actions">
-                  <button
-                    type="button"
-                    className="ck-estoque__btn ck-estoque__btn--ghost"
-                    disabled={reabrindoId != null}
-                    onClick={() => setReabrirAlvo(null)}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="ck-estoque__btn ck-estoque__btn--primary"
-                    disabled={reabrindoId != null}
-                    onClick={() => void confirmarReabrir()}
-                  >
-                    {reabrindoId != null ? 'Reabrindo…' : 'Reabrir'}
+                    <small>Inventário geral da loja</small>
                   </button>
                 </div>
               </div>

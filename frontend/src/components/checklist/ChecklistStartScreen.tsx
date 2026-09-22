@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Loja, TipoChecklist, Usuario, MetaVisitaTimeCampo } from '../../api/client';
 import type { ChecklistSessaoLocal } from '../../utils/checklistSessao';
-import CkMarkLogoMenu from '../CkMarkLogoMenu';
+import { getUsuario, logout } from '../../lib/auth';
+import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import TimeCampoMetaForm from './TimeCampoMetaForm';
 import ChecklistIonicShell from './ChecklistIonicShell';
 import ChecklistPickSheet from './ChecklistPickSheet';
@@ -69,6 +71,7 @@ export default function ChecklistStartScreen(props: Props) {
     onIniciar,
   } = props;
 
+  const navigate = useNavigate();
   const [pickLoja, setPickLoja] = useState(false);
   const auditorAtual = auditores.find((u) => u.id_usuario === idAuditor);
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja);
@@ -89,22 +92,26 @@ export default function ChecklistStartScreen(props: Props) {
   return (
     <ChecklistIonicShell scrollY={false}>
       <div className="ck-start ck-start--fixed">
-        <div className="ck-start__stage">
-          <div className="ck-start__glow ck-start__glow--a" aria-hidden />
-          <div className="ck-start__glow ck-start__glow--b" aria-hidden />
-          <div className="ck-start__mesh" aria-hidden />
-
+        <div className="ck-start__stage ck-start__stage--slim">
           <div className="ck-start__stage-inner">
             <div className="ck-start__hero-row ck-start__anim ck-start__anim--1">
               <div className="ck-start__hero-copy">
-                <p className="ck-start__mark-text">Grupo Alvim</p>
+                <p className="ck-start__mark-text">Checklist</p>
                 <h1 className="ck-start__title ck-start__title--oneline">Nova visita</h1>
               </div>
-              <CkMarkLogoMenu size={72} className="ck-start__mark-icon" />
+              <div className="ck-start__account">
+                <MobileUsuarioMenu
+                  user={getUsuario()}
+                  onLogout={() => {
+                    logout();
+                    navigate('/login/mobile');
+                  }}
+                />
+              </div>
             </div>
 
             <p className="ck-start__sub ck-start__anim ck-start__anim--2">
-              Escolha a loja e o tipo de avaliação para começar.
+              Escolha a loja e o tipo de avaliação.
             </p>
 
             <div className="ck-start__metrics ck-start__anim ck-start__anim--3" aria-live="polite">

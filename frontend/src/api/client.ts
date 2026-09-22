@@ -3195,6 +3195,8 @@ export interface EstoqueSaldoItem {
   valor_unidade: number;
   quantidade: number;
   valor_total: number;
+  contagem_diaria?: boolean;
+  contagem_critica?: boolean;
   atualizado_em?: string | null;
 }
 
