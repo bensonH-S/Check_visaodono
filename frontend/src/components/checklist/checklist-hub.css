@@ -14,8 +14,8 @@
   z-index: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, #0b1721 0%, rgba(11, 23, 33, 0.92) 38%, rgba(11, 23, 33, 0.42) 72%, rgba(11, 23, 33, 0.78) 100%),
-    var(--ck-hero) center 78% / cover no-repeat;
+    linear-gradient(180deg, #0b1721 0%, rgba(11, 23, 33, 0.94) 28%, rgba(11, 23, 33, 0.78) 58%, rgba(11, 23, 33, 0.9) 100%),
+    var(--ck-hero) center 82% / cover no-repeat;
 }
 
 .ck-checklist-hub--hero > * {
@@ -169,6 +169,109 @@
   width: 18px;
   color: #fe6c22;
   font-weight: 800;
+}
+
+.ck-checklist-hub__recente {
+  margin-top: 22px;
+}
+
+.ck-checklist-hub__recente-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.ck-checklist-hub__recente-head h2 {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.ck-checklist-hub__recente-head span {
+  color: #8d8d8d;
+  font-size: 0.78rem;
+}
+
+.ck-checklist-hub__visita {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ck-checklist-hub__visita-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.ck-checklist-hub__visita-copy strong,
+.ck-checklist-hub__visita-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-checklist-hub__visita-copy strong {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.ck-checklist-hub__visita-copy small {
+  margin-top: 2px;
+  color: #8d8d8d;
+  font-size: 0.68rem;
+}
+
+.ck-checklist-hub__visita-side {
+  flex-shrink: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #d0d0d0;
+}
+
+.ck-checklist-hub__visita-side.is-open {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fe6c22;
+}
+
+.ck-checklist-hub__recente-empty {
+  margin: 12px 0 0;
+  color: #8d8d8d;
+  font-size: 0.78rem;
+}
+
+.ck-inicio-hub__soon {
+  padding: 48px var(--eh-pad) 8px;
+}
+
+.ck-inicio-hub__soon p {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.ck-inicio-hub__soon small {
+  display: block;
+  margin-top: 6px;
+  color: #8d8d8d;
+  font-size: 0.78rem;
 }
 
 .ck-checklist-hub .ck-estoque-hub__foot button.is-pri {

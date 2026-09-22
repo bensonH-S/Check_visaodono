@@ -362,6 +362,7 @@ function ChamadosMobileLayoutInner() {
     isChecklist && !isChecklistConcluido && (checklistFaseUi === 'setup' || checklistFaseUi == null);
   /** Fluxo checklist inteiro (setup → perguntas): chrome próprio, sem header MUI. */
   const isChecklistImmersive = isChecklist && !isChecklistConcluido;
+  const isInicio = path === '/inicio/mobile';
   const temBotaoVoltar =
     isDetalhe ||
     isNovo ||
@@ -534,7 +535,8 @@ function ChamadosMobileLayoutInner() {
     !isChecklistConcluido &&
     !isChecklistEmAndamento &&
     !isChecklistStart &&
-    !isEstoqueHub;
+    !isEstoqueHub &&
+    !isInicio;
   const rodapeTotalH = mostrarTabs ? TAB_NAV_H : 0;
   /** Reserva espaço da tab bar fixed (iPhone / Android / PWA). */
   const tabBarOffsetCss = mostrarTabs ? mobileTabBarOffsetCss() : '0px';
@@ -707,6 +709,9 @@ function ChamadosMobileLayoutInner() {
         isFreelancersAprovacao,
       }),
   }));
+  const maisItems = tabBarItems.filter(
+    (item) => item.to !== '/checklist/mobile' && item.to !== '/visitas/mobile',
+  );
 
   function rotaVoltarMobile() {
     if (isNcResolver) return '/nc/mobile';
@@ -720,7 +725,7 @@ function ChamadosMobileLayoutInner() {
   }
 
   return (
-    <MobileMaisHost items={tabBarItems} accent={acento}>
+    <MobileMaisHost items={maisItems} accent={acento}>
     <Box
       className="mobile-app-shell"
       sx={{
@@ -729,14 +734,14 @@ function ChamadosMobileLayoutInner() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        bgcolor: isEstoqueHub || isChecklistImmersive ? '#0b1721' : colors.canvas,
+        bgcolor: isEstoqueHub || isChecklistImmersive || isInicio ? '#0b1721' : colors.canvas,
         /* Tab bar é position:fixed — reserva a faixa no fluxo p/ o CTA não ficar por baixo */
         pb: isChecklistStart && mostrarTabs ? tabBarOffsetCss : 0,
         ['--app-tabbar-offset' as string]: tabBarOffsetCss,
       }}
     >
       <PwaUpdateBanner />
-      {!isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && !isPortais && (
+      {!isInicio && !isChecklistImmersive && !isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && !isPortais && (
       <Box
         component="header"
         className="mobile-app-header"
@@ -991,7 +996,7 @@ function ChamadosMobileLayoutInner() {
             modoRestrito
               ? []
               : deliveryOnly
-                ? ['/escalas/visitas/mobile', '/checklist/mobile', '/visitas/mobile']
+                ? ['/escalas/visitas/mobile', '/checklist/mobile']
                 : ['/checklist/mobile', '/chamados/mobile', '/frota/mobile']
           }
           accent={acento}

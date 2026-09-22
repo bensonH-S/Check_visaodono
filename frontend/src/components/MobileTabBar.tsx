@@ -206,7 +206,8 @@ export default function MobileTabBar({
   const defaultAccent = escuro ? '#FF7A3D' : '#1B2A6B';
   const effectiveAccent = accent || defaultAccent;
 
-  const { primary, more } = splitMobileTabs(items, pinnedTos, maxVisible);
+  const { primary, more: moreAll } = splitMobileTabs(items, pinnedTos, maxVisible);
+  const more = moreAll.filter((item) => item.to !== '/checklist/mobile' && item.to !== '/visitas/mobile');
   const maisAtivo = more.some((item) => tabItemAtivo(item, path));
 
   if (!items.length) return null;

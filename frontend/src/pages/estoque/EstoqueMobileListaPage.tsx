@@ -2,18 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
-import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
-import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
-import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import SyncAltOutlinedIcon from '@mui/icons-material/SyncAltOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import TuneIcon from '@mui/icons-material/Tune';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   api,
@@ -23,11 +19,11 @@ import {
   type EstoqueSaldoItem,
   type Loja,
 } from '../../api/client';
-import { getUsuario, lojaEstoqueTravadaMobile, logout, primeiraRotaMobileApp } from '../../lib/auth';
+import { getUsuario, lojaEstoqueTravadaMobile, logout } from '../../lib/auth';
 import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
-import { useMobileMais } from '../../components/MobileTabBar';
+import AppHubDock from '../../components/hub/AppHubDock';
 import { showToast } from '../../utils/toast';
 import {
   CONTAGEM_SEMANAL_ATIVA,
@@ -196,7 +192,6 @@ function InsumoRow({
 export default function EstoqueMobileListaPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { openMais } = useMobileMais();
   const user = getUsuario();
   const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
@@ -687,43 +682,12 @@ export default function EstoqueMobileListaPage() {
       </div>
       </div>
 
-      <nav className="ck-estoque-hub__dock" aria-label="Estoque">
-        <button
-          type="button"
-          onClick={() => {
-            const dest = user ? primeiraRotaMobileApp(user) : '/checklist/mobile';
-            navigate(dest.startsWith('/estoque') ? '/checklist/mobile' : dest);
-          }}
-        >
-          <HomeOutlinedIcon />
-          Início
-        </button>
-        <button
-          type="button"
-          className={aba === 'visao' || aba === 'insumos' ? 'is-on' : ''}
-          onClick={() => setAba('visao')}
-        >
-          <Inventory2OutlinedIcon />
-          Estoque
-        </button>
-        <button
-          type="button"
-          className="ck-estoque-hub__dock-plus"
-          aria-label="Nova contagem"
-          disabled={!idLoja || iniciando}
-          onClick={() => setDlgTipo(true)}
-        >
-          <AddIcon />
-        </button>
-        <button type="button" className={aba === 'nf' ? 'is-on' : ''} onClick={() => setAba('nf')}>
-          <ShoppingCartOutlinedIcon />
-          Pedidos
-        </button>
-        <button type="button" aria-label="Mais módulos" onClick={openMais}>
-          <MoreHorizIcon />
-          Mais
-        </button>
-      </nav>
+      <AppHubDock
+        ativo="estoque"
+        plusLabel="Nova contagem"
+        plusDisabled={!idLoja || iniciando}
+        onPlus={() => setDlgTipo(true)}
+      />
 
       {itemAberto &&
         createPortal(

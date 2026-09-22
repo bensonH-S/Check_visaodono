@@ -1,22 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Loja, TipoChecklist, Usuario, MetaVisitaTimeCampo } from '../../api/client';
+import { api, fmtData, fmtNota, scoreColorTema, type Loja, type TipoChecklist, type Usuario, type MetaVisitaTimeCampo, type VisitaResumo } from '../../api/client';
 import type { ChecklistSessaoLocal } from '../../utils/checklistSessao';
-import { getUsuario, logout, primeiraRotaMobileApp } from '../../lib/auth';
+import { getUsuario, logout } from '../../lib/auth';
 import { assetUrl, CHECKLIST_FUNDO_BK, LOGO_GA_LOCKUP } from '../../config/paths';
 import { nomeLojaCurta } from '../estoque/estoqueHub';
-import { useMobileMais } from '../MobileTabBar';
 import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import NotificacoesSino from '../NotificacoesSino';
 import TimeCampoMetaForm from './TimeCampoMetaForm';
 import ChecklistIonicShell from './ChecklistIonicShell';
 import ChecklistPickSheet from './ChecklistPickSheet';
+import AppHubDock from '../hub/AppHubDock';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import AddIcon from '@mui/icons-material/Add';
-import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
-import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
-import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import '../estoque/estoque-hub.css';
 import './checklist-hub.css';
 
@@ -80,7 +75,6 @@ export default function ChecklistStartScreen(props: Props) {
   } = props;
 
   const navigate = useNavigate();
-  const { openMais } = useMobileMais();
   const user = getUsuario();
   const [pickLoja, setPickLoja] = useState(false);
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja);
@@ -98,6 +92,30 @@ export default function ChecklistStartScreen(props: Props) {
       })),
     [lojas],
   );
+
+  const [visitas, setVisitas] = useState<VisitaResumo[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    api
+      .visitas(idLoja ? { loja: Number(idLoja) } : undefined)
+      .then((lista) => {
+        if (vivo) setVisitas(lista.slice(0, 8));
+      })
+      .catch(() => {
+        if (vivo) setVisitas([]);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [idLoja]);
+
+  function abrirVisita(v: VisitaResumo) {
+    if (v.status === 'Rascunho') {
+      navigate(`/checklist/mobile?visita=${v.id_visita}`);
+      return;
+    }
+    navigate(`/relatorio/mobile/visita/${v.id_visita}`);
+  }
 
   return (
     <ChecklistIonicShell scrollY={false}>
@@ -196,42 +214,59 @@ export default function ChecklistStartScreen(props: Props) {
                 <TimeCampoMetaForm value={metaVisita} onChange={onMetaChange} />
               </div>
             ) : null}
+
+            <section className="ck-checklist-hub__recente" aria-label="Visitas">
+              <div className="ck-checklist-hub__recente-head">
+                <h2>Visitas</h2>
+                <span>{visitas.length ? visitas.length : ''}</span>
+              </div>
+              {visitas.length ? (
+                visitas.map((v) => {
+                  const aberta = v.status === 'Rascunho';
+                  const titulo = idLoja
+                    ? v.tipo_checklist_nome || 'Checklist'
+                    : nomeLojaCurta(v.name, v.bk_number);
+                  const meta = idLoja
+                    ? `${fmtData(v.data_visita)}${v.nome_usuario ? ` · ${v.nome_usuario}` : ''}`
+                    : `${fmtData(v.data_visita)} · ${v.tipo_checklist_nome || 'Checklist'}`;
+                  const nota = v.nota_final == null ? null : Number(v.nota_final);
+                  return (
+                    <button
+                      key={v.id_visita}
+                      type="button"
+                      className="ck-checklist-hub__visita"
+                      onClick={() => abrirVisita(v)}
+                    >
+                      <span className="ck-checklist-hub__visita-copy">
+                        <strong>{titulo}</strong>
+                        <small>{meta}</small>
+                      </span>
+                      {aberta ? (
+                        <span className="ck-checklist-hub__visita-side is-open">Aberta</span>
+                      ) : (
+                        <span
+                          className="ck-checklist-hub__visita-side"
+                          style={nota != null ? { color: scoreColorTema(nota, true) } : undefined}
+                        >
+                          {fmtNota(nota)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="ck-checklist-hub__recente-empty">Nenhuma visita ainda. O + começa uma.</p>
+              )}
+            </section>
           </div>
         </div>
 
-        <nav className="ck-estoque-hub__dock" aria-label="Checklist">
-          <button
-            type="button"
-            onClick={() => {
-              const dest = user ? primeiraRotaMobileApp(user) : '/visitas/mobile';
-              navigate(dest.startsWith('/checklist') ? '/visitas/mobile' : dest);
-            }}
-          >
-            <HomeOutlinedIcon />
-            Início
-          </button>
-          <button type="button" className="is-on">
-            <AssignmentOutlinedIcon />
-            Checklist
-          </button>
-          <button
-            type="button"
-            className="ck-estoque-hub__dock-plus"
-            aria-label="Iniciar visita"
-            disabled={saving || carregandoTipo || !podeIniciar}
-            onClick={onIniciar}
-          >
-            <AddIcon />
-          </button>
-          <button type="button" onClick={() => navigate('/visitas/mobile')}>
-            <HistoryOutlinedIcon />
-            Visitas
-          </button>
-          <button type="button" aria-label="Mais módulos" onClick={openMais}>
-            <MoreHorizIcon />
-            Mais
-          </button>
-        </nav>
+        <AppHubDock
+          ativo="checklist"
+          plusLabel="Iniciar visita"
+          plusDisabled={saving || carregandoTipo || !podeIniciar}
+          onPlus={onIniciar}
+        />
       </div>
 
       <ChecklistPickSheet

@@ -9,6 +9,7 @@ export function mobileDetalheChamado(pathname: string): boolean {
 export function mobilePaginaCabecalhoFixo(pathname: string): boolean {
   const p = toAppPath(pathname);
   return (
+    p === '/inicio/mobile' ||
     p === '/chamados/mobile' ||
     mobileDetalheChamado(pathname) ||
     p === '/visitas/mobile' ||
@@ -31,6 +32,7 @@ export function mobilePaginaCabecalhoFixo(pathname: string): boolean {
 export function isMobileAppPath(pathname: string): boolean {
   const p = toAppPath(pathname);
   return (
+    p.startsWith('/inicio/mobile') ||
     p.startsWith('/chamados/mobile') ||
     p.startsWith('/checklist/mobile') ||
     p.startsWith('/frota/mobile') ||

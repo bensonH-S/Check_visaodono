@@ -12,6 +12,7 @@ import PortaisPage from './pages/PortaisPage';
 import RankingPage from './pages/RankingPage';
 import ChecklistPage from './pages/ChecklistPage';
 import ChecklistMobilePage from './pages/ChecklistMobilePage';
+import InicioMobilePage from './pages/InicioMobilePage';
 import ChecklistConcluidoPage from './pages/ChecklistConcluidoPage';
 import VisitasPage from './pages/VisitasPage';
 import VisitasMobilePage from './pages/VisitasMobilePage';
@@ -147,6 +148,7 @@ export default function App() {
                 </RotaChecklist>
               }
             />
+            <Route path="inicio/mobile" element={<InicioMobilePage />} />
             <Route
               path="frota/mobile/abastecimento"
               element={
