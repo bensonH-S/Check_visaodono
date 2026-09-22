@@ -24,7 +24,7 @@ import {
   type Loja,
 } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile, logout, primeiraRotaMobileApp } from '../../lib/auth';
-import { assetUrl, LOGO_GA_MARK } from '../../config/paths';
+import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
 import { showToast } from '../../utils/toast';
@@ -80,6 +80,34 @@ function nomeLoja(l: Loja) {
 function rotuloLoja(l: Loja) {
   const nome = nomeLoja(l);
   return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
+}
+
+function rotuloGrupoHub(g: string | null | undefined) {
+  const mapa: Record<string, string> = {
+    carne: 'Carne',
+    frango: 'Frango',
+    queijo: 'Queijo',
+    bacon: 'Bacon',
+    pao: 'Pão',
+    batata: 'Batata',
+    oleo: 'Óleo',
+    refil: 'Copo / xarope',
+    vegetais: 'Vegetais',
+    mix_sobremesa: 'Mix',
+  };
+  return mapa[String(g || '')] || g || '—';
+}
+
+function fmtQuando(iso?: string | null) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function preferenciaLojaInicial(rows: Loja[]): number | null {
@@ -152,6 +180,7 @@ export default function EstoqueMobileListaPage() {
   const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
   const [nfes, setNfes] = useState<EstoqueNfeResumo[]>([]);
   const [movimentos, setMovimentos] = useState<EstoqueMovimento[]>([]);
+  const [itemAberto, setItemAberto] = useState<EstoqueSaldoItem | null>(null);
   const buscaRef = useRef<HTMLInputElement>(null);
 
   const carregarLista = useCallback(async (lojaId: number) => {
@@ -312,10 +341,7 @@ export default function EstoqueMobileListaPage() {
       <header className="ck-estoque-hub__top">
         <div className="ck-estoque-hub__brand-row">
           <div className="ck-estoque-hub__brand">
-            <img src={assetUrl(LOGO_GA_MARK)} alt="Grupo Alvim" />
-            <span>
-              grupo<span>alvim</span>
-            </span>
+            <img src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
           </div>
           <div className="ck-estoque-hub__actions">
             <button type="button" className="ck-estoque-hub__icon-btn" aria-label="Buscar" onClick={abrirBusca}>
@@ -479,7 +505,7 @@ export default function EstoqueMobileListaPage() {
                   <InsumoRow
                     key={item.id_insumo || item.id_produto}
                     item={item}
-                    onClick={() => navigate('/estoque/mobile/saldo')}
+                    onClick={() => setItemAberto(item)}
                   />
                 ))
               )}
@@ -606,6 +632,53 @@ export default function EstoqueMobileListaPage() {
           Relatórios
         </button>
       </nav>
+
+      {itemAberto &&
+        createPortal(
+          <div className="ck-estoque-hub ck-estoque-hub--sheet">
+            <button
+              type="button"
+              className="ck-estoque-hub__sheet-back"
+              aria-label="Fechar"
+              onClick={() => setItemAberto(null)}
+            />
+            <div className="ck-estoque-hub__sheet" role="dialog" aria-modal="true" aria-label={itemAberto.descricao}>
+              <div className="ck-estoque-hub__sheet-handle" />
+              <div className="ck-estoque-hub__sheet-head">
+                <img src={assetUrl(thumbInsumo(itemAberto))} alt="" />
+                <div>
+                  <strong>{itemAberto.descricao}</strong>
+                  <small>
+                    {itemAberto.codigo}
+                    {itemAberto.unidade_contagem ? ` · ${itemAberto.unidade_contagem}` : ''}
+                  </small>
+                </div>
+              </div>
+              <div className="ck-estoque-hub__sheet-grid">
+                <div>
+                  <span>Saldo</span>
+                  <b>{fmtQtdHub(itemAberto.quantidade, itemAberto.unidade_contagem)}</b>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <b>{rotuloStatusSaldo(statusSaldo(itemAberto))}</b>
+                </div>
+                <div>
+                  <span>Grupo</span>
+                  <b>{rotuloGrupoHub(itemAberto.grupo_diario)}</b>
+                </div>
+                <div>
+                  <span>Atualizado</span>
+                  <b>{fmtQuando(itemAberto.atualizado_em)}</b>
+                </div>
+              </div>
+              <button type="button" className="ck-estoque-hub__sheet-fechar" onClick={() => setItemAberto(null)}>
+                Fechar
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {dlgTipo &&
         createPortal(

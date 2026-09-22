@@ -710,7 +710,7 @@ function ChamadosMobileLayoutInner() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        bgcolor: colors.canvas,
+        bgcolor: isEstoqueHub ? '#0b1721' : colors.canvas,
         /* Tab bar é position:fixed — reserva a faixa no fluxo p/ o CTA não ficar por baixo */
         pb: isChecklistStart && mostrarTabs ? tabBarOffsetCss : 0,
         ['--app-tabbar-offset' as string]: tabBarOffsetCss,
