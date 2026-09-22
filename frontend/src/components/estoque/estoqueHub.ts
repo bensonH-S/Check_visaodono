@@ -16,7 +16,7 @@ export function statusSaldo(item: EstoqueSaldoItem): StatusSaldoHub {
 }
 
 export function rotuloStatusSaldo(status: StatusSaldoHub) {
-  if (status === 'zerado') return 'Zerado';
+  if (status === 'zerado') return 'Zero';
   if (status === 'abaixo') return 'Abaixo';
   return 'OK';
 }

@@ -143,7 +143,10 @@ function InsumoRow({
         <img className="ck-estoque-hub__thumb" src={assetUrl(thumbInsumo(item))} alt="" />
         <span className="ck-estoque-hub__copy">
           <strong>{nomeInsumoCurto(item.descricao)}</strong>
-          <small>{item.codigo}</small>
+          <small>
+            {item.codigo}
+            {item.unidade_contagem ? ` · ${String(item.unidade_contagem).toUpperCase()}` : ''}
+          </small>
         </span>
       </span>
       <span className="ck-estoque-hub__qtd">{fmtQtdHub(item.quantidade, item.unidade_contagem)}</span>
@@ -340,9 +343,7 @@ export default function EstoqueMobileListaPage() {
       <div className="ck-estoque-hub__scroll">
       <header className="ck-estoque-hub__top">
         <div className="ck-estoque-hub__brand-row">
-          <div className="ck-estoque-hub__brand">
-            <img src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
-          </div>
+          <img className="ck-estoque-hub__mark" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
           <div className="ck-estoque-hub__actions">
             <button type="button" className="ck-estoque-hub__icon-btn" aria-label="Buscar" onClick={abrirBusca}>
               <SearchIcon sx={{ fontSize: 22 }} />
@@ -358,11 +359,8 @@ export default function EstoqueMobileListaPage() {
           </div>
         </div>
 
-        <div className="ck-estoque-hub__title-row">
-          <h1>Estoque</h1>
-        </div>
-
         <div className="ck-estoque-hub__store-row">
+          <h1>Estoque</h1>
           <div className="ck-estoque-hub__loja-drop">
             <button
               type="button"
@@ -392,10 +390,6 @@ export default function EstoqueMobileListaPage() {
               </div>
             ) : null}
           </div>
-          <span className="ck-estoque-hub__online">
-            <i className="ck-estoque-hub__dot" />
-            Online
-          </span>
         </div>
 
         <nav className="ck-estoque-hub__tabs" aria-label="Estoque">
@@ -491,24 +485,27 @@ export default function EstoqueMobileListaPage() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="ck-estoque-hub__table">
               <div className="ck-estoque-hub__cols">
                 <span>Insumo</span>
                 <span>Saldo</span>
                 <span>Status</span>
+                <span />
               </div>
-            </div>
-            <div className="ck-estoque-hub__lista">
-              {!loading && !listaInsumos.length ? (
-                <p className="ck-estoque-hub__empty">Nenhum insumo neste filtro.</p>
-              ) : (
-                listaInsumos.map((item) => (
-                  <InsumoRow
-                    key={item.id_insumo || item.id_produto}
-                    item={item}
-                    onClick={() => setItemAberto(item)}
-                  />
-                ))
-              )}
+              <div className="ck-estoque-hub__lista">
+                {!loading && !listaInsumos.length ? (
+                  <p className="ck-estoque-hub__empty">Nenhum insumo neste filtro.</p>
+                ) : (
+                  listaInsumos.map((item) => (
+                    <InsumoRow
+                      key={item.id_insumo || item.id_produto}
+                      item={item}
+                      onClick={() => setItemAberto(item)}
+                    />
+                  ))
+                )}
+              </div>
             </div>
           </>
         ) : null}

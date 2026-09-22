@@ -5,7 +5,7 @@
   --eh-line: rgba(255, 255, 255, 0.1);
   --eh-text: #f5f5f5;
   --eh-muted: #8d8d8d;
-  --eh-orange: #ff6a00;
+  --eh-orange: #fe6c22;
   --eh-green: #22c55e;
   --eh-yellow: #eab308;
   --eh-red: #ef4444;
@@ -43,21 +43,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-}
-
-.ck-estoque-hub__brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.ck-estoque-hub__brand img {
-  width: auto;
-  height: 40px;
-  max-width: 240px;
-  object-fit: contain;
+  gap: 12px;
 }
 
 .ck-estoque-hub__brand span {
@@ -68,7 +54,7 @@
 }
 
 .ck-estoque-hub__brand span span {
-  color: #ff6a00;
+  color: #fe6c22;
   font-weight: 800;
 }
 
@@ -111,29 +97,35 @@
   cursor: pointer;
 }
 
-.ck-estoque-hub__title-row {
-  margin-top: 10px;
+.ck-estoque-hub__mark {
+  display: block;
+  width: auto;
+  height: 30px;
+  max-width: min(186px, 54vw);
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
-.ck-estoque-hub__title-row h1 {
+.ck-estoque-hub__store-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.ck-estoque-hub__store-row h1 {
   margin: 0;
+  flex-shrink: 0;
   font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1;
 }
 
-.ck-estoque-hub__store-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 12px;
-}
-
 .ck-estoque-hub__loja-drop {
   min-width: 0;
-  flex: 1;
+  max-width: 56%;
 }
 
 .ck-estoque-hub__store {
@@ -141,6 +133,7 @@
   min-width: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
   border: 0;
   padding: 0;
@@ -398,11 +391,21 @@
   color: #111;
 }
 
-.ck-estoque-hub__cols {
+.ck-estoque-hub__table {
+  --eh-grid: minmax(0, 1fr) 70px 54px 14px;
+}
+
+.ck-estoque-hub__cols,
+.ck-estoque-hub__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 58px 14px;
-  gap: 6px;
-  padding: 0 2px 8px;
+  grid-template-columns: var(--eh-grid);
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.ck-estoque-hub__cols {
+  padding: 0 0 8px;
   color: #6f6f6f;
   font-size: 0.64rem;
   font-weight: 700;
@@ -410,13 +413,18 @@
   text-transform: uppercase;
 }
 
+.ck-estoque-hub__cols > span:nth-child(2),
+.ck-estoque-hub__qtd {
+  text-align: center;
+}
+
+.ck-estoque-hub__cols > span:nth-child(3),
+.ck-estoque-hub__status {
+  justify-self: end;
+}
+
 .ck-estoque-hub__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 58px 14px;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px 2px;
+  padding: 10px 0;
   border: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: none;
@@ -438,8 +446,8 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--eh-bg-2);
-  object-fit: cover;
+  background: transparent;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
@@ -497,6 +505,7 @@
   gap: 5px;
   font-size: 0.68rem;
   color: var(--eh-muted);
+  white-space: nowrap;
 }
 
 .ck-estoque-hub__status i {
@@ -607,14 +616,14 @@
 }
 
 .ck-estoque-hub__dock > button.is-on {
-  color: #ff6a00 !important;
+  color: #fe6c22 !important;
 }
 
 .ck-estoque-hub__dock .MuiSvgIcon-root {
   font-size: 22px;
 }
 
-.ck-estoque-hub__dock-plus {
+.ck-estoque-hub__dock > button.ck-estoque-hub__dock-plus {
   width: 52px !important;
   height: 52px;
   flex: 0 0 52px !important;
@@ -627,14 +636,15 @@
   line-height: 0;
   border-radius: 50% !important;
   background: var(--eh-orange) !important;
-  color: #fff !important;
-  box-shadow: 0 8px 18px rgba(255, 106, 0, 0.35);
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(254, 108, 34, 0.32);
 }
 
-.ck-estoque-hub__dock-plus .MuiSvgIcon-root {
+.ck-estoque-hub__dock > button.ck-estoque-hub__dock-plus .MuiSvgIcon-root {
   font-size: 28px;
   margin: 0 !important;
   display: block;
+  color: #ffffff !important;
 }
 
 .ck-estoque-hub__loja-drop {
@@ -645,7 +655,8 @@
   position: absolute;
   z-index: 20;
   top: calc(100% + 8px);
-  left: 0;
+  right: 0;
+  left: auto;
   min-width: 220px;
   max-height: 240px;
   overflow: auto;
@@ -722,8 +733,8 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  object-fit: cover;
-  background: var(--eh-bg-2);
+  object-fit: contain;
+  background: transparent;
   flex-shrink: 0;
 }
 
