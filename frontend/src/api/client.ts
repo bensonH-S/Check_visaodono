@@ -1566,9 +1566,19 @@ export const api = {
     return request<EstoqueNfeResumo[]>(`/estoque/nfes?${params}`);
   },
   estoqueNfeDetalhe: (idNfe: number) => request<EstoqueNfeDetalhe>(`/estoque/nfes/${idNfe}`),
-  /** URL autenticada do DANFE HTML (usar com fetch + Authorization). */
+  estoqueNfeCobranca: (idNfe: number) =>
+    request<{
+      id_nfe: number;
+      numero?: string | null;
+      emitente?: string | null;
+      valor_total?: number | null;
+      vencimento?: string | null;
+      tem_xml?: boolean;
+      duplicatas: Array<{ numero?: string | null; vencimento?: string | null; valor?: number | null }>;
+    }>(`/estoque/nfes/${idNfe}/cobranca`),
+  /** URL autenticada da DANFE em PDF. */
   estoqueNfeDanfeUrl: (idNfe: number) => `${BASE}/estoque/nfes/${idNfe}/danfe`,
-  estoqueNfeDanfeHtml: async (idNfe: number) => {
+  estoqueNfeDanfePdf: async (idNfe: number) => {
     const token = getToken();
     const res = await fetch(`${BASE}/estoque/nfes/${idNfe}/danfe`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -1577,7 +1587,7 @@ export const api = {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || 'Erro ao abrir DANFE');
     }
-    return res.text();
+    return res.blob();
   },
   estoqueNfeConferir: (
     idNfe: number,

@@ -25,6 +25,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^1.29.0",
     "maplibre-gl": "^6.7.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.16.0",

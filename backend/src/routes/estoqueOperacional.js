@@ -74,7 +74,8 @@ import {
 } from '../services/estoqueCiclo.js';
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 import fs from 'fs/promises';
-import { parseNfeXml, renderDanfeHtml } from '../services/nfeXml.js';
+import { parseNfeXml } from '../services/nfeXml.js';
+import { gerarDanfePdfBuffer } from '../services/gerarDanfePdf.js';
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
@@ -1849,12 +1850,12 @@ router.get('/nfes/:id', permNfe, async (req, res, next) => {
   }
 });
 
-/** DANFE auxiliar (HTML) a partir do XML salvo no sync do fornecedor. */
+/** DANFE em PDF (layout oficial) a partir do XML salvo no sync. */
 router.get('/nfes/:id/danfe', permNfe, async (req, res, next) => {
   try {
     const idNfe = Number(req.params.id);
     const { rows } = await pool.query(
-      `SELECT id_nfe, id_loja, numero, chave, xml_path FROM estoque_nfe WHERE id_nfe = $1`,
+      `SELECT id_nfe, id_loja, numero, xml_path FROM estoque_nfe WHERE id_nfe = $1`,
       [idNfe],
     );
     if (!rows.length) return res.status(404).json({ error: 'NF não encontrada' });
@@ -1867,67 +1868,68 @@ router.get('/nfes/:id/danfe', permNfe, async (req, res, next) => {
       return res.status(404).json({ error: 'XML da NF não está disponível nesta loja' });
     }
 
-    let html;
-    try {
-      const raw = await fs.readFile(xmlPath, 'utf8');
-      if (/\.json$/i.test(xmlPath) || raw.trimStart().startsWith('{')) {
-        const j = JSON.parse(raw);
-        const det = await obterNfeDetalhe(idNfe);
-        html = renderDanfeHtml({
-          chave: j.chave || nfe.chave || '',
-          numero: j.numero || nfe.numero || '',
-          serie: j.serie || '',
-          emissao: j.emissao || null,
-          data_saida: j.data_saida || null,
-          valor_total: j.valor_total ?? null,
-          emitente: j.emitente || {
-            cnpj: '',
-            nome: det?.emitente_nome || 'Coca-Cola / Brasal',
-          },
-          destinatario: j.destinatario || { cnpj: '', nome: '' },
-          itens: (det?.itens || []).map((it, idx) => ({
-            nItem: it.n_item ?? idx + 1,
-            codigo: it.codigo_nf || '',
-            descricao: it.descricao || '',
-            qCom: it.q_com ?? it.qtd_estoque ?? 0,
-            uCom: it.u_com || it.unidade_contagem || '',
-            vUnCom: it.v_un_com ?? null,
-            vProd: it.v_prod ?? null,
-          })),
-        });
-      } else {
-        html = renderDanfeHtml(parseNfeXml(raw));
-      }
-    } catch (e) {
-      // Fallback: monta DANFE com o que já está no banco
-      const det = await obterNfeDetalhe(idNfe);
-      if (!det) throw e;
-      html = renderDanfeHtml({
-        chave: det.chave || nfe.chave || '',
-        numero: det.numero || '',
-        serie: det.serie || '',
-        emissao: det.emissao,
-        data_saida: det.data_saida,
-        valor_total: det.valor_total,
-        emitente: { cnpj: det.emitente_cnpj || '', nome: det.emitente_nome || '' },
-        destinatario: { cnpj: '', nome: '' },
-        itens: (det.itens || []).map((it, idx) => ({
-          nItem: it.n_item ?? idx + 1,
-          codigo: it.codigo_nf || '',
-          descricao: it.descricao || '',
-          qCom: it.q_com ?? it.qtd_estoque ?? 0,
-          uCom: it.u_com || it.unidade_contagem || '',
-          vUnCom: it.v_un_com ?? null,
-          vProd: it.v_prod ?? null,
-        })),
-      });
-    }
-
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    const raw = await fs.readFile(xmlPath, 'utf8');
+    const pdf = await gerarDanfePdfBuffer(raw);
+    const nome = `DANFE-NF-${nfe.numero || idNfe}.pdf`.replace(/[^\w.-]+/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${nome}"`);
     res.setHeader('Cache-Control', 'private, no-store');
-    res.send(html);
+    res.send(pdf);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+/** Cobrança / duplicatas do XML da NF (não é boleto bancário PDF). */
+router.get('/nfes/:id/cobranca', permNfe, async (req, res, next) => {
+  try {
+    const idNfe = Number(req.params.id);
+    const { rows } = await pool.query(
+      `SELECT id_nfe, id_loja, numero, chave, xml_path, data_vencimento, valor_total, emitente_nome
+       FROM estoque_nfe WHERE id_nfe = $1`,
+      [idNfe],
+    );
+    if (!rows.length) return res.status(404).json({ error: 'NF não encontrada' });
+    const nfe = rows[0];
+    const bloqueio = acessoLoja(req, nfe.id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    let duplicatas = [];
+    let emitente = nfe.emitente_nome || '';
+    const xmlPath = nfe.xml_path ? String(nfe.xml_path).trim() : '';
+    if (xmlPath) {
+      try {
+        const raw = await fs.readFile(xmlPath, 'utf8');
+        if (!/\.json$/i.test(xmlPath) && !raw.trimStart().startsWith('{')) {
+          const parsed = parseNfeXml(raw);
+          duplicatas = parsed.duplicatas || [];
+          emitente = parsed.emitente?.nome || emitente;
+        }
+      } catch {
+        /* cai no fallback do cadastro */
+      }
+    }
+    if (!duplicatas.length && nfe.data_vencimento) {
+      duplicatas = [
+        {
+          numero: '1',
+          vencimento: nfe.data_vencimento,
+          valor: nfe.valor_total != null ? Number(nfe.valor_total) : null,
+        },
+      ];
+    }
+
+    res.json({
+      id_nfe: nfe.id_nfe,
+      numero: nfe.numero,
+      emitente,
+      valor_total: nfe.valor_total != null ? Number(nfe.valor_total) : null,
+      vencimento: duplicatas[0]?.vencimento || nfe.data_vencimento || null,
+      duplicatas,
+      tem_xml: !!xmlPath,
+    });
+  } catch (e) {
     next(e);
   }
 });

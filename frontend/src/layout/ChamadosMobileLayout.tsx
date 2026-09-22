@@ -337,7 +337,7 @@ function ChamadosMobileLayoutInner() {
   const isEstoqueSaldo = path === '/estoque/mobile/saldo';
   const isEstoqueNfe = path === '/estoque/mobile/nfes' || path.startsWith('/estoque/mobile/nfes/');
   const isEstoque = path === '/estoque/mobile' || path.startsWith('/estoque/mobile/');
-  const isEstoqueHub = path === '/estoque/mobile';
+  const isEstoqueHub = path === '/estoque/mobile' || isEstoqueNfe;
   /** `:idContagem` também casa com break / saldo / nfes — excluir. */
   const isEstoqueDetalhe =
     Boolean(useMatch('/estoque/mobile/:idContagem')) &&

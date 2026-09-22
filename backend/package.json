@@ -112,6 +112,7 @@
     "image-size": "^2.0.2",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^4.2.1",
+    "nfe-danfe-pdf": "^1.0.3",
     "nodemailer": "^9.0.3",
     "pg": "^8.13.3",
     "web-push": "^3.6.7"

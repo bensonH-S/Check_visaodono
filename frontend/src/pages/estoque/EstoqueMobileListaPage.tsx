@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
-import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import SyncAltOutlinedIcon from '@mui/icons-material/SyncAltOutlined';
@@ -80,6 +79,39 @@ function nomeLoja(l: Loja) {
 function rotuloLoja(l: Loja) {
   const nome = nomeLoja(l);
   return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
+}
+
+type FiltroNfHub = 'todas' | 'platlog' | 'coca';
+
+function rotuloFornecedorHub(codigo: string | null | undefined, emitente?: string | null) {
+  const f = String(codigo || '').toLowerCase();
+  if (f === 'coca') return 'Coca-Cola';
+  if (f === 'platlog') return 'Platlog';
+  return String(emitente || codigo || 'Fornecedor').trim();
+}
+
+function fmtDataNf(iso: string | null | undefined) {
+  if (!iso) return '';
+  const s = String(iso).slice(0, 10);
+  const [y, m, d] = s.split('-');
+  if (!y || !m || !d) return s;
+  return `${d}/${m}`;
+}
+
+function buscaNf(n: EstoqueNfeResumo, q: string) {
+  const t = q.trim().toLowerCase();
+  if (!t) return true;
+  return (
+    String(n.emitente_nome || '').toLowerCase().includes(t) ||
+    String(n.fornecedor || '').toLowerCase().includes(t) ||
+    String(n.numero || '').toLowerCase().includes(t) ||
+    String(n.id_nfe).includes(t)
+  );
+}
+
+function passaFiltroNf(n: EstoqueNfeResumo, filtro: FiltroNfHub) {
+  if (filtro === 'todas') return true;
+  return String(n.fornecedor || '').toLowerCase() === filtro;
 }
 
 function rotuloGrupoHub(g: string | null | undefined) {
@@ -161,6 +193,7 @@ function InsumoRow({
 
 export default function EstoqueMobileListaPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getUsuario();
   const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
@@ -178,8 +211,13 @@ export default function EstoqueMobileListaPage() {
   const [dlgLoja, setDlgLoja] = useState(false);
   const [dlgTipo, setDlgTipo] = useState(false);
   const [aba, setAba] = useState<AbaEstoqueHub>('visao');
+  useEffect(() => {
+    const next = (location.state as { aba?: AbaEstoqueHub } | null)?.aba;
+    if (next) setAba(next);
+  }, [location.state]);
   const [filtroInsumo, setFiltroInsumo] = useState<FiltroInsumoHub>('todos');
   const [busca, setBusca] = useState('');
+  const [filtroNf, setFiltroNf] = useState<FiltroNfHub>('todas');
   const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
   const [nfes, setNfes] = useState<EstoqueNfeResumo[]>([]);
   const [movimentos, setMovimentos] = useState<EstoqueMovimento[]>([]);
@@ -241,7 +279,7 @@ export default function EstoqueMobileListaPage() {
       try {
         const [saldoRows, nfeRows] = await Promise.all([
           api.estoqueSaldos(idLoja),
-          api.estoqueNfes(idLoja, { pendentes: true, limit: 40 }),
+          api.estoqueNfes(idLoja, { pendentes: true, limit: 80 }),
         ]);
         if (cancel) return;
         setSaldos(saldoRows);
@@ -284,6 +322,20 @@ export default function EstoqueMobileListaPage() {
     () => saldosDiarios.filter((i) => buscaInsumo(i, busca) && passaFiltroInsumo(i, filtroInsumo)),
     [saldosDiarios, busca, filtroInsumo],
   );
+  const nfesFiltradas = useMemo(
+    () => nfes.filter((n) => buscaNf(n, busca) && passaFiltroNf(n, filtroNf)),
+    [nfes, busca, filtroNf],
+  );
+  const nfContagem = useMemo(() => {
+    let platlog = 0;
+    let coca = 0;
+    for (const n of nfes) {
+      const f = String(n.fornecedor || '').toLowerCase();
+      if (f === 'platlog') platlog += 1;
+      if (f === 'coca') coca += 1;
+    }
+    return { platlog, coca, todas: nfes.length };
+  }, [nfes]);
   const rotuloLojaCurta = lojaAtual
     ? nomeLojaCurta(nomeLoja(lojaAtual), lojaAtual.bk_number)
     : 'Selecionar loja';
@@ -519,39 +571,75 @@ export default function EstoqueMobileListaPage() {
                   <p>Pendentes de conferência.</p>
                 </div>
               </div>
-            </div>
-            <div className="ck-estoque-hub__lista">
-              {!nfes.length ? (
-                <p className="ck-estoque-hub__empty">Nenhuma NF pendente nesta loja.</p>
-              ) : (
-                nfes.map((n) => (
+              <label className="ck-estoque-hub__search">
+                <SearchIcon sx={{ fontSize: 18, color: '#6b6b6b' }} />
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Buscar NF, fornecedor ou número..."
+                />
+                <TuneIcon sx={{ fontSize: 18, color: '#6b6b6b' }} />
+              </label>
+              <div className="ck-estoque-hub__chips">
+                {(
+                  [
+                    ['todas', `Todas (${nfContagem.todas})`],
+                    ['platlog', `Platlog (${nfContagem.platlog})`],
+                    ['coca', `Coca-Cola (${nfContagem.coca})`],
+                  ] as const
+                ).map(([id, label]) => (
                   <button
-                    key={n.id_nfe}
+                    key={id}
                     type="button"
-                    className="ck-estoque-hub__row"
-                    onClick={() => navigate(`/estoque/mobile/nfes/${n.id_nfe}`)}
+                    className={`ck-estoque-hub__chip${filtroNf === id ? ' is-on' : ''}`}
+                    onClick={() => setFiltroNf(id)}
                   >
-                    <span className="ck-estoque-hub__item">
-                      <span className="ck-estoque-hub__thumb">NF</span>
-                      <span>
-                        <strong>{n.emitente_nome || n.fornecedor}</strong>
-                        <small>
-                          {n.numero ? `Nº ${n.numero}` : `NF ${n.id_nfe}`}
-                          {n.emissao ? ` · ${String(n.emissao).slice(0, 10)}` : ''}
-                        </small>
-                      </span>
-                    </span>
-                    <span className="ck-estoque-hub__qtd">{n.itens ?? '—'}</span>
-                    <span className="ck-estoque-hub__status is-abaixo">
-                      <i />
-                      Pendente
-                    </span>
-                    <span className="ck-estoque-hub__chev" aria-hidden>
-                      ›
-                    </span>
+                    {label}
                   </button>
-                ))
-              )}
+                ))}
+              </div>
+            </div>
+            <div className="ck-estoque-hub__table ck-estoque-hub__table--nf">
+              <div className="ck-estoque-hub__cols">
+                <span>Nota</span>
+                <span>Itens</span>
+                <span />
+              </div>
+              <div className="ck-estoque-hub__lista">
+                {!nfesFiltradas.length ? (
+                  <p className="ck-estoque-hub__empty">Nenhuma NF pendente neste filtro.</p>
+                ) : (
+                  nfesFiltradas.map((n) => (
+                    <button
+                      key={n.id_nfe}
+                      type="button"
+                      className="ck-estoque-hub__row"
+                      onClick={() => navigate(`/estoque/mobile/nfes/${n.id_nfe}`)}
+                    >
+                      <span className="ck-estoque-hub__item">
+                        <span className="ck-estoque-hub__thumb ck-estoque-hub__thumb--nf">
+                          <DescriptionOutlinedIcon />
+                        </span>
+                        <span className="ck-estoque-hub__copy">
+                          <strong>{rotuloFornecedorHub(n.fornecedor, n.emitente_nome)}</strong>
+                          <small>
+                            {n.numero ? `Nº ${n.numero}` : `NF ${n.id_nfe}`}
+                            {fmtDataNf(n.emissao) ? ` · ${fmtDataNf(n.emissao)}` : ''}
+                          </small>
+                        </span>
+                      </span>
+                      <span className="ck-estoque-hub__nf-side">
+                        <strong>{n.itens ?? '—'}</strong>
+                        <span className="ck-estoque-hub__status is-abaixo">
+                          <i />
+                          Pendente
+                        </span>
+                      </span>
+                      <ChevronRightIcon className="ck-estoque-hub__chev" sx={{ fontSize: 16 }} />
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </>
         ) : null}
@@ -607,7 +695,11 @@ export default function EstoqueMobileListaPage() {
           <HomeOutlinedIcon />
           Início
         </button>
-        <button type="button" className="is-on" onClick={() => setAba('visao')}>
+        <button
+          type="button"
+          className={aba === 'visao' || aba === 'insumos' ? 'is-on' : ''}
+          onClick={() => setAba('visao')}
+        >
           <Inventory2OutlinedIcon />
           Estoque
         </button>
@@ -620,13 +712,9 @@ export default function EstoqueMobileListaPage() {
         >
           <AddIcon />
         </button>
-        <button type="button" onClick={() => setAba('nf')}>
+        <button type="button" className={aba === 'nf' ? 'is-on' : ''} onClick={() => setAba('nf')}>
           <ShoppingCartOutlinedIcon />
           Pedidos
-        </button>
-        <button type="button" onClick={() => setAba('movimentos')}>
-          <BarChartOutlinedIcon />
-          Relatórios
         </button>
       </nav>
 

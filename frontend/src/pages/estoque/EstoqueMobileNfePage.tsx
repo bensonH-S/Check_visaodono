@@ -3,30 +3,25 @@
  * Fluxo: NF do fornecedor → lista itens → OK chegou / X não chegou → lança estoque.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import Dialog from '@mui/material/Dialog';
 import IconButton from '@mui/material/IconButton';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
-import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import RequestQuoteOutlinedIcon from '@mui/icons-material/RequestQuoteOutlined';
+import DownloadIcon from '@mui/icons-material/Download';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import {
-  api,
-  type EstoqueNfeDetalhe,
-  type EstoqueNfeItem,
-  type EstoqueNfeResumo,
-  type Loja,
-} from '../../api/client';
-import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
-import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
+import { api, type EstoqueNfeDetalhe, type EstoqueNfeItem } from '../../api/client';
+import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
+import { thumbInsumo } from '../../components/estoque/estoqueHub';
+import DanfePdfPreview from '../../components/estoque/DanfePdfPreview';
 import { showToast } from '../../utils/toast';
-import '../../components/visitas/visitas-mobile.css';
+import '../../components/estoque/estoque-hub.css';
 import '../../components/estoque/estoque-mobile.css';
-
-const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
 type ItemCheck = {
   id_item: number;
@@ -54,15 +49,6 @@ function fmtQtd(v: number) {
     maximumFractionDigits: 3,
     minimumFractionDigits: 0,
   });
-}
-
-function nomeLoja(l: Loja) {
-  return String(l.name || '').trim() || 'Loja';
-}
-
-function rotuloLoja(l: Loja) {
-  const nome = nomeLoja(l);
-  return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
 }
 
 /** Código interno → nome amigável (coca = portal Brasal da Coca-Cola). */
@@ -150,14 +136,22 @@ function rotuloQtd(it: EstoqueNfeItem, recebida: number, esperada: number) {
   const undEmb = unidadeEmbalagem(it);
   const qCom = it.q_com != null ? Number(it.q_com) : null;
 
+  const igual = Math.abs(recebida - esperada) < 0.001;
   const linhaEstoque = undEst
-    ? `${fmtQtd(recebida)}/${fmtQtd(esperada)} ${undEst}`
-    : `${fmtQtd(recebida)}/${fmtQtd(esperada)}`;
+    ? igual
+      ? `${fmtQtd(esperada)} ${undEst}`
+      : `${fmtQtd(recebida)} / ${fmtQtd(esperada)} ${undEst}`
+    : igual
+      ? fmtQtd(esperada)
+      : `${fmtQtd(recebida)} / ${fmtQtd(esperada)}`;
 
   let linhaEmb = '';
   if (qCom != null && qCom > 0 && undEmb && undEmb !== undEst) {
     const recEmb = esperada > 0 ? (recebida / esperada) * qCom : qCom;
-    linhaEmb = `${fmtQtd(recEmb)}/${fmtQtd(qCom)} ${undEmb}`;
+    const igualEmb = Math.abs(recEmb - qCom) < 0.001;
+    linhaEmb = igualEmb
+      ? `${fmtQtd(qCom)} ${undEmb}`
+      : `${fmtQtd(recEmb)} / ${fmtQtd(qCom)} ${undEmb}`;
   }
 
   return { linhaEstoque, linhaEmb };
@@ -167,57 +161,16 @@ export default function EstoqueMobileNfePage() {
   const navigate = useNavigate();
   const { idNfe: idNfeParam } = useParams<{ idNfe?: string }>();
   const idNfe = idNfeParam ? Number(idNfeParam) : null;
-
-  const [idLoja, setIdLoja] = useState<number | null>(() => {
-    const u = getUsuario();
-    if (lojaEstoqueTravadaMobile(u) && u?.lojas?.[0]?.id_loja) return u.lojas[0].id_loja;
-    if (u?.lojas?.length === 1) return u.lojas[0].id_loja;
-    const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
-    return Number.isFinite(saved) && saved > 0 ? saved : null;
-  });
-  const [lojas, setLojas] = useState<Loja[]>([]);
-  const [lista, setLista] = useState<EstoqueNfeResumo[]>([]);
   const [det, setDet] = useState<EstoqueNfeDetalhe | null>(null);
   const [checks, setChecks] = useState<Record<number, ItemCheck>>({});
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [danfeHtml, setDanfeHtml] = useState<string | null>(null);
+  const [danfeUrl, setDanfeUrl] = useState<string | null>(null);
   const [abrindoDanfe, setAbrindoDanfe] = useState(false);
-  const [filtroForn, setFiltroForn] = useState<'todas' | 'platlog' | 'coca'>('todas');
-  const [dlgLoja, setDlgLoja] = useState(false);
-  const user = getUsuario();
-  const lojaTravada = lojaEstoqueTravadaMobile(user);
-  const podeTrocarLoja = !lojaTravada && lojas.length > 1;
-
-
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const rows = await api.estoqueLojas({ ativas: true, operacionais: true });
-        setLojas(rows);
-        if (!idLoja && rows[0]) {
-          setIdLoja(rows[0].id_loja);
-          localStorage.setItem(LOJA_STORAGE_KEY, String(rows[0].id_loja));
-        }
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, [idLoja]);
-
-  const carregarLista = useCallback(async () => {
-    if (!idLoja) return;
-    setLoading(true);
-    try {
-      const rows = await api.estoqueNfes(idLoja, { conferir: true, limit: 80 });
-      setLista(rows);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao listar NFs', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [idLoja]);
+  const [cobranca, setCobranca] = useState<Awaited<ReturnType<typeof api.estoqueNfeCobranca>> | null>(
+    null,
+  );
+  const [abrindoCobranca, setAbrindoCobranca] = useState(false);
 
   const carregarDetalhe = useCallback(
     async (id: number) => {
@@ -245,7 +198,7 @@ export default function EstoqueMobileNfePage() {
         setChecks(map);
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Erro ao abrir NF', 'error');
-        navigate('/estoque/mobile/nfes', { replace: true });
+        navigate('/estoque/mobile', { replace: true, state: { aba: 'nf' } });
       } finally {
         setLoading(false);
       }
@@ -258,88 +211,20 @@ export default function EstoqueMobileNfePage() {
       void carregarDetalhe(idNfe);
     } else {
       setDet(null);
-      void carregarLista();
+      setLoading(false);
     }
-  }, [idNfe, carregarDetalhe, carregarLista]);
+  }, [idNfe, carregarDetalhe]);
 
-  const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
+  useEffect(() => {
+    return () => {
+      setDanfeUrl((atual) => {
+        if (atual) URL.revokeObjectURL(atual);
+        return null;
+      });
+    };
+  }, []);
 
-  const listaFiltrada = useMemo(() => {
-    if (filtroForn === 'todas') return lista;
-    return lista.filter((n) => String(n.fornecedor || '').toLowerCase() === filtroForn);
-  }, [lista, filtroForn]);
-
-  const contagemForn = useMemo(() => {
-    let platlog = 0;
-    let coca = 0;
-    for (const n of lista) {
-      const f = String(n.fornecedor || '').toLowerCase();
-      if (f === 'platlog') platlog += 1;
-      if (f === 'coca') coca += 1;
-    }
-    return { platlog, coca, todas: lista.length };
-  }, [lista]);
-
-  const heroRecebimento = (
-    <div className="ck-visitas__stage">
-      <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-      <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-      <div className="ck-visitas__mesh" aria-hidden />
-      <div className="ck-visitas__stage-inner">
-        <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-            <p className="ck-visitas__mark-text">Grupo Alvim</p>
-            <h1 className="ck-visitas__title">Recebimentos</h1>
-            <p className="ck-visitas__sub">
-              Conferência e recebimento de notas fiscais de entrada.
-            </p>
-          </div>
-          <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
-        </div>
-      </div>
-    </div>
-  );
-
-  const heroDetalhe = det ? (
-    <div className="ck-visitas__stage">
-      <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-      <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-      <div className="ck-visitas__mesh" aria-hidden />
-      <div className="ck-visitas__stage-inner">
-        <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-          <div>
-            <p className="ck-visitas__mark-text">
-              {rotuloFornecedor(det.fornecedor, det.emitente_nome)}
-            </p>
-            <h1 className="ck-visitas__title" style={{ fontSize: 'clamp(1.85rem, 8vw, 2.4rem)' }}>
-              Ocorrências
-            </h1>
-          </div>
-          <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
-        </div>
-        <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-          NF {det.numero || det.id_nfe}
-          {det.emitente_nome ? ` · ${det.emitente_nome}` : ''}
-        </p>
-        <div className="ck-estoque-nfe__meta ck-visitas__anim ck-visitas__anim--3">
-          <span>Emissão {fmtDataBR(det.emissao)}</span>
-          <span>Saída {fmtDataBR(det.data_saida)}</span>
-          <span>{fmtMoeda(det.valor_total)}</span>
-        </div>
-        {det.tem_xml ? (
-          <button
-            type="button"
-            className="ck-estoque-nfe__danfe-btn"
-            disabled={abrindoDanfe}
-            onClick={() => void abrirDanfe(det.id_nfe)}
-          >
-            <DescriptionOutlinedIcon fontSize="small" />
-            {abrindoDanfe ? 'Abrindo…' : 'Ver DANFE / nota fiscal'}
-          </button>
-        ) : null}
-      </div>
-    </div>
-  ) : null;
+  const voltarHubNf = () => navigate('/estoque/mobile', { state: { aba: 'nf' } });
 
   const marcar = (idItem: number, ok: boolean) => {
     setChecks((prev) => {
@@ -365,15 +250,53 @@ export default function EstoqueMobileNfePage() {
     return { total, ok, nao, pend };
   }, [checks]);
 
+  const fecharDanfe = () => {
+    setDanfeUrl((atual) => {
+      if (atual) URL.revokeObjectURL(atual);
+      return null;
+    });
+  };
+
   const abrirDanfe = async (id: number) => {
     setAbrindoDanfe(true);
     try {
-      const html = await api.estoqueNfeDanfeHtml(id);
-      setDanfeHtml(html);
+      const blob = await api.estoqueNfeDanfePdf(id);
+      const url = URL.createObjectURL(blob);
+      setDanfeUrl((atual) => {
+        if (atual) URL.revokeObjectURL(atual);
+        return url;
+      });
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Não foi possível abrir a DANFE', 'error');
     } finally {
       setAbrindoDanfe(false);
+    }
+  };
+
+  const baixarDanfe = () => {
+    if (!danfeUrl) return;
+    const a = document.createElement('a');
+    a.href = danfeUrl;
+    a.download = `DANFE-NF-${det?.numero || det?.id_nfe || 'nota'}.pdf`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  const abrirCobranca = async (id: number) => {
+    setAbrindoCobranca(true);
+    try {
+      const c = await api.estoqueNfeCobranca(id);
+      if (!c.duplicatas?.length && !c.vencimento) {
+        showToast('Esta NF não tem cobrança no XML', 'error');
+        return;
+      }
+      setCobranca(c);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Não foi possível abrir a cobrança', 'error');
+    } finally {
+      setAbrindoCobranca(false);
     }
   };
 
@@ -398,7 +321,7 @@ export default function EstoqueMobileNfePage() {
           : `Recebimento OK · estoque atualizado`,
         r.divergente ? 'warning' : 'success',
       );
-      navigate('/estoque/mobile/nfes', { replace: true });
+      navigate('/estoque/mobile', { replace: true, state: { aba: 'nf' } });
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao finalizar', 'error');
     } finally {
@@ -419,262 +342,224 @@ export default function EstoqueMobileNfePage() {
   const dialogDanfe = (
     <Dialog
       fullScreen
-      open={!!danfeHtml}
-      onClose={() => setDanfeHtml(null)}
-      slotProps={{ paper: { sx: { bgcolor: '#f3f1ec' } } }}
+      open={!!danfeUrl}
+      onClose={fecharDanfe}
+      slotProps={{ paper: { sx: { bgcolor: '#111' } } }}
     >
       <div className="ck-estoque-nfe__danfe-bar">
         <strong>DANFE</strong>
-        <IconButton aria-label="Fechar" onClick={() => setDanfeHtml(null)} size="small">
-          <CloseIcon />
-        </IconButton>
+        <span>
+          <IconButton aria-label="Baixar PDF" onClick={baixarDanfe} size="small">
+            <DownloadIcon />
+          </IconButton>
+          <IconButton aria-label="Fechar" onClick={fecharDanfe} size="small">
+            <CloseIcon />
+          </IconButton>
+        </span>
       </div>
-      {danfeHtml ? (
-        <iframe title="DANFE" className="ck-estoque-nfe__danfe-frame" srcDoc={danfeHtml} />
-      ) : null}
+      {danfeUrl ? <DanfePdfPreview url={danfeUrl} /> : null}
     </Dialog>
   );
 
-  // ── Detalhe: Resumo de ocorrências ─────────────────────────────────────
-  if (idNfe && det) {
-    return (
-      <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque-nfe ck-estoque-nfe--detalhe">
-        {heroDetalhe}
-
-        <div className="ck-visitas__sheet ck-estoque-nfe__sheet">
-          <div className="ck-estoque-nfe__scroll">
-            <div className="ck-estoque-nfe__head">
-              <span>Produto</span>
-              <span>Qtd</span>
-              <span>Estado</span>
-            </div>
-
-            {loading && <LinearProgress sx={{ my: 1, borderRadius: 1 }} />}
-
-            <div className="ck-estoque-nfe__lista">
-              {(det.itens || []).map((it) => {
-                const c = checks[it.id_item];
-                const esp = c?.qtd_esperada ?? qtdEsperada(it);
-                const rec = c?.qtd_recebida ?? esp;
-                const estado = c?.ok;
-                const semMatch = !it.id_insumo;
-                const { linhaEstoque, linhaEmb } = rotuloQtd(it, rec, esp);
-                return (
-                  <div
-                    key={it.id_item}
-                    className={`ck-estoque-nfe__row${estado === false ? ' is-falta' : ''}${
-                      estado === true ? ' is-ok' : ''
-                    }${semMatch ? ' is-nomatch' : ''}`}
-                  >
-                    <div className="ck-estoque-nfe__prod">
-                      <strong>{nomeItem(it)}</strong>
-                      {semMatch ? (
-                        <small>Sem cadastro de insumo — só registra ocorrência</small>
-                      ) : (
-                        <small>{it.codigo_nf || it.codigo_insumo}</small>
-                      )}
-                    </div>
-                    <div className="ck-estoque-nfe__qtd">
-                      <span>{linhaEstoque}</span>
-                      {linhaEmb ? <small>{linhaEmb}</small> : null}
-                    </div>
-                    <div className="ck-estoque-nfe__acoes">
-                      <button
-                        type="button"
-                        className={`ck-estoque-nfe__btn ck-estoque-nfe__btn--ok${
-                          estado === true ? ' is-on' : ''
-                        }`}
-                        aria-label="Chegou"
-                        disabled={semMatch && esp <= 0}
-                        onClick={() => marcar(it.id_item, true)}
-                      >
-                        <CheckCircleOutlinedIcon />
-                      </button>
-                      <button
-                        type="button"
-                        className={`ck-estoque-nfe__btn ck-estoque-nfe__btn--no${
-                          estado === false ? ' is-on' : ''
-                        }`}
-                        aria-label="Não chegou"
-                        onClick={() => marcar(it.id_item, false)}
-                      >
-                        <HighlightOffIcon />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="ck-estoque-nfe__footer">
-            <button
-              type="button"
-              className="ck-estoque-nfe__foot-btn"
-              onClick={() => navigate('/estoque/mobile/nfes')}
-            >
-              Voltar
-            </button>
-            <button
-              type="button"
-              className="ck-estoque-nfe__foot-btn ck-estoque-nfe__foot-btn--ghost"
-              onClick={marcarTodosOk}
-            >
-              Todos OK
-            </button>
-            <button
-              type="button"
-              className="ck-estoque-nfe__foot-btn ck-estoque-nfe__foot-btn--pri"
-              disabled={salvando || resumo.pend > 0}
-              onClick={() => void finalizar()}
-            >
-              {salvando ? 'Salvando…' : `Continuar (${resumo.ok}/${resumo.total})`}
-            </button>
-          </div>
-        </div>
-        {dialogDanfe}
-      </div>
-    );
+  if (!idNfe || !Number.isFinite(idNfe)) {
+    return <Navigate to="/estoque/mobile" replace state={{ aba: 'nf' }} />;
   }
 
-  // ── Lista de NFs pendentes ─────────────────────────────────────────────
   return (
-    <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque-nfe">
-      {heroRecebimento}
-
-      <div className="ck-visitas__sheet">
-        <div className="ck-estoque__sheet-head" style={{ marginBottom: 12 }}>
-          <div className="ck-estoque__loja ck-estoque__loja--com-voltar">
-            <button type="button" className="ck-estoque__voltar" onClick={() => navigate('/estoque/mobile')}>
-              <span aria-hidden>‹</span>
+    <div className="ck-estoque-hub ck-estoque-hub--nfe">
+      <div className="ck-estoque-hub__scroll">
+        <header className="ck-estoque-hub__top">
+          <div className="ck-estoque-hub__brand-row">
+            <button type="button" className="ck-estoque-hub__icon-btn" aria-label="Voltar" onClick={voltarHubNf}>
+              <ArrowBackIcon />
             </button>
-            {podeTrocarLoja ? (
-              <div style={{ position: 'relative', flex: 1, minWidth: 0, marginLeft: 52 }}>
-                <button
-                  type="button"
-                  className="ck-estoque__loja-btn"
-                  onClick={() => setDlgLoja((v) => !v)}
-                >
-                  <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
-                  <span aria-hidden>{dlgLoja ? '▴' : '▾'}</span>
-                </button>
-                {dlgLoja && (
-                  <>
-                    <div
-                      className="ck-estoque__dropdown-backdrop"
-                      onClick={() => setDlgLoja(false)}
-                    />
-                    <div className="ck-estoque__loja-dropdown">
-                      {lojas.map((l) => {
-                        const ativa = l.id_loja === idLoja;
-                        return (
-                          <button
-                            key={l.id_loja}
-                            type="button"
-                            className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
-                            onClick={() => {
-                              setIdLoja(l.id_loja);
-                              localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
-                              setDlgLoja(false);
-                            }}
-                          >
-                            {rotuloLoja(l)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : lojaAtual ? (
-              <div className="ck-estoque__loja-fix" aria-label="Loja">
-                <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
-                <div className="ck-estoque__loja-fix-text">
-                  {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
-                  <strong>{nomeLoja(lojaAtual)}</strong>
-                </div>
-              </div>
-            ) : null}
+            <img className="ck-estoque-hub__mark" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+            <span className="ck-estoque-hub__icon-btn" aria-hidden />
           </div>
-        </div>
+          <div className="ck-estoque-hub__store-row">
+            <h1>{det ? `NF ${det.numero || det.id_nfe}` : 'Nota fiscal'}</h1>
+          </div>
+          {det ? (
+            <p className="ck-estoque-hub__nfe-sub">
+              {rotuloFornecedor(det.fornecedor, det.emitente_nome)}
+              {det.valor_total != null ? ` · ${fmtMoeda(det.valor_total)}` : ''}
+            </p>
+          ) : null}
+        </header>
 
-        <div className="ck-visitas__seg" role="tablist">
-          {(
-            [
-              ['todas', `Todas (${contagemForn.todas})`],
-              ['platlog', `Platlog (${contagemForn.platlog})`],
-              ['coca', `Coca-Cola (${contagemForn.coca})`],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={filtroForn === value}
-              className={`ck-visitas__seg-btn${filtroForn === value ? ' is-on' : ''}`}
-              onClick={() => setFiltroForn(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <div className="ck-estoque-hub__body">
+          {loading && !det ? <LinearProgress sx={{ my: 1, borderRadius: 1, bgcolor: '#333840' }} /> : null}
+          {!loading && !det ? <p className="ck-estoque-hub__empty">Nota fiscal não encontrada.</p> : null}
 
-        <div className="ck-visitas__sheet-body">
-          {loading && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
-
-          {!loading && !listaFiltrada.length && (
-            <div className="ck-estoque__empty">
-              {lista.length
-                ? 'Nenhuma NF neste filtro.'
-                : 'Nenhuma NF importada nesta loja ainda. Em Configurações → Sync NF estoque, use Puxar todas as NFs agora.'}
-            </div>
-          )}
-
-          {listaFiltrada.map((n) => (
-            <div key={n.id_nfe} className="ck-estoque__card ck-estoque-nfe__card">
-              <button
-                type="button"
-                className="ck-estoque-nfe__card-main"
-                onClick={() => navigate(`/estoque/mobile/nfes/${n.id_nfe}`)}
-              >
-                <div className="ck-estoque__card-top">
-                  <strong>NF {n.numero || n.id_nfe}</strong>
-                  <LocalShippingOutlinedIcon fontSize="small" />
-                </div>
-                <div className="ck-estoque__meta">
-                  <span className="ck-estoque-nfe__forn">
-                    {rotuloFornecedor(n.fornecedor, n.emitente_nome)}
-                  </span>
-                  {' · '}
-                  {n.itens_casados ?? n.itens ?? 0} itens
-                </div>
-                {n.emitente_nome && String(n.fornecedor).toLowerCase() === 'coca' ? (
-                  <div className="ck-estoque-nfe__emit-hint">{n.emitente_nome}</div>
-                ) : null}
-                <div className="ck-estoque__chips">
-                  <span className="ck-estoque__chip">Emis. {fmtDataBR(n.emissao)}</span>
-                  <span className="ck-estoque__chip ck-estoque__chip--ok">
-                    Saída {fmtDataBR(n.data_saida)}
-                  </span>
-                  <span className="ck-estoque__chip">{fmtMoeda(n.valor_total)}</span>
-                </div>
-              </button>
-              {n.tem_xml ? (
+          {det ? (
+            <>
+              <div className="ck-estoque-hub__nfe-docs">
                 <button
                   type="button"
-                  className="ck-estoque-nfe__card-danfe"
-                  disabled={abrindoDanfe}
-                  onClick={() => void abrirDanfe(n.id_nfe)}
+                  disabled={!det.tem_xml || abrindoDanfe}
+                  onClick={() => void abrirDanfe(det.id_nfe)}
                 >
-                  <DescriptionOutlinedIcon fontSize="small" />
-                  Ver DANFE
+                  <DescriptionOutlinedIcon />
+                  {abrindoDanfe ? 'Abrindo…' : 'DANFE'}
                 </button>
-              ) : null}
-            </div>
-          ))}
+                <button
+                  type="button"
+                  disabled={abrindoCobranca}
+                  onClick={() => void abrirCobranca(det.id_nfe)}
+                >
+                  <RequestQuoteOutlinedIcon />
+                  {abrindoCobranca ? 'Abrindo…' : 'Cobrança'}
+                </button>
+              </div>
+
+              <div className="ck-estoque-hub__table">
+                <div className="ck-estoque-hub__cols">
+                  <span>Produto</span>
+                  <span>Qtd</span>
+                  <span>Estado</span>
+                </div>
+                <div className="ck-estoque-hub__lista">
+                  {(det.itens || []).map((it) => {
+                    const c = checks[it.id_item];
+                    const esp = c?.qtd_esperada ?? qtdEsperada(it);
+                    const rec = c?.qtd_recebida ?? esp;
+                    const estado = c?.ok;
+                    const semMatch = !it.id_insumo;
+                    const { linhaEstoque, linhaEmb } = rotuloQtd(it, rec, esp);
+                    return (
+                      <div
+                        key={it.id_item}
+                        className={`ck-estoque-hub__row${estado === false ? ' is-falta' : ''}`}
+                      >
+                        <span className="ck-estoque-hub__item">
+                          <img
+                            className="ck-estoque-hub__thumb"
+                            src={assetUrl(
+                              thumbInsumo({
+                                codigo: it.codigo_insumo || it.codigo_nf,
+                                descricao: it.descricao_insumo || it.descricao,
+                              }),
+                            )}
+                            alt=""
+                          />
+                          <span className="ck-estoque-hub__copy">
+                            <strong>{nomeItem(it)}</strong>
+                            <small>
+                              {semMatch
+                                ? 'Sem cadastro — só ocorrência'
+                                : it.codigo_nf || it.codigo_insumo || ''}
+                            </small>
+                          </span>
+                        </span>
+                        <span className="ck-estoque-hub__qtd ck-estoque-hub__qtd--nfe">
+                          {linhaEstoque}
+                          {linhaEmb ? <small>{linhaEmb}</small> : null}
+                        </span>
+                        <span className="ck-estoque-hub__nfe-acoes">
+                          <button
+                            type="button"
+                            className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--ok${
+                              estado === true ? ' is-on' : ''
+                            }`}
+                            aria-label="Chegou"
+                            disabled={semMatch && esp <= 0}
+                            onClick={() => marcar(it.id_item, true)}
+                          >
+                            <CheckCircleOutlinedIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--no${
+                              estado === false ? ' is-on' : ''
+                            }`}
+                            aria-label="Não chegou"
+                            onClick={() => marcar(it.id_item, false)}
+                          >
+                            <HighlightOffIcon />
+                          </button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
+
+      {det ? (
+        <div className="ck-estoque-hub__foot">
+          <button type="button" onClick={voltarHubNf}>
+            Voltar
+          </button>
+          <button type="button" className="is-ghost" onClick={marcarTodosOk}>
+            Todos OK
+          </button>
+          <button
+            type="button"
+            className="is-pri"
+            disabled={salvando || resumo.pend > 0}
+            onClick={() => void finalizar()}
+          >
+            {salvando ? 'Salvando…' : `Continuar (${resumo.ok}/${resumo.total})`}
+          </button>
+        </div>
+      ) : null}
       {dialogDanfe}
+      {cobranca &&
+        createPortal(
+          <div className="ck-estoque-hub ck-estoque-hub--sheet">
+            <button
+              type="button"
+              className="ck-estoque-hub__sheet-back"
+              aria-label="Fechar"
+              onClick={() => setCobranca(null)}
+            />
+            <div className="ck-estoque-hub__sheet" role="dialog" aria-modal="true" aria-label="Cobrança">
+              <div className="ck-estoque-hub__sheet-handle" />
+              <div className="ck-estoque-hub__sheet-head">
+                <span className="ck-estoque-hub__thumb ck-estoque-hub__thumb--nf">
+                  <RequestQuoteOutlinedIcon />
+                </span>
+                <div>
+                  <strong>Cobrança da NF {cobranca.numero || det?.numero || ''}</strong>
+                  <small>{cobranca.emitente || 'Fornecedor'}</small>
+                </div>
+              </div>
+              <div className="ck-estoque-hub__sheet-grid">
+                <div>
+                  <span>Valor</span>
+                  <b>{fmtMoeda(cobranca.valor_total)}</b>
+                </div>
+                <div>
+                  <span>Vencimento</span>
+                  <b>{fmtDataBR(cobranca.vencimento)}</b>
+                </div>
+              </div>
+              {(cobranca.duplicatas || []).length > 1 ? (
+                <div className="ck-estoque-hub__nfe-parcelas">
+                  {cobranca.duplicatas.map((d, i) => (
+                    <div key={`${d.numero || i}-${d.vencimento || i}`}>
+                      <span>Parcela {d.numero || i + 1}</span>
+                      <b>
+                        {fmtMoeda(d.valor)}
+                        <small> · {fmtDataBR(d.vencimento)}</small>
+                      </b>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <p className="ck-estoque-hub__nfe-hint">
+                Dados da NF. O boleto bancário em PDF não vem no XML do fornecedor.
+              </p>
+              <button type="button" className="ck-estoque-hub__sheet-fechar" onClick={() => setCobranca(null)}>
+                Fechar
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

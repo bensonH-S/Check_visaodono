@@ -85,11 +85,16 @@ export function parseNfeXml(xmlRaw) {
   const data_saida = dhSaiEnt ? String(dhSaiEnt).slice(0, 10) : null;
 
   const cobr = tag(inf, 'cobr');
-  const vencimentos = tagsAll(cobr || inf, 'dVenc')
-    .map((s) => String(s || '').trim().slice(0, 10))
-    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
-    .sort();
-  const data_vencimento = vencimentos[0] || null;
+  const duplicatas = tagsAll(cobr, 'dup').map((dup) => ({
+    numero: String(tag(dup, 'nDup') || '').trim(),
+    vencimento: String(tag(dup, 'dVenc') || '').trim().slice(0, 10) || null,
+    valor: numBr(tag(dup, 'vDup'), null),
+  }));
+  const vencimentos = (duplicatas.map((d) => d.vencimento).filter(Boolean).length
+    ? duplicatas.map((d) => d.vencimento)
+    : tagsAll(cobr || inf, 'dVenc').map((s) => String(s || '').trim().slice(0, 10))
+  ).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  const data_vencimento = [...vencimentos].sort()[0] || null;
 
   const itens = tagsAll(inf, 'det').map((det, idx) => {
     const prod = tag(det, 'prod');
@@ -118,6 +123,7 @@ export function parseNfeXml(xmlRaw) {
     data_saida,
     /** Primeira duplicata (cobr/dup/dVenc). Compras do mês usam esta data. */
     data_vencimento,
+    duplicatas,
     valor_total: numBr(tag(icmsTot, 'vNF')),
     emitente: {
       cnpj: String(tag(emit, 'CNPJ') || tag(emit, 'CPF') || '').trim(),
@@ -462,6 +468,27 @@ export function renderDanfeHtml(parsed) {
       <div><strong>Valor total</strong><br/>${fmtMoedaBr(parsed.valor_total)}</div>
       <div><strong>Chave</strong><br/><span class="chave">${escHtml(parsed.chave || '—')}</span></div>
     </div>
+    ${(parsed.duplicatas || []).length
+      ? `<div class="card">
+      <strong>Cobrança</strong>
+      <table>
+        <thead><tr><th>Parcela</th><th>Vencimento</th><th class="num">Valor</th></tr></thead>
+        <tbody>
+          ${parsed.duplicatas
+            .map(
+              (d) => `<tr>
+            <td>${escHtml(d.numero || '—')}</td>
+            <td>${escHtml(fmtDataBr(d.vencimento))}</td>
+            <td class="num">${fmtMoedaBr(d.valor)}</td>
+          </tr>`,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>`
+      : parsed.data_vencimento
+        ? `<div class="card"><strong>Vencimento</strong><br/>${escHtml(fmtDataBr(parsed.data_vencimento))}</div>`
+        : ''}
     <div class="card" style="overflow:auto">
       <table>
         <thead>
