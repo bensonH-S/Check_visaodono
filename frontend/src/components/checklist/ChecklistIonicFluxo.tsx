@@ -2,6 +2,8 @@ import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import type { CategoriaChecklist, Loja, Pergunta } from '../../api/client';
 import ChecklistIonicPerguntaCard from './ChecklistIonicPerguntaCard';
 import ChecklistIonicShell from './ChecklistIonicShell';
+import '../estoque/estoque-hub.css';
+import './checklist-hub.css';
 import {
   perguntaRespondida,
   type ErroPerguntaCampo,
@@ -66,7 +68,7 @@ export default function ChecklistIonicFluxo({
 
   return (
     <ChecklistIonicShell scrollY={false}>
-      <div className="ck-fluxo ck-start--fixed">
+      <div className="ck-fluxo ck-start--fixed ck-checklist-hub">
         <header className="ck-fluxo__top">
           <div className="ck-fluxo__top-row">
             <button

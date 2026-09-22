@@ -1,0 +1,386 @@
+.ck-checklist-hub.ck-estoque-hub {
+  --eh-pad: clamp(16px, 4.6vw, 20px);
+}
+
+.ck-checklist-hub--hero {
+  position: relative;
+  background: #0b1721;
+}
+
+.ck-checklist-hub--hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, #0b1721 0%, rgba(11, 23, 33, 0.92) 38%, rgba(11, 23, 33, 0.42) 72%, rgba(11, 23, 33, 0.78) 100%),
+    var(--ck-hero) center 78% / cover no-repeat;
+}
+
+.ck-checklist-hub--hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ck-checklist-hub .ck-estoque-hub__scroll {
+  padding-bottom: 78px;
+}
+
+.ck-checklist-hub__sub {
+  margin: 0;
+}
+
+.ck-checklist-hub__body {
+  padding: 4px var(--eh-pad) 8px;
+}
+
+.ck-checklist-hub__banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #333840;
+}
+
+.ck-checklist-hub__banner--err {
+  color: #fca5a5;
+}
+
+.ck-checklist-hub__banner--warn {
+  color: #f5f5f5;
+}
+
+.ck-checklist-hub__banner strong,
+.ck-checklist-hub__banner p {
+  display: block;
+  margin: 0;
+}
+
+.ck-checklist-hub__banner p {
+  margin-top: 4px;
+  color: #8d8d8d;
+  font-size: 0.78rem;
+}
+
+.ck-checklist-hub__banner button,
+.ck-checklist-hub__banner-actions button {
+  border: 0;
+  background: transparent;
+  color: #fe6c22;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ck-checklist-hub__banner-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ck-checklist-hub__auditor {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+  color: #8d8d8d;
+  font-size: 0.78rem;
+}
+
+.ck-checklist-hub__auditor strong {
+  color: #f5f5f5;
+  font-size: 0.88rem;
+}
+
+.ck-checklist-hub__sec {
+  margin: 0 0 10px;
+  color: #6f6f6f;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ck-checklist-hub__tipo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ck-checklist-hub__tipo-mono {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #333840;
+  color: #d0d0d0;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.ck-checklist-hub__tipo.is-on .ck-checklist-hub__tipo-mono {
+  background: rgba(254, 108, 34, 0.18);
+  color: #fe6c22;
+}
+
+.ck-checklist-hub__tipo-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.ck-checklist-hub__tipo-copy strong,
+.ck-checklist-hub__tipo-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-checklist-hub__tipo-copy strong {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.ck-checklist-hub__tipo-copy small {
+  margin-top: 2px;
+  color: #8d8d8d;
+  font-size: 0.68rem;
+}
+
+.ck-checklist-hub__tipo-check {
+  width: 18px;
+  color: #fe6c22;
+  font-weight: 800;
+}
+
+.ck-checklist-hub .ck-estoque-hub__foot button.is-pri {
+  flex: 1;
+}
+
+.ck-checklist-hub .ck-estoque-hub__foot button:disabled {
+  opacity: 0.45;
+}
+
+.ck-checklist-hub__hint {
+  margin: 8px 0 0;
+  color: #8d8d8d;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+/* Fluxo e visita aberta: mesmo fundo, sem o azul/creme antigo */
+.ck-checklist-hub.ck-go,
+.ck-checklist-hub.ck-fluxo {
+  --ck-navy: #0b1721;
+  --ck-navy-deep: #0b1721;
+  --ck-orange: #fe6c22;
+  --ck-paper: #0b1721;
+  --ck-ink: #f5f5f5;
+  background: #0b1721;
+  color: #f5f5f5;
+}
+
+.ck-checklist-hub .ck-go__stage,
+.ck-checklist-hub .ck-go__sheet,
+.ck-checklist-hub .ck-go__card,
+.ck-checklist-hub .ck-go__tip,
+.ck-checklist-hub .ck-fluxo__top,
+.ck-checklist-hub .ck-fluxo__rail,
+.ck-checklist-hub .ck-fluxo__dock,
+.ck-checklist-hub .ck-start__dock {
+  background: #0b1721;
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+
+.ck-checklist-hub .ck-go__title,
+.ck-checklist-hub .ck-go__eyebrow,
+.ck-checklist-hub .ck-fluxo__banner h2 {
+  color: #f5f5f5;
+  font-family: Manrope, system-ui, sans-serif;
+}
+
+.ck-checklist-hub .ck-go__sub,
+.ck-checklist-hub .ck-go__row span,
+.ck-checklist-hub .ck-fluxo__loja {
+  color: #8d8d8d;
+}
+
+.ck-checklist-hub .ck-go__row,
+.ck-checklist-hub .ck-go__card {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.ck-checklist-hub .ck-go__row strong {
+  color: #f5f5f5;
+}
+
+.ck-checklist-hub .ck-go__tip,
+.ck-checklist-hub .ck-fluxo__banner,
+.ck-checklist-hub .ck-q {
+  background: #333840;
+  border-color: transparent;
+  color: #f5f5f5;
+  box-shadow: none;
+}
+
+.ck-checklist-hub .ck-fluxo__back,
+.ck-checklist-hub .ck-go__back,
+.ck-checklist-hub .ck-fluxo__btn--ghost {
+  background: #333840;
+  border-color: transparent;
+  color: #f5f5f5;
+}
+
+.ck-checklist-hub .ck-fluxo__chip {
+  background: #333840;
+  border-color: transparent;
+  color: #d0d0d0;
+}
+
+.ck-checklist-hub .ck-fluxo__chip.is-on {
+  background: rgba(254, 108, 34, 0.18);
+  color: #fe6c22;
+}
+
+.ck-checklist-hub .ck-fluxo__chip.is-done:not(.is-on) {
+  background: rgba(34, 197, 94, 0.16);
+  color: #22c55e;
+  border-color: transparent;
+}
+
+.ck-checklist-hub .ck-fluxo__bar {
+  background: #333840;
+}
+
+.ck-checklist-hub .ck-fluxo__bar span,
+.ck-checklist-hub .ck-start__cta.is-ready,
+.ck-checklist-hub .ck-fluxo__btn--orange {
+  background: #fe6c22;
+  box-shadow: none;
+}
+
+.ck-checklist-hub .ck-fluxo__btn--navy {
+  background: #333840;
+  color: #f5f5f5;
+}
+
+.ck-checklist-hub .ck-fluxo__alert {
+  background: #333840;
+  border-color: transparent;
+  color: #f5f5f5;
+}
+
+.ck-checklist-hub .ck-q.is-ok {
+  background: #2a3a30;
+}
+
+.ck-checklist-hub .ck-q__code {
+  background: #0b1721;
+  color: #d0d0d0;
+}
+
+.ck-checklist-hub .ck-q__title,
+.ck-checklist-hub .ck-q__tag {
+  color: #f5f5f5;
+}
+
+.ck-checklist-hub .ck-q__tag--crit {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.ck-checklist-hub .ck-q__tag--ok {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.checklist-ionic-page,
+.checklist-ionic-fill,
+.mobile-checklist-host--solo {
+  background: #0b1721;
+}
+
+/* Folha de loja: mesmo preto do hub, não o azul/creme do Ionic */
+.ck-pick--hub .ck-pick__backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.ck-pick--hub .ck-pick__sheet {
+  background: #0b1721;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.ck-pick--hub .ck-pick__handle {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.ck-pick--hub .ck-pick__head {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.ck-pick--hub .ck-pick__head h2 {
+  color: #f5f5f5;
+}
+
+.ck-pick--hub .ck-pick__head span {
+  color: #8d8d8d;
+}
+
+.ck-pick--hub .ck-pick__item {
+  background: #333840;
+  border-color: transparent;
+}
+
+.ck-pick--hub .ck-pick__item.is-on {
+  background: rgba(254, 108, 34, 0.18);
+  border-color: transparent;
+}
+
+.ck-pick--hub .ck-pick__item-text strong {
+  color: #f5f5f5;
+}
+
+.ck-pick--hub .ck-pick__item-text small {
+  color: #fe6c22;
+}
+
+.ck-pick--hub .ck-pick__tick {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ck-pick--hub .ck-pick__tick.is-on {
+  border-color: #fe6c22;
+  background: #fe6c22;
+  color: #fff;
+}
+
+.ck-pick--hub .ck-pick__foot {
+  background: #0b1721;
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.ck-pick--hub .ck-pick__cancel {
+  background: #333840;
+  border-color: transparent;
+  color: #f5f5f5;
+}

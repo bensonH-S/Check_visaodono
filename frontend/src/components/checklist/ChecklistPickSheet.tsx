@@ -46,7 +46,7 @@ export default function ChecklistPickSheet({
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="ck-pick" role="dialog" aria-modal="true" aria-label={title}>
+    <div className="ck-pick ck-pick--hub" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" className="ck-pick__backdrop" aria-label="Fechar" onClick={onClose} />
       <div className="ck-pick__sheet">
         <div className="ck-pick__handle" aria-hidden />

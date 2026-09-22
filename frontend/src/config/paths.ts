@@ -3,6 +3,7 @@ export const LOGO_GRUPO_ALVIM_OFICIAL = 'logo-grupo-alvim-oficial.png';
 export const LOGO_ALVIM_ICONE = 'Logo_Alvim_Icone.png';
 export const LOGO_GA_MARK = 'Logo_Icon.png';
 export const LOGO_GA_LOCKUP = 'logo-grupoalvim-marca.png';
+export const CHECKLIST_FUNDO_BK = 'checklist-fundo-bk.jpg';
 export const FAVICON_ICON = 'Logo_Alvim_Icone.png';
 export const VIDEO_VISAO_PILOTO = 'demo/visao-piloto.mp4';
 

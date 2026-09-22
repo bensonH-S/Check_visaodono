@@ -11,6 +11,8 @@ import { formatDataHoraVisita } from '../../utils/dateBr';
 import type { Loja, Usuario, MetaVisitaTimeCampo } from '../../api/client';
 import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import ChecklistIonicShell from './ChecklistIonicShell';
+import '../estoque/estoque-hub.css';
+import './checklist-hub.css';
 
 interface Props {
   visitaId: number;
@@ -78,7 +80,7 @@ export default function VisitaIniciadaScreen({
   if (ionic) {
     return (
       <ChecklistIonicShell scrollY={false}>
-        <div className="ck-go ck-start--fixed">
+        <div className="ck-go ck-start--fixed ck-checklist-hub">
           <div className="ck-start__scroll">
             <div className="ck-go__stage">
               <div className="ck-go__stage-inner">

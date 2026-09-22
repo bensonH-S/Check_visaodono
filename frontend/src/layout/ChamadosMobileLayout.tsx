@@ -533,6 +533,7 @@ function ChamadosMobileLayoutInner() {
     !isSubPage &&
     !isChecklistConcluido &&
     !isChecklistEmAndamento &&
+    !isChecklistStart &&
     !isEstoqueHub;
   const rodapeTotalH = mostrarTabs ? TAB_NAV_H : 0;
   /** Reserva espaço da tab bar fixed (iPhone / Android / PWA). */
@@ -728,7 +729,7 @@ function ChamadosMobileLayoutInner() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        bgcolor: isEstoqueHub ? '#0b1721' : colors.canvas,
+        bgcolor: isEstoqueHub || isChecklistImmersive ? '#0b1721' : colors.canvas,
         /* Tab bar é position:fixed — reserva a faixa no fluxo p/ o CTA não ficar por baixo */
         pb: isChecklistStart && mostrarTabs ? tabBarOffsetCss : 0,
         ['--app-tabbar-offset' as string]: tabBarOffsetCss,
