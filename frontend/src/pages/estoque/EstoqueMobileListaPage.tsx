@@ -13,6 +13,7 @@ import SyncAltOutlinedIcon from '@mui/icons-material/SyncAltOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import TuneIcon from '@mui/icons-material/Tune';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   api,
@@ -26,6 +27,7 @@ import { getUsuario, lojaEstoqueTravadaMobile, logout, primeiraRotaMobileApp } f
 import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
+import { useMobileMais } from '../../components/MobileTabBar';
 import { showToast } from '../../utils/toast';
 import {
   CONTAGEM_SEMANAL_ATIVA,
@@ -194,6 +196,7 @@ function InsumoRow({
 export default function EstoqueMobileListaPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { openMais } = useMobileMais();
   const user = getUsuario();
   const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
@@ -715,6 +718,10 @@ export default function EstoqueMobileListaPage() {
         <button type="button" className={aba === 'nf' ? 'is-on' : ''} onClick={() => setAba('nf')}>
           <ShoppingCartOutlinedIcon />
           Pedidos
+        </button>
+        <button type="button" aria-label="Mais módulos" onClick={openMais}>
+          <MoreHorizIcon />
+          Mais
         </button>
       </nav>
 

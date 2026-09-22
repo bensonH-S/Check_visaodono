@@ -2953,14 +2953,15 @@ html.dark .ck-estoque .ck-estoque__empty {
   align-items: center;
   justify-content: space-between;
   padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
-  background: var(--ga-primary-btn);
-  color: #fff;
+  background: #0b1721;
+  color: #f5f5f5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 .ck-estoque-nfe__danfe-bar strong {
   font-size: 0.95rem;
 }
 .ck-estoque-nfe__danfe-bar .MuiIconButton-root {
-  color: #fff;
+  color: #f5f5f5;
 }
 .ck-estoque-nfe__danfe-frame {
   width: 100%;

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
@@ -16,6 +16,138 @@ export type MobileTabItem = {
   end?: boolean;
   isActive?: (pathname: string) => boolean;
 };
+
+const MobileMaisContext = createContext<{ openMais: () => void }>({ openMais: () => {} });
+
+export function useMobileMais() {
+  return useContext(MobileMaisContext);
+}
+
+export function MobileMaisDrawer({
+  open,
+  onClose,
+  items,
+  accent,
+}: {
+  open: boolean;
+  onClose: () => void;
+  items: MobileTabItem[];
+  accent?: string;
+}) {
+  const navigate = useNavigate();
+  const path = toAppPath(useLocation().pathname);
+  const { mode } = useAppTheme();
+  const escuro = mode === 'dark';
+  const effectiveAccent = accent || (escuro ? '#FF7A3D' : '#1B2A6B');
+
+  function irPara(to: string) {
+    onClose();
+    navigate(to);
+  }
+
+  return (
+    <Drawer
+      anchor="bottom"
+      open={open}
+      onClose={onClose}
+      slotProps={{
+        paper: {
+          sx: {
+            bgcolor: escuro ? '#1E293B' : '#FFFFFF',
+            borderTopLeftRadius: radius.xl,
+            borderTopRightRadius: radius.xl,
+            border: escuro ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
+            maxHeight: '72vh',
+            pb: 'env(safe-area-inset-bottom, 0px)',
+          },
+        },
+      }}
+    >
+      <Box sx={{ px: 2, pt: 1.25, pb: 2 }}>
+        <Box
+          sx={{
+            width: 36,
+            height: 4,
+            borderRadius: 2,
+            bgcolor: escuro ? 'rgba(255, 255, 255, 0.2)' : colors.borderStrong,
+            mx: 'auto',
+            mb: 1.5,
+          }}
+        />
+        <Typography sx={{ fontWeight: 700, color: escuro ? '#F8FAFC' : colors.navy, fontSize: '0.9375rem', mb: 1.25 }}>
+          Mais
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {items.map((item) => {
+            const ativo = tabItemAtivo(item, path);
+            return (
+              <Box
+                key={item.to}
+                component="button"
+                type="button"
+                onClick={() => irPara(item.to)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.25,
+                  width: '100%',
+                  textAlign: 'left',
+                  px: 1.25,
+                  py: 1.1,
+                  border: 0,
+                  borderRadius: `${radius.md}px`,
+                  bgcolor: ativo
+                    ? (escuro ? 'rgba(255, 122, 61, 0.16)' : colors.navyMuted)
+                    : 'transparent',
+                  color: ativo
+                    ? (escuro ? '#FF7A3D' : colors.navy)
+                    : (escuro ? '#F8FAFC' : colors.textPrimary),
+                  fontWeight: ativo ? 600 : 500,
+                  fontSize: '0.875rem',
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: ativo
+                      ? (escuro ? 'rgba(255, 122, 61, 0.22)' : colors.navyMuted)
+                      : (escuro ? 'rgba(255, 255, 255, 0.06)' : colors.canvasAlt),
+                  },
+                  '& .MuiSvgIcon-root': {
+                    fontSize: 22,
+                    color: ativo
+                      ? effectiveAccent
+                      : (escuro ? '#94A3B8' : colors.textSecondary),
+                  },
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+    </Drawer>
+  );
+}
+
+export function MobileMaisHost({
+  items,
+  accent,
+  children,
+}: {
+  items: MobileTabItem[];
+  accent?: string;
+  children: ReactNode;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const api = useMemo(() => ({ openMais: () => setAberto(true) }), []);
+  return (
+    <MobileMaisContext.Provider value={api}>
+      {children}
+      <MobileMaisDrawer open={aberto} onClose={() => setAberto(false)} items={items} accent={accent} />
+    </MobileMaisContext.Provider>
+  );
+}
 
 type Props = {
   items: MobileTabItem[];
@@ -66,7 +198,6 @@ export default function MobileTabBar({
   iconSize = 20,
   hiddenOnDesktop = false,
 }: Props) {
-  const navigate = useNavigate();
   const path = toAppPath(useLocation().pathname);
   const [maisAberto, setMaisAberto] = useState(false);
   const { mode } = useAppTheme();
@@ -79,11 +210,6 @@ export default function MobileTabBar({
   const maisAtivo = more.some((item) => tabItemAtivo(item, path));
 
   if (!items.length) return null;
-
-  function irPara(to: string) {
-    setMaisAberto(false);
-    navigate(to);
-  }
 
   const itemSx = (ativo: boolean) => ({
     ...mobileTabBarItemSx(tabHeight),
@@ -159,87 +285,12 @@ export default function MobileTabBar({
         </Box>
       </Box>
 
-      <Drawer
-        anchor="bottom"
+      <MobileMaisDrawer
         open={maisAberto}
         onClose={() => setMaisAberto(false)}
-        slotProps={{
-          paper: {
-            sx: {
-              bgcolor: escuro ? '#1E293B' : '#FFFFFF',
-              borderTopLeftRadius: radius.xl,
-              borderTopRightRadius: radius.xl,
-              border: escuro ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
-              maxHeight: '72vh',
-              pb: 'env(safe-area-inset-bottom, 0px)',
-            },
-          },
-        }}
-      >
-        <Box sx={{ px: 2, pt: 1.25, pb: 2 }}>
-          <Box
-            sx={{
-              width: 36,
-              height: 4,
-              borderRadius: 2,
-              bgcolor: escuro ? 'rgba(255, 255, 255, 0.2)' : colors.borderStrong,
-              mx: 'auto',
-              mb: 1.5,
-            }}
-          />
-          <Typography sx={{ fontWeight: 700, color: escuro ? '#F8FAFC' : colors.navy, fontSize: '0.9375rem', mb: 1.25 }}>
-            Mais
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {more.map((item) => {
-              const ativo = tabItemAtivo(item, path);
-              return (
-                <Box
-                  key={item.to}
-                  component="button"
-                  type="button"
-                  onClick={() => irPara(item.to)}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.25,
-                    width: '100%',
-                    textAlign: 'left',
-                    px: 1.25,
-                    py: 1.1,
-                    border: 0,
-                    borderRadius: `${radius.md}px`,
-                    bgcolor: ativo
-                      ? (escuro ? 'rgba(255, 122, 61, 0.16)' : colors.navyMuted)
-                      : 'transparent',
-                    color: ativo
-                      ? (escuro ? '#FF7A3D' : colors.navy)
-                      : (escuro ? '#F8FAFC' : colors.textPrimary),
-                    fontWeight: ativo ? 600 : 500,
-                    fontSize: '0.875rem',
-                    fontFamily: 'inherit',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      bgcolor: ativo
-                        ? (escuro ? 'rgba(255, 122, 61, 0.22)' : colors.navyMuted)
-                        : (escuro ? 'rgba(255, 255, 255, 0.06)' : colors.canvasAlt),
-                    },
-                    '& .MuiSvgIcon-root': {
-                      fontSize: 22,
-                      color: ativo
-                        ? effectiveAccent
-                        : (escuro ? '#94A3B8' : colors.textSecondary),
-                    },
-                  }}
-                >
-                  {item.icon}
-                  {item.label}
-                </Box>
-              );
-            })}
-          </Box>
-        </Box>
-      </Drawer>
+        items={more}
+        accent={effectiveAccent}
+      />
     </>
   );
 }

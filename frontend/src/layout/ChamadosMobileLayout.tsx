@@ -44,7 +44,7 @@ import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { prepararNotificacoesPush, sincronizarEstadoPush, PUSH_ATUALIZADO_EVENT } from '../utils/pushNotifications';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { MOBILE_PAGE_COLUMN, MOBILE_SCROLL_AREA, MOBILE_VIEWPORT, MOBILE_WATERMARK_LOGO, mobileTabBarOffsetCss, safeAreaBottomCalc, safeAreaRightCalc, safeAreaTopPadding, safeAreaX } from '../theme/safeArea';
-import MobileTabBar from '../components/MobileTabBar';
+import MobileTabBar, { MobileMaisHost, type MobileTabItem } from '../components/MobileTabBar';
 import {
   ChamadosMobileLojaProvider,
   useChamadosMobileLoja,
@@ -690,6 +690,23 @@ function ChamadosMobileLayoutInner() {
     }
   }
 
+  const tabBarItems: MobileTabItem[] = mobileTabs.map((item) => ({
+    ...item,
+    end: !ABAS_COM_SUBPAGINA.includes(item.to),
+    isActive: (pathname: string) =>
+      abaMobileAtiva(item.to, pathname, {
+        isChecklist,
+        isFrota,
+        isVisitas,
+        isRelatorio,
+        isNc,
+        isEnergia,
+        isEstoque,
+        isEstoqueBreak,
+        isFreelancersAprovacao,
+      }),
+  }));
+
   function rotaVoltarMobile() {
     if (isNcResolver) return '/nc/mobile';
     if (isEnergiaNovo || isEnergiaDetalhe) return '/energia/mobile';
@@ -702,6 +719,7 @@ function ChamadosMobileLayoutInner() {
   }
 
   return (
+    <MobileMaisHost items={tabBarItems} accent={acento}>
     <Box
       className="mobile-app-shell"
       sx={{
@@ -967,22 +985,7 @@ function ChamadosMobileLayoutInner() {
 
       {mostrarTabs && (
         <MobileTabBar
-          items={mobileTabs.map((item) => ({
-            ...item,
-            end: !ABAS_COM_SUBPAGINA.includes(item.to),
-            isActive: (pathname: string) =>
-              abaMobileAtiva(item.to, pathname, {
-                isChecklist,
-                isFrota,
-                isVisitas,
-                isRelatorio,
-                isNc,
-                isEnergia,
-                isEstoque,
-                isEstoqueBreak,
-                isFreelancersAprovacao,
-              }),
-          }))}
+          items={tabBarItems}
           pinnedTos={
             modoRestrito
               ? []
@@ -997,6 +1000,7 @@ function ChamadosMobileLayoutInner() {
         />
       )}
     </Box>
+    </MobileMaisHost>
   );
 }
 
