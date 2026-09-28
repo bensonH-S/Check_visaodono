@@ -15,6 +15,6 @@ import './theme.css';
 
 setupIonicReact({
   mode: 'ios',
-  animated: true,
+  animated: false,
   swipeBackEnabled: false,
 });

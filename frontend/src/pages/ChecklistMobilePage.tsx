@@ -30,11 +30,9 @@ import ChecklistPerguntaCard, {
 import ChecklistIonicShell from '../components/checklist/ChecklistIonicShell';
 import ChecklistStartScreen from '../components/checklist/ChecklistStartScreen';
 import ChecklistIonicFluxo from '../components/checklist/ChecklistIonicFluxo';
-import VisitaIniciadaScreen from '../components/checklist/VisitaIniciadaScreen';
 import TimeCampoMetaForm from '../components/checklist/TimeCampoMetaForm';
 import PageLoading from '../components/PageLoading';
 import { useChecklistMobileUi } from '../context/ChecklistMobileUiContext';
-import { usePageTitle } from '../hooks/usePageTitle';
 import { selectMenuScrollProps } from '../utils/selectMenuScroll';
 import { showToast } from '../utils/toast';
 import { CHECKLIST_REFRESH } from '../utils/checklistEvent';
@@ -245,8 +243,8 @@ export default function ChecklistMobilePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const paths = { ...checklistPaths(location.pathname), mobile: true };
-  const retomadaIniciada = useRef(false);
+  const paths = checklistPaths('/checklist/mobile');
+  const retomadaIniciada = useRef<number | null>(null);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [tiposChecklist, setTiposChecklist] = useState<TipoChecklist[]>([]);
@@ -272,36 +270,23 @@ export default function ChecklistMobilePage() {
   const [carregandoTipo, setCarregandoTipo] = useState(false);
   const lojaMobileCtx = useChamadosMobileLojaOpcional();
   const { setFase: setChecklistFaseUi, registrarVoltar } = useChecklistMobileUi();
-  const pathChecklist = toAppPath(location.pathname);
-  const prevPathChecklist = useRef('');
-
   useEffect(() => {
-    if (!paths.mobile) {
+    if (toAppPath(location.pathname) !== '/checklist/mobile') {
       setChecklistFaseUi(null);
       return;
     }
     setChecklistFaseUi(fase);
-    return () => setChecklistFaseUi(null);
-  }, [paths.mobile, fase, setChecklistFaseUi]);
+  }, [location.pathname, fase, setChecklistFaseUi]);
 
   useEffect(() => {
-    if (!paths.mobile) {
+    if (toAppPath(location.pathname) !== '/checklist/mobile') {
       registrarVoltar(null);
       return;
     }
     registrarVoltar(() => {
-      if (fase === 'perguntas' && indiceSecao > 0) {
-        setIndiceSecao((i) => Math.max(0, i - 1));
-        setMsg('');
-        setMsgTitulo('');
-        return;
-      }
-      if (fase === 'perguntas') {
-        setFase('iniciada');
-        setMsg('');
-        setMsgTitulo('');
-        return;
-      }
+      const user = getUsuario();
+      if (user) limparSessaoChecklist(user.id_usuario);
+      setSessaoLocal(null);
       setFase('setup');
       setVisitaId(null);
       setIndiceSecao(0);
@@ -309,9 +294,10 @@ export default function ChecklistMobilePage() {
       setErrosPerguntas({});
       setMsg('');
       setMsgTitulo('');
+      retomadaIniciada.current = null;
     });
     return () => registrarVoltar(null);
-  }, [paths.mobile, registrarVoltar, fase, indiceSecao]);
+  }, [location.pathname, registrarVoltar, fase, indiceSecao]);
 
 
   const totalPerguntas = useMemo(
@@ -330,7 +316,10 @@ export default function ChecklistMobilePage() {
         : secaoAtual
           ? secaoAtual.nome
           : 'Checklist';
-  usePageTitle(tabTitle);
+  useEffect(() => {
+    if (toAppPath(location.pathname) !== '/checklist/mobile') return;
+    document.title = `${tabTitle} | Meridian`;
+  }, [location.pathname, tabTitle]);
 
   const respondidas = useMemo(() => {
     let n = 0;
@@ -457,56 +446,38 @@ export default function ChecklistMobilePage() {
         setLojas(l);
         setUsuarios(auditoresList);
         setTiposChecklist(tipos);
-        if (paths.mobile) {
-          if (tipos.length === 1) {
-            const unico = tipos[0];
-            setTipoSelecionado(unico);
+        if (tipos.length === 1) {
+          const unico = tipos[0];
+          setTipoSelecionado(unico);
+          setLoading(false);
+          setCarregandoTipo(true);
+          try {
             const c = await api.checklist(unico.codigo);
             setChecklist(c);
-          } else {
-            setTipoSelecionado(null);
-            setChecklist([]);
+          } finally {
+            setCarregandoTipo(false);
           }
         } else {
-          const tipo = tipos[0] ?? null;
-          setTipoSelecionado(tipo);
-          if (tipo) {
-            const c = await api.checklist(tipo.codigo);
-            setChecklist(c);
-          }
+          setTipoSelecionado(null);
+          setChecklist([]);
+          setLoading(false);
         }
         if (sessao) {
           /* Mobile: auditor = usuário logado (não escolhe outro). */
           setIdUsuario(sessao.id_usuario);
         }
         const idsLojasUsuario = sessao?.lojas?.map((loja) => loja.id_loja) ?? [];
-        const lojasIniciais =
-          paths.mobile && idsLojasUsuario.length
-            ? l.filter((loja) => idsLojasUsuario.includes(loja.id_loja))
-            : l;
+        const lojasIniciais = idsLojasUsuario.length
+          ? l.filter((loja) => idsLojasUsuario.includes(loja.id_loja))
+          : l;
         const listaLojas = lojasIniciais.length ? lojasIniciais : l;
-        if (paths.mobile) {
-          if (listaLojas.length === 1) setIdLoja(listaLojas[0].id_loja);
-        } else if (sessao?.lojas?.length === 1) {
-          setIdLoja(sessao.lojas[0].id_loja);
-        } else if (l.length === 1) {
-          setIdLoja(l[0].id_loja);
-        } else if (l[0]) {
-          setIdLoja(l[0].id_loja);
-        }
+        if (listaLojas.length === 1) setIdLoja(listaLojas[0].id_loja);
       })
-      .catch((e) => setMsg(e.message))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        setMsg(e.message);
+        setLoading(false);
+      });
   }, [paths.mobile]);
-
-  useEffect(() => {
-    if (!paths.mobile || fase !== 'setup') return;
-    const entrouNoHub =
-      pathChecklist === '/checklist/mobile' && prevPathChecklist.current !== '/checklist/mobile';
-    prevPathChecklist.current = pathChecklist;
-    if (!entrouNoHub || lojasMobile.length <= 1) return;
-    setIdLoja('');
-  }, [pathChecklist, paths.mobile, fase, lojasMobile.length]);
 
   const selecionarLojaMobile = (lojaId: number) => {
     setIdLoja(lojaId);
@@ -603,12 +574,12 @@ export default function ChecklistMobilePage() {
   );
 
   useEffect(() => {
-    if (loading || retomadaIniciada.current) return;
+    if (loading) return;
     const param = searchParams.get('visita');
     const stateId = (location.state as { retomarVisitaId?: number } | null)?.retomarVisitaId;
     const id = param ? Number(param) : stateId;
-    if (!id || Number.isNaN(id)) return;
-    retomadaIniciada.current = true;
+    if (!id || Number.isNaN(id) || retomadaIniciada.current === id) return;
+    retomadaIniciada.current = id;
     const user = getUsuario();
     const local = user ? getSessaoChecklist(user.id_usuario) : null;
     const sessaoDaVisita = local?.visitaId === id ? local : null;
@@ -774,26 +745,30 @@ export default function ChecklistMobilePage() {
     setMsgTitulo('');
   };
 
-  const iniciarVisita = async () => {
-    if (!idLoja || !idUsuario || !tipoSelecionado) return;
+  const iniciarVisita = async (opts?: { codigo?: string; idLoja?: number }) => {
+    const lojaId = opts?.idLoja ?? idLoja;
+    const codigo = opts?.codigo ?? tipoSelecionado?.codigo;
+    const tipo = tiposChecklist.find((t) => t.codigo === codigo) ?? tipoSelecionado;
+    if (!lojaId || !idUsuario || !tipo) return;
     setSaving(true);
     setMsg('');
     try {
       const hoje = dataHojeBrasilia();
       const body: Parameters<typeof api.criarVisita>[0] = {
-        id_loja: Number(idLoja),
+        id_loja: Number(lojaId),
         id_usuario: Number(idUsuario),
         data_visita: hoje,
-        codigo_tipo_checklist: tipoSelecionado.codigo,
+        codigo_tipo_checklist: tipo.codigo,
       };
-      if (tipoSelecionado.codigo === 'time_de_campo') {
+      if (tipo.codigo === 'time_de_campo') {
         body.meta_visita = metaVisita;
       }
       const v = await api.criarVisita(body);
-      let cats = checklist;
+      let cats = tipo.codigo === tipoSelecionado?.codigo ? checklist : [];
       if (!cats.length) {
-        cats = await api.checklist(tipoSelecionado.codigo);
+        cats = await api.checklist(tipo.codigo);
         setChecklist(cats);
+        setTipoSelecionado(tipo);
       }
       if (!cats.length) {
         setMsg('Checklist sem seções disponíveis. Verifique a configuração.');
@@ -852,23 +827,6 @@ export default function ChecklistMobilePage() {
     setIndiceSecao(idx);
   };
 
-  const comecarAvaliacao = async () => {
-    if (!visitaId) {
-      setFase('perguntas');
-      return;
-    }
-    setSaving(true);
-    try {
-      const det = await api.visita(visitaId);
-      setRespostas(mapRespostasApi(det.respostas));
-      setFase('perguntas');
-    } catch (e) {
-      setMsg((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const finalizar = async () => {
     if (!secaoAtual) return;
     const erroSecao = validarSecao(secaoAtual);
@@ -904,18 +862,12 @@ export default function ChecklistMobilePage() {
     }
   };
 
-  if (loading || retomando) {
-    const label = retomando ? 'Retomando checklist…' : 'Carregando…';
-    if (paths.mobile) {
-      return (
-        <ChecklistIonicShell>
-          <div className="checklist-ionic" style={{ padding: 0 }}>
-            <PageLoading label={label} />
-          </div>
-        </ChecklistIonicShell>
-      );
-    }
-    return <PageLoading label={label} />;
+  if (retomando) {
+    return (
+      <div className="ck-estoque-hub ck-checklist-hub" style={{ background: '#0b1721', padding: 24 }}>
+        <PageLoading label="Retomando checklist…" />
+      </div>
+    );
   }
 
   if (somenteVisualizacao) {
@@ -935,37 +887,13 @@ export default function ChecklistMobilePage() {
         <ChecklistStartScreen
           msg={msg}
           onClearMsg={() => setMsg('')}
-          sessaoLocal={sessaoLocal}
-          onContinuar={() =>
-            void retomarVisita(sessaoLocal!.visitaId, {
-              indiceSecao: sessaoLocal!.indiceSecao,
-              fase: sessaoLocal!.fase,
-            })
-          }
-          onEsquecer={() => {
-            const user = getUsuario();
-            if (user) limparSessaoChecklist(user.id_usuario);
-            setSessaoLocal(null);
-          }}
           saving={saving}
-          retomando={retomando}
-          totalPerguntas={totalPerguntas}
-          totalSecoes={totalSecoes}
-          carregandoTipo={carregandoTipo}
-          auditores={usuarios}
-          idAuditor={idUsuario}
-          nomeAuditorFallback={sessao?.nome ?? '—'}
-          onSelecionarAuditor={setIdUsuario}
           lojas={lojasMobile}
           idLoja={idLoja}
           onSelecionarLoja={selecionarLojaMobile}
           tiposChecklist={tiposChecklist}
-          tipoCodigo={tipoSelecionado?.codigo ?? ''}
-          onSelecionarTipo={(codigo) => void selecionarTipo(codigo)}
-          metaVisita={metaVisita}
-          onMetaChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
-          podeIniciar={podeIniciarChecklist}
           onIniciar={iniciarVisita}
+          onAbrirRascunho={(id) => void retomarVisita(id)}
         />
       );
     }
@@ -1200,42 +1128,6 @@ export default function ChecklistMobilePage() {
         </Button>
 
       </Box>
-    );
-  }
-
-  const auditorSel = usuarios.find((u) => u.id_usuario === idUsuario);
-
-  if (fase === 'iniciada' && visitaId) {
-    if (paths.mobile) {
-      return (
-        <VisitaIniciadaScreen
-          visitaId={visitaId}
-          loja={lojaSel}
-          auditor={auditorSel}
-          dataVisita={dataVisita}
-          horaInicio={horaInicio}
-          totalSecoes={totalSecoes}
-          totalPerguntas={totalPerguntas}
-          tipoChecklist={tipoSelecionado?.nome}
-          metaVisita={tipoSelecionado?.codigo === 'time_de_campo' ? metaVisita : undefined}
-          onComecar={comecarAvaliacao}
-          ionic
-        />
-      );
-    }
-    return (
-      <VisitaIniciadaScreen
-        visitaId={visitaId}
-        loja={lojaSel}
-        auditor={auditorSel}
-        dataVisita={dataVisita}
-        horaInicio={horaInicio}
-        totalSecoes={totalSecoes}
-        totalPerguntas={totalPerguntas}
-        tipoChecklist={tipoSelecionado?.nome}
-        metaVisita={tipoSelecionado?.codigo === 'time_de_campo' ? metaVisita : undefined}
-        onComecar={comecarAvaliacao}
-      />
     );
   }
 

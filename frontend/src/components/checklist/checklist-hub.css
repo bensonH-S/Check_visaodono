@@ -2,25 +2,16 @@
   --eh-pad: clamp(16px, 4.6vw, 20px);
 }
 
-.ck-checklist-hub--hero {
-  position: relative;
-  background: #0b1721;
+.ck-checklist-hub {
+  flex: 1;
+  min-height: 0;
 }
 
-.ck-checklist-hub--hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
+.ck-checklist-hub--hero {
   background:
     linear-gradient(180deg, #0b1721 0%, rgba(11, 23, 33, 0.94) 28%, rgba(11, 23, 33, 0.78) 58%, rgba(11, 23, 33, 0.9) 100%),
-    var(--ck-hero) center 82% / cover no-repeat;
-}
-
-.ck-checklist-hub--hero > * {
-  position: relative;
-  z-index: 1;
+    var(--ck-hero) center 82% / cover no-repeat,
+    #0b1721;
 }
 
 .ck-checklist-hub .ck-estoque-hub__scroll {
@@ -172,7 +163,7 @@
 }
 
 .ck-checklist-hub__recente {
-  margin-top: 22px;
+  margin-top: 8px;
 }
 
 .ck-checklist-hub__recente-head {

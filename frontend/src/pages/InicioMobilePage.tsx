@@ -1,7 +1,8 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getUsuario, logout } from '../lib/auth';
-import { assetUrl, LOGO_GA_LOCKUP } from '../config/paths';
-import { usePageTitle } from '../hooks/usePageTitle';
+import { assetUrl, LOGO_GA_LOCKUP, toAppPath } from '../config/paths';
+import { APP_NAME } from '../config/brand';
 import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
 import NotificacoesSino from '../components/NotificacoesSino';
 import AppHubDock from '../components/hub/AppHubDock';
@@ -10,8 +11,12 @@ import '../components/checklist/checklist-hub.css';
 
 export default function InicioMobilePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getUsuario();
-  usePageTitle('Início');
+  useEffect(() => {
+    if (toAppPath(location.pathname) !== '/inicio/mobile') return;
+    document.title = `Início | ${APP_NAME}`;
+  }, [location.pathname]);
 
   return (
     <div className="ck-estoque-hub ck-checklist-hub">

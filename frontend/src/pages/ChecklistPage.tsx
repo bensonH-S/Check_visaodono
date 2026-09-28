@@ -352,18 +352,9 @@ export default function ChecklistPage() {
       return;
     }
     registrarVoltar(() => {
-      if (fase === 'perguntas' && indiceSecao > 0) {
-        setIndiceSecao((i) => Math.max(0, i - 1));
-        setMsg('');
-        setMsgTitulo('');
-        return;
-      }
-      if (fase === 'perguntas') {
-        setFase('iniciada');
-        setMsg('');
-        setMsgTitulo('');
-        return;
-      }
+      const user = getUsuario();
+      if (user) limparSessaoChecklist(user.id_usuario);
+      setSessaoLocal(null);
       setFase('setup');
       setVisitaId(null);
       setIndiceSecao(0);
@@ -817,26 +808,30 @@ export default function ChecklistPage() {
     setMsgTitulo('');
   };
 
-  const iniciarVisita = async () => {
-    if (!idLoja || !idUsuario || !tipoSelecionado) return;
+  const iniciarVisita = async (opts?: { codigo?: string; idLoja?: number }) => {
+    const lojaId = opts?.idLoja ?? idLoja;
+    const codigo = opts?.codigo ?? tipoSelecionado?.codigo;
+    const tipo = tiposChecklist.find((t) => t.codigo === codigo) ?? tipoSelecionado;
+    if (!lojaId || !idUsuario || !tipo) return;
     setSaving(true);
     setMsg('');
     try {
       const hoje = dataHojeBrasilia();
       const body: Parameters<typeof api.criarVisita>[0] = {
-        id_loja: Number(idLoja),
+        id_loja: Number(lojaId),
         id_usuario: Number(idUsuario),
         data_visita: hoje,
-        codigo_tipo_checklist: tipoSelecionado.codigo,
+        codigo_tipo_checklist: tipo.codigo,
       };
-      if (tipoSelecionado.codigo === 'time_de_campo') {
+      if (tipo.codigo === 'time_de_campo') {
         body.meta_visita = metaVisita;
       }
       const v = await api.criarVisita(body);
-      let cats = checklist;
+      let cats = tipo.codigo === tipoSelecionado?.codigo ? checklist : [];
       if (!cats.length) {
-        cats = await api.checklist(tipoSelecionado.codigo);
+        cats = await api.checklist(tipo.codigo);
         setChecklist(cats);
+        setTipoSelecionado(tipo);
       }
       if (!cats.length) {
         setMsg('Checklist sem seções disponíveis. Verifique a configuração.');
@@ -978,37 +973,13 @@ export default function ChecklistPage() {
         <ChecklistStartScreen
           msg={msg}
           onClearMsg={() => setMsg('')}
-          sessaoLocal={sessaoLocal}
-          onContinuar={() =>
-            void retomarVisita(sessaoLocal!.visitaId, {
-              indiceSecao: sessaoLocal!.indiceSecao,
-              fase: sessaoLocal!.fase,
-            })
-          }
-          onEsquecer={() => {
-            const user = getUsuario();
-            if (user) limparSessaoChecklist(user.id_usuario);
-            setSessaoLocal(null);
-          }}
           saving={saving}
-          retomando={retomando}
-          totalPerguntas={totalPerguntas}
-          totalSecoes={totalSecoes}
-          carregandoTipo={carregandoTipo}
-          auditores={usuarios}
-          idAuditor={idUsuario}
-          nomeAuditorFallback={sessao?.nome ?? '—'}
-          onSelecionarAuditor={setIdUsuario}
           lojas={lojasMobile}
           idLoja={idLoja}
           onSelecionarLoja={selecionarLojaMobile}
           tiposChecklist={tiposChecklist}
-          tipoCodigo={tipoSelecionado?.codigo ?? ''}
-          onSelecionarTipo={(codigo) => void selecionarTipo(codigo)}
-          metaVisita={metaVisita}
-          onMetaChange={(patch) => setMetaVisita((prev) => ({ ...prev, ...patch }))}
-          podeIniciar={podeIniciarChecklist}
           onIniciar={iniciarVisita}
+          onAbrirRascunho={(id) => void retomarVisita(id)}
         />
       );
     }

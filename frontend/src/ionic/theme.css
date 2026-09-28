@@ -77,11 +77,11 @@
 }
 
 .checklist-ionic-app ion-content {
-  --background: #f2f2f7;
+  --background: #0b1721;
 }
 
 .checklist-ionic-app ion-content:has(.ck-start) {
-  --background: #0f1a45;
+  --background: #0b1721;
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
@@ -94,12 +94,12 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: #f2f2f7;
+  background: #0b1721;
   overflow: hidden;
 }
 
 .checklist-ionic-fill:has(.ck-start--fixed) {
-  background: #0f1a45;
+  background: #0b1721;
 }
 
 /* Large title iOS — não é o “Olá, fulano” do shell antigo */
@@ -257,15 +257,15 @@
   overflow: hidden;
   width: 100%;
   max-width: 100%;
-  background: #f2f2f7;
+  background: #0b1721;
 }
 
 .mobile-checklist-host--solo {
-  background: #0f1a45;
+  background: #0b1721;
 }
 
 .mobile-checklist-host--fluxo {
-  background: #f3f1ec;
+  background: #0b1721;
 }
 
 .mobile-checklist-host .checklist-ionic-app,
@@ -279,10 +279,21 @@
   flex-direction: column;
 }
 
+/* Lista do hub: sem IonPage, o contain do Ionic pintava o texto duas vezes */
+.mobile-checklist-host .checklist-ionic-app:not(:has(ion-page)) {
+  contain: none;
+  position: relative;
+}
+
 .mobile-checklist-host .ion-page,
 .mobile-checklist-host ion-content {
   width: 100%;
   max-width: 100%;
+}
+
+.mobile-checklist-host ion-page.ion-page-hidden,
+.mobile-checklist-host .ion-page-hidden {
+  display: none !important;
 }
 
 /* ═══ Pick sheet (loja / auditor) — viewport do aparelho ═══ */
@@ -1852,8 +1863,8 @@ html.dark .checklist-ionic-app ion-content:has(.ck-fluxo) {
 html.dark .ck-start__stage,
 html.dark .ck-go__stage,
 html.dark .ck-fluxo__top {
-  background: linear-gradient(155deg, #182337 0%, #202f4a 52%, #26395b 100%) !important;
-  background-image: linear-gradient(155deg, #182337 0%, #202f4a 52%, #26395b 100%) !important;
+  background: #0b1721 !important;
+  background-image: none !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
 }

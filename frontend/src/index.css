@@ -212,6 +212,7 @@ body {
 .mobile-app-shell {
   font-family: Manrope, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  background: #0b1721;
 }
 
 /* Header mobile: conteúdo abaixo do notch / Dynamic Island (iPhone PWA) */

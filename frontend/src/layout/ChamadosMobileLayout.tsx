@@ -54,6 +54,7 @@ import {
   useChecklistMobileUi,
 } from '../context/ChecklistMobileUiContext';
 import ChecklistIonicRoot from '../components/checklist/ChecklistIonicRoot';
+import HubKeepAlive, { hubAbaDePath } from '../components/hub/HubKeepAlive';
 
 function canalMobile(modulos: ModulosCanalMapa | undefined, codigo: ModuloCanalCodigo) {
   return moduloNoCanal(modulos, codigo, 'mobile');
@@ -363,6 +364,7 @@ function ChamadosMobileLayoutInner() {
   /** Fluxo checklist inteiro (setup → perguntas): chrome próprio, sem header MUI. */
   const isChecklistImmersive = isChecklist && !isChecklistConcluido;
   const isInicio = path === '/inicio/mobile';
+  const hubAba = hubAbaDePath(path);
   const temBotaoVoltar =
     isDetalhe ||
     isNovo ||
@@ -734,7 +736,7 @@ function ChamadosMobileLayoutInner() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        bgcolor: isEstoqueHub || isChecklistImmersive || isInicio ? '#0b1721' : colors.canvas,
+        bgcolor: '#0b1721',
         /* Tab bar é position:fixed — reserva a faixa no fluxo p/ o CTA não ficar por baixo */
         pb: isChecklistStart && mostrarTabs ? tabBarOffsetCss : 0,
         ['--app-tabbar-offset' as string]: tabBarOffsetCss,
@@ -828,7 +830,8 @@ function ChamadosMobileLayoutInner() {
       </Box>
       )}
 
-      {isChecklist ? (
+      <HubKeepAlive aba={hubAba} />
+      {hubAba ? null : isChecklist ? (
         <div
           className={`mobile-checklist-host${
             isChecklistImmersive ? ' mobile-checklist-host--solo' : ''
