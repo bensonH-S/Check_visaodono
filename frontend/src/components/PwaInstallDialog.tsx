@@ -11,7 +11,6 @@ import { useLocation } from 'react-router-dom';
 import { isIosChrome, usePwaInstallPrompt } from '../hooks/usePwaInstallPrompt';
 import { APP_NAME } from '../config/brand';
 
-const NAVY = '#1B2A6B';
 const ORANGE = '#FF7A3D';
 
 function Passo({
