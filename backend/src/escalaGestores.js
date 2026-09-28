@@ -144,6 +144,39 @@ export async function carregarGradeGestores(user, { semana_inicio } = {}) {
     });
   }
 
+  if (podeGerenciarEscalaVisitas(user) && gestores.length) {
+    const ids = [];
+    const datas = [];
+    for (const g of gestores) {
+      const id = Number(g.id_gestor);
+      const tipos = porGestor.get(id) || new Map();
+      const horas = horasPorGestor.get(id) || new Map();
+      for (let i = 0; i < 7; i += 1) {
+        const data = addDaysIso(inicio, i);
+        if (tipos.get(data)) continue;
+        const hr = horas.get(data);
+        if (hr?.hora_inicio || hr?.hora_fim) continue;
+        ids.push(id);
+        datas.push(data);
+        if (!horasPorGestor.has(id)) horasPorGestor.set(id, new Map());
+        horasPorGestor.get(id).set(data, { hora_inicio: '08:00', hora_fim: '18:00' });
+      }
+    }
+    if (ids.length) {
+      await pool.query(
+        `INSERT INTO escala_gestores_horario (id_gestor, data, hora_inicio, hora_fim)
+         SELECT x.id_gestor, x.data, TIME '08:00', TIME '18:00'
+         FROM unnest($1::int[], $2::date[]) AS x(id_gestor, data)
+         ON CONFLICT (id_gestor, data) DO UPDATE
+           SET hora_inicio = EXCLUDED.hora_inicio,
+               hora_fim = EXCLUDED.hora_fim
+         WHERE escala_gestores_horario.hora_inicio IS NULL
+           AND escala_gestores_horario.hora_fim IS NULL`,
+        [ids, datas],
+      );
+    }
+  }
+
   const linhas = gestores.map((g) => {
     const mapa = porGestor.get(Number(g.id_gestor)) || new Map();
     const horas = horasPorGestor.get(Number(g.id_gestor)) || new Map();

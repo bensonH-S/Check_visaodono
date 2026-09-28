@@ -154,6 +154,26 @@ function formatarHoraDigitada(raw: string): string {
   return `${digitos.slice(0, 2)}:${digitos.slice(2)}`;
 }
 
+const HORA_PADRAO_INICIO = '08:00';
+const HORA_PADRAO_FIM = '18:00';
+
+function lerParHorario(input: HTMLInputElement) {
+  const inputs = input.parentElement?.querySelectorAll('input');
+  return {
+    inicio: (inputs?.[0] as HTMLInputElement | undefined)?.value || '',
+    fim: (inputs?.[1] as HTMLInputElement | undefined)?.value || '',
+  };
+}
+
+function focarProximoHorario(atual: HTMLInputElement) {
+  const raiz = atual.closest('table') ?? document;
+  const lista = [...raiz.querySelectorAll<HTMLInputElement>('input[data-escala-hora]')];
+  const proximo = lista[lista.indexOf(atual) + 1];
+  if (!proximo) return;
+  proximo.focus();
+  proximo.select();
+}
+
 function InputsHorario({
   inicio,
   fim,
@@ -164,11 +184,13 @@ function InputsHorario({
   onChangeInicio,
   onChangeFim,
   onBlur,
+  sequencia,
 }: {
   inicio: string;
   fim: string;
   disabled?: boolean;
   compact?: boolean;
+  sequencia?: boolean;
   ariaInicio: string;
   ariaFim: string;
   onChangeInicio: (valor: string) => void;
@@ -187,10 +209,17 @@ function InputsHorario({
         aria-label={ariaInicio}
         value={inicio}
         disabled={disabled}
+        data-escala-hora={sequencia ? '' : undefined}
         onChange={(e) => onChangeInicio(formatarHoraDigitada(e.target.value))}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || !sequencia) return;
+          e.preventDefault();
+          focarProximoHorario(e.currentTarget);
+        }}
         onBlur={(e) => {
           e.currentTarget.style.borderBottomColor = 'transparent';
-          onBlur?.(inicio, fim);
+          const par = lerParHorario(e.currentTarget);
+          onBlur?.(par.inicio, par.fim);
         }}
         onFocus={(e) => {
           if (compact && !disabled) e.currentTarget.style.borderBottomColor = colors.navy;
@@ -209,10 +238,17 @@ function InputsHorario({
         aria-label={ariaFim}
         value={fim}
         disabled={disabled}
+        data-escala-hora={sequencia ? '' : undefined}
         onChange={(e) => onChangeFim(formatarHoraDigitada(e.target.value))}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || !sequencia) return;
+          e.preventDefault();
+          focarProximoHorario(e.currentTarget);
+        }}
         onBlur={(e) => {
           e.currentTarget.style.borderBottomColor = 'transparent';
-          onBlur?.(inicio, fim);
+          const par = lerParHorario(e.currentTarget);
+          onBlur?.(par.inicio, par.fim);
         }}
         onFocus={(e) => {
           if (compact && !disabled) e.currentTarget.style.borderBottomColor = colors.navy;
@@ -223,7 +259,10 @@ function InputsHorario({
   );
 }
 
-function horarioDoDia(d: { hora_inicio?: string | null; hora_fim?: string | null }) {
+function horarioDoDia(d: { tipo?: string | null; hora_inicio?: string | null; hora_fim?: string | null }) {
+  if (!d.tipo && !d.hora_inicio && !d.hora_fim) {
+    return { hora_inicio: HORA_PADRAO_INICIO, hora_fim: HORA_PADRAO_FIM };
+  }
   return { hora_inicio: d.hora_inicio || '', hora_fim: d.hora_fim || '' };
 }
 
@@ -2068,6 +2107,7 @@ export default function EscalaVisitasPage() {
                               ) : (
                                 <InputsHorario
                                   compact
+                                  sequencia
                                   inicio={hr.hora_inicio}
                                   fim={hr.hora_fim}
                                   disabled={!gestores?.pode_editar}
@@ -2089,7 +2129,17 @@ export default function EscalaVisitasPage() {
                                   tipo={tipo}
                                   rotulo={`Situação ${linha.nome} ${DIAS[d.dia]}`}
                                   onEscolher={(valor) =>
-                                    void salvarCelulaGestor(linha.id_gestor, d.dia, { tipo: valor })
+                                    void salvarCelulaGestor(
+                                      linha.id_gestor,
+                                      d.dia,
+                                      valor
+                                        ? { tipo: valor }
+                                        : {
+                                            tipo: null,
+                                            hora_inicio: HORA_PADRAO_INICIO,
+                                            hora_fim: HORA_PADRAO_FIM,
+                                          },
+                                    )
                                   }
                                 />
                               ) : null}

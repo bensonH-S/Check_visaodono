@@ -77,6 +77,15 @@ function formatarHoraDigitada(raw: string): string {
   return `${digitos.slice(0, 2)}:${digitos.slice(2)}`;
 }
 
+function focarProximoHorarioGestor(atual: HTMLInputElement) {
+  const raiz = atual.closest('.ck-escala') ?? document;
+  const lista = [...raiz.querySelectorAll<HTMLInputElement>('.ck-escala-gestor__horas input[data-escala-hora]')];
+  const proximo = lista[lista.indexOf(atual) + 1];
+  if (!proximo) return;
+  proximo.focus();
+  proximo.select();
+}
+
 type ModoVisualizacao = 'minhas' | 'dia' | 'lojas' | 'delivery' | 'gestores' | 'manutencao' | 'montar';
 type AbaModulo = 'escala' | 'delivery' | 'gestores' | 'tecnicos';
 
@@ -1833,9 +1842,13 @@ export default function EscalaVisitasMobileView() {
                                     disabled={salvando}
                                     onChange={(e) => {
                                       const v = e.target.value;
-                                      void salvarCelulaGestor(linha.id_gestor, d.dia, {
-                                        tipo: v || null,
-                                      });
+                                      void salvarCelulaGestor(
+                                        linha.id_gestor,
+                                        d.dia,
+                                        v
+                                          ? { tipo: v }
+                                          : { tipo: null, hora_inicio: '08:00', hora_fim: '18:00' },
+                                      );
                                     }}
                                   >
                                     <option value="">Horário</option>
@@ -1862,6 +1875,12 @@ export default function EscalaVisitasMobileView() {
                                     aria-label={`Início ${linha.nome} ${DIAS_ABREV[d.dia]}`}
                                     value={inicio}
                                     disabled={salvando}
+                                    data-escala-hora=""
+                                    onKeyDown={(e) => {
+                                      if (e.key !== 'Enter') return;
+                                      e.preventDefault();
+                                      focarProximoHorarioGestor(e.currentTarget);
+                                    }}
                                     onChange={(e) =>
                                       alterarHorarioGestorLocal(
                                         linha.id_gestor,
@@ -1886,6 +1905,12 @@ export default function EscalaVisitasMobileView() {
                                     aria-label={`Fim ${linha.nome} ${DIAS_ABREV[d.dia]}`}
                                     value={fim}
                                     disabled={salvando}
+                                    data-escala-hora=""
+                                    onKeyDown={(e) => {
+                                      if (e.key !== 'Enter') return;
+                                      e.preventDefault();
+                                      focarProximoHorarioGestor(e.currentTarget);
+                                    }}
                                     onChange={(e) =>
                                       alterarHorarioGestorLocal(
                                         linha.id_gestor,
