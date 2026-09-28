@@ -945,8 +945,11 @@
 }
 
 .ck-escala-gestor__dia.is-folga,
-.ck-escala-gestor__dia.is-off {
-  background: rgba(234, 88, 12, 0.1);
+.ck-escala-gestor__dia.is-off,
+.ck-escala-gestor__dia.is-ferias,
+.ck-escala-gestor__dia.is-falta,
+.ck-escala-gestor__dia.is-atestado {
+  background: rgba(15, 23, 42, 0.04);
 }
 
 .ck-escala-gestor__dia strong {
@@ -968,7 +971,7 @@
   font-style: normal;
   font-size: 0.68rem;
   font-weight: 800;
-  color: #c2410c;
+  color: var(--ck-ink);
 }
 
 .ck-escala-gestor__dia em.is-hora {
@@ -997,6 +1000,24 @@
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--ck-navy);
+}
+
+.ck-escala-gestor__tipo {
+  width: 100%;
+  max-width: 72px;
+  margin-top: 2px;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font: inherit;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--ck-ink);
+}
+
+.ck-escala-gestor__tipo.is-empty {
+  color: #94a3b8;
+  font-weight: 700;
 }
 
 .ck-escala-gestor__folga {
@@ -1046,8 +1067,20 @@ html.dark .ck-escala-gestor__dia {
 }
 
 html.dark .ck-escala-gestor__dia.is-folga,
-html.dark .ck-escala-gestor__dia.is-off {
-  background: rgba(255, 122, 61, 0.12);
+html.dark .ck-escala-gestor__dia.is-off,
+html.dark .ck-escala-gestor__dia.is-ferias,
+html.dark .ck-escala-gestor__dia.is-falta,
+html.dark .ck-escala-gestor__dia.is-atestado {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html.dark .ck-escala-gestor__tipo {
+  color: #f8fafc;
+  background: transparent;
+}
+
+html.dark .ck-escala-gestor__tipo.is-empty {
+  color: #94a3b8;
 }
 
 html.dark .ck-escala-gestor__dia em.is-hora {

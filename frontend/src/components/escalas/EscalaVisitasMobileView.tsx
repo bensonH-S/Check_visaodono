@@ -1790,7 +1790,7 @@ export default function EscalaVisitasMobileView() {
                       : tipo === 'falta'
                         ? 'Falta'
                         : tipo === 'ausencia'
-                          ? 'Ausência'
+                          ? 'Atestado'
                           : tipo;
                 return (
                   <div
@@ -1820,20 +1820,33 @@ export default function EscalaVisitasMobileView() {
                           return (
                             <div
                               key={d.dia}
-                              className={`ck-escala-gestor__dia${d.tipo ? ' is-off' : ''}${d.tipo === 'folga' ? ' is-folga' : ''}`}
-                              role={gestores?.pode_editar ? 'button' : undefined}
-                              tabIndex={gestores?.pode_editar && d.tipo ? 0 : undefined}
-                              onClick={() => {
-                                if (!gestores?.pode_editar || salvando) return;
-                                void salvarCelulaGestor(linha.id_gestor, d.dia, {
-                                  tipo: d.tipo ? null : 'folga',
-                                });
-                              }}
+                              className={`ck-escala-gestor__dia${d.tipo ? ' is-off' : ''}${d.tipo === 'folga' ? ' is-folga' : ''}${d.tipo === 'ferias' ? ' is-ferias' : ''}${d.tipo === 'falta' ? ' is-falta' : ''}${d.tipo === 'ausencia' ? ' is-atestado' : ''}`}
                             >
                               <strong>{DIAS_ABREV[d.dia]}</strong>
                               <small>{fmtDataCurta(addDaysIso(semanaInicio, d.dia))}</small>
                               {d.tipo ? (
-                                <em>{tipoLabel(d.tipo)}</em>
+                                gestores?.pode_editar ? (
+                                  <select
+                                    className="ck-escala-gestor__tipo"
+                                    aria-label={`Situação ${linha.nome} ${DIAS_ABREV[d.dia]}`}
+                                    value={d.tipo}
+                                    disabled={salvando}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      void salvarCelulaGestor(linha.id_gestor, d.dia, {
+                                        tipo: v || null,
+                                      });
+                                    }}
+                                  >
+                                    <option value="">Horário</option>
+                                    <option value="folga">Folga</option>
+                                    <option value="ferias">Férias</option>
+                                    <option value="ausencia">Atestado</option>
+                                    <option value="falta">Falta</option>
+                                  </select>
+                                ) : (
+                                  <em>{tipoLabel(d.tipo)}</em>
+                                )
                               ) : gestores?.pode_editar ? (
                                 <span
                                   className="ck-escala-gestor__horas"
@@ -1888,6 +1901,23 @@ export default function EscalaVisitasMobileView() {
                                       void salvarHorarioGestor(linha.id_gestor, d.dia, a, b);
                                     }}
                                   />
+                                  <select
+                                    className="ck-escala-gestor__tipo is-empty"
+                                    aria-label={`Situação ${linha.nome} ${DIAS_ABREV[d.dia]}`}
+                                    value=""
+                                    disabled={salvando}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      if (!v) return;
+                                      void salvarCelulaGestor(linha.id_gestor, d.dia, { tipo: v });
+                                    }}
+                                  >
+                                    <option value="">—</option>
+                                    <option value="folga">Folga</option>
+                                    <option value="ferias">Férias</option>
+                                    <option value="ausencia">Atestado</option>
+                                    <option value="falta">Falta</option>
+                                  </select>
                                 </span>
                               ) : (
                                 <em className="is-hora">

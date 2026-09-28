@@ -23,7 +23,7 @@ const TIPO_LABEL: Record<string, string> = {
   folga: 'Folga',
   ferias: 'Férias',
   falta: 'Falta',
-  ausencia: 'Ausência',
+  ausencia: 'Atestado',
 };
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {

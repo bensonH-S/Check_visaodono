@@ -7,6 +7,7 @@ import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import Checkbox from '@mui/material/Checkbox';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
@@ -100,37 +101,8 @@ const TIPO_GESTOR_LABEL: Record<string, string> = {
   folga: 'Folga',
   ferias: 'Férias',
   falta: 'Falta',
-  ausencia: 'Ausência',
+  ausencia: 'Atestado',
 };
-
-function tipoGestorSx(tipo: string, escuro: boolean) {
-  if (tipo === 'folga') {
-    return {
-      bgcolor: escuro ? 'rgba(251, 146, 60, 0.22)' : 'rgba(234, 88, 12, 0.16)',
-      color: escuro ? '#FDBA74' : '#C2410C',
-      fontWeight: 800,
-    };
-  }
-  if (tipo === 'ferias') {
-    return {
-      bgcolor: escuro ? 'rgba(96, 165, 250, 0.2)' : 'rgba(37, 99, 235, 0.14)',
-      color: escuro ? '#93C5FD' : '#1D4ED8',
-      fontWeight: 800,
-    };
-  }
-  if (tipo === 'falta') {
-    return {
-      bgcolor: escuro ? 'rgba(248, 113, 113, 0.2)' : 'rgba(220, 38, 38, 0.14)',
-      color: escuro ? '#FCA5A5' : '#B91C1C',
-      fontWeight: 800,
-    };
-  }
-  return {
-    bgcolor: escuro ? 'rgba(148, 163, 184, 0.18)' : 'rgba(100, 116, 139, 0.16)',
-    color: escuro ? '#CBD5E1' : '#475569',
-    fontWeight: 800,
-  };
-}
 
 const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 const TIPOS_DIA_GESTOR = ['folga', 'ferias', 'ausencia', 'falta'] as const;
@@ -159,13 +131,15 @@ const estiloInputHora = {
 } as const;
 
 const estiloInputHoraPlano = {
-  width: 46,
+  width: 44,
+  height: 16,
   border: 'none',
   borderBottom: '1px solid transparent',
   borderRadius: 0,
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 700,
-  padding: '2px 0',
+  lineHeight: 1,
+  padding: 0,
   textAlign: 'center' as const,
   color: colors.textPrimary,
   background: 'transparent',
@@ -223,7 +197,7 @@ function InputsHorario({
         }}
         style={{ ...estilo, opacity: disabled ? 0.55 : 1 }}
       />
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, lineHeight: 1, px: compact ? 0.15 : 0 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: compact ? 12 : undefined, lineHeight: 1, px: compact ? 0.15 : 0 }}>
         –
       </Typography>
       <input
@@ -251,6 +225,74 @@ function InputsHorario({
 
 function horarioDoDia(d: { hora_inicio?: string | null; hora_fim?: string | null }) {
   return { hora_inicio: d.hora_inicio || '', hora_fim: d.hora_fim || '' };
+}
+
+function MenuSituacaoDia({
+  tipo,
+  rotulo,
+  onEscolher,
+}: {
+  tipo: string | null;
+  rotulo: string;
+  onEscolher: (tipo: string | null) => void;
+}) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const fechar = () => setAnchor(null);
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={rotulo}
+        onClick={(e) => setAnchor(e.currentTarget)}
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          width: 14,
+          height: 14,
+          lineHeight: '14px',
+          fontSize: 11,
+          color: '#6B7280',
+          cursor: 'pointer',
+        }}
+      >
+        ▾
+      </button>
+      <Menu
+        anchorEl={anchor}
+        open={Boolean(anchor)}
+        onClose={fechar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        {tipo ? (
+          <MenuItem
+            onClick={() => {
+              onEscolher(null);
+              fechar();
+            }}
+          >
+            Horário
+          </MenuItem>
+        ) : null}
+        {TIPOS_DIA_GESTOR.map((t) => (
+          <MenuItem
+            key={t}
+            onClick={() => {
+              onEscolher(t);
+              fechar();
+            }}
+          >
+            {TIPO_GESTOR_LABEL[t]}
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
 }
 
 type CelulaChave = string;
@@ -1962,8 +2004,8 @@ export default function EscalaVisitasPage() {
                       sx={{
                         bgcolor: ehMinhaLinhaGestor(linha, user)
                           ? escuro
-                            ? 'rgba(232, 82, 10, 0.1)'
-                            : 'rgba(232, 82, 10, 0.06)'
+                            ? 'rgba(148, 163, 184, 0.08)'
+                            : 'rgba(27, 42, 107, 0.04)'
                           : idx % 2
                             ? escuro
                               ? 'rgba(255,255,255,0.02)'
@@ -2006,83 +2048,52 @@ export default function EscalaVisitasPage() {
                       {linha.dias.map((d) => {
                         const tipo = d.tipo;
                         const hr = horarioDoDia(d);
-                        const corTipo = tipoGestorSx(tipo || '', escuro);
                         return (
                           <TableCell
                             key={d.dia}
                             align="center"
-                            title={
-                              gestores?.pode_editar && !tipo
-                                ? 'Clique duas vezes para marcar folga'
-                                : undefined
-                            }
-                            onDoubleClick={() => {
-                              if (!gestores?.pode_editar || tipo) return;
-                              void salvarCelulaGestor(linha.id_gestor, d.dia, { tipo: 'folga' });
-                            }}
                             sx={{
-                              py: 0.85,
-                              px: 0.5,
+                              py: 0.15,
+                              px: 0.35,
+                              lineHeight: 1,
+                              verticalAlign: 'middle',
                               borderBottom: `1px solid ${colors.border}`,
-                              bgcolor: tipo
-                                ? escuro
-                                  ? 'rgba(234, 88, 12, 0.12)'
-                                  : 'rgba(234, 88, 12, 0.07)'
-                                : 'transparent',
                             }}
                           >
-                            {tipo ? (
-                              gestores?.pode_editar ? (
-                                <Select
-                                  variant="standard"
-                                  disableUnderline
-                                  value={tipo}
-                                  onChange={(e) => {
-                                    const v = String(e.target.value);
-                                    void salvarCelulaGestor(linha.id_gestor, d.dia, {
-                                      tipo: v === 'trabalho' ? null : v,
-                                    });
-                                  }}
-                                  sx={{
-                                    minWidth: 72,
-                                    fontSize: '0.78rem',
-                                    fontWeight: 700,
-                                    color: corTipo.color,
-                                    '& .MuiSelect-select': { py: 0, textAlign: 'center', pr: '18px !important' },
-                                    '& .MuiSelect-icon': { opacity: 0.45, right: -4 },
-                                  }}
-                                >
-                                  <MenuItem value="trabalho">Horário</MenuItem>
-                                  {TIPOS_DIA_GESTOR.map((t) => (
-                                    <MenuItem key={t} value={t}>
-                                      {TIPO_GESTOR_LABEL[t]}
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              ) : (
-                                <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: corTipo.color }}>
+                            <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 16, pr: gestores?.pode_editar ? 1.25 : 0 }}>
+                              {tipo ? (
+                                <Typography sx={{ fontSize: 12, fontWeight: 700, lineHeight: 1, color: colors.textPrimary }}>
                                   {TIPO_GESTOR_LABEL[tipo] || tipo}
                                 </Typography>
-                              )
-                            ) : (
-                              <InputsHorario
-                                compact
-                                inicio={hr.hora_inicio}
-                                fim={hr.hora_fim}
-                                disabled={!gestores?.pode_editar}
-                                ariaInicio={`Início ${linha.nome} ${DIAS[d.dia]}`}
-                                ariaFim={`Fim ${linha.nome} ${DIAS[d.dia]}`}
-                                onChangeInicio={(valor) =>
-                                  alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_inicio', valor)
-                                }
-                                onChangeFim={(valor) =>
-                                  alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_fim', valor)
-                                }
-                                onBlur={(inicio, fim) =>
-                                  void salvarHorarioGestor(linha.id_gestor, d.dia, inicio, fim)
-                                }
-                              />
-                            )}
+                              ) : (
+                                <InputsHorario
+                                  compact
+                                  inicio={hr.hora_inicio}
+                                  fim={hr.hora_fim}
+                                  disabled={!gestores?.pode_editar}
+                                  ariaInicio={`Início ${linha.nome} ${DIAS[d.dia]}`}
+                                  ariaFim={`Fim ${linha.nome} ${DIAS[d.dia]}`}
+                                  onChangeInicio={(valor) =>
+                                    alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_inicio', valor)
+                                  }
+                                  onChangeFim={(valor) =>
+                                    alterarHorarioGestorLocal(linha.id_gestor, d.dia, 'hora_fim', valor)
+                                  }
+                                  onBlur={(inicio, fim) =>
+                                    void salvarHorarioGestor(linha.id_gestor, d.dia, inicio, fim)
+                                  }
+                                />
+                              )}
+                              {gestores?.pode_editar ? (
+                                <MenuSituacaoDia
+                                  tipo={tipo}
+                                  rotulo={`Situação ${linha.nome} ${DIAS[d.dia]}`}
+                                  onEscolher={(valor) =>
+                                    void salvarCelulaGestor(linha.id_gestor, d.dia, { tipo: valor })
+                                  }
+                                />
+                              ) : null}
+                            </Box>
                           </TableCell>
                         );
                       })}
@@ -2130,7 +2141,7 @@ export default function EscalaVisitasPage() {
           )}
           {gestores?.pode_editar && linhasGestores.length > 0 && (
             <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
-              Clique duas vezes no horário para marcar folga.
+              A seta ao lado do horário abre Folga, Férias, Atestado ou Falta. O turno continua numa linha só.
             </Typography>
           )}
         </Paper>
