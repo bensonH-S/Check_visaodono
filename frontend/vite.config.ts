@@ -134,8 +134,8 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ['**/*.{js,css,ico,png,svg,woff2,webmanifest}'],
-        // Bundle principal ~3.4 MB após redesign mobile; margem para crescimento.
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Bundle principal passou de 5 MB; o precache do service worker recusa acima do limite.
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       },
       injectRegister: false,
       devOptions: {
