@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   addDaysIso,
+  dataIsoBrasilia,
   DIAS_ABREV,
   diaIndexNaSemana,
   fmtDataAgenda,
@@ -72,7 +73,7 @@ export default function EscalaAgendaPessoas({
   variant,
   onPessoaClick,
 }: Props) {
-  const hoje = diaIndexNaSemana(semanaInicio);
+  const hoje = diaIndexNaSemana(semanaInicio, dataIsoBrasilia());
   const porDia = eventosDaSemana(pessoas);
   const temEvento = porDia.some((d) => d.length > 0);
   const [diaSel, setDiaSel] = useState(hoje ?? 0);

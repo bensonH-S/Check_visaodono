@@ -31,10 +31,11 @@ export default function HubKeepAlive({ aba }: { aba: HubAba | null }) {
     setVivo((atual) => (atual[aba] ? atual : { ...atual, [aba]: true }));
   }, [aba]);
 
+  if (!aba) return null;
   if (!vivo.inicio && !vivo.estoque) return null;
 
   return (
-    <div style={{ ...pane, display: aba ? 'flex' : 'none' }}>
+    <div style={{ ...pane, display: 'flex' }}>
       {vivo.inicio ? (
         <div
           style={{

@@ -544,22 +544,22 @@
   display: block;
   font-size: 0.62rem;
   font-weight: 700;
-  color: rgba(20, 32, 72, 0.45);
+  color: #8d8d8d;
 }
 
 .ck-escala .ck-escala__faixa-pill {
   margin-top: 4px;
   padding: 6px 2px;
   border-radius: 8px;
-  font-size: 0.6rem;
+  font-size: 0.62rem;
   font-weight: 800;
   line-height: 1.1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--ck-ink);
-  background: rgba(27, 42, 107, 0.04);
-  border: 1px dashed rgba(27, 42, 107, 0.18);
+  color: #8d8d8d;
+  background: #2a2d32;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
 }
 
 .ck-escala .ck-escala__faixa-pill.is-on {
@@ -627,7 +627,7 @@
 }
 
 .ck-escala .ck-escala__loja-semana.is-edit {
-  border-color: rgba(27, 42, 107, 0.16);
+  border-color: transparent;
 }
 
 .ck-escala .ck-escala__acoes {
@@ -1052,11 +1052,11 @@
    DARK MODE OVERRIDES — Escala Mobile
    ================================================================ */
 html.dark .ck-escala {
-  --ck-paper: var(--ga-canvas, #0B0F19);
-  --ck-ink: var(--ga-text-primary, #F8FAFC);
-  --ck-navy: #3b82f6;
-  --ck-orange: #FF7A3D;
-  --ck-accent: #FF7A3D;
+  --ck-paper: #0b1721;
+  --ck-ink: #f5f5f5;
+  --ck-navy: #0b1721;
+  --ck-orange: #fe6c22;
+  --ck-accent: #fe6c22;
   --ck-accent-soft: rgba(255, 122, 61, 0.12);
   --ck-accent-border: rgba(255, 122, 61, 0.45);
   --ck-accent-shadow: rgba(255, 122, 61, 0.22);
@@ -1201,8 +1201,8 @@ html.dark .ck-escala .ck-escala__faixa-pill {
 }
 
 html.dark .ck-escala .ck-escala__faixa-pill.is-on {
-  background: rgba(255, 122, 61, 0.2) !important;
-  border-color: #FF7A3D !important;
+  background: #fe6c22 !important;
+  border-color: #fe6c22 !important;
   color: #fff !important;
 }
 
@@ -1344,4 +1344,354 @@ html.dark .ck-escala .ck-escala__empty strong {
 
 html.dark .ck-escala .ck-escala__empty p {
   color: var(--ga-text-secondary, #94A3B8);
+}
+
+/* Hub — mesmo preto do Checklist / Estoque */
+.ck-escala-hub.ck-estoque-hub,
+.ck-escala--hub {
+  --ck-navy: #0b1721;
+  --ck-navy-deep: #0b1721;
+  --ck-orange: #fe6c22;
+  --ck-paper: #0b1721;
+  --ck-ink: #f5f5f5;
+  background: #0b1721;
+  color: #f5f5f5;
+  padding-bottom: 0;
+  contain: none;
+  isolation: auto;
+}
+
+.mobile-app-shell > .ck-escala-hub {
+  flex: 1;
+  min-height: 0;
+}
+
+.ck-escala-hub,
+.ck-escala-hub *,
+.ck-escala-hub *::before,
+.ck-escala-hub *::after {
+  text-shadow: none !important;
+  -webkit-text-stroke: 0 !important;
+  -webkit-text-stroke-width: 0 !important;
+  filter: none !important;
+  font-synthesis: none !important;
+  letter-spacing: 0 !important;
+}
+
+.ck-escala-hub .ck-estoque-hub__store-row h1 {
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+}
+
+.ck-escala--hub .ck-estoque-hub__store-row {
+  align-items: baseline;
+}
+
+.ck-escala-hub__share {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: #f5f5f5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ck-escala-hub__share.is-on {
+  color: #fe6c22;
+}
+
+.ck-escala-hub__share:disabled {
+  opacity: 0.45;
+}
+
+.ck-escala-hub__week {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  color: #8d8d8d;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.ck-escala-hub__week span {
+  color: #d0d0d0;
+  white-space: nowrap;
+}
+
+.ck-escala-hub__week button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #8d8d8d;
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ck-escala-hub__hoje {
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  color: #fe6c22 !important;
+}
+
+.ck-escala-hub__chips {
+  margin: 0 0 10px;
+  padding-bottom: 4px;
+}
+
+.ck-escala-hub__scroll {
+  padding: 12px var(--eh-pad, 20px) calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+.ck-escala-hub__lista {
+  min-width: 0;
+}
+
+.ck-escala--hub .ck-visitas__seg {
+  background: #333840;
+  border-color: transparent;
+}
+
+.ck-escala--hub .ck-visitas__seg-btn {
+  color: #8d8d8d;
+}
+
+.ck-escala--hub .ck-visitas__seg-btn.is-on,
+.ck-escala--hub .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
+  background: #fe6c22 !important;
+  color: #fff !important;
+  border-color: transparent;
+  box-shadow: none !important;
+}
+
+.ck-escala--hub .ck-escala__filtro-btn {
+  background: #333840;
+  border-color: transparent;
+  color: #f5f5f5;
+}
+
+.ck-escala--hub .ck-escala__filtro-btn.is-on {
+  color: #fe6c22;
+}
+
+.ck-escala--hub .ck-escala__voltar {
+  background: #333840;
+  color: #f5f5f5;
+}
+
+.ck-escala--hub .ck-escala__regiao,
+.ck-escala--hub .ck-escala__section {
+  color: #8d8d8d;
+}
+
+.ck-escala--hub .ck-escala__pessoa {
+  color: #f5f5f5;
+  background: #333840;
+}
+
+.ck-escala--hub .ck-escala__card,
+.ck-escala--hub .ck-escala__loja-semana {
+  background: #333840;
+  border-color: transparent;
+  box-shadow: none;
+  color: #f5f5f5;
+}
+
+.ck-escala--hub .ck-escala__card-title,
+.ck-escala--hub .ck-escala__loja-semana > strong {
+  color: #f5f5f5;
+}
+
+.ck-escala--hub .ck-escala__empty {
+  background: #333840;
+  border-color: transparent;
+  border-style: solid;
+}
+
+.ck-escala--hub .ck-escala__empty strong,
+.ck-escala--hub .ck-escala__empty p {
+  color: #8d8d8d;
+}
+
+.ck-escala--hub .ck-escala__dia {
+  background: #333840;
+  border-color: transparent;
+  color: #d0d0d0;
+  box-shadow: none;
+}
+
+.ck-escala--hub .ck-escala__dia strong,
+.ck-escala--hub .ck-escala__dia small,
+.ck-escala--hub .ck-escala__faixa-cell > span {
+  color: #8d8d8d;
+}
+
+.ck-escala--hub .ck-escala__dia.is-on {
+  background: rgba(254, 108, 34, 0.18);
+  border-color: transparent;
+  color: #fe6c22;
+  box-shadow: none;
+}
+
+.ck-escala--hub .ck-escala__dia.is-on strong,
+.ck-escala--hub .ck-escala__dia.is-on small {
+  color: #fe6c22;
+}
+
+.ck-escala--hub .ck-escala__dia-n {
+  background: #fe6c22;
+  color: #fff;
+}
+
+.ck-escala--hub .ck-escala__faixa-pill,
+html.dark .ck-escala--hub .ck-escala__faixa-pill {
+  background: #2a2d32 !important;
+  border: 1px dashed rgba(255, 255, 255, 0.16) !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-escala--hub .ck-escala__faixa-pill.is-on,
+html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
+  background: #fe6c22 !important;
+  border: 1px solid #fe6c22 !important;
+  color: #fff !important;
+}
+
+.ck-escala--hub .ck-escala__acoes {
+  padding: 10px 0 calc(88px + env(safe-area-inset-bottom, 0px));
+  background: #0b1721;
+}
+
+.ck-escala--hub .ck-escala__aprovacao-card {
+  background: #333840;
+  border-color: transparent;
+  color: #f5f5f5;
+}
+
+.ck-escala--hub .ck-escala__btn-aprovar,
+.ck-escala--hub .ck-escala__btn-recusar {
+  border-color: transparent;
+}
+
+.ck-escala--hub .ck-escala-gestor__folga-tag,
+.ck-escala--hub .ck-escala__card-meta {
+  color: #8d8d8d;
+}
+
+.ck-escala--hub .ck-escala-cal {
+  --cal-line: rgba(255, 255, 255, 0.1);
+  --cal-muted: #8d8d8d;
+  --cal-ink: #f5f5f5;
+  --cal-paper: #0b1721;
+  --cal-today: rgba(254, 108, 34, 0.12);
+}
+
+.ck-escala--hub .ck-escala-cal__dia {
+  background: #333840;
+  border-color: transparent;
+}
+
+.ck-escala--hub .ck-escala-cal__dia.is-on {
+  background: rgba(254, 108, 34, 0.18);
+  border-color: transparent;
+}
+
+.ck-escala--hub .ck-escala-cal__dia em {
+  background: #0b1721;
+  color: #f5f5f5;
+}
+
+.ck-escala--hub .ck-escala-cal__dia.is-on em {
+  background: #fe6c22;
+  color: #fff;
+}
+
+.ck-escala--hub .ck-escala-cal--mobile .ck-escala-cal__ev,
+.ck-escala--hub .ck-escala-cal__empty {
+  background: #333840 !important;
+  border-color: transparent !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-escala--hub .ck-escala-cal__data strong,
+.ck-escala--hub .ck-escala-cal__ev strong,
+.ck-escala--hub .ck-escala-cal__ev .ck-loja-bk,
+.ck-escala--hub .ck-escala-gestor__horas input,
+.ck-escala--hub .ck-escala-gestor__dia small,
+.ck-escala--hub .ck-escala-gestor__dia em,
+.ck-escala--hub .ck-escala-gestor__dia em.is-hora,
+.ck-escala--hub .ck-escala-gestor__tipo {
+  color: #f5f5f5 !important;
+}
+
+.ck-escala--hub .MuiDialog-paper {
+  background: #0b1721 !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-escala--hub .ck-escala-gestor__horas input,
+.ck-escala--hub .ck-escala-gestor__tipo,
+.ck-escala--hub select {
+  background: #0b1721;
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+html.dark .ck-escala--hub,
+.ck-escala--hub.ck-estoque-hub {
+  --ck-navy: #0b1721;
+  --ck-navy-deep: #0b1721;
+}
+
+html.dark .ck-escala--hub .ck-escala__loja-semana,
+html.dark .ck-escala--hub .ck-escala__loja-semana.is-edit,
+.ck-escala--hub .ck-escala__loja-semana,
+.ck-escala--hub .ck-escala__loja-semana.is-edit {
+  background: #333840 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html.dark .ck-escala--hub .ck-escala__faixa-pill,
+html.dark .ck-escala--hub .ck-escala__faixa-pill.is-edit,
+.ck-escala--hub .ck-escala__faixa-pill,
+.ck-escala--hub .ck-escala__faixa-pill.is-edit {
+  background: #2a2d32 !important;
+  border: 1px dashed rgba(255, 255, 255, 0.16) !important;
+  color: #f5f5f5 !important;
+}
+
+html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on,
+.ck-escala--hub .ck-escala__faixa-pill.is-on,
+:root:not(.dark) .ck-escala--hub .ck-escala__faixa-pill.is-on,
+:root:not(.dark) .ck-escala-hub .ck-escala__faixa-pill.is-on {
+  background: #fe6c22 !important;
+  border: 1px solid #fe6c22 !important;
+  color: #fff !important;
+}
+
+:root:not(.dark) .ck-escala--hub .ck-escala__faixa-pill,
+:root:not(.dark) .ck-escala-hub .ck-escala__faixa-pill {
+  background: #2a2d32 !important;
+  border: 1px dashed rgba(255, 255, 255, 0.16) !important;
+  color: #f5f5f5 !important;
+}
+
+:root:not(.dark) .ck-escala--hub .ck-escala__dia.is-on,
+:root:not(.dark) .ck-escala-hub .ck-escala__dia.is-on {
+  border-color: #fe6c22 !important;
+  background: rgba(254, 108, 34, 0.16) !important;
+}
+
+:root:not(.dark) .ck-escala--hub .ck-escala__dia.is-on strong,
+:root:not(.dark) .ck-escala--hub .ck-escala__dia.is-on .ck-escala__dia-n,
+:root:not(.dark) .ck-escala-hub .ck-escala__hoje {
+  background: #fe6c22 !important;
+  border-color: #fe6c22 !important;
+  color: #fff !important;
 }

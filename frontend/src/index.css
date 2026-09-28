@@ -1,6 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
+@font-face {
+  font-family: Manrope;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./assets/fonts/manrope-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: Manrope;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/manrope-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: Manrope;
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('./assets/fonts/manrope-800.woff2') format('woff2');
+}
+
 :root {
   /* Light Theme (Default) */
   --ga-navy: #1B2A6B;
@@ -70,13 +92,7 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   background-color: var(--ga-canvas);
-}
-
-/* Escala compacta no desktop correspondente a 80% de zoom conforme solicitado */
-@media (min-width: 768px) {
-  html {
-    zoom: 0.8;
-  }
+  font-synthesis: none;
 }
 
 html, body, #root {
@@ -105,6 +121,7 @@ body {
   margin: 0;
   background: var(--ga-canvas);
   color: var(--ga-text-primary);
+  font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -209,9 +226,17 @@ body {
   padding: 10px 14px !important;
 }
 
-.mobile-app-shell {
+.mobile-app-shell,
+.ck-estoque-hub,
+.ck-estoque-hub__dock {
   font-family: Manrope, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  font-synthesis: none;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+
+.mobile-app-shell {
   background: #0b1721;
 }
 
@@ -1042,27 +1067,27 @@ html.dark .ck-q__tag {
 :root:not(.dark) .ck-visitas__cta {
   background: var(--ga-navy) !important;
 }
-:root:not(.dark) .ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
+:root:not(.dark) .ck-escala:not(.ck-escala--hub) .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
   background: var(--ga-navy) !important;
   border-color: var(--ga-navy) !important;
   color: #fff !important;
 }
-:root:not(.dark) .ck-escala .ck-escala__hoje {
+:root:not(.dark) .ck-escala:not(.ck-escala--hub) .ck-escala__hoje {
   background: var(--ga-navy) !important;
   color: #fff !important;
 }
-:root:not(.dark) .ck-escala .ck-escala__dia.is-on {
+:root:not(.dark) .ck-escala:not(.ck-escala--hub) .ck-escala__dia.is-on {
   border-color: var(--ga-navy) !important;
   background: rgba(27, 42, 107, 0.08) !important;
 }
-:root:not(.dark) .ck-escala .ck-escala__dia.is-on .ck-escala__dia-n {
+:root:not(.dark) .ck-escala:not(.ck-escala--hub) .ck-escala__dia.is-on .ck-escala__dia-n {
   background: var(--ga-navy) !important;
   color: #fff !important;
 }
-:root:not(.dark) .ck-escala .ck-escala__dia.is-on strong {
+:root:not(.dark) .ck-escala:not(.ck-escala--hub) .ck-escala__dia.is-on strong {
   color: var(--ga-navy) !important;
 }
-:root:not(.dark) .ck-escala .ck-escala__faixa-pill.is-on {
+:root:not(.dark) .ck-escala:not(.ck-escala--hub) .ck-escala__faixa-pill.is-on {
   background: rgba(27, 42, 107, 0.12) !important;
   border-color: var(--ga-navy) !important;
   color: var(--ga-navy) !important;

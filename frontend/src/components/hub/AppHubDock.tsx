@@ -9,7 +9,7 @@ import { useMobileMais } from '../MobileTabBar';
 export type AppHubAba = 'inicio' | 'checklist' | 'estoque';
 
 type Props = {
-  ativo: AppHubAba;
+  ativo?: AppHubAba | null;
   plusLabel: string;
   plusDisabled?: boolean;
   onPlus: () => void;

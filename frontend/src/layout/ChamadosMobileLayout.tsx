@@ -323,7 +323,7 @@ function ChamadosMobileLayoutInner() {
   /** Frota inteira: chrome próprio (stage + sheet), sem header/título MUI. */
   const isFrotaImmersive = isFrota;
   const isVisitas = path === '/visitas/mobile';
-  const isEscalaVisitas = path === '/escalas/visitas/mobile';
+  const isEscalaVisitas = path === '/escalas/visitas/mobile' || path.startsWith('/escalas/visitas/mobile/');
   const isNc = path === '/nc/mobile' || path.startsWith('/nc/mobile/');
   const isNcResolver = Boolean(useMatch('/nc/mobile/:idNc'));
   /** NCs: chrome próprio (lista + resolver). */
@@ -538,7 +538,8 @@ function ChamadosMobileLayoutInner() {
     !isChecklistEmAndamento &&
     !isChecklistStart &&
     !isEstoqueHub &&
-    !isInicio;
+    !isInicio &&
+    !isEscalaVisitas;
   const rodapeTotalH = mostrarTabs ? TAB_NAV_H : 0;
   /** Reserva espaço da tab bar fixed (iPhone / Android / PWA). */
   const tabBarOffsetCss = mostrarTabs ? mobileTabBarOffsetCss() : '0px';
@@ -841,6 +842,8 @@ function ChamadosMobileLayoutInner() {
             <Outlet />
           </ChecklistIonicRoot>
         </div>
+      ) : isEscalaVisitas ? (
+        <Outlet />
       ) : (
       <Box
         component="main"
@@ -851,21 +854,25 @@ function ChamadosMobileLayoutInner() {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'fixed',
-            left: '50%',
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
-            ...MOBILE_WATERMARK_LOGO,
-            backgroundImage: `url(${assetUrl(FAVICON_ICON)})`,
-            backgroundSize: 'contain',
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center',
-            opacity: 0.035,
-            pointerEvents: 'none',
-            zIndex: 0,
-          },
+          ...(isEscalaVisitas
+            ? {}
+            : {
+                '&::before': {
+                  content: '""',
+                  position: 'fixed',
+                  left: '50%',
+                  top: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  ...MOBILE_WATERMARK_LOGO,
+                  backgroundImage: `url(${assetUrl(FAVICON_ICON)})`,
+                  backgroundSize: 'contain',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center',
+                  opacity: 0.035,
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                },
+              }),
         }}
       >
         {!isVisitas && !isRelatorio && !isFrotaImmersive && !isEscalaVisitas && !isNcImmersive && !isEnergiaImmersive && !isEstoqueImmersive && !isFreelancersImmersive && !isChamadosImmersive && !isMapa && !isPortais && (

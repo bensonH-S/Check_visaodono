@@ -62,7 +62,13 @@
 .checklist-ionic-app.ion-page,
 .checklist-ionic-app {
   /* size contain quebrava altura no mobile e escondia o CTA */
-  contain: layout style;
+  contain: none;
+}
+
+ion-app,
+.ion-page,
+ion-page {
+  contain: none !important;
 }
 
 .checklist-ionic-page {
@@ -283,6 +289,14 @@
 .mobile-checklist-host .checklist-ionic-app:not(:has(ion-page)) {
   contain: none;
   position: relative;
+}
+
+.mobile-app-shell,
+.ck-estoque-hub,
+.ck-escala--hub,
+.ck-escala--page {
+  contain: none !important;
+  isolation: auto;
 }
 
 .mobile-checklist-host .ion-page,

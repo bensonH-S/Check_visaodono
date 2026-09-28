@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -26,6 +27,7 @@ import {
 } from '../../api/client';
 import {
   getUsuario,
+  logout,
   podeEditarEscalaDelivery,
   podeEditarEscalaRegiao,
   podeGerenciarEscalaVisitas,
@@ -35,7 +37,11 @@ import {
 import { showToast } from '../../utils/toast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { useAppTheme } from '../../context/ThemeContext';
-import CkMarkLogoMenu from '../CkMarkLogoMenu';
+import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
+import MobileUsuarioMenu from '../MobileUsuarioMenu';
+import NotificacoesSino from '../NotificacoesSino';
+import AppHubDock from '../hub/AppHubDock';
+import '../estoque/estoque-hub.css';
 import {
   DIAS_ABREV,
   DIAS_LONGO,
@@ -43,6 +49,7 @@ import {
   ehMinhaLinhaGestor,
   linhasGestoresLoja,
   addDaysIso,
+  dataIsoBrasilia,
   diaIndexNaSemana,
   fmtDataCurta,
   fmtDiaCalendario,
@@ -65,7 +72,6 @@ import EscalaAgendaPorRegional from './EscalaAgendaPorRegional';
 import LojaBkMarca from './LojaBkMarca';
 import { gerarPngEscala } from '../../utils/gerarPngEscala';
 import { gerarPngEscalaGestores } from '../../utils/gerarPngEscalaGestores';
-import '../visitas/visitas-mobile.css';
 import './escala-mobile.css';
 
 const ORANGE = '#FF7A3D';
@@ -141,7 +147,7 @@ function LojaVisitaCard({
                 <span
                   key={r.nome}
                   className="ck-escala__chip"
-                  style={{ background: `${c}14`, color: NAVY, borderColor: `${c}44` }}
+                  style={{ background: `${c}22`, color: '#f5f5f5', borderColor: `${c}66` }}
                 >
                   {primeiroNome(r.nome)}
                 </span>
@@ -184,7 +190,6 @@ function FaixaSemanaLoja({
               }))
             : atribuicoesDoDia(d);
         const temVisita = attrs.length > 0;
-        const cor = ehDelivery ? 'var(--ck-accent, #E8520A)' : attrs[0]?.cor || 'rgba(27,42,107,0.2)';
         const rotulo = ehDelivery
           ? attrs.length > 1
             ? `${attrs.length}`
@@ -196,13 +201,12 @@ function FaixaSemanaLoja({
                 .filter(Boolean)
                 .join('+')
             : attrs[0]?.nome_regional
-              ? primeiroNome(attrs[0].nome_regional)
+              ? primeiroNome(attrs[0].nome_regional).slice(0, 3)
               : '—';
         const titulo = ehDelivery
           ? attrs.map((a) => a.nome_loja_destino).filter(Boolean).join(', ') || 'Sem loja'
           : attrs.map((a) => a.nome_regional).filter(Boolean).join(', ') || 'Sem visita';
         const pillClass = `ck-escala__faixa-pill${temVisita ? ' is-on' : ''}${editavel ? ' is-edit' : ''}`;
-        const pillStyle = temVisita ? { background: `${cor}20`, borderColor: cor } : undefined;
         const pillText = temVisita ? rotulo : editavel ? '+' : '—';
         return (
           <div key={d.dia} className="ck-escala__faixa-cell">
@@ -212,13 +216,12 @@ function FaixaSemanaLoja({
                 type="button"
                 title={titulo}
                 className={pillClass}
-                style={pillStyle}
                 onClick={() => onCelula?.(d.dia)}
               >
                 {pillText}
               </button>
             ) : (
-              <div title={titulo} className={pillClass} style={pillStyle}>
+              <div title={titulo} className={pillClass}>
                 {pillText}
               </div>
             )}
@@ -264,9 +267,10 @@ function CardLojaSemana({
 }
 
 export default function EscalaVisitasMobileView() {
+  const navigate = useNavigate();
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? ORANGE : NAVY;
+  const acento = '#fe6c22';
   const user = getUsuario();
   const idEu = user?.id_usuario;
   const podeVerVisitas = podeVerEscalaVisitas(user);
@@ -1087,23 +1091,7 @@ export default function EscalaVisitasMobileView() {
       .filter((d) => d.itens.length > 0);
   }, [visitasPorDia, idEu, grade, ehDeliveryOnly, linhaDelivery, acento]);
 
-  const totalVisitas = useMemo(() => {
-    if (!grade) return 0;
-    if (ehDeliveryOnly && linhaDelivery) {
-      return linhaDelivery.dias.reduce((n, d) => n + atribuicoesDoDia(d).length, 0);
-    }
-    let n = 0;
-    for (const linha of grade.linhas) {
-      for (const d of linha.dias) n += atribuicoesDoDia(d).length;
-    }
-    return n;
-  }, [grade, ehDeliveryOnly, linhaDelivery]);
-  const hojeIndex = diaIndexNaSemana(semanaInicio);
-  const visitasHojeMinhas = useMemo(() => {
-    if (hojeIndex == null || !idEu) return 0;
-    return minhasVisitas.find((d) => d.dia === hojeIndex)?.itens.length ?? 0;
-  }, [minhasVisitas, hojeIndex, idEu]);
-
+  const hojeIndex = diaIndexNaSemana(semanaInicio, dataIsoBrasilia());
   const diaAtual = visitasPorDia[diaSelecionado];
 
   const agendaPessoas = useMemo(() => {
@@ -1121,9 +1109,17 @@ export default function EscalaVisitasMobileView() {
 
   if (!podeVer) return null;
 
+  const isoSemana = (valor?: string | null) => String(valor || '').slice(0, 10);
   const labelSemanaCurta = grade
-    ? `${fmtDataCurta(grade.semana_inicio)}–${fmtDataCurta(grade.semana_fim)}`
+    ? `${fmtDataCurta(isoSemana(grade.semana_inicio))}–${fmtDataCurta(isoSemana(grade.semana_fim))}`
     : '…';
+  const labelSemanaHub = (() => {
+    const ini = isoSemana(grade?.semana_inicio) || semanaInicio;
+    const fim = isoSemana(grade?.semana_fim) || addDaysIso(semanaInicio, 6);
+    const a = fmtDiaCalendario(ini);
+    const b = fmtDiaCalendario(fim);
+    return a.mes === b.mes ? `${a.dia}–${b.dia} ${b.mes}` : `${a.dia} ${a.mes} – ${b.dia} ${b.mes}`;
+  })();
 
   const temFiltroRegiao = !ehDeliveryOnly && grade != null && grade.regioes.length > 1;
   const regiaoAtiva = grade?.regioes.find((r) => r.id_regiao === idRegiao);
@@ -1148,7 +1144,6 @@ export default function EscalaVisitasMobileView() {
       }${grade.envio_atual.submetido_em ? ` · ${fmtEnvioQuando(grade.envio_atual.submetido_em)}` : ''}`
     : null;
   const modoMontarDelivery = ehDeliveryOnly && modo === 'montar';
-  const modoTrabalho = modo === 'montar' || modo === 'delivery' || modo === 'lojas' || modo === 'minhas';
   const semanaAlvo = segundaFeiraAtual();
   const semanaEhAtual = semanaInicio === semanaAlvo;
 
@@ -1222,238 +1217,107 @@ export default function EscalaVisitasMobileView() {
 
   return (
     <div
-      className={`ck-visitas ck-escala ck-escala--page${modoTrabalho ? ' ck-escala--compact' : ''}`}
+      className="ck-estoque-hub ck-escala-hub"
       style={
         {
           ['--ck-accent' as string]: acento,
-          ['--ck-accent-soft' as string]: escuro ? 'rgba(255, 122, 61, 0.12)' : 'rgba(27, 42, 107, 0.1)',
-          ['--ck-accent-border' as string]: escuro ? 'rgba(255, 122, 61, 0.45)' : 'rgba(27, 42, 107, 0.45)',
-          ['--ck-accent-shadow' as string]: escuro ? 'rgba(255, 122, 61, 0.22)' : 'rgba(27, 42, 107, 0.16)',
+          ['--ck-accent-soft' as string]: 'rgba(254, 108, 34, 0.16)',
+          ['--ck-accent-border' as string]: 'rgba(254, 108, 34, 0.45)',
+          ['--ck-accent-shadow' as string]: 'rgba(254, 108, 34, 0.22)',
         } as CSSProperties
       }
     >
-      <div className="ck-visitas__stage">
-        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-        <div className="ck-visitas__mesh" aria-hidden />
-
-        <div className="ck-visitas__stage-inner">
-          {modoTrabalho ? (
-            <>
-              <div className="ck-escala__compact-top">
-                <div className="ck-escala__compact-lead">
-                  <h1 className="ck-escala__compact-title">
-                    {modo === 'minhas'
-                      ? 'Minha semana'
-                      : modo === 'lojas'
-                        ? 'Escala'
-                        : ehDeliveryOnly
-                          ? 'Delivery'
-                          : ehDiretor
-                            ? 'Editar'
-                            : 'Montar'}
-                  </h1>
-                  <div className="ck-escala__week ck-escala__week--compact">
-                    <button
-                      type="button"
-                      className="ck-escala__week-btn"
-                      aria-label="Semana anterior"
-                      onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
-                    >
-                      ‹
-                    </button>
-                    <span className="ck-escala__week-label">{labelSemanaCurta}</span>
-                    {!semanaEhAtual ? (
-                      <button
-                        type="button"
-                        className="ck-escala__hoje"
-                        onClick={() => setSemanaInicio(semanaAlvo)}
-                      >
-                        Hoje
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="ck-escala__week-btn"
-                      aria-label="Próxima semana"
-                      onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
-                    >
-                      ›
-                    </button>
-                  </div>
-                </div>
-                <div className="ck-escala__header-acoes">
-                  <button
-                    type="button"
-                    className="ck-visitas__pdf"
-                    aria-label="Compartilhar escala em imagem"
-                    disabled={exportandoPdf || loading}
-                    onClick={() => void compartilharImagem()}
-                  >
-                    {exportandoPdf ? (
-                      <CircularProgress size={18} sx={{ color: '#fff' }} />
-                    ) : (
-                      <ShareIcon fontSize="small" />
-                    )}
-                  </button>
-                  <CkMarkLogoMenu size={64} className="ck-visitas__mark-icon" />
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-                <div>
-                  <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                  <h1 className="ck-visitas__title ck-visitas__title--oneline">
-                    {ehDeliveryOnly
-                      ? 'Escala delivery'
-                      : modo === 'manutencao'
-                        ? 'Escala técnicos'
-                        : modo === 'gestores'
-                          ? 'Escala gestores'
-                          : 'Escala visitas'}
-                  </h1>
-                </div>
-                <div className="ck-escala__header-acoes">
-                  <button
-                    type="button"
-                    className="ck-visitas__pdf"
-                    aria-label="Compartilhar escala em imagem"
-                    disabled={exportandoPdf || loading}
-                    onClick={() => void compartilharImagem()}
-                  >
-                    {exportandoPdf ? (
-                      <CircularProgress size={18} sx={{ color: '#fff' }} />
-                    ) : (
-                      <ShareIcon fontSize="small" />
-                    )}
-                  </button>
-                  <CkMarkLogoMenu size={88} className="ck-visitas__mark-icon" />
-                </div>
-              </div>
-
-              <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-                {modo === 'manutencao'
-                  ? 'Semana dos técnicos. Toque em Semana para ver, Montar para editar, e no botão de compartilhar para enviar a foto.'
-                  : ehDiretor
-                  ? pendentesAprovacao.length
-                    ? 'Há escalas aguardando sua aprovação.'
-                    : 'Veja a escala consolidada da semana.'
-                  : ehDeliveryOnly
-                    ? 'Sua rota de delivery da semana.'
-                    : ehRegional
-                    ? 'Suas visitas da semana — só o que está marcado no seu nome.'
-                    : 'Veja suas visitas da semana, o time ou o delivery.'}
-              </p>
-
-              <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-                <div className="ck-visitas__metric ck-visitas__metric--accent">
-                  <strong>{loading ? '—' : visitasHojeMinhas}</strong>
-                  <span>suas hoje</span>
-                </div>
-                <div className="ck-visitas__metric">
-                  <strong>{loading ? '—' : totalVisitas}</strong>
-                  <span>na semana</span>
-                </div>
-                <div className="ck-visitas__metric">
-                  <strong>
-                    {loading
-                      ? '—'
-                      : ehDeliveryOnly
-                        ? minhasVisitas.reduce((n, d) => n + d.itens.length, 0)
-                        : grade?.linhas.filter((l) => l.tipo !== 'delivery').length ?? 0}
-                  </strong>
-                  <span>{ehDeliveryOnly ? 'na rota' : 'lojas'}</span>
-                </div>
-              </div>
-
-              <div className="ck-escala__week ck-visitas__anim ck-visitas__anim--3">
-                <button
-                  type="button"
-                  className="ck-escala__week-btn"
-                  aria-label="Semana anterior"
-                  onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
-                >
-                  ‹
-                </button>
-                <span className="ck-escala__week-label">{labelSemanaCurta}</span>
-                {!semanaEhAtual ? (
-                  <button
-                    type="button"
-                    className="ck-escala__hoje"
-                    onClick={() => setSemanaInicio(semanaAlvo)}
-                  >
-                    Hoje
-                  </button>
-                ) : (
-                  <span className="ck-escala__hoje-spacer" aria-hidden />
-                )}
-                <button
-                  type="button"
-                  className="ck-escala__week-btn"
-                  aria-label="Próxima semana"
-                  onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
-                >
-                  ›
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="ck-visitas__sheet ck-escala__sheet--fill ck-visitas__anim ck-visitas__anim--4">
-          {(modulos.length > 0 || subsEscala.length > 1) && (
-          <div className="ck-escala__nav">
-            {modulos.length > 0 && (
-              <div className="ck-escala__filtro-row">
-                <div className="ck-visitas__seg" role="tablist" aria-label="Módulo da escala">
-                  {modulos.map(({ id, label }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      role="tab"
-                      aria-selected={moduloAtivo === id}
-                      className={`ck-visitas__seg-btn${moduloAtivo === id ? ' is-on' : ''}`}
-                      onClick={() => irParaModulo(id)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {temFiltroRegiao && !ehRegional && modo !== 'gestores' && modo !== 'manutencao' && (
-                  <button
-                    type="button"
-                    className={`ck-escala__filtro-btn${idRegiao !== '' ? ' is-on' : ''}`}
-                    aria-label="Filtrar região"
-                    onClick={() => setFiltroRegiaoAberto(true)}
-                  >
-                    <FilterListIcon sx={{ fontSize: 20 }} />
-                  </button>
-                )}
-              </div>
-            )}
-            {subsEscala.length > 1 && (
-              <div className={`ck-escala__filtro-row${modulos.length > 0 ? ' ck-escala__filtro-row--sub' : ''}`}>
-                <div className="ck-visitas__seg" role="tablist" aria-label="Visão da escala">
-                  {subsEscala.map(({ id, label }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      role="tab"
-                      aria-selected={subEscalaAtivo === id}
-                      className={`ck-visitas__seg-btn${subEscalaAtivo === id ? ' is-on' : ''}`}
-                      onClick={() => aplicarModo(id)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+      <header className="ck-estoque-hub__top">
+        <div className="ck-estoque-hub__brand-row">
+          <img className="ck-estoque-hub__mark" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+          <div className="ck-estoque-hub__actions">
+            <button
+              type="button"
+              className="ck-escala-hub__share"
+              aria-label="Compartilhar escala em imagem"
+              disabled={exportandoPdf || loading}
+              onClick={() => void compartilharImagem()}
+            >
+              {exportandoPdf ? <CircularProgress size={18} sx={{ color: '#f5f5f5' }} /> : <ShareIcon fontSize="small" />}
+            </button>
+            {temFiltroRegiao && !ehRegional && modo !== 'gestores' && modo !== 'manutencao' ? (
+              <button
+                type="button"
+                className={`ck-escala-hub__share${idRegiao !== '' ? ' is-on' : ''}`}
+                aria-label="Filtrar região"
+                onClick={() => setFiltroRegiaoAberto(true)}
+              >
+                <FilterListIcon sx={{ fontSize: 20 }} />
+              </button>
+            ) : null}
+            <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                navigate('/login/mobile');
+              }}
+            />
           </div>
-          )}
+        </div>
+        <div className="ck-estoque-hub__store-row">
+          <h1>Escala</h1>
+          <div className="ck-escala-hub__week">
+            <button
+              type="button"
+              aria-label="Semana anterior"
+              onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
+            >
+              ‹
+            </button>
+            <span>{labelSemanaHub}</span>
+            <button
+              type="button"
+              aria-label="Próxima semana"
+              onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
+            >
+              ›
+            </button>
+            {!semanaEhAtual ? (
+              <button type="button" className="ck-escala-hub__hoje" onClick={() => setSemanaInicio(semanaAlvo)}>
+                Hoje
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {modulos.length > 0 ? (
+          <nav className="ck-estoque-hub__tabs" aria-label="Módulo da escala">
+            {modulos.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                className={`ck-estoque-hub__tab${moduloAtivo === id ? ' is-on' : ''}`}
+                onClick={() => irParaModulo(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
+      </header>
+
+      <div className="ck-estoque-hub__scroll ck-escala-hub__scroll ck-escala ck-escala--hub">
+          {subsEscala.length > 1 ? (
+            <div className="ck-estoque-hub__chips ck-escala-hub__chips" role="tablist" aria-label="Visão da escala">
+              {subsEscala.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={subEscalaAtivo === id}
+                  className={`ck-estoque-hub__chip${subEscalaAtivo === id ? ' is-on' : ''}`}
+                  onClick={() => aplicarModo(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className="ck-escala__sticky">
             {(filtrandoEscala || regiaoAtiva) && ehDiretor && (
@@ -1488,12 +1352,12 @@ export default function EscalaVisitasMobileView() {
             )}
             {modo === 'manutencao' && (manutencao?.tecnicos.length ?? 0) > 0 && (
               <>
-                <div className="ck-visitas__seg" role="tablist" aria-label="Visão da escala de técnicos" style={{ marginBottom: 8 }}>
+                <div className="ck-estoque-hub__chips" role="tablist" aria-label="Visão da escala de técnicos">
                   <button
                     type="button"
                     role="tab"
                     aria-selected={visaoManut === 'agenda'}
-                    className={`ck-visitas__seg-btn${visaoManut === 'agenda' ? ' is-on' : ''}`}
+                    className={`ck-estoque-hub__chip${visaoManut === 'agenda' ? ' is-on' : ''}`}
                     onClick={() => setVisaoManut('agenda')}
                   >
                     Semana
@@ -1502,7 +1366,7 @@ export default function EscalaVisitasMobileView() {
                     type="button"
                     role="tab"
                     aria-selected={visaoManut === 'montar'}
-                    className={`ck-visitas__seg-btn${visaoManut === 'montar' ? ' is-on' : ''}`}
+                    className={`ck-estoque-hub__chip${visaoManut === 'montar' ? ' is-on' : ''}`}
                     onClick={() => {
                       setVisaoManut('montar');
                       setIdTecnicoManut((atual) => {
@@ -1594,7 +1458,7 @@ export default function EscalaVisitasMobileView() {
             )}
           </div>
 
-          <div className="ck-escala__sheet-body">
+          <div className="ck-escala-hub__lista">
           {/* Diretor: só cards de pendência (aprovar/recusar). Sem chip "aprovado". */}
           {ehDiretor && !loading && pendentesAprovacao.length > 0 && (
             <div className="ck-escala__aprovacoes">
@@ -1688,7 +1552,7 @@ export default function EscalaVisitasMobileView() {
           )}
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-              <CircularProgress size={28} sx={{ color: NAVY }} />
+              <CircularProgress size={28} sx={{ color: '#fe6c22' }} />
             </div>
           ) : modo === 'montar' && !ehDeliveryOnly ? (
             ehRegional ? (
@@ -2300,6 +2164,8 @@ export default function EscalaVisitasMobileView() {
             </div>
           ) : null}
       </div>
+
+      <AppHubDock ativo={null} plusLabel="Iniciar visita" onPlus={() => navigate('/checklist/mobile')} />
 
       <Dialog
         open={Boolean(editor)}
