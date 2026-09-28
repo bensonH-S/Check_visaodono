@@ -473,10 +473,6 @@ export default function EscalaVisitasMobileView() {
   }, [manutencao?.tecnicos, manutencao?.ids_tecnicos_editaveis, semanaInicio]);
 
   useEffect(() => {
-    setVisaoManut((manutencao?.visitas.length ?? 0) > 0 ? 'agenda' : 'montar');
-  }, [manutencao?.semana_inicio]);
-
-  useEffect(() => {
     const hoje = diaIndexNaSemana(semanaInicio);
     setDiaSelecionado(hoje ?? 0);
   }, [semanaInicio]);
@@ -747,7 +743,6 @@ export default function EscalaVisitasMobileView() {
       setManutencao(data);
       setPendingManut(new Map());
       setHorariosManutLocal(new Map());
-      setVisaoManut('agenda');
       showToast('Escala de manutenção salva', 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao salvar', 'error');

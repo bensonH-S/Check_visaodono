@@ -1310,7 +1310,7 @@ export default function ChecklistPage() {
               variant="contained"
               size="small"
               disabled={saving || carregandoTipo || !podeIniciarChecklist}
-              onClick={iniciarVisita}
+              onClick={() => void iniciarVisita()}
               sx={{
                 minHeight: 36,
                 px: 2.5,

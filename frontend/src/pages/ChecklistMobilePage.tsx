@@ -27,7 +27,6 @@ import ChecklistPerguntaCard, {
   type ErroPerguntaCampo,
   type RespostaLocal,
 } from '../components/checklist/ChecklistPerguntaCard';
-import ChecklistIonicShell from '../components/checklist/ChecklistIonicShell';
 import ChecklistStartScreen from '../components/checklist/ChecklistStartScreen';
 import ChecklistIonicFluxo from '../components/checklist/ChecklistIonicFluxo';
 import TimeCampoMetaForm from '../components/checklist/TimeCampoMetaForm';
@@ -1121,7 +1120,7 @@ export default function ChecklistMobilePage() {
           variant="contained"
           size="large"
           disabled={saving || carregandoTipo || !podeIniciarChecklist}
-          onClick={iniciarVisita}
+          onClick={() => void iniciarVisita()}
           sx={{ minHeight: 56, fontSize: '1.05rem', fontWeight: 700 }}
         >
           Iniciar checklist

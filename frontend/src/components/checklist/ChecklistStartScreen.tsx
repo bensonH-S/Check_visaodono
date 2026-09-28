@@ -203,7 +203,7 @@ export default function ChecklistStartScreen({
         options={tiposChecklist.map((t) => ({
           id: t.codigo,
           label: t.nome,
-          meta: t.descricao,
+          meta: t.descricao ?? undefined,
         }))}
         onSelect={(id) => {
           const codigo = String(id);
