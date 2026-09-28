@@ -68,7 +68,6 @@ import {
 } from './escalaVisitasModel';
 import { agruparAgendaPorRegional, montarAgendaPorPessoa, montarAgendaManutencao } from './escalaAgendaModel';
 import EscalaAgendaPessoas from './EscalaAgendaPessoas';
-import EscalaAgendaPorRegional from './EscalaAgendaPorRegional';
 import LojaBkMarca from './LojaBkMarca';
 import { gerarPngEscala } from '../../utils/gerarPngEscala';
 import { gerarPngEscalaGestores } from '../../utils/gerarPngEscalaGestores';
@@ -81,6 +80,18 @@ function formatarHoraDigitada(raw: string): string {
   const digitos = raw.replace(/\D/g, '').slice(0, 4);
   if (digitos.length <= 2) return digitos;
   return `${digitos.slice(0, 2)}:${digitos.slice(2)}`;
+}
+
+function rotuloTipoGestor(tipo: string | null | undefined) {
+  if (tipo === 'folga') return 'Folga';
+  if (tipo === 'ferias') return 'Férias';
+  if (tipo === 'falta') return 'Falta';
+  if (tipo === 'ausencia') return 'Atestado';
+  return '';
+}
+
+function rotuloLojaManut(loja: { bk_number?: string | null; nome: string }) {
+  return loja.bk_number ? `BK ${loja.bk_number}` : loja.nome;
 }
 
 function focarProximoHorarioGestor(atual: HTMLInputElement) {
@@ -296,8 +307,8 @@ export default function EscalaVisitasMobileView() {
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
   const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
-  const [idRegiaoManut, setIdRegiaoManut] = useState<number | 'sem' | null>(null);
-  const [visaoManut, setVisaoManut] = useState<'agenda' | 'montar'>('agenda');
+  const [idTecnicoAberto, setIdTecnicoAberto] = useState<number | null>(null);
+  const [idGestorAberto, setIdGestorAberto] = useState<number | null>(null);
   const linhasGestores = useMemo(() => linhasGestoresLoja(gestores?.linhas), [gestores?.linhas]);
   const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
     new Map(),
@@ -455,13 +466,8 @@ export default function EscalaVisitasMobileView() {
       setIdTecnicoManut(null);
       return;
     }
-    setIdTecnicoManut((atual) => {
-      if (atual != null && ids.includes(atual)) return atual;
-      if (visaoManut === 'agenda') return null;
-      const editaveis = manutencao?.ids_tecnicos_editaveis ?? [];
-      const preferido = ids.find((id) => editaveis.includes(id));
-      return preferido ?? ids[0];
-    });
+    setIdTecnicoManut((atual) => (atual != null && ids.includes(atual) ? atual : null));
+    setIdTecnicoAberto((atual) => (atual != null && ids.includes(atual) ? atual : null));
     setPendingManut(new Map());
     setHorariosManutLocal(new Map());
   }, [manutencao?.tecnicos, manutencao?.ids_tecnicos_editaveis, semanaInicio]);
@@ -538,13 +544,13 @@ export default function EscalaVisitasMobileView() {
       .map((v) => Number(v.id_loja));
   }
 
-  function toggleManutLoja(dia: number, idLoja: number) {
-    if (!podeEditarTecnicoManut(idTecnicoManut) || idTecnicoManut == null) return;
-    const atual = idsLojasManut(idTecnicoManut, dia);
+  function toggleManutLoja(dia: number, idLoja: number, idUsuario = idTecnicoManut) {
+    if (!podeEditarTecnicoManut(idUsuario) || idUsuario == null) return;
+    const atual = idsLojasManut(idUsuario, dia);
     const next = atual.includes(idLoja) ? atual.filter((id) => id !== idLoja) : [...atual, idLoja];
     setPendingManut((prev) => {
       const m = new Map(prev);
-      m.set(`${idTecnicoManut}-${dia}`, { id_usuario: idTecnicoManut, dia, id_lojas: next });
+      m.set(`${idUsuario}-${dia}`, { id_usuario: idUsuario, dia, id_lojas: next });
       return m;
     });
   }
@@ -558,19 +564,23 @@ export default function EscalaVisitasMobileView() {
     return { hora_inicio: h?.hora_inicio || '', hora_fim: h?.hora_fim || '' };
   }
 
-  function alterarHorarioManut(campo: 'hora_inicio' | 'hora_fim', valor: string) {
-    if (idTecnicoManut == null || !podeEditarTecnicoManut(idTecnicoManut)) return;
+  function alterarHorarioManut(
+    campo: 'hora_inicio' | 'hora_fim',
+    valor: string,
+    idUsuario = idTecnicoManut,
+  ) {
+    if (idUsuario == null || !podeEditarTecnicoManut(idUsuario)) return;
     setHorariosManutLocal((prev) => {
-      const fromPrev = prev.get(idTecnicoManut);
+      const fromPrev = prev.get(idUsuario);
       const fromServer = (manutencao?.horarios ?? []).find(
-        (x) => x.id_usuario === idTecnicoManut && (x.hora_inicio || x.hora_fim),
+        (x) => x.id_usuario === idUsuario && (x.hora_inicio || x.hora_fim),
       );
       const atual = fromPrev || {
         hora_inicio: fromServer?.hora_inicio || '',
         hora_fim: fromServer?.hora_fim || '',
       };
       const next = new Map(prev);
-      next.set(idTecnicoManut, { ...atual, [campo]: valor });
+      next.set(idUsuario, { ...atual, [campo]: valor });
       return next;
     });
   }
@@ -942,38 +952,6 @@ export default function EscalaVisitasMobileView() {
     });
   }, [grade, linhaDelivery, pending]);
 
-  const manutPorDia = useMemo(() => {
-    if (!manutencao || idTecnicoManut == null) return [];
-    return DIAS_LONGO.map((label, dia) => {
-      const idsMarcados = idsLojasManut(idTecnicoManut, dia);
-      return {
-        dia,
-        label,
-        data: fmtDataCurta(addDaysIso(manutencao.semana_inicio, dia)),
-        lojas: (manutencao.lojas ?? []).map((loja) => ({
-          ...loja,
-          marcada: idsMarcados.includes(loja.id_loja),
-        })),
-        totalMarcadas: idsMarcados.length,
-      };
-    });
-  }, [manutencao, idTecnicoManut, pendingManut]);
-
-  const regioesManut = useMemo(() => {
-    const seen = new Map<string, { id: number | 'sem'; nome: string; regional: string | null }>();
-    for (const t of manutencao?.tecnicos ?? []) {
-      const id = t.id_regiao != null ? t.id_regiao : 'sem';
-      const key = String(id);
-      if (seen.has(key)) continue;
-      seen.set(key, {
-        id,
-        nome: t.nome_regiao || t.grupo || 'Sem região',
-        regional: t.nome_regional || null,
-      });
-    }
-    return [...seen.values()];
-  }, [manutencao?.tecnicos]);
-
   const agendaManutencao = useMemo(
     () =>
       montarAgendaManutencao({
@@ -981,12 +959,8 @@ export default function EscalaVisitasMobileView() {
         lojas: manutencao?.lojas ?? [],
         visitas: manutencao?.visitas ?? [],
         pending: pendingManut,
-      }).filter((p) => {
-        if (idRegiaoManut == null) return true;
-        if (idRegiaoManut === 'sem') return p.id_regiao == null;
-        return Number(p.id_regiao) === Number(idRegiaoManut);
       }),
-    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut, idRegiaoManut],
+    [manutencao?.tecnicos, manutencao?.lojas, manutencao?.visitas, pendingManut],
   );
 
   const agendaManutencaoShare = agendaManutencao;
@@ -1350,74 +1324,14 @@ export default function EscalaVisitasMobileView() {
                 ))}
               </div>
             )}
-            {modo === 'manutencao' && (manutencao?.tecnicos.length ?? 0) > 0 && (
-              <>
-                <div className="ck-estoque-hub__chips" role="tablist" aria-label="Visão da escala de técnicos">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={visaoManut === 'agenda'}
-                    className={`ck-estoque-hub__chip${visaoManut === 'agenda' ? ' is-on' : ''}`}
-                    onClick={() => setVisaoManut('agenda')}
-                  >
-                    Semana
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={visaoManut === 'montar'}
-                    className={`ck-estoque-hub__chip${visaoManut === 'montar' ? ' is-on' : ''}`}
-                    onClick={() => {
-                      setVisaoManut('montar');
-                      setIdTecnicoManut((atual) => {
-                        if (atual != null) return atual;
-                        const ids = (manutencao?.tecnicos ?? []).map((t) => t.id_usuario);
-                        const editaveis = manutencao?.ids_tecnicos_editaveis ?? [];
-                        return ids.find((id) => editaveis.includes(id)) ?? ids[0] ?? null;
-                      });
-                    }}
-                  >
-                    Montar
-                  </button>
-                </div>
-                <div className="ck-escala__pessoas">
-                  {visaoManut === 'agenda'
-                    ? regioesManut.map((r) => (
-                        <button
-                          key={String(r.id)}
-                          type="button"
-                          className={`ck-escala__pessoa${idRegiaoManut === r.id ? ' is-on' : ''}`}
-                          onClick={() =>
-                            setIdRegiaoManut((atual) => (atual === r.id ? null : r.id))
-                          }
-                        >
-                          {r.regional ? primeiroNome(r.regional) : r.nome}
-                        </button>
-                      ))
-                    : (manutencao?.tecnicos ?? []).map((t) => (
-                        <button
-                          key={t.id_usuario}
-                          type="button"
-                          className={`ck-escala__pessoa${idTecnicoManut === t.id_usuario ? ' is-on' : ''}`}
-                          onClick={() => setIdTecnicoManut(t.id_usuario)}
-                        >
-                          {primeiroNome(t.nome)}
-                        </button>
-                      ))}
-                </div>
-              </>
-            )}
             {(modo === 'delivery' ||
-              (modo === 'manutencao' && visaoManut === 'montar') ||
               (modo === 'montar' && ehRegional) ||
               modoMontarDelivery) &&
               !loading && (
               <div className="ck-escala__dias">
                 {((modo === 'delivery' || modoMontarDelivery)
                   ? deliveryPorDia
-                  : modo === 'manutencao'
-                    ? manutPorDia
-                    : montarPorDia
+                  : montarPorDia
                 ).map((d) => {
                   const selected = d.dia === diaSelecionado;
                   const isToday = hojeIndex === d.dia;
@@ -1655,76 +1569,74 @@ export default function EscalaVisitasMobileView() {
               </div>
             ) : (
               linhasGestores.map((linha) => {
-                const tipoLabel = (tipo: string) =>
-                  tipo === 'folga'
-                    ? 'Folga'
-                    : tipo === 'ferias'
-                      ? 'Férias'
-                      : tipo === 'falta'
-                        ? 'Falta'
-                        : tipo === 'ausencia'
-                          ? 'Atestado'
-                          : tipo;
+                const podeEditar = Boolean(gestores?.pode_editar);
+                const aberto = idGestorAberto === linha.id_gestor;
                 return (
                   <div
                     key={linha.id_gestor}
-                    className={`ck-escala__card ck-escala-gestor${ehMinhaLinhaGestor(linha, user) ? ' is-me' : ''}`}
+                    className={`ck-escala__card ck-escala-gestor${ehMinhaLinhaGestor(linha, user) ? ' is-me' : ''}${aberto ? ' is-open' : ''}`}
                   >
                     <div className="ck-escala__card-body">
-                      <div className="ck-escala-gestor__head">
-                        <div>
-                          <p className="ck-escala__card-title">{linha.nome}</p>
-                          <p className="ck-escala__card-meta">
-                            {linha.nome_loja ? (
-                              <LojaBkMarca bk={linha.bk_number} nome={linha.nome_loja} size={16} />
-                            ) : (
-                              linha.bk_number || ''
-                            )}
-                          </p>
-                        </div>
-                        <p className="ck-escala-gestor__folga-tag">
-                          Folga {linha.folga_padrao || '—'}
-                        </p>
-                      </div>
+                      <button
+                        type="button"
+                        className="ck-escala-gestor__head"
+                        aria-expanded={aberto}
+                        onClick={() =>
+                          setIdGestorAberto((atual) => (atual === linha.id_gestor ? null : linha.id_gestor))
+                        }
+                      >
+                        <span className="ck-escala__card-title">{linha.nome}</span>
+                        <span className="ck-escala-gestor__chev" aria-hidden>
+                          {aberto ? '▾' : '›'}
+                        </span>
+                      </button>
+                      {aberto ? (
+                        <>
+                      {podeEditar ? (
+                        <label className="ck-escala-gestor__folga">
+                          <span>Folga da semana</span>
+                          <select
+                            value={linha.folga_padrao || ''}
+                            disabled={salvando}
+                            onChange={(e) => void salvarFolgaPadraoGestor(linha.id_gestor, e.target.value)}
+                          >
+                            <option value="">—</option>
+                            {FOLGA_GESTOR_OPCOES.map((op) => (
+                              <option key={op} value={op}>
+                                {op}
+                              </option>
+                            ))}
+                            <option value="combinado com Camilla">combinado com Camilla</option>
+                            {linha.folga_padrao &&
+                              !(FOLGA_GESTOR_OPCOES as readonly string[]).includes(linha.folga_padrao) &&
+                              linha.folga_padrao !== 'combinado com Camilla' && (
+                                <option value={linha.folga_padrao}>{linha.folga_padrao}</option>
+                              )}
+                          </select>
+                        </label>
+                      ) : (
+                        <p className="ck-escala-gestor__folga-tag">Folga {linha.folga_padrao || '—'}</p>
+                      )}
                       <div className="ck-escala-gestor__dias">
                         {linha.dias.map((d) => {
                           const inicio = d.hora_inicio || '';
                           const fim = d.hora_fim || '';
+                          const isToday = hojeIndex === d.dia;
+                          const resumo = d.tipo
+                            ? rotuloTipoGestor(d.tipo)
+                            : inicio && fim
+                              ? `${inicio} – ${fim}`
+                              : '—';
                           return (
                             <div
                               key={d.dia}
-                              className={`ck-escala-gestor__dia${d.tipo ? ' is-off' : ''}${d.tipo === 'folga' ? ' is-folga' : ''}${d.tipo === 'ferias' ? ' is-ferias' : ''}${d.tipo === 'falta' ? ' is-falta' : ''}${d.tipo === 'ausencia' ? ' is-atestado' : ''}`}
+                              className={`ck-escala-gestor__row${d.tipo ? ' is-off' : ''}${d.tipo === 'folga' ? ' is-folga' : ''}${d.tipo === 'ferias' ? ' is-ferias' : ''}${d.tipo === 'falta' ? ' is-falta' : ''}${d.tipo === 'ausencia' ? ' is-atestado' : ''}${isToday ? ' is-today' : ''}`}
                             >
-                              <strong>{DIAS_ABREV[d.dia]}</strong>
-                              <small>{fmtDataCurta(addDaysIso(semanaInicio, d.dia))}</small>
-                              {d.tipo ? (
-                                gestores?.pode_editar ? (
-                                  <select
-                                    className="ck-escala-gestor__tipo"
-                                    aria-label={`Situação ${linha.nome} ${DIAS_ABREV[d.dia]}`}
-                                    value={d.tipo}
-                                    disabled={salvando}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      void salvarCelulaGestor(
-                                        linha.id_gestor,
-                                        d.dia,
-                                        v
-                                          ? { tipo: v }
-                                          : { tipo: null, hora_inicio: '08:00', hora_fim: '18:00' },
-                                      );
-                                    }}
-                                  >
-                                    <option value="">Horário</option>
-                                    <option value="folga">Folga</option>
-                                    <option value="ferias">Férias</option>
-                                    <option value="ausencia">Atestado</option>
-                                    <option value="falta">Falta</option>
-                                  </select>
-                                ) : (
-                                  <em>{tipoLabel(d.tipo)}</em>
-                                )
-                              ) : gestores?.pode_editar ? (
+                              <div className="ck-escala-gestor__when">
+                                <strong>{DIAS_ABREV[d.dia]}</strong>
+                                <small>{fmtDataCurta(addDaysIso(semanaInicio, d.dia))}</small>
+                              </div>
+                              {podeEditar && !d.tipo ? (
                                 <span
                                   className="ck-escala-gestor__horas"
                                   onClick={(e) => e.stopPropagation()}
@@ -1760,6 +1672,7 @@ export default function EscalaVisitasMobileView() {
                                       void salvarHorarioGestor(linha.id_gestor, d.dia, a, b);
                                     }}
                                   />
+                                  <i>–</i>
                                   <input
                                     type="text"
                                     inputMode="numeric"
@@ -1790,181 +1703,188 @@ export default function EscalaVisitasMobileView() {
                                       void salvarHorarioGestor(linha.id_gestor, d.dia, a, b);
                                     }}
                                   />
-                                  <select
-                                    className="ck-escala-gestor__tipo is-empty"
-                                    aria-label={`Situação ${linha.nome} ${DIAS_ABREV[d.dia]}`}
-                                    value=""
-                                    disabled={salvando}
-                                    onChange={(e) => {
-                                      const v = e.target.value;
-                                      if (!v) return;
-                                      void salvarCelulaGestor(linha.id_gestor, d.dia, { tipo: v });
-                                    }}
-                                  >
-                                    <option value="">—</option>
-                                    <option value="folga">Folga</option>
-                                    <option value="ferias">Férias</option>
-                                    <option value="ausencia">Atestado</option>
-                                    <option value="falta">Falta</option>
-                                  </select>
                                 </span>
                               ) : (
-                                <em className="is-hora">
-                                  {inicio && fim ? `${inicio}–${fim}` : '—'}
-                                </em>
+                                <em className={d.tipo ? '' : 'is-hora'}>{resumo}</em>
                               )}
+                              {podeEditar ? (
+                                <select
+                                  className={`ck-escala-gestor__tipo${d.tipo ? '' : ' is-empty'}`}
+                                  aria-label={`Situação ${linha.nome} ${DIAS_ABREV[d.dia]}`}
+                                  value={d.tipo || ''}
+                                  disabled={salvando}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    void salvarCelulaGestor(
+                                      linha.id_gestor,
+                                      d.dia,
+                                      v
+                                        ? { tipo: v }
+                                        : { tipo: null, hora_inicio: inicio || '08:00', hora_fim: fim || '18:00' },
+                                    );
+                                  }}
+                                >
+                                  <option value="">Horário</option>
+                                  <option value="folga">Folga</option>
+                                  <option value="ferias">Férias</option>
+                                  <option value="ausencia">Atestado</option>
+                                  <option value="falta">Falta</option>
+                                </select>
+                              ) : null}
                             </div>
                           );
                         })}
                       </div>
-                      {gestores?.pode_editar ? (
-                        <div className="ck-escala-gestor__folga">
-                          <span>Folga da semana</span>
-                          <select
-                            value={linha.folga_padrao || ''}
-                            disabled={salvando}
-                            onChange={(e) => void salvarFolgaPadraoGestor(linha.id_gestor, e.target.value)}
-                          >
-                            <option value="">—</option>
-                            {FOLGA_GESTOR_OPCOES.map((op) => (
-                              <option key={op} value={op}>
-                                {op}
-                              </option>
-                            ))}
-                            <option value="combinado com Camilla">combinado com Camilla</option>
-                            {linha.folga_padrao &&
-                              !(FOLGA_GESTOR_OPCOES as readonly string[]).includes(linha.folga_padrao) &&
-                              linha.folga_padrao !== 'combinado com Camilla' && (
-                                <option value={linha.folga_padrao}>{linha.folga_padrao}</option>
-                              )}
-                          </select>
-                        </div>
+                        </>
                       ) : null}
                     </div>
                   </div>
                 );
               })
             )
-          ) : modo === 'manutencao' && visaoManut === 'agenda' ? (
-            <EscalaAgendaPorRegional
-              variant="mobile"
-              pessoas={agendaManutencao}
-              semanaInicio={semanaInicio}
-            />
           ) : modo === 'manutencao' ? (
-            (() => {
-              const podeEditarAtual = podeEditarTecnicoManut(idTecnicoManut);
-              const diaManut = manutPorDia.find((d) => d.dia === diaSelecionado);
-              const lojasDia = podeEditarAtual
-                ? (diaManut?.lojas ?? [])
-                : (diaManut?.lojas ?? []).filter((l) => l.marcada);
-              const hr =
-                idTecnicoManut != null
-                  ? horarioManutTecnico(idTecnicoManut)
-                  : { hora_inicio: '', hora_fim: '' };
-              const horario = (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#64748B' }}>Horário</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    maxLength={5}
-                    placeholder="08:00"
-                    aria-label="Início do expediente"
-                    value={hr.hora_inicio}
-                    disabled={!podeEditarAtual || idTecnicoManut == null}
-                    onChange={(e) => alterarHorarioManut('hora_inicio', formatarHoraDigitada(e.target.value))}
-                    style={{
-                      flex: 1,
-                      border: '1px solid rgba(27,42,107,0.16)',
-                      borderRadius: 10,
-                      padding: '8px 10px',
-                      fontWeight: 700,
-                      fontSize: 14,
-                    }}
-                  />
-                  <span style={{ fontSize: 12, color: '#94A3B8' }}>até</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    maxLength={5}
-                    placeholder="18:00"
-                    aria-label="Fim do expediente"
-                    value={hr.hora_fim}
-                    disabled={!podeEditarAtual || idTecnicoManut == null}
-                    onChange={(e) => alterarHorarioManut('hora_fim', formatarHoraDigitada(e.target.value))}
-                    style={{
-                      flex: 1,
-                      border: '1px solid rgba(27,42,107,0.16)',
-                      borderRadius: 10,
-                      padding: '8px 10px',
-                      fontWeight: 700,
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-              );
-              if (!lojasDia.length) {
+            !(manutencao?.tecnicos.length) ? (
+              <div className="ck-escala__empty">
+                <strong>Nenhum técnico</strong>
+                <p>
+                  {manutencao?.escopo === 'regiao'
+                    ? 'Nenhum técnico vinculado à sua região.'
+                    : 'Nenhum técnico cadastrado. Use o perfil Técnico em Usuários ou vincule à região na Frota.'}
+                </p>
+              </div>
+            ) : (
+              (manutencao?.tecnicos ?? []).map((t) => {
+                const aberto = idTecnicoAberto === t.id_usuario;
+                const podeEditar = podeEditarTecnicoManut(t.id_usuario);
+                const hr = horarioManutTecnico(t.id_usuario);
+                const ehEu = Number(user?.id_usuario) === Number(t.id_usuario);
                 return (
-                  <>
-                    {horario}
-                    <div className="ck-escala__empty">
-                    <strong>{podeEditarAtual ? 'Nenhuma loja' : 'Sem visita neste dia'}</strong>
-                    <p>
-                      {manutencao?.tecnicos.length
-                        ? podeEditarAtual
-                          ? 'Toque nas lojas do dia e salve a rota do técnico.'
-                          : 'Sem permissão para montar a escala deste técnico.'
-                        : manutencao?.escopo === 'regiao'
-                          ? 'Nenhum técnico vinculado à sua região.'
-                          : 'Nenhum técnico cadastrado. Use o perfil Técnico em Usuários ou vincule à região na Frota.'}
-                    </p>
-                  </div>
-                  </>
-                );
-              }
-              return (
-                <>
-                  {horario}
-                  {lojasDia.map((loja) => (
-                <button
-                  key={loja.id_loja}
-                  type="button"
-                  className={`ck-escala__card${loja.marcada ? ' is-delivery-on' : ''}${
-                    podeEditarAtual ? ' is-edit' : ''
-                  }`}
-                  disabled={!podeEditarAtual || salvando}
-                  onClick={() => toggleManutLoja(diaSelecionado, loja.id_loja)}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    cursor: podeEditarAtual ? 'pointer' : 'default',
-                  }}
-                >
                   <div
-                    className="ck-escala__card-stripe"
-                    style={{ background: loja.marcada ? acento : 'rgba(27,42,107,0.2)' }}
-                    aria-hidden
-                  />
-                  <div className="ck-escala__card-body">
-                    <p className="ck-escala__card-title">
-                      <LojaBkMarca bk={loja.bk_number} nome={loja.nome} />
-                    </p>
-                    <p className={`ck-escala__card-meta${loja.marcada ? ' is-on' : ' is-off'}`}>
-                      {loja.marcada
-                        ? podeEditarAtual
-                          ? 'Agendado · toque para remover'
-                          : 'Agendado'
-                        : 'Toque para agendar'}
-                    </p>
+                    key={t.id_usuario}
+                    className={`ck-escala__card ck-escala-gestor${ehEu ? ' is-me' : ''}${aberto ? ' is-open' : ''}`}
+                  >
+                    <div className="ck-escala__card-body">
+                      <button
+                        type="button"
+                        className="ck-escala-gestor__head"
+                        aria-expanded={aberto}
+                        onClick={() => {
+                          if (idTecnicoAberto === t.id_usuario) {
+                            setIdTecnicoAberto(null);
+                            return;
+                          }
+                          setIdTecnicoManut(t.id_usuario);
+                          setIdTecnicoAberto(t.id_usuario);
+                        }}
+                      >
+                        <span className="ck-escala__card-title">{t.nome}</span>
+                        <span className="ck-escala-gestor__chev" aria-hidden>
+                          {aberto ? '▾' : '›'}
+                        </span>
+                      </button>
+                      {aberto ? (
+                        <>
+                          {podeEditar ? (
+                            <label className="ck-escala-gestor__folga">
+                              <span>Horário da semana</span>
+                              <span className="ck-escala-gestor__horas">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  autoComplete="off"
+                                  maxLength={5}
+                                  placeholder="08:00"
+                                  aria-label={`Início ${t.nome}`}
+                                  value={hr.hora_inicio}
+                                  disabled={salvando}
+                                  onChange={(e) =>
+                                    alterarHorarioManut(
+                                      'hora_inicio',
+                                      formatarHoraDigitada(e.target.value),
+                                      t.id_usuario,
+                                    )
+                                  }
+                                />
+                                <i>–</i>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  autoComplete="off"
+                                  maxLength={5}
+                                  placeholder="18:00"
+                                  aria-label={`Fim ${t.nome}`}
+                                  value={hr.hora_fim}
+                                  disabled={salvando}
+                                  onChange={(e) =>
+                                    alterarHorarioManut(
+                                      'hora_fim',
+                                      formatarHoraDigitada(e.target.value),
+                                      t.id_usuario,
+                                    )
+                                  }
+                                />
+                              </span>
+                            </label>
+                          ) : (
+                            <p className="ck-escala-gestor__folga-tag">
+                              {hr.hora_inicio && hr.hora_fim
+                                ? `${hr.hora_inicio} – ${hr.hora_fim}`
+                                : 'Sem horário'}
+                            </p>
+                          )}
+                          <div className="ck-escala-gestor__dias">
+                            {DIAS_ABREV.map((_, dia) => {
+                              const ids = idsLojasManut(t.id_usuario, dia);
+                              const lojas = (manutencao?.lojas ?? []).filter((loja) =>
+                                ids.includes(loja.id_loja),
+                              );
+                              const isToday = hojeIndex === dia;
+                              const selected = diaSelecionado === dia;
+                              const resumo = lojas.length
+                                ? lojas.map(rotuloLojaManut).join(', ')
+                                : 'Folga';
+                              return (
+                                <div key={dia}>
+                                  <button
+                                    type="button"
+                                    className={`ck-escala-gestor__row is-tec${lojas.length === 0 ? ' is-off is-folga' : ''}${isToday ? ' is-today' : ''}${selected && podeEditar ? ' is-on' : ''}`}
+                                    onClick={() => {
+                                      if (!podeEditar) return;
+                                      setDiaSelecionado(dia);
+                                    }}
+                                  >
+                                    <div className="ck-escala-gestor__when">
+                                      <strong>{DIAS_ABREV[dia]}</strong>
+                                      <small>{fmtDataCurta(addDaysIso(semanaInicio, dia))}</small>
+                                    </div>
+                                    <em className={lojas.length ? 'is-hora' : ''}>{resumo}</em>
+                                  </button>
+                                  {podeEditar && selected ? (
+                                    <div className="ck-escala-tec__lojas">
+                                      {(manutencao?.lojas ?? []).map((loja) => (
+                                        <button
+                                          key={loja.id_loja}
+                                          type="button"
+                                          className={`ck-escala-tec__loja${ids.includes(loja.id_loja) ? ' is-on' : ''}`}
+                                          disabled={salvando}
+                                          onClick={() => toggleManutLoja(dia, loja.id_loja, t.id_usuario)}
+                                        >
+                                          {rotuloLojaManut(loja)}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                </button>
-                  ))}
-                </>
-              );
-            })()
+                );
+              })
+            )
           ) : modo === 'minhas' ? (
             minhasVisitas.length === 0 ? (
               <div className="ck-escala__empty">
@@ -2076,7 +1996,7 @@ export default function EscalaVisitasMobileView() {
           {((podeEditarGrade || grade?.pode_submeter) && modo === 'montar' && !ehDeliveryOnly) ||
           ((podeEditarDelivery || grade?.pode_submeter_delivery) &&
             (modo === 'delivery' || modoMontarDelivery)) ||
-          (podeEditarTecnicoManut(idTecnicoManut) && modo === 'manutencao') ? (
+          ((pendingManut.size > 0 || horariosManutLocal.size > 0) && modo === 'manutencao') ? (
             <div className="ck-escala__acoes">
               {(podeEditarGrade ||
                 (podeEditarDelivery && (modo === 'delivery' || modoMontarDelivery))) &&
@@ -2099,7 +2019,7 @@ export default function EscalaVisitasMobileView() {
                   Salvar{pending.size > 0 ? ` (${pending.size})` : ''}
                 </Button>
               )}
-              {modo === 'manutencao' && podeEditarTecnicoManut(idTecnicoManut) && (
+              {modo === 'manutencao' && (pendingManut.size > 0 || horariosManutLocal.size > 0) && (
                 <Button
                   variant="contained"
                   size="small"

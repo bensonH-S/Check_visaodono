@@ -903,9 +903,30 @@
 
 .ck-escala-gestor__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ck-escala-gestor__head .ck-escala__card-title {
+  margin: 0;
+}
+
+.ck-escala-gestor__chev {
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+  font-size: 1.1rem;
+  color: #8d8d8d;
 }
 
 .ck-escala-gestor__folga-tag {
@@ -919,133 +940,189 @@
 }
 
 .ck-escala-gestor__dias {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 12px;
 }
 
-.ck-escala-gestor__dia {
-  display: flex;
-  flex-direction: column;
+.ck-escala-gestor__row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 96px;
   align-items: center;
-  gap: 2px;
-  min-height: 64px;
-  padding: 6px 2px 8px;
-  border: 0;
-  border-radius: 8px;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border-radius: 10px;
   background: rgba(15, 23, 42, 0.04);
+}
+
+button.ck-escala-gestor__row {
+  width: 100%;
+  margin: 0;
+  border: 0;
   color: inherit;
   font: inherit;
-  text-align: center;
+  text-align: left;
+  cursor: pointer;
 }
 
-.ck-escala-gestor__dia:disabled {
-  opacity: 1;
+.ck-escala-gestor__row.is-tec {
+  grid-template-columns: 64px minmax(0, 1fr);
 }
 
-.ck-escala-gestor__dia.is-folga,
-.ck-escala-gestor__dia.is-off,
-.ck-escala-gestor__dia.is-ferias,
-.ck-escala-gestor__dia.is-falta,
-.ck-escala-gestor__dia.is-atestado {
-  background: rgba(15, 23, 42, 0.04);
+.ck-escala-gestor__row.is-on {
+  box-shadow: inset 3px 0 0 #fe6c22;
 }
 
-.ck-escala-gestor__dia strong {
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #64748b;
+.ck-escala-tec__lojas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 2px 10px;
 }
 
-.ck-escala-gestor__dia small {
-  font-size: 0.78rem;
-  font-weight: 800;
+.ck-escala-tec__loja {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #333840;
+  color: #e8eef2;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ck-escala-tec__loja.is-on {
+  background: #fe6c22;
+  color: #fff;
+  border-color: #fe6c22;
+}
+
+.ck-escala-tec__loja:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.ck-escala-gestor__row.is-today {
+  box-shadow: inset 0 0 0 1px rgba(254, 108, 34, 0.55);
+}
+
+.ck-escala-gestor__row.is-folga,
+.ck-escala-gestor__row.is-off {
+  background: rgba(254, 108, 34, 0.08);
+}
+
+.ck-escala-gestor__row.is-ferias {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.ck-escala-gestor__row.is-falta {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.ck-escala-gestor__row.is-atestado {
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.ck-escala-gestor__when {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ck-escala-gestor__when strong {
+  font-size: 0.82rem;
+  font-weight: 700;
   color: var(--ck-ink);
 }
 
-.ck-escala-gestor__dia em {
-  margin-top: 2px;
+.ck-escala-gestor__when small {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #8d8d8d;
+}
+
+.ck-escala-gestor__row em {
+  margin: 0;
   font-style: normal;
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: 0.88rem;
+  font-weight: 700;
   color: var(--ck-ink);
 }
 
-.ck-escala-gestor__dia em.is-hora {
-  color: var(--ck-navy);
+.ck-escala-gestor__row em.is-hora {
   font-variant-numeric: tabular-nums;
 }
 
 .ck-escala-gestor__horas {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  width: 100%;
-  margin-top: 2px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ck-escala-gestor__horas i {
+  font-style: normal;
+  color: #8d8d8d;
+  font-weight: 700;
 }
 
 .ck-escala-gestor__horas input {
-  width: 100%;
-  max-width: 52px;
+  width: 64px;
   border: 0;
-  background: transparent;
-  padding: 0;
+  border-radius: 8px;
+  background: rgba(11, 23, 33, 0.35);
+  padding: 8px 4px;
   text-align: center;
   font: inherit;
-  font-size: 0.68rem;
-  font-weight: 800;
+  font-size: 0.86rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--ck-navy);
+  color: var(--ck-ink);
 }
 
 .ck-escala-gestor__tipo {
   width: 100%;
-  max-width: 72px;
-  margin-top: 2px;
+  min-width: 0;
   border: 0;
-  background: transparent;
-  text-align: center;
+  border-radius: 8px;
+  background: rgba(11, 23, 33, 0.35);
+  padding: 8px 4px;
   font: inherit;
-  font-size: 0.62rem;
-  font-weight: 800;
+  font-size: 0.78rem;
+  font-weight: 700;
   color: var(--ck-ink);
 }
 
 .ck-escala-gestor__tipo.is-empty {
-  color: #94a3b8;
-  font-weight: 700;
+  color: #8d8d8d;
 }
 
 .ck-escala-gestor__folga {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(27, 42, 107, 0.08);
+  margin-top: 12px;
 }
 
 .ck-escala-gestor__folga span {
-  font-size: 0.72rem;
+  flex-shrink: 0;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: #64748b;
+  color: #8d8d8d;
 }
 
 .ck-escala-gestor__folga select {
   flex: 1;
   min-width: 0;
-  font-size: 0.84rem;
+  font-size: 0.86rem;
   font-weight: 700;
   color: var(--ck-ink);
   border: 0;
-  border-bottom: 1px solid rgba(27, 42, 107, 0.16);
-  border-radius: 0;
-  padding: 4px 0;
-  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(11, 23, 33, 0.35);
 }
 
 /* ================================================================
@@ -1062,35 +1139,15 @@ html.dark .ck-escala {
   --ck-accent-shadow: rgba(255, 122, 61, 0.22);
 }
 
-html.dark .ck-escala-gestor__dia {
+html.dark .ck-escala-gestor__row {
   background: rgba(255, 255, 255, 0.04);
 }
 
-html.dark .ck-escala-gestor__dia.is-folga,
-html.dark .ck-escala-gestor__dia.is-off,
-html.dark .ck-escala-gestor__dia.is-ferias,
-html.dark .ck-escala-gestor__dia.is-falta,
-html.dark .ck-escala-gestor__dia.is-atestado {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-html.dark .ck-escala-gestor__tipo {
-  color: #f8fafc;
-  background: transparent;
-}
-
-html.dark .ck-escala-gestor__tipo.is-empty {
-  color: #94a3b8;
-}
-
-html.dark .ck-escala-gestor__dia em.is-hora {
-  color: #e2e8f0;
-}
-
+html.dark .ck-escala-gestor__tipo,
 html.dark .ck-escala-gestor__horas input,
 html.dark .ck-escala-gestor__folga select {
-  background: transparent;
   color: #f8fafc;
+  background: rgba(11, 23, 33, 0.45);
 }
 
 html.dark .ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
@@ -1620,11 +1677,37 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 
 .ck-escala--hub .ck-escala-cal__data strong,
 .ck-escala--hub .ck-escala-cal__ev strong,
-.ck-escala--hub .ck-escala-cal__ev .ck-loja-bk,
+.ck-escala--hub .ck-escala-cal__ev .ck-loja-bk {
+  color: #f5f5f5 !important;
+}
+
+.ck-escala--hub .ck-escala-gestor__row {
+  background: #2a2d32;
+}
+
+.ck-escala--hub .ck-escala-gestor__row.is-folga,
+.ck-escala--hub .ck-escala-gestor__row.is-off {
+  background: rgba(254, 108, 34, 0.16);
+}
+
+.ck-escala--hub .ck-escala-gestor__row.is-on {
+  background: rgba(254, 108, 34, 0.22);
+}
+
+.ck-escala--hub .ck-escala-tec__loja {
+  background: #0b1721;
+  border-color: transparent;
+  color: #f5f5f5;
+}
+
+.ck-escala--hub .ck-escala-tec__loja.is-on {
+  background: #fe6c22;
+  color: #fff;
+}
+
+.ck-escala--hub .ck-escala-gestor__when strong,
+.ck-escala--hub .ck-escala-gestor__row em,
 .ck-escala--hub .ck-escala-gestor__horas input,
-.ck-escala--hub .ck-escala-gestor__dia small,
-.ck-escala--hub .ck-escala-gestor__dia em,
-.ck-escala--hub .ck-escala-gestor__dia em.is-hora,
 .ck-escala--hub .ck-escala-gestor__tipo {
   color: #f5f5f5 !important;
 }
