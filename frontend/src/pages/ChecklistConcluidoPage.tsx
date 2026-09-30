@@ -52,7 +52,11 @@ export default function ChecklistConcluidoPage() {
         id={id}
         dataFormatada={visita ? fmtData(visita.data_visita) : ''}
         onVoltar={() => navigate(paths.base)}
-        onRelatorio={() => navigate(relatorioVisitaPath(id!, paths.mobile))}
+        onRelatorio={() =>
+          navigate(relatorioVisitaPath(id!, paths.mobile), {
+            state: { from: paths.base },
+          })
+        }
         onNovaVisita={() => navigate(paths.base, { state: { reiniciar: true } })}
         onInicio={() => navigate(paths.base)}
       />

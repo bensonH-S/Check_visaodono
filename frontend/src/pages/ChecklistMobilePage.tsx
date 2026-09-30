@@ -294,7 +294,7 @@ export default function ChecklistMobilePage() {
       setMsg('');
       setMsgTitulo('');
       retomadaIniciada.current = null;
-      navigate('/visitas/mobile');
+      navigate('/checklist/mobile', { replace: true });
     });
     return () => registrarVoltar(null);
   }, [location.pathname, registrarVoltar, navigate]);

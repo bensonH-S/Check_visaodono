@@ -11,7 +11,7 @@ import { useLocation } from 'react-router-dom';
 import { isIosChrome, usePwaInstallPrompt } from '../hooks/usePwaInstallPrompt';
 import { APP_NAME } from '../config/brand';
 
-const ORANGE = '#FF7A3D';
+const ORANGE = '#fe6c22';
 
 function Passo({
   numero,
@@ -78,8 +78,8 @@ export default function PwaInstallDialog() {
         px: 2.5,
         pt: 'calc(28px + env(safe-area-inset-top, 0px))',
         pb: 'calc(28px + env(safe-area-inset-bottom, 0px))',
-        background: 'linear-gradient(160deg, #0E1848 0%, #1B2A6B 48%, #243987 100%)',
-        color: '#fff',
+        background: '#0b1721',
+        color: '#f5f5f5',
       }}
     >
       <Box sx={{ maxWidth: 420, mx: 'auto', width: '100%' }}>
@@ -89,8 +89,9 @@ export default function PwaInstallDialog() {
               width: 76,
               height: 76,
               borderRadius: 3,
-              bgcolor: '#fff',
-              boxShadow: '0 12px 32px rgba(0,0,0,0.28)',
+              bgcolor: '#333840',
+              border: '1px solid rgba(255,255,255,0.12)',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
               display: 'grid',
               placeItems: 'center',
               mb: 2,
@@ -98,13 +99,25 @@ export default function PwaInstallDialog() {
           >
             <BrandLogo variante="icone" maxWidth={80} />
           </Box>
-          <Typography id="pwa-install-title" sx={{ fontWeight: 800, fontSize: '1.45rem', lineHeight: 1.2 }}>
-            {modo === 'computador' ? 'O app é só no celular' : 'Instale o app antes de usar'}
+          <Typography
+            sx={{
+              mb: 0.75,
+              fontWeight: 700,
+              fontSize: '0.72rem',
+              letterSpacing: '0.02em',
+              textTransform: 'uppercase',
+              color: 'rgba(245,245,245,0.55)',
+            }}
+          >
+            Grupo Alvim
           </Typography>
-          <Typography sx={{ mt: 1, fontSize: '0.92rem', color: 'rgba(255,255,255,0.74)', lineHeight: 1.45 }}>
+          <Typography id="pwa-install-title" sx={{ fontWeight: 800, fontSize: '1.28rem', lineHeight: 1.25, color: '#f5f5f5' }}>
+            {modo === 'computador' ? 'O app é só no celular' : 'Instale o app na tela inicial'}
+          </Typography>
+          <Typography sx={{ mt: 1, fontSize: '0.88rem', color: '#8d8d8d', lineHeight: 1.45 }}>
             {modo === 'computador'
               ? 'Notebook e computador não entram. Abra no iPhone ou Android e instale na tela inicial.'
-              : `Instale o ${APP_NAME} na tela inicial. Sem o ícone, não dá para usar — nem recusando a instalação.`}
+              : `Instale o ${APP_NAME} na tela inicial. Sem o ícone, não dá para usar.`}
           </Typography>
         </Box>
 
@@ -115,7 +128,7 @@ export default function PwaInstallDialog() {
             gap: 2,
             p: 2,
             borderRadius: 3,
-            bgcolor: 'rgba(255,255,255,0.08)',
+            bgcolor: '#333840',
             border: '1px solid rgba(255,255,255,0.12)',
           }}
         >
@@ -207,7 +220,7 @@ export default function PwaInstallDialog() {
               py: 1.4,
               fontWeight: 800,
               bgcolor: ORANGE,
-              '&:hover': { bgcolor: '#e8520a' },
+              '&:hover': { bgcolor: '#e85f1a' },
             }}
           >
             {instalando ? 'Abrindo instalação…' : 'Instalar agora'}

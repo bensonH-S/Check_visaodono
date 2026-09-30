@@ -27,13 +27,12 @@ import { mobilePaginaCabecalhoFixo } from '../config/mobileRoutes';
 import MapaTecnicosListaLojas from '../components/mapa/MapaTecnicosListaLojas';
 import { MapaTecnicosMobileProvider } from '../pages/mapa/MapaTecnicosMobileContext';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import HistoryIcon from '@mui/icons-material/History';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import BuildIcon from '@mui/icons-material/Build';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import LanguageIcon from '@mui/icons-material/Language';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerNcMobile, podeVerEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerNcMobile, podeVerEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
 import { useAppTheme } from '../context/ThemeContext';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 import { colors } from '../theme/tokens';
@@ -391,7 +390,6 @@ function ChamadosMobileLayoutInner() {
   const veSinoChamados = !!podeChamados || (user != null && !modoRestrito && podeReceberPainelDiretorChamados(user));
   const podeFrota = user && podeUsarFrota(user) && canalMobile(appConfig.modulos, 'frota');
   const podeMapa = user && podeVerMapaTecnicosMobile(user) && canalMobile(appConfig.modulos, 'mapa');
-  const podeVisitas = user && !modoRestrito && podeVerVisitasMobile(user) && canalMobile(appConfig.modulos, 'visitas');
   const podeEscalaVisitas =
     user &&
     !modoRestrito &&
@@ -461,12 +459,6 @@ function ChamadosMobileLayoutInner() {
             label: 'Checklist',
             icon: <AssignmentIcon fontSize="small" />,
             show: !!podeChecklist,
-          },
-          {
-            to: '/visitas/mobile',
-            label: 'Visitas',
-            icon: <HistoryIcon fontSize="small" />,
-            show: !!podeVisitas,
           },
           {
             to: '/chamados/mobile',
@@ -735,9 +727,13 @@ function ChamadosMobileLayoutInner() {
     if (isEnergiaNovo || isEnergiaDetalhe) return '/energia/mobile';
     if (isEstoqueDetalhe) return '/estoque/mobile';
     if (isFrotaSub) return '/frota/mobile';
-    if (isRelatorio) return '/visitas/mobile';
-    if (isChecklistConcluido) return '/visitas/mobile';
-    if (isChecklistEmAndamento || isChecklistStart || isChecklist) return '/visitas/mobile';
+    if (isRelatorio) {
+      const from = (location.state as { from?: string } | null)?.from;
+      if (from === '/checklist/mobile' || from === '/visitas/mobile') return from;
+      return '/checklist/mobile';
+    }
+    if (isChecklistConcluido) return '/checklist/mobile';
+    if (isChecklistEmAndamento || isChecklistStart || isChecklist) return '/checklist/mobile';
     if (isNovo || isDetalhe) return '/chamados/mobile';
     return '/chamados/mobile';
   }

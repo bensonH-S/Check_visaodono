@@ -10,7 +10,7 @@ import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 import { showToast } from '../utils/toast';
-import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import { Bell } from 'lucide-react';
 import { api, type ContextoNotificacoesManut, type EscalaVisitasNotificacao, type ManutNotificacao } from '../api/client';
 import { formatDataHoraBrasilia } from '../utils/dateBr';
 import { NOTIFICACOES_REFRESH } from '../utils/notificacoesEvent';
@@ -23,7 +23,20 @@ import {
   filtrarNotificacoesVisiveisChamados,
   tipoAlertaChamadoOps,
 } from '../constants/notificacoesChamados';
-import { podeReceberPainelDiretorChamados, podeVerEscalaVisitas } from '../lib/auth';
+import {
+  podeReceberPainelDiretorChamados,
+  podeVerEscalaVisitas,
+  temPermissao,
+} from '../lib/auth';
+
+/** Mesmas permissões exigidas pelo backend em GET /manutencao/notificacoes. */
+function podeConsultarManutNotificacoes() {
+  return (
+    temPermissao('chamados.ver') ||
+    temPermissao('chamados.abrir') ||
+    temPermissao('chamados.aprovar')
+  );
+}
 
 const ESCALA_ID_BASE = 1_000_000;
 const DARK_SURFACE = '#333840';
@@ -240,17 +253,45 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
     return () => window.removeEventListener('resize', alinharSetaBalao);
   }, [anchor, menuMobile, alinharSetaBalao, lista.length]);
 
+  /** Soft-fail via state so o effect derruba o setInterval após 403/500. */
+  const [manutOff, setManutOff] = useState(false);
+  const [escalaOff, setEscalaOff] = useState(false);
+
   const carregar = useCallback(() => {
-    const incluirEscala = contexto !== 'aprovacoes' && podeVerEscalaVisitas();
+    const incluirManut = !manutOff && podeConsultarManutNotificacoes();
+    const incluirEscala =
+      !escalaOff && contexto !== 'aprovacoes' && podeVerEscalaVisitas();
+
+    if (!incluirManut && !incluirEscala) {
+      setLista([]);
+      setNaoLidas(0);
+      return;
+    }
+
     Promise.all([
-      api.manutNotificacoes(contexto).catch(() => [] as ManutNotificacao[]),
-      api.manutNotificacoesNaoLidas({ idLoja, contexto }).catch(() => ({ total: 0 })),
+      incluirManut
+        ? api.manutNotificacoes(contexto).catch(() => {
+            setManutOff(true);
+            return [] as ManutNotificacao[];
+          })
+        : Promise.resolve([] as ManutNotificacao[]),
+      incluirManut
+        ? api.manutNotificacoesNaoLidas({ idLoja, contexto }).catch(() => {
+            setManutOff(true);
+            return { total: 0 };
+          })
+        : Promise.resolve({ total: 0 }),
       incluirEscala
-        ? api.escalaVisitasNotificacoes().catch(() => [] as EscalaVisitasNotificacao[])
+        ? api.escalaVisitasNotificacoes().catch(() => {
+            setEscalaOff(true);
+            return [] as EscalaVisitasNotificacao[];
+          })
         : Promise.resolve([] as EscalaVisitasNotificacao[]),
     ])
       .then(([notifs, contagem, escala]) => {
-        const chamados = filtrarListaContexto(filtrarPorLoja(notifs, idLoja), contexto);
+        const chamados = incluirManut
+          ? filtrarListaContexto(filtrarPorLoja(notifs, idLoja), contexto)
+          : [];
         const escalaSino = escala.map(mapaEscalaParaSino);
         const filtradas = [...chamados, ...escalaSino].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
@@ -281,13 +322,24 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
         setNaoLidas(total);
       })
       .catch(() => {});
-  }, [idLoja, contexto]);
+  }, [idLoja, contexto, manutOff, escalaOff]);
 
   useEffect(() => {
     baselineOk.current = false;
+    setManutOff(false);
+    setEscalaOff(false);
   }, [idLoja, contexto]);
 
   useEffect(() => {
+    const podeManut = !manutOff && podeConsultarManutNotificacoes();
+    const podeEscala =
+      !escalaOff && contexto !== 'aprovacoes' && podeVerEscalaVisitas();
+    if (!podeManut && !podeEscala) {
+      setLista([]);
+      setNaoLidas(0);
+      return;
+    }
+
     carregar();
     const t = setInterval(carregar, POLL_MS);
 
@@ -311,7 +363,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [carregar]);
+  }, [carregar, manutOff, escalaOff, contexto]);
 
   function fecharPainel() {
     setAnchor(null);
@@ -402,13 +454,13 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
               color: '#fff',
               fontWeight: 700,
               fontSize: '0.7rem',
-              minWidth: 20,
-              height: 20,
-              border: `2px solid ${badgeBorder}`,
+              minWidth: 18,
+              height: 18,
+              border: `1.5px solid ${badgeBorder}`,
             },
           }}
         >
-          <NotificationsNoneOutlinedIcon sx={{ fontSize: 28 }} />
+          <Bell size={22} strokeWidth={1.6} absoluteStrokeWidth aria-hidden />
         </Badge>
       </IconButton>
 
@@ -521,11 +573,11 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
                 fontSize: '0.65rem',
                 minWidth: 18,
                 height: 18,
-                border: '2px solid #f5f5f3',
+                border: '1.5px solid #f5f5f3',
               },
             }}
           >
-            <NotificationsNoneOutlinedIcon sx={{ fontSize: 20 }} />
+            <Bell size={18} strokeWidth={1.6} absoluteStrokeWidth aria-hidden />
           </Badge>
         </IconButton>
 

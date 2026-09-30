@@ -178,6 +178,7 @@ export default function VisitasMobileScreen({
                 <div key={v.id_visita} className="ck-visitas-hub__card-wrap">
                   <Link
                     to={destino}
+                    state={emRascunho ? undefined : { from: '/visitas/mobile' }}
                     className={`ck-visitas-hub__row${emRascunho ? ' is-draft' : ''}`}
                   >
                     <span className="ck-visitas-hub__mono" aria-hidden>

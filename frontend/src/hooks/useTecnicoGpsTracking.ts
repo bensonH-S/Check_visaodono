@@ -89,12 +89,15 @@ export function useTecnicoGpsTracking(config?: GpsConfig) {
       liberarWake.current = release;
     });
 
-    const pararWatch = monitorarPosicao(
+    let pararWatch = () => {};
+    pararWatch = monitorarPosicao(
       (pos) => {
         void enviarPosicao(pos);
       },
-      () => {
+      (err) => {
         window.dispatchEvent(new Event(GPS_ATUALIZADO_EVENT));
+        // PERMISSION_DENIED (1) ou bloqueio do Chrome após dismiss — para de tentar
+        if (err?.code === 1) pararWatch();
       },
     );
 

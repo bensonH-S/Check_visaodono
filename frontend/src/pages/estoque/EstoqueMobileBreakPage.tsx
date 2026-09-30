@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
@@ -143,6 +143,60 @@ function fmtDataBR(iso: string | null | undefined) {
   return `${d}/${m}/${y}`;
 }
 
+/** Prévia visual — 3 cards "Receber de" no estilo da tela (remover depois da validação). */
+const PREVIEW_A_RECEBER: EstoqueEmprestimoAReceber[] = [
+  {
+    id_break: -9001,
+    data_break: '2026-09-21',
+    id_loja_origem: 31614,
+    loja_origem_bk: '31614',
+    loja_origem_nome: 'BURGER KING - SAMAMBAIA',
+    criado_por_nome: 'Simone Clemente da Silva',
+    itens: [
+      {
+        codigo: '21055',
+        descricao: 'BATATA CONG PRE FRITA BK 9MM CX 12,5KG MCCAIN NV',
+        contagem_caixa: 2,
+      },
+    ],
+  },
+  {
+    id_break: -9002,
+    data_break: '2026-09-22',
+    id_loja_origem: 19929,
+    loja_origem_bk: '19929',
+    loja_origem_nome: 'BURGER KING - 201 NORTE',
+    criado_por_nome: 'Carlos Eduardo Mendes',
+    itens: [
+      {
+        codigo: '18402',
+        descricao: 'CARNE BOVINA ANGUS 113G CX 40UND',
+        contagem_caixa: 1,
+      },
+      {
+        codigo: '22011',
+        descricao: 'QUEIJO CHEDDAR FATIADO CX 1,5KG',
+        contagem_pc_fd: 3,
+      },
+    ],
+  },
+  {
+    id_break: -9003,
+    data_break: '2026-09-23',
+    id_loja_origem: 23531,
+    loja_origem_bk: '23531',
+    loja_origem_nome: 'BURGER KING - 706/7 NORTE',
+    criado_por_nome: 'Ana Paula Ribeiro',
+    itens: [
+      {
+        codigo: '30120',
+        descricao: 'MOLHO ESPECIAL BK GALAO 5L',
+        contagem_kg_und: 1,
+      },
+    ],
+  },
+];
+
 function fmtDataHora(iso: string | null | undefined) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -277,6 +331,12 @@ export default function EstoqueMobileBreakPage() {
     );
   }, [lista, busca, filtroTipo]);
 
+  const cardsAReceber = useMemo(() => {
+    const idsReais = new Set(aReceber.map((e) => e.id_break));
+    const previa = PREVIEW_A_RECEBER.filter((e) => !idsReais.has(e.id_break));
+    return [...previa, ...aReceber];
+  }, [aReceber]);
+
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -357,19 +417,61 @@ export default function EstoqueMobileBreakPage() {
     void carregarCatalogo(idLoja, kind);
   }, [idLoja, kind, carregarCatalogo]);
 
+  const lojaBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [lojaDropPos, setLojaDropPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
   useEffect(() => {
-    if (!dlgLoja) return;
-    const scrollEl = document.querySelector('.ck-visitas__scroll') as HTMLElement | null;
+    if (!dlgLoja) {
+      setLojaDropPos(null);
+      return;
+    }
+    const scrollEls = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '.ck-break-hub__scroll, .ck-estoque-hub__scroll, .ck-visitas__scroll',
+      ),
+    );
     const prevBody = document.body.style.overflow;
     const prevHtml = document.documentElement.style.overflow;
-    const prevScroll = scrollEl?.style.overflow ?? '';
+    const prevScrolls = scrollEls.map((el) => ({
+      el,
+      overflow: el.style.overflow,
+      touchAction: el.style.touchAction,
+    }));
     document.body.style.overflow = 'hidden';
     document.documentElement.style.overflow = 'hidden';
-    if (scrollEl) scrollEl.style.overflow = 'hidden';
+    scrollEls.forEach((el) => {
+      el.style.overflow = 'hidden';
+      el.style.touchAction = 'none';
+    });
+
+    const updatePos = () => {
+      const btn = lojaBtnRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      setLojaDropPos({
+        top: Math.round(r.bottom + 6),
+        left: Math.round(r.left),
+        width: Math.round(r.width),
+      });
+    };
+    updatePos();
+    window.addEventListener('resize', updatePos);
+    window.addEventListener('orientationchange', updatePos);
+
     return () => {
       document.body.style.overflow = prevBody;
       document.documentElement.style.overflow = prevHtml;
-      if (scrollEl) scrollEl.style.overflow = prevScroll;
+      prevScrolls.forEach(({ el, overflow, touchAction }) => {
+        el.style.overflow = overflow;
+        el.style.touchAction = touchAction;
+      });
+      window.removeEventListener('resize', updatePos);
+      window.removeEventListener('orientationchange', updatePos);
+      setLojaDropPos(null);
     };
   }, [dlgLoja, dlgTipo]);
 
@@ -538,6 +640,10 @@ export default function EstoqueMobileBreakPage() {
 
   const confirmarRecebimento = async (idBreak: number) => {
     if (!idLoja) return;
+    if (idBreak < 0) {
+      showToast('Prévia visual — sem confirmação real');
+      return;
+    }
     setConfirmandoId(idBreak);
     try {
       await api.estoqueConfirmarRecebimentoEmprestimo(idBreak, idLoja);
@@ -1270,7 +1376,7 @@ export default function EstoqueMobileBreakPage() {
 
   return (
     <div
-      className="ck-estoque-hub ck-estoque-hub--hero ck-break-hub"
+      className={`ck-estoque-hub ck-estoque-hub--hero ck-break-hub${dlgLoja ? ' is-loja-open' : ''}`}
       style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
@@ -1339,83 +1445,106 @@ export default function EstoqueMobileBreakPage() {
             <span>Lançamentos</span>
           </div>
         </div>
+
+        <div className="ck-break-hub__sticky-filtros">
+          {podeTrocarLoja ? (
+            <div className="ck-break-hub__loja">
+              <div className="ck-break-hub__loja-seletor">
+                <button
+                  ref={lojaBtnRef}
+                  type="button"
+                  className="ck-break-hub__loja-btn"
+                  aria-expanded={dlgLoja}
+                  onClick={() => setDlgLoja((v) => !v)}
+                >
+                  <span className="ck-break-hub__loja-btn-main">
+                    {lojaAtual ? (
+                      <img className="ck-break-hub__loja-ico" src={iconeMarcaLojaPorNome(lojaAtual)} alt="" />
+                    ) : (
+                      <StorefrontOutlinedIcon className="ck-break-hub__loja-ico-fallback" fontSize="small" />
+                    )}
+                    <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
+                  </span>
+                  <ExpandMoreIcon
+                    className={`ck-break-hub__loja-chev${dlgLoja ? ' is-open' : ''}`}
+                    fontSize="small"
+                  />
+                </button>
+                {dlgLoja && lojaDropPos
+                  ? createPortal(
+                      <>
+                        <div
+                          className="ck-break-hub__dropdown-backdrop"
+                          onClick={fecharDlgLoja}
+                          aria-hidden
+                        />
+                        <div
+                          className="ck-break-hub__loja-dropdown is-portal"
+                          style={{
+                            top: lojaDropPos.top,
+                            left: lojaDropPos.left,
+                            width: lojaDropPos.width,
+                          }}
+                          role="listbox"
+                        >
+                          {lojasFiltradas.map((l) => {
+                            const ativa = l.id_loja === idLoja;
+                            return (
+                              <button
+                                key={l.id_loja}
+                                type="button"
+                                className={`ck-break-hub__loja-item${ativa ? ' is-on' : ''}`}
+                                onClick={() => selecionarLoja(l.id_loja)}
+                              >
+                                <img
+                                  className="ck-break-hub__loja-ico"
+                                  src={iconeMarcaLojaPorNome(l)}
+                                  alt=""
+                                />
+                                <span>{rotuloLoja(l)}</span>
+                              </button>
+                            );
+                          })}
+                          {!lojasFiltradas.length ? (
+                            <div className="ck-break-hub__empty" style={{ margin: 8 }}>
+                              Nenhuma loja encontrada.
+                            </div>
+                          ) : null}
+                        </div>
+                      </>,
+                      document.body,
+                    )
+                  : null}
+              </div>
+            </div>
+          ) : lojaAtual ? (
+            <div className="ck-break-hub__loja">
+              <div className="ck-break-hub__loja-fix" aria-label="Loja">
+                <img className="ck-break-hub__loja-ico" src={iconeMarcaLojaPorNome(lojaAtual)} alt="" />
+                <div>
+                  {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
+                  <strong>{nomeLoja(lojaAtual)}</strong>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {idLoja ? (
+            <div className="ck-break-hub__busca">
+              <input
+                type="search"
+                placeholder="Buscar colaborador ou responsável…"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="ck-estoque-hub__scroll ck-break-hub__scroll">
         {err ? <p className="ck-break-hub__err">{err}</p> : null}
-
-        {podeTrocarLoja ? (
-          <div className="ck-break-hub__loja">
-            <div className="ck-break-hub__loja-seletor">
-              <button
-                type="button"
-                className="ck-break-hub__loja-btn"
-                onClick={() => setDlgLoja((v) => !v)}
-              >
-                <span className="ck-break-hub__loja-btn-main">
-                  {lojaAtual ? (
-                    <img className="ck-break-hub__loja-ico" src={iconeMarcaLojaPorNome(lojaAtual)} alt="" />
-                  ) : (
-                    <StorefrontOutlinedIcon className="ck-break-hub__loja-ico-fallback" fontSize="small" />
-                  )}
-                  <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
-                </span>
-                <ExpandMoreIcon
-                  className={`ck-break-hub__loja-chev${dlgLoja ? ' is-open' : ''}`}
-                  fontSize="small"
-                />
-              </button>
-              {dlgLoja ? (
-                <>
-                  <div className="ck-break-hub__dropdown-backdrop" onClick={fecharDlgLoja} />
-                  <div className="ck-break-hub__loja-dropdown">
-                    {lojasFiltradas.map((l) => {
-                      const ativa = l.id_loja === idLoja;
-                      return (
-                        <button
-                          key={l.id_loja}
-                          type="button"
-                          className={`ck-break-hub__loja-item${ativa ? ' is-on' : ''}`}
-                          onClick={() => selecionarLoja(l.id_loja)}
-                        >
-                          <img className="ck-break-hub__loja-ico" src={iconeMarcaLojaPorNome(l)} alt="" />
-                          <span>{rotuloLoja(l)}</span>
-                        </button>
-                      );
-                    })}
-                    {!lojasFiltradas.length ? (
-                      <div className="ck-break-hub__empty" style={{ margin: 8 }}>
-                        Nenhuma loja encontrada.
-                      </div>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </div>
-        ) : lojaAtual ? (
-          <div className="ck-break-hub__loja">
-            <div className="ck-break-hub__loja-fix" aria-label="Loja">
-              <img className="ck-break-hub__loja-ico" src={iconeMarcaLojaPorNome(lojaAtual)} alt="" />
-              <div>
-                {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
-                <strong>{nomeLoja(lojaAtual)}</strong>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {idLoja ? (
-          <div className="ck-break-hub__busca">
-            <input
-              type="search"
-              placeholder="Buscar colaborador ou responsável…"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-        ) : null}
 
         {loading ? (
           <LinearProgress
@@ -1432,35 +1561,49 @@ export default function EstoqueMobileBreakPage() {
           <div className="ck-break-hub__empty">Selecione a loja para começar.</div>
         ) : (
           <>
-            {!loading && aReceber.length > 0 ? (
+            {!loading && cardsAReceber.length > 0 ? (
               <div className="ck-break-hub__stack">
-                {aReceber.map((emp) => (
+                {cardsAReceber.map((emp) => (
                   <div key={emp.id_break} className="ck-break-hub__card is-alerta">
                     <div className="ck-break-hub__card-top">
-                      <strong>
-                        Receber de{' '}
-                        {emp.loja_origem_bk
-                          ? `${emp.loja_origem_bk} · ${emp.loja_origem_nome}`
-                          : emp.loja_origem_nome || 'outra loja'}
-                      </strong>
-                      <span className="ck-break-hub__chip is-ok">{(emp.itens || []).length} itens</span>
+                      <div className="ck-break-hub__loja-bloco">
+                        <span className="ck-break-hub__loja-linha">
+                          Receber de {emp.loja_origem_bk || emp.id_loja_origem || '—'}
+                        </span>
+                        <span className="ck-break-hub__loja-nome">
+                          {emp.loja_origem_nome || 'outra loja'}
+                        </span>
+                      </div>
+                      <span className="ck-break-hub__chip is-ok">
+                        {(emp.itens || []).length} itens
+                      </span>
                     </div>
-                    <p className="ck-break-hub__meta">
-                      {fmtDataBR(emp.data_break)}
-                      {emp.criado_por_nome ? ` · ${emp.criado_por_nome}` : ''}
+                    <p className="ck-break-hub__meta-linha">
+                      <span className="ck-break-hub__meta-data">{fmtDataBR(emp.data_break)}</span>
+                      {emp.criado_por_nome ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="ck-break-hub__meta-nome">{emp.criado_por_nome}</span>
+                        </>
+                      ) : null}
                     </p>
-                    {(emp.itens || []).map((it, idx) => (
-                      <p key={`${emp.id_break}-${idx}`} className="ck-break-hub__desc">
-                        {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
-                      </p>
-                    ))}
+                    <div className="ck-break-hub__itens">
+                      {(emp.itens || []).map((it, idx) => (
+                        <div key={`${emp.id_break}-${idx}`} className="ck-break-hub__item-linha">
+                          <span className="ck-break-hub__item-num">{idx + 1}</span>
+                          <p className="ck-break-hub__desc">
+                            {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                     <button
                       type="button"
                       className="ck-break-hub__cta"
                       disabled={confirmandoId === emp.id_break}
                       onClick={() => void confirmarRecebimento(emp.id_break)}
                     >
-                      {confirmandoId === emp.id_break ? 'Confirmando…' : 'OK — recebi'}
+                      {confirmandoId === emp.id_break ? 'Confirmando…' : 'OK - recebi'}
                     </button>
                   </div>
                 ))}
@@ -1472,23 +1615,39 @@ export default function EstoqueMobileBreakPage() {
                 {aDevolver.map((emp) => (
                   <div key={emp.id_break} className="ck-break-hub__card">
                     <div className="ck-break-hub__card-top">
-                      <strong>
-                        Devolver para{' '}
-                        {emp.loja_origem_bk
-                          ? `${emp.loja_origem_bk} · ${emp.loja_origem_nome}`
-                          : emp.loja_origem_nome || 'origem'}
-                      </strong>
-                      <span className="ck-break-hub__chip">{(emp.itens || []).length} itens</span>
+                      <div className="ck-break-hub__loja-bloco">
+                        <span className="ck-break-hub__loja-linha">
+                          Devolver para {emp.loja_origem_bk || emp.id_loja_origem || '—'}
+                        </span>
+                        <span className="ck-break-hub__loja-nome">
+                          {emp.loja_origem_nome || 'origem'}
+                        </span>
+                      </div>
+                      <span className="ck-break-hub__chip">
+                        {(emp.itens || []).length} itens
+                      </span>
                     </div>
-                    <p className="ck-break-hub__meta">
-                      {fmtDataBR(emp.data_break)}
-                      {emp.recebido_em ? ` · recebido ${fmtDataBR(emp.recebido_em)}` : ''}
+                    <p className="ck-break-hub__meta-linha">
+                      <span className="ck-break-hub__meta-data">{fmtDataBR(emp.data_break)}</span>
+                      {emp.recebido_em ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="ck-break-hub__meta-data">
+                            recebido {fmtDataBR(emp.recebido_em)}
+                          </span>
+                        </>
+                      ) : null}
                     </p>
-                    {(emp.itens || []).map((it, idx) => (
-                      <p key={`dev-${emp.id_break}-${idx}`} className="ck-break-hub__desc">
-                        {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
-                      </p>
-                    ))}
+                    <div className="ck-break-hub__itens">
+                      {(emp.itens || []).map((it, idx) => (
+                        <div key={`dev-${emp.id_break}-${idx}`} className="ck-break-hub__item-linha">
+                          <span className="ck-break-hub__item-num">{idx + 1}</span>
+                          <p className="ck-break-hub__desc">
+                            {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                     <button
                       type="button"
                       className="ck-break-hub__cta is-ghost"
@@ -1518,7 +1677,13 @@ export default function EstoqueMobileBreakPage() {
               ? listaFiltrada.map((b) => (
                   <div key={b.id_break} className="ck-break-hub__card">
                     <div className="ck-break-hub__card-top">
-                      <strong>
+                      <strong
+                        className={
+                          b.tipo === 'emprestimo' || !b.colaborador_nome
+                            ? 'ck-break-hub__card-titulo'
+                            : 'ck-break-hub__card-titulo is-pessoa'
+                        }
+                      >
                         {b.tipo === 'emprestimo'
                           ? b.loja_destino_nome
                             ? `Para ${b.loja_destino_bk ? `${b.loja_destino_bk} · ` : ''}${b.loja_destino_nome}`

@@ -173,6 +173,7 @@ function VisitaCardMobile({
       <Box
         component={Link}
         to={destino}
+        state={emRascunho ? undefined : { from: '/visitas/mobile' }}
         sx={{
           flex: 1,
           minWidth: 0,
@@ -873,6 +874,7 @@ export default function VisitasMobilePage() {
                           <Button
                             component={Link}
                             to={`/relatorio/mobile/visita/${v.id_visita}`}
+                            state={{ from: '/visitas/mobile' }}
                             size="small"
                             sx={{
                               height: 32,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 import ShareIcon from '@mui/icons-material/Share';
@@ -138,6 +138,7 @@ export default function RelatorioMobileScreen({
   onReabrir,
 }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getUsuario();
   const [fotoAberta, setFotoAberta] = useState<{ src: string; pergunta: string } | null>(null);
   const v = data.visita;
@@ -159,7 +160,13 @@ export default function RelatorioMobileScreen({
   const hintNota =
     !Number.isFinite(nota) ? '' : nota >= 85 ? 'excelente' : nota >= 75 ? 'na meta' : 'abaixo da meta';
 
-  const voltar = () => navigate('/visitas/mobile', { replace: true });
+  const fromState = (location.state as { from?: string } | null)?.from;
+  const rotaVoltar =
+    fromState === '/checklist/mobile' || fromState === '/visitas/mobile'
+      ? fromState
+      : '/checklist/mobile';
+
+  const voltar = () => navigate(rotaVoltar, { replace: true });
 
   return (
     <div
@@ -178,7 +185,7 @@ export default function RelatorioMobileScreen({
             <button
               type="button"
               className="ck-estoque-hub__icon-btn ck-visitas-hub__icon-btn"
-              aria-label="Voltar para visitas"
+              aria-label={rotaVoltar === '/checklist/mobile' ? 'Voltar para checklist' : 'Voltar para visitas'}
               onClick={voltar}
             >
               <ArrowBackIcon />

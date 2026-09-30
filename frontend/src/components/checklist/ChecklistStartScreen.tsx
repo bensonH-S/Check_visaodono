@@ -84,7 +84,9 @@ export default function ChecklistStartScreen({
       onAbrirRascunho(v.id_visita);
       return;
     }
-    navigate(`/relatorio/mobile/visita/${v.id_visita}`);
+    navigate(`/relatorio/mobile/visita/${v.id_visita}`, {
+      state: { from: '/checklist/mobile' },
+    });
   }
 
   function pedirTipoOuLoja() {

@@ -3,16 +3,13 @@ import AddIcon from '@mui/icons-material/Add';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
-import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useMobileMais } from '../MobileTabBar';
 
-export type AppHubAba = 'inicio' | 'checklist' | 'estoque' | 'visitas';
+export type AppHubAba = 'inicio' | 'checklist' | 'estoque';
 
 type Props = {
   ativo?: AppHubAba | null;
-  /** Quarta aba do dock (padrão: estoque). */
-  slot?: 'estoque' | 'visitas';
   plusLabel: string;
   plusDisabled?: boolean;
   onPlus: () => void;
@@ -20,7 +17,6 @@ type Props = {
 
 export default function AppHubDock({
   ativo,
-  slot = 'estoque',
   plusLabel,
   plusDisabled,
   onPlus,
@@ -51,21 +47,10 @@ export default function AppHubDock({
       >
         <AddIcon />
       </button>
-      {slot === 'visitas' ? (
-        <button
-          type="button"
-          className={ativo === 'visitas' ? 'is-on' : ''}
-          onClick={() => navigate('/visitas/mobile')}
-        >
-          <HistoryOutlinedIcon />
-          Visitas
-        </button>
-      ) : (
-        <button type="button" className={ativo === 'estoque' ? 'is-on' : ''} onClick={() => navigate('/estoque/mobile')}>
-          <Inventory2OutlinedIcon />
-          Estoque
-        </button>
-      )}
+      <button type="button" className={ativo === 'estoque' ? 'is-on' : ''} onClick={() => navigate('/estoque/mobile')}>
+        <Inventory2OutlinedIcon />
+        Estoque
+      </button>
       <button type="button" aria-label="Mais módulos" onClick={openMais}>
         <MoreHorizIcon />
         Mais
