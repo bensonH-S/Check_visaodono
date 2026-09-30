@@ -49,7 +49,7 @@ export function CcPanel({
                 <Typography
                   sx={{
                     fontWeight: 650,
-                    fontSize: '0.875rem',
+                    fontSize: '0.78rem',
                     color: 'var(--ga-text-primary)',
                     letterSpacing: '-0.01em',
                     overflow: 'hidden',
@@ -63,7 +63,7 @@ export function CcPanel({
               {badge}
             </Box>
             {subtitle && (
-              <Typography sx={{ fontSize: '0.6875rem', color: 'var(--ga-text-secondary)', mt: 0.15 }}>
+              <Typography sx={{ fontSize: '0.625rem', color: 'var(--ga-text-secondary)', mt: 0.15 }}>
                 {subtitle}
               </Typography>
             )}
@@ -73,7 +73,7 @@ export function CcPanel({
               component={RouterLink}
               to={actionTo}
               sx={{
-                fontSize: '0.6875rem',
+                fontSize: '0.625rem',
                 fontWeight: 600,
                 color: CC_ORANGE,
                 textDecoration: 'none',
@@ -136,7 +136,7 @@ export function CcSectionTitle({
         <Typography
           sx={{
             fontWeight: 650,
-            fontSize: '0.875rem',
+            fontSize: '0.78rem',
             color: 'var(--ga-text-primary)',
             letterSpacing: '-0.01em',
           }}
@@ -150,7 +150,7 @@ export function CcSectionTitle({
           component={RouterLink}
           to={actionTo}
           sx={{
-            fontSize: '0.6875rem',
+            fontSize: '0.625rem',
             fontWeight: 600,
             color: CC_ORANGE,
             textDecoration: 'none',

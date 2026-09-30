@@ -47,7 +47,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
   const { version, environment } = useAppConfig();
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : '#1B2A6B';
+  const acento = escuro ? '#fe6c22' : '#1B2A6B';
   const { pathname } = useLocation();
   const appPath = toAppPath(pathname);
   const versionLabel = version === 'dev' ? 'dev' : version.startsWith('v') ? version : `v${version}`;
@@ -164,9 +164,9 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
         )}
         <Typography
           sx={{
-            mt: '12px',
+            mt: '10px',
             textAlign: 'center',
-            fontSize: '0.78rem',
+            fontSize: '0.68rem',
             fontWeight: 700,
             letterSpacing: '0.02em',
             textTransform: 'uppercase',
@@ -180,7 +180,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
         </Typography>
       </Box>
 
-      <Box component="nav" sx={{ flex: 1, px: 1.25, py: 1.75, overflowY: 'auto' }}>
+      <Box component="nav" sx={{ flex: 1, px: 1.1, py: 1.25, overflowY: 'auto' }}>
         {(() => {
           const noSection = nav.filter((n) => !n.section);
           const sections = Array.from(new Set(nav.filter((n) => n.section).map((n) => n.section as string)));
@@ -194,12 +194,12 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 1,
-                      px: 1.25,
-                      py: 0.75,
-                      mb: 0.375,
+                      gap: 0.85,
+                      px: 1.1,
+                      py: 0.55,
+                      mb: 0.25,
                       borderRadius: `${radius.md}px`,
-                      fontSize: '0.8125rem',
+                      fontSize: '0.72rem',
                       fontWeight: isActive ? 600 : 450,
                       color: isActive ? 'var(--ga-sidebar-active-text)' : colors.textPrimary,
                       bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : 'transparent',
@@ -211,7 +211,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
                         color: colors.textPrimary,
                       },
                       '& .MuiSvgIcon-root': {
-                        fontSize: 17,
+                        fontSize: 15,
                         color: isActive ? 'var(--ga-sidebar-active-icon)' : colors.textPrimary,
                       },
                     }}
@@ -228,8 +228,8 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
             <>
               {noSection.map(renderItem)}
               {sections.map((sec) => (
-                <Box key={sec} sx={{ mt: 2.5 }}>
-                  <Typography sx={{ ...sectionLabelSx, px: 1, mb: 1 }}>{sec}</Typography>
+                <Box key={sec} sx={{ mt: 1.75 }}>
+                  <Typography sx={{ ...sectionLabelSx, fontSize: '0.6rem', px: 1, mb: 0.75 }}>{sec}</Typography>
                   {nav.filter((n) => n.section === sec).map(renderItem)}
                 </Box>
               ))}
@@ -364,10 +364,10 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
               {iniciais}
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography sx={{ fontWeight: 600, lineHeight: 1.25, color: colors.textPrimary, fontSize: '0.75rem' }} noWrap>
+              <Typography sx={{ fontWeight: 600, lineHeight: 1.25, color: colors.textPrimary, fontSize: '0.68rem' }} noWrap>
                 {user?.nome}
               </Typography>
-              <Typography sx={{ color: colors.textSecondary, fontSize: '0.625rem', lineHeight: 1.25, opacity: 0.9, mt: 0.25 }} noWrap>
+              <Typography sx={{ color: colors.textSecondary, fontSize: '0.58rem', lineHeight: 1.25, opacity: 0.9, mt: 0.2 }} noWrap>
                 {nomeExibicaoUsuario(user)}
               </Typography>
             </Box>

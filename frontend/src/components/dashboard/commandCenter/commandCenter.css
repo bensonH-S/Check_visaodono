@@ -1,6 +1,6 @@
 /* Escopo: só a rota /dashboard (classe .cc-page no PortalLayout). */
 
-/* Tema claro: accent azul + texto secundário mais escuro (legibilidade). */
+/* Tema claro: accent azul + tipografia mais compacta. */
 .cc-page {
   --ga-orange: #1b2a6b;
   --ga-orange-hover: #152056;
@@ -15,15 +15,24 @@
   --ga-text-muted: #4b5563;
   background-color: var(--ga-canvas);
   color: var(--ga-text-primary);
+  font-size: 13px;
 }
 
 .cc-page aside {
-  width: 228px;
+  width: 220px;
   background: var(--ga-sidebar-bg);
+  font-size: 0.72rem;
 }
 
 .cc-page aside nav a > div {
   border-left-width: 0 !important;
+  font-size: 0.72rem !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.cc-page aside nav a > div .MuiSvgIcon-root {
+  font-size: 15px !important;
 }
 
 .cc-page .cc-page-main {
@@ -38,34 +47,35 @@
 .cc-page .recharts-default-tooltip .recharts-tooltip-item-name,
 .cc-page .recharts-default-tooltip .recharts-tooltip-item-value {
   color: var(--ga-text-primary) !important;
+  font-size: 11px !important;
 }
 
-/* Tema escuro: Deep Navy (mesmo azul do app). */
+/* Tema escuro: mesmas cores dos hubs mobile. */
 :root.dark .cc-page {
-  --ga-canvas: #0B0F19;
-  --ga-surface: #111827;
-  --ga-canvas-alt: #0F172A;
-  --ga-picker-paper: #1E293B;
-  --ga-border: rgba(255, 255, 255, 0.08);
+  --ga-canvas: #0b1721;
+  --ga-surface: #333840;
+  --ga-canvas-alt: #1a222c;
+  --ga-picker-paper: #333840;
+  --ga-border: rgba(255, 255, 255, 0.1);
   --ga-border-strong: rgba(255, 255, 255, 0.18);
-  --ga-text-primary: #F8FAFC;
-  --ga-text-secondary: #94A3B8;
-  --ga-text-muted: #64748B;
-  --ga-sidebar-bg: #0B0F19;
-  --ga-sidebar-border: rgba(255, 255, 255, 0.08);
-  --ga-sidebar-active-bg: rgba(232, 82, 10, 0.14);
-  --ga-sidebar-active-text: #F8FAFC;
+  --ga-text-primary: #f5f5f5;
+  --ga-text-secondary: #8d8d8d;
+  --ga-text-muted: #8d8d8d;
+  --ga-sidebar-bg: #0b1721;
+  --ga-sidebar-border: rgba(255, 255, 255, 0.1);
+  --ga-sidebar-active-bg: rgba(254, 108, 34, 0.16);
+  --ga-sidebar-active-text: #f5f5f5;
   --ga-sidebar-active-border: transparent;
-  --ga-sidebar-active-icon: #e8520a;
-  --ga-orange: #e8520a;
-  --ga-orange-hover: #cf4909;
-  --ga-primary-btn: #e8520a;
-  --ga-primary-hover: #cf4909;
-  --ga-progress-bar: #e8520a;
-  background-color: #0B0F19;
-  color: #F8FAFC;
+  --ga-sidebar-active-icon: #fe6c22;
+  --ga-orange: #fe6c22;
+  --ga-orange-hover: #e85f1a;
+  --ga-primary-btn: #fe6c22;
+  --ga-primary-hover: #e85f1a;
+  --ga-progress-bar: #fe6c22;
+  background-color: #0b1721;
+  color: #f5f5f5;
 }
 
 :root.dark .cc-page aside {
-  background: #0B0F19;
+  background: #0b1721;
 }

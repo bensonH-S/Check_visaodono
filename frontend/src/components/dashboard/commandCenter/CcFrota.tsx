@@ -410,7 +410,7 @@ export default function CcFrota({
     >
       <Box sx={{ px: 1.5, pt: 1.15, pb: 0.6, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
         <Box>
-          <Typography sx={{ fontWeight: 650, fontSize: '0.875rem', color: 'var(--ga-text-primary)' }}>
+          <Typography sx={{ fontWeight: 650, fontSize: '0.78rem', color: 'var(--ga-text-primary)' }}>
             Frota em tempo real
           </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.35 }}>

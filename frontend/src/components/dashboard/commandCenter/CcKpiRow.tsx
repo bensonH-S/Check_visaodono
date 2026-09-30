@@ -90,7 +90,7 @@ function KpiCard({
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: '1.25rem', md: '1.5rem' },
+            fontSize: { xs: '1.05rem', md: '1.2rem' },
             fontWeight: 700,
             color: 'var(--ga-text-primary)',
             lineHeight: 1,
@@ -104,7 +104,7 @@ function KpiCard({
           <Typography
             component="div"
             sx={{
-              fontSize: '0.6875rem',
+              fontSize: '0.625rem',
               color: 'var(--ga-text-secondary)',
               display: 'flex',
               alignItems: 'center',

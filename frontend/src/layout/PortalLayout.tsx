@@ -93,7 +93,7 @@ export default function PortalLayout() {
 
 function PortalLayoutInner() {
   const { mode, toggleTheme } = useAppTheme();
-  const filtroAcento = mode === 'dark' ? '#E8520A' : '#1B2A6B';
+  const filtroAcento = mode === 'dark' ? '#fe6c22' : '#1B2A6B';
   const { data: dataFiltro, setData: setDataFiltro, regiaoId, regiaoNome, setRegiao } =
     useCommandCenterFilters();
   const navigate = useNavigate();

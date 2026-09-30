@@ -13,8 +13,8 @@ export const FROTA_MAPA_CLARO_FUNDO = '#F8FAFC';
 /** Fundo neutro enquanto os tiles carregam. */
 export const FROTA_MAPA_FUNDO = '#F8FAFC';
 
-/** Fundo do mapa escuro — Deep Navy. */
-export const FROTA_MAPA_ESCURO_FUNDO = '#0B0F19';
+/** Fundo do mapa escuro — mesmo canvas dos hubs mobile. */
+export const FROTA_MAPA_ESCURO_FUNDO = '#0b1721';
 
 /** @deprecated Fiord customizado via MapLibre; filtro CSS não é mais usado. */
 export const FROTA_MAPA_ESCURO_TILE_FILTER = 'none';
@@ -25,12 +25,12 @@ export const OPENFREEMAP_DARK = 'https://tiles.openfreemap.org/styles/dark';
 export const OPENFREEMAP_POSITRON = 'https://tiles.openfreemap.org/styles/positron';
 
 /** Mapa no Deep Navy: azul escuro + vias cinza-azuladas. */
-const CC_MAPA_FUNDO = '#0B0F19';
-const CC_MAPA_AGUA = '#080C14';
-const CC_MAPA_PARQUE = '#0F172A';
-const CC_MAPA_RESIDENCIAL = '#111827';
-const CC_MAPA_WOOD = '#0F172A';
-const CC_MAPA_PREDIO = '#1E293B';
+const CC_MAPA_FUNDO = '#0b1721';
+const CC_MAPA_AGUA = '#081118';
+const CC_MAPA_PARQUE = '#1a222c';
+const CC_MAPA_RESIDENCIAL = '#1a222c';
+const CC_MAPA_WOOD = '#1a222c';
+const CC_MAPA_PREDIO = '#333840';
 const CC_RUA_MENOR = '#475569';
 const CC_RUA_MEDIA = '#64748B';
 const CC_RUA_MAJOR = '#94A3B8';

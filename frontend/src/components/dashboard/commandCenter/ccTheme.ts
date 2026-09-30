@@ -15,8 +15,8 @@ export const CC_MUTED = 'var(--ga-text-muted)';
 export const CC_ORANGE = 'var(--ga-orange)';
 export const CC_ORANGE_HOVER = 'var(--ga-orange-hover)';
 /** Laranja da marca (fixo em KPIs/gráficos). Accent de UI usa CC_ORANGE (azul no claro). */
-export const CC_BRAND_ORANGE = '#E8520A';
-export const CC_BRAND_ORANGE_SOFT = 'rgba(232, 82, 10, 0.14)';
+export const CC_BRAND_ORANGE = '#fe6c22';
+export const CC_BRAND_ORANGE_SOFT = 'rgba(254, 108, 34, 0.14)';
 /** Tijolo para críticos. */
 export const CC_CRITICO = '#C4452D';
 /** Oliva fechada. Verde lima briga com a marca. */
