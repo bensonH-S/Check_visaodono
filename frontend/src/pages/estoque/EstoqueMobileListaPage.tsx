@@ -27,6 +27,7 @@ import AppHubDock from '../../components/hub/AppHubDock';
 import { showToast } from '../../utils/toast';
 import {
   CONTAGEM_SEMANAL_ATIVA,
+  ehDiaContagemCompletaObrigatoria,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
 import {
@@ -357,6 +358,10 @@ export default function EstoqueMobileListaPage() {
 
   const iniciar = async (tipo: TipoContagemEstoque) => {
     if (!idLoja) return;
+    if (tipo === 'diaria' && ehDiaContagemCompletaObrigatoria()) {
+      showToast('No dia 1 use a contagem completa', 'info');
+      return;
+    }
     if (tipo === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
       showToast('Contagem semanal está desativada', 'error');
       return;
@@ -833,15 +838,17 @@ export default function EstoqueMobileListaPage() {
                 </div>
                 <p className="ck-estoque-hub__sheet-tipo-text">Selecione o tipo de contagem:</p>
                 <div className="ck-estoque-hub__sheet-tipo-actions">
-                  <button
-                    type="button"
-                    className="ck-estoque-hub__sheet-tipo-btn is-pri"
-                    disabled={iniciando}
-                    onClick={() => void iniciar('diaria')}
-                  >
-                    <strong>Contagem diária</strong>
-                    <small>Carne, frango, queijo, bacon, pão, batata, copos e mix</small>
-                  </button>
+                  {!ehDiaContagemCompletaObrigatoria() && (
+                    <button
+                      type="button"
+                      className="ck-estoque-hub__sheet-tipo-btn is-pri"
+                      disabled={iniciando}
+                      onClick={() => void iniciar('diaria')}
+                    >
+                      <strong>Contagem diária</strong>
+                      <small>Carne, frango, queijo, bacon, pão, batata, copos e mix</small>
+                    </button>
+                  )}
                   {CONTAGEM_SEMANAL_ATIVA && (
                     <button
                       type="button"

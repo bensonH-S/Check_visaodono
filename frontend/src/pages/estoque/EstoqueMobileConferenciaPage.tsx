@@ -35,16 +35,13 @@ const AUTOSAVE_MS = 700;
 const SECAO_OUTROS = 'OUTROS';
 
 function fmtVl(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
-  return Number(v).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  });
+  const n = v == null || Number.isNaN(Number(v)) ? 0 : Number(v);
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function fmtBrl(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
-  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const n = v == null || Number.isNaN(Number(v)) ? 0 : Number(v);
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function fmtNum(v: number | null | undefined, digitos = 2) {

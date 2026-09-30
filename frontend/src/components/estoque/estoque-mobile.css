@@ -2274,7 +2274,9 @@ html.dark .ck-estoque .ck-estoque__empty {
 
 .ck-estoque--contagem .ck-estoque__desc {
   margin-bottom: 10px;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .ck-estoque--contagem .ck-estoque__vl-row {
@@ -2287,11 +2289,13 @@ html.dark .ck-estoque .ck-estoque__empty {
 .ck-estoque--contagem .ck-estoque__vl {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
   padding: 8px 10px;
   border-radius: 10px;
   background: #dbe4f0;
   border: 1px solid rgba(15, 26, 69, 0.12);
+  text-align: center;
 }
 
 .ck-estoque--contagem .ck-estoque__vl span {
@@ -2300,6 +2304,8 @@ html.dark .ck-estoque .ck-estoque__empty {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgba(15, 26, 69, 0.62);
+  text-align: center;
+  width: 100%;
 }
 
 .ck-estoque--contagem .ck-estoque__vl strong {
@@ -2308,19 +2314,28 @@ html.dark .ck-estoque .ck-estoque__empty {
   color: #0f1a45;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+  text-align: center;
+  width: 100%;
 }
 
 .ck-estoque--contagem .ck-estoque__row--tres {
   margin-top: 0;
 }
 
+.ck-estoque--contagem .ck-estoque__field {
+  text-align: center;
+}
+
 .ck-estoque--contagem .ck-estoque__field label {
   color: rgba(15, 26, 69, 0.62);
+  text-align: center;
+  width: 100%;
 }
 
 .ck-estoque--contagem .ck-estoque__field:not(.is-blocked) label {
   color: var(--ga-text-primary);
   font-weight: 800;
+  text-align: center;
 }
 
 .ck-estoque--contagem .ck-estoque__field input {
@@ -3601,4 +3616,328 @@ html.dark .ck-estoque--detalhe .ck-estoque__busca-fix input {
   padding: 0 8px;
   font-size: 0.74rem;
   white-space: nowrap;
+}
+
+/* —— Contagem mobile hub (#0b1721 / #fe6c22) —— */
+.ck-estoque--contagem-hub.ck-estoque--contagem {
+  --ck-paper: #0b1721;
+  --ck-ink: #f5f5f5;
+  --ck-navy: #fe6c22;
+  --ck-navy-deep: #0b1721;
+  --ga-surface: #333840;
+  --ga-text-primary: #f5f5f5;
+  --ga-text-secondary: #8d8d8d;
+  --ga-border: rgba(255, 255, 255, 0.1);
+  --ga-canvas: #0b1721;
+  background: #0b1721;
+  color: #f5f5f5;
+  position: relative;
+  isolation: isolate;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__contagem-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--ck-hero) center 46% / min(82vw, 340px) no-repeat;
+  opacity: 0.18;
+  filter: blur(1.2px) saturate(0.9);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__contagem-sticky,
+.ck-estoque--contagem-hub .ck-visitas__scroll,
+.ck-estoque--contagem-hub .ck-estoque__bottom-stack {
+  position: relative;
+  z-index: 1;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__contagem-sticky {
+  background: #0b1721;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__contagem-banner {
+  background: #333840;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__contagem-sub {
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__secao-banner {
+  background: #333840;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__secao-banner--busca {
+  background: rgba(254, 108, 34, 0.18);
+  border-color: rgba(254, 108, 34, 0.4);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__busca-wrap input {
+  background: #333840;
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__busca-wrap input::placeholder {
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-visitas__scroll,
+.ck-estoque--contagem-hub .ck-estoque__sheet-scroll {
+  background: #0b1721;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__bottom-stack {
+  background: #0b1721;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__secao-dock {
+  background: #0b1721;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__dock-side {
+  background: #333840;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__dock-side:not(:disabled):active {
+  background: #3d4450;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__dock-cta {
+  background: #fe6c22;
+  color: #fff;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__dock-cta--ok {
+  background: #22c55e;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__item--planilha {
+  background: #333840;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-left-color: #fe6c22 !important;
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__item--planilha.is-pend {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.35);
+  border-left: 4px solid #fe6c22 !important;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__item--planilha.is-ok {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  border-left: 4px solid #22c55e !important;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__item--planilha.is-digitando {
+  box-shadow: 0 0 0 2px rgba(254, 108, 34, 0.45);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__cod {
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__desc {
+  color: #f5f5f5;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__linha-total,
+.ck-estoque--contagem-hub .ck-estoque__meta-foot {
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__meta-foot {
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__item--planilha.is-fora-cmv .ck-estoque__cod {
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__vl-row {
+  text-align: center;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__vl {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  align-items: center;
+  text-align: center;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__vl span {
+  color: #8d8d8d;
+  text-align: center;
+  width: 100%;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__vl strong {
+  color: #f5f5f5;
+  text-align: center;
+  width: 100%;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__field {
+  text-align: center;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__field label,
+.ck-estoque--contagem-hub .ck-estoque__field:not(.is-blocked) label {
+  color: #8d8d8d;
+  text-align: center;
+  width: 100%;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__field:not(.is-blocked) label {
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__field input,
+.ck-estoque--contagem-hub .ck-estoque__field:not(.is-blocked) input {
+  background: #0b1721;
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__field:not(.is-blocked) input:focus {
+  border-color: #fe6c22;
+  box-shadow: 0 0 0 3px rgba(254, 108, 34, 0.22);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__tap {
+  background: #0b1721;
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__tap.is-empty {
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__tap.is-active {
+  background: rgba(254, 108, 34, 0.16);
+  border-color: #fe6c22;
+  color: #fff;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__sistema {
+  background: rgba(255, 255, 255, 0.06);
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__blocked {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__field.is-blocked label {
+  color: #6b7280;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__unidade-tag {
+  background: rgba(254, 108, 34, 0.16);
+  color: #ff9a5c;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__kg-hint {
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__kg-hint:active {
+  color: #fe6c22;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad {
+  background: #0b1721;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-meta strong {
+  color: #fe6c22;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-meta span {
+  color: #8d8d8d;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-valor {
+  background: #333840;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-valor.is-sel {
+  background: rgba(254, 108, 34, 0.16);
+  border-color: #fe6c22;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-x {
+  background: #333840;
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-key {
+  background: #333840;
+  color: #f5f5f5;
+  box-shadow: none;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-key.is-muted {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-key:active {
+  background: rgba(254, 108, 34, 0.22);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-act {
+  background: #333840;
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__numpad-act.is-primary {
+  background: #fe6c22;
+  color: #fff;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__btn--save {
+  background: #fe6c22;
+  color: #fff;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__dlg {
+  background: #333840;
+  color: #f5f5f5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.ck-estoque--contagem-hub .ck-estoque__dlg p,
+.ck-estoque--contagem-hub .ck-estoque__dlg strong {
+  color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__contagem-err {
+  color: #f87171;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__empty {
+  color: #8d8d8d;
 }

@@ -66,6 +66,7 @@ import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels
 import EstoqueConferenciaDetalhe from './EstoqueConferenciaDetalhe';
 import {
   CONTAGEM_SEMANAL_ATIVA,
+  ehDiaContagemCompletaObrigatoria,
   rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
@@ -1084,14 +1085,16 @@ export default function ControleEstoquePage() {
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                       {podeEditarConferencia && (
                         <>
-                          <Button
-                            variant="contained"
-                            startIcon={<PlayArrowIcon />}
-                            disabled={iniciando}
-                            onClick={() => void iniciarSabado('diaria')}
-                          >
-                            Diária
-                          </Button>
+                          {!ehDiaContagemCompletaObrigatoria() && (
+                            <Button
+                              variant="contained"
+                              startIcon={<PlayArrowIcon />}
+                              disabled={iniciando}
+                              onClick={() => void iniciarSabado('diaria')}
+                            >
+                              Diária
+                            </Button>
+                          )}
                           {CONTAGEM_SEMANAL_ATIVA && (
                           <Button
                             variant="outlined"

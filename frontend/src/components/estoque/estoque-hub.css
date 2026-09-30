@@ -1716,7 +1716,7 @@
 .ck-estoque--contagem-hub .ck-estoque__item--planilha.is-pend {
   background: rgba(234, 179, 8, 0.12);
   border-color: rgba(234, 179, 8, 0.35);
-  border-left: 4px solid #eab308 !important;
+  border-left: 4px solid #fe6c22 !important;
 }
 
 .ck-estoque--contagem-hub .ck-estoque__item--planilha.is-ok {
@@ -1733,27 +1733,50 @@
   color: #8d8d8d;
 }
 
-.ck-estoque--contagem-hub .ck-estoque__desc,
+.ck-estoque--contagem-hub .ck-estoque__desc {
+  color: #f5f5f5;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+
 .ck-estoque--contagem-hub .ck-estoque__linha-total {
   color: #f5f5f5;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__vl-row {
+  text-align: center;
 }
 
 .ck-estoque--contagem-hub .ck-estoque__vl {
   background: #2a3038;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  align-items: center;
+  text-align: center;
 }
 
 .ck-estoque--contagem-hub .ck-estoque__vl span {
   color: #8d8d8d;
+  text-align: center;
+  width: 100%;
 }
 
 .ck-estoque--contagem-hub .ck-estoque__vl strong {
   color: #f5f5f5;
+  text-align: center;
+  width: 100%;
+}
+
+.ck-estoque--contagem-hub .ck-estoque__field {
+  text-align: center;
 }
 
 .ck-estoque--contagem-hub .ck-estoque__field label,
 .ck-estoque--contagem-hub .ck-estoque__field:not(.is-blocked) label {
   color: #8d8d8d;
+  text-align: center;
+  width: 100%;
 }
 
 .ck-estoque--contagem-hub .ck-estoque__field:not(.is-blocked) label {
