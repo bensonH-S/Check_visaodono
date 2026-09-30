@@ -7,6 +7,9 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
 import FrotaMobileShell from '../../components/frota/FrotaMobileShell';
@@ -18,6 +21,8 @@ import { filtrarKmAoDigitar, kmInputParaNumero, labelFixo, ph, rotuloVeiculoOpca
 import { showToast } from '../../utils/toast';
 
 const MAX_FOTOS_VEICULO = 10;
+
+type EtapaAssumir = 0 | 1 | 2 | 3;
 
 function dataUrlToBlob(dataUrl: string): Blob {
   const [meta, b64] = dataUrl.split(',');
@@ -37,6 +42,7 @@ export default function FrotaVeiculoPage() {
   const [kmAssumir, setKmAssumir] = useState('');
   const [fotoCnh, setFotoCnh] = useState<string[]>([]);
   const [fotosVeiculo, setFotosVeiculo] = useState<string[]>([]);
+  const [etapa, setEtapa] = useState<EtapaAssumir>(0);
   const [erro, setErro] = useState('');
   const [ok, setOk] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -45,8 +51,6 @@ export default function FrotaVeiculoPage() {
   const cnhPreenchida = fotoCnh.length > 0;
   const fotosVeiculoOk = fotosVeiculo.length > 0;
   const podeAssumir = dadosPreenchidos && cnhPreenchida && fotosVeiculoOk;
-
-  const etapaAtiva = !dadosPreenchidos ? 0 : !cnhPreenchida ? 1 : !fotosVeiculoOk ? 2 : 3;
 
   const veiculosDisponiveis = useMemo(
     () => veiculos.filter((v) => v.id_usuario_responsavel == null),
@@ -75,23 +79,46 @@ export default function FrotaVeiculoPage() {
     void carregar();
   }, []);
 
-  function limparFotosAoAlterarDados() {
-    setFotoCnh([]);
-    setFotosVeiculo([]);
-  }
-
   function aoMudarVeiculo(valor: number | '') {
     setIdVeiculoAssumir(valor);
-    limparFotosAoAlterarDados();
+    setFotoCnh([]);
+    setFotosVeiculo([]);
+    setEtapa(0);
   }
 
   function aoMudarKm(valor: string) {
     setKmAssumir(filtrarKmAoDigitar(valor));
   }
 
+  function continuarParaCnh() {
+    if (!dadosPreenchidos) return;
+    setEtapa(1);
+  }
+
   function aoMudarCnh(fotos: string[]) {
-    setFotoCnh(fotos.slice(0, 1));
-    if (!fotos.length) setFotosVeiculo([]);
+    const next = fotos.slice(0, 1);
+    setFotoCnh(next);
+    if (next.length > 0) setEtapa(2);
+  }
+
+  function voltarAosDados() {
+    setEtapa(0);
+  }
+
+  function voltarACnh() {
+    setEtapa(1);
+  }
+
+  function voltarAsFotos() {
+    setEtapa(2);
+  }
+
+  function finalizarFotos() {
+    if (!fotosVeiculoOk) {
+      showToast('Tire ao menos uma foto do veículo', 'warning');
+      return;
+    }
+    setEtapa(3);
   }
 
   async function desassumir(kmAtual: number) {
@@ -106,6 +133,7 @@ export default function FrotaVeiculoPage() {
       setKmAssumir('');
       setFotoCnh([]);
       setFotosVeiculo([]);
+      setEtapa(0);
       showToast('Carro devolvido com sucesso!', 'success');
       await carregar();
     } catch (e) {
@@ -140,6 +168,7 @@ export default function FrotaVeiculoPage() {
       setKmAssumir('');
       setFotoCnh([]);
       setFotosVeiculo([]);
+      setEtapa(0);
       setOk('Controle do veículo assumido hoje.');
       await carregar();
     } catch (e) {
@@ -158,8 +187,16 @@ export default function FrotaVeiculoPage() {
         sub="Carregando veículos…"
         variant="page"
         onBack={() => navigate('/frota/mobile')}
+        temVeiculo={false}
       >
-        <LinearProgress />
+        <LinearProgress
+          sx={{
+            my: 1.5,
+            borderRadius: 1,
+            backgroundColor: 'rgba(255,154,92,0.18)',
+            '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+          }}
+        />
       </FrotaMobileShell>
     );
   }
@@ -174,6 +211,7 @@ export default function FrotaVeiculoPage() {
       }
       variant="page"
       onBack={() => navigate('/frota/mobile')}
+      temVeiculo={Boolean(meuVeiculo)}
       metrics={[
         {
           value: meuVeiculo?.placa ?? '—',
@@ -187,6 +225,7 @@ export default function FrotaVeiculoPage() {
         {
           value: meuVeiculo ? 'Em uso' : 'Livre',
           label: 'status',
+          ok: Boolean(meuVeiculo),
         },
       ]}
     >
@@ -205,79 +244,134 @@ export default function FrotaVeiculoPage() {
         <FrotaVeiculoControleCard
           veiculo={meuVeiculo}
           salvando={salvando}
+          temaEscuro
           onDesassumir={(km) => void desassumir(km)}
         />
       ) : (
         <div className="ck-frota__form-card">
-          <Typography sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5, fontSize: '1rem' }}>
+          <Typography sx={{ fontWeight: 800, color: '#f5f5f5', mb: 0.5, fontSize: '1rem' }}>
             Assumir controle do carro
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.82rem' }}>
+          <Typography variant="body2" sx={{ mb: 2, fontSize: '0.82rem', color: '#8d8d8d' }}>
             Preencha veículo e KM, depois anexe a CNH e as fotos do carro.
           </Typography>
 
-          <div className="ck-visitas__seg" role="list" style={{ marginBottom: 16 }}>
-            {passosLabels.map((label, i) => (
-              <button
-                key={label}
-                type="button"
-                className={`ck-visitas__seg-btn${i <= etapaAtiva ? ' is-on' : ''}`}
-                disabled
-                style={{ pointerEvents: 'none', opacity: i <= etapaAtiva ? 1 : 0.55 }}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="ck-frota-hub__passos" role="list" aria-label="Etapas">
+            {passosLabels.map((label, i) => {
+              const feito = etapa === 3 ? true : i < etapa;
+              const atual = i === etapa && etapa < 3;
+              return (
+                <span
+                  key={label}
+                  role="listitem"
+                  className={`ck-frota-hub__passo${feito ? ' is-done' : ''}${atual ? ' is-on' : ''}`}
+                >
+                  {feito ? (
+                    <CheckCircleIcon className="ck-frota-hub__passo-ico" />
+                  ) : (
+                    <RadioButtonUncheckedIcon className="ck-frota-hub__passo-ico" />
+                  )}
+                  <span className="ck-frota-hub__passo-label">{label}</span>
+                </span>
+              );
+            })}
           </div>
 
-          <TextField
-            select
-            fullWidth
-            label="Veículo"
-            value={idVeiculoAssumir}
-            onChange={(e) => aoMudarVeiculo(Number(e.target.value) || '')}
-            sx={{ mb: 2 }}
-            slotProps={{
-              inputLabel: labelFixo.inputLabel,
-              select: {
-                displayEmpty: true,
-                renderValue: (selected: unknown) => {
-                  if (!selected) {
-                    return (
-                      <Box component="span" sx={{ color: 'text.disabled' }}>
-                        {ph.veiculo}
-                      </Box>
-                    );
-                  }
-                  const v = veiculosDisponiveis.find((item) => item.id_veiculo === Number(selected));
-                  return v ? rotuloVeiculoOpcao(v) : String(selected);
-                },
-                ...selectMenuScrollProps,
-              },
-            }}
-          >
-            {veiculosDisponiveis.map((v) => (
-              <MenuItem key={v.id_veiculo} value={v.id_veiculo}>
-                {rotuloVeiculoOpcao(v)}
-              </MenuItem>
-            ))}
-          </TextField>
+          {etapa === 0 && (
+            <>
+              <TextField
+                select
+                fullWidth
+                label="Veículo"
+                value={idVeiculoAssumir}
+                onChange={(e) => aoMudarVeiculo(Number(e.target.value) || '')}
+                sx={{ mb: 2 }}
+                slotProps={{
+                  inputLabel: labelFixo.inputLabel,
+                  select: {
+                    displayEmpty: true,
+                    renderValue: (selected: unknown) => {
+                      if (!selected) {
+                        return (
+                          <Box component="span" className="ck-frota__ph">
+                            {ph.veiculo}
+                          </Box>
+                        );
+                      }
+                      const v = veiculosDisponiveis.find((item) => item.id_veiculo === Number(selected));
+                      return (
+                        <Box className="ck-frota-hub__veiculo-opt" component="span">
+                          <DirectionsCarIcon className="ck-frota-hub__veiculo-opt-ico" />
+                          <span>{v ? rotuloVeiculoOpcao(v) : String(selected)}</span>
+                        </Box>
+                      );
+                    },
+                    MenuProps: {
+                      ...selectMenuScrollProps.MenuProps,
+                      slotProps: {
+                        paper: {
+                          className: 'ck-frota-hub__menu',
+                          sx: {
+                            maxHeight: 320,
+                            overflowY: 'auto',
+                            WebkitOverflowScrolling: 'touch',
+                            bgcolor: '#333840',
+                            color: '#f5f5f5',
+                            backgroundImage: 'none',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.55)',
+                          },
+                        },
+                      },
+                    },
+                  },
+                }}
+              >
+                {veiculosDisponiveis.map((v) => (
+                  <MenuItem key={v.id_veiculo} value={v.id_veiculo}>
+                    <Box className="ck-frota-hub__veiculo-opt" component="span">
+                      <DirectionsCarIcon className="ck-frota-hub__veiculo-opt-ico" />
+                      <span>{rotuloVeiculoOpcao(v)}</span>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </TextField>
 
-          <TextField
-            fullWidth
-            label="Quilometragem atual"
-            value={kmAssumir}
-            onChange={(e) => aoMudarKm(e.target.value)}
-            inputMode="numeric"
-            required
-            placeholder={ph.km}
-            sx={{ mb: 2 }}
-            slotProps={{ inputLabel: labelFixo.inputLabel }}
-          />
+              <TextField
+                fullWidth
+                label="Quilometragem atual"
+                value={kmAssumir}
+                onChange={(e) => aoMudarKm(e.target.value)}
+                inputMode="numeric"
+                required
+                placeholder={ph.km}
+                sx={{ mb: 2 }}
+                slotProps={{ inputLabel: labelFixo.inputLabel }}
+              />
 
-          {dadosPreenchidos && !cnhPreenchida && (
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.primary' }}>
+              {dadosPreenchidos ? (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={continuarParaCnh}
+                  className="ck-frota__cta"
+                >
+                  Continuar
+                </Button>
+              ) : (
+                <Typography
+                  variant="caption"
+                  sx={{ display: 'block', textAlign: 'center', color: '#8d8d8d' }}
+                >
+                  Selecione o veículo e informe a quilometragem para continuar.
+                </Typography>
+              )}
+            </>
+          )}
+
+          {etapa === 1 && (
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#f5f5f5' }}>
                 Foto da CNH
               </Typography>
               <PhotoCaptureMulti
@@ -287,19 +381,40 @@ export default function FrotaVeiculoPage() {
                 inlineActions
                 hideCaption
               />
+              {!cnhPreenchida && (
+                <Typography
+                  variant="caption"
+                  sx={{ display: 'block', textAlign: 'center', mt: 1, color: '#8d8d8d' }}
+                >
+                  Anexe a foto da CNH para seguir para as fotos do veículo.
+                </Typography>
+              )}
+              <div className="ck-frota__acoes-etapa">
+                <Button
+                  variant="outlined"
+                  disableElevation
+                  onClick={voltarAosDados}
+                  className="ck-frota__btn-voltar"
+                >
+                  Voltar
+                </Button>
+                {cnhPreenchida && (
+                  <Button
+                    variant="contained"
+                    onClick={() => setEtapa(2)}
+                    className="ck-frota__cta"
+                  >
+                    Continuar
+                  </Button>
+                )}
+              </div>
             </Box>
           )}
 
-          {dadosPreenchidos && cnhPreenchida && !fotosVeiculoOk && (
-            <Box sx={{ mb: 2 }}>
-              <Alert severity="success" variant="outlined" sx={{ mb: 2 }}>
-                CNH anexada. Agora tire ao menos uma foto do veículo.
-              </Alert>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5, color: 'text.primary' }}>
+          {etapa === 2 && (
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#f5f5f5' }}>
                 Fotos do veículo
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Envie de 1 a {MAX_FOTOS_VEICULO} fotos do carro.
               </Typography>
               <PhotoCaptureMulti
                 fotos={fotosVeiculo}
@@ -309,50 +424,52 @@ export default function FrotaVeiculoPage() {
                 thumbColumns={3}
                 hideCaption
               />
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => {
-                  setFotoCnh([]);
-                  setFotosVeiculo([]);
-                }}
-                sx={{ mt: 1, color: 'text.secondary' }}
-              >
-                Alterar foto da CNH
-              </Button>
+              <div className="ck-frota__acoes-etapa">
+                <Button
+                  variant="outlined"
+                  disableElevation
+                  onClick={voltarACnh}
+                  className="ck-frota__btn-voltar"
+                >
+                  Voltar
+                </Button>
+                <Button
+                  variant="contained"
+                  disabled={!fotosVeiculoOk}
+                  onClick={finalizarFotos}
+                  className="ck-frota__cta"
+                >
+                  Finalizar{fotosVeiculoOk ? ` (${fotosVeiculo.length})` : ''}
+                </Button>
+              </div>
             </Box>
           )}
 
-          {dadosPreenchidos && cnhPreenchida && fotosVeiculoOk && (
-            <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
-              CNH e fotos do veículo prontas. Confirme a atribuição abaixo.
-            </Alert>
-          )}
-
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={() => void assumir()}
-            disabled={salvando || !podeAssumir}
-            className="ck-frota__cta"
-          >
-            {salvando ? 'Registrando…' : 'Atribuir veículo'}
-          </Button>
-
-          {!podeAssumir && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', textAlign: 'center', mt: 1 }}
-            >
-              {!dadosPreenchidos
-                ? 'Selecione o veículo e informe a quilometragem para continuar.'
-                : !cnhPreenchida
-                  ? 'Anexe a foto da CNH para seguir para as fotos do veículo.'
-                  : !fotosVeiculoOk
-                    ? 'Anexe ao menos uma foto do veículo para atribuir.'
-                    : null}
-            </Typography>
+          {etapa === 3 && (
+            <>
+              <p className="ck-frota-hub__banner is-ok">
+                {fotosVeiculo.length} foto{fotosVeiculo.length === 1 ? '' : 's'} do veículo e CNH
+                prontas. Confirme a atribuição abaixo.
+              </p>
+              <div className="ck-frota__acoes-etapa">
+                <Button
+                  variant="outlined"
+                  disableElevation
+                  onClick={voltarAsFotos}
+                  className="ck-frota__btn-voltar"
+                >
+                  Voltar
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => void assumir()}
+                  disabled={salvando || !podeAssumir}
+                  className="ck-frota__cta"
+                >
+                  {salvando ? 'Registrando…' : 'Atribuir'}
+                </Button>
+              </div>
+            </>
           )}
         </div>
       )}

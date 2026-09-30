@@ -18,6 +18,7 @@ import { tituloNotificacaoChamado } from '../utils/notificacoesTexto';
 import { tituloNotificacaoEscala } from './escalas/escalaVisitasUtils';
 import NotificacaoBadge from './NotificacaoBadge';
 import { colors } from '../theme/tokens';
+import { deveForcarTemaClaroMobile } from '../utils/device';
 import {
   filtrarNotificacoesVisiveisChamados,
   tipoAlertaChamadoOps,
@@ -25,6 +26,12 @@ import {
 import { podeReceberPainelDiretorChamados, podeVerEscalaVisitas } from '../lib/auth';
 
 const ESCALA_ID_BASE = 1_000_000;
+const DARK_SURFACE = '#333840';
+const DARK_BORDER = 'rgba(255, 255, 255, 0.1)';
+const DARK_TEXT = '#f5f5f5';
+const DARK_MUTED = '#8d8d8d';
+const DARK_ROW = 'rgba(254, 108, 34, 0.12)';
+const DARK_ROW_BORDER = 'rgba(255, 255, 255, 0.08)';
 
 function mapaEscalaParaSino(n: EscalaVisitasNotificacao): ManutNotificacao {
   return {
@@ -87,6 +94,7 @@ type PainelProps = {
   lista: ManutNotificacao[];
   painelLargo: boolean;
   menuMobile: boolean;
+  escuro: boolean;
   onMarcarTodas: () => void;
   renderItem: (n: ManutNotificacao, conteudo: ReactNode) => ReactNode;
 };
@@ -98,10 +106,13 @@ function PainelNotificacoes({
   lista,
   painelLargo,
   menuMobile,
+  escuro,
   onMarcarTodas,
   renderItem,
 }: PainelProps) {
   const itens = lista.filter((n) => tituloNotificacaoChamado(n, { contexto }).length > 0);
+  const tituloColor = escuro ? DARK_TEXT : colors.textPrimary;
+  const metaColor = escuro ? DARK_MUTED : undefined;
 
   const conteudoItem = (n: ManutNotificacao) => (
     <>
@@ -127,11 +138,12 @@ function PainelNotificacoes({
             whiteSpace: 'normal',
             wordBreak: 'break-word',
             overflow: 'visible',
+            color: tituloColor,
           }}
         >
           {tituloNotificacaoChamado(n, { contexto })}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color={metaColor ? undefined : 'text.secondary'} sx={metaColor ? { color: metaColor } : undefined}>
           {formatDataHoraBrasilia(n.created_at)}
         </Typography>
       </Box>
@@ -142,22 +154,22 @@ function PainelNotificacoes({
     <>
       <Box sx={{ px: 2, py: 1.25, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: colors.textPrimary }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: tituloColor }}>
             {tituloMenu}
           </Typography>
           <NotificacaoBadge count={naoLidas} />
         </Box>
         {naoLidas > 0 && (
-          <Button size="small" onClick={onMarcarTodas} sx={{ fontWeight: 600 }}>
+          <Button size="small" onClick={onMarcarTodas} sx={{ fontWeight: 600, color: escuro ? '#fe6c22' : undefined }}>
             Marcar lidas
           </Button>
         )}
       </Box>
-      <Divider />
+      <Divider sx={escuro ? { borderColor: DARK_BORDER } : undefined} />
       <Box sx={{ maxHeight: menuMobile ? 'min(60vh, 440px)' : 320, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
         {!itens.length && (
           <Box sx={{ px: 2, py: 2 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: escuro ? DARK_MUTED : undefined }} color={escuro ? undefined : 'text.secondary'}>
               {contexto === 'aprovacoes'
                 ? 'Nenhuma aprovação pendente'
                 : 'Nenhuma notificação de chamados'}
@@ -202,6 +214,14 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
     menuLargo || contexto === 'aprovacoes' || (variante === 'portal' && contexto === 'chamados');
   const larguraMenu = painelLargo ? 460 : 360;
   const menuMobile = variante === 'mobile';
+  const escuro = menuMobile && deveForcarTemaClaroMobile();
+  const painelBg = escuro ? DARK_SURFACE : '#fff';
+  const painelBorder = escuro ? DARK_BORDER : 'rgba(27, 42, 107, 0.1)';
+  const setaBorder = escuro ? DARK_BORDER : 'rgba(27, 42, 107, 0.1)';
+  const rowBorder = escuro ? DARK_ROW_BORDER : 'rgba(27, 42, 107, 0.06)';
+  const rowUnread = escuro ? DARK_ROW : 'rgba(27, 42, 107, 0.05)';
+  const iconColor = escuro ? '#f5f5f5' : colors.textSecondary;
+  const badgeBorder = escuro ? DARK_SURFACE : '#f5f5f3';
 
   const alinharSetaBalao = useCallback(() => {
     if (!anchor || !balloonRef.current) return;
@@ -353,6 +373,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
     lista,
     painelLargo,
     menuMobile,
+    escuro,
     onMarcarTodas: marcarTodas,
     renderItem: () => null,
   };
@@ -365,7 +386,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
         aria-expanded={!!anchor}
         onClick={togglePainel}
         sx={{
-          color: colors.textSecondary,
+          color: iconColor,
           position: 'relative',
           p: 1,
         }}
@@ -383,7 +404,7 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
               fontSize: '0.7rem',
               minWidth: 20,
               height: 20,
-              border: '2px solid #f5f5f3',
+              border: `2px solid ${badgeBorder}`,
             },
           }}
         >
@@ -398,17 +419,20 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         disableScrollLock
-        marginThreshold={8}
+        marginThreshold={0}
         slotProps={{
           transition: { onEntered: alinharSetaBalao },
           paper: {
             sx: {
               mt: 1,
+              /* Esquerda: limite mínimo; direita: chega na borda */
+              left: '12px !important',
+              right: '8px !important',
+              width: 'auto !important',
+              maxWidth: 'none !important',
               bgcolor: 'transparent',
               boxShadow: 'none',
               overflow: 'visible',
-              width: 'calc(100vw - 24px)',
-              maxWidth: 380,
             },
           },
         }}
@@ -422,10 +446,10 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
               right: arrowRight,
               width: ARROW_HALF * 2,
               height: ARROW_HALF * 2,
-              bgcolor: '#fff',
+              bgcolor: painelBg,
               transform: 'rotate(45deg)',
-              borderLeft: '1px solid rgba(27, 42, 107, 0.1)',
-              borderTop: '1px solid rgba(27, 42, 107, 0.1)',
+              borderLeft: `1px solid ${setaBorder}`,
+              borderTop: `1px solid ${setaBorder}`,
               zIndex: 2,
               transition: 'right 0.05s ease-out',
             }}
@@ -434,10 +458,10 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
             elevation={0}
             sx={{
               borderRadius: 3,
-              border: '1px solid rgba(27, 42, 107, 0.1)',
-              boxShadow: '0 14px 40px rgba(27, 42, 107, 0.16)',
+              border: `1px solid ${painelBorder}`,
+              boxShadow: escuro ? '0 14px 40px rgba(0, 0, 0, 0.5)' : '0 14px 40px rgba(27, 42, 107, 0.16)',
               overflow: 'hidden',
-              bgcolor: '#fff',
+              bgcolor: painelBg,
             }}
           >
             <PainelNotificacoes
@@ -452,8 +476,8 @@ export default function NotificacoesSino({ variante, contexto, idLoja, menuLargo
                     display: 'flex',
                     width: '100%',
                     border: 'none',
-                    borderBottom: '1px solid rgba(27, 42, 107, 0.06)',
-                    bgcolor: n.lida ? 'transparent' : 'rgba(27, 42, 107, 0.05)',
+                    borderBottom: `1px solid ${rowBorder}`,
+                    bgcolor: n.lida ? 'transparent' : rowUnread,
                     cursor: 'pointer',
                     textAlign: 'left',
                     py: 1.35,

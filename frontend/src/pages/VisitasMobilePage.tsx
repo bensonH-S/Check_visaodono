@@ -578,11 +578,14 @@ export default function VisitasMobilePage() {
     </Dialog>
   );
 
-  if (loading) return <PageLoading />;
-
-  if (err) return <Typography color="error">{err}</Typography>;
-
   if (isMobileApp) {
+    if (err && !loading && !visitas.length) {
+      return (
+        <Typography color="error" sx={{ p: 2 }}>
+          {err}
+        </Typography>
+      );
+    }
     return (
       <>
         <VisitasMobileScreen
@@ -597,6 +600,7 @@ export default function VisitasMobilePage() {
           onReabrir={setReabrirAlvo}
           enviandoEmailId={enviandoEmailId}
           onEnviarEmail={(v) => void enviarRelatorioEmail(v)}
+          loading={loading}
         />
         <Dialog open={!!apagarAlvo} onClose={() => !apagando && setApagarAlvo(null)}>
           <DialogTitle>Apagar relatório?</DialogTitle>
@@ -620,6 +624,10 @@ export default function VisitasMobilePage() {
       </>
     );
   }
+
+  if (loading) return <PageLoading />;
+
+  if (err) return <Typography color="error">{err}</Typography>;
 
   if (!visitas.length) {
     return (

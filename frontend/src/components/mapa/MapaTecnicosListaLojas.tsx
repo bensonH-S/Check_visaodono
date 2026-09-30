@@ -7,13 +7,17 @@ import LayersIcon from '@mui/icons-material/Layers';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { useNavigate } from 'react-router-dom';
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
+import SatelliteAltOutlinedIcon from '@mui/icons-material/SatelliteAltOutlined';
 import { useMapaTecnicosMobile } from '../../pages/mapa/MapaTecnicosMobileContext';
 import MapaFiltroTrajetoCalendario from './MapaFiltroTrajetoCalendario';
 import MapaFiltroTrajetoVeiculo, { posicaoParaVeiculoCatalogo } from './MapaFiltroTrajetoVeiculo';
-import MobileUsuarioMenu from '../MobileUsuarioMenu';
-import { getUsuario, logout } from '../../lib/auth';
+import AppHubDock from '../hub/AppHubDock';
+import { getUsuario } from '../../lib/auth';
+import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
 import { dataHojeBrasilia } from '../../utils/dateBr';
+import '../../components/estoque/estoque-hub.css';
 import {
   nomeOcupanteVeiculo,
   primeiroNomeOcupante,
@@ -41,7 +45,6 @@ function ordenarVeiculos(veiculos: FrotaVeiculoPosicao[], userId?: number) {
 }
 
 export default function MapaTecnicosListaLojas() {
-  const navigate = useNavigate();
   const user = getUsuario();
   const {
     regioes,
@@ -66,11 +69,13 @@ export default function MapaTecnicosListaLojas() {
     fecharConsultaHistorico,
     consultarTrajeto,
     tipoMapa,
-    alternarTipoMapa,
+    selecionarTipoMapa,
   } = useMapaTecnicosMobile();
 
   const regiaoBtnRef = useRef<HTMLButtonElement>(null);
+  const camadasBtnRef = useRef<HTMLButtonElement>(null);
   const [regioesAbertas, setRegioesAbertas] = useState(false);
+  const [camadasAbertas, setCamadasAbertas] = useState(false);
   const hoje = dataHojeBrasilia();
   const lista = useMemo(
     () => ordenarVeiculos(veiculos, user?.id_usuario),
@@ -79,21 +84,22 @@ export default function MapaTecnicosListaLojas() {
   const regiaoAtiva = regioes.find((r) => Number(r.id_regiao) === Number(regiaoFiltro));
 
   return (
-    <div className={`ck-mapa__life${consultaHistorico ? ' is-historico' : ''}${tipoMapa === 'satelite' ? ' is-satelite' : ''}`}>
+    <div className={`ck-mapa__life${consultaHistorico ? ' is-historico' : ''}${tipoMapa === 'satelite' ? ' is-satelite' : ''}${tipoMapa === 'escuro' ? ' is-escuro' : ''}`}>
       <div className="ck-mapa__life-top">
-        {podeFiltrarDataTrajeto ? (
-          <button
-            type="button"
-            className={`ck-mapa__life-icon${consultaHistorico ? ' is-on' : ''}`}
-            onClick={() => (consultaHistorico ? fecharConsultaHistorico() : abrirConsultaHistorico())}
-            aria-label={consultaHistorico ? 'Voltar ao vivo' : 'Histórico'}
-          >
-            {consultaHistorico ? <SensorsIcon sx={{ fontSize: 20 }} /> : <HistoryIcon sx={{ fontSize: 20 }} />}
-          </button>
-        ) : (
-          <span />
-        )}
+        <div className="ck-mapa__life-brand">
+          <img src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+        </div>
         <div className="ck-mapa__life-top-right">
+          {podeFiltrarDataTrajeto ? (
+            <button
+              type="button"
+              className={`ck-mapa__life-icon${consultaHistorico ? ' is-on' : ''}`}
+              onClick={() => (consultaHistorico ? fecharConsultaHistorico() : abrirConsultaHistorico())}
+              aria-label={consultaHistorico ? 'Voltar ao vivo' : 'Histórico'}
+            >
+              {consultaHistorico ? <SensorsIcon sx={{ fontSize: 20 }} /> : <HistoryIcon sx={{ fontSize: 20 }} />}
+            </button>
+          ) : null}
           {podeFiltrarRegioes && regioes.length > 1 && !consultaHistorico && (
             <button
               type="button"
@@ -103,112 +109,116 @@ export default function MapaTecnicosListaLojas() {
               aria-expanded={regioesAbertas}
               onClick={() => setRegioesAbertas((v) => !v)}
             >
-              {regiaoFiltro === '' ? 'Todas' : regiaoAtiva?.nome.replace(/^Região\s+/i, '') || 'Região'}
-              <KeyboardArrowUpIcon sx={{ fontSize: 18, ml: 0.25, opacity: 0.75 }} />
+              <span>
+                {regiaoFiltro === '' ? 'Todas' : regiaoAtiva?.nome.replace(/^Região\s+/i, '') || 'Região'}
+              </span>
+              <KeyboardArrowUpIcon sx={{ fontSize: 18, ml: 0.25, opacity: 0.75, flexShrink: 0 }} />
             </button>
           )}
           <button
             type="button"
-            className={`ck-mapa__life-icon${tipoMapa === 'satelite' ? ' is-on' : ''}`}
-            onClick={alternarTipoMapa}
-            aria-label={tipoMapa === 'satelite' ? 'Mapa de ruas' : 'Satélite'}
+            ref={camadasBtnRef}
+            className={`ck-mapa__life-icon${tipoMapa !== 'rua' ? ' is-on' : ''}`}
+            onClick={() => setCamadasAbertas((v) => !v)}
+            aria-haspopup="listbox"
+            aria-expanded={camadasAbertas}
+            aria-label="Tipo do mapa"
+            title="Tipo do mapa"
           >
             <LayersIcon sx={{ fontSize: 20 }} />
           </button>
-          <MobileUsuarioMenu
-            user={user}
-            onLogout={() => {
-              logout();
-              navigate('/login/mobile');
-            }}
-          />
         </div>
       </div>
 
       {consultaHistorico && (
-        <div className="ck-mapa__life-hist">
-          <div className="ck-mapa__life-hist-head">
-            <strong>Histórico</strong>
-            <button type="button" className="ck-mapa__life-icon" onClick={fecharConsultaHistorico} aria-label="Fechar">
-              <CloseIcon sx={{ fontSize: 18 }} />
-            </button>
-          </div>
-          <MapaFiltroTrajetoVeiculo
-            veiculoId={veiculoTrajetoId}
-            regiaoFiltro={regiaoFiltro}
-            onSelect={selecionarVeiculoTrajeto}
-            variante="campo"
-            veiculosMapa={veiculos}
-            veiculoMeta={veiculoTrajetoMeta}
-          />
-          <MapaFiltroTrajetoCalendario
-            dataInicio={dataTrajetoInicio}
-            dataFim={dataTrajetoFim}
-            onPeriodoChange={selecionarPeriodoTrajeto}
-            variante="campo"
-          />
-          <div className="ck-mapa__consulta-row">
-            <label className="ck-mapa__consulta-field ck-mapa__consulta-time">
-              <span className="ck-mapa__consulta-label">De</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="08:00"
-                maxLength={5}
-                value={horaTrajetoInicio}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
-                  selecionarHorarioTrajeto(
-                    raw.length <= 2 ? raw : `${raw.slice(0, 2)}:${raw.slice(2)}`,
-                    horaTrajetoFim,
-                  );
-                }}
-                aria-label="Horário inicial"
+        <>
+          <div className="ck-mapa__life-hist">
+            <div className="ck-mapa__life-hist-head">
+              <strong>Histórico</strong>
+              <button type="button" className="ck-mapa__life-icon" onClick={fecharConsultaHistorico} aria-label="Fechar">
+                <CloseIcon sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+            <MapaFiltroTrajetoVeiculo
+              veiculoId={veiculoTrajetoId}
+              regiaoFiltro={regiaoFiltro}
+              onSelect={selecionarVeiculoTrajeto}
+              variante="campo"
+              tomEscuro
+              veiculosMapa={veiculos}
+              veiculoMeta={veiculoTrajetoMeta}
+            />
+            <div className="ck-mapa__consulta-row ck-mapa__consulta-row--periodo">
+              <MapaFiltroTrajetoCalendario
+                dataInicio={dataTrajetoInicio}
+                dataFim={dataTrajetoFim}
+                onPeriodoChange={selecionarPeriodoTrajeto}
+                variante="campo"
+                tomEscuro
               />
-            </label>
-            <label className="ck-mapa__consulta-field ck-mapa__consulta-time">
-              <span className="ck-mapa__consulta-label">Até</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="18:00"
-                maxLength={5}
-                value={horaTrajetoFim}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
-                  selecionarHorarioTrajeto(
-                    horaTrajetoInicio,
-                    raw.length <= 2 ? raw : `${raw.slice(0, 2)}:${raw.slice(2)}`,
-                  );
-                }}
-                aria-label="Horário final"
-              />
-            </label>
-            <button
-              type="button"
-              className="ck-mapa__consulta-btn"
-              onClick={consultarTrajeto}
-              disabled={carregandoTrajeto}
-            >
-              {carregandoTrajeto ? (
-                <CircularProgress size={16} sx={{ color: '#fff' }} />
-              ) : (
-                <SearchIcon sx={{ fontSize: 18 }} />
-              )}
-              Ver
-            </button>
+              <label className="ck-mapa__consulta-field ck-mapa__consulta-time">
+                <span className="ck-mapa__consulta-label">De</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="08:00"
+                  maxLength={5}
+                  value={horaTrajetoInicio}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    selecionarHorarioTrajeto(
+                      raw.length <= 2 ? raw : `${raw.slice(0, 2)}:${raw.slice(2)}`,
+                      horaTrajetoFim,
+                    );
+                  }}
+                  aria-label="Horário inicial"
+                />
+              </label>
+              <label className="ck-mapa__consulta-field ck-mapa__consulta-time">
+                <span className="ck-mapa__consulta-label">Até</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="18:00"
+                  maxLength={5}
+                  value={horaTrajetoFim}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    selecionarHorarioTrajeto(
+                      horaTrajetoInicio,
+                      raw.length <= 2 ? raw : `${raw.slice(0, 2)}:${raw.slice(2)}`,
+                    );
+                  }}
+                  aria-label="Horário final"
+                />
+              </label>
+              <button
+                type="button"
+                className="ck-mapa__consulta-btn"
+                onClick={consultarTrajeto}
+                disabled={carregandoTrajeto}
+              >
+                {carregandoTrajeto ? (
+                  <CircularProgress size={16} sx={{ color: '#fff' }} />
+                ) : (
+                  <SearchIcon sx={{ fontSize: 18 }} />
+                )}
+                Ver
+              </button>
+            </div>
+            {erroConsulta && <p className="ck-mapa__consulta-erro">{erroConsulta}</p>}
+            {(dataTrajetoInicio !== hoje || dataTrajetoFim !== hoje) && (
+              <button
+                type="button"
+                className="ck-mapa__life-hoje"
+                onClick={() => selecionarPeriodoTrajeto(hoje, hoje)}
+              >
+                Hoje
+              </button>
+            )}
           </div>
-          {erroConsulta && <p className="ck-mapa__consulta-erro">{erroConsulta}</p>}
-          {(dataTrajetoInicio !== hoje || dataTrajetoFim !== hoje) && (
-            <button
-              type="button"
-              className="ck-mapa__life-hoje"
-              onClick={() => selecionarPeriodoTrajeto(hoje, hoje)}
-            >
-              Hoje
-            </button>
-          )}
-        </div>
+          <div className="ck-mapa__life-hist-results" data-mapa-hist-results />
+        </>
       )}
 
       {!consultaHistorico && (
@@ -233,6 +243,7 @@ export default function MapaTecnicosListaLojas() {
                   <span className={`ck-mapa__life-avatar is-${status}`} aria-hidden>
                     {iniciais(ocupante)}
                   </span>
+                  <span className="ck-mapa__life-name">{meu ? 'Você' : nome}</span>
                 </button>
               );
             })}
@@ -281,6 +292,63 @@ export default function MapaTecnicosListaLojas() {
           </button>
         ))}
       </Popover>
+
+      <Popover
+        open={camadasAbertas}
+        anchorEl={camadasBtnRef.current}
+        onClose={() => setCamadasAbertas(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          root: { sx: { zIndex: 2000 } },
+          paper: {
+            className: 'ck-mapa__life-regiao-menu',
+            sx: { mt: 0.75, minWidth: 180, borderRadius: 2, py: 0.5, zIndex: 2001 },
+          },
+        }}
+      >
+        <p className="ck-mapa__life-drawer-title">Mapa</p>
+        <button
+          type="button"
+          className={`ck-mapa__life-drawer-item ck-mapa__life-drawer-item--row${tipoMapa === 'rua' ? ' is-on' : ''}`}
+          onClick={() => {
+            selecionarTipoMapa('rua');
+            setCamadasAbertas(false);
+          }}
+        >
+          <MapOutlinedIcon sx={{ fontSize: 18 }} />
+          Ruas
+        </button>
+        <button
+          type="button"
+          className={`ck-mapa__life-drawer-item ck-mapa__life-drawer-item--row${tipoMapa === 'satelite' ? ' is-on' : ''}`}
+          onClick={() => {
+            selecionarTipoMapa('satelite');
+            setCamadasAbertas(false);
+          }}
+        >
+          <SatelliteAltOutlinedIcon sx={{ fontSize: 18 }} />
+          Satélite
+        </button>
+        <button
+          type="button"
+          className={`ck-mapa__life-drawer-item ck-mapa__life-drawer-item--row${tipoMapa === 'escuro' ? ' is-on' : ''}`}
+          onClick={() => {
+            selecionarTipoMapa('escuro');
+            setCamadasAbertas(false);
+          }}
+        >
+          <DarkModeOutlinedIcon sx={{ fontSize: 18 }} />
+          Escuro
+        </button>
+      </Popover>
+
+      <AppHubDock
+        ativo={null}
+        plusLabel="Sem ação nesta tela"
+        plusDisabled
+        onPlus={() => {}}
+      />
     </div>
   );
 }

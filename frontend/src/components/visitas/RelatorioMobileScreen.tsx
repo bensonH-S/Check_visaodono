@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import ShareIcon from '@mui/icons-material/Share';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { fmtData, fmtNota, fetchMediaAutenticada } from '../../api/client';
 import type { VisitaDetalhe } from '../../api/client';
 import { formatarHoraVisita } from '../../utils/visitaFormat';
-import CkMarkLogoMenu from '../CkMarkLogoMenu';
+import { getUsuario, logout } from '../../lib/auth';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
 import ImageLightbox from '../ImageLightbox';
+import MobileUsuarioMenu from '../MobileUsuarioMenu';
+import AppHubDock from '../hub/AppHubDock';
+import '../estoque/estoque-hub.css';
 import './visitas-mobile.css';
 
 type Props = {
@@ -40,18 +46,18 @@ function chipClass(
       (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
     : false;
   if (invertida) {
-    if (resposta === 'Não') return 'ck-visitas__chip--ok';
-    if (resposta === 'Sim') return 'ck-visitas__chip--fail';
+    if (resposta === 'Não') return 'is-ok';
+    if (resposta === 'Sim') return 'is-fail';
   }
-  if (resposta === 'Sim') return 'ck-visitas__chip--ok';
-  if (resposta === 'Não') return 'ck-visitas__chip--fail';
-  return 'ck-visitas__chip--navy';
+  if (resposta === 'Sim') return 'is-ok';
+  if (resposta === 'Não') return 'is-fail';
+  return 'is-muted';
 }
 
 function barColor(pct: number): string {
-  if (pct >= 80) return '#15803d';
-  if (pct >= 60) return '#e8520a';
-  return '#1b2a6b';
+  if (pct >= 80) return '#4ade80';
+  if (pct >= 60) return '#ff9a5c';
+  return '#94a3b8';
 }
 
 function RespostaCard({
@@ -88,23 +94,23 @@ function RespostaCard({
   }, [r.midia_urls]);
 
   return (
-    <article className="ck-visitas__card is-done ck-visitas__card--rel">
-      <span className="ck-visitas__mono" aria-hidden>
+    <article className="ck-visitas-hub__card">
+      <span className="ck-visitas-hub__mono" aria-hidden>
         {r.codigo?.slice(0, 2) || '·'}
       </span>
-      <span className="ck-visitas__copy">
+      <span className="ck-visitas-hub__copy">
         <strong>
           {r.codigo ? `${r.codigo}. ` : ''}
           {r.texto}
         </strong>
         {r.observacao?.trim() ? <small>{r.observacao.trim()}</small> : null}
         {urls.length > 0 && (
-          <span className="ck-visitas__photos">
+          <span className="ck-visitas-hub__photos">
             {urls.map((src, i) => (
               <button
                 key={i}
                 type="button"
-                className="ck-visitas__photo-btn"
+                className="ck-visitas-hub__photo-btn"
                 aria-label={`Ampliar evidência ${i + 1}`}
                 onClick={() =>
                   onAbrirFoto(src, `${r.codigo ? `${r.codigo}. ` : ''}${r.texto || ''}`.trim())
@@ -116,8 +122,8 @@ function RespostaCard({
           </span>
         )}
       </span>
-      <span className="ck-visitas__side">
-        <span className={`ck-visitas__chip ${chipClass(r.resposta, r)}`}>{formatarResposta(r)}</span>
+      <span className={`ck-visitas-hub__chip ${chipClass(r.resposta, r)}`}>
+        {formatarResposta(r)}
       </span>
     </article>
   );
@@ -132,6 +138,7 @@ export default function RelatorioMobileScreen({
   onReabrir,
 }: Props) {
   const navigate = useNavigate();
+  const user = getUsuario();
   const [fotoAberta, setFotoAberta] = useState<{ src: string; pergunta: string } | null>(null);
   const v = data.visita;
   const nota = Number(v.nota_final);
@@ -152,156 +159,182 @@ export default function RelatorioMobileScreen({
   const hintNota =
     !Number.isFinite(nota) ? '' : nota >= 85 ? 'excelente' : nota >= 75 ? 'na meta' : 'abaixo da meta';
 
-  return (
-    <div className="ck-visitas ck-visitas--relatorio">
-      <div className="ck-visitas__stage">
-        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-        <div className="ck-visitas__mesh" aria-hidden />
+  const voltar = () => navigate('/visitas/mobile', { replace: true });
 
-        <div className="ck-visitas__stage-inner">
-          <div className="ck-visitas__toolbar ck-visitas__anim ck-visitas__anim--1">
-            <div className="ck-visitas__toolbar-heading">
-              <p className="ck-visitas__mark-text ck-visitas__mark-text--toolbar">Grupo Alvim</p>
-              <h1 className="ck-visitas__title ck-visitas__title--toolbar" style={{ wordBreak: 'keep-all', hyphens: 'none', fontSize: 'clamp(2.0rem, 8vw, 2.5rem)' }}>
-                Relatório da visita
-              </h1>
-            </div>
-            <div className="ck-visitas__toolbar-actions ck-visitas__toolbar-actions--with-logo">
+  return (
+    <div
+      className="ck-estoque-hub ck-estoque-hub--hero ck-visitas-hub"
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+    >
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
+        <div className="ck-estoque-hub__brand-row">
+          <img
+            className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
+            src={assetUrl(LOGO_GA_LOCKUP)}
+            alt="Grupo Alvim"
+          />
+          <div className="ck-estoque-hub__actions ck-visitas-hub__actions">
+            <button
+              type="button"
+              className="ck-estoque-hub__icon-btn ck-visitas-hub__icon-btn"
+              aria-label="Voltar para visitas"
+              onClick={voltar}
+            >
+              <ArrowBackIcon />
+            </button>
+            {podeReabrir ? (
               <button
                 type="button"
-                className="ck-visitas__back"
-                aria-label="Voltar para visitas"
-                onClick={() => navigate('/visitas/mobile', { replace: true })}
+                className="ck-estoque-hub__icon-btn ck-visitas-hub__icon-btn"
+                aria-label="Reabrir visita"
+                title="Reabrir"
+                disabled={reabrindo}
+                onClick={onReabrir}
               >
-                ←
-              </button>
-              {podeReabrir && (
-                <button
-                  type="button"
-                  className="ck-visitas__pdf"
-                  aria-label="Reabrir visita"
-                  title="Reabrir"
-                  disabled={reabrindo}
-                  onClick={onReabrir}
-                  style={{ background: '#1B2A6B' }}
-                >
-                  {reabrindo ? (
-                    <CircularProgress size={18} sx={{ color: '#fff' }} />
-                  ) : (
-                    <LockOpenIcon fontSize="small" />
-                  )}
-                </button>
-              )}
-              <button
-                type="button"
-                className="ck-visitas__pdf"
-                aria-label="Partilhar"
-                disabled={exportandoPdf}
-                onClick={onExportarPdf}
-              >
-                {exportandoPdf ? (
-                  <CircularProgress size={18} sx={{ color: '#fff' }} />
+                {reabrindo ? (
+                  <CircularProgress size={16} sx={{ color: '#fff' }} />
                 ) : (
-                  <ShareIcon fontSize="small" />
+                  <LockOpenIcon />
                 )}
               </button>
-              <CkMarkLogoMenu size={64} className="ck-visitas__toolbar-logo" />
-            </div>
+            ) : null}
+            <button
+              type="button"
+              className="ck-estoque-hub__icon-btn ck-visitas-hub__icon-btn is-pri is-share"
+              aria-label="Partilhar PDF"
+              disabled={exportandoPdf}
+              onClick={onExportarPdf}
+            >
+              {exportandoPdf ? (
+                <CircularProgress size={14} sx={{ color: '#fff' }} />
+              ) : (
+                <ShareIcon sx={{ fontSize: 16 }} />
+              )}
+            </button>
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                navigate('/login/mobile');
+              }}
+            />
           </div>
-
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
+        </div>
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
+            <h1>Relatório</h1>
+          </div>
+          <p className="ck-visitas-hub__sub">
             {titulo} · {v.name}
             {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
           </p>
-
-          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-            <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong>{fmtNota(v.nota_final)}</strong>
-              <span>nota</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{data.desempenho_categorias.length}</strong>
-              <span>categorias</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{data.nao_conformidades.length}</strong>
-              <span>NCs</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{v.duracao_minutos != null ? `${v.duracao_minutos}m` : '—'}</strong>
-              <span>duração</span>
-            </div>
-          </div>
-
-          <p className="ck-visitas__auditor-line ck-visitas__anim ck-visitas__anim--4">
-            <span>Auditor</span>
-            <strong>{v.nome_usuario}</strong>
-            <em>
-              {dataTxt}
-              {hintNota ? ` · ${hintNota}` : ''}
-            </em>
-          </p>
         </div>
+      </header>
+
+      <div className="ck-estoque-hub__panel">
+        <div className="ck-visitas-hub__kpis" aria-live="polite">
+          <div className="ck-visitas-hub__kpi is-nota">
+            <strong>{fmtNota(v.nota_final)}</strong>
+            <span>Nota</span>
+          </div>
+          <div className="ck-visitas-hub__kpi">
+            <strong>{data.desempenho_categorias.length}</strong>
+            <span>Categorias</span>
+          </div>
+          <div className={`ck-visitas-hub__kpi${data.nao_conformidades.length ? ' is-alerta' : ''}`}>
+            <strong>{data.nao_conformidades.length}</strong>
+            <span>NCs</span>
+          </div>
+          <div className="ck-visitas-hub__kpi">
+            <strong>{v.duracao_minutos != null ? `${v.duracao_minutos}m` : '—'}</strong>
+            <span>Duração</span>
+          </div>
+        </div>
+        <p className="ck-visitas-hub__meta">
+          <span>Auditor</span>
+          <strong>{v.nome_usuario}</strong>
+          <em>
+            {dataTxt}
+            {hintNota ? ` · ${hintNota}` : ''}
+          </em>
+        </p>
       </div>
 
-      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-        <p className="ck-visitas__section">Desempenho por categoria</p>
-        {data.desempenho_categorias.length ? (
-          <div className="ck-visitas__list">
-            {data.desempenho_categorias.map((c) => {
-              const temNota =
-                c.percentual != null &&
-                c.percentual !== '' &&
-                Number.isFinite(Number(c.percentual));
-              const pct = temNota ? Number(c.percentual) : 0;
-              const cor = barColor(pct);
-              return (
-                <div key={c.categoria} className="ck-visitas__bar">
-                  <div className="ck-visitas__bar-head">
-                    <strong>{c.categoria}</strong>
-                    <span style={{ color: cor }}>{pct}%</span>
-                  </div>
-                  <div className="ck-visitas__bar-track">
-                    <div
-                      className="ck-visitas__bar-fill"
-                      style={{
-                        width: `${Math.min(100, Math.max(0, pct))}%`,
-                        background: cor,
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="ck-visitas__empty">Sem categorias registradas.</div>
-        )}
+      <div className="ck-estoque-hub__scroll ck-visitas-hub__scroll">
+        {exportandoPdf || reabrindo ? (
+          <LinearProgress
+            sx={{
+              mb: 1.5,
+              borderRadius: 1,
+              backgroundColor: 'rgba(255,154,92,0.18)',
+              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+            }}
+          />
+        ) : null}
 
-        <p className="ck-visitas__section">Respostas do checklist</p>
-        {[...porCategoria.entries()].map(([categoria, items]) => (
-          <div key={categoria} className="ck-visitas__cat-block">
-            <h2 className="ck-visitas__cat">{categoria}</h2>
-            <div className="ck-visitas__list">
-              {items.map((r) => (
-                <RespostaCard
-                  key={r.id_pergunta}
-                  r={r}
-                  onAbrirFoto={(src, pergunta) => setFotoAberta({ src, pergunta })}
-                />
-              ))}
+        <section className="ck-visitas-hub__sec">
+          <h2 className="ck-visitas-hub__sec-title">Desempenho por categoria</h2>
+          {data.desempenho_categorias.length ? (
+            <div className="ck-visitas-hub__bars">
+              {data.desempenho_categorias.map((c) => {
+                const temNota =
+                  c.percentual != null &&
+                  c.percentual !== '' &&
+                  Number.isFinite(Number(c.percentual));
+                const pct = temNota ? Number(c.percentual) : 0;
+                const cor = barColor(pct);
+                return (
+                  <div key={c.categoria} className="ck-visitas-hub__bar">
+                    <div className="ck-visitas-hub__bar-head">
+                      <strong>{c.categoria}</strong>
+                      <span style={{ color: cor }}>{pct}%</span>
+                    </div>
+                    <div className="ck-visitas-hub__bar-track">
+                      <div
+                        className="ck-visitas-hub__bar-fill"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, pct))}%`,
+                          background: cor,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        ))}
-        {!data.respostas.length && <div className="ck-visitas__empty">Nenhuma resposta registrada.</div>}
+          ) : (
+            <div className="ck-visitas-hub__empty">Sem categorias registradas.</div>
+          )}
+        </section>
 
-        {data.nao_conformidades.length > 0 && (
-          <>
-            <p className="ck-visitas__section">Não conformidades</p>
-            <div className="ck-visitas__list">
+        <section className="ck-visitas-hub__sec">
+          <h2 className="ck-visitas-hub__sec-title">Respostas do checklist</h2>
+          {[...porCategoria.entries()].map(([categoria, items]) => (
+            <div key={categoria} className="ck-visitas-hub__cat">
+              <h3>{categoria}</h3>
+              <div className="ck-visitas-hub__list">
+                {items.map((r) => (
+                  <RespostaCard
+                    key={r.id_pergunta}
+                    r={r}
+                    onAbrirFoto={(src, pergunta) => setFotoAberta({ src, pergunta })}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          {!data.respostas.length ? (
+            <div className="ck-visitas-hub__empty">Nenhuma resposta registrada.</div>
+          ) : null}
+        </section>
+
+        {data.nao_conformidades.length > 0 ? (
+          <section className="ck-visitas-hub__sec">
+            <h2 className="ck-visitas-hub__sec-title">Não conformidades</h2>
+            <div className="ck-visitas-hub__list">
               {data.nao_conformidades.map((nc, i) => (
-                <div key={i} className="ck-visitas__nc">
+                <div key={i} className="ck-visitas-hub__nc">
                   <strong>
                     [{nc.gravidade}] {nc.area}
                   </strong>
@@ -309,10 +342,11 @@ export default function RelatorioMobileScreen({
                 </div>
               ))}
             </div>
-          </>
-        )}
-        <div style={{ paddingBottom: 'env(safe-area-inset-bottom)', height: 80 }} />
+          </section>
+        ) : null}
       </div>
+
+      <AppHubDock ativo={null} plusLabel="Sem ação nesta tela" plusDisabled onPlus={() => {}} />
 
       <ImageLightbox
         open={Boolean(fotoAberta)}

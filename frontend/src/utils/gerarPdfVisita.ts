@@ -807,22 +807,31 @@ export async function gerarPdfVisita(dados: VisitaDetalhe, opts?: { asShare?: bo
   const dataArq = fmtData(v.data_visita).replace(/\//g, '-');
   const bkn = v.bk_number || 'loja';
   const filename = `relatorio-visita-${v.id_visita}-${bkn}-${dataArq}.pdf`;
+  const tituloShare = 'Relatório da Visita';
+  const textoShare = `Relatório da visita - ${v.name || bkn}`;
 
-  if (opts?.asShare && typeof navigator !== 'undefined' && navigator.canShare) {
+  if (opts?.asShare && typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    const blob = doc.output('blob');
+    const pdfBlob =
+      blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
+    const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+
     try {
-      const blob = doc.output('blob');
-      const file = new File([blob], filename, { type: 'application/pdf' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Relatório da Visita',
-          text: `Relatório da visita - ${v.name || bkn}`,
-        });
-        return;
-      }
+      // Abre o sheet nativo (WhatsApp, Drive, e-mail, etc.)
+      await navigator.share({
+        files: [file],
+        title: tituloShare,
+        text: textoShare,
+      });
+      return;
     } catch (e) {
       if ((e as Error).name === 'AbortError') return;
-      console.error('Web Share API error:', e);
+      // Alguns browsers rejeitam files — tenta sheet sem arquivo + download do PDF
+      try {
+        await navigator.share({ title: tituloShare, text: `${textoShare}\n${filename}` });
+      } catch (e2) {
+        if ((e2 as Error).name === 'AbortError') return;
+      }
     }
   }
 

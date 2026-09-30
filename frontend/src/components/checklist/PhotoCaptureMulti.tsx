@@ -390,8 +390,9 @@ export default function PhotoCaptureMulti({
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const btnFotoBg = escuro ? 'rgba(232, 82, 10, 0.72)' : 'rgba(27, 42, 107, 0.88)';
-  const btnFotoHover = escuro ? 'rgba(232, 82, 10, 0.88)' : 'rgba(21, 32, 86, 0.95)';
+  /* Foto: cinza-ardósia — sem laranja do CTA e sem azul */
+  const btnFotoBg = inlineActions ? '#475569' : escuro ? '#475569' : 'rgba(27, 42, 107, 0.88)';
+  const btnFotoHover = inlineActions ? '#334155' : escuro ? '#334155' : 'rgba(21, 32, 86, 0.95)';
 
   const galleryRef = useRef<HTMLInputElement>(null);
   const fotosRef = useRef(fotos);
@@ -467,103 +468,35 @@ export default function PhotoCaptureMulti({
     <Box sx={{ width: '100%' }}>
 
       {!hideCaption && (
-
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-
           Fotos ({fotos.length}/{max})
-
         </Typography>
-
       )}
-
-
 
       {hideCaption && fotos.length > 0 && (
-
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-
           {fotos.length} de {max} anexos
-
         </Typography>
-
       )}
 
-
-
-      {fotos.length > 0 && (
-
-        <Box
-
-          sx={{
-
-            display: compactThumbs ? 'flex' : 'grid',
-
-            flexWrap: compactThumbs ? 'wrap' : undefined,
-
-            gridTemplateColumns: compactThumbs
-              ? undefined
-              : `repeat(${cols}, minmax(0, 1fr))`,
-
-            gap: compactThumbs ? 0.75 : cols >= 3 ? 0.75 : inlineActions ? 1 : 1.5,
-
-            mb: compactThumbs ? 1 : 2,
-
-          }}
-
-        >
-
-          {fotos.map((src, idx) => (
-
-            <MidiaPreview
-
-              key={idx}
-
-              src={src}
-
-              idx={idx}
-
-              total={fotos.length}
-
-              inlineActions={inlineActions}
-
-              compactThumbs={compactThumbs}
-
-              thumbSize={thumbSize}
-
-              disabled={disabled}
-
-              onRemove={() => remover(idx)}
-
-            />
-
-          ))}
-
-        </Box>
-
-      )}
-
-
-
+      {/* Barra Tirar foto / Galeria logo abaixo da pergunta — antes das miniaturas */}
       {loading ? (
-
-        <Box sx={{ py: 3, textAlign: 'center' }}>
-
-          <CircularProgress size={32} />
-
+        <Box sx={{ py: 2, textAlign: 'center' }}>
+          <CircularProgress
+            size={28}
+            sx={{ color: '#fe6c22' }}
+          />
         </Box>
-
       ) : (
-
         podeMais &&
-
         !disabled && (
-
           <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
               gap: 1,
               width: '100%',
+              mb: fotos.length > 0 ? 1 : 0,
             }}
           >
             <Button
@@ -601,21 +534,47 @@ export default function PhotoCaptureMulti({
                 fontSize: '0.8rem',
                 fontWeight: 600,
                 px: 1,
-                borderColor: 'rgba(148, 163, 184, 0.55)',
-                color: 'var(--ga-text-secondary)',
-                bgcolor: 'transparent',
+                borderColor: inlineActions ? 'rgba(255, 255, 255, 0.18)' : 'rgba(148, 163, 184, 0.55)',
+                color: inlineActions ? '#cbd5e1' : 'var(--ga-text-secondary)',
+                bgcolor: inlineActions ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
                 '&:hover': {
-                  borderColor: 'rgba(148, 163, 184, 0.85)',
-                  bgcolor: 'rgba(148, 163, 184, 0.1)',
+                  borderColor: inlineActions ? 'rgba(255, 255, 255, 0.3)' : 'rgba(148, 163, 184, 0.85)',
+                  bgcolor: inlineActions ? 'rgba(255, 255, 255, 0.08)' : 'rgba(148, 163, 184, 0.1)',
                 },
               }}
             >
               Galeria
             </Button>
           </Box>
-
         )
+      )}
 
+      {fotos.length > 0 && (
+        <Box
+          sx={{
+            display: compactThumbs ? 'flex' : 'grid',
+            flexWrap: compactThumbs ? 'wrap' : undefined,
+            gridTemplateColumns: compactThumbs
+              ? undefined
+              : `repeat(${cols}, minmax(0, 1fr))`,
+            gap: compactThumbs ? 0.75 : cols >= 3 ? 0.75 : inlineActions ? 1 : 1.5,
+            mb: compactThumbs ? 1 : 2,
+          }}
+        >
+          {fotos.map((src, idx) => (
+            <MidiaPreview
+              key={idx}
+              src={src}
+              idx={idx}
+              total={fotos.length}
+              inlineActions={inlineActions}
+              compactThumbs={compactThumbs}
+              thumbSize={thumbSize}
+              disabled={disabled}
+              onRemove={() => remover(idx)}
+            />
+          ))}
+        </Box>
       )}
 
       {obrigatoria && fotos.length === 0 && !loading && !comErro && (
@@ -630,19 +589,11 @@ export default function PhotoCaptureMulti({
         </Typography>
       )}
 
-
-
       {erro && (
-
         <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-
           {erro}
-
         </Typography>
-
       )}
-
-
 
       <input
 

@@ -1,4 +1,4 @@
-/* Freelas mobile — estende o modelo ck-visitas */
+﻿/* Freelas mobile — estende o modelo ck-visitas */
 
 .ck-freela--page {
   padding-bottom: 0;
@@ -1030,4 +1030,441 @@ html.dark .ck-freela .ck-freela__empty {
 
 html.dark .ck-freela .ck-freela__empty strong {
   color: var(--ga-text-primary) !important;
+}
+
+/* Hub escuro — padrão Break / NC / Energia */
+.ck-freela-hub.ck-estoque-hub {
+  background: #0b1721 !important;
+  color: #f5f5f5;
+}
+
+.ck-freela-hub .ck-estoque-hub__top--fixed,
+.ck-freela-hub .ck-estoque-hub__scroll,
+.ck-freela-hub .ck-estoque-hub__panel {
+  background: transparent !important;
+}
+
+.ck-freela-hub__sub {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #8d8d8d;
+}
+
+.ck-freela-hub .ck-estoque-hub__tabs {
+  margin-top: 12px;
+  margin-bottom: 0;
+  padding-bottom: 12px;
+  gap: 6px !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ck-freela-hub .ck-estoque-hub__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-freela-hub .ck-estoque-hub__tab {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  padding-left: 4px;
+  padding-right: 4px;
+  white-space: nowrap;
+}
+
+.ck-freela-hub .ck-estoque-hub__panel,
+.ck-freela-hub__panel {
+  padding-top: 14px;
+  padding-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.ck-freela-hub__tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(51, 56, 64, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.ck-freela-hub__scroll {
+  padding: 8px var(--eh-pad, 20px) calc(96px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ck-freela-hub__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ck-freela-hub__kpi {
+  padding: 12px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(51, 56, 64, 0.72);
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+.ck-freela-hub__kpi.is-on {
+  border-color: rgba(254, 108, 34, 0.35);
+  background: rgba(254, 108, 34, 0.12);
+}
+
+.ck-freela-hub__kpi strong {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #f5f5f5;
+  line-height: 1.15;
+}
+
+.ck-freela-hub__kpi.is-on strong {
+  color: #fe6c22;
+}
+
+.ck-freela-hub__kpi span {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #8d8d8d;
+}
+
+.ck-freela-hub .ck-freela__dates {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin: 0;
+  padding: 0;
+}
+
+.ck-freela-hub .ck-freela__date-field {
+  min-width: 0;
+}
+
+.ck-freela-hub .ck-freela__buscar {
+  flex-shrink: 0;
+  min-height: 42px;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: none !important;
+}
+
+.ck-freela-hub .ck-freela__buscar.is-on {
+  background: rgba(254, 108, 34, 0.18) !important;
+  border-color: rgba(254, 108, 34, 0.4) !important;
+  color: #ff9a5c !important;
+}
+
+.ck-freela-hub .ck-freela__filtro-btn {
+  width: 100%;
+  min-height: 42px;
+  height: auto;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #2a3038;
+  color: #f5f5f5;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ck-freela-hub .ck-freela__filtro-btn span {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ck-freela-hub .ck-freela__filtro-btn.is-on {
+  border-color: rgba(254, 108, 34, 0.45);
+  color: #ff9a5c;
+}
+
+.ck-freela-hub .ck-freela__loja-tag {
+  margin: 0 !important;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #8d8d8d !important;
+  line-height: 1.35;
+}
+
+.ck-freela-hub__err {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.ck-freela-hub__loading {
+  display: flex;
+  justify-content: center;
+  padding: 28px 0;
+}
+
+.ck-freela-hub__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ck-freela-hub .ck-freela__grupo {
+  margin: 0 !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+  background: #333840 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+
+.ck-freela-hub .ck-freela__grupo-head {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #f5f5f5 !important;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ck-freela-hub .ck-freela__grupo-title {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ck-freela-hub .ck-freela__grupo-title strong {
+  color: #f5f5f5 !important;
+  font-size: 0.9rem !important;
+  font-weight: 800 !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ck-freela-hub .ck-freela__grupo-title small {
+  color: #8d8d8d !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+}
+
+.ck-freela-hub .ck-freela__grupo-pend {
+  color: #ff9a5c !important;
+}
+
+.ck-freela-hub .ck-freela__grupo-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.ck-freela-hub .ck-freela__count {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(254, 108, 34, 0.18) !important;
+  color: #ff9a5c !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.ck-freela-hub .ck-freela__chevron {
+  color: #8d8d8d !important;
+}
+
+.ck-freela-hub .ck-freela__item {
+  padding: 12px 14px 14px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: transparent !important;
+}
+
+.ck-freela-hub .ck-freela__item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ck-freela-hub .ck-freela__item-top strong {
+  flex: 1;
+  min-width: 0;
+  color: #f5f5f5 !important;
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+  overflow-wrap: anywhere;
+}
+
+.ck-freela-hub .ck-freela__chip {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #d1d5db !important;
+}
+
+.ck-freela-hub .ck-freela__chip--pending {
+  background: rgba(254, 108, 34, 0.14) !important;
+  border-color: rgba(254, 108, 34, 0.35) !important;
+  color: #ff9a5c !important;
+}
+
+.ck-freela-hub .ck-freela__chip--approved {
+  background: rgba(34, 197, 94, 0.14) !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+  color: #4ade80 !important;
+}
+
+.ck-freela-hub .ck-freela__chip--rejected {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+}
+
+.ck-freela-hub .ck-freela__meta {
+  color: #8d8d8d !important;
+  margin: 4px 0 0 !important;
+}
+
+.ck-freela-hub .ck-freela__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ck-freela-hub .ck-freela__btn {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+  box-shadow: none !important;
+}
+
+.ck-freela-hub .ck-freela__btn--ok {
+  background: rgba(34, 197, 94, 0.16) !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+  color: #4ade80 !important;
+}
+
+.ck-freela-hub .ck-freela__btn--no,
+.ck-freela-hub .ck-freela__btn--excluir {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+}
+
+.ck-freela-hub .ck-freela__btn--saida,
+.ck-freela-hub .ck-freela__btn--ajuste {
+  background: rgba(254, 108, 34, 0.14) !important;
+  border-color: rgba(254, 108, 34, 0.35) !important;
+  color: #ff9a5c !important;
+}
+
+.ck-freela-hub .ck-freela__empty {
+  margin: 0 !important;
+  padding: 22px 16px !important;
+  border-radius: 16px !important;
+  background: #333840 !important;
+  border: 1px dashed rgba(255, 255, 255, 0.14) !important;
+  color: #8d8d8d !important;
+  text-align: center;
+  box-shadow: none !important;
+}
+
+.ck-freela-hub .ck-freela__empty strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #f5f5f5 !important;
+}
+
+.ck-freela-hub__loja-ico {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 4px;
+  display: block;
+}
+
+.ck-freela-hub__dlg .MuiListItemButton-root.Mui-selected {
+  background: rgba(254, 108, 34, 0.16) !important;
+}
+
+.ck-freela-hub .MuiOutlinedInput-root,
+.ck-freela-hub .MuiPickersOutlinedInput-root {
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-freela-hub .MuiInputBase-input,
+.ck-freela-hub .MuiPickersSectionList-root {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+}
+
+.ck-freela-hub .MuiInputLabel-root {
+  color: #8d8d8d !important;
+  -webkit-text-fill-color: #8d8d8d !important;
+}
+
+.ck-freela-hub .MuiOutlinedInput-notchedOutline,
+.ck-freela-hub .MuiPickersOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.ck-freela-hub .MuiSvgIcon-root {
+  color: inherit;
 }

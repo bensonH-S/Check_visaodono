@@ -21,9 +21,15 @@ import { APP_ABOUT, APP_MODULES, APP_NAME, APP_TAGLINE } from '../config/brand';
 import { formatMobileVersionNumber } from './MobileVersionBadge';
 import { useAppTheme } from '../context/ThemeContext';
 import { colors } from '../theme/tokens';
+import { deveForcarTemaClaroMobile } from '../utils/device';
 
 const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
 const ORANGE = '#E8520A';
+const DARK_SURFACE = '#333840';
+const DARK_CHIP = '#2a3038';
+const DARK_BORDER = 'rgba(255, 255, 255, 0.1)';
+const DARK_TEXT = '#f5f5f5';
+const DARK_MUTED = '#8d8d8d';
 
 const MODULE_ICONS: Record<(typeof APP_MODULES)[number], SvgIconComponent> = {
   'Checklist e visitas': AssignmentOutlinedIcon,
@@ -44,10 +50,15 @@ type Props = {
 export default function SobreSistemaDialog({ open, onClose }: Props) {
   const { version, support, environment } = useAppConfig();
   const { mode } = useAppTheme();
-  const escuro = mode === 'dark';
+  const escuro = mode === 'dark' || deveForcarTemaClaroMobile();
   const acento = ORANGE;
-  const chipBg = colors.canvasAlt;
-  const chipBorder = colors.border;
+  const surface = escuro ? DARK_SURFACE : colors.surface;
+  const chipBg = escuro ? DARK_CHIP : colors.canvasAlt;
+  const chipBorder = escuro ? DARK_BORDER : colors.border;
+  const textPrimary = escuro ? DARK_TEXT : colors.textPrimary;
+  const textSecondary = escuro ? DARK_MUTED : colors.textSecondary;
+  const textMuted = escuro ? DARK_MUTED : colors.textMuted;
+  const border = escuro ? DARK_BORDER : colors.border;
   const versao = formatMobileVersionNumber(version);
 
   return (
@@ -59,9 +70,9 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
       slotProps={{
         paper: {
           sx: {
-            bgcolor: colors.surface,
+            bgcolor: surface,
             backgroundImage: 'none',
-            border: `1px solid ${colors.border}`,
+            border: `1px solid ${border}`,
             borderRadius: 2.5,
           },
         },
@@ -71,23 +82,23 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
         sx={{
           pb: 0.75,
           fontWeight: 800,
-          color: colors.textPrimary,
+          color: textPrimary,
           display: 'flex',
           alignItems: 'center',
           gap: 1,
-          bgcolor: colors.surface,
+          bgcolor: surface,
         }}
       >
         <InfoOutlinedIcon sx={{ fontSize: 22, color: acento }} />
         Sobre o sistema
       </DialogTitle>
-      <DialogContent dividers sx={{ pt: 2, bgcolor: colors.surface, borderColor: colors.border }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '1.2rem', mb: 0.25, lineHeight: 1.15, color: escuro ? colors.textPrimary : ORANGE }}>
+      <DialogContent dividers sx={{ pt: 2, bgcolor: surface, borderColor: border }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1.2rem', mb: 0.25, lineHeight: 1.15, color: escuro ? DARK_TEXT : ORANGE }}>
           {APP_NAME}
         </Typography>
         <Typography
           variant="body2"
-          sx={{ mb: 1.25, color: colors.textSecondary, fontWeight: 500, fontSize: '0.78rem', lineHeight: 1.35 }}
+          sx={{ mb: 1.25, color: textSecondary, fontWeight: 500, fontSize: '0.78rem', lineHeight: 1.35 }}
         >
           {APP_TAGLINE}
         </Typography>
@@ -105,7 +116,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
             border: `1px solid ${chipBorder}`,
           }}
         >
-          <Typography variant="body2" sx={{ fontWeight: 700, color: colors.textPrimary, fontSize: '0.8125rem' }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: textPrimary, fontSize: '0.8125rem' }}>
             Versão {versao}
           </Typography>
           {environment ? (
@@ -113,7 +124,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
               variant="caption"
               sx={{
                 fontWeight: 700,
-                color: colors.textSecondary,
+                color: textSecondary,
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em',
                 fontSize: '0.65rem',
@@ -127,7 +138,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
         <Typography
           sx={{
             fontSize: '0.8rem',
-            color: colors.textSecondary,
+            color: textSecondary,
             fontWeight: 400,
             lineHeight: 1.45,
             mb: 1.5,
@@ -144,7 +155,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
             fontWeight: 800,
             letterSpacing: '0.06em',
             textTransform: 'uppercase',
-            color: colors.textMuted,
+            color: textMuted,
           }}
         >
           Módulos
@@ -174,7 +185,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
                 }}
               >
                 <Icon sx={{ fontSize: 14, color: acento }} />
-                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: colors.textPrimary }}>
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: textPrimary }}>
                   {mod}
                 </Typography>
               </Box>
@@ -182,13 +193,13 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
           })}
         </Box>
 
-        <Divider sx={{ my: 1.5, borderColor: colors.border }} />
+        <Divider sx={{ my: 1.5, borderColor: border }} />
 
         <Typography
           sx={{
             display: 'block',
             fontSize: '0.68rem',
-            color: colors.textMuted,
+            color: textMuted,
             fontWeight: 500,
             lineHeight: 1.35,
           }}
@@ -206,29 +217,29 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
                 fontWeight: 700,
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
-                color: colors.textMuted,
+                color: textMuted,
                 fontSize: '0.65rem',
               }}
             >
               Suporte
             </Typography>
-            <Typography sx={{ fontWeight: 700, color: colors.textPrimary, fontSize: '0.8125rem' }}>
+            <Typography sx={{ fontWeight: 700, color: textPrimary, fontSize: '0.8125rem' }}>
               {support.name}
             </Typography>
             {support.phone && (
-              <Typography sx={{ color: colors.textSecondary, fontSize: '0.78rem' }}>
+              <Typography sx={{ color: textSecondary, fontSize: '0.78rem' }}>
                 {support.phone}
               </Typography>
             )}
             {support.email && (
-              <Typography sx={{ color: colors.textSecondary, fontSize: '0.78rem' }}>
+              <Typography sx={{ color: textSecondary, fontSize: '0.78rem' }}>
                 {support.email}
               </Typography>
             )}
           </Box>
         )}
       </DialogContent>
-      <DialogActions sx={{ bgcolor: colors.surface }}>
+      <DialogActions sx={{ bgcolor: surface }}>
         <Button onClick={onClose} sx={{ fontWeight: 700, color: acento }}>
           Fechar
         </Button>

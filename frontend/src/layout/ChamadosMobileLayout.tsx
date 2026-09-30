@@ -33,7 +33,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import LanguageIcon from '@mui/icons-material/Language';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerNcMobile, podeVerEnergia, podeAbrirEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeUsarFrota, podeVerVisitasMobile, podeVerMapaTecnicosMobile, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerNcMobile, podeVerEnergia, podeAprovarFreelancers, podeConferenciaEstoque, podeBreakEstoque, modoCabecalhoContextoMobile, filtraNotificacoesPorRegiaoMobile, rotuloRegiaoMobile, rotuloLojaMobile, podeReceberPainelDiretorChamados, modoAppTecnicoFrotaRestrito, ehEscalaDeliveryOnly, primeiraRotaMobileApp, type UsuarioSessao } from '../lib/auth';
 import { useAppTheme } from '../context/ThemeContext';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 import { colors } from '../theme/tokens';
@@ -296,7 +296,8 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
 function ChamadosMobileLayoutInner() {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? ORANGE : '#1B2A6B';
+  /** Shell mobile é sempre escuro (#0b1721) — acento laranja, nunca azul do tema claro. */
+  const acento = ORANGE;
   const navigate = useNavigate();
   const location = useLocation();
   const appConfig = useAppConfig();
@@ -398,7 +399,6 @@ function ChamadosMobileLayoutInner() {
     (podeVerEscalaVisitas(user) || podeVerEscalaGestores(user));
   const podeNc = user && !modoRestrito && podeVerNcMobile(user) && canalMobile(appConfig.modulos, 'nc');
   const podeEnergia = user && !modoRestrito && podeVerEnergia(user) && canalMobile(appConfig.modulos, 'energia');
-  const podeAbrirEnergiaMobile = user && !modoRestrito && podeAbrirEnergia(user);
   const podeEstoque = user && !modoRestrito && podeConferenciaEstoque(user) && canalMobile(appConfig.modulos, 'estoque');
   const podeBreak = user && !modoRestrito && podeBreakEstoque(user) && canalMobile(appConfig.modulos, 'break');
   const podeFreelancers = user && !modoRestrito && podeAprovarFreelancers(user) && canalMobile(appConfig.modulos, 'freelancers');
@@ -538,11 +538,23 @@ function ChamadosMobileLayoutInner() {
     !isChecklistEmAndamento &&
     !isChecklistStart &&
     !isEstoqueHub &&
+    !isFrota &&
     !isInicio &&
-    !isEscalaVisitas;
+    !isVisitas &&
+    !isEscalaVisitas &&
+    !isNc &&
+    !isEnergia &&
+    !isEstoqueBreak &&
+    !isFreelancersAprovacao &&
+    !isPortais &&
+    !isMapa;
   const rodapeTotalH = mostrarTabs ? TAB_NAV_H : 0;
   /** Reserva espaço da tab bar fixed (iPhone / Android / PWA). */
-  const tabBarOffsetCss = mostrarTabs ? mobileTabBarOffsetCss() : '0px';
+  const tabBarOffsetCss = mostrarTabs
+    ? mobileTabBarOffsetCss()
+    : isMapa || isFreelancersAprovacao || isPortais || isInicio || isRelatorio || isVisitas
+      ? 'calc(58px + env(safe-area-inset-bottom, 0px))'
+      : '0px';
 
   const subtituloPagina = isNovo
     ? 'Novo chamado'
@@ -713,7 +725,9 @@ function ChamadosMobileLayoutInner() {
       }),
   }));
   const maisItems = tabBarItems.filter(
-    (item) => item.to !== '/checklist/mobile' && item.to !== '/visitas/mobile',
+    (item) =>
+      item.to !== '/checklist/mobile' &&
+      item.to !== '/estoque/mobile',
   );
 
   function rotaVoltarMobile() {
@@ -722,7 +736,8 @@ function ChamadosMobileLayoutInner() {
     if (isEstoqueDetalhe) return '/estoque/mobile';
     if (isFrotaSub) return '/frota/mobile';
     if (isRelatorio) return '/visitas/mobile';
-    if (isChecklistConcluido || isChecklistEmAndamento) return '/checklist/mobile';
+    if (isChecklistConcluido) return '/visitas/mobile';
+    if (isChecklistEmAndamento || isChecklistStart || isChecklist) return '/visitas/mobile';
     if (isNovo || isDetalhe) return '/chamados/mobile';
     return '/chamados/mobile';
   }
@@ -965,25 +980,6 @@ function ChamadosMobileLayoutInner() {
         <Fab
           aria-label="Abrir novo chamado"
           onClick={() => navigate('/chamados/mobile/novo')}
-          sx={{
-            position: 'fixed',
-            right: safeAreaRightCalc(20),
-            bottom: safeAreaBottomCalc(rodapeTotalH + 16),
-            zIndex: 40,
-            bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
-            color: '#fff',
-            boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
-            '&:hover': { bgcolor: escuro ? '#d14a09' : '#152255' },
-          }}
-        >
-          <AddIcon />
-        </Fab>
-      )}
-
-      {podeAbrirEnergiaMobile && isEnergia && !isEnergiaNovo && !isEnergiaDetalhe && (
-        <Fab
-          aria-label="Registrar ocorrência de energia"
-          onClick={() => navigate('/energia/mobile/novo')}
           sx={{
             position: 'fixed',
             right: safeAreaRightCalc(20),

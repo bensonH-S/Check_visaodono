@@ -13,10 +13,9 @@ import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import RequestQuoteOutlinedIcon from '@mui/icons-material/RequestQuoteOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import { api, type EstoqueNfeDetalhe, type EstoqueNfeItem } from '../../api/client';
-import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
 import { thumbInsumo } from '../../components/estoque/estoqueHub';
 import DanfePdfPreview from '../../components/estoque/DanfePdfPreview';
 import { showToast } from '../../utils/toast';
@@ -366,17 +365,17 @@ export default function EstoqueMobileNfePage() {
   }
 
   return (
-    <div className="ck-estoque-hub ck-estoque-hub--nfe">
-      <div className="ck-estoque-hub__scroll">
-        <header className="ck-estoque-hub__top">
-          <div className="ck-estoque-hub__brand-row">
-            <button type="button" className="ck-estoque-hub__icon-btn" aria-label="Voltar" onClick={voltarHubNf}>
-              <ArrowBackIcon />
-            </button>
-            <img className="ck-estoque-hub__mark" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
-            <span className="ck-estoque-hub__icon-btn" aria-hidden />
-          </div>
-          <div className="ck-estoque-hub__store-row">
+    <div
+      className="ck-estoque-hub ck-estoque-hub--nfe ck-estoque-hub--hero"
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+    >
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
+        <div className="ck-estoque-hub__brand-row">
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+        </div>
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
             <h1>{det ? `NF ${det.numero || det.id_nfe}` : 'Nota fiscal'}</h1>
           </div>
           {det ? (
@@ -385,105 +384,121 @@ export default function EstoqueMobileNfePage() {
               {det.valor_total != null ? ` · ${fmtMoeda(det.valor_total)}` : ''}
             </p>
           ) : null}
-        </header>
+        </div>
+      </header>
 
-        <div className="ck-estoque-hub__body">
-          {loading && !det ? <LinearProgress sx={{ my: 1, borderRadius: 1, bgcolor: '#333840' }} /> : null}
-          {!loading && !det ? <p className="ck-estoque-hub__empty">Nota fiscal não encontrada.</p> : null}
+      <div className="ck-estoque-hub__panel">
+        {loading && !det ? (
+          <LinearProgress
+            sx={{
+              my: 1,
+              borderRadius: 1,
+              bgcolor: '#333840',
+              '& .MuiLinearProgress-bar': { bgcolor: '#ff9a5c' },
+            }}
+          />
+        ) : null}
+        {!loading && !det ? <p className="ck-estoque-hub__empty">Nota fiscal não encontrada.</p> : null}
+        {det ? (
+          <>
+            <div className="ck-estoque-hub__nfe-docs">
+              <button
+                type="button"
+                disabled={!det.tem_xml || abrindoDanfe}
+                onClick={() => void abrirDanfe(det.id_nfe)}
+              >
+                <DescriptionOutlinedIcon />
+                {abrindoDanfe ? 'Abrindo…' : 'DANFE'}
+              </button>
+              <button
+                type="button"
+                disabled={abrindoCobranca}
+                onClick={() => void abrirCobranca(det.id_nfe)}
+              >
+                <RequestQuoteOutlinedIcon />
+                {abrindoCobranca ? 'Abrindo…' : 'Cobrança'}
+              </button>
+            </div>
+            <div className="ck-estoque-hub__table ck-estoque-hub__table--head">
+              <div className="ck-estoque-hub__cols">
+                <span>Produto</span>
+                <span>Qtd</span>
+                <span>Estado</span>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
 
+      <div className="ck-estoque-hub__scroll">
+        <div className="ck-estoque-hub__body ck-estoque-hub__body--scroll">
           {det ? (
-            <>
-              <div className="ck-estoque-hub__nfe-docs">
-                <button
-                  type="button"
-                  disabled={!det.tem_xml || abrindoDanfe}
-                  onClick={() => void abrirDanfe(det.id_nfe)}
-                >
-                  <DescriptionOutlinedIcon />
-                  {abrindoDanfe ? 'Abrindo…' : 'DANFE'}
-                </button>
-                <button
-                  type="button"
-                  disabled={abrindoCobranca}
-                  onClick={() => void abrirCobranca(det.id_nfe)}
-                >
-                  <RequestQuoteOutlinedIcon />
-                  {abrindoCobranca ? 'Abrindo…' : 'Cobrança'}
-                </button>
+            <div className="ck-estoque-hub__table ck-estoque-hub__table--body">
+              <div className="ck-estoque-hub__lista">
+                {(det.itens || []).map((it) => {
+                  const c = checks[it.id_item];
+                  const esp = c?.qtd_esperada ?? qtdEsperada(it);
+                  const rec = c?.qtd_recebida ?? esp;
+                  const estado = c?.ok;
+                  const semMatch = !it.id_insumo;
+                  const { linhaEstoque, linhaEmb } = rotuloQtd(it, rec, esp);
+                  return (
+                    <div
+                      key={it.id_item}
+                      className={`ck-estoque-hub__row${estado === false ? ' is-falta' : ''}`}
+                    >
+                      <span className="ck-estoque-hub__item">
+                        <img
+                          className="ck-estoque-hub__thumb"
+                          src={assetUrl(
+                            thumbInsumo({
+                              codigo: it.codigo_insumo || it.codigo_nf,
+                              descricao: it.descricao_insumo || it.descricao,
+                            }),
+                          )}
+                          alt=""
+                        />
+                        <span className="ck-estoque-hub__copy">
+                          <strong>{nomeItem(it)}</strong>
+                          <small>
+                            {semMatch
+                              ? 'Sem cadastro — só ocorrência'
+                              : it.codigo_nf || it.codigo_insumo || ''}
+                          </small>
+                        </span>
+                      </span>
+                      <span className="ck-estoque-hub__qtd ck-estoque-hub__qtd--nfe">
+                        {linhaEstoque}
+                        {linhaEmb ? <small>{linhaEmb}</small> : null}
+                      </span>
+                      <span className="ck-estoque-hub__nfe-acoes">
+                        <button
+                          type="button"
+                          className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--ok${
+                            estado === true ? ' is-on' : ''
+                          }`}
+                          aria-label="Chegou"
+                          disabled={semMatch && esp <= 0}
+                          onClick={() => marcar(it.id_item, true)}
+                        >
+                          <CheckCircleOutlinedIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--no${
+                            estado === false ? ' is-on' : ''
+                          }`}
+                          aria-label="Não chegou"
+                          onClick={() => marcar(it.id_item, false)}
+                        >
+                          <HighlightOffIcon />
+                        </button>
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="ck-estoque-hub__table">
-                <div className="ck-estoque-hub__cols">
-                  <span>Produto</span>
-                  <span>Qtd</span>
-                  <span>Estado</span>
-                </div>
-                <div className="ck-estoque-hub__lista">
-                  {(det.itens || []).map((it) => {
-                    const c = checks[it.id_item];
-                    const esp = c?.qtd_esperada ?? qtdEsperada(it);
-                    const rec = c?.qtd_recebida ?? esp;
-                    const estado = c?.ok;
-                    const semMatch = !it.id_insumo;
-                    const { linhaEstoque, linhaEmb } = rotuloQtd(it, rec, esp);
-                    return (
-                      <div
-                        key={it.id_item}
-                        className={`ck-estoque-hub__row${estado === false ? ' is-falta' : ''}`}
-                      >
-                        <span className="ck-estoque-hub__item">
-                          <img
-                            className="ck-estoque-hub__thumb"
-                            src={assetUrl(
-                              thumbInsumo({
-                                codigo: it.codigo_insumo || it.codigo_nf,
-                                descricao: it.descricao_insumo || it.descricao,
-                              }),
-                            )}
-                            alt=""
-                          />
-                          <span className="ck-estoque-hub__copy">
-                            <strong>{nomeItem(it)}</strong>
-                            <small>
-                              {semMatch
-                                ? 'Sem cadastro — só ocorrência'
-                                : it.codigo_nf || it.codigo_insumo || ''}
-                            </small>
-                          </span>
-                        </span>
-                        <span className="ck-estoque-hub__qtd ck-estoque-hub__qtd--nfe">
-                          {linhaEstoque}
-                          {linhaEmb ? <small>{linhaEmb}</small> : null}
-                        </span>
-                        <span className="ck-estoque-hub__nfe-acoes">
-                          <button
-                            type="button"
-                            className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--ok${
-                              estado === true ? ' is-on' : ''
-                            }`}
-                            aria-label="Chegou"
-                            disabled={semMatch && esp <= 0}
-                            onClick={() => marcar(it.id_item, true)}
-                          >
-                            <CheckCircleOutlinedIcon />
-                          </button>
-                          <button
-                            type="button"
-                            className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--no${
-                              estado === false ? ' is-on' : ''
-                            }`}
-                            aria-label="Não chegou"
-                            onClick={() => marcar(it.id_item, false)}
-                          >
-                            <HighlightOffIcon />
-                          </button>
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
+            </div>
           ) : null}
         </div>
       </div>

@@ -172,60 +172,55 @@ export default function MapaVeiculoConsultasPainel({
       >
         <span className="ck-mapa__ficha-handle" aria-hidden />
         {expandido ? (
-          <KeyboardArrowDownIcon sx={{ fontSize: 20, color: colors.navy, opacity: 0.55 }} />
+          <KeyboardArrowDownIcon sx={{ fontSize: 20, color: '#8d8d8d' }} />
         ) : (
-          <KeyboardArrowUpIcon sx={{ fontSize: 20, color: colors.navy, opacity: 0.55 }} />
+          <KeyboardArrowUpIcon sx={{ fontSize: 20, color: '#8d8d8d' }} />
         )}
       </button>
       <div className="ck-mapa__ficha-head">
-        <div className="ck-mapa__ficha-avatar" aria-hidden>
-          <DirectionsCarFilledOutlinedIcon />
+        <div className="ck-mapa__ficha-main">
+          <div className="ck-mapa__ficha-avatar" aria-hidden>
+            <DirectionsCarFilledOutlinedIcon />
+          </div>
+          <div className="ck-mapa__ficha-copy">
+            <p className="ck-mapa__ficha-title" title={titulo}>
+              {titulo}
+            </p>
+            {ocupante ? (
+              <p className="ck-mapa__ficha-ocupante">Com {primeiroNomeOcupante(ocupante)}</p>
+            ) : null}
+            <p className="ck-mapa__ficha-sub">
+              {statusKey && statusAoVivo ? (
+                <span className="ck-mapa__status-live">
+                  <span className={`ck-mapa__status-dot is-${statusKey}`} aria-hidden />
+                  {statusAoVivo}
+                </span>
+              ) : null}
+              {statusAoVivo && veiculoAoVivo?.velocidade != null ? <span aria-hidden> · </span> : null}
+              {veiculoAoVivo?.velocidade != null ? <span>{veiculoAoVivo.velocidade} km/h</span> : null}
+              {(statusAoVivo || veiculoAoVivo?.velocidade != null) && atualizadoLabel ? (
+                <span aria-hidden> · </span>
+              ) : null}
+              {atualizadoLabel ? <span>{atualizadoLabel}</span> : null}
+              {!statusAoVivo && !atualizadoLabel && subtitulo ? <span>{subtitulo}</span> : null}
+            </p>
+          </div>
         </div>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontWeight: 800, color: colors.navy, fontSize: '0.95rem', lineHeight: 1.2 }}>
-            {titulo}
-          </Typography>
-          {ocupante && (
-            <Typography
-              variant="caption"
-              sx={{ display: 'block', fontWeight: 700, color: colors.navy, fontSize: '0.78rem', lineHeight: 1.2 }}
+        <div className="ck-mapa__ficha-tools">
+          {onAbrirHistorico ? (
+            <IconButton
+              size="small"
+              onClick={onAbrirHistorico}
+              aria-label="Ver histórico do veículo"
+              sx={{ color: '#ff9a5c' }}
             >
-              Com {primeiroNomeOcupante(ocupante)}
-            </Typography>
-          )}
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}
-          >
-            {statusKey && statusAoVivo ? (
-              <span className="ck-mapa__status-live">
-                <span className={`ck-mapa__status-dot is-${statusKey}`} aria-hidden />
-                {statusAoVivo}
-              </span>
-            ) : null}
-            {statusAoVivo && (veiculoAoVivo?.velocidade != null || atualizadoLabel) ? (
-              <span aria-hidden>·</span>
-            ) : null}
-            {veiculoAoVivo?.velocidade != null ? <span>{veiculoAoVivo.velocidade} km/h</span> : null}
-            {veiculoAoVivo?.velocidade != null && atualizadoLabel ? <span aria-hidden>·</span> : null}
-            {atualizadoLabel ? <span>{atualizadoLabel}</span> : null}
-            {!statusAoVivo && !atualizadoLabel ? subtitulo : null}
-          </Typography>
-        </Box>
-        {onAbrirHistorico && (
-          <IconButton
-            size="small"
-            onClick={onAbrirHistorico}
-            aria-label="Ver histórico do veículo"
-            sx={{ color: colors.navy }}
-          >
-            <HistoryIcon fontSize="small" />
+              <HistoryIcon fontSize="small" />
+            </IconButton>
+          ) : null}
+          <IconButton size="small" onClick={onClose} aria-label="Fechar veículo" sx={{ color: '#8d8d8d' }}>
+            <CloseIcon fontSize="small" />
           </IconButton>
-        )}
-        <IconButton size="small" onClick={onClose} aria-label="Fechar veículo">
-          <CloseIcon fontSize="small" />
-        </IconButton>
+        </div>
       </div>
 
       <div className="ck-mapa__ficha-acoes">
@@ -246,7 +241,7 @@ export default function MapaVeiculoConsultasPainel({
         <div className="ck-mapa__ficha-body">
           {carregando && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-              <CircularProgress size={26} />
+              <CircularProgress size={26} sx={{ color: '#fe6c22' }} />
             </Box>
           )}
           {!carregando && erro && (
@@ -410,7 +405,7 @@ function ListaAbastecimentos({ itens }: { itens: FrotaAbastecimentoPortal[] }) {
         <Cartao key={a.id_abastecimento}>
           <div className="ck-mapa__ficha-card-top">
             <strong>{fmtData(a.data_abastecimento)}</strong>
-            <span className="ck-mapa__ficha-badge" style={{ background: 'rgba(27, 42, 107, 0.08)', color: colors.navy }}>
+            <span className="ck-mapa__ficha-badge" style={{ background: 'rgba(254, 108, 34, 0.16)', color: '#ff9a5c' }}>
               {a.km_atual.toLocaleString('pt-BR')} km
             </span>
           </div>
@@ -431,7 +426,7 @@ function ListaManutencoes({ itens }: { itens: FrotaManutencaoPortal[] }) {
           <div className="ck-mapa__ficha-card-top">
             <strong>{fmtData(m.data_manutencao)}</strong>
             {m.km != null && (
-              <span className="ck-mapa__ficha-badge" style={{ background: 'rgba(27, 42, 107, 0.08)', color: colors.navy }}>
+              <span className="ck-mapa__ficha-badge" style={{ background: 'rgba(254, 108, 34, 0.16)', color: '#ff9a5c' }}>
                 {m.km.toLocaleString('pt-BR')} km
               </span>
             )}

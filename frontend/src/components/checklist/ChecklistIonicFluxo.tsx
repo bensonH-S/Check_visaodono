@@ -1,5 +1,6 @@
 import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import type { CategoriaChecklist, Loja, Pergunta } from '../../api/client';
+import { assetUrl, LOGO_ALVIM_ICONE } from '../../config/paths';
 import ChecklistIonicPerguntaCard from './ChecklistIonicPerguntaCard';
 import ChecklistIonicShell from './ChecklistIonicShell';
 import '../estoque/estoque-hub.css';
@@ -68,54 +69,64 @@ export default function ChecklistIonicFluxo({
 
   return (
     <ChecklistIonicShell scrollY={false}>
-      <div className="ck-fluxo ck-start--fixed ck-checklist-hub">
-        <header className="ck-fluxo__top">
-          <div className="ck-fluxo__top-row">
-            <button
-              type="button"
-              className="ck-fluxo__back"
-              onClick={() => dispararVoltar()}
-              aria-label="Voltar"
-            >
-              ←
-            </button>
-            <div className="ck-fluxo__top-copy">
-              <p className="ck-fluxo__loja">
-                {loja?.name ?? 'Checklist'}
-                {visitaId ? ` · #${visitaId}` : ''}
-              </p>
-              <strong>
-                {respondidas}/{totalPerguntas} · {progressoGeral}%
-              </strong>
-            </div>
-          </div>
-          <div className="ck-fluxo__bar" aria-hidden>
-            <span style={{ width: `${Math.min(100, Math.max(0, progressoGeral))}%` }} />
-          </div>
-        </header>
-
-        <div className="ck-fluxo__rail" role="tablist" aria-label="Seções">
-          {checklist.map((cat, idx) => {
-            const completa = secaoCompleta(cat);
-            const ativa = idx === indiceSecao;
-            return (
+      <div
+        className="ck-fluxo ck-start--fixed ck-estoque-hub--hero ck-checklist-hub"
+        style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      >
+        <div className="ck-estoque-hub__watermark" aria-hidden />
+        <div className="ck-fluxo__chrome">
+          <header className="ck-fluxo__top">
+            <div className="ck-fluxo__top-row">
               <button
-                key={cat.id_categoria}
                 type="button"
-                role="tab"
-                aria-selected={ativa}
-                className={`ck-fluxo__chip${ativa ? ' is-on' : ''}${completa ? ' is-done' : ''}`}
-                onClick={() => onIrParaSecao(idx)}
+                className="ck-fluxo__back"
+                onClick={() => dispararVoltar()}
+                aria-label="Voltar"
               >
-                {completa ? '✓ ' : ''}
-                {idx + 1}. {cat.nome.split(' ')[0]}
+                ←
               </button>
-            );
-          })}
-        </div>
+              <div className="ck-fluxo__top-copy">
+                <p className="ck-fluxo__loja">
+                  {loja?.name ?? 'Checklist'}
+                  {visitaId ? ` · #${visitaId}` : ''}
+                </p>
+                <strong>
+                  {respondidas}/{totalPerguntas} · {progressoGeral}%
+                </strong>
+              </div>
+            </div>
+            <div className="ck-fluxo__bar" aria-hidden>
+              <span
+                className="ck-fluxo__bar-fill"
+                style={{
+                  width: `${Math.min(100, Math.max(0, progressoGeral))}%`,
+                  background: '#fe6c22',
+                }}
+              />
+            </div>
+          </header>
 
-        <div className="ck-fluxo__scroll">
-          <div className="ck-fluxo__banner">
+          <div className="ck-fluxo__rail" role="tablist" aria-label="Seções">
+            {checklist.map((cat, idx) => {
+              const completa = secaoCompleta(cat);
+              const ativa = idx === indiceSecao;
+              return (
+                <button
+                  key={cat.id_categoria}
+                  type="button"
+                  role="tab"
+                  aria-selected={ativa}
+                  className={`ck-fluxo__chip${ativa ? ' is-on' : ''}${completa ? ' is-done' : ''}`}
+                  onClick={() => onIrParaSecao(idx)}
+                >
+                  {completa ? '✓ ' : ''}
+                  {idx + 1}. {cat.nome.split(' ')[0]}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="ck-fluxo__banner ck-fluxo__banner--sticky">
             <p>
               Seção {indiceSecao + 1} de {totalSecoes}
             </p>
@@ -124,7 +135,9 @@ export default function ChecklistIonicFluxo({
               {respondidasSecao}/{secaoAtual.perguntas.length} respondidas
             </span>
           </div>
+        </div>
 
+        <div className="ck-fluxo__scroll">
           {msg && (
             <div className="ck-fluxo__alert" role="alert">
               <div>
@@ -163,7 +176,7 @@ export default function ChecklistIonicFluxo({
             )}
             <button
               type="button"
-              className="ck-fluxo__btn ck-fluxo__btn--navy"
+              className="ck-fluxo__btn ck-fluxo__btn--save"
               disabled={saving}
               onClick={onSalvar}
             >

@@ -181,6 +181,7 @@ export default function FrotaAbastecimentoPage() {
       : 'Registre combustível com nota fiscal',
     variant: (modoRestrito ? 'hub' : 'page') as 'hub' | 'page',
     onBack: modoRestrito ? undefined : () => navigate('/frota/mobile'),
+    temVeiculo: Boolean(veiculo),
     metrics: [
       {
         value: historico.length,
@@ -233,15 +234,19 @@ export default function FrotaAbastecimentoPage() {
           </button>
         </div>
 
+        {aba === 'novo' && veiculo ? (
+          <div className="ck-frota__veiculo-fixo">
+            <FrotaVeiculoFaixa veiculo={veiculo} />
+          </div>
+        ) : null}
+
         <div className="ck-frota__tabs-body">
         {aba === 'novo' && (
           <>
             {!veiculo ? (
               <FrotaEmptyVeiculo onVerHistorico={() => setAba('historico')} />
             ) : (
-              <>
-                <FrotaVeiculoFaixa veiculo={veiculo} />
-                <Paper elevation={0} sx={frotaCardSx}>
+              <Paper elevation={0} sx={{ ...frotaCardSx, mb: 0 }}>
                   <FrotaFormHeader
                     icon={<LocalGasStationIcon />}
                     titulo="Novo abastecimento"
@@ -256,42 +261,47 @@ export default function FrotaAbastecimentoPage() {
                   <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                      gridTemplateColumns: '1fr 1fr',
                       gap: 1,
-                      mb: 0.5,
+                      mb: 1.5,
                     }}
                   >
                     <TextField
                       fullWidth
-                      label="KM Atual *"
+                      label="KM Atual"
                       value={km}
                       onChange={(e) => setKm(filtrarKmAoDigitar(e.target.value))}
                       type="tel"
                       inputMode="numeric"
                       placeholder="Ex.: 50.000"
                       required
-                      sx={campoAlturaFrotaSx}
+                      sx={{ ...campoAlturaFrotaSx, mb: 0 }}
                       slotProps={{
                         inputLabel: labelFixo.inputLabel,
                       }}
                     />
                     <TextField
                       fullWidth
-                      label="Valor pago (R$)"
+                      label="Valor pago"
                       value={valor}
                       onChange={(e) => setValor(filtrarMoedaAoDigitar(e.target.value))}
                       type="tel"
                       inputMode="numeric"
                       required
                       placeholder={ph.valor}
-                      helperText="Ex.: digite 15090 → 150,90"
-                      sx={campoAlturaFrotaSx}
+                      sx={{
+                        ...campoAlturaFrotaSx,
+                        mb: 0,
+                        '& .MuiInputAdornment-root': { color: '#8d8d8d' },
+                      }}
                       slotProps={{
                         inputLabel: labelFixo.inputLabel,
                         input: {
-                           startAdornment: (
-                             <InputAdornment position="start">R$</InputAdornment>
-                           ),
+                          startAdornment: (
+                            <InputAdornment position="start" sx={{ color: '#8d8d8d' }}>
+                              R$
+                            </InputAdornment>
+                          ),
                         },
                       }}
                     />
@@ -315,8 +325,7 @@ export default function FrotaAbastecimentoPage() {
                   >
                     {salvando ? 'Registrando…' : 'Registrar abastecimento'}
                   </Button>
-                </Paper>
-              </>
+              </Paper>
             )}
           </>
         )}

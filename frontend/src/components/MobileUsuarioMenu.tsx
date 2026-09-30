@@ -18,8 +18,13 @@ import { api, type IntegrationStatusGroup } from '../api/client';
 import SobreSistemaDialog from './SobreSistemaDialog';
 import IntegrationsStatusDialog from './IntegrationsStatusDialog';
 import { useAppTheme } from '../context/ThemeContext';
+import { deveForcarTemaClaroMobile } from '../utils/device';
 
 const NAVY = '#1B2A6B';
+/** Hubs mobile são escuros mesmo com tema MUI claro forçado. */
+function usarOverlayEscuro(mode: string) {
+  return mode === 'dark' || deveForcarTemaClaroMobile();
+}
 
 type Props = {
   user: UsuarioSessao | null;
@@ -53,7 +58,7 @@ export default function MobileUsuarioMenu({
   const location = useLocation();
   const contexto = contextoDaRota(location.pathname);
   const { mode } = useAppTheme();
-  const escuro = mode === 'dark';
+  const escuro = usarOverlayEscuro(mode);
   const itemColor = escuro ? '#F8FAFC' : NAVY;
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const [sobreAberto, setSobreAberto] = useState(false);
@@ -158,9 +163,12 @@ export default function MobileUsuarioMenu({
               minWidth: 220,
               borderRadius: 2.5,
               mt: 0.75,
-              bgcolor: escuro ? '#1E293B' : '#FFFFFF',
+              bgcolor: escuro ? '#333840' : '#FFFFFF',
               border: escuro ? '1px solid rgba(255, 255, 255, 0.1)' : 'none',
               boxShadow: escuro ? '0 12px 32px rgba(0, 0, 0, 0.5)' : '0 12px 32px rgba(27, 42, 107, 0.16)',
+              '& .MuiMenuItem-root:hover': escuro
+                ? { bgcolor: 'rgba(255, 255, 255, 0.06)' }
+                : undefined,
             },
           },
         }}

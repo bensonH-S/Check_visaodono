@@ -399,7 +399,8 @@
 
 .ck-mapa__legenda {
   position: absolute;
-  top: 10px;
+  top: auto;
+  bottom: 10px;
   left: 10px;
   z-index: 1000;
   background: rgba(255, 255, 255, 0.96);
@@ -411,6 +412,20 @@
   gap: 5px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   pointer-events: none;
+}
+
+.ck-mapa--life .ck-mapa__legenda {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  bottom: calc(14px + var(--app-tabbar-offset, 58px));
+  background: #1a222c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.ck-mapa--life .ck-mapa__legenda-item {
+  color: #f5f5f5;
 }
 
 .ck-mapa__legenda-item {
@@ -506,23 +521,82 @@
 
 .ck-mapa__ficha-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px 6px;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 12px 8px;
   flex-shrink: 0;
 }
 
+.ck-mapa__ficha-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ck-mapa__ficha-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.ck-mapa__ficha-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #f5f5f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-mapa__ficha-ocupante {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #ff9a5c;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-mapa__ficha-sub {
+  margin: 3px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #8d8d8d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ck-mapa__ficha-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+  margin-top: -2px;
+}
+
 .ck-mapa__ficha-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #fff;
-  background: linear-gradient(145deg, #e8520a 0%, #c94709 100%);
-  box-shadow: 0 8px 16px rgba(232, 82, 10, 0.28);
+  margin-top: 0;
+  color: #ff9a5c;
+  background: rgba(254, 108, 34, 0.16);
+  box-shadow: none;
+}
+
+.ck-mapa__ficha-avatar .MuiSvgIcon-root {
+  font-size: 18px;
 }
 
 .ck-mapa__ficha-acoes {
@@ -852,11 +926,135 @@
   display: none;
 }
 
-.ck-mapa--life .ck-mapa__ficha,
+.ck-mapa--life .ck-mapa__ficha {
+  /* Sempre acima da faixa de bolinhas + dock */
+  bottom: calc(96px + var(--app-tabbar-offset, 72px));
+  z-index: 55;
+}
+
 .ck-mapa--life .ck-mapa__historico-bar {
-  /* Sempre acima da faixa de bolinhas + tabbar */
-  bottom: calc(96px + var(--app-tabbar-offset, 58px));
-  z-index: 22;
+  background: #1a222c !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35) !important;
+}
+
+.ck-mapa--life .ck-mapa__historico-bar-id strong,
+.ck-mapa--life .ck-mapa__historico-bar-stats span {
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa--life .ck-mapa__historico-bar-id span,
+.ck-mapa--life .ck-mapa__historico-lojas span {
+  color: #8d8d8d !important;
+  background: #333840 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha {
+  background: #1a222c !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4) !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha .MuiTypography-root {
+  color: inherit;
+}
+
+.ck-mapa--life .ck-mapa__ficha-title {
+  color: #f5f5f5 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-ocupante {
+  color: #ff9a5c !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-sub,
+.ck-mapa--life .ck-mapa__ficha-sub span {
+  color: #8d8d8d !important;
+  white-space: nowrap !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-avatar {
+  background: rgba(254, 108, 34, 0.16) !important;
+  color: #ff9a5c !important;
+  box-shadow: none !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-avatar .MuiSvgIcon-root {
+  color: #ff9a5c !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-head strong,
+.ck-mapa--life .ck-mapa__ficha-card-top strong,
+.ck-mapa--life .ck-mapa__ficha-card-title,
+.ck-mapa--life .ck-mapa__ficha-card-valor,
+.ck-mapa--life .ck-mapa__ficha-kpis strong {
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-head span,
+.ck-mapa--life .ck-mapa__ficha-card-meta,
+.ck-mapa--life .ck-mapa__ficha-kpis small {
+  color: #8d8d8d !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-acao {
+  background: #333840 !important;
+  color: #f5f5f5 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-acao-ico {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ff9a5c !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-acao-ico .MuiSvgIcon-root {
+  color: #ff9a5c !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-acao.is-on {
+  background: rgba(254, 108, 34, 0.18) !important;
+  color: #ff9a5c !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-acao.is-on .ck-mapa__ficha-acao-ico {
+  background: rgba(254, 108, 34, 0.22) !important;
+  color: #fff !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-acao.is-on .ck-mapa__ficha-acao-ico .MuiSvgIcon-root {
+  color: #fff !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha-card,
+.ck-mapa--life .ck-mapa__ficha-kpis {
+  background: #333840 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ck-mapa--life .ck-mapa__resumo-sec-title {
+  color: #8d8d8d !important;
+}
+
+.ck-mapa--life .ck-mapa__resumo-linha,
+.ck-mapa--life .ck-mapa__resumo-loja {
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa--life .ck-mapa__resumo-linha strong,
+.ck-mapa--life .ck-mapa__resumo-loja strong,
+.ck-mapa--life .ck-mapa__resumo-loja span {
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa--life .ck-mapa__ficha .MuiIconButton-root {
+  color: #8d8d8d !important;
 }
 
 .ck-mapa--life .ck-mapa__ficha.is-aberto {
@@ -872,16 +1070,34 @@
 .ck-mapa__life {
   position: absolute;
   inset: 0;
-  z-index: 20;
+  z-index: 55;
   pointer-events: none;
+  /* Contém o dock fixed para as bolinhas ficarem acima dele */
+  transform: translateZ(0);
+}
+
+.ck-mapa__life .ck-estoque-hub__dock {
+  z-index: 40;
+}
+
+.ck-mapa__veiculo-drawer-root .MuiDrawer-paper {
+  bottom: var(--app-tabbar-offset, 58px) !important;
+  max-height: calc(100dvh - var(--app-tabbar-offset, 58px)) !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.ck-mapa__veiculo-drawer-root .MuiBackdrop-root {
+  bottom: var(--app-tabbar-offset, 58px) !important;
 }
 
 .ck-mapa__life-top {
   position: relative;
   z-index: 12;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 8px;
   padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 0;
 }
 
@@ -889,71 +1105,105 @@
   pointer-events: auto;
 }
 
+.ck-mapa__life-brand {
+  height: 40px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(26, 34, 44, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ck-mapa__life-brand img {
+  height: 22px;
+  width: auto;
+  display: block;
+  filter: none;
+}
+
 .ck-mapa__life-top-right {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
+  max-width: min(78vw, 340px);
 }
 
 .ck-mapa__life-icon {
   width: 40px;
   height: 40px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.94);
-  color: #1b2a6b;
-  box-shadow: 0 6px 18px rgba(15, 26, 69, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(26, 34, 44, 0.92);
+  color: #f5f5f5;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
   display: grid;
   place-items: center;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .ck-mapa__life-icon.is-on {
-  background: #1b2a6b;
+  background: #fe6c22;
   color: #fff;
+  border-color: transparent;
 }
 
 .ck-mapa__life-regiao {
-  height: 36px;
-  padding: 0 10px 0 12px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
-  color: #1b2a6b;
+  min-height: 40px;
+  height: auto;
+  max-width: min(48vw, 180px);
+  padding: 8px 10px 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(26, 34, 44, 0.92);
+  color: #f5f5f5;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 800;
-  box-shadow: 0 6px 18px rgba(15, 26, 69, 0.16);
-  max-width: 42vw;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ck-mapa__life-regiao > span {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
 }
 
 .ck-mapa__life-members {
   position: absolute;
   left: 0;
   right: 0;
-  /* overlay absolute cobre o padding — sobe acima do tabbar */
-  bottom: calc(10px + var(--app-tabbar-offset, 58px));
+  bottom: calc(14px + var(--app-tabbar-offset, 72px));
   display: flex;
   justify-content: safe center;
   align-items: flex-end;
-  gap: 8px;
+  gap: 10px;
   overflow-x: auto;
-  overflow-y: hidden;
-  /* espaço p/ anel/pulso não cortar o topo da bolinha */
-  padding: 12px 12px 4px;
+  overflow-y: visible;
+  padding: 14px 12px 8px;
   -webkit-overflow-scrolling: touch;
-  z-index: 30;
+  z-index: 60;
+  pointer-events: auto;
 }
 
 .ck-mapa__life-regiao-menu {
   border-radius: 14px !important;
-  box-shadow: 0 12px 32px rgba(15, 26, 69, 0.2) !important;
-  border: 1px solid rgba(27, 42, 107, 0.08);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #1a222c !important;
+  color: #f5f5f5 !important;
   padding: 4px 6px 8px;
 }
 
@@ -963,7 +1213,7 @@
 
 .ck-mapa__life-person {
   flex: 0 0 auto;
-  width: 56px;
+  width: 58px;
   border: 0;
   background: transparent;
   padding: 4px 0 0;
@@ -971,7 +1221,7 @@
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  color: #0f172a;
+  color: #0b1721;
   cursor: pointer;
   overflow: visible;
 }
@@ -984,47 +1234,55 @@
   place-items: center;
   font-size: 0.76rem;
   font-weight: 800;
-  color: #fff;
+  color: #fff !important;
   background: #94a3b8;
   border: 3px solid #fff;
-  box-shadow: 0 8px 18px rgba(15, 26, 69, 0.2);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
   overflow: visible;
+  position: relative;
 }
 
 .ck-mapa__life-avatar.is-em_rota {
   --ck-pulse-rgb: 22, 163, 74;
-  background: #16a34a;
+  background: #16a34a !important;
   animation: ck-mapa-status-pulse 1.8s ease-out infinite;
 }
 
 .ck-mapa__life-avatar.is-disponivel {
   --ck-pulse-rgb: 220, 38, 38;
-  background: #dc2626;
+  background: #dc2626 !important;
   animation: ck-mapa-status-pulse 1.8s ease-out infinite;
 }
 
 .ck-mapa__life-avatar.is-parado {
-  background: #64748b;
+  background: #64748b !important;
 }
 
 .ck-mapa__life-avatar.is-sem_sinal {
-  background: #94a3b8;
+  background: #94a3b8 !important;
 }
 
 .ck-mapa__life-person.is-on .ck-mapa__life-avatar {
-  box-shadow: 0 0 0 3px #e8520a, 0 8px 18px rgba(15, 26, 69, 0.2);
+  box-shadow: 0 0 0 3px #fe6c22, 0 8px 18px rgba(0, 0, 0, 0.35);
   outline: none;
 }
 
-.ck-mapa__life-name {
+/* Tema claro (Ruas): nome escuro com chip branco */
+.ck-mapa__life-members .ck-mapa__life-person .ck-mapa__life-name {
   font-size: 0.68rem;
   font-weight: 800;
   max-width: 72px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #0f172a;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.7);
+  line-height: 1.25;
+  color: #0b1721 !important;
+  -webkit-text-fill-color: #0b1721 !important;
+  background: #ffffff;
+  padding: 2px 7px;
+  border-radius: 7px;
+  text-shadow: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
 }
 
 .ck-mapa__life-meta {
@@ -1034,9 +1292,24 @@
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.7);
 }
 
-.ck-mapa__life.is-satelite .ck-mapa__life-name,
-.ck-mapa__life.is-satelite .ck-mapa__life-meta {
-  color: #fff;
+/* Satélite / Escuro: nome claro com chip escuro */
+.ck-mapa__life.is-satelite .ck-mapa__life-person,
+.ck-mapa__life.is-escuro .ck-mapa__life-person {
+  color: #f5f5f5;
+}
+
+.ck-mapa__life.is-satelite .ck-mapa__life-members .ck-mapa__life-person .ck-mapa__life-name,
+.ck-mapa__life.is-escuro .ck-mapa__life-members .ck-mapa__life-person .ck-mapa__life-name {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  background: rgba(11, 23, 33, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  text-shadow: none !important;
+}
+
+.ck-mapa__life.is-satelite .ck-mapa__life-meta,
+.ck-mapa__life.is-escuro .ck-mapa__life-meta {
+  color: #fff !important;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
 }
 
@@ -1051,24 +1324,158 @@
 }
 
 .ck-mapa__life-hist {
-  margin: 10px 12px 0;
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 12px 28px rgba(15, 26, 69, 0.18);
+  position: relative;
+  z-index: 12;
+  margin: 8px 12px 0;
+  padding: 10px;
+  border-radius: 14px;
+  background: #1a222c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ck-mapa__life-hist-results {
+  position: relative;
+  z-index: 12;
+  margin: 8px 12px 0;
+  pointer-events: auto;
+}
+
+.ck-mapa__life-hist-results .ck-mapa__historico-bar {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  top: auto;
+  margin: 0;
+  max-height: min(32vh, 220px);
+  overflow: auto;
 }
 
 .ck-mapa__life-hist-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+  min-height: 28px;
 }
 
 .ck-mapa__life-hist-head strong {
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   font-weight: 800;
-  color: #1b2a6b;
+  color: #f5f5f5;
+}
+
+.ck-mapa__life-hist .ck-mapa__life-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-field,
+.ck-mapa__life-hist .ck-mapa__consulta-time {
+  min-height: 34px !important;
+  padding: 4px 8px !important;
+  border-radius: 10px !important;
+  background: #333840 !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  gap: 0 !important;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-label {
+  font-size: 0.58rem !important;
+  color: #8d8d8d !important;
+  letter-spacing: 0.03em;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-value,
+.ck-mapa__life-hist .ck-mapa__consulta-value-txt {
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  color: #f5f5f5 !important;
+  line-height: 1.2 !important;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-value .MuiSvgIcon-root {
+  font-size: 16px !important;
+  color: #ff9a5c !important;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-row {
+  gap: 6px;
+  margin: 0;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-row--periodo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(52px, 0.55fr) minmax(52px, 0.55fr) auto;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-row--periodo .ck-mapa__consulta-field {
+  width: 100%;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-row--periodo .ck-mapa__consulta-time {
+  min-width: 0;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-row--periodo .ck-mapa__consulta-btn {
+  min-width: 52px;
+  padding: 0 8px !important;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-time input {
+  min-height: 18px !important;
+  height: 18px !important;
+  padding: 0 !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  color: #f5f5f5 !important;
+  border: 0 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-btn {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  font-size: 0.76rem !important;
+  gap: 4px !important;
+  background: #fe6c22 !important;
+  color: #fff !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-btn .MuiSvgIcon-root {
+  font-size: 16px !important;
+}
+
+.ck-mapa__life-hist .ck-mapa__life-hoje {
+  margin-top: 2px !important;
+  font-size: 0.72rem !important;
+  color: #ff9a5c !important;
+  align-self: flex-start;
+  padding: 0;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-erro {
+  margin: 0 !important;
+  font-size: 0.72rem !important;
+  color: #f87171 !important;
+  line-height: 1.3;
 }
 
 .ck-mapa__life-hoje {
@@ -1090,7 +1497,7 @@
   margin: 8px 12px 4px;
   font-size: 0.78rem;
   font-weight: 800;
-  color: #64748b;
+  color: #8d8d8d;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1106,11 +1513,22 @@
   font: inherit;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #1b2a6b;
+  color: #f5f5f5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .ck-mapa__life-drawer-item.is-on {
-  background: rgba(27, 42, 107, 0.08);
+  background: rgba(254, 108, 34, 0.16);
+  color: #ff9a5c;
+}
+
+.ck-mapa__life-drawer-item--row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .ck-mapa__historico-bar {
@@ -1437,3 +1855,140 @@ html.dark .ck-mapa__life-drawer-item {
   color: #f8fafc;
 }
 
+
+.ck-mapa__veiculo-drawer.is-dark .MuiTypography-root {
+  color: #f5f5f5;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiTypography-caption {
+  color: #8d8d8d !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root {
+  color: #f5f5f5 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root.Mui-selected {
+  background: rgba(254, 108, 34, 0.16) !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark {
+  background: #1a222c !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiTypography-root {
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiTypography-caption {
+  color: #8d8d8d !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root {
+  color: #f5f5f5 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root.Mui-selected {
+  background: rgba(254, 108, 34, 0.16) !important;
+}
+
+.ck-mapa__life-empty {
+  background: rgba(26, 34, 44, 0.92) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Histórico / calendário / drawer — força tema escuro (sem manchas brancas) */
+.ck-mapa__cal-pop.is-dark,
+.ck-mapa__cal-pop.is-dark .MuiDateCalendar-root,
+.ck-mapa__cal-pop.is-dark .MuiPickersLayout-root,
+.ck-mapa__cal-pop.is-dark .MuiPickersFadeTransitionGroup-root {
+  background: #1a222c !important;
+  background-image: none !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa__cal-pop.is-dark .MuiPickersDay-root {
+  color: #f5f5f5 !important;
+  background: transparent !important;
+}
+
+.ck-mapa__cal-pop.is-dark .MuiPickersDay-root.Mui-selected {
+  background: #fe6c22 !important;
+  color: #fff !important;
+}
+
+.ck-mapa__cal-pop.is-dark .MuiDayCalendar-weekDayLabel,
+.ck-mapa__cal-pop.is-dark .MuiTypography-caption {
+  color: #8d8d8d !important;
+}
+
+.ck-mapa__cal-pop.is-dark .MuiPickersCalendarHeader-label,
+.ck-mapa__cal-pop.is-dark .MuiPickersArrowSwitcher-button {
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa__historico-bar {
+  background: #1a222c !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35) !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa__historico-bar-id strong {
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa__historico-bar-id span,
+.ck-mapa__historico-bar-stats span {
+  color: #8d8d8d !important;
+  background: #333840 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ck-mapa__historico-bar-stats span.is-alerta {
+  color: #f87171 !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+}
+
+.ck-mapa__historico-lojas span {
+  color: #f5f5f5 !important;
+  background: #333840 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark,
+.ck-mapa__veiculo-drawer.is-dark .MuiList-root {
+  background: #1a222c !important;
+  background-image: none !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root {
+  background: #333840 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root.Mui-selected {
+  background: rgba(254, 108, 34, 0.18) !important;
+}
+
+.ck-mapa__life-hist,
+.ck-mapa__life-hist * {
+  scrollbar-color: #454d5a transparent;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-field,
+.ck-mapa__life-hist .ck-mapa__consulta-time {
+  background: #333840 !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-mapa__life-hist .ck-mapa__consulta-value,
+.ck-mapa__life-hist .ck-mapa__consulta-value-txt {
+  color: #f5f5f5 !important;
+  background: transparent !important;
+}

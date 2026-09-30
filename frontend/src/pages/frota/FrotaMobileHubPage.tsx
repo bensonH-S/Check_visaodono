@@ -1,62 +1,28 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
-import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
-import BuildIcon from '@mui/icons-material/Build';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import { api, fmtData } from '../../api/client';
 import type { FrotaResumoMobile } from '../../api/client';
-import { getUsuario, modoAppTecnicoFrotaRestrito, podeAssinarTermoFerramentasMobile } from '../../lib/auth';
+import { getUsuario, logout, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
 import { showToast } from '../../utils/toast';
 import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
-import FrotaMobileShell from '../../components/frota/FrotaMobileShell';
-
-function TileOpcao({
-  titulo,
-  descricao,
-  icon,
-  onClick,
-  badge,
-  disabled,
-}: {
-  titulo: string;
-  descricao: string;
-  icon: ReactNode;
-  onClick: () => void;
-  badge?: ReactNode;
-  disabled?: boolean;
-}) {
-  return (
-    <button type="button" className="ck-frota__tile" onClick={onClick} disabled={disabled}>
-      <span className="ck-frota__tile-mono" aria-hidden>
-        {icon}
-      </span>
-      <span className="ck-frota__tile-copy">
-        <strong>
-          {titulo}
-          {badge}
-        </strong>
-        <small>{descricao}</small>
-      </span>
-      {!disabled && (
-        <span className="ck-frota__tile-go" aria-hidden>
-          ›
-        </span>
-      )}
-    </button>
-  );
-}
+import FrotaPlusSheet from '../../components/frota/FrotaPlusSheet';
+import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
+import NotificacoesSino from '../../components/NotificacoesSino';
+import AppHubDock from '../../components/hub/AppHubDock';
+import '../../components/estoque/estoque-hub.css';
+import '../../components/frota/frota-mobile.css';
 
 export default function FrotaMobileHubPage() {
   const navigate = useNavigate();
-  const sessao = getUsuario();
-  const modoRestrito = modoAppTecnicoFrotaRestrito(sessao);
-  const exibeTermoFerramentas = !modoRestrito && podeAssinarTermoFerramentasMobile(sessao);
+  const user = getUsuario();
+  const modoRestrito = modoAppTecnicoFrotaRestrito(user);
   const [loading, setLoading] = useState(true);
   const [resumo, setResumo] = useState<FrotaResumoMobile | null>(null);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [plusAberto, setPlusAberto] = useState(false);
 
   async function carregar() {
     const r = await api.frotaResumo();
@@ -87,151 +53,128 @@ export default function FrotaMobileHubPage() {
   const temVeiculo = Boolean(resumo?.veiculo);
   const msgSemVeiculo = modoRestrito
     ? 'Nenhum veículo atribuído. Peça ao responsável para atribuir pelo portal.'
-    : 'Nenhum veículo atribuído. Assuma o controle na aba Veículo para liberar abastecimento e manutenção.';
-  const msgAbastecimento = temVeiculo
-    ? 'KM, valor (R$) e foto da nota fiscal'
-    : modoRestrito
-      ? 'Aguarde a atribuição do veículo no portal'
-      : 'Assuma um veículo para registrar abastecimento';
-  const msgManutencao = temVeiculo
-    ? 'Registrar serviços, descrição do que foi feito e fatura'
-    : modoRestrito
-      ? 'Aguarde a atribuição do veículo no portal'
-      : 'Assuma um veículo para registrar manutenção';
+    : 'Nenhum veículo atribuído. Toque no + para assumir um veículo e liberar as operações.';
   const placa = resumo?.veiculo?.placa ?? '—';
   const kmLabel =
     resumo?.veiculo?.km_atual != null
       ? resumo.veiculo.km_atual.toLocaleString('pt-BR')
       : '—';
 
-  if (loading) {
-    return (
-      <FrotaMobileShell
-        titleLine1="Sua frota"
-        sub="Carregando resumo do veículo…"
-        variant="hub"
-      >
-        <LinearProgress />
-      </FrotaMobileShell>
-    );
-  }
-
   return (
-    <FrotaMobileShell
-      titleLine1="Sua frota"
-      sub={
-        temVeiculo
-          ? 'Abastecimento, manutenção e controle do veículo sob sua responsabilidade.'
-          : 'Assuma um veículo ou aguarde a atribuição para liberar as operações.'
-      }
-      variant="hub"
-      metrics={[
-        { value: placa, label: 'placa', accent: temVeiculo },
-        { value: kmLabel, label: 'km atual' },
-        {
-          value: resumo?.abastecimentos.length ?? 0,
-          label: 'abastec.',
-        },
-      ]}
+    <div
+      className="ck-estoque-hub ck-estoque-hub--hero ck-frota-hub"
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
     >
-      {erro && (
-        <p style={{ color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600, margin: '0 0 12px' }}>
-          {erro}
-        </p>
-      )}
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
+        <div className="ck-estoque-hub__brand-row">
+          <img
+            className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
+            src={assetUrl(LOGO_GA_LOCKUP)}
+            alt="Grupo Alvim"
+          />
+          <div className="ck-estoque-hub__actions">
+            <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                navigate('/login/mobile');
+              }}
+            />
+          </div>
+        </div>
 
-      {resumo?.veiculo ? (
-        <FrotaVeiculoControleCard
-          veiculo={resumo.veiculo}
-          salvando={salvando}
-          permitirDevolver={!modoRestrito}
-          onDesassumir={modoRestrito ? undefined : (km) => void desassumir(km)}
-        />
-      ) : (
-        <div
-          className="ck-frota__form-card"
-          style={{
-            borderStyle: 'dashed',
-            borderColor: 'rgba(232, 82, 10, 0.4)',
-            background: 'rgba(232, 82, 10, 0.05)',
-          }}
-        >
-          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--ga-text-secondary)', lineHeight: 1.4 }}>
-            {msgSemVeiculo}
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
+            <h1>Frota</h1>
+            <span className="ck-frota-hub__placa">{placa}</span>
+          </div>
+          <p className="ck-frota-hub__sub">
+            {loading
+              ? 'Carregando resumo do veículo…'
+              : temVeiculo
+                ? 'Abastecimento, manutenção e controle do veículo sob sua responsabilidade.'
+                : 'Assuma um veículo ou aguarde a atribuição para liberar as operações.'}
           </p>
         </div>
-      )}
+      </header>
 
-      <p className="ck-frota__sheet-label" style={{ marginTop: 4 }}>
-        Operações
-      </p>
+      <div className="ck-estoque-hub__panel">
+        {!loading && (
+          <div className="ck-frota-hub__kpis" aria-live="polite">
+            <div className={`ck-frota-hub__kpi${temVeiculo ? ' is-on' : ''}`}>
+              <strong>{placa}</strong>
+              <span>Placa</span>
+            </div>
+            <div className="ck-frota-hub__kpi">
+              <strong>{kmLabel}</strong>
+              <span>KM atual</span>
+            </div>
+            <div className="ck-frota-hub__kpi">
+              <strong>{resumo?.abastecimentos.length ?? 0}</strong>
+              <span>Abastec.</span>
+            </div>
+          </div>
+        )}
+      </div>
 
-      <TileOpcao
-        titulo="Abastecimento"
-        descricao={msgAbastecimento}
-        icon={<LocalGasStationIcon />}
-        onClick={() => navigate('/frota/mobile/abastecimento')}
-        disabled={!temVeiculo}
+      <div className="ck-estoque-hub__scroll ck-frota-hub__scroll">
+        {loading ? (
+          <LinearProgress
+            sx={{
+              my: 1.5,
+              borderRadius: 1,
+              backgroundColor: 'rgba(255,154,92,0.18)',
+              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+            }}
+          />
+        ) : (
+          <>
+            {erro ? <p className="ck-frota-hub__err">{erro}</p> : null}
+
+            {resumo?.veiculo ? (
+              <div className="ck-frota-hub__card-wrap">
+                <FrotaVeiculoControleCard
+                  veiculo={resumo.veiculo}
+                  salvando={salvando}
+                  permitirDevolver={!modoRestrito}
+                  temaEscuro
+                  onDesassumir={modoRestrito ? undefined : (km) => void desassumir(km)}
+                />
+              </div>
+            ) : (
+              <div className="ck-frota-hub__empty-card">{msgSemVeiculo}</div>
+            )}
+
+            {!!resumo?.abastecimentos.length && (
+              <div className="ck-frota-hub__hist">
+                <p className="ck-frota-hub__label">Últimos abastecimentos</p>
+                {resumo.abastecimentos.map((a) => (
+                  <p key={a.id_abastecimento} className="ck-frota-hub__hist-row">
+                    {fmtData(a.data_abastecimento)} · {a.km_atual.toLocaleString('pt-BR')} km · R${' '}
+                    {a.valor_abastecido.toFixed(2)}
+                  </p>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <AppHubDock
+        ativo={null}
+        plusLabel="Operações"
+        plusDisabled={loading}
+        onPlus={() => setPlusAberto(true)}
       />
-      {exibeTermoFerramentas && (
-        <TileOpcao
-          titulo="Termo de ferramentas"
-          descricao="Assinatura digital e fotos dos equipamentos"
-          icon={<AssignmentIcon />}
-          onClick={() => navigate('/frota/mobile/termo')}
-          badge={
-            <span
-              style={{
-                fontSize: '0.65rem',
-                fontWeight: 800,
-                padding: '2px 8px',
-                borderRadius: 999,
-                background: resumo?.termo.assinado
-                  ? 'rgba(46, 125, 50, 0.12)'
-                  : 'rgba(237, 108, 2, 0.14)',
-                color: resumo?.termo.assinado ? '#2e7d32' : '#ed6c02',
-              }}
-            >
-              {resumo?.termo.assinado ? 'Assinado' : 'Pendente'}
-            </span>
-          }
-        />
-      )}
-      {!modoRestrito && (
-        <TileOpcao
-          titulo="Veículo"
-          descricao="Assumir controle com CNH e fotos do veículo"
-          icon={<DirectionsCarIcon />}
-          onClick={() => navigate('/frota/mobile/veiculo')}
-        />
-      )}
-      <TileOpcao
-        titulo="Manutenção do veículo"
-        descricao={msgManutencao}
-        icon={<BuildIcon />}
-        onClick={() => navigate('/frota/mobile/manutencao')}
-        disabled={!temVeiculo}
-      />
 
-      {!!resumo?.abastecimentos.length && (
-        <div style={{ marginTop: 16 }}>
-          <p className="ck-frota__sheet-label">Últimos abastecimentos</p>
-          {resumo.abastecimentos.map((a) => (
-            <p
-              key={a.id_abastecimento}
-              style={{
-                margin: '0 0 6px',
-                fontSize: '0.8rem',
-                color: 'var(--ga-text-secondary)',
-                fontWeight: 500,
-              }}
-            >
-              {fmtData(a.data_abastecimento)} · {a.km_atual.toLocaleString('pt-BR')} km · R${' '}
-              {a.valor_abastecido.toFixed(2)}
-            </p>
-          ))}
-        </div>
-      )}
-    </FrotaMobileShell>
+      <FrotaPlusSheet
+        open={plusAberto}
+        onClose={() => setPlusAberto(false)}
+        temVeiculo={temVeiculo}
+        termoAssinado={resumo?.termo.assinado}
+      />
+    </div>
   );
 }

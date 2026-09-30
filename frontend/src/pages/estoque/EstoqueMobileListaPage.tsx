@@ -9,7 +9,6 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import SyncAltOutlinedIcon from '@mui/icons-material/SyncAltOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import TuneIcon from '@mui/icons-material/Tune';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   api,
@@ -20,7 +19,8 @@ import {
   type Loja,
 } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile, logout } from '../../lib/auth';
-import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
 import AppHubDock from '../../components/hub/AppHubDock';
@@ -61,7 +61,7 @@ const ABAS: { id: AbaEstoqueHub; label: string; icon: typeof VisibilityOutlinedI
   { id: 'visao', label: 'Visão', icon: VisibilityOutlinedIcon },
   { id: 'insumos', label: 'Insumos', icon: Inventory2OutlinedIcon },
   { id: 'nf', label: 'NF', icon: DescriptionOutlinedIcon },
-  { id: 'movimentos', label: 'Movimentações', icon: SyncAltOutlinedIcon },
+  { id: 'movimentos', label: 'Movim.', icon: SyncAltOutlinedIcon },
 ];
 
 const CHIPS: { id: FiltroInsumoHub; label: string }[] = [
@@ -167,10 +167,16 @@ function InsumoRow({
   onClick?: () => void;
 }) {
   const st = statusSaldo(item);
+  const StatusIcon =
+    st === 'zerado' ? Inventory2OutlinedIcon : st === 'abaixo' ? WarningAmberOutlinedIcon : null;
   return (
     <button type="button" className="ck-estoque-hub__row" onClick={onClick} title={item.descricao}>
       <span className="ck-estoque-hub__item">
-        <img className="ck-estoque-hub__thumb" src={assetUrl(thumbInsumo(item))} alt="" />
+        <img
+          className={`ck-estoque-hub__thumb${st !== 'ok' ? ` is-${st}` : ''}`}
+          src={assetUrl(thumbInsumo(item))}
+          alt=""
+        />
         <span className="ck-estoque-hub__copy">
           <strong>{nomeInsumoCurto(item.descricao)}</strong>
           <small>
@@ -181,7 +187,7 @@ function InsumoRow({
       </span>
       <span className="ck-estoque-hub__qtd">{fmtQtdHub(item.quantidade, item.unidade_contagem)}</span>
       <span className={`ck-estoque-hub__status is-${st}`}>
-        <i />
+        {StatusIcon ? <StatusIcon /> : <i />}
         {rotuloStatusSaldo(st)}
       </span>
       <ChevronRightIcon className="ck-estoque-hub__chev" sx={{ fontSize: 16 }} />
@@ -221,6 +227,17 @@ export default function EstoqueMobileListaPage() {
   const [movimentos, setMovimentos] = useState<EstoqueMovimento[]>([]);
   const [itemAberto, setItemAberto] = useState<EstoqueSaldoItem | null>(null);
   const buscaRef = useRef<HTMLInputElement>(null);
+  const lojaDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dlgLoja) return;
+    const onPointerDown = (ev: PointerEvent) => {
+      const root = lojaDropRef.current;
+      if (root && !root.contains(ev.target as Node)) setDlgLoja(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [dlgLoja]);
 
   const carregarLista = useCallback(async (lojaId: number) => {
     const rows = await api.estoqueContagens(lojaId);
@@ -389,11 +406,14 @@ export default function EstoqueMobileListaPage() {
   const listaInsumos = insumosFiltrados;
 
   return (
-    <div className="ck-estoque-hub">
-      <div className="ck-estoque-hub__scroll">
-      <header className="ck-estoque-hub__top">
+    <div
+      className="ck-estoque-hub ck-estoque-hub--hero"
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+    >
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
-          <img className="ck-estoque-hub__mark" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
           <div className="ck-estoque-hub__actions">
             <button type="button" className="ck-estoque-hub__icon-btn" aria-label="Buscar" onClick={abrirBusca}>
               <SearchIcon sx={{ fontSize: 22 }} />
@@ -409,36 +429,50 @@ export default function EstoqueMobileListaPage() {
           </div>
         </div>
 
-        <div className="ck-estoque-hub__store-row">
-          <h1>Estoque</h1>
-          <div className="ck-estoque-hub__loja-drop">
-            <button
-              type="button"
-              className="ck-estoque-hub__store"
-              disabled={!podeTrocarLoja}
-              onClick={() => podeTrocarLoja && setDlgLoja((v) => !v)}
-            >
-              <span className="ck-estoque-hub__store-name">{rotuloLojaCurta}</span>
-              {podeTrocarLoja ? <ExpandMoreIcon sx={{ fontSize: 18, color: '#8d8d8d' }} /> : null}
-            </button>
-            {dlgLoja && podeTrocarLoja ? (
-              <div className="ck-estoque-hub__loja-list" role="listbox">
-                {lojas.map((l) => (
-                  <button
-                    key={l.id_loja}
-                    type="button"
-                    className={`ck-estoque-hub__loja-item${l.id_loja === idLoja ? ' is-on' : ''}`}
-                    onClick={() => {
-                      setIdLoja(l.id_loja);
-                      localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
-                      setDlgLoja(false);
-                    }}
-                  >
-                    {rotuloLoja(l)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero" ref={lojaDropRef}>
+            <h1>Estoque</h1>
+            <div className="ck-estoque-hub__loja-drop">
+              <button
+                type="button"
+                className="ck-estoque-hub__store"
+                disabled={!podeTrocarLoja}
+                onClick={() => podeTrocarLoja && setDlgLoja((v) => !v)}
+              >
+                {lojaAtual ? (
+                  <img
+                    className="ck-estoque-hub__store-ico"
+                    src={iconeMarcaLojaPorNome(lojaAtual)}
+                    alt=""
+                  />
+                ) : null}
+                <span className="ck-estoque-hub__store-name">{rotuloLojaCurta}</span>
+                {podeTrocarLoja ? <ExpandMoreIcon sx={{ fontSize: 18, color: '#8d8d8d' }} /> : null}
+              </button>
+              {dlgLoja && podeTrocarLoja ? (
+                <div className="ck-estoque-hub__loja-list" role="listbox">
+                  {lojas.map((l) => (
+                    <button
+                      key={l.id_loja}
+                      type="button"
+                      className={`ck-estoque-hub__loja-item${l.id_loja === idLoja ? ' is-on' : ''}`}
+                      onClick={() => {
+                        setIdLoja(l.id_loja);
+                        localStorage.setItem(LOJA_STORAGE_KEY, String(l.id_loja));
+                        setDlgLoja(false);
+                      }}
+                    >
+                      <img
+                        className="ck-estoque-hub__loja-ico"
+                        src={iconeMarcaLojaPorNome(l)}
+                        alt=""
+                      />
+                      <span>{rotuloLoja(l)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -460,56 +494,71 @@ export default function EstoqueMobileListaPage() {
         </nav>
       </header>
 
-      <div className="ck-estoque-hub__body">
+      <div className="ck-estoque-hub__panel">
         {err ? <p className="ck-estoque-hub__err">{err}</p> : null}
-        {loading ? <LinearProgress sx={{ mb: 2, borderRadius: 1, bgcolor: '#222' }} /> : null}
+        {loading ? (
+          <LinearProgress
+            sx={{
+              mb: 1.5,
+              borderRadius: 1,
+              bgcolor: '#222',
+              '& .MuiLinearProgress-bar': { bgcolor: '#ff9a5c' },
+            }}
+          />
+        ) : null}
+
+        {aba === 'visao' ? (
+          <div className="ck-estoque-hub__atencao">
+            <div className="ck-estoque-hub__sec-head">
+              <div>
+                <h2>
+                  <VisibilityOutlinedIcon className="ck-estoque-hub__sec-ico" />
+                  Atenção agora
+                </h2>
+                <p>Principais pendências da loja.</p>
+              </div>
+              <button type="button" onClick={() => irParaInsumos()}>
+                Ver todos →
+              </button>
+            </div>
+            <div className="ck-estoque-hub__kpis">
+              <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--zero" onClick={() => irParaInsumos('zerados')}>
+                <span className="ck-estoque-hub__kpi-top">
+                  <Inventory2OutlinedIcon />
+                  <strong>{zerados.length}</strong>
+                  <ChevronRightIcon />
+                </span>
+                <span>Itens zerados</span>
+              </button>
+              <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--low" onClick={() => irParaInsumos('abaixo')}>
+                <span className="ck-estoque-hub__kpi-top">
+                  <WarningAmberOutlinedIcon />
+                  <strong>{abaixo.length}</strong>
+                  <ChevronRightIcon />
+                </span>
+                <span>Abaixo do mínimo</span>
+              </button>
+              <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--nf" onClick={() => setAba('nf')}>
+                <span className="ck-estoque-hub__kpi-top">
+                  <DescriptionOutlinedIcon />
+                  <strong>{nfes.length}</strong>
+                  <ChevronRightIcon />
+                </span>
+                <span>NF pendente</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {aba === 'visao' || aba === 'insumos' ? (
           <>
-            {aba === 'visao' ? (
-              <div className="ck-estoque-hub__atencao">
-                <div className="ck-estoque-hub__sec-head">
-                  <div>
-                    <h2>Atenção agora</h2>
-                    <p>Principais pendências da loja.</p>
-                  </div>
-                  <button type="button" onClick={() => irParaInsumos()}>
-                    Ver todos →
-                  </button>
-                </div>
-                <div className="ck-estoque-hub__kpis">
-                  <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--zero" onClick={() => irParaInsumos('zerados')}>
-                    <span className="ck-estoque-hub__kpi-top">
-                      <Inventory2OutlinedIcon />
-                      <strong>{zerados.length}</strong>
-                      <ChevronRightIcon />
-                    </span>
-                    <span>Itens zerados</span>
-                  </button>
-                  <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--low" onClick={() => irParaInsumos('abaixo')}>
-                    <span className="ck-estoque-hub__kpi-top">
-                      <WarningAmberOutlinedIcon />
-                      <strong>{abaixo.length}</strong>
-                      <ChevronRightIcon />
-                    </span>
-                    <span>Abaixo do mínimo</span>
-                  </button>
-                  <button type="button" className="ck-estoque-hub__kpi ck-estoque-hub__kpi--nf" onClick={() => setAba('nf')}>
-                    <span className="ck-estoque-hub__kpi-top">
-                      <DescriptionOutlinedIcon />
-                      <strong>{nfes.length}</strong>
-                      <ChevronRightIcon />
-                    </span>
-                    <span>NF pendente</span>
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
             <div className="ck-estoque-hub__lock">
               <div className="ck-estoque-hub__sec-head">
                 <div>
-                  <h2>Insumos</h2>
+                  <h2>
+                    <Inventory2OutlinedIcon className="ck-estoque-hub__sec-ico" />
+                    Insumos
+                  </h2>
                   <p>Contagem diária da loja.</p>
                 </div>
               </div>
@@ -521,7 +570,6 @@ export default function EstoqueMobileListaPage() {
                   onChange={(e) => setBusca(e.target.value)}
                   placeholder="Buscar insumo, código ou marca..."
                 />
-                <TuneIcon sx={{ fontSize: 18, color: '#6b6b6b' }} />
               </label>
               <div className="ck-estoque-hub__chips">
                 {CHIPS.map((chip) => (
@@ -536,25 +584,12 @@ export default function EstoqueMobileListaPage() {
                 ))}
               </div>
             </div>
-            <div className="ck-estoque-hub__table">
+            <div className="ck-estoque-hub__table ck-estoque-hub__table--head">
               <div className="ck-estoque-hub__cols">
                 <span>Insumo</span>
                 <span>Saldo</span>
                 <span>Status</span>
                 <span />
-              </div>
-              <div className="ck-estoque-hub__lista">
-                {!loading && !listaInsumos.length ? (
-                  <p className="ck-estoque-hub__empty">Nenhum insumo neste filtro.</p>
-                ) : (
-                  listaInsumos.map((item) => (
-                    <InsumoRow
-                      key={item.id_insumo || item.id_produto}
-                      item={item}
-                      onClick={() => setItemAberto(item)}
-                    />
-                  ))
-                )}
               </div>
             </div>
           </>
@@ -565,7 +600,10 @@ export default function EstoqueMobileListaPage() {
             <div className="ck-estoque-hub__lock">
               <div className="ck-estoque-hub__sec-head">
                 <div>
-                  <h2>Notas fiscais</h2>
+                  <h2>
+                    <DescriptionOutlinedIcon className="ck-estoque-hub__sec-ico" />
+                    Notas fiscais
+                  </h2>
                   <p>Pendentes de conferência.</p>
                 </div>
               </div>
@@ -576,7 +614,6 @@ export default function EstoqueMobileListaPage() {
                   onChange={(e) => setBusca(e.target.value)}
                   placeholder="Buscar NF, fornecedor ou número..."
                 />
-                <TuneIcon sx={{ fontSize: 18, color: '#6b6b6b' }} />
               </label>
               <div className="ck-estoque-hub__chips">
                 {(
@@ -597,12 +634,53 @@ export default function EstoqueMobileListaPage() {
                 ))}
               </div>
             </div>
-            <div className="ck-estoque-hub__table ck-estoque-hub__table--nf">
+            <div className="ck-estoque-hub__table ck-estoque-hub__table--nf ck-estoque-hub__table--head">
               <div className="ck-estoque-hub__cols">
                 <span>Nota</span>
                 <span>Itens</span>
                 <span />
               </div>
+            </div>
+          </>
+        ) : null}
+
+        {aba === 'movimentos' ? (
+          <div className="ck-estoque-hub__lock">
+            <div className="ck-estoque-hub__sec-head">
+              <div>
+                <h2>
+                  <SyncAltOutlinedIcon className="ck-estoque-hub__sec-ico" />
+                  Movimentações
+                </h2>
+                <p>Últimas entradas e saídas.</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="ck-estoque-hub__scroll">
+        <div className="ck-estoque-hub__body ck-estoque-hub__body--scroll">
+          {aba === 'visao' || aba === 'insumos' ? (
+            <div className="ck-estoque-hub__table ck-estoque-hub__table--body">
+              <div className="ck-estoque-hub__lista">
+                {!loading && !listaInsumos.length ? (
+                  <p className="ck-estoque-hub__empty">Nenhum insumo neste filtro.</p>
+                ) : (
+                  listaInsumos.map((item) => (
+                    <InsumoRow
+                      key={item.id_insumo || item.id_produto}
+                      item={item}
+                      onClick={() => setItemAberto(item)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {aba === 'nf' ? (
+            <div className="ck-estoque-hub__table ck-estoque-hub__table--nf ck-estoque-hub__table--body">
               <div className="ck-estoque-hub__lista">
                 {!nfesFiltradas.length ? (
                   <p className="ck-estoque-hub__empty">Nenhuma NF pendente neste filtro.</p>
@@ -639,19 +717,9 @@ export default function EstoqueMobileListaPage() {
                 )}
               </div>
             </div>
-          </>
-        ) : null}
+          ) : null}
 
-        {aba === 'movimentos' ? (
-          <>
-            <div className="ck-estoque-hub__lock">
-              <div className="ck-estoque-hub__sec-head">
-                <div>
-                  <h2>Movimentações</h2>
-                  <p>Últimas entradas e saídas.</p>
-                </div>
-              </div>
-            </div>
+          {aba === 'movimentos' ? (
             <div className="ck-estoque-hub__lista">
               {!movimentos.length ? (
                 <p className="ck-estoque-hub__empty">Nenhuma movimentação recente.</p>
@@ -672,14 +740,13 @@ export default function EstoqueMobileListaPage() {
                           : ''}
                       </small>
                     </div>
-                    <strong>{fmtQtdHub(m.quantidade)}</strong>
+                    <strong className="ck-estoque-hub__move-qtd">{fmtQtdHub(m.quantidade)}</strong>
                   </div>
                 ))
               )}
             </div>
-          </>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
       </div>
 
       <AppHubDock
@@ -738,37 +805,37 @@ export default function EstoqueMobileListaPage() {
 
       {dlgTipo &&
         createPortal(
-          <div className="ck-estoque">
+          <div className="ck-estoque-hub ck-estoque-hub--sheet">
             <div
-              className="ck-estoque__loja-modal ck-estoque__modal--center"
+              className="ck-estoque-hub__tipo-modal"
               role="dialog"
               aria-modal="true"
               aria-label="Nova contagem"
             >
               <button
                 type="button"
-                className="ck-estoque__loja-backdrop"
+                className="ck-estoque-hub__sheet-back"
                 aria-label="Fechar"
                 disabled={iniciando}
-                onClick={() => setDlgTipo(false)}
+                onClick={() => !iniciando && setDlgTipo(false)}
               />
-              <div className="ck-estoque__loja-panel ck-estoque__confirm">
-                <div className="ck-estoque__loja-panel-head">
+              <div className="ck-estoque-hub__tipo-panel">
+                <div className="ck-estoque-hub__sheet-tipo-head">
                   <strong>Nova contagem</strong>
                   <button
                     type="button"
-                    className="ck-estoque__loja-fechar"
+                    className="ck-estoque-hub__sheet-tipo-fechar"
                     disabled={iniciando}
                     onClick={() => setDlgTipo(false)}
                   >
                     Fechar
                   </button>
                 </div>
-                <p className="ck-estoque__confirm-text">Selecione o tipo de contagem:</p>
-                <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column', gap: 10 }}>
+                <p className="ck-estoque-hub__sheet-tipo-text">Selecione o tipo de contagem:</p>
+                <div className="ck-estoque-hub__sheet-tipo-actions">
                   <button
                     type="button"
-                    className="ck-estoque__modal-action-btn ck-estoque__modal-action-btn--pri"
+                    className="ck-estoque-hub__sheet-tipo-btn is-pri"
                     disabled={iniciando}
                     onClick={() => void iniciar('diaria')}
                   >
@@ -778,7 +845,7 @@ export default function EstoqueMobileListaPage() {
                   {CONTAGEM_SEMANAL_ATIVA && (
                     <button
                       type="button"
-                      className="ck-estoque__modal-action-btn"
+                      className="ck-estoque-hub__sheet-tipo-btn"
                       disabled={iniciando}
                       onClick={() => void iniciar('critica_semanal')}
                     >
@@ -786,15 +853,15 @@ export default function EstoqueMobileListaPage() {
                       <small>Mix e latas</small>
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="ck-estoque__modal-action-btn"
-                    disabled={iniciando}
-                    onClick={() => void iniciar('completa')}
-                  >
-                    <strong>Contagem completa</strong>
-                    <small>Inventário geral da loja</small>
-                  </button>
+                <button
+                  type="button"
+                  className="ck-estoque-hub__sheet-tipo-btn is-completa"
+                  disabled={iniciando}
+                  onClick={() => void iniciar('completa')}
+                >
+                  <strong>Contagem completa</strong>
+                  <small>Inventário geral da loja</small>
+                </button>
                 </div>
               </div>
             </div>

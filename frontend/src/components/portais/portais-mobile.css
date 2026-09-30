@@ -1,0 +1,101 @@
+/* Portais mobile — hub escuro */
+
+.ck-portais-hub.ck-estoque-hub {
+  background: #0b1721 !important;
+  color: #f5f5f5;
+}
+
+.ck-portais-hub__sub {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #8d8d8d;
+}
+
+.ck-portais-hub__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+.ck-portais-hub__card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  background: #333840;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 4px solid #fe6c22;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.ck-portais-hub__card:active {
+  transform: scale(0.985);
+}
+
+.ck-portais-hub__card-logo {
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ck-portais-hub__card-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.ck-portais-hub__card-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+
+.ck-portais-hub__card-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ck-portais-hub__card-copy strong {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #f5f5f5;
+  line-height: 1.25;
+}
+
+.ck-portais-hub__card-copy em {
+  font-style: normal;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ff9a5c;
+}
+
+.ck-portais-hub__card-copy span {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #8d8d8d;
+  line-height: 1.4;
+}
+
+.ck-portais-hub__card-open {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(254, 108, 34, 0.15);
+  color: #fe6c22;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}

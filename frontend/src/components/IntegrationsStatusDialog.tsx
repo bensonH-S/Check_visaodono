@@ -11,6 +11,7 @@ import { Activity } from 'lucide-react';
 import type { IntegrationStatusGroup, IntegrationStatusItem } from '../api/client';
 import { useAppTheme } from '../context/ThemeContext';
 import { colors } from '../theme/tokens';
+import { deveForcarTemaClaroMobile } from '../utils/device';
 
 type Props = {
   open: boolean;
@@ -24,12 +25,33 @@ type Props = {
   onAtualizar: () => void;
 };
 
-function StatusDot({ item }: { item: IntegrationStatusItem }) {
+function StatusDot({ item, escuro }: { item: IntegrationStatusItem; escuro: boolean }) {
   const na = item.configured === false;
   const online = item.online;
   const label = na ? 'N/A' : online ? 'Online' : 'Offline';
-  const color = na ? '#94a3b8' : online ? '#16a34a' : '#dc2626';
-  const bg = na ? 'rgba(148, 163, 184, 0.18)' : online ? 'rgba(22, 163, 74, 0.12)' : 'rgba(220, 38, 38, 0.12)';
+  const color = na
+    ? escuro
+      ? '#a1a1aa'
+      : '#94a3b8'
+    : online
+      ? escuro
+        ? '#86efac'
+        : '#16a34a'
+      : escuro
+        ? '#fca5a5'
+        : '#dc2626';
+  const bg = na
+    ? escuro
+      ? 'rgba(161, 161, 170, 0.16)'
+      : 'rgba(148, 163, 184, 0.18)'
+    : online
+      ? escuro
+        ? 'rgba(34, 197, 94, 0.16)'
+        : 'rgba(22, 163, 74, 0.12)'
+      : escuro
+        ? 'rgba(239, 68, 68, 0.18)'
+        : 'rgba(220, 38, 38, 0.12)';
+  const dot = na ? color : online ? (escuro ? '#22c55e' : color) : escuro ? '#f87171' : color;
 
   return (
     <Box
@@ -45,6 +67,7 @@ function StatusDot({ item }: { item: IntegrationStatusItem }) {
         fontWeight: 800,
         color,
         bgcolor: bg,
+        border: escuro ? `1px solid ${na ? 'rgba(161, 161, 170, 0.22)' : online ? 'rgba(34, 197, 94, 0.28)' : 'rgba(248, 113, 113, 0.28)'}` : 'none',
       }}
     >
       <Box
@@ -53,7 +76,7 @@ function StatusDot({ item }: { item: IntegrationStatusItem }) {
           width: 8,
           height: 8,
           borderRadius: '50%',
-          bgcolor: color,
+          bgcolor: dot,
           flexShrink: 0,
         }}
       />
@@ -73,9 +96,14 @@ export default function IntegrationsStatusDialog({
   onAtualizar,
 }: Props) {
   const { mode } = useAppTheme();
-  const escuro = mode === 'dark';
+  const escuro = mode === 'dark' || deveForcarTemaClaroMobile();
   const acento = '#E8520A';
-  const cardBg = colors.canvasAlt;
+  const surface = escuro ? '#333840' : colors.surface;
+  const cardBg = escuro ? '#2a3038' : colors.canvasAlt;
+  const border = escuro ? 'rgba(255, 255, 255, 0.1)' : colors.border;
+  const textPrimary = escuro ? '#f5f5f5' : colors.textPrimary;
+  const textSecondary = escuro ? '#8d8d8d' : colors.textSecondary;
+  const textMuted = escuro ? '#8d8d8d' : colors.textMuted;
   const tituloExibido =
     titulo || (contexto ? `Status API · ${groups[0]?.name || ''}`.replace(/\s·\s$/, '') : 'Status API');
 
@@ -89,9 +117,9 @@ export default function IntegrationsStatusDialog({
         paper: {
           sx: {
             borderRadius: 2.5,
-            bgcolor: colors.surface,
+            bgcolor: surface,
             backgroundImage: 'none',
-            border: `1px solid ${colors.border}`,
+            border: `1px solid ${border}`,
             boxShadow: escuro ? '0 16px 48px rgba(0, 0, 0, 0.45)' : '0 16px 48px rgba(15, 23, 42, 0.12)',
             overflow: 'hidden',
           },
@@ -101,18 +129,18 @@ export default function IntegrationsStatusDialog({
       <DialogTitle
         sx={{
           fontWeight: 700,
-          color: colors.textPrimary,
+          color: textPrimary,
           display: 'flex',
           alignItems: 'center',
           gap: 1,
           py: 1.5,
           px: 2,
-          borderBottom: `1px solid ${colors.border}`,
-          bgcolor: colors.surface,
+          borderBottom: `1px solid ${border}`,
+          bgcolor: surface,
         }}
       >
         <Activity size={22} strokeWidth={2} color={acento} aria-hidden />
-        <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.05rem', color: colors.textPrimary, flex: 1 }}>
+        <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.05rem', color: textPrimary, flex: 1 }}>
           {loading ? 'Status API' : tituloExibido || 'Status API'}
         </Typography>
         <IconButton
@@ -140,12 +168,12 @@ export default function IntegrationsStatusDialog({
             }
           />
         </IconButton>
-        <IconButton size="small" aria-label="Fechar" onClick={onClose} sx={{ color: colors.textSecondary }}>
+        <IconButton size="small" aria-label="Fechar" onClick={onClose} sx={{ color: textSecondary }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: '20px !important', pb: 2.5, px: 2, minHeight: 160, bgcolor: colors.surface }}>
+      <DialogContent sx={{ pt: '20px !important', pb: 2.5, px: 2, minHeight: 160, bgcolor: surface }}>
         {loading ? (
           <Box
             sx={{
@@ -157,14 +185,14 @@ export default function IntegrationsStatusDialog({
             }}
           >
             <CircularProgress size={22} thickness={4} sx={{ color: acento }} />
-            <Typography sx={{ fontSize: '0.92rem', color: colors.textSecondary, fontWeight: 500 }}>
+            <Typography sx={{ fontSize: '0.92rem', color: textSecondary, fontWeight: 500 }}>
               A verificar APIs...
             </Typography>
           </Box>
         ) : erro ? (
-          <Typography sx={{ fontSize: '0.88rem', color: colors.textSecondary, py: 2 }}>{erro}</Typography>
+          <Typography sx={{ fontSize: '0.88rem', color: textSecondary, py: 2 }}>{erro}</Typography>
         ) : groups.length === 0 || groups.every((g) => g.apis.length === 0) ? (
-          <Typography sx={{ fontSize: '0.88rem', color: colors.textSecondary, py: 2 }}>
+          <Typography sx={{ fontSize: '0.88rem', color: textSecondary, py: 2 }}>
             {contexto ? 'Esta página não usa APIs externas.' : 'Nenhum status disponível.'}
           </Typography>
         ) : (
@@ -179,7 +207,7 @@ export default function IntegrationsStatusDialog({
                       fontWeight: 800,
                       letterSpacing: '0.06em',
                       textTransform: 'uppercase',
-                      color: colors.textMuted,
+                      color: textMuted,
                     }}
                   >
                     {grupo.name}
@@ -197,21 +225,21 @@ export default function IntegrationsStatusDialog({
                         px: 1.25,
                         py: 1.1,
                         borderRadius: 2,
-                        border: `1px solid ${colors.border}`,
+                        border: `1px solid ${border}`,
                         bgcolor: cardBg,
                       }}
                     >
                       <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', color: colors.textPrimary }}>
+                        <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', color: textPrimary }}>
                           {item.name}
                         </Typography>
                         <Typography
-                          sx={{ fontSize: '0.75rem', color: colors.textSecondary, fontWeight: 600 }}
+                          sx={{ fontSize: '0.75rem', color: textSecondary, fontWeight: 600 }}
                         >
                           {item.configured === false ? 'N/A' : item.detail}
                         </Typography>
                       </Box>
-                      <StatusDot item={item} />
+                      <StatusDot item={item} escuro={escuro} />
                     </Box>
                   ))}
                 </Box>

@@ -948,11 +948,11 @@
 
 .ck-escala-gestor__row {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 96px;
+  grid-template-columns: 44px max-content minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 8px 10px;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 8px;
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.04);
 }
@@ -1032,13 +1032,13 @@ button.ck-escala-gestor__row {
 }
 
 .ck-escala-gestor__when strong {
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: var(--ck-ink);
 }
 
 .ck-escala-gestor__when small {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   font-weight: 600;
   color: #8d8d8d;
 }
@@ -1058,25 +1058,27 @@ button.ck-escala-gestor__row {
 .ck-escala-gestor__horas {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .ck-escala-gestor__horas i {
   font-style: normal;
   color: #8d8d8d;
   font-weight: 700;
+  font-size: 0.72rem;
 }
 
 .ck-escala-gestor__horas input {
-  width: 64px;
+  width: 46px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(11, 23, 33, 0.35);
-  padding: 8px 4px;
+  padding: 5px 2px;
   text-align: center;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 0.74rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--ck-ink);
@@ -1085,12 +1087,14 @@ button.ck-escala-gestor__row {
 .ck-escala-gestor__tipo {
   width: 100%;
   min-width: 0;
+  max-width: 108px;
+  justify-self: end;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(11, 23, 33, 0.35);
-  padding: 8px 4px;
+  padding: 5px 4px;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: var(--ck-ink);
 }
@@ -1403,15 +1407,27 @@ html.dark .ck-escala .ck-escala__empty p {
   color: var(--ga-text-secondary, #94A3B8);
 }
 
-/* Hub — mesmo preto do Checklist / Estoque */
-.ck-escala-hub.ck-estoque-hub,
-.ck-escala--hub {
+/* Hub — mesmo preto + marca d’água da Frota / Estoque */
+.ck-escala-hub.ck-estoque-hub {
   --ck-navy: #0b1721;
   --ck-navy-deep: #0b1721;
   --ck-orange: #fe6c22;
   --ck-paper: #0b1721;
   --ck-ink: #f5f5f5;
-  background: #0b1721;
+  background: #0b1721 !important;
+  color: #f5f5f5;
+  padding-bottom: 0;
+  contain: none;
+  isolation: isolate;
+}
+
+.ck-escala--hub {
+  --ck-navy: #0b1721;
+  --ck-navy-deep: #0b1721;
+  --ck-orange: #fe6c22;
+  --ck-paper: transparent;
+  --ck-ink: #f5f5f5;
+  background: transparent !important;
   color: #f5f5f5;
   padding-bottom: 0;
   contain: none;
@@ -1421,23 +1437,34 @@ html.dark .ck-escala .ck-escala__empty p {
 .mobile-app-shell > .ck-escala-hub {
   flex: 1;
   min-height: 0;
+  background: #0b1721 !important;
+}
+
+.ck-escala-hub .ck-estoque-hub__top--fixed,
+.ck-escala-hub .ck-estoque-hub__scroll {
+  background: transparent !important;
 }
 
 .ck-escala-hub,
-.ck-escala-hub *,
-.ck-escala-hub *::before,
-.ck-escala-hub *::after {
+.ck-escala-hub *:not(.ck-estoque-hub__watermark),
+.ck-escala-hub *:not(.ck-estoque-hub__watermark)::before,
+.ck-escala-hub *:not(.ck-estoque-hub__watermark)::after {
   text-shadow: none !important;
   -webkit-text-stroke: 0 !important;
   -webkit-text-stroke-width: 0 !important;
-  filter: none !important;
   font-synthesis: none !important;
   letter-spacing: 0 !important;
 }
 
+.ck-escala-hub .ck-estoque-hub__watermark {
+  opacity: 0.2;
+  filter: blur(1.2px) saturate(0.9);
+  z-index: 0;
+}
+
 .ck-escala-hub .ck-estoque-hub__store-row h1 {
-  font-weight: 700 !important;
-  letter-spacing: 0.01em !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.04em !important;
 }
 
 .ck-escala--hub .ck-estoque-hub__store-row {
@@ -1497,8 +1524,14 @@ html.dark .ck-escala .ck-escala__empty p {
 }
 
 .ck-escala-hub__chips {
-  margin: 0 0 10px;
-  padding-bottom: 4px;
+  display: flex;
+  gap: 12px;
+  margin: 4px 0 18px;
+  padding-bottom: 2px;
+}
+
+.ck-escala-hub__chips .ck-estoque-hub__chip {
+  padding: 8px 16px;
 }
 
 .ck-escala-hub__scroll {
@@ -1507,6 +1540,11 @@ html.dark .ck-escala .ck-escala__empty p {
 
 .ck-escala-hub__lista {
   min-width: 0;
+  margin-top: 4px;
+}
+
+.ck-escala-hub .ck-escala__sticky {
+  margin-bottom: 14px;
 }
 
 .ck-escala--hub .ck-visitas__seg {
@@ -1553,21 +1591,31 @@ html.dark .ck-escala .ck-escala__empty p {
 
 .ck-escala--hub .ck-escala__card,
 .ck-escala--hub .ck-escala__loja-semana {
-  background: #333840;
-  border-color: transparent;
-  box-shadow: none;
-  color: #f5f5f5;
+  background: rgba(51, 56, 64, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-escala--hub .ck-escala__card.is-delivery-on {
+  background: rgba(254, 108, 34, 0.14) !important;
+  border-color: rgba(254, 108, 34, 0.45) !important;
 }
 
 .ck-escala--hub .ck-escala__card-title,
+.ck-escala--hub .ck-escala__card-title .ck-loja-bk,
+.ck-escala--hub .ck-escala__card-title .ck-loja-bk span,
 .ck-escala--hub .ck-escala__loja-semana > strong {
-  color: #f5f5f5;
+  color: #f5f5f5 !important;
 }
 
 .ck-escala--hub .ck-escala__empty {
-  background: #333840;
-  border-color: transparent;
+  background: rgba(51, 56, 64, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
   border-style: solid;
+  margin-top: 4px;
 }
 
 .ck-escala--hub .ck-escala__empty strong,
@@ -1620,8 +1668,22 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 }
 
 .ck-escala--hub .ck-escala__acoes {
-  padding: 10px 0 calc(88px + env(safe-area-inset-bottom, 0px));
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 10px var(--eh-pad, 20px) 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: #0b1721;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.ck-escala-hub:has(.ck-escala__acoes) .ck-escala-hub__scroll {
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
 }
 
 .ck-escala--hub .ck-escala__aprovacao-card {
@@ -1635,9 +1697,33 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
   border-color: transparent;
 }
 
-.ck-escala--hub .ck-escala-gestor__folga-tag,
-.ck-escala--hub .ck-escala__card-meta {
+.ck-escala--hub .ck-escala-gestor__folga-tag {
   color: #8d8d8d;
+}
+
+.ck-escala--hub .ck-escala__card-meta,
+.ck-escala--hub .ck-escala__card-meta.is-off {
+  color: #a8aeb8 !important;
+}
+
+.ck-escala--hub .ck-escala__card-meta.is-on {
+  color: #fe6c22 !important;
+}
+
+.ck-escala--hub .ck-escala__cta-salvar.MuiButton-root,
+.ck-escala--hub .ck-escala__cta-salvar.MuiButton-contained {
+  background-color: #fe6c22 !important;
+  color: #fff !important;
+}
+
+.ck-escala--hub .ck-escala__cta-salvar.MuiButton-root:hover,
+.ck-escala--hub .ck-escala__cta-salvar.MuiButton-contained:hover {
+  background-color: #e55f18 !important;
+}
+
+.ck-escala--hub .ck-escala__cta-salvar.Mui-disabled {
+  background-color: rgba(254, 108, 34, 0.28) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
 }
 
 .ck-escala--hub .ck-escala-cal {
@@ -1683,6 +1769,24 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 
 .ck-escala--hub .ck-escala-gestor__row {
   background: #2a2d32;
+  grid-template-columns: 44px max-content minmax(0, 1fr);
+  min-height: 40px;
+  padding: 6px 8px;
+  gap: 6px;
+}
+
+.ck-escala--hub .ck-escala-gestor__horas input {
+  width: 46px !important;
+  padding: 5px 2px !important;
+  font-size: 0.74rem !important;
+  background: #0b1721 !important;
+}
+
+.ck-escala--hub .ck-escala-gestor__tipo {
+  max-width: 108px;
+  padding: 5px 4px !important;
+  font-size: 0.7rem !important;
+  background: #0b1721 !important;
 }
 
 .ck-escala--hub .ck-escala-gestor__row.is-folga,

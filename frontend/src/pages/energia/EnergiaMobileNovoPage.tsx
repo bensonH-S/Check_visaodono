@@ -33,9 +33,9 @@ export default function EnergiaMobileNovoPage() {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>(idLojaInicialStorage);
   const [protocolo, setProtocolo] = useState('');
-  const [concessionaria, setConcessionaria] = useState('Concessionária de energia');
+  const [concessionaria, setConcessionaria] = useState('');
   const [concessionariaOutra, setConcessionariaOutra] = useState('');
-  const [tipo, setTipo] = useState('falta_energia');
+  const [tipo, setTipo] = useState('');
   const [ocorrido] = useState(agoraDatetimeLocal);
   const [dataOcorrido, setDataOcorrido] = useState(() => ocorrido.slice(0, 10));
   const [horaOcorrido, setHoraOcorrido] = useState(() => ocorrido.slice(11, 16));
@@ -82,6 +82,17 @@ export default function EnergiaMobileNovoPage() {
   const podeTrocarLoja = !lojaTravada && lojas.length > 1;
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
 
+  const horaOk = /^([01]\d|2[0-3]):[0-5]\d$/.test(horaOcorrido);
+  const formPronto =
+    Boolean(idLoja) &&
+    protocolo.trim().length > 0 &&
+    Boolean(concessionaria) &&
+    (concessionaria !== 'Outra' || concessionariaOutra.trim().length > 0) &&
+    Boolean(tipo) &&
+    Boolean(dataOcorrido) &&
+    horaOk &&
+    fotos.length > 0;
+
   async function salvar() {
     setErr('');
     if (!podeAbrirEnergia(user)) {
@@ -96,12 +107,24 @@ export default function EnergiaMobileNovoPage() {
       setErr('Informe o protocolo da ligação.');
       return;
     }
+    if (!concessionaria) {
+      setErr('Selecione a concessionária de energia.');
+      return;
+    }
+    if (concessionaria === 'Outra' && !concessionariaOutra.trim()) {
+      setErr('Informe o nome da concessionária.');
+      return;
+    }
+    if (!tipo) {
+      setErr('Selecione o que aconteceu.');
+      return;
+    }
     if (!fotos.length) {
       setErr('Tire ao menos uma foto da ocorrência.');
       return;
     }
     const nomeConcessionaria =
-      concessionaria === 'Outra' ? concessionariaOutra.trim() || 'Concessionária de energia' : concessionaria;
+      concessionaria === 'Outra' ? concessionariaOutra.trim() : concessionaria;
 
     setSalvando(true);
     try {
@@ -129,19 +152,15 @@ export default function EnergiaMobileNovoPage() {
   }
 
   return (
-    <EnergiaMobileChrome>
+    <EnergiaMobileChrome plusDisabled>
       <EnergiaMobileStage
         title="Registrar"
         sub="Anote o protocolo da ligação e anexe as fotos da ocorrência."
+        onBack={() => navigate('/energia/mobile')}
       />
 
-      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-        <div className="ck-estoque__sheet-head">
-          {err && (
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
-              {err}
-            </p>
-          )}
+      <div className="ck-estoque-hub__scroll ck-energia-hub__scroll">
+          {err ? <p className="ck-energia-hub__err">{err}</p> : null}
           <EnergiaLojaHead
             lojas={lojas}
             idLoja={idLoja}
@@ -150,14 +169,20 @@ export default function EnergiaMobileNovoPage() {
             lojaAtual={lojaAtual}
             dlgLoja={dlgLoja}
             setDlgLoja={setDlgLoja}
-            onVoltar={() => navigate('/energia/mobile')}
           />
-        </div>
 
-        <div className="ck-visitas__sheet-body">
-          {salvando && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
+          {salvando ? (
+            <LinearProgress
+              sx={{
+                my: 1.5,
+                borderRadius: 1,
+                backgroundColor: 'rgba(255,154,92,0.18)',
+                '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+              }}
+            />
+          ) : null}
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
+          <Box className="ck-energia-hub__form" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
             <TextField
               fullWidth
               required
@@ -174,12 +199,44 @@ export default function EnergiaMobileNovoPage() {
             <TextField
               fullWidth
               select
+              required
               label="Concessionária"
               value={concessionaria}
               onChange={(e) => setConcessionaria(e.target.value)}
               disabled={salvando}
               sx={campoAlturaFrotaSx}
-              slotProps={{ inputLabel: labelFixo.inputLabel }}
+              slotProps={{
+                inputLabel: labelFixo.inputLabel,
+                select: {
+                  displayEmpty: true,
+                  renderValue: (selected: unknown) => {
+                    const v = String(selected ?? '');
+                    if (!v) {
+                      return (
+                        <span className="ck-energia-hub__select-ph">Selecione a concessionária de energia</span>
+                      );
+                    }
+                    return CONCESSIONARIAS.find((c) => c.value === v)?.label ?? v;
+                  },
+                  MenuProps: {
+                    slotProps: {
+                      paper: {
+                        className: 'ck-energia-hub__menu',
+                        sx: {
+                          maxHeight: 280,
+                          overflowY: 'auto',
+                          WebkitOverflowScrolling: 'touch',
+                          bgcolor: '#1a222c',
+                          color: '#f5f5f5',
+                          backgroundImage: 'none',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.55)',
+                        },
+                      },
+                    },
+                  },
+                },
+              }}
             >
               {CONCESSIONARIAS.map((c) => (
                 <MenuItem key={c.value} value={c.value}>
@@ -191,6 +248,7 @@ export default function EnergiaMobileNovoPage() {
             {concessionaria === 'Outra' && (
               <TextField
                 fullWidth
+                required
                 label="Nome da concessionária"
                 placeholder="Qual concessionária"
                 value={concessionariaOutra}
@@ -205,12 +263,42 @@ export default function EnergiaMobileNovoPage() {
             <TextField
               fullWidth
               select
+              required
               label="O que aconteceu"
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
               disabled={salvando}
               sx={campoAlturaFrotaSx}
-              slotProps={{ inputLabel: labelFixo.inputLabel }}
+              slotProps={{
+                inputLabel: labelFixo.inputLabel,
+                select: {
+                  displayEmpty: true,
+                  renderValue: (selected: unknown) => {
+                    const v = String(selected ?? '');
+                    if (!v) {
+                      return <span className="ck-energia-hub__select-ph">Selecione o que aconteceu</span>;
+                    }
+                    return TIPOS_OCORRENCIA.find((t) => t.value === v)?.label ?? v;
+                  },
+                  MenuProps: {
+                    slotProps: {
+                      paper: {
+                        className: 'ck-energia-hub__menu',
+                        sx: {
+                          maxHeight: 280,
+                          overflowY: 'auto',
+                          WebkitOverflowScrolling: 'touch',
+                          bgcolor: '#1a222c',
+                          color: '#f5f5f5',
+                          backgroundImage: 'none',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.55)',
+                        },
+                      },
+                    },
+                  },
+                },
+              }}
             >
               {TIPOS_OCORRENCIA.map((t) => (
                 <MenuItem key={t.value} value={t.value}>
@@ -263,23 +351,22 @@ export default function EnergiaMobileNovoPage() {
               value={descricao}
               onChange={(e) => setDescricao(e.target.value)}
               disabled={salvando}
-              sx={{ mb: 1 }}
               slotProps={{ inputLabel: labelFixo.inputLabel }}
             />
 
-            <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={10} obrigatoria inlineActions hideCaption />
+            <div className="ck-energia-hub__fotos">
+              <PhotoCaptureMulti fotos={fotos} onChange={setFotos} max={10} obrigatoria inlineActions hideCaption />
+            </div>
 
             <button
               type="button"
-              className="ck-estoque__btn ck-estoque__btn--primary ck-estoque__btn--break-cta ck-energia__registrar-btn"
+              className="ck-energia-hub__cta"
               onClick={() => void salvar()}
-              disabled={salvando}
-              style={{ marginTop: 8 }}
+              disabled={salvando || !formPronto}
             >
               {salvando ? 'Salvando…' : 'Registrar protocolo'}
             </button>
           </Box>
-        </div>
       </div>
     </EnergiaMobileChrome>
   );

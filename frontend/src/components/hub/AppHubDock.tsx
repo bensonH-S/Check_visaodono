@@ -3,19 +3,28 @@ import AddIcon from '@mui/icons-material/Add';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useMobileMais } from '../MobileTabBar';
 
-export type AppHubAba = 'inicio' | 'checklist' | 'estoque';
+export type AppHubAba = 'inicio' | 'checklist' | 'estoque' | 'visitas';
 
 type Props = {
   ativo?: AppHubAba | null;
+  /** Quarta aba do dock (padrão: estoque). */
+  slot?: 'estoque' | 'visitas';
   plusLabel: string;
   plusDisabled?: boolean;
   onPlus: () => void;
 };
 
-export default function AppHubDock({ ativo, plusLabel, plusDisabled, onPlus }: Props) {
+export default function AppHubDock({
+  ativo,
+  slot = 'estoque',
+  plusLabel,
+  plusDisabled,
+  onPlus,
+}: Props) {
   const navigate = useNavigate();
   const { openMais } = useMobileMais();
 
@@ -42,10 +51,21 @@ export default function AppHubDock({ ativo, plusLabel, plusDisabled, onPlus }: P
       >
         <AddIcon />
       </button>
-      <button type="button" className={ativo === 'estoque' ? 'is-on' : ''} onClick={() => navigate('/estoque/mobile')}>
-        <Inventory2OutlinedIcon />
-        Estoque
-      </button>
+      {slot === 'visitas' ? (
+        <button
+          type="button"
+          className={ativo === 'visitas' ? 'is-on' : ''}
+          onClick={() => navigate('/visitas/mobile')}
+        >
+          <HistoryOutlinedIcon />
+          Visitas
+        </button>
+      ) : (
+        <button type="button" className={ativo === 'estoque' ? 'is-on' : ''} onClick={() => navigate('/estoque/mobile')}>
+          <Inventory2OutlinedIcon />
+          Estoque
+        </button>
+      )}
       <button type="button" aria-label="Mais módulos" onClick={openMais}>
         <MoreHorizIcon />
         Mais

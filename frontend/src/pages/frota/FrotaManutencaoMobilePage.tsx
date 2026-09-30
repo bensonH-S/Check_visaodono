@@ -192,6 +192,7 @@ export default function FrotaManutencaoMobilePage() {
       : 'Registre serviços feitos no veículo',
     variant: (modoRestrito ? 'hub' : 'page') as 'hub' | 'page',
     onBack: modoRestrito ? undefined : () => navigate('/frota/mobile'),
+    temVeiculo: Boolean(veiculo),
     metrics: [
       { value: historico.length, label: 'serviços' },
       {
@@ -241,15 +242,19 @@ export default function FrotaManutencaoMobilePage() {
           </button>
         </div>
 
+        {aba === 'novo' && veiculo ? (
+          <div className="ck-frota__veiculo-fixo">
+            <FrotaVeiculoFaixa veiculo={veiculo} />
+          </div>
+        ) : null}
+
         <div className="ck-frota__tabs-body">
         {aba === 'novo' && (
           <>
             {!veiculo ? (
               <FrotaEmptyVeiculo onVerHistorico={() => setAba('historico')} />
             ) : (
-              <>
-                <FrotaVeiculoFaixa veiculo={veiculo} />
-                <Paper elevation={0} sx={frotaCardSx}>
+              <Paper elevation={0} sx={{ ...frotaCardSx, mb: 0 }}>
                   <FrotaFormHeader
                     icon={<BuildIcon />}
                     titulo="Nova manutenção"
@@ -265,8 +270,8 @@ export default function FrotaManutencaoMobilePage() {
                   <TextField
                     fullWidth
                     multiline
-                    minRows={3}
-                    label="O que foi feito *"
+                    minRows={5}
+                    label="O que foi feito"
                     value={descricao}
                     onChange={(e) => setDescricao(e.target.value)}
                     required
@@ -277,7 +282,7 @@ export default function FrotaManutencaoMobilePage() {
 
                   <TextField
                     fullWidth
-                    label="KM Atual *"
+                    label="KM Atual"
                     value={km}
                     onChange={(e) => setKm(filtrarKmAoDigitar(e.target.value))}
                     type="tel"
@@ -304,11 +309,20 @@ export default function FrotaManutencaoMobilePage() {
                       type="tel"
                       inputMode="numeric"
                       placeholder={ph.valor}
-                      sx={campoAlturaFrotaSx}
+                      sx={{
+                        ...campoAlturaFrotaSx,
+                        mb: 0,
+                        '& .MuiInputAdornment-root': { color: '#8d8d8d' },
+                        '& .MuiOutlinedInput-input': { color: '#f5f5f5' },
+                      }}
                       slotProps={{
                         inputLabel: labelFixo.inputLabel,
                         input: {
-                          startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+                          startAdornment: (
+                            <InputAdornment position="start" sx={{ color: '#8d8d8d' }}>
+                              R$
+                            </InputAdornment>
+                          ),
                         },
                       }}
                     />
@@ -316,7 +330,7 @@ export default function FrotaManutencaoMobilePage() {
                       label="Data"
                       value={dataManutencao}
                       onChange={setDataManutencao}
-                      sx={campoAlturaFrotaSx}
+                      sx={{ mb: 0 }}
                     />
                   </Box>
 
@@ -340,8 +354,7 @@ export default function FrotaManutencaoMobilePage() {
                   >
                     {salvando ? 'Registrando…' : 'Registrar manutenção'}
                   </Button>
-                </Paper>
-              </>
+              </Paper>
             )}
           </>
         )}

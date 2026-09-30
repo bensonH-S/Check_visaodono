@@ -524,7 +524,7 @@ export default function CcFrota({
           </Box>
         ) : (
           <FrotaLocalizacaoMap
-            key={mapaEscuro ? 'mapa-escuro' : 'mapa-claro'}
+            key={mapaEscuro ? 'mapa-cc-maplibre-escuro' : 'mapa-cc-maplibre-claro'}
             posicoes={[]}
             lojas={lojas}
             veiculos={veiculos}
@@ -541,6 +541,7 @@ export default function CcFrota({
             ocultarPlaceholder
             temaEscuro={mapaEscuro}
             basemapClaroVector={!mapaEscuro}
+            seguirTemaApp={false}
             tilesGoogle={false}
             ocultarZoom
             onVeiculoClick={(v) => {

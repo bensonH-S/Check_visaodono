@@ -154,7 +154,7 @@ export default function ChecklistIonicPerguntaCard({
                 ? simIndicaProblema(p)
                   ? 'Obrigatória quando selecionado Sim'
                   : 'Obrigatória quando selecionado Não'
-                : 'Opcional — registre detalhes ou pendências'}
+                : 'Opcional: registre detalhes ou pendências'}
           </p>
         </div>
       )}

@@ -90,7 +90,7 @@ export default function ChecklistIonicConcluido({
       </div>
       <div style={{ textAlign: 'center', padding: '8px 16px' }}>
         <IonIcon icon={checkmarkCircle} color="success" style={{ fontSize: 56 }} />
-        <IonText color="primary">
+        <IonText color="secondary">
           <h2 style={{ margin: '12px 0 4px', fontSize: '1.25rem', fontWeight: 800 }}>
             Visita #{id}
           </h2>
@@ -144,7 +144,7 @@ export default function ChecklistIonicConcluido({
                   </div>
                   <IonProgressBar
                     value={Math.min(1, pct / 100)}
-                    color={pct >= 80 ? 'success' : pct >= 60 ? 'secondary' : 'primary'}
+                    color={pct >= 80 ? 'success' : 'secondary'}
                   />
                 </IonLabel>
               </IonItem>
@@ -154,7 +154,7 @@ export default function ChecklistIonicConcluido({
       )}
 
       <div className="cta-wrap" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <IonButton expand="block" size="large" color="primary" onClick={onRelatorio}>
+        <IonButton expand="block" size="large" color="secondary" onClick={onRelatorio}>
           <IonIcon slot="start" icon={documentTextOutline} />
           Ver relatório completo
         </IonButton>
@@ -162,7 +162,7 @@ export default function ChecklistIonicConcluido({
           <IonIcon slot="start" icon={addOutline} />
           Nova visita
         </IonButton>
-        <IonButton expand="block" fill="clear" color="medium" onClick={onInicio}>
+        <IonButton expand="block" fill="clear" color="secondary" onClick={onInicio}>
           <IonIcon slot="start" icon={homeOutline} />
           Voltar ao checklist
         </IonButton>

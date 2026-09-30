@@ -324,6 +324,8 @@ function criarCamadaRuaGoogle() {
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
     attribution: '&copy; Google',
     maxZoom: 21,
+    updateWhenIdle: false,
+    keepBuffer: 2,
   });
 }
 
@@ -332,6 +334,8 @@ function criarCamadaRuaComTrafego() {
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
     attribution: '&copy; Google',
     maxZoom: 21,
+    updateWhenIdle: false,
+    keepBuffer: 2,
   });
 }
 
@@ -340,6 +344,8 @@ function criarCamadaSatelite() {
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
     attribution: '&copy; Google',
     maxZoom: 21,
+    updateWhenIdle: false,
+    keepBuffer: 2,
   });
 }
 
@@ -348,6 +354,8 @@ function criarCamadaSateliteComTrafego() {
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
     attribution: '&copy; Google',
     maxZoom: 21,
+    updateWhenIdle: false,
+    keepBuffer: 2,
   });
 }
 
@@ -557,8 +565,10 @@ export default function FrotaLocalizacaoMap({
   const mobile = modo === 'mobile';
   const { mode: temaApp } = useAppTheme();
   const mapaEscuroEfetivo = temaEscuro || (seguirTemaApp && temaApp === 'dark');
+  /** Claro só se não estiver forçado/efetivo como escuro. */
   const mapaClaroVectorEfetivo =
-    basemapClaroVector || (seguirTemaApp && temaApp === 'light' && !tilesGoogle);
+    !mapaEscuroEfetivo &&
+    (basemapClaroVector || (seguirTemaApp && temaApp === 'light' && !tilesGoogle));
   const exibirPopupVeiculo = mostrarPopupVeiculo ?? !mobile;
   const exibirAtualizar = mostrarBotaoAtualizar ?? !mobile;
   const exibirAlternarMapa = mostrarAlternarTipoMapa ?? !mobile;
@@ -640,46 +650,90 @@ export default function FrotaLocalizacaoMap({
     const mapa = mapInstance.current;
     if (!mapa) return;
 
-    if (baseLayer.current) {
-      mapa.removeLayer(baseLayer.current);
-      baseLayer.current = null;
-    }
-    if (labelsLayer.current) {
-      mapa.removeLayer(labelsLayer.current);
-      labelsLayer.current = null;
-    }
+    const camadaAnterior = baseLayer.current;
+    const labelsAnterior = labelsLayer.current;
+    baseLayer.current = null;
+    labelsLayer.current = null;
+
+    const soltarAnterior = () => {
+      if (camadaAnterior) {
+        try {
+          mapa.removeLayer(camadaAnterior);
+        } catch {
+          /* ignore */
+        }
+      }
+      if (labelsAnterior) {
+        try {
+          mapa.removeLayer(labelsAnterior);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
 
     const container = mapa.getContainer();
+    let nova: L.Layer | null = null;
+
     if (mapaEscuroEfetivo && tipo === 'rua') {
-      // OpenFreeMap Fiord customizado — azul-noite + ruas cinza.
-      baseLayer.current = criarCamadaBasemapEscuro({ mobile: isMobile }).addTo(mapa);
+      // OpenFreeMap Fiord customizado — azul-noite + ruas cinza (MapLibre GL).
+      nova = criarCamadaBasemapEscuro({ mobile: isMobile });
       container.style.background = FROTA_MAPA_ESCURO_FUNDO;
       container.classList.add('frota-mapa--escuro');
       container.classList.remove('frota-mapa--claro');
-      return;
-    }
-
-    container.classList.remove('frota-mapa--escuro');
-    if (mapaClaroVectorEfetivo && tipo === 'rua') {
-      // OpenFreeMap Positron — fundo claro/branco, sem satélite verde.
-      baseLayer.current = criarCamadaBasemapClaro({ mobile: isMobile }).addTo(mapa);
+    } else if (mapaClaroVectorEfetivo && tipo === 'rua') {
+      nova = criarCamadaBasemapClaro({ mobile: isMobile });
       container.style.background = '#F8FAFC';
       container.classList.add('frota-mapa--claro');
+      container.classList.remove('frota-mapa--escuro');
+    } else {
+      container.classList.remove('frota-mapa--escuro');
+      container.classList.remove('frota-mapa--claro');
+      if (tipo === 'rua') {
+        if (tilesGoogle) {
+          nova = trafego && !isMobile ? criarCamadaRuaComTrafego() : criarCamadaRuaGoogle();
+        } else {
+          nova = trafego && !isMobile ? criarCamadaRuaComTrafego() : criarCamadaRua(isMobile);
+        }
+      } else {
+        nova = trafego && !isMobile ? criarCamadaSateliteComTrafego() : criarCamadaSatelite();
+      }
+      container.style.background = tipo === 'satelite' ? '#0b1220' : FROTA_MAPA_FUNDO;
+    }
+
+    if (!nova) {
+      soltarAnterior();
       return;
     }
 
-    container.classList.remove('frota-mapa--claro');
-    if (tipo === 'rua') {
-      if (tilesGoogle) {
-        baseLayer.current = (trafego && !isMobile ? criarCamadaRuaComTrafego() : criarCamadaRuaGoogle()).addTo(mapa);
-      } else {
-        baseLayer.current = (trafego && !isMobile ? criarCamadaRuaComTrafego() : criarCamadaRua(isMobile)).addTo(mapa);
-      }
+    baseLayer.current = nova.addTo(mapa);
+
+    // Mantém a camada anterior até a nova pintar (evita “sumiço” dos marcadores).
+    const tile = nova as L.TileLayer;
+    if (typeof tile.once === 'function' && camadaAnterior) {
+      let liberado = false;
+      const liberar = () => {
+        if (liberado) return;
+        liberado = true;
+        soltarAnterior();
+      };
+      tile.once('load', liberar);
+      window.setTimeout(liberar, 600);
     } else {
-      baseLayer.current = (trafego && !isMobile ? criarCamadaSateliteComTrafego() : criarCamadaSatelite()).addTo(mapa);
+      soltarAnterior();
     }
-    container.style.background = FROTA_MAPA_FUNDO;
+
+    requestAnimationFrame(() => {
+      try {
+        mapa.invalidateSize(false);
+      } catch {
+        /* ignore */
+      }
+    });
   }, [tilesGoogle, mapaEscuroEfetivo, mapaClaroVectorEfetivo]);
+
+  const aplicarCamadasRef = useRef(aplicarCamadas);
+  aplicarCamadasRef.current = aplicarCamadas;
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -749,7 +803,7 @@ export default function FrotaLocalizacaoMap({
       if (rotaDiaCamadas.current) limparDestaqueTrechoRota(rotaDiaCamadas.current.destaque);
     });
     mapInstance.current = mapa;
-    aplicarCamadas('rua', false, mobile);
+    aplicarCamadasRef.current('rua', false, mobile);
     setMapaPronto(true);
 
     const onClickCopiar = (ev: MouseEvent) => {
@@ -788,7 +842,9 @@ export default function FrotaLocalizacaoMap({
       marcadoresMobileRef.current.veiculos.clear();
       setMapaPronto(false);
     };
-  }, [aplicarCamadas, mobile]);
+    // Só recria o mapa se o modo mobile mudar — NÃO quando o basemap troca.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- aplicarCamadas via ref
+  }, [mobile]);
 
   useEffect(() => {
     if (!mapaPronto || !mapInstance.current || !mobile) return;

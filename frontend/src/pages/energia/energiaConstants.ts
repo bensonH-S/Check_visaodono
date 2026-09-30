@@ -1,5 +1,4 @@
 export const CONCESSIONARIAS = [
-  { value: 'Concessionária de energia', label: 'Concessionária de energia (genérico)' },
   { value: 'Neoenergia', label: 'Neoenergia' },
   { value: 'Equatorial', label: 'Equatorial' },
   { value: 'Enel', label: 'Enel' },

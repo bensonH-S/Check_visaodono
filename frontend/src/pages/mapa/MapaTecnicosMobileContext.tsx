@@ -15,6 +15,7 @@ import {
   trajetoReferenteHoje,
 } from '../../utils/mapaTrajetoPeriodo';
 import { dataHojeBrasilia } from '../../utils/dateBr';
+import { useAppTheme } from '../../context/ThemeContext';
 
 type RegiaoMapa = { id_regiao: number; nome: string };
 
@@ -66,7 +67,8 @@ type MapaTecnicosMobileContextValue = {
   limparTecnicoFoco: () => void;
   focarVeiculo: (veiculo: FrotaVeiculoPosicao) => void;
   limparVeiculoFoco: () => void;
-  tipoMapa: 'rua' | 'satelite';
+  tipoMapa: 'rua' | 'satelite' | 'escuro';
+  selecionarTipoMapa: (tipo: 'rua' | 'satelite' | 'escuro') => void;
   alternarTipoMapa: () => void;
 };
 
@@ -132,7 +134,17 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
   const [lojaSelecionada, setLojaSelecionada] = useState<FrotaRegiaoLoja | null>(null);
   const [tecnicoFoco, setTecnicoFoco] = useState<FrotaTecnicoPosicao | null>(null);
   const [veiculoFoco, setVeiculoFoco] = useState<FrotaVeiculoPosicao | null>(null);
-  const [tipoMapa, setTipoMapa] = useState<'rua' | 'satelite'>('rua');
+  const { mode } = useAppTheme();
+  const [tipoMapa, setTipoMapa] = useState<'rua' | 'satelite' | 'escuro'>(
+    () => (mode === 'dark' ? 'escuro' : 'rua'),
+  );
+
+  useEffect(() => {
+    // No tema claro não manter o basemap escuro forçado.
+    if (mode === 'light') {
+      setTipoMapa((atual) => (atual === 'escuro' ? 'rua' : atual));
+    }
+  }, [mode]);
   const carregouInicial = useRef(false);
   const regiaoInicializada = useRef(false);
   const limparTrajetoAoVivoRef = useRef<() => void>(() => {});
@@ -375,8 +387,16 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
     setVeiculoFoco(null);
   }
 
+  function selecionarTipoMapa(tipo: 'rua' | 'satelite' | 'escuro') {
+    setTipoMapa(tipo);
+  }
+
   function alternarTipoMapa() {
-    setTipoMapa((atual) => (atual === 'rua' ? 'satelite' : 'rua'));
+    setTipoMapa((atual) => {
+      if (atual === 'rua') return 'satelite';
+      if (atual === 'satelite') return 'escuro';
+      return 'rua';
+    });
   }
 
   const value = useMemo(
@@ -430,6 +450,7 @@ export function MapaTecnicosMobileProvider({ children }: { children: ReactNode }
       focarVeiculo,
       limparVeiculoFoco,
       tipoMapa,
+      selecionarTipoMapa,
       alternarTipoMapa,
     }),
     [

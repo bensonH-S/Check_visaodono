@@ -83,7 +83,16 @@
 
 .ck-frota__tabs-layout > .ck-visitas__seg {
   flex-shrink: 0;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+}
+
+.ck-frota__tabs-layout > .ck-frota__veiculo-fixo {
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+
+.ck-frota__tabs-layout > .ck-frota__veiculo-fixo .MuiPaper-root {
+  margin-bottom: 0 !important;
 }
 
 .ck-frota__tabs-body {
@@ -271,4 +280,1035 @@ html.dark .ck-frota .ck-frota__termo-box {
   background: #182234;
   border-color: rgba(255, 255, 255, 0.1);
   color: #F8FAFC;
+}
+
+/* ── Frota hub: mesmo tema do estoque/checklist ── */
+.ck-frota-hub.ck-estoque-hub {
+  --eh-pad: clamp(16px, 4.6vw, 20px);
+}
+
+.ck-frota-hub .ck-estoque-hub__hero-copy {
+  margin-top: 18px;
+}
+
+.ck-frota-hub__placa {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #8d8d8d;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ck-frota-hub__sub {
+  margin: 10px 0 0;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: #8d8d8d;
+}
+
+.ck-frota-hub .ck-estoque-hub__panel {
+  padding-top: 8px;
+}
+
+.ck-frota-hub__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ck-frota-hub__kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 8px;
+  border-radius: 14px;
+  background: rgba(51, 56, 64, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+.ck-frota-hub__kpi.is-on {
+  border-color: rgba(254, 108, 34, 0.45);
+  background: rgba(254, 108, 34, 0.12);
+}
+
+.ck-frota-hub__kpi.is-ok {
+  border-color: rgba(134, 239, 172, 0.4);
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.ck-frota-hub__kpi.is-ok strong {
+  color: #86efac;
+  animation: ck-frota-em-uso-pulse 1.4s ease-in-out infinite;
+}
+
+.ck-frota-hub__em-uso.MuiChip-root,
+.ck-frota-hub .ck-frota-hub__em-uso,
+.ck-frota-hub .MuiPaper-root .MuiChip-root.ck-frota-hub__em-uso {
+  color: #86efac !important;
+  border: 1px solid rgba(134, 239, 172, 0.55) !important;
+  background: rgba(34, 197, 94, 0.18) !important;
+  background-color: rgba(34, 197, 94, 0.18) !important;
+  animation: ck-frota-em-uso-pulse 1.4s ease-in-out infinite;
+}
+
+.ck-frota-hub__em-uso .MuiChip-label,
+.ck-frota-hub .MuiChip-root.ck-frota-hub__em-uso .MuiChip-label {
+  color: #86efac !important;
+  font-weight: 700;
+}
+
+@keyframes ck-frota-em-uso-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-frota-hub__kpi.is-ok strong,
+  .ck-frota-hub__em-uso.MuiChip-root,
+  .ck-frota-hub .ck-frota-hub__em-uso {
+    animation: none;
+  }
+}
+
+.ck-frota-hub__kpi strong {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #f5f5f5;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.ck-frota-hub__kpi span {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8d8d8d;
+}
+
+.ck-frota-hub__scroll {
+  padding: 10px var(--eh-pad) 90px;
+}
+
+.ck-frota-hub__err {
+  margin: 0 0 12px;
+  color: #fca5a5;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ck-frota-hub__empty-card {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(254, 108, 34, 0.45);
+  background: rgba(254, 108, 34, 0.1);
+  color: #cfcfcf;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.ck-frota-hub__label {
+  margin: 8px 0 10px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8d8d8d;
+}
+
+.ck-frota-hub__tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(51, 56, 64, 0.82);
+  backdrop-filter: blur(6px);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: #f5f5f5;
+}
+
+.ck-frota-hub__tile:active:not(:disabled) {
+  transform: scale(0.985);
+  border-color: rgba(254, 108, 34, 0.45);
+}
+
+.ck-frota-hub__tile:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ck-frota-hub__tile-ico {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: rgba(254, 108, 34, 0.16);
+  color: #fe6c22;
+}
+
+.ck-frota-hub__tile-ico .MuiSvgIcon-root {
+  font-size: 22px !important;
+}
+
+.ck-frota-hub__tile-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ck-frota-hub__tile-copy strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #f5f5f5;
+}
+
+.ck-frota-hub__tile-copy small {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #8d8d8d;
+  line-height: 1.3;
+}
+
+.ck-frota-hub__tile-go {
+  flex-shrink: 0;
+  font-size: 1.35rem;
+  font-weight: 300;
+  color: #8d8d8d;
+  line-height: 1;
+}
+
+.ck-frota-hub .ck-frota-hub__btn-voltar-topo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.ck-frota-hub .ck-frota-hub__btn-voltar-topo .MuiSvgIcon-root {
+  font-size: 22px !important;
+  color: #fff !important;
+}
+
+.ck-frota-hub .ck-frota-hub__btn-voltar-topo:hover,
+.ck-frota-hub .ck-frota-hub__btn-voltar-topo:active {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.ck-frota-hub__badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.ck-frota-hub__badge.is-ok {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.ck-frota-hub__badge.is-warn {
+  background: rgba(254, 108, 34, 0.16);
+  color: #ff9a5c;
+}
+
+.ck-frota-hub__hist {
+  margin-top: 16px;
+  padding-bottom: 8px;
+}
+
+.ck-frota-hub__hist-row {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  color: #8d8d8d;
+  font-weight: 500;
+}
+
+.ck-frota-hub__card-wrap .MuiPaper-root {
+  background: rgba(51, 56, 64, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-left: 4px solid #fe6c22 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-frota-hub__card-wrap .MuiTypography-root {
+  color: #f5f5f5 !important;
+}
+
+.ck-frota-hub__card-wrap .MuiTypography-root.MuiTypography-body2,
+.ck-frota-hub__card-wrap .MuiTypography-caption {
+  color: #8d8d8d !important;
+}
+
+.ck-frota-hub__card-wrap .MuiOutlinedInput-root {
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-frota-hub__card-wrap .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.ck-frota-hub__card-wrap .MuiInputLabel-root {
+  color: #8d8d8d !important;
+}
+
+.ck-frota-hub__card-wrap .MuiChip-root {
+  background: rgba(254, 108, 34, 0.16) !important;
+  color: #ff9a5c !important;
+  border-color: transparent !important;
+}
+
+.ck-frota-hub__card-wrap .MuiChip-root.ck-frota-hub__em-uso,
+.ck-frota-hub .MuiChip-root.ck-frota-hub__em-uso {
+  color: #86efac !important;
+  border: 1px solid rgba(134, 239, 172, 0.55) !important;
+  background: rgba(34, 197, 94, 0.18) !important;
+  background-color: rgba(34, 197, 94, 0.18) !important;
+}
+
+.ck-frota-hub--page .ck-estoque-hub__top--fixed {
+  padding-bottom: 4px;
+}
+
+.ck-frota-hub__kpis--in-header {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+.ck-frota-hub__scroll--page {
+  padding-top: 12px;
+  padding-bottom: 96px;
+}
+
+.ck-frota-hub .ck-frota__form-card {
+  background: rgba(51, 56, 64, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color: #f5f5f5;
+  border-radius: 20px;
+  padding: 22px 20px;
+  margin-bottom: 14px;
+}
+
+.ck-frota-hub .ck-frota__sheet-label {
+  color: #8d8d8d;
+}
+
+.ck-frota-hub .ck-visitas__seg {
+  background: #2a3038;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+  min-height: 0;
+}
+
+.ck-frota-hub .ck-visitas__seg-btn {
+  color: #8d8d8d !important;
+  background: transparent !important;
+  border: 0 !important;
+  min-height: 34px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  line-height: 1 !important;
+}
+
+.ck-frota-hub .ck-visitas__seg-btn.is-on {
+  color: #fff !important;
+  background: #fe6c22 !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-root {
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+  border-radius: 12px !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.ck-frota-hub .MuiInputLabel-root {
+  color: #8d8d8d !important;
+}
+
+.ck-frota-hub .MuiInputLabel-root.Mui-focused {
+  color: #ff9a5c !important;
+}
+
+.ck-frota-hub .MuiFormHelperText-root {
+  color: #8d8d8d !important;
+}
+
+.ck-frota-hub .MuiPaper-root {
+  color: #f5f5f5;
+}
+
+.ck-frota-hub .MuiTypography-root {
+  color: #f5f5f5;
+}
+
+.ck-frota-hub .MuiTypography-caption,
+.ck-frota-hub .MuiTypography-body2 {
+  color: #8d8d8d;
+}
+
+.ck-frota-hub .ck-frota__cta {
+  background: #fe6c22 !important;
+  color: #fff !important;
+  box-shadow: 0 8px 22px rgba(254, 108, 34, 0.35) !important;
+}
+
+.ck-frota-hub .ck-frota__cta.Mui-disabled {
+  background: rgba(254, 108, 34, 0.28) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.ck-frota-hub .MuiAlert-root {
+  border-radius: 12px;
+  align-items: flex-start;
+}
+
+.ck-frota-hub .MuiAlert-standardSuccess,
+.ck-frota-hub .MuiAlert-outlinedSuccess {
+  background: rgba(34, 197, 94, 0.14) !important;
+  border: 1px solid rgba(134, 239, 172, 0.45) !important;
+  color: #bbf7d0 !important;
+}
+
+.ck-frota-hub .MuiAlert-standardSuccess .MuiAlert-icon,
+.ck-frota-hub .MuiAlert-outlinedSuccess .MuiAlert-icon,
+.ck-frota-hub .MuiAlert-standardSuccess .MuiAlert-message,
+.ck-frota-hub .MuiAlert-outlinedSuccess .MuiAlert-message {
+  color: #bbf7d0 !important;
+}
+
+.ck-frota-hub .MuiAlert-standardInfo,
+.ck-frota-hub .MuiAlert-outlinedInfo {
+  background: rgba(59, 130, 246, 0.14) !important;
+  border: 1px solid rgba(147, 197, 253, 0.45) !important;
+  color: #bfdbfe !important;
+}
+
+.ck-frota-hub .MuiAlert-standardInfo .MuiAlert-icon,
+.ck-frota-hub .MuiAlert-outlinedInfo .MuiAlert-icon,
+.ck-frota-hub .MuiAlert-standardInfo .MuiAlert-message,
+.ck-frota-hub .MuiAlert-outlinedInfo .MuiAlert-message {
+  color: #bfdbfe !important;
+}
+
+.ck-frota-hub .MuiAlert-standardError,
+.ck-frota-hub .MuiAlert-outlinedError {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border: 1px solid rgba(252, 165, 165, 0.45) !important;
+  color: #fecaca !important;
+}
+
+.ck-frota-hub .MuiAlert-standardError .MuiAlert-icon,
+.ck-frota-hub .MuiAlert-outlinedError .MuiAlert-icon,
+.ck-frota-hub .MuiAlert-standardError .MuiAlert-message,
+.ck-frota-hub .MuiAlert-outlinedError .MuiAlert-message {
+  color: #fecaca !important;
+}
+
+.ck-frota-hub .ck-frota__tabs-layout {
+  min-height: 0;
+}
+
+.ck-frota-hub .ck-frota__tabs-body {
+  padding-bottom: 8px;
+}
+
+.ck-frota-hub .MuiTypography-colorTextSecondary,
+.ck-frota-hub .MuiTypography-colorTextPrimary {
+  color: #f5f5f5 !important;
+}
+
+.ck-frota-hub [class*='MuiTypography-colorTextSecondary'] {
+  color: #8d8d8d !important;
+}
+
+.ck-frota-hub__passos {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.ck-frota-hub__passo {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 0;
+  padding: 6px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  color: #8d8d8d;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.55;
+  cursor: default;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ck-frota-hub__passo-ico {
+  font-size: 16px !important;
+  display: block;
+  flex-shrink: 0;
+}
+
+.ck-frota-hub__passo-label {
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+}
+
+.ck-frota-hub__passo.is-on {
+  background: transparent !important;
+  color: #ff9a5c !important;
+  opacity: 1;
+}
+
+.ck-frota-hub__passo.is-done {
+  background: transparent !important;
+  color: #86efac !important;
+  opacity: 1;
+}
+
+.ck-frota-hub__passo.is-done.is-on {
+  background: transparent !important;
+  color: #86efac !important;
+}
+
+.ck-frota-hub .ck-visitas__seg-btn.is-on,
+.ck-frota-hub .ck-visitas__seg .ck-visitas__seg-btn.is-on {
+  background: #fe6c22 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.ck-frota-hub .MuiFormControl-root {
+  background: transparent;
+}
+
+.ck-frota-hub .MuiOutlinedInput-root,
+.ck-frota-hub .MuiOutlinedInput-root.MuiInputBase-root,
+.ck-frota-hub .ck-frota__form-card .MuiOutlinedInput-root,
+.ck-frota-hub .MuiPickersOutlinedInput-root,
+.ck-frota-hub .MuiPickersInputBase-root {
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-sizing: border-box !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-root:not(.MuiInputBase-multiline),
+.ck-frota-hub .MuiPickersOutlinedInput-root,
+.ck-frota-hub .MuiPickersInputBase-root {
+  min-height: 40px !important;
+  height: 40px !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-root.MuiInputBase-multiline {
+  height: auto !important;
+  min-height: 120px !important;
+  align-items: flex-start !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-root.MuiInputBase-multiline .MuiOutlinedInput-input {
+  padding: 0 !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-input,
+.ck-frota-hub .MuiSelect-select {
+  background: transparent !important;
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+}
+
+.ck-frota-hub .MuiInputAdornment-root,
+.ck-frota-hub .MuiInputAdornment-root .MuiTypography-root,
+.ck-frota-hub .MuiInputAdornment-root p {
+  color: #8d8d8d !important;
+}
+
+.ck-frota-hub .MuiFormLabel-asterisk {
+  color: #f87171 !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-notchedOutline,
+.ck-frota-hub .MuiPickersOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  border-width: 1px !important;
+  border-radius: 14px !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
+.ck-frota-hub .MuiPickersOutlinedInput-root.Mui-focused .MuiPickersOutlinedInput-notchedOutline {
+  border-color: #ff9a5c !important;
+  border-width: 2px !important;
+}
+
+.ck-frota-hub .MuiPickersSectionList-root,
+.ck-frota-hub .MuiPickersSectionList-sectionContent,
+.ck-frota-hub .MuiPickersInputBase-sectionsContainer,
+.ck-frota-hub .MuiPickersInputBase-input {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  font-size: 0.875rem !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.ck-frota-hub .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #ff9a5c !important;
+  border-width: 2px !important;
+}
+
+.ck-frota-hub .MuiInputLabel-root.Mui-focused {
+  color: #ff9a5c !important;
+}
+
+.ck-frota-hub .MuiSelect-select,
+.ck-frota-hub .MuiOutlinedInput-input::placeholder {
+  color: #cfcfcf !important;
+  opacity: 1 !important;
+}
+
+.ck-frota-hub .ck-frota__ph {
+  color: #cfcfcf !important;
+  opacity: 1 !important;
+}
+
+.ck-frota-hub input:-webkit-autofill,
+.ck-frota-hub input:-webkit-autofill:hover,
+.ck-frota-hub input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #2a3038 inset !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  caret-color: #f5f5f5;
+  transition: background-color 99999s ease-out;
+}
+
+.ck-frota-hub .MuiSelect-icon {
+  color: #8d8d8d !important;
+}
+
+.ck-frota-hub__plus-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.ck-frota-hub__plus-row > .MuiSvgIcon-root {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: inherit;
+}
+
+.ck-frota-hub__plus-row > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ck-estoque-hub__sheet-tipo-btn.is-pri .ck-frota-hub__plus-row > .MuiSvgIcon-root {
+  color: #ff9a5c;
+}
+
+.ck-estoque-hub__sheet-tipo-btn.is-cinza .ck-frota-hub__plus-row > .MuiSvgIcon-root {
+  color: #cbd5e1;
+}
+
+.ck-estoque-hub__sheet-tipo-btn.is-completa .ck-frota-hub__plus-row > .MuiSvgIcon-root {
+  color: #93c5fd;
+}
+
+.ck-frota-hub__menu .MuiMenuItem-root {
+  color: #f5f5f5;
+  font-size: 0.9rem;
+}
+
+.ck-frota-hub__menu .MuiMenuItem-root:hover,
+.ck-frota-hub__menu .MuiMenuItem-root.Mui-focused {
+  background: rgba(254, 108, 34, 0.16) !important;
+}
+
+.ck-frota-hub__menu .MuiMenuItem-root.Mui-selected {
+  background: rgba(254, 108, 34, 0.22) !important;
+  color: #ff9a5c;
+}
+
+.ck-frota-hub .ck-frota__form-card .MuiButton-contained {
+  background: #fe6c22 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.ck-frota-hub .ck-frota__form-card .MuiButton-contained:hover {
+  background: #e55f18 !important;
+}
+
+.ck-frota-hub .ck-frota__form-card .MuiButton-contained.Mui-disabled {
+  background: rgba(254, 108, 34, 0.28) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  opacity: 1 !important;
+}
+
+/* Tirar foto / ações contained dentro dos cards da frota */
+.ck-frota-hub .MuiPaper-root .MuiButton-contained {
+  background: #fe6c22 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.ck-frota-hub .MuiPaper-root .MuiButton-contained:hover {
+  background: #e55f18 !important;
+}
+
+.ck-frota-hub .MuiPaper-root .MuiButton-contained.Mui-disabled {
+  background: rgba(254, 108, 34, 0.28) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  opacity: 1 !important;
+}
+
+.ck-frota-hub .MuiLinearProgress-root {
+  background-color: rgba(255, 154, 92, 0.18) !important;
+}
+
+.ck-frota-hub .MuiLinearProgress-bar {
+  background-color: #ff9a5c !important;
+}
+
+.ck-frota-hub__banner {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.ck-frota-hub__banner.is-ok {
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(134, 239, 172, 0.4);
+  color: #d1fae5;
+}
+
+.ck-frota-hub__banner.is-warn {
+  background: rgba(254, 108, 34, 0.14);
+  border: 1px solid rgba(255, 154, 92, 0.4);
+  color: #ffd4b0;
+}
+
+.ck-frota-hub .ck-frota__form-card .MuiButton-outlined {
+  border-color: rgba(255, 154, 92, 0.45) !important;
+  color: #ff9a5c !important;
+}
+
+.ck-frota-hub .ck-frota__form-card .MuiButton-outlined:hover {
+  border-color: #ff9a5c !important;
+  background: rgba(254, 108, 34, 0.12) !important;
+}
+
+.ck-frota-hub .ck-frota__acoes-etapa {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ck-frota-hub .ck-frota__acoes-etapa > .MuiButton-root {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ck-frota-hub .ck-frota__form-card .ck-frota__btn-voltar.MuiButton-outlined,
+.ck-frota-hub .ck-frota__form-card .ck-frota__btn-voltar {
+  min-height: 44px;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: transparent !important;
+  color: #e8e8e8 !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+
+.ck-frota-hub .ck-frota__form-card .ck-frota__btn-voltar.MuiButton-outlined:hover,
+.ck-frota-hub .ck-frota__form-card .ck-frota__btn-voltar:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
+}
+
+.ck-frota-hub .ck-frota__form-card .MuiButton-text {
+  color: #ff9a5c !important;
+}
+
+.ck-frota-hub__veiculo-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ck-frota-hub__veiculo-opt-ico {
+  font-size: 18px !important;
+  color: #fe6c22;
+  flex-shrink: 0;
+}
+
+.ck-frota-hub__veiculo-opt > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-frota-hub__menu .ck-frota-hub__veiculo-opt-ico {
+  color: #ff9a5c;
+}
+
+.ck-frota-hub__ops {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  padding-bottom: calc(20px + 72px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+.ck-frota-hub__ops-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.68);
+  cursor: pointer;
+}
+
+.ck-frota-hub__ops-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 400px);
+  max-height: min(82dvh, 560px);
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #1a222c;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  color: #f5f5f5;
+}
+
+.ck-frota-hub__ops-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ck-frota-hub__ops-head strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f5f5f5;
+}
+
+.ck-frota-hub__ops-fechar {
+  border: 0;
+  background: transparent;
+  color: #fe6c22;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.ck-frota-hub__ops-text {
+  margin: 0;
+  padding: 12px 16px 4px;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #a8aeb8;
+}
+
+.ck-frota-hub__ops-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px 18px;
+}
+
+.ck-frota-hub__ops-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: #fff;
+}
+
+.ck-frota-hub__ops-btn > .MuiSvgIcon-root {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 24px !important;
+  color: inherit;
+}
+
+.ck-frota-hub__ops-btn > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ck-frota-hub__ops-btn strong {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: inherit;
+  line-height: 1.25;
+}
+
+.ck-frota-hub__ops-btn small {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.ck-frota-hub__ops-btn.is-fuel {
+  background: rgba(254, 108, 34, 0.18);
+  border-color: rgba(254, 108, 34, 0.42);
+  color: #ffb07a;
+  box-shadow: none;
+}
+
+.ck-frota-hub__ops-btn.is-fuel small {
+  color: rgba(255, 176, 122, 0.85);
+}
+
+.ck-frota-hub__ops-btn.is-pri {
+  background: rgba(254, 108, 34, 0.18);
+  border-color: rgba(254, 108, 34, 0.42);
+  color: #ffb07a;
+  box-shadow: none;
+}
+
+.ck-frota-hub__ops-btn.is-pri small {
+  color: rgba(255, 176, 122, 0.85);
+}
+
+.ck-frota-hub__ops-btn.is-termo {
+  background: #333840;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #f5f5f5;
+}
+
+.ck-frota-hub__ops-btn.is-termo small {
+  color: #a8aeb8;
+}
+
+.ck-frota-hub__ops-btn.is-maint {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #93c5fd;
+  box-shadow: none;
+}
+
+.ck-frota-hub__ops-btn.is-maint small {
+  color: rgba(147, 197, 253, 0.85);
+}
+
+.ck-frota-hub__ops-btn:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.ck-frota-hub__ops-btn.is-off,
+.ck-frota-hub__ops-btn:disabled {
+  background: #3a414c !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #8b939e !important;
+  box-shadow: none !important;
+  cursor: default;
+  opacity: 1;
+}
+
+.ck-frota-hub__ops-btn.is-off strong,
+.ck-frota-hub__ops-btn:disabled strong,
+.ck-frota-hub__ops-btn.is-off small,
+.ck-frota-hub__ops-btn:disabled small,
+.ck-frota-hub__ops-btn.is-off .MuiSvgIcon-root,
+.ck-frota-hub__ops-btn:disabled .MuiSvgIcon-root {
+  color: #8b939e !important;
+}
+
+/* legacy bottom-sheet selectors — mantidos sem uso ativo */
+.ck-frota-hub--ops-sheet {
+  position: static;
+  height: auto;
+  overflow: visible;
+  background: transparent;
 }

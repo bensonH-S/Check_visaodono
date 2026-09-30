@@ -948,7 +948,7 @@ export default function ChecklistPage() {
       return (
         <ChecklistIonicShell>
           <div className="checklist-ionic" style={{ padding: 0 }}>
-            <PageLoading label={label} />
+            <PageLoading label={label} comLogo />
           </div>
         </ChecklistIonicShell>
       );

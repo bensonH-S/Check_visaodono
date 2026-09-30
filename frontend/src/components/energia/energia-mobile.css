@@ -1,308 +1,583 @@
-/* Energia mobile — reutiliza o chrome de estoque (ck-estoque). */
+/* Energia mobile — hub escuro (padrão Escala / Frota / NC) */
 
-.ck-energia .ck-estoque__kpis--2 {
+.ck-energia-hub.ck-estoque-hub {
+  background: #0b1721 !important;
+  color: #f5f5f5;
+}
+
+.ck-energia-hub .ck-estoque-hub__top--fixed,
+.ck-energia-hub .ck-estoque-hub__scroll,
+.ck-energia-hub .ck-estoque-hub__panel {
+  background: transparent !important;
+}
+
+.ck-energia-hub__sub {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #8d8d8d;
+}
+
+.ck-energia-hub .ck-estoque-hub__tabs {
+  margin-top: 14px;
+  padding-bottom: 12px;
+}
+
+.ck-energia-hub__btn-voltar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #fff !important;
+}
+
+.ck-energia-hub__btn-voltar .MuiSvgIcon-root {
+  color: #fff !important;
+}
+
+.ck-energia-hub__scroll {
+  padding: 12px var(--eh-pad, 20px) calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+.ck-energia-hub__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ck-energia-hub__kpis--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/* Container de Cabeçalho (.ck-estoque__sheet-head): Claro no tema claro */
-.ck-energia .ck-estoque__sheet-head {
-  padding: 14px;
-  border-radius: 16px;
-  background: #F1F5F9 !important;
-  border: 1px solid #E2E8F0 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
-  margin-bottom: 16px;
+.ck-energia-hub__kpi {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(51, 56, 64, 0.72);
+  backdrop-filter: blur(8px);
+  text-align: center;
 }
 
-/* Botões, seletores e dropdowns dentro do cabeçalho no tema claro */
-.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-btn,
-.ck-energia .ck-estoque__sheet-head .ck-estoque__voltar {
-  background: #FFFFFF !important;
-  color: #0F172A !important;
-  border: 1px solid rgba(27, 42, 107, 0.15) !important;
+.ck-energia-hub__kpi.is-on {
+  border-color: rgba(254, 108, 34, 0.35);
+  background: rgba(254, 108, 34, 0.12);
 }
 
-.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-btn span {
-  color: #0F172A !important;
-  font-weight: 700 !important;
+.ck-energia-hub__kpi strong {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #f5f5f5;
+  line-height: 1.15;
 }
 
-.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix {
-  background: #FFFFFF !important;
-  color: #0F172A !important;
-  border-radius: 12px;
+.ck-energia-hub__kpi.is-on strong {
+  color: #fe6c22;
 }
 
-.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix-text strong {
-  color: #0F172A !important;
+.ck-energia-hub__kpi span {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #8d8d8d;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix-text small {
-  color: #475569 !important;
+.ck-energia-hub__err {
+  margin: 0 0 12px;
+  color: #f87171;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
-.ck-energia .ck-estoque__status.is-andamento {
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
+.ck-energia-hub__loja {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
-.ck-energia .ck-estoque__status.is-cancelado {
-  background: rgba(20, 32, 72, 0.08);
-  color: rgba(20, 32, 72, 0.55);
-}
-
-.ck-energia .ck-estoque__card--lista.is-andamento {
-  border-color: rgba(37, 99, 235, 0.28);
-  border-left: 4px solid #2563eb !important;
-}
-
-.ck-energia .ck-estoque__card--static {
-  cursor: default;
-}
-
-.ck-energia .ck-energia__dl {
-  display: grid;
-  gap: 14px;
-  margin: 0;
-}
-
-.ck-energia .ck-energia__dl div {
+.ck-energia-hub__loja-seletor {
+  position: relative;
+  flex: 1;
   min-width: 0;
 }
 
-.ck-energia .ck-energia__dl dt {
-  font-size: 0.65rem;
+.ck-energia-hub__loja-btn,
+.ck-energia-hub__loja-fix {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(51, 56, 64, 0.82);
+  color: #f5f5f5;
+  font: inherit;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  color: rgba(20, 32, 72, 0.55);
+  cursor: pointer;
 }
 
-.ck-energia .ck-energia__dl dd {
-  margin: 3px 0 0;
-  font-size: 0.98rem;
-  font-weight: 700;
-  color: var(--ck-ink);
-  line-height: 1.35;
-  word-break: break-word;
-}
-
-.ck-energia .ck-estoque__break-form input,
-.ck-energia .ck-estoque__break-form select {
+.ck-energia-hub__loja-btn-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
   text-align: left;
 }
 
-.ck-energia .ck-estoque__break-form textarea {
-  width: 100%;
-  min-height: 88px;
+.ck-energia-hub__loja-btn-main > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-energia-hub__loja-ico {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 2px;
+  box-sizing: border-box;
+  object-fit: contain;
+  object-position: center;
+  flex-shrink: 0;
+  display: block;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ck-energia-hub__loja-ico-fallback {
+  color: #fe6c22 !important;
+  flex-shrink: 0;
+}
+
+.ck-energia-hub__loja-chev {
+  color: #8d8d8d !important;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.ck-energia-hub__loja-chev.is-open {
+  transform: rotate(180deg);
+  color: #fe6c22 !important;
+}
+
+.ck-energia-hub__loja-fix {
+  justify-content: flex-start;
+  cursor: default;
+}
+
+.ck-energia-hub__loja-fix small {
+  display: block;
+  font-size: 0.68rem;
+  color: #8d8d8d;
+  font-weight: 600;
+}
+
+.ck-energia-hub__loja-fix strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #f5f5f5;
+}
+
+.ck-energia-hub__loja-voltar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
-  border: 1px solid rgba(27, 42, 107, 0.18);
-  background: #fff;
-  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fe6c22;
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ck-energia-hub__dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.ck-energia-hub__loja-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  max-height: 240px;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1a222c;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.ck-energia-hub__loja-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: #f5f5f5;
+  text-align: left;
   font: inherit;
   font-weight: 600;
-  font-size: 16px;
-  color: var(--ck-ink);
-  text-align: left;
-  resize: vertical;
-  box-sizing: border-box;
+  cursor: pointer;
 }
 
-.ck-energia .ck-estoque__break-form {
-  margin-top: 4px;
+.ck-energia-hub__loja-item.is-on {
+  color: #fe6c22;
+  background: rgba(254, 108, 34, 0.12);
 }
 
-.ck-energia .ck-energia__loja-seletor {
-  margin-left: 0;
-}
-
-.ck-energia .ck-energia__data-hora {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.ck-energia .ck-energia__data-hora .ck-estoque__field {
-  margin: 0;
-}
-
-/* Campos de entrada do formulário em tema claro */
-.ck-energia .MuiOutlinedInput-root,
-.ck-energia .MuiPickersOutlinedInput-root {
-  background: #FFFFFF !important;
-}
-
-/* Registro de energia: AZUL no tema claro */
-.ck-energia .ck-energia__registrar-btn {
-  background: #1B2A6B !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(27, 42, 107, 0.3) !important;
-}
-
-.ck-energia .ck-energia__registrar-btn:hover:not(:disabled) {
-  background: #142054 !important;
-}
-
-.ck-energia .ck-energia__acoes {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.ck-energia .ck-energia__acoes .ck-estoque__btn {
-  width: 100%;
-  flex: none;
-}
-
-/* Botão Registrar Protocolo em AZUL no tema claro */
-.ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo,
-.ck-energia__btn-novo {
-  background: #F8FAFC !important;
-  border: 1.5px solid #E2E8F0 !important;
-  color: #1B2A6B !important;
-}
-
-.ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo strong,
-.ck-energia__btn-novo strong {
-  color: #1B2A6B !important;
-}
-
-.ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo small,
-.ck-energia__btn-novo small {
-  color: #2D4379 !important;
-}
-
-.ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo span:last-child {
-  color: #1B2A6B !important;
-}
-
-/* Empty state visível com texto legível em ambos os temas */
-.ck-energia .ck-estoque__empty {
-  padding: 32px 16px;
+.ck-energia-hub__empty {
+  padding: 28px 18px;
   text-align: center;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #475569 !important;
-  background: var(--ga-surface, #fff) !important;
-  border: 1px dashed rgba(27, 42, 107, 0.18) !important;
   border-radius: 16px;
-  margin: 12px 0;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(51, 56, 64, 0.72);
+  color: #8d8d8d;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
-/* ================================================================
-   ENERGIA DARK MODE
-   ================================================================ */
-html.dark .ck-energia .ck-estoque__sheet-head {
-  background: #0B0F19 !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4) !important;
+.ck-energia-hub__card {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #fe6c22;
+  background: rgba(51, 56, 64, 0.82);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
 }
 
-html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-btn,
-html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__voltar {
-  background: #1E293B !important;
-  color: #F8FAFC !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+.ck-energia-hub__card.is-andamento {
+  border-left-color: #60a5fa;
 }
 
-html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-btn span {
-  color: #F8FAFC !important;
+.ck-energia-hub__card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix {
-  background: #1E293B !important;
-  color: #F8FAFC !important;
+.ck-energia-hub__card-top strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #f5f5f5;
 }
 
-html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix-text strong {
-  color: #F8FAFC !important;
+.ck-energia-hub__card-top small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #8d8d8d;
+  font-weight: 600;
 }
 
-html.dark .ck-energia .ck-estoque__sheet-head .ck-estoque__loja-fix-text small {
-  color: #94A3B8 !important;
+.ck-energia-hub__status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #d0d0d0;
+  background: rgba(11, 23, 33, 0.45);
 }
 
-html.dark .ck-energia .ck-estoque__status.is-andamento {
-  background: rgba(59, 130, 246, 0.15);
+.ck-energia-hub__status.is-aberta {
+  border-color: rgba(254, 108, 34, 0.4);
+  color: #ff9a5c;
+  background: rgba(254, 108, 34, 0.14);
+}
+
+.ck-energia-hub__status.is-andamento {
+  border-color: rgba(96, 165, 250, 0.4);
   color: #93c5fd;
+  background: rgba(59, 130, 246, 0.14);
 }
 
-html.dark .ck-energia .ck-estoque__status.is-cancelado {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--ga-text-secondary);
+.ck-energia-hub__status.is-ok {
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.12);
 }
 
-html.dark .ck-energia .ck-estoque__card--lista.is-andamento {
-  border-color: rgba(59, 130, 246, 0.4);
-  border-left: 4px solid #3b82f6 !important;
+.ck-energia-hub__status.is-cancelado {
+  color: #8d8d8d;
 }
 
-html.dark .ck-energia .ck-energia__dl dt {
-  color: var(--ga-text-secondary);
+.ck-energia-hub__card-mid {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 10px;
 }
 
-html.dark .ck-energia .ck-energia__dl dd {
-  color: var(--ga-text-primary);
+.ck-energia-hub__card-mid strong {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fe6c22;
 }
 
-/* Campos de entrada do formulário em tema escuro: fundo escuro */
-html.dark .ck-energia .MuiOutlinedInput-root,
-html.dark .ck-energia .MuiPickersOutlinedInput-root,
-html.dark .ck-energia input,
-html.dark .ck-energia select,
-html.dark .ck-energia textarea {
-  background: #0B0F19 !important;
-  color: #F8FAFC !important;
+.ck-energia-hub__card-mid span {
+  font-size: 0.82rem;
+  color: #a8aeb8;
+  font-weight: 600;
 }
 
-html.dark .ck-energia .MuiOutlinedInput-notchedOutline,
-html.dark .ck-energia .MuiPickersOutlinedInput-notchedOutline {
-  border-color: rgba(255, 255, 255, 0.16) !important;
+.ck-energia-hub__card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
 }
 
-html.dark .ck-energia .ck-estoque__break-form textarea {
-  background: #0B0F19 !important;
-  border-color: rgba(255, 255, 255, 0.16) !important;
-  color: var(--ga-text-primary);
+.ck-energia-hub__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #a8aeb8;
 }
 
-/* Registrar protocolo: LARANJA no tema escuro */
-html.dark .ck-energia .ck-energia__registrar-btn {
-  background: #FF7A3D !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.35) !important;
+.ck-energia-hub__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
-html.dark .ck-energia .ck-energia__registrar-btn:hover:not(:disabled) {
-  background: #ea6526 !important;
+.ck-energia-hub__badge.is-ok {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
 }
 
-/* Botão Registrar Protocolo em LARANJA no tema escuro */
-html.dark .ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo,
-html.dark .ck-energia__btn-novo {
-  background: rgba(255, 122, 61, 0.14) !important;
-  border-color: rgba(255, 122, 61, 0.4) !important;
-  color: #FF7A3D !important;
+.ck-energia-hub__badge.is-pend {
+  color: #ff9a5c;
+  background: rgba(254, 108, 34, 0.12);
+  border: 1px solid rgba(254, 108, 34, 0.3);
 }
 
-html.dark .ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo strong,
-html.dark .ck-energia__btn-novo strong {
-  color: #FF7A3D !important;
+/* Formulário / detalhe — cards e campos no hub */
+.ck-energia-hub .ck-visitas__sheet,
+.ck-energia-hub .ck-estoque__sheet-head,
+.ck-energia-hub .ck-visitas__sheet-body {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
-html.dark .ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo small,
-html.dark .ck-energia__btn-novo small {
-  color: #ff9866 !important;
+.ck-energia-hub .ck-estoque__card,
+.ck-energia-hub .ck-estoque__card--lista,
+.ck-energia-hub .ck-estoque__card--static {
+  margin-bottom: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #fe6c22;
+  background: rgba(51, 56, 64, 0.82);
+  color: #f5f5f5;
 }
 
-html.dark .ck-energia .ck-estoque-nfe__atalho.ck-energia__btn-novo span:last-child {
-  color: #FF7A3D !important;
+.ck-energia-hub .ck-estoque__card-title strong,
+.ck-energia-hub .ck-energia__dl dd {
+  color: #f5f5f5;
 }
 
-html.dark .ck-energia .ck-estoque__empty {
-  color: #94A3B8 !important;
-  background: var(--ga-surface, #111827) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+.ck-energia-hub .ck-estoque__card-tipo,
+.ck-energia-hub .ck-energia__dl dt,
+.ck-energia-hub .ck-estoque__card-who {
+  color: #8d8d8d;
+}
+
+.ck-energia-hub .MuiOutlinedInput-root,
+.ck-energia-hub .MuiPickersOutlinedInput-root,
+.ck-energia-hub .MuiPickersInputBase-root {
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+  border-radius: 14px !important;
+}
+
+.ck-energia-hub .MuiOutlinedInput-notchedOutline,
+.ck-energia-hub .MuiPickersOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.ck-energia-hub .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(254, 108, 34, 0.55) !important;
+}
+
+.ck-energia-hub .MuiInputBase-input,
+.ck-energia-hub .MuiSelect-select,
+.ck-energia-hub .MuiInputLabel-root {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  font-size: 0.9rem !important;
+}
+
+.ck-energia-hub .MuiInputLabel-root.Mui-focused {
+  color: #ff9a5c !important;
+}
+
+.ck-energia-hub .MuiFormLabel-asterisk,
+.ck-energia-hub .MuiInputLabel-asterisk,
+.ck-energia-hub .MuiFormLabel-root .MuiFormLabel-asterisk {
+  color: #f5f5f5 !important;
+}
+
+.ck-energia-hub .ck-energia-hub__select-ph {
+  color: #8d8d8d !important;
+  -webkit-text-fill-color: #8d8d8d !important;
+}
+
+.ck-energia-hub .MuiSelect-icon {
+  color: #8d8d8d !important;
+}
+
+.ck-energia-hub .MuiOutlinedInput-input::placeholder,
+.ck-energia-hub textarea::placeholder,
+.ck-energia-hub input::placeholder {
+  color: #8d8d8d !important;
+  -webkit-text-fill-color: #8d8d8d !important;
+  opacity: 1 !important;
+}
+
+.ck-energia-hub .MuiOutlinedInput-root .MuiOutlinedInput-input:placeholder-shown,
+.ck-energia-hub .MuiOutlinedInput-input:placeholder-shown {
+  color: #8d8d8d !important;
+  -webkit-text-fill-color: #8d8d8d !important;
+}
+
+.ck-energia-hub__menu.MuiPaper-root,
+.ck-energia-hub__menu {
+  background: #1a222c !important;
+  background-image: none !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.ck-energia-hub__menu .MuiList-root {
+  background: #1a222c !important;
+}
+
+.ck-energia-hub__menu .MuiMenuItem-root {
+  color: #f5f5f5 !important;
+  font-size: 0.9rem !important;
+  min-height: 42px !important;
+}
+
+.ck-energia-hub__menu .MuiMenuItem-root:hover,
+.ck-energia-hub__menu .MuiMenuItem-root.Mui-focused {
+  background: rgba(254, 108, 34, 0.16) !important;
+}
+
+.ck-energia-hub__menu .MuiMenuItem-root.Mui-selected {
+  background: rgba(254, 108, 34, 0.16) !important;
+  color: #ff9a5c !important;
+}
+
+.ck-energia-hub__fotos .MuiButton-contained {
+  background: #3a414c !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+  text-transform: none !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+}
+
+.ck-energia-hub__fotos .MuiButton-contained:hover {
+  background: #454d5a !important;
+}
+
+.ck-energia-hub__fotos .MuiButton-outlined {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #f5f5f5 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  text-transform: none !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+}
+
+.ck-energia-hub__cta {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #fe6c22;
+  color: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(254, 108, 34, 0.35);
+}
+
+.ck-energia-hub__cta:disabled {
+  background: rgba(254, 108, 34, 0.28);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: none;
+  cursor: default;
+}
+
+.ck-energia-hub .ck-estoque__btn--primary,
+.ck-energia-hub .ck-energia__registrar-btn,
+.ck-energia-hub .ck-estoque__btn--ok {
+  background: #fe6c22 !important;
+  color: #fff !important;
+  border: 0 !important;
+  box-shadow: 0 8px 22px rgba(254, 108, 34, 0.35) !important;
+}
+
+.ck-energia-hub .ck-estoque__btn--ghost {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+
+.ck-energia-hub .ck-estoque__empty {
+  padding: 28px 18px;
+  text-align: center;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(51, 56, 64, 0.72);
+  color: #8d8d8d !important;
 }

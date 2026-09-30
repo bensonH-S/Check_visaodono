@@ -9,8 +9,10 @@ import {
 } from '../../api/client';
 import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
+import { assetUrl, LOGO_ALVIM_ICONE } from '../../config/paths';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
+import '../../components/estoque/estoque-hub.css';
 import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
 import {
   fracionadaInteira,
@@ -625,10 +627,12 @@ export default function EstoqueMobileConferenciaPage() {
 
   return (
     <div
-      className={`ck-visitas ck-visitas--lista ck-estoque ck-estoque--contagem${
+      className={`ck-visitas ck-visitas--lista ck-estoque ck-estoque--contagem ck-estoque--contagem-hub${
         teclado ? ' is-numpad' : ''
       }`}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
     >
+      <div className="ck-estoque__contagem-watermark" aria-hidden />
       <div className="ck-estoque__contagem-sticky">
         <div className="ck-estoque__contagem-banner" aria-live="polite">
           <button
@@ -689,11 +693,18 @@ export default function EstoqueMobileConferenciaPage() {
       <div className="ck-visitas__scroll" ref={scrollRef}>
         <div className="ck-visitas__sheet ck-estoque__sheet-scroll">
           {err && (
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
-              {err}
-            </p>
+            <p className="ck-estoque__contagem-err">{err}</p>
           )}
-          {loading && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
+          {loading && (
+            <LinearProgress
+              sx={{
+                my: 1.5,
+                borderRadius: 1,
+                backgroundColor: 'rgba(255,154,92,0.18)',
+                '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+              }}
+            />
+          )}
 
           {!loading && contagem && (
             <>
@@ -950,10 +961,15 @@ export default function EstoqueMobileConferenciaPage() {
               preencheu permanece.
             </p>
             <div className="ck-estoque__dlg-actions">
-              <button type="button" onClick={() => setDlgFinalizar(false)} disabled={finalizando} style={{ backgroundColor: 'transparent', color: '#64748b', border: '1px solid #cbd5e1' }}>
+              <button type="button" onClick={() => setDlgFinalizar(false)} disabled={finalizando}>
                 Voltar
               </button>
-              <button type="button" onClick={() => void finalizar()} disabled={finalizando} style={{ backgroundColor: '#B42318', color: '#fff', border: 'none', fontWeight: 600 }}>
+              <button
+                type="button"
+                className="ck-estoque__dlg-danger"
+                onClick={() => void finalizar()}
+                disabled={finalizando}
+              >
                 {finalizando ? 'Finalizando…' : 'Finalizar como 0'}
               </button>
             </div>

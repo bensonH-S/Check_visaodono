@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, fmtData, fmtNota, scoreColorTema, type Loja, type TipoChecklist, type VisitaResumo } from '../../api/client';
 import { getUsuario, logout } from '../../lib/auth';
-import { assetUrl, CHECKLIST_FUNDO_BK, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
 import { nomeLojaCurta } from '../estoque/estoqueHub';
+import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
 import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import NotificacoesSino from '../NotificacoesSino';
 import ChecklistPickSheet from './ChecklistPickSheet';
@@ -15,6 +16,8 @@ type Props = {
   msg: string;
   onClearMsg: () => void;
   saving: boolean;
+  /** Barra fina abaixo do header (sem tela cheia de “Carregando…”). */
+  loading?: boolean;
   lojas: Loja[];
   idLoja: number | '';
   onSelecionarLoja: (id: number) => void;
@@ -27,6 +30,7 @@ export default function ChecklistStartScreen({
   msg,
   onClearMsg,
   saving,
+  loading = false,
   lojas,
   idLoja,
   onSelecionarLoja,
@@ -47,6 +51,7 @@ export default function ChecklistStartScreen({
         id: l.id_loja,
         label: l.name,
         meta: l.bk_number ? `BKN ${l.bk_number}` : undefined,
+        iconUrl: iconeMarcaLojaPorNome(l),
       })),
     [lojas],
   );
@@ -98,82 +103,106 @@ export default function ChecklistStartScreen({
   return (
     <>
       <div
-        className="ck-estoque-hub ck-checklist-hub ck-checklist-hub--hero"
-        style={{ ['--ck-hero' as string]: `url(${assetUrl(CHECKLIST_FUNDO_BK)})` }}
+        className="ck-estoque-hub ck-estoque-hub--hero ck-checklist-hub ck-checklist-hub--hero"
+        style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
       >
-        <div className="ck-estoque-hub__scroll">
-          <header className="ck-estoque-hub__top">
-            <div className="ck-estoque-hub__brand-row">
-              <img className="ck-estoque-hub__mark" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
-              <div className="ck-estoque-hub__actions">
-                <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
-                <MobileUsuarioMenu
-                  user={user}
-                  onLogout={() => {
-                    logout();
-                    navigate('/login/mobile');
-                  }}
-                />
-              </div>
+        <div className="ck-estoque-hub__watermark" aria-hidden />
+        <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed ck-checklist-hub__top">
+          <div className="ck-estoque-hub__brand-row">
+            <img
+              className="ck-estoque-hub__mark ck-estoque-hub__mark--hero ck-checklist-hub__mark"
+              src={assetUrl(LOGO_GA_LOCKUP)}
+              alt="Grupo Alvim"
+            />
+            <div className="ck-estoque-hub__actions">
+              <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+              <MobileUsuarioMenu
+                user={user}
+                onLogout={() => {
+                  logout();
+                  navigate('/login/mobile');
+                }}
+              />
             </div>
-            <div className="ck-estoque-hub__store-row">
+          </div>
+          <div className="ck-estoque-hub__hero-copy ck-checklist-hub__hero-copy">
+            <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
               <h1>Checklist</h1>
             </div>
-          </header>
-
-          <div className="ck-checklist-hub__body">
-            {msg ? (
-              <div className="ck-checklist-hub__banner ck-checklist-hub__banner--err" role="alert">
-                <p>{msg}</p>
-                <button type="button" onClick={onClearMsg}>
-                  Fechar
-                </button>
-              </div>
-            ) : null}
-
-            <section className="ck-checklist-hub__recente" aria-label="Visitas">
-              <div className="ck-checklist-hub__recente-head">
-                <h2>Visitas</h2>
-                <span>{visitas.length ? visitas.length : ''}</span>
-              </div>
-              {visitas.length ? (
-                visitas.map((v) => {
-                  const aberta = v.status === 'Rascunho';
-                  const titulo = nomeLojaCurta(v.name, v.bk_number);
-                  const meta = `${fmtData(v.data_visita)} · ${v.tipo_checklist_nome || 'Checklist'}`;
-                  const nota = v.nota_final == null ? null : Number(v.nota_final);
-                  return (
-                    <button
-                      key={v.id_visita}
-                      type="button"
-                      className="ck-checklist-hub__visita"
-                      onClick={() => abrirVisita(v)}
-                    >
-                      <span className="ck-checklist-hub__visita-copy">
-                        <strong>{titulo}</strong>
-                        <small>{meta}</small>
-                      </span>
-                      {aberta ? (
-                        <span className="ck-checklist-hub__visita-side is-open">Aberta</span>
-                      ) : (
-                        <span
-                          className="ck-checklist-hub__visita-side"
-                          style={nota != null ? { color: scoreColorTema(nota, true) } : undefined}
-                        >
-                          {fmtNota(nota)}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-              ) : (
-                <p className="ck-checklist-hub__recente-empty">Nenhuma visita ainda. O + começa uma.</p>
-              )}
-            </section>
+            <p className="ck-checklist-hub__sub">Inicie uma visita ou retome um rascunho.</p>
           </div>
-        </div>
+          {loading ? (
+            <div className="ck-checklist-hub__load-bar" aria-hidden>
+              <span className="ck-checklist-hub__load-bar-fill" />
+            </div>
+          ) : null}
+        </header>
 
-        <AppHubDock ativo="checklist" plusLabel="Iniciar visita" plusDisabled={saving} onPlus={pedirTipoOuLoja} />
+        {msg ? (
+          <div className="ck-checklist-hub__banner-wrap">
+            <div className="ck-checklist-hub__banner ck-checklist-hub__banner--err" role="alert">
+              <p>{msg}</p>
+              <button type="button" onClick={onClearMsg}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <section className="ck-checklist-hub__recente" aria-label="Visitas">
+          <div className="ck-checklist-hub__recente-head">
+            <h2>Visitas</h2>
+            <span className="ck-checklist-hub__recente-count">{visitas.length}</span>
+          </div>
+          <div className="ck-estoque-hub__scroll ck-checklist-hub__scroll">
+            {visitas.length ? (
+              visitas.map((v) => {
+                const aberta = v.status === 'Rascunho';
+                const titulo = nomeLojaCurta(v.name, v.bk_number);
+                const tipoNome = v.tipo_checklist_nome || 'Checklist';
+                const tipoCodigo = String(v.tipo_checklist_codigo || '').toLowerCase();
+                const tipoMod =
+                  tipoCodigo.includes('time') || /time\s*de\s*campo/i.test(tipoNome)
+                    ? 'campo'
+                    : tipoCodigo.includes('auditoria') || /auditoria/i.test(tipoNome)
+                      ? 'auditoria'
+                      : 'outro';
+                const nota = v.nota_final == null ? null : Number(v.nota_final);
+                return (
+                  <button
+                    key={v.id_visita}
+                    type="button"
+                    className="ck-checklist-hub__visita"
+                    onClick={() => abrirVisita(v)}
+                    disabled={saving || loading}
+                  >
+                    <span className="ck-checklist-hub__visita-copy">
+                      <strong>{titulo}</strong>
+                      <span className="ck-checklist-hub__visita-meta">
+                        <small>{fmtData(v.data_visita)}</small>
+                        <span className={`ck-checklist-hub__visita-tipo is-${tipoMod}`}>{tipoNome}</span>
+                      </span>
+                    </span>
+                    {aberta ? (
+                      <span className="ck-checklist-hub__visita-side is-open">Aberta</span>
+                    ) : (
+                      <span
+                        className="ck-checklist-hub__visita-side"
+                        style={nota != null ? { color: scoreColorTema(nota, true) } : undefined}
+                      >
+                        {fmtNota(nota)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              <p className="ck-checklist-hub__recente-empty">Nenhuma visita ainda. O + começa uma.</p>
+            )}
+          </div>
+        </section>
+
+        <AppHubDock ativo="checklist" plusLabel="Iniciar visita" plusDisabled={saving || loading} onPlus={pedirTipoOuLoja} />
       </div>
 
       <ChecklistPickSheet

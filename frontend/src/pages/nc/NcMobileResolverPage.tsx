@@ -1,20 +1,23 @@
-import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PhotoCaptureMulti from '../../components/checklist/PhotoCaptureMulti';
 import { api } from '../../api/client';
 import type { NcDetalhe } from '../../api/client';
-import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
 import { parseNcDescricao } from '../../components/nc/ncPageUtils';
-import { podeResolverNc } from '../../lib/auth';
+import { getUsuario, logout, podeResolverNc } from '../../lib/auth';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
 import { extensaoMidia } from '../../utils/mediaFile';
 import { showToast } from '../../utils/toast';
-import '../../components/visitas/visitas-mobile.css';
+import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
+import NotificacoesSino from '../../components/NotificacoesSino';
+import AppHubDock from '../../components/hub/AppHubDock';
+import '../../components/estoque/estoque-hub.css';
 import '../../components/nc/nc-mobile.css';
 
 function dataUrlToBlob(dataUrl: string): Blob {
@@ -29,6 +32,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
 export default function NcMobileResolverPage() {
   const { idNc } = useParams();
   const navigate = useNavigate();
+  const user = getUsuario();
   const [nc, setNc] = useState<NcDetalhe | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -81,233 +85,158 @@ export default function NcMobileResolverPage() {
 
   const voltar = () => navigate('/nc/mobile', { replace: true });
 
-  if (loading) {
-    return (
-      <div className="ck-visitas ck-nc ck-nc--page">
-        <div className="ck-visitas__scroll">
-          <div className="ck-visitas__stage">
-            <div className="ck-visitas__stage-inner">
-              <div className="ck-visitas__toolbar">
-                <button type="button" className="ck-visitas__back" aria-label="Voltar" onClick={voltar}>
-                  ←
-                </button>
-                <span />
-              </div>
-              <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title">
-                Resolver
-                <br />
-                NC
-              </h1>
-              <p className="ck-visitas__sub">Carregando…</p>
-            </div>
-          </div>
-          <div className="ck-visitas__sheet">
-            <LinearProgress />
+  const shell = (titulo: string, body: ReactNode) => (
+    <div
+      className="ck-estoque-hub ck-estoque-hub--hero ck-nc-hub ck-nc-hub--resolver"
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+    >
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
+        <div className="ck-estoque-hub__brand-row">
+          <img
+            className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
+            src={assetUrl(LOGO_GA_LOCKUP)}
+            alt="Grupo Alvim"
+          />
+          <div className="ck-estoque-hub__actions">
+            <button
+              type="button"
+              className="ck-estoque-hub__icon-btn ck-nc-hub__btn-voltar"
+              aria-label="Voltar"
+              onClick={voltar}
+            >
+              <ArrowBackIcon />
+            </button>
+            <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                navigate('/login/mobile');
+              }}
+            />
           </div>
         </div>
-      </div>
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
+            <h1>{titulo}</h1>
+          </div>
+        </div>
+      </header>
+      <div className="ck-estoque-hub__scroll ck-nc-hub__scroll">{body}</div>
+      <AppHubDock ativo={null} plusLabel="Sem ação nesta tela" plusDisabled onPlus={() => {}} />
+    </div>
+  );
+
+  if (loading) {
+    return shell(
+      'Resolver NC',
+      <LinearProgress
+        sx={{
+          my: 1.5,
+          borderRadius: 1,
+          backgroundColor: 'rgba(255,154,92,0.18)',
+          '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+        }}
+      />,
     );
   }
 
   if ((err && !nc) || !nc) {
-    return (
-      <div className="ck-visitas ck-nc ck-nc--page">
-        <div className="ck-visitas__scroll">
-          <div className="ck-visitas__stage">
-            <div className="ck-visitas__stage-inner">
-              <div className="ck-visitas__toolbar">
-                <button type="button" className="ck-visitas__back" aria-label="Voltar" onClick={voltar}>
-                  ←
-                </button>
-                <span />
-              </div>
-              <h1 className="ck-visitas__title">
-                Resolver
-                <br />
-                NC
-              </h1>
-            </div>
-          </div>
-          <div className="ck-visitas__sheet">
-            <Alert severity="error">{err || 'NC não encontrada'}</Alert>
-          </div>
-        </div>
-      </div>
-    );
+    return shell('Resolver NC', <Alert severity="error">{err || 'NC não encontrada'}</Alert>);
   }
 
   const { codigo, texto, obs } = parseNcDescricao(nc.descricao);
   const tituloArea = nc.area === 'Resultado geral' ? nc.descricao : texto;
 
   if (concluido || nc.status === 'Resolvida') {
-    return (
-      <div className="ck-visitas ck-nc ck-nc--page">
-        <div className="ck-visitas__scroll">
-          <div className="ck-visitas__stage">
-            <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-            <div className="ck-visitas__mesh" aria-hidden />
-            <div className="ck-visitas__stage-inner">
-              <div className="ck-visitas__toolbar">
-                <button type="button" className="ck-visitas__back" aria-label="Voltar" onClick={voltar}>
-                  ←
-                </button>
-                <span />
-              </div>
-              <div className="ck-visitas__hero-row">
-                <div>
-                  <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                  <h1 className="ck-visitas__title">
-                    NC
-                    <br />
-                    encerrada
-                  </h1>
-                </div>
-                <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-              </div>
-              <p className="ck-visitas__sub">{nc.nome_loja || nc.name}</p>
-            </div>
-          </div>
-          <div className="ck-visitas__sheet">
-            <div className="ck-nc__done">
-              <CheckCircleIcon sx={{ fontSize: 64, color: 'success.main' }} />
-              <strong>Correção registrada</strong>
-              <p>A não conformidade foi encerrada com sucesso.</p>
-              <Button fullWidth className="ck-nc__cta" onClick={voltar}>
-                Voltar à lista
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+    return shell(
+      'NC encerrada',
+      <div className="ck-nc-hub__done">
+        <CheckCircleIcon sx={{ fontSize: 64, color: '#22c55e' }} />
+        <strong>Correção registrada</strong>
+        <p>A não conformidade foi encerrada com sucesso.</p>
+        <Button fullWidth className="ck-nc-hub__cta" onClick={voltar}>
+          Voltar à lista
+        </Button>
+      </div>,
     );
   }
 
-  return (
-    <div className="ck-visitas ck-nc ck-nc--page">
-      <div className="ck-visitas__scroll">
-        <div className="ck-visitas__stage">
-          <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-          <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-          <div className="ck-visitas__mesh" aria-hidden />
-
-          <div className="ck-visitas__stage-inner">
-            <div className="ck-visitas__toolbar ck-visitas__anim ck-visitas__anim--1">
-              <button type="button" className="ck-visitas__back" aria-label="Voltar" onClick={voltar}>
-                ←
-              </button>
-              <span />
-            </div>
-
-            <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--2">
-              <div>
-                <p className="ck-visitas__mark-text">Grupo Alvim</p>
-                <h1 className="ck-visitas__title">
-                  Resolver
-                  <br />
-                  NC
-                </h1>
-              </div>
-              <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-            </div>
-
-            <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--3">
-              Descreva a correção e anexe a evidência fotográfica.
-            </p>
-
-            <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3">
-              <div
-                className={`ck-visitas__metric${nc.gravidade === 'Crítica' ? ' ck-visitas__metric--accent' : ''}`}
-              >
-                <strong style={{ fontSize: '0.85rem' }}>{nc.gravidade}</strong>
-                <span>gravidade</span>
-              </div>
-              <div className="ck-visitas__metric">
-                <strong style={{ fontSize: '0.75rem', lineHeight: 1.15 }}>
-                  {(nc.nome_loja || nc.name || '—').slice(0, 14)}
-                </strong>
-                <span>loja</span>
-              </div>
-            </div>
-          </div>
+  return shell(
+    'Resolver NC',
+    <form onSubmit={enviar} className="ck-nc-hub__form">
+      <div className="ck-nc-hub__kpis" aria-live="polite">
+        <div className={`ck-nc-hub__kpi${nc.gravidade === 'Crítica' ? ' is-crit' : ''}`}>
+          <strong className="ck-nc-hub__kpi-text">{nc.gravidade}</strong>
+          <span>Gravidade</span>
         </div>
-
-        <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-          <form onSubmit={enviar}>
-            <div className="ck-nc__form-card">
-              <p className="ck-nc__meta">
-                {nc.area}
-                {codigo ? ` · ${codigo}` : ''}
-              </p>
-              <h2>{tituloArea}</h2>
-              {obs && (
-                <p style={{ margin: '8px 0 0', fontSize: '0.82rem', color: 'rgba(20,32,72,0.55)' }}>
-                  Obs. da visita: {obs}
-                </p>
-              )}
-            </div>
-
-            {!podeResolver ? (
-              <Alert severity="info">Você pode visualizar, mas não tem permissão para encerrar NCs.</Alert>
-            ) : (
-              <>
-                <div className="ck-nc__form-card">
-                  <p style={{ margin: '0 0 10px', fontWeight: 800, color: '#142048', fontSize: '0.9rem' }}>
-                    O que foi feito?
-                  </p>
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={4}
-                    placeholder="Descreva a correção realizada na loja..."
-                    value={observacao}
-                    onChange={(e) => setObservacao(e.target.value)}
-                    disabled={salvando}
-                    onFocus={(e) => {
-                      window.setTimeout(() => {
-                        e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                      }, 350);
-                    }}
-                  />
-                </div>
-
-                <div className="ck-nc__form-card">
-                  <p style={{ margin: '0 0 4px', fontWeight: 800, color: '#142048', fontSize: '0.9rem' }}>
-                    Foto da correção
-                  </p>
-                  <p style={{ margin: '0 0 12px', fontSize: '0.75rem', color: 'rgba(20,32,72,0.5)' }}>
-                    Registre evidência do que foi corrigido.
-                  </p>
-                  <PhotoCaptureMulti
-                    fotos={fotos}
-                    onChange={setFotos}
-                    max={3}
-                    inlineActions
-                    disabled={salvando}
-                  />
-                </div>
-
-                {err && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {err}
-                  </Alert>
-                )}
-
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  disabled={salvando}
-                  className="ck-nc__cta"
-                >
-                  {salvando ? 'Enviando...' : 'Encerrar não conformidade'}
-                </Button>
-              </>
-            )}
-          </form>
+        <div className="ck-nc-hub__kpi is-on">
+          <strong className="ck-nc-hub__kpi-text">
+            {nc.nome_loja || nc.name || '—'}
+          </strong>
+          <span>Loja</span>
         </div>
       </div>
-    </div>
+
+      <div className="ck-nc-hub__card">
+        <p className="ck-nc-hub__meta">
+          {nc.area}
+          {codigo ? ` · ${codigo}` : ''}
+        </p>
+        <h2>{tituloArea}</h2>
+        {obs ? <p className="ck-nc-hub__obs">Obs. da visita: {obs}</p> : null}
+      </div>
+
+      {!podeResolver ? (
+        <Alert severity="info" className="ck-nc-hub__alert">
+          Você pode visualizar, mas não tem permissão para encerrar NCs.
+        </Alert>
+      ) : (
+        <>
+          <div className="ck-nc-hub__card">
+            <p className="ck-nc-hub__label">O que foi feito?</p>
+            <TextField
+              fullWidth
+              multiline
+              minRows={4}
+              placeholder="Descreva a correção realizada na loja..."
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              disabled={salvando}
+              onFocus={(e) => {
+                window.setTimeout(() => {
+                  e.target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }, 350);
+              }}
+            />
+          </div>
+
+          <div className="ck-nc-hub__card">
+            <p className="ck-nc-hub__label">Foto da correção</p>
+            <p className="ck-nc-hub__hint">Registre evidência do que foi corrigido.</p>
+            <PhotoCaptureMulti
+              fotos={fotos}
+              onChange={setFotos}
+              max={3}
+              inlineActions
+              disabled={salvando}
+            />
+          </div>
+
+          {err ? (
+            <Alert severity="error" className="ck-nc-hub__alert">
+              {err}
+            </Alert>
+          ) : null}
+
+          <div className="ck-nc-hub__acoes">
+            <Button type="submit" fullWidth variant="contained" size="large" disabled={salvando} className="ck-nc-hub__cta">
+              {salvando ? 'Enviando...' : 'Encerrar não conformidade'}
+            </Button>
+          </div>
+        </>
+      )}
+    </form>,
   );
 }

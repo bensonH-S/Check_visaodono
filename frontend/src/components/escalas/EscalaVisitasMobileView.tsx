@@ -37,7 +37,7 @@ import {
 import { showToast } from '../../utils/toast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { useAppTheme } from '../../context/ThemeContext';
-import { assetUrl, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import NotificacoesSino from '../NotificacoesSino';
 import AppHubDock from '../hub/AppHubDock';
@@ -73,7 +73,6 @@ import { gerarPngEscala } from '../../utils/gerarPngEscala';
 import { gerarPngEscalaGestores } from '../../utils/gerarPngEscalaGestores';
 import './escala-mobile.css';
 
-const ORANGE = '#FF7A3D';
 const NAVY = '#1B2A6B';
 
 function formatarHoraDigitada(raw: string): string {
@@ -297,11 +296,9 @@ export default function EscalaVisitasMobileView() {
   const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
   const [idEnvio, setIdEnvio] = useState<number | null>(null);
   const [modo, setModo] = useState<ModoVisualizacao>(
-    ehGestorOnly ? 'gestores' : ehDeliveryOnly ? 'minhas' : ehRegional ? 'minhas' : ehDiretor ? 'lojas' : 'minhas',
+    ehGestorOnly ? 'gestores' : 'minhas',
   );
-  const ultimoModoEscala = useRef<ModoVisualizacao>(
-    ehDiretor && !ehDeliveryOnly ? 'lojas' : 'minhas',
-  );
+  const ultimoModoEscala = useRef<ModoVisualizacao>('minhas');
   const [diaSelecionado, setDiaSelecionado] = useState(() => diaIndexNaSemana(segundaFeiraAtual()) ?? 0);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
@@ -1186,9 +1183,10 @@ export default function EscalaVisitasMobileView() {
 
   return (
     <div
-      className="ck-estoque-hub ck-escala-hub"
+      className="ck-estoque-hub ck-estoque-hub--hero ck-escala-hub"
       style={
         {
+          ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})`,
           ['--ck-accent' as string]: acento,
           ['--ck-accent-soft' as string]: 'rgba(254, 108, 34, 0.16)',
           ['--ck-accent-border' as string]: 'rgba(254, 108, 34, 0.45)',
@@ -1196,9 +1194,10 @@ export default function EscalaVisitasMobileView() {
         } as CSSProperties
       }
     >
-      <header className="ck-estoque-hub__top">
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
-          <img className="ck-estoque-hub__mark" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
           <div className="ck-estoque-hub__actions">
             <button
               type="button"
@@ -1229,29 +1228,31 @@ export default function EscalaVisitasMobileView() {
             />
           </div>
         </div>
-        <div className="ck-estoque-hub__store-row">
-          <h1>Escala</h1>
-          <div className="ck-escala-hub__week">
-            <button
-              type="button"
-              aria-label="Semana anterior"
-              onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
-            >
-              ‹
-            </button>
-            <span>{labelSemanaHub}</span>
-            <button
-              type="button"
-              aria-label="Próxima semana"
-              onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
-            >
-              ›
-            </button>
-            {!semanaEhAtual ? (
-              <button type="button" className="ck-escala-hub__hoje" onClick={() => setSemanaInicio(semanaAlvo)}>
-                Hoje
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
+            <h1>Escala</h1>
+            <div className="ck-escala-hub__week">
+              <button
+                type="button"
+                aria-label="Semana anterior"
+                onClick={() => setSemanaInicio(addDaysIso(semanaInicio, -7))}
+              >
+                ‹
               </button>
-            ) : null}
+              <span>{labelSemanaHub}</span>
+              <button
+                type="button"
+                aria-label="Próxima semana"
+                onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))}
+              >
+                ›
+              </button>
+              {!semanaEhAtual ? (
+                <button type="button" className="ck-escala-hub__hoje" onClick={() => setSemanaInicio(semanaAlvo)}>
+                  Hoje
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
         {modulos.length > 0 ? (
@@ -1509,7 +1510,7 @@ export default function EscalaVisitasMobileView() {
                         <div
                           className="ck-escala__card-stripe"
                           style={{
-                            background: loja.temVisita ? acento : 'rgba(27,42,107,0.2)',
+                            background: loja.temVisita ? acento : 'rgba(255,255,255,0.2)',
                           }}
                           aria-hidden
                         />
@@ -1638,9 +1639,11 @@ export default function EscalaVisitasMobileView() {
                                   onKeyDown={(e) => e.stopPropagation()}
                                 >
                                   <input
-                                    type="text"
+                                    type="tel"
                                     inputMode="numeric"
+                                    pattern="[0-9]*"
                                     autoComplete="off"
+                                    enterKeyHint="next"
                                     maxLength={5}
                                     placeholder="08:00"
                                     aria-label={`Início ${linha.nome} ${DIAS_ABREV[d.dia]}`}
@@ -1669,9 +1672,11 @@ export default function EscalaVisitasMobileView() {
                                   />
                                   <i>–</i>
                                   <input
-                                    type="text"
+                                    type="tel"
                                     inputMode="numeric"
+                                    pattern="[0-9]*"
                                     autoComplete="off"
+                                    enterKeyHint="done"
                                     maxLength={5}
                                     placeholder="18:00"
                                     aria-label={`Fim ${linha.nome} ${DIAS_ABREV[d.dia]}`}
@@ -1784,9 +1789,11 @@ export default function EscalaVisitasMobileView() {
                               <span>Horário da semana</span>
                               <span className="ck-escala-gestor__horas">
                                 <input
-                                  type="text"
+                                  type="tel"
                                   inputMode="numeric"
+                                  pattern="[0-9]*"
                                   autoComplete="off"
+                                  enterKeyHint="next"
                                   maxLength={5}
                                   placeholder="08:00"
                                   aria-label={`Início ${t.nome}`}
@@ -1802,9 +1809,11 @@ export default function EscalaVisitasMobileView() {
                                 />
                                 <i>–</i>
                                 <input
-                                  type="text"
+                                  type="tel"
                                   inputMode="numeric"
+                                  pattern="[0-9]*"
                                   autoComplete="off"
+                                  enterKeyHint="done"
                                   maxLength={5}
                                   placeholder="18:00"
                                   aria-label={`Fim ${t.nome}`}
@@ -1938,7 +1947,7 @@ export default function EscalaVisitasMobileView() {
                 >
                   <div
                     className="ck-escala__card-stripe"
-                    style={{ background: loja.marcada ? acento : 'rgba(27,42,107,0.2)' }}
+                    style={{ background: loja.marcada ? acento : 'rgba(255,255,255,0.2)' }}
                     aria-hidden
                   />
                   <div className="ck-escala__card-body">
@@ -2002,10 +2011,15 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SaveIcon />}
                   disabled={salvando || pending.size === 0}
                   onClick={() => void salvar()}
+                  className="ck-escala__cta-salvar"
                   sx={{
                     flex: 1,
-                    bgcolor: escuro ? ORANGE : NAVY,
-                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    bgcolor: '#fe6c22 !important',
+                    '&:hover': { bgcolor: '#e55f18 !important' },
+                    '&.Mui-disabled': {
+                      bgcolor: 'rgba(254, 108, 34, 0.28) !important',
+                      color: 'rgba(255, 255, 255, 0.55) !important',
+                    },
                     color: '#fff',
                     textTransform: 'none',
                     fontWeight: 700,
@@ -2021,10 +2035,15 @@ export default function EscalaVisitasMobileView() {
                   startIcon={<SaveIcon />}
                   disabled={salvando || (pendingManut.size === 0 && horariosManutLocal.size === 0)}
                   onClick={() => void salvarManutencaoAgenda()}
+                  className="ck-escala__cta-salvar"
                   sx={{
                     flex: 1,
-                    bgcolor: acento,
-                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    bgcolor: '#fe6c22 !important',
+                    '&:hover': { bgcolor: '#e55f18 !important' },
+                    '&.Mui-disabled': {
+                      bgcolor: 'rgba(254, 108, 34, 0.28) !important',
+                      color: 'rgba(255, 255, 255, 0.55) !important',
+                    },
                     color: '#fff',
                     textTransform: 'none',
                     fontWeight: 700,
@@ -2047,8 +2066,8 @@ export default function EscalaVisitasMobileView() {
                   onClick={() => void enviarAprovacao()}
                   sx={{
                     flex: 1,
-                    bgcolor: acento,
-                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    bgcolor: '#fe6c22 !important',
+                    '&:hover': { bgcolor: '#e55f18 !important' },
                     color: '#fff',
                     textTransform: 'none',
                     fontWeight: 700,
@@ -2066,8 +2085,8 @@ export default function EscalaVisitasMobileView() {
                   onClick={() => void enviarDeliveryAprovacao()}
                   sx={{
                     flex: 1,
-                    bgcolor: acento,
-                    '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+                    bgcolor: '#fe6c22 !important',
+                    '&:hover': { bgcolor: '#e55f18 !important' },
                     color: '#fff',
                     textTransform: 'none',
                     fontWeight: 700,
@@ -2080,7 +2099,17 @@ export default function EscalaVisitasMobileView() {
           ) : null}
       </div>
 
-      <AppHubDock ativo={null} plusLabel="Iniciar visita" onPlus={() => navigate('/checklist/mobile')} />
+      <AppHubDock
+        ativo={null}
+        plusLabel={podeMontarEscala || podeEditarDelivery ? (ehDiretor ? 'Editar escala' : 'Montar escala') : 'Iniciar visita'}
+        onPlus={() => {
+          if (podeMontarEscala || podeEditarDelivery) {
+            aplicarModo(ehDeliveryOnly || modo === 'delivery' ? 'delivery' : 'montar');
+            return;
+          }
+          navigate('/checklist/mobile');
+        }}
+      />
 
       <Dialog
         open={Boolean(editor)}
@@ -2160,8 +2189,8 @@ export default function EscalaVisitasMobileView() {
             variant="contained"
             onClick={confirmarEditor}
             sx={{
-              bgcolor: escuro ? ORANGE : NAVY,
-              '&:hover': { bgcolor: escuro ? '#FF8F5A' : '#152056' },
+              bgcolor: '#fe6c22 !important',
+              '&:hover': { bgcolor: '#e55f18 !important' },
               color: '#fff',
               textTransform: 'none',
               fontWeight: 700,
@@ -2180,14 +2209,16 @@ export default function EscalaVisitasMobileView() {
         slotProps={{
           paper: {
             sx: {
-              bgcolor: escuro ? '#111827' : '#fff',
-              color: escuro ? '#F8FAFC' : 'inherit',
+              bgcolor: '#333840 !important',
+              color: '#f5f5f5',
               backgroundImage: 'none',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: '16px',
             },
           },
         }}
       >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: escuro ? '#F8FAFC' : NAVY, pb: 1 }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#f5f5f5', pb: 1 }}>
           Filtrar por região
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1 }}>
@@ -2198,13 +2229,21 @@ export default function EscalaVisitasMobileView() {
                 setIdRegiao('');
                 setFiltroRegiaoAberto(false);
               }}
+              sx={{
+                '&.Mui-selected': { bgcolor: 'rgba(254, 108, 34, 0.16)' },
+                '&.Mui-selected:hover': { bgcolor: 'rgba(254, 108, 34, 0.22)' },
+              }}
             >
               <ListItemIcon sx={{ minWidth: 36 }}>
-                <LocationOnOutlinedIcon sx={{ fontSize: 20, color: idRegiao === '' ? ORANGE : 'text.disabled' }} />
+                <LocationOnOutlinedIcon sx={{ fontSize: 20, color: idRegiao === '' ? '#fe6c22' : '#8d8d8d' }} />
               </ListItemIcon>
               <ListItemText
                 primary="Todas as regiões"
-                slotProps={{ primary: { sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem', color: escuro ? '#F8FAFC' : 'inherit' } } }}
+                slotProps={{
+                  primary: {
+                    sx: { fontWeight: idRegiao === '' ? 700 : 600, fontSize: '0.9rem', color: '#f5f5f5' },
+                  },
+                }}
               />
             </ListItemButton>
           )}
@@ -2218,13 +2257,19 @@ export default function EscalaVisitasMobileView() {
                   setIdRegiao(r.id_regiao);
                   setFiltroRegiaoAberto(false);
                 }}
+                sx={{
+                  '&.Mui-selected': { bgcolor: 'rgba(254, 108, 34, 0.16)' },
+                  '&.Mui-selected:hover': { bgcolor: 'rgba(254, 108, 34, 0.22)' },
+                }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ativa ? ORANGE : 'text.disabled' }} />
+                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ativa ? '#fe6c22' : '#8d8d8d' }} />
                 </ListItemIcon>
                 <ListItemText
                   primary={r.nome}
-                  slotProps={{ primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem', color: escuro ? '#F8FAFC' : 'inherit' } } }}
+                  slotProps={{
+                    primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem', color: '#f5f5f5' } },
+                  }}
                 />
               </ListItemButton>
             );

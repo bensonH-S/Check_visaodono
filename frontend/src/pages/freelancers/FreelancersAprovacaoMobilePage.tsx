@@ -16,7 +16,6 @@ import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LogoutIcon from '@mui/icons-material/Logout';
-import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
@@ -27,10 +26,17 @@ import {
   type FreelancerColaborador,
   type FreelancerTurnoAprovacao,
 } from '../../api/client';
+import { useNavigate } from 'react-router-dom';
 import { showToast } from '../../utils/toast';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import CampoDataFrota from '../../components/frota/CampoDataFrota';
-import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
+import { getUsuario, logout } from '../../lib/auth';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
+import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
+import NotificacoesSino from '../../components/NotificacoesSino';
+import AppHubDock from '../../components/hub/AppHubDock';
+import '../../components/estoque/estoque-hub.css';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/freelancers/freelancers-mobile.css';
 
@@ -517,132 +523,132 @@ export default function FreelancersAprovacaoMobilePage() {
     }
   }
 
+  const navigate = useNavigate();
+  const user = getUsuario();
+
   return (
-    <div className="ck-visitas ck-freela ck-freela--page">
-      <div className="ck-visitas__stage">
-        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-        <div className="ck-visitas__mesh" aria-hidden />
-
-        <div className="ck-visitas__stage-inner">
-          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div>
-              <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title ck-freela__title">Freelancers</h1>
-            </div>
-            <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-          </div>
-
-          <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--2">
-            Conferência da semana atual — pendentes, aprovados e recusados. Ajuste o período se precisar.
-          </p>
-
-          <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-            <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong>{loading ? '—' : filtrados.length}</strong>
-              <span>Turnos</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{loading ? '—' : porLoja.length}</strong>
-              <span>Lojas</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{loading ? '—' : totalHoras > 0 ? totalHoras.toFixed(1) : '—'}</strong>
-              <span>Horas</span>
-            </div>
+    <div
+      className="ck-estoque-hub ck-estoque-hub--hero ck-freela ck-freela-hub"
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+    >
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
+        <div className="ck-estoque-hub__brand-row">
+          <img
+            className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
+            src={assetUrl(LOGO_GA_LOCKUP)}
+            alt="Grupo Alvim"
+          />
+          <div className="ck-estoque-hub__actions">
+            <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                navigate('/login/mobile');
+              }}
+            />
           </div>
         </div>
-      </div>
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
+            <h1>Freelancers</h1>
+          </div>
+          <p className="ck-freela-hub__sub">
+            Conferência da semana. Pendentes, aprovados e recusados.
+          </p>
+        </div>
+        <nav className="ck-estoque-hub__tabs ck-freela-hub__tabs" role="tablist" aria-label="Status">
+          {STATUS_TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={status === t.id}
+              className={`ck-estoque-hub__tab${status === t.id ? ' is-on' : ''}`}
+              onClick={() => setStatus(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      </header>
 
-      <div className="ck-visitas__sheet ck-freela__sheet--fill ck-visitas__anim ck-visitas__anim--4">
-          <div className="ck-freela__sticky">
-            <div className="ck-freela__dates">
-              <div className="ck-freela__date-field">
-                <CampoDataFrota
-                  label="De"
-                  value={draftFrom}
-                  onChange={setDraftFrom}
-                  sx={campoDataMobileSx}
-                />
-              </div>
-              <div className="ck-freela__date-field">
-                <CampoDataFrota
-                  label="Até"
-                  value={draftTo}
-                  onChange={setDraftTo}
-                  min={draftFrom || undefined}
-                  sx={campoDataMobileSx}
-                />
-              </div>
-              <button
-                type="button"
-                className={`ck-freela__buscar${datasPendentes ? ' is-on' : ''}`}
-                onClick={aplicarPeriodo}
-              >
-                Buscar
-              </button>
+      <div className="ck-estoque-hub__panel ck-freela-hub__panel">
+        <div className="ck-freela-hub__kpis" aria-live="polite">
+          <div className="ck-freela-hub__kpi is-on">
+            <strong>{loading ? '—' : filtrados.length}</strong>
+            <span>Turnos</span>
+          </div>
+          <div className="ck-freela-hub__kpi">
+            <strong>{loading ? '—' : porLoja.length}</strong>
+            <span>Lojas</span>
+          </div>
+          <div className="ck-freela-hub__kpi">
+            <strong>{loading ? '—' : totalHoras > 0 ? totalHoras.toFixed(1) : '—'}</strong>
+            <span>Horas</span>
+          </div>
+        </div>
+
+        <div className="ck-freela-hub__tools">
+          <div className="ck-freela__dates">
+            <div className="ck-freela__date-field">
+              <CampoDataFrota
+                label="De"
+                value={draftFrom}
+                onChange={setDraftFrom}
+                sx={campoDataMobileSx}
+              />
             </div>
-
-            <div className="ck-freela__filtro-row">
-              <div className="ck-visitas__seg" role="tablist" aria-label="Status">
-                {STATUS_TABS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={status === t.id}
-                    className={`ck-visitas__seg-btn${status === t.id ? ' is-on' : ''}`}
-                    onClick={() => setStatus(t.id)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className={`ck-freela__filtro-btn${bkFiltro ? ' is-on' : ''}`}
-                aria-label="Filtrar por unidade"
-                onClick={() => setFiltroLojaAberto(true)}
-              >
-                <FilterListIcon sx={{ fontSize: 20 }} />
-              </button>
+            <div className="ck-freela__date-field">
+              <CampoDataFrota
+                label="Até"
+                value={draftTo}
+                onChange={setDraftTo}
+                min={draftFrom || undefined}
+                sx={campoDataMobileSx}
+              />
             </div>
-
-            {lojaAtiva ? (
-              <p className="ck-freela__loja-tag">
-                Unidade: {lojaAtiva.nome}
-                {lojaAtiva.bk_number ? ` · BK ${lojaAtiva.bk_number}` : ''}
-              </p>
-            ) : null}
-
-            <p className="ck-freela__loja-tag" style={{ marginTop: lojaAtiva ? -8 : undefined }}>
-              Período: {fmtData(dateFrom)} → {fmtData(dateTo)}
-            </p>
-
             <button
               type="button"
-              className="ck-freela__registrar"
-              onClick={() => void abrirRegistrar()}
+              className={`ck-freela__buscar${datasPendentes ? ' is-on' : ''}`}
+              onClick={aplicarPeriodo}
             >
-              <PersonAddAlt1OutlinedIcon sx={{ fontSize: 20 }} />
-              Lançar registro
+              Buscar
             </button>
           </div>
 
-          <div className="ck-freela__sheet-body">
-          {err ? <p className="ck-visitas__erro">{err}</p> : null}
+          <button
+            type="button"
+            className={`ck-freela__filtro-btn${bkFiltro ? ' is-on' : ''}`}
+            aria-label="Filtrar por unidade"
+            onClick={() => setFiltroLojaAberto(true)}
+          >
+            <FilterListIcon sx={{ fontSize: 20, flexShrink: 0 }} />
+            <span>{lojaAtiva ? lojaAtiva.nome : 'Filtrar unidade'}</span>
+          </button>
 
-          {loading ? (
-            <div className="ck-visitas__loading">
-              <CircularProgress size={28} sx={{ color: ORANGE }} />
-            </div>
-          ) : porLoja.length === 0 ? (
-            <div className="ck-freela__empty">
-              <strong>Nenhum turno neste filtro</strong>
-              Ajuste o período, o status ou a unidade.
-            </div>
-          ) : (
-            porLoja.map(([chave, lista]) => {
+          <p className="ck-freela__loja-tag">
+            Período: {fmtData(dateFrom)} → {fmtData(dateTo)}
+          </p>
+        </div>
+      </div>
+
+      <div className="ck-estoque-hub__scroll ck-freela-hub__scroll">
+        {err ? <p className="ck-freela-hub__err">{err}</p> : null}
+
+        {loading ? (
+          <div className="ck-freela-hub__loading">
+            <CircularProgress size={28} sx={{ color: ORANGE }} />
+          </div>
+        ) : porLoja.length === 0 ? (
+          <div className="ck-freela__empty">
+            <strong>Nenhum turno neste filtro</strong>
+            Ajuste o período, o status ou a unidade.
+          </div>
+        ) : (
+          <div className="ck-freela-hub__lista">
+            {porLoja.map(([chave, lista]) => {
               const [, nomeLoja] = chave.split('::');
               const bk = lista[0]?.bk_number || '';
               const aberto = !!abertos[chave];
@@ -766,13 +772,35 @@ export default function FreelancersAprovacaoMobilePage() {
                     })}
                 </div>
               );
-            })
-          )}
+            })}
           </div>
+        )}
       </div>
 
-      <Dialog open={filtroLojaAberto} onClose={() => setFiltroLojaAberto(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: (theme) => theme.palette.mode === 'dark' ? '#F8FAFC' : NAVY, pb: 1 }}>
+      <AppHubDock
+        ativo={null}
+        plusLabel="Lançar registro"
+        onPlus={() => void abrirRegistrar()}
+      />
+
+      <Dialog
+        open={filtroLojaAberto}
+        onClose={() => setFiltroLojaAberto(false)}
+        fullWidth
+        maxWidth="xs"
+        slotProps={{
+          paper: {
+            className: 'ck-freela-hub__dlg',
+            sx: {
+              bgcolor: '#1a222c',
+              color: '#f5f5f5',
+              backgroundImage: 'none',
+              border: '1px solid rgba(255,255,255,0.12)',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#f5f5f5', pb: 1 }}>
           Filtrar por unidade
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1 }}>
@@ -785,20 +813,29 @@ export default function FreelancersAprovacaoMobilePage() {
           >
             <ListItemIcon sx={{ minWidth: 36 }}>
               <StorefrontOutlinedIcon
-                sx={{ fontSize: 20, color: bkFiltro === '' ? ORANGE : 'text.disabled' }}
+                sx={{ fontSize: 20, color: bkFiltro === '' ? ORANGE : '#8d8d8d' }}
               />
             </ListItemIcon>
             <ListItemText
               primary="Todas da região"
               secondary={`${lojas.length} loja(s) no escopo`}
               slotProps={{
-                primary: { sx: { fontWeight: bkFiltro === '' ? 700 : 600, fontSize: '0.9rem' } },
-                secondary: { sx: { fontSize: '0.72rem' } },
+                primary: {
+                  sx: {
+                    fontWeight: bkFiltro === '' ? 700 : 600,
+                    fontSize: '0.9rem',
+                    color: '#f5f5f5',
+                    whiteSpace: 'normal',
+                    overflowWrap: 'anywhere',
+                  },
+                },
+                secondary: { sx: { fontSize: '0.72rem', color: '#8d8d8d' } },
               }}
             />
           </ListItemButton>
           {lojas.map((l) => {
             const ativa = bkFiltro === l.bk_number;
+            const ico = iconeMarcaLojaPorNome({ name: l.nome });
             return (
               <ListItemButton
                 key={l.bk_number}
@@ -809,16 +846,29 @@ export default function FreelancersAprovacaoMobilePage() {
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <StorefrontOutlinedIcon
-                    sx={{ fontSize: 20, color: ativa ? ORANGE : 'text.disabled' }}
-                  />
+                  {ico ? (
+                    <img src={ico} alt="" className="ck-freela-hub__loja-ico" />
+                  ) : (
+                    <StorefrontOutlinedIcon
+                      sx={{ fontSize: 20, color: ativa ? ORANGE : '#8d8d8d' }}
+                    />
+                  )}
                 </ListItemIcon>
                 <ListItemText
                   primary={l.nome}
                   secondary={l.bk_number ? `BK ${l.bk_number}` : undefined}
                   slotProps={{
-                    primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' } },
-                    secondary: { sx: { fontSize: '0.72rem' } },
+                    primary: {
+                      sx: {
+                        fontWeight: ativa ? 700 : 600,
+                        fontSize: '0.9rem',
+                        color: '#f5f5f5',
+                        whiteSpace: 'normal',
+                        overflowWrap: 'anywhere',
+                        lineHeight: 1.3,
+                      },
+                    },
+                    secondary: { sx: { fontSize: '0.72rem', color: '#8d8d8d' } },
                   }}
                 />
               </ListItemButton>
@@ -1076,13 +1126,25 @@ export default function FreelancersAprovacaoMobilePage() {
         onClose={() => setLojaPickerAberto(false)}
         fullWidth
         maxWidth="xs"
+        slotProps={{
+          paper: {
+            className: 'ck-freela-hub__dlg',
+            sx: {
+              bgcolor: '#1a222c',
+              color: '#f5f5f5',
+              backgroundImage: 'none',
+              border: '1px solid rgba(255,255,255,0.12)',
+            },
+          },
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: NAVY, pb: 1 }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#f5f5f5', pb: 1 }}>
           Escolher loja
         </DialogTitle>
         <List sx={{ pt: 0, pb: 1, maxHeight: '60vh', overflow: 'auto' }}>
           {lojas.map((l) => {
             const ativa = regBk === l.bk_number;
+            const ico = iconeMarcaLojaPorNome({ name: l.nome });
             return (
               <ListItemButton
                 key={l.bk_number}
@@ -1093,16 +1155,29 @@ export default function FreelancersAprovacaoMobilePage() {
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <StorefrontOutlinedIcon
-                    sx={{ fontSize: 20, color: ativa ? ORANGE : 'text.disabled' }}
-                  />
+                  {ico ? (
+                    <img src={ico} alt="" className="ck-freela-hub__loja-ico" />
+                  ) : (
+                    <StorefrontOutlinedIcon
+                      sx={{ fontSize: 20, color: ativa ? ORANGE : '#8d8d8d' }}
+                    />
+                  )}
                 </ListItemIcon>
                 <ListItemText
                   primary={l.nome}
                   secondary={l.bk_number ? `BK ${l.bk_number}` : undefined}
                   slotProps={{
-                    primary: { sx: { fontWeight: ativa ? 700 : 600, fontSize: '0.9rem' } },
-                    secondary: { sx: { fontSize: '0.72rem' } },
+                    primary: {
+                      sx: {
+                        fontWeight: ativa ? 700 : 600,
+                        fontSize: '0.9rem',
+                        color: '#f5f5f5',
+                        whiteSpace: 'normal',
+                        overflowWrap: 'anywhere',
+                        lineHeight: 1.3,
+                      },
+                    },
+                    secondary: { sx: { fontSize: '0.72rem', color: '#8d8d8d' } },
                   }}
                 />
               </ListItemButton>

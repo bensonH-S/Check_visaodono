@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
-import PageLoading from '../../components/PageLoading';
+import LinearProgress from '@mui/material/LinearProgress';
 import { api, type EnergiaChamado, type Loja } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile, podeAbrirEnergia } from '../../lib/auth';
 import { EnergiaLojaHead, EnergiaMobileChrome, EnergiaMobileStage } from './EnergiaMobileShell';
@@ -114,47 +114,16 @@ export default function EnergiaMobileListaPage() {
   const lojaAtual = lojas.find((l) => l.id_loja === idLoja) || null;
 
   return (
-    <EnergiaMobileChrome>
+    <EnergiaMobileChrome
+      plusLabel="Registrar protocolo"
+      plusDisabled={!idLoja || !podeAbrir}
+      onPlus={idLoja && podeAbrir ? () => navigate('/energia/mobile/novo') : undefined}
+    >
       <EnergiaMobileStage
         title="Energia"
-        sub="Protocolo da concessionária, fotos e status — evidência se queimar equipamento."
-        kpis={
-          <div className="ck-estoque__kpis ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-            <div className="ck-estoque__kpi ck-estoque__kpi--accent">
-              <strong>{loading ? '—' : kpiAberto}</strong>
-              <span>Abertos</span>
-            </div>
-            <div className="ck-estoque__kpi">
-              <strong>{loading ? '—' : kpiAndamento}</strong>
-              <span>Em andamento</span>
-            </div>
-            <div className="ck-estoque__kpi">
-              <strong>{loading ? '—' : kpiFinalizado}</strong>
-              <span>Finalizados</span>
-            </div>
-          </div>
-        }
-      />
-
-      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-        <div className="ck-estoque__sheet-head">
-          {err && (
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
-              {err}
-            </p>
-          )}
-
-          <EnergiaLojaHead
-            lojas={lojas}
-            idLoja={idLoja}
-            onChangeLoja={setIdLoja}
-            podeTrocarLoja={podeTrocarLoja}
-            lojaAtual={lojaAtual}
-            dlgLoja={dlgLoja}
-            setDlgLoja={setDlgLoja}
-          />
-
-          <div className="ck-visitas__seg" role="tablist">
+        sub="Protocolo da concessionária, fotos e status. Evidência se queimar equipamento."
+        tabs={
+          <nav className="ck-estoque-hub__tabs" aria-label="Filtro de protocolos">
             {(
               [
                 ['todas', 'Todas'],
@@ -165,101 +134,112 @@ export default function EnergiaMobileListaPage() {
               <button
                 key={value}
                 type="button"
-                role="tab"
-                aria-selected={filtro === value}
-                className={`ck-visitas__seg-btn${filtro === value ? ' is-on' : ''}`}
+                className={`ck-estoque-hub__tab${filtro === value ? ' is-on' : ''}`}
                 onClick={() => setFiltro(value)}
               >
                 {label}
               </button>
             ))}
-          </div>
-
-          {idLoja && podeAbrir ? (
-            <button
-              type="button"
-              className="ck-estoque-nfe__atalho ck-energia__btn-novo"
-              style={{ marginBottom: '16px' }}
-              onClick={() => navigate('/energia/mobile/novo')}
-            >
-              <span className="ck-estoque-nfe__atalho-main">
-                <strong>Registrar protocolo</strong>
-                <small>Ligação à concessionária com fotos</small>
-              </span>
-              <span aria-hidden>›</span>
-            </button>
-          ) : null}
-        </div>
-
-        <div className="ck-visitas__sheet-body">
-          {loading && <PageLoading />}
-
-          {!loading && !filtrada.length && (
-            <div className="ck-estoque__empty">
-              {lojaAtual
-                ? filtro !== 'todas' && lista.length > 0
-                  ? 'Nenhum protocolo neste filtro.'
-                  : 'Nenhum protocolo nesta loja. Toque em registrar protocolo para começar.'
-                : 'Selecione a loja para começar.'}
+          </nav>
+        }
+        kpis={
+          <div className="ck-energia-hub__kpis" aria-live="polite">
+            <div className="ck-energia-hub__kpi is-on">
+              <strong>{loading ? '—' : kpiAberto}</strong>
+              <span>Abertos</span>
             </div>
-          )}
+            <div className="ck-energia-hub__kpi">
+              <strong>{loading ? '—' : kpiAndamento}</strong>
+              <span>Andamento</span>
+            </div>
+            <div className="ck-energia-hub__kpi">
+              <strong>{loading ? '—' : kpiFinalizado}</strong>
+              <span>Finalizados</span>
+            </div>
+          </div>
+        }
+      />
 
-          {filtrada.map((c) => {
-            const aberto = c.status === 'aberto' || c.status === 'em_andamento';
-            const quando = dataCurta(c.ocorrido_em);
-            return (
-              <div
-                key={c.id_chamado}
-                className={`ck-estoque__card ck-estoque__card--lista${aberto ? ' is-aberta' : ''}${
-                  c.status === 'em_andamento' ? ' is-andamento' : ''
-                }`}
-                role="button"
-                tabIndex={0}
-                onClick={() => navigate(`/energia/mobile/${c.id_chamado}`)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigate(`/energia/mobile/${c.id_chamado}`);
-                  }
-                }}
-              >
-                <div className="ck-estoque__card-top">
-                  <div className="ck-estoque__card-title">
-                    <strong>Protocolo {c.protocolo}</strong>
-                    <span className="ck-estoque__card-tipo">
-                      {rotuloTipoOcorrencia(c.tipo_ocorrencia)}
-                      {quando ? ` · ${quando}` : ''}
-                    </span>
-                  </div>
-                  <span className={`ck-estoque__status ${classeStatus(c.status)}`}>
-                    {rotuloStatusEnergia(c.status)}
-                  </span>
-                </div>
+      <div className="ck-estoque-hub__scroll ck-energia-hub__scroll">
+        {err ? <p className="ck-energia-hub__err">{err}</p> : null}
 
-                <div className="ck-estoque__card-valor">
-                  <strong>#{c.numero}</strong>
-                  <span>{c.concessionaria}</span>
-                </div>
+        <EnergiaLojaHead
+          lojas={lojas}
+          idLoja={idLoja}
+          onChangeLoja={setIdLoja}
+          podeTrocarLoja={podeTrocarLoja}
+          lojaAtual={lojaAtual}
+          dlgLoja={dlgLoja}
+          setDlgLoja={setDlgLoja}
+        />
 
-                <div className="ck-estoque__card-foot">
-                  <div className="ck-estoque__card-meta-left">
-                    <span className="ck-estoque__card-who" title="Quem registrou">
-                      <PersonOutlinedIcon sx={{ fontSize: 16, color: 'var(--ck-navy)' }} />
-                      <strong>{c.nome_abriu || 'Não informado'}</strong>
-                    </span>
-                    {c.qtd_fotos > 0 ? (
-                      <span className="ck-estoque__badge-ok">
-                        {c.qtd_fotos} foto{c.qtd_fotos === 1 ? '' : 's'}
-                      </span>
-                    ) : (
-                      <span className="ck-estoque__badge-pend">Sem fotos</span>
-                    )}
-                  </div>
+        {loading ? (
+          <LinearProgress
+            sx={{
+              my: 1.5,
+              borderRadius: 1,
+              backgroundColor: 'rgba(255,154,92,0.18)',
+              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+            }}
+          />
+        ) : null}
+
+        {!loading && !filtrada.length ? (
+          <div className="ck-energia-hub__empty">
+            {lojaAtual
+              ? filtro !== 'todas' && lista.length > 0
+                ? 'Nenhum protocolo neste filtro.'
+                : 'Nenhum protocolo nesta loja. Toque no + para registrar.'
+              : 'Selecione a loja para começar.'}
+          </div>
+        ) : null}
+
+        {filtrada.map((c) => {
+          const aberto = c.status === 'aberto' || c.status === 'em_andamento';
+          const quando = dataCurta(c.ocorrido_em);
+          return (
+            <button
+              key={c.id_chamado}
+              type="button"
+              className={`ck-energia-hub__card${aberto ? ' is-aberta' : ''}${
+                c.status === 'em_andamento' ? ' is-andamento' : ''
+              }`}
+              onClick={() => navigate(`/energia/mobile/${c.id_chamado}`)}
+            >
+              <div className="ck-energia-hub__card-top">
+                <div>
+                  <strong>Protocolo {c.protocolo}</strong>
+                  <small>
+                    {rotuloTipoOcorrencia(c.tipo_ocorrencia)}
+                    {quando ? ` · ${quando}` : ''}
+                  </small>
                 </div>
+                <span className={`ck-energia-hub__status ${classeStatus(c.status)}`}>
+                  {rotuloStatusEnergia(c.status)}
+                </span>
               </div>
-            );
-          })}
-        </div>
+
+              <div className="ck-energia-hub__card-mid">
+                <strong>#{c.numero}</strong>
+                <span>{c.concessionaria}</span>
+              </div>
+
+              <div className="ck-energia-hub__card-foot">
+                <span className="ck-energia-hub__who">
+                  <PersonOutlinedIcon sx={{ fontSize: 16 }} />
+                  {c.nome_abriu || 'Não informado'}
+                </span>
+                {c.qtd_fotos > 0 ? (
+                  <span className="ck-energia-hub__badge is-ok">
+                    {c.qtd_fotos} foto{c.qtd_fotos === 1 ? '' : 's'}
+                  </span>
+                ) : (
+                  <span className="ck-energia-hub__badge is-pend">Sem fotos</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </EnergiaMobileChrome>
   );

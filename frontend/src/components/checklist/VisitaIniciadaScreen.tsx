@@ -9,6 +9,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { formatDataHoraVisita } from '../../utils/dateBr';
 import type { Loja, Usuario, MetaVisitaTimeCampo } from '../../api/client';
+import { assetUrl, LOGO_ALVIM_ICONE } from '../../config/paths';
 import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import ChecklistIonicShell from './ChecklistIonicShell';
 import '../estoque/estoque-hub.css';
@@ -80,7 +81,11 @@ export default function VisitaIniciadaScreen({
   if (ionic) {
     return (
       <ChecklistIonicShell scrollY={false}>
-        <div className="ck-go ck-start--fixed ck-checklist-hub">
+        <div
+          className="ck-go ck-start--fixed ck-estoque-hub--hero ck-checklist-hub"
+          style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+        >
+          <div className="ck-estoque-hub__watermark" aria-hidden />
           <div className="ck-start__scroll">
             <div className="ck-go__stage">
               <div className="ck-go__stage-inner">
@@ -209,7 +214,7 @@ export default function VisitaIniciadaScreen({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-          <AssignmentIcon color="primary" fontSize="small" />
+          <AssignmentIcon sx={{ color: '#fe6c22', fontSize: 20 }} />
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
             Dados da visita
           </Typography>
@@ -257,10 +262,10 @@ export default function VisitaIniciadaScreen({
           borderRadius: 2,
           bgcolor: '#FFF0E8',
           border: '1px solid',
-          borderColor: 'primary.light',
+          borderColor: 'rgba(254, 108, 34, 0.35)',
         }}
       >
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#fe6c22', mb: 1 }}>
           Escopo da avaliação
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -280,7 +285,14 @@ export default function VisitaIniciadaScreen({
         variant="contained"
         size="large"
         onClick={onComecar}
-        sx={{ mt: 'auto', minHeight: 56, fontWeight: 700, fontSize: '1rem' }}
+        sx={{
+          mt: 'auto',
+          minHeight: 56,
+          fontWeight: 700,
+          fontSize: '1rem',
+          bgcolor: '#fe6c22',
+          '&:hover': { bgcolor: '#e85f1a' },
+        }}
       >
         Começar avaliação
       </Button>

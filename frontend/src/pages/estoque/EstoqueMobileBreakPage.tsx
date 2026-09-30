@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
-import Fab from '@mui/material/Fab';
+import MenuItem from '@mui/material/MenuItem';
 import LinearProgress from '@mui/material/LinearProgress';
-import AddIcon from '@mui/icons-material/Add';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   api,
   type EstoqueBreakResumo,
@@ -17,17 +19,23 @@ import {
 import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFrota';
 import EstoqueProdutoVendaAutocomplete from '../../components/estoque/EstoqueProdutoVendaAutocomplete';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
-import CkMarkLogoMenu from '../../components/CkMarkLogoMenu';
-import { getUsuario, lojaEstoqueTravadaMobile } from '../../lib/auth';
-import { safeAreaRightCalc } from '../../theme/safeArea';
+import { getUsuario, logout, lojaEstoqueTravadaMobile } from '../../lib/auth';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
+import NotificacoesSino from '../../components/NotificacoesSino';
+import AppHubDock from '../../components/hub/AppHubDock';
 import { showToast } from '../../utils/toast';
-import { useAppTheme } from '../../context/ThemeContext';
+import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
+import { labelFixo, campoAlturaFrotaSx } from '../../constants/frotaVeiculo';
 import {
   fracionadaInteira,
   rotuloCampoFracionado,
   sanitizarEntradaFracionada,
   unidadeFisicaInsumo,
 } from '../../components/estoque/estoqueContagemCampo';
+import '../../components/estoque/estoque-hub.css';
+import '../../components/estoque/estoque-mobile.css';
+import '../../components/estoque/break-hub.css';
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
@@ -116,10 +124,10 @@ function labelTurno(turno?: string | null) {
 }
 
 function tituloForm(kind: KindLanc) {
-  if (kind === 'desperdicio_completo') return 'DESPERDÍCIO COMPLETO';
-  if (kind === 'desperdicio_incompleto') return 'DESPERDÍCIO INCOMPLETO';
-  if (kind === 'emprestimo') return 'EMPRÉSTIMO';
-  return 'NOVO BREAK';
+  if (kind === 'desperdicio_completo') return 'Desperdício completo';
+  if (kind === 'desperdicio_incompleto') return 'Desperdício incompleto';
+  if (kind === 'emprestimo') return 'Empréstimo';
+  return 'Novo break';
 }
 
 function fmtBrl(v: number | null | undefined) {
@@ -177,8 +185,7 @@ function preferenciaLojaInicial(rows: Loja[]): number | null {
 }
 
 export default function EstoqueMobileBreakPage() {
-  const { mode } = useAppTheme();
-  const escuro = mode === 'dark';
+  const navigate = useNavigate();
   const user = getUsuario();
   const lojaTravada = lojaEstoqueTravadaMobile(user);
   const [lojas, setLojas] = useState<Loja[]>([]);
@@ -229,14 +236,16 @@ export default function EstoqueMobileBreakPage() {
   const exigeTurno = kind !== 'emprestimo';
   const exigeMotivo = kind === 'desperdicio_completo' || kind === 'desperdicio_incompleto';
   const colabDigitado = colaboradores.length === 0 || colabSelect === '__outro__';
-
   const colabOptions = useMemo(() => {
     return [...colaboradores, { id_usuario: -1, nome: 'Outro (digitar nome)' }];
   }, [colaboradores]);
-
-  const colabFilterOptions = useMemo(() => createFilterOptions<{ id_usuario: number; nome: string }>({
-    stringify: (option) => option.nome || '',
-  }), []);
+  const colabFilterOptions = useMemo(
+    () =>
+      createFilterOptions<{ id_usuario: number; nome: string }>({
+        stringify: (option) => option.nome || '',
+      }),
+    [],
+  );
   const nomeColabAtual =
     (idColaborador
       ? colaboradores.find((c) => c.id_usuario === idColaborador)?.nome
@@ -647,292 +656,454 @@ export default function EstoqueMobileBreakPage() {
     }
   };
 
-  const modalLoja =
-    dlgLoja &&
-    podeTrocarLoja &&
-    createPortal(
-      <div className="ck-estoque">
-        <div
-          className="ck-estoque__loja-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Selecionar loja"
-        >
-          <button
-            type="button"
-            className="ck-estoque__loja-backdrop"
-            aria-label="Fechar"
-            onClick={fecharDlgLoja}
-          />
-          <div className="ck-estoque__loja-panel">
-            <div className="ck-estoque__loja-panel-head">
-              <strong>Escolher loja</strong>
-              <button type="button" className="ck-estoque__loja-fechar" onClick={fecharDlgLoja}>
-                Fechar
-              </button>
-            </div>
-            {lojas.length > 8 && (
-              <div className="ck-estoque__loja-busca">
-                <input
-                  type="search"
-                  placeholder="Buscar loja…"
-                  value={buscaLoja}
-                  onChange={(e) => setBuscaLoja(e.target.value)}
-                  autoFocus
-                />
-              </div>
-            )}
-            <div className="ck-estoque__loja-lista">
-              {lojasFiltradas.map((l) => {
-                const ativa = l.id_loja === idLoja;
-                return (
-                  <button
-                    key={l.id_loja}
-                    type="button"
-                    className={`ck-estoque__loja-item${ativa ? ' is-on' : ''}`}
-                    onClick={() => selecionarLoja(l.id_loja)}
-                  >
-                    {rotuloLoja(l)}
-                  </button>
-                );
-              })}
-              {!lojasFiltradas.length && (
-                <div className="ck-estoque__empty">Nenhuma loja encontrada.</div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>,
-      document.body,
-    );
-
   if (formAberto) {
     return (
-      <div className="ck-visitas ck-visitas--lista ck-estoque ck-estoque--contagem ck-estoque--break">
-        <div className="ck-estoque__contagem-sticky">
-          <div className="ck-estoque__contagem-banner" aria-live="polite">
-            <button
-              type="button"
-              className="ck-estoque__contagem-back"
-              aria-label="Voltar"
-              onClick={fecharForm}
-            >
-              ←
-            </button>
-            <h1 className="ck-estoque__contagem-title">{tituloForm(kind)}</h1>
-            <div className="ck-estoque__contagem-total">
-              <span>ITENS</span>
-              <strong>{itens.length}</strong>
+      <div
+        className="ck-estoque-hub ck-estoque-hub--hero ck-break-hub ck-estoque ck-estoque--contagem ck-estoque--break ck-break-hub--form"
+        style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      >
+        <div className="ck-estoque-hub__watermark" aria-hidden />
+
+        <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
+          <div className="ck-estoque-hub__brand-row">
+            <img
+              className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
+              src={assetUrl(LOGO_GA_LOCKUP)}
+              alt="Grupo Alvim"
+            />
+            <div className="ck-estoque-hub__actions">
+              <button
+                type="button"
+                className="ck-estoque-hub__icon-btn ck-break-hub__btn-voltar"
+                aria-label="Voltar"
+                onClick={fecharForm}
+              >
+                <ArrowBackIcon />
+              </button>
+              <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+              <MobileUsuarioMenu
+                user={user}
+                onLogout={() => {
+                  logout();
+                  navigate('/login/mobile');
+                }}
+              />
             </div>
           </div>
-          <p className="ck-estoque__contagem-sub">
-            {lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}
-            {nomeColabAtual ? ` · ${nomeColabAtual}` : ''}
-          </p>
-        </div>
-
-        <div className="ck-visitas__scroll">
-          <div className="ck-visitas__sheet ck-estoque__sheet-scroll ck-estoque__break-form-sheet">
-            <div className="ck-estoque__break-form ck-estoque__break-form--planilha">
-              <div className="ck-estoque__seg" role="tablist" aria-label="Tipo de lançamento">
-                {KINDS.map((k) => (
-                  <button
-                    key={k.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={kind === k.id}
-                    className={`ck-estoque__seg-btn${kind === k.id ? ' is-on' : ''}`}
-                    disabled={salvando}
-                    onClick={() => escolherKind(k.id)}
-                  >
-                    {k.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="ck-estoque__field ck-estoque__field--date">
-                <CampoDataFrota label="Data" value={dataBreak} onChange={setDataBreak} />
-              </div>
-
-              {kind === 'emprestimo' && (
-                <label className="ck-estoque__field">
-                  <span>Loja que recebe</span>
-                  <select
-                    value={idLojaDestino === '' ? '' : String(idLojaDestino)}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      setIdLojaDestino(Number.isFinite(n) && n > 0 ? n : '');
-                    }}
-                    disabled={salvando}
-                  >
-                    <option value="">Selecione a loja…</option>
-                    {lojasDestino
-                      .filter((l) => l.id_loja !== idLoja)
-                      .map((l) => (
-                        <option key={l.id_loja} value={l.id_loja}>
-                          {rotuloLoja(l)}
-                        </option>
-                      ))}
-                  </select>
-                  <small style={{ display: 'block', marginTop: 6, color: 'rgba(15,26,69,0.55)' }}>
-                    A loja destino confirma com OK — recebi. Só então o estoque entra.
-                  </small>
-                </label>
-              )}
-
-              {exigeTurno && (
-                <div className="ck-estoque__field">
-                  <span>Turno</span>
-                  <div className="ck-estoque__turno">
-                    {TURNOS.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className={`ck-estoque__turno-btn${turno === t.id ? ' is-on' : ''}`}
-                        disabled={salvando}
-                        onClick={() => setTurno(t.id)}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {exigeColab && colaboradores.length > 0 && (
-                <label className="ck-estoque__field">
-                  <span>Colaborador</span>
-                  <Autocomplete
-                    size="small"
-                    options={colabOptions}
-                    filterOptions={colabFilterOptions}
-                    getOptionLabel={(option) => option.nome || ''}
-                    isOptionEqualToValue={(option, value) => option.id_usuario === value.id_usuario}
-                    renderOption={(props, option) => (
-                      <li {...props} key={option.id_usuario}>
-                        {option.nome}
-                      </li>
-                    )}
-                    value={
-                      colabSelect === '__outro__'
-                        ? { id_usuario: -1, nome: 'Outro (digitar nome)' }
-                        : colaboradores.find((c) => String(c.id_usuario) === String(colabSelect)) || null
-                    }
-                    onChange={(_e, val) => {
-                      if (!val) {
-                        setColabSelect('');
-                        setIdColaborador('');
-                        setNomeColaborador('');
-                        return;
-                      }
-                      if (val.id_usuario === -1) {
-                        setColabSelect('__outro__');
-                        setIdColaborador('');
-                        setNomeColaborador('');
-                        return;
-                      }
-                      setColabSelect(String(val.id_usuario));
-                      setIdColaborador(val.id_usuario);
-                      setNomeColaborador(val.nome);
-                    }}
-                    disabled={salvando}
-                    sx={{ width: '100%', mt: 0.5 }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder="Selecione ou digite..."
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            backgroundColor: '#fff',
-                            borderRadius: '8px',
-                          }
-                        }}
-                      />
-                    )}
-                  />
-                </label>
-              )}
-
-              {exigeColab && colabDigitado && (
-                <label className="ck-estoque__field">
-                  <span>Nome do colaborador</span>
-                  <input
-                    type="text"
-                    value={nomeColaborador}
-                    onChange={(e) => {
-                      setIdColaborador('');
-                      setColabSelect(colaboradores.length ? '__outro__' : '');
-                      setNomeColaborador(e.target.value);
-                    }}
-                    placeholder="Quem pegará o break"
-                    autoComplete="off"
-                    disabled={salvando}
-                  />
-                </label>
-              )}
-
-              {exigeMotivo && (
-                <label className="ck-estoque__field">
-                  <span>Motivo</span>
-                  <select
-                    value={motivoCodigo}
-                    onChange={(e) => setMotivoCodigo(e.target.value)}
-                    disabled={salvando}
-                  >
-                    <option value="">Selecione…</option>
-                    {motivos.map((m) => (
-                      <option key={m.codigo} value={m.codigo}>
-                        {m.nome}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              <div className="ck-estoque__field">
-                <span>{usaInsumo ? 'Mercadoria' : 'Produto'}</span>
-                {usaInsumo ? (
-                  <EstoqueInsumoAutocomplete
-                    produtos={insumos}
-                    value={codigo}
-                    onChange={adicionarInsumo}
-                    hideLabel
-                    disabled={salvando}
-                    placeholder="Digite ou escolha — já entra na lista"
-                  />
-                ) : (
-                  <EstoqueProdutoVendaAutocomplete
-                    produtos={produtosVenda}
-                    value={codigo}
-                    onChange={adicionarProduto}
-                    hideLabel
-                    disabled={salvando}
-                    placeholder="Digite ou escolha — já entra na lista"
-                  />
-                )}
+          <div className="ck-estoque-hub__hero-copy">
+            <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
+              <h1>{tituloForm(kind)}</h1>
+              <div className="ck-break-hub__form-count" aria-live="polite">
+                <strong>{itens.length}</strong>
+                <span>itens</span>
               </div>
             </div>
+            <p className="ck-break-hub__sub ck-break-hub__sub--loja">
+              {lojaAtual ? (
+                <img
+                  className="ck-break-hub__loja-ico ck-break-hub__loja-ico--sm"
+                  src={iconeMarcaLojaPorNome(lojaAtual)}
+                  alt=""
+                />
+              ) : (
+                <StorefrontOutlinedIcon className="ck-break-hub__loja-ico-fallback" fontSize="small" />
+              )}
+              <span>
+                {lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}
+                {nomeColabAtual ? ` · ${nomeColabAtual}` : ''}
+              </span>
+            </p>
+          </div>
+        </header>
+
+        <div className="ck-break-hub__form-scroll">
+          <nav className="ck-break-hub__form-tabs" role="tablist" aria-label="Tipo de lançamento">
+            {(
+              [
+                ['refeicao', 'Break'],
+                ['desperdicio_completo', 'Completo'],
+                ['desperdicio_incompleto', 'Incompleto'],
+                ['emprestimo', 'Empréstimo'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={kind === id}
+                className={`ck-break-hub__form-tab${kind === id ? ' is-on' : ''}`}
+                disabled={salvando}
+                onClick={() => escolherKind(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="ck-break-hub__form-fields">
+            <div className="ck-estoque__field ck-estoque__field--date">
+              <CampoDataFrota
+                label="Data"
+                value={dataBreak}
+                onChange={setDataBreak}
+                sx={{ ...campoAlturaFrotaSx, mb: 0 }}
+              />
+            </div>
+
+            {exigeTurno ? (
+              <div className="ck-estoque__field ck-break-hub__field-turno">
+                <span className="ck-break-hub__lbl">Turno</span>
+                <div className="ck-estoque__turno">
+                  {TURNOS.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`ck-estoque__turno-btn${turno === t.id ? ' is-on' : ''}`}
+                      disabled={salvando}
+                      onClick={() => setTurno(t.id)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {kind === 'emprestimo' ? (
+              <div className="ck-break-hub__field-destino">
+                <TextField
+                  select
+                  fullWidth
+                  label="Loja que recebe"
+                  value={idLojaDestino === '' ? '' : String(idLojaDestino)}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    setIdLojaDestino(Number.isFinite(n) && n > 0 ? n : '');
+                  }}
+                  disabled={salvando}
+                  slotProps={{
+                    inputLabel: labelFixo.inputLabel,
+                    select: {
+                      displayEmpty: true,
+                      MenuProps: {
+                        slotProps: {
+                          paper: {
+                            className: 'ck-break-hub__menu',
+                            sx: {
+                              maxHeight: 280,
+                              bgcolor: '#1a222c',
+                              color: '#f5f5f5',
+                              backgroundImage: 'none',
+                              border: '1px solid rgba(255,255,255,0.12)',
+                            },
+                          },
+                        },
+                      },
+                    },
+                  }}
+                  sx={{
+                    ...campoAlturaFrotaSx,
+                    mb: 0,
+                    width: '100%',
+                    maxWidth: '100%',
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#2a3038',
+                      color: '#f5f5f5',
+                      minHeight: 40,
+                      height: 40,
+                    },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.14)',
+                    },
+                    '& .MuiInputLabel-root': { color: '#8d8d8d' },
+                    '& .MuiSelect-select': {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    },
+                    '& .MuiSelect-icon': { color: '#8d8d8d' },
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>Selecione a loja…</em>
+                  </MenuItem>
+                  {lojasDestino
+                    .filter((l) => l.id_loja !== idLoja)
+                    .map((l) => (
+                      <MenuItem key={l.id_loja} value={String(l.id_loja)}>
+                        {rotuloLoja(l)}
+                      </MenuItem>
+                    ))}
+                </TextField>
+                <span className="ck-break-hub__hint">
+                  A loja destino confirma o recebimento depois.
+                </span>
+              </div>
+            ) : null}
+
+            {exigeColab && colaboradores.length > 0 ? (
+              <div className="ck-break-hub__field-colab">
+              <Autocomplete
+                size="small"
+                options={colabOptions}
+                filterOptions={colabFilterOptions}
+                getOptionLabel={(option) => option.nome || ''}
+                isOptionEqualToValue={(option, value) => option.id_usuario === value.id_usuario}
+                openOnFocus
+                autoHighlight
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id_usuario}>
+                    {option.nome}
+                  </li>
+                )}
+                value={
+                  colabSelect === '__outro__'
+                    ? { id_usuario: -1, nome: 'Outro (digitar nome)' }
+                    : colaboradores.find((c) => String(c.id_usuario) === String(colabSelect)) || null
+                }
+                onChange={(_e, val) => {
+                  if (!val) {
+                    setColabSelect('');
+                    setIdColaborador('');
+                    setNomeColaborador('');
+                    return;
+                  }
+                  if (val.id_usuario === -1) {
+                    setColabSelect('__outro__');
+                    setIdColaborador('');
+                    setNomeColaborador('');
+                    return;
+                  }
+                  setColabSelect(String(val.id_usuario));
+                  setIdColaborador(val.id_usuario);
+                  setNomeColaborador(val.nome);
+                }}
+                disabled={salvando}
+                fullWidth
+                slotProps={{
+                  popper: {
+                    sx: { zIndex: 14000 },
+                  },
+                  paper: {
+                    className: 'ck-break-hub__menu',
+                    sx: {
+                      bgcolor: '#1a222c',
+                      color: '#f5f5f5',
+                      backgroundImage: 'none',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      maxHeight: 280,
+                    },
+                  },
+                  listbox: {
+                    sx: {
+                      bgcolor: '#1a222c',
+                      color: '#f5f5f5',
+                      '& .MuiAutocomplete-option': {
+                        color: '#f5f5f5',
+                        minHeight: 40,
+                      },
+                      '& .MuiAutocomplete-option[aria-selected="true"]': {
+                        bgcolor: 'rgba(254,108,34,0.16)',
+                        color: '#ff9a5c',
+                      },
+                    },
+                  },
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Colaborador"
+                    placeholder="Digite para buscar…"
+                    slotProps={{
+                      ...params.slotProps,
+                      inputLabel: {
+                        ...(typeof params.slotProps?.inputLabel === 'object'
+                          ? params.slotProps.inputLabel
+                          : {}),
+                        ...labelFixo.inputLabel,
+                      },
+                    }}
+                    sx={{
+                      ...campoAlturaFrotaSx,
+                      mb: 0,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: '#2a3038',
+                        color: '#f5f5f5',
+                        minHeight: 40,
+                        height: 40,
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255,255,255,0.14)',
+                      },
+                      '& .MuiInputLabel-root': { color: '#8d8d8d' },
+                      '& .MuiInputBase-input': {
+                        color: '#f5f5f5',
+                        WebkitTextFillColor: '#f5f5f5',
+                      },
+                      '& .MuiInputBase-input::placeholder': {
+                        color: '#8d8d8d',
+                        opacity: 1,
+                      },
+                      '& .MuiSvgIcon-root': { color: '#8d8d8d' },
+                    }}
+                  />
+                )}
+              />
+              </div>
+            ) : null}
+
+            {exigeColab && colabDigitado ? (
+              <TextField
+                fullWidth
+                label="Nome do colaborador"
+                placeholder="Digite o nome"
+                value={nomeColaborador}
+                onChange={(e) => {
+                  setIdColaborador('');
+                  setColabSelect(colaboradores.length ? '__outro__' : '');
+                  setNomeColaborador(e.target.value);
+                }}
+                disabled={salvando}
+                autoComplete="off"
+                slotProps={{ inputLabel: labelFixo.inputLabel }}
+                sx={{
+                  ...campoAlturaFrotaSx,
+                  mb: 0,
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: '#2a3038',
+                    color: '#f5f5f5',
+                    minHeight: 40,
+                    height: 40,
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255,255,255,0.14)',
+                  },
+                  '& .MuiInputLabel-root': { color: '#8d8d8d' },
+                }}
+              />
+            ) : null}
+
+            {exigeMotivo ? (
+              <div className="ck-break-hub__field-motivo">
+              <TextField
+                select
+                fullWidth
+                label="Motivo"
+                value={motivoCodigo}
+                onChange={(e) => setMotivoCodigo(e.target.value)}
+                disabled={salvando}
+                slotProps={{
+                  inputLabel: labelFixo.inputLabel,
+                  select: {
+                    displayEmpty: true,
+                    MenuProps: {
+                      slotProps: {
+                        paper: {
+                          className: 'ck-break-hub__menu',
+                          sx: {
+                            bgcolor: '#1a222c',
+                            color: '#f5f5f5',
+                            backgroundImage: 'none',
+                          },
+                        },
+                      },
+                    },
+                  },
+                }}
+                sx={{
+                  ...campoAlturaFrotaSx,
+                  mb: 0,
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: '#2a3038',
+                    color: '#f5f5f5',
+                    minHeight: 40,
+                    height: 40,
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255,255,255,0.14)',
+                  },
+                  '& .MuiInputLabel-root': { color: '#8d8d8d' },
+                }}
+              >
+                <MenuItem value="">
+                  <em>Selecione…</em>
+                </MenuItem>
+                {motivos.map((m) => (
+                  <MenuItem key={m.codigo} value={m.codigo}>
+                    {m.nome}
+                  </MenuItem>
+                ))}
+              </TextField>
+              </div>
+            ) : null}
+
+            <div className="ck-break-hub__produto">
+              {usaInsumo ? (
+                <EstoqueInsumoAutocomplete
+                  produtos={insumos}
+                  value={codigo}
+                  onChange={adicionarInsumo}
+                  label="Produto"
+                  disabled={salvando}
+                  placeholder="Buscar e adicionar…"
+                  sx={{
+                    ...campoAlturaFrotaSx,
+                    mb: 0,
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#2a3038',
+                      color: '#f5f5f5',
+                      minHeight: 40,
+                      height: 40,
+                      borderRadius: '8px',
+                    },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.14)',
+                    },
+                    '& .MuiInputLabel-root': { color: '#8d8d8d' },
+                    '& .MuiInputBase-input': { color: '#f5f5f5', WebkitTextFillColor: '#f5f5f5' },
+                    '& .MuiInputBase-input::placeholder': { color: '#8d8d8d', opacity: 1 },
+                    '& .MuiSvgIcon-root': { color: '#8d8d8d' },
+                  }}
+                />
+              ) : (
+                <EstoqueProdutoVendaAutocomplete
+                  produtos={produtosVenda}
+                  value={codigo}
+                  onChange={adicionarProduto}
+                  label="Produto"
+                  disabled={salvando}
+                  placeholder="Buscar e adicionar…"
+                  sx={{
+                    ...campoAlturaFrotaSx,
+                    mb: 0,
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#2a3038',
+                      color: '#f5f5f5',
+                      minHeight: 40,
+                      height: 40,
+                      borderRadius: '8px',
+                    },
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: 'rgba(255,255,255,0.14)',
+                    },
+                    '& .MuiInputLabel-root': { color: '#8d8d8d' },
+                    '& .MuiInputBase-input': { color: '#f5f5f5', WebkitTextFillColor: '#f5f5f5' },
+                    '& .MuiInputBase-input::placeholder': { color: '#8d8d8d', opacity: 1 },
+                    '& .MuiSvgIcon-root': { color: '#8d8d8d' },
+                  }}
+                />
+              )}
+            </div>
+          </div>
 
             {itens.length > 0 && (
               <div className="ck-estoque__break-itens">
                 {itens.map((item) => (
-                  <div
-                    key={item.key}
-                    className="ck-estoque__item ck-estoque__item--planilha is-ok"
-                  >
-                    <div className="ck-estoque__item-head">
-                      <span className="ck-estoque__cod">{item.codigo}</span>
-                      <button
-                        type="button"
-                        className="ck-estoque__break-remove"
-                        aria-label="Remover item"
-                        disabled={salvando}
-                        onClick={() => removerItem(item.key)}
-                      >
-                        Remover
-                      </button>
+                  <div key={item.key} className="ck-break-hub__item">
+                    <div className="ck-break-hub__item-info">
+                      <span className="ck-break-hub__item-cod">{item.codigo}</span>
+                      <span className="ck-break-hub__item-nome">{item.descricao}</span>
                     </div>
-                    <div className="ck-estoque__desc">{item.descricao}</div>
                     {kind === 'emprestimo' ? (
                       <div className="ck-estoque__row ck-estoque__row--tres">
                         {(() => {
@@ -995,89 +1166,83 @@ export default function EstoqueMobileBreakPage() {
                         });
                         })()}
                       </div>
-                    ) : (
-                    <div className="ck-estoque__qty ck-estoque__qty--item">
-                      <button
-                        type="button"
-                        className="ck-estoque__qty-btn"
-                        aria-label="Diminuir"
-                        disabled={salvando}
-                        onClick={() => ajustarQtdeItem(item.key, -1)}
-                      >
-                        −
-                      </button>
-                      {item.origem === 'insumo' ? (
-                        <label className="ck-estoque__field" style={{ flex: 1, margin: 0 }}>
-                          <span className="ck-estoque__qty-val" style={{ display: 'block' }}>
-                            Quantidade ({unidadeFisicaInsumo(
+                    ) : item.origem === 'insumo' ? (
+                      <div className="ck-break-hub__item-qtd-input">
+                        <input
+                          type="text"
+                          inputMode={
+                            fracionadaInteira(
                               insumos.find(
                                 (p) =>
                                   String(p.codigo || '').trim().toUpperCase() ===
                                   item.codigo.toUpperCase(),
-                              ),
-                            )}
-                            )
-                          </span>
-                          <input
-                            type="text"
-                            inputMode={
-                              fracionadaInteira(
+                              )?.unidade_fracionada ||
                                 insumos.find(
                                   (p) =>
                                     String(p.codigo || '').trim().toUpperCase() ===
                                     item.codigo.toUpperCase(),
-                                )?.unidade_fracionada ||
-                                  insumos.find(
-                                    (p) =>
-                                      String(p.codigo || '').trim().toUpperCase() ===
-                                      item.codigo.toUpperCase(),
-                                  )?.unidade_contagem,
-                              )
-                                ? 'numeric'
-                                : 'decimal'
-                            }
-                            aria-label="Quantidade"
-                            disabled={salvando}
-                            value={item.qtdRaw}
-                            onChange={(e) => setQtdRawItem(item.key, e.target.value)}
-                          />
-                        </label>
-                      ) : (
-                        <span className="ck-estoque__qty-val" aria-label="Quantidade">
-                          {item.quantidade}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        className="ck-estoque__qty-btn"
-                        aria-label="Aumentar"
-                        disabled={salvando}
-                        onClick={() => ajustarQtdeItem(item.key, 1)}
-                      >
-                        +
-                      </button>
-                    </div>
+                                )?.unidade_contagem,
+                            )
+                              ? 'numeric'
+                              : 'decimal'
+                          }
+                          aria-label="Quantidade"
+                          disabled={salvando}
+                          value={item.qtdRaw}
+                          onChange={(e) => setQtdRawItem(item.key, e.target.value)}
+                        />
+                        <small>
+                          {unidadeFisicaInsumo(
+                            insumos.find(
+                              (p) =>
+                                String(p.codigo || '').trim().toUpperCase() ===
+                                item.codigo.toUpperCase(),
+                            ),
+                          )}
+                        </small>
+                      </div>
+                    ) : (
+                      <div className="ck-break-hub__item-qty">
+                        <button
+                          type="button"
+                          aria-label="Diminuir"
+                          disabled={salvando}
+                          onClick={() => ajustarQtdeItem(item.key, -1)}
+                        >
+                          −
+                        </button>
+                        <span>{item.quantidade}</span>
+                        <button
+                          type="button"
+                          aria-label="Aumentar"
+                          disabled={salvando}
+                          onClick={() => ajustarQtdeItem(item.key, 1)}
+                        >
+                          +
+                        </button>
+                      </div>
                     )}
+                    <button
+                      type="button"
+                      className="ck-break-hub__item-rm"
+                      aria-label="Remover item"
+                      disabled={salvando}
+                      onClick={() => removerItem(item.key)}
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        </div>
 
-        <nav className="ck-estoque__secao-dock" aria-label="Ações do break">
+          {!itens.length ? (
+            <div className="ck-break-hub__empty-itens">Busque um produto acima para montar a lista.</div>
+          ) : null}
+
           <button
             type="button"
-            className="ck-estoque__dock-side"
-            disabled={salvando}
-            onClick={fecharForm}
-            aria-label="Cancelar"
-          >
-            ←
-          </button>
-          <button
-            type="button"
-            className="ck-estoque__dock-cta ck-estoque__dock-cta--ok"
+            className="ck-break-hub__cta-confirm"
             disabled={salvando || loading || !itens.length}
             onClick={() => void lancar()}
           >
@@ -1091,218 +1256,268 @@ export default function EstoqueMobileBreakPage() {
                   ? `Confirmar baixa · ${itens.length}`
                   : 'Confirmar baixa'}
           </button>
-          <span className="ck-estoque__dock-side" aria-hidden style={{ visibility: 'hidden' }} />
-        </nav>
+        </div>
+
+        <AppHubDock
+          ativo={null}
+          plusLabel="Novo lançamento"
+          plusDisabled
+          onPlus={() => undefined}
+        />
       </div>
     );
   }
 
   return (
-    <div className="ck-visitas ck-visitas--lista ck-estoque">
-      <div className="ck-visitas__stage">
-        <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-        <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-        <div className="ck-visitas__mesh" aria-hidden />
-        <div className="ck-visitas__stage-inner">
-          <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--1">
-            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-              <p className="ck-visitas__mark-text">Grupo Alvim</p>
-              <h1 className="ck-visitas__title">
-                Break e perdas
-              </h1>
-              <p className="ck-visitas__sub">
-                Registro de perdas operacionais, descarte e refeição da equipe.
-              </p>
-            </div>
-            <CkMarkLogoMenu size={78} className="ck-visitas__mark-icon" />
+    <div
+      className="ck-estoque-hub ck-estoque-hub--hero ck-break-hub"
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+    >
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
+        <div className="ck-estoque-hub__brand-row">
+          <img
+            className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
+            src={assetUrl(LOGO_GA_LOCKUP)}
+            alt="Grupo Alvim"
+          />
+          <div className="ck-estoque-hub__actions">
+            <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                navigate('/login/mobile');
+              }}
+            />
           </div>
-          <div className="ck-visitas__metrics ck-visitas__metrics--row ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-            <div className="ck-visitas__metric ck-visitas__metric--accent">
-              <strong style={{ fontSize: '0.95rem' }}>
-                {loading ? '—' : fmtBrl(resumoMes?.valor_break_mes)}
-              </strong>
-              <span>break mês</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong style={{ fontSize: '0.95rem' }}>
-                {loading ? '—' : fmtBrl(resumoMes?.valor_desperdicio_mes)}
-              </strong>
-              <span>desperdício</span>
-            </div>
-            <div className="ck-visitas__metric">
-              <strong>{loading ? '—' : lista.length}</strong>
-              <span>lançamentos</span>
-            </div>
+        </div>
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
+            <h1>Break e perdas</h1>
+          </div>
+          <p className="ck-break-hub__sub">
+            Registro de perdas operacionais, descarte e refeição da equipe.
+          </p>
+        </div>
+        {idLoja ? (
+          <nav className="ck-estoque-hub__tabs ck-break-hub__tabs" aria-label="Tipo de lançamento">
+            {(
+              [
+                ['todos', 'Todos'],
+                ['refeicao', 'Break'],
+                ['desperdicio_completo', 'Completo'],
+                ['desperdicio_incompleto', 'Incompleto'],
+                ['emprestimo', 'Empréstimo'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`ck-estoque-hub__tab${filtroTipo === value ? ' is-on' : ''}`}
+                onClick={() => setFiltroTipo(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
+      </header>
+
+      <div className="ck-estoque-hub__panel">
+        <div className="ck-break-hub__kpis" aria-live="polite">
+          <div className="ck-break-hub__kpi is-on">
+            <strong>{loading ? '—' : fmtBrl(resumoMes?.valor_break_mes)}</strong>
+            <span>Break mês</span>
+          </div>
+          <div className="ck-break-hub__kpi">
+            <strong>{loading ? '—' : fmtBrl(resumoMes?.valor_desperdicio_mes)}</strong>
+            <span>Desperdício</span>
+          </div>
+          <div className="ck-break-hub__kpi">
+            <strong>{loading ? '—' : lista.length}</strong>
+            <span>Lançamentos</span>
           </div>
         </div>
       </div>
 
-      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-        <div className="ck-estoque__sheet-head">
-          {err && (
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
-              {err}
-            </p>
-          )}
+      <div className="ck-estoque-hub__scroll ck-break-hub__scroll">
+        {err ? <p className="ck-break-hub__err">{err}</p> : null}
 
-          {podeTrocarLoja ? (
-            <div className="ck-estoque__loja">
+        {podeTrocarLoja ? (
+          <div className="ck-break-hub__loja">
+            <div className="ck-break-hub__loja-seletor">
               <button
                 type="button"
-                className="ck-estoque__loja-btn"
-                onClick={() => setDlgLoja(true)}
+                className="ck-break-hub__loja-btn"
+                onClick={() => setDlgLoja((v) => !v)}
               >
-                <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
-                <span aria-hidden>▾</span>
+                <span className="ck-break-hub__loja-btn-main">
+                  {lojaAtual ? (
+                    <img className="ck-break-hub__loja-ico" src={iconeMarcaLojaPorNome(lojaAtual)} alt="" />
+                  ) : (
+                    <StorefrontOutlinedIcon className="ck-break-hub__loja-ico-fallback" fontSize="small" />
+                  )}
+                  <span>{lojaAtual ? rotuloLoja(lojaAtual) : 'Selecione a loja'}</span>
+                </span>
+                <ExpandMoreIcon
+                  className={`ck-break-hub__loja-chev${dlgLoja ? ' is-open' : ''}`}
+                  fontSize="small"
+                />
               </button>
+              {dlgLoja ? (
+                <>
+                  <div className="ck-break-hub__dropdown-backdrop" onClick={fecharDlgLoja} />
+                  <div className="ck-break-hub__loja-dropdown">
+                    {lojasFiltradas.map((l) => {
+                      const ativa = l.id_loja === idLoja;
+                      return (
+                        <button
+                          key={l.id_loja}
+                          type="button"
+                          className={`ck-break-hub__loja-item${ativa ? ' is-on' : ''}`}
+                          onClick={() => selecionarLoja(l.id_loja)}
+                        >
+                          <img className="ck-break-hub__loja-ico" src={iconeMarcaLojaPorNome(l)} alt="" />
+                          <span>{rotuloLoja(l)}</span>
+                        </button>
+                      );
+                    })}
+                    {!lojasFiltradas.length ? (
+                      <div className="ck-break-hub__empty" style={{ margin: 8 }}>
+                        Nenhuma loja encontrada.
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
             </div>
-          ) : lojaAtual ? (
-            <div className="ck-estoque__loja">
-              <div className="ck-estoque__loja-fix" aria-label="Loja">
-                <StorefrontOutlinedIcon className="ck-estoque__loja-fix-icon" />
-                <div className="ck-estoque__loja-fix-text">
-                  {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
-                  <strong>{nomeLoja(lojaAtual)}</strong>
-                </div>
+          </div>
+        ) : lojaAtual ? (
+          <div className="ck-break-hub__loja">
+            <div className="ck-break-hub__loja-fix" aria-label="Loja">
+              <img className="ck-break-hub__loja-ico" src={iconeMarcaLojaPorNome(lojaAtual)} alt="" />
+              <div>
+                {lojaAtual.bk_number ? <small>{lojaAtual.bk_number}</small> : null}
+                <strong>{nomeLoja(lojaAtual)}</strong>
               </div>
             </div>
-          ) : null}
+          </div>
+        ) : null}
 
-          {idLoja ? (
-            <div className="ck-visitas__seg" role="tablist" style={{ marginTop: 10 }}>
-              {(
-                [
-                  ['todos', 'Todos'],
-                  ['refeicao', 'Break'],
-                  ['desperdicio_completo', 'Completo'],
-                  ['desperdicio_incompleto', 'Incompleto'],
-                  ['emprestimo', 'Empréstimo'],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  aria-selected={filtroTipo === value}
-                  className={`ck-visitas__seg-btn${filtroTipo === value ? ' is-on' : ''}`}
-                  onClick={() => setFiltroTipo(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          ) : null}
+        {idLoja ? (
+          <div className="ck-break-hub__busca">
+            <input
+              type="search"
+              placeholder="Buscar colaborador ou responsável…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+        ) : null}
 
-          {idLoja ? (
-            <div className="ck-estoque__busca-wrap" style={{ marginTop: 10 }}>
-              <input
-                type="search"
-                placeholder="Buscar colaborador ou responsável…"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-          ) : null}
-        </div>
+        {loading ? (
+          <LinearProgress
+            sx={{
+              my: 1.5,
+              borderRadius: 1,
+              backgroundColor: 'rgba(255,154,92,0.18)',
+              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+            }}
+          />
+        ) : null}
 
-        <div className="ck-visitas__sheet-body">
-          {loading && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
-
-          {!idLoja ? (
-            <div className="ck-estoque__empty">Selecione a loja para começar.</div>
-          ) : (
-            <>
-              {!loading && aReceber.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-                  {aReceber.map((emp) => (
-                    <div key={emp.id_break} className="ck-estoque__card" style={{ borderColor: '#E8520A' }}>
-                      <div className="ck-estoque__card-top">
-                        <strong>
-                          Receber de{' '}
-                          {emp.loja_origem_bk
-                            ? `${emp.loja_origem_bk} · ${emp.loja_origem_nome}`
-                            : emp.loja_origem_nome || 'outra loja'}
-                        </strong>
-                        <span className="ck-estoque__chip ck-estoque__chip--ok">
-                          {(emp.itens || []).length} itens
-                        </span>
-                      </div>
-                      <div className="ck-estoque__meta">
-                        {fmtDataBR(emp.data_break)}
-                        {emp.criado_por_nome ? ` · ${emp.criado_por_nome}` : ''}
-                      </div>
-                      {(emp.itens || []).map((it, idx) => (
-                        <div key={`${emp.id_break}-${idx}`} className="ck-estoque__desc" style={{ marginTop: 6 }}>
-                          {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        className="ck-estoque__dock-cta ck-estoque__dock-cta--ok"
-                        style={{ marginTop: 10, width: '100%', position: 'static' }}
-                        disabled={confirmandoId === emp.id_break}
-                        onClick={() => void confirmarRecebimento(emp.id_break)}
-                      >
-                        {confirmandoId === emp.id_break ? 'Confirmando…' : 'OK — recebi'}
-                      </button>
+        {!idLoja ? (
+          <div className="ck-break-hub__empty">Selecione a loja para começar.</div>
+        ) : (
+          <>
+            {!loading && aReceber.length > 0 ? (
+              <div className="ck-break-hub__stack">
+                {aReceber.map((emp) => (
+                  <div key={emp.id_break} className="ck-break-hub__card is-alerta">
+                    <div className="ck-break-hub__card-top">
+                      <strong>
+                        Receber de{' '}
+                        {emp.loja_origem_bk
+                          ? `${emp.loja_origem_bk} · ${emp.loja_origem_nome}`
+                          : emp.loja_origem_nome || 'outra loja'}
+                      </strong>
+                      <span className="ck-break-hub__chip is-ok">{(emp.itens || []).length} itens</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <p className="ck-break-hub__meta">
+                      {fmtDataBR(emp.data_break)}
+                      {emp.criado_por_nome ? ` · ${emp.criado_por_nome}` : ''}
+                    </p>
+                    {(emp.itens || []).map((it, idx) => (
+                      <p key={`${emp.id_break}-${idx}`} className="ck-break-hub__desc">
+                        {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
+                      </p>
+                    ))}
+                    <button
+                      type="button"
+                      className="ck-break-hub__cta"
+                      disabled={confirmandoId === emp.id_break}
+                      onClick={() => void confirmarRecebimento(emp.id_break)}
+                    >
+                      {confirmandoId === emp.id_break ? 'Confirmando…' : 'OK — recebi'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
-              {!loading && aDevolver.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-                  {aDevolver.map((emp) => (
-                    <div key={emp.id_break} className="ck-estoque__card" style={{ borderColor: '#0f1a45' }}>
-                      <div className="ck-estoque__card-top">
-                        <strong>
-                          Devolver para{' '}
-                          {emp.loja_origem_bk
-                            ? `${emp.loja_origem_bk} · ${emp.loja_origem_nome}`
-                            : emp.loja_origem_nome || 'origem'}
-                        </strong>
-                        <span className="ck-estoque__chip">{(emp.itens || []).length} itens</span>
-                      </div>
-                      <div className="ck-estoque__meta">
-                        {fmtDataBR(emp.data_break)}
-                        {emp.recebido_em ? ` · recebido ${fmtDataBR(emp.recebido_em)}` : ''}
-                      </div>
-                      {(emp.itens || []).map((it, idx) => (
-                        <div key={`dev-${emp.id_break}-${idx}`} className="ck-estoque__desc" style={{ marginTop: 6 }}>
-                          {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        className="ck-estoque__dock-cta"
-                        style={{ marginTop: 10, width: '100%', position: 'static' }}
-                        disabled={confirmandoId === emp.id_break}
-                        onClick={() => void confirmarDevolucao(emp.id_break)}
-                      >
-                        {confirmandoId === emp.id_break ? 'Devolvendo…' : 'Devolver agora'}
-                      </button>
+            {!loading && aDevolver.length > 0 ? (
+              <div className="ck-break-hub__stack">
+                {aDevolver.map((emp) => (
+                  <div key={emp.id_break} className="ck-break-hub__card">
+                    <div className="ck-break-hub__card-top">
+                      <strong>
+                        Devolver para{' '}
+                        {emp.loja_origem_bk
+                          ? `${emp.loja_origem_bk} · ${emp.loja_origem_nome}`
+                          : emp.loja_origem_nome || 'origem'}
+                      </strong>
+                      <span className="ck-break-hub__chip">{(emp.itens || []).length} itens</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <p className="ck-break-hub__meta">
+                      {fmtDataBR(emp.data_break)}
+                      {emp.recebido_em ? ` · recebido ${fmtDataBR(emp.recebido_em)}` : ''}
+                    </p>
+                    {(emp.itens || []).map((it, idx) => (
+                      <p key={`dev-${emp.id_break}-${idx}`} className="ck-break-hub__desc">
+                        {it.codigo} · {it.descricao} · {rotuloQtdEmprestimo(it)}
+                      </p>
+                    ))}
+                    <button
+                      type="button"
+                      className="ck-break-hub__cta is-ghost"
+                      disabled={confirmandoId === emp.id_break}
+                      onClick={() => void confirmarDevolucao(emp.id_break)}
+                    >
+                      {confirmandoId === emp.id_break ? 'Devolvendo…' : 'Devolver agora'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
-              {!loading && !listaFiltrada.length && (
-                <div className="ck-estoque__empty">
-                  {busca.trim()
-                    ? 'Nenhum lançamento encontrado na busca.'
-                    : filtroTipo === 'desperdicio_completo'
-                      ? 'Nenhum desperdício completo. Toque no + para lançar.'
-                      : filtroTipo === 'desperdicio_incompleto'
-                        ? 'Nenhum desperdício incompleto. Toque no + para lançar.'
-                        : 'Nenhum lançamento nesta loja. Toque no + e escolha o tipo.'}
-                </div>
-              )}
+            {!loading && !listaFiltrada.length ? (
+              <div className="ck-break-hub__empty">
+                {busca.trim()
+                  ? 'Nenhum lançamento encontrado na busca.'
+                  : filtroTipo === 'desperdicio_completo'
+                    ? 'Nenhum desperdício completo. Toque no + para lançar.'
+                    : filtroTipo === 'desperdicio_incompleto'
+                      ? 'Nenhum desperdício incompleto. Toque no + para lançar.'
+                      : 'Nenhum lançamento nesta loja. Toque no + e escolha o tipo.'}
+              </div>
+            ) : null}
 
-              {!loading &&
-                listaFiltrada.map((b) => (
-                  <div key={b.id_break} className="ck-estoque__card">
-                    <div className="ck-estoque__card-top">
+            {!loading
+              ? listaFiltrada.map((b) => (
+                  <div key={b.id_break} className="ck-break-hub__card">
+                    <div className="ck-break-hub__card-top">
                       <strong>
                         {b.tipo === 'emprestimo'
                           ? b.loja_destino_nome
@@ -1310,11 +1525,9 @@ export default function EstoqueMobileBreakPage() {
                             : 'Empréstimo'
                           : b.colaborador_nome || labelTipo(b.tipo)}
                       </strong>
-                      <span className="ck-estoque__chip ck-estoque__chip--ok">
-                        {b.itens ?? 0} itens
-                      </span>
+                      <span className="ck-break-hub__chip is-ok">{b.itens ?? 0} itens</span>
                     </div>
-                    <div className="ck-estoque__meta">
+                    <p className="ck-break-hub__meta">
                       {fmtDataBR(b.data_break)}
                       {labelTurno(b.turno) ? ` · ${labelTurno(b.turno)}` : ''}
                       {b.tipo && b.tipo !== 'refeicao' ? ` · ${labelTipo(b.tipo)}` : ''}
@@ -1326,86 +1539,71 @@ export default function EstoqueMobileBreakPage() {
                           : b.tipo === 'emprestimo' && b.recebimento_status === 'devolvido'
                             ? ' · Devolvido'
                             : ''}
-                    </div>
-                    <div className="ck-estoque__chips">
-                      <span className="ck-estoque__chip">
+                    </p>
+                    <div className="ck-break-hub__chips">
+                      <span className="ck-break-hub__chip">
                         {b.criado_por_nome ? `Por ${b.criado_por_nome}` : 'Lançado'}
                       </span>
-                      {b.criado_em ? (
-                        <span className="ck-estoque__chip">{fmtDataHora(b.criado_em)}</span>
-                      ) : null}
+                      {b.criado_em ? <span className="ck-break-hub__chip">{fmtDataHora(b.criado_em)}</span> : null}
                       {b.avisos_baixa ? (
-                        <span className="ck-estoque__chip" style={{ color: '#B42318', fontWeight: 700 }}>
-                          Estoque parcial — ver aba Baixa
-                        </span>
+                        <span className="ck-break-hub__chip is-warn">Estoque parcial — ver aba Baixa</span>
                       ) : null}
                     </div>
                     {b.avisos_baixa ? (
-                      <div className="ck-estoque__meta" style={{ color: '#B42318', marginTop: 4 }}>
-                        {String(b.avisos_baixa).split('\n')[0]}
-                      </div>
+                      <p className="ck-break-hub__warn">{String(b.avisos_baixa).split('\n')[0]}</p>
                     ) : null}
                   </div>
-                ))}
-            </>
-          )}
-        </div>
+                ))
+              : null}
+          </>
+        )}
       </div>
 
-      {idLoja ? (
-        <Fab
-          aria-label="Novo lançamento"
-          onClick={() => setDlgTipo(true)}
-          disabled={loading}
-          sx={{
-            position: 'fixed',
-            right: safeAreaRightCalc(20),
-            bottom: 'calc(16px + var(--app-tabbar-offset, 58px))',
-            zIndex: 40,
-            bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
-            color: '#fff',
-            boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
-            '&:hover': { bgcolor: escuro ? '#ea580c' : '#142048' },
-          }}
-        >
-          <AddIcon />
-        </Fab>
-      ) : null}
+      <AppHubDock
+        ativo={null}
+        plusLabel="Novo lançamento"
+        plusDisabled={!idLoja || loading}
+        onPlus={() => setDlgTipo(true)}
+      />
 
       {dlgTipo &&
         createPortal(
-          <div className="ck-estoque">
+          <div className="ck-estoque-hub ck-estoque-hub--sheet ck-break-hub">
             <div
-              className="ck-estoque__loja-modal ck-estoque__modal--center"
+              className="ck-estoque-hub__tipo-modal"
               role="dialog"
               aria-modal="true"
               aria-label="Novo lançamento"
             >
               <button
                 type="button"
-                className="ck-estoque__loja-backdrop"
+                className="ck-estoque-hub__sheet-back"
                 aria-label="Fechar"
                 onClick={() => setDlgTipo(false)}
               />
-              <div className="ck-estoque__loja-panel ck-estoque__confirm">
-                <div className="ck-estoque__loja-panel-head">
+              <div className="ck-estoque-hub__tipo-panel">
+                <div className="ck-estoque-hub__sheet-tipo-head">
                   <strong>O que vai lançar?</strong>
-                  <button type="button" className="ck-estoque__loja-fechar" onClick={() => setDlgTipo(false)}>
+                  <button
+                    type="button"
+                    className="ck-estoque-hub__sheet-tipo-fechar"
+                    onClick={() => setDlgTipo(false)}
+                  >
                     Fechar
                   </button>
                 </div>
-                <p className="ck-estoque__confirm-text">
-                  Break é refeição da equipe. Desperdício completo e incompleto seguem o caderno BK. Empréstimo transfere para outra loja.
+                <p className="ck-estoque-hub__sheet-tipo-text">
+                  Break é refeição da equipe. Desperdício segue o caderno BK. Empréstimo transfere para outra loja.
                 </p>
-                <div className="ck-estoque__confirm-actions" style={{ flexDirection: 'column' }}>
-                  {KINDS.map((k) => (
+                <div className="ck-estoque-hub__sheet-tipo-actions">
+                  {KINDS.map((k, i) => (
                     <button
                       key={k.id}
                       type="button"
-                      className={`ck-estoque__btn ${k.id === 'refeicao' ? 'ck-estoque__btn--primary' : 'ck-estoque__btn--ghost'}`}
+                      className={`ck-estoque-hub__sheet-tipo-btn ${i % 2 === 0 ? 'is-pri' : 'is-cinza'}`}
                       onClick={() => abrirForm(k.id)}
                     >
-                      {k.label}
+                      <strong>{k.label}</strong>
                     </button>
                   ))}
                 </div>
@@ -1414,8 +1612,7 @@ export default function EstoqueMobileBreakPage() {
           </div>,
           document.body,
         )}
-
-      {modalLoja}
     </div>
   );
+
 }

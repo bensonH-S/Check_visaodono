@@ -122,7 +122,9 @@ export default function MapaFiltroTrajetoCalendario({
             <CalendarMonthOutlinedIcon
               sx={{
                 fontSize: 18,
-                color: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navy),
+                color: tomEscuro
+                  ? '#ff9a5c'
+                  : (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navy),
                 flexShrink: 0,
               }}
             />
@@ -149,17 +151,47 @@ export default function MapaFiltroTrajetoCalendario({
         onClose={fechar}
         anchorOrigin={{ vertical: 'bottom', horizontal: campo ? 'left' : 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: campo ? 'left' : 'right' }}
-        slotProps={{ paper: { sx: { mt: 0.5, borderRadius: 2, width: 320, maxWidth: 'calc(100vw - 24px)' } } }}
+        slotProps={{
+          paper: {
+            className: tomEscuro ? 'ck-mapa__cal-pop is-dark' : 'ck-mapa__cal-pop',
+            sx: {
+              mt: 0.5,
+              borderRadius: 2,
+              width: 320,
+              maxWidth: 'calc(100vw - 24px)',
+              ...(tomEscuro
+                ? {
+                    bgcolor: '#1a222c !important',
+                    color: '#f5f5f5',
+                    backgroundImage: 'none',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    '& .MuiDateCalendar-root': {
+                      bgcolor: '#1a222c !important',
+                    },
+                  }
+                : null),
+            },
+          },
+        }}
       >
         <Box sx={{ px: 1.5, pt: 1, pb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 600, display: 'block', color: tomEscuro ? '#8d8d8d' : 'text.secondary' }}
+          >
             {somenteDia ? 'Dia do trajeto' : 'Período do trajeto'}
           </Typography>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: colors.navy }}>
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 600, color: tomEscuro ? '#ff9a5c' : colors.navy }}
+          >
             {rotulo}
           </Typography>
           {!somenteDia && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+            <Typography
+              variant="caption"
+              sx={{ display: 'block', mt: 0.25, color: tomEscuro ? '#8d8d8d' : 'text.secondary' }}
+            >
               {escolhendoFim
                 ? 'Toque o último dia do período, ou no mesmo dia para consultar só ele.'
                 : 'Toque o primeiro dia e o último para o período.'}
@@ -171,6 +203,54 @@ export default function MapaFiltroTrajetoCalendario({
           onChange={selecionarDia}
           maxDate={isoParaDayjs(hoje) ?? dayjs()}
           reduceAnimations
+          sx={
+            tomEscuro
+              ? {
+                  bgcolor: '#1a222c',
+                  color: '#f5f5f5',
+                  width: '100%',
+                  '& .MuiPickersFadeTransitionGroup-root': { bgcolor: '#1a222c' },
+                  '& .MuiDayCalendar-root, & .MuiDateCalendar-viewTransitionContainer': {
+                    bgcolor: '#1a222c',
+                  },
+                  '& .MuiPickersDay-root': {
+                    color: '#f5f5f5',
+                    bgcolor: 'transparent',
+                  },
+                  '& .MuiPickersDay-root.Mui-disabled': {
+                    color: 'rgba(255,255,255,0.25) !important',
+                  },
+                  '& .MuiPickersDay-root.MuiPickersDay-dayOutsideMonth': {
+                    color: 'rgba(255,255,255,0.28)',
+                  },
+                  '& .MuiPickersDay-root.Mui-selected': {
+                    bgcolor: '#fe6c22 !important',
+                    color: '#fff !important',
+                  },
+                  '& .MuiPickersDay-root:not(.Mui-selected):hover': {
+                    bgcolor: 'rgba(254,108,34,0.18)',
+                  },
+                  '& .MuiDayCalendar-weekDayLabel': { color: '#8d8d8d' },
+                  '& .MuiPickersCalendarHeader-root': { color: '#f5f5f5' },
+                  '& .MuiPickersCalendarHeader-label': { color: '#f5f5f5' },
+                  '& .MuiPickersArrowSwitcher-button': { color: '#f5f5f5' },
+                  '& .MuiPickersDay-today:not(.Mui-selected)': {
+                    borderColor: '#fe6c22',
+                  },
+                  '& .MuiYearCalendar-root, & .MuiMonthCalendar-button': {
+                    color: '#f5f5f5',
+                  },
+                  '& .MuiPickersYear-yearButton, & .MuiPickersMonth-monthButton': {
+                    color: '#f5f5f5',
+                  },
+                  '& .MuiPickersYear-yearButton.Mui-selected, & .MuiPickersMonth-monthButton.Mui-selected':
+                    {
+                      bgcolor: '#fe6c22 !important',
+                      color: '#fff !important',
+                    },
+                }
+              : undefined
+          }
         />
       </Popover>
     </LocalizationProvider>

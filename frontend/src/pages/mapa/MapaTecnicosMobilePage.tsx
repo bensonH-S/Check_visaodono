@@ -409,8 +409,18 @@ export default function MapaTecnicosMobilePage() {
     },
   ];
 
-  const overlaysHost =
-    typeof document !== 'undefined' ? document.querySelector('.ck-mapa--life') : null;
+  const [fichaHost, setFichaHost] = useState<Element | null>(null);
+  const [histResultsHost, setHistResultsHost] = useState<Element | null>(null);
+
+  useEffect(() => {
+    setFichaHost(document.querySelector('.ck-mapa--life'));
+  }, []);
+
+  useEffect(() => {
+    setHistResultsHost(
+      consultaHistorico ? document.querySelector('[data-mapa-hist-results]') : null,
+    );
+  }, [consultaHistorico, consultou]);
 
   const fichaOverlay =
     mostrarFicha && veiculoTrajetoAtivo != null ? (
@@ -483,6 +493,7 @@ export default function MapaTecnicosMobilePage() {
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <FrotaLocalizacaoMap
+          key={`mapa-mobile-${tipoMapa}`}
           posicoes={posicoesNoMapa}
           lojas={lojasNoMapa}
           veiculos={veiculosNoMapa}
@@ -497,11 +508,13 @@ export default function MapaTecnicosMobilePage() {
           modo="mobile"
           mostrarBotaoAtualizar={false}
           mostrarAlternarTipoMapa={false}
-          tilesGoogle
+          tilesGoogle={tipoMapa === 'satelite'}
           seguirTemaApp={false}
-          tipoMapaControlado={tipoMapa}
+          temaEscuro={tipoMapa === 'escuro'}
+          basemapClaroVector={tipoMapa === 'rua'}
+          tipoMapaControlado={tipoMapa === 'escuro' ? 'rua' : tipoMapa}
           mostrarPopupVeiculo={false}
-          ocultarPlaceholder={consultaHistorico}
+          ocultarPlaceholder
           consultaHistorico={consultaHistorico}
           regiaoFiltro={regiaoFiltro}
           trajetoDiaAtual={trajetoDiaAtual}
@@ -567,19 +580,15 @@ export default function MapaTecnicosMobilePage() {
           </Box>
         )}
 
-        {consultaHistorico && consultou && !overlaysHost && historicoOverlay}
+        {consultaHistorico && consultou && !histResultsHost && historicoOverlay}
 
-        {mostrarFicha && veiculoTrajetoAtivo != null && !overlaysHost && fichaOverlay}
+        {mostrarFicha && veiculoTrajetoAtivo != null && !fichaHost && fichaOverlay}
 
-        {overlaysHost && (historicoOverlay || fichaOverlay)
-          ? createPortal(
-              <>
-                {historicoOverlay}
-                {fichaOverlay}
-              </>,
-              overlaysHost,
-            )
+        {histResultsHost && historicoOverlay
+          ? createPortal(historicoOverlay, histResultsHost)
           : null}
+
+        {fichaHost && fichaOverlay ? createPortal(fichaOverlay, fichaHost) : null}
       </Box>
     </Box>
   );

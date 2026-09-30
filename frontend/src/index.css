@@ -985,12 +985,24 @@ html.dark .ck-fluxo__banner {
   background: var(--ga-surface) !important;
   border-color: var(--ga-border) !important;
 }
+html.dark .ck-checklist-hub .ck-fluxo__banner {
+  background: #1a222c !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
 html.dark .ck-fluxo__banner h2 {
   color: var(--ga-text-primary) !important;
+}
+html.dark .ck-checklist-hub .ck-fluxo__banner h2 {
+  color: #f5f5f5 !important;
+  font-size: 0.95rem !important;
+  font-family: Manrope, system-ui, sans-serif !important;
 }
 html.dark .ck-fluxo__banner p,
 html.dark .ck-fluxo__banner span {
   color: var(--ga-text-secondary) !important;
+}
+html.dark .ck-checklist-hub .ck-fluxo__banner span {
+  color: #ff9a5c !important;
 }
 html.dark .ck-fluxo__dock {
   background: var(--ga-canvas) !important;
@@ -1004,6 +1016,32 @@ html.dark .ck-fluxo__btn--navy {
 html.dark .ck-fluxo__btn--orange {
   background: var(--ga-orange) !important;
   color: #fff !important;
+}
+html.dark .ck-checklist-hub .ck-fluxo__btn--save,
+html.dark .ck-checklist-hub .ck-fluxo__btn--navy {
+  background: transparent !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;
+  color: #f5f5f5 !important;
+  box-shadow: none !important;
+}
+html.dark .ck-checklist-hub .ck-fluxo__btn--orange {
+  background: #fe6c22 !important;
+  color: #fff !important;
+}
+html.dark .ck-checklist-hub .ck-q__yn-btn--yes.is-on {
+  background: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #fff !important;
+}
+html.dark .ck-checklist-hub .ck-q__yn-btn--no.is-on {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #fff !important;
+}
+html.dark .ck-checklist-hub .ck-q__title {
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  color: #f5f5f5 !important;
 }
 html.dark .ck-fluxo__btn--ghost {
   background: var(--ga-surface) !important;
@@ -1051,6 +1089,13 @@ html.dark .ck-q input {
   border-color: var(--ga-border) !important;
   color: var(--ga-text-primary) !important;
 }
+html.dark .ck-checklist-hub .ck-q textarea,
+html.dark .ck-checklist-hub .ck-q input,
+html.dark .ck-checklist-hub .ck-q__textarea {
+  background: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #1a222c !important;
+}
 html.dark .ck-q__tag {
   background: rgba(255, 255, 255, 0.06) !important;
   color: var(--ga-text-secondary) !important;
@@ -1096,13 +1141,33 @@ html.dark .ck-q__tag {
   background: var(--ga-navy) !important;
   box-shadow: 0 12px 28px rgba(27, 42, 107, 0.38) !important;
 }
+:root:not(.dark) .ck-checklist-hub .ck-start__cta.is-ready {
+  background: #fe6c22 !important;
+  box-shadow: none !important;
+}
 :root:not(.dark) .ck-fluxo__chip.is-on {
   background: var(--ga-navy) !important;
   border-color: var(--ga-navy) !important;
   color: #fff !important;
 }
+:root:not(.dark) .ck-checklist-hub .ck-fluxo__chip.is-on {
+  background: rgba(254, 108, 34, 0.18) !important;
+  border-color: transparent !important;
+  color: #fe6c22 !important;
+}
 :root:not(.dark) .ck-fluxo__btn--navy {
   background: var(--ga-navy) !important;
+  color: #fff !important;
+}
+:root:not(.dark) .ck-checklist-hub .ck-fluxo__btn--navy,
+:root:not(.dark) .ck-checklist-hub .ck-fluxo__btn--save {
+  background: transparent !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;
+  color: #f5f5f5 !important;
+  box-shadow: none !important;
+}
+:root:not(.dark) .ck-checklist-hub .ck-fluxo__btn--orange {
+  background: #fe6c22 !important;
   color: #fff !important;
 }
 :root:not(.dark) .ck-frota .ck-frota__tab.is-on {
@@ -1172,6 +1237,26 @@ html.dark .mobile-tab-bar .mobile-tab-bar__btn:not(.is-active) .MuiSvgIcon-root 
   color: #1B2A6B !important;
 }
 
+/* Shell mobile escuro: ativo sempre laranja (mesmo se o tema do app for claro) */
+.mobile-app-shell .mobile-tab-bar a.active,
+.mobile-app-shell .mobile-tab-bar a.is-active,
+.mobile-app-shell .mobile-tab-bar a[aria-current='page'],
+.mobile-app-shell .mobile-tab-bar button.active,
+.mobile-app-shell .mobile-tab-bar button.is-active,
+.mobile-app-shell .mobile-tab-bar .mobile-tab-bar__item.is-active,
+.mobile-app-shell .mobile-tab-bar .mobile-tab-bar__btn.is-active {
+  color: #fe6c22 !important;
+}
+.mobile-app-shell .mobile-tab-bar a.active .MuiSvgIcon-root,
+.mobile-app-shell .mobile-tab-bar a.is-active .MuiSvgIcon-root,
+.mobile-app-shell .mobile-tab-bar a[aria-current='page'] .MuiSvgIcon-root,
+.mobile-app-shell .mobile-tab-bar button.active .MuiSvgIcon-root,
+.mobile-app-shell .mobile-tab-bar button.is-active .MuiSvgIcon-root,
+.mobile-app-shell .mobile-tab-bar .mobile-tab-bar__item.is-active .MuiSvgIcon-root,
+.mobile-app-shell .mobile-tab-bar .mobile-tab-bar__btn.is-active .MuiSvgIcon-root {
+  color: #fe6c22 !important;
+}
+
 /* Itens ativos - Tema Escuro (#FF7A3D) */
 html.dark .mobile-tab-bar a.active,
 html.dark .mobile-tab-bar a.is-active,
@@ -1192,9 +1277,120 @@ html.dark .mobile-tab-bar .mobile-tab-bar__btn.is-active .MuiSvgIcon-root {
   color: var(--ga-orange, #FF7A3D) !important;
 }
 
-/* Drawer "Mais" — painel inferior */
-html.dark .MuiDrawer-root .MuiPaper-root {
-  background: #1E293B !important;
+/* Menu Mais — overlay fixo acima do dock, sem slide de página */
+.ck-mobile-mais {
+  position: fixed;
+  inset: 0;
+  z-index: 1350;
+  pointer-events: none;
+}
+
+.ck-mobile-mais__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.62);
+  cursor: pointer;
+}
+
+.ck-mobile-mais__sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  z-index: 1;
+  max-height: calc(78vh - 64px - env(safe-area-inset-bottom, 0px));
+  pointer-events: auto;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 16px 16px;
+  border-radius: 18px 18px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 0;
+  background: #121a24;
+  color: #f5f5f5;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+}
+
+.ck-mobile-mais__grab {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.ck-mobile-mais__title {
+  margin: 0 0 10px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #f5f5f5;
+}
+
+.ck-mobile-mais__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ck-mobile-mais__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #f5f5f5;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ck-mobile-mais__item.is-on {
+  background: rgba(254, 108, 34, 0.16);
+  color: #ff9a5c;
+  font-weight: 700;
+}
+
+.ck-mobile-mais__icon {
+  display: inline-flex;
+  color: #94a3b8;
+}
+
+.ck-mobile-mais__item.is-on .ck-mobile-mais__icon {
+  color: var(--mais-accent, #fe6c22);
+}
+
+.ck-mobile-mais__icon .MuiSvgIcon-root {
+  font-size: 22px !important;
+}
+
+/* Shell mobile: html/body escuros (safe area / home indicator) */
+html:has(.mobile-app-shell),
+html:has(.mobile-app-shell) body,
+html:has(.mobile-app-shell) #root,
+body:has(.ck-mobile-mais) {
+  background: #0b1721 !important;
+  background-color: #0b1721 !important;
+}
+
+/* Abas/dock acima do menu Mais */
+.mobile-app-shell .mobile-tab-bar,
+.mobile-app-shell .ck-estoque-hub__dock,
+.ck-estoque-hub__dock,
+.mobile-tab-bar {
+  z-index: 1400 !important;
+  background: #0b1721 !important;
+  border-top-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 24px 0 0 #0b1721, 0 48px 0 0 #0b1721 !important;
 }
 
 /* ================================================================

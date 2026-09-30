@@ -294,9 +294,10 @@ export default function ChecklistMobilePage() {
       setMsg('');
       setMsgTitulo('');
       retomadaIniciada.current = null;
+      navigate('/visitas/mobile');
     });
     return () => registrarVoltar(null);
-  }, [location.pathname, registrarVoltar, fase, indiceSecao]);
+  }, [location.pathname, registrarVoltar, navigate]);
 
 
   const totalPerguntas = useMemo(
@@ -578,7 +579,9 @@ export default function ChecklistMobilePage() {
     const stateId = (location.state as { retomarVisitaId?: number } | null)?.retomarVisitaId;
     const id = param ? Number(param) : stateId;
     if (!id || Number.isNaN(id) || retomadaIniciada.current === id) return;
+    if (tiposChecklist.length === 0) return;
     retomadaIniciada.current = id;
+    setRetomando(true);
     const user = getUsuario();
     const local = user ? getSessaoChecklist(user.id_usuario) : null;
     const sessaoDaVisita = local?.visitaId === id ? local : null;
@@ -598,7 +601,7 @@ export default function ChecklistMobilePage() {
         );
       }
     });
-  }, [loading, searchParams, location.state, retomarVisita, setSearchParams]);
+  }, [loading, tiposChecklist.length, searchParams, location.state, retomarVisita, setSearchParams]);
 
   const patchResposta = (id: number, patch: Partial<RespostaLocal>) => {
     setRespostas((prev) => {
@@ -861,10 +864,28 @@ export default function ChecklistMobilePage() {
     }
   };
 
-  if (retomando) {
+  const visitaPendenteParam = searchParams.get('visita');
+  const visitaPendenteState = (location.state as { retomarVisitaId?: number } | null)?.retomarVisitaId;
+  const aguardandoRetomada =
+    fase === 'setup' &&
+    Boolean(
+      (visitaPendenteParam && !Number.isNaN(Number(visitaPendenteParam))) ||
+        (visitaPendenteState != null && !Number.isNaN(Number(visitaPendenteState))),
+    );
+
+  if (!paths.mobile && (retomando || aguardandoRetomada || loading)) {
     return (
-      <div className="ck-estoque-hub ck-checklist-hub" style={{ background: '#0b1721', padding: 24 }}>
-        <PageLoading label="Retomando checklist…" />
+      <div style={{ position: 'relative', flex: 1, minHeight: '100%', height: '100%', width: '100%' }}>
+        <PageLoading
+          comLogo
+          label={
+            retomando
+              ? 'Retomando checklist…'
+              : aguardandoRetomada
+                ? 'Abrindo visita…'
+                : 'Carregando checklist…'
+          }
+        />
       </div>
     );
   }
@@ -886,7 +907,8 @@ export default function ChecklistMobilePage() {
         <ChecklistStartScreen
           msg={msg}
           onClearMsg={() => setMsg('')}
-          saving={saving}
+          saving={saving || retomando || aguardandoRetomada}
+          loading={loading || retomando || aguardandoRetomada}
           lojas={lojasMobile}
           idLoja={idLoja}
           onSelecionarLoja={selecionarLojaMobile}
@@ -1171,7 +1193,14 @@ export default function ChecklistMobilePage() {
         <LinearProgress
           variant="determinate"
           value={progressoGeral}
-          sx={{ height: 8, borderRadius: 4, mt: 0.75, mb: 1.5 }}
+          sx={{
+            height: 8,
+            borderRadius: 4,
+            mt: 0.75,
+            mb: 1.5,
+            backgroundColor: 'rgba(254, 108, 34, 0.18)',
+            '& .MuiLinearProgress-bar': { backgroundColor: '#fe6c22' },
+          }}
         />
 
         <Box

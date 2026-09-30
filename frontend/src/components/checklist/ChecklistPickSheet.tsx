@@ -5,6 +5,8 @@ export type ChecklistPickOption = {
   id: string | number;
   label: string;
   meta?: string;
+  /** Ícone da marca (BK / Popeyes) na escolha de loja. */
+  iconUrl?: string;
 };
 
 type Props = {
@@ -45,6 +47,8 @@ export default function ChecklistPickSheet({
 
   if (!open || typeof document === 'undefined') return null;
 
+  const comIcone = options.some((o) => !!o.iconUrl);
+
   return createPortal(
     <div className="ck-pick ck-pick--hub" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" className="ck-pick__backdrop" aria-label="Fechar" onClick={onClose} />
@@ -54,19 +58,24 @@ export default function ChecklistPickSheet({
           <h2>{title}</h2>
           <span>{options.length} opções</span>
         </header>
-        <ul className="ck-pick__list">
+        <ul className={`ck-pick__list${comIcone ? ' ck-pick__list--icons' : ''}`}>
           {options.map((opt) => {
             const on = selectedId != null && String(selectedId) === String(opt.id);
             return (
               <li key={String(opt.id)}>
                 <button
                   type="button"
-                  className={`ck-pick__item${on ? ' is-on' : ''}`}
+                  className={`ck-pick__item${on ? ' is-on' : ''}${opt.iconUrl ? ' has-icon' : ''}`}
                   onClick={() => {
                     onSelect(opt.id);
                     onClose();
                   }}
                 >
+                  {opt.iconUrl ? (
+                    <span className="ck-pick__item-icon" aria-hidden>
+                      <img src={opt.iconUrl} alt="" />
+                    </span>
+                  ) : null}
                   <span className="ck-pick__item-text">
                     <strong>{opt.label}</strong>
                     {opt.meta ? <small>{opt.meta}</small> : null}

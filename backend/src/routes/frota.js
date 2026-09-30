@@ -1894,6 +1894,14 @@ router.post('/veiculos/:id/atribuir', requirePermissao('frota.gerenciar'), async
       );
 
       await client.query(
+        `SELECT setval(
+           pg_get_serial_sequence('frota_assuncoes', 'id_assuncao'),
+           GREATEST(COALESCE((SELECT MAX(id_assuncao) FROM frota_assuncoes), 1), 1),
+           (SELECT COALESCE(MAX(id_assuncao), 0) FROM frota_assuncoes) > 0
+         )`,
+      );
+
+      await client.query(
         `INSERT INTO frota_assuncoes (id_veiculo, id_usuario, km_inicio)
          VALUES ($1, $2, $3)`,
         [idVeiculo, idUsuario, kmEfetivo],
@@ -2225,6 +2233,14 @@ router.post(
            SET id_usuario_responsavel = $1, assuncao_em = NOW(), km_atual = $3, id_regiao = $4, updated_at = NOW()
            WHERE id_veiculo = $2`,
           [idUsuario, idVeiculo, kmEfetivo, idRegiaoTecnico],
+        );
+
+        await client.query(
+          `SELECT setval(
+             pg_get_serial_sequence('frota_assuncoes', 'id_assuncao'),
+             GREATEST(COALESCE((SELECT MAX(id_assuncao) FROM frota_assuncoes), 1), 1),
+             (SELECT COALESCE(MAX(id_assuncao), 0) FROM frota_assuncoes) > 0
+           )`,
         );
 
         const { rows: assRows } = await client.query(

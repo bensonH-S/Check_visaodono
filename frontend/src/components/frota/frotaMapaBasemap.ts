@@ -89,6 +89,7 @@ function customizarEstiloFiord(style: StyleSpecification): StyleSpecification {
   const layers = (style.layers ?? []).map((raw) => {
     const layer = { ...raw } as Record<string, unknown>;
     const id = String(layer.id ?? '');
+    const tipo = String(layer.type ?? '');
 
     if (id === 'background') {
       setPaint(layer, 'background-color', CC_MAPA_FUNDO);
@@ -111,8 +112,15 @@ function customizarEstiloFiord(style: StyleSpecification): StyleSpecification {
       setPaint(layer, 'fill-color', CC_MAPA_PARQUE);
       return layer as StyleSpecification['layers'][number];
     }
-    if (id === 'building') {
+    if (id === 'building' || id === 'aeroway-area') {
       setPaint(layer, 'fill-color', CC_MAPA_PREDIO);
+      return layer as StyleSpecification['layers'][number];
+    }
+
+    // Qualquer outro fill: força navy (evita manchas claras do Fiord original).
+    if (tipo === 'fill') {
+      setPaint(layer, 'fill-color', CC_MAPA_RESIDENCIAL);
+      setPaint(layer, 'fill-opacity', 1);
       return layer as StyleSpecification['layers'][number];
     }
 
@@ -146,6 +154,13 @@ function customizarEstiloFiord(style: StyleSpecification): StyleSpecification {
       return layer as StyleSpecification['layers'][number];
     }
 
+    if (tipo === 'symbol') {
+      const paint = { ...((layer.paint as Record<string, unknown> | undefined) ?? {}) };
+      if ('text-color' in paint) paint['text-color'] = '#94A3B8';
+      if ('text-halo-color' in paint) paint['text-halo-color'] = CC_MAPA_FUNDO;
+      layer.paint = paint;
+    }
+
     return layer as StyleSpecification['layers'][number];
   });
 
@@ -171,31 +186,35 @@ function carregarEstiloFiordEscuro(): Promise<StyleSpecification> {
 }
 
 /**
- * Basemap escuro Command Center: Fiord (OSM) escurecido + ruas branco-cinza.
+ * Basemap escuro Command Center: Fiord (OSM) via MapLibre, Deep Navy.
+ * Começa no Dark (nunca no Fiord claro) e troca para o Fiord customizado.
  */
 export function criarCamadaBasemapEscuro(_opcoes?: BasemapOpts) {
   const layer = L.maplibreGL({
-    style: {
-      version: 8,
-      sources: {},
-      layers: [{ id: 'background', type: 'background', paint: { 'background-color': CC_MAPA_FUNDO } }],
-    },
+    style: OPENFREEMAP_DARK,
     attributionControl: false,
   });
 
   layer.once('add', () => {
     forcarResizeMapLibre(layer);
-    void carregarEstiloFiordEscuro()
-      .then((style) => {
-        const gl = layer.getMaplibreMap?.();
-        if (!gl) return;
-        gl.setStyle(style);
-        gl.once('style.load', () => forcarResizeMapLibre(layer));
-      })
-      .catch(() => {
-        const gl = layer.getMaplibreMap?.();
-        gl?.setStyle(OPENFREEMAP_FIORD);
-      });
+    const tentarAplicar = (tentativa = 0) => {
+      const gl = layer.getMaplibreMap?.();
+      if (!gl) {
+        if (tentativa < 20) window.setTimeout(() => tentarAplicar(tentativa + 1), 50);
+        return;
+      }
+      void carregarEstiloFiordEscuro()
+        .then((style) => {
+          gl.setStyle(style);
+          gl.once('style.load', () => forcarResizeMapLibre(layer));
+        })
+        .catch(() => {
+          // Nunca volta para Fiord claro — mantém Dark.
+          gl.setStyle(OPENFREEMAP_DARK);
+          gl.once('style.load', () => forcarResizeMapLibre(layer));
+        });
+    };
+    tentarAplicar();
   });
 
   return layer;

@@ -73,23 +73,28 @@ function ListaVeiculos({
   carregando,
   posicaoPorId,
   onSelect,
+  escuro = false,
 }: {
   veiculos: FrotaVeiculo[];
   veiculoId: number | null;
   carregando: boolean;
   posicaoPorId: Map<number, FrotaVeiculoPosicao>;
   onSelect: (veiculo: FrotaVeiculo) => void;
+  escuro?: boolean;
 }): ReactNode {
   if (carregando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-        <CircularProgress size={24} />
+        <CircularProgress size={24} sx={{ color: escuro ? '#fe6c22' : undefined }} />
       </Box>
     );
   }
   if (veiculos.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 2.5 }}>
+      <Typography
+        variant="body2"
+        sx={{ px: 2, py: 2.5, color: escuro ? '#8d8d8d' : 'text.secondary' }}
+      >
         Nenhum veículo encontrado nesta região.
       </Typography>
     );
@@ -107,6 +112,8 @@ function ListaVeiculos({
           ? statusVeiculoMapa(aoVivo, aoVivo.rastreamento_disponivel !== false)
           : null;
         const status = statusKey ? rotuloStatusVeiculoMapa(statusKey) : null;
+        const muted = escuro ? '#8d8d8d' : colors.textMuted;
+        const primary = escuro ? '#f5f5f5' : 'text.primary';
         return (
           <ListItemButton
             key={v.id_veiculo}
@@ -118,90 +125,132 @@ function ListaVeiculos({
               borderRadius: 2,
               border: '1px solid',
               borderColor: selecionado
-                ? 'rgba(255, 122, 61, 0.35)'
-                : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(27, 42, 107, 0.08)'),
-              bgcolor: selecionado ? 'rgba(255, 122, 61, 0.12)' : 'transparent',
+                ? 'rgba(254, 108, 34, 0.4)'
+                : escuro
+                  ? 'rgba(255, 255, 255, 0.1)'
+                  : 'rgba(27, 42, 107, 0.08)',
+              bgcolor: selecionado
+                ? 'rgba(254, 108, 34, 0.14)'
+                : escuro
+                  ? 'rgba(255,255,255,0.03)'
+                  : 'transparent',
               '&.Mui-selected': {
-                bgcolor: 'rgba(255, 122, 61, 0.16)',
-                '&:hover': { bgcolor: 'rgba(255, 122, 61, 0.22)' },
+                bgcolor: 'rgba(254, 108, 34, 0.16)',
+                '&:hover': { bgcolor: 'rgba(254, 108, 34, 0.22)' },
               },
             }}
           >
-            <Box sx={{ display: 'flex', gap: 1.1, alignItems: 'flex-start', width: '100%', py: 0.25 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.35, width: '100%', py: 0.15, minWidth: 0 }}>
               <Box
                 sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 1.5,
-                  bgcolor: selecionado
-                    ? '#FF7A3D'
-                    : (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(27, 42, 107, 0.07)'),
-                  color: selecionado
-                    ? '#fff'
-                    : (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navy),
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
+                  gap: 0.75,
+                  minWidth: 0,
+                  whiteSpace: 'nowrap',
                 }}
               >
-                <DirectionsCarFilledOutlinedIcon sx={{ fontSize: 19 }} />
-              </Box>
-              <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
+                <DirectionsCarFilledOutlinedIcon
+                  sx={{
+                    fontSize: 18,
+                    flexShrink: 0,
+                    color: selecionado ? '#fe6c22' : escuro ? '#ff9a5c' : colors.navy,
+                  }}
+                />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 800,
+                    color: primary,
+                    lineHeight: 1.2,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {v.placa}
+                  <Typography
+                    component="span"
+                    sx={{ mx: 0.6, fontWeight: 700, color: muted, fontSize: '0.78rem' }}
+                  >
+                    ·
+                  </Typography>
+                  <Typography
+                    component="span"
+                    sx={{ fontWeight: 600, color: muted, fontSize: '0.78rem' }}
+                  >
+                    {rotuloModelo(v)}
+                    {v.ano ? ` · ${v.ano}` : ''}
+                  </Typography>
                   {!conectadoFulltrack(v, aoVivo) && (
                     <Typography
                       component="span"
-                      sx={{ ml: 0.75, fontSize: '0.72rem', fontWeight: 700, color: colors.textMuted }}
+                      sx={{ ml: 0.75, fontSize: '0.7rem', fontWeight: 700, color: muted }}
                     >
                       (sem gps)
                     </Typography>
                   )}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.2 }}>
-                  {rotuloModelo(v)}
-                  {v.ano ? ` · ${v.ano}` : ''}
-                </Typography>
-                {conectadoFulltrack(v, aoVivo) && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      display: 'block',
-                      mt: 0.2,
-                      fontWeight: 700,
-                      color: temGps
-                        ? (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navy)
-                        : colors.textMuted,
-                    }}
-                  >
-                    {temGps && status && statusKey ? (
-                      <span className="ck-mapa__status-live">
-                        <span className={`ck-mapa__status-dot is-${statusKey}`} aria-hidden />
-                        {status}
-                      </span>
-                    ) : (
-                      'Sem sinal no mapa'
-                    )}
-                  </Typography>
-                )}
-                {v.nome_regiao && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.35 }}>
-                    <LocationOnOutlinedIcon sx={{ fontSize: 13, color: '#FF7A3D', opacity: 0.9 }} />
-                    <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
-                      {v.nome_regiao}
-                    </Typography>
-                  </Box>
-                )}
-                {v.nome_responsavel && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.2 }}>
-                    <PersonOutlineOutlinedIcon sx={{ fontSize: 13, opacity: 0.75 }} />
-                    <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
-                      {v.nome_responsavel}
-                    </Typography>
-                  </Box>
-                )}
               </Box>
+              {conectadoFulltrack(v, aoVivo) && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    fontWeight: 700,
+                    color: temGps ? (escuro ? '#ff9a5c' : colors.navy) : muted,
+                    pl: '26px',
+                  }}
+                >
+                  {temGps && status && statusKey ? (
+                    <span className="ck-mapa__status-live">
+                      <span className={`ck-mapa__status-dot is-${statusKey}`} aria-hidden />
+                      {status}
+                    </span>
+                  ) : (
+                    'Sem sinal no mapa'
+                  )}
+                </Typography>
+              )}
+              {(v.nome_regiao || v.nome_responsavel) && (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, pl: '26px' }}>
+                  {v.nome_regiao ? (
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.35, minWidth: 0 }}>
+                      <LocationOnOutlinedIcon sx={{ fontSize: 13, color: '#ff9a5c', opacity: 0.9, flexShrink: 0 }} />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          lineHeight: 1.2,
+                          color: muted,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {v.nome_regiao}
+                      </Typography>
+                    </Box>
+                  ) : null}
+                  {v.nome_responsavel ? (
+                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.35, minWidth: 0 }}>
+                      <PersonOutlineOutlinedIcon sx={{ fontSize: 13, color: muted, opacity: 0.9, flexShrink: 0 }} />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          lineHeight: 1.2,
+                          color: muted,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {v.nome_responsavel}
+                      </Typography>
+                    </Box>
+                  ) : null}
+                </Box>
+              )}
             </Box>
           </ListItemButton>
         );
@@ -305,14 +354,22 @@ export default function MapaFiltroTrajetoVeiculo({
   }
 
   const cabecalho = (
-    <Box sx={{ px: 1.5, pt: 1.25, pb: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
+    <Box
+      sx={{
+        px: 1.5,
+        pt: 1.25,
+        pb: 0.75,
+        borderBottom: '1px solid',
+        borderColor: tomEscuro ? 'rgba(255,255,255,0.1)' : 'divider',
+      }}
+    >
       {campo && (
         <Box
           sx={{
             width: 36,
             height: 4,
             borderRadius: 2,
-            bgcolor: 'rgba(27, 42, 107, 0.18)',
+            bgcolor: tomEscuro ? 'rgba(255,255,255,0.2)' : 'rgba(27, 42, 107, 0.18)',
             mx: 'auto',
             mb: 1,
           }}
@@ -320,11 +377,11 @@ export default function MapaFiltroTrajetoVeiculo({
       )}
       <Typography
         variant="subtitle2"
-        sx={{ fontWeight: 800, color: (theme) => (theme.palette.mode === 'dark' ? '#F8FAFC' : '#1B2A6B') }}
+        sx={{ fontWeight: 800, color: tomEscuro ? '#f5f5f5' : (theme) => (theme.palette.mode === 'dark' ? '#F8FAFC' : '#1B2A6B') }}
       >
         Escolher veículo
       </Typography>
-      <Typography variant="caption" color="text.secondary">
+      <Typography variant="caption" sx={{ color: tomEscuro ? '#8d8d8d' : 'text.secondary' }}>
         {veiculosFiltrados.length} {veiculosFiltrados.length === 1 ? 'veículo' : 'veículos'} · toque para
         selecionar
       </Typography>
@@ -338,6 +395,7 @@ export default function MapaFiltroTrajetoVeiculo({
       carregando={carregando && catalogo.length === 0}
       posicaoPorId={posicaoPorId}
       onSelect={escolher}
+      escuro={tomEscuro}
     />
   );
 
@@ -354,9 +412,13 @@ export default function MapaFiltroTrajetoVeiculo({
         >
           <span className="ck-mapa__consulta-label">Veículo</span>
           <span className="ck-mapa__consulta-value">
-            <DirectionsCarFilledOutlinedIcon sx={{ fontSize: 18, color: colors.navy, flexShrink: 0 }} />
+            <DirectionsCarFilledOutlinedIcon
+              sx={{ fontSize: 18, color: tomEscuro ? '#ff9a5c' : colors.navy, flexShrink: 0 }}
+            />
             <span className="ck-mapa__consulta-value-txt">{rotuloCampo}</span>
-            <KeyboardArrowDownIcon sx={{ fontSize: 20, color: '#6b7280', ml: 'auto', flexShrink: 0 }} />
+            <KeyboardArrowDownIcon
+              sx={{ fontSize: 20, color: tomEscuro ? '#8d8d8d' : '#6b7280', ml: 'auto', flexShrink: 0 }}
+            />
           </span>
         </button>
       ) : (
@@ -398,13 +460,34 @@ export default function MapaFiltroTrajetoVeiculo({
           disableEnforceFocus
           disableRestoreFocus
           ModalProps={{ keepMounted: false }}
+          className={tomEscuro ? 'ck-mapa__veiculo-drawer-root is-dark' : 'ck-mapa__veiculo-drawer-root'}
+          sx={{
+            zIndex: 1600,
+            '& .MuiBackdrop-root': {
+              bottom: 'var(--app-tabbar-offset, 58px)',
+            },
+          }}
           slotProps={{
+            root: { sx: { zIndex: 1600 } },
             paper: {
+              className: tomEscuro ? 'ck-mapa__veiculo-drawer is-dark' : 'ck-mapa__veiculo-drawer',
               sx: {
+                zIndex: 1601,
+                bottom: 'var(--app-tabbar-offset, 58px) !important',
                 borderTopLeftRadius: 18,
                 borderTopRightRadius: 18,
-                maxHeight: '78vh',
-                pb: 'env(safe-area-inset-bottom, 0px)',
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+                maxHeight: 'calc(100dvh - var(--app-tabbar-offset, 58px))',
+                pb: '12px',
+                ...(tomEscuro
+                  ? {
+                      bgcolor: '#1a222c !important',
+                      color: '#f5f5f5',
+                      backgroundImage: 'none',
+                      borderTop: '1px solid rgba(255,255,255,0.12)',
+                    }
+                  : null),
               },
             },
           }}

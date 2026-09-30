@@ -1,90 +1,40 @@
-import type { ReactNode } from 'react';
-import CkMarkLogoMenu from '../CkMarkLogoMenu';
-import '../visitas/visitas-mobile.css';
+import { useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { getUsuario, logout } from '../../lib/auth';
+import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import MobileUsuarioMenu from '../MobileUsuarioMenu';
+import NotificacoesSino from '../NotificacoesSino';
+import AppHubDock from '../hub/AppHubDock';
+import FrotaPlusSheet from './FrotaPlusSheet';
+import '../estoque/estoque-hub.css';
 import './frota-mobile.css';
 
 export type FrotaMetric = {
   value: ReactNode;
   label: string;
   accent?: boolean;
+  /** Destaque verde (ex.: status Em uso). */
+  ok?: boolean;
 };
 
 type Props = {
-  /** Linha 1 do título (Fraunces). */
   titleLine1: string;
-  /** Linha 2 do título. */
   titleLine2?: string;
-  sub: string;
+  sub?: string;
   metrics?: FrotaMetric[];
-  /** Se definido, mostra botão voltar ao lado da logo. */
   onBack?: () => void;
-  /** Conteúdo do sheet. */
   children: ReactNode;
-  /** Hub principal: reserva tab bar. Subpáginas: header fixo + sheet com scroll interno. */
   variant?: 'hub' | 'page';
   extraStage?: ReactNode;
+  plusLabel?: string;
+  plusDisabled?: boolean;
+  onPlus?: () => void;
+  /** Se false, desabilita combustível/manutenção no sheet do +. */
+  temVeiculo?: boolean;
 };
 
-function StageContent({
-  titleLine1,
-  titleLine2,
-  sub,
-  metrics,
-  onBack,
-  extraStage,
-}: Omit<Props, 'children' | 'variant'>) {
-  return (
-    <div className="ck-visitas__stage-inner">
-      <div className="ck-visitas__hero-row ck-visitas__anim ck-visitas__anim--2">
-        <div className="ck-frota__hero-text">
-          <p className="ck-visitas__mark-text">Grupo Alvim</p>
-          <h1 className="ck-visitas__title">
-            {titleLine1}
-            {titleLine2 ? (
-              <>
-                <br />
-                {titleLine2}
-              </>
-            ) : null}
-          </h1>
-        </div>
-        <div className="ck-frota__hero-end">
-          {onBack ? (
-            <button
-              type="button"
-              className="ck-visitas__back ck-frota__back-beside-logo"
-              aria-label="Voltar"
-              onClick={onBack}
-            >
-              ←
-            </button>
-          ) : null}
-          <CkMarkLogoMenu size={72} className="ck-visitas__mark-icon" />
-        </div>
-      </div>
-
-      <p className="ck-visitas__sub ck-visitas__anim ck-visitas__anim--3">{sub}</p>
-
-      {metrics && metrics.length > 0 && (
-        <div className="ck-visitas__metrics ck-visitas__anim ck-visitas__anim--3" aria-live="polite">
-          {metrics.map((m) => (
-            <div
-              key={m.label}
-              className={`ck-visitas__metric${m.accent ? ' ck-visitas__metric--accent' : ''}`}
-            >
-              <strong>{m.value}</strong>
-              <span>{m.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {extraStage}
-    </div>
-  );
-}
-
-/** Casca immersive da Frota — mesmo modelo Checklist / Visitas. */
+/** Casca da Frota mobile — mesmo tema do hub estoque/checklist. */
 export default function FrotaMobileShell({
   titleLine1,
   titleLine2,
@@ -94,40 +44,99 @@ export default function FrotaMobileShell({
   children,
   variant = 'page',
   extraStage,
+  plusLabel = 'Operações',
+  plusDisabled,
+  onPlus,
+  temVeiculo = true,
 }: Props) {
-  const stage = (
-    <div className="ck-visitas__stage">
-      <div className="ck-visitas__glow ck-visitas__glow--a" aria-hidden />
-      <div className="ck-visitas__glow ck-visitas__glow--b" aria-hidden />
-      <div className="ck-visitas__mesh" aria-hidden />
-      <StageContent
-        titleLine1={titleLine1}
-        titleLine2={titleLine2}
-        sub={sub}
-        metrics={metrics}
-        onBack={onBack}
-        extraStage={extraStage}
-      />
-    </div>
-  );
-
-  if (variant === 'hub') {
-    return (
-      <div className="ck-visitas ck-frota">
-        <div className="ck-visitas__scroll">
-          {stage}
-          <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">{children}</div>
-        </div>
-      </div>
-    );
-  }
+  const navigate = useNavigate();
+  const user = getUsuario();
+  const [plusAberto, setPlusAberto] = useState(false);
+  const titulo = titleLine2 ? `${titleLine1} ${titleLine2}` : titleLine1;
 
   return (
-    <div className="ck-visitas ck-frota ck-frota--page">
-      {stage}
-      <div className="ck-visitas__sheet ck-frota__sheet--fill ck-visitas__anim ck-visitas__anim--4">
+    <div
+      className={`ck-estoque-hub ck-estoque-hub--hero ck-frota-hub${
+        variant === 'page' ? ' ck-frota-hub--page' : ''
+      }`}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+    >
+      <div className="ck-estoque-hub__watermark" aria-hidden />
+      <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
+        <div className="ck-estoque-hub__brand-row">
+          <img
+            className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
+            src={assetUrl(LOGO_GA_LOCKUP)}
+            alt="Grupo Alvim"
+          />
+          <div className="ck-estoque-hub__actions">
+            {onBack ? (
+              <button
+                type="button"
+                className="ck-estoque-hub__icon-btn ck-frota-hub__btn-voltar-topo"
+                aria-label="Voltar"
+                onClick={onBack}
+              >
+                <ArrowBackIcon />
+              </button>
+            ) : null}
+            <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
+            <MobileUsuarioMenu
+              user={user}
+              onLogout={() => {
+                logout();
+                navigate('/login/mobile');
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="ck-estoque-hub__hero-copy">
+          <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
+            <h1>{titulo}</h1>
+          </div>
+          {sub ? <p className="ck-frota-hub__sub">{sub}</p> : null}
+        </div>
+
+        {metrics && metrics.length > 0 ? (
+          <div className="ck-frota-hub__kpis ck-frota-hub__kpis--in-header" aria-live="polite">
+            {metrics.map((m) => (
+              <div
+                key={m.label}
+                className={`ck-frota-hub__kpi${m.accent ? ' is-on' : ''}${m.ok ? ' is-ok' : ''}`}
+              >
+                <strong>{m.value}</strong>
+                <span>{m.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {extraStage}
+      </header>
+
+      <div
+        className={`ck-estoque-hub__scroll ck-frota-hub__scroll${
+          variant === 'page' ? ' ck-frota-hub__scroll--page' : ''
+        }`}
+      >
         {children}
       </div>
+
+      <AppHubDock
+        ativo={null}
+        plusLabel={plusLabel}
+        plusDisabled={plusDisabled}
+        onPlus={onPlus ?? (() => setPlusAberto(true))}
+      />
+
+      {!onPlus ? (
+        <FrotaPlusSheet
+          open={plusAberto}
+          onClose={() => setPlusAberto(false)}
+          temVeiculo={temVeiculo}
+        />
+      ) : null}
     </div>
   );
 }

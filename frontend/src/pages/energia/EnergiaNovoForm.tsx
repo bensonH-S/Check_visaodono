@@ -57,9 +57,9 @@ export default function EnergiaNovoForm({ onCancel, onSuccess }: Props) {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [idLoja, setIdLoja] = useState<number | ''>('');
   const [protocolo, setProtocolo] = useState('');
-  const [concessionaria, setConcessionaria] = useState('Concessionária de energia');
+  const [concessionaria, setConcessionaria] = useState('');
   const [concessionariaOutra, setConcessionariaOutra] = useState('');
-  const [tipo, setTipo] = useState('falta_energia');
+  const [tipo, setTipo] = useState('');
   const [dataOcorrido, setDataOcorrido] = useState(inicial.data);
   const [horaOcorrido, setHoraOcorrido] = useState(inicial.hora);
   const [descricao, setDescricao] = useState('');
@@ -92,6 +92,18 @@ export default function EnergiaNovoForm({ onCancel, onSuccess }: Props) {
       setErr('Informe o protocolo gerado na ligação.');
       return;
     }
+    if (!concessionaria) {
+      setErr('Selecione a concessionária de energia.');
+      return;
+    }
+    if (concessionaria === 'Outra' && !concessionariaOutra.trim()) {
+      setErr('Informe o nome da concessionária.');
+      return;
+    }
+    if (!tipo) {
+      setErr('Selecione o tipo de ocorrência.');
+      return;
+    }
     if (!fotos.length) {
       setErr('Anexe ao menos uma foto da ocorrência.');
       return;
@@ -101,7 +113,7 @@ export default function EnergiaNovoForm({ onCancel, onSuccess }: Props) {
       return;
     }
     const nomeConcessionaria =
-      concessionaria === 'Outra' ? concessionariaOutra.trim() || 'Concessionária de energia' : concessionaria;
+      concessionaria === 'Outra' ? concessionariaOutra.trim() : concessionaria;
 
     setSalvando(true);
     try {
@@ -157,11 +169,21 @@ export default function EnergiaNovoForm({ onCancel, onSuccess }: Props) {
       />
       <TextField
         select
+        required
         label="Concessionária"
         value={concessionaria}
         onChange={(e) => setConcessionaria(e.target.value)}
-        helperText="Se não souber o nome da empresa, deixe a opção genérica."
-        slotProps={{ select: selectMenuScrollProps }}
+        slotProps={{
+          select: {
+            displayEmpty: true,
+            renderValue: (selected: unknown) => {
+              const v = String(selected ?? '');
+              if (!v) return 'Selecione a concessionária de energia';
+              return CONCESSIONARIAS.find((c) => c.value === v)?.label ?? v;
+            },
+            ...selectMenuScrollProps,
+          },
+        }}
       >
         {CONCESSIONARIAS.map((c) => (
           <MenuItem key={c.value} value={c.value}>
@@ -171,6 +193,7 @@ export default function EnergiaNovoForm({ onCancel, onSuccess }: Props) {
       </TextField>
       {concessionaria === 'Outra' && (
         <TextField
+          required
           label="Nome da concessionária"
           value={concessionariaOutra}
           onChange={(e) => setConcessionariaOutra(e.target.value)}
@@ -178,10 +201,21 @@ export default function EnergiaNovoForm({ onCancel, onSuccess }: Props) {
       )}
       <TextField
         select
+        required
         label="Tipo de ocorrência"
         value={tipo}
         onChange={(e) => setTipo(e.target.value)}
-        slotProps={{ select: selectMenuScrollProps }}
+        slotProps={{
+          select: {
+            displayEmpty: true,
+            renderValue: (selected: unknown) => {
+              const v = String(selected ?? '');
+              if (!v) return 'Selecione o que aconteceu';
+              return TIPOS_OCORRENCIA.find((t) => t.value === v)?.label ?? v;
+            },
+            ...selectMenuScrollProps,
+          },
+        }}
       >
         {TIPOS_OCORRENCIA.map((t) => (
           <MenuItem key={t.value} value={t.value}>

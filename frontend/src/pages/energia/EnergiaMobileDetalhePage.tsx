@@ -112,51 +112,43 @@ export default function EnergiaMobileDetalhePage() {
 
   if (loading) {
     return (
-      <EnergiaMobileChrome>
-        <PageLoading />
+      <EnergiaMobileChrome plusDisabled>
+        <EnergiaMobileStage title="Energia" sub="Carregando protocolo…" />
+        <div className="ck-estoque-hub__scroll ck-energia-hub__scroll">
+          <PageLoading comLogo />
+        </div>
       </EnergiaMobileChrome>
     );
   }
 
   if (!item) {
     return (
-      <EnergiaMobileChrome>
-        <EnergiaMobileStage title="Energia" sub="Protocolo não encontrado." />
-        <div className="ck-visitas__sheet">
-          <div className="ck-estoque__sheet-head">
-            <EnergiaLojaHead
-              lojas={[]}
-              idLoja=""
-              podeTrocarLoja={false}
-              lojaAtual={null}
-              dlgLoja={false}
-              setDlgLoja={() => undefined}
-              onVoltar={() => navigate('/energia/mobile')}
-            />
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem' }}>
-              {err || 'Não encontrado.'}
-            </p>
-          </div>
+      <EnergiaMobileChrome plusDisabled>
+        <EnergiaMobileStage
+          title="Energia"
+          sub="Protocolo não encontrado."
+          onBack={() => navigate('/energia/mobile')}
+        />
+        <div className="ck-estoque-hub__scroll ck-energia-hub__scroll">
+          <p className="ck-energia-hub__err">{err || 'Não encontrado.'}</p>
         </div>
       </EnergiaMobileChrome>
     );
   }
 
   return (
-    <EnergiaMobileChrome>
+    <EnergiaMobileChrome plusDisabled>
       <EnergiaMobileStage
         title="Energia"
         sub={`Protocolo ${item.protocolo} · ${rotuloTipoOcorrencia(item.tipo_ocorrencia)}`}
+        onBack={() => navigate('/energia/mobile')}
         kpis={
-          <div
-            className="ck-estoque__kpis ck-estoque__kpis--2 ck-visitas__anim ck-visitas__anim--3"
-            aria-live="polite"
-          >
-            <div className="ck-estoque__kpi ck-estoque__kpi--accent">
+          <div className="ck-energia-hub__kpis ck-energia-hub__kpis--2" aria-live="polite">
+            <div className="ck-energia-hub__kpi is-on">
               <strong>#{item.numero}</strong>
               <span>Chamado</span>
             </div>
-            <div className="ck-estoque__kpi">
+            <div className="ck-energia-hub__kpi">
               <strong>{item.anexos.length}</strong>
               <span>{item.anexos.length === 1 ? 'foto' : 'fotos'}</span>
             </div>
@@ -164,13 +156,8 @@ export default function EnergiaMobileDetalhePage() {
         }
       />
 
-      <div className="ck-visitas__sheet ck-visitas__anim ck-visitas__anim--4">
-        <div className="ck-estoque__sheet-head">
-          {err && (
-            <p style={{ color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem', margin: '0 0 12px' }}>
-              {err}
-            </p>
-          )}
+      <div className="ck-estoque-hub__scroll ck-energia-hub__scroll">
+          {err ? <p className="ck-energia-hub__err">{err}</p> : null}
           <EnergiaLojaHead
             lojas={[]}
             idLoja={item.id_loja}
@@ -178,12 +165,9 @@ export default function EnergiaMobileDetalhePage() {
             lojaAtual={null}
             dlgLoja={false}
             setDlgLoja={() => undefined}
-            onVoltar={() => navigate('/energia/mobile')}
-            lojaFixa={{ bk_number: item.bk_number, nome: item.nome_loja }}
+            lojaFixa={{ bk_number: item.bk_number, nome: item.nome_loja || 'Loja' }}
           />
-        </div>
 
-        <div className="ck-visitas__sheet-body">
           {busy && <LinearProgress sx={{ my: 1.5, borderRadius: 1 }} />}
 
           <div className="ck-estoque__card ck-estoque__card--lista ck-estoque__card--static">
@@ -306,7 +290,6 @@ export default function EnergiaMobileDetalhePage() {
               </button>
             </div>
           )}
-        </div>
       </div>
     </EnergiaMobileChrome>
   );

@@ -28,6 +28,7 @@ import ImageLightbox from '../components/ImageLightbox';
 import { useAppTheme } from '../context/ThemeContext';
 import { colors } from '../theme/tokens';
 import { pageFillLayoutSx } from '../utils/pageFillLayout';
+import { assetUrl, LOGO_ALVIM_ICONE } from '../config/paths';
 import '../components/visitas/visitas-mobile.css';
 
 const ORANGE = '#E8520A';
@@ -259,16 +260,26 @@ export default function RelatorioPage() {
   if (mobileApp) {
     if (err) {
       return (
-        <div className="ck-visitas">
-          <div className="ck-visitas__sheet" style={{ marginTop: 0, borderRadius: 0, minHeight: '100%' }}>
-            <div className="ck-visitas__empty" style={{ color: '#b91c1c' }}>
+        <div
+          className="ck-estoque-hub ck-estoque-hub--hero ck-visitas-hub"
+          style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+        >
+          <div className="ck-estoque-hub__watermark" aria-hidden />
+          <div className="ck-estoque-hub__scroll ck-visitas-hub__scroll">
+            <div className="ck-visitas-hub__empty" style={{ color: '#f87171' }}>
               {err}
             </div>
           </div>
         </div>
       );
     }
-    if (!data) return <PageLoading />;
+    if (!data) {
+      return (
+        <div style={{ position: 'relative', flex: 1, minHeight: '100%', height: '100%', width: '100%' }}>
+          <PageLoading label="Carregando relatório…" comLogo />
+        </div>
+      );
+    }
     return (
       <>
         <RelatorioMobileScreen

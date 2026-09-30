@@ -1,0 +1,1012 @@
+/* Break mobile — hub escuro */
+
+.ck-break-hub.ck-estoque-hub {
+  background: #0b1721 !important;
+  color: #f5f5f5;
+}
+
+.ck-break-hub .ck-estoque-hub__top--fixed,
+.ck-break-hub .ck-estoque-hub__scroll,
+.ck-break-hub .ck-estoque-hub__panel {
+  background: transparent !important;
+}
+
+.ck-break-hub__sub {
+  margin: 8px 0 0;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #8d8d8d;
+}
+
+.ck-break-hub__sub--loja {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ck-break-hub__sub--loja > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-break-hub__loja-ico--sm {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  padding: 1px !important;
+}
+
+.ck-break-hub__tabs {
+  margin-top: 12px !important;
+  padding: 8px 0 10px !important;
+  gap: 10px !important;
+  justify-content: flex-start !important;
+}
+
+.ck-break-hub__tabs .ck-estoque-hub__tab {
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  padding: 0 2px 8px !important;
+  font-size: 0.78rem !important;
+}
+
+.ck-break-hub__scroll {
+  padding: 12px var(--eh-pad, 20px) calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+.ck-break-hub__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ck-break-hub .ck-estoque-hub__panel .ck-break-hub__kpis {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ck-break-hub__kpi {
+  padding: 12px 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(51, 56, 64, 0.72);
+  text-align: center;
+}
+
+.ck-break-hub__kpi.is-on {
+  border-color: rgba(254, 108, 34, 0.35);
+  background: rgba(254, 108, 34, 0.12);
+}
+
+.ck-break-hub__kpi strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #f5f5f5;
+  line-height: 1.2;
+}
+
+.ck-break-hub__kpi.is-on strong {
+  color: #fe6c22;
+}
+
+.ck-break-hub__kpi span {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #8d8d8d;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ck-break-hub__filtros {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ck-break-hub__filtros::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-break-hub__filtro {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(51, 56, 64, 0.72);
+  color: #a8aeb8;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ck-break-hub__filtro.is-on {
+  color: #ff9a5c;
+  border-color: rgba(254, 108, 34, 0.45);
+  background: rgba(254, 108, 34, 0.16);
+}
+
+.ck-break-hub__err {
+  margin: 0 0 12px;
+  color: #f87171;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ck-break-hub__loja {
+  margin-bottom: 12px;
+}
+
+.ck-break-hub__loja-seletor {
+  position: relative;
+}
+
+.ck-break-hub__loja-btn,
+.ck-break-hub__loja-fix {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(51, 56, 64, 0.82);
+  color: #f5f5f5;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ck-break-hub__loja-btn-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  text-align: left;
+}
+
+.ck-break-hub__loja-btn-main > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-break-hub__loja-ico {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 2px;
+  box-sizing: border-box;
+  object-fit: contain;
+  object-position: center;
+  flex-shrink: 0;
+  display: block;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ck-break-hub__loja-ico-fallback {
+  color: #fe6c22 !important;
+  flex-shrink: 0;
+}
+
+.ck-break-hub__loja-chev {
+  color: #8d8d8d !important;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.ck-break-hub__loja-chev.is-open {
+  transform: rotate(180deg);
+  color: #fe6c22 !important;
+}
+
+.ck-break-hub__loja-fix {
+  justify-content: flex-start;
+  cursor: default;
+}
+
+.ck-break-hub__loja-fix small {
+  display: block;
+  font-size: 0.68rem;
+  color: #8d8d8d;
+}
+
+.ck-break-hub__loja-fix strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #f5f5f5;
+}
+
+.ck-break-hub__dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.ck-break-hub__loja-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  max-height: 240px;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1a222c;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.ck-break-hub__loja-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: #f5f5f5;
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ck-break-hub__loja-item.is-on {
+  color: #fe6c22;
+  background: rgba(254, 108, 34, 0.12);
+}
+
+.ck-break-hub__busca {
+  margin-bottom: 14px;
+}
+
+.ck-break-hub__busca input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #2a3038;
+  color: #f5f5f5;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.ck-break-hub__busca input::placeholder {
+  color: #8d8d8d;
+}
+
+.ck-break-hub__empty {
+  padding: 28px 18px;
+  text-align: center;
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(51, 56, 64, 0.72);
+  color: #8d8d8d;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.ck-break-hub__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.ck-break-hub__card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #fe6c22;
+  background: rgba(51, 56, 64, 0.82);
+  margin-bottom: 12px;
+}
+
+.ck-break-hub__card.is-alerta {
+  border-left-color: #ff9a5c;
+}
+
+.ck-break-hub__card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ck-break-hub__card-top strong {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #f5f5f5;
+  line-height: 1.3;
+}
+
+.ck-break-hub__meta,
+.ck-break-hub__desc {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: #a8aeb8;
+  line-height: 1.35;
+}
+
+.ck-break-hub__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.ck-break-hub__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #d0d0d0;
+  background: rgba(11, 23, 33, 0.45);
+}
+
+.ck-break-hub__chip.is-ok {
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.ck-break-hub__chip.is-warn {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.14);
+}
+
+.ck-break-hub__warn {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: #f87171;
+  font-weight: 600;
+}
+
+.ck-break-hub__cta {
+  margin-top: 12px;
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  background: #fe6c22;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ck-break-hub__cta.is-ghost {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f5f5f5;
+}
+
+.ck-break-hub__modal.ck-estoque__confirm,
+.ck-break-hub .ck-estoque__loja-panel,
+.ck-estoque.ck-break-hub .ck-estoque__loja-panel {
+  background: #1a222c !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.ck-estoque.ck-break-hub .ck-estoque__loja-panel-head strong,
+.ck-estoque.ck-break-hub .ck-estoque__loja-fechar {
+  color: #f5f5f5 !important;
+}
+
+.ck-estoque.ck-break-hub .ck-estoque__confirm-text {
+  color: #c4cad4 !important;
+}
+
+.ck-break-hub .ck-estoque__btn--primary,
+.ck-estoque.ck-break-hub .ck-estoque__btn--primary {
+  background: #ff9a5c !important;
+  color: #1a222c !important;
+  border: 1px solid rgba(255, 154, 92, 0.55) !important;
+}
+
+.ck-break-hub .ck-estoque__btn--ghost,
+.ck-estoque.ck-break-hub .ck-estoque__btn--ghost {
+  background: #3a414c !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+}
+
+/* Form mode — só ck-break-hub--form / ck-estoque--break */
+.ck-break-hub--form.ck-estoque-hub {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.ck-break-hub__form-head {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ck-break-hub__form-back {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(51, 56, 64, 0.82);
+  color: #f5f5f5;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ck-break-hub__form-head-copy {
+  min-width: 0;
+}
+
+.ck-break-hub__form-head-copy h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #f5f5f5;
+  line-height: 1.2;
+}
+
+.ck-break-hub__form-head-copy p {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: #8d8d8d;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-break-hub__btn-voltar {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #fff !important;
+}
+
+.ck-break-hub__btn-voltar .MuiSvgIcon-root {
+  color: #fff !important;
+}
+
+.ck-break-hub--form .ck-estoque-hub__store-row {
+  align-items: center;
+}
+
+.ck-break-hub--form .ck-estoque-hub__hero-copy {
+  margin-top: 8px !important;
+}
+
+.ck-break-hub--form .ck-estoque-hub__store-row--hero h1 {
+  font-size: 1.45rem !important;
+  line-height: 1.1 !important;
+}
+
+.ck-break-hub__menu.MuiPaper-root,
+.ck-break-hub__menu {
+  background: #1a222c !important;
+  background-image: none !important;
+  color: #f5f5f5 !important;
+}
+
+.ck-break-hub__menu .MuiMenuItem-root {
+  color: #f5f5f5 !important;
+  min-height: 40px !important;
+  height: auto !important;
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.3 !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  align-items: flex-start !important;
+  font-size: 0.9rem !important;
+}
+
+.ck-break-hub__menu .MuiMenuItem-root.Mui-selected {
+  background: rgba(254, 108, 34, 0.16) !important;
+  color: #ff9a5c !important;
+}
+
+.ck-break-hub__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 10px;
+  padding: 10px 34px 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 3px solid #fe6c22;
+  background: #333840;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+.ck-break-hub__item-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 4px;
+}
+
+.ck-break-hub__item:has(.ck-estoque__row--tres) .ck-break-hub__item-info {
+  grid-column: 1 / -1;
+}
+
+.ck-break-hub__item-cod {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #ff9a5c !important;
+  line-height: 1.2;
+}
+
+.ck-break-hub__item-nome {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #f5f5f5 !important;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ck-break-hub__item-qty {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #2a3038;
+  overflow: hidden;
+  align-self: center;
+  justify-self: end;
+}
+
+.ck-break-hub__item-qty button {
+  width: 28px;
+  height: 30px;
+  border: 0;
+  background: #454d5a;
+  color: #f5f5f5 !important;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ck-break-hub__item-qty span {
+  min-width: 28px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #f5f5f5 !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.ck-break-hub__item-qtd-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  justify-self: end;
+}
+
+.ck-break-hub__item-qtd-input input {
+  width: 64px;
+  min-height: 30px !important;
+  padding: 4px 8px !important;
+  border-radius: 8px !important;
+  text-align: center;
+  font-weight: 700;
+}
+
+.ck-break-hub__item-qtd-input small {
+  color: #8d8d8d;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.ck-break-hub__item-rm {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ef4444 !important;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.ck-break-hub__item-rm:hover,
+.ck-break-hub__item-rm:focus-visible {
+  background: transparent;
+  color: #f87171 !important;
+}
+
+.ck-break-hub__item .ck-estoque__row--tres {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 2px;
+  align-items: end;
+}
+
+.ck-break-hub__item .ck-estoque__row--tres .ck-estoque__field {
+  min-width: 0;
+  margin: 0;
+}
+
+.ck-break-hub__item .ck-estoque__row--tres .ck-estoque__field label {
+  display: block;
+  margin: 0 0 3px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8d8d8d !important;
+}
+
+.ck-break-hub__item .ck-estoque__row--tres .ck-estoque__field input {
+  width: 100%;
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 2px 4px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+  text-align: center;
+  font-size: 0.85rem !important;
+  font-weight: 700;
+}
+
+.ck-break-hub__item .ck-estoque__row--tres .ck-estoque__field.is-blocked {
+  opacity: 0.4;
+}
+
+.ck-break-hub__item .ck-estoque__row--tres .ck-estoque__blocked {
+  width: 100%;
+  min-height: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.18);
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.ck-break-hub__form-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(254, 108, 34, 0.14);
+  border: 1px solid rgba(254, 108, 34, 0.35);
+  flex-shrink: 0;
+}
+
+.ck-break-hub__form-count strong {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fe6c22;
+  line-height: 1;
+}
+
+.ck-break-hub__form-count span {
+  margin-top: 2px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #ff9a5c;
+  text-transform: uppercase;
+}
+
+.ck-break-hub__form-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 16px calc(96px + env(safe-area-inset-bottom, 0px));
+  -webkit-overflow-scrolling: touch;
+}
+
+.ck-break-hub__form-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin: 0 0 12px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ck-break-hub__form-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ck-break-hub__form-tab {
+  flex: 0 0 auto;
+  border: 0;
+  background: none;
+  color: #8d8d8d;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0 0 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ck-break-hub__form-tab.is-on {
+  color: #fe6c22;
+  box-shadow: inset 0 -2px 0 #fe6c22;
+}
+
+.ck-break-hub__form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ck-break-hub__form-fields > .ck-break-hub__field-turno,
+.ck-break-hub__form-fields > .ck-break-hub__field-colab,
+.ck-break-hub__form-fields > .ck-break-hub__field-motivo,
+.ck-break-hub__form-fields > .ck-break-hub__field-destino {
+  margin-bottom: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ck-break-hub__form-fields > .ck-estoque__field--date {
+  margin-bottom: 6px;
+}
+
+.ck-break-hub__form-fields > .ck-break-hub__field-destino {
+  margin-top: 10px;
+  margin-bottom: 14px;
+}
+
+.ck-break-hub__field-destino .ck-break-hub__hint {
+  margin-top: 8px;
+  padding: 0 2px;
+}
+
+.ck-break-hub__lbl {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #8d8d8d !important;
+}
+
+.ck-break-hub__hint,
+.ck-break-hub__helper {
+  display: block;
+  margin-top: 6px;
+  color: #8d8d8d !important;
+  font-size: 0.72rem !important;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.ck-break-hub__produto {
+  margin-top: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ck-break-hub--form .ck-break-hub__form-fields,
+.ck-break-hub--form .ck-break-hub__form-scroll {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.ck-break-hub--form .MuiFormControl-root,
+.ck-break-hub--form .MuiTextField-root {
+  max-width: 100%;
+}
+
+.ck-break-hub__empty-itens {
+  margin-top: 14px;
+  padding: 18px 14px;
+  text-align: center;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  color: #8d8d8d;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.ck-break-hub--form .ck-estoque__break-itens {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ck-break-hub__cta-confirm {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #fe6c22;
+  color: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(254, 108, 34, 0.32);
+}
+
+.ck-break-hub__cta-confirm:disabled {
+  background: rgba(254, 108, 34, 0.28);
+  color: rgba(255, 255, 255, 0.55);
+  box-shadow: none;
+  cursor: default;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__turno {
+  gap: 6px;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__turno-btn {
+  min-height: 38px !important;
+  padding: 8px 6px !important;
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+  font-size: 0.82rem !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__turno-btn.is-on {
+  background: rgba(254, 108, 34, 0.18) !important;
+  color: #ff9a5c !important;
+  border-color: rgba(254, 108, 34, 0.4) !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__field > span,
+.ck-break-hub.ck-estoque--break .ck-estoque__desc {
+  color: #8d8d8d !important;
+}
+
+.ck-break-hub.ck-estoque--break input,
+.ck-break-hub.ck-estoque--break select,
+.ck-break-hub.ck-estoque--break .MuiOutlinedInput-root,
+.ck-break-hub.ck-estoque--break .MuiPickersOutlinedInput-root {
+  background: #2a3038 !important;
+  color: #f5f5f5 !important;
+  border-radius: 10px !important;
+  min-height: 40px;
+}
+
+.ck-break-hub.ck-estoque--break .MuiOutlinedInput-notchedOutline,
+.ck-break-hub.ck-estoque--break .MuiPickersOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.ck-break-hub.ck-estoque--break .MuiInputBase-input,
+.ck-break-hub.ck-estoque--break .MuiInputLabel-root,
+.ck-break-hub.ck-estoque--break .MuiSelect-select {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+}
+
+.ck-break-hub.ck-estoque--break .MuiInputLabel-root {
+  color: #8d8d8d !important;
+  -webkit-text-fill-color: #8d8d8d !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__item,
+.ck-break-hub.ck-estoque--break .ck-estoque__item--planilha,
+.ck-break-hub.ck-estoque--break .ck-estoque__item--planilha.is-ok,
+.ck-break-hub.ck-estoque--break.ck-estoque--contagem .ck-estoque__item--planilha,
+.ck-break-hub.ck-estoque--break.ck-estoque--contagem .ck-estoque__item--planilha.is-ok {
+  background: #2a3038 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-left: 4px solid #fe6c22 !important;
+  color: #f5f5f5 !important;
+  border-radius: 14px !important;
+  padding: 12px !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__cod,
+.ck-break-hub.ck-estoque--break .ck-estoque__desc,
+.ck-break-hub.ck-estoque--break .ck-estoque__qty-val {
+  color: #f5f5f5 !important;
+  -webkit-text-fill-color: #f5f5f5 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__desc {
+  color: #a8aeb8 !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__cod {
+  color: #ff9a5c !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__break-remove {
+  color: #f87171 !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__qty--item {
+  background: #1a222c !important;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__qty-btn {
+  background: #3a414c !important;
+  color: #f5f5f5 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.ck-break-hub.ck-estoque--break .ck-estoque__secao-dock,
+.ck-break-hub.ck-estoque--break .ck-break-hub__form-dock {
+  display: none !important;
+}
+
+.ck-break-hub--form .ck-estoque-hub__dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
