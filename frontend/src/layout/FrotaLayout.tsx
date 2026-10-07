@@ -9,7 +9,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { toAppPath } from '../config/paths';
 import { getUsuario } from '../lib/auth';
-import { colors, radius } from '../theme/tokens';
+import { colors, layout, radius } from '../theme/tokens';
 import { useAppTheme } from '../context/ThemeContext';
 import {
   getFrotaNavSections,
@@ -147,7 +147,7 @@ export default function FrotaLayout() {
             component="nav"
             aria-label="Módulos de frota"
             sx={{
-              width: 232,
+              width: layout.sidebarWidth,
               flexShrink: 0,
               borderRight: '1px solid',
               borderColor: colors.border,

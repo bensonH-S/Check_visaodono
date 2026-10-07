@@ -9,7 +9,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { toAppPath } from '../config/paths';
 import { getUsuario } from '../lib/auth';
-import { colors, radius } from '../theme/tokens';
+import { colors, layout, radius } from '../theme/tokens';
 import { getConfigNavSections } from '../pages/configuracoes/configNav';
 
 function ConfigMenuItem({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) {
@@ -130,7 +130,7 @@ export default function ConfiguracoesLayout() {
             component="nav"
             aria-label="Módulos de configuração"
             sx={{
-              width: 232,
+              width: layout.sidebarWidth,
               flexShrink: 0,
               borderRight: '1px solid',
               borderColor: colors.border,

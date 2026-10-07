@@ -19,9 +19,9 @@ export const colors = {
   sidebarBorder: 'var(--ga-sidebar-border)',
 } as const;
 
-/** Largura da sidebar desktop (ritmo Azimut, densificado ~90%) */
+/** Largura fixa da sidebar desktop — igual em todas as rotas (incl. Command Center). */
 export const layout = {
-  sidebarWidth: 212,
+  sidebarWidth: 220,
 } as const;
 
 export const shadows = {
