@@ -274,9 +274,29 @@ async function executarRegistroServiceWorker(): Promise<ServiceWorkerRegistratio
   }
 }
 
+/** Em Vite dev: remove SW antigo (senão a splash fica presa em cache quebrado). */
+export function limparServiceWorkerEmDev(): void {
+  if (pwaHabilitado() || typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+  void (async () => {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k).catch(() => false)));
+      }
+    } catch {
+      /* ignore */
+    }
+  })();
+}
+
 /** Inicia registro PWA após a página carregar (necessário no iOS). Em dev, não registra SW. */
 export function iniciarServiceWorkerPwa(): void {
-  if (!pwaHabilitado()) return;
+  if (!pwaHabilitado()) {
+    limparServiceWorkerEmDev();
+    return;
+  }
   if (registroIniciado || typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
   registroIniciado = true;
 

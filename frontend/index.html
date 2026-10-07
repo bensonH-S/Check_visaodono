@@ -66,6 +66,20 @@
       <img src="Logo_Alvim_Icone.png" alt="" decoding="sync" fetchpriority="high" />
     </div>
     <div id="root"></div>
+    <script>
+      /* Failsafe: se o bundle JS não subir, a splash não fica eterna. */
+      (function () {
+        function hide() {
+          var el = document.getElementById('pwa-splash');
+          if (!el || el.classList.contains('pwa-splash--hide')) return;
+          el.classList.add('pwa-splash--hide');
+          setTimeout(function () { try { el.remove(); } catch (e) {} }, 400);
+        }
+        setTimeout(hide, 5000);
+        window.addEventListener('error', hide);
+        window.addEventListener('unhandledrejection', hide);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
