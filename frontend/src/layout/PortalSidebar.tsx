@@ -15,14 +15,13 @@ import Divider from '@mui/material/Divider';
 import LogoutIcon from '@mui/icons-material/Logout';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Activity } from 'lucide-react';
-import BrandLogo from '../components/BrandLogo';
+import MeridianMarca from '../brand/MeridianMarca';
 import SobreSistemaDialog from '../components/SobreSistemaDialog';
 import IntegrationsStatusDialog from '../components/IntegrationsStatusDialog';
 import { nomeExibicaoUsuario } from '../lib/auth';
 import type { UsuarioSessao } from '../lib/auth';
-import { assetUrl, LOGO_GRUPO_ALVIM_OFICIAL, toAppPath } from '../config/paths';
-import { colors, layout, radius, sectionLabelSx } from '../theme/tokens';
-import { APP_NAME } from '../config/brand';
+import { toAppPath } from '../config/paths';
+import { colors, layout, radius } from '../theme/tokens';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useAppTheme } from '../context/ThemeContext';
 import { api, type IntegrationStatusGroup } from '../api/client';
@@ -43,11 +42,12 @@ type Props = {
   onLogout: () => void;
 };
 
+/** Menu plano estilo Azimut: tudo visível, compacto, sem acordeão. */
 export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) {
   const { version, environment } = useAppConfig();
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#fe6c22' : '#1B2A6B';
+  const acento = '#1B6EF3';
   const { pathname } = useLocation();
   const appPath = toAppPath(pathname);
   const versionLabel = version === 'dev' ? 'dev' : version.startsWith('v') ? version : `v${version}`;
@@ -79,6 +79,49 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
     void carregarStatus();
   }
 
+  const noSection = nav.filter((n) => !n.section);
+  const sections = Array.from(new Set(nav.filter((n) => n.section).map((n) => n.section as string)));
+
+  const renderItem = (item: SidebarNavItem) => (
+    <NavLink key={`${item.section ?? ''}:${item.to}:${item.label}`} to={item.to} end={item.end} style={{ textDecoration: 'none' }}>
+      {({ isActive: navActive }) => {
+        const isActive = item.isActive ? item.isActive(appPath) : navActive;
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1,
+              py: 0.5,
+              mb: 0.15,
+              borderRadius: '7px',
+              fontSize: 12,
+              fontWeight: isActive ? 600 : 500,
+              color: '#FFFFFF',
+              bgcolor: isActive ? 'rgba(27, 110, 243, 0.12)' : 'transparent',
+              border: '1px solid',
+              borderColor: isActive ? 'rgba(255, 255, 255, 0.92)' : 'transparent',
+              boxShadow: isActive ? 'inset 3px 0 0 0 #1B6EF3' : 'none',
+              transition: 'background-color 0.12s, border-color 0.12s, box-shadow 0.12s',
+              '&:hover': {
+                bgcolor: isActive ? 'rgba(27, 110, 243, 0.12)' : 'var(--ga-sidebar-hover)',
+                borderColor: isActive ? 'rgba(255, 255, 255, 0.92)' : 'transparent',
+              },
+              '& .MuiSvgIcon-root': {
+                fontSize: 15,
+                color: '#FFFFFF',
+              },
+            }}
+          >
+            {item.icon}
+            {item.label}
+          </Box>
+        );
+      }}
+    </NavLink>
+  );
+
   return (
     <Box
       component="aside"
@@ -95,157 +138,62 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
     >
       <Box
         sx={{
-          px: 1.25,
-          pt: 1.5,
+          px: 1.5,
+          pt: 1.75,
           pb: 1.25,
           borderBottom: '1px solid',
-          borderColor: colors.border,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 0,
+          borderColor: 'var(--ga-sidebar-border)',
+          flexShrink: 0,
         }}
       >
-        {escuro ? (
-          <Box
-            sx={{
-              width: 128,
-              height: 98,
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Box
-              component="img"
-              src={`${assetUrl(LOGO_GRUPO_ALVIM_OFICIAL)}?v=2`}
-              alt="Grupo Alvim"
-              sx={{
-                width: 128,
-                height: 98,
-                display: 'block',
-                objectFit: 'contain',
-                objectPosition: 'center',
-                background: 'transparent',
-              }}
-            />
-          </Box>
-        ) : (
-          // PNG 1024² tem padding transparente embaixo — corta só isso, sem cortar o "g".
-          <Box
-            sx={{
-              width: 128,
-              height: 98,
-              overflow: 'hidden',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              position: 'relative',
-              zIndex: 2,
-            }}
-          >
-            <BrandLogo
-              disableHover
-              maxWidth={128}
-              sx={{
-                width: 128,
-                height: 128,
-                maxWidth: 128,
-                maxHeight: 128,
-                display: 'block',
-                objectFit: 'contain',
-                objectPosition: 'center top',
-                mb: 0,
-                position: 'relative',
-                zIndex: 2,
-              }}
-            />
-          </Box>
-        )}
-        <Typography
-          sx={{
-            mt: '10px',
-            textAlign: 'center',
-            fontSize: '0.68rem',
-            fontWeight: 700,
-            letterSpacing: '0.02em',
-            textTransform: 'uppercase',
-            lineHeight: 1.15,
-            color: escuro ? colors.textPrimary : '#1B2A6B',
-            position: 'relative',
-            zIndex: 0,
-          }}
-        >
-          {APP_NAME}
-        </Typography>
+        <MeridianMarca variant="mark" sx={{ width: '100%', maxWidth: 200, mx: 'auto' }} />
       </Box>
 
-      <Box component="nav" sx={{ flex: 1, px: 1.1, py: 1.25, overflowY: 'auto' }}>
-        {(() => {
-          const noSection = nav.filter((n) => !n.section);
-          const sections = Array.from(new Set(nav.filter((n) => n.section).map((n) => n.section as string)));
-
-          const renderItem = (item: SidebarNavItem) => (
-            <NavLink key={`${item.section ?? ''}:${item.to}:${item.label}`} to={item.to} end={item.end} style={{ textDecoration: 'none' }}>
-              {({ isActive: navActive }) => {
-                const isActive = item.isActive ? item.isActive(appPath) : navActive;
-                return (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.85,
-                      px: 1.1,
-                      py: 0.55,
-                      mb: 0.25,
-                      borderRadius: `${radius.md}px`,
-                      fontSize: '0.72rem',
-                      fontWeight: isActive ? 600 : 450,
-                      color: isActive ? 'var(--ga-sidebar-active-text)' : colors.textPrimary,
-                      bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : 'transparent',
-                      borderLeft: '3px solid',
-                      borderColor: isActive ? 'var(--ga-sidebar-active-border)' : 'transparent',
-                      transition: 'background-color 0.12s, color 0.12s, border-color 0.12s',
-                      '&:hover': {
-                        bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : colors.canvasAlt,
-                        color: colors.textPrimary,
-                      },
-                      '& .MuiSvgIcon-root': {
-                        fontSize: 15,
-                        color: isActive ? 'var(--ga-sidebar-active-icon)' : colors.textPrimary,
-                      },
-                    }}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </Box>
-                );
+      <Box
+        component="nav"
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          px: 1.15,
+          pt: 1.35,
+          pb: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        {noSection.map(renderItem)}
+        {sections.map((sec) => (
+          <Box key={sec} sx={{ mt: 1.75 }}>
+            <Typography
+              sx={{
+                px: 1.15,
+                mb: 0.55,
+                fontSize: '0.625rem',
+                fontWeight: 600,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--ga-sidebar-muted)',
+                lineHeight: 1.2,
               }}
-            </NavLink>
-          );
-
-          return (
-            <>
-              {noSection.map(renderItem)}
-              {sections.map((sec) => (
-                <Box key={sec} sx={{ mt: 1.75 }}>
-                  <Typography sx={{ ...sectionLabelSx, fontSize: '0.6rem', px: 1, mb: 0.75 }}>{sec}</Typography>
-                  {nav.filter((n) => n.section === sec).map(renderItem)}
-                </Box>
-              ))}
-            </>
-          );
-        })()}
+            >
+              {sec}
+            </Typography>
+            {nav.filter((n) => n.section === sec).map(renderItem)}
+          </Box>
+        ))}
       </Box>
 
       <Box
         sx={{
           position: 'relative',
           px: 1.5,
-          py: 1.5,
+          py: 1.25,
           borderTop: '1px solid',
-          borderColor: colors.border,
-          bgcolor: colors.canvas,
+          borderColor: 'var(--ga-sidebar-border)',
+          bgcolor: 'var(--ga-sidebar-bg)',
+          flexShrink: 0,
         }}
       >
         {menuAberto && (
@@ -334,12 +282,10 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
               textAlign: 'left',
               fontFamily: 'inherit',
               transition: 'background-color 0.12s, transform 0.12s',
-              '&:hover': {
-                bgcolor: colors.canvasAlt,
-              },
+              '&:hover': { bgcolor: 'var(--ga-sidebar-hover)' },
               '&:hover .sidebar-user-avatar': {
                 transform: 'scale(1.05)',
-                boxShadow: `0 0 0 2px ${colors.surface}, 0 0 0 4px ${acento}44`,
+                boxShadow: `0 0 0 2px var(--ga-sidebar-bg), 0 0 0 4px ${acento}44`,
               },
             }}
           >
@@ -357,17 +303,17 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
                 color: '#fff',
                 bgcolor: acento,
                 flexShrink: 0,
-                boxShadow: `0 0 0 2px ${colors.surface}`,
+                boxShadow: `0 0 0 2px var(--ga-sidebar-bg)`,
                 transition: 'transform 0.12s, box-shadow 0.12s',
               }}
             >
               {iniciais}
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography sx={{ fontWeight: 600, lineHeight: 1.25, color: colors.textPrimary, fontSize: '0.68rem' }} noWrap>
+              <Typography sx={{ fontWeight: 600, lineHeight: 1.2, color: 'var(--ga-sidebar-text)', fontSize: 13 }} noWrap>
                 {user?.nome}
               </Typography>
-              <Typography sx={{ color: colors.textSecondary, fontSize: '0.58rem', lineHeight: 1.25, opacity: 0.9, mt: 0.2 }} noWrap>
+              <Typography sx={{ color: 'var(--ga-sidebar-muted)', fontSize: 12, lineHeight: 1.2, mt: 0.25 }} noWrap>
                 {nomeExibicaoUsuario(user)}
               </Typography>
             </Box>
@@ -380,8 +326,8 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
               sx={{
                 width: 28,
                 height: 28,
-                color: colors.textMuted,
-                '&:hover': { color: colors.navy, bgcolor: colors.navyMuted },
+                color: 'var(--ga-sidebar-muted)',
+                '&:hover': { color: '#fff', bgcolor: 'var(--ga-sidebar-hover)' },
               }}
             >
               <LogoutIcon sx={{ fontSize: 16 }} />
@@ -392,10 +338,10 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
           sx={{
             display: 'block',
             textAlign: 'center',
-            color: colors.textMuted,
+            color: 'var(--ga-sidebar-muted)',
             fontSize: '0.6rem',
             fontWeight: 500,
-            mt: 1.1,
+            mt: 0.9,
             letterSpacing: '0.02em',
           }}
         >

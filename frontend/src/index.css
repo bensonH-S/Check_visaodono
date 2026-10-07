@@ -24,33 +24,38 @@
 }
 
 :root {
-  /* Light Theme (Default) — navy + laranja mobile */
-  --ga-navy: #1B2A6B;
-    --ga-primary-btn: var(--ga-navy);
-  --ga-navy-dark: #152056;
-  --ga-primary-hover: #152056;
-  --ga-navy-muted: rgba(27, 42, 107, 0.06);
-  --ga-navy-border: rgba(27, 42, 107, 0.1);
-  --ga-orange: #fe6c22;
-  --ga-orange-hover: #e85f1a;
-  --ga-orange-light: #FFF7F3;
+  /* Acentos Azimut — iguais no claro e no escuro */
+  --ga-navy: #1B6EF3;
+  --ga-primary-btn: #1B6EF3;
+  --ga-navy-dark: #0D4ECC;
+  --ga-primary-hover: #3B82F6;
+  --ga-navy-muted: rgba(27, 110, 243, 0.08);
+  --ga-navy-border: rgba(27, 110, 243, 0.2);
+  --ga-orange: #E8520A;
+  --ga-orange-hover: #CF4909;
+  --ga-orange-light: rgba(27, 110, 243, 0.12);
+  /* Conteúdo claro (tema-pagar Azimut) */
   --ga-surface: #FFFFFF;
-  --ga-canvas: #F9FAFB;
-  --ga-canvas-alt: #F3F4F6;
+  --ga-canvas: #F7F9FC;
+  --ga-canvas-alt: #FFFFFF;
   --ga-picker-paper: #FFFFFF;
-  --ga-border: #E5E7EB;
-  --ga-border-strong: #D1D5DB;
+  --ga-border: #E2E8F0;
+  --ga-border-strong: #CBD5E1;
   --ga-text-primary: #111827;
-  --ga-text-secondary: #6B7280;
-  --ga-text-muted: #9CA3AF;
-  --ga-sidebar-bg: #FFFFFF;
-  --ga-sidebar-border: #E5E7EB;
-  --ga-sidebar-active-bg: rgba(27, 42, 107, 0.08);
-  --ga-sidebar-active-text: #1B2A6B;
-  --ga-sidebar-active-border: #1B2A6B;
-  --ga-sidebar-active-icon: #1B2A6B;
-  --ga-progress-track: rgba(27, 42, 107, 0.12);
-  --ga-progress-bar: #1B2A6B;
+  --ga-text-secondary: #64748B;
+  --ga-text-muted: #94A3B8;
+  /* Sidebar Azimut — sempre a mesma */
+  --ga-sidebar-bg: #051017;
+  --ga-sidebar-border: rgba(255, 255, 255, 0.08);
+  --ga-sidebar-active-bg: rgba(27, 110, 243, 0.16);
+  --ga-sidebar-active-text: #FFFFFF;
+  --ga-sidebar-active-border: #1B6EF3;
+  --ga-sidebar-active-icon: #1B6EF3;
+  --ga-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --ga-sidebar-text: #F8FAFC;
+  --ga-sidebar-muted: #94A3B8;
+  --ga-progress-track: rgba(27, 110, 243, 0.16);
+  --ga-progress-bar: #1B6EF3;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
@@ -59,33 +64,36 @@
 }
 
 :root.dark {
-  /* Dark Theme — mesmas cores dos hubs mobile (#0b1721 + #fe6c22) */
-  --ga-navy: #0b1721;
-  --ga-primary-btn: #fe6c22;
-  --ga-navy-dark: #081118;
-  --ga-primary-hover: #e85f1a;
-  --ga-navy-muted: rgba(255, 255, 255, 0.04);
-  --ga-navy-border: rgba(255, 255, 255, 0.1);
-  --ga-orange: #fe6c22;
-  --ga-orange-hover: #e85f1a;
-  --ga-orange-light: rgba(254, 108, 34, 0.18);
-  --ga-surface: #333840;
-  --ga-canvas: #0b1721;
-  --ga-canvas-alt: #1a222c;
-  --ga-picker-paper: #333840;
-  --ga-border: rgba(255, 255, 255, 0.1);
+  /* Mesmos acentos Azimut; só o fundo do conteúdo muda */
+  --ga-navy: #1B6EF3;
+  --ga-primary-btn: #1B6EF3;
+  --ga-navy-dark: #0D4ECC;
+  --ga-primary-hover: #3B82F6;
+  --ga-navy-muted: rgba(27, 110, 243, 0.14);
+  --ga-navy-border: rgba(27, 110, 243, 0.28);
+  --ga-orange: #E8520A;
+  --ga-orange-hover: #CF4909;
+  --ga-orange-light: rgba(27, 110, 243, 0.18);
+  --ga-surface: #0C1822;
+  --ga-canvas: #051017;
+  --ga-canvas-alt: #122433;
+  --ga-picker-paper: #122433;
+  --ga-border: #1C3040;
   --ga-border-strong: rgba(255, 255, 255, 0.18);
-  --ga-text-primary: #f5f5f5;
-  --ga-text-secondary: #8d8d8d;
-  --ga-text-muted: #8d8d8d;
-  --ga-sidebar-bg: #0b1721;
-  --ga-sidebar-border: rgba(255, 255, 255, 0.1);
-  --ga-sidebar-active-bg: rgba(254, 108, 34, 0.16);
-  --ga-sidebar-active-text: #f5f5f5;
-  --ga-sidebar-active-border: transparent;
-  --ga-sidebar-active-icon: #fe6c22;
-  --ga-progress-track: rgba(254, 108, 34, 0.18);
-  --ga-progress-bar: #fe6c22;
+  --ga-text-primary: #F8FAFC;
+  --ga-text-secondary: #94A3B8;
+  --ga-text-muted: #64748B;
+  --ga-sidebar-bg: #051017;
+  --ga-sidebar-border: rgba(255, 255, 255, 0.08);
+  --ga-sidebar-active-bg: rgba(27, 110, 243, 0.16);
+  --ga-sidebar-active-text: #FFFFFF;
+  --ga-sidebar-active-border: #1B6EF3;
+  --ga-sidebar-active-icon: #1B6EF3;
+  --ga-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --ga-sidebar-text: #F8FAFC;
+  --ga-sidebar-muted: #94A3B8;
+  --ga-progress-track: rgba(27, 110, 243, 0.18);
+  --ga-progress-bar: #1B6EF3;
 }
 
 html {
@@ -121,9 +129,13 @@ body {
   margin: 0;
   background: var(--ga-canvas);
   color: var(--ga-text-primary);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -985,24 +997,12 @@ html.dark .ck-fluxo__banner {
   background: var(--ga-surface) !important;
   border-color: var(--ga-border) !important;
 }
-html.dark .ck-checklist-hub .ck-fluxo__banner {
-  background: #1a222c !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
 html.dark .ck-fluxo__banner h2 {
   color: var(--ga-text-primary) !important;
-}
-html.dark .ck-checklist-hub .ck-fluxo__banner h2 {
-  color: #f5f5f5 !important;
-  font-size: 0.95rem !important;
-  font-family: Manrope, system-ui, sans-serif !important;
 }
 html.dark .ck-fluxo__banner p,
 html.dark .ck-fluxo__banner span {
   color: var(--ga-text-secondary) !important;
-}
-html.dark .ck-checklist-hub .ck-fluxo__banner span {
-  color: #ff9a5c !important;
 }
 html.dark .ck-fluxo__dock {
   background: var(--ga-canvas) !important;
@@ -1016,32 +1016,6 @@ html.dark .ck-fluxo__btn--navy {
 html.dark .ck-fluxo__btn--orange {
   background: var(--ga-orange) !important;
   color: #fff !important;
-}
-html.dark .ck-checklist-hub .ck-fluxo__btn--save,
-html.dark .ck-checklist-hub .ck-fluxo__btn--navy {
-  background: transparent !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;
-  color: #f5f5f5 !important;
-  box-shadow: none !important;
-}
-html.dark .ck-checklist-hub .ck-fluxo__btn--orange {
-  background: #fe6c22 !important;
-  color: #fff !important;
-}
-html.dark .ck-checklist-hub .ck-q__yn-btn--yes.is-on {
-  background: #16a34a !important;
-  border-color: #16a34a !important;
-  color: #fff !important;
-}
-html.dark .ck-checklist-hub .ck-q__yn-btn--no.is-on {
-  background: #dc2626 !important;
-  border-color: #dc2626 !important;
-  color: #fff !important;
-}
-html.dark .ck-checklist-hub .ck-q__title {
-  font-size: 0.78rem !important;
-  font-weight: 600 !important;
-  color: #f5f5f5 !important;
 }
 html.dark .ck-fluxo__btn--ghost {
   background: var(--ga-surface) !important;
@@ -1089,13 +1063,6 @@ html.dark .ck-q input {
   border-color: var(--ga-border) !important;
   color: var(--ga-text-primary) !important;
 }
-html.dark .ck-checklist-hub .ck-q textarea,
-html.dark .ck-checklist-hub .ck-q input,
-html.dark .ck-checklist-hub .ck-q__textarea {
-  background: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  color: #1a222c !important;
-}
 html.dark .ck-q__tag {
   background: rgba(255, 255, 255, 0.06) !important;
   color: var(--ga-text-secondary) !important;
@@ -1141,33 +1108,13 @@ html.dark .ck-q__tag {
   background: var(--ga-navy) !important;
   box-shadow: 0 12px 28px rgba(27, 42, 107, 0.38) !important;
 }
-:root:not(.dark) .ck-checklist-hub .ck-start__cta.is-ready {
-  background: #fe6c22 !important;
-  box-shadow: none !important;
-}
 :root:not(.dark) .ck-fluxo__chip.is-on {
   background: var(--ga-navy) !important;
   border-color: var(--ga-navy) !important;
   color: #fff !important;
 }
-:root:not(.dark) .ck-checklist-hub .ck-fluxo__chip.is-on {
-  background: rgba(254, 108, 34, 0.18) !important;
-  border-color: transparent !important;
-  color: #fe6c22 !important;
-}
 :root:not(.dark) .ck-fluxo__btn--navy {
   background: var(--ga-navy) !important;
-  color: #fff !important;
-}
-:root:not(.dark) .ck-checklist-hub .ck-fluxo__btn--navy,
-:root:not(.dark) .ck-checklist-hub .ck-fluxo__btn--save {
-  background: transparent !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;
-  color: #f5f5f5 !important;
-  box-shadow: none !important;
-}
-:root:not(.dark) .ck-checklist-hub .ck-fluxo__btn--orange {
-  background: #fe6c22 !important;
   color: #fff !important;
 }
 :root:not(.dark) .ck-frota .ck-frota__tab.is-on {
@@ -1237,26 +1184,6 @@ html.dark .mobile-tab-bar .mobile-tab-bar__btn:not(.is-active) .MuiSvgIcon-root 
   color: #1B2A6B !important;
 }
 
-/* Shell mobile escuro: ativo sempre laranja (mesmo se o tema do app for claro) */
-.mobile-app-shell .mobile-tab-bar a.active,
-.mobile-app-shell .mobile-tab-bar a.is-active,
-.mobile-app-shell .mobile-tab-bar a[aria-current='page'],
-.mobile-app-shell .mobile-tab-bar button.active,
-.mobile-app-shell .mobile-tab-bar button.is-active,
-.mobile-app-shell .mobile-tab-bar .mobile-tab-bar__item.is-active,
-.mobile-app-shell .mobile-tab-bar .mobile-tab-bar__btn.is-active {
-  color: #fe6c22 !important;
-}
-.mobile-app-shell .mobile-tab-bar a.active .MuiSvgIcon-root,
-.mobile-app-shell .mobile-tab-bar a.is-active .MuiSvgIcon-root,
-.mobile-app-shell .mobile-tab-bar a[aria-current='page'] .MuiSvgIcon-root,
-.mobile-app-shell .mobile-tab-bar button.active .MuiSvgIcon-root,
-.mobile-app-shell .mobile-tab-bar button.is-active .MuiSvgIcon-root,
-.mobile-app-shell .mobile-tab-bar .mobile-tab-bar__item.is-active .MuiSvgIcon-root,
-.mobile-app-shell .mobile-tab-bar .mobile-tab-bar__btn.is-active .MuiSvgIcon-root {
-  color: #fe6c22 !important;
-}
-
 /* Itens ativos - Tema Escuro (#FF7A3D) */
 html.dark .mobile-tab-bar a.active,
 html.dark .mobile-tab-bar a.is-active,
@@ -1277,120 +1204,9 @@ html.dark .mobile-tab-bar .mobile-tab-bar__btn.is-active .MuiSvgIcon-root {
   color: var(--ga-orange, #FF7A3D) !important;
 }
 
-/* Menu Mais — overlay fixo acima do dock, sem slide de página */
-.ck-mobile-mais {
-  position: fixed;
-  inset: 0;
-  z-index: 1350;
-  pointer-events: none;
-}
-
-.ck-mobile-mais__backdrop {
-  position: absolute;
-  inset: 0;
-  border: 0;
-  padding: 0;
-  margin: 0;
-  pointer-events: auto;
-  background: rgba(0, 0, 0, 0.62);
-  cursor: pointer;
-}
-
-.ck-mobile-mais__sheet {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
-  z-index: 1;
-  max-height: calc(78vh - 64px - env(safe-area-inset-bottom, 0px));
-  pointer-events: auto;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 10px 16px 16px;
-  border-radius: 18px 18px 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-bottom: 0;
-  background: #121a24;
-  color: #f5f5f5;
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
-}
-
-.ck-mobile-mais__grab {
-  width: 36px;
-  height: 4px;
-  margin: 0 auto 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.ck-mobile-mais__title {
-  margin: 0 0 10px;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #f5f5f5;
-}
-
-.ck-mobile-mais__list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ck-mobile-mais__item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  margin: 0;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: #f5f5f5;
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-}
-
-.ck-mobile-mais__item.is-on {
-  background: rgba(254, 108, 34, 0.16);
-  color: #ff9a5c;
-  font-weight: 700;
-}
-
-.ck-mobile-mais__icon {
-  display: inline-flex;
-  color: #94a3b8;
-}
-
-.ck-mobile-mais__item.is-on .ck-mobile-mais__icon {
-  color: var(--mais-accent, #fe6c22);
-}
-
-.ck-mobile-mais__icon .MuiSvgIcon-root {
-  font-size: 22px !important;
-}
-
-/* Shell mobile: html/body escuros (safe area / home indicator) */
-html:has(.mobile-app-shell),
-html:has(.mobile-app-shell) body,
-html:has(.mobile-app-shell) #root,
-body:has(.ck-mobile-mais) {
-  background: #0b1721 !important;
-  background-color: #0b1721 !important;
-}
-
-/* Abas/dock acima do menu Mais */
-.mobile-app-shell .mobile-tab-bar,
-.mobile-app-shell .ck-estoque-hub__dock,
-.ck-estoque-hub__dock,
-.mobile-tab-bar {
-  z-index: 1400 !important;
-  background: #0b1721 !important;
-  border-top-color: rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 24px 0 0 #0b1721, 0 48px 0 0 #0b1721 !important;
+/* Drawer "Mais" — painel inferior */
+html.dark .MuiDrawer-root .MuiPaper-root {
+  background: #1E293B !important;
 }
 
 /* ================================================================

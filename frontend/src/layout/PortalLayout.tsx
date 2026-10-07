@@ -56,7 +56,6 @@ import {
   usuarioAdministraChamados,
 } from '../utils/pushNotifications';
 import { useAppConfig } from '../hooks/useAppConfig';
-import { useAppTheme } from '../context/ThemeContext';
 import { codigoModuloPortal, moduloNoCanal } from '../config/modulosCanal';
 import { useTecnicoGpsTracking } from '../hooks/useTecnicoGpsTracking';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
@@ -94,8 +93,7 @@ export default function PortalLayout() {
 }
 
 function PortalLayoutInner() {
-  const { mode } = useAppTheme();
-  const filtroAcento = mode === 'dark' ? '#fe6c22' : '#1B2A6B';
+  const filtroAcento = '#1B6EF3';
   const { data: dataFiltro, setData: setDataFiltro, regiaoId, regiaoNome, setRegiao } =
     useCommandCenterFilters();
   const navigate = useNavigate();
@@ -329,28 +327,23 @@ function PortalLayoutInner() {
   };
   const scrollInterno = isPaginaScrollInterno(path);
   const paginaEscalaVisitas = emEscala;
-  const emFinanceiro = path === '/financeiro' || path.startsWith('/financeiro/');
-  const emConfigFinanceiro = path.startsWith('/financeiro/configuracoes');
-  const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/') || emConfigFinanceiro;
+  const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
   const emFrota = path === '/frota' || (path.startsWith('/frota/') && !path.startsWith('/frota/mobile'));
-  /** No financeiro a engrenagem abre Configuração Azimut; fora, a do portal. */
-  const rotaEngrenagem = emFinanceiro ? '/financeiro/configuracoes' : '/configuracoes';
-  const podeConfig = getConfigNavSections(user).length > 0 || (emFinanceiro && podeVerFinanceiro(user));
 
   const nav: NavItem[] = [
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
 
-    // FINANCEIRO — mesmo ritmo do Azimut (pagar / caixa / integrações / configuração)
+    // FINANCEIRO — enxuto como Azimut (detalhe de banco fica dentro de Integrações)
     { to: '/financeiro', label: 'Contas a pagar', icon: <PaymentsOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), end: true, section: 'FINANCEIRO' },
     { to: '/financeiro/caixa', label: 'Fechamento de caixa', icon: <PointOfSaleOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
-    { to: '/financeiro/integracoes', label: 'Integrações', icon: <HubOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
     {
-      to: '/financeiro/configuracoes',
-      label: 'Configuração',
-      icon: <SettingsIcon fontSize="small" />,
+      to: '/financeiro/integracoes',
+      label: 'Integrações',
+      icon: <HubOutlinedIcon fontSize="small" />,
       show: podeVerFinanceiro(user),
       section: 'FINANCEIRO',
-      isActive: (pathname: string) => pathname.startsWith('/financeiro/configuracoes'),
+      isActive: (pathname: string) =>
+        pathname.startsWith('/financeiro/integracoes') || pathname.startsWith('/financeiro/configuracoes'),
     },
 
     // OPERAÇÃO
@@ -370,6 +363,7 @@ function PortalLayoutInner() {
     { to: '/ranking', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'GESTÃO' },
   ].filter((n) => n.show);
 
+  const podeConfig = getConfigNavSections(user).length > 0;
   const sidebarNav = nav.filter((n) => !n.mobileOnly && canalLigado(n.to, 'portal'));
   const mobileTabsRodape = nav.filter((n) => canalLigado(n.to, 'portal'));
 
@@ -437,11 +431,11 @@ function PortalLayoutInner() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               {dashboardFilters}
               {podeConfig ? (
-                <Tooltip title={emFinanceiro ? 'Configuração' : 'Configurações'}>
+                <Tooltip title="Configurações">
                   <IconButton
                     size="small"
-                    aria-label={emFinanceiro ? 'Configuração' : 'Configurações'}
-                    onClick={() => navigate(rotaEngrenagem)}
+                    aria-label="Configurações"
+                    onClick={() => navigate('/configuracoes')}
                     sx={{
                       color: emConfiguracoes ? colors.navy : colors.textSecondary,
                       '&:hover': { color: colors.navy, bgcolor: colors.navyMuted },
@@ -486,8 +480,8 @@ function PortalLayoutInner() {
           {podeConfig ? (
             <IconButton
               size="small"
-              aria-label={emFinanceiro ? 'Configuração' : 'Configurações'}
-              onClick={() => navigate(rotaEngrenagem)}
+              aria-label="Configurações"
+              onClick={() => navigate('/configuracoes')}
               sx={{ color: emConfiguracoes ? colors.navy : colors.textSecondary }}
             >
               <SettingsIcon sx={{ fontSize: 18 }} />

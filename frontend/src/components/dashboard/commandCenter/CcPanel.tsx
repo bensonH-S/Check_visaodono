@@ -49,7 +49,7 @@ export function CcPanel({
                 <Typography
                   sx={{
                     fontWeight: 650,
-                    fontSize: '0.78rem',
+                    fontSize: '0.8125rem',
                     color: 'var(--ga-text-primary)',
                     letterSpacing: '-0.01em',
                     overflow: 'hidden',
@@ -63,7 +63,7 @@ export function CcPanel({
               {badge}
             </Box>
             {subtitle && (
-              <Typography sx={{ fontSize: '0.625rem', color: 'var(--ga-text-secondary)', mt: 0.15 }}>
+              <Typography sx={{ fontSize: '0.625rem', color: 'var(--ga-text-secondary)', mt: 0.1 }}>
                 {subtitle}
               </Typography>
             )}
@@ -136,7 +136,7 @@ export function CcSectionTitle({
         <Typography
           sx={{
             fontWeight: 650,
-            fontSize: '0.78rem',
+            fontSize: '0.8125rem',
             color: 'var(--ga-text-primary)',
             letterSpacing: '-0.01em',
           }}

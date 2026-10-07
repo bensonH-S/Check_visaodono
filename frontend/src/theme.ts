@@ -222,14 +222,14 @@ export const darkTheme = createTheme({
   ...baseThemeOptions,
   palette: {
     mode: 'dark',
-    primary: { main: '#fe6c22', dark: '#e85f1a', light: '#ff9a5c', contrastText: '#fff' },
-    secondary: { main: '#fe6c22', dark: '#e85f1a', contrastText: '#f5f5f5' },
-    success: { main: '#22c55e', contrastText: '#052e16' },
-    warning: { main: '#eab308', contrastText: '#431407' },
-    error: { main: '#ef4444', contrastText: '#450a0a' },
-    background: { default: '#0b1721', paper: '#333840' },
-    text: { primary: '#f5f5f5', secondary: '#8d8d8d' },
-    divider: 'rgba(255, 255, 255, 0.1)',
+    primary: { main: '#1B6EF3', dark: '#0D4ECC', light: '#60A5FA', contrastText: '#fff' },
+    secondary: { main: '#60A5FA', dark: '#3B82F6', contrastText: '#051017' },
+    success: { main: '#34D399', contrastText: '#052e16' },
+    warning: { main: '#FBBF24', contrastText: '#431407' },
+    error: { main: '#F87171', contrastText: '#450a0a' },
+    background: { default: '#051017', paper: '#0C1822' },
+    text: { primary: '#F8FAFC', secondary: '#94A3B8' },
+    divider: '#1C3040',
   },
 });
 
