@@ -102,14 +102,22 @@ npm run start
 
 ```
 server.js           Entrada Node (Nginx/Docker apontam aqui)
-server.js           .env + rotas /auditoria + API + SPA
 deploy.sh           Deploy por tag (porta 3007)
 .env                Produção (raiz) — PORT=3007
 backend/            Rotas API + migrations PostgreSQL
-frontend/           SPA React
-deploy/             Exemplo Nginx → porta 3007
-Dockerfile          Imagem de produção
+frontend/           SPA React (portal Meridian)
+docs/LEGACY.md      Pastas legacy/tmp fora do fluxo diário
 ```
+
+## Financeiro (módulo no portal)
+
+Contas a pagar, caixa, DDA e config BB/Itaú ficam em `/financeiro/*` (menu **FINANCEIRO**).
+
+- Permissão: `financeiro.ver`
+- API: proxy `/auditoria/api/financeiro/*` → serviço Finance (default `http://127.0.0.1:5080`)
+- Banco: schema `finance` em `vision_check` (migration `191_finance_schema.sql` + script no repo MeridianFinance)
+
+Cutover completo: ver `MeridianFinance/docs/CUTOVER.md`.
 
 ## Login e perfis
 

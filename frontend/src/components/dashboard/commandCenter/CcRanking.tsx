@@ -62,8 +62,8 @@ function RankingBody({
       <Box
         sx={{
           display: 'flex',
-          gap: 2,
-          mb: 1.15,
+          gap: 1.35,
+          mb: 0.85,
           borderBottom: '1px solid var(--ga-border)',
           minWidth: 0,
         }}
@@ -81,9 +81,9 @@ function RankingBody({
                 cursor: 'pointer',
                 bgcolor: 'transparent',
                 px: 0,
-                pb: 0.75,
+                pb: 0.55,
                 mb: '-1px',
-                fontSize: '0.75rem',
+                fontSize: '0.6875rem',
                 fontWeight: ativo ? 700 : 500,
                 color: ativo ? CC_ORANGE : 'var(--ga-text-muted)',
                 borderBottom: '2px solid',

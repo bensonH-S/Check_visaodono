@@ -11,16 +11,18 @@ export default function PageHeaderTitle({ title, subtitle, icon, variant = 'mobi
   const typographySx =
     variant === 'desktop'
       ? {
-          fontWeight: title === 'Command Center' ? 700 : 600,
-          fontSize: title === 'Command Center' ? '1.375rem' : '1.125rem',
+          fontWeight: 600,
+          fontSize: 15,
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           color: colors.textPrimary,
-          letterSpacing: '-0.015em',
+          letterSpacing: '-0.02em',
           lineHeight: 1.2,
           m: 0,
         }
       : {
           fontWeight: 600,
-          fontSize: '0.9375rem',
+          fontSize: 14,
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           color: colors.textPrimary,
           letterSpacing: '-0.01em',
           overflow: 'hidden',
@@ -29,14 +31,14 @@ export default function PageHeaderTitle({ title, subtitle, icon, variant = 'mobi
         };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-      {icon ? <Box sx={{ display: 'flex', flexShrink: 0, alignItems: 'center' }}>{icon}</Box> : null}
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+      {icon ? <Box sx={{ display: 'flex', flexShrink: 0, alignItems: 'center', '& .MuiSvgIcon-root': { fontSize: 18 } }}>{icon}</Box> : null}
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         <Typography component="h1" sx={typographySx}>
           {title}
         </Typography>
         {subtitle && variant === 'desktop' && (
-          <Typography sx={{ fontSize: '0.8125rem', color: colors.textSecondary, mt: 0.25, lineHeight: 1 }}>
+          <Typography sx={{ fontSize: 11, fontWeight: 400, color: colors.textSecondary, mt: 0.15, lineHeight: 1.3 }}>
             {subtitle}
           </Typography>
         )}

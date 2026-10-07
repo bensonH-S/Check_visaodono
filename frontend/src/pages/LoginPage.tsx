@@ -13,7 +13,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
-import BrandLogo from '../components/BrandLogo';
+import MeridianMarca from '../brand/MeridianMarca';
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
 import { setSessao, logout } from '../lib/auth';
@@ -21,14 +21,14 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { assetUrl, normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
-import { APP_NAME, APP_TAGLINE } from '../config/brand';
+import { APP_TAGLINE } from '../config/brand';
 
 import { ThemeProvider } from '@mui/material/styles';
 import { lightTheme } from '../theme';
 
 const FUNDO_LOGIN = `${assetUrl('Fundo_Principal.png')}?v=fill-ok`;
 const PAGE_BG = '#e8e8e8';
-const NAVY = '#1B2A6B';
+const NAVY = '#1B6EF3';
 const FEATURES = APP_TAGLINE.split(' · ');
 const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
 
@@ -213,26 +213,16 @@ export default function LoginPage() {
           >
             <Box
               sx={{
-                height: 4,
-                bgcolor: NAVY,
-                boxShadow: '0 3px 10px rgba(27, 42, 107, 0.3)',
+                bgcolor: '#051017',
+                px: { xs: 2, sm: 2.5 },
+                pt: { xs: 2, sm: 2.25 },
+                pb: { xs: 1.75, sm: 2 },
+                borderBottom: '1px solid rgba(27, 110, 243, 0.28)',
               }}
-            />
+            >
+              <MeridianMarca variant="lockup" sx={{ width: '100%', maxWidth: 320, mx: 'auto' }} />
+            </Box>
             <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: { xs: 1.5, sm: 2 }, pb: { xs: 2.25, sm: 2.75 } }}>
-              <BrandLogo maxWidth={{ xs: 96, sm: 110, md: 120 }} sx={{ mx: 'auto', mb: 0.5 }} />
-
-              <Typography
-                sx={{
-                  fontWeight: 800,
-                  color: '#E8520A',
-                  fontSize: { xs: '1.05rem', sm: '1.15rem', md: '1.2rem' },
-                  lineHeight: 1.2,
-                  mb: { xs: 1.25, sm: 1.5 },
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                {APP_NAME}
-              </Typography>
 
               <Box
                 sx={{

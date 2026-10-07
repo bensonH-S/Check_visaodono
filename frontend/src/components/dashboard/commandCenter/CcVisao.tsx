@@ -251,7 +251,7 @@ export default function CcVisao() {
         bgcolor: CC_SURFACE,
         borderRadius: `${CC_RADIUS}px`,
         border: `1px solid ${CC_BORDER}`,
-        p: 1.5,
+        p: 1.15,
         height: '100%',
         minHeight: 0,
         display: 'flex',
@@ -259,7 +259,7 @@ export default function CcVisao() {
         overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
         <Box sx={{ minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <Typography sx={{ fontSize: '0.72rem', fontWeight: 750, letterSpacing: '0.06em', color: CC_TEXT }}>

@@ -5,29 +5,47 @@ export { colors, shadows, radius } from './theme/tokens';
 export { portalPanelSx, portalCardSx, portalIconBoxSx, sectionLabelSx } from './theme/tokens';
 
 const baseThemeOptions = {
+  /* Densidade ~90% do zoom do browser: UI mais compacta em 100%. */
+  spacing: 7,
   typography: {
-    htmlFontSize: 16,
-    fontSize: 14,
+    /* Escala Azimut: corpo 12px, pesos 400/500/600 */
+    htmlFontSize: 14.5,
+    fontSize: 12,
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    h6: { fontWeight: 600, fontSize: '1rem', letterSpacing: '-0.01em' },
-    subtitle1: { fontWeight: 500, fontSize: '0.9375rem' },
-    subtitle2: { fontWeight: 500, fontSize: '0.8125rem' },
-    body1: { fontSize: '0.875rem', lineHeight: 1.6 },
-    body2: { fontSize: '0.8125rem', lineHeight: 1.55 },
-    button: { fontWeight: 500, textTransform: 'none' as const },
+    fontWeightLight: 400,
+    fontWeightRegular: 400,
+    fontWeightMedium: 500,
+    fontWeightBold: 600,
+    h5: { fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em' },
+    h6: { fontSize: 14, fontWeight: 600, letterSpacing: '-0.02em' },
+    subtitle1: { fontWeight: 500, fontSize: 13 },
+    subtitle2: { fontWeight: 500, fontSize: 12 },
+    body1: { fontSize: 12, fontWeight: 400, lineHeight: 1.45 },
+    body2: { fontSize: 12, fontWeight: 400, lineHeight: 1.45 },
+    button: { fontWeight: 500, textTransform: 'none' as const, fontSize: 12 },
+    caption: { fontWeight: 400, fontSize: 11 },
   },
   shape: { borderRadius: radius.md },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
-        body: { fontSize: '0.875rem', lineHeight: 1.6, color: colors.textPrimary },
+        body: {
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          fontSize: 12,
+          fontWeight: 400,
+          lineHeight: 1.45,
+          color: colors.textPrimary,
+          WebkitFontSmoothing: 'antialiased',
+          textRendering: 'optimizeLegibility',
+        },
       },
     },
     MuiPaper: { defaultProps: { elevation: 0 }, styleOverrides: { root: { backgroundImage: 'none' } } },
     MuiButton: {
-      defaultProps: { disableElevation: true },
+      defaultProps: { disableElevation: true, size: 'small' as const },
       styleOverrides: {
-        root: { borderRadius: radius.md, padding: '6px 14px', fontSize: '0.8125rem', fontWeight: 500 },
+        root: { borderRadius: 7, fontWeight: 500, fontSize: 12, padding: '4px 12px', minHeight: 30 },
+        sizeSmall: { fontSize: 12, padding: '3px 10px', minHeight: 28 },
         contained: {
           '&.MuiButton-containedPrimary': {
             backgroundColor: 'var(--ga-primary-btn) !important',
@@ -44,7 +62,8 @@ const baseThemeOptions = {
     },
     MuiChip: {
       styleOverrides: {
-        root: { fontWeight: 500, fontSize: '0.75rem' },
+        root: { fontWeight: 500, fontSize: 11, height: 24 },
+        sizeSmall: { height: 20, fontSize: 11 },
         outlined: { borderColor: colors.border },
         outlinedSuccess: {
           borderColor: 'rgba(5, 150, 105, 0.55)',
@@ -54,22 +73,32 @@ const baseThemeOptions = {
         },
       },
     },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: { fontSize: 12, fontWeight: 400, minHeight: 32 },
+      },
+    },
     MuiTableHead: {
       styleOverrides: {
         root: {
           '& .MuiTableCell-head': {
             fontWeight: 600,
-            fontSize: '0.75rem',
-            color: 'var(--ga-text-secondary)',
+            fontSize: 10,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            color: 'var(--ga-text-muted)',
             backgroundColor: 'var(--ga-surface) !important',
             borderBottom: '1px solid var(--ga-border)',
-            padding: '8px 12px',
+            padding: '6px 10px',
           },
         },
       },
     },
     MuiTableCell: {
-      styleOverrides: { root: { fontSize: '0.8125rem', borderColor: colors.border, padding: '8px 12px' } },
+      styleOverrides: {
+        root: { fontSize: 12, fontWeight: 400, borderColor: colors.border, padding: '5px 10px' },
+        sizeSmall: { padding: '4px 8px' },
+      },
     },
     MuiTableRow: {
       styleOverrides: { root: { '&:hover': { bgcolor: colors.canvas } } },
@@ -81,19 +110,24 @@ const baseThemeOptions = {
           color: colors.textPrimary,
           borderRadius: radius.md,
           bgcolor: colors.surface,
+          fontSize: 12,
+          '& .MuiOutlinedInput-input': { paddingTop: 7, paddingBottom: 7 },
           '& .MuiOutlinedInput-notchedOutline': { borderColor: colors.border },
           '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: colors.borderStrong },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: colors.orange,
+            borderColor: 'var(--ga-navy)',
             borderWidth: 1.5,
           },
+        },
+        sizeSmall: {
+          '& .MuiOutlinedInput-input': { paddingTop: 6, paddingBottom: 6 },
         },
       },
     },
     MuiInputLabel: {
       styleOverrides: {
         root: {
-          '&.Mui-focused': { color: colors.orange },
+          '&.Mui-focused': { color: 'var(--ga-navy)' },
         },
       },
     },
@@ -173,14 +207,14 @@ export const lightTheme = createTheme({
   ...baseThemeOptions,
   palette: {
     mode: 'light',
-    primary: { main: '#1B2A6B', dark: '#152056', contrastText: '#fff' },
-    secondary: { main: '#1B2A6B', dark: '#152056', contrastText: '#fff' },
+    primary: { main: '#1B6EF3', dark: '#0D4ECC', light: '#60A5FA', contrastText: '#fff' },
+    secondary: { main: '#1B6EF3', dark: '#0D4ECC', light: '#60A5FA', contrastText: '#fff' },
     success: { main: '#059669', contrastText: '#fff' },
     warning: { main: '#D97706', contrastText: '#fff' },
     error: { main: '#DC2626', contrastText: '#fff' },
-    background: { default: '#F9FAFB', paper: '#FFFFFF' },
-    text: { primary: '#111827', secondary: '#6B7280' },
-    divider: '#E5E7EB',
+    background: { default: '#F7F9FC', paper: '#FFFFFF' },
+    text: { primary: '#111827', secondary: '#64748B' },
+    divider: '#E2E8F0',
   },
 });
 

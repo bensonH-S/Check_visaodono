@@ -30,7 +30,7 @@ export function CcPanel({
         bgcolor: CC_SURFACE,
         borderRadius: `${CC_RADIUS}px`,
         border: `1px solid ${CC_BORDER}`,
-        p: 1.75,
+        p: 1.25,
         display: 'flex',
         flexDirection: 'column',
         minHeight,
@@ -42,9 +42,9 @@ export function CcPanel({
       }}
     >
       {(title || action) && (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: subtitle ? 0.35 : 1.15, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 0.75, mb: subtitle ? 0.25 : 0.85, minWidth: 0 }}>
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.65, minWidth: 0 }}>
               {title && (
                 <Typography
                   sx={{
@@ -131,8 +131,8 @@ export function CcSectionTitle({
   badge?: React.ReactNode;
 }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1, minWidth: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.85, minWidth: 0 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.75, mb: 0.75, minWidth: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.65, minWidth: 0 }}>
         <Typography
           sx={{
             fontWeight: 650,

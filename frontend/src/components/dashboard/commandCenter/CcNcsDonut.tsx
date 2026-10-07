@@ -61,7 +61,7 @@ export default function CcNcsDonut({
           <Box
             sx={{
               width: { xs: 88, md: 118 },
-              height: { xs: 88, md: 118 },
+              height: { xs: 72, md: 96 },
               position: 'relative',
               flexShrink: 0,
             }}
@@ -102,7 +102,7 @@ export default function CcNcsDonut({
             >
               <Typography
                 sx={{
-                  fontSize: { xs: '0.95rem', md: '1.25rem' },
+                  fontSize: { xs: '0.85rem', md: '1.05rem' },
                   fontWeight: 750,
                   color: 'var(--ga-text-primary)',
                   lineHeight: 1,

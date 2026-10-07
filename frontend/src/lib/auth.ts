@@ -583,6 +583,10 @@ export function podeVerEnergia(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
+export function podeVerFinanceiro(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('financeiro.ver', usuario);
+}
+
 export function podeAbrirEnergia(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('energia.abrir', usuario) || operaLojaEnergia(usuario);
 }

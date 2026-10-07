@@ -4,10 +4,11 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeVerEnergia } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeVerEnergia, podeVerFinanceiro } from '../lib/auth';
 import { primeiraRotaPermitida } from '../config/navPermissions';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import MenuList from '@mui/material/MenuList';
 import Paper from '@mui/material/Paper';
@@ -23,17 +24,17 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
+import PointOfSaleOutlinedIcon from '@mui/icons-material/PointOfSaleOutlined';
+import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import LightModeIcon from '@mui/icons-material/LightMode';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAppTheme } from '../context/ThemeContext';
 import {
   CommandCenterFiltersProvider,
   useCommandCenterFilters,
@@ -92,7 +93,7 @@ export default function PortalLayout() {
 }
 
 function PortalLayoutInner() {
-  const { mode, toggleTheme } = useAppTheme();
+  const { mode } = useAppTheme();
   const filtroAcento = mode === 'dark' ? '#fe6c22' : '#1B2A6B';
   const { data: dataFiltro, setData: setDataFiltro, regiaoId, regiaoNome, setRegiao } =
     useCommandCenterFilters();
@@ -332,7 +333,20 @@ function PortalLayoutInner() {
 
   const nav: NavItem[] = [
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
-    
+
+    // FINANCEIRO — enxuto como Azimut (detalhe de banco fica dentro de Integrações)
+    { to: '/financeiro', label: 'Contas a pagar', icon: <PaymentsOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), end: true, section: 'FINANCEIRO' },
+    { to: '/financeiro/caixa', label: 'Fechamento de caixa', icon: <PointOfSaleOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
+    {
+      to: '/financeiro/integracoes',
+      label: 'Integrações',
+      icon: <HubOutlinedIcon fontSize="small" />,
+      show: podeVerFinanceiro(user),
+      section: 'FINANCEIRO',
+      isActive: (pathname: string) =>
+        pathname.startsWith('/financeiro/integracoes') || pathname.startsWith('/financeiro/configuracoes'),
+    },
+
     // OPERAÇÃO
     { to: '/checklist', label: 'AutoREV', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), section: 'OPERAÇÃO' },
     { to: '/nao-conformidades', label: 'Não Conformidades', icon: <WarningAmberIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'OPERAÇÃO' },
@@ -348,19 +362,9 @@ function PortalLayoutInner() {
     // GESTÃO
     { to: '/estoque', label: 'Estoque & CMV', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), section: 'GESTÃO' },
     { to: '/ranking', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'GESTÃO' },
-
-    // CONFIGURAÇÃO — cadastros e módulos ficam no menu interno de /configuracoes
-    {
-      to: '/configuracoes',
-      label: 'Configurações',
-      icon: <SettingsIcon fontSize="small" />,
-      show: getConfigNavSections(user).length > 0,
-      end: false,
-      section: 'CONFIGURAÇÃO',
-      isActive: (pathname: string) => pathname === '/configuracoes' || pathname.startsWith('/configuracoes/'),
-    },
   ].filter((n) => n.show);
 
+  const podeConfig = getConfigNavSections(user).length > 0;
   const sidebarNav = nav.filter((n) => !n.mobileOnly && canalLigado(n.to, 'portal'));
   const mobileTabsRodape = nav.filter((n) => canalLigado(n.to, 'portal'));
 
@@ -413,8 +417,8 @@ function PortalLayoutInner() {
               display: { xs: 'none', md: 'flex' },
               alignItems: 'center',
               justifyContent: 'space-between',
-              px: 3,
-              height: isDashboard ? 58 : 56,
+              px: 2.5,
+              height: isDashboard ? 44 : 48,
               flexShrink: 0,
               borderBottom: isDashboard ? 'none' : '1px solid',
               borderColor: colors.border,
@@ -425,11 +429,23 @@ function PortalLayoutInner() {
             }}
           >
             <PageHeaderTitle {...pageTitle} variant="desktop" />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               {dashboardFilters}
-              <IconButton size="small" aria-label="Alternar Tema" onClick={toggleTheme} sx={{ color: colors.textSecondary }}>
-                {mode === 'dark' ? <LightModeIcon sx={{ fontSize: 20 }} /> : <DarkModeIcon sx={{ fontSize: 20 }} />}
-              </IconButton>
+              {podeConfig ? (
+                <Tooltip title="Configurações">
+                  <IconButton
+                    size="small"
+                    aria-label="Configurações"
+                    onClick={() => navigate('/configuracoes')}
+                    sx={{
+                      color: emConfiguracoes ? colors.navy : colors.textSecondary,
+                      '&:hover': { color: colors.navy, bgcolor: colors.navyMuted },
+                    }}
+                  >
+                    <SettingsIcon sx={{ fontSize: 20 }} />
+                  </IconButton>
+                </Tooltip>
+              ) : null}
               {!isMobileLayout ? notificacoes : null}
             </Box>
           </Box>
@@ -462,6 +478,16 @@ function PortalLayoutInner() {
           <SobreSistemaButton variante="portal" />
           <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
           {/* Tema escuro oculto no mobile por enquanto — só claro. */}
+          {podeConfig ? (
+            <IconButton
+              size="small"
+              aria-label="Configurações"
+              onClick={() => navigate('/configuracoes')}
+              sx={{ color: emConfiguracoes ? colors.navy : colors.textSecondary }}
+            >
+              <SettingsIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          ) : null}
           {isMobileLayout ? notificacoes : null}
           <IconButton size="small" aria-label="Sair" onClick={handleLogout} sx={{ color: colors.textSecondary }}>
             <LogoutIcon sx={{ fontSize: 18 }} />
@@ -472,23 +498,23 @@ function PortalLayoutInner() {
           component="main"
           className={`flex-1 min-h-0 flex flex-col ${scrollInterno ? 'overflow-hidden' : 'overflow-y-auto'}`}
           sx={{
-            pl: { xs: 'max(16px, env(safe-area-inset-left, 0px))', md: paginaEscalaVisitas ? 1.5 : 3, xl: paginaEscalaVisitas ? 1.5 : 3 },
-            pr: { xs: 'max(16px, env(safe-area-inset-right, 0px))', md: paginaEscalaVisitas ? 1.5 : 3, xl: paginaEscalaVisitas ? 1.5 : 3 },
+            pl: { xs: 'max(14px, env(safe-area-inset-left, 0px))', md: paginaEscalaVisitas ? 1.25 : 2.25, xl: paginaEscalaVisitas ? 1.25 : 2.25 },
+            pr: { xs: 'max(14px, env(safe-area-inset-right, 0px))', md: paginaEscalaVisitas ? 1.25 : 2.25, xl: paginaEscalaVisitas ? 1.25 : 2.25 },
             py: paginaEscalaVisitas
               ? { xs: 1, md: 1 }
               : scrollInterno
-                ? { xs: 2, md: 2 }
+                ? { xs: 1.25, md: 1.5 }
                 : isDashboard
-                  ? { xs: 1.25, md: 1.5 }
+                  ? { xs: 1, md: 1 }
                   : emConfiguracoes || emFrota
-                    ? { xs: 2, md: 2.5 }
-                    : { xs: 2.5, md: 3 },
+                    ? { xs: 1.5, md: 1.75 }
+                    : { xs: 1.5, md: 2 },
             pb:
               mobileTabsRodape.length > 0 && !isChamadoNovo
-                ? { xs: safeAreaBottomCalc(80), md: 3 }
+                ? { xs: safeAreaBottomCalc(80), md: 2 }
                 : isDashboard
-                  ? { xs: 1.25, md: 1.5 }
-                  : 3,
+                  ? { xs: 1, md: 1 }
+                  : 2,
             maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
             mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
             width: '100%',

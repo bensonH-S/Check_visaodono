@@ -63,7 +63,15 @@ import FreelancersAprovacaoMobilePage from './pages/freelancers/FreelancersAprov
 import RotaNcMobile from './components/RotaNcMobile';
 import RotaEnergiaMobile from './components/RotaEnergiaMobile';
 import RotaEnergia from './components/RotaEnergia';
+import RotaFinanceiro from './components/RotaFinanceiro';
 import RotaFreelancersAprovacao from './components/RotaFreelancersAprovacao';
+import FinanceiroOutlet from './financeiro/FinanceiroOutlet';
+import { ContasPagarPage } from './financeiro/pages/ContasPagarPage';
+import { ConfigDetalhePage, ConfigPage as FinanceiroConfigPage } from './financeiro/pages/ConfigPage';
+import { DdaPage } from './financeiro/pages/DdaPage';
+import { FechamentoCaixaPage } from './financeiro/pages/FechamentoCaixaPage';
+import { ModuloPage as FinanceiroModuloPage } from './financeiro/pages/ModuloPage';
+import { VendasPage as FinanceiroVendasPage } from './financeiro/pages/VendasPage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -509,6 +517,24 @@ export default function App() {
                 </RotaEnergia>
               }
             />
+            <Route
+              path="financeiro"
+              element={
+                <RotaFinanceiro>
+                  <FinanceiroOutlet />
+                </RotaFinanceiro>
+              }
+            >
+              <Route index element={<ContasPagarPage />} />
+              <Route path="receber" element={<FinanceiroModuloPage titulo="Contas a receber" />} />
+              <Route path="caixa" element={<FechamentoCaixaPage />} />
+              <Route path="movimento" element={<FinanceiroModuloPage titulo="Contas movimento" />} />
+              <Route path="dre" element={<FinanceiroModuloPage titulo="DRE" />} />
+              <Route path="vendas" element={<FinanceiroVendasPage />} />
+              <Route path="integracoes" element={<DdaPage />} />
+              <Route path="configuracoes" element={<FinanceiroConfigPage />} />
+              <Route path="configuracoes/:secao" element={<ConfigDetalhePage />} />
+            </Route>
             <Route
               path="chamados/aprovacoes/:idChamado"
               element={

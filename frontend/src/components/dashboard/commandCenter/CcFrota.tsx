@@ -408,7 +408,7 @@ export default function CcFrota({
         minHeight: 0,
       }}
     >
-      <Box sx={{ px: 1.5, pt: 1.15, pb: 0.6, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+      <Box sx={{ px: 1.25, pt: 0.85, pb: 0.45, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
         <Box>
           <Typography sx={{ fontWeight: 650, fontSize: '0.78rem', color: 'var(--ga-text-primary)' }}>
             Frota em tempo real
@@ -428,15 +428,15 @@ export default function CcFrota({
                   },
                 }}
               />
-              <Typography sx={{ fontSize: '0.75rem', color: 'var(--ga-text-secondary)' }}>Atualizado agora</Typography>
+              <Typography sx={{ fontSize: '0.625rem', color: 'var(--ga-text-secondary)' }}>Atualizado agora</Typography>
             </Box>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <Typography
             component={RouterLink}
             to="/frota"
             sx={{
-              fontSize: '0.75rem',
+              fontSize: '0.625rem',
               fontWeight: 600,
               color: 'var(--ga-orange)',
               textDecoration: 'none',

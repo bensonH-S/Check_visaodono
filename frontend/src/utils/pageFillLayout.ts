@@ -23,6 +23,8 @@ export function isPaginaScrollInterno(path: string): boolean {
     path === '/chamados/aprovacoes' ||
     path.startsWith('/relatorio/visita/') ||
     emFrotaPortal ||
-    path.startsWith('/configuracoes/')
+    path.startsWith('/configuracoes/') ||
+    path === '/financeiro' ||
+    path.startsWith('/financeiro/')
   );
 }

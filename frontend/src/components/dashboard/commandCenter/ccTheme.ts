@@ -26,10 +26,10 @@ export const CC_WARN = '#C47A2A';
 export const CC_INFO = '#8A8580';
 export const CC_PARADO = 'var(--ga-text-muted)';
 export const CC_EXCESSO = '#C4452D';
-export const CC_RADIUS = 10;
-export const CC_GAP = 2;
-export const CC_MIDDLE_H = 420;
-export const CC_BOTTOM_H = 200;
+export const CC_RADIUS = 8;
+export const CC_GAP = 1.25;
+export const CC_MIDDLE_H = 360;
+export const CC_BOTTOM_H = 220;
 
 /** Estilo compartilhado dos tooltips Recharts no Command Center. */
 export const CC_TOOLTIP_STYLE = {

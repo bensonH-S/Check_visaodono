@@ -1,40 +1,18 @@
+import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import StoreIcon from '@mui/icons-material/Store';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import { fmtDelta, fmtInt, fmtPct } from './ccFormat';
-import { CC_BORDER, CC_CRITICO, CC_GAP, CC_OK, CC_ORANGE, CC_RADIUS, CC_SURFACE, CC_WARN } from './ccTheme';
+import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
+import HowToRegOutlinedIcon from '@mui/icons-material/HowToRegOutlined';
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
+import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import { api as financeApi, type ResumoFinanceiro } from '../../../financeiro/api';
+import { api } from '../../../api/client';
+import { fmtBrl, fmtInt } from './ccFormat';
+import { CC_BORDER, CC_CRITICO, CC_GAP, CC_MUTED, CC_ORANGE, CC_RADIUS, CC_SURFACE, CC_WARN } from './ccTheme';
 import { CcSkeleton } from './CcPanel';
 
 const CC_ACCENT_SOFT = 'color-mix(in srgb, var(--ga-orange) 14%, transparent)';
-
-function Sparkline({ values }: { values: number[] }) {
-  if (!values.length) return null;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = Math.max(1, max - min);
-  const w = 64;
-  const h = 24;
-  const pts = values
-    .map((v, i) => {
-      const x = (i / Math.max(1, values.length - 1)) * w;
-      const y = h - ((v - min) / span) * (h - 4) - 2;
-      return `${x},${y}`;
-    })
-    .join(' ');
-  const area = `0,${h} ${pts} ${w},${h}`;
-
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
-      <polygon points={area} fill={CC_ACCENT_SOFT} />
-      <polyline points={pts} fill="none" stroke={CC_ORANGE} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function KpiCard({
   title,
@@ -43,7 +21,7 @@ function KpiCard({
   icon,
   iconColor,
   iconBg,
-  extra,
+  accent,
 }: {
   title: string;
   value: React.ReactNode;
@@ -51,7 +29,7 @@ function KpiCard({
   icon?: React.ReactNode;
   iconColor?: string;
   iconBg?: string;
-  extra?: React.ReactNode;
+  accent?: string;
 }) {
   return (
     <Box
@@ -59,14 +37,14 @@ function KpiCard({
         bgcolor: CC_SURFACE,
         border: `1px solid ${CC_BORDER}`,
         borderRadius: `${CC_RADIUS}px`,
-        px: { xs: 1.25, md: 1.75 },
-        py: 1.25,
+        px: { xs: 1, md: 1.25 },
+        py: 0.85,
         boxShadow: 'none',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         height: '100%',
-        minHeight: 72,
+        minHeight: 56,
         minWidth: 0,
         flex: '1 1 0',
         overflow: 'hidden',
@@ -75,10 +53,10 @@ function KpiCard({
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography
           sx={{
-            fontSize: '0.625rem',
+            fontSize: '0.5625rem',
             fontWeight: 700,
-            color: 'var(--ga-text-muted)',
-            mb: 0.55,
+            color: CC_MUTED,
+            mb: 0.3,
             letterSpacing: '0.05em',
             textTransform: 'uppercase',
             whiteSpace: 'nowrap',
@@ -90,12 +68,14 @@ function KpiCard({
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: '1.05rem', md: '1.2rem' },
-            fontWeight: 700,
-            color: 'var(--ga-text-primary)',
+            fontSize: { xs: '0.95rem', md: '1.05rem' },
+            fontWeight: 750,
+            color: accent || 'var(--ga-text-primary)',
             lineHeight: 1,
-            mb: 0.5,
+            mb: 0.3,
             whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
           }}
         >
           {value}
@@ -106,8 +86,6 @@ function KpiCard({
             sx={{
               fontSize: '0.625rem',
               color: 'var(--ga-text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -117,24 +95,20 @@ function KpiCard({
           </Typography>
         )}
       </Box>
-      {extra && (
-        <Box sx={{ display: { xs: 'none', lg: 'flex' }, ml: 0.75, flexShrink: 0, alignItems: 'center' }}>
-          {extra}
-        </Box>
-      )}
       {icon && (
         <Box
           sx={{
-            width: 36,
-            height: 36,
-            borderRadius: '8px',
+            width: 28,
+            height: 28,
+            borderRadius: '6px',
             display: { xs: 'none', sm: 'flex' },
             alignItems: 'center',
             justifyContent: 'center',
             bgcolor: iconBg,
             color: iconColor,
             flexShrink: 0,
-            ml: { sm: 0.75, md: 1 },
+            ml: { sm: 0.5, md: 0.75 },
+            '& .MuiSvgIcon-root': { fontSize: 16 },
           }}
         >
           {icon}
@@ -144,31 +118,33 @@ function KpiCard({
   );
 }
 
+/** KPIs do Command Center — contas a pagar + valor de estoque. */
 export default function CcKpiRow({
-  loading,
-  mediaGeral,
-  variacaoMes,
-  sparkline,
-  visitasMes,
-  visitasPlanejadas,
-  ncsAbertas,
-  ncsCriticas,
-  ncsModeradas,
-  lojasRisco,
-  veiculosAlerta,
+  podeFinanceiro,
 }: {
-  loading?: boolean;
-  mediaGeral: number;
-  variacaoMes?: number | null;
-  sparkline?: number[];
-  visitasMes: number;
-  visitasPlanejadas?: number;
-  ncsAbertas: number;
-  ncsCriticas: number;
-  ncsModeradas: number;
-  lojasRisco: number;
-  veiculosAlerta: number | null;
+  podeFinanceiro: boolean;
 }) {
+  const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
+  const [valorEstoque, setValorEstoque] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancel = false;
+    setLoading(true);
+    Promise.all([
+      podeFinanceiro ? financeApi.resumo().catch(() => null) : Promise.resolve(null),
+      api.estoqueSaldosRedeValor().catch(() => null),
+    ]).then(([fin, est]) => {
+      if (cancel) return;
+      setResumo(fin);
+      setValorEstoque(est?.valor_atual ?? null);
+      setLoading(false);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [podeFinanceiro]);
+
   const rowSx = {
     display: 'flex',
     flexWrap: 'nowrap' as const,
@@ -182,75 +158,70 @@ export default function CcKpiRow({
       <Box sx={rowSx}>
         {Array.from({ length: 5 }).map((_, i) => (
           <Box key={i} sx={{ flex: '1 1 0', minWidth: 0 }}>
-            <CcSkeleton height={86} />
+            <CcSkeleton height={56} />
           </Box>
         ))}
       </Box>
     );
   }
 
-  const delta = fmtDelta(variacaoMes);
-  const planejadas = visitasPlanejadas && visitasPlanejadas > 0 ? visitasPlanejadas : null;
-
   return (
     <Box sx={rowSx}>
       <KpiCard
-        title="Performance Geral"
-        value={fmtPct(mediaGeral)}
+        title="A pagar"
+        value={podeFinanceiro && resumo ? fmtBrl(resumo.a_pagar) : '—'}
         subtext={
-          delta ? (
-            <>
-              {delta.positivo ? (
-                <ArrowDropUpIcon sx={{ fontSize: 16, color: CC_OK, mr: 0.25 }} />
-              ) : (
-                <ArrowDropDownIcon sx={{ fontSize: 16, color: CC_CRITICO, mr: 0.25 }} />
-              )}
-              <span style={{ color: delta.positivo ? CC_OK : CC_CRITICO, fontWeight: 600, marginRight: 4 }}>
-                {delta.valor}%
-              </span>
-              <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>
-                vs. mês anterior
-              </Box>
-            </>
-          ) : (
-            'Sem histórico'
-          )
+          podeFinanceiro && resumo
+            ? `${fmtInt(resumo.qtd_abertas)} em aberto`
+            : 'Sem acesso ao financeiro'
         }
-        extra={sparkline && sparkline.length > 1 ? <Sparkline values={sparkline} /> : undefined}
-      />
-
-      <KpiCard
-        title="Visitas no Mês"
-        value={planejadas ? `${fmtInt(visitasMes)}` : fmtInt(visitasMes)}
-        subtext={planejadas ? `de ${fmtInt(planejadas)} planejadas` : 'Registradas neste mês'}
-        icon={<CalendarMonthIcon fontSize="medium" />}
+        icon={<AccountBalanceWalletOutlinedIcon />}
         iconColor={CC_ORANGE}
         iconBg={CC_ACCENT_SOFT}
       />
 
       <KpiCard
-        title="NCs em Aberto"
-        value={fmtInt(ncsAbertas)}
-        subtext={`${fmtInt(ncsCriticas)} críticas • ${fmtInt(ncsModeradas)} moderadas`}
-        icon={<WarningAmberIcon fontSize="medium" />}
-        iconColor={CC_CRITICO}
-        iconBg="rgba(196, 69, 45, 0.14)"
+        title="Para autorizar"
+        value={podeFinanceiro && resumo ? fmtBrl(resumo.para_autorizar) : '—'}
+        subtext={
+          podeFinanceiro && resumo
+            ? `${fmtInt(resumo.qtd_autorizar)} aguardando Felipe`
+            : '—'
+        }
+        accent={resumo && resumo.para_autorizar > 0 ? CC_ORANGE : undefined}
+        icon={<HowToRegOutlinedIcon />}
+        iconColor={CC_ORANGE}
+        iconBg={CC_ACCENT_SOFT}
       />
 
       <KpiCard
-        title="Lojas em Risco"
-        value={fmtInt(lojasRisco)}
-        subtext="Abaixo de 75%"
-        icon={<StoreIcon fontSize="medium" />}
-        iconColor={CC_WARN}
-        iconBg="rgba(196, 122, 42, 0.14)"
+        title="Vencidas"
+        value={podeFinanceiro && resumo ? fmtBrl(resumo.vencida) : '—'}
+        subtext={
+          podeFinanceiro && resumo
+            ? `${fmtInt(resumo.qtd_vencidas)} sem pagar`
+            : '—'
+        }
+        accent={resumo && resumo.vencida > 0 ? CC_CRITICO : undefined}
+        icon={<EventBusyOutlinedIcon />}
+        iconColor={resumo && resumo.vencida > 0 ? CC_CRITICO : CC_WARN}
+        iconBg={resumo && resumo.vencida > 0 ? 'rgba(196, 69, 45, 0.14)' : 'rgba(196, 122, 42, 0.14)'}
       />
 
       <KpiCard
-        title="Veículos em Alerta"
-        value={veiculosAlerta == null ? '—' : fmtInt(veiculosAlerta)}
-        subtext={veiculosAlerta == null ? 'Sem acesso à frota' : 'Excesso de velocidade'}
-        icon={<LocalShippingIcon fontSize="medium" />}
+        title="Pago"
+        value={podeFinanceiro && resumo ? fmtBrl(resumo.pago) : '—'}
+        subtext="já baixadas"
+        icon={<PaidOutlinedIcon />}
+        iconColor={CC_MUTED}
+        iconBg="var(--ga-canvas-alt)"
+      />
+
+      <KpiCard
+        title="Estoque rede"
+        value={fmtBrl(valorEstoque)}
+        subtext="valor atual"
+        icon={<Inventory2OutlinedIcon />}
         iconColor={CC_ORANGE}
         iconBg={CC_ACCENT_SOFT}
       />

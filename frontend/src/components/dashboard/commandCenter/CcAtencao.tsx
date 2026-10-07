@@ -103,19 +103,19 @@ function Tiles({
               border: '1px solid rgba(255,255,255,0.06)',
               borderLeft: `3px solid ${item.color}`,
               bgcolor: CC_SURFACE_2,
-              px: 1.1,
-              py: 1.05,
+              px: 0.9,
+              py: 0.75,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
-              gap: 0.45,
+              gap: 0.3,
               '&:hover': { bgcolor: '#221E1A' },
             }}
           >
             <Typography
               sx={{
-                fontSize: '1.45rem',
-                fontWeight: 800,
+                fontSize: '1.15rem',
+                fontWeight: 750,
                 color: item.color,
                 lineHeight: 1,
                 letterSpacing: '-0.03em',
@@ -125,9 +125,9 @@ function Tiles({
             </Typography>
             <Typography
               sx={{
-                fontSize: '0.65rem',
+                fontSize: '0.6rem',
                 color: '#9E9E9E',
-                lineHeight: 1.25,
+                lineHeight: 1.2,
                 fontWeight: 500,
               }}
             >

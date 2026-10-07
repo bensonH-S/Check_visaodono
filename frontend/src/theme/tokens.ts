@@ -19,9 +19,9 @@ export const colors = {
   sidebarBorder: 'var(--ga-sidebar-border)',
 } as const;
 
-/** Largura da sidebar desktop */
+/** Largura da sidebar desktop (ritmo Azimut, densificado ~90%) */
 export const layout = {
-  sidebarWidth: 220,
+  sidebarWidth: 212,
 } as const;
 
 export const shadows = {
@@ -70,7 +70,7 @@ export const portalIconBoxSx = {
 
 export const sectionLabelSx = {
   fontSize: '0.6875rem',
-  fontWeight: 600,
+  fontWeight: 500,
   letterSpacing: '0.05em',
   textTransform: 'uppercase' as const,
   color: colors.textMuted,

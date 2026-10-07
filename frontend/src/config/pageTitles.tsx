@@ -30,6 +30,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import LanguageIcon from '@mui/icons-material/Language';
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 
 import { colors } from '../theme/tokens';
 
@@ -55,6 +56,11 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados': { title: 'Chamados', icon: <BuildIcon sx={iconSx} /> },
   '/energia': { title: 'Energia', icon: <BoltIcon sx={iconSx} /> },
   '/energia/novo': { title: 'Registrar ocorrência', icon: <BoltIcon sx={iconSx} /> },
+  '/financeiro': { title: 'Contas a pagar', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
+  '/financeiro/caixa': { title: 'Fechamento de caixa', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
+  '/financeiro/integracoes': { title: 'Integrações', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
+  '/financeiro/configuracoes': { title: 'Configuração financeira', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
+  '/financeiro/vendas': { title: 'Vendas', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
   '/chamados/novo': { title: 'Abrir chamado', icon: <AddIcon sx={iconSx} /> },
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/frota': { title: 'Frota', icon: <DirectionsCarIcon sx={iconSx} /> },
@@ -125,6 +131,9 @@ export function resolvePageTitle(path: string): PageTitleConfig {
   if (path.startsWith('/chamados/aprovacoes/')) return PAGE_TITLES['/chamados/aprovacoes'];
   if (path.startsWith('/energia/')) {
     return { title: 'Energia', icon: <BoltIcon sx={iconSx} /> };
+  }
+  if (path === '/financeiro' || path.startsWith('/financeiro/')) {
+    return PAGE_TITLES[path] ?? PAGE_TITLES['/financeiro'];
   }
   if (path.startsWith('/chamados/')) return PAGE_TITLES['/chamados'];
   if (path.startsWith('/configuracoes/')) {

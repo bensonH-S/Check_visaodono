@@ -50,8 +50,8 @@ export default function CcEvolucao({
         <CcEmpty>Sem histórico de performance para o período.</CcEmpty>
       ) : (
         <>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1.25, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: '1.35rem', fontWeight: 750, color: 'var(--ga-text-primary)' }}>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.85, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--ga-text-primary)' }}>
               {fmtPct(ultimo?.media ?? mediaAtual)}
             </Typography>
             <Typography sx={{ fontSize: '0.78rem', color: 'var(--ga-text-secondary)' }}>

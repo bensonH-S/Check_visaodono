@@ -14,6 +14,7 @@ export type ModuloCanalCodigo =
   | 'estoque'
   | 'break'
   | 'ranking'
+  | 'financeiro'
   | 'freelancers'
   | 'portais';
 
@@ -136,6 +137,14 @@ export const CATALOGO_MODULOS: readonly Omit<ModuloCanalFlags, 'portal' | 'mobil
     temMobile: false,
   },
   {
+    codigo: 'financeiro',
+    nome: 'Financeiro',
+    secao: 'Gestão',
+    descricao: 'Contas a pagar, caixa, DDA e integrações bancárias.',
+    temPortal: true,
+    temMobile: false,
+  },
+  {
     codigo: 'freelancers',
     nome: 'Freelas',
     secao: 'App',
@@ -188,6 +197,7 @@ const ROTAS_PORTAL: Array<{ prefix: string; codigo: ModuloCanalCodigo }> = [
   { prefix: '/visitas', codigo: 'visitas' },
   { prefix: '/estoque', codigo: 'estoque' },
   { prefix: '/ranking', codigo: 'ranking' },
+  { prefix: '/financeiro', codigo: 'financeiro' },
 ];
 
 const ROTAS_MOBILE: Array<{ prefix: string; codigo: ModuloCanalCodigo }> = [

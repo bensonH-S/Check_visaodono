@@ -80,7 +80,6 @@ export default function CcEstoqueGrafico() {
 
   const corDonut = escuro ? CC_BRAND_ORANGE : COR_LISTA.light.alto;
 
-  /** Donut: azul no claro, laranja no escuro. */
   const fatias = useMemo(() => {
     const n = Math.max(zerados.length, 0);
     if (!n) return [];
