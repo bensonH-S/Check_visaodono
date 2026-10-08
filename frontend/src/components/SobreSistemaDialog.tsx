@@ -15,6 +15,7 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { APP_ABOUT, APP_MODULES, APP_NAME, APP_TAGLINE } from '../config/brand';
@@ -40,6 +41,7 @@ const MODULE_ICONS: Record<(typeof APP_MODULES)[number], SvgIconComponent> = {
   NCs: WarningAmberOutlinedIcon,
   Freelancers: BadgeOutlinedIcon,
   'Escala e metas': CalendarMonthOutlinedIcon,
+  'Financeiro (pagar, caixa, DDA)': PaymentsOutlinedIcon,
 };
 
 type Props = {
