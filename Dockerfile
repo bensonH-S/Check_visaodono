@@ -1,22 +1,17 @@
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-
-COPY package.json package-lock.json ./
-COPY backend/package.json backend/package-lock.json ./backend/
+# Só o frontend. Mudança em backend/src não recompila o Vite.
 COPY frontend/package.json frontend/package-lock.json ./frontend/
+RUN npm ci --prefix frontend
 
-# postinstall da raiz usa scripts/ — ainda não copiado; deps já instaladas nos 3 workspaces abaixo
-RUN npm ci --ignore-scripts \
-  && npm ci --prefix backend \
-  && npm ci --prefix frontend
+COPY scripts/write-version.js ./scripts/write-version.js
+COPY frontend ./frontend
+RUN node scripts/write-version.js && npm run build --prefix frontend
 
-COPY . .
+# Tag não entra no Vite: a API lê este arquivo. Bump de tag não reconstrói o bundle.
 ARG GIT_TAG=
-ENV GIT_TAG=${GIT_TAG}
-RUN npm run build:web
+RUN printf '%s\n' "${GIT_TAG:-dev}" > /app/VERSION
 
 FROM node:22-bookworm-slim
 WORKDIR /app
@@ -51,6 +46,8 @@ COPY --from=build /app/frontend/dist ./frontend/dist
 COPY frontend/public/Logo_Alvim_Icone.png frontend/public/CIGA.png ./frontend/public/
 COPY static/ciga ./static/ciga
 COPY --from=build /app/VERSION ./VERSION
+ARG GIT_TAG=
+ENV APP_VERSION=${GIT_TAG}
 
 ENV NODE_ENV=production
 ENV PORT=3007

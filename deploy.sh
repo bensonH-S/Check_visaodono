@@ -100,8 +100,14 @@ compose_build_up() {
   # App precisa recriar para aplicar imagem nova após tag.
   # WPP mantém container se já estiver saudável (start sem rebuild).
   if [ "$servico" = "app" ]; then
-    # Força rebuild da imagem (Playwright/Chromium muda entre tags)
-    compose_cmd build --pull --no-cache "$servico"
+    # Cache ligado: npm e Chromium só reinstalam se o package-lock mudar.
+    # Rebuild total (base image + Playwright): DEPLOY_NO_CACHE=1 ./deploy.sh
+    if [ "${DEPLOY_NO_CACHE:-}" = "1" ]; then
+      echo "Build sem cache (DEPLOY_NO_CACHE=1)..."
+      compose_cmd build --pull --no-cache "$servico"
+    else
+      compose_cmd build "$servico"
+    fi
     compose_cmd up -d --force-recreate --remove-orphans "$servico"
   else
     compose_cmd build "$servico"
@@ -194,9 +200,24 @@ sync_wpp_fonte() {
   )
 }
 
+wpp_codigo_igual() {
+  wpp_eh_fork_meridian || return 1
+  [ -d "$HOST_WPP/dist" ] || return 1
+  git -C "$HOST_WPP" fetch origin "$WPP_GIT_BRANCH" --quiet || return 1
+  [ "$(git -C "$HOST_WPP" rev-parse HEAD)" = "$(git -C "$HOST_WPP" rev-parse "origin/$WPP_GIT_BRANCH")" ]
+}
+
 subir_wppconnect() {
   parar_wpp_docker
-  sync_wpp_fonte
+  if wpp_codigo_igual; then
+    echo "WPPConnect já está em origin/$WPP_GIT_BRANCH. Sem yarn."
+    if sudo systemctl is-active --quiet wppconnect-meridian; then
+      echo "wppconnect-meridian já no ar. Sem reiniciar."
+      return 0
+    fi
+  else
+    sync_wpp_fonte
+  fi
 
   if [ ! -d "$HOST_WPP" ]; then
     echo "ERRO: $HOST_WPP não existe após o clone."
@@ -245,11 +266,16 @@ subir_wppconnect() {
 ########################################
 
 subir_app() {
+  echo "Construindo app. O container atual segue no ar até a imagem ficar pronta."
+  if [ "${DEPLOY_NO_CACHE:-}" = "1" ]; then
+    echo "Build sem cache (DEPLOY_NO_CACHE=1)..."
+    compose_cmd build --pull --no-cache app
+  else
+    compose_cmd build app
+  fi
   remover_container_legado "$CONTAINER_NAME"
-  limpar_containers_residuals 'vision-check'
-
-  echo "Construindo app..."
-  compose_build_up app
+  limpar_containers_residuais 'vision-check-run-'
+  compose_cmd up -d --force-recreate --remove-orphans app
 }
 
 ########################################
