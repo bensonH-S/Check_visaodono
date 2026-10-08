@@ -267,9 +267,18 @@ async function amarrarNotas() {
   `)
 }
 
+let sincronizandoNotas = null
+
+function sincronizarNotasEmFundo() {
+  if (sincronizandoNotas) return
+  sincronizandoNotas = (async () => {
+    try { await vincularFornecedores() } catch (err) { console.error(err.message) }
+    try { await amarrarNotas() } catch (err) { console.error(err.message) }
+  })().finally(() => { sincronizandoNotas = null })
+}
+
 async function listarDespesas(empresaId) {
-  try { await vincularFornecedores() } catch (err) { console.error(err.message) }
-  try { await amarrarNotas() } catch (err) { console.error(err.message) }
+  sincronizarNotasEmFundo()
   const params = []
   let where = ''
   if (empresaId) {
@@ -614,15 +623,22 @@ export async function handleFinance(req, res) {
       const body = await readBody(req)
       const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean) : []
       if (!ids.length) return send(res, 400, JSON.stringify({ erro: 'Informe ao menos um título.' }))
-      await amarrarNotas()
+      const uuidOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      const validos = []
+      const bloqueados = []
+      for (const id of ids) {
+        if (uuidOk.test(id)) validos.push(id)
+        else bloqueados.push({ id, motivo: 'Título inválido.' })
+      }
+      if (!validos.length) return send(res, 200, JSON.stringify({ enviados: [], bloqueados }))
       const { rows } = await pool.query(
-        `select id, fonte, nf_confirmada, status from despesas where id = any($1::uuid[])`,
-        [ids],
+        `select id::text as id, status from despesas where id = any($1::uuid[])`,
+        [validos],
       )
       const porId = new Map(rows.map((r) => [r.id, r]))
       const enviados = []
-      const bloqueados = []
-      for (const id of ids) {
+      const paraAtualizar = []
+      for (const id of validos) {
         const d = porId.get(id)
         if (!d) {
           bloqueados.push({ id, motivo: 'Título não encontrado.' })
@@ -636,11 +652,17 @@ export async function handleFinance(req, res) {
           enviados.push({ id, status: d.status })
           continue
         }
+        paraAtualizar.push(id)
+      }
+      if (paraAtualizar.length) {
         const up = await pool.query(
-          `update despesas set status = 'pronta' where id = $1 returning id, status`,
-          [id],
+          `update despesas set status = 'pronta'
+           where id = any($1::uuid[])
+             and status not in ('paga', 'conciliada', 'cancelada', 'pronta', 'autorizada', 'enviada')
+           returning id::text as id, status`,
+          [paraAtualizar],
         )
-        enviados.push(up.rows[0])
+        enviados.push(...up.rows)
       }
       return send(res, 200, JSON.stringify({ enviados, bloqueados }))
     }
@@ -842,7 +864,7 @@ export async function handleFinance(req, res) {
     send(res, 404, JSON.stringify({ erro: 'Não encontrado' }))
   } catch (err) {
     if (!res.headersSent) send(res, 500, JSON.stringify({ erro: 'Falha ao falar com o banco.' }))
-    console.error(err.message)
+    console.error(err)
   }
 }
 
