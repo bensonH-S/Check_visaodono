@@ -95,10 +95,10 @@ export function InboxDdaPage() {
   )
 
   const noPeriodo = useMemo(() => inbox.filter((e) => {
-    const semana = e.competencia || e.vencimento
-    if (!semana) return !de && !ate
-    if (de && semana < de) return false
-    if (ate && semana > ate) return false
+    const vencimento = (e.vencimento || '').slice(0, 10)
+    if (!vencimento) return !de && !ate
+    if (de && vencimento < de) return false
+    if (ate && vencimento > ate) return false
     return true
   }), [inbox, de, ate])
 
