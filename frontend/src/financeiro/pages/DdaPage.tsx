@@ -105,7 +105,7 @@ export function DdaPage() {
     setErro('')
     try {
       await api.coletarBb()
-      setAviso(t('Coleta do Banco do Brasil iniciada. Os títulos entram em Contas a pagar.', 'Banco do Brasil pull started. Titles land in Accounts payable.'))
+      setAviso(t('Coleta do Banco do Brasil iniciada. Os títulos entram no Inbox DDA.', 'Banco do Brasil pull started. Titles land in the DDA inbox.'))
       window.setTimeout(carregarEstados, 2500)
       window.setTimeout(carregarEstados, 8000)
     } catch (err) {
@@ -121,8 +121,8 @@ export function DdaPage() {
         <Stack spacing={0.75} sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ color: 'text.secondary', fontSize: 14 }}>
             {t(
-              'Os boletos do DDA (Itaú e Banco do Brasil) viram títulos em Contas a pagar.',
-              'DDA boletos (Itaú and Banco do Brasil) become payables in Accounts payable.',
+              'Os boletos do DDA (Itaú e Banco do Brasil) entram no Inbox. Só vão para a Agenda banco depois da NF conferida.',
+              'DDA boletos (Itaú and Banco do Brasil) land in the Inbox. They only move to the bank schedule after the invoice is checked.',
             )}
           </Typography>
           <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
@@ -134,8 +134,8 @@ export function DdaPage() {
             {bb?.mensagem || t('Aguardando a coleta.', 'Waiting for the next pull.')}
           </Typography>
         </Stack>
-        <Button variant="outlined" onClick={() => navigate('/financeiro')}>
-          {t('Ver em Contas a pagar', 'Open Accounts payable')}
+        <Button variant="outlined" onClick={() => navigate('/financeiro/inbox')}>
+          {t('Abrir Inbox DDA', 'Open DDA inbox')}
         </Button>
         <Button variant="outlined" onClick={() => navigate('/financeiro/configuracoes')}>
           {t('Config BB / Itaú', 'BB / Itaú setup')}
@@ -169,8 +169,8 @@ export function DdaPage() {
                 <TableCell colSpan={6}>
                   <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
                     {t(
-                      'Use “Puxar BB agora” ou suba um arquivo. Depois os títulos aparecem em Contas a pagar.',
-                      'Use “Pull BB now” or upload a file. Titles then show in Accounts payable.',
+                      'Use “Puxar BB agora” ou suba um arquivo. Depois os títulos aparecem no Inbox DDA.',
+                      'Use “Pull BB now” or upload a file. Titles then show in the DDA inbox.',
                     )}
                   </Box>
                 </TableCell>

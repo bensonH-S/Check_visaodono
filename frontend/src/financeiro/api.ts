@@ -437,6 +437,20 @@ export const api = {
     if (!res.ok) throw new Error(data.erro || 'Não salvou')
     return data as { id: string; status: string }
   },
+  /** Manda títulos para a Agenda banco (status pronta). DDA exige NF conferida. */
+  entrarNaAgenda: async (ids: string[]) => {
+    const res = await financeFetch(`${apiRoot}/despesas/agenda`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.erro || 'Não enviou para a agenda')
+    return data as {
+      enviados: Array<{ id: string; status: string }>
+      bloqueados: Array<{ id: string; motivo: string }>
+    }
+  },
 }
 
 export const brl = (n: number) =>

@@ -49,7 +49,7 @@ export default function DashboardPage() {
             Em desenvolvimento
           </Typography>
           <Typography sx={{ fontSize: 13, color: 'rgba(248,250,252,0.72)', lineHeight: 1.45 }}>
-            O Command Center está sendo refeito. Por enquanto use Contas a pagar, Estoque e Frota pelo menu.
+            O Command Center está sendo refeito. Por enquanto use Inbox DDA, Agenda banco, Estoque e Frota pelo menu.
           </Typography>
         </Box>
       </Paper>

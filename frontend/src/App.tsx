@@ -67,6 +67,7 @@ import RotaFinanceiro from './components/RotaFinanceiro';
 import RotaFreelancersAprovacao from './components/RotaFreelancersAprovacao';
 import FinanceiroOutlet from './financeiro/FinanceiroOutlet';
 import { ContasPagarPage } from './financeiro/pages/ContasPagarPage';
+import { InboxDdaPage } from './financeiro/pages/InboxDdaPage';
 import { ConfigDetalhePage, ConfigPage as FinanceiroConfigPage } from './financeiro/pages/ConfigPage';
 import { DdaPage } from './financeiro/pages/DdaPage';
 import { FechamentoCaixaPage } from './financeiro/pages/FechamentoCaixaPage';
@@ -526,6 +527,7 @@ export default function App() {
               }
             >
               <Route index element={<ContasPagarPage />} />
+              <Route path="inbox" element={<InboxDdaPage />} />
               <Route path="receber" element={<FinanceiroModuloPage titulo="Contas a receber" />} />
               <Route path="caixa" element={<FechamentoCaixaPage />} />
               <Route path="movimento" element={<FinanceiroModuloPage titulo="Contas movimento" />} />

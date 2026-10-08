@@ -24,9 +24,10 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
-import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import PointOfSaleOutlinedIcon from '@mui/icons-material/PointOfSaleOutlined';
 import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
+import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -333,8 +334,9 @@ function PortalLayoutInner() {
   const nav: NavItem[] = [
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
 
-    // FINANCEIRO — enxuto como Azimut (detalhe de banco fica dentro de Integrações)
-    { to: '/financeiro', label: 'Contas a pagar', icon: <PaymentsOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), end: true, section: 'FINANCEIRO' },
+    // FINANCEIRO — Inbox (DDA/NF) → Agenda banco → caixa / integrações
+    { to: '/financeiro/inbox', label: 'Inbox DDA', icon: <InboxOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
+    { to: '/financeiro', label: 'Agenda banco', icon: <AccountBalanceOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), end: true, section: 'FINANCEIRO' },
     { to: '/financeiro/caixa', label: 'Fechamento de caixa', icon: <PointOfSaleOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
     {
       to: '/financeiro/integracoes',

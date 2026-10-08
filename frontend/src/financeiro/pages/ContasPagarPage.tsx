@@ -152,13 +152,19 @@ export function ContasPagarPage() {
     carregar('')
   }, [])
 
-  const noPeriodo = useMemo(() => despesas.filter((e) => {
+  /** Agenda banco: DDA só depois de confirmado (status pronta+). Manual entra direto. */
+  const naAgenda = useMemo(() => despesas.filter((e) => {
+    if (e.fonte === 'dda') return ['pronta', 'autorizada', 'enviada', 'paga', 'conciliada'].includes(e.status)
+    return true
+  }), [despesas])
+
+  const noPeriodo = useMemo(() => naAgenda.filter((e) => {
     const semana = e.competencia || e.vencimento
     if (!semana) return !de && !ate
     if (de && semana < de) return false
     if (ate && semana > ate) return false
     return true
-  }), [despesas, de, ate])
+  }), [naAgenda, de, ate])
 
   const linhas = useMemo(() => noPeriodo.filter((e) => {
     const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''}`.toLowerCase()
@@ -198,7 +204,8 @@ export function ContasPagarPage() {
           {lojas.map((e) => <MenuItem key={e.id} value={e.id}>{e.apelido}</MenuItem>)}
         </TextField>
         <Box sx={{ flex: 1 }} />
-        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>{t('Importar DDA', 'Import DDA')}</Button>
+        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')}>{t('Inbox DDA', 'DDA inbox')}</Button>
+        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>{t('Coletar DDA', 'Pull DDA')}</Button>
         <Button size="small" variant="contained" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAberto(true)}>{t('Nova despesa', 'New expense')}</Button>
       </Stack>
 
