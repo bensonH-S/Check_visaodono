@@ -50,6 +50,10 @@ async function garantirSchemaFonte(db) {
   await db.query(fs.readFileSync(path.join(root, 'db', '010_despesa_fonte.sql'), 'utf8'))
 }
 
+async function garantirSchemaDespesaId(db) {
+  await db.query(fs.readFileSync(path.join(root, 'db', '011_despesa_id.sql'), 'utf8'))
+}
+
 const env = process.env
 const dbPort = Number(env.DB_PORT || 5432)
 const dbSsl = env.DB_SSL === 'true' || env.DB_SSL === '1' ? { rejectUnauthorized: false } : undefined
@@ -173,9 +177,9 @@ async function lancarDda(selecionadas) {
     const descricao = String(linha.fornecedor || linha.cedente || '').trim().slice(0, 200)
     await pool.query(`
       insert into despesas (
-        descricao, fornecedor_id, empresa_origem_id, plano_conta_id,
+        id, descricao, fornecedor_id, empresa_origem_id, plano_conta_id,
         documento_ref, numero_nf, cnpj_cedente, competencia, vencimento, valor, forma_pagamento, dados_pagamento, status, fonte
-      ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'boleto',$11,$12,'dda')
+      ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'boleto',$11,$12,'dda')
     `, [
       descricao,
       linha.fornecedor_id,
@@ -598,9 +602,9 @@ export async function handleFinance(req, res) {
       }
       const inserted = await pool.query(`
         insert into despesas (
-          descricao, fornecedor_id, empresa_origem_id, empresa_registro_id, conta_saida_id, plano_conta_id,
+          id, descricao, fornecedor_id, empresa_origem_id, empresa_registro_id, conta_saida_id, plano_conta_id,
           documento_ref, competencia, vencimento, valor, forma_pagamento, dados_pagamento, status, fonte
-        ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'manual')
+        ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'manual')
         returning id, status
       `, [
         String(body.descricao).trim(),
@@ -1018,6 +1022,7 @@ export function iniciarFinanceiro() {
     setInterval(cicloSfg, intervaloSfg)
   }
   garantirSchemaFonte(pool).catch((err) => console.error(`[financeiro] fonte: ${err.message}`))
+  garantirSchemaDespesaId(pool).catch((err) => console.error(`[financeiro] despesa.id: ${err.message}`))
   garantirSchemaBb(pool).catch((err) => console.error(`[financeiro] bb: ${err.message}`))
   garantirSchemaItau(pool).catch((err) => console.error(`[financeiro] sfg: ${err.message}`))
   garantirSchemaCaixa(pool).catch((err) => console.error(`[financeiro] caixa: ${err.message}`))

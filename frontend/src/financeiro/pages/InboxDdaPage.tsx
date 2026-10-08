@@ -290,10 +290,16 @@ export function InboxDdaPage() {
                 )}
                 {visiveis.map((e) => {
                   const vencida = !!e.vencimento && e.vencimento < hoje
+                  const chave = e.id || `${e.documento_ref || ''}|${e.vencimento || ''}|${e.valor}`
                   return (
-                    <TableRow key={e.id} hover selected={marcadas.has(e.id)}>
+                    <TableRow key={chave} hover selected={!!e.id && marcadas.has(e.id)}>
                       <TableCell padding="checkbox">
-                        <Checkbox size="small" checked={marcadas.has(e.id)} onChange={() => toggle(e.id)} />
+                        <Checkbox
+                          size="small"
+                          disabled={!e.id}
+                          checked={!!e.id && marcadas.has(e.id)}
+                          onChange={() => { if (e.id) toggle(e.id) }}
+                        />
                       </TableCell>
                       <TableCell>{chipNf(e.nf_confirmada)}</TableCell>
                       <TableCell>
