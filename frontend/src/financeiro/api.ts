@@ -85,7 +85,7 @@ export type Despesa = {
 import { apiBasePath } from '../config/paths'
 import { getToken } from '../lib/auth'
 
-/** Proxy no portal Meridian → serviço Finance (`/api/financeiro/*`). */
+/** API do financeiro no próprio portal (`/api/financeiro/*`), schema `finance`. */
 const apiRoot = `${apiBasePath}/financeiro`
 
 function authHeaders(extra?: HeadersInit): HeadersInit {

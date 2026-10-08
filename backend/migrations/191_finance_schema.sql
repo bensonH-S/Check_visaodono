@@ -1,12 +1,11 @@
--- Schema finance no vision_check (cutover Meridian Finance).
--- Dados: rodar MeridianFinance/scripts/migrar-para-schema-finance.mjs após este schema existir.
+-- Schema finance no vision_check. O módulo financeiro do portal lê e grava aqui.
 -- Fronteira de domínio: sem FK para tabelas public (operacional).
 
 BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS finance;
 
-COMMENT ON SCHEMA finance IS 'Meridian Finance — obrigações, DDA, caixa. Sem FK para public operacional.';
+COMMENT ON SCHEMA finance IS 'Financeiro do portal — obrigações, DDA, caixa. Sem FK para public operacional.';
 
 INSERT INTO permissoes (codigo, nome, grupo, ordem)
 VALUES ('financeiro.ver', 'Ver módulo Financeiro (contas a pagar, caixa, DDA)', 'Financeiro', 185)

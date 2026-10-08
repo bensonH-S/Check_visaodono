@@ -55,8 +55,8 @@ export function InboxDdaPage() {
     }).catch(() => {
       setDespesas([])
       setErro(t(
-        'Não carregou o financeiro. Confira a API Finance (porta 5080).',
-        'Could not load finance. Check the Finance API (port 5080).',
+        'Não carregou o financeiro. Confira a permissão financeiro.ver.',
+        'Could not load finance. Check the financeiro.ver permission.',
       ))
     })
 

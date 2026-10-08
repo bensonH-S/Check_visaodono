@@ -133,8 +133,8 @@ export function ContasPagarPage() {
   }).catch(() => {
     setDespesas([])
     setErroBanco(t(
-      'Não carregou o financeiro (vision_check.finance). Confira se a API Finance está no ar (porta 5080) e se você tem a permissão financeiro.ver.',
-      'Could not load finance (vision_check.finance). Check that the Finance API is up (port 5080) and that you have financeiro.ver.',
+      'Não carregou o financeiro. Confira a permissão financeiro.ver.',
+      'Could not load finance. Check the financeiro.ver permission.',
     ))
   })
 
@@ -145,8 +145,8 @@ export function ContasPagarPage() {
     }).catch(() => {
       setEmpresas([])
       setErroBanco(t(
-        'Não carregou o financeiro (vision_check.finance). Confira se a API Finance está no ar (porta 5080) e se você tem a permissão financeiro.ver.',
-        'Could not load finance (vision_check.finance). Check that the Finance API is up (port 5080) and that you have financeiro.ver.',
+        'Não carregou o financeiro. Confira a permissão financeiro.ver.',
+        'Could not load finance. Check the financeiro.ver permission.',
       ))
     })
     carregar('')

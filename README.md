@@ -114,10 +114,8 @@ docs/LEGACY.md      Pastas legacy/tmp fora do fluxo diário
 Contas a pagar, caixa, DDA e config BB/Itaú ficam em `/financeiro/*` (menu **FINANCEIRO**).
 
 - Permissão: `financeiro.ver`
-- API: proxy `/auditoria/api/financeiro/*` → serviço Finance (default `http://127.0.0.1:5080`)
-- Banco: schema `finance` em `vision_check` (migration `191_finance_schema.sql` + script no repo MeridianFinance)
-
-Cutover completo: ver `MeridianFinance/docs/CUTOVER.md`.
+- API: `/auditoria/api/financeiro/*` no próprio portal (schema `finance` em `vision_check`)
+- Banco: migration `191_finance_schema.sql`
 
 ## Login e perfis
 
