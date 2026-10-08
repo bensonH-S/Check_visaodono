@@ -636,10 +636,6 @@ export async function handleFinance(req, res) {
           enviados.push({ id, status: d.status })
           continue
         }
-        if (d.fonte === 'dda' && !d.nf_confirmada) {
-          bloqueados.push({ id, motivo: 'NF ainda não conferida no estoque pelo gestor.' })
-          continue
-        }
         const up = await pool.query(
           `update despesas set status = 'pronta' where id = $1 returning id, status`,
           [id],

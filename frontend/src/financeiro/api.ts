@@ -437,7 +437,7 @@ export const api = {
     if (!res.ok) throw new Error(data.erro || 'Não salvou')
     return data as { id: string; status: string }
   },
-  /** Manda títulos para a Agenda banco (status pronta). DDA exige NF conferida. */
+  /** Manda os títulos marcados para a Agenda banco (status pronta). */
   entrarNaAgenda: async (ids: string[]) => {
     const res = await financeFetch(`${apiRoot}/despesas/agenda`, {
       method: 'POST',

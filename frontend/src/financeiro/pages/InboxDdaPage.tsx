@@ -7,7 +7,6 @@ import Checkbox from '@mui/material/Checkbox'
 import Chip from '@mui/material/Chip'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
-import Snackbar from '@mui/material/Snackbar'
 import TextField from '@mui/material/TextField'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
@@ -18,7 +17,6 @@ import TableHead from '@mui/material/TableHead'
 import TablePagination from '@mui/material/TablePagination'
 import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
-import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { api, brl, type Despesa, type Empresa } from '../api'
 import { usePrefs } from '../prefs'
@@ -66,7 +64,6 @@ export function InboxDdaPage() {
   const [ate, setAte] = useState(() => periodoAtual().ate)
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>('Todas')
   const [erro, setErro] = useState('')
-  const [aviso, setAviso] = useState('')
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set())
   const [enviando, setEnviando] = useState(false)
   const [pagina, setPagina] = useState(0)
@@ -140,8 +137,15 @@ export function InboxDdaPage() {
     })
   }
 
-  const enviar = async () => {
-    const ids = [...marcadas]
+  const abrirAgenda = () => {
+    const q = new URLSearchParams()
+    if (de) q.set('de', de)
+    if (ate) q.set('ate', ate)
+    if (loja) q.set('loja', loja)
+    navigate(`/financeiro?${q.toString()}`)
+  }
+
+  const enviar = async (ids = [...marcadas]) => {
     if (!ids.length) return
     setEnviando(true)
     setErro('')
@@ -149,11 +153,12 @@ export function InboxDdaPage() {
       const r = await api.entrarNaAgenda(ids)
       const ok = r.enviados.length
       const bloqueio = r.bloqueados.length
-      if (ok) setAviso(ok === 1 ? t('1 título na Agenda banco.', '1 title sent to bank schedule.') : t(`${ok} títulos na Agenda banco.`, `${ok} titles sent to bank schedule.`))
-      if (bloqueio && !ok) setErro(r.bloqueados[0]?.motivo || t('Nenhum título enviado.', 'Nothing sent.'))
-      else if (bloqueio) setAviso((m) => `${m} ${t(`${bloqueio} ficaram no inbox (NF pendente).`, `${bloqueio} stayed in inbox (invoice pending).`)}`)
+      if (bloqueio && !ok) {
+        setErro(r.bloqueados[0]?.motivo || t('Nenhum título enviado.', 'Nothing sent.'))
+        return
+      }
       setMarcadas(new Set())
-      await carregar()
+      abrirAgenda()
     } catch (err) {
       setErro(err instanceof Error ? err.message : t('Não enviou', 'Could not send'))
     } finally {
@@ -200,21 +205,17 @@ export function InboxDdaPage() {
         <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>
           {t('Coletar DDA', 'Pull DDA')}
         </Button>
-        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro')}>
+        <Button size="small" variant="outlined" onClick={abrirAgenda}>
           {t('Abrir Agenda banco', 'Open bank schedule')}
         </Button>
-        <Tooltip title={marcadas.size && ![...marcadas].some((id) => inbox.find((e) => e.id === id)?.nf_confirmada) ? t('Marque títulos com NF conferida', 'Select titles with checked invoice') : ''}>
-          <span>
-            <Button
-              size="small"
-              variant="contained"
-              disabled={enviando || !marcadas.size}
-              onClick={enviar}
-            >
-              {enviando ? t('Enviando…', 'Sending…') : t(`Enviar para agenda (${marcadas.size})`, `Send to schedule (${marcadas.size})`)}
-            </Button>
-          </span>
-        </Tooltip>
+        <Button
+          size="small"
+          variant="contained"
+          disabled={enviando || !marcadas.size}
+          onClick={() => enviar()}
+        >
+          {enviando ? t('Enviando…', 'Sending…') : t(`Enviar para agenda (${marcadas.size})`, `Send to schedule (${marcadas.size})`)}
+        </Button>
       </Stack>
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
@@ -304,33 +305,14 @@ export function InboxDdaPage() {
                       <TableCell sx={{ color: vencida ? 'error.main' : 'inherit' }}>{dataBr(e.vencimento)}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{brl(Number(e.valor))}</TableCell>
                       <TableCell align="right">
-                        <Tooltip title={!e.nf_confirmada ? t('Espere a conferência da NF no estoque', 'Wait for invoice check in inventory') : ''}>
-                          <span>
-                            <Button
-                              size="small"
-                              disabled={!e.nf_confirmada || enviando}
-                              onClick={async () => {
-                                setMarcadas(new Set([e.id]))
-                                setEnviando(true)
-                                try {
-                                  const r = await api.entrarNaAgenda([e.id])
-                                  if (r.enviados.length) {
-                                    setAviso(t('Título na Agenda banco.', 'Title sent to bank schedule.'))
-                                    await carregar()
-                                  } else setErro(r.bloqueados[0]?.motivo || t('Não enviou', 'Could not send'))
-                                } catch (err) {
-                                  setErro(err instanceof Error ? err.message : t('Não enviou', 'Could not send'))
-                                } finally {
-                                  setEnviando(false)
-                                  setMarcadas(new Set())
-                                }
-                              }}
-                              sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'transparent' } }}
-                            >
-                              {t('Agenda', 'Schedule')}
-                            </Button>
-                          </span>
-                        </Tooltip>
+                        <Button
+                          size="small"
+                          disabled={enviando}
+                          onClick={() => enviar([e.id])}
+                          sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'transparent' } }}
+                        >
+                          {t('Agenda', 'Schedule')}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   )
@@ -359,9 +341,6 @@ export function InboxDdaPage() {
         </Paper>
       )}
 
-      <Snackbar open={!!aviso} autoHideDuration={3600} onClose={() => setAviso('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert severity="success" variant="filled" onClose={() => setAviso('')}>{aviso}</Alert>
-      </Snackbar>
     </Stack>
   )
 }

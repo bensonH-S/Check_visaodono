@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
@@ -108,14 +108,15 @@ function periodoAtual() {
 
 export function ContasPagarPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const { t, modo, idioma } = usePrefs()
   const escuro = modo === 'escuro'
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [despesas, setDespesas] = useState<Despesa[]>([])
-  const [loja, setLoja] = useState('')
+  const [loja, setLoja] = useState(() => params.get('loja') || '')
   const [busca, setBusca] = useState('')
-  const [de, setDe] = useState(() => periodoAtual().de)
-  const [ate, setAte] = useState(() => periodoAtual().ate)
+  const [de, setDe] = useState(() => params.get('de') || periodoAtual().de)
+  const [ate, setAte] = useState(() => params.get('ate') || periodoAtual().ate)
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>('Todas')
   const [pagina, setPagina] = useState(0)
   const [porPagina, setPorPagina] = useState(20)
@@ -149,7 +150,7 @@ export function ContasPagarPage() {
         'Could not load finance. Check the financeiro.ver permission.',
       ))
     })
-    carregar('')
+    carregar(params.get('loja') || '')
   }, [])
 
   /** Agenda banco: DDA só depois de confirmado (status pronta+). Manual entra direto. */
@@ -159,10 +160,10 @@ export function ContasPagarPage() {
   }), [despesas])
 
   const noPeriodo = useMemo(() => naAgenda.filter((e) => {
-    const semana = e.competencia || e.vencimento
-    if (!semana) return !de && !ate
-    if (de && semana < de) return false
-    if (ate && semana > ate) return false
+    const vencimento = (e.vencimento || '').slice(0, 10)
+    if (!vencimento) return !de && !ate
+    if (de && vencimento < de) return false
+    if (ate && vencimento > ate) return false
     return true
   }), [naAgenda, de, ate])
 
