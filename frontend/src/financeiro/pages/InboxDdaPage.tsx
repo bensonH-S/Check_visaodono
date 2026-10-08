@@ -19,6 +19,7 @@ import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import { api, brl, type Despesa, type Empresa } from '../api'
+import { ordenarEmpresas } from '../ordemEmpresas'
 import { usePrefs } from '../prefs'
 
 const INBOX_STATUS = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
@@ -113,7 +114,7 @@ export function InboxDdaPage() {
   const comNf = noPeriodo.filter((e) => e.nf_confirmada)
   const semNf = noPeriodo.filter((e) => !e.nf_confirmada)
   const vencidas = noPeriodo.filter((e) => e.vencimento && e.vencimento < hoje)
-  const lojas = empresas.filter((e) => e.tipo === 'loja')
+  const lojas = useMemo(() => ordenarEmpresas(empresas), [empresas])
 
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
   const idsPagina = visiveis.map((e) => e.id)

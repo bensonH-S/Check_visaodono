@@ -29,6 +29,7 @@ import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined'
 import CheckIcon from '@mui/icons-material/Check'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { api, brl, type Despesa, type Empresa, type Fornecedor } from '../api'
+import { ordenarEmpresas } from '../ordemEmpresas'
 import { usePrefs } from '../prefs'
 
 function situacao(e: Despesa) {
@@ -183,7 +184,7 @@ export function ContasPagarPage() {
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
 
   const soma = (pred: (e: Despesa) => boolean) => noPeriodo.filter(pred).reduce((a, e) => a + Number(e.valor), 0)
-  const lojas = empresas.filter((e) => e.tipo === 'loja')
+  const lojas = useMemo(() => ordenarEmpresas(empresas), [empresas])
   const vencida = soma((e) => aberta(e) && !!e.vencimento && e.vencimento < hoje)
 
   return (
