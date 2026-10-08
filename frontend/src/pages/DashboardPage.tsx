@@ -1,93 +1,58 @@
-import { useCallback, useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
-import { api } from '../api/client';
-import type { FrotaMapaPosicoes } from '../api/client';
-import { getUsuario, podeVerFinanceiro, podeVerMapaTecnicosMobile } from '../lib/auth';
-import { useCommandCenterFilters } from '../context/CommandCenterFiltersContext';
-import CcKpiRow from '../components/dashboard/commandCenter/CcKpiRow';
-import CcEsquerdo from '../components/dashboard/commandCenter/CcEsquerdo';
-import CcFrota from '../components/dashboard/commandCenter/CcFrota';
-import CcEstoque from '../components/dashboard/commandCenter/CcEstoque';
-import CcFinanceiro from '../components/dashboard/commandCenter/CcFinanceiro';
-import CcFreecontrolGastos from '../components/dashboard/commandCenter/CcFreecontrolGastos';
-import { CC_BG, CC_BOTTOM_H, CC_GAP } from '../components/dashboard/commandCenter/ccTheme';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import MeridianMarca from '../brand/MeridianMarca';
 
+/** Command Center — placeholder enquanto a versão financeira é finalizada. */
 export default function DashboardPage() {
-  const { data: dataFiltro, regiaoId } = useCommandCenterFilters();
-  const [frota, setFrota] = useState<FrotaMapaPosicoes | null>(null);
-  const [loadingFrota, setLoadingFrota] = useState(false);
-  const [errFrota, setErrFrota] = useState<string | null>(null);
-
-  const user = getUsuario();
-  const podeFrota = podeVerMapaTecnicosMobile();
-  const podeFinanceiro = podeVerFinanceiro(user);
-
-  const carregarFrota = useCallback(() => {
-    if (!podeFrota) {
-      setFrota(null);
-      setErrFrota('Sem permissão para visualizar o mapa da frota.');
-      return;
-    }
-    setLoadingFrota(true);
-    setErrFrota(null);
-    api
-      .frotaMapaPosicoes({ id_regiao: regiaoId })
-      .then(setFrota)
-      .catch((e) => {
-        setFrota(null);
-        setErrFrota(e?.message || 'Não foi possível carregar a frota.');
-      })
-      .finally(() => setLoadingFrota(false));
-  }, [podeFrota, regiaoId]);
-
-  useEffect(() => {
-    carregarFrota();
-  }, [carregarFrota]);
-
-  useEffect(() => {
-    if (!podeFrota) return;
-    const id = window.setInterval(() => carregarFrota(), 60_000);
-    return () => window.clearInterval(id);
-  }, [podeFrota, carregarFrota]);
-
   return (
     <Box
       sx={{
         width: '100%',
         height: { xs: 'auto', lg: '100%' },
-        minHeight: 0,
-        display: 'grid',
-        gridTemplateRows: { xs: 'auto', lg: 'auto minmax(0, 1fr)' },
-        gap: CC_GAP,
-        bgcolor: CC_BG,
+        minHeight: { xs: 420, lg: 0 },
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: { xs: 1, md: 2 },
       }}
     >
-      <CcKpiRow podeFinanceiro={podeFinanceiro} />
-
-      <Box
+      <Paper
+        variant="outlined"
         sx={{
-          display: 'grid',
-          gap: CC_GAP,
-          minHeight: 0,
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(240px, 0.55fr) minmax(0, 1.45fr)' },
-          gridTemplateRows: { xs: 'auto', lg: `minmax(0, 1fr) ${CC_BOTTOM_H}px` },
+          width: '100%',
+          maxWidth: 440,
+          bgcolor: '#051017',
+          borderColor: 'rgba(255,255,255,0.12)',
+          borderRadius: 2,
+          px: { xs: 3, md: 4 },
+          py: { xs: 3.5, md: 4.5 },
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2.5,
         }}
       >
-        <CcEsquerdo />
-        <Box sx={{ minHeight: { xs: 360, lg: 0 }, height: '100%', minWidth: 0 }}>
-          <CcFrota
-            loading={loadingFrota && !frota}
-            data={frota}
-            erro={errFrota}
-            onRefresh={carregarFrota}
-            dataRef={dataFiltro}
-          />
+        <MeridianMarca variant="lockup" sx={{ width: '100%', maxWidth: 280 }} />
+
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography
+            sx={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: '#1B6EF3',
+              mb: 0.75,
+            }}
+          >
+            Em desenvolvimento
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: 'rgba(248,250,252,0.72)', lineHeight: 1.45 }}>
+            O Command Center está sendo refeito. Por enquanto use Contas a pagar, Estoque e Frota pelo menu.
+          </Typography>
         </Box>
-        <CcEstoque />
-        <Box sx={{ minHeight: 0, minWidth: 0, height: '100%' }}>
-          {podeFinanceiro ? <CcFinanceiro /> : <CcFreecontrolGastos />}
-        </Box>
-      </Box>
+      </Paper>
     </Box>
   );
 }

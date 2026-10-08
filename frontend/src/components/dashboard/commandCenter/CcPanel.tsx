@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Link as RouterLink } from 'react-router-dom';
-import { CC_BORDER, CC_ORANGE, CC_RADIUS, CC_SURFACE } from './ccTheme';
+import { CC_BORDER, CC_RADIUS, CC_SURFACE } from './ccTheme';
 
 export { CC_RADIUS } from './ccTheme';
 
@@ -73,9 +73,9 @@ export function CcPanel({
               component={RouterLink}
               to={actionTo}
               sx={{
-                fontSize: '0.625rem',
-                fontWeight: 600,
-                color: CC_ORANGE,
+                fontSize: 11.5,
+                fontWeight: 500,
+                color: 'primary.main',
                 textDecoration: 'none',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
@@ -150,9 +150,9 @@ export function CcSectionTitle({
           component={RouterLink}
           to={actionTo}
           sx={{
-            fontSize: '0.625rem',
-            fontWeight: 600,
-            color: CC_ORANGE,
+            fontSize: 11.5,
+            fontWeight: 500,
+            color: 'primary.main',
             textDecoration: 'none',
             whiteSpace: 'nowrap',
             '&:hover': { textDecoration: 'underline' },

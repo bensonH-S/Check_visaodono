@@ -1,22 +1,6 @@
 /* Escopo: só a rota /dashboard (classe .cc-page no PortalLayout). */
 
-/* Tema claro: accent azul + tipografia mais compacta. */
-.cc-page {
-  --ga-orange: #1b2a6b;
-  --ga-orange-hover: #152056;
-  --ga-primary-btn: #1b2a6b;
-  --ga-primary-hover: #152056;
-  /* Sidebar ativo: herda o padrão global (texto branco + accent #1B6EF3). */
-  --ga-progress-bar: #1b2a6b;
-  --ga-text-secondary: #374151;
-  --ga-text-muted: #4b5563;
-  background-color: var(--ga-canvas);
-  color: var(--ga-text-primary);
-  font-size: 13px;
-}
-
-/* Sidebar: largura e item ativo vêm do PortalSidebar (iguais em todas as rotas). */
-
+/* O Command Center usa o tema global do portal, igual às outras telas. */
 .cc-page .cc-page-main {
   height: 100%;
   min-height: 0;
@@ -30,31 +14,4 @@
 .cc-page .recharts-default-tooltip .recharts-tooltip-item-value {
   color: var(--ga-text-primary) !important;
   font-size: 11px !important;
-}
-
-/* Tema escuro: mesmas cores dos hubs mobile. */
-:root.dark .cc-page {
-  --ga-canvas: #0b1721;
-  --ga-surface: #333840;
-  --ga-canvas-alt: #1a222c;
-  --ga-picker-paper: #333840;
-  --ga-border: rgba(255, 255, 255, 0.1);
-  --ga-border-strong: rgba(255, 255, 255, 0.18);
-  --ga-text-primary: #f5f5f5;
-  --ga-text-secondary: #8d8d8d;
-  --ga-text-muted: #8d8d8d;
-  --ga-sidebar-bg: #0b1721;
-  --ga-sidebar-border: rgba(255, 255, 255, 0.1);
-  /* Item ativo da sidebar: mesmo padrão de Contas a pagar (não laranja do CC). */
-  --ga-orange: #fe6c22;
-  --ga-orange-hover: #e85f1a;
-  --ga-primary-btn: #fe6c22;
-  --ga-primary-hover: #e85f1a;
-  --ga-progress-bar: #fe6c22;
-  background-color: #0b1721;
-  color: #f5f5f5;
-}
-
-:root.dark .cc-page aside {
-  background: #0b1721;
 }
