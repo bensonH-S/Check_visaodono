@@ -5,8 +5,10 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
 import Chip from '@mui/material/Chip'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Snackbar from '@mui/material/Snackbar'
+import TextField from '@mui/material/TextField'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Table from '@mui/material/Table'
@@ -18,11 +20,27 @@ import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { api, brl, type Despesa } from '../api'
+import { api, brl, type Despesa, type Empresa } from '../api'
 import { usePrefs } from '../prefs'
 
 const INBOX_STATUS = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
+const FILTROS = ['Todas', 'Vencidas', 'NF confirmada', 'Aguardando NF'] as const
 const hoje = new Date().toISOString().slice(0, 10)
+
+function dataLocal(d: Date) {
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${dia}`
+}
+
+function periodoAtual() {
+  const inicio = new Date()
+  inicio.setHours(0, 0, 0, 0)
+  inicio.setDate(inicio.getDate() - ((inicio.getDay() + 1) % 7))
+  const fim = new Date(inicio)
+  fim.setDate(fim.getDate() + 7)
+  return { de: dataLocal(inicio), ate: dataLocal(fim) }
+}
 
 function dataBr(iso: string | null) {
   if (!iso) return '—'
@@ -40,7 +58,13 @@ export function InboxDdaPage() {
   const navigate = useNavigate()
   const escuro = modo === 'escuro'
   const [aba, setAba] = useState(0)
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [despesas, setDespesas] = useState<Despesa[]>([])
+  const [loja, setLoja] = useState('')
+  const [busca, setBusca] = useState('')
+  const [de, setDe] = useState(() => periodoAtual().de)
+  const [ate, setAte] = useState(() => periodoAtual().ate)
+  const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>('Todas')
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set())
@@ -48,8 +72,8 @@ export function InboxDdaPage() {
   const [pagina, setPagina] = useState(0)
   const [porPagina, setPorPagina] = useState(30)
 
-  const carregar = () =>
-    api.despesas().then((rows) => {
+  const carregar = (empresa = loja) =>
+    api.despesas(empresa || undefined).then((rows) => {
       setDespesas(rows)
       setErro('')
     }).catch(() => {
@@ -60,18 +84,41 @@ export function InboxDdaPage() {
       ))
     })
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => {
+    api.empresas().then(setEmpresas).catch(() => setEmpresas([]))
+    carregar('')
+  }, [])
 
   const inbox = useMemo(
     () => despesas.filter((e) => e.fonte === 'dda' && INBOX_STATUS.has(e.status)),
     [despesas],
   )
 
-  const comNf = inbox.filter((e) => e.nf_confirmada)
-  const semNf = inbox.filter((e) => !e.nf_confirmada)
-  const vencidas = inbox.filter((e) => e.vencimento && e.vencimento < hoje)
+  const noPeriodo = useMemo(() => inbox.filter((e) => {
+    const semana = e.competencia || e.vencimento
+    if (!semana) return !de && !ate
+    if (de && semana < de) return false
+    if (ate && semana > ate) return false
+    return true
+  }), [inbox, de, ate])
 
-  const visiveis = inbox.slice(pagina * porPagina, pagina * porPagina + porPagina)
+  const linhas = useMemo(() => noPeriodo.filter((e) => {
+    const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.numero_nf ?? ''}`.toLowerCase()
+    if (busca && !texto.includes(busca.toLowerCase())) return false
+    if (filtro === 'Vencidas') return !!e.vencimento && e.vencimento < hoje
+    if (filtro === 'NF confirmada') return e.nf_confirmada
+    if (filtro === 'Aguardando NF') return !e.nf_confirmada
+    return true
+  }), [noPeriodo, busca, filtro])
+
+  useEffect(() => { setPagina(0) }, [busca, de, ate, loja, filtro])
+
+  const comNf = noPeriodo.filter((e) => e.nf_confirmada)
+  const semNf = noPeriodo.filter((e) => !e.nf_confirmada)
+  const vencidas = noPeriodo.filter((e) => e.vencimento && e.vencimento < hoje)
+  const lojas = empresas.filter((e) => e.tipo === 'loja')
+
+  const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
   const idsPagina = visiveis.map((e) => e.id)
   const todasMarcadas = idsPagina.length > 0 && idsPagina.every((id) => marcadas.has(id))
 
@@ -135,12 +182,21 @@ export function InboxDdaPage() {
       {erro && <Alert severity="warning" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}>{erro}</Alert>}
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { md: 'center' } }}>
-        <Typography sx={{ fontSize: 13, color: 'text.secondary', flex: 1 }}>
-          {t(
-            'DDA entra aqui. Quando o gestor confere a NF no app, o título vai sozinho para a Agenda banco. Notas fiscais emitidas entram nesta aba em breve.',
-            'DDA lands here. When the manager checks the invoice in the app, the title moves to the bank schedule by itself. Issued invoices will join this tab soon.',
-          )}
-        </Typography>
+        <TextField size="small" placeholder={t('Buscar lançamento', 'Search entry')} value={busca} onChange={(ev) => setBusca(ev.target.value)} sx={{ minWidth: 240, bgcolor: 'background.paper' }} />
+        <TextField size="small" label={t('De', 'From')} type="date" value={de} onChange={(ev) => setDe(ev.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
+        <TextField size="small" label={t('Até', 'To')} type="date" value={ate} onChange={(ev) => setAte(ev.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
+        <TextField
+          select
+          size="small"
+          label={t('Loja', 'Store')}
+          value={loja}
+          onChange={(ev) => { setLoja(ev.target.value); carregar(ev.target.value) }}
+          sx={{ minWidth: 180, bgcolor: 'background.paper', '& .MuiOutlinedInput-notchedOutline': { borderColor: loja ? 'primary.main' : undefined } }}
+        >
+          <MenuItem value="">{t('Todas as lojas', 'All stores')}</MenuItem>
+          {lojas.map((e) => <MenuItem key={e.id} value={e.id}>{e.apelido}</MenuItem>)}
+        </TextField>
+        <Box sx={{ flex: 1 }} />
         <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>
           {t('Coletar DDA', 'Pull DDA')}
         </Button>
@@ -162,10 +218,33 @@ export function InboxDdaPage() {
       </Stack>
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-        <Resumo rotulo={t('No inbox', 'In inbox')} valor={String(inbox.length)} detalhe={t('boletos DDA', 'DDA boletos')} />
+        <Resumo rotulo={t('No inbox', 'In inbox')} valor={String(noPeriodo.length)} detalhe={t('boletos DDA', 'DDA boletos')} />
         <Resumo rotulo={t('NF conferida', 'Invoice checked')} valor={String(comNf.length)} detalhe={t('prontos para agenda', 'ready for schedule')} />
         <Resumo rotulo={t('Aguardando NF', 'Awaiting invoice')} valor={String(semNf.length)} detalhe={t('gestor no app', 'manager in the app')} />
         <Resumo rotulo={t('Vencidas', 'Overdue')} valor={String(vencidas.length)} detalhe={t('no inbox', 'in inbox')} alerta={vencidas.length > 0} />
+      </Stack>
+
+      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+        {FILTROS.map((item) => (
+          <Chip
+            key={item}
+            size="small"
+            label={t(
+              item === 'Todas' ? 'Todas' : item === 'Vencidas' ? 'Vencidas' : item === 'NF confirmada' ? 'NF confirmada' : 'Aguardando NF',
+              item === 'Todas' ? 'All' : item === 'Vencidas' ? 'Overdue' : item === 'NF confirmada' ? 'Invoice confirmed' : 'Awaiting invoice',
+            )}
+            variant="outlined"
+            onClick={() => { setFiltro(item); setPagina(0) }}
+            sx={{
+              height: 24,
+              fontSize: 11,
+              bgcolor: filtro === item ? (escuro ? 'rgba(27, 110, 243, 0.2)' : 'rgba(27, 110, 243, 0.1)') : 'background.paper',
+              borderColor: filtro === item ? 'primary.main' : 'divider',
+              color: filtro === item ? (escuro ? '#93C5FD' : '#0D4ECC') : 'text.secondary',
+              fontWeight: filtro === item ? 600 : 500,
+            }}
+          />
+        ))}
       </Stack>
 
       <Tabs
@@ -173,7 +252,7 @@ export function InboxDdaPage() {
         onChange={(_, v) => { setAba(v); setPagina(0) }}
         sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0, fontSize: 12, textTransform: 'none' } }}
       >
-        <Tab label={t(`DDA (${inbox.length})`, `DDA (${inbox.length})`)} />
+        <Tab label={t(`DDA (${linhas.length})`, `DDA (${linhas.length})`)} />
         <Tab
           label={t('Notas fiscais (em breve)', 'Invoices (soon)')}
           disabled
@@ -198,10 +277,12 @@ export function InboxDdaPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {!inbox.length && (
+                {!linhas.length && (
                   <TableRow>
                     <TableCell colSpan={7} sx={{ color: 'text.secondary', py: 4 }}>
-                      {t('Inbox limpo. Novos DDA da coleta aparecem aqui.', 'Inbox clear. New DDA from the pull show up here.')}
+                      {inbox.length
+                        ? t('Nenhuma despesa nesse filtro.', 'No expenses in this filter.')
+                        : t('Inbox limpo. Novos DDA da coleta aparecem aqui.', 'Inbox clear. New DDA from the pull show up here.')}
                     </TableCell>
                   </TableRow>
                 )}
@@ -259,7 +340,7 @@ export function InboxDdaPage() {
           </Box>
           <TablePagination
             component="div"
-            count={inbox.length}
+            count={linhas.length}
             page={pagina}
             onPageChange={(_, n) => setPagina(n)}
             rowsPerPage={porPagina}
