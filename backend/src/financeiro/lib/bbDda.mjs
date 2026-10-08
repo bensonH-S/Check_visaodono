@@ -263,7 +263,15 @@ export function mapearBoletos(payload) {
     const valorBruto = primeiro(titulo, ['valorObrigacao', 'valorVencimentoObrigacao'])
     const valor = Number(valorBruto)
     return {
-      cedente: sacador && nomeSacador ? nomeSacador : texto(primeiro(titulo, ['nomeBeneficiario', 'nomeBeneficiarioObrigacao'])),
+      cedente: texto(primeiro(titulo, [
+        'nomeBeneficiario',
+        'nomeBeneficiarioObrigacao',
+        'nomeBeneficiarioFinal',
+        'nomeRazaoSocialBeneficiario',
+        'nomeCedente',
+        'nomeSacadorAvalista',
+        'nomeBeneficiarioFimObrigacao',
+      ])) || nomeSacador,
       cnpj_cedente: cedenteDoc,
       sacado: '',
       cnpj_sacado: pagador,

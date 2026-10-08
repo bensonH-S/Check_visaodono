@@ -292,6 +292,14 @@ function primeiroNome(valor) {
   return normalizar(valor).split(' ').filter(Boolean)[0] || ''
 }
 
+export function descricaoDda(linha) {
+  const nome = texto(linha.fornecedor || linha.cedente || linha.descricao)
+  if (nome) return nome.slice(0, 200)
+  const nf = texto(linha.documento || linha.numero_nf)
+  if (nf) return `NF ${nf}`.slice(0, 200)
+  return 'Boleto DDA'
+}
+
 export function acharFornecedor(linha, fornecedores) {
   const cnpj = digitos(linha.cnpj_cedente)
   const raiz = cnpj.slice(0, 8)

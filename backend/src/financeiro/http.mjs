@@ -3,7 +3,7 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import pg from 'pg'
-import { acharFornecedor, classificar, lerArquivoDda, lerCnab240 } from './lib/dda.mjs'
+import { acharFornecedor, classificar, descricaoDda, lerArquivoDda, lerCnab240 } from './lib/dda.mjs'
 import { baixarRetornos, garantirSchemaItau, lerItau, montarConfig, registrarItau, salvarItau } from './lib/itauSfg.mjs'
 import {
   configPronta,
@@ -174,7 +174,7 @@ async function lancarDda(selecionadas) {
   let criadas = 0
   for (const linha of prontas) {
     const status = linha.fornecedor_id ? 'classificada' : 'rascunho'
-    const descricao = String(linha.fornecedor || linha.cedente || '').trim().slice(0, 200)
+    const descricao = descricaoDda(linha)
     await pool.query(`
       insert into despesas (
         id, descricao, fornecedor_id, empresa_origem_id, plano_conta_id,
@@ -227,8 +227,12 @@ async function vincularFornecedores() {
     const fornecedor = acharFornecedor({ cedente: despesa.descricao, cnpj_cedente: despesa.cnpj_cedente }, fornecedores.rows)
     if (!fornecedor) continue
     await pool.query(
-      `update despesas set fornecedor_id = $2, plano_conta_id = coalesce(plano_conta_id, $3) where id = $1 and fornecedor_id is null`,
-      [despesa.id, fornecedor.id, fornecedor.plano_conta_id],
+      `update despesas
+          set fornecedor_id = $2,
+              plano_conta_id = coalesce(plano_conta_id, $3),
+              descricao = case when btrim(coalesce(descricao, '')) = '' then $4 else descricao end
+        where id = $1 and fornecedor_id is null`,
+      [despesa.id, fornecedor.id, fornecedor.plano_conta_id, String(fornecedor.nome || '').trim().slice(0, 200) || 'Boleto DDA'],
     )
   }
 }
@@ -290,11 +294,19 @@ async function listarDespesas(empresaId) {
     where = 'where d.empresa_origem_id = $1'
   }
   const { rows } = await pool.query(`
-    select d.id, d.descricao, d.valor::float8 as valor, to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
+    select d.id,
+           coalesce(nullif(btrim(d.descricao), ''), nullif(btrim(f.nome), ''),
+             case when nullif(btrim(d.numero_nf), '') is not null then 'NF ' || btrim(d.numero_nf) else 'Boleto DDA' end
+           ) as descricao,
+           d.valor::float8 as valor, to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
            to_char(d.competencia, 'YYYY-MM-DD') as competencia, d.forma_pagamento, d.status,
            d.documento_ref, d.numero_nf, d.nfe_id, d.nf_confirmada, d.empresa_origem_id as origem_id, eo.apelido as origem, eo.razao_social as origem_razao,
            er.apelido as registrado_em,
-           d.fornecedor_id, f.nome as fornecedor, d.plano_conta_id, p.nome as plano,
+           d.fornecedor_id,
+           coalesce(nullif(btrim(f.nome), ''), nullif(btrim(d.descricao), ''),
+             case when nullif(btrim(d.numero_nf), '') is not null then 'NF ' || btrim(d.numero_nf) else 'Boleto DDA' end
+           ) as fornecedor,
+           d.plano_conta_id, p.nome as plano,
            d.conta_saida_id, cs.nome as conta_nome, cs.empresa_id as conta_empresa_id,
            coalesce(nullif(d.dados_pagamento, ''), pix.chave_pix) as pagamento,
            coalesce(d.fonte, case

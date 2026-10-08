@@ -29,7 +29,8 @@ import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined'
 import CheckIcon from '@mui/icons-material/Check'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { api, brl, type Despesa, type Empresa, type Fornecedor } from '../api'
-import { ordenarEmpresas } from '../ordemEmpresas'
+import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
+import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
 
 function situacao(e: Despesa) {
@@ -85,11 +86,8 @@ const ROTULO: Record<string, [string, string]> = {
 const aberta = (e: Despesa) => !['paga', 'conciliada', 'cancelada'].includes(e.status)
 const hoje = new Date().toISOString().slice(0, 10)
 
-/** Uma linha só: fornecedor; se a descrição for outro assunto, usa ela. */
 function rotuloDescricao(e: Despesa) {
-  const desc = (e.descricao || '').trim()
-  const forn = (e.fornecedor || '').trim()
-  return forn || desc || ''
+  return rotuloDespesa(e)
 }
 
 function dataLocal(d: Date) {
@@ -168,16 +166,19 @@ export function ContasPagarPage() {
     return true
   }), [naAgenda, de, ate])
 
-  const linhas = useMemo(() => noPeriodo.filter((e) => {
-    const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''}`.toLowerCase()
-    if (busca && !texto.includes(busca.toLowerCase())) return false
-    if (filtro === 'DDA') return e.fonte === 'dda'
-    if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
-    if (filtro === 'Para autorizar') return e.status === 'pronta'
-    if (filtro === 'Vencidas') return aberta(e) && !!e.vencimento && e.vencimento < hoje
-    if (filtro === 'NF confirmada') return e.nf_confirmada
-    return true
-  }), [noPeriodo, busca, filtro])
+  const linhas = useMemo(() => {
+    const filtradas = noPeriodo.filter((e) => {
+      const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''}`.toLowerCase()
+      if (busca && !texto.includes(busca.toLowerCase())) return false
+      if (filtro === 'DDA') return e.fonte === 'dda'
+      if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
+      if (filtro === 'Para autorizar') return e.status === 'pronta'
+      if (filtro === 'Vencidas') return aberta(e) && !!e.vencimento && e.vencimento < hoje
+      if (filtro === 'NF confirmada') return e.nf_confirmada
+      return true
+    })
+    return ordenarLancamentosPorEmpresa(filtradas, empresas)
+  }, [noPeriodo, busca, filtro, empresas])
 
   useEffect(() => { setPagina(0) }, [busca, de, ate, loja, filtro])
 

@@ -19,7 +19,8 @@ import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import { api, brl, type Despesa, type Empresa } from '../api'
-import { ordenarEmpresas } from '../ordemEmpresas'
+import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
+import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
 
 const INBOX_STATUS = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
@@ -48,7 +49,7 @@ function dataBr(iso: string | null) {
 }
 
 function rotuloDescricao(e: Despesa) {
-  return (e.fornecedor || e.descricao || '').trim() || 'Sem descrição'
+  return rotuloDespesa(e)
 }
 
 /** Inbox: DDA (e, em breve, NF) antes de entrar na Agenda banco. */
@@ -100,14 +101,17 @@ export function InboxDdaPage() {
     return true
   }), [inbox, de, ate])
 
-  const linhas = useMemo(() => noPeriodo.filter((e) => {
-    const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.numero_nf ?? ''}`.toLowerCase()
-    if (busca && !texto.includes(busca.toLowerCase())) return false
-    if (filtro === 'Vencidas') return !!e.vencimento && e.vencimento < hoje
-    if (filtro === 'NF confirmada') return e.nf_confirmada
-    if (filtro === 'Aguardando NF') return !e.nf_confirmada
-    return true
-  }), [noPeriodo, busca, filtro])
+  const linhas = useMemo(() => {
+    const filtradas = noPeriodo.filter((e) => {
+      const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.numero_nf ?? ''}`.toLowerCase()
+      if (busca && !texto.includes(busca.toLowerCase())) return false
+      if (filtro === 'Vencidas') return !!e.vencimento && e.vencimento < hoje
+      if (filtro === 'NF confirmada') return e.nf_confirmada
+      if (filtro === 'Aguardando NF') return !e.nf_confirmada
+      return true
+    })
+    return ordenarLancamentosPorEmpresa(filtradas, empresas)
+  }, [noPeriodo, busca, filtro, empresas])
 
   useEffect(() => { setPagina(0) }, [busca, de, ate, loja, filtro])
 
