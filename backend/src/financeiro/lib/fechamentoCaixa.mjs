@@ -6,6 +6,7 @@ const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const schemaPath = path.join(rootDir, 'db', '007_fechamento_caixa.sql')
 const lancamentosPath = path.join(rootDir, 'db', '008_fechamento_caixa_lancamentos.sql')
 const statusPath = path.join(rootDir, 'db', '009_caixa_bandeiras_status.sql')
+const chavesPath = path.join(rootDir, 'db', '012_caixa_chaves.sql')
 const pastaComprovantes = path.join(rootDir, 'data', 'caixa', 'comprovantes')
 const MAX_COMPROVANTE = 8 * 1024 * 1024
 const MIME_COMPROVANTE = {
@@ -25,6 +26,7 @@ export async function garantirSchemaCaixa(pool) {
   await pool.query(fs.readFileSync(schemaPath, 'utf8'))
   await pool.query(fs.readFileSync(lancamentosPath, 'utf8'))
   await pool.query(fs.readFileSync(statusPath, 'utf8'))
+  await pool.query(fs.readFileSync(chavesPath, 'utf8'))
 }
 
 function erro(mensagem, status = 400) {
@@ -351,7 +353,7 @@ export async function receberHeartbeat(pool, body, tokenEsperado, tokenRecebido)
   const bk = String(body.bk_number || '').replace(/\D/g, '')
   if (!bk) throw erro('Informe o número da loja.')
   const empresa = await empresaPorBk(pool, bk)
-  if (!empresa) throw erro('Loja não cadastrada no Azimut.', 404)
+  if (!empresa) throw erro('Loja não cadastrada no Meridian.', 404)
   await garantirSchemaCaixa(pool)
   await marcarStatusLoja(pool, empresa, { mensagem: 'tamos conectado' })
   return { ok: true, mensagem: 'tamos conectado', empresa: empresa.apelido || empresa.razao_social, bk_number: bk }
@@ -366,7 +368,7 @@ export async function receberIngestao(pool, body, tokenEsperado, tokenRecebido) 
   if (!bk || !/^\d{4}-\d{2}-\d{2}$/.test(data)) throw erro('Informe o número da loja e a data.')
 
   const empresa = await empresaPorBk(pool, bk)
-  if (!empresa) throw erro('Loja não cadastrada no Azimut.', 404)
+  if (!empresa) throw erro('Loja não cadastrada no Meridian.', 404)
 
   return salvarFechamento(pool, {
     empresa_id: empresa.id,

@@ -310,6 +310,29 @@ api.use((req, res, next) => {
   next();
 });
 
+const { receberCaixaLoja } = await import('./backend/src/financeiro/http.mjs');
+
+function responderCaixaLoja(req, res) {
+  receberCaixaLoja(req, res).catch((err) => {
+    if (res.headersSent) return;
+    res.status(500).json({ erro: err?.message || 'Não recebeu o caixa da loja.' });
+  });
+}
+
+// O agente da loja manda Bearer da chave do caixa, não o JWT do portal.
+api.use((req, res, next) => {
+  if (
+    req.method === 'POST'
+    && (req.path === '/financeiro/caixa/ingest' || req.path === '/financeiro/caixa/heartbeat')
+  ) {
+    return responderCaixaLoja(req, res);
+  }
+  next();
+});
+
+app.post('/financas/api/caixa/ingest', responderCaixaLoja);
+app.post('/financas/api/caixa/heartbeat', responderCaixaLoja);
+
 api.use(authMiddleware);
 api.use(attachPermissoesUsuario);
 api.use(middlewareAuditoriaHttp);
