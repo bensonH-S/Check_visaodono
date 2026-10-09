@@ -95,6 +95,11 @@ limpar_containers_residuals() {
   done
 }
 
+# O deploy chamava este nome; o helper acima estava com a grafia em inglês.
+limpar_containers_residuais() {
+  limpar_containers_residuals "$@"
+}
+
 compose_build_up() {
   local servico="$1"
   # App precisa recriar para aplicar imagem nova após tag.
