@@ -21,7 +21,14 @@ import { gerarDanfe } from './lib/danfe.mjs'
 import { baixarBoletoDaDespesa, baixarNotaDaDespesa } from './lib/boletoEsupri.mjs'
 import { cruzarNotas } from './lib/nfEntrada.mjs'
 import { hojeBR, lerConfigBkoffice, registrarFalhaVendas, resumoVendas, salvarConfigBkoffice, sincronizarVendasBk } from './lib/bkofficeVendas.mjs'
-import { coletarNotasReceita, danfeNotaReceita, garantirSchemaSefaz, lancarNotaNaAgenda, listarNotasReceita } from './lib/syncNfeSefaz.mjs'
+import {
+  amarrarDdaComNotasReceita,
+  coletarNotasReceita,
+  danfeNotaReceita,
+  garantirSchemaSefaz,
+  lancarNotaNaAgenda,
+  listarNotasReceita,
+} from './lib/syncNfeSefaz.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const portalRoot = path.resolve(root, '..', '..', '..')
@@ -290,6 +297,7 @@ function sincronizarNotasEmFundo() {
   sincronizandoNotas = (async () => {
     try { await vincularFornecedores() } catch (err) { console.error(err.message) }
     try { await amarrarNotas() } catch (err) { console.error(err.message) }
+    try { await amarrarDdaComNotasReceita(pool) } catch (err) { console.error(err.message) }
   })().finally(() => { sincronizandoNotas = null })
 }
 
@@ -321,9 +329,20 @@ async function listarDespesas(empresaId) {
              when d.documento_ref like 'DDA|%' then 'dda'
              when d.forma_pagamento = 'boleto' and d.documento_ref ~ '^\\d{44}$' then 'dda'
              else 'manual'
-           end) as fonte
+           end) as fonte,
+           nr.id as nfe_recebida_id,
+           (nr.id is not null) as tem_nfe_receita,
+           nr.chave as nfe_chave,
+           nr.tem_xml as nfe_tem_xml
     from despesas d
     join empresas eo on eo.id = d.empresa_origem_id
+    left join lateral (
+      select id, chave, tem_xml
+      from nfe_recebida
+      where despesa_id = d.id
+      order by atualizado_em desc nulls last
+      limit 1
+    ) nr on true
     left join contas_bancarias cs on cs.id = d.conta_saida_id
     left join empresas ec on ec.id = cs.empresa_id
     left join empresas er on er.id = d.empresa_registro_id

@@ -80,6 +80,11 @@ export type Despesa = {
   pagamento: string | null
   /** dda = veio do DDA; nfe = nota da Receita; manual = lançado na tela */
   fonte: 'dda' | 'nfe' | 'manual' | null
+  /** NF-e da Receita já ligada a este boleto */
+  nfe_recebida_id?: string | null
+  tem_nfe_receita?: boolean
+  nfe_chave?: string | null
+  nfe_tem_xml?: boolean
 }
 
 import { apiBasePath } from '../config/paths'
@@ -123,6 +128,9 @@ export type NotaReceita = {
   origem: string | null
   despesa_id: string | null
   agenda_vencimento: string | null
+  /** Boleto DDA já ligado a esta nota */
+  tem_dda?: boolean
+  despesa_fonte?: 'dda' | 'nfe' | 'manual' | null
 }
 
 export type ColetaReceita = { ok: boolean; mensagem: string; novas: number; em: string | null }
@@ -380,7 +388,7 @@ export const api = {
     const res = await financeFetch(`${apiRoot}/nfe/recebidas/${id}/agenda`, { method: 'POST' })
     const data = await res.json()
     if (!res.ok) throw new Error(data.erro || 'Não lançou na agenda')
-    return data as { id: string; vencimento: string | null; quantidade: number; ja_existia: boolean }
+    return data as { id: string; vencimento: string | null; quantidade: number; ja_existia: boolean; vinculou_dda?: boolean }
   },
   previaDda: async (arquivo: string) => {
     const res = await financeFetch(`${apiRoot}/dda/previa`, {

@@ -10,6 +10,7 @@ import { pool as appPool } from '../../db.js'
 import { persistirEstoqueNfe } from '../../services/estoquePersistirNfe.js'
 import { parseNfeXml } from '../../services/nfeXml.js'
 import { cnpjsDosCertificados, garantirSchemaBb, tlsDaCredencial } from './bbDda.mjs'
+import { cruzarDdaComNotas, escolherDdaParaNota } from './cruzarDdaNfe.mjs'
 import { acharFornecedor, competenciaDe } from './dda.mjs'
 import { gerarDanfe } from './danfe.mjs'
 import {
@@ -449,6 +450,12 @@ export async function coletarNotasReceita(financePool, { ambiente, cnpj } = {}) 
   if (puladas) partes.push(`${puladas} já consultada(s) nesta hora`)
   if (falhas) partes.push(`${falhas} com erro`)
   if (semLoja) partes.push(`${semLoja} sem loja com o mesmo CNPJ (ficam só no inbox)`)
+  try {
+    const unidos = await amarrarDdaComNotasReceita(financePool)
+    if (unidos) partes.push(`${unidos} DDA+NF unidos`)
+  } catch (err) {
+    console.error(`[sefaz] união DDA+NF: ${err.message}`)
+  }
   return {
     ok: falhas === 0,
     novas,
@@ -456,8 +463,62 @@ export async function coletarNotasReceita(financePool, { ambiente, cnpj } = {}) 
   }
 }
 
+/** Liga boleto DDA e NF-e da Receita na mesma despesa quando o casamento é forte. */
+export async function amarrarDdaComNotasReceita(financePool) {
+  await garantirSchemaSefaz(financePool)
+  const [despesas, notas] = await Promise.all([
+    financePool.query(`
+      SELECT d.id, d.empresa_origem_id, d.numero_nf, d.documento_ref, d.cnpj_cedente,
+             d.vencimento::text AS vencimento, d.valor::float8 AS valor,
+             eo.cnpj AS cnpj_empresa,
+             coalesce(f.cpf_cnpj, d.cnpj_cedente) AS cnpj_fornecedor
+      FROM despesas d
+      JOIN empresas eo ON eo.id = d.empresa_origem_id
+      LEFT JOIN fornecedores f ON f.id = d.fornecedor_id
+      WHERE d.status <> 'cancelada'
+        AND (
+          d.fonte = 'dda'
+          OR d.documento_ref LIKE 'DDA|%'
+          OR (d.forma_pagamento = 'boleto' AND d.documento_ref ~ '^\\d{44}$')
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM nfe_recebida n WHERE n.despesa_id = d.id
+        )
+    `),
+    financePool.query(`
+      SELECT id, empresa_id, cnpj_empresa, numero, emitente_cnpj, emissao::text AS emissao,
+             valor_total::float8 AS valor_total
+      FROM nfe_recebida
+      WHERE despesa_id IS NULL
+        AND COALESCE(situacao, '') NOT IN ('cancelada', 'denegada')
+      ORDER BY emissao DESC NULLS LAST
+      LIMIT 2000
+    `),
+  ])
+  const pares = cruzarDdaComNotas(despesas.rows, notas.rows)
+  for (const par of pares) {
+    await financePool.query(
+      `UPDATE nfe_recebida
+       SET despesa_id = $2, atualizado_em = now()
+       WHERE id = $1 AND despesa_id IS NULL`,
+      [par.nfe_recebida_id, par.despesa_id],
+    )
+    if (par.numero_nf) {
+      await financePool.query(
+        `UPDATE despesas
+         SET numero_nf = COALESCE(NULLIF(btrim(numero_nf), ''), $2)
+         WHERE id = $1`,
+        [par.despesa_id, String(par.numero_nf)],
+      )
+    }
+  }
+  if (pares.length) console.log(`[sefaz] ${pares.length} DDA unidos com nota da Receita`)
+  return pares.length
+}
+
 export async function listarNotasReceita(financePool, empresaId) {
   await garantirSchemaSefaz(financePool)
+  amarrarDdaComNotasReceita(financePool).catch((err) => console.error(`[sefaz] união DDA+NF: ${err.message}`))
   const params = []
   let filtro = ''
   if (empresaId) {
@@ -468,7 +529,16 @@ export async function listarNotasReceita(financePool, empresaId) {
     `SELECT n.id, n.chave, n.numero, n.serie, n.emissao::text AS emissao,
             n.emitente_cnpj, n.emitente_nome, n.valor_total, n.situacao, n.tem_xml,
             n.cnpj_empresa, n.despesa_id, e.apelido AS origem,
-            d.vencimento::text AS agenda_vencimento
+            d.vencimento::text AS agenda_vencimento,
+            d.fonte AS despesa_fonte,
+            d.documento_ref AS despesa_documento_ref,
+            (
+              d.id IS NOT NULL AND (
+                d.fonte = 'dda'
+                OR d.documento_ref LIKE 'DDA|%'
+                OR (d.forma_pagamento = 'boleto' AND COALESCE(d.documento_ref, '') ~ '^\\d{44}$')
+              )
+            ) AS tem_dda
      FROM nfe_recebida n
      LEFT JOIN empresas e ON e.id = n.empresa_id
      LEFT JOIN despesas d ON d.id = n.despesa_id
@@ -481,6 +551,7 @@ export async function listarNotasReceita(financePool, empresaId) {
     ...row,
     valor_total: row.valor_total != null ? Number(row.valor_total) : null,
     tem_xml: row.tem_xml === true,
+    tem_dda: row.tem_dda === true,
   }))
 }
 
@@ -883,6 +954,25 @@ export async function lancarNotaNaAgenda(financePool, id) {
       vencimento: primeiro.vencimento,
       quantidade: existentes.rowCount,
       ja_existia: true,
+      vinculou_dda: false,
+    }
+  }
+
+  if (nota.despesa_id) {
+    const ligada = await financePool.query(
+      `SELECT id, vencimento::text AS vencimento,
+              (fonte = 'dda' OR documento_ref LIKE 'DDA|%') AS tem_dda
+       FROM despesas WHERE id = $1 AND status <> 'cancelada'`,
+      [nota.despesa_id],
+    )
+    if (ligada.rows[0]) {
+      return {
+        id: ligada.rows[0].id,
+        vencimento: ligada.rows[0].vencimento,
+        quantidade: 1,
+        ja_existia: true,
+        vinculou_dda: ligada.rows[0].tem_dda === true,
+      }
     }
   }
 
@@ -893,6 +983,29 @@ export async function lancarNotaNaAgenda(financePool, id) {
   const parcelas = parcelasDaNota(nota)
   if (!parcelas.length) throw erroStatus(400, 'Essa nota não tem valor para lançar.')
 
+  const ddas = await financePool.query(
+    `SELECT d.id, d.empresa_origem_id, d.numero_nf, d.documento_ref, d.cnpj_cedente,
+            d.vencimento::text AS vencimento, d.valor::float8 AS valor,
+            eo.cnpj AS cnpj_empresa,
+            coalesce(f.cpf_cnpj, d.cnpj_cedente) AS cnpj_fornecedor
+     FROM despesas d
+     JOIN empresas eo ON eo.id = d.empresa_origem_id
+     LEFT JOIN fornecedores f ON f.id = d.fornecedor_id
+     WHERE d.empresa_origem_id = $1
+       AND d.status <> 'cancelada'
+       AND (
+         d.fonte = 'dda'
+         OR d.documento_ref LIKE 'DDA|%'
+         OR (d.forma_pagamento = 'boleto' AND d.documento_ref ~ '^\\d{44}$')
+       )
+       AND NOT EXISTS (SELECT 1 FROM nfe_recebida n WHERE n.despesa_id = d.id)`,
+    [empresaId],
+  )
+  const notaMatch = {
+    ...nota,
+    empresa_id: empresaId,
+    cnpj_empresa: nota.cnpj_empresa,
+  }
   const { rows: fornecedores } = await financePool.query(
     'SELECT id, nome, cpf_cnpj, plano_conta_id FROM fornecedores WHERE ativo',
   )
@@ -902,7 +1015,27 @@ export async function lancarNotaNaAgenda(financePool, id) {
   )
   const descricao = `NF ${nota.numero || nota.chave.slice(25, 34)} ${nota.emitente_nome || ''}`.replace(/\s+/g, ' ').trim().slice(0, 200)
   const ids = []
+  const ddaUsados = new Set()
+  let vinculouDda = false
   for (const parcela of parcelas) {
+    const livres = ddas.rows.filter((d) => !ddaUsados.has(d.id))
+    const dda = escolherDdaParaNota(notaMatch, livres, parcela)
+    if (dda) {
+      ddaUsados.add(dda.id)
+      vinculouDda = true
+      await financePool.query(
+        `UPDATE despesas
+         SET numero_nf = COALESCE(NULLIF(btrim(numero_nf), ''), $2),
+             status = CASE
+               WHEN status IN ('rascunho', 'classificada', 'bloqueada_duplicata') THEN 'pronta'
+               ELSE status
+             END
+         WHERE id = $1`,
+        [dda.id, nota.numero ? String(nota.numero) : null],
+      )
+      ids.push(dda.id)
+      continue
+    }
     const competencia = competenciaDe(parcela.vencimento)
     const { rows } = await financePool.query(
       `INSERT INTO despesas (
@@ -926,14 +1059,17 @@ export async function lancarNotaNaAgenda(financePool, id) {
     )
     ids.push(rows[0].id)
   }
+
   await financePool.query(
     'UPDATE nfe_recebida SET despesa_id = $2, atualizado_em = now() WHERE id = $1',
     [nota.id, ids[0]],
   )
+  const venc = ddas.rows.find((d) => d.id === ids[0])?.vencimento || parcelas[0].vencimento
   return {
     id: ids[0],
-    vencimento: parcelas[0].vencimento,
+    vencimento: venc,
     quantidade: ids.length,
-    ja_existia: false,
+    ja_existia: vinculouDda && ids.every((id) => ddaUsados.has(id)),
+    vinculou_dda: vinculouDda,
   }
 }
