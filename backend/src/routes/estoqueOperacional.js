@@ -75,7 +75,7 @@ import {
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 import fs from 'fs/promises';
 import { parseNfeXml } from '../services/nfeXml.js';
-import { gerarDanfePdfBuffer } from '../services/gerarDanfePdf.js';
+import { danfeNotaEstoque } from '../financeiro/lib/syncNfeSefaz.mjs';
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
@@ -1863,13 +1863,13 @@ router.get('/nfes/:id/danfe', permNfe, async (req, res, next) => {
     const bloqueio = acessoLoja(req, nfe.id_loja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
-    const xmlPath = nfe.xml_path ? String(nfe.xml_path).trim() : '';
-    if (!xmlPath) {
-      return res.status(404).json({ error: 'XML da NF não está disponível nesta loja' });
+    let pdf;
+    try {
+      pdf = await danfeNotaEstoque(idNfe);
+    } catch (err) {
+      if (err.status) return res.status(err.status).json({ error: err.message });
+      throw err;
     }
-
-    const raw = await fs.readFile(xmlPath, 'utf8');
-    const pdf = await gerarDanfePdfBuffer(raw);
     const nome = `DANFE-NF-${nfe.numero || idNfe}.pdf`.replace(/[^\w.-]+/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${nome}"`);

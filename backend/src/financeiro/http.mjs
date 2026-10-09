@@ -21,7 +21,7 @@ import { gerarDanfe } from './lib/danfe.mjs'
 import { baixarBoletoDaDespesa, baixarNotaDaDespesa } from './lib/boletoEsupri.mjs'
 import { cruzarNotas } from './lib/nfEntrada.mjs'
 import { hojeBR, lerConfigBkoffice, registrarFalhaVendas, resumoVendas, salvarConfigBkoffice, sincronizarVendasBk } from './lib/bkofficeVendas.mjs'
-import { coletarNotasReceita, garantirSchemaSefaz, listarNotasReceita } from './lib/syncNfeSefaz.mjs'
+import { coletarNotasReceita, danfeNotaReceita, garantirSchemaSefaz, lancarNotaNaAgenda, listarNotasReceita } from './lib/syncNfeSefaz.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const portalRoot = path.resolve(root, '..', '..', '..')
@@ -888,6 +888,23 @@ export async function handleFinance(req, res) {
     if (req.method === 'GET' && url.pathname === '/api/nfe/recebidas') {
       const notas = await listarNotasReceita(pool, url.searchParams.get('empresa') || '')
       return send(res, 200, JSON.stringify({ notas, coleta: estadoSefaz }))
+    }
+    if (req.method === 'GET' && /^\/api\/nfe\/recebidas\/[^/]+\/danfe$/.test(url.pathname)) {
+      const id = url.pathname.split('/')[4]
+      try {
+        const pdf = await danfeNotaReceita(pool, id)
+        return enviarPdf(res, pdf, `DANFE-${id}.pdf`)
+      } catch (err) {
+        return send(res, err.status || 502, JSON.stringify({ erro: err.message || 'Não abriu o DANFE.' }))
+      }
+    }
+    if (req.method === 'POST' && /^\/api\/nfe\/recebidas\/[^/]+\/agenda$/.test(url.pathname)) {
+      const id = url.pathname.split('/')[4]
+      try {
+        return send(res, 200, JSON.stringify(await lancarNotaNaAgenda(pool, id)))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não lançou na agenda.' }))
+      }
     }
     if (req.method === 'GET' && url.pathname === '/api/nfe/sefaz') {
       return send(res, 200, JSON.stringify(estadoSefaz))

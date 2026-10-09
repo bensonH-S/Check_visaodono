@@ -5,14 +5,22 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import pg from 'pg'
 import { pool as appPool } from '../../db.js'
 import { persistirEstoqueNfe } from '../../services/estoquePersistirNfe.js'
+import { parseNfeXml } from '../../services/nfeXml.js'
 import { cnpjsDosCertificados, garantirSchemaBb, tlsDaCredencial } from './bbDda.mjs'
+import { acharFornecedor, competenciaDe } from './dda.mjs'
+import { gerarDanfe } from './danfe.mjs'
 import {
   consultarDistribuicao,
+  consultarPorChave,
   cUfDe,
+  interpretarDocumento,
+  manifestarCiencia,
   notaDeEntrada,
   nsu15,
+  xmlNfeDe,
 } from './sefazDfe.mjs'
 
 const aqui = path.dirname(fileURLToPath(import.meta.url))
@@ -120,8 +128,8 @@ async function gravarFinance(financePool, nota) {
   const { rows } = await financePool.query(
     `INSERT INTO nfe_recebida (
        empresa_id, cnpj_empresa, chave, numero, serie, emissao,
-       emitente_cnpj, emitente_nome, valor_total, situacao, tem_xml, nsu
-     ) VALUES ($1,$2,$3,$4,$5,$6::date,$7,$8,$9,$10,$11,$12)
+       emitente_cnpj, emitente_nome, valor_total, situacao, tem_xml, nsu, xml
+     ) VALUES ($1,$2,$3,$4,$5,$6::date,$7,$8,$9,$10,$11,$12,$13)
      ON CONFLICT (cnpj_empresa, chave) DO UPDATE SET
        numero = COALESCE(excluded.numero, nfe_recebida.numero),
        serie = COALESCE(excluded.serie, nfe_recebida.serie),
@@ -135,6 +143,7 @@ async function gravarFinance(financePool, nota) {
        END,
        tem_xml = nfe_recebida.tem_xml OR excluded.tem_xml,
        nsu = COALESCE(excluded.nsu, nfe_recebida.nsu),
+       xml = COALESCE(excluded.xml, nfe_recebida.xml),
        atualizado_em = now()
      RETURNING (criado_em = atualizado_em) AS inserida`,
     [
@@ -150,6 +159,7 @@ async function gravarFinance(financePool, nota) {
       nota.situacao || 'autorizada',
       nota.tem_xml === true,
       nota.nsu || null,
+      nota.xml || null,
     ],
   )
   return rows[0]?.inserida === true
@@ -254,6 +264,7 @@ async function aplicarDocumento(financePool, empresa, loja, doc, xml) {
     situacao: doc.situacao || 'autorizada',
     tem_xml: doc.tipo === 'completa',
     nsu: doc.nsu,
+    xml: doc.tipo === 'completa' ? xml : null,
   })
   if (loja && doc.situacao !== 'cancelada' && doc.situacao !== 'denegada' && recenteParaGestor(doc.emissao)) {
     await gravarNoGestor({ idLoja: loja.id_loja, doc, xml })
@@ -456,9 +467,11 @@ export async function listarNotasReceita(financePool, empresaId) {
   const { rows } = await financePool.query(
     `SELECT n.id, n.chave, n.numero, n.serie, n.emissao::text AS emissao,
             n.emitente_cnpj, n.emitente_nome, n.valor_total, n.situacao, n.tem_xml,
-            n.cnpj_empresa, e.apelido AS origem
+            n.cnpj_empresa, n.despesa_id, e.apelido AS origem,
+            d.vencimento::text AS agenda_vencimento
      FROM nfe_recebida n
      LEFT JOIN empresas e ON e.id = n.empresa_id
+     LEFT JOIN despesas d ON d.id = n.despesa_id
      ${filtro}
      ORDER BY n.emissao DESC NULLS LAST, n.criado_em DESC
      LIMIT 500`,
@@ -469,4 +482,410 @@ export async function listarNotasReceita(financePool, empresaId) {
     valor_total: row.valor_total != null ? Number(row.valor_total) : null,
     tem_xml: row.tem_xml === true,
   }))
+}
+
+function erroStatus(status, message) {
+  const err = new Error(message)
+  err.status = status
+  return err
+}
+
+function xmlEhNfe(xml) {
+  return /<(?:\w+:)?NFe[\s>]|<(?:\w+:)?nfeProc[\s>]/i.test(String(xml || ''))
+}
+
+async function notaPorId(financePool, id) {
+  const { rows } = await financePool.query(
+    `SELECT id, empresa_id, cnpj_empresa, chave, numero, serie, emissao::text AS emissao,
+            emitente_cnpj, emitente_nome, valor_total, situacao, tem_xml, xml, despesa_id,
+            ciencia_em
+     FROM nfe_recebida
+     WHERE id = $1`,
+    [id],
+  )
+  const nota = rows[0]
+  if (!nota) return null
+  return {
+    ...nota,
+    valor_total: nota.valor_total != null ? Number(nota.valor_total) : null,
+  }
+}
+
+async function xmlNoDisco(chave) {
+  const { rows } = await appPool.query(
+    `SELECT xml_path FROM estoque_nfe
+     WHERE chave = $1 AND xml_path IS NOT NULL AND btrim(xml_path) <> ''
+     LIMIT 1`,
+    [chave],
+  )
+  const arquivo = rows[0]?.xml_path ? String(rows[0].xml_path).trim() : ''
+  if (!arquivo || !fs.existsSync(arquivo)) return ''
+  return fs.readFileSync(arquivo, 'utf8')
+}
+
+function idNotaValido(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ''))
+}
+
+async function guardarXml(financePool, nota, xml) {
+  if (idNotaValido(nota.id)) {
+    await financePool.query(
+      `UPDATE nfe_recebida SET xml = $2, tem_xml = true, atualizado_em = now() WHERE id = $1`,
+      [nota.id, xml],
+    )
+  }
+  const doc = interpretarDocumento(xml)
+  if (doc.tipo !== 'completa' || !doc.chave) return
+  const loja = acharLoja(await lojasPorCnpj(), nota.cnpj_empresa, null)
+  if (!loja) return
+  const dir = path.join(pastaXml, String(loja.id_loja))
+  fs.mkdirSync(dir, { recursive: true })
+  const arquivo = path.join(dir, `${doc.chave}.xml`)
+  fs.writeFileSync(arquivo, xml, 'utf8')
+  await appPool.query(
+    `UPDATE estoque_nfe SET xml_path = $3, atualizado_em = NOW()
+     WHERE id_loja = $1 AND chave = $2 AND (xml_path IS NULL OR btrim(xml_path) = '')`,
+    [loja.id_loja, doc.chave, arquivo],
+  ).catch((err) => {
+    console.error(`[sefaz] xml ${doc.chave}: ${err.message}`)
+  })
+}
+
+async function minutosDeEspera(financePool, cnpj) {
+  const cursor = await cursorDe(financePool, cnpj)
+  if (!cursor || !recente(cursor.consultado_em)) return 0
+  const emEspera = String(cursor.ultimo_cstat) === '656'
+    || (cursor.ult_nsu && cursor.max_nsu && cursor.ult_nsu === cursor.max_nsu)
+  if (!emEspera) return 0
+  const falta = ESPERA_MS - (Date.now() - new Date(cursor.consultado_em).getTime())
+  return Math.max(1, Math.ceil(falta / 60000))
+}
+
+async function registrarCiencia(financePool, nota) {
+  if (nota.ciencia_em) return 'A ciência dessa nota já estava registrada.'
+  const tls = tlsDaCredencial({ cnpj: nota.cnpj_empresa })
+  if (!tls?.cert || !tls?.key) return 'Sem certificado A1 para registrar a ciência.'
+  try {
+    const evento = await manifestarCiencia(tls, { cnpj: nota.cnpj_empresa, chave: nota.chave })
+    if (evento.ok) {
+      if (idNotaValido(nota.id)) {
+        await financePool.query(
+          'UPDATE nfe_recebida SET ciencia_em = now(), atualizado_em = now() WHERE id = $1',
+          [nota.id],
+        )
+      }
+      nota.ciencia_em = new Date().toISOString()
+      return 'A ciência da operação foi registrada.'
+    }
+    return evento.xMotivo || 'A Receita não registrou a ciência.'
+  } catch (err) {
+    return err.message || 'A ciência da operação não foi registrada.'
+  }
+}
+
+async function baixarXmlReceita(financePool, nota) {
+  const tls = tlsDaCredencial({ cnpj: nota.cnpj_empresa })
+  if (!tls?.cert || !tls?.key) {
+    throw erroStatus(400, 'Não achei o certificado A1 dessa empresa para baixar o XML.')
+  }
+  const loja = acharLoja(await lojasPorCnpj(), nota.cnpj_empresa, null)
+  const cUF = cUfDe(loja?.state)
+  const primeira = await consultarPorChave(tls, { cnpj: nota.cnpj_empresa, cUF, chave: nota.chave })
+  const xml1 = xmlNfeDe(primeira)
+  if (xml1) return xml1
+  if (primeira.cStat === '656') {
+    throw erroStatus(429, primeira.xMotivo || 'A Receita pediu para esperar uma hora antes de baixar o XML.')
+  }
+  const ciencia = await registrarCiencia(financePool, nota)
+  await esperar(1500)
+  const segunda = await consultarPorChave(tls, { cnpj: nota.cnpj_empresa, cUF, chave: nota.chave })
+  const xml2 = xmlNfeDe(segunda)
+  if (xml2) return xml2
+  if (segunda.cStat === '656') {
+    throw erroStatus(429, `${segunda.xMotivo || 'A Receita pediu para esperar uma hora.'} ${ciencia}`)
+  }
+  throw erroStatus(404, `A Receita ainda só tem o resumo dessa nota. ${ciencia} O DANFE abre quando o XML completo chegar.`)
+}
+
+const baixandoXml = new Map()
+
+async function xmlCompletoDaNota(financePool, nota) {
+  if (xmlEhNfe(nota.xml)) return nota.xml
+  const disco = await xmlNoDisco(nota.chave)
+  if (xmlEhNfe(disco)) {
+    await guardarXml(financePool, nota, disco)
+    return disco
+  }
+  if (baixandoXml.has(nota.id)) return baixandoXml.get(nota.id)
+  const promessa = (async () => {
+    const falta = await minutosDeEspera(financePool, nota.cnpj_empresa)
+    if (falta) {
+      const ciencia = await registrarCiencia(financePool, nota)
+      throw erroStatus(
+        429,
+        `A Receita pediu para esperar cerca de ${falta} min antes de baixar o XML. ${ciencia} O DANFE abre na próxima consulta.`,
+      )
+    }
+    const xml = await baixarXmlReceita(financePool, nota)
+    await guardarXml(financePool, nota, xml)
+    return xml
+  })().finally(() => baixandoXml.delete(nota.id))
+  baixandoXml.set(nota.id, promessa)
+  return promessa
+}
+
+export async function danfeNotaReceita(financePool, id) {
+  await garantirSchemaSefaz(financePool)
+  const nota = await notaPorId(financePool, id)
+  if (!nota) throw erroStatus(404, 'Nota não encontrada.')
+  const xml = await xmlCompletoDaNota(financePool, nota)
+  try {
+    return await gerarDanfe(xml)
+  } catch (err) {
+    throw erroStatus(422, err.message || 'Não gerou o DANFE.')
+  }
+}
+
+function lerEnvArquivo(file) {
+  if (!file || !fs.existsSync(file)) return {}
+  const env = {}
+  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+    if (!line || line.startsWith('#') || !line.includes('=')) continue
+    const i = line.indexOf('=')
+    env[line.slice(0, i).trim()] = line.slice(i + 1).trim()
+  }
+  return env
+}
+
+function nomeBancoFinanceiro() {
+  if (process.env.FINANCE_DB_NAME) return process.env.FINANCE_DB_NAME
+  const raiz = path.join(aqui, '..', '..', '..', '..')
+  const arquivo = {
+    ...lerEnvArquivo(path.join(raiz, '.env')),
+    ...lerEnvArquivo(path.join(raiz, 'backend', '.env')),
+  }
+  return arquivo.DB_NAME || 'vision_check'
+}
+
+let financeLazy = null
+
+function poolFinanceiro() {
+  if (financeLazy) return financeLazy
+  financeLazy = new pg.Pool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
+    database: nomeBancoFinanceiro(),
+    port: Number(process.env.DB_PORT || 5432),
+    max: 2,
+    ssl: process.env.DB_SSL === 'true' || process.env.DB_SSL === '1' ? { rejectUnauthorized: false } : undefined,
+    options: '-c search_path=finance,public',
+  })
+  return financeLazy
+}
+
+/** DANFE do gestor. Sem XML no disco, baixa na Receita pela chave. */
+export async function danfeNotaEstoque(idNfe) {
+  const { rows } = await appPool.query(
+    `SELECT n.id_nfe, n.chave, n.xml_path,
+            regexp_replace(COALESCE(l.cnpj, ''), '\\D', '', 'g') AS cnpj
+     FROM estoque_nfe n
+     JOIN lojas l ON l.id_loja = n.id_loja
+     WHERE n.id_nfe = $1`,
+    [idNfe],
+  )
+  const nfe = rows[0]
+  if (!nfe) throw erroStatus(404, 'NF não encontrada.')
+  const arquivo = nfe.xml_path ? String(nfe.xml_path).trim() : ''
+  if (arquivo && fs.existsSync(arquivo)) {
+    const bruto = fs.readFileSync(arquivo, 'utf8')
+    if (xmlEhNfe(bruto)) return gerarDanfe(bruto)
+  }
+  const finance = poolFinanceiro()
+  await garantirSchemaSefaz(finance)
+  let nota = null
+  if (nfe.chave) {
+    const achada = await finance.query(
+      `SELECT id FROM nfe_recebida WHERE chave = $1 ORDER BY atualizado_em DESC LIMIT 1`,
+      [nfe.chave],
+    )
+    if (achada.rows[0]) nota = await notaPorId(finance, achada.rows[0].id)
+  }
+  if (!nota) {
+    nota = {
+      id: null,
+      chave: nfe.chave,
+      cnpj_empresa: nfe.cnpj,
+      xml: null,
+      ciencia_em: null,
+    }
+  }
+  if (!nota.chave || String(nota.cnpj_empresa || '').length !== 14) {
+    throw erroStatus(404, 'XML da NF não está disponível nesta loja.')
+  }
+  const xml = await xmlCompletoDaNota(finance, nota)
+  try {
+    return await gerarDanfe(xml)
+  } catch (err) {
+    throw erroStatus(422, err.message || 'Não gerou o DANFE.')
+  }
+}
+
+let fonteNfePronta = false
+
+async function garantirFonteNfe(financePool) {
+  if (fonteNfePronta) return
+  const { rows } = await financePool.query(`
+    SELECT conname, pg_get_constraintdef(oid) AS def
+    FROM pg_constraint
+    WHERE conrelid = 'despesas'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%fonte%'
+  `)
+  const atual = rows[0]
+  if (!atual || !String(atual.def).includes("'nfe'")) {
+    if (atual) {
+      if (!/^[a-z_][a-z0-9_]*$/i.test(atual.conname)) throw new Error('Constraint de origem inválida.')
+      await financePool.query(`ALTER TABLE despesas DROP CONSTRAINT ${atual.conname}`)
+    }
+    await financePool.query(`
+      ALTER TABLE despesas ADD CONSTRAINT despesas_fonte_check
+      CHECK (fonte IS NULL OR fonte IN ('dda', 'manual', 'nfe'))
+    `)
+  }
+  fonteNfePronta = true
+}
+
+function dataAgenda(iso) {
+  const dia = String(iso || '').slice(0, 10)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dia)) return dia
+  return new Date().toISOString().slice(0, 10)
+}
+
+function parcelasDaNota(nota) {
+  if (xmlEhNfe(nota.xml)) {
+    try {
+      const parsed = parseNfeXml(nota.xml)
+      const dups = (parsed.duplicatas || []).filter((dup) => Number(dup.valor) > 0)
+      if (dups.length) {
+        return dups.map((dup, indice) => ({
+          valor: Number(dup.valor),
+          vencimento: dataAgenda(dup.vencimento || parsed.data_vencimento || nota.emissao),
+          ref: dups.length === 1
+            ? `NF|${nota.chave}`
+            : `NF|${nota.chave}|${String(dup.numero || indice + 1).replace(/\W/g, '').slice(0, 12) || indice + 1}`,
+        }))
+      }
+      if (parsed.data_vencimento && nota.valor_total != null) {
+        return [{
+          valor: Number(nota.valor_total),
+          vencimento: dataAgenda(parsed.data_vencimento),
+          ref: `NF|${nota.chave}`,
+        }]
+      }
+    } catch {
+      /* resumo ou XML sem itens: lança pelo cabeçalho */
+    }
+  }
+  if (nota.valor_total == null) return []
+  return [{
+    valor: Number(nota.valor_total),
+    vencimento: dataAgenda(nota.emissao),
+    ref: `NF|${nota.chave}`,
+  }]
+}
+
+export async function lancarNotaNaAgenda(financePool, id) {
+  await garantirSchemaSefaz(financePool)
+  await garantirFonteNfe(financePool)
+  const nota = await notaPorId(financePool, id)
+  if (!nota) throw erroStatus(404, 'Nota não encontrada.')
+  if (nota.situacao === 'cancelada' || nota.situacao === 'denegada') {
+    throw erroStatus(400, 'Nota cancelada não entra na agenda de pagamento.')
+  }
+  let empresaId = nota.empresa_id
+  if (!empresaId) {
+    const achada = await financePool.query(
+      `SELECT id FROM empresas
+       WHERE regexp_replace(COALESCE(cnpj, ''), '\\D', '', 'g') = $1 AND ativo
+       LIMIT 1`,
+      [nota.cnpj_empresa],
+    )
+    empresaId = achada.rows[0]?.id || null
+  }
+  if (!empresaId) throw erroStatus(400, 'Essa nota não está ligada a uma empresa do financeiro.')
+
+  const existentes = await financePool.query(
+    `SELECT id, vencimento::text AS vencimento
+     FROM despesas
+     WHERE empresa_origem_id = $1
+       AND status <> 'cancelada'
+       AND (documento_ref = $2 OR documento_ref LIKE $3)
+     ORDER BY vencimento NULLS LAST, created_at`,
+    [empresaId, `NF|${nota.chave}`, `NF|${nota.chave}|%`],
+  )
+  if (existentes.rowCount) {
+    const primeiro = existentes.rows[0]
+    await financePool.query(
+      'UPDATE nfe_recebida SET despesa_id = $2, atualizado_em = now() WHERE id = $1 AND despesa_id IS NULL',
+      [nota.id, primeiro.id],
+    )
+    return {
+      id: primeiro.id,
+      vencimento: primeiro.vencimento,
+      quantidade: existentes.rowCount,
+      ja_existia: true,
+    }
+  }
+
+  if (!xmlEhNfe(nota.xml)) {
+    const disco = await xmlNoDisco(nota.chave)
+    if (xmlEhNfe(disco)) nota.xml = disco
+  }
+  const parcelas = parcelasDaNota(nota)
+  if (!parcelas.length) throw erroStatus(400, 'Essa nota não tem valor para lançar.')
+
+  const { rows: fornecedores } = await financePool.query(
+    'SELECT id, nome, cpf_cnpj, plano_conta_id FROM fornecedores WHERE ativo',
+  )
+  const fornecedor = acharFornecedor(
+    { cnpj_cedente: nota.emitente_cnpj, cedente: nota.emitente_nome },
+    fornecedores,
+  )
+  const descricao = `NF ${nota.numero || nota.chave.slice(25, 34)} ${nota.emitente_nome || ''}`.replace(/\s+/g, ' ').trim().slice(0, 200)
+  const ids = []
+  for (const parcela of parcelas) {
+    const competencia = competenciaDe(parcela.vencimento)
+    const { rows } = await financePool.query(
+      `INSERT INTO despesas (
+         descricao, fornecedor_id, empresa_origem_id, plano_conta_id,
+         documento_ref, numero_nf, cnpj_cedente, competencia, vencimento, valor,
+         status, fonte, nf_confirmada
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9::date,$10,'pronta','nfe', false)
+       RETURNING id`,
+      [
+        descricao,
+        fornecedor?.id || null,
+        empresaId,
+        fornecedor?.plano_conta_id || null,
+        parcela.ref,
+        nota.numero || null,
+        nota.emitente_cnpj || null,
+        competencia,
+        parcela.vencimento,
+        parcela.valor,
+      ],
+    )
+    ids.push(rows[0].id)
+  }
+  await financePool.query(
+    'UPDATE nfe_recebida SET despesa_id = $2, atualizado_em = now() WHERE id = $1',
+    [nota.id, ids[0]],
+  )
+  return {
+    id: ids[0],
+    vencimento: parcelas[0].vencimento,
+    quantidade: ids.length,
+    ja_existia: false,
+  }
 }

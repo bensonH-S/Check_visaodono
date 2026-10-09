@@ -51,7 +51,7 @@ export default function AppHubDock({
         <Inventory2OutlinedIcon />
         Estoque
       </button>
-      <button type="button" aria-label="Mais módulos" onClick={openMais}>
+      <button type="button" className="ck-estoque-hub__dock-mais" aria-label="Mais módulos" onClick={openMais}>
         <MoreHorizIcon />
         Mais
       </button>

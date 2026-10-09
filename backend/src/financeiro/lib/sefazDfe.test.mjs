@@ -2,14 +2,18 @@
  * Parser da Distribuição DF-e — sem chamar a Receita.
  *   node --test src/financeiro/lib/sefazDfe.test.mjs
  */
+import crypto from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   cUfDe,
   documentosDe,
+  envelopeConsChave,
   envelopeDistNsu,
+  eventoCiencia,
   interpretarDocumento,
+  interpretarEvento,
   notaDeEntrada,
   nsu15,
   numeroDaChave,
@@ -90,5 +94,32 @@ describe('sefaz DF-e', () => {
       destinatario_cnpj: '26075154000136',
       chave: CHAVE,
     }, '26075154000136'), true)
+  })
+
+  it('pede o XML pela chave e assina a ciência da operação', () => {
+    const pedido = envelopeConsChave({ cnpj: '26.075.154/0001-36', cUF: '52', chave: CHAVE, tpAmb: '1' })
+    assert.match(pedido, /<consChNFe>\s*<chNFe>53241026075154000136550010000012341123456789<\/chNFe>/)
+    assert.match(pedido, /<cUFAutor>52<\/cUFAutor>/)
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })
+    const keyPem = privateKey.export({ type: 'pkcs1', format: 'pem' })
+    const { env, signedInfo } = eventoCiencia({
+      cnpj: '26075154000136',
+      chave: CHAVE,
+      dhEvento: '2026-10-08T23:47:00-03:00',
+      tpAmb: '1',
+      keyPem,
+      certPem: '-----BEGIN CERTIFICATE-----\nQQ==\n-----END CERTIFICATE-----',
+      idLote: '7',
+    })
+    assert.match(env, /<tpEvento>210210<\/tpEvento>/)
+    assert.match(env, /<descEvento>Ciencia da Operacao<\/descEvento>/)
+    assert.match(env, /<idLote>7<\/idLote>/)
+    const valor = env.match(/<SignatureValue>([^<]+)<\/SignatureValue>/)?.[1]
+    const verificar = crypto.createVerify('RSA-SHA1')
+    verificar.update(signedInfo)
+    assert.equal(verificar.verify(publicKey, valor, 'base64'), true)
+    const registrado = interpretarEvento('<retEnvEvento><cStat>128</cStat><xMotivo>Lote processado</xMotivo><retEvento><infEvento><cStat>135</cStat><xMotivo>Evento registrado</xMotivo></infEvento></retEvento></retEnvEvento>')
+    assert.equal(registrado.ok, true)
+    assert.equal(registrado.cStat, '135')
   })
 })

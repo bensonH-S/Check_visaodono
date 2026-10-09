@@ -65,6 +65,9 @@ export function MobileMaisDrawer({
         <div className="ck-mobile-mais__grab" aria-hidden />
         <p className="ck-mobile-mais__title">Mais</p>
         <div className="ck-mobile-mais__list">
+          {!items.length ? (
+            <p className="ck-mobile-mais__title">Nenhum outro módulo nesta conta.</p>
+          ) : null}
           {items.map((item) => {
             const ativo = tabItemAtivo(item, path);
             return (

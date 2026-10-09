@@ -4,6 +4,7 @@
  *
  * Produção: https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx
  */
+import crypto from 'node:crypto'
 import https from 'node:https'
 import { gunzipSync } from 'node:zlib'
 import { parseNfeXml } from '../../services/nfeXml.js'
@@ -14,6 +15,11 @@ const URLS = {
 }
 
 const ACAO = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse'
+const ACAO_EVENTO = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento'
+const URLS_EVENTO = {
+  producao: 'https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx',
+  homologacao: 'https://hom.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx',
+}
 
 const UF_IBGE = {
   RO: '11', AC: '12', AM: '13', RR: '14', PA: '15', AP: '16', TO: '17',
@@ -98,6 +104,119 @@ export function envelopeDistNsu({ cnpj, cUF, ultNSU, tpAmb = '1' }) {
     </nfeDistDFeInteresse>
   </soap12:Body>
 </soap12:Envelope>`
+}
+
+/** Pede o XML de uma chave. A Receita só devolve a NF-e completa depois da ciência. */
+export function envelopeConsChave({ cnpj, cUF, chave, tpAmb = '1' }) {
+  const doc = digitos(cnpj)
+  const uf = String(cUF || '53').padStart(2, '0')
+  const ch = digitos(chave)
+  const amb = tpAmb === '2' ? '2' : '1'
+  return `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Body>
+    <nfeDistDFeInteresse xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe">
+      <nfeDadosMsg>
+        <distDFeInt xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.01">
+          <tpAmb>${amb}</tpAmb>
+          <cUFAutor>${uf}</cUFAutor>
+          <CNPJ>${doc}</CNPJ>
+          <consChNFe>
+            <chNFe>${ch}</chNFe>
+          </consChNFe>
+        </distDFeInt>
+      </nfeDadosMsg>
+    </nfeDistDFeInteresse>
+  </soap12:Body>
+</soap12:Envelope>`
+}
+
+function certBase64(certPem) {
+  return String(certPem || '').replace(/-----[^-]+-----/g, '').replace(/\s+/g, '')
+}
+
+/** Ciência da operação (210210), assinada com o A1 do destinatário. */
+export function eventoCiencia({ cnpj, chave, dhEvento, tpAmb = '1', keyPem, certPem, idLote = '1' }) {
+  const doc = digitos(cnpj)
+  const ch = digitos(chave)
+  if (doc.length !== 14) throw new Error('CNPJ inválido para a ciência da nota.')
+  if (ch.length !== 44) throw new Error('Chave da nota inválida.')
+  if (!keyPem || !certPem) throw new Error('Certificado A1 sem chave para registrar a ciência.')
+  const id = `ID210210${ch}01`
+  const amb = tpAmb === '2' ? '2' : '1'
+  const inf =
+    `<infEvento xmlns="http://www.portalfiscal.inf.br/nfe" Id="${id}">` +
+    `<cOrgao>91</cOrgao>` +
+    `<tpAmb>${amb}</tpAmb>` +
+    `<CNPJ>${doc}</CNPJ>` +
+    `<chNFe>${ch}</chNFe>` +
+    `<dhEvento>${dhEvento}</dhEvento>` +
+    `<tpEvento>210210</tpEvento>` +
+    `<nSeqEvento>1</nSeqEvento>` +
+    `<verEvento>1.00</verEvento>` +
+    `<detEvento versao="1.00">` +
+    `<descEvento>Ciencia da Operacao</descEvento>` +
+    `</detEvento>` +
+    `</infEvento>`
+  const digest = crypto.createHash('sha1').update(inf, 'utf8').digest('base64')
+  const signedInfo =
+    '<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#">' +
+    '<CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></CanonicalizationMethod>' +
+    '<SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"></SignatureMethod>' +
+    `<Reference URI="#${id}">` +
+    '<Transforms>' +
+    '<Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"></Transform>' +
+    '<Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"></Transform>' +
+    '</Transforms>' +
+    '<DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"></DigestMethod>' +
+    `<DigestValue>${digest}</DigestValue>` +
+    '</Reference>' +
+    '</SignedInfo>'
+  const assinatura = crypto.createSign('RSA-SHA1').update(signedInfo, 'utf8').sign(keyPem, 'base64')
+  const evento =
+    '<evento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">' +
+    inf +
+    '<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">' +
+    signedInfo +
+    `<SignatureValue>${assinatura}</SignatureValue>` +
+    `<KeyInfo><X509Data><X509Certificate>${certBase64(certPem)}</X509Certificate></X509Data></KeyInfo>` +
+    '</Signature>' +
+    '</evento>'
+  const lote = String(idLote).replace(/\D/g, '').slice(0, 15) || '1'
+  const env =
+    '<envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">' +
+    `<idLote>${lote}</idLote>` +
+    evento +
+    '</envEvento>'
+  return { env, inf, signedInfo, id }
+}
+
+export function envelopeEvento(envEvento) {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Body>
+    <nfeRecepcaoEvento xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">
+      <nfeDadosMsg>
+        ${envEvento}
+      </nfeDadosMsg>
+    </nfeRecepcaoEvento>
+  </soap12:Body>
+</soap12:Envelope>`
+}
+
+export function dhEventoAgora() {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const p = Object.fromEntries(partes.filter((item) => item.type !== 'literal').map((item) => [item.type, item.value]))
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}-03:00`
 }
 
 export function xmlDoDocZip(base64) {
@@ -214,7 +333,7 @@ export function documentosDe(xmlRetorno) {
   return { ...ret, documentos }
 }
 
-function postar(url, corpo, tls) {
+function postar(url, corpo, tls, acao = ACAO) {
   return new Promise((resolve, reject) => {
     const destino = new URL(url)
     const req = https.request({
@@ -224,7 +343,7 @@ function postar(url, corpo, tls) {
       path: destino.pathname,
       method: 'POST',
       headers: {
-        'content-type': `application/soap+xml; charset=utf-8; action="${ACAO}"`,
+        'content-type': `application/soap+xml; charset=utf-8; action="${acao}"`,
         accept: 'application/soap+xml, text/xml',
         'content-length': Buffer.byteLength(corpo),
       },
@@ -237,7 +356,9 @@ function postar(url, corpo, tls) {
       res.on('end', () => {
         const bruto = Buffer.concat(partes).toString('utf8')
         if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(new Error(`A Receita Federal recusou a consulta (${res.statusCode}).`))
+          const falha = semNs(unescapeXml(bruto))
+          const motivo = textoXml(tag(falha, 'faultstring') || tag(falha, 'Text') || tag(falha, 'xMotivo'))
+          reject(new Error(motivo || `A Receita Federal recusou a consulta (${res.statusCode}).`))
           return
         }
         resolve(bruto)
@@ -256,6 +377,53 @@ export async function consultarDistribuicao(tls, { cnpj, cUF, ultNSU, ambiente =
   const corpo = envelopeDistNsu({ cnpj, cUF, ultNSU, tpAmb })
   const bruto = await postar(url, corpo, tls)
   return documentosDe(bruto)
+}
+
+export async function consultarPorChave(tls, { cnpj, cUF, chave, ambiente = 'producao' }) {
+  const tpAmb = ambiente === 'homologacao' ? '2' : '1'
+  const url = URLS[ambiente === 'homologacao' ? 'homologacao' : 'producao']
+  const bruto = await postar(url, envelopeConsChave({ cnpj, cUF, chave, tpAmb }), tls)
+  return documentosDe(bruto)
+}
+
+export function interpretarEvento(xmlBruto) {
+  const xml = semNs(unescapeXml(xmlBruto))
+  const fault = textoXml(tag(xml, 'faultstring') || tag(xml, 'Text'))
+  const stats = []
+  const reStat = /<cStat>(\d+)<\/cStat>/gi
+  let achado
+  while ((achado = reStat.exec(xml)) !== null) stats.push(achado[1])
+  const motivos = []
+  const reMotivo = /<xMotivo>([\s\S]*?)<\/xMotivo>/gi
+  while ((achado = reMotivo.exec(xml)) !== null) motivos.push(textoXml(achado[1]))
+  if (!stats.length) throw new Error(fault || 'A Receita não registrou a ciência da nota.')
+  const ok = stats.some((codigo) => codigo === '135' || codigo === '136' || codigo === '573')
+  return {
+    ok,
+    cStat: stats[stats.length - 1],
+    xMotivo: motivos[motivos.length - 1] || fault,
+  }
+}
+
+export async function manifestarCiencia(tls, { cnpj, chave, ambiente = 'producao' }) {
+  const tpAmb = ambiente === 'homologacao' ? '2' : '1'
+  const { env } = eventoCiencia({
+    cnpj,
+    chave,
+    dhEvento: dhEventoAgora(),
+    tpAmb,
+    keyPem: tls?.key,
+    certPem: tls?.cert,
+    idLote: String(Date.now()),
+  })
+  const url = URLS_EVENTO[ambiente === 'homologacao' ? 'homologacao' : 'producao']
+  const bruto = await postar(url, envelopeEvento(env), tls, ACAO_EVENTO)
+  return interpretarEvento(bruto)
+}
+
+export function xmlNfeDe(retorno) {
+  const doc = (retorno?.documentos || []).find((item) => item.tipo === 'completa' && item.xml && /<NFe[\s>]/i.test(item.xml))
+  return doc?.xml || ''
 }
 
 /** Nota de saída nossa (venda) não entra no gestor. Resumo da Receita é sempre destinada a nós. */

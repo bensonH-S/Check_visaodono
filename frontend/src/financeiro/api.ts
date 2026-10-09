@@ -78,8 +78,8 @@ export type Despesa = {
   conta_nome: string | null
   conta_empresa_id: string | null
   pagamento: string | null
-  /** dda = veio do DDA (BB/Itaú/arquivo); manual = lançado na tela */
-  fonte: 'dda' | 'manual' | null
+  /** dda = veio do DDA; nfe = nota da Receita; manual = lançado na tela */
+  fonte: 'dda' | 'nfe' | 'manual' | null
 }
 
 import { apiBasePath } from '../config/paths'
@@ -121,6 +121,8 @@ export type NotaReceita = {
   tem_xml: boolean
   cnpj_empresa: string
   origem: string | null
+  despesa_id: string | null
+  agenda_vencimento: string | null
 }
 
 export type ColetaReceita = { ok: boolean; mensagem: string; novas: number; em: string | null }
@@ -364,6 +366,21 @@ export const api = {
   coletarNotasReceita: async () => {
     const res = await financeFetch(`${apiRoot}/nfe/coletar`, { method: 'POST' })
     if (!res.ok) throw new Error('Não iniciou a consulta na Receita')
+  },
+  abrirDanfeNota: async (id: string) => {
+    const res = await financeFetch(`${apiRoot}/nfe/recebidas/${id}/danfe`)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.erro || 'Não abriu o DANFE')
+    }
+    const url = URL.createObjectURL(await res.blob())
+    window.open(url, '_blank', 'noopener')
+  },
+  lancarNotaAgenda: async (id: string) => {
+    const res = await financeFetch(`${apiRoot}/nfe/recebidas/${id}/agenda`, { method: 'POST' })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.erro || 'Não lançou na agenda')
+    return data as { id: string; vencimento: string | null; quantidade: number; ja_existia: boolean }
   },
   previaDda: async (arquivo: string) => {
     const res = await financeFetch(`${apiRoot}/dda/previa`, {

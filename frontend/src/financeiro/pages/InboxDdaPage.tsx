@@ -84,6 +84,8 @@ export function InboxDdaPage() {
   const [coletaNf, setColetaNf] = useState<ColetaReceita | null>(null)
   const [filtroNf, setFiltroNf] = useState<(typeof FILTROS_NF)[number]>('Todas')
   const [buscandoNf, setBuscandoNf] = useState(false)
+  const [aviso, setAviso] = useState('')
+  const [acaoNf, setAcaoNf] = useState<{ id: string; tipo: 'danfe' | 'agenda' } | null>(null)
 
   const carregarNotas = (empresa = loja) =>
     api.notasReceita(empresa || undefined).then((r) => {
@@ -200,6 +202,63 @@ export function InboxDdaPage() {
     }
   }
 
+  const verNaAgenda = (vencimento: string | null) => {
+    const dia = (vencimento || '').slice(0, 10)
+    const q = new URLSearchParams()
+    if (dia) {
+      q.set('de', dia)
+      q.set('ate', dia)
+    }
+    if (loja) q.set('loja', loja)
+    navigate(`/financeiro?${q.toString()}`)
+  }
+
+  const abrirDanfeLinha = async (n: NotaReceita) => {
+    setAcaoNf({ id: n.id, tipo: 'danfe' })
+    setErro('')
+    setAviso('')
+    try {
+      await api.abrirDanfeNota(n.id)
+      setNotas((lista) => lista.map((item) => (item.id === n.id ? { ...item, tem_xml: true } : item)))
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : t('Não abriu o DANFE', 'Could not open the DANFE'))
+    } finally {
+      setAcaoNf(null)
+    }
+  }
+
+  const lancarLinha = async (n: NotaReceita) => {
+    if (n.despesa_id) {
+      verNaAgenda(n.agenda_vencimento)
+      return
+    }
+    setAcaoNf({ id: n.id, tipo: 'agenda' })
+    setErro('')
+    setAviso('')
+    try {
+      const r = await api.lancarNotaAgenda(n.id)
+      setNotas((lista) => lista.map((item) => (
+        item.id === n.id ? { ...item, despesa_id: r.id, agenda_vencimento: r.vencimento } : item
+      )))
+      const nome = n.numero ? `NF ${n.numero}` : t('Nota', 'Invoice')
+      const parcelas = r.quantidade > 1
+        ? t(` Em ${r.quantidade} parcelas.`, ` In ${r.quantidade} installments.`)
+        : ''
+      const quando = r.vencimento ? t(` Vencimento ${dataBr(r.vencimento)}.`, ` Due ${dataBr(r.vencimento)}.`) : ''
+      setAviso(
+        (r.ja_existia
+          ? t(`${nome} já estava na agenda.`, `${nome} was already on the agenda.`)
+          : t(`${nome} entrou na agenda para pagamento.`, `${nome} is on the payment agenda.`))
+        + parcelas
+        + quando,
+      )
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : t('Não lançou na agenda', 'Could not add to the agenda'))
+    } finally {
+      setAcaoNf(null)
+    }
+  }
+
   const abrirAgenda = () => {
     const q = new URLSearchParams()
     if (de) q.set('de', de)
@@ -248,6 +307,7 @@ export function InboxDdaPage() {
   return (
     <Stack spacing={1.25} sx={{ height: '100%', minHeight: 0 }}>
       {erro && <Alert severity="warning" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}>{erro}</Alert>}
+      {aviso && <Alert severity="success" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}>{aviso}</Alert>}
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { md: 'center' } }}>
         <TextField size="small" placeholder={t('Buscar lançamento', 'Search entry')} value={busca} onChange={(ev) => setBusca(ev.target.value)} sx={{ minWidth: 240, bgcolor: 'background.paper' }} />
@@ -430,15 +490,15 @@ export function InboxDdaPage() {
       {aba === 1 && (
         <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <Table size="small" stickyHeader>
+            <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell>{t('Situação', 'Status')}</TableCell>
+                  <TableCell sx={{ width: 110 }}>{t('Situação', 'Status')}</TableCell>
                   <TableCell>{t('Emitente', 'Issuer')}</TableCell>
-                  <TableCell>{t('Loja', 'Store')}</TableCell>
-                  <TableCell>{t('Emissão', 'Issue date')}</TableCell>
-                  <TableCell align="right">{t('Valor', 'Amount')}</TableCell>
-                  <TableCell>{t('Documento', 'Document')}</TableCell>
+                  <TableCell sx={{ width: 120 }}>{t('Loja', 'Store')}</TableCell>
+                  <TableCell sx={{ width: 108 }}>{t('Emissão', 'Issue date')}</TableCell>
+                  <TableCell align="right" sx={{ width: 110 }}>{t('Valor', 'Amount')}</TableCell>
+                  <TableCell align="right" sx={{ width: 168 }}>{t('Documento', 'Document')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -457,9 +517,9 @@ export function InboxDdaPage() {
                 {visiveisNf.map((n) => (
                   <TableRow key={n.id} hover>
                     <TableCell>{chipSituacao(n.situacao, t, escuro)}</TableCell>
-                    <TableCell>
-                      <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25 }}>{n.emitente_nome || '—'}</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                    <TableCell sx={{ overflow: 'hidden' }}>
+                      <Typography noWrap sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25 }}>{n.emitente_nome || '—'}</Typography>
+                      <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
                         {n.numero ? `NF ${n.numero}` : n.chave}
                       </Typography>
                     </TableCell>
@@ -468,10 +528,29 @@ export function InboxDdaPage() {
                     <TableCell align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                       {n.valor_total != null ? brl(n.valor_total) : '—'}
                     </TableCell>
-                    <TableCell>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
-                        {n.tem_xml ? t('XML completo', 'Full XML') : t('Resumo', 'Summary')}
-                      </Typography>
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={acaoNf?.id === n.id}
+                        onClick={() => abrirDanfeLinha(n)}
+                        sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11, fontWeight: 700 }}
+                      >
+                        {acaoNf?.id === n.id && acaoNf.tipo === 'danfe' ? t('Abrindo…', 'Opening…') : 'DANFE'}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={acaoNf?.id === n.id || ((n.situacao === 'cancelada' || n.situacao === 'denegada') && !n.despesa_id)}
+                        onClick={() => lancarLinha(n)}
+                        sx={{ minWidth: 0, ml: 0.5, px: 1, py: 0.25, fontSize: 11, fontWeight: 700 }}
+                      >
+                        {acaoNf?.id === n.id && acaoNf.tipo === 'agenda'
+                          ? t('Lançando…', 'Posting…')
+                          : n.despesa_id
+                            ? t('Na agenda', 'On agenda')
+                            : t('Agenda', 'Agenda')}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

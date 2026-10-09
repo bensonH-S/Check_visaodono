@@ -286,19 +286,25 @@ export function ContasPagarPage() {
                   </Box>
                 </TableCell>
                 <TableCell>
-                  {e.fonte === 'dda' ? (
+                  {e.fonte === 'dda' || e.fonte === 'nfe' ? (
                     <Chip
                       size="small"
-                      label="DDA"
+                      label={e.fonte === 'nfe' ? 'NF' : 'DDA'}
                       sx={{
                         height: 20,
                         fontSize: 10.5,
                         fontWeight: 700,
                         letterSpacing: '0.04em',
-                        bgcolor: escuro ? 'rgba(27,110,243,0.22)' : 'rgba(27,110,243,0.12)',
-                        color: escuro ? '#93C5FD' : '#0D4ECC',
+                        bgcolor: e.fonte === 'nfe'
+                          ? (escuro ? 'rgba(16,185,129,0.18)' : 'rgba(16,185,129,0.12)')
+                          : (escuro ? 'rgba(27,110,243,0.22)' : 'rgba(27,110,243,0.12)'),
+                        color: e.fonte === 'nfe'
+                          ? (escuro ? '#6EE7B7' : '#047857')
+                          : (escuro ? '#93C5FD' : '#0D4ECC'),
                         border: '1px solid',
-                        borderColor: escuro ? 'rgba(147,197,253,0.35)' : 'rgba(13,78,204,0.28)',
+                        borderColor: e.fonte === 'nfe'
+                          ? (escuro ? 'rgba(110,231,183,0.35)' : 'rgba(4,120,87,0.28)')
+                          : (escuro ? 'rgba(147,197,253,0.35)' : 'rgba(13,78,204,0.28)'),
                       }}
                     />
                   ) : (

@@ -922,7 +922,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 50;
+  z-index: 70;
+  pointer-events: auto;
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
@@ -934,11 +935,16 @@
 }
 
 .ck-estoque-hub__dock > button {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-end;
   gap: 2px;
+  min-width: 48px;
+  min-height: 48px;
   border: 0;
   background: none;
   color: #7a7a7a !important;
@@ -948,6 +954,8 @@
   font-weight: 700;
   padding: 4px 0 2px;
   cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .ck-estoque-hub__dock > button.is-on {
@@ -981,6 +989,10 @@
   box-shadow: none !important;
   cursor: default;
   opacity: 1;
+}
+
+.ck-estoque-hub__dock > button.ck-estoque-hub__dock-mais {
+  z-index: 2;
 }
 
 .ck-estoque-hub__dock > button.ck-estoque-hub__dock-plus .MuiSvgIcon-root {

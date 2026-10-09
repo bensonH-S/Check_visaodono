@@ -31,3 +31,7 @@ create table if not exists nfe_recebida (
 
 create index if not exists nfe_recebida_emissao
   on nfe_recebida (emissao desc);
+
+alter table nfe_recebida add column if not exists xml text;
+alter table nfe_recebida add column if not exists despesa_id uuid;
+alter table nfe_recebida add column if not exists ciencia_em timestamptz;

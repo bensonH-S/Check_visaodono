@@ -404,7 +404,7 @@ export default function EstoqueMobileNfePage() {
             <div className="ck-estoque-hub__nfe-docs">
               <button
                 type="button"
-                disabled={!det.tem_xml || abrindoDanfe}
+                disabled={abrindoDanfe}
                 onClick={() => void abrirDanfe(det.id_nfe)}
               >
                 <DescriptionOutlinedIcon />
